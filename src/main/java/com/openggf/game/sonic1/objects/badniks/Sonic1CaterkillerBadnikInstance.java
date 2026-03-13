@@ -19,7 +19,7 @@ import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -645,7 +645,7 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
                 + " wt=" + waitTimer
                 + " rb=" + ringBufferWriteIndex
                 + (fragmenting ? " FRAG" : "");
-        ctx.drawWorldLabel(currentX, currentY, -12, label, Color.YELLOW);
+        ctx.drawWorldLabel(currentX, currentY, -12, label, DebugColor.YELLOW);
     }
 
     // ---- Package-private accessors for body segments ----

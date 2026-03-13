@@ -73,7 +73,7 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
 
         // Create zone-specific event handlers after bootstrap resolution
         if (zone == Sonic3kZoneIds.ZONE_AIZ) {
-            aizEvents = new Sonic3kAIZEvents(camera, bootstrap);
+            aizEvents = new Sonic3kAIZEvents(bootstrap);
             aizEvents.init(act);
         } else {
             aizEvents = null;

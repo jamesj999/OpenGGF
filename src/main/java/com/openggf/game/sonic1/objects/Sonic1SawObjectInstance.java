@@ -14,7 +14,7 @@ import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -86,8 +86,8 @@ public class Sonic1SawObjectInstance extends AbstractObjectInstance
     private static final int TYPE02_SOUND_TRIGGER = 0x18;
 
     /** Debug colors. */
-    private static final Color DEBUG_COLOR_ACTIVE = new Color(255, 100, 50);
-    private static final Color DEBUG_COLOR_INACTIVE = new Color(180, 180, 100);
+    private static final DebugColor DEBUG_COLOR_ACTIVE = new DebugColor(255, 100, 50);
+    private static final DebugColor DEBUG_COLOR_INACTIVE = new DebugColor(180, 180, 100);
 
     // ---- Instance state ----
     private final int sawType;           // subtype & 7 (0-4)
@@ -492,7 +492,7 @@ public class Sonic1SawObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendDebugRenderCommands(DebugRenderContext ctx) {
-        Color color = collisionActive ? DEBUG_COLOR_ACTIVE : DEBUG_COLOR_INACTIVE;
+        DebugColor color = collisionActive ? DEBUG_COLOR_ACTIVE : DEBUG_COLOR_INACTIVE;
         boolean isGroundSaw = sawType >= 3;
         float r = color.getRed() / 255f;
         float g = color.getGreen() / 255f;

@@ -19,7 +19,7 @@ import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -532,7 +532,7 @@ public class Sonic1BatbrainBadnikInstance extends AbstractBadnikInstance {
         };
         String dir = facingLeft ? "L" : "R";
         String label = name + " " + stateStr + " f" + getMappingFrame() + " " + dir;
-        ctx.drawWorldLabel(currentX, currentY, -2, label, Color.YELLOW);
+        ctx.drawWorldLabel(currentX, currentY, -2, label, DebugColor.YELLOW);
 
         // Green cross at target Y during drop/fly states
         if (state == STATE_DROP_FLY || state == STATE_FLAP_SOUND) {

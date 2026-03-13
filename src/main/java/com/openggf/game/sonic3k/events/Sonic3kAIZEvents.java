@@ -234,8 +234,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
             boolean act2WaitFireDrawActive) {
     }
 
-    public Sonic3kAIZEvents(Camera camera, Sonic3kLoadBootstrap bootstrap) {
-        super(camera);
+    public Sonic3kAIZEvents(Sonic3kLoadBootstrap bootstrap) {
         this.bootstrap = bootstrap;
     }
 
@@ -295,7 +294,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
             introSpawned = true;
         }
 
-        int cameraX = camera.getX();
+        int cameraX = camera().getX();
         applyHollowTreeScreenEvent(cameraX);
 
         // --- Routine 0→1: MinX tracking during intro panning ---
@@ -305,10 +304,10 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         if (shouldSpawnIntro(0) && !introMinXLocked) {
             // ROM stage 0->1 lock: track minX until $1308, then freeze at $1308 once.
             if (cameraX >= PALETTE_SWAP_X) {
-                camera.setMinX((short) PALETTE_SWAP_X);
+                camera().setMinX((short) PALETTE_SWAP_X);
                 introMinXLocked = true;
             } else if (cameraX >= MIN_X_TRACK_START) {
-                camera.setMinX((short) cameraX);
+                camera().setMinX((short) cameraX);
             }
         }
 
@@ -344,7 +343,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
             if (!isFireTransitionActive()) {
                 loadPaletteFromPalPointers(PAL_AIZ_INDEX);
             }
-            camera.setMinY((short) 0);
+            camera().setMinY((short) 0);
             boundariesUnlocked = true;
             LOG.info("AIZ1: unlocked Y boundaries (minY=0)"
                     + (isFireTransitionActive() ? ", skipped palette (fire active)" : ", re-applied main palette"));
@@ -366,7 +365,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
             int maxY = entry[0];
             int triggerX = entry[1];
             if (triggerX == 0xFFFF || cameraX <= triggerX) {
-                camera.setMaxY((short) maxY);
+                camera().setMaxY((short) maxY);
                 return;
             }
         }
@@ -440,7 +439,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         int d0 = (eventsFg4 - 1) >>> 1;
         int rowsRemaining = Math.min(d0, TREE_REVEAL_MAX_ROW_WINDOW);
         int rowY = TREE_REVEAL_INITIAL_DEST_Y - (d0 << 4);
-        int cameraYRounded = camera.getY() & ~0xF;
+        int cameraYRounded = camera().getY() & ~0xF;
         boolean changed = false;
         boolean drewAny = false;
 
@@ -855,7 +854,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     }
 
     private void setTransitionControlLock(boolean locked) {
-        if (camera.getFocusedSprite() instanceof AbstractPlayableSprite player) {
+        if (camera().getFocusedSprite() instanceof AbstractPlayableSprite player) {
             player.setControlLocked(locked);
         }
         AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
@@ -976,11 +975,12 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         if (!(LevelManager.getInstance().getCheckpointState() instanceof CheckpointState checkpoint)) {
             return;
         }
-        if (camera == null || camera.getFocusedSprite() == null) {
+        Camera cam = camera();
+        if (cam.getFocusedSprite() == null) {
             return;
         }
-        int x = camera.getFocusedSprite().getCentreX() & 0xFFFF;
-        int y = camera.getFocusedSprite().getCentreY() & 0xFFFF;
+        int x = cam.getFocusedSprite().getCentreX() & 0xFFFF;
+        int y = cam.getFocusedSprite().getCentreY() & 0xFFFF;
         checkpoint.saveCheckpoint(0, x, y, false);
     }
 }

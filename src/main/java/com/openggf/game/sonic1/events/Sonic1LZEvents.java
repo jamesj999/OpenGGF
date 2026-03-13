@@ -1,7 +1,6 @@
 package com.openggf.game.sonic1.events;
 
 import com.openggf.audio.AudioManager;
-import com.openggf.camera.Camera;
 import com.openggf.game.sonic1.objects.bosses.Sonic1LZBossInstance;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.Sonic1SwitchManager;
@@ -41,8 +40,7 @@ class Sonic1LZEvents extends Sonic1ZoneEvents {
     // Camera Y threshold: boss_lz_y + 0x540 = 0x600
     private static final int BOSS_CAM_Y_MAX = BOSS_LZ_Y + 0x540; // 0x600
 
-    Sonic1LZEvents(Camera camera) {
-        super(camera);
+    Sonic1LZEvents() {
     }
 
     @Override
@@ -144,8 +142,8 @@ class Sonic1LZEvents extends Sonic1ZoneEvents {
             return; // locret_6F64: already past boss spawn
         }
 
-        int camX = camera.getX() & 0xFFFF;
-        int camY = camera.getY() & 0xFFFF;
+        int camX = camera().getX() & 0xFFFF;
+        int camY = camera().getY() & 0xFFFF;
 
         // cmpi.w #boss_lz_x-$140,(v_screenposx).w
         if (camX < BOSS_CAM_X_THRESHOLD) {

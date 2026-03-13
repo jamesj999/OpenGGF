@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.events;
 
-import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.bosses.Sonic2MechaSonicInstance;
 import com.openggf.level.LevelManager;
@@ -26,8 +25,7 @@ import java.util.logging.Logger;
 public class Sonic2DEZEvents extends Sonic2ZoneEvents {
     private Sonic2MechaSonicInstance silverSonic;
 
-    public Sonic2DEZEvents(Camera camera) {
-        super(camera);
+    public Sonic2DEZEvents() {
     }
 
     @Override
@@ -43,7 +41,7 @@ public class Sonic2DEZEvents extends Sonic2ZoneEvents {
             case 0 -> {
                 // Routine 0 (s2.asm LevEvents_DEZ_Routine1):
                 // ROM: cmp.w #$140,(Camera_X_pos).w / bhi.s
-                if (camera.getX() >= 0x140) {
+                if (camera().getX() >= 0x140) {
                     // Advance routine
                     eventRoutine += 2;
                     // Spawn Silver Sonic (ObjAF) at ($348, $A0) subtype $48
@@ -59,9 +57,9 @@ public class Sonic2DEZEvents extends Sonic2ZoneEvents {
             case 4 -> {
                 // Routine 4 (s2.asm LevEvents_DEZ_Routine3):
                 // ROM: Push Camera_Min_X forward (prevent backtracking)
-                camera.setMinX(camera.getX());
+                camera().setMinX(camera().getX());
                 // Wait for Camera_X >= $300
-                if (camera.getX() >= 0x300) {
+                if (camera().getX() >= 0x300) {
                     eventRoutine += 2;
                     // ROM: moveq #PLCID_DezBoss,d0 / jmpto JmpTo2_LoadPLC
                     // PLC load handled by art provider system
@@ -70,15 +68,15 @@ public class Sonic2DEZEvents extends Sonic2ZoneEvents {
             case 6 -> {
                 // Routine 6 (s2.asm LevEvents_DEZ_Routine4):
                 // ROM: Push Camera_Min_X forward
-                camera.setMinX(camera.getX());
+                camera().setMinX(camera().getX());
                 // Wait for Camera_X >= $680
-                if (camera.getX() >= 0x680) {
+                if (camera().getX() >= 0x680) {
                     eventRoutine += 2;
                     // Lock camera for Death Egg Robot arena
                     // ROM: move.w d0,(Camera_Min_X_pos).w
-                    camera.setMinX((short) 0x680);
+                    camera().setMinX((short) 0x680);
                     // ROM: addi.w #$C0,d0 -> move.w d0,(Camera_Max_X_pos).w
-                    camera.setMaxX((short) (0x680 + 0xC0));
+                    camera().setMaxX((short) (0x680 + 0xC0));
                 }
             }
             case 8 -> {

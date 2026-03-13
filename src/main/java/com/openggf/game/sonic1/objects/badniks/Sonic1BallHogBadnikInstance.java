@@ -22,7 +22,7 @@ import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -402,7 +402,7 @@ public class Sonic1BallHogBadnikInstance extends AbstractObjectInstance
         String dir = facingLeft ? "L" : "R";
         int frame = getMappingFrame();
         String label = "BallHog " + state + " f" + frame + " s" + animStepIndex + " " + dir;
-        ctx.drawWorldLabel(currentX, currentY, -2, label, Color.YELLOW);
+        ctx.drawWorldLabel(currentX, currentY, -2, label, DebugColor.YELLOW);
     }
 
     // --- Position accessors ---

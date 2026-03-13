@@ -21,7 +21,7 @@ import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.Direction;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -610,7 +610,7 @@ public class BreakablePlatingObjectInstance extends AbstractObjectInstance
             // Draw fragment bounds
             ctx.drawRect(renderX, renderY, FRAGMENT_WIDTH, 0x10, 0.8f, 0.4f, 0.2f);
             String label = String.format("C1f d%d f%d", fragDelay, mappingFrame);
-            ctx.drawWorldLabel(renderX, renderY, -2, label, Color.ORANGE);
+            ctx.drawWorldLabel(renderX, renderY, -2, label, DebugColor.ORANGE);
         } else {
             // Draw main object bounds
             ctx.drawRect(renderX, renderY, WIDTH_PIXELS, 0x20, 0.8f, 0.6f, 0.2f);
@@ -623,7 +623,7 @@ public class BreakablePlatingObjectInstance extends AbstractObjectInstance
                     playerGrabbed ? "GRAB" : "WAIT",
                     delayTimer,
                     collisionFlags != 0 ? "col" : "---");
-            ctx.drawWorldLabel(renderX, renderY, -2, stateLabel, Color.CYAN);
+            ctx.drawWorldLabel(renderX, renderY, -2, stateLabel, DebugColor.CYAN);
         }
     }
 }

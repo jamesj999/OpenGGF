@@ -1,6 +1,5 @@
 package com.openggf.game.sonic1.events;
 
-import com.openggf.camera.Camera;
 import com.openggf.game.sonic1.objects.bosses.Sonic1FZBossInstance;
 import com.openggf.game.sonic1.objects.bosses.Sonic1FalseFloorInstance;
 import com.openggf.game.sonic1.objects.bosses.Sonic1ScrapEggmanInstance;
@@ -42,8 +41,7 @@ class Sonic1SBZEvents extends Sonic1ZoneEvents {
     // Guard against re-triggering the SBZ3->FZ transition during fade
     private boolean fzTransitionRequested;
 
-    Sonic1SBZEvents(Camera camera) {
-        super(camera);
+    Sonic1SBZEvents() {
     }
 
     @Override
@@ -77,22 +75,22 @@ class Sonic1SBZEvents extends Sonic1ZoneEvents {
      * Default 0x720, drops to 0x620 at X >= 0x1880, then 0x2A0 at X >= 0x2000.
      */
     private void updateAct1() {
-        int camX = camera.getX() & 0xFFFF;
+        int camX = camera().getX() & 0xFFFF;
 
         // v_limitbtm1 = 0x720
-        camera.setMaxYTarget((short) 0x720);
+        camera().setMaxYTarget((short) 0x720);
         if (camX < 0x1880) {
             return; // locret_7242
         }
 
         // v_limitbtm1 = 0x620
-        camera.setMaxYTarget((short) 0x620);
+        camera().setMaxYTarget((short) 0x620);
         if (camX < 0x2000) {
             return; // locret_7242
         }
 
         // v_limitbtm1 = 0x2A0
-        camera.setMaxYTarget((short) 0x2A0);
+        camera().setMaxYTarget((short) 0x2A0);
     }
 
     // ---- SBZ Act 2 (DLE_SBZ2) ----
@@ -116,16 +114,16 @@ class Sonic1SBZEvents extends Sonic1ZoneEvents {
      * Advances to routine 2 when X >= 0x1E00.
      */
     private void updateSBZ2Main() {
-        int camX = camera.getX() & 0xFFFF;
+        int camX = camera().getX() & 0xFFFF;
 
         // v_limitbtm1 = 0x800
-        camera.setMaxYTarget((short) 0x800);
+        camera().setMaxYTarget((short) 0x800);
         if (camX < 0x1800) {
             return; // locret_727A
         }
 
         // v_limitbtm1 = boss_sbz2_y (0x510)
-        camera.setMaxYTarget((short) BOSS_SBZ2_Y);
+        camera().setMaxYTarget((short) BOSS_SBZ2_Y);
         if (camX < 0x1E00) {
             return; // locret_727A
         }
@@ -140,7 +138,7 @@ class Sonic1SBZEvents extends Sonic1ZoneEvents {
      * collapsing floor object and advances to routine 4.
      */
     private void updateSBZ2Boss() {
-        int camX = camera.getX() & 0xFFFF;
+        int camX = camera().getX() & 0xFFFF;
 
         // cmpi.w #boss_sbz2_x-$1A0,(v_screenposx).w = 0x1EB0
         if (camX < (BOSS_SBZ2_X - 0x1A0)) {
@@ -165,7 +163,7 @@ class Sonic1SBZEvents extends Sonic1ZoneEvents {
      * and sets f_lockscreen. Then falls through to lock left boundary.
      */
     private void updateSBZ2Boss2() {
-        int camX = camera.getX() & 0xFFFF;
+        int camX = camera().getX() & 0xFFFF;
 
         // cmpi.w #boss_sbz2_x-$F0,(v_screenposx).w = 0x1F60
         if (camX >= (BOSS_SBZ2_X - 0xF0)) {
@@ -194,7 +192,7 @@ class Sonic1SBZEvents extends Sonic1ZoneEvents {
      * Otherwise, locks left boundary.
      */
     private void updateSBZ2End() {
-        int camX = camera.getX() & 0xFFFF;
+        int camX = camera().getX() & 0xFFFF;
 
         // cmpi.w #boss_sbz2_x,(v_screenposx).w
         if (camX >= BOSS_SBZ2_X) {
@@ -222,7 +220,7 @@ class Sonic1SBZEvents extends Sonic1ZoneEvents {
             return;
         }
 
-        int camX = camera.getX() & 0xFFFF;
+        int camX = camera().getX() & 0xFFFF;
 
         // cmpi.w #$D00,(v_screenposx).w
         if (camX < 0xD00) {
@@ -230,7 +228,7 @@ class Sonic1SBZEvents extends Sonic1ZoneEvents {
         }
 
         // cmpi.w #$18,(v_player+obY).w - check if Sonic reached top of level
-        short playerY = camera.getFocusedSprite().getCentreY();
+        short playerY = camera().getFocusedSprite().getCentreY();
         int playerYUnsigned = playerY & 0xFFFF;
         if (playerYUnsigned >= 0x18) {
             return; // locret_6F8C
@@ -239,7 +237,7 @@ class Sonic1SBZEvents extends Sonic1ZoneEvents {
         fzTransitionRequested = true;
 
         // ROM: move.b #1,(f_playerctrl).w - lock player controls
-        camera.getFocusedSprite().setControlLocked(true);
+        camera().getFocusedSprite().setControlLocked(true);
 
         // ROM: clr.b (v_lastlamp).w - checkpoint cleared by requestZoneAndAct
         // ROM: move.w #(id_SBZ<<8)+2,(v_zone).w - FZ is zone 6 act 0 in our engine
@@ -271,7 +269,7 @@ class Sonic1SBZEvents extends Sonic1ZoneEvents {
      * patterns and advances to routine 2. Always locks left boundary.
      */
     private void updateFZMain() {
-        int camX = camera.getX() & 0xFFFF;
+        int camX = camera().getX() & 0xFFFF;
 
         // cmpi.w #boss_fz_x-$308,(v_screenposx).w = 0x2148
         if (camX >= (BOSS_FZ_X - 0x308)) {
@@ -289,10 +287,10 @@ class Sonic1SBZEvents extends Sonic1ZoneEvents {
     /**
      * DLE_FZboss (routine 2): Boss spawn trigger.
      * When camera X reaches boss_fz_x - 0x150 (0x2300), spawns the FZ
-     * boss and locks the camera. Always locks left boundary.
+     * boss and locks the camera(). Always locks left boundary.
      */
     private void updateFZBoss() {
-        int camX = camera.getX() & 0xFFFF;
+        int camX = camera().getX() & 0xFFFF;
 
         // cmpi.w #boss_fz_x-$150,(v_screenposx).w = 0x2300
         if (camX >= (BOSS_FZ_X - 0x150)) {
@@ -311,7 +309,7 @@ class Sonic1SBZEvents extends Sonic1ZoneEvents {
             // ROM: move.b #1,(f_lockscreen).w — prevents right boundary from
             // extending further, but does NOT cap it to current camera X.
             // The lockLeftBoundary() call already creates a one-way rightward
-            // scroll, and the level's natural right boundary constrains the camera.
+            // scroll, and the level's natural right boundary constrains the camera().
         }
 
         // bra.s loc_72C2 - lock left boundary
@@ -324,7 +322,7 @@ class Sonic1SBZEvents extends Sonic1ZoneEvents {
      * Always locks left boundary.
      */
     private void updateFZEnd() {
-        int camX = camera.getX() & 0xFFFF;
+        int camX = camera().getX() & 0xFFFF;
 
         // cmpi.w #boss_fz_x,(v_screenposx).w
         if (camX >= BOSS_FZ_X) {
@@ -352,6 +350,6 @@ class Sonic1SBZEvents extends Sonic1ZoneEvents {
      * ROM: move.w (v_screenposx).w,(v_limitleft2).w
      */
     private void lockLeftBoundary() {
-        camera.setMinX(camera.getX());
+        camera().setMinX(camera().getX());
     }
 }

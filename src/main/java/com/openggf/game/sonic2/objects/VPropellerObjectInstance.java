@@ -14,7 +14,7 @@ import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -148,7 +148,7 @@ public class VPropellerObjectInstance extends AbstractObjectInstance
         ctx.drawWorldLabel(currentX, currentY, -1,
                 String.format("B4 f%d %s%s", ANIM_FRAMES[animFrameIndex],
                         yFlipped ? "yflip " : "", collisionStr),
-                Color.CYAN);
+                DebugColor.CYAN);
     }
 
     /**

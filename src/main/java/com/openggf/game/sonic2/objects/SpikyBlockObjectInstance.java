@@ -16,7 +16,7 @@ import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -141,6 +141,6 @@ public class SpikyBlockObjectInstance extends AbstractObjectInstance
         // Solid block - green rectangle
         ctx.drawRect(spawn.x(), spawn.y(), SOLID_PARAMS.halfWidth(), SOLID_PARAMS.airHalfHeight(), 0f, 1f, 0f);
         String label = name + " sub=" + spawn.subtype();
-        ctx.drawWorldLabel(spawn.x(), spawn.y(), -2, label, Color.GREEN);
+        ctx.drawWorldLabel(spawn.x(), spawn.y(), -2, label, DebugColor.GREEN);
     }
 }

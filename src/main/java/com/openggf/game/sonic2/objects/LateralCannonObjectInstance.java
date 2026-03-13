@@ -19,7 +19,7 @@ import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -389,6 +389,6 @@ public class LateralCannonObjectInstance extends AbstractObjectInstance
         String stateLabel = String.format("BE:%s f%d t%d p%02X",
                 routine.name().substring(0, Math.min(4, routine.name().length())),
                 mappingFrame, timer, phaseMask);
-        ctx.drawWorldLabel(x, y, -2, stateLabel, Color.CYAN);
+        ctx.drawWorldLabel(x, y, -2, stateLabel, DebugColor.CYAN);
     }
 }

@@ -119,8 +119,22 @@ public class FadeManager {
     }
 
     /**
-     * Reset the singleton instance (for testing).
+     * Resets mutable state without destroying the singleton instance.
+     * Preferred over {@link #resetInstance()} — cached references remain valid.
+     * Preserves the shader and quad renderer (configuration), clears fade state.
      */
+    public void resetState() {
+        cancel();
+        effectiveFPC = FRAMES_PER_CHANNEL;
+        effectiveIncrement = CHANNEL_INCREMENT;
+        effectiveDuration = FADE_DURATION;
+    }
+
+    /**
+     * @deprecated Use {@link #resetState()} instead to avoid invalidating
+     *             cached references held by other classes.
+     */
+    @Deprecated
     public static synchronized void resetInstance() {
         if (instance != null) {
             instance.cleanup();

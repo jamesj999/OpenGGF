@@ -18,8 +18,8 @@ import com.openggf.debug.FontSize;
 
 import com.openggf.graphics.GLCommand;
 
-import java.awt.Color;
 import java.awt.Font;
+import com.openggf.debug.DebugColor;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -1762,7 +1762,7 @@ public class Sonic2SpecialStageManager {
         alignmentTextRenderer.begin();
 
         int y = viewportHeight - 14;
-        alignmentTextRenderer.drawTextOutlined("SS ALIGNMENT TEST (F4 to exit)", 8, y, Color.WHITE, FontSize.SMALL);
+        alignmentTextRenderer.drawTextOutlined("SS ALIGNMENT TEST (F4 to exit)", 8, y, DebugColor.WHITE, FontSize.SMALL);
         y -= 14;
         int gateIndexBase = 0;
         for (int i = 0; i < ANIM_STRAIGHT.length; i++) {
@@ -1776,21 +1776,21 @@ public class Sonic2SpecialStageManager {
                 "Gate offset (frames): " + alignmentTriggerOffsetFrames +
                         "  Gate frame: " + gateIndex + "/" + (ANIM_STRAIGHT.length - 1) +
                         "  Map: 0x" + String.format("%02X", ANIM_STRAIGHT[gateIndex]),
-                8, y, Color.WHITE, FontSize.SMALL);
+                8, y, DebugColor.WHITE, FontSize.SMALL);
         y -= 14;
         alignmentTextRenderer.drawTextOutlined(
                 String.format("Speed scale: %.2fx", alignmentRainbowSpeedScale),
-                8, y, Color.WHITE, FontSize.SMALL);
+                8, y, DebugColor.WHITE, FontSize.SMALL);
         y -= 14;
         alignmentTextRenderer.drawTextOutlined(
                 "Arrows: LEFT/RIGHT gate offset, UP/DOWN speed",
-                8, y, Color.WHITE, FontSize.SMALL);
+                8, y, DebugColor.WHITE, FontSize.SMALL);
         y -= 14;
         alignmentTextRenderer.drawTextOutlined(
                 "Step mode: " + (alignmentStepByTrackFrame ? "TRACK" : "VINT") +
                         "  TrackFrame: " + alignmentTrackFrameIndex +
                         "  DrawIdx: " + alignmentDrawingIndex,
-                8, y, Color.WHITE, FontSize.SMALL);
+                8, y, DebugColor.WHITE, FontSize.SMALL);
 
         alignmentTextRenderer.end();
     }
@@ -1820,7 +1820,7 @@ public class Sonic2SpecialStageManager {
 
         lagCompensationTextRenderer.drawTextOutlined(
                 String.format("Lag: %.0f%% (~%.0f upd/s)  F6/F7", lagCompensation * 100, effectiveUpdates),
-                8, y, Color.YELLOW, FontSize.SMALL);
+                8, y, DebugColor.YELLOW, FontSize.SMALL);
 
         lagCompensationTextRenderer.end();
     }

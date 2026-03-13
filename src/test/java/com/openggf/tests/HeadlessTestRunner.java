@@ -1,18 +1,16 @@
 package com.openggf.tests;
 
+import com.openggf.LevelFrameStep;
 import com.openggf.camera.Camera;
-import com.openggf.game.CollisionModel;
-import com.openggf.game.GameModuleRegistry;
-import com.openggf.game.LevelEventProvider;
-import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.level.LevelManager;
-import com.openggf.level.ParallaxManager;
+import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 /**
  * Headless test runner that simulates the full game loop update cycle.
- * This replicates what GameLoop.step() does for level mode, allowing
- * physics and collision tests to run without an OpenGL context.
+ * Delegates to {@link LevelFrameStep} for frame-level ordering and
+ * {@link SpriteManager#tickPlayablePhysics} for per-sprite physics,
+ * ensuring the test harness cannot drift from production.
  *
  * <p>Usage example:
  * <pre>
@@ -46,15 +44,9 @@ public class HeadlessTestRunner {
 
     /**
      * Steps one frame with the given input state.
-     * This replicates the update order from SpriteManager.update():
-     * <ol>
-     *   <li>Update object positions</li>
-     *   <li>Solid object collision</li>
-     *   <li>Player movement</li>
-     *   <li>Plane switchers</li>
-     *   <li>Animation</li>
-     *   <li>Status tick</li>
-     * </ol>
+     * Frame-level ordering is defined by {@link LevelFrameStep#execute};
+     * per-sprite physics ordering is defined by
+     * {@link SpriteManager#tickPlayablePhysics}.
      *
      * @param up    Up input pressed
      * @param down  Down input pressed
@@ -72,64 +64,26 @@ public class HeadlessTestRunner {
         sprite.setJumpInputPressed(jump);
         sprite.setDirectionalInputPressed(up, down, left, right);
 
-        // Update camera position BEFORE level events (matches game loop order)
-        Camera camera = Camera.getInstance();
-        camera.updatePosition(false);
+        // Canonical frame tick: objects → zone features → sprites → level events → camera → level.
+        LevelFrameStep.execute(levelManager, Camera.getInstance(), () -> {
+            // Compute effective inputs matching SpriteManager.update() filtering.
+            boolean controlLocked = sprite.isControlLocked();
+            boolean forcedRight = sprite.isForcedInputActive(AbstractPlayableSprite.INPUT_RIGHT)
+                    || sprite.isForceInputRight();
+            boolean forcedLeft = sprite.isForcedInputActive(AbstractPlayableSprite.INPUT_LEFT);
+            boolean forcedUp = sprite.isForcedInputActive(AbstractPlayableSprite.INPUT_UP);
+            boolean forcedDown = sprite.isForcedInputActive(AbstractPlayableSprite.INPUT_DOWN);
+            boolean forcedJump = sprite.isForcedInputActive(AbstractPlayableSprite.INPUT_JUMP);
+            boolean effectiveRight = (!controlLocked && right) || forcedRight;
+            boolean effectiveLeft = ((!controlLocked && left) || forcedLeft) && !forcedRight;
+            boolean effectiveUp = (!controlLocked && up) || forcedUp;
+            boolean effectiveDown = (!controlLocked && down) || forcedDown;
+            boolean effectiveJump = (!controlLocked && jump) || forcedJump;
 
-        // Update level events (dynamic boundaries, zone scripts, etc.)
-        LevelEventProvider levelEvents = GameModuleRegistry.getCurrent().getLevelEventProvider();
-        if (levelEvents != null) {
-            levelEvents.update();
-        }
-
-        // Update parallax scrolling (calculates shake offsets from ripple data)
-        // This must run after level events so shake flags are set correctly
-        ParallaxManager parallax = ParallaxManager.getInstance();
-        int zoneId = levelManager.getCurrentZone();
-        int actId = levelManager.getCurrentAct();
-        parallax.update(zoneId, actId, camera, frameCounter, 0);
-
-        // Update object positions (from GameLoop.step())
-        levelManager.updateObjectPositions();
-
-        // Solid object collision FIRST (from SpriteManager.update())
-        boolean wasRidingObject = levelManager.getObjectManager() != null
-                && levelManager.getObjectManager().isRidingObject(sprite);
-        if (levelManager.getObjectManager() != null) {
-            levelManager.getObjectManager().updateSolidContacts(sprite);
-        }
-
-        // Apply SpriteManager-equivalent input filtering for controlLocked/forceInputRight.
-        // SpriteManager.update() applies this filtering before calling handleMovement, but
-        // HeadlessTestRunner bypasses SpriteManager, so we must replicate it here.
-        boolean controlLocked = sprite.isControlLocked();
-        boolean effectiveRight = (!controlLocked && right) || sprite.isForceInputRight();
-        boolean effectiveLeft = (!controlLocked && left) && !sprite.isForceInputRight();
-        boolean effectiveUp = !controlLocked && up;
-        boolean effectiveDown = !controlLocked && down;
-        boolean effectiveJump = !controlLocked && jump;
-
-        // Player movement
-        sprite.getMovementManager().handleMovement(effectiveUp, effectiveDown, effectiveLeft, effectiveRight, effectiveJump, false, false, false);
-
-        // Sonic 1 parity: SolidObject checks run after Sonic movement in ExecuteObjects,
-        // so apply a second pass for UNIFIED collision to avoid one-frame sink on landing.
-        if (requiresPostMovementSolidPass(sprite)
-                && sprite.getAir()
-                && !wasRidingObject
-                && levelManager.getObjectManager() != null) {
-            levelManager.getObjectManager().updateSolidContacts(sprite);
-        }
-
-        // Plane switchers
-        levelManager.applyPlaneSwitchers(sprite);
-
-        // Animation update
-        sprite.getAnimationManager().update(frameCounter);
-
-        // Status tick (invulnerability frames, etc.)
-        sprite.tickStatus();
-        sprite.endOfTick();
+            SpriteManager.tickPlayablePhysics(sprite,
+                    effectiveUp, effectiveDown, effectiveLeft, effectiveRight, effectiveJump,
+                    false, false, false, levelManager, frameCounter);
+        });
     }
 
     /**
@@ -159,13 +113,5 @@ public class HeadlessTestRunner {
      */
     public AbstractPlayableSprite getSprite() {
         return sprite;
-    }
-
-    private static boolean requiresPostMovementSolidPass(AbstractPlayableSprite sprite) {
-        if (sprite == null) {
-            return false;
-        }
-        PhysicsFeatureSet featureSet = sprite.getPhysicsFeatureSet();
-        return featureSet != null && featureSet.collisionModel() == CollisionModel.UNIFIED;
     }
 }

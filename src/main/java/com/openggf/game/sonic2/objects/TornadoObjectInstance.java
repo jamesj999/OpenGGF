@@ -29,7 +29,7 @@ import com.openggf.physics.Direction;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -717,7 +717,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
         }
         ctx.drawWorldLabel(currentX, currentY, -1,
                 String.format("B2 sub%02X r%X s%X f%d", subtype, routine, routineSecondary, mappingFrame),
-                Color.CYAN);
+                DebugColor.CYAN);
     }
 
     // ------------------------------------------------------------------------
@@ -1233,7 +1233,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
         @Override
         public void appendDebugRenderCommands(DebugRenderContext ctx) {
             ctx.drawCross(currentX, currentY, 3, 1.0f, 0.4f, 0.2f);
-            ctx.drawWorldLabel(currentX, currentY, -1, "C3 f" + mappingFrame, Color.ORANGE);
+            ctx.drawWorldLabel(currentX, currentY, -1, "C3 f" + mappingFrame, DebugColor.ORANGE);
         }
     }
 }

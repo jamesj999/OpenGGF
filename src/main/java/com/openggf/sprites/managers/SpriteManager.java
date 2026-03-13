@@ -287,24 +287,9 @@ public class SpriteManager {
 					playable.setDirectionalInputPressed(up, down, left, right);
 				}
 
-				// Pre-movement solid pass keeps riding/platform delta handling stable.
-				boolean wasRidingObject = levelManager.getObjectManager() != null
-						&& levelManager.getObjectManager().isRidingObject(playable);
-				updateSolidContacts(levelManager, playable);
-				playable.getMovementManager().handleMovement(effectiveUp, effectiveDown, effectiveLeft,
-						effectiveRight, effectiveJump, effectiveTest, speedUp, slowDown);
-				// Sonic 1 runs object SolidObject checks after Sonic movement in the object loop
-				// (ExecuteObjects iterates player first, then solid objects). Run a second pass for
-				// UNIFIED collision so top-landing resolves in the same frame.
-				if (shouldRunPostMovementSolidPass(playable, wasRidingObject)) {
-					updateSolidContacts(levelManager, playable);
-				}
-				// ROM order: Sonic moves first (Obj01), THEN plane switchers run (Obj03).
-				// This ensures plane switchers check the current frame's position/air state.
-				levelManager.applyPlaneSwitchers(playable);
-				playable.getAnimationManager().update(frameCounter);
-				playable.tickStatus();
-				playable.endOfTick();
+				tickPlayablePhysics(playable, effectiveUp, effectiveDown, effectiveLeft,
+						effectiveRight, effectiveJump, effectiveTest, speedUp, slowDown,
+						levelManager, frameCounter);
 			}
 		}
 	}
@@ -319,18 +304,25 @@ public class SpriteManager {
 				if (playable.isCpuControlled() && isCpuSidekickSuppressed()) {
 					continue;
 				}
-				boolean wasRidingObject = levelManager.getObjectManager() != null
-						&& levelManager.getObjectManager().isRidingObject(playable);
-				updateSolidContacts(levelManager, playable);
-				playable.getMovementManager().handleMovement(false, false, false, false, false, false, false, false);
-				if (shouldRunPostMovementSolidPass(playable, wasRidingObject)) {
-					updateSolidContacts(levelManager, playable);
+				tickPlayablePhysics(playable, false, false, false, false, false, false, false, false,
+						levelManager, frameCounter);
+			}
+		}
+	}
+
+	/**
+	 * Refreshes playable sprite render state without advancing movement/gameplay.
+	 * Used by ending-demo preroll phases so the player sprite is visible as soon
+	 * as the fade begins, while physics remain frozen.
+	 */
+	public void primePlayableVisualState() {
+		Collection<Sprite> sprites = getAllSprites();
+		for (Sprite sprite : sprites) {
+			if (sprite instanceof AbstractPlayableSprite playable) {
+				if (playable.isCpuControlled() && isCpuSidekickSuppressed()) {
+					continue;
 				}
-				// ROM order: Sonic moves first (Obj01), THEN plane switchers run (Obj03).
-				levelManager.applyPlaneSwitchers(playable);
 				playable.getAnimationManager().update(frameCounter);
-				playable.tickStatus();
-				playable.endOfTick();
 			}
 		}
 	}
@@ -619,7 +611,50 @@ public class SpriteManager {
 				&& playable.isCpuControlled();
 	}
 
-	private void updateSolidContacts(LevelManager levelManager, AbstractPlayableSprite playable) {
+	/**
+	 * Runs the canonical per-sprite physics tick: solid contacts, movement,
+	 * post-movement solid pass, plane switchers, animation, and status.
+	 * <p>
+	 * This is the single source of truth for per-sprite update ordering.
+	 * Both {@code SpriteManager.update()} and {@code HeadlessTestRunner}
+	 * MUST delegate here rather than duplicating the step sequence.
+	 *
+	 * @param playable     the playable sprite to tick
+	 * @param up           effective up input (after control-lock / forced-input filtering)
+	 * @param down         effective down input
+	 * @param left         effective left input
+	 * @param right        effective right input
+	 * @param jump         effective jump input
+	 * @param test         effective test button input
+	 * @param speedUp      debug speed-up modifier
+	 * @param slowDown     debug slow-down modifier
+	 * @param levelManager the level manager
+	 * @param frameCounter the current frame number
+	 */
+	public static void tickPlayablePhysics(AbstractPlayableSprite playable,
+										   boolean up, boolean down, boolean left, boolean right,
+										   boolean jump, boolean test, boolean speedUp, boolean slowDown,
+										   LevelManager levelManager, int frameCounter) {
+		// Pre-movement solid pass keeps riding/platform delta handling stable.
+		boolean wasRidingObject = levelManager.getObjectManager() != null
+				&& levelManager.getObjectManager().isRidingObject(playable);
+		applySolidContacts(levelManager, playable);
+		playable.getMovementManager().handleMovement(up, down, left, right, jump, test, speedUp, slowDown);
+		// Sonic 1 runs object SolidObject checks after Sonic movement in the object loop
+		// (ExecuteObjects iterates player first, then solid objects). Run a second pass for
+		// UNIFIED collision so top-landing resolves in the same frame.
+		if (shouldRunPostMovementSolidPass(playable, wasRidingObject)) {
+			applySolidContacts(levelManager, playable);
+		}
+		// ROM order: Sonic moves first (Obj01), THEN plane switchers run (Obj03).
+		// This ensures plane switchers check the current frame's position/air state.
+		levelManager.applyPlaneSwitchers(playable);
+		playable.getAnimationManager().update(frameCounter);
+		playable.tickStatus();
+		playable.endOfTick();
+	}
+
+	private static void applySolidContacts(LevelManager levelManager, AbstractPlayableSprite playable) {
 		if (levelManager.getObjectManager() != null) {
 			levelManager.getObjectManager().updateSolidContacts(playable);
 		}

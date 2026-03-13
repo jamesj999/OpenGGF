@@ -296,7 +296,7 @@ public class RivetObjectInstance extends AbstractObjectInstance
 
         // Draw label
         ctx.drawWorldLabel(spawn.x(), spawn.y(), -12, "Rivet",
-                java.awt.Color.YELLOW);
+                com.openggf.debug.DebugColor.YELLOW);
     }
 
     @Override

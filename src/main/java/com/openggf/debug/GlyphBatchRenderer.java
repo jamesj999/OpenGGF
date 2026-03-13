@@ -5,7 +5,7 @@ import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 import com.openggf.graphics.ShaderProgram;
 
-import java.awt.*;
+import java.awt.Font;
 import java.io.IOException;
 import java.nio.FloatBuffer;
 import java.util.ArrayDeque;
@@ -249,7 +249,7 @@ public class GlyphBatchRenderer {
      * Draws text at the specified position with the given color and font size.
      * Position is in viewport coordinates (origin at bottom-left).
      */
-    public void drawText(String text, int x, int y, Color color, FontSize fontSize) {
+    public void drawText(String text, int x, int y, DebugColor color, FontSize fontSize) {
         if (!batchActive || text == null || text.isEmpty()) {
             return;
         }
@@ -295,7 +295,7 @@ public class GlyphBatchRenderer {
      * Draws text at the specified position with the given color using the default (MEDIUM) font size.
      * Position is in viewport coordinates (origin at bottom-left).
      */
-    public void drawText(String text, int x, int y, Color color) {
+    public void drawText(String text, int x, int y, DebugColor color) {
         drawText(text, x, y, color, FontSize.MEDIUM);
     }
 
@@ -304,7 +304,7 @@ public class GlyphBatchRenderer {
      * This is the primary method for debug overlay text.
      * The outline is rendered in the fragment shader for efficiency.
      */
-    public void drawTextOutlined(String text, int x, int y, Color fillColor, FontSize fontSize) {
+    public void drawTextOutlined(String text, int x, int y, DebugColor fillColor, FontSize fontSize) {
         // The outline is handled in the shader, so just draw regular text
         drawText(text, x, y, fillColor, fontSize);
     }
@@ -314,7 +314,7 @@ public class GlyphBatchRenderer {
      * This is the primary method for debug overlay text.
      * The outline is rendered in the fragment shader for efficiency.
      */
-    public void drawTextOutlined(String text, int x, int y, Color fillColor) {
+    public void drawTextOutlined(String text, int x, int y, DebugColor fillColor) {
         drawTextOutlined(text, x, y, fillColor, FontSize.MEDIUM);
     }
 

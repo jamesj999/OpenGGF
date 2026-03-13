@@ -16,7 +16,7 @@ import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -63,7 +63,7 @@ public class Sonic1GargoyleObjectInstance extends AbstractObjectInstance {
     private static final int HEAD_FRAME = 0;
 
     /** Debug color for gargoyle head (dark stone gray). */
-    private static final Color DEBUG_COLOR = new Color(128, 128, 96);
+    private static final DebugColor DEBUG_COLOR = new DebugColor(128, 128, 96);
 
     // ========================================================================
     // Instance State
@@ -243,7 +243,7 @@ public class Sonic1GargoyleObjectInstance extends AbstractObjectInstance {
         private static final int SFX_FIREBALL = Sonic1Sfx.AE_UNUSED.id;
 
         /** Debug color for fireball (bright orange). */
-        private static final Color DEBUG_COLOR = new Color(255, 140, 0);
+        private static final DebugColor DEBUG_COLOR = new DebugColor(255, 140, 0);
 
         // ====================================================================
         // Instance State

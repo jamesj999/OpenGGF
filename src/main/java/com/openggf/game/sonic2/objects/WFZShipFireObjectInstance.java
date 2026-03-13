@@ -12,7 +12,7 @@ import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -142,6 +142,6 @@ public class WFZShipFireObjectInstance extends AbstractObjectInstance {
                 String.format("BC fire bgX=%d %s",
                         bgXOffset,
                         flickerVisible ? "VIS" : "HID"),
-                Color.ORANGE);
+                DebugColor.ORANGE);
     }
 }

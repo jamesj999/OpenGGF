@@ -18,7 +18,7 @@ import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -220,7 +220,7 @@ public class Sonic1GlassBlockObjectInstance extends AbstractObjectInstance
         ctx.drawRect(x, y, params.halfWidth(), params.airHalfHeight(), 0.0f, 0.8f, 0.3f);
 
         String typeLabel = String.format("Glass:T%d dist=%d", moveType, glassDist);
-        ctx.drawWorldLabel(x, y, -2, typeLabel, Color.GREEN);
+        ctx.drawWorldLabel(x, y, -2, typeLabel, DebugColor.GREEN);
     }
 
     // --- SolidObjectProvider ---

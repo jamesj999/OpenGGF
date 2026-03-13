@@ -49,7 +49,6 @@ import java.util.logging.Logger;
 public class Sonic1LZWaterEvents {
     private static final Logger LOGGER = Logger.getLogger(Sonic1LZWaterEvents.class.getName());
 
-    private final Camera camera;
     private int waterRoutine;
 
     // Zone/act tracking for WaterSystem calls
@@ -175,8 +174,11 @@ public class Sonic1LZWaterEvents {
     private static final int LAYOUT_GAP_X = 6;
     private static final int LAYOUT_GAP_Y = 2;
 
-    public Sonic1LZWaterEvents(Camera camera) {
-        this.camera = camera;
+    public Sonic1LZWaterEvents() {
+    }
+
+    private Camera camera() {
+        return Camera.getInstance();
     }
 
     /**
@@ -215,7 +217,7 @@ public class Sonic1LZWaterEvents {
      * ROM: DynWater_SBZ3
      */
     public void updateSBZ3() {
-        int camX = camera.getX() & 0xFFFF;
+        int camX = camera().getX() & 0xFFFF;
         int target = 0x228;
 
         // cmpi.w #$F00,(v_screenposx).w
@@ -263,7 +265,7 @@ public class Sonic1LZWaterEvents {
      *   X >= $1380: target = $3A8, wait for waterpos2 to reach $3A8, then advance
      */
     private void updateLZ1Routine0() {
-        int camX = camera.getX() & 0xFFFF;
+        int camX = camera().getX() & 0xFFFF;
         int target = 0xB8; // move.w #$B8,d1
 
         // cmpi.w #$600,d0
@@ -367,7 +369,7 @@ public class Sonic1LZWaterEvents {
      * Otherwise keeps target at $3A8.
      */
     private void updateLZ1Routine1() {
-        int camX = camera.getX() & 0xFFFF;
+        int camX = camera().getX() & 0xFFFF;
 
         // cmpi.w #$2E0,(v_player+obY).w
         int playerY = getPlayerY();
@@ -406,7 +408,7 @@ public class Sonic1LZWaterEvents {
      * Default $328, rises to $3C8 at X >= $500, then $428 at X >= $B00.
      */
     private void updateLZ2() {
-        int camX = camera.getX() & 0xFFFF;
+        int camX = camera().getX() & 0xFFFF;
         int target = 0x328; // move.w #$328,d1
 
         // cmpi.w #$500,d0
@@ -459,7 +461,7 @@ public class Sonic1LZWaterEvents {
      * level instant rather than gradual.
      */
     private void updateLZ3Routine0() {
-        int camX = camera.getX() & 0xFFFF;
+        int camX = camera().getX() & 0xFFFF;
         int target = 0x900; // move.w #$900,d1
 
         // cmpi.w #$600,d0
@@ -502,7 +504,7 @@ public class Sonic1LZWaterEvents {
      * whether to use $508 or $308. Advances to routine 2 at X >= $1770.
      */
     private void updateLZ3Routine1() {
-        int camX = camera.getX() & 0xFFFF;
+        int camX = camera().getX() & 0xFFFF;
         int target = 0x4C8; // move.w #$4C8,d1
 
         // cmpi.w #$770,d0
@@ -580,7 +582,7 @@ public class Sonic1LZWaterEvents {
      * Advances to routine 3 when X >= $1AF0 OR when waterpos2 == $188.
      */
     private void updateLZ3Routine2() {
-        int camX = camera.getX() & 0xFFFF;
+        int camX = camera().getX() & 0xFFFF;
         int target = 0x508; // move.w #$508,d1
 
         // cmpi.w #$1860,d0
@@ -620,7 +622,7 @@ public class Sonic1LZWaterEvents {
      *   target = $608, direct = $7C0, set switch flag 8, advance to routine 4.
      */
     private void updateLZ3Routine3() {
-        int camX = camera.getX() & 0xFFFF;
+        int camX = camera().getX() & 0xFFFF;
         int target = 0x188; // move.w #$188,d1
 
         // cmpi.w #$1AF0,d0
@@ -664,7 +666,7 @@ public class Sonic1LZWaterEvents {
      * Final routine. At X >= $1E00, sets target to $128.
      */
     private void updateLZ3Routine4() {
-        int camX = camera.getX() & 0xFFFF;
+        int camX = camera().getX() & 0xFFFF;
 
         // cmpi.w #$1E00,d0
         if (camX >= 0x1E00) {
@@ -700,7 +702,7 @@ public class Sonic1LZWaterEvents {
      * matching the ROM's call order in LZWaterFeatures.
      */
     public void updateWindTunnels() {
-        AbstractPlayableSprite player = camera.getFocusedSprite();
+        AbstractPlayableSprite player = camera().getFocusedSprite();
         if (player == null) {
             return;
         }
@@ -836,7 +838,7 @@ public class Sonic1LZWaterEvents {
      * SBZ3 uses LZ water mechanics with its own tunnel region.
      */
     public void updateWindTunnelsSBZ3() {
-        AbstractPlayableSprite player = camera.getFocusedSprite();
+        AbstractPlayableSprite player = camera().getFocusedSprite();
         if (player == null || player.isDebugMode()) {
             return;
         }
@@ -936,7 +938,7 @@ public class Sonic1LZWaterEvents {
      *                        detection misses from coordinate differences, or -1
      */
     public void checkWaterSlide(int chunkIdAtPlayer, int fallbackChunkId) {
-        AbstractPlayableSprite player = camera.getFocusedSprite();
+        AbstractPlayableSprite player = camera().getFocusedSprite();
         if (player == null) {
             return;
         }
@@ -1092,7 +1094,7 @@ public class Sonic1LZWaterEvents {
      * Returns the raw Y coordinate used for position comparisons.
      */
     private int getPlayerY() {
-        AbstractPlayableSprite player = camera.getFocusedSprite();
+        AbstractPlayableSprite player = camera().getFocusedSprite();
         if (player == null) {
             return 0;
         }

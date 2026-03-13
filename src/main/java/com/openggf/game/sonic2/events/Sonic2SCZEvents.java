@@ -1,7 +1,5 @@
 package com.openggf.game.sonic2.events;
 
-import com.openggf.camera.Camera;
-
 /**
  * Sky Chase Zone events.
  * ROM: LevEvents_SCZ (s2.asm:21803-21861)
@@ -16,8 +14,7 @@ import com.openggf.camera.Camera;
  */
 public class Sonic2SCZEvents extends Sonic2ZoneEvents {
 
-    public Sonic2SCZEvents(Camera camera) {
-        super(camera);
+    public Sonic2SCZEvents() {
     }
 
     @Override

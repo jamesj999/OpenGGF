@@ -23,7 +23,7 @@ import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.Collection;
 import java.util.List;
 
@@ -912,7 +912,7 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
         } else {
             stateLabel = "PushBlk:IDLE";
         }
-        ctx.drawWorldLabel(x, y, -2, stateLabel, Color.ORANGE);
+        ctx.drawWorldLabel(x, y, -2, stateLabel, DebugColor.ORANGE);
     }
 
     private void refreshDynamicSpawn() {

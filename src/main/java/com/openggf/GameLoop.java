@@ -367,6 +367,7 @@ public class GameLoop {
                 // Force camera to snap to player position during title card (no smooth
                 // scrolling)
                 camera.updatePosition(true);
+                profiler.endSection("input");
                 return; // Don't process LEVEL mode logic yet
             }
         } else if (currentGameMode == GameMode.TITLE_SCREEN) {
@@ -380,6 +381,7 @@ public class GameLoop {
                 }
             }
             inputHandler.update();
+            profiler.endSection("input");
             return; // Don't process LEVEL mode logic
         } else if (currentGameMode == GameMode.LEVEL_SELECT) {
             // Update level select screen
@@ -393,6 +395,7 @@ public class GameLoop {
                 }
             }
             inputHandler.update();
+            profiler.endSection("input");
             return; // Don't process LEVEL mode logic
         } else if (currentGameMode == GameMode.CREDITS_TEXT
                 || currentGameMode == GameMode.CREDITS_DEMO
@@ -400,6 +403,7 @@ public class GameLoop {
                 || currentGameMode == GameMode.ENDING_CUTSCENE) {
             updateEnding();
             inputHandler.update();
+            profiler.endSection("input");
             return;
         }
 
@@ -468,39 +472,17 @@ public class GameLoop {
             // ObjB2 transition parity: freeze gameplay during pending zone-act fade.
             boolean freezeForZoneActTransition = levelManager.isLevelInactiveForTransition();
             if (!freezeForArtViewer && !freezeForSpecialStage && !freezeForZoneActTransition) {
-                // Objects must update BEFORE player physics so SolidContacts sees new positions.
-                // This fixes 1-frame lag on fast-moving platforms (SwingingPlatform, CNZ Elevators).
-                profiler.beginSection("objects");
-                levelManager.updateObjectPositions();
-                profiler.endSection("objects");
-
-                // ROM order: LZWaterFeatures runs before ExecuteObjects (sonic.asm:3043-3044).
-                // Water slides and wind tunnels must set f_slidemode and obInertia before
-                // Sonic_Move executes so the sliding flag is visible to input handling.
-                levelManager.updateZoneFeaturesPrePhysics();
-
-                profiler.beginSection("physics");
-                spriteManager.update(inputHandler);
-                profiler.endSection("physics");
-                if (playbackFrameConsumed) {
-                    playbackDebugManager.onLevelFrameAdvanced();
-                }
-
-                // Dynamic level events update boundary targets (game-specific)
-                LevelEventProvider levelEvents = GameModuleRegistry.getCurrent().getLevelEventProvider();
-                if (levelEvents != null) {
-                    levelEvents.update();
-                }
-
-                profiler.beginSection("camera");
-                // Ease boundaries toward targets at 2px/frame
-                camera.updateBoundaryEasing();
-                camera.updatePosition();
-                profiler.endSection("camera");
-
-                profiler.beginSection("level");
-                levelManager.update();
-                profiler.endSection("level");
+                // Canonical level tick sequence — see LevelFrameStep for ordering rationale.
+                LevelFrameStep.execute(levelManager, camera, () -> {
+                    spriteManager.update(inputHandler);
+                    if (playbackFrameConsumed) {
+                        playbackDebugManager.onLevelFrameAdvanced();
+                    }
+                }, (name, step) -> {
+                    profiler.beginSection(name);
+                    step.run();
+                    profiler.endSection(name);
+                });
 
                 // Check if a checkpoint star requested a special stage
                 if (levelManager.consumeSpecialStageRequest()) {
@@ -1994,26 +1976,48 @@ public class GameLoop {
      * CREDITS_DEMO phase: update provider, run level physics with demo input.
      */
     private void updateEndingCreditsDemo() {
+        boolean shouldAdvanceFrozenScene = endingProvider.shouldAdvanceFrozenDemoScene();
         endingProvider.update();
+        shouldAdvanceFrozenScene = shouldAdvanceFrozenScene || endingProvider.shouldAdvanceFrozenDemoScene();
 
         // Apply demo input to player
         String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         if (mainCode == null) mainCode = "sonic";
         var sprite = spriteManager.getSprite(mainCode);
         if (sprite instanceof AbstractPlayableSprite player) {
+            if (!endingProvider.shouldRunDemoGameplay()) {
+                player.setForcedInputMask(0);
+            } else {
             // ROM does NOT set obj_control during demos — it writes demo input
             // directly to jpadhold1/jpadpress1 (MoveSonicInDemo.asm).
             // Do NOT use controlLocked here: PlayableSpriteMovement re-reads it
             // and would zero out left/right/jump, overriding the forced input.
-            player.setForcedInputMask(endingProvider.getDemoInputMask());
+                player.setForcedInputMask(endingProvider.getDemoInputMask());
+            }
         }
 
-        // Run level physics (objects + player)
-        levelManager.updateObjectPositions();
-        levelManager.updateZoneFeaturesPrePhysics();
-        spriteManager.update(inputHandler);
+        if (!endingProvider.shouldRunDemoGameplay()) {
+            if (shouldAdvanceFrozenScene) {
+                levelManager.updateObjectPositionsWithoutTouches();
+                levelManager.updateEndingDemoScene();
+            }
+            spriteManager.primePlayableVisualState();
 
-        // Level events
+            if (endingProvider.hasTextReturnRequest()) {
+                endingProvider.consumeTextReturnRequest();
+                returnFromEndingDemo();
+            }
+            if (endingProvider.isComplete()) {
+                exitEndingToTitleScreen();
+            }
+            return;
+        }
+
+        // Run level physics — follows LevelFrameStep canonical order (steps 1-4),
+        // but steps 5-6 are conditional on scroll-freeze state during ending fadeout.
+        levelManager.updateZoneFeaturesPrePhysics();
+        levelManager.updateObjectPositions();
+        spriteManager.update(inputHandler);
         LevelEventProvider levelEvents = GameModuleRegistry.getCurrent().getLevelEventProvider();
         if (levelEvents != null) {
             levelEvents.update();
@@ -2165,6 +2169,21 @@ public class GameLoop {
         if (!endingProvider.isLzDemo()) {
             camera.updatePosition(true);
         }
+
+        // Credits demos can override the load-time camera/player position after the level
+        // systems have already seeded object/ring windows. Re-seed them now so the hidden
+        // preroll and fade-in use the correct stream window immediately.
+        if (levelManager.getObjectManager() != null) {
+            levelManager.getObjectManager().reset(camera.getX());
+        }
+        if (levelManager.getRingManager() != null) {
+            levelManager.getRingManager().reset(camera.getX());
+        }
+
+        // Object/ring resets above already seed the visible stream window.
+        // Keep the demo scene static until gameplay begins, but prime the
+        // player's render state so Sonic appears with the other sprites.
+        spriteManager.primePlayableVisualState();
 
         // Suppress player keyboard input — demo input comes from forcedInputMask only
         spriteManager.setInputSuppressed(true);

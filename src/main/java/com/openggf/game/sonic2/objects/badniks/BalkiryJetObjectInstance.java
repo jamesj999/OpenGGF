@@ -11,7 +11,7 @@ import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -108,6 +108,6 @@ public class BalkiryJetObjectInstance extends AbstractObjectInstance {
     @Override
     public void appendDebugRenderCommands(DebugRenderContext ctx) {
         ctx.drawCross(parent.getX(), parent.getY(), 4, 1.0f, 0.5f, 0.0f);
-        ctx.drawWorldLabel(parent.getX(), parent.getY(), -1, "Jet", Color.ORANGE);
+        ctx.drawWorldLabel(parent.getX(), parent.getY(), -1, "Jet", DebugColor.ORANGE);
     }
 }

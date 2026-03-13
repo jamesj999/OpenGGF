@@ -52,9 +52,9 @@ public class TestSonic3kLevelInitProfile {
     public void postTeardownFixupsContainGroundSensorAndAiz() {
         List<StaticFixup> fixups = profile.postTeardownFixups();
 
-        assertEquals(2, fixups.size());
-        assertEquals("WireGroundSensor", fixups.get(0).name());
-        assertEquals("ResetAizSidekickSuppression", fixups.get(1).name());
+        // GroundSensor no longer needs wiring — only game-specific fixups remain
+        assertEquals(1, fixups.size());
+        assertEquals("ResetAizSidekickSuppression", fixups.get(0).name());
     }
 
     @Test

@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.events;
 
-import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.OilSurfaceManager;
 
 /**
@@ -11,8 +10,7 @@ import com.openggf.game.sonic2.OilSurfaceManager;
 public class Sonic2OOZEvents extends Sonic2ZoneEvents {
     private OilSurfaceManager oilManager;
 
-    public Sonic2OOZEvents(Camera camera) {
-        super(camera);
+    public Sonic2OOZEvents() {
     }
 
     @Override
@@ -24,7 +22,7 @@ public class Sonic2OOZEvents extends Sonic2ZoneEvents {
     @Override
     public void update(int act, int frameCounter) {
         if (oilManager != null) {
-            var player = camera.getFocusedSprite();
+            var player = camera().getFocusedSprite();
             if (player != null) {
                 oilManager.update(player);
             }

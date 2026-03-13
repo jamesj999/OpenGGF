@@ -13,7 +13,7 @@ import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -137,6 +137,6 @@ public class CloudObjectInstance extends AbstractObjectInstance {
         ctx.drawCross(currentX, currentY, 4, 0.8f, 0.8f, 1.0f);
         ctx.drawWorldLabel(currentX, currentY, -1,
                 String.format("B3 sub%02X f%d vx%d", spawn.subtype() & 0xFF, mappingFrame, xVelocity),
-                Color.CYAN);
+                DebugColor.CYAN);
     }
 }

@@ -1,7 +1,6 @@
 package com.openggf.game.sonic2.events;
 
 import com.openggf.audio.AudioManager;
-import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
@@ -38,8 +37,7 @@ public class Sonic2CNZEvents extends Sonic2ZoneEvents {
     private int cnzRightWallX = -1;
     private int cnzRightWallY = -1;
 
-    public Sonic2CNZEvents(Camera camera) {
-        super(camera);
+    public Sonic2CNZEvents() {
     }
 
     @Override
@@ -64,22 +62,22 @@ public class Sonic2CNZEvents extends Sonic2ZoneEvents {
         switch (eventRoutine) {
             case 0 -> {
                 // Routine 1 (s2.asm:21500-21517): Wait for camera X >= $27C0
-                if (camera.getX() >= 0x27C0) {
+                if (camera().getX() >= 0x27C0) {
                     // ROM: Set minX to current camera X (prevent backtracking)
-                    camera.setMinX(camera.getX());
+                    camera().setMinX(camera().getX());
                     // ROM: Set maxY TARGET to $62E (initial arena height - allows access to floor)
                     // This gets tightened to $5D0 later in routine 4 once fight starts
-                    camera.setMaxYTarget((short) 0x62E);
-                    setSidekickBounds((int) camera.getX(), null, 0x62E);
+                    camera().setMaxYTarget((short) 0x62E);
+                    setSidekickBounds((int) camera().getX(), null, 0x62E);
                     eventRoutine += 2;
                 }
             }
             case 2 -> {
                 // Routine 2 (s2.asm:21520-21538): Wait for camera X >= $2890, lock arena
-                if (camera.getX() >= 0x2890) {
+                if (camera().getX() >= 0x2890) {
                     // ROM: Lock camera X boundaries for boss arena
-                    camera.setMinX((short) 0x2860);
-                    camera.setMaxX((short) 0x28E0);
+                    camera().setMinX((short) 0x2860);
+                    camera().setMaxX((short) 0x28E0);
                     setSidekickBounds(0x2860, 0x28E0, null);
                     eventRoutine += 2;
                     bossSpawnDelay = 0;
@@ -100,8 +98,8 @@ public class Sonic2CNZEvents extends Sonic2ZoneEvents {
             case 4 -> {
                 // Routine 4 (s2.asm:21541-21558): Lock floor and spawn boss
                 // ROM: Set minY when camera Y reaches $4E0
-                if (camera.getY() >= 0x4E0) {
-                    camera.setMinY((short) 0x4E0);
+                if (camera().getY() >= 0x4E0) {
+                    camera().setMinY((short) 0x4E0);
                 }
                 // ROM: Increment delay every frame, spawn boss at $5A (90) frames
                 bossSpawnDelay++;
@@ -115,12 +113,12 @@ public class Sonic2CNZEvents extends Sonic2ZoneEvents {
             case 6 -> {
                 // Routine 6 (s2.asm:21561-21570): Prevent backtracking during boss fight
                 // ROM: When camera X >= $2A00, adjust camera bounds
-                if (camera.getX() >= 0x2A00) {
-                    camera.setMaxYTarget((short) 0x5D0);
+                if (camera().getX() >= 0x2A00) {
+                    camera().setMaxYTarget((short) 0x5D0);
                     // ROM: move.w (Camera_X_pos).w,(Camera_Min_X_pos).w
-                    short cameraX = camera.getX();
-                    if (cameraX > camera.getMinX()) {
-                        camera.setMinX(cameraX);
+                    short cameraX = camera().getX();
+                    if (cameraX > camera().getMinX()) {
+                        camera().setMinX(cameraX);
                     }
                     syncSidekickBoundsToCamera();
                 }

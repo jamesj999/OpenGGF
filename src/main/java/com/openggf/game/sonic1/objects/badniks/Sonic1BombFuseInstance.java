@@ -11,7 +11,7 @@ import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -156,7 +156,7 @@ public class Sonic1BombFuseInstance extends AbstractObjectInstance {
     public void appendDebugRenderCommands(DebugRenderContext ctx) {
         ctx.drawRect(currentX, currentY, 4, 8, 1f, 0.5f, 0f);
         String label = "Fuse t" + timer;
-        ctx.drawWorldLabel(currentX, currentY, -2, label, Color.ORANGE);
+        ctx.drawWorldLabel(currentX, currentY, -2, label, DebugColor.ORANGE);
     }
 
     @Override

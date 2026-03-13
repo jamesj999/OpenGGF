@@ -14,7 +14,7 @@ import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -101,7 +101,7 @@ public class Sonic1FlamethrowerObjectInstance extends AbstractObjectInstance
     private static final int[] ANIM_LOOP_TARGETS = {9, 5, 9, 5};
 
     /** Debug color (orange for flame). */
-    private static final Color DEBUG_COLOR = new Color(255, 120, 0);
+    private static final DebugColor DEBUG_COLOR = new DebugColor(255, 120, 0);
 
     // ========================================================================
     // Instance State

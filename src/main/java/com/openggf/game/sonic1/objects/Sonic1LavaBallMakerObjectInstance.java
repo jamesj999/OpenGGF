@@ -7,7 +7,7 @@ import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -51,7 +51,7 @@ public class Sonic1LavaBallMakerObjectInstance extends AbstractObjectInstance {
     private static final int[] SPAWN_RATES = {30, 60, 90, 120, 150, 180};
 
     /** Debug rendering color for lava spawner (dark red). */
-    private static final Color DEBUG_COLOR = new Color(200, 50, 0);
+    private static final DebugColor DEBUG_COLOR = new DebugColor(200, 50, 0);
 
     // ========================================================================
     // Instance State

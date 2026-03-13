@@ -325,7 +325,7 @@ public class Sonic1FloatingBlockObjectInstance extends AbstractObjectInstance
             boolean sw = switches.isPressed(fbType);
             label += String.format(" sw%d=%s h=%d", fbType, sw ? "ON" : "OFF", fbHeight);
         }
-        ctx.drawWorldLabel(x, y - halfHeight - 8, 0, label, java.awt.Color.CYAN);
+        ctx.drawWorldLabel(x, y - halfHeight - 8, 0, label, com.openggf.debug.DebugColor.CYAN);
     }
 
     // ========================================

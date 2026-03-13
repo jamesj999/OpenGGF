@@ -17,7 +17,7 @@ import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -368,7 +368,7 @@ public class Sonic1SpinPlatformObjectInstance extends AbstractObjectInstance
         String variant = isSpinner ? "Spin" : "Trap";
         String state = solidActive ? "SOLID" : "OPEN";
         String label = String.format("0x69 %s f%d %s t%d", variant, mappingFrame, state, spinTimer);
-        ctx.drawWorldLabel(getX(), getY() - params.groundHalfHeight() - 8, 0, label, Color.CYAN);
+        ctx.drawWorldLabel(getX(), getY() - params.groundHalfHeight() - 8, 0, label, DebugColor.CYAN);
     }
 
     // ========================================

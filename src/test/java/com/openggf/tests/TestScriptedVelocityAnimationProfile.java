@@ -35,16 +35,19 @@ public class TestScriptedVelocityAnimationProfile {
     }
 
     @Test
-    public void keepsSlideAnimationWhenTransientAirFlagIsSet() {
+    public void usesRollAnimationWhenSlidingAndAirborne() {
+        // ROM: when airborne (e.g. jumping off water slide), the jump/roll mode
+        // overwrites obAnim with id_Roll. Slide animation only applies on ground.
         ScriptedVelocityAnimationProfile profile = createProfile();
         TestSprite sprite = new TestSprite();
         sprite.setSliding(true);
+        sprite.setRolling(true);
         sprite.setAir(true);
         sprite.setGSpeed((short) 0x0800);
 
         Integer animId = profile.resolveAnimationId(sprite, 0, 32);
 
-        assertEquals(13, animId.intValue());
+        assertEquals(3, animId.intValue()); // rollAnimId, not slideAnimId
     }
 
     private static ScriptedVelocityAnimationProfile createProfile() {

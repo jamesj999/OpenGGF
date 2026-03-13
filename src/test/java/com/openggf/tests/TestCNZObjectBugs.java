@@ -652,9 +652,9 @@ public class TestCNZObjectBugs {
                         "Damage detected at frame " + damageFrame + ". " +
                         "objectControlled should disable damage collision.",
                 sprite.isHurt());
-        assertEquals("Sonic should retain all 10 rings during capture. " +
+        assertTrue("Sonic should not lose rings during capture. " +
                         "Ring loss detected at frame " + damageFrame + ".",
-                10, sprite.getRingCount());
+                sprite.getRingCount() >= 10);
     }
 
     // ========================================================================

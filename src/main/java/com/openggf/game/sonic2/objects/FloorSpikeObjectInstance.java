@@ -12,7 +12,7 @@ import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -218,7 +218,7 @@ public class FloorSpikeObjectInstance extends AbstractObjectInstance
         }
         int pxOffset = (offset >> 8) & 0xFF;
         String label = name + " " + state + " ofs=" + pxOffset;
-        ctx.drawWorldLabel(currentX, currentY, -2, label, Color.RED);
+        ctx.drawWorldLabel(currentX, currentY, -2, label, DebugColor.RED);
     }
 
     private void updateDynamicSpawn() {

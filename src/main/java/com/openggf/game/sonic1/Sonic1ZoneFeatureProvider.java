@@ -55,7 +55,7 @@ public class Sonic1ZoneFeatureProvider implements ZoneFeatureProvider {
             // no longer calls WaterSystem.loadForLevelS1() directly.
 
             // Create the water event state machine for dynamic water levels
-            waterEvents = new Sonic1LZWaterEvents(Camera.getInstance());
+            waterEvents = new Sonic1LZWaterEvents();
             if (isSBZ3) {
                 // SBZ3 uses its own event handler but shares the LZ water system.
                 // Init with SBZ zone/act so WaterSystem lookups use the right key.
@@ -130,11 +130,13 @@ public class Sonic1ZoneFeatureProvider implements ZoneFeatureProvider {
             return;
         }
 
-        // 3. Dynamic water level state machine + gradual movement
-        // Progress dynamic water levels (moves current toward target by 1px/frame)
-        WaterSystem.getInstance().update();
+        // 3. Dynamic water level state machine.
+        // Water movement (MoveWater) is handled by LevelManager.update() which calls
+        // WaterSystem.update() once per frame BEFORE this method, matching ROM order
+        // (MoveWater before DynWaterHeight). Do NOT call WaterSystem.update() here
+        // to avoid double movement (2px/frame instead of 1px/frame).
 
-        // Run per-act water event state machine
+        // Run per-act water event state machine (DynWaterHeight — sets next target)
         if (waterEvents != null) {
             if (isSBZ3) {
                 waterEvents.updateSBZ3();

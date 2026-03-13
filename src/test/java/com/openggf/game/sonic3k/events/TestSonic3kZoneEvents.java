@@ -11,7 +11,6 @@ public class TestSonic3kZoneEvents {
         int updateCallCount = 0;
 
         TestableZoneEvents() {
-            super(Camera.getInstance());
         }
 
         @Override

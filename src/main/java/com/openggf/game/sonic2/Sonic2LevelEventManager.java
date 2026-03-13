@@ -56,17 +56,17 @@ public class Sonic2LevelEventManager extends AbstractLevelEventManager {
 
     private Sonic2LevelEventManager() {
         super();
-        ehzEvents = new Sonic2EHZEvents(camera);
-        cpzEvents = new Sonic2CPZEvents(camera);
-        htzEvents = new Sonic2HTZEvents(camera);
-        mczEvents = new Sonic2MCZEvents(camera);
-        arzEvents = new Sonic2ARZEvents(camera);
-        cnzEvents = new Sonic2CNZEvents(camera);
-        oozEvents = new Sonic2OOZEvents(camera);
-        mtzEvents = new Sonic2MTZEvents(camera);
-        wfzEvents = new Sonic2WFZEvents(camera);
-        dezEvents = new Sonic2DEZEvents(camera);
-        sczEvents = new Sonic2SCZEvents(camera);
+        ehzEvents = new Sonic2EHZEvents();
+        cpzEvents = new Sonic2CPZEvents();
+        htzEvents = new Sonic2HTZEvents();
+        mczEvents = new Sonic2MCZEvents();
+        arzEvents = new Sonic2ARZEvents();
+        cnzEvents = new Sonic2CNZEvents();
+        oozEvents = new Sonic2OOZEvents();
+        mtzEvents = new Sonic2MTZEvents();
+        wfzEvents = new Sonic2WFZEvents();
+        dezEvents = new Sonic2DEZEvents();
+        sczEvents = new Sonic2SCZEvents();
     }
 
     // =========================================================================

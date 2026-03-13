@@ -1,7 +1,6 @@
 package com.openggf.game.sonic1.events;
 
 import com.openggf.audio.AudioManager;
-import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.objects.bosses.Sonic1BossBlockInstance;
 import com.openggf.game.sonic1.objects.bosses.Sonic1SYZBossInstance;
@@ -22,8 +21,7 @@ class Sonic1SYZEvents extends Sonic1ZoneEvents {
     private static final int BOSS_SYZ_X = 0x2C00;
     private static final int BOSS_SYZ_Y = 0x4CC;
 
-    Sonic1SYZEvents(Camera camera) {
-        super(camera);
+    Sonic1SYZEvents() {
     }
 
     @Override
@@ -41,25 +39,25 @@ class Sonic1SYZEvents extends Sonic1ZoneEvents {
      * but reverts to 0x520 if player Y >= 0x4D0.
      */
     private void updateAct2() {
-        int camX = camera.getX() & 0xFFFF;
+        int camX = camera().getX() & 0xFFFF;
 
         // v_limitbtm1 = 0x520
-        camera.setMaxYTarget((short) 0x520);
+        camera().setMaxYTarget((short) 0x520);
         if (camX < 0x25A0) {
             return; // locret_71A2
         }
 
         // v_limitbtm1 = 0x420
-        camera.setMaxYTarget((short) 0x420);
+        camera().setMaxYTarget((short) 0x420);
 
         // Check player Y position directly via the focused sprite
-        int playerY = camera.getFocusedSprite().getCentreY() & 0xFFFF;
+        int playerY = camera().getFocusedSprite().getCentreY() & 0xFFFF;
         if (playerY < 0x4D0) {
             return; // locret_71A2
         }
 
         // v_limitbtm1 = 0x520 (revert)
-        camera.setMaxYTarget((short) 0x520);
+        camera().setMaxYTarget((short) 0x520);
         // locret_71A2
     }
 
@@ -82,7 +80,7 @@ class Sonic1SYZEvents extends Sonic1ZoneEvents {
      * ROM: move.w #id_BossBlock,(v_lvlobjspace+$40).w
      */
     private void updateAct3Main() {
-        int camX = camera.getX() & 0xFFFF;
+        int camX = camera().getX() & 0xFFFF;
 
         if (camX < (BOSS_SYZ_X - 0x140)) {
             return; // locret_71CE
@@ -104,14 +102,14 @@ class Sonic1SYZEvents extends Sonic1ZoneEvents {
      * ROM: DLE_SYZ3boss
      */
     private void updateAct3Boss() {
-        int camX = camera.getX() & 0xFFFF;
+        int camX = camera().getX() & 0xFFFF;
 
         if (camX < BOSS_SYZ_X) {
             return; // locret_7200
         }
 
         // v_limitbtm1 = boss_syz_y
-        camera.setMaxYTarget((short) BOSS_SYZ_Y);
+        camera().setMaxYTarget((short) BOSS_SYZ_Y);
 
         // ROM: Spawn boss object
         LevelManager lm = LevelManager.getInstance();
@@ -138,6 +136,6 @@ class Sonic1SYZEvents extends Sonic1ZoneEvents {
      */
     private void updateAct3End() {
         // v_limitleft2 = v_screenposx
-        camera.setMinX(camera.getX());
+        camera().setMinX(camera().getX());
     }
 }

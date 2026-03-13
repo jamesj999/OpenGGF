@@ -276,7 +276,7 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
         if (delayTimer > 0) {
             label += String.format(" t=%d", delayTimer);
         }
-        ctx.drawWorldLabel(x, y - halfHeight - 8, 0, label, java.awt.Color.CYAN);
+        ctx.drawWorldLabel(x, y - halfHeight - 8, 0, label, com.openggf.debug.DebugColor.CYAN);
     }
 
     // ========================================

@@ -19,7 +19,7 @@ import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -902,7 +902,7 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
                 waypoints != null ? waypoints.length : 0,
                 mappingFrame,
                 state);
-        ctx.drawWorldLabel(x, y - SOLID_PARAMS.groundHalfHeight() - 8, 0, label, Color.CYAN);
+        ctx.drawWorldLabel(x, y - SOLID_PARAMS.groundHalfHeight() - 8, 0, label, DebugColor.CYAN);
     }
 
     private void refreshDynamicSpawn() {

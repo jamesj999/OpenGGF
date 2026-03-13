@@ -1,7 +1,6 @@
 package com.openggf.game.sonic2.events;
 
 import com.openggf.audio.AudioManager;
-import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.GameServices;
@@ -21,8 +20,7 @@ import com.openggf.level.objects.ObjectSpawn;
 public class Sonic2MCZEvents extends Sonic2ZoneEvents {
     private Sonic2MCZBossInstance mczBoss;
 
-    public Sonic2MCZEvents(Camera camera) {
-        super(camera);
+    public Sonic2MCZEvents() {
     }
 
     @Override
@@ -43,21 +41,21 @@ public class Sonic2MCZEvents extends Sonic2ZoneEvents {
         switch (eventRoutine) {
             case 0 -> {
                 // Routine 0 (s2.asm LevEvents_MCZ2_Routine1): Wait for camera X >= $2080
-                if (camera.getX() >= 0x2080) {
+                if (camera().getX() >= 0x2080) {
                     // ROM: Set minX to current camera X (prevents backtracking)
-                    camera.setMinX(camera.getX());
+                    camera().setMinX(camera().getX());
                     // ROM: Set maxY TARGET to $5D0
-                    camera.setMaxYTarget((short) 0x5D0);
-                    setSidekickBounds((int) camera.getX(), null, 0x5D0);
+                    camera().setMaxYTarget((short) 0x5D0);
+                    setSidekickBounds((int) camera().getX(), null, 0x5D0);
                     eventRoutine += 2;
                 }
             }
             case 2 -> {
                 // Routine 1 (s2.asm LevEvents_MCZ2_Routine2): Wait for camera X >= $20F0
-                if (camera.getX() >= 0x20F0) {
+                if (camera().getX() >= 0x20F0) {
                     // ROM: Lock camera X boundaries for boss arena
-                    camera.setMinX((short) 0x20F0);
-                    camera.setMaxX((short) 0x20F0);
+                    camera().setMinX((short) 0x20F0);
+                    camera().setMaxX((short) 0x20F0);
                     setSidekickBounds(0x20F0, 0x20F0, null);
                     // Mark boss fight active
                     GameServices.gameState().setCurrentBossId(Sonic2ObjectIds.MCZ_BOSS);
@@ -72,8 +70,8 @@ public class Sonic2MCZEvents extends Sonic2ZoneEvents {
             case 4 -> {
                 // Routine 2 (s2.asm LevEvents_MCZ2_Routine3): Lock floor and spawn boss
                 // ROM: Set minY when camera Y reaches $5C8
-                if (camera.getY() >= 0x5C8) {
-                    camera.setMinY((short) 0x5C8);
+                if (camera().getY() >= 0x5C8) {
+                    camera().setMinY((short) 0x5C8);
                 }
                 // ROM: Increment delay every frame, spawn boss at $5A (90) frames
                 bossSpawnDelay++;
@@ -93,7 +91,7 @@ public class Sonic2MCZEvents extends Sonic2ZoneEvents {
                     }
                 }
                 // ROM: Update minX to camera X (prevent backtracking)
-                camera.setMinX(camera.getX());
+                camera().setMinX(camera().getX());
                 syncSidekickBoundsToCamera();
 
                 if (mczBoss != null && mczBoss.isDefeated()) {

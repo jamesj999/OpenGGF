@@ -1,7 +1,6 @@
 package com.openggf.game.sonic2.events;
 
 import com.openggf.audio.AudioManager;
-import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.GameServices;
@@ -129,8 +128,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
 
     private Sonic2HTZBossInstance htzBoss;
 
-    public Sonic2HTZEvents(Camera camera) {
-        super(camera);
+    public Sonic2HTZEvents() {
     }
 
     @Override
@@ -198,8 +196,8 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
             case 0 -> {
                 // Routine 0: Wait for shake trigger
                 // ROM: LevEvents_HTZ_Routine1 checks Camera_Y >= $400 AND Camera_X >= $1800
-                int cameraX0 = camera.getX();
-                if (camera.getY() >= HTZ1_SHAKE_TRIGGER_Y &&
+                int cameraX0 = camera().getX();
+                if (camera().getY() >= HTZ1_SHAKE_TRIGGER_Y &&
                     cameraX0 >= HTZ1_SHAKE_TRIGGER_X &&
                     cameraX0 < HTZ1_SHAKE_EXIT_X) {
                     // Enable screen shake and initialize earthquake
@@ -217,7 +215,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
                 }
             }
             case 2 -> {
-                int cameraX = camera.getX();
+                int cameraX = camera().getX();
 
                 // ROM: LevEvents_HTZ_Routine2 only updates oscillation in [$1978, $1E00).
                 if (cameraX >= HTZ1_OSCILLATE_START_X && cameraX < HTZ1_SHAKE_DISABLE_X) {
@@ -239,7 +237,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
             case 4 -> {
                 // Routine 3: Post-shake area
                 // Check for re-entry into shake zone
-                if (camera.getX() < HTZ1_SHAKE_EXIT_X) {
+                if (camera().getX() < HTZ1_SHAKE_EXIT_X) {
                     ParallaxManager.getInstance().setHtzScreenShake(true);
                     initHtzEarthquake(HTZ1_LAVA_OFFSET_RISEN, HTZ1_LAVA_OFFSET_SUNKEN, HTZ_BG_X_OFFSET_TOP);
                     eventRoutine -= 2;  // Go back to routine 2
@@ -269,11 +267,11 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
         switch (eventRoutine) {
             case 0 -> {
                 // Routine 0: Wait for shake trigger
-                int cameraX0 = camera.getX();
+                int cameraX0 = camera().getX();
                 if (cameraX0 >= HTZ2_SHAKE_TRIGGER_X && cameraX0 < HTZ2_SHAKE_EXIT_X) {
                     // ROM: Check Y position to determine which earthquake zone
                     // If Camera_Y >= $380, jump to bottom area routines
-                    if (camera.getY() >= HTZ2_Y_ZONE_THRESHOLD) {
+                    if (camera().getY() >= HTZ2_Y_ZONE_THRESHOLD) {
                         // Bottom area
                         ParallaxManager.getInstance().setHtzScreenShake(true);
                         initHtzEarthquake(HTZ2_LAVA_OFFSET_RISEN_BOTTOM, HTZ2_LAVA_OFFSET_SUNKEN,
@@ -288,7 +286,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
                 } else if (cameraX0 >= HTZ2_SHAKE_EXIT_X) {
                     // Already past earthquake zone (e.g. teleported to last checkpoint)
                     // Skip to appropriate post-shake routine based on Y position
-                    if (camera.getY() >= HTZ2_Y_ZONE_THRESHOLD) {
+                    if (camera().getY() >= HTZ2_Y_ZONE_THRESHOLD) {
                         // Bottom zone
                         if (cameraX0 >= HTZ2_BOSS_CUTOFF_X) {
                             eventRoutine = 12;  // Skip to boss prep
@@ -306,7 +304,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
                 }
             }
             case 2 -> {
-                int cameraX = camera.getX();
+                int cameraX = camera().getX();
 
                 // ROM: LevEvents_HTZ2_Routine2 oscillates only in [$1678, $1A00).
                 if (cameraX >= HTZ2_TOP_OSCILLATE_START_X && cameraX < HTZ2_TOP_SHAKE_DISABLE_X) {
@@ -327,7 +325,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
             }
             case 4 -> {
                 // Routine 2: Post-shake (top zone)
-                if (camera.getX() < HTZ2_SHAKE_EXIT_X) {
+                if (camera().getX() < HTZ2_SHAKE_EXIT_X) {
                     ParallaxManager.getInstance().setHtzScreenShake(true);
                     initHtzEarthquake(HTZ2_LAVA_OFFSET_RISEN_TOP, HTZ2_LAVA_OFFSET_SUNKEN, HTZ_BG_X_OFFSET_TOP);
                     eventRoutine -= 2;
@@ -336,7 +334,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
             case 6 -> {
                 // Routine 3: Wait for bottom area shake trigger
                 // This handles re-entry to earthquake zone in bottom area
-                if (camera.getX() >= HTZ2_SHAKE_TRIGGER_X) {
+                if (camera().getX() >= HTZ2_SHAKE_TRIGGER_X) {
                     ParallaxManager.getInstance().setHtzScreenShake(true);
                     initHtzEarthquake(HTZ2_LAVA_OFFSET_RISEN_BOTTOM, HTZ2_LAVA_OFFSET_SUNKEN,
                             HTZ_BG_X_OFFSET_BOTTOM);
@@ -348,7 +346,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
                 }
             }
             case 8 -> {
-                int cameraX = camera.getX();
+                int cameraX = camera().getX();
 
                 // ROM: LevEvents_HTZ2_Routine4 oscillates only in [$15F0, $1AC0).
                 if (cameraX >= HTZ2_BOTTOM_OSCILLATE_START_X && cameraX < HTZ2_BOTTOM_SHAKE_DISABLE_X) {
@@ -369,12 +367,12 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
             }
             case 10 -> {
                 // Routine 5: Post-shake (bottom zone)
-                if (camera.getX() < HTZ2_SHAKE_EXIT_X) {
+                if (camera().getX() < HTZ2_SHAKE_EXIT_X) {
                     ParallaxManager.getInstance().setHtzScreenShake(true);
                     initHtzEarthquake(HTZ2_LAVA_OFFSET_RISEN_BOTTOM, HTZ2_LAVA_OFFSET_SUNKEN,
                             HTZ_BG_X_OFFSET_BOTTOM);
                     eventRoutine -= 2;
-                } else if (camera.getX() >= HTZ2_BOSS_CUTOFF_X) {
+                } else if (camera().getX() >= HTZ2_BOSS_CUTOFF_X) {
                     // Approaching boss area - advance to boss routines
                     exitHtzEarthquakeArea();
                     eventRoutine = 12;
@@ -383,22 +381,22 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
             case 12 -> {
                 // Routine 6: Boss area cutoff (LevEvents_HTZ2_Routine6)
                 // ROM: s2.asm:21197-21206
-                if (camera.getX() >= HTZ2_BOSS_ARENA_TRIGGER_X) {
+                if (camera().getX() >= HTZ2_BOSS_ARENA_TRIGGER_X) {
                     // ROM: Set minX to lock arena left boundary
-                    camera.setMinX(camera.getX());
+                    camera().setMinX(camera().getX());
                     // ROM: Set maxY TARGET to allow boss area access
-                    camera.setMaxYTarget((short) HTZ2_BOSS_ARENA_MAX_Y);
-                    setSidekickBounds((int) camera.getX(), null, HTZ2_BOSS_ARENA_MAX_Y);
+                    camera().setMaxYTarget((short) HTZ2_BOSS_ARENA_MAX_Y);
+                    setSidekickBounds((int) camera().getX(), null, HTZ2_BOSS_ARENA_MAX_Y);
                     eventRoutine += 2;
                 }
             }
             case 14 -> {
                 // Routine 7: Boss arena camera shift (LevEvents_HTZ2_Routine7)
                 // ROM: s2.asm:21222-21238
-                if (camera.getX() >= HTZ2_BOSS_ARENA_LOCK_TRIGGER_X) {
+                if (camera().getX() >= HTZ2_BOSS_ARENA_LOCK_TRIGGER_X) {
                     // ROM: Lock camera X boundaries
-                    camera.setMinX((short) HTZ2_BOSS_ARENA_LEFT);
-                    camera.setMaxX((short) HTZ2_BOSS_ARENA_RIGHT);
+                    camera().setMinX((short) HTZ2_BOSS_ARENA_LEFT);
+                    camera().setMaxX((short) HTZ2_BOSS_ARENA_RIGHT);
                     setSidekickBounds(HTZ2_BOSS_ARENA_LEFT, HTZ2_BOSS_ARENA_RIGHT, null);
                     eventRoutine += 2;
                     bossSpawnDelay = 0;
@@ -412,8 +410,8 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
                 // Routine 8: Boss spawn (LevEvents_HTZ2_Routine8)
                 // ROM: s2.asm:21241-21258
                 // ROM: Lock minY when camera Y reaches boss floor
-                if (camera.getY() >= HTZ2_BOSS_FLOOR_Y) {
-                    camera.setMinY((short) HTZ2_BOSS_FLOOR_Y);
+                if (camera().getY() >= HTZ2_BOSS_FLOOR_Y) {
+                    camera().setMinY((short) HTZ2_BOSS_FLOOR_Y);
                 }
                 // ROM: Increment delay every frame, spawn boss at $5A (90) frames
                 bossSpawnDelay++;
@@ -434,16 +432,16 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
                 }
 
                 // ROM: Camera_Min_X_pos follows Camera_X_pos after boss defeat.
-                short cameraX = camera.getX();
-                camera.setMinX(cameraX);
+                short cameraX = camera().getX();
+                camera().setMinX(cameraX);
 
                 // ROM: once camera reaches $30E0, ease Y bounds up toward $428/$430.
                 if (cameraX >= 0x30E0) {
-                    if (camera.getMinY() >= 0x428) {
-                        camera.setMinY((short) (camera.getMinY() - 2));
+                    if (camera().getMinY() >= 0x428) {
+                        camera().setMinY((short) (camera().getMinY() - 2));
                     }
-                    if (camera.getMaxYTarget() >= 0x430) {
-                        camera.setMaxYTarget((short) (camera.getMaxYTarget() - 2));
+                    if (camera().getMaxYTarget() >= 0x430) {
+                        camera().setMaxYTarget((short) (camera().getMaxYTarget() - 2));
                     }
                 }
             }

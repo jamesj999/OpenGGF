@@ -18,7 +18,7 @@ import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -358,7 +358,7 @@ public class Sonic1MzBrickObjectInstance extends AbstractObjectInstance
             case 4 -> "MZBrick:LANDED";
             default -> String.format("MZBrick:T%d", behaviorType);
         };
-        ctx.drawWorldLabel(x, y, -2, typeLabel, Color.CYAN);
+        ctx.drawWorldLabel(x, y, -2, typeLabel, DebugColor.CYAN);
     }
 
     private void refreshDynamicSpawn() {

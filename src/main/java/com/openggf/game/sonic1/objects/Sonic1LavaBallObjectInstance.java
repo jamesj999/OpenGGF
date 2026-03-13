@@ -17,7 +17,7 @@ import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -129,7 +129,7 @@ public class Sonic1LavaBallObjectInstance extends AbstractObjectInstance
     private static final int SFX_FIREBALL = Sonic1Sfx.AE_UNUSED.id;
 
     /** Debug color for lava ball (bright orange). */
-    private static final Color DEBUG_COLOR = new Color(255, 140, 0);
+    private static final DebugColor DEBUG_COLOR = new DebugColor(255, 140, 0);
 
     // ========================================================================
     // Instance State

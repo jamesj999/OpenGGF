@@ -19,7 +19,7 @@ import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -562,6 +562,6 @@ public class Sonic1RollerBadnikInstance extends AbstractBadnikInstance {
         };
         String invStr = invincible ? " INV" : "";
         String label = name + " " + stateStr + " f" + getMappingFrame() + invStr;
-        ctx.drawWorldLabel(currentX, currentY, -2, label, Color.YELLOW);
+        ctx.drawWorldLabel(currentX, currentY, -2, label, DebugColor.YELLOW);
     }
 }

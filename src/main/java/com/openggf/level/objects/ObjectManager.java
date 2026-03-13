@@ -104,6 +104,11 @@ public class ObjectManager {
     }
 
     public void update(int cameraX, AbstractPlayableSprite player, AbstractPlayableSprite sidekick, int touchFrameCounter) {
+        update(cameraX, player, sidekick, touchFrameCounter, true);
+    }
+
+    public void update(int cameraX, AbstractPlayableSprite player, AbstractPlayableSprite sidekick,
+            int touchFrameCounter, boolean enableTouchResponses) {
         frameCounter++;
         // ROM parity: object execution uses the previously streamed set, and object placement
         // is updated after object execution/render preparation for the next frame.
@@ -156,7 +161,7 @@ public class ObjectManager {
         // Note: solidContacts.update() is now called during SpriteManager.update(),
         // after movement but before animation. This ensures pushing flag is set correctly
         // for both terrain and solid objects before animation resolves.
-        if (touchResponses != null) {
+        if (enableTouchResponses && touchResponses != null) {
             touchResponses.debugState.setEnabled(
                     DebugOverlayManager.getInstance().isEnabled(DebugOverlayToggle.TOUCH_RESPONSE));
             touchResponses.update(player, touchFrameCounter);
@@ -2319,7 +2324,35 @@ public class ObjectManager {
                 return SolidContact.STANDING;
             }
 
-            if (absDistX <= absDistY) {
+            // ROM velocity classification adjustment:
+            // In the ROM, Sonic (slot 0) runs his physics first within
+            // ExecuteObjects — xSpeed is applied to position BEFORE other
+            // objects execute SolidObject checks. Our engine runs objects
+            // before physics, so solid checks see the pre-physics position.
+            // Adjust the side-vs-topbottom classification to account for
+            // the pending X velocity. Only applied when the adjustment
+            // INCREASES absDistX (shifting Side→TopBottom), never when it
+            // decreases it (TopBottom→Side), since we don't compensate
+            // ySpeed/gravity which would offset the decrease in the ROM.
+            int classifyAbsDistX = absDistX;
+            int velocityAdjustX = player.getXSpeed() >> 8;
+            if (velocityAdjustX != 0) {
+                int adjustedRelX = relX + velocityAdjustX;
+                if (adjustedRelX >= 0 && adjustedRelX < halfWidth * 2) {
+                    int adjusted;
+                    if (adjustedRelX >= halfWidth) {
+                        adjusted = (halfWidth * 2) - adjustedRelX;
+                    } else {
+                        adjusted = adjustedRelX;
+                    }
+                    // Only apply when it increases absDistX (Side→TopBottom).
+                    if (adjusted > absDistX) {
+                        classifyAbsDistX = adjusted;
+                    }
+                }
+            }
+
+            if (classifyAbsDistX <= absDistY) {
                 if (instance != null
                         && instance.getSpawn().objectId() == OBJ85_ID
                         && instance.getSpawn().subtype() == 0

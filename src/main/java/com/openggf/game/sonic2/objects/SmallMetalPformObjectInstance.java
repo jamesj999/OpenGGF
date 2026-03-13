@@ -17,7 +17,7 @@ import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -134,7 +134,7 @@ public class SmallMetalPformObjectInstance extends AbstractObjectInstance {
         ctx.drawCross(spawn.x(), spawn.y(), 4, 0.6f, 0.9f, 0.6f);
         ctx.drawWorldLabel(spawn.x(), spawn.y(), -1,
                 String.format("BD spawner sub%02X t%d", spawn.subtype() & 0xFF, spawnTimer),
-                Color.GREEN);
+                DebugColor.GREEN);
     }
 
     // ========================================================================
@@ -419,7 +419,7 @@ public class SmallMetalPformObjectInstance extends AbstractObjectInstance {
             ctx.drawWorldLabel(currentX, currentY, -1,
                     String.format("BD %s f%d t%d yv%d",
                             state.name(), mappingFrame, moveTimer, yVelocity),
-                    Color.GREEN);
+                    DebugColor.GREEN);
         }
 
         private void refreshDynamicSpawn() {

@@ -1,7 +1,6 @@
 package com.openggf.game.sonic1.events;
 
 import com.openggf.audio.AudioManager;
-import com.openggf.camera.Camera;
 import com.openggf.game.sonic1.objects.bosses.Sonic1SLZBossInstance;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.audio.Sonic1Music;
@@ -25,8 +24,7 @@ class Sonic1SLZEvents extends Sonic1ZoneEvents {
     private static final int BOSS_SLZ_X = 0x2000;
     private static final int BOSS_SLZ_Y = 0x210;
 
-    Sonic1SLZEvents(Camera camera) {
-        super(camera);
+    Sonic1SLZEvents() {
     }
 
     @Override
@@ -55,14 +53,14 @@ class Sonic1SLZEvents extends Sonic1ZoneEvents {
      * sets bottom boundary to boss_slz_y and advances to boss phase.
      */
     private void updateAct3Main() {
-        int camX = camera.getX() & 0xFFFF;
+        int camX = camera().getX() & 0xFFFF;
 
         if (camX < (BOSS_SLZ_X - 0x190)) {
             return; // locret_7130
         }
 
         // v_limitbtm1 = boss_slz_y
-        camera.setMaxYTarget((short) BOSS_SLZ_Y);
+        camera().setMaxYTarget((short) BOSS_SLZ_Y);
         eventRoutine += 2; // advance to DLE_SLZ3boss
     }
 
@@ -74,7 +72,7 @@ class Sonic1SLZEvents extends Sonic1ZoneEvents {
      * f_lockscreen = 1, AddPLC plcid_Boss.
      */
     private void updateAct3Boss() {
-        int camX = camera.getX() & 0xFFFF;
+        int camX = camera().getX() & 0xFFFF;
 
         if (camX < BOSS_SLZ_X) {
             return; // locret_715C
@@ -107,6 +105,6 @@ class Sonic1SLZEvents extends Sonic1ZoneEvents {
      */
     private void updateAct3End() {
         // v_limitleft2 = v_screenposx
-        camera.setMinX(camera.getX());
+        camera().setMinX(camera().getX());
     }
 }

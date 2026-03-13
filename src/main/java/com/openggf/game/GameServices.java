@@ -5,34 +5,24 @@ import com.openggf.debug.DebugOverlayManager;
 import com.openggf.timer.TimerManager;
 
 public final class GameServices {
-    private static final GameServices INSTANCE = new GameServices();
-
-    private final GameStateManager gameStateManager = GameStateManager.getInstance();
-    private final TimerManager timerManager = TimerManager.getInstance();
-    private final RomManager romManager = RomManager.getInstance();
-    private final DebugOverlayManager debugOverlayManager = DebugOverlayManager.getInstance();
 
     private GameServices() {
     }
 
-    public static GameServices getInstance() {
-        return INSTANCE;
-    }
-
     public static GameStateManager gameState() {
-        return INSTANCE.gameStateManager;
+        return GameStateManager.getInstance();
     }
 
     public static TimerManager timers() {
-        return INSTANCE.timerManager;
+        return TimerManager.getInstance();
     }
 
     public static RomManager rom() {
-        return INSTANCE.romManager;
+        return RomManager.getInstance();
     }
 
     public static DebugOverlayManager debugOverlay() {
-        return INSTANCE.debugOverlayManager;
+        return DebugOverlayManager.getInstance();
     }
 }
 

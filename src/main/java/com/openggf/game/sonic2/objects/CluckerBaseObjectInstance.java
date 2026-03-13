@@ -15,7 +15,7 @@ import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -86,6 +86,6 @@ public class CluckerBaseObjectInstance extends AbstractObjectInstance
     @Override
     public void appendDebugRenderCommands(DebugRenderContext ctx) {
         ctx.drawRect(spawn.x(), spawn.y(), SOLID_HALF_WIDTH, SOLID_TOP_HEIGHT, 0.5f, 0.5f, 1f);
-        ctx.drawWorldLabel(spawn.x(), spawn.y(), -2, "CluckerBase", Color.CYAN);
+        ctx.drawWorldLabel(spawn.x(), spawn.y(), -2, "CluckerBase", DebugColor.CYAN);
     }
 }

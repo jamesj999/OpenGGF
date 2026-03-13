@@ -22,7 +22,7 @@ import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -467,7 +467,7 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
                 String.format("CFloor r%d d=%d %s",
                         routine, collapseDelay,
                         collapseFlag ? "COLLAPSE" : ""),
-                Color.ORANGE);
+                DebugColor.ORANGE);
     }
 
     @Override

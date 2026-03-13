@@ -90,6 +90,12 @@ public class TestS1SpikeDoubleHit {
         // The spike is at Y=496. Sonic needs to reach ~Y=496+16+yRadius = ~531 from below.
         // Distance: groundY - 531. Speed needed: varies by distance.
         // Use a moderate speed so Sonic reaches the spike near apex.
+        // Re-align X to spike column — settling drifts Sonic sideways on the slope,
+        // and different X positions have different ceiling geometry above.
+        // Also zero horizontal speed so Sonic goes straight up into the spike.
+        sprite.setCentreX((short) 5560);
+        sprite.setXSpeed((short) 0);
+        sprite.setGSpeed((short) 0);
         sprite.setAir(true);
         sprite.setYSpeed((short) -1440);
 

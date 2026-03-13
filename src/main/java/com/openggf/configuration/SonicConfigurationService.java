@@ -22,12 +22,25 @@ public class SonicConfigurationService {
 		ObjectMapper mapper = new ObjectMapper();
 		TypeReference<Map<String, Object>> type = new TypeReference<>(){};
 
-		File file = resolveRelativeFile("config.json");
-		if (file.exists()) {
-			try {
-				config = mapper.readValue(file, type);
-			} catch (IOException e) {
-				System.err.println("Failed to load config.json from working directory: " + e.getMessage());
+		if (System.getProperty("org.graalvm.nativeimage.imagecode") != null) {
+			// Native image: look for config.json next to the executable binary
+			File execConfig = findConfigNextToExecutable();
+			if (execConfig != null && execConfig.exists()) {
+				try {
+					config = mapper.readValue(execConfig, type);
+				} catch (IOException e) {
+					System.err.println("Failed to load config.json from executable directory: " + e.getMessage());
+				}
+			}
+		} else {
+			// JAR mode: look for config.json in the working directory
+			File file = resolveRelativeFile("config.json");
+			if (file.exists()) {
+				try {
+					config = mapper.readValue(file, type);
+				} catch (IOException e) {
+					System.err.println("Failed to load config.json from working directory: " + e.getMessage());
+				}
 			}
 		}
 
@@ -132,8 +145,15 @@ public class SonicConfigurationService {
 
 	public void saveConfig() {
 		ObjectMapper mapper = new ObjectMapper();
+		File target;
+		if (System.getProperty("org.graalvm.nativeimage.imagecode") != null) {
+			File execConfig = findConfigNextToExecutable();
+			target = (execConfig != null) ? execConfig : resolveRelativeFile("config.json");
+		} else {
+			target = resolveRelativeFile("config.json");
+		}
 		try {
-			mapper.writerWithDefaultPrettyPrinter().writeValue(resolveRelativeFile("config.json"), config);
+			mapper.writerWithDefaultPrettyPrinter().writeValue(target, config);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -229,6 +249,24 @@ public class SonicConfigurationService {
 			config = new HashMap<>();
 		}
 		config.putIfAbsent(key.name(), value);
+	}
+
+	/**
+	 * Finds config.json next to the native image executable binary.
+	 * Uses ProcessHandle to determine the executable path.
+	 */
+	private static File findConfigNextToExecutable() {
+		try {
+			String cmd = ProcessHandle.current().info().command().orElse("");
+			if (!cmd.isEmpty()) {
+				File execDir = new File(cmd).getParentFile();
+				if (execDir != null) {
+					return new File(execDir, "config.json");
+				}
+			}
+		} catch (Exception ignored) {
+		}
+		return null;
 	}
 
 	/**

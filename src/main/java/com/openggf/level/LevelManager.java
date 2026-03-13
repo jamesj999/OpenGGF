@@ -904,6 +904,22 @@ public class LevelManager {
     }
 
     /**
+     * Advances object streaming/execution without any touch responses.
+     * Used by non-interactive ending demo preroll phases so objects can become
+     * visible and animate without hurting/collecting from the frozen player.
+     */
+    public void updateObjectPositionsWithoutTouches() {
+        OscillationManager.update(frameCounter);
+
+        if (objectManager != null) {
+            Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+            AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
+            AbstractPlayableSprite sidekick = spriteManager.getSidekick();
+            objectManager.update(Camera.getInstance().getX(), playable, sidekick, frameCounter + 1, false);
+        }
+    }
+
+    /**
      * Runs pre-physics zone feature updates (e.g., LZ water slides and wind tunnels).
      *
      * <p>ROM order: {@code LZWaterFeatures} runs before {@code ExecuteObjects},
@@ -940,7 +956,20 @@ public class LevelManager {
                 ringManager.updateLostRings(sidekick, frameCounter + 1);
             }
         }
-        // Update zone-specific features (CNZ bumpers, etc.)
+        // Water movement — ROM order: MoveWater (move toward target) runs BEFORE
+        // DynWaterHeight (zone features set new target for next frame).
+        // Use effective feature zone/act so S1 SBZ3 (loaded from LZ act 4 slot)
+        // resolves to SBZ3 water behavior while retaining LZ tile/object resources.
+        WaterSystem waterSystem = WaterSystem.getInstance();
+        int featureZone = getFeatureZoneId();
+        int featureAct = getFeatureActId();
+        if (level != null && waterSystem.hasWater(featureZone, featureAct)) {
+            Camera camera = Camera.getInstance();
+            waterSystem.updateDynamic(featureZone, featureAct, camera.getX(), camera.getY());
+            waterSystem.update();
+        }
+
+        // Update zone-specific features (CNZ bumpers, S1 DynWaterHeight, etc.)
         if (zoneFeatureProvider != null && level != null) {
             zoneFeatureProvider.update(playable, Camera.getInstance().getX(), getFeatureZoneId());
         }
@@ -953,23 +982,42 @@ public class LevelManager {
             }
         }
 
-        // Update water state for player.
-        // Use effective feature zone/act so S1 SBZ3 (loaded from LZ act 4 slot)
-        // resolves to SBZ3 water behavior while retaining LZ tile/object resources.
+        // Update player water state after both water movement and zone features.
+        if (level != null && waterSystem.hasWater(featureZone, featureAct) && playable != null) {
+            int waterY = waterSystem.getVisualWaterLevelY(featureZone, featureAct);
+            playable.updateWaterState(waterY);
+        }
+    }
+
+    /**
+     * Advances non-player scene systems for ending-demo preroll phases.
+     * Keeps water and zone features in sync while player physics/input are frozen.
+     */
+    public void updateEndingDemoScene() {
+        Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+        AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
+
+        if (ringManager != null) {
+            ringManager.update(Camera.getInstance().getX(), null, frameCounter + 1);
+        }
+
+        // Water movement before zone features (ROM order: MoveWater before DynWaterHeight)
         WaterSystem waterSystem = WaterSystem.getInstance();
         int featureZone = getFeatureZoneId();
         int featureAct = getFeatureActId();
         if (level != null && waterSystem.hasWater(featureZone, featureAct)) {
-            // Dispatch dynamic water handlers (S3K HCZ/LBZ/AIZ2, S2 CPZ2, etc.)
-            // Handlers run first (set targets), then movement applies — matching ROM order.
             Camera camera = Camera.getInstance();
             waterSystem.updateDynamic(featureZone, featureAct, camera.getX(), camera.getY());
             waterSystem.update();
+        }
 
-            if (playable != null) {
-                int waterY = waterSystem.getVisualWaterLevelY(featureZone, featureAct);
-                playable.updateWaterState(waterY);
-            }
+        if (zoneFeatureProvider != null && level != null) {
+            zoneFeatureProvider.update(playable, Camera.getInstance().getX(), getFeatureZoneId());
+        }
+
+        if (level != null && waterSystem.hasWater(featureZone, featureAct) && playable != null) {
+            int waterY = waterSystem.getVisualWaterLevelY(featureZone, featureAct);
+            playable.updateWaterState(waterY);
         }
     }
 
@@ -1370,10 +1418,14 @@ public class LevelManager {
      * This is currently for debugging purposes to visualize collision areas.
      */
     public void draw() {
-        drawWithSpritePriority(null);
+        drawWithSpritePriority(null, true);
     }
 
     public void drawWithSpritePriority(SpriteManager spriteManager) {
+        drawWithSpritePriority(spriteManager, true);
+    }
+
+    public void drawWithSpritePriority(SpriteManager spriteManager, boolean includeSpritePass) {
         if (level == null) {
             LOGGER.warning("No level loaded to draw.");
             return;
@@ -1467,54 +1519,14 @@ public class LevelManager {
         // Draw Foreground (Layer 0) high-priority pass to screen
         enqueueForegroundTilemapPass(camera, 1);
 
-        // Render ALL sprites in unified bucket order (7→0)
-        // Sprite-to-sprite ordering is by bucket number regardless of isHighPriority
-        // The sprite priority shader composites sprites with tile priority awareness
-        profiler.beginSection("render.sprites");
-
-        // Enable sprite priority shader mode for ROM-accurate sprite-to-tile layering
-        graphicsManager.setUseSpritePriorityShader(true);
-        graphicsManager.setCurrentSpriteHighPriority(false);
-        graphicsManager.beginPatternBatch();
-
-        if (ringManager != null) {
-            ringManager.draw(frameCounter);
-            ringManager.drawLostRings(frameCounter);
+        if (includeSpritePass) {
+            renderSpriteObjectPass(spriteManager, true);
+            DebugObjectArtViewer.getInstance().draw(objectRenderManager, camera);
+        } else {
+            // No sprite/object pass this frame; restore the default shader state for
+            // any later screen-space rendering after the level tiles.
+            graphicsManager.registerCommand(disableWaterShaderCommand);
         }
-
-        for (int bucket = RenderPriority.MAX; bucket >= RenderPriority.MIN; bucket--) {
-            if (spriteManager != null) {
-                spriteManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
-            }
-            if (objectManager != null) {
-                objectManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
-            }
-        }
-        graphicsManager.flushPatternBatch();
-
-        // Disable sprite priority shader mode after sprite rendering
-        graphicsManager.setUseSpritePriorityShader(false);
-        profiler.endSection("render.sprites");
-
-        // Disable shimmer distortion for water surface sprites - they should render
-        // without horizontal distortion (matching original hardware behavior where the
-        // water surface object is not affected by per-scanline scroll offsets).
-        // Keep the water shader active for palette swap (underwater palette below waterline).
-        graphicsManager.registerCommand(disableShimmerCommand);
-
-        // Draw water surface sprites at the water line
-        // Rendered last (after all sprites and tiles) so it appears in front of everything
-        if (zoneFeatureProvider != null) {
-            zoneFeatureProvider.render(camera, frameCounter);
-        }
-
-        DebugObjectArtViewer.getInstance().draw(objectRenderManager, camera);
-
-        // Revert to default shader for HUD rendering to avoid distortion
-        // IMPORTANT: Must be queued as a command so it executes AFTER pattern batches
-        // Also reset PatternRenderCommand state so next pattern will reinitialize with
-        // the default shader
-        graphicsManager.registerCommand(disableWaterShaderCommand);
 
         profiler.beginSection("render.hud");
         if (hudRenderManager != null && !isHudSuppressed()) {
@@ -1904,6 +1916,51 @@ public class LevelManager {
             pendingBgPerLineScroll = perLineScrollActive;
             graphicsManager.registerCommand(bgRenderWithScrollCommand);
         }
+    }
+
+    /**
+     * Renders the shared sprite/object gameplay pass used after tile rendering.
+     * This can also be called separately after a full-screen fade to keep
+     * sprites/objects visible while the level tiles remain hidden.
+     */
+    public void renderSpriteObjectPass(SpriteManager spriteManager, boolean includeWaterSurface) {
+        Camera camera = Camera.getInstance();
+
+        // Render ALL sprites in unified bucket order (7→0)
+        // Sprite-to-sprite ordering is by bucket number regardless of isHighPriority
+        // The sprite priority shader composites sprites with tile priority awareness
+        profiler.beginSection("render.sprites");
+
+        graphicsManager.setUseSpritePriorityShader(true);
+        graphicsManager.setCurrentSpriteHighPriority(false);
+        graphicsManager.beginPatternBatch();
+
+        if (ringManager != null) {
+            ringManager.draw(frameCounter);
+            ringManager.drawLostRings(frameCounter);
+        }
+
+        for (int bucket = RenderPriority.MAX; bucket >= RenderPriority.MIN; bucket--) {
+            if (spriteManager != null) {
+                spriteManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
+            }
+            if (objectManager != null) {
+                objectManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
+            }
+        }
+        graphicsManager.flushPatternBatch();
+        graphicsManager.setUseSpritePriorityShader(false);
+        profiler.endSection("render.sprites");
+
+        if (includeWaterSurface) {
+            graphicsManager.registerCommand(disableShimmerCommand);
+            if (zoneFeatureProvider != null) {
+                zoneFeatureProvider.render(camera, frameCounter);
+            }
+        }
+
+        // Revert to default shader for any following HUD/debug/screen-space rendering.
+        graphicsManager.registerCommand(disableWaterShaderCommand);
     }
 
     /**
@@ -4390,6 +4447,9 @@ public class LevelManager {
         nextZoneRequested = false;
         specificZoneActRequested = false;
         seamlessTransitionRequested = false;
+        creditsRequested = false;
+        forceHudSuppressed = false;
+        suppressNextMusicChange = false;
         verticalWrapEnabled = false;
         levelInactiveForTransition = false;
         requestedZone = -1;

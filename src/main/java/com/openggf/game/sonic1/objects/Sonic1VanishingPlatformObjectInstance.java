@@ -15,7 +15,7 @@ import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -316,7 +316,7 @@ public class Sonic1VanishingPlatformObjectInstance extends AbstractObjectInstanc
         ctx.drawWorldLabel(getX(), getY() - HALF_HEIGHT - 8, 0,
                 String.format("VP r%d %s f%d t%d sub=%02X",
                         routine, stateLabel, currentFrame, timer, spawn.subtype() & 0xFF),
-                Color.CYAN);
+                DebugColor.CYAN);
     }
 
     // ---- Persistence ----

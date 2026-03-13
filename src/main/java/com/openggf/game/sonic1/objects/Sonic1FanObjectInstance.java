@@ -11,7 +11,7 @@ import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -317,7 +317,7 @@ public class Sonic1FanObjectInstance extends AbstractObjectInstance {
         ctx.drawWorldLabel(spawn.x(), spawn.y(), -1,
                 String.format("Fan %s%s %s f=%d t=%d sub=%02X",
                         dir, rev, state, animFrameIndex, fanTimer, spawn.subtype()),
-                Color.CYAN);
+                DebugColor.CYAN);
 
         // Draw wind range rectangle (uses drawRect with centre + half-extents)
         int rangeCentreX;

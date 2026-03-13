@@ -47,7 +47,22 @@ public class CollisionSystem {
         return instance;
     }
 
-    /** Reset singleton for testing */
+    /**
+     * Resets mutable state without destroying the singleton instance.
+     * Preferred over {@link #resetInstance()} — cached references remain valid.
+     */
+    public void resetState() {
+        objectManager = null;
+        trace = NoOpCollisionTrace.INSTANCE;
+        unifiedPipelineEnabled = false;
+        shadowModeEnabled = false;
+    }
+
+    /**
+     * @deprecated Use {@link #resetState()} instead to avoid invalidating
+     *             cached references held by other classes.
+     */
+    @Deprecated
     public static synchronized void resetInstance() {
         instance = null;
     }

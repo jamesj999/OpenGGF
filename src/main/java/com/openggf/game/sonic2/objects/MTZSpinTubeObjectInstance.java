@@ -18,7 +18,7 @@ import com.openggf.sprites.animation.SpriteAnimationSet;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -566,7 +566,7 @@ public class MTZSpinTubeObjectInstance extends AbstractObjectInstance {
         boolean rev = (spawn.subtype() & 0x80) != 0;
         ctx.drawWorldLabel(objX, objY, -1,
                 String.format("67 p%d%s s%d", pathIdx, rev ? "R" : "", mainState),
-                Color.CYAN);
+                DebugColor.CYAN);
     }
 
     @Override

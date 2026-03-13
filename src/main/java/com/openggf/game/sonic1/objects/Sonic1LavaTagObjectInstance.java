@@ -8,7 +8,7 @@ import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -79,7 +79,7 @@ public class Sonic1LavaTagObjectInstance extends AbstractObjectInstance implemen
     };
 
     /** Debug rendering color for lava/fire hazard (orange). */
-    private static final Color DEBUG_COLOR = new Color(255, 102, 0);
+    private static final DebugColor DEBUG_COLOR = new DebugColor(255, 102, 0);
 
     // ========================================================================
     // Instance State

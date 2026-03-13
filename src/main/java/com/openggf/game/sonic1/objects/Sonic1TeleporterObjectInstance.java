@@ -11,7 +11,7 @@ import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.awt.Color;
+import com.openggf.debug.DebugColor;
 import java.util.List;
 
 /**
@@ -639,6 +639,6 @@ public class Sonic1TeleporterObjectInstance extends AbstractObjectInstance {
 
         String stateStr = String.format("Tele t%d r=%s wp=%d/%d",
                 subtype, routine, waypointIndex, waypointLimit);
-        ctx.drawWorldLabel(x, y, -2, stateStr, Color.MAGENTA);
+        ctx.drawWorldLabel(x, y, -2, stateStr, DebugColor.MAGENTA);
     }
 }

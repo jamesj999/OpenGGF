@@ -1,5 +1,6 @@
 package com.openggf;
 
+import com.openggf.game.*;
 import com.openggf.graphics.*;
 import org.lwjgl.glfw.*;
 import org.lwjgl.opengl.*;
@@ -15,22 +16,12 @@ import com.openggf.debug.DebugOption;
 import com.openggf.debug.DebugRenderer;
 import com.openggf.debug.PerformanceProfiler;
 import com.openggf.debug.DebugState;
-import com.openggf.game.SpecialStageDebugProvider;
-import com.openggf.game.SpecialStageProvider;
 import com.openggf.level.LevelManager;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.sprites.playable.Tails;
 import com.openggf.sprites.playable.TailsCpuController;
-import com.openggf.game.EndingProvider;
-import com.openggf.game.GameMode;
-import com.openggf.game.LevelSelectProvider;
-import com.openggf.game.MasterTitleScreen;
-import com.openggf.game.TitleCardProvider;
-import com.openggf.game.TitleScreenProvider;
-import com.openggf.game.CrossGameFeatureProvider;
-import com.openggf.game.GameModuleRegistry;
 import com.openggf.debug.playback.PlaybackDebugManager;
 
 import java.io.IOException;
@@ -290,6 +281,9 @@ public class Engine {
 		// Create input handler and set it
 		inputHandler = new InputHandler();
 		setInputHandler(inputHandler);
+
+		// Set window handle for clipboard operations (GLFW-based, no AWT dependency)
+		GameServices.debugOverlay().setWindowHandle(window);
 
 		// Initial reshape and snap to integer scale (handles DPI-scaled framebuffer)
 		try (MemoryStack stack = stackPush()) {
@@ -639,6 +633,13 @@ public class Engine {
 		if (uiPipeline != null) {
 			uiPipeline.renderFadePass();
 		}
+		if (getCurrentGameMode() == GameMode.CREDITS_DEMO) {
+			EndingProvider provider = gameLoop.getEndingProvider();
+			if (provider != null && provider.shouldRenderDemoSpritesOverFade()) {
+				levelManager.renderSpriteObjectPass(spriteManager, true);
+				graphicsManager.flush();
+			}
+		}
 
 		boolean playbackHud = PlaybackDebugManager.getInstance().isHudVisible();
 		boolean needsOverlay = (getCurrentGameMode() == GameMode.SPECIAL_STAGE) ||
@@ -670,12 +671,10 @@ public class Engine {
 		// F12 screenshot capture (after all rendering is complete)
 		if (inputHandler != null && inputHandler.isKeyPressed(GLFW_KEY_F12)) {
 			try {
-				java.awt.image.BufferedImage screenshot = ScreenshotCapture.captureFramebuffer(
-						viewportWidth, viewportHeight);
 				String timestamp = java.time.LocalDateTime.now()
 						.format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
 				java.nio.file.Path path = java.nio.file.Path.of("screenshot_" + timestamp + ".png");
-				ScreenshotCapture.savePNG(screenshot, path);
+				ScreenshotCapture.captureAndSavePNG(viewportWidth, viewportHeight, path);
 				LOGGER.info("Screenshot saved: " + path);
 			} catch (Exception e) {
 				LOGGER.warning("Screenshot failed: " + e.getMessage());
@@ -787,8 +786,12 @@ public class Engine {
 				provider.draw();
 			}
 		} else if (getCurrentGameMode() == GameMode.CREDITS_DEMO) {
-			// Normal level rendering (HUD suppressed via zone feature provider)
-			levelManager.drawWithSpritePriority(spriteManager);
+			// Sonic 1 credits demo fade-in keeps sprites/objects visible while the
+			// tile planes are still under the black fade. Render only the tile side
+			// here and replay the sprite/object pass after the fade overlay.
+			EndingProvider provider = gameLoop.getEndingProvider();
+			boolean includeSprites = provider == null || !provider.shouldRenderDemoSpritesOverFade();
+			levelManager.drawWithSpritePriority(spriteManager, includeSprites);
 		} else if (getCurrentGameMode() == GameMode.TRY_AGAIN_END) {
 			// TRY AGAIN / END / post-credits screen: screen-space rendering
 			camera.setX((short) 0);
