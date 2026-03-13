@@ -186,31 +186,14 @@ public class Sonic3kObjectArt {
     }
 
     /**
-     * Builds the Animated Still Sprites sheet used by AIZ ride-vine negative subtype.
+     * Builds the Animated Still Sprites sheet used by AIZ (firefly + leaf animations).
      *
      * <p>Disassembly reference:
      * Map_AnimatedStillSprites / Ani_AnimatedStillSprites (sonic3k.asm:60424+).
-     * Obj_AIZRideVine still path uses art_tile = make_art_tile(ArtTile_AIZMisc2,3,0)
-     * and anim script index 1 (frames 5-8).
+     * art_tile = make_art_tile(ArtTile_AIZMisc2,3,0). Frames 0-8.
      */
     public ObjectSpriteSheet buildAnimatedStillSpritesSheet() {
-        List<SpriteMappingFrame> frames = new ArrayList<>(9);
-        frames.add(singlePieceFrame(-8, -12, 3, 2, 0x0EA, false)); // frame 0
-        frames.add(singlePieceFrame(-8, -12, 3, 2, 0x0F0, false)); // frame 1
-        frames.add(singlePieceFrame(-8, -12, 3, 2, 0x0F6, false)); // frame 2
-        frames.add(singlePieceFrame(-8, -12, 3, 2, 0x0FC, false)); // frame 3
-        frames.add(singlePieceFrame(-8, -12, 3, 2, 0x0F0, true));  // frame 4
-        frames.add(singlePieceFrame(-8, -16, 4, 2, 0x102, false)); // frame 5
-        frames.add(singlePieceFrame(-8, -16, 4, 2, 0x10A, false)); // frame 6
-        frames.add(singlePieceFrame(-8, -16, 4, 2, 0x112, false)); // frame 7
-        frames.add(singlePieceFrame(-8, -16, 4, 2, 0x11A, false)); // frame 8
-
-        return buildLevelArtSheet(
-                Sonic3kConstants.ARTTILE_AIZ_MISC2,
-                3,
-                frames,
-                0x0EA,
-                0x122);
+        return buildAnimStillSheet(Sonic3kConstants.ARTTILE_AIZ_MISC2, 3, 0, 8);
     }
 
     /**
@@ -404,6 +387,96 @@ public class Sonic3kObjectArt {
         // art_tile base = 0x333, palette = 2
         // Tile range: 0x64 to 0x9C (exclusive) = 56 patterns
         return buildLevelArtSheet(Sonic3kConstants.ARTTILE_AIZ_MISC1, 2, frames, 0x64, 0x9C);
+    }
+
+    /**
+     * Builds a sprite sheet from ROM mappings, selecting only specific frame indices.
+     * Used for StillSprite/AnimatedStillSprite where each zone group uses a subset of
+     * the shared mapping table.
+     *
+     * @param mappingAddr    ROM address of the S3K mapping table
+     * @param artTileBase    the art_tile base index (VRAM tile destination)
+     * @param sheetPalette   the sheet palette line (0-3)
+     * @param frameIndices   which mapping frames to include in the sheet
+     * @return the sprite sheet, or null if unavailable
+     */
+    public ObjectSpriteSheet buildLevelArtSheetFromRomFiltered(int mappingAddr,
+            int artTileBase, int sheetPalette, int[] frameIndices) {
+        if (reader == null || frameIndices == null || frameIndices.length == 0) return null;
+        List<SpriteMappingFrame> allFrames = S3kSpriteDataLoader.loadMappingFrames(reader, mappingAddr);
+        if (allFrames.isEmpty()) return null;
+
+        List<SpriteMappingFrame> selected = new ArrayList<>(frameIndices.length);
+        for (int idx : frameIndices) {
+            if (idx >= 0 && idx < allFrames.size()) {
+                selected.add(allFrames.get(idx));
+            }
+        }
+        if (selected.isEmpty()) return null;
+
+        int minTile = Integer.MAX_VALUE;
+        int maxTile = Integer.MIN_VALUE;
+        for (SpriteMappingFrame frame : selected) {
+            for (SpriteMappingPiece piece : frame.pieces()) {
+                minTile = Math.min(minTile, piece.tileIndex());
+                int pieceTiles = piece.widthTiles() * piece.heightTiles();
+                maxTile = Math.max(maxTile, piece.tileIndex() + pieceTiles);
+            }
+        }
+        if (minTile == Integer.MAX_VALUE) return null;
+
+        return buildLevelArtSheet(artTileBase, sheetPalette, selected, minTile, maxTile);
+    }
+
+    /**
+     * Builds AnimatedStillSprite sheet for LRZ subtype 2 (ceiling rock flicker).
+     * art_tile = $0D3, palette 2. Animation frames 9-10.
+     */
+    public ObjectSpriteSheet buildAnimStillLrzD3Sheet() {
+        return buildAnimStillSheet(0x00D3, 2, 9, 10);
+    }
+
+    /**
+     * Builds AnimatedStillSprite sheet for LRZ2 subtype 3 (torch flame).
+     * art_tile = LRZ2Misc ($040D), palette 1. Animation frames 11-13.
+     */
+    public ObjectSpriteSheet buildAnimStillLrz2Sheet() {
+        return buildAnimStillSheet(Sonic3kConstants.ARTTILE_LRZ2_MISC, 1, 11, 13);
+    }
+
+    /**
+     * Builds AnimatedStillSprite sheet for SOZ subtypes 4-7 (torches).
+     * art_tile = SOZMisc+$46 ($040F), palette 2. Animation frames 14-29.
+     */
+    public ObjectSpriteSheet buildAnimStillSozSheet() {
+        return buildAnimStillSheet(Sonic3kConstants.ARTTILE_SOZ_MISC + 0x46, 2, 14, 29);
+    }
+
+    private ObjectSpriteSheet buildAnimStillSheet(int artTileBase, int palette,
+            int firstFrame, int lastFrame) {
+        if (reader == null) return null;
+        List<SpriteMappingFrame> allFrames = S3kSpriteDataLoader.loadMappingFrames(
+                reader, Sonic3kConstants.MAP_ANIMATED_STILL_SPRITES_ADDR);
+        if (allFrames.isEmpty()) return null;
+
+        List<SpriteMappingFrame> selected = new ArrayList<>();
+        for (int i = firstFrame; i <= lastFrame && i < allFrames.size(); i++) {
+            selected.add(allFrames.get(i));
+        }
+        if (selected.isEmpty()) return null;
+
+        int minTile = Integer.MAX_VALUE;
+        int maxTile = Integer.MIN_VALUE;
+        for (SpriteMappingFrame frame : selected) {
+            for (SpriteMappingPiece piece : frame.pieces()) {
+                minTile = Math.min(minTile, piece.tileIndex());
+                int pieceTiles = piece.widthTiles() * piece.heightTiles();
+                maxTile = Math.max(maxTile, piece.tileIndex() + pieceTiles);
+            }
+        }
+        if (minTile == Integer.MAX_VALUE) return null;
+
+        return buildLevelArtSheet(artTileBase, palette, selected, minTile, maxTile);
     }
 
     // ===== Collapsing Platform sprite sheets (parsed from ROM) =====

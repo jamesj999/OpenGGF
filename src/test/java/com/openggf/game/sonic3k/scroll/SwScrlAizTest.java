@@ -221,6 +221,52 @@ public class SwScrlAizTest {
     }
 
     @Test
+    public void fireTransitionUsesPlainDeformationInsteadOfAiz1ParallaxBands() {
+        Sonic3kLevelEventManager eventsManager = Sonic3kLevelEventManager.getInstance();
+        eventsManager.initLevel(0, 0);
+        Sonic3kAIZEvents events = eventsManager.getAizEvents();
+        assertNotNull(events);
+
+        events.setEventsFg5(true);
+        events.update(0, 0);
+        assertTrue(events.isFireTransitionActive());
+
+        int cameraX = 0x2F10;
+        int[] buffer = new int[VISIBLE_LINES];
+        handler.update(buffer, cameraX, 0x200, 8, 0);
+
+        int expected = packScrollWords(negWord(cameraX), negWord(events.getFireTransitionBgX()));
+        assertEquals(expected, buffer[0]);
+        assertEquals(expected, buffer[VISIBLE_LINES - 1]);
+    }
+
+    @Test
+    public void resumedAct2FireContinuationStillUsesPlainFireScrollMode() {
+        Sonic3kLevelEventManager eventsManager = Sonic3kLevelEventManager.getInstance();
+        eventsManager.initLevel(0, 0);
+        Sonic3kAIZEvents act1Events = eventsManager.getAizEvents();
+        assertNotNull(act1Events);
+
+        act1Events.setEventsFg5(true);
+        for (int i = 0; i < 320 && !act1Events.isAct2TransitionRequested(); i++) {
+            act1Events.update(0, i);
+        }
+
+        eventsManager.initLevel(0, 1);
+        Sonic3kAIZEvents act2Events = eventsManager.getAizEvents();
+        assertNotNull(act2Events);
+        assertTrue(act2Events.isFireTransitionScrollActive());
+
+        int cameraX = 0x0010;
+        int[] buffer = new int[VISIBLE_LINES];
+        handler.update(buffer, cameraX, 0x180, 0, 1);
+
+        int expected = packScrollWords(negWord(cameraX), negWord(act2Events.getFireTransitionBgX()));
+        assertEquals(expected, buffer[0]);
+        assertEquals(expected, buffer[VISIBLE_LINES - 1]);
+    }
+
+    @Test
     public void postBurnFineHazeUsesAiz2ForegroundDeltaTable() {
         Camera.getInstance().setLevelStarted(true);
         int[] buffer = new int[VISIBLE_LINES];

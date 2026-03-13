@@ -119,9 +119,13 @@ public final class S3kSeamlessMutationExecutor {
         }
 
         AizAct2LayoutAdjuster.apply(level.getMap());
+        // Load the full fire palette (PalPointers #$0B) first, then overlay fire line 4.
+        // Without PalPointers the act 2 reload keeps the normal AIZ2 palette, leaving
+        // palette line 3 with green vegetation colors instead of fire colors.
+        Sonic3kZoneEvents.loadPaletteFromPalPointers(PAL_POINTER_AIZ_FIRE_INDEX);
         Sonic3kAIZEvents.applyFireTransitionPaletteLine4(levelManager);
         levelManager.invalidateAllTilemaps();
-        LOG.info("Applied AIZ1 post-reload act 2 layout adjustment and fire palette line 4");
+        LOG.info("Applied AIZ1 post-reload act 2 layout adjustment and fire palette");
     }
 
     private static synchronized AizFireOverlayData loadAizFireOverlayData(Rom rom) throws IOException {

@@ -2,6 +2,7 @@ package com.openggf.game.sonic3k.scroll;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
+import com.openggf.game.sonic3k.events.FireCurtainRenderState;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.level.scroll.ZoneScrollHandler;
@@ -40,11 +41,6 @@ public class SwScrlAiz implements ZoneScrollHandler {
 
     /** Origin X for AIZ1_Deform base calculation (subi.w #$1300,d0). */
     private static final int DEFORM_ORIGIN_X = 0x1300;
-    private static final byte[] AIZ_FLAME_VSCROLL = {
-            0, -1, -2, -5, -8, -10, -13, -14,
-            -15, -14, -13, -10, -7, -5, -2, -1
-    };
-    private static final int FIRE_WAVE_COLUMN_COUNT = 0x14; // ROM loop count: moveq #$14-1,d3
     // AIZ2_SOZ1_LRZ3_FGDeformDelta base pattern (32-word cycle, repeated in ROM table).
     private static final short[] AIZ_FINE_HAZE_FG_DEFORM = {
             0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0,
@@ -55,7 +51,7 @@ public class SwScrlAiz implements ZoneScrollHandler {
     private int minScrollOffset;
     private int maxScrollOffset;
     private final short[] introBandValues = new short[INTRO_DEFORM_BANDS];
-    private final short[] perColumnVScrollBG = new short[FIRE_WAVE_COLUMN_COUNT];
+    private final short[] perColumnVScrollBG = new short[Sonic3kAIZEvents.FIRE_WAVE_COLUMN_COUNT];
     private boolean hasPerColumnVScrollBG;
 
     /** Persistent wave accumulator (ROM: HScroll_table+$03C, advances $2000/frame). */
@@ -74,9 +70,10 @@ public class SwScrlAiz implements ZoneScrollHandler {
 
         short fgScroll = negWord(cameraX);
         Sonic3kAIZEvents aizEvents = resolveAizEvents();
-        boolean fireTransition = actId == 0
-                && aizEvents != null
-                && (aizEvents.isFireTransitionActive() || aizEvents.isAct2TransitionRequested());
+        FireCurtainRenderState curtainState = aizEvents != null
+                ? aizEvents.getFireCurtainRenderState(VISIBLE_LINES)
+                : FireCurtainRenderState.inactive();
+        boolean fireTransition = aizEvents != null && aizEvents.isFireTransitionScrollActive();
         int bgSourceX = fireTransition ? aizEvents.getFireTransitionBgX() : cameraX;
 
         // ROM mode gate: AIZ1 intro uses IntroDeform only before the $1400 transition.
@@ -95,26 +92,32 @@ public class SwScrlAiz implements ZoneScrollHandler {
             vscrollFactorBG = wordOf(cameraY);
             writeIntroScroll(horizScrollBuf, fgScroll, cameraY);
         } else {
-            // AIZ1_Deform: multi-band BG parallax with per-band speeds.
-            // BG vertical scroll = camera Y / 2.
-            vscrollFactorBG = fireTransition
-                    ? wordOf(aizEvents.getFireTransitionBgY())
-                    : asrWord(cameraY, 1);
-            computeAiz1Deform(horizScrollBuf, fgScroll, bgSourceX, cameraY);
+            if (fireTransition) {
+                // ROM fire-transition path uses PlainDeformation, not AIZ1_Deform:
+                // FG scroll stays tied to the camera, BG scroll is flat and driven by
+                // Camera_X_pos_BG_copy while the column VScroll wave adds the wobble.
+                vscrollFactorBG = wordOf(aizEvents.getFireTransitionBgY());
+                writePlainDeformation(horizScrollBuf, fgScroll, negWord(bgSourceX));
+            } else {
+                // AIZ1_Deform: multi-band BG parallax with per-band speeds.
+                // BG vertical scroll = camera Y / 2.
+                vscrollFactorBG = asrWord(cameraY, 1);
+                computeAiz1Deform(horizScrollBuf, fgScroll, bgSourceX, cameraY);
+            }
         }
 
         // Fine post-burn haze (AIZ2 style) is a subtle per-line FG deformation.
         // Keep it separate from AIZTrans_WavyFlame, which is a temporary BG transition effect.
         boolean fineHeatHazeActive = !fireTransition
-                && (actId > 0
-                || (aizEvents != null && aizEvents.isPostFireHazeActive())
+                && ((aizEvents != null && aizEvents.isPostFireHazeActive())
+                || (aizEvents == null && actId > 0)
                 || cameraX >= 0x2E00);
         if (fineHeatHazeActive) {
             applyFineFgHeatHaze(horizScrollBuf, cameraX, cameraY, frameCounter);
         }
 
         if (fireTransition) {
-            buildFireWaveVScroll(frameCounter);
+            applyFireWaveVScroll(curtainState.columnWaveOffsetsPx());
         }
     }
 
@@ -291,6 +294,12 @@ public class SwScrlAiz implements ZoneScrollHandler {
         }
     }
 
+    private void writePlainDeformation(int[] horizScrollBuf, short fgScroll, short bgScroll) {
+        int packed = packScrollWords(fgScroll, bgScroll);
+        trackOffset(fgScroll, bgScroll);
+        Arrays.fill(horizScrollBuf, packed);
+    }
+
     private void writeIntroScroll(int[] horizScrollBuf, short fgScroll, int cameraY) {
         // ApplyDeformation uses Camera_Y_pos_BG_copy as signed word.
         int remainingY = (short) cameraY;
@@ -414,14 +423,13 @@ public class SwScrlAiz implements ZoneScrollHandler {
         return maxScrollOffset;
     }
 
-    private void buildFireWaveVScroll(int frameCounter) {
-        // ROM AIZTrans_WavyFlame:
-        // d2 = Level_frame_counter >> 2, then each write does d2 += 2 (mod 16),
-        // producing 20 VScroll words (column scroll mode).
-        int d2 = (frameCounter >> 2) & 0xF;
-        for (int i = 0; i < FIRE_WAVE_COLUMN_COUNT; i++) {
-            d2 = (d2 + 2) & 0xF;
-            perColumnVScrollBG[i] = AIZ_FLAME_VSCROLL[d2];
+    private void applyFireWaveVScroll(int[] columnWaveOffsetsPx) {
+        if (columnWaveOffsetsPx == null || columnWaveOffsetsPx.length == 0) {
+            hasPerColumnVScrollBG = false;
+            return;
+        }
+        for (int i = 0; i < perColumnVScrollBG.length; i++) {
+            perColumnVScrollBG[i] = (short) (i < columnWaveOffsetsPx.length ? columnWaveOffsetsPx[i] : 0);
         }
         hasPerColumnVScrollBG = true;
     }

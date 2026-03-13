@@ -1,6 +1,7 @@
 package com.openggf.game.sonic3k;
 
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
+import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.level.resources.CompressionType;
 
 import java.util.ArrayList;
@@ -55,14 +56,20 @@ public final class Sonic3kPlcArtRegistry {
      * @param palette      palette line (0-3)
      * @param builderName  name of hardcoded builder method on {@link Sonic3kObjectArt},
      *                     or null if mappings are ROM-parsed
+     * @param frameFilter  if non-null, only include these frame indices from the mapping table
      */
     public record LevelArtEntry(
             String key,
             int mappingAddr,
             int artTileBase,
             int palette,
-            String builderName
+            String builderName,
+            int[] frameFilter
     ) {
+        public LevelArtEntry(String key, int mappingAddr, int artTileBase, int palette,
+                String builderName) {
+            this(key, mappingAddr, artTileBase, palette, builderName, null);
+        }
     }
 
     /**
@@ -213,6 +220,32 @@ public final class Sonic3kPlcArtRegistry {
                     -1
             ));
         }
+        // StillSprite groups: subtypes 6-10 (waterfalls), 15-19 (tubes/post)
+        // base 0x001: subtypes 6,7,8,9,10 (HCZ waterfalls)
+        levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.STILL_HCZ_001,
+                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 1, 2,
+                null, new int[]{6, 7, 8, 9, 10}));
+        // base 0x36E: subtype 15 (HCZ2 tube bend 1)
+        levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.STILL_HCZ_TUBE1,
+                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 0x36E, 2,
+                null, new int[]{15}));
+        // base 0x37F: subtype 16 (HCZ2 tube bend 2)
+        levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.STILL_HCZ_TUBE2,
+                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 0x37F, 2,
+                null, new int[]{16}));
+        // base 0x39F: subtype 17 (HCZ2 tube bend 3)
+        levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.STILL_HCZ_TUBE3,
+                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 0x39F, 2,
+                null, new int[]{17}));
+        // base 0x3AA: subtype 18 (HCZ2 tube crossover)
+        levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.STILL_HCZ_TUBE4,
+                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 0x3AA, 2,
+                null, new int[]{18}));
+        // base 0x048: subtype 19 (HCZ2 bridge post)
+        levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.STILL_HCZ_POST,
+                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 0x048, 2,
+                null, new int[]{19}));
+
         // Shared across both acts
         standalone.add(new StandaloneArtEntry(
                 Sonic3kObjectArtKeys.HCZ_TURBO_SPIKER,
@@ -251,6 +284,11 @@ public final class Sonic3kPlcArtRegistry {
     private static void addMgzEntries(int actIndex,
                                       List<StandaloneArtEntry> standalone,
                                       List<LevelArtEntry> levelArt) {
+        // StillSprite: subtypes 11-14 (MGZ signposts), base 0x451
+        levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.STILL_MGZ,
+                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 0x451, 2,
+                null, new int[]{11, 12, 13, 14}));
+
         // Both acts
         standalone.add(new StandaloneArtEntry(
                 Sonic3kObjectArtKeys.MGZ_SPIKER,
@@ -372,6 +410,20 @@ public final class Sonic3kPlcArtRegistry {
     private static void addFbzEntries(int actIndex,
                                       List<StandaloneArtEntry> standalone,
                                       List<LevelArtEntry> levelArt) {
+        // StillSprite groups: subtypes 39-45
+        // base 0x379: subtypes 39, 40, 41, 42 (hangers, palette 2)
+        levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.STILL_FBZ_HANGER,
+                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 0x379, 2,
+                null, new int[]{39, 40, 41, 42}));
+        // base 0x443 (FBZMisc+$CA): subtype 43, palette 1
+        levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.STILL_FBZ_EXTRA,
+                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 0x443, 1,
+                null, new int[]{43}));
+        // base 0x339: subtypes 44, 45 (rails)
+        levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.STILL_FBZ_RAIL,
+                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 0x339, 1,
+                null, new int[]{44, 45}));
+
         // Override shared spikes to FBZ tile address
         levelArt.removeIf(e -> e.key().equals(Sonic3kObjectArtKeys.SPIKES));
         levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.SPIKES, -1, Sonic3kConstants.ARTTILE_FBZ_SPIKES, 0, "buildSpikesSheet"));
@@ -457,6 +509,16 @@ public final class Sonic3kPlcArtRegistry {
     private static void addLbzEntries(int actIndex,
                                       List<StandaloneArtEntry> standalone,
                                       List<LevelArtEntry> levelArt) {
+        // StillSprite groups: subtype 20 (pole), subtypes 21-23 (girders)
+        // base 0x40D: subtype 20
+        levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.STILL_LBZ_POLE,
+                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 0x40D, 2,
+                null, new int[]{20}));
+        // base 0x433: subtypes 21, 22, 23
+        levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.STILL_LBZ_GIRDER,
+                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 0x433, 1,
+                null, new int[]{21, 22, 23}));
+
         standalone.add(new StandaloneArtEntry(
                 Sonic3kObjectArtKeys.SNALE_BLASTER,
                 Sonic3kConstants.ART_KOSM_SNALE_BLASTER_ADDR,
@@ -504,6 +566,24 @@ public final class Sonic3kPlcArtRegistry {
     private static void addMhzEntries(int actIndex,
                                       List<StandaloneArtEntry> standalone,
                                       List<LevelArtEntry> levelArt) {
+        // StillSprite groups: subtypes 24-30
+        // base 0x357: subtypes 24, 25, 26 (cliff edges)
+        levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.STILL_MHZ_CLIFF,
+                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 0x357, 2,
+                null, new int[]{24, 25, 26}));
+        // base 0x40E: subtypes 27, 28 (columns, palette 3)
+        levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.STILL_MHZ_COLUMN,
+                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 0x40E, 3,
+                null, new int[]{27, 28}));
+        // base 0x41E: subtype 29 (vine)
+        levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.STILL_MHZ_VINE,
+                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 0x41E, 2,
+                null, new int[]{29}));
+        // base 0x347: subtype 30 (pedestal, palette 0)
+        levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.STILL_MHZ_PEDESTAL,
+                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 0x347, 0,
+                null, new int[]{30}));
+
         standalone.add(new StandaloneArtEntry(
                 Sonic3kObjectArtKeys.MADMOLE,
                 Sonic3kConstants.ART_KOSM_MADMOLE_ADDR,
@@ -567,6 +647,21 @@ public final class Sonic3kPlcArtRegistry {
     private static void addSozEntries(int actIndex,
                                       List<StandaloneArtEntry> standalone,
                                       List<LevelArtEntry> levelArt) {
+        // StillSprite groups: subtypes 46 (SOZ objects), 47 (cork)
+        // base 0x001: subtype 46
+        levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.STILL_SOZ_001,
+                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 1, 2,
+                null, new int[]{46}));
+        // base 0x3AF: subtype 47 (palette 0)
+        levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.STILL_SOZ_CORK,
+                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 0x3AF, 0,
+                null, new int[]{47}));
+
+        // AnimatedStillSprite: SOZ (base 0x40F)
+        levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.ANIM_STILL_SOZ,
+                -1, Sonic3kConstants.ARTTILE_SOZ_MISC + 0x46, 2,
+                "buildAnimStillSozSheet"));
+
         standalone.add(new StandaloneArtEntry(
                 Sonic3kObjectArtKeys.SKORP,
                 Sonic3kConstants.ART_KOSM_SKORP_ADDR,
@@ -604,7 +699,25 @@ public final class Sonic3kPlcArtRegistry {
     private static void addLrzEntries(int actIndex,
                                       List<StandaloneArtEntry> standalone,
                                       List<LevelArtEntry> levelArt) {
+        // StillSprite groups: subtypes 31-38
+        // base 0x3A1, pal 2: subtypes 31, 32, 33 (horizontal rails)
+        levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.STILL_LRZ_RAIL,
+                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 0x3A1, 2,
+                null, new int[]{31, 32, 33}));
+        // base 0x3A1, pal 1: subtypes 35, 36, 37, 38 (vertical gear rails)
+        levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.STILL_LRZ_GEAR,
+                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 0x3A1, 1,
+                null, new int[]{35, 36, 37, 38}));
+        // base 0x0D3: subtype 34 (rock decoration)
+        levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.STILL_LRZ_ROCK,
+                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 0x0D3, 2,
+                null, new int[]{34}));
+
+        // AnimatedStillSprite: LRZ act 1 (base 0xD3) and act 2 (base 0x40D)
         if (actIndex == 0) {
+            levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.ANIM_STILL_LRZ_D3,
+                    -1, 0x00D3, 2,
+                    "buildAnimStillLrzD3Sheet"));
             levelArt.add(new LevelArtEntry(
                     Sonic3kObjectArtKeys.LRZ1_ROCK,
                     Sonic3kConstants.MAP_LRZ_BREAKABLE_ROCK_ADDR,
@@ -613,6 +726,9 @@ public final class Sonic3kPlcArtRegistry {
                     null
             ));
         } else {
+            levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.ANIM_STILL_LRZ2,
+                    -1, Sonic3kConstants.ARTTILE_LRZ2_MISC, 1,
+                    "buildAnimStillLrz2Sheet"));
             levelArt.add(new LevelArtEntry(
                     Sonic3kObjectArtKeys.LRZ2_ROCK,
                     Sonic3kConstants.MAP_LRZ_BREAKABLE_ROCK2_ADDR,
@@ -677,6 +793,16 @@ public final class Sonic3kPlcArtRegistry {
     private static void addDezEntries(int actIndex,
                                       List<StandaloneArtEntry> standalone,
                                       List<LevelArtEntry> levelArt) {
+        // StillSprite groups: subtypes 48-50
+        // base 0x3FF: subtypes 48, 49 (beams)
+        levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.STILL_DEZ_BEAM,
+                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 0x3FF, 1,
+                null, new int[]{48, 49}));
+        // base 0x385: subtype 50 (post)
+        levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.STILL_DEZ_POST,
+                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 0x385, 1,
+                null, new int[]{50}));
+
         standalone.add(new StandaloneArtEntry(
                 Sonic3kObjectArtKeys.SPIKEBONKER,
                 Sonic3kConstants.ART_KOSM_SPIKEBONKER_ADDR,
@@ -776,6 +902,20 @@ public final class Sonic3kPlcArtRegistry {
                 2,
                 "buildAizForegroundPlantSheet"
         ));
+
+        // StillSprite groups: subtypes 0-5 (AIZ2 decorations)
+        // base 0x2E9 (AIZMisc2): subtypes 0,1,2,5
+        levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.STILL_AIZ_MISC2,
+                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, Sonic3kConstants.ARTTILE_AIZ_MISC2, 2,
+                null, new int[]{0, 1, 2, 5}));
+        // base 0x001, pal 2: subtype 3
+        levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.STILL_AIZ_001,
+                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 1, 2,
+                null, new int[]{3}));
+        // base 0x001, pal 3: subtype 4 (waterfall)
+        levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.STILL_AIZ_WATERFALL,
+                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 1, 3,
+                null, new int[]{4}));
 
         // Act-specific level-art
         if (actIndex == 0) {

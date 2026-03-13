@@ -88,6 +88,10 @@ public class Sonic3kObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic3kInvisibleBlockObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.STAR_POST,
                 (spawn, registry) -> new Sonic3kStarPostObjectInstance(spawn));
+        factories.put(Sonic3kObjectIds.STILL_SPRITE,
+                (spawn, registry) -> new StillSpriteInstance(spawn));
+        factories.put(Sonic3kObjectIds.ANIMATED_STILL_SPRITE,
+                (spawn, registry) -> new AnimatedStillSpriteInstance(spawn));
         factories.put(Sonic3kObjectIds.AIZ_FOREGROUND_PLANT,
                 (spawn, registry) -> new AizForegroundPlantInstance(spawn));
         factories.put(Sonic3kObjectIds.SS_ENTRY_RING,

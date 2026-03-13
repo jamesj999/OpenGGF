@@ -484,6 +484,7 @@ public class LevelManager {
     private int pendingBgTilePassAlignedBgY;
     private float pendingBgTilePassBgTilemapWorldOffsetX;
     private boolean pendingBgTilePassPerLineScroll;
+    private short[] pendingBgTilePassPerColumnVScroll;
     private int[] pendingBgTilePassHScrollData;
     private float pendingBgTilePassVdpWrapWidth;
     private float pendingBgTilePassNametableBase;
@@ -508,6 +509,9 @@ public class LevelManager {
                     tilemapRenderer.enablePerLineScroll(
                             bgRenderer.getHScrollTextureId(), 224.0f,
                             pendingBgTilePassVdpWrapWidth, pendingBgTilePassNametableBase);
+                }
+                if (pendingBgTilePassPerColumnVScroll != null && pendingBgTilePassPerColumnVScroll.length > 0) {
+                    tilemapRenderer.enablePerColumnVScroll(pendingBgTilePassPerColumnVScroll);
                 }
                 glGetIntegerv(GL_VIEWPORT, viewportBuffer);
                 tilemapRenderer.render(
@@ -1873,6 +1877,7 @@ public class LevelManager {
         pendingBgTilePassAlignedBgY = alignedBgY;
         pendingBgTilePassBgTilemapWorldOffsetX = bgTilemapWorldOffsetX;
         pendingBgTilePassPerLineScroll = perLineScrollActive;
+        pendingBgTilePassPerColumnVScroll = vScrollColumnData;
         pendingBgTilePassHScrollData = hScrollData;
         pendingBgTilePassVdpWrapWidth = vdpWrapWidthTiles;
         pendingBgTilePassNametableBase = nametableBaseTile;
@@ -3363,25 +3368,37 @@ public class LevelManager {
      * This resolves block/chunk indirection plus chunk descriptor flips, matching tilemap build logic.
      */
     public int getForegroundTileDescriptorAtWorld(int worldX, int worldY) {
+        return getTileDescriptorAtWorld((byte) 0, worldX, worldY);
+    }
+
+    /**
+     * Reads the background tile descriptor currently represented by level data at world coordinates.
+     * This resolves block/chunk indirection plus chunk descriptor flips, matching tilemap build logic.
+     */
+    public int getBackgroundTileDescriptorAtWorld(int worldX, int worldY) {
+        return getTileDescriptorAtWorld((byte) 1, worldX, worldY);
+    }
+
+    private int getTileDescriptorAtWorld(byte layer, int worldX, int worldY) {
         if (level == null || level.getMap() == null) {
             return 0;
         }
 
-        int levelWidth = getLayerLevelWidthPx((byte) 0);
-        int levelHeight = getLayerLevelHeightPx((byte) 0);
+        int levelWidth = getLayerLevelWidthPx(layer);
+        int levelHeight = getLayerLevelHeightPx(layer);
         if (levelWidth <= 0 || levelHeight <= 0) {
             return 0;
         }
 
         int wrappedX = Math.floorMod(worldX, levelWidth);
         int wrappedY = worldY;
-        if (verticalWrapEnabled) {
+        if (layer == 1 || verticalWrapEnabled) {
             wrappedY = Math.floorMod(worldY, levelHeight);
         } else if (wrappedY < 0 || wrappedY >= levelHeight) {
             return 0;
         }
 
-        Block block = getBlockAtPosition((byte) 0, wrappedX, wrappedY);
+        Block block = getBlockAtPosition(layer, wrappedX, wrappedY);
         if (block == null) {
             return 0;
         }

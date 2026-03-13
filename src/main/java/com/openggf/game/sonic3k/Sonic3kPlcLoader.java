@@ -93,7 +93,7 @@ public final class Sonic3kPlcLoader {
         for (PlcEntry entry : definition.entries()) {
             byte[] data = PlcParser.decompressEntryRaw(rom, entry);
             int tileCount = data.length / 32;
-            level.applyPatternOverlay(data, entry.tileIndex() * 32);
+            level.applyPatternOverlay(data, entry.tileIndex() * 32, false);
             modified.add(new TileRange(entry.tileIndex(), tileCount));
 
             LOG.fine(String.format("PLC entry: Nemesis at 0x%06X -> tile 0x%03X (%d tiles decompressed)",
@@ -146,7 +146,7 @@ public final class Sonic3kPlcLoader {
         List<TileRange> modified = new ArrayList<>(entries.size());
         for (PreDecompressedEntry entry : entries) {
             int tileCount = entry.data().length / 32;
-            level.applyPatternOverlay(entry.data(), entry.tileIndex() * 32);
+            level.applyPatternOverlay(entry.data(), entry.tileIndex() * 32, false);
             modified.add(new TileRange(entry.tileIndex(), tileCount));
         }
         return modified;

@@ -558,7 +558,7 @@ public class Sonic3kConstants {
     // ArtKosM_AIZ_MonkeyDude - Kosinski Moduled compressed art.
     public static final int ART_KOSM_AIZ_MONKEY_DUDE_ADDR = 0x36800C;
     // AIZ1_8x8_Flames_KosM - fire overlay tiles loaded at x >= $2E00 (Act 1).
-    public static final int ART_KOSM_AIZ1_FIRE_OVERLAY_ADDR = 0x1AF5D0;
+    public static final int ART_KOSM_AIZ1_FIRE_OVERLAY_ADDR = 0x3AF5D0;
 
     // ===== HCZ Badnik mappings (SK side, verified from LockOn Pointers) =====
     public static final int MAP_BLASTOID_ADDR = 0x360DD0;
@@ -674,6 +674,14 @@ public class Sonic3kConstants {
     public static final int MAP_SPIKEBONKER_ADDR = 0x184E5C;
     public static final int ART_KOSM_CHAINSPIKE_ADDR = 0x1803EE;
     public static final int MAP_CHAINSPIKE_ADDR = 0x184E8A;
+
+    // ===== StillSprite / AnimatedStillSprite =====
+    // Mapping tables (ROM addresses verified via binary search)
+    public static final int MAP_STILL_SPRITES_ADDR = 0x02BA9A;
+    public static final int MAP_ANIMATED_STILL_SPRITES_ADDR = 0x02BFDA;
+
+    // ArtTile constants for zone objects
+    public static final int ARTTILE_SOZ_MISC = 0x03C9;
 
     // VRAM tile destinations for shields
     public static final int ART_TILE_SHIELD = 0x079C;

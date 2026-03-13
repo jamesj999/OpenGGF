@@ -507,6 +507,10 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
             ObjectSpriteSheet sheet;
             if (entry.builderName() != null) {
                 sheet = invokeBuilder(art, entry.builderName());
+            } else if (entry.mappingAddr() > 0 && entry.frameFilter() != null) {
+                sheet = art.buildLevelArtSheetFromRomFiltered(
+                        entry.mappingAddr(), entry.artTileBase(), entry.palette(),
+                        entry.frameFilter());
             } else if (entry.mappingAddr() > 0) {
                 sheet = art.buildLevelArtSheetFromRom(
                         entry.mappingAddr(), entry.artTileBase(), entry.palette());
@@ -531,6 +535,9 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
             case "buildAiz1ZiplinePegSheet" -> art.buildAiz1ZiplinePegSheet();
             case "buildAizForegroundPlantSheet" -> art.buildAizForegroundPlantSheet();
             case "buildAnimatedStillSpritesSheet" -> art.buildAnimatedStillSpritesSheet();
+            case "buildAnimStillLrzD3Sheet" -> art.buildAnimStillLrzD3Sheet();
+            case "buildAnimStillLrz2Sheet" -> art.buildAnimStillLrz2Sheet();
+            case "buildAnimStillSozSheet" -> art.buildAnimStillSozSheet();
             default -> {
                 LOG.warning("Unknown builder: " + builderName);
                 yield null;

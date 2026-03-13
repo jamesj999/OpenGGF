@@ -56,7 +56,7 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
 
     @Override
     public void render(Camera camera, int frameCounter) {
-        aizTransitionRenderFeature.renderFlameOverlay(camera);
+        aizTransitionRenderFeature.renderFlameOverlay(camera, frameCounter);
     }
 
     @Override

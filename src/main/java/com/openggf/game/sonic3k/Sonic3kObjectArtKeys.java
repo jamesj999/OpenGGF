@@ -96,6 +96,39 @@ public final class Sonic3kObjectArtKeys {
     // DDZ badniks
     public static final String DDZ_EGG_ROBO = "ddz_egg_robo";
 
+    // StillSprite per-zone art sheet keys (grouped by artTileBase)
+    public static final String STILL_AIZ_MISC2 = "still_aiz_misc2";       // base 0x2E9
+    public static final String STILL_AIZ_001 = "still_aiz_001";           // base 0x001, pal 2
+    public static final String STILL_AIZ_WATERFALL = "still_aiz_waterfall"; // base 0x001, pal 3
+    public static final String STILL_HCZ_001 = "still_hcz_001";           // base 0x001
+    public static final String STILL_HCZ_TUBE1 = "still_hcz_tube1";       // base 0x36E
+    public static final String STILL_HCZ_TUBE2 = "still_hcz_tube2";       // base 0x37F
+    public static final String STILL_HCZ_TUBE3 = "still_hcz_tube3";       // base 0x39F
+    public static final String STILL_HCZ_TUBE4 = "still_hcz_tube4";       // base 0x3AA
+    public static final String STILL_HCZ_POST = "still_hcz_post";         // base 0x048
+    public static final String STILL_MGZ = "still_mgz";                   // base 0x451
+    public static final String STILL_LBZ_POLE = "still_lbz_pole";         // base 0x40D
+    public static final String STILL_LBZ_GIRDER = "still_lbz_girder";     // base 0x433
+    public static final String STILL_MHZ_CLIFF = "still_mhz_cliff";       // base 0x357
+    public static final String STILL_MHZ_COLUMN = "still_mhz_column";     // base 0x40E
+    public static final String STILL_MHZ_VINE = "still_mhz_vine";         // base 0x41E
+    public static final String STILL_MHZ_PEDESTAL = "still_mhz_pedestal"; // base 0x347
+    public static final String STILL_LRZ_RAIL = "still_lrz_rail";         // base 0x3A1, pal 2
+    public static final String STILL_LRZ_GEAR = "still_lrz_gear";         // base 0x3A1, pal 1
+    public static final String STILL_LRZ_ROCK = "still_lrz_rock";         // base 0x0D3
+    public static final String STILL_FBZ_HANGER = "still_fbz_hanger";     // base 0x379
+    public static final String STILL_FBZ_EXTRA = "still_fbz_extra";       // base 0x443
+    public static final String STILL_FBZ_RAIL = "still_fbz_rail";         // base 0x339
+    public static final String STILL_SOZ_001 = "still_soz_001";           // base 0x001
+    public static final String STILL_SOZ_CORK = "still_soz_cork";         // base 0x3AF
+    public static final String STILL_DEZ_BEAM = "still_dez_beam";         // base 0x3FF
+    public static final String STILL_DEZ_POST = "still_dez_post";         // base 0x385
+
+    // AnimatedStillSprite per-zone art sheet keys (AIZ already has ANIMATED_STILL_SPRITES)
+    public static final String ANIM_STILL_LRZ_D3 = "anim_still_lrz_d3";   // base 0x0D3
+    public static final String ANIM_STILL_LRZ2 = "anim_still_lrz2";       // base 0x40D
+    public static final String ANIM_STILL_SOZ = "anim_still_soz";         // base 0x40F
+
     private Sonic3kObjectArtKeys() {
     }
 }
