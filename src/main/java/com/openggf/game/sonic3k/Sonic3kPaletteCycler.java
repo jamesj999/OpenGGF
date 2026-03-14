@@ -62,42 +62,43 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
                     loadAiz2Cycles(reader, list);
                 }
                 break;
-            // TODO: HCZ (zone 0x01) — AnPal_HCZ1 / AnPal_HCZ2
-            //   Act 1: water surface shimmer + underwater tint cycling
-            //   Act 2: same channels, different color tables
-            //   Both acts: synchronized water palette mirror
-            case 0x01: break;
 
-            // TODO: CNZ (zone 0x03) — AnPal_CNZ (shared both acts)
-            //   Neon sign color cycling, bumper glow, synchronized water palette mirror
-            case 0x03: break;
+            case 0x01: // HCZ — AnPal_HCZ1 water surface shimmer + cave lighting
+                loadHczCycles(reader, list);
+                break;
 
-            // TODO: FBZ (zone 0x04) — AnPal_FBZ (shared both acts)
-            //   Conveyor belt cycling, electrical spark colors
+            case 0x03: // CNZ — AnPal_CNZ bumper glow, background, tertiary
+                loadCnzCycles(reader, list);
+                break;
+
+            // FBZ (zone 0x04) — AnPal_FBZ: no palette table cycling. S3K version toggles
+            // bit 0 of _unkF7C1 every other frame (flicker effect), not a color table
+            // animation. S3 version is rts. Intentionally no-op.
             case 0x04: break;
 
-            // TODO: ICZ (zone 0x05) — AnPal_ICZ (shared both acts)
-            //   Ice crystal shimmer, conditional enable via Events_bg+0x16
-            case 0x05: break;
+            case 0x05: // ICZ — AnPal_ICZ geyser/ice shimmer, conditional channels
+                loadIczCycles(reader, list);
+                break;
 
-            // TODO: LBZ (zone 0x06) — AnPal_LBZ1 / AnPal_LBZ2
-            //   Act 1: pipe fluid cycling, machinery glow
-            //   Act 2: different machinery colors, alarm light cycling
-            case 0x06: break;
+            case 0x06: // LBZ — AnPal_LBZ1 / AnPal_LBZ2 pipe fluid cycling
+                loadLbzCycles(reader, list, actIndex);
+                break;
 
-            // TODO: LRZ (zone 0x09) — AnPal_LRZ1 / AnPal_LRZ2
-            //   Act 1: lava surface cycling, heat shimmer
-            //   Act 2: lava + crystal colors
-            case 0x09: break;
+            case 0x09: // LRZ — AnPal_LRZ1 / AnPal_LRZ2 lava + crystal colors
+                loadLrzCycles(reader, list, actIndex);
+                break;
 
-            // TODO: BPZ (zone 0x0E, competition) — AnPal_BPZ (shared)
-            case 0x0E: break;
+            case 0x0E: // BPZ (competition) — AnPal_BPZ balloons + background
+                loadBpzCycles(reader, list);
+                break;
 
-            // TODO: CGZ (zone 0x10, competition) — AnPal_CGZ (shared)
-            case 0x10: break;
+            case 0x10: // CGZ (competition) — AnPal_CGZ light animation
+                loadCgzCycles(reader, list);
+                break;
 
-            // TODO: EMZ (zone 0x11, competition) — AnPal_EMZ (shared)
-            case 0x11: break;
+            case 0x11: // EMZ (competition) — AnPal_EMZ emerald glow + background
+                loadEmzCycles(reader, list);
+                break;
 
             default: break;
         }
@@ -133,6 +134,102 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
         if (torchPreData.length >= Sonic3kConstants.ANPAL_AIZ2_4_SIZE
                 && torchPostData.length >= Sonic3kConstants.ANPAL_AIZ2_5_SIZE) {
             list.add(new Aiz2TorchCycle(torchPreData, torchPostData));
+        }
+    }
+
+    private void loadHczCycles(RomByteReader reader, List<PaletteCycle> list) {
+        byte[] waterData = safeSlice(reader, Sonic3kConstants.ANPAL_HCZ1_ADDR, Sonic3kConstants.ANPAL_HCZ1_SIZE);
+        if (waterData.length >= Sonic3kConstants.ANPAL_HCZ1_SIZE) {
+            list.add(new HczCycle(waterData));
+        }
+    }
+
+    private void loadCnzCycles(RomByteReader reader, List<PaletteCycle> list) {
+        byte[] bumperData   = safeSlice(reader, Sonic3kConstants.ANPAL_CNZ_1_ADDR, Sonic3kConstants.ANPAL_CNZ_1_SIZE);
+        byte[] bgData       = safeSlice(reader, Sonic3kConstants.ANPAL_CNZ_3_ADDR, Sonic3kConstants.ANPAL_CNZ_3_SIZE);
+        byte[] tertiaryData = safeSlice(reader, Sonic3kConstants.ANPAL_CNZ_5_ADDR, Sonic3kConstants.ANPAL_CNZ_5_SIZE);
+
+        if (bumperData.length >= Sonic3kConstants.ANPAL_CNZ_1_SIZE
+                && bgData.length >= Sonic3kConstants.ANPAL_CNZ_3_SIZE
+                && tertiaryData.length >= Sonic3kConstants.ANPAL_CNZ_5_SIZE) {
+            list.add(new CnzCycle(bumperData, bgData, tertiaryData));
+        }
+    }
+
+    private void loadIczCycles(RomByteReader reader, List<PaletteCycle> list) {
+        byte[] data1 = safeSlice(reader, Sonic3kConstants.ANPAL_ICZ_1_ADDR, Sonic3kConstants.ANPAL_ICZ_1_SIZE);
+        byte[] data2 = safeSlice(reader, Sonic3kConstants.ANPAL_ICZ_2_ADDR, Sonic3kConstants.ANPAL_ICZ_2_SIZE);
+        byte[] data3 = safeSlice(reader, Sonic3kConstants.ANPAL_ICZ_3_ADDR, Sonic3kConstants.ANPAL_ICZ_3_SIZE);
+        byte[] data4 = safeSlice(reader, Sonic3kConstants.ANPAL_ICZ_4_ADDR, Sonic3kConstants.ANPAL_ICZ_4_SIZE);
+
+        if (data1.length >= Sonic3kConstants.ANPAL_ICZ_1_SIZE
+                && data2.length >= Sonic3kConstants.ANPAL_ICZ_2_SIZE
+                && data3.length >= Sonic3kConstants.ANPAL_ICZ_3_SIZE
+                && data4.length >= Sonic3kConstants.ANPAL_ICZ_4_SIZE) {
+            list.add(new IczCycle(data1, data2, data3, data4));
+        }
+    }
+
+    private void loadLbzCycles(RomByteReader reader, List<PaletteCycle> list, int actIndex) {
+        int addr = (actIndex == 0)
+                ? Sonic3kConstants.ANPAL_LBZ1_ADDR
+                : Sonic3kConstants.ANPAL_LBZ2_ADDR;
+        int size = (actIndex == 0)
+                ? Sonic3kConstants.ANPAL_LBZ1_SIZE
+                : Sonic3kConstants.ANPAL_LBZ2_SIZE;
+        byte[] tableData = safeSlice(reader, addr, size);
+        if (tableData.length >= size) {
+            list.add(new LbzCycle(tableData));
+        }
+    }
+
+    private void loadLrzCycles(RomByteReader reader, List<PaletteCycle> list, int actIndex) {
+        byte[] sharedData1 = safeSlice(reader, Sonic3kConstants.ANPAL_LRZ12_1_ADDR, Sonic3kConstants.ANPAL_LRZ12_1_SIZE);
+        byte[] sharedData2 = safeSlice(reader, Sonic3kConstants.ANPAL_LRZ12_2_ADDR, Sonic3kConstants.ANPAL_LRZ12_2_SIZE);
+
+        if (actIndex == 0) {
+            // LRZ Act 1: channels A+B (shared) + channel C
+            byte[] lrz1Data3 = safeSlice(reader, Sonic3kConstants.ANPAL_LRZ1_3_ADDR, Sonic3kConstants.ANPAL_LRZ1_3_SIZE);
+            if (sharedData1.length >= Sonic3kConstants.ANPAL_LRZ12_1_SIZE
+                    && sharedData2.length >= Sonic3kConstants.ANPAL_LRZ12_2_SIZE
+                    && lrz1Data3.length >= Sonic3kConstants.ANPAL_LRZ1_3_SIZE) {
+                list.add(new Lrz1Cycle(sharedData1, sharedData2, lrz1Data3));
+            }
+        } else {
+            // LRZ Act 2: channels A+B (shared) + channel D
+            byte[] lrz2Data3 = safeSlice(reader, Sonic3kConstants.ANPAL_LRZ2_3_ADDR, Sonic3kConstants.ANPAL_LRZ2_3_SIZE);
+            if (sharedData1.length >= Sonic3kConstants.ANPAL_LRZ12_1_SIZE
+                    && sharedData2.length >= Sonic3kConstants.ANPAL_LRZ12_2_SIZE
+                    && lrz2Data3.length >= Sonic3kConstants.ANPAL_LRZ2_3_SIZE) {
+                list.add(new Lrz2Cycle(sharedData1, sharedData2, lrz2Data3));
+            }
+        }
+    }
+
+    private void loadBpzCycles(RomByteReader reader, List<PaletteCycle> list) {
+        byte[] balloonsData = safeSlice(reader, Sonic3kConstants.ANPAL_BPZ_1_ADDR, Sonic3kConstants.ANPAL_BPZ_1_SIZE);
+        byte[] bgData = safeSlice(reader, Sonic3kConstants.ANPAL_BPZ_2_ADDR, Sonic3kConstants.ANPAL_BPZ_2_SIZE);
+
+        if (balloonsData.length >= Sonic3kConstants.ANPAL_BPZ_1_SIZE
+                && bgData.length >= Sonic3kConstants.ANPAL_BPZ_2_SIZE) {
+            list.add(new BpzCycle(balloonsData, bgData));
+        }
+    }
+
+    private void loadCgzCycles(RomByteReader reader, List<PaletteCycle> list) {
+        byte[] cgzData = safeSlice(reader, Sonic3kConstants.ANPAL_CGZ_ADDR, Sonic3kConstants.ANPAL_CGZ_SIZE);
+        if (cgzData.length >= Sonic3kConstants.ANPAL_CGZ_SIZE) {
+            list.add(new CgzCycle(cgzData));
+        }
+    }
+
+    private void loadEmzCycles(RomByteReader reader, List<PaletteCycle> list) {
+        byte[] glowData = safeSlice(reader, Sonic3kConstants.ANPAL_EMZ1_ADDR, Sonic3kConstants.ANPAL_EMZ1_SIZE);
+        byte[] bgData = safeSlice(reader, Sonic3kConstants.ANPAL_EMZ2_ADDR, Sonic3kConstants.ANPAL_EMZ2_SIZE);
+
+        if (glowData.length >= Sonic3kConstants.ANPAL_EMZ1_SIZE
+                && bgData.length >= Sonic3kConstants.ANPAL_EMZ2_SIZE) {
+            list.add(new EmzCycle(glowData, bgData));
         }
     }
 
@@ -400,6 +497,770 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
             if (dirty && gm.isGlInitialized()) {
                 gm.cachePaletteTexture(level.getPalette(3), 3);
                 dirty = false;
+            }
+        }
+    }
+
+    // ========== HCZ1 Water Cycle ==========
+    // ROM: AnPal_HCZ1 (sonic3k.asm line 3287), timer period 7
+    // AnPal_PalHCZ1 → palette 2 colors 3-6 (Normal_palette_line_3+$06/$0A)
+    //   counter0 & 0x18 for data index, counter0 += 8, wraps at 0x20 (cycles 0,8,16,24)
+    // Also writes to Water_palette_line_3+$06/$0A (underwater palette sync).
+    //   TODO: sync to underwater palette
+    // HCZ1_Resize secondary behavior: checks camera position each tick and writes 3 colors
+    //   to palette[3] colors 8-10 (Normal_palette_line_4+$10) for cave entry/exit lighting.
+    private static class HczCycle extends PaletteCycle {
+        private final byte[] waterData; // 32 bytes: 4 frames × 8 bytes
+
+        // Water cycle state
+        private int timer;
+        private int counter0;
+        private boolean dirty2;
+
+        // Cave lighting state (HCZ1_Resize secondary behavior)
+        // Routine 0 = watch for cave entry, routine 2 = watch for exit, routine 4 = idle
+        private int resizeRoutine;
+        private boolean dirty3;
+
+        HczCycle(byte[] waterData) {
+            this.waterData = waterData;
+        }
+
+        @Override
+        void tick(Level level, GraphicsManager gm) {
+            tickWaterCycle(level);
+            tickCaveLighting(level);
+
+            if (gm.isGlInitialized()) {
+                if (dirty2) {
+                    gm.cachePaletteTexture(level.getPalette(2), 2);
+                    dirty2 = false;
+                }
+                if (dirty3) {
+                    gm.cachePaletteTexture(level.getPalette(3), 3);
+                    dirty3 = false;
+                }
+            }
+        }
+
+        private void tickWaterCycle(Level level) {
+            if (timer > 0) {
+                timer--;
+                return;
+            }
+            timer = 7;
+
+            // AnPal_PalHCZ1 → palette 2, colors 3-6
+            int d0 = counter0 & 0x18;
+            counter0 += 8;
+            if (counter0 >= 0x20) {
+                counter0 = 0;
+            }
+
+            Palette pal2 = level.getPalette(2);
+            pal2.getColor(3).fromSegaFormat(waterData, d0);
+            pal2.getColor(4).fromSegaFormat(waterData, d0 + 2);
+            pal2.getColor(5).fromSegaFormat(waterData, d0 + 4);
+            pal2.getColor(6).fromSegaFormat(waterData, d0 + 6);
+            // TODO: sync to underwater palette (Water_palette_line_3+$06/$0A)
+            dirty2 = true;
+        }
+
+        private void tickCaveLighting(Level level) {
+            // HCZ1_Resize secondary behavior: per-frame camera-dependent palette mutation.
+            // Palette[3] colors 8-10 = Normal_palette_line_4+$10 (3 words = 3 colors)
+            Camera cam = Camera.getInstance();
+            int cameraX = cam.getX() & 0xFFFF;
+            int cameraY = cam.getY() & 0xFFFF;
+
+            if (resizeRoutine == 0) {
+                // Watch for cave entry: cameraX < $360 AND cameraY >= $3E0
+                if (cameraX < 0x360 && cameraY >= 0x3E0) {
+                    Palette pal3 = level.getPalette(3);
+                    pal3.getColor(8).fromSegaFormat(new byte[]{0x06, (byte) 0x80}, 0);
+                    pal3.getColor(9).fromSegaFormat(new byte[]{0x02, 0x40}, 0);
+                    pal3.getColor(10).fromSegaFormat(new byte[]{0x02, 0x20}, 0);
+                    dirty3 = true;
+                    resizeRoutine = 2;
+                }
+            } else if (resizeRoutine == 2) {
+                // Watch for cave exit
+                if (cameraX < 0x360 && cameraY < 0x3E0) {
+                    // Back to cave entry watch
+                    resizeRoutine = 0;
+                } else if (cameraX >= 0x900 && cameraY >= 0x500) {
+                    Palette pal3 = level.getPalette(3);
+                    pal3.getColor(8).fromSegaFormat(new byte[]{0x0C, (byte) 0xEE}, 0);
+                    pal3.getColor(9).fromSegaFormat(new byte[]{0x0A, (byte) 0xCE}, 0);
+                    pal3.getColor(10).fromSegaFormat(new byte[]{0x00, (byte) 0x8A}, 0);
+                    dirty3 = true;
+                    resizeRoutine = 4;
+                }
+            }
+            // resizeRoutine == 4: idle, rts
+        }
+    }
+
+    // ========== CNZ Unified Cycle ==========
+    // ROM: AnPal_CNZ (sonic3k.asm line 3319)
+    //
+    // Channel 1 - Bumpers/teacups (gated by Palette_cycle_counter1, period 3):
+    //   AnPal_PalCNZ_1 → Normal_palette_line_4+$12 → palette[3] colors 9-11
+    //   counter0 step +6, wrap at 0x60 (16 frames)
+    //   Note: water table (AnPal_PalCNZ_2) is used for Water_palette_line_4 in ROM;
+    //   we use Normal table only. TODO: sync to underwater palette when implemented.
+    //
+    // Channel 2 - Background (runs every frame, NOT gated by channel 1 timer):
+    //   AnPal_PalCNZ_3 → Normal_palette_line_3+$12 → palette[2] colors 9-11
+    //   counter2 (Palette_cycle_counters+$02) step +6, wrap at 0xB4 (30 frames)
+    //   Note: water table (AnPal_PalCNZ_4) omitted. TODO: sync to underwater palette.
+    //
+    // Channel 3 - Tertiary (gated by Palette_cycle_counters+$08, period 2):
+    //   AnPal_PalCNZ_5 → Normal_palette_line_3+$0E → palette[2] colors 7-8
+    //   counter4 (Palette_cycle_counters+$04) step +4, wrap at 0x40 (16 frames)
+    private static class CnzCycle extends PaletteCycle {
+        private final byte[] bumperData;    // AnPal_PalCNZ_1: 96 bytes (16 frames × 6 bytes)
+        private final byte[] bgData;        // AnPal_PalCNZ_3: 180 bytes (30 frames × 6 bytes)
+        private final byte[] tertiaryData;  // AnPal_PalCNZ_5: 64 bytes (16 frames × 4 bytes)
+
+        // Channel 1 timer (Palette_cycle_counter1): period 3 → fires every 4 frames
+        private int timer1;
+        // Channel 1 counter (Palette_cycle_counter0): step +6, wrap 0x60
+        private int counter0;
+        // Channel 2 counter (Palette_cycle_counters+$02): step +6, wrap 0xB4, runs every frame
+        private int counter2;
+        // Channel 3 timer (Palette_cycle_counters+$08): period 2 → fires every 3 frames
+        private int timer3;
+        // Channel 3 counter (Palette_cycle_counters+$04): step +4, wrap 0x40
+        private int counter4;
+
+        private boolean dirty2;
+        private boolean dirty3;
+
+        CnzCycle(byte[] bumperData, byte[] bgData, byte[] tertiaryData) {
+            this.bumperData = bumperData;
+            this.bgData = bgData;
+            this.tertiaryData = tertiaryData;
+        }
+
+        @Override
+        void tick(Level level, GraphicsManager gm) {
+            // Channel 1 (bumpers) — gated by timer1
+            if (timer1 > 0) {
+                timer1--;
+            } else {
+                timer1 = 3;
+                Palette pal3 = level.getPalette(3);
+                int d0 = counter0;
+                counter0 += 6;
+                if (counter0 >= 0x60) {
+                    counter0 = 0;
+                }
+                pal3.getColor(9).fromSegaFormat(bumperData, d0);
+                pal3.getColor(10).fromSegaFormat(bumperData, d0 + 2);
+                pal3.getColor(11).fromSegaFormat(bumperData, d0 + 4);
+                dirty3 = true;
+            }
+
+            // Channel 2 (background) — always runs every frame
+            {
+                Palette pal2 = level.getPalette(2);
+                int d0 = counter2;
+                counter2 += 6;
+                if (counter2 >= 0xB4) {
+                    counter2 = 0;
+                }
+                pal2.getColor(9).fromSegaFormat(bgData, d0);
+                pal2.getColor(10).fromSegaFormat(bgData, d0 + 2);
+                pal2.getColor(11).fromSegaFormat(bgData, d0 + 4);
+                dirty2 = true;
+            }
+
+            // Channel 3 (tertiary) — gated by timer3
+            if (timer3 > 0) {
+                timer3--;
+            } else {
+                timer3 = 2;
+                Palette pal2 = level.getPalette(2);
+                int d0 = counter4;
+                counter4 += 4;
+                if (counter4 >= 0x40) {
+                    counter4 = 0;
+                }
+                pal2.getColor(7).fromSegaFormat(tertiaryData, d0);
+                pal2.getColor(8).fromSegaFormat(tertiaryData, d0 + 2);
+                dirty2 = true;
+            }
+
+            if (gm.isGlInitialized()) {
+                if (dirty2) {
+                    gm.cachePaletteTexture(level.getPalette(2), 2);
+                    dirty2 = false;
+                }
+                if (dirty3) {
+                    gm.cachePaletteTexture(level.getPalette(3), 3);
+                    dirty3 = false;
+                }
+            }
+        }
+    }
+
+    // ========== ICZ Unified Cycle ==========
+    // ROM: AnPal_ICZ (sonic3k.asm line 3379)
+    //
+    // Channel 1 — geyser/ice (timer period 5):
+    //   counter0 +4, wrap 0x40 → Normal_palette_line_3+$1C = palette[2] colors 14-15
+    //
+    // Channel 2 — conditional (timer1 period 9; gated by Events_bg+$16 != 0):
+    //   counter2 +4, wrap 0x48 → Normal_palette_line_4+$1C = palette[3] colors 14-15
+    //   For now: always enabled (TODO: gate by Events_bg+$16 flag)
+    //
+    // Channel 3 — conditional (timer2 period 7; same gate as channel 2):
+    //   counter4 +4, wrap 0x18 → Normal_palette_line_4+$18 = palette[3] colors 12-13
+    //   For now: always enabled (TODO: gate by Events_bg+$16 flag)
+    //
+    // Channel 4 — always runs on timer2 (shares channel 3 timer):
+    //   counter6 +4, wrap 0x40 → Normal_palette_line_3+$18 = palette[2] colors 12-13
+    private static class IczCycle extends PaletteCycle {
+        private final byte[] data1; // 64 bytes: 16 frames × 4 bytes
+        private final byte[] data2; // 72 bytes: 18 frames × 4 bytes
+        private final byte[] data3; // 24 bytes: 6 frames × 4 bytes
+        private final byte[] data4; // 64 bytes: 16 frames × 4 bytes
+
+        // Channel 1 timer (Palette_cycle_counter1), period 5
+        private int timer1;
+        // Channel 2 timer (Palette_cycle_counters+$08), period 9
+        private int timer2;
+        // Channel 3+4 timer (Palette_cycle_counters+$0A), period 7
+        private int timer3;
+
+        // Byte counters (step +4)
+        private int counter0; // channel 1
+        private int counter2; // channel 2
+        private int counter4; // channel 3
+        private int counter6; // channel 4
+
+        private boolean dirty2;
+        private boolean dirty3;
+
+        IczCycle(byte[] data1, byte[] data2, byte[] data3, byte[] data4) {
+            this.data1 = data1;
+            this.data2 = data2;
+            this.data3 = data3;
+            this.data4 = data4;
+        }
+
+        @Override
+        void tick(Level level, GraphicsManager gm) {
+            // Channel 1 (and 4): timer1
+            if (timer1 > 0) {
+                timer1--;
+            } else {
+                timer1 = 5;
+                // Channel 1: palette[2] colors 14-15 (Normal_palette_line_3+$1C)
+                int d0 = counter0;
+                counter0 += 4;
+                if (counter0 >= 0x40) {
+                    counter0 = 0;
+                }
+                Palette pal2 = level.getPalette(2);
+                pal2.getColor(14).fromSegaFormat(data1, d0);
+                pal2.getColor(15).fromSegaFormat(data1, d0 + 2);
+                dirty2 = true;
+            }
+
+            // Channel 2: independent timer
+            if (timer2 > 0) {
+                timer2--;
+            } else {
+                timer2 = 9;
+                // TODO: gate by Events_bg+$16 flag
+                int d0 = counter2;
+                counter2 += 4;
+                if (counter2 >= 0x48) {
+                    counter2 = 0;
+                }
+                Palette pal3 = level.getPalette(3);
+                pal3.getColor(14).fromSegaFormat(data2, d0);
+                pal3.getColor(15).fromSegaFormat(data2, d0 + 2);
+                dirty3 = true;
+            }
+
+            // Channel 3+4: shared timer
+            if (timer3 > 0) {
+                timer3--;
+            } else {
+                timer3 = 7;
+                // Channel 3: palette[3] colors 12-13 (Normal_palette_line_4+$18)
+                // TODO: gate by Events_bg+$16 flag
+                int d0 = counter4;
+                counter4 += 4;
+                if (counter4 >= 0x18) {
+                    counter4 = 0;
+                }
+                Palette pal3 = level.getPalette(3);
+                pal3.getColor(12).fromSegaFormat(data3, d0);
+                pal3.getColor(13).fromSegaFormat(data3, d0 + 2);
+                dirty3 = true;
+
+                // Channel 4: palette[2] colors 12-13 (Normal_palette_line_3+$18) — always runs
+                int d1 = counter6;
+                counter6 += 4;
+                if (counter6 >= 0x40) {
+                    counter6 = 0;
+                }
+                Palette pal2 = level.getPalette(2);
+                pal2.getColor(12).fromSegaFormat(data4, d1);
+                pal2.getColor(13).fromSegaFormat(data4, d1 + 2);
+                dirty2 = true;
+            }
+
+            if (gm.isGlInitialized()) {
+                if (dirty2) {
+                    gm.cachePaletteTexture(level.getPalette(2), 2);
+                    dirty2 = false;
+                }
+                if (dirty3) {
+                    gm.cachePaletteTexture(level.getPalette(3), 3);
+                    dirty3 = false;
+                }
+            }
+        }
+    }
+
+    // ========== LBZ Cycle ==========
+    // ROM: AnPal_LBZ1 / AnPal_LBZ2 (shared logic at loc_2516, sonic3k.asm line 3448)
+    // Single channel, timer period 4 (reset to 3), counter0 step +6, wrap at 0x12 (18 bytes).
+    // AnPal_PalLBZ1/2 → Normal_palette_line_3+$10: move.l + move.w = 3 colors
+    //   palette 2 colors 8-10 (offset 0x10 = 8 words from line start)
+    private static class LbzCycle extends PaletteCycle {
+        private final byte[] tableData; // 18 bytes: 3 frames × 6 bytes
+
+        private int timer;
+        private int counter0;
+        private boolean dirty;
+
+        LbzCycle(byte[] tableData) {
+            this.tableData = tableData;
+        }
+
+        @Override
+        void tick(Level level, GraphicsManager gm) {
+            if (timer > 0) {
+                timer--;
+            } else {
+                timer = 3;
+                int d0 = counter0;
+                counter0 += 6;
+                if (counter0 >= 0x12) {
+                    counter0 = 0;
+                }
+                Palette pal2 = level.getPalette(2);
+                pal2.getColor(8).fromSegaFormat(tableData, d0);
+                pal2.getColor(9).fromSegaFormat(tableData, d0 + 2);
+                pal2.getColor(10).fromSegaFormat(tableData, d0 + 4);
+                dirty = true;
+            }
+
+            if (dirty && gm.isGlInitialized()) {
+                gm.cachePaletteTexture(level.getPalette(2), 2);
+                dirty = false;
+            }
+        }
+    }
+
+    // ========== LRZ Act 1 Cycle ==========
+    // ROM: AnPal_LRZ1 (sonic3k.asm)
+    //
+    // Shared timer (Palette_cycle_counter1, period 16 reset to 0xF):
+    //   Channel A: AnPal_PalLRZ12_1 → palette 2 colors 1-4 (2 longwords)
+    //     counter0 step +8, wraps at 0x80 (16 frames × 8 bytes = 128 bytes)
+    //   Channel B: AnPal_PalLRZ12_2 → palette 3 colors 1-2 (1 longword)
+    //     counters+$02 step +4, wraps at 0x1C (7 frames × 4 bytes = 28 bytes)
+    //
+    // Independent timer (Palette_cycle_counters+$08, period 8 reset to 7):
+    //   Channel C: AnPal_PalLRZ1_3 → palette 2 color 11 (1 word)
+    //     counters+$04 step +2, wraps at 0x22 (17 frames × 2 bytes = 34 bytes)
+    private static class Lrz1Cycle extends PaletteCycle {
+        private final byte[] sharedData1; // AnPal_PalLRZ12_1: 128 bytes (channel A)
+        private final byte[] sharedData2; // AnPal_PalLRZ12_2: 28 bytes (channel B)
+        private final byte[] lrz1Data3;   // AnPal_PalLRZ1_3: 34 bytes (channel C)
+
+        // Shared timer (channels A+B)
+        private int timerAB;    // Palette_cycle_counter1, reset to 0xF
+        private int counterA;   // Palette_cycle_counter0
+        private int counterB;   // Palette_cycle_counters+$02
+
+        // Independent timer (channel C)
+        private int timerC;     // Palette_cycle_counters+$08, reset to 7
+        private int counterC;   // Palette_cycle_counters+$04
+
+        private boolean dirty2;
+        private boolean dirty3;
+
+        Lrz1Cycle(byte[] sharedData1, byte[] sharedData2, byte[] lrz1Data3) {
+            this.sharedData1 = sharedData1;
+            this.sharedData2 = sharedData2;
+            this.lrz1Data3 = lrz1Data3;
+        }
+
+        @Override
+        void tick(Level level, GraphicsManager gm) {
+            // Shared timer (channels A+B): period 16
+            if (timerAB > 0) {
+                timerAB--;
+            } else {
+                timerAB = 0xF;
+
+                // Channel A: AnPal_PalLRZ12_1 → palette 2 colors 1-4
+                int d0 = counterA;
+                counterA += 8;
+                if (counterA >= 0x80) {
+                    counterA = 0;
+                }
+                Palette pal2 = level.getPalette(2);
+                pal2.getColor(1).fromSegaFormat(sharedData1, d0);
+                pal2.getColor(2).fromSegaFormat(sharedData1, d0 + 2);
+                pal2.getColor(3).fromSegaFormat(sharedData1, d0 + 4);
+                pal2.getColor(4).fromSegaFormat(sharedData1, d0 + 6);
+                dirty2 = true;
+
+                // Channel B: AnPal_PalLRZ12_2 → palette 3 colors 1-2
+                int d1 = counterB;
+                counterB += 4;
+                if (counterB >= 0x1C) {
+                    counterB = 0;
+                }
+                Palette pal3 = level.getPalette(3);
+                pal3.getColor(1).fromSegaFormat(sharedData2, d1);
+                pal3.getColor(2).fromSegaFormat(sharedData2, d1 + 2);
+                dirty3 = true;
+            }
+
+            // Independent timer (channel C): period 8
+            if (timerC > 0) {
+                timerC--;
+            } else {
+                timerC = 7;
+
+                // Channel C: AnPal_PalLRZ1_3 → palette 2 color 11
+                int d0 = counterC;
+                counterC += 2;
+                if (counterC >= 0x22) {
+                    counterC = 0;
+                }
+                Palette pal2 = level.getPalette(2);
+                pal2.getColor(11).fromSegaFormat(lrz1Data3, d0);
+                dirty2 = true;
+            }
+
+            if (gm.isGlInitialized()) {
+                if (dirty2) {
+                    gm.cachePaletteTexture(level.getPalette(2), 2);
+                    dirty2 = false;
+                }
+                if (dirty3) {
+                    gm.cachePaletteTexture(level.getPalette(3), 3);
+                    dirty3 = false;
+                }
+            }
+        }
+    }
+
+    // ========== LRZ Act 2 Cycle ==========
+    // ROM: AnPal_LRZ2 (sonic3k.asm)
+    //
+    // Shared timer (Palette_cycle_counter1, period 16 reset to 0xF):
+    //   Channel A: AnPal_PalLRZ12_1 → palette 2 colors 1-4 (2 longwords)
+    //     counter0 step +8, wraps at 0x80 (16 frames × 8 bytes = 128 bytes)
+    //   Channel B: AnPal_PalLRZ12_2 → palette 3 colors 1-2 (1 longword)
+    //     counters+$02 step +4, wraps at 0x1C (7 frames × 4 bytes = 28 bytes)
+    //
+    // Independent timer (Palette_cycle_counters+$08, period 16 reset to 0xF):
+    //   Channel D: AnPal_PalLRZ2_3 → palette 3 colors 11-14 (2 longwords)
+    //     counters+$04 step +8, wraps at 0x100 (32 frames × 8 bytes = 256 bytes)
+    //     ROM bug: writes (a0,d0.w) at both +$16 and +$1A (same 2 colors twice, not +4(a0,d0.w))
+    private static class Lrz2Cycle extends PaletteCycle {
+        private final byte[] sharedData1; // AnPal_PalLRZ12_1: 128 bytes (channel A)
+        private final byte[] sharedData2; // AnPal_PalLRZ12_2: 28 bytes (channel B)
+        private final byte[] lrz2Data3;   // AnPal_PalLRZ2_3: 256 bytes (channel D)
+
+        // Shared timer (channels A+B)
+        private int timerAB;    // Palette_cycle_counter1, reset to 0xF
+        private int counterA;   // Palette_cycle_counter0
+        private int counterB;   // Palette_cycle_counters+$02
+
+        // Independent timer (channel D)
+        private int timerD;     // Palette_cycle_counters+$08, reset to 0xF
+        private int counterD;   // Palette_cycle_counters+$04
+
+        private boolean dirty2;
+        private boolean dirty3;
+
+        Lrz2Cycle(byte[] sharedData1, byte[] sharedData2, byte[] lrz2Data3) {
+            this.sharedData1 = sharedData1;
+            this.sharedData2 = sharedData2;
+            this.lrz2Data3 = lrz2Data3;
+        }
+
+        @Override
+        void tick(Level level, GraphicsManager gm) {
+            // Shared timer (channels A+B): period 16
+            if (timerAB > 0) {
+                timerAB--;
+            } else {
+                timerAB = 0xF;
+
+                // Channel A: AnPal_PalLRZ12_1 → palette 2 colors 1-4
+                int d0 = counterA;
+                counterA += 8;
+                if (counterA >= 0x80) {
+                    counterA = 0;
+                }
+                Palette pal2 = level.getPalette(2);
+                pal2.getColor(1).fromSegaFormat(sharedData1, d0);
+                pal2.getColor(2).fromSegaFormat(sharedData1, d0 + 2);
+                pal2.getColor(3).fromSegaFormat(sharedData1, d0 + 4);
+                pal2.getColor(4).fromSegaFormat(sharedData1, d0 + 6);
+                dirty2 = true;
+
+                // Channel B: AnPal_PalLRZ12_2 → palette 3 colors 1-2
+                int d1 = counterB;
+                counterB += 4;
+                if (counterB >= 0x1C) {
+                    counterB = 0;
+                }
+                Palette pal3 = level.getPalette(3);
+                pal3.getColor(1).fromSegaFormat(sharedData2, d1);
+                pal3.getColor(2).fromSegaFormat(sharedData2, d1 + 2);
+                dirty3 = true;
+            }
+
+            // Independent timer (channel D): period 16
+            if (timerD > 0) {
+                timerD--;
+            } else {
+                timerD = 0xF;
+
+                // Channel D: AnPal_PalLRZ2_3 → palette 3 colors 11-14
+                // ROM bug: the second move.l uses (a0,d0.w) again instead of 4(a0,d0.w),
+                // so colors 13+14 receive the same values as colors 11+12.
+                int d0 = counterD;
+                counterD += 8;
+                if (counterD >= 0x100) {
+                    counterD = 0;
+                }
+                Palette pal3 = level.getPalette(3);
+                pal3.getColor(11).fromSegaFormat(lrz2Data3, d0);
+                pal3.getColor(12).fromSegaFormat(lrz2Data3, d0 + 2);
+                // ROM bug: same data again (d0, not d0+4) for colors 13+14
+                pal3.getColor(13).fromSegaFormat(lrz2Data3, d0);
+                pal3.getColor(14).fromSegaFormat(lrz2Data3, d0 + 2);
+                dirty3 = true;
+            }
+
+            if (gm.isGlInitialized()) {
+                if (dirty2) {
+                    gm.cachePaletteTexture(level.getPalette(2), 2);
+                    dirty2 = false;
+                }
+                if (dirty3) {
+                    gm.cachePaletteTexture(level.getPalette(3), 3);
+                    dirty3 = false;
+                }
+            }
+        }
+    }
+
+    // ========== BPZ Cycle ==========
+    // ROM: AnPal_BPZ (sonic3k.asm lines 3712-3743)
+    //
+    // Channel 1 (Balloons): timer period 8 (reset to 7), counter0 step +6, wrap at 0x12
+    //   AnPal_PalBPZ_1 → palette 2, colors 13-15 (longword + word = 3 colors)
+    //   Normal_palette_line_3+$1A → getPalette(2), color 13
+    //
+    // Channel 2 (Background): independent timer period 18 (reset to 0x11),
+    //   counters+$08 step +6, wrap at 0x7E
+    //   AnPal_PalBPZ_2 → palette 3, colors 2-4 (longword + word = 3 colors)
+    //   Normal_palette_line_4+$04 → getPalette(3), color 2
+    private static class BpzCycle extends PaletteCycle {
+        private final byte[] balloonsData; // 18 bytes: 3 frames x 6 bytes
+        private final byte[] bgData;       // 126 bytes: 21 frames x 6 bytes
+
+        // Channel 1 state (Palette_cycle_counter1 / Palette_cycle_counter0)
+        private int timer1;
+        private int counter0;
+
+        // Channel 2 state (Palette_cycle_counters+$08 / Palette_cycle_counters+$02)
+        private int timer2;
+        private int counter2;
+
+        private boolean dirty2;
+        private boolean dirty3;
+
+        BpzCycle(byte[] balloonsData, byte[] bgData) {
+            this.balloonsData = balloonsData;
+            this.bgData = bgData;
+        }
+
+        @Override
+        void tick(Level level, GraphicsManager gm) {
+            // Channel 1: Balloons → palette 2, colors 13-15
+            if (timer1 > 0) {
+                timer1--;
+            } else {
+                timer1 = 7;
+                int d0 = counter0;
+                counter0 += 6;
+                if (counter0 >= 0x12) {
+                    counter0 = 0;
+                }
+                Palette pal2 = level.getPalette(2);
+                pal2.getColor(13).fromSegaFormat(balloonsData, d0);
+                pal2.getColor(14).fromSegaFormat(balloonsData, d0 + 2);
+                pal2.getColor(15).fromSegaFormat(balloonsData, d0 + 4);
+                dirty2 = true;
+            }
+
+            // Channel 2: Background → palette 3, colors 2-4
+            if (timer2 > 0) {
+                timer2--;
+            } else {
+                timer2 = 0x11;
+                int d0 = counter2;
+                counter2 += 6;
+                if (counter2 >= 0x7E) {
+                    counter2 = 0;
+                }
+                Palette pal3 = level.getPalette(3);
+                pal3.getColor(2).fromSegaFormat(bgData, d0);
+                pal3.getColor(3).fromSegaFormat(bgData, d0 + 2);
+                pal3.getColor(4).fromSegaFormat(bgData, d0 + 4);
+                dirty3 = true;
+            }
+
+            if (gm.isGlInitialized()) {
+                if (dirty2) {
+                    gm.cachePaletteTexture(level.getPalette(2), 2);
+                    dirty2 = false;
+                }
+                if (dirty3) {
+                    gm.cachePaletteTexture(level.getPalette(3), 3);
+                    dirty3 = false;
+                }
+            }
+        }
+    }
+
+    // ========== CGZ Light Animation Cycle ==========
+    // ROM: AnPal_CGZ (shared routine for all acts, timer period 10)
+    // AnPal_PalCGZ → palette 2 colors 2-5 (10 frames, counter0 step +8, wraps at 0x50)
+    // Normal_palette_line_3+$04 = palette[2] color 2 (line 3 = index 2, +$04 = 2 words = color 2)
+    private static class CgzCycle extends PaletteCycle {
+        private final byte[] cgzData; // 80 bytes: 10 frames × 8 bytes
+        private int timer;
+        private int counter0;
+        private boolean dirty;
+
+        CgzCycle(byte[] cgzData) {
+            this.cgzData = cgzData;
+        }
+
+        @Override
+        void tick(Level level, GraphicsManager gm) {
+            if (timer > 0) {
+                timer--;
+            } else {
+                timer = 9;
+                int d0 = counter0;
+                counter0 += 8;
+                if (counter0 >= 0x50) {
+                    counter0 = 0;
+                }
+                Palette pal2 = level.getPalette(2);
+                pal2.getColor(2).fromSegaFormat(cgzData, d0);
+                pal2.getColor(3).fromSegaFormat(cgzData, d0 + 2);
+                pal2.getColor(4).fromSegaFormat(cgzData, d0 + 4);
+                pal2.getColor(5).fromSegaFormat(cgzData, d0 + 6);
+                dirty = true;
+            }
+
+            if (dirty && gm.isGlInitialized()) {
+                gm.cachePaletteTexture(level.getPalette(2), 2);
+                dirty = false;
+            }
+        }
+    }
+
+    // ========== EMZ Palette Cycle ==========
+    // ROM: AnPal_EMZ (two independent channels)
+    //
+    // Channel 1 — Emerald glow (timer period 8, reset to 7):
+    //   AnPal_PalEMZ_1 → palette 2 color 14 (Normal_palette_line_3+$1C)
+    //   Counter0: step +2, wrap at 0x3C (30 frames). ROM uses 4(a0,d0.w) offset.
+    //
+    // Channel 2 — Background (timer period 32, reset to 0x1F, Palette_cycle_counters+$08):
+    //   AnPal_PalEMZ_2 → palette 3 colors 9-10 (Normal_palette_line_4+$12, move.l = 2 colors)
+    //   Counter (counters+$02): step +4, wrap at 0x34 (13 frames).
+    private static class EmzCycle extends PaletteCycle {
+        private final byte[] glowData;  // AnPal_PalEMZ_1: 64 bytes (covers 4(a0,d0) range)
+        private final byte[] bgData;    // AnPal_PalEMZ_2: 52 bytes (13 frames x 4 bytes)
+
+        private int glowTimer;   // Palette_cycle_counter1
+        private int glowCounter; // Palette_cycle_counter0 (step +2, wrap at 0x3C)
+        private int bgTimer;     // Palette_cycle_counters+$08
+        private int bgCounter;   // Palette_cycle_counters+$02 (step +4, wrap at 0x34)
+        private boolean dirty2;
+        private boolean dirty3;
+
+        EmzCycle(byte[] glowData, byte[] bgData) {
+            this.glowData = glowData;
+            this.bgData = bgData;
+        }
+
+        @Override
+        void tick(Level level, GraphicsManager gm) {
+            // Channel 1: emerald glow → palette 2 color 14
+            if (glowTimer > 0) {
+                glowTimer--;
+            } else {
+                glowTimer = 7;
+                int d0 = glowCounter;
+                glowCounter += 2;
+                if (glowCounter >= 0x3C) {
+                    glowCounter = 0;
+                }
+                // ROM: move.w 4(a0,d0.w) — skip 4 bytes from table base
+                level.getPalette(2).getColor(14).fromSegaFormat(glowData, 4 + d0);
+                dirty2 = true;
+            }
+
+            // Channel 2: background → palette 3 colors 9-10
+            if (bgTimer > 0) {
+                bgTimer--;
+            } else {
+                bgTimer = 0x1F;
+                int d0 = bgCounter;
+                bgCounter += 4;
+                if (bgCounter >= 0x34) {
+                    bgCounter = 0;
+                }
+                // ROM: move.l (a0,d0.w) — write 2 colors at once
+                Palette pal3 = level.getPalette(3);
+                pal3.getColor(9).fromSegaFormat(bgData, d0);
+                pal3.getColor(10).fromSegaFormat(bgData, d0 + 2);
+                dirty3 = true;
+            }
+
+            if (gm.isGlInitialized()) {
+                if (dirty2) {
+                    gm.cachePaletteTexture(level.getPalette(2), 2);
+                    dirty2 = false;
+                }
+                if (dirty3) {
+                    gm.cachePaletteTexture(level.getPalette(3), 3);
+                    dirty3 = false;
+                }
             }
         }
     }

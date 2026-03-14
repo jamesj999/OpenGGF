@@ -422,6 +422,88 @@ public class Sonic3kConstants {
     // AIZ2 torch glow post-fire (palette 3, color 1): 26 frames x 2 bytes = 52 bytes
     public static final int ANPAL_AIZ2_5_ADDR = 0x002CD8;
     public static final int ANPAL_AIZ2_5_SIZE = 52;
+    // HCZ1 water animation (palette 2, colors 3-6): 4 frames x 8 bytes = 32 bytes
+    // ROM: AnPal_PalHCZ1 — verified by ROM binary search for 0EC8 0EC0 0EA0 0E80 full sequence
+    public static final int ANPAL_HCZ1_ADDR = 0x002D0E;
+    public static final int ANPAL_HCZ1_SIZE = 32;
+    // CNZ bumpers/teacups (palette 3, colors 9-11): 16 frames x 6 bytes = 96 bytes
+    // Verified by ROM binary search (pattern: 00 00 00 66 00 EE)
+    public static final int ANPAL_CNZ_1_ADDR = 0x002D2E;
+    public static final int ANPAL_CNZ_1_SIZE = 96;
+    // CNZ bumpers water table (palette 3, colors 9-11, unused): 16 frames x 6 bytes = 96 bytes
+    public static final int ANPAL_CNZ_2_ADDR = 0x002E82;
+    public static final int ANPAL_CNZ_2_SIZE = 96;
+    // CNZ background (palette 2, colors 9-11): 30 frames x 6 bytes = 180 bytes
+    // Verified by ROM binary search (pattern: 0E 20 00 8A 0C 0E)
+    public static final int ANPAL_CNZ_3_ADDR = 0x002D8E;
+    public static final int ANPAL_CNZ_3_SIZE = 180;
+    // CNZ background water table (palette 2, colors 9-11, unused): 30 frames x 6 bytes = 180 bytes
+    public static final int ANPAL_CNZ_4_ADDR = 0x002EE2;
+    public static final int ANPAL_CNZ_4_SIZE = 180;
+    // CNZ tertiary (palette 2, colors 7-8): 16 frames x 4 bytes = 64 bytes
+    // Verified by ROM binary search (pattern: 02 E0 0E CE 04 E2 0E AC)
+    public static final int ANPAL_CNZ_5_ADDR = 0x002E42;
+    public static final int ANPAL_CNZ_5_SIZE = 64;
+    // ICZ geyser/ice (palette 2, colors 14-15): 16 frames x 4 bytes = 64 bytes
+    // ROM: AnPal_PalICZ_1 — verified 0x002FD6 by binary search (0E 62 0E 20 ...)
+    public static final int ANPAL_ICZ_1_ADDR = 0x002FD6;
+    public static final int ANPAL_ICZ_1_SIZE = 64;
+    // ICZ conditional ch2 (palette 3, colors 14-15): 18 frames x 4 bytes = 72 bytes
+    // ROM: AnPal_PalICZ_2 — verified 0x003016 by binary search (0E 06 0E 08 ...)
+    public static final int ANPAL_ICZ_2_ADDR = 0x003016;
+    public static final int ANPAL_ICZ_2_SIZE = 72;
+    // ICZ conditional ch3 (palette 3, colors 12-13): 6 frames x 4 bytes = 24 bytes
+    // ROM: AnPal_PalICZ_3 — verified 0x00305E by binary search (08 40 0E EA ...)
+    public static final int ANPAL_ICZ_3_ADDR = 0x00305E;
+    public static final int ANPAL_ICZ_3_SIZE = 24;
+    // ICZ always-on ch4 (palette 2, colors 12-13): 16 frames x 4 bytes = 64 bytes
+    // ROM: AnPal_PalICZ_4 — verified 0x003076 by binary search (00 E8 0C EC ...)
+    public static final int ANPAL_ICZ_4_ADDR = 0x003076;
+    public static final int ANPAL_ICZ_4_SIZE = 64;
+    // LBZ Act 1 (palette 2, colors 8-10): 3 frames x 6 bytes = 18 bytes
+    // AnPal_PalLBZ1 — verified by ROM binary search (0x0030B6)
+    public static final int ANPAL_LBZ1_ADDR = 0x0030B6;
+    public static final int ANPAL_LBZ1_SIZE = 18;
+    // LBZ Act 2 (palette 2, colors 8-10): 3 frames x 6 bytes = 18 bytes
+    // AnPal_PalLBZ2 — immediately follows LBZ1 at 0x0030C8
+    public static final int ANPAL_LBZ2_ADDR = 0x0030C8;
+    public static final int ANPAL_LBZ2_SIZE = 18;
+    // LRZ shared (both acts) channel A: palette 2 colors 1-4 (2 longwords), 16 frames x 8 bytes = 128 bytes
+    // counter step +8, wraps at 0x80. Verified by ROM binary search (sonic3k.asm AnPal_PalLRZ12_1).
+    public static final int ANPAL_LRZ12_1_ADDR = 0x00327E;
+    public static final int ANPAL_LRZ12_1_SIZE = 128;
+    // LRZ shared (both acts) channel B: palette 3 colors 1-2 (1 longword), 7 frames x 4 bytes = 28 bytes
+    // counter step +4, wraps at 0x1C. Verified by ROM binary search (sonic3k.asm AnPal_PalLRZ12_2).
+    public static final int ANPAL_LRZ12_2_ADDR = 0x0032FE;
+    public static final int ANPAL_LRZ12_2_SIZE = 28;
+    // LRZ Act 1 channel C: palette 2 color 11 (1 word), 17 frames x 2 bytes = 34 bytes
+    // counter step +2, wraps at 0x22. Verified by ROM binary search (sonic3k.asm AnPal_PalLRZ1_3).
+    public static final int ANPAL_LRZ1_3_ADDR = 0x003322;
+    public static final int ANPAL_LRZ1_3_SIZE = 34;
+    // LRZ Act 2 channel D: palette 3 colors 11-14 (2 longwords), 32 frames x 8 bytes = 256 bytes
+    // counter step +8, wraps at 0x100. Verified by ROM binary search (sonic3k.asm AnPal_PalLRZ2_3).
+    // ROM bug: writes same 2 colors twice (uses (a0,d0.w) twice instead of 4(a0,d0.w)) — replicated faithfully.
+    public static final int ANPAL_LRZ2_3_ADDR = 0x003344;
+    public static final int ANPAL_LRZ2_3_SIZE = 256;
+    // BPZ balloons (palette 2, colors 13-15): 3 frames x 6 bytes = 18 bytes
+    // Verified by ROM binary search for pattern 00EE 00AE 006C 00AE 006E 00EE 006E 00EE 00AE
+    public static final int ANPAL_BPZ_1_ADDR = 0x0034CC;
+    public static final int ANPAL_BPZ_1_SIZE = 18;
+    // BPZ background (palette 3, colors 2-4): 21 frames x 6 bytes = 126 bytes
+    // Immediately follows ANPAL_BPZ_1 in ROM
+    public static final int ANPAL_BPZ_2_ADDR = 0x0034DE;
+    public static final int ANPAL_BPZ_2_SIZE = 126;
+    // CGZ light animation (palette 2, colors 2-5): 10 frames x 8 bytes = 80 bytes
+    // AnPal_PalCGZ — verified by ROM binary search at 0x00355C
+    public static final int ANPAL_CGZ_ADDR = 0x00355C;
+    public static final int ANPAL_CGZ_SIZE = 80;
+    // EMZ emerald glow (palette 2, color 14): 30 frames x 2 bytes = 60 bytes
+    // ROM reads as 4(a0,d0.w); counter steps +2, wraps at 0x3C. Slice 64 bytes to cover full range.
+    public static final int ANPAL_EMZ1_ADDR = 0x0035AC;
+    public static final int ANPAL_EMZ1_SIZE = 64;
+    // EMZ background (palette 3, colors 9-10): 13 frames x 4 bytes = 52 bytes
+    public static final int ANPAL_EMZ2_ADDR = 0x0035E8;
+    public static final int ANPAL_EMZ2_SIZE = 52;
 
     // ===== Animated pattern scripts (AniPLC tables) =====
     // AniPLC_AIZ1: 3 scripts (waterfall cascade, waterfall offset, wave ripple)

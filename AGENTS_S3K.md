@@ -52,15 +52,15 @@ Each channel has:
 | Zone | ID | Act 1 Routine | Act 2 Routine | Status |
 |------|----|---------------|---------------|--------|
 | AIZ  | 0x00 | `AnPal_AIZ1` | `AnPal_AIZ2` | **Implemented** |
-| HCZ  | 0x01 | `AnPal_HCZ1` | `AnPal_HCZ2` | Stubbed |
-| CNZ  | 0x03 | `AnPal_CNZ`  | `AnPal_CNZ`  | Stubbed |
-| FBZ  | 0x04 | `AnPal_FBZ`  | `AnPal_FBZ`  | Stubbed |
-| ICZ  | 0x05 | `AnPal_ICZ`  | `AnPal_ICZ`  | Stubbed |
-| LBZ  | 0x06 | `AnPal_LBZ1` | `AnPal_LBZ2` | Stubbed |
-| LRZ  | 0x09 | `AnPal_LRZ1` | `AnPal_LRZ2` | Stubbed |
-| BPZ  | 0x0E | `AnPal_BPZ`  | `AnPal_BPZ`  | Stubbed (competition) |
-| CGZ  | 0x10 | `AnPal_CGZ`  | `AnPal_CGZ`  | Stubbed (competition) |
-| EMZ  | 0x11 | `AnPal_EMZ`  | `AnPal_EMZ`  | Stubbed (competition) |
+| HCZ  | 0x01 | `AnPal_HCZ1` | `AnPal_HCZ2` | **Implemented** |
+| CNZ  | 0x03 | `AnPal_CNZ`  | `AnPal_CNZ`  | **Implemented** |
+| FBZ  | 0x04 | `AnPal_FBZ`  | `AnPal_FBZ`  | N/A (no cycling) |
+| ICZ  | 0x05 | `AnPal_ICZ`  | `AnPal_ICZ`  | **Implemented** |
+| LBZ  | 0x06 | `AnPal_LBZ1` | `AnPal_LBZ2` | **Implemented** |
+| LRZ  | 0x09 | `AnPal_LRZ1` | `AnPal_LRZ2` | **Implemented** |
+| BPZ  | 0x0E | `AnPal_BPZ`  | `AnPal_BPZ`  | **Implemented** (competition) |
+| CGZ  | 0x10 | `AnPal_CGZ`  | `AnPal_CGZ`  | **Implemented** (competition) |
+| EMZ  | 0x11 | `AnPal_EMZ`  | `AnPal_EMZ`  | **Implemented** (competition) |
 
 Zones with **no** palette animation (rts in dispatch): MGZ, MHZ, SOZ, SSZ, DEZ, DDZ, ALZ, DPZ.
 
