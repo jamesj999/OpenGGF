@@ -250,6 +250,7 @@ Critical constraints for current S3K support:
 - **Collision decoding:** Keep `Sonic3k.decodeCollisionPointer()` marker logic and stride-2 reads in `Sonic3kLevel.readCollisionIndex()`.
 - **PLC system:** See `s3k-plc-system` skill for Pattern Load Cue system docs (runtime art loading, act transitions, boss art).
 - **Known limitation:** Some S3K levels log `maxChunkPatternIndex > patternCount` (dynamic art/PLC parity incomplete).
+- **S3K-specific details:** See [AGENTS_S3K.md](AGENTS_S3K.md) for palette animation, zone intricacies, and implementation patterns.
 
 **Keep these S3K tests green:**
 - `com.openggf.tests.TestS3kAiz1SkipHeadless`

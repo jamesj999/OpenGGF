@@ -202,6 +202,8 @@ GameModuleRegistry.detectAndSetModule(rom);
 
 ### Sonic 3&K Bring-up Notes (Critical)
 
+- **S3K-specific details:** See [AGENTS_S3K.md](AGENTS_S3K.md) for palette animation, zone intricacies, and implementation patterns.
+
 - **Dual object pointer tables (zone-set system):** S3K uses two object pointer tables that remap many IDs by zone. `S3kZoneSet` enum: `S3KL` (zones 0-6: AIZ-LBZ) and `SKL` (zones 7-13: MHZ-DDZ). `Sonic3kObjectRegistry.getPrimaryName(id, zoneSet)` resolves zone-set-aware names. `Sonic3kObjectProfile` uses per-level resolution for names, badnik IDs, and boss IDs. Disasm source files: `Levels/Misc/Object pointers - SK Set 1.asm` (S3KL, 256 entries) and `Object pointers - SK Set 2.asm` (SKL, 185 entries).
 - `Sonic3kLevel.loadMap(...)` must decode layout row pointers as interleaved FG/BG words per row:
   - FG pointer word at `header + row * 4`

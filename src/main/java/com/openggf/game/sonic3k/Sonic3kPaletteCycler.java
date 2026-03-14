@@ -54,12 +54,52 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
 
     private List<PaletteCycle> loadCycles(RomByteReader reader, int zoneIndex, int actIndex) {
         List<PaletteCycle> list = new ArrayList<>();
-        if (zoneIndex == 0) { // AIZ
-            if (actIndex == 0) {
-                loadAiz1Cycles(reader, list);
-            } else {
-                loadAiz2Cycles(reader, list);
-            }
+        switch (zoneIndex) {
+            case 0x00: // AIZ
+                if (actIndex == 0) {
+                    loadAiz1Cycles(reader, list);
+                } else {
+                    loadAiz2Cycles(reader, list);
+                }
+                break;
+            // TODO: HCZ (zone 0x01) — AnPal_HCZ1 / AnPal_HCZ2
+            //   Act 1: water surface shimmer + underwater tint cycling
+            //   Act 2: same channels, different color tables
+            //   Both acts: synchronized water palette mirror
+            case 0x01: break;
+
+            // TODO: CNZ (zone 0x03) — AnPal_CNZ (shared both acts)
+            //   Neon sign color cycling, bumper glow, synchronized water palette mirror
+            case 0x03: break;
+
+            // TODO: FBZ (zone 0x04) — AnPal_FBZ (shared both acts)
+            //   Conveyor belt cycling, electrical spark colors
+            case 0x04: break;
+
+            // TODO: ICZ (zone 0x05) — AnPal_ICZ (shared both acts)
+            //   Ice crystal shimmer, conditional enable via Events_bg+0x16
+            case 0x05: break;
+
+            // TODO: LBZ (zone 0x06) — AnPal_LBZ1 / AnPal_LBZ2
+            //   Act 1: pipe fluid cycling, machinery glow
+            //   Act 2: different machinery colors, alarm light cycling
+            case 0x06: break;
+
+            // TODO: LRZ (zone 0x09) — AnPal_LRZ1 / AnPal_LRZ2
+            //   Act 1: lava surface cycling, heat shimmer
+            //   Act 2: lava + crystal colors
+            case 0x09: break;
+
+            // TODO: BPZ (zone 0x0E, competition) — AnPal_BPZ (shared)
+            case 0x0E: break;
+
+            // TODO: CGZ (zone 0x10, competition) — AnPal_CGZ (shared)
+            case 0x10: break;
+
+            // TODO: EMZ (zone 0x11, competition) — AnPal_EMZ (shared)
+            case 0x11: break;
+
+            default: break;
         }
         return list;
     }
