@@ -27,7 +27,7 @@ public class TestS3kBossExplosionController {
     }
 
     @Test
-    public void noExplosionsOnOddFrames() {
+    public void spawnsOnlyOnEvenTickIndices() {
         var controller = new S3kBossExplosionController(160, 112, 2);
         controller.tick();
         assertEquals(1, controller.drainPendingExplosions().size());

@@ -35,10 +35,12 @@ public class S3kBossExplosionChild extends AbstractObjectInstance {
             AudioManager.getInstance().playSfx(Sonic3kSfx.EXPLODE.id);
             sfxPlayed = true;
         }
-        animTick++;
-        if (animTick >= ANIM_SEQUENCE.length) {
+        // Increment AFTER render pass uses the current tick, so ANIM_SEQUENCE[0] is displayed
+        if (animTick + 1 >= ANIM_SEQUENCE.length) {
             setDestroyed(true);
+            return;
         }
+        animTick++;
     }
 
     @Override
