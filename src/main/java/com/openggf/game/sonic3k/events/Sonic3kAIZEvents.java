@@ -8,6 +8,7 @@ import com.openggf.game.sonic3k.Sonic3kLoadBootstrap;
 import com.openggf.game.sonic3k.Sonic3kLevel;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
+import com.openggf.graphics.GraphicsManager;
 import com.openggf.game.sonic3k.objects.AizHollowTreeObjectInstance;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.level.LevelConstants;
@@ -56,6 +57,14 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
 
     /** Camera X threshold for terrain swap (routine 2). Already handled by AizPlaneIntroInstance. */
     private static final int TERRAIN_SWAP_X = 0x1400;
+
+    // --- ROM: loc_1A9EC palette[2][15] per-frame mutation (s3.asm:32171-32195) ---
+    // Cascading overwrite: $020E → $0004 at $2B00 → $0C02 at $2D80.
+    private static final int PALETTE_MUT_THRESHOLD_DARK = 0x2B00;
+    private static final int PALETTE_MUT_THRESHOLD_FIRE = 0x2D80;
+    private static final int PALETTE_MUT_COLOR_RED = 0x020E;
+    private static final int PALETTE_MUT_COLOR_DARK = 0x0004;
+    private static final int PALETTE_MUT_COLOR_FIRE = 0x0C02;
     // AIZ1_ScreenEvent hollow-tree reveal thresholds/chunk columns.
     private static final int TREE_REVEAL_CLEAR_CAMERA_X = 0x2D30;
     private static final int TREE_REVEAL_CLEAR_COUNTER = 0x39;
@@ -350,6 +359,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         }
         if (boundariesUnlocked) {
             resizeMaxYFromX(cameraX);
+            applyResizePaletteMutation(cameraX);
         }
 
         updateFireTransition();
@@ -368,6 +378,47 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
                 camera().setMaxY((short) maxY);
                 return;
             }
+        }
+    }
+
+    /**
+     * ROM: loc_1A9EC per-frame palette[2][15] mutation (s3.asm:32171-32195).
+     *
+     * Every frame while routine 4 is active, the ROM writes a cascading color:
+     * <ul>
+     *   <li>Unconditional: $020E (bright red)</li>
+     *   <li>Camera X >= $2B00: $0004 (nearly black — darkens hollow tree interior)</li>
+     *   <li>Camera X >= $2D80: $0C02 (amber — pre-fire zone)</li>
+     * </ul>
+     * Skipped when the fire transition is active (fire palette takes precedence).
+     */
+    private void applyResizePaletteMutation(int cameraX) {
+        if (isFireTransitionActive()) {
+            return;
+        }
+        LevelManager levelManager = LevelManager.getInstance();
+        if (levelManager == null || levelManager.getCurrentLevel() == null) {
+            return;
+        }
+        Level level = levelManager.getCurrentLevel();
+        if (level.getPaletteCount() <= 2) {
+            return;
+        }
+        Palette pal2 = level.getPalette(2);
+
+        int segaColor = PALETTE_MUT_COLOR_RED;
+        if (cameraX >= PALETTE_MUT_THRESHOLD_FIRE) {
+            segaColor = PALETTE_MUT_COLOR_FIRE;
+        } else if (cameraX >= PALETTE_MUT_THRESHOLD_DARK) {
+            segaColor = PALETTE_MUT_COLOR_DARK;
+        }
+
+        byte[] colorBytes = {(byte) ((segaColor >> 8) & 0xFF), (byte) (segaColor & 0xFF)};
+        pal2.getColor(15).fromSegaFormat(colorBytes, 0);
+
+        GraphicsManager gm = GraphicsManager.getInstance();
+        if (gm.isGlInitialized()) {
+            gm.cachePaletteTexture(pal2, 2);
         }
     }
 
