@@ -117,8 +117,7 @@ final class AizFireCurtainRenderer {
             int columnRight = ((columnIndex + 1) * screenWidth) / COLUMN_COUNT;
             int columnWidth = Math.max(1, columnRight - columnLeft);
             int waveOffset = columnIndex < columnWaveOffsets.length ? columnWaveOffsets[columnIndex] : 0;
-            int clipWaveOffset = state.fullyOpaqueToGameplay() ? 0 : waveOffset;
-            int clipTop = clamp(baseTop - clipWaveOffset, 0, screenHeight);
+            int clipTop = clamp(baseTop + waveOffset, 0, screenHeight);
             if (clipTop >= screenHeight) {
                 continue;
             }
@@ -180,8 +179,7 @@ final class AizFireCurtainRenderer {
             int columnRight = ((columnIndex + 1) * screenWidth) / COLUMN_COUNT;
             int columnWidth = Math.max(1, columnRight - columnLeft);
             int waveOffset = columnIndex < columnWaveOffsets.length ? columnWaveOffsets[columnIndex] : 0;
-            int clipWaveOffset = state.fullyOpaqueToGameplay() ? 0 : waveOffset;
-            int clipTop = clamp(baseTop - clipWaveOffset, 0, screenHeight);
+            int clipTop = clamp(baseTop + waveOffset, 0, screenHeight);
             if (clipTop >= screenHeight) {
                 continue;
             }
@@ -200,7 +198,8 @@ final class AizFireCurtainRenderer {
                 if (drawY >= screenHeight || drawY + TILE_SIZE <= clipTop) {
                     continue;
                 }
-                if (bgTileY < FIRE_TILE_START_BG_Y || bgTileY >= FIRE_TILE_END_BG_Y) {
+                int wrappedTileY = wrapFireTileY(bgTileY);
+                if (wrappedTileY < 0) {
                     continue;
                 }
                 for (int subColumn = 0; subColumn < subColumns; subColumn++) {
@@ -209,7 +208,7 @@ final class AizFireCurtainRenderer {
                         continue;
                     }
                     int sourceX = state.sourceWorldX() + drawX;
-                    int descriptor = sampleBackgroundStripDescriptor(sourceX, bgTileY);
+                    int descriptor = sampleBackgroundStripDescriptor(sourceX, wrappedTileY);
                     int patternIndex = descriptor & 0x7FF;
 
                     // Skip empty tiles — fire zone boundary rows contain
@@ -285,8 +284,7 @@ final class AizFireCurtainRenderer {
             int columnRight = ((columnIndex + 1) * screenWidth) / COLUMN_COUNT;
             int columnWidth = Math.max(1, columnRight - columnLeft);
             int waveOffset = columnIndex < columnWaveOffsets.length ? columnWaveOffsets[columnIndex] : 0;
-            int clipWaveOffset = state.fullyOpaqueToGameplay() ? 0 : waveOffset;
-            int clipTop = clamp(baseTop - clipWaveOffset, 0, screenHeight);
+            int clipTop = clamp(baseTop + waveOffset, 0, screenHeight);
             if (clipTop >= screenHeight) {
                 continue;
             }
@@ -301,14 +299,15 @@ final class AizFireCurtainRenderer {
             int subColumns = Math.max(1, (columnWidth + TILE_SIZE - 1) / TILE_SIZE);
             for (int bgRow = bgRowBottom; bgRow >= bgRowTop; bgRow--) {
                 int bgTileY = bgRow * TILE_SIZE;
-                if (bgTileY < FIRE_TILE_START_BG_Y || bgTileY >= FIRE_TILE_END_BG_Y) {
+                int wrappedTileY = wrapFireTileY(bgTileY);
+                if (wrappedTileY < 0) {
                     continue;
                 }
+                int fireRow = (wrappedTileY - FIRE_TILE_START_BG_Y) / TILE_SIZE;
                 int drawY = bgTileY - columnVScroll;
                 if (drawY >= screenHeight || drawY + TILE_SIZE <= clipTop) {
                     continue;
                 }
-                int fireRow = (bgTileY - FIRE_TILE_START_BG_Y) / TILE_SIZE;
                 for (int subColumn = 0; subColumn < subColumns; subColumn++) {
                     int drawX = columnLeft + subColumn * TILE_SIZE;
                     if (drawX >= columnRight) {
@@ -356,8 +355,7 @@ final class AizFireCurtainRenderer {
             int columnRight = ((columnIndex + 1) * screenWidth) / COLUMN_COUNT;
             int columnWidth = Math.max(1, columnRight - columnLeft);
             int waveOffset = columnIndex < columnWaveOffsets.length ? columnWaveOffsets[columnIndex] : 0;
-            int clipWaveOffset = state.fullyOpaqueToGameplay() ? 0 : waveOffset;
-            int clipTop = clamp(baseTop - clipWaveOffset, 0, screenHeight);
+            int clipTop = clamp(baseTop + waveOffset, 0, screenHeight);
             if (clipTop >= screenHeight) {
                 continue;
             }
@@ -372,14 +370,15 @@ final class AizFireCurtainRenderer {
             int subColumns = Math.max(1, (columnWidth + TILE_SIZE - 1) / TILE_SIZE);
             for (int bgRow = bgRowBottom; bgRow >= bgRowTop; bgRow--) {
                 int bgTileY = bgRow * TILE_SIZE;
-                if (bgTileY < FIRE_TILE_START_BG_Y || bgTileY >= FIRE_TILE_END_BG_Y) {
+                int wrappedTileY = wrapFireTileY(bgTileY);
+                if (wrappedTileY < 0) {
                     continue;
                 }
                 int drawY = bgTileY - columnVScroll;
                 if (drawY >= screenHeight || drawY + TILE_SIZE <= clipTop) {
                     continue;
                 }
-                int bgRowIndex = bgTileY / TILE_SIZE;
+                int bgRowIndex = wrappedTileY / TILE_SIZE;
                 for (int subColumn = 0; subColumn < subColumns; subColumn++) {
                     int drawX = columnLeft + subColumn * TILE_SIZE;
                     if (drawX >= columnRight) {
@@ -404,6 +403,21 @@ final class AizFireCurtainRenderer {
             return 0;
         }
         return levelManager.getBackgroundTileDescriptorAtWorld(sourceX, sourceY);
+    }
+
+    /**
+     * Wraps a BG tile Y coordinate into the fire zone [FIRE_TILE_START_BG_Y, FIRE_TILE_END_BG_Y).
+     * Emulates VDP BG plane wrapping so fire tiles repeat beyond the original range.
+     * Returns -1 if the input is below the fire zone start (pre-fire region).
+     */
+    private static int wrapFireTileY(int bgTileY) {
+        if (bgTileY < FIRE_TILE_START_BG_Y) {
+            return -1;
+        }
+        int offset = bgTileY - FIRE_TILE_START_BG_Y;
+        int fireHeight = FIRE_TILE_END_BG_Y - FIRE_TILE_START_BG_Y;
+        int wrapped = ((offset % fireHeight) + fireHeight) % fireHeight;
+        return FIRE_TILE_START_BG_Y + wrapped;
     }
 
     private static int forceFirePalette(int descriptor) {

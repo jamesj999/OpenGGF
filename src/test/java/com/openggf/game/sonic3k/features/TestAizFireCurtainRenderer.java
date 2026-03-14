@@ -98,7 +98,7 @@ public class TestAizFireCurtainRenderer {
 
         assertEquals(flatPlan.columns().size(), wavyPlan.columns().size());
         assertEquals(152, flatPlan.columns().get(0).topY());
-        assertEquals(160, wavyPlan.columns().get(4).topY());
+        assertEquals(144, wavyPlan.columns().get(4).topY());
     }
 
     @Test
@@ -171,6 +171,42 @@ public class TestAizFireCurtainRenderer {
                 assertEquals("Fire palette line", 3, (draw.descriptor() >> 13) & 0x3);
             }
         }
+    }
+
+    @Test
+    public void negativeWaveOffsetDoesNotCreateGapAtCurtainTop() {
+        AizFireCurtainRenderer renderer = rendererWithSampler();
+        int[] waveOffsets = new int[20];
+        for (int i = 0; i < 20; i++) {
+            waveOffsets[i] = -15;
+        }
+        FireCurtainRenderState state = new FireCurtainRenderState(
+                true, 224, 0, 8, 0x1000, 0x0180,
+                waveOffsets, FireCurtainStage.AIZ1_RISING);
+
+        AizFireCurtainRenderer.CurtainCompositionPlan plan =
+                renderer.buildCompositionPlan(state, 320, 224);
+
+        for (AizFireCurtainRenderer.ColumnRenderPlan column : plan.columns()) {
+            assertTrue("Column " + column.columnIndex()
+                            + " has gap at top: topY=" + column.topY(),
+                    column.topY() <= 0);
+        }
+    }
+
+    @Test
+    public void fireTilesWrapBeyondOriginalZoneBoundaries() {
+        AizFireCurtainRenderer renderer = rendererWithSampler();
+        FireCurtainRenderState state = new FireCurtainRenderState(
+                true, 224, 0, 8, 0x1000, 0x0400,
+                new int[20], FireCurtainStage.AIZ1_REFRESH,
+                0x500, 121);
+
+        AizFireCurtainRenderer.CurtainCompositionPlan plan =
+                renderer.buildCompositionPlan(state, 320, 224);
+
+        assertFalse("Should still produce fire tiles via wrapping when bgY > 0x310",
+                plan.columns().isEmpty());
     }
 
     @Test
