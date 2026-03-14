@@ -65,6 +65,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
     private final AizMinibossSwingMotion swingMotion = new AizMinibossSwingMotion();
 
     private int waitTimer = -1;
+    private S3kBossExplosionController explosionController;
     private Runnable waitCallback;
     private int savedCameraMaxX;
 
@@ -123,6 +124,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
             default -> {
             }
         }
+        tickExplosionController();
     }
 
     private void updateInit() {
@@ -183,7 +185,24 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
 
     private void onSwingComplete() {
         setWait(PRE_EXIT_TIME, this::onPreExitComplete);
-        spawnDefeatExplosion();
+        Camera camera = Camera.getInstance();
+        // ROM: Obj_BossExplosionSpecial positions at screen center
+        explosionController = new S3kBossExplosionController(
+                camera.getX() + 160, camera.getY() + 112, 2);
+    }
+
+    private void tickExplosionController() {
+        if (explosionController == null || explosionController.isFinished()) {
+            return;
+        }
+        explosionController.tick();
+        var objectManager = levelManager.getObjectManager();
+        if (objectManager == null) {
+            return;
+        }
+        for (var pending : explosionController.drainPendingExplosions()) {
+            objectManager.addDynamicObject(new S3kBossExplosionChild(pending.x(), pending.y()));
+        }
     }
 
     private void onPreExitComplete() {
