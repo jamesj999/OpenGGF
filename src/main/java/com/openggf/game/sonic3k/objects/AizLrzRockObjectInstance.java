@@ -37,6 +37,7 @@ import java.util.logging.Logger;
  *   <li>Bit 1: Pushable (push detection enabled)</li>
  *   <li>Bit 2: Breakable from sides (horizontal push break)</li>
  *   <li>Bit 3: Breakable from bottom (vertical crush)</li>
+ *   <li>Bit 7: Knuckles-only (side break restricted to Knuckles; sonic3k.asm:44155)</li>
  * </ul>
  * <p>
  * ROM references: Obj_AIZLRZEMZRock (sonic3k.asm:43838), byte_1F9D0 (size table).
@@ -143,6 +144,7 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
     private final ZoneVariant variant;
     private final int sizeIndex;
     private final int behaviorBits;
+    private final boolean knucklesOnly;
     private final int displayFrame;
 
     // Push mode state
@@ -174,6 +176,8 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
 
         this.sizeIndex = (spawn.subtype() >> 4) & 0x07;
         this.behaviorBits = spawn.subtype() & 0x0F;
+        // ROM (sonic3k.asm:44155): tst.b subtype(a0) / bpl.s — bit 7 gates Knuckles-only side break
+        this.knucklesOnly = (spawn.subtype() & 0x80) != 0;
 
         // Determine zone variant from current level
         this.variant = resolveVariant();
@@ -285,7 +289,12 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
 
     /**
      * Checks if the player can break this rock from the side.
-     * ROM (loc_1FD72-loc_1FDA4):
+     * <p>
+     * ROM (sonic3k.asm:44155): {@code tst.b subtype(a0) / bpl.s loc_1FD72} — if bit 7
+     * of the subtype is set, ONLY Knuckles can break the rock. All other checks
+     * (Super, fire shield, rolling+speed) are bypassed.
+     * <p>
+     * When bit 7 is clear, normal checks apply (loc_1FD72-loc_1FDA4):
      * <ol>
      *   <li>Knuckles (character_id == 2) -> always break</li>
      *   <li>Super Sonic/Knuckles flag set -> always break</li>
@@ -294,6 +303,12 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
      * </ol>
      */
     private boolean canSideBreak(AbstractPlayableSprite player) {
+        // ROM (sonic3k.asm:44155-44159): tst.b subtype(a0) / bpl.s loc_1FD72
+        // Bit 7 set = Knuckles-only rock. Only Knuckles can break; everything else is rejected.
+        if (knucklesOnly) {
+            return isKnuckles();
+        }
+
         // Check 1: Knuckles always breaks side-break rocks
         // ROM: cmpi.b #2,character_id(a1) / beq.s loc_1FDA4
         if (isKnuckles()) {
