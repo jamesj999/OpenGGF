@@ -7,7 +7,8 @@ import java.util.concurrent.ThreadLocalRandom;
 /**
  * S3K boss explosion controller (ROM: Obj_BossExplosionSpecial + Obj_BossExpControl2).
  * Plain Java object (not an ObjectInstance) — ticked directly by the owning boss.
- * Spawns child explosions at random offsets every 2 frames until timer expires.
+ * Spawns child explosions at random offsets every frame until timer expires.
+ * ROM: initial 2-frame Obj_Wait delay, then Obj_BossExpControl2 runs every frame.
  *
  * ROM: CreateBossExp02 parameters: timer=$28 (40), xRange=$80, yRange=$80
  */
@@ -18,14 +19,15 @@ public class S3kBossExplosionController {
             {0x80, 0x20, 0x20},
             {0x04, 0x10, 0x10},
     };
-    private static final int SPAWN_INTERVAL = 2;
+    // ROM: Obj_Wait with $2E=2 before explosions start
+    private static final int INITIAL_WAIT = 2;
 
     private final int centreX;
     private final int centreY;
     private final int xRange;
     private final int yRange;
     private int timer;
-    private int frameCount;
+    private int waitFrames;
     private final List<PendingExplosion> pendingExplosions = new ArrayList<>();
 
     public record PendingExplosion(int x, int y) {}
@@ -38,16 +40,19 @@ public class S3kBossExplosionController {
         this.timer = params[0];
         this.xRange = params[1];
         this.yRange = params[2];
-        this.frameCount = 0;
+        this.waitFrames = INITIAL_WAIT;
     }
 
     public void tick() {
         if (timer <= 0) return;
-        timer--;
-        if (frameCount % SPAWN_INTERVAL == 0) {
-            spawnExplosionChild();
+        // ROM: Obj_Wait runs for 2 frames before Obj_BossExpControl2 takes over
+        if (waitFrames > 0) {
+            waitFrames--;
+            return;
         }
-        frameCount++;
+        // ROM: Obj_BossExpControl2 spawns one explosion EVERY frame
+        timer--;
+        spawnExplosionChild();
     }
 
     public boolean isFinished() {
