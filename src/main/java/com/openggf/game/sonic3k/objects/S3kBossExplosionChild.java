@@ -5,7 +5,6 @@ import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -70,8 +69,8 @@ public class S3kBossExplosionChild extends AbstractObjectInstance {
         if (isDestroyed() || pairIndex >= ANIM_PAIRS.length) return;
         ObjectRenderManager rm = LevelManager.getInstance().getObjectRenderManager();
         if (rm == null) return;
-        // Use standard explosion renderer (red fireballs), not boss explosion (grey puffs)
-        PatternSpriteRenderer renderer = rm.getRenderer(ObjectArtKeys.EXPLOSION);
+        // ROM: Obj_BossExplosion2 uses ArtTile_BossExplosion2, loaded from PLC $5A entry 3
+        PatternSpriteRenderer renderer = rm.getBossExplosionRenderer();
         if (renderer == null || !renderer.isReady()) return;
         renderer.drawFrameIndex(ANIM_PAIRS[pairIndex][1], spawn.x(), spawn.y(), false, false);
     }

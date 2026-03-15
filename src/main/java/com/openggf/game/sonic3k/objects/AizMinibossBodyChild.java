@@ -26,17 +26,18 @@ public class AizMinibossBodyChild extends AbstractBossChild implements TouchResp
     private static final int SHIELD_REACTION = 1 << 4;
     private static final int PALETTE_OVERRIDE = 0;
 
-    // ROM byte_69126:
-    // dc.b 1,1,2,$FC / dc.b 7,3,4,5,$F4
-    private static final int[] INTRO_FRAMES = {1, 2};
-    private static final int INTRO_DELAY = 1;
-    private static final int[] LOOP_FRAMES = {3, 4, 5};
-    private static final int LOOP_DELAY = 7;
+    // ROM byte_69126 / byte_4703C (s3.asm):
+    //   dc.b 1, 1, 2, $FC   — Animate_Raw: delay=1, frame 1, frame 2, $FC=restart
+    //   dc.b 7, 3, 4, 5, $F4 — DEAD CODE (never reached, $FC restarts to frame 1)
+    //
+    // AnimateRaw_Restart resets to byte[0]=timer, byte[1]=frame of the SAME script.
+    // So the body child loops frames 1→2 with delay 1, forever.
+    private static final int ANIM_DELAY = 1;
+    private static final int FRAME_A = 1;
+    private static final int FRAME_B = 2;
 
-    private int mappingFrame = INTRO_FRAMES[0];
-    private int animTimer = INTRO_DELAY;
-    private boolean inLoopSection;
-    private int loopIndex;
+    private int mappingFrame = FRAME_A;
+    private int animTimer = ANIM_DELAY;
 
     public AizMinibossBodyChild(AbstractBossInstance parent) {
         super(parent, "AIZMinibossBody", 3, 0x90);
@@ -62,7 +63,7 @@ public class AizMinibossBodyChild extends AbstractBossChild implements TouchResp
 
     private void updateAnimation() {
         if (parent == null || parent.getState().defeated) {
-            mappingFrame = 2;
+            mappingFrame = FRAME_B;
             return;
         }
 
@@ -70,23 +71,10 @@ public class AizMinibossBodyChild extends AbstractBossChild implements TouchResp
         if (animTimer > 0) {
             return;
         }
-
-        if (!inLoopSection) {
-            if (mappingFrame == INTRO_FRAMES[0]) {
-                mappingFrame = INTRO_FRAMES[1];
-                animTimer = INTRO_DELAY;
-                return;
-            }
-            inLoopSection = true;
-            loopIndex = 0;
-            mappingFrame = LOOP_FRAMES[loopIndex];
-            animTimer = LOOP_DELAY;
-            return;
-        }
-
-        loopIndex = (loopIndex + 1) % LOOP_FRAMES.length;
-        mappingFrame = LOOP_FRAMES[loopIndex];
-        animTimer = LOOP_DELAY;
+        // ROM: $FC restarts Animate_Raw to byte[0]=delay, byte[1]=frame.
+        // Loops: frame 1 → frame 2 → restart to frame 1 → ...
+        mappingFrame = (mappingFrame == FRAME_A) ? FRAME_B : FRAME_A;
+        animTimer = ANIM_DELAY;
     }
 
     @Override
