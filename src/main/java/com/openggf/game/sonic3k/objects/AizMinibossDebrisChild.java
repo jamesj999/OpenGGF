@@ -12,16 +12,16 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
 import java.util.List;
 
 /**
- * AIZ Miniboss (0x90) - Debris fragment.
- * Six instances spawned with specific offsets from camera position.
- * Uses AIZ_MINIBOSS_SMALL art key with 3 frames.
+ * AIZ Miniboss (0x90) - Miniature background aircraft.
+ * Six instances spawned at trigger, each flying right across the sky.
  *
- * ROM: loc_68DFA / loc_68E8C
- * - Spawns with fixed Y rows and per-piece X velocity (word_68E60)
- * - Immediately transitions to MoveSprite2 movement (no drift/wait phase)
+ * ROM: loc_68DFA (init) → loc_68E7E (Obj_Wait) → loc_68E8C (MoveSprite2)
+ * - Init sets $2E = x_vel (staggered wait: faster craft wait LONGER)
+ * - After wait: MoveSprite2 applies velocity + gravity ($38/frame)
+ * - Slower aircraft (x_vel=$100) appear first, fastest ($200) last
  */
 public class AizMinibossDebrisChild extends AbstractObjectInstance {
-    /** ROM: gravity applied each frame to Y velocity. */
+    /** ROM: MoveSprite2 gravity applied each frame AFTER wait phase. */
     private static final int GRAVITY = 0x38;
 
     private int worldX;
@@ -30,6 +30,8 @@ public class AizMinibossDebrisChild extends AbstractObjectInstance {
     private int yFixed;
     private final int xVel;
     private int yVel;
+    private int waitTimer;
+    private boolean moving;
     private final int mappingFrame;
 
     public AizMinibossDebrisChild(int x, int y, int xVel, int mappingFrame) {
@@ -40,18 +42,30 @@ public class AizMinibossDebrisChild extends AbstractObjectInstance {
         this.yFixed = y << 16;
         this.xVel = xVel;
         this.yVel = 0;
+        // ROM: move.w word_68E60(pc,d0.w),$2E(a0) — wait = x_vel value
+        this.waitTimer = xVel;
+        this.moving = false;
         this.mappingFrame = mappingFrame;
     }
 
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
+        if (!moving) {
+            // ROM: loc_68E7E → Obj_Wait, decrements $2E each frame
+            waitTimer--;
+            if (waitTimer < 0) {
+                moving = true;
+            }
+            return;
+        }
+
+        // ROM: loc_68E8C → MoveSprite2 (velocity + gravity)
         yVel += GRAVITY;
         xFixed += (xVel << 8);
         yFixed += (yVel << 8);
         worldX = xFixed >> 16;
         worldY = yFixed >> 16;
 
-        // ROM removes these once they scroll far from the camera window.
         if (!isOnScreen(256)) {
             setDestroyed(true);
         }
@@ -59,12 +73,15 @@ public class AizMinibossDebrisChild extends AbstractObjectInstance {
 
     @Override
     public int getPriorityBucket() {
-        // ROM: ObjDat3_46F60 priority $380 / $80 = 7
+        // ROM: ObjDat3_6904A priority $380 / $80 = 7
         return 7;
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
+        if (!moving) {
+            return; // Not visible during wait phase
+        }
         ObjectRenderManager rm = LevelManager.getInstance().getObjectRenderManager();
         if (rm == null) {
             return;

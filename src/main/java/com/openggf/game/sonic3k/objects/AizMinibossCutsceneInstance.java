@@ -224,8 +224,10 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
     private void onSwingComplete() {
         // ROM: loc_6862E — directly after swing, spawn explosion and set pre-exit wait
         setWait(PRE_EXIT_TIME, this::onPreExitComplete);
-        // ROM: ChildObjDat_69104 spawns Obj_BossExplosionSpecial at parent position
-        explosionController = new S3kBossExplosionController(state.x, state.y, 2);
+        // ROM: Obj_BossExplosionSpecial positions at screen center (overrides child offset)
+        Camera camera = Camera.getInstance();
+        explosionController = new S3kBossExplosionController(
+                camera.getX() + 160, camera.getY() + 112, 2);
     }
 
     private void tickExplosionController() {
