@@ -141,6 +141,12 @@ public class ObjectManager {
                     // that self-destruct after their animation would respawn on camera
                     // re-entry because stayActive bypasses the remembered gate.
                     placement.clearStayActive(entry.getKey());
+                    // ROM: Delete_Current_Sprite leaves the respawn bit set, preventing
+                    // re-loading until the spawn leaves the stream window. Match this by
+                    // removing from the active set and setting the destroyedInWindow latch.
+                    // Without this, syncActiveSpawns() on the next frame sees the spawn
+                    // in the active set but not in activeObjects and immediately respawns it.
+                    placement.removeFromActive(entry.getKey());
                     iterator.remove();
                     objectsRemoved = true;
                 }
@@ -511,6 +517,18 @@ public class ObjectManager {
     public void refreshRidingTrackingPosition(ObjectInstance object) {
         solidContacts.refreshRidingTrackingPosition(object);
     }
+
+    /**
+     * Pre-contact player X speed, captured before solid contact resolution zeroes it.
+     * ROM: objects save player velocity BEFORE SolidObjectFull (e.g. Obj_AIZLRZEMZRock $30(a0)).
+     */
+    public short getPreContactXSpeed() { return solidContacts.getPreContactXSpeed(); }
+
+    /** Pre-contact player Y speed. */
+    public short getPreContactYSpeed() { return solidContacts.getPreContactYSpeed(); }
+
+    /** Pre-contact player rolling state, before landing clears it. */
+    public boolean getPreContactRolling() { return solidContacts.getPreContactRolling(); }
 
     public TouchResponseDebugState getTouchResponseDebugState() {
         return touchResponses != null ? touchResponses.getDebugState() : null;
@@ -1507,6 +1525,14 @@ public class ObjectManager {
         private final Map<AbstractPlayableSprite, RidingState> ridingStates = new IdentityHashMap<>(2);
         private AbstractPlayableSprite currentPlayer; // set during update() for internal use
 
+        // ROM: objects like Obj_AIZLRZEMZRock save player velocity/anim BEFORE calling
+        // SolidObjectFull, then check the saved values after. Our engine runs contact
+        // resolution (which zeroes velocity, clears rolling) before onSolidContact fires.
+        // Snapshot the player's pre-contact state so objects can read the "before" values.
+        private short preContactXSpeed;
+        private short preContactYSpeed;
+        private boolean preContactRolling;
+
         SolidContacts(ObjectManager objectManager) {
             this.objectManager = objectManager;
         }
@@ -1593,6 +1619,13 @@ public class ObjectManager {
             RidingState state = ridingStates.get(currentPlayer);
             return state != null ? state.pieceIndex : -1;
         }
+
+        /** Player X speed captured before any solid contact resolution modified it. */
+        short getPreContactXSpeed() { return preContactXSpeed; }
+        /** Player Y speed captured before any solid contact resolution modified it. */
+        short getPreContactYSpeed() { return preContactYSpeed; }
+        /** Player rolling state captured before any solid contact resolution modified it. */
+        boolean getPreContactRolling() { return preContactRolling; }
 
         boolean hasStandingContact(AbstractPlayableSprite player) {
             if (player == null || objectManager == null || player.getDead()) {
@@ -1797,6 +1830,11 @@ public class ObjectManager {
             // Set currentPlayer so internal resolveContact/resolveSlopedContact can check
             // this player's riding state via isRidingCurrentPlayerObject()
             currentPlayer = player;
+
+            // Snapshot pre-contact state before any resolveContact can modify the player.
+            preContactXSpeed = player.getXSpeed();
+            preContactYSpeed = player.getYSpeed();
+            preContactRolling = player.getRolling();
 
             // Note: Do NOT clear pushing here. Terrain collision handles pushing for terrain walls,
             // and solid object collision sets pushing when appropriate. Clearing here would
