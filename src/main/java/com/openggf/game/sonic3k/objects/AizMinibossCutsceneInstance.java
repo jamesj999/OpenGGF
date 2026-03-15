@@ -380,6 +380,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
 
     @Override
     public int getPriorityBucket() {
-        return 2;
+        // ROM: ObjDat_AIZMiniboss priority $0200 → $200/$80 = bucket 4
+        return 4;
     }
 }

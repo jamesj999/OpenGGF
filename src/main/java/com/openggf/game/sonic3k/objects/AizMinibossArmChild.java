@@ -24,7 +24,8 @@ public class AizMinibossArmChild extends AbstractBossChild {
     private static final int Y_OFFSET = 8;
 
     public AizMinibossArmChild(AbstractBossInstance parent) {
-        super(parent, "AIZMinibossArm", 2, 0x90);
+        // ROM: word_69012 priority $0200 → $200/$80 = bucket 4
+        super(parent, "AIZMinibossArm", 4, 0x90);
     }
 
     @Override
