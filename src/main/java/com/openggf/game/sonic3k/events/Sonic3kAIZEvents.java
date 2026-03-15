@@ -791,10 +791,12 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
                     applyFireTransitionMutation();
                     fireSequencePhase = FireSequencePhase.AIZ1_FIRE_REFRESH;
                     firePhaseFrames = 0;
+                    setTransitionControlLock(true);
                 } else if (fireTransitionFrames >= FIRE_TRANSITION_FALLBACK_FRAMES) {
                     applyFireTransitionMutation();
                     fireSequencePhase = FireSequencePhase.AIZ1_FIRE_REFRESH;
                     firePhaseFrames = 0;
+                    setTransitionControlLock(true);
                 }
             }
             case AIZ1_FIRE_REFRESH -> {
@@ -829,7 +831,8 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         fireTransitionMutationRequested = false;
         act2TransitionRequested = false;
         postFireHazeActive = false;
-        setTransitionControlLock(true);
+        // ROM: AIZ1_AIZ2_Transition does NOT lock controls at fire start.
+        // Controls are locked later when the fire covers the full screen (REFRESH phase).
         // ROM: AIZ1_AIZ2_Transition writes 6 fire words to Normal_palette_line_4+$2
         // at the START of the fire transition. The full fire palette (PalPointers #$0B)
         // is loaded later by the mutation executor when bgY >= $190.

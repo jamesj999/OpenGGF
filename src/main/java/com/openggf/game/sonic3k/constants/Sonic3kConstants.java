@@ -802,6 +802,8 @@ public class Sonic3kConstants {
     public static final int MAP_AIZ_MINIBOSS_FLAME_ADDR = 0x36165C;
     // Map_AIZMinibossSmall - Small debris mappings (3 frames, 0x1E bytes)
     public static final int MAP_AIZ_MINIBOSS_SMALL_ADDR = 0x3625EA;
+    // Map_BossExplosion - Boss explosion mappings (6 frames, shared with S2)
+    public static final int MAP_BOSS_EXPLOSION_ADDR = 0x083FFC;
 
     private static boolean scanned = false;
 

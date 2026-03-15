@@ -4,6 +4,7 @@ import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.GameServices;
 import com.openggf.game.ObjectArtProvider;
+import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
@@ -682,11 +683,19 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
                     buildSheetFromPatterns(decompressed.get(2), reader,
                             Sonic3kConstants.MAP_AIZ_MINIBOSS_FLAME_ADDR, 0));
 
+            // Entry 3: boss explosion art (ArtNem_BossExplosion → ArtTile_BossExplosion2)
+            if (decompressed.size() >= 4) {
+                registerSheet(Sonic2ObjectArtKeys.BOSS_EXPLOSION,
+                        buildSheetFromPatterns(decompressed.get(3), reader,
+                                Sonic3kConstants.MAP_BOSS_EXPLOSION_ADDR, 0));
+            }
+
             LOG.info(String.format("Loaded AIZ miniboss art via PLC 0x5A (standalone): " +
-                            "main=%d tiles, small=%d tiles, flame=%d tiles",
+                            "main=%d tiles, small=%d tiles, flame=%d tiles, explosion=%s",
                     decompressed.get(0).length,
                     decompressed.get(1).length,
-                    decompressed.get(2).length));
+                    decompressed.get(2).length,
+                    decompressed.size() >= 4 ? decompressed.get(3).length + " tiles" : "n/a"));
         } catch (IOException e) {
             LOG.warning("Failed to load AIZ miniboss art from PLC: " + e.getMessage());
         }

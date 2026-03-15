@@ -198,8 +198,7 @@ final class AizFireCurtainRenderer {
                 if (drawY >= screenHeight || drawY + TILE_SIZE <= clipTop) {
                     continue;
                 }
-                int wrappedTileY = wrapFireTileY(bgTileY);
-                if (wrappedTileY < 0) {
+                if (bgTileY < FIRE_TILE_START_BG_Y || bgTileY >= FIRE_TILE_END_BG_Y) {
                     continue;
                 }
                 for (int subColumn = 0; subColumn < subColumns; subColumn++) {
@@ -208,7 +207,7 @@ final class AizFireCurtainRenderer {
                         continue;
                     }
                     int sourceX = state.sourceWorldX() + drawX;
-                    int descriptor = sampleBackgroundStripDescriptor(sourceX, wrappedTileY);
+                    int descriptor = sampleBackgroundStripDescriptor(sourceX, bgTileY);
                     int patternIndex = descriptor & 0x7FF;
 
                     // Skip empty tiles — fire zone boundary rows contain
@@ -299,11 +298,10 @@ final class AizFireCurtainRenderer {
             int subColumns = Math.max(1, (columnWidth + TILE_SIZE - 1) / TILE_SIZE);
             for (int bgRow = bgRowBottom; bgRow >= bgRowTop; bgRow--) {
                 int bgTileY = bgRow * TILE_SIZE;
-                int wrappedTileY = wrapFireTileY(bgTileY);
-                if (wrappedTileY < 0) {
+                if (bgTileY < FIRE_TILE_START_BG_Y || bgTileY >= FIRE_TILE_END_BG_Y) {
                     continue;
                 }
-                int fireRow = (wrappedTileY - FIRE_TILE_START_BG_Y) / TILE_SIZE;
+                int fireRow = (bgTileY - FIRE_TILE_START_BG_Y) / TILE_SIZE;
                 int drawY = bgTileY - columnVScroll;
                 if (drawY >= screenHeight || drawY + TILE_SIZE <= clipTop) {
                     continue;
@@ -370,15 +368,16 @@ final class AizFireCurtainRenderer {
             int subColumns = Math.max(1, (columnWidth + TILE_SIZE - 1) / TILE_SIZE);
             for (int bgRow = bgRowBottom; bgRow >= bgRowTop; bgRow--) {
                 int bgTileY = bgRow * TILE_SIZE;
-                int wrappedTileY = wrapFireTileY(bgTileY);
-                if (wrappedTileY < 0) {
+                // Only skip tiles BELOW the fire zone start; no upper bound
+                // so synthetic fire tiles extend indefinitely as BG scrolls.
+                if (bgTileY < FIRE_TILE_START_BG_Y) {
                     continue;
                 }
                 int drawY = bgTileY - columnVScroll;
                 if (drawY >= screenHeight || drawY + TILE_SIZE <= clipTop) {
                     continue;
                 }
-                int bgRowIndex = wrappedTileY / TILE_SIZE;
+                int bgRowIndex = bgTileY / TILE_SIZE;
                 for (int subColumn = 0; subColumn < subColumns; subColumn++) {
                     int drawX = columnLeft + subColumn * TILE_SIZE;
                     if (drawX >= columnRight) {
