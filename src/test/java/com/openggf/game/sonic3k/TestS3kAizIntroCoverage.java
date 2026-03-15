@@ -297,6 +297,8 @@ public class TestS3kAizIntroCoverage {
 
         assertEquals("No BG chunk references should be out of range", 0, chunkOutOfRange);
         assertEquals("No BG pattern references should be out of range", 0, patternOutOfRange);
+        assertEquals("No non-empty patterns from extended (empty) chunks", 0, nonEmptyFromEmptyChunk);
+        assertEquals("No empty patterns referenced by changed tile descriptors", 0, emptyPatternButVisible);
     }
 
     /**

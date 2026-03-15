@@ -5,9 +5,6 @@ import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
-import com.openggf.physics.Sensor;
-import com.openggf.sprites.playable.AbstractPlayableSprite;
-
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -19,7 +16,7 @@ public class TestSonic1SmashBlockObjectInstance {
         GameServices.gameState().resetSession();
         Sonic1SmashBlockObjectInstance block = new Sonic1SmashBlockObjectInstance(
                 new ObjectSpawn(160, 112, 0x51, 0x00, 0, false, 0));
-        TestPlayableSprite player = new TestPlayableSprite();
+        TestPlayableSprite player = new TestPlayableSprite(28, 38);
 
         // Pre-collision state this frame: Sonic is airborne in roll animation.
         player.setAnimationId(Sonic1AnimationIds.ROLL);
@@ -42,7 +39,7 @@ public class TestSonic1SmashBlockObjectInstance {
         GameServices.gameState().resetSession();
         Sonic1SmashBlockObjectInstance block = new Sonic1SmashBlockObjectInstance(
                 new ObjectSpawn(160, 112, 0x51, 0x00, 0, false, 0));
-        TestPlayableSprite player = new TestPlayableSprite();
+        TestPlayableSprite player = new TestPlayableSprite(28, 38);
 
         player.setAnimationId(Sonic1AnimationIds.WALK);
         player.setRolling(false);
@@ -57,7 +54,7 @@ public class TestSonic1SmashBlockObjectInstance {
     @Test
     public void chainBonusIncreasesAcrossBlocks() {
         GameServices.gameState().resetSession();
-        TestPlayableSprite player = new TestPlayableSprite();
+        TestPlayableSprite player = new TestPlayableSprite(28, 38);
         player.setAnimationId(Sonic1AnimationIds.ROLL);
         player.setRolling(true);
         player.setAir(true);
@@ -94,7 +91,7 @@ public class TestSonic1SmashBlockObjectInstance {
 
         Sonic1SmashBlockObjectInstance block = new Sonic1SmashBlockObjectInstance(
                 new ObjectSpawn(160, 112, 0x51, 0x00, 0, false, 0));
-        TestPlayableSprite player = new TestPlayableSprite();
+        TestPlayableSprite player = new TestPlayableSprite(28, 38);
         player.setAnimationId(Sonic1AnimationIds.ROLL);
         player.setRolling(true);
         player.setAir(true);
@@ -113,53 +110,11 @@ public class TestSonic1SmashBlockObjectInstance {
         GameServices.gameState().resetSession();
         GameServices.gameState().setItemBonus(6);
 
-        TestPlayableSprite player = new TestPlayableSprite();
+        TestPlayableSprite player = new TestPlayableSprite(28, 38);
         player.setAir(true);
         player.setAir(false);
 
         assertEquals(0, GameServices.gameState().getItemBonus());
     }
 
-    private static final class TestPlayableSprite extends AbstractPlayableSprite {
-        private TestPlayableSprite() {
-            super("TEST", (short) 0, (short) 0);
-            setWidth(20);
-            setHeight(38);
-        }
-
-        @Override
-        protected void defineSpeeds() {
-            runAccel = 0;
-            runDecel = 0;
-            friction = 0;
-            max = 0;
-            jump = 0;
-            angle = 0;
-            slopeRunning = 0;
-            slopeRollingDown = 0;
-            slopeRollingUp = 0;
-            rollDecel = 0;
-            minStartRollSpeed = 0;
-            minRollSpeed = 0;
-            maxRoll = 0;
-            rollHeight = 28;
-            runHeight = 38;
-            standXRadius = 9;
-            standYRadius = 19;
-            rollXRadius = 7;
-            rollYRadius = 14;
-        }
-
-        @Override
-        protected void createSensorLines() {
-            groundSensors = new Sensor[0];
-            ceilingSensors = new Sensor[0];
-            pushSensors = new Sensor[0];
-        }
-
-        @Override
-        public void draw() {
-            // No-op for tests.
-        }
-    }
 }

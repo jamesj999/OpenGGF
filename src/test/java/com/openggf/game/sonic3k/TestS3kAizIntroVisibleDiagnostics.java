@@ -18,6 +18,8 @@ import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
 
+import static org.junit.Assert.assertEquals;
+
 @RequiresRom(SonicGame.SONIC_3K)
 public class TestS3kAizIntroVisibleDiagnostics {
 
@@ -75,6 +77,9 @@ public class TestS3kAizIntroVisibleDiagnostics {
                     bgParallaxZeroBlocks512, bgParallaxZeroBlocks1024, bgParallaxZeroBlocks2048,
                     bgParallaxScroll[0], bgParallaxScroll[1],
                     backdrop.r & 0xFF, backdrop.g & 0xFF, backdrop.b & 0xFF));
+            assertEquals("No invalid FG chunk references at frame " + frame, 0, fgInvalid);
+            assertEquals("No invalid BG chunk references at frame " + frame, 0, bgInvalid);
+            assertEquals("No invalid BG parallax chunk references at frame " + frame, 0, bgParallaxInvalid);
             checkpointIndex++;
         }
     }

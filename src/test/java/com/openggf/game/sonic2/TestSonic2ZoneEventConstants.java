@@ -10,7 +10,7 @@ import static org.junit.Assert.assertEquals;
  * LevelSelectConstants, Sonic2ZoneConstants) all agree:
  * SCZ=8, WFZ=9, DEZ=10.
  */
-public class TestDEZEventDispatch {
+public class TestSonic2ZoneEventConstants {
 
     @Test
     public void dezZoneConstantMatchesRegistry() {

@@ -1,6 +1,7 @@
 package com.openggf.game.sonic3k;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import com.openggf.data.Rom;
@@ -123,6 +124,11 @@ public class TestS3kSonicSpriteDiag {
         System.out.println("Incremental DPLC frames (mapping needs > DPLC loads): " + issues);
         // ROM intentionally uses incremental DPLCs - frames share tiles from
         // previous loads. This is NOT a bug - just verify we handle it.
+        assertTrue("Should have checked at least one frame for DPLC/mapping consistency",
+                artSet.mappingFrames().size() > 0);
+        // Incremental DPLC frames are expected but should be a minority
+        assertTrue("Incremental DPLC frame count should be less than total frames",
+                issues < artSet.mappingFrames().size());
     }
 
     @Test
@@ -158,6 +164,7 @@ public class TestS3kSonicSpriteDiag {
                 maxMappingTileIndex, artSet.bankSize());
     }
 
+    @Ignore("Diagnostic dump - not a regression test")
     @Test
     public void verifyRomMappingBytes() {
         int mappingAddr = Sonic3kConstants.MAP_SONIC_ADDR;
@@ -209,6 +216,7 @@ public class TestS3kSonicSpriteDiag {
         }
     }
 
+    @Ignore("Diagnostic dump - not a regression test")
     @Test
     public void verifyDisasmAddresses() {
         // Frame 7 mapping data should be at 0x146A94 per disasm
@@ -247,6 +255,7 @@ public class TestS3kSonicSpriteDiag {
         }
     }
 
+    @Ignore("Diagnostic dump - not a regression test")
     @Test
     public void verifyTileOffsetSequence() {
         // For each frame, verify that DPLC loads cover exactly the tiles

@@ -1,6 +1,9 @@
 package com.openggf.game.sonic2;
 
-import org.junit.Ignore;
+import com.openggf.camera.Camera;
+import com.openggf.game.sonic2.events.Sonic2SCZEvents;
+import com.openggf.level.scroll.SwScrlScz;
+import org.junit.Before;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
@@ -12,34 +15,61 @@ import static org.junit.Assert.*;
  *
  * <p>ROM reference: LevEvents_SCZ (s2.asm:21803-21861)
  *
- * SCZ Act 1 Routines (0-8, incremented by 2):
+ * <p><b>Important:</b> SCZ level events are NOT in {@link Sonic2SCZEvents} (which is empty).
+ * They are implemented in {@link SwScrlScz#update} because the Tornado velocity
+ * and camera auto-scroll are tightly coupled with the scroll handler.
+ *
+ * SCZ Act 1 Routines (managed by SwScrlScz):
  * <ol start="0">
  *   <li>Routine 0: Initialize Tornado velocity to (1, 0) - move right</li>
- *   <li>Routine 2: At X >= $1180, change velocity to (-1, 1) - descend right-to-left,
- *       set max Y target to $500</li>
- *   <li>Routine 4: At Y >= $500, change velocity to (1, 0) - move right again</li>
- *   <li>Routine 6: At X >= $1400, stop all velocity (0, 0) - end of stage</li>
- *   <li>Routine 8: No-op (stage complete)</li>
+ *   <li>Routine 1: At X >= $1180, change velocity to (-1, 1) - descend</li>
+ *   <li>Routine 2: At Y >= $500, change velocity to (1, 0) - move right again</li>
+ *   <li>Routine 3: At X >= $1400, stop all velocity (0, 0) - end of stage</li>
+ *   <li>Routine 4: No-op (stage complete)</li>
  * </ol>
  * SCZ Act 2: No events (immediate RTS).
  *
- * <p>TODO source: LevelEventManager.java line 1245 (updateSCZ is stub)
+ * <p>Production code: {@link SwScrlScz}, {@link Sonic2SCZEvents}
  */
 public class TestTodo11_SCZEventSpecs {
 
+    private SwScrlScz scrollHandler;
+    private Camera cam;
+    private int[] scrollBuf;
+
+    @Before
+    public void setUp() {
+        Camera.resetInstance();
+        cam = Camera.getInstance();
+        scrollHandler = new SwScrlScz();
+        scrollHandler.init();
+        scrollBuf = new int[224];
+    }
+
     /**
-     * SCZ Act 2 has no events.
-     * ROM reference: LevEvents_SCZ2 (s2.asm:21860-21861)
-     * <pre>
-     *   LevEvents_SCZ2:
-     *     rts
-     * </pre>
+     * Sonic2SCZEvents.update() is empty -- all logic is in SwScrlScz.
+     * Verify the event handler itself is a no-op.
      */
-    @Ignore("TODO #11 -- SCZ events not implemented: Act 2 is a no-op, " +
-            "see docs/s2disasm/s2.asm:21860")
+    @Test
+    public void testSCZEventsHandlerIsNoOp() {
+        Sonic2SCZEvents events = new Sonic2SCZEvents();
+        events.init(0);
+        cam.setX((short) 0x2000);
+        events.update(0, 0);
+        assertEquals("Sonic2SCZEvents should not change routine", 0, events.getEventRoutine());
+    }
+
+    /**
+     * SCZ Act 2 has no events in SwScrlScz either (actId != 0 skips events).
+     */
     @Test
     public void testSCZAct2_NoEvents() {
-        fail("SCZ Act 2 handler not yet implemented (should be no-op)");
+        // Act 2 (actId=1): updateLevelEvents is skipped
+        scrollHandler.update(scrollBuf, 0, 0, 0, 1);
+        assertEquals("Tornado X velocity should remain 0 for Act 2",
+                0, scrollHandler.getTornadoVelocityX());
+        assertEquals("Tornado Y velocity should remain 0 for Act 2",
+                0, scrollHandler.getTornadoVelocityY());
     }
 
     /**
@@ -52,21 +82,18 @@ public class TestTodo11_SCZEventSpecs {
      *   rts
      * </pre>
      */
-    @Ignore("TODO #11 -- SCZ events not implemented: Routine 0 sets Tornado velocity (1,0), " +
-            "see docs/s2disasm/s2.asm:21820")
     @Test
     public void testSCZRoutine0_InitialVelocity() {
-        int tornadoVelX = 1;   // move right
-        int tornadoVelY = 0;   // no vertical
-
-        assertEquals("Initial Tornado X velocity should be 1", 1, tornadoVelX);
-        assertEquals("Initial Tornado Y velocity should be 0", 0, tornadoVelY);
-
-        fail("SCZ Routine 0 not yet implemented");
+        // First update triggers routine 0 -> sets velocity and advances
+        scrollHandler.update(scrollBuf, 0, 0, 0, 0);
+        assertEquals("Initial Tornado X velocity should be 1 (rightward)",
+                1, scrollHandler.getTornadoVelocityX());
+        assertEquals("Initial Tornado Y velocity should be 0",
+                0, scrollHandler.getTornadoVelocityY());
     }
 
     /**
-     * SCZ Routine 2: At X >= $1180, begin descent (change direction).
+     * SCZ Routine 1 (fly right): At X >= $1180, begin descent.
      * ROM reference: LevEvents_SCZ_Routine2 (s2.asm:21827-21835)
      * <pre>
      *   cmpi.w #$1180,(Camera_X_pos).w
@@ -77,25 +104,35 @@ public class TestTodo11_SCZEventSpecs {
      *   addq.b #2,(Dynamic_Resize_Routine).w
      * </pre>
      */
-    @Ignore("TODO #11 -- SCZ events not implemented: Routine 2 triggers descent at X>=$1180, " +
-            "see docs/s2disasm/s2.asm:21827")
     @Test
-    public void testSCZRoutine2_BeginDescent() {
-        int triggerX = 0x1180;
-        int newVelX = -1;       // reverse to left
-        int newVelY = 1;        // descend
-        int maxYTarget = 0x500; // allow camera to scroll down
+    public void testSCZRoutine1_DoesNotTriggerBelowThreshold() {
+        // Initialize (routine 0 -> 1)
+        scrollHandler.update(scrollBuf, 0, 0, 0, 0);
+        // Camera still below $1180 -- should stay at routine 1
+        scrollHandler.update(scrollBuf, cam.getX(), cam.getY(), 1, 0);
+        assertEquals("Should still fly rightward below $1180",
+                1, scrollHandler.getTornadoVelocityX());
+        assertEquals("Should have no vertical movement below $1180",
+                0, scrollHandler.getTornadoVelocityY());
+    }
 
-        assertEquals("Trigger X for descent should be $1180", 0x1180, triggerX);
-        assertEquals("Tornado X velocity should change to -1 (left)", -1, newVelX);
-        assertEquals("Tornado Y velocity should change to 1 (down)", 1, newVelY);
-        assertEquals("Max Y target should be $500", 0x500, maxYTarget);
-
-        fail("SCZ Routine 2 not yet implemented");
+    @Test
+    public void testSCZRoutine1_BeginDescentAtThreshold() {
+        // Initialize (routine 0 -> 1)
+        scrollHandler.update(scrollBuf, 0, 0, 0, 0);
+        // Move camera to threshold
+        cam.setX((short) 0x1180);
+        scrollHandler.update(scrollBuf, cam.getX(), cam.getY(), 1, 0);
+        assertEquals("Tornado X velocity should be -1 (leftward) at $1180",
+                -1, scrollHandler.getTornadoVelocityX());
+        assertEquals("Tornado Y velocity should be 1 (downward) at $1180",
+                1, scrollHandler.getTornadoVelocityY());
+        assertEquals("Max Y target should be set to $500",
+                (short) 0x500, cam.getMaxYTarget());
     }
 
     /**
-     * SCZ Routine 4: At Y >= $500, resume rightward movement.
+     * SCZ Routine 2 (descend): At Y >= $500, resume rightward movement.
      * ROM reference: LevEvents_SCZ_Routine3 (s2.asm:21838-21845)
      * <pre>
      *   cmpi.w #$500,(Camera_Y_pos).w
@@ -105,64 +142,72 @@ public class TestTodo11_SCZEventSpecs {
      *   addq.b #2,(Dynamic_Resize_Routine).w
      * </pre>
      */
-    @Ignore("TODO #11 -- SCZ events not implemented: Routine 4 resumes rightward at Y>=$500, " +
-            "see docs/s2disasm/s2.asm:21838")
     @Test
-    public void testSCZRoutine4_ResumeRightward() {
-        int triggerY = 0x500;
-        int newVelX = 1;   // resume rightward
-        int newVelY = 0;   // stop descending
-
-        assertEquals("Trigger Y should be $500", 0x500, triggerY);
-        assertEquals("Tornado X velocity should be 1 (right)", 1, newVelX);
-        assertEquals("Tornado Y velocity should be 0 (stop)", 0, newVelY);
-
-        fail("SCZ Routine 4 not yet implemented");
+    public void testSCZRoutine2_ResumeRightwardAtThreshold() {
+        // Initialize (routine 0 -> 1)
+        scrollHandler.update(scrollBuf, 0, 0, 0, 0);
+        // Trigger descent (routine 1 -> 2)
+        cam.setX((short) 0x1180);
+        scrollHandler.update(scrollBuf, cam.getX(), cam.getY(), 1, 0);
+        // Now at routine 2, set Y to threshold
+        cam.setY((short) 0x500);
+        scrollHandler.update(scrollBuf, cam.getX(), cam.getY(), 2, 0);
+        assertEquals("Tornado X velocity should be 1 (rightward) at Y >= $500",
+                1, scrollHandler.getTornadoVelocityX());
+        assertEquals("Tornado Y velocity should be 0 (stopped) at Y >= $500",
+                0, scrollHandler.getTornadoVelocityY());
     }
 
     /**
-     * SCZ Routine 6: At X >= $1400, stop Tornado (end of stage area).
+     * SCZ Routine 3 (resume right): At X >= $1400, stop Tornado.
      * ROM reference: LevEvents_SCZ_Routine4 (s2.asm:21848-21856)
      * <pre>
      *   cmpi.w #$1400,(Camera_X_pos).w
-     *   blo.s  LevEvents_SCZ_RoutineNull      ; skip if X < $1400
+     *   blo.s  LevEvents_SCZ_RoutineNull
      *   move.w #0,(Tornado_Velocity_X).w       ; stop horizontal
      *   move.w #0,(Tornado_Velocity_Y).w       ; stop vertical
      *   addq.b #2,(Dynamic_Resize_Routine).w
      * </pre>
      */
-    @Ignore("TODO #11 -- SCZ events not implemented: Routine 6 stops Tornado at X>=$1400, " +
-            "see docs/s2disasm/s2.asm:21848")
     @Test
-    public void testSCZRoutine6_StopTornado() {
-        int triggerX = 0x1400;
-        int finalVelX = 0;
-        int finalVelY = 0;
-
-        assertEquals("Trigger X for stop should be $1400", 0x1400, triggerX);
-        assertEquals("Final Tornado X velocity should be 0", 0, finalVelX);
-        assertEquals("Final Tornado Y velocity should be 0", 0, finalVelY);
-
-        fail("SCZ Routine 6 not yet implemented");
+    public void testSCZRoutine3_StopTornadoAtThreshold() {
+        // Initialize (routine 0 -> 1)
+        scrollHandler.update(scrollBuf, 0, 0, 0, 0);
+        // Trigger descent (routine 1 -> 2)
+        cam.setX((short) 0x1180);
+        scrollHandler.update(scrollBuf, cam.getX(), cam.getY(), 1, 0);
+        // Resume rightward (routine 2 -> 3)
+        cam.setY((short) 0x500);
+        scrollHandler.update(scrollBuf, cam.getX(), cam.getY(), 2, 0);
+        // Stop tornado (routine 3 -> 4)
+        cam.setX((short) 0x1400);
+        scrollHandler.update(scrollBuf, cam.getX(), cam.getY(), 3, 0);
+        assertEquals("Tornado X velocity should be 0 (stopped) at X >= $1400",
+                0, scrollHandler.getTornadoVelocityX());
+        assertEquals("Tornado Y velocity should be 0 (stopped) at X >= $1400",
+                0, scrollHandler.getTornadoVelocityY());
     }
 
     /**
-     * SCZ Routine 8: No-op.
-     * ROM reference: LevEvents_SCZ_RoutineNull (s2.asm:21856-21857)
-     * <pre>
-     *   LevEvents_SCZ_RoutineNull:
-     *     rts
-     * </pre>
-     *
-     * Note: Routine 6 falls through to RoutineNull when X < $1400,
-     * so the SCZ_RoutineNull label is shared between the "not triggered yet"
-     * path of routine 6 and the actual routine 8 no-op state.
+     * After routine 4 (null), no further velocity changes should occur.
      */
-    @Ignore("TODO #11 -- SCZ events not implemented: Routine 8 is a no-op, " +
-            "see docs/s2disasm/s2.asm:21856")
     @Test
-    public void testSCZRoutine8_NoOp() {
-        fail("SCZ Routine 8 not yet implemented");
+    public void testSCZRoutine4_NoOp() {
+        // Progress through all routines
+        scrollHandler.update(scrollBuf, 0, 0, 0, 0);           // 0 -> 1
+        cam.setX((short) 0x1180);
+        scrollHandler.update(scrollBuf, cam.getX(), cam.getY(), 1, 0);  // 1 -> 2
+        cam.setY((short) 0x500);
+        scrollHandler.update(scrollBuf, cam.getX(), cam.getY(), 2, 0);  // 2 -> 3
+        cam.setX((short) 0x1400);
+        scrollHandler.update(scrollBuf, cam.getX(), cam.getY(), 3, 0);  // 3 -> 4
+
+        // Now at routine 4 (null) -- further updates should not change velocity
+        scrollHandler.update(scrollBuf, cam.getX(), cam.getY(), 4, 0);
+        assertEquals("Velocity should remain 0 after stage complete",
+                0, scrollHandler.getTornadoVelocityX());
+        assertEquals("Velocity should remain 0 after stage complete",
+                0, scrollHandler.getTornadoVelocityY());
     }
 
     /**
@@ -173,29 +218,29 @@ public class TestTodo11_SCZEventSpecs {
      * 3. At Y=$500: fly right again (vel X=1, Y=0)
      * 4. At X=$1400: stop (vel X=0, Y=0)
      */
-    @Ignore("TODO #11 -- SCZ events not implemented: full flight path validation, " +
-            "see docs/s2disasm/s2.asm:21803-21861")
     @Test
     public void testSCZFlightPath() {
-        // Phase 1: rightward
-        assertEquals("Phase 1 X velocity", 1, 1);
-        assertEquals("Phase 1 Y velocity", 0, 0);
+        // Phase 0 -> 1: initialize velocity
+        scrollHandler.update(scrollBuf, 0, 0, 0, 0);
+        assertEquals("Phase 1 X velocity", 1, scrollHandler.getTornadoVelocityX());
+        assertEquals("Phase 1 Y velocity", 0, scrollHandler.getTornadoVelocityY());
 
-        // Phase 2: descent (triggered at X=$1180)
-        assertEquals("Phase 2 trigger X", 0x1180, 0x1180);
-        assertEquals("Phase 2 X velocity", -1, -1);
-        assertEquals("Phase 2 Y velocity", 1, 1);
+        // Phase 1 -> 2: descent at $1180
+        cam.setX((short) 0x1180);
+        scrollHandler.update(scrollBuf, cam.getX(), cam.getY(), 1, 0);
+        assertEquals("Phase 2 X velocity", -1, scrollHandler.getTornadoVelocityX());
+        assertEquals("Phase 2 Y velocity", 1, scrollHandler.getTornadoVelocityY());
 
-        // Phase 3: rightward again (triggered at Y=$500)
-        assertEquals("Phase 3 trigger Y", 0x500, 0x500);
-        assertEquals("Phase 3 X velocity", 1, 1);
-        assertEquals("Phase 3 Y velocity", 0, 0);
+        // Phase 2 -> 3: rightward again at Y=$500
+        cam.setY((short) 0x500);
+        scrollHandler.update(scrollBuf, cam.getX(), cam.getY(), 2, 0);
+        assertEquals("Phase 3 X velocity", 1, scrollHandler.getTornadoVelocityX());
+        assertEquals("Phase 3 Y velocity", 0, scrollHandler.getTornadoVelocityY());
 
-        // Phase 4: stop (triggered at X=$1400)
-        assertEquals("Phase 4 trigger X", 0x1400, 0x1400);
-        assertEquals("Phase 4 X velocity", 0, 0);
-        assertEquals("Phase 4 Y velocity", 0, 0);
-
-        fail("SCZ flight path not yet implemented");
+        // Phase 3 -> 4: stop at $1400
+        cam.setX((short) 0x1400);
+        scrollHandler.update(scrollBuf, cam.getX(), cam.getY(), 3, 0);
+        assertEquals("Phase 4 X velocity", 0, scrollHandler.getTornadoVelocityX());
+        assertEquals("Phase 4 Y velocity", 0, scrollHandler.getTornadoVelocityY());
     }
 }

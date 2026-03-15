@@ -1,6 +1,8 @@
 package com.openggf.game.sonic1.objects.badniks;
 
+import org.junit.Before;
 import org.junit.Test;
+import com.openggf.camera.Camera;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
@@ -12,6 +14,12 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public class TestSonic1CaterkillerBodyChaining {
+
+    @Before
+    public void setUp() {
+        // Ensure Camera singleton exists with clean state (matches TestBuzzBomberLifecycle pattern)
+        Camera.resetInstance();
+    }
 
     @Test
     public void bodySegmentUsesImmediateParentStateForMovementAndYDelta() {

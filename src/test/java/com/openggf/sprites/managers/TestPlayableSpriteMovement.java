@@ -1,9 +1,11 @@
 package com.openggf.sprites.managers;
 
+import com.openggf.game.GameModule;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.sonic2.Sonic2GameModule;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import com.openggf.physics.Direction;
@@ -20,9 +22,11 @@ public class TestPlayableSpriteMovement {
 
         private PlayableSpriteMovement manager;
         private AbstractPlayableSprite mockSprite;
+        private GameModule previousModule;
 
         @Before
         public void setUp() {
+                previousModule = GameModuleRegistry.getCurrent();
                 GameModuleRegistry.setCurrent(new Sonic2GameModule());
                 mockSprite = new AbstractPlayableSprite("sonic", (short) 0, (short) 0) {
                         @Override
@@ -46,6 +50,15 @@ public class TestPlayableSpriteMovement {
                         }
                 };
                 manager = new PlayableSpriteMovement(mockSprite);
+        }
+
+        @After
+        public void tearDown() {
+                if (previousModule != null) {
+                        GameModuleRegistry.setCurrent(previousModule);
+                } else {
+                        GameModuleRegistry.reset();
+                }
         }
 
         @Test

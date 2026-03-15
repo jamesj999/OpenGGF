@@ -5,6 +5,7 @@ import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -99,8 +100,10 @@ public class TestSonic1WaterDataProvider {
     @Test
     public void testNoDynamicHandler() {
         // S1 water is static; no dynamic handlers
-        assertFalse(provider.getDynamicHandler(ZONE_LZ, 0, PlayerCharacter.SONIC_AND_TAILS) != null);
-        assertFalse(provider.getDynamicHandler(ZONE_SBZ, 2, PlayerCharacter.SONIC_AND_TAILS) != null);
+        assertNull("LZ should have no dynamic water handler",
+                provider.getDynamicHandler(ZONE_LZ, 0, PlayerCharacter.SONIC_AND_TAILS));
+        assertNull("SBZ3 should have no dynamic water handler",
+                provider.getDynamicHandler(ZONE_SBZ, 2, PlayerCharacter.SONIC_AND_TAILS));
     }
 
     // --- getWaterSpeed tests ---

@@ -7,9 +7,6 @@ import org.junit.Test;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.ObjectSpawn;
-import com.openggf.physics.Sensor;
-import com.openggf.sprites.playable.AbstractPlayableSprite;
-
 import java.lang.reflect.Field;
 
 import static org.junit.Assert.assertEquals;
@@ -113,46 +110,4 @@ public class TestSonic1LabyrinthObjectsBasic {
         return field.getInt(target);
     }
 
-    private static final class TestPlayableSprite extends AbstractPlayableSprite {
-        private TestPlayableSprite() {
-            super("TEST", (short) 0, (short) 0);
-            setWidth(20);
-            setHeight(38);
-        }
-
-        @Override
-        protected void defineSpeeds() {
-            runAccel = 0;
-            runDecel = 0;
-            friction = 0;
-            max = 0;
-            jump = 0;
-            angle = 0;
-            slopeRunning = 0;
-            slopeRollingDown = 0;
-            slopeRollingUp = 0;
-            rollDecel = 0;
-            minStartRollSpeed = 0;
-            minRollSpeed = 0;
-            maxRoll = 0;
-            rollHeight = 0;
-            runHeight = 0;
-            standXRadius = 9;
-            standYRadius = 19;
-            rollXRadius = 7;
-            rollYRadius = 14;
-        }
-
-        @Override
-        protected void createSensorLines() {
-            groundSensors = new Sensor[0];
-            ceilingSensors = new Sensor[0];
-            pushSensors = new Sensor[0];
-        }
-
-        @Override
-        public void draw() {
-            // No-op for tests.
-        }
-    }
 }

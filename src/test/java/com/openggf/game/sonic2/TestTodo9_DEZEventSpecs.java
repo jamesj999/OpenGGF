@@ -1,6 +1,8 @@
 package com.openggf.game.sonic2;
 
-import org.junit.Ignore;
+import com.openggf.camera.Camera;
+import com.openggf.game.sonic2.events.Sonic2DEZEvents;
+import org.junit.Before;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
@@ -20,9 +22,20 @@ import static org.junit.Assert.*;
  *   <li>Routine 8: No-op (final boss active)</li>
  * </ul>
  *
- * <p>TODO source: LevelEventManager.java line 1236 (updateDEZ is stub)
+ * <p>Production code: {@link Sonic2DEZEvents}
  */
 public class TestTodo9_DEZEventSpecs {
+
+    private Sonic2DEZEvents events;
+    private Camera cam;
+
+    @Before
+    public void setUp() {
+        Camera.resetInstance();
+        cam = Camera.getInstance();
+        events = new Sonic2DEZEvents();
+        events.init(0);
+    }
 
     /**
      * Routine 0: Spawn Silver Sonic at camera X >= 320.
@@ -39,22 +52,25 @@ public class TestTodo9_DEZEventSpecs {
      *   jmpto  JmpTo2_LoadPLC
      * </pre>
      */
-    @Ignore("TODO #9 -- DEZ events not implemented: Routine 0 spawns Silver Sonic at ($348,$A0) " +
-            "when camera X >= 320, see docs/s2disasm/s2.asm:21676")
     @Test
-    public void testDEZRoutine0_SpawnSilverSonic() {
-        // Expected from s2.asm:
-        int triggerCameraX = 320;          // move.w #320,d0
-        int silverSonicSpawnX = 0x348;     // move.w #$348,x_pos(a1)
-        int silverSonicSpawnY = 0xA0;      // move.w #$A0,y_pos(a1)
-        int silverSonicSubtype = 0x48;     // move.b #$48,subtype(a1)
+    public void testDEZRoutine0_DoesNotAdvanceBelowThreshold() {
+        cam.setX((short) 0x100);
+        events.update(0, 0);
+        assertEquals("Should stay at routine 0 when camera X < $140", 0, events.getEventRoutine());
+    }
 
-        assertEquals("Trigger camera X should be 320 ($140)", 320, triggerCameraX);
-        assertEquals("Silver Sonic spawn X should be $348", 0x348, silverSonicSpawnX);
-        assertEquals("Silver Sonic spawn Y should be $A0", 0xA0, silverSonicSpawnY);
-        assertEquals("Silver Sonic subtype should be $48", 0x48, silverSonicSubtype);
+    @Test
+    public void testDEZRoutine0_AdvancesAtThreshold() {
+        cam.setX((short) 0x140);
+        events.update(0, 0);
+        assertEquals("Should advance to routine 2 when camera X >= $140", 2, events.getEventRoutine());
+    }
 
-        fail("DEZ Routine 0 not yet implemented");
+    @Test
+    public void testDEZRoutine0_AdvancesAboveThreshold() {
+        cam.setX((short) 0x200);
+        events.update(0, 0);
+        assertEquals("Should advance to routine 2 when camera X > $140", 2, events.getEventRoutine());
     }
 
     /**
@@ -65,13 +81,15 @@ public class TestTodo9_DEZEventSpecs {
      *     rts
      * </pre>
      */
-    @Ignore("TODO #9 -- DEZ events not implemented: Routine 2 is a no-op, " +
-            "see docs/s2disasm/s2.asm:21694")
     @Test
     public void testDEZRoutine2_NoOp() {
-        // Routine 2 is simply an RTS - the Silver Sonic boss is active
-        // and will advance the routine when defeated.
-        fail("DEZ Routine 2 not yet implemented");
+        events.setEventRoutine(2);
+        short minXBefore = cam.getMinX();
+        short maxXBefore = cam.getMaxX();
+        events.update(0, 0);
+        assertEquals("Routine 2 should not change the event routine", 2, events.getEventRoutine());
+        assertEquals("Routine 2 should not change minX", minXBefore, cam.getMinX());
+        assertEquals("Routine 2 should not change maxX", maxXBefore, cam.getMaxX());
     }
 
     /**
@@ -86,17 +104,21 @@ public class TestTodo9_DEZEventSpecs {
      *   jmpto  JmpTo2_LoadPLC
      * </pre>
      */
-    @Ignore("TODO #9 -- DEZ events not implemented: Routine 4 locks left boundary and triggers PLC at X>=$300, " +
-            "see docs/s2disasm/s2.asm:21698")
     @Test
-    public void testDEZRoutine4_LoadBossPLC() {
-        // Expected from s2.asm:
-        int triggerCameraX = 0x300;  // Camera X threshold for DEZ boss PLC load
+    public void testDEZRoutine4_TracksMinXBeforeThreshold() {
+        events.setEventRoutine(4);
+        cam.setX((short) 0x200);
+        events.update(0, 0);
+        assertEquals("Routine 4 should set minX to camera X", 0x200, cam.getMinX());
+        assertEquals("Should stay at routine 4 when camera X < $300", 4, events.getEventRoutine());
+    }
 
-        assertEquals("DEZ boss PLC trigger should be at camera X = $300",
-                0x300, triggerCameraX);
-        // Left boundary should track camera X position each frame
-        fail("DEZ Routine 4 not yet implemented");
+    @Test
+    public void testDEZRoutine4_AdvancesAtThreshold() {
+        events.setEventRoutine(4);
+        cam.setX((short) 0x300);
+        events.update(0, 0);
+        assertEquals("Should advance to routine 6 when camera X >= $300", 6, events.getEventRoutine());
     }
 
     /**
@@ -113,20 +135,41 @@ public class TestTodo9_DEZEventSpecs {
      *   move.w d0,(Camera_Max_X_pos).w                 ; lock right at $740
      * </pre>
      */
-    @Ignore("TODO #9 -- DEZ events not implemented: Routine 6 locks arena at $680-$740, " +
-            "see docs/s2disasm/s2.asm:21710")
     @Test
-    public void testDEZRoutine6_LockArena() {
-        // Expected from s2.asm:
-        int arenaLeftBound = 0x680;          // Camera_Min_X_pos
-        int arenaWidth = 0xC0;               // Added to left bound
-        int arenaRightBound = 0x680 + 0xC0;  // = $740
+    public void testDEZRoutine6_TracksMinXBeforeThreshold() {
+        events.setEventRoutine(6);
+        cam.setX((short) 0x500);
+        events.update(0, 0);
+        assertEquals("Routine 6 should set minX to camera X before threshold",
+                0x500, cam.getMinX());
+        assertEquals("Should stay at routine 6 when camera X < $680",
+                6, events.getEventRoutine());
+    }
 
-        assertEquals("Arena left boundary should be $680", 0x680, arenaLeftBound);
-        assertEquals("Arena right boundary should be $740 ($680+$C0)",
-                0x740, arenaRightBound);
+    @Test
+    public void testDEZRoutine6_LocksArenaAtThreshold() {
+        events.setEventRoutine(6);
+        cam.setX((short) 0x680);
+        events.update(0, 0);
+        assertEquals("Should advance to routine 8 when camera X >= $680",
+                8, events.getEventRoutine());
+        assertEquals("Arena left boundary should be locked at $680",
+                (short) 0x680, cam.getMinX());
+        assertEquals("Arena right boundary should be locked at $740 ($680+$C0)",
+                (short) 0x740, cam.getMaxX());
+    }
 
-        fail("DEZ Routine 6 not yet implemented");
+    @Test
+    public void testDEZRoutine6_LocksArenaAboveThreshold() {
+        events.setEventRoutine(6);
+        cam.setX((short) 0x700);
+        events.update(0, 0);
+        assertEquals("Should advance to routine 8",
+                8, events.getEventRoutine());
+        assertEquals("Arena left boundary should be $680 (not camera X)",
+                (short) 0x680, cam.getMinX());
+        assertEquals("Arena right boundary should be $740",
+                (short) 0x740, cam.getMaxX());
     }
 
     /**
@@ -137,10 +180,59 @@ public class TestTodo9_DEZEventSpecs {
      *     rts
      * </pre>
      */
-    @Ignore("TODO #9 -- DEZ events not implemented: Routine 8 is a no-op (final boss active), " +
-            "see docs/s2disasm/s2.asm:21723")
     @Test
     public void testDEZRoutine8_NoOp() {
-        fail("DEZ Routine 8 not yet implemented");
+        events.setEventRoutine(8);
+        cam.setX((short) 0x700);
+        short minXBefore = cam.getMinX();
+        short maxXBefore = cam.getMaxX();
+        events.update(0, 0);
+        assertEquals("Routine 8 should not change the event routine", 8, events.getEventRoutine());
+        assertEquals("Routine 8 should not change minX", minXBefore, cam.getMinX());
+        assertEquals("Routine 8 should not change maxX", maxXBefore, cam.getMaxX());
+    }
+
+    /**
+     * Verify the full DEZ event sequence progresses correctly through all routines.
+     */
+    @Test
+    public void testDEZFullSequence() {
+        // Start at routine 0
+        assertEquals(0, events.getEventRoutine());
+
+        // Move camera to trigger routine 0 -> 2
+        cam.setX((short) 0x140);
+        events.update(0, 0);
+        assertEquals("After trigger at $140, should be routine 2", 2, events.getEventRoutine());
+
+        // Routine 2 is a no-op (boss advances it externally)
+        events.update(0, 1);
+        assertEquals("Routine 2 should not self-advance", 2, events.getEventRoutine());
+
+        // Externally advance to routine 4 (as boss defeat would)
+        events.setEventRoutine(4);
+
+        // Routine 4: below $300 threshold
+        cam.setX((short) 0x250);
+        events.update(0, 2);
+        assertEquals(4, events.getEventRoutine());
+        assertEquals("MinX should track camera at $250", (short) 0x250, cam.getMinX());
+
+        // Routine 4: at $300 threshold
+        cam.setX((short) 0x300);
+        events.update(0, 3);
+        assertEquals("After $300 trigger, should be routine 6", 6, events.getEventRoutine());
+
+        // Routine 6: below $680 threshold
+        cam.setX((short) 0x600);
+        events.update(0, 4);
+        assertEquals(6, events.getEventRoutine());
+
+        // Routine 6: at $680 threshold
+        cam.setX((short) 0x680);
+        events.update(0, 5);
+        assertEquals("After $680 trigger, should be routine 8", 8, events.getEventRoutine());
+        assertEquals("Arena locked at $680", (short) 0x680, cam.getMinX());
+        assertEquals("Arena right at $740", (short) 0x740, cam.getMaxX());
     }
 }

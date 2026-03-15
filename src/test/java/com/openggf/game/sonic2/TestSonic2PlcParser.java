@@ -1,14 +1,16 @@
 package com.openggf.game.sonic2;
 
 import com.openggf.game.sonic2.constants.Sonic2Constants;
-import org.junit.Assume;
-import org.junit.BeforeClass;
+import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import com.openggf.data.Rom;
 import com.openggf.level.resources.PlcParser.PlcDefinition;
 import com.openggf.level.resources.PlcParser.PlcEntry;
+import com.openggf.tests.rules.RequiresRom;
+import com.openggf.tests.rules.RequiresRomRule;
+import com.openggf.tests.rules.SonicGame;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
@@ -19,19 +21,17 @@ import static org.junit.Assert.*;
  * Verifies that the Sonic 2 PLC (Pattern Load Cue) parser correctly reads
  * art loading data from the ROM's ArtLoadCues table.
  */
+@RequiresRom(SonicGame.SONIC_2)
 public class TestSonic2PlcParser {
 
-    private static Rom rom;
+    @Rule
+    public RequiresRomRule romRule = new RequiresRomRule();
 
-    @BeforeClass
-    public static void loadRom() {
-        String romPath = System.getProperty("s2.rom.path",
-                "Sonic The Hedgehog 2 (W) (REV01) [!].gen");
-        File romFile = new File(romPath);
-        Assume.assumeTrue("Sonic 2 ROM not found at: " + romFile.getAbsolutePath(),
-                romFile.exists());
-        rom = new Rom();
-        assertTrue("Failed to open ROM", rom.open(romFile.getAbsolutePath()));
+    private Rom rom;
+
+    @Before
+    public void setUp() {
+        rom = romRule.rom();
     }
 
     @Test

@@ -41,6 +41,7 @@ public class ParallaxMczTest {
 
     @Before
     public void setUp() {
+        Camera.resetInstance();
         parallaxManager = new ParallaxManager();
         mockRom = new MockRom();
         parallaxManager.load(mockRom);
@@ -48,9 +49,14 @@ public class ParallaxMczTest {
 
     @Test
     public void testTableLoad() {
-        // Verify row heights loaded correctly
-        // Access strictly via parallaxManager is hard as it hides tables.
-        // But we can verify calculations.
+        // Verify that the parallax manager loaded successfully by checking that
+        // it can produce a non-null scroll handler after loading MCZ data
+        assertNotNull("ParallaxManager should be constructed after load", parallaxManager);
+        // Verify that calculations work (load must have succeeded for update to produce valid output)
+        Camera cam = Camera.getInstance();
+        setCamera(cam, 0, 960);
+        parallaxManager.update(ParallaxManager.ZONE_MCZ, 0, cam, 0, 0);
+        assertNotNull("hScroll should be non-null after update", parallaxManager.getHScroll());
     }
 
     @Test

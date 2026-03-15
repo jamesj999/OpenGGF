@@ -1,35 +1,42 @@
 package com.openggf.tests;
 
-import org.junit.Assume;
-
+import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.sonic2.Sonic2RingPlacement;
 import com.openggf.game.sonic2.ZoneAct;
 import com.openggf.level.rings.RingSpawn;
+import com.openggf.tests.rules.RequiresRom;
+import com.openggf.tests.rules.RequiresRomRule;
+import com.openggf.tests.rules.SonicGame;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.io.IOException;
 import java.util.List;
 
 import static org.junit.Assert.*;
 
+@RequiresRom(SonicGame.SONIC_2)
 public class Sonic2RingPlacementTest {
 
-    private static final Path REV01_ROM = Path.of("Sonic The Hedgehog 2 (W) (REV01) [!].gen");
+    @Rule
+    public RequiresRomRule romRule = new RequiresRomRule();
+
+    private RomByteReader reader;
+
+    @Before
+    public void setUp() throws IOException {
+        reader = RomByteReader.fromRom(romRule.rom());
+    }
 
     @Test
     public void ringPointerTableMatchesRev01Offsets() throws Exception {
-        Assume.assumeTrue("Rev01 ROM missing", Files.exists(REV01_ROM));
-        RomByteReader reader = new RomByteReader(Files.readAllBytes(REV01_ROM));
         assertEquals(0x0044, reader.readU16BE(Sonic2RingPlacement.OFF_RINGS_REV01));
         assertEquals(0x026A, reader.readU16BE(Sonic2RingPlacement.OFF_RINGS_REV01 + 2));
     }
 
     @Test
     public void parsesEmeraldHillAct1RingGroup() throws Exception {
-        Assume.assumeTrue("Rev01 ROM missing", Files.exists(REV01_ROM));
-        RomByteReader reader = new RomByteReader(Files.readAllBytes(REV01_ROM));
         Sonic2RingPlacement placement = new Sonic2RingPlacement(reader);
 
         List<RingSpawn> rings = placement.load(new ZoneAct(0, 0));
@@ -42,8 +49,6 @@ public class Sonic2RingPlacementTest {
 
     @Test
     public void singleActZoneFallsBackToAct0() throws Exception {
-        Assume.assumeTrue("Rev01 ROM missing", Files.exists(REV01_ROM));
-        RomByteReader reader = new RomByteReader(Files.readAllBytes(REV01_ROM));
         Sonic2RingPlacement placement = new Sonic2RingPlacement(reader);
 
         List<RingSpawn> act0 = placement.load(new ZoneAct(16, 0)); // SCZ

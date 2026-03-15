@@ -249,12 +249,16 @@ public class TestAizPlaneArtDiag {
         byte[] data = decompressPlaneArt();
         // Tiles 126-135 span the module boundary (module 1 ends at tile 127, module 2 starts at 128)
         System.out.println("=== MODULE BOUNDARY TILES (126-135) ===");
+        int nonZeroTileCount = 0;
+        int totalBoundaryTiles = 0;
         for (int t = 126; t < Math.min(136, data.length / 32); t++) {
             int offset = t * 32;
             int nonZero = 0;
             for (int b = 0; b < 32; b++) {
                 if (data[offset + b] != 0) nonZero++;
             }
+            if (nonZero > 0) nonZeroTileCount++;
+            totalBoundaryTiles++;
             StringBuilder sb = new StringBuilder();
             sb.append(String.format("Tile %3d: first8=[", t));
             for (int b = 0; b < 8; b++) {
@@ -263,6 +267,9 @@ public class TestAizPlaneArtDiag {
             sb.append("] nonzero=").append(nonZero).append("/32");
             System.out.println(sb);
         }
+        assertTrue("At least some module boundary tiles should contain non-zero data",
+                nonZeroTileCount > 0);
+        assertTrue("Should have checked boundary tiles", totalBoundaryTiles > 0);
     }
 
     /**
@@ -285,9 +292,11 @@ public class TestAizPlaneArtDiag {
         byte[] data = decompressPlaneArt();
         System.out.println("=== FACE TILE PIXEL GRIDS (4bpp, 8x8) ===");
         System.out.println("(Each digit = one pixel color index, 0=transparent)");
+        int tilesWithPixelData = 0;
         for (int t = 26; t <= 41; t++) {
             int offset = t * 32;
             System.out.println("--- Tile " + t + " (col " + ((t - 26) / 4) + " row " + ((t - 26) % 4) + ") ---");
+            boolean hasNonZero = false;
             for (int row = 0; row < 8; row++) {
                 StringBuilder sb = new StringBuilder("  ");
                 for (int col = 0; col < 4; col++) {
@@ -295,10 +304,14 @@ public class TestAizPlaneArtDiag {
                     int hi = (b >> 4) & 0xF;
                     int lo = b & 0xF;
                     sb.append(Integer.toHexString(hi)).append(Integer.toHexString(lo));
+                    if (hi != 0 || lo != 0) hasNonZero = true;
                 }
                 System.out.println(sb);
             }
+            if (hasNonZero) tilesWithPixelData++;
         }
+        assertTrue("At least some face tiles should contain non-zero pixel data",
+                tilesWithPixelData > 0);
     }
 
     /**

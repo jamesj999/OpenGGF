@@ -6,13 +6,20 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
 public class TestFadeManager {
+
+    /**
+     * Number of update frames for a standard fade to complete.
+     * Matches FadeManager.FADE_DURATION (7 steps per RGB channel = 21 frames).
+     */
+    private static final int FADE_DURATION_FRAMES = 21;
+
     @Test
     public void testFadeToWhiteCompletes() {
         FadeManager.resetInstance();
         FadeManager fadeManager = FadeManager.getInstance();
 
         fadeManager.startFadeToWhite(null);
-        for (int i = 0; i < 21; i++) {
+        for (int i = 0; i < FADE_DURATION_FRAMES; i++) {
             fadeManager.update();
         }
 
@@ -28,7 +35,7 @@ public class TestFadeManager {
         FadeManager fadeManager = FadeManager.getInstance();
 
         fadeManager.startFadeToBlack(null, 5);
-        for (int i = 0; i < 21; i++) {
+        for (int i = 0; i < FADE_DURATION_FRAMES; i++) {
             fadeManager.update();
         }
 

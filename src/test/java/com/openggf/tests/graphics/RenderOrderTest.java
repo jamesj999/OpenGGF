@@ -31,7 +31,7 @@ public class RenderOrderTest {
         RenderOrderRecorder fresh = new RenderOrderRecorder() {
             // Create new instance to test default state
         };
-        // Default getInstance() should work - just verify it exists
+        assertFalse("New RenderOrderRecorder should be disabled by default", fresh.isEnabled());
         assertNotNull(RenderOrderRecorder.getInstance());
     }
     

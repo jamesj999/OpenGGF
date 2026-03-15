@@ -1,7 +1,10 @@
 package com.openggf.sprites.managers;
 
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
+import com.openggf.game.GameModule;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.sonic1.Sonic1GameModule;
 import com.openggf.game.sonic2.Sonic2GameModule;
@@ -11,6 +14,22 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public class TestSpriteManagerCollisionOrder {
+
+    private GameModule previousModule;
+
+    @Before
+    public void setUp() {
+        previousModule = GameModuleRegistry.getCurrent();
+    }
+
+    @After
+    public void tearDown() {
+        if (previousModule != null) {
+            GameModuleRegistry.setCurrent(previousModule);
+        } else {
+            GameModuleRegistry.reset();
+        }
+    }
 
     @Test
     public void testSonic1UsesPostMovementSolidPass() {

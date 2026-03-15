@@ -235,7 +235,14 @@ public class TestAizIntroFgTerrain {
         }
 
         // Assertions
+        int totalCells = level.getMap().getHeight() * level.getMap().getWidth();
         assertTrue("Level should have non-zero FG blocks somewhere", totalNonZero > 0);
+        assertTrue("At least 5% of FG map cells should be non-zero (got " + totalNonZero
+                        + "/" + totalCells + ")",
+                totalNonZero > totalCells / 20);
+        // Note: pattern pixel data may be empty in headless tests (PLC art not loaded),
+        // so we only check that patterns were examined, not that they contain pixels.
+        assertTrue("Should have checked patterns around intro start", checkedPatterns > 0);
     }
 
     private boolean hasNonZeroPixels(Pattern pattern) {

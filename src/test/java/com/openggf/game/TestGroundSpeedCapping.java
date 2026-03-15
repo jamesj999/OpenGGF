@@ -89,12 +89,11 @@ public class TestGroundSpeedCapping {
         assertTrue("Test setup: speed should be above max", highSpeed > max);
 
         // S2 behavior: pressing right when going right at high speed should preserve speed
+        // because inputAlwaysCapsGroundSpeed is false (acceleration is skipped when >= max).
+        // Full integration is tested via HeadlessTestRunner; here we verify the feature flag.
         PhysicsFeatureSet fs = sprite.getPhysicsFeatureSet();
-        assertFalse("S2 feature flag", fs.inputAlwaysCapsGroundSpeed());
-
-        // In S2, if gSpeed >= max, acceleration is skipped entirely
-        // Speed stays at highSpeed
-        assertEquals("S2 should preserve high speed", highSpeed, highSpeed);
+        assertFalse("S2 should not cap ground speed on input (preserves high speed from springs/slopes)",
+                fs.inputAlwaysCapsGroundSpeed());
     }
 
     private static class TestableSprite extends AbstractPlayableSprite {

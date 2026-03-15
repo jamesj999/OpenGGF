@@ -10,6 +10,8 @@ import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
 
+import static org.junit.Assert.*;
+
 /**
  * Diagnostic test to trace voice resolution for S3K tracks with
  * known audio issues: Mini-Boss (0x12E) and Knuckles' Theme (0x11F).
@@ -32,42 +34,46 @@ public class TestS3kVoiceResolution {
     public void traceMiniBossVoices() {
         System.out.println("=== Mini-Boss (S3) - music ID 0x2E via S3 tables ===");
         AbstractSmpsData data = loader.loadS3Music(0x2E);
-        if (data == null) {
-            System.out.println("FAILED TO LOAD S3 Mini-Boss");
-            return;
-        }
+        assertNotNull("Should load S3 Mini-Boss music data", data);
 
         System.out.println("Voice pointer: 0x" + Integer.toHexString(data.getVoicePtr()));
         System.out.println("FM channels: " + data.getChannels());
         System.out.println("PSG channels: " + data.getPsgChannels());
 
+        assertTrue("Mini-Boss should have at least 1 FM channel", data.getChannels() > 0);
+
+        int voiceCount = 0;
         for (int v = 0; v < 20; v++) {
             byte[] voice = data.getVoice(v);
             if (voice != null) {
                 System.out.println("Voice " + v + ": " + hexDump(voice));
+                voiceCount++;
             }
         }
+        assertTrue("Mini-Boss should have at least 1 voice definition", voiceCount > 0);
     }
 
     @Test
     public void traceKnucklesVoices() {
         System.out.println("=== Knuckles' Theme (S3) - music ID 0x1F via S3 tables ===");
         AbstractSmpsData data = loader.loadS3Music(0x1F);
-        if (data == null) {
-            System.out.println("FAILED TO LOAD S3 Knuckles");
-            return;
-        }
+        assertNotNull("Should load S3 Knuckles music data", data);
 
         System.out.println("Voice pointer: 0x" + Integer.toHexString(data.getVoicePtr()));
         System.out.println("FM channels: " + data.getChannels());
         System.out.println("PSG channels: " + data.getPsgChannels());
 
+        assertTrue("Knuckles should have at least 1 FM channel", data.getChannels() > 0);
+
+        int voiceCount = 0;
         for (int v = 0; v < 20; v++) {
             byte[] voice = data.getVoice(v);
             if (voice != null) {
                 System.out.println("Voice " + v + ": " + hexDump(voice));
+                voiceCount++;
             }
         }
+        assertTrue("Knuckles should have at least 1 voice definition", voiceCount > 0);
     }
 
     @Test
@@ -77,13 +83,14 @@ public class TestS3kVoiceResolution {
         AbstractSmpsData sk = loader.loadMusic(0x18);
         AbstractSmpsData s3 = loader.loadS3Music(0x2E);
 
-        if (sk == null || s3 == null) {
-            System.out.println("Could not load both versions (sk=" + sk + ", s3=" + s3 + ")");
-            return;
-        }
+        assertNotNull("Should load S&K Mini-Boss music data", sk);
+        assertNotNull("Should load S3 Mini-Boss music data", s3);
 
         System.out.println("S&K voice ptr: 0x" + Integer.toHexString(sk.getVoicePtr()));
         System.out.println("S3  voice ptr: 0x" + Integer.toHexString(s3.getVoicePtr()));
+
+        assertTrue("S&K Mini-Boss should have FM channels", sk.getChannels() > 0);
+        assertTrue("S3 Mini-Boss should have FM channels", s3.getChannels() > 0);
 
         for (int v = 0; v < 10; v++) {
             byte[] skVoice = sk.getVoice(v);
@@ -111,13 +118,14 @@ public class TestS3kVoiceResolution {
         AbstractSmpsData sk = loader.loadMusic(0x1F);
         AbstractSmpsData s3 = loader.loadS3Music(0x1F);
 
-        if (sk == null || s3 == null) {
-            System.out.println("Could not load both versions (sk=" + sk + ", s3=" + s3 + ")");
-            return;
-        }
+        assertNotNull("Should load S&K Knuckles music data", sk);
+        assertNotNull("Should load S3 Knuckles music data", s3);
 
         System.out.println("S&K voice ptr: 0x" + Integer.toHexString(sk.getVoicePtr()));
         System.out.println("S3  voice ptr: 0x" + Integer.toHexString(s3.getVoicePtr()));
+
+        assertTrue("S&K Knuckles should have FM channels", sk.getChannels() > 0);
+        assertTrue("S3 Knuckles should have FM channels", s3.getChannels() > 0);
 
         for (int v = 0; v < 10; v++) {
             byte[] skVoice = sk.getVoice(v);
@@ -145,48 +153,48 @@ public class TestS3kVoiceResolution {
 
         // S3 Mini-Boss
         AbstractSmpsData s3mb = loader.loadS3Music(0x2E);
-        if (s3mb != null) {
-            System.out.println("S3 Mini-Boss voicePtr=0x" + Integer.toHexString(s3mb.getVoicePtr()));
-            // Check if voicePtr is in bank range (0x8000+) or global table range (0x17D8)
-            int ptr = s3mb.getVoicePtr();
-            if (ptr >= 0x8000) {
-                System.out.println("  -> Bank-relative voice pointer (0x8000+ range)");
-            } else if (ptr >= 0x1300 && ptr < 0x2000) {
-                System.out.println("  -> Global instrument table range");
-            } else {
-                System.out.println("  -> Unexpected range: 0x" + Integer.toHexString(ptr));
-            }
+        assertNotNull("Should load S3 Mini-Boss for voice path tracing", s3mb);
+        System.out.println("S3 Mini-Boss voicePtr=0x" + Integer.toHexString(s3mb.getVoicePtr()));
+        int ptr = s3mb.getVoicePtr();
+        if (ptr >= 0x8000) {
+            System.out.println("  -> Bank-relative voice pointer (0x8000+ range)");
+        } else if (ptr >= 0x1300 && ptr < 0x2000) {
+            System.out.println("  -> Global instrument table range");
+        } else {
+            System.out.println("  -> Unexpected range: 0x" + Integer.toHexString(ptr));
         }
 
         // S3 Knuckles
         AbstractSmpsData s3kn = loader.loadS3Music(0x1F);
-        if (s3kn != null) {
-            System.out.println("S3 Knuckles voicePtr=0x" + Integer.toHexString(s3kn.getVoicePtr()));
-            int ptr = s3kn.getVoicePtr();
-            if (ptr >= 0x8000) {
-                System.out.println("  -> Bank-relative voice pointer (0x8000+ range)");
-            } else if (ptr >= 0x1300 && ptr < 0x2000) {
-                System.out.println("  -> Global instrument table range");
-            } else {
-                System.out.println("  -> Unexpected range: 0x" + Integer.toHexString(ptr));
-            }
+        assertNotNull("Should load S3 Knuckles for voice path tracing", s3kn);
+        System.out.println("S3 Knuckles voicePtr=0x" + Integer.toHexString(s3kn.getVoicePtr()));
+        ptr = s3kn.getVoicePtr();
+        if (ptr >= 0x8000) {
+            System.out.println("  -> Bank-relative voice pointer (0x8000+ range)");
+        } else if (ptr >= 0x1300 && ptr < 0x2000) {
+            System.out.println("  -> Global instrument table range");
+        } else {
+            System.out.println("  -> Unexpected range: 0x" + Integer.toHexString(ptr));
         }
 
         // S&K versions for comparison
         AbstractSmpsData skmb = loader.loadMusic(0x18);
-        if (skmb != null) {
-            System.out.println("S&K Mini-Boss voicePtr=0x" + Integer.toHexString(skmb.getVoicePtr()));
-        }
+        assertNotNull("Should load S&K Mini-Boss", skmb);
+        System.out.println("S&K Mini-Boss voicePtr=0x" + Integer.toHexString(skmb.getVoicePtr()));
+
         AbstractSmpsData skkn = loader.loadMusic(0x1F);
-        if (skkn != null) {
-            System.out.println("S&K Knuckles voicePtr=0x" + Integer.toHexString(skkn.getVoicePtr()));
-        }
+        assertNotNull("Should load S&K Knuckles", skkn);
+        System.out.println("S&K Knuckles voicePtr=0x" + Integer.toHexString(skkn.getVoicePtr()));
 
         // Check a known good track for reference
         AbstractSmpsData aiz1 = loader.loadMusic(0x01);
-        if (aiz1 != null) {
-            System.out.println("AIZ1 voicePtr=0x" + Integer.toHexString(aiz1.getVoicePtr()));
-        }
+        assertNotNull("Should load AIZ1 music", aiz1);
+        System.out.println("AIZ1 voicePtr=0x" + Integer.toHexString(aiz1.getVoicePtr()));
+
+        // All loaded tracks should have valid (non-zero) voice pointers
+        assertTrue("S3 Mini-Boss voice pointer should be non-zero", s3mb.getVoicePtr() > 0);
+        assertTrue("S3 Knuckles voice pointer should be non-zero", s3kn.getVoicePtr() > 0);
+        assertTrue("AIZ1 voice pointer should be non-zero", aiz1.getVoicePtr() > 0);
     }
 
     private static String hexDump(byte[] data) {
