@@ -6,50 +6,64 @@ import static org.junit.Assert.*;
 public class TestS3kBossExplosionController {
 
     @Test
-    public void controllerSpawnsExplosionEveryFrameAfterInitialWait() {
-        // subtype 2: timer=0x28 (40), 2-frame initial wait, then 1 explosion/frame
+    public void controllerSpawnsExplosionsEveryThreeFrames() {
+        // subtype 2: timer=$28 (40), xRange=$80, yRange=$80
+        // ROM: 3-frame initial wait, then 1 explosion every 3 frames
+        // Timer counts $28→$00 inclusive = 41 spawns (subq.b + bmi)
         var controller = new S3kBossExplosionController(160, 112, 2);
         int spawnCount = 0;
-        // 2 wait frames + 40 timer frames = 42 total ticks
-        for (int frame = 0; frame < 42; frame++) {
+        // Run for enough frames to exhaust the timer
+        for (int frame = 0; frame < 200; frame++) {
             controller.tick();
             spawnCount += controller.drainPendingExplosions().size();
+            if (controller.isFinished()) break;
         }
-        // ROM: 2 wait frames (no spawns) + 40 timer decrements (1 spawn each) = 40 explosions
-        assertEquals("Should spawn 40 explosions (one per frame after 2-frame wait)", 40, spawnCount);
+        // Timer $28→$00 = 40 spawns. Next decrement ($00→$FF) triggers bmi → delete, no spawn.
+        assertEquals("Should spawn 40 explosions", 40, spawnCount);
     }
 
     @Test
-    public void initialWaitProducesNoExplosions() {
+    public void initialWaitBeforeFirstExplosion() {
         var controller = new S3kBossExplosionController(160, 112, 2);
-        // First 2 ticks are wait frames — no explosions
-        controller.tick();
-        assertEquals(0, controller.drainPendingExplosions().size());
-        controller.tick();
-        assertEquals(0, controller.drainPendingExplosions().size());
-        // Third tick starts spawning
+        // ROM: initial $2E = 2 (3-1), Obj_Wait counts 2→1→0→-1 = 3 frames
+        for (int i = 0; i < 3; i++) {
+            controller.tick();
+            assertEquals("No explosions during initial wait frame " + i,
+                    0, controller.drainPendingExplosions().size());
+        }
+        // Frame 4: first explosion
         controller.tick();
         assertEquals(1, controller.drainPendingExplosions().size());
     }
 
     @Test
-    public void controllerIsFinishedAfterTimerExpires() {
+    public void threeFrameSpacingBetweenExplosions() {
         var controller = new S3kBossExplosionController(160, 112, 2);
-        for (int frame = 0; frame < 44; frame++) {
+        // Skip initial wait
+        for (int i = 0; i < 3; i++) {
             controller.tick();
             controller.drainPendingExplosions();
         }
-        assertTrue("Controller should be finished after timer", controller.isFinished());
+        // First explosion
+        controller.tick();
+        assertEquals(1, controller.drainPendingExplosions().size());
+        // Next 2 frames: no explosion (wait)
+        controller.tick();
+        assertEquals(0, controller.drainPendingExplosions().size());
+        controller.tick();
+        assertEquals(0, controller.drainPendingExplosions().size());
+        // Third frame after first: second explosion
+        controller.tick();
+        assertEquals(1, controller.drainPendingExplosions().size());
     }
 
     @Test
     public void explosionOffsetsAreWithinRange() {
         var controller = new S3kBossExplosionController(160, 112, 2);
-        // Skip initial wait
-        controller.tick();
-        controller.tick();
-        // First explosion frame
-        controller.tick();
+        // Skip to first explosion
+        for (int i = 0; i < 4; i++) {
+            controller.tick();
+        }
         for (var explosion : controller.drainPendingExplosions()) {
             int dx = Math.abs(explosion.x() - 160);
             int dy = Math.abs(explosion.y() - 112);

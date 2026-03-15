@@ -240,6 +240,10 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
             return;
         }
         for (var pending : explosionController.drainPendingExplosions()) {
+            // ROM: sub_52850 plays sfx_Explode when spawning each child
+            if (pending.playSfx()) {
+                AudioManager.getInstance().playSfx(Sonic3kSfx.EXPLODE.id);
+            }
             objectManager.addDynamicObject(new S3kBossExplosionChild(pending.x(), pending.y()));
         }
     }

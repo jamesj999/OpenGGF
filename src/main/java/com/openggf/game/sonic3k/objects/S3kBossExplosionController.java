@@ -5,12 +5,20 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * S3K boss explosion controller (ROM: Obj_BossExplosionSpecial + Obj_BossExpControl2).
+ * S3K boss explosion controller (ROM: Obj_BossExplosionSpecial → Obj_CreateBossExplosion).
  * Plain Java object (not an ObjectInstance) — ticked directly by the owning boss.
- * Spawns child explosions at random offsets every frame until timer expires.
- * ROM: initial 2-frame Obj_Wait delay, then Obj_BossExpControl2 runs every frame.
  *
- * ROM: CreateBossExp02 parameters: timer=$28 (40), xRange=$80, yRange=$80
+ * ROM flow (s3.asm Obj_BossExpControl / Obj_NormalExpControl):
+ * 1. Initial Obj_Wait: $2E = 3-1 = 2 (3 frames before first explosion)
+ * 2. Obj_NormalExpControl: decrement $39 timer, spawn explosion, set $2E = 3-1
+ * 3. Obj_Wait: 3 frames between each explosion
+ * 4. Repeat until $39 goes negative (bmi → delete)
+ *
+ * CreateBossExp02: timer=$28, xRange=$80, yRange=$80, routine=2
+ * Result: 41 explosions ($28→$00 inclusive), each spaced 3 frames apart.
+ * Total duration: 3 + 41*3 = 126 frames (~2.1 seconds).
+ *
+ * SFX (sfx_Explode) is played by the controller (sub_52850), not by each child.
  */
 public class S3kBossExplosionController {
     private static final int[][] SUBTYPE_PARAMS = {
@@ -19,18 +27,18 @@ public class S3kBossExplosionController {
             {0x80, 0x20, 0x20},
             {0x04, 0x10, 0x10},
     };
-    // ROM: Obj_Wait with $2E=2 before explosions start
-    private static final int INITIAL_WAIT = 2;
+    // ROM: move.w #3-1,$2E(a0) — Obj_Wait counts $2E down, fires at -1 = 3 frame cycle
+    private static final int SPAWN_INTERVAL = 3;
 
     private final int centreX;
     private final int centreY;
     private final int xRange;
     private final int yRange;
     private int timer;
-    private int waitFrames;
+    private int intervalCounter;
     private final List<PendingExplosion> pendingExplosions = new ArrayList<>();
 
-    public record PendingExplosion(int x, int y) {}
+    public record PendingExplosion(int x, int y, boolean playSfx) {}
 
     public S3kBossExplosionController(int centreX, int centreY, int subtype) {
         this.centreX = centreX;
@@ -40,32 +48,38 @@ public class S3kBossExplosionController {
         this.timer = params[0];
         this.xRange = params[1];
         this.yRange = params[2];
-        this.waitFrames = INITIAL_WAIT;
+        // ROM: initial $2E = 3-1 (same as between-explosion wait)
+        this.intervalCounter = SPAWN_INTERVAL;
     }
 
     public void tick() {
-        if (timer <= 0) return;
-        // ROM: Obj_Wait runs for 2 frames before Obj_BossExpControl2 takes over
-        if (waitFrames > 0) {
-            waitFrames--;
+        if (timer < 0) return;
+        intervalCounter--;
+        if (intervalCounter >= 0) {
             return;
         }
-        // ROM: Obj_BossExpControl2 spawns one explosion EVERY frame
+        // ROM: Obj_NormalExpControl fires when Obj_Wait counter goes negative
         timer--;
+        if (timer < 0) {
+            return;
+        }
+        // ROM: sub_52850 plays sfx_Explode, spawns child, applies random offset
         spawnExplosionChild();
+        intervalCounter = SPAWN_INTERVAL - 1; // ROM: move.w #3-1,$2E(a0)
     }
 
     public boolean isFinished() {
-        return timer <= 0;
+        return timer < 0;
     }
 
     private void spawnExplosionChild() {
+        // ROM: sub_52850 random offset calculation (s3.asm:101267-101285)
         int random = ThreadLocalRandom.current().nextInt(0x10000);
         int xMask = (xRange * 2) - 1;
         int yMask = (yRange * 2) - 1;
         int xOffset = (random & xMask) - xRange;
         int yOffset = ((random >> 8) & yMask) - yRange;
-        pendingExplosions.add(new PendingExplosion(centreX + xOffset, centreY + yOffset));
+        pendingExplosions.add(new PendingExplosion(centreX + xOffset, centreY + yOffset, true));
     }
 
     public List<PendingExplosion> drainPendingExplosions() {

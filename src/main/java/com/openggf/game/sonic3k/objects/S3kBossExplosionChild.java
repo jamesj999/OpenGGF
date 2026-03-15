@@ -36,21 +36,16 @@ public class S3kBossExplosionChild extends AbstractObjectInstance {
 
     private int pairIndex;
     private int delayCounter;
-    private boolean sfxPlayed;
 
     public S3kBossExplosionChild(int x, int y) {
         super(new ObjectSpawn(x, y, 0, 0, 0, false, 0), "S3kBossExplosion");
         this.pairIndex = 0;
         this.delayCounter = ANIM_PAIRS[0][0];
-        this.sfxPlayed = false;
     }
 
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
-        if (!sfxPlayed) {
-            AudioManager.getInstance().playSfx(Sonic3kSfx.EXPLODE.id);
-            sfxPlayed = true;
-        }
+        // SFX is played by the controller (sub_52850), not each child
         if (delayCounter > 0) {
             delayCounter--;
             return;
