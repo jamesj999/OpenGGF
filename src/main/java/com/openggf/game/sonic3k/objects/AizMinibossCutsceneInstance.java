@@ -191,27 +191,27 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
     }
 
     /**
-     * ROM: After swing wait expires, enter the flame spawn loop.
-     * loc_68616: spawn 4 flame children, play SFX, wait $40 frames.
+     * ROM: After swing wait expires, enter the flame/wait loop.
+     * loc_68616: play SFX, wait $40 frames.
      * Repeats while $39 counter >= 0 (4 iterations total).
+     * The visible jet thruster flames are the body child's frames 3-5
+     * animation (already looping), not separate flame children.
      */
     private void onSwingComplete() {
         flameLoopCounter = FLAME_LOOP_COUNT;
-        spawnFlameLoopIteration();
+        enterFlameLoopIteration();
     }
 
-    private void spawnFlameLoopIteration() {
+    private void enterFlameLoopIteration() {
         state.routine = ROUTINE_FLAME_LOOP;
         AudioManager.getInstance().playSfx(Sonic3kSfx.FLAMETHROWER_QUIET.id);
-        spawnCutsceneFlames();
         setWait(FLAME_LOOP_WAIT, this::onFlameLoopWaitComplete);
     }
 
     private void onFlameLoopWaitComplete() {
         flameLoopCounter--;
         if (flameLoopCounter >= 0) {
-            // ROM: subq.b #1,$39 / bpl.s loc_68616 — continue spawning
-            spawnFlameLoopIteration();
+            enterFlameLoopIteration();
             return;
         }
         // ROM: loc_6862E — $39 went negative, proceed to pre-exit with explosion
@@ -219,20 +219,6 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         Camera camera = Camera.getInstance();
         explosionController = new S3kBossExplosionController(
                 camera.getX() + 160, camera.getY() + 112, 2);
-    }
-
-    private void spawnCutsceneFlames() {
-        var objectManager = levelManager.getObjectManager();
-        if (objectManager == null) {
-            return;
-        }
-        // ROM: Child1_AIZ_MinibossFlames — 4 flame children at body-relative offsets
-        int[] xOffsets = {-0x64, -0x54, -0x44, -0x2C};
-        int[] yOffsets = {4, 4, 4, 3};
-        for (int i = 0; i < xOffsets.length; i++) {
-            objectManager.addDynamicObject(new AizMinibossFlameChild(
-                    this, xOffsets[i], yOffsets[i], i * 2));
-        }
     }
 
     private void tickExplosionController() {
