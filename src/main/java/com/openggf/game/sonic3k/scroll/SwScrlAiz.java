@@ -30,11 +30,30 @@ public class SwScrlAiz implements ZoneScrollHandler {
     private static final int PER_LINE_FLAG = 0x8000;
 
     /** AIZ1_DeformArray heights. $800D = per-line flag | 13 scanlines. */
-    private static final int[] DEFORM_HEIGHTS = {
+    private static final int[] AIZ1_DEFORM_HEIGHTS = {
             0xD0, 0x20, 0x30, 0x30, 0x10, 0x10, 0x10,
             0x800D, 0x0F, 0x06, 0x0E, 0x50, 0x20
     };
-    private static final int DEFORM_BAND_COUNT = DEFORM_HEIGHTS.length;
+
+    /** AIZ2_BGDeformArray heights (24 bands, no per-line flags). */
+    private static final int[] AIZ2_DEFORM_HEIGHTS = {
+            0x10, 0x20, 0x38, 0x58, 0x28, 0x40, 0x38, 0x18,
+            0x18, 0x90, 0x48, 0x10, 0x18, 0x20, 0x38, 0x58,
+            0x28, 0x40, 0x38, 0x18, 0x18, 0x90, 0x48, 0x10
+    };
+
+    /**
+     * Speed level for each of the 25 scroll table entries, derived from
+     * AIZ2_BGDeformMake scatter pattern. Creates a wave: speeds increase
+     * from center (index 9,21 = speed 0) outward (index 3,15 = speed 6).
+     */
+    private static final int[] AIZ2_SPEED_MAP = {
+            3, 4, 5, 6, 5, 4, 3, 2, 1, 0, 1, 2, 3,
+            4, 5, 6, 5, 4, 3, 2, 1, 0, 1, 2, 3
+    };
+
+    /** Number of distinct speed levels in AIZ2 deform. */
+    private static final int AIZ2_SPEED_LEVELS = 7;
 
     /** Total words in the flat HScroll_table value array ($008-$038). */
     private static final int FLAT_VALUE_COUNT = 25;
@@ -98,6 +117,13 @@ public class SwScrlAiz implements ZoneScrollHandler {
                 // Camera_X_pos_BG_copy while the column VScroll wave adds the wobble.
                 vscrollFactorBG = wordOf(aizEvents.getFireTransitionBgY());
                 writePlainDeformation(horizScrollBuf, fgScroll, negWord(bgSourceX));
+            } else if (actId > 0) {
+                // AIZ2_Deform: scattered-speed BG parallax with shake-compensated Y.
+                // BG vertical scroll = (cameraY - shake) / 2 + shake.
+                short shakeY = 0;
+                try { shakeY = Camera.getInstance().getShakeOffsetY(); } catch (Exception ignored) {}
+                vscrollFactorBG = (short) (asrWord(cameraY, 1) + shakeY);
+                computeAiz2Deform(horizScrollBuf, fgScroll, cameraX);
             } else {
                 // AIZ1_Deform: multi-band BG parallax with per-band speeds.
                 // BG vertical scroll = camera Y / 2.
@@ -182,12 +208,53 @@ public class SwScrlAiz implements ZoneScrollHandler {
         values[24] = values[22];          // band 12: base*18 (same as band 10)
 
         // Distribute values across scanlines using AIZ1_DeformArray heights.
-        writeDeformBands(horizScrollBuf, fgScroll, values, cameraY);
+        writeDeformBands(horizScrollBuf, fgScroll, values, AIZ1_DEFORM_HEIGHTS);
+    }
+
+    /**
+     * AIZ2_Deform: compute scattered-speed BG scroll values and distribute.
+     *
+     * <p>ROM reference: Lockon S3/Screen Events.asm AIZ2_Deform + AIZ2_BGDeformMake.
+     *
+     * <p>Uses Events_fg_1 (≈ cameraX) as base, computes 7 speed levels, then
+     * scatters them into a 25-word table using AIZ2_BGDeformMake indices.
+     * The resulting wave pattern has slowest scrolling (speed 0) at the
+     * distant sky bands and fastest (speed 6) at the nearest tree bands.
+     */
+    private void computeAiz2Deform(int[] horizScrollBuf, short fgScroll,
+                                    int cameraX) {
+        // ROM: d0 = Events_fg_1 << 15 (signed 16.16 fixed-point)
+        short relX = (short) cameraX;
+        long base = (long) relX << 15;
+
+        // ROM: d1 = base >> 5 (= relX << 10); d2 = d1; d1 += d1; d1 += d2
+        //      → d1 = 3 * (relX << 10) = relX * 0xC00
+        long d1 = base >> 5;
+        long d2 = d1;
+        d1 += d1;
+        d1 += d2;
+
+        // Compute 7 speed level values (speed 0 = slowest, speed 6 = fastest)
+        short[] speedValues = new short[AIZ2_SPEED_LEVELS];
+        long d0 = base;
+        for (int i = 0; i < AIZ2_SPEED_LEVELS; i++) {
+            speedValues[i] = (short) (d0 >> 16);
+            d0 += d1;
+        }
+
+        // Scatter into 25-entry flat value array using BGDeformMake pattern
+        short[] values = new short[FLAT_VALUE_COUNT];
+        for (int i = 0; i < FLAT_VALUE_COUNT; i++) {
+            values[i] = speedValues[AIZ2_SPEED_MAP[i]];
+        }
+
+        // Distribute across scanlines using AIZ2_BGDeformArray heights.
+        writeDeformBands(horizScrollBuf, fgScroll, values, AIZ2_DEFORM_HEIGHTS);
     }
 
     /**
      * Distribute flat BG scroll values across visible scanlines using
-     * DEFORM_HEIGHTS (AIZ1_DeformArray).
+     * the given deform heights array.
      *
      * <p>ROM: ApplyDeformation reads Camera_Y_pos_BG_copy to determine which
      * bands are above the visible area, then writes packed (FG,BG) entries
@@ -197,16 +264,16 @@ public class SwScrlAiz implements ZoneScrollHandler {
      * the flat array; normal bands consume one value repeated for all lines.
      */
     private void writeDeformBands(int[] horizScrollBuf, short fgScroll,
-                                   short[] flatValues, int cameraY) {
-        // BG camera Y = cameraY / 2 (set as vscrollFactorBG)
+                                   short[] flatValues, int[] deformHeights) {
+        int bandCount = deformHeights.length;
         int remainingY = (short) vscrollFactorBG;
         int lineIndex = 0;
         int bandIndex = 0;
         int valueIndex = 0;
 
         // Skip bands above the visible area
-        while (bandIndex < DEFORM_BAND_COUNT) {
-            int raw = DEFORM_HEIGHTS[bandIndex];
+        while (bandIndex < bandCount) {
+            int raw = deformHeights[bandIndex];
             boolean perLine = (raw & PER_LINE_FLAG) != 0;
             int height = raw & 0x7FFF;
 
@@ -243,8 +310,8 @@ public class SwScrlAiz implements ZoneScrollHandler {
         }
 
         // Write remaining visible bands
-        while (lineIndex < VISIBLE_LINES && bandIndex < DEFORM_BAND_COUNT) {
-            int raw = DEFORM_HEIGHTS[bandIndex];
+        while (lineIndex < VISIBLE_LINES && bandIndex < bandCount) {
+            int raw = deformHeights[bandIndex];
             boolean perLine = (raw & PER_LINE_FLAG) != 0;
             int height = raw & 0x7FFF;
             int count = Math.min(height, VISIBLE_LINES - lineIndex);

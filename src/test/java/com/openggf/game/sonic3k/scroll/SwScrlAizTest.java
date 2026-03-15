@@ -267,6 +267,89 @@ public class SwScrlAizTest {
     }
 
     @Test
+    public void aiz2UsesScatteredSpeedParallaxWithDifferentBands() {
+        Camera.getInstance().setLevelStarted(true);
+        int[] buffer = new int[VISIBLE_LINES];
+        int cameraX = 0x2000;
+        int cameraY = 0x80;
+
+        handler.update(buffer, cameraX, cameraY, 0, 1); // actId=1 → AIZ2
+
+        // AIZ2 BG Y = cameraY/2 + shake (shake=0 in tests)
+        assertEquals(asrWord(cameraY, 1), handler.getVscrollFactorBG());
+
+        // Compute expected AIZ2 speed levels
+        short relX = (short) cameraX;
+        long base = (long) relX << 15;
+        long d1 = base >> 5;
+        long d2 = d1;
+        d1 += d1;
+        d1 += d2; // d1 = 3 * (relX << 10)
+
+        short[] speedValues = new short[7];
+        long d0 = base;
+        for (int i = 0; i < 7; i++) {
+            speedValues[i] = (short) (d0 >> 16);
+            d0 += d1;
+        }
+
+        // Speed 0 = relX/2 (slowest), speed 6 = fastest
+        assertEquals("Speed 0 = cameraX/2", (short) (relX / 2), speedValues[0]);
+
+        // AIZ2_SPEED_MAP: band 0 → speed 3, band 9 → speed 0 (sky)
+        int[] speedMap = {3, 4, 5, 6, 5, 4, 3, 2, 1, 0, 1, 2, 3,
+                          4, 5, 6, 5, 4, 3, 2, 1, 0, 1, 2, 3};
+        short[] values = new short[25];
+        for (int i = 0; i < 25; i++) {
+            values[i] = speedValues[speedMap[i]];
+        }
+
+        // AIZ2_DEFORM_HEIGHTS: first band = 0x10 (16 lines)
+        // bgY=64 → skip 64 pixels worth of bands:
+        //   band 0 = 0x10 (16px): 64-16 = 48 remaining
+        //   band 1 = 0x20 (32px): 48-32 = 16 remaining
+        //   band 2 = 0x38 (56px): 16-56 < 0 → partial (40 visible lines)
+        short fgScroll = negWord(cameraX);
+
+        // Band 2 (speed 5): 40 visible lines at start
+        short bg2 = negWord(values[2]);
+        assertEquals("Band 2 at line 0", bg2, unpackBG(buffer[0]));
+        assertEquals("Band 2 at line 39", bg2, unpackBG(buffer[39]));
+
+        // Band 3 (speed 6, height 0x58=88): starts at line 40
+        short bg3 = negWord(values[3]);
+        assertEquals("Band 3 at line 40", bg3, unpackBG(buffer[40]));
+
+        // Band 3 is faster (speed 6) than band 2 (speed 5)
+        assertNotEquals("Speed 5 != speed 6", bg2, bg3);
+    }
+
+    @Test
+    public void aiz2DiffersFromAiz1AtSamePosition() {
+        Camera.getInstance().setLevelStarted(true);
+        int cameraX = 0x2000;
+        int cameraY = 0x80;
+
+        int[] act1Buffer = new int[VISIBLE_LINES];
+        handler.update(act1Buffer, cameraX, cameraY, 0, 0);
+
+        // Reset handler for clean state
+        handler = new SwScrlAiz();
+        int[] act2Buffer = new int[VISIBLE_LINES];
+        handler.update(act2Buffer, cameraX, cameraY, 0, 1);
+
+        // BG scroll values should differ between AIZ1 and AIZ2
+        boolean differs = false;
+        for (int i = 0; i < VISIBLE_LINES; i++) {
+            if (unpackBG(act1Buffer[i]) != unpackBG(act2Buffer[i])) {
+                differs = true;
+                break;
+            }
+        }
+        assertTrue("AIZ1 and AIZ2 BG parallax should differ", differs);
+    }
+
+    @Test
     public void postBurnFineHazeUsesAiz2ForegroundDeltaTable() {
         Camera.getInstance().setLevelStarted(true);
         int[] buffer = new int[VISIBLE_LINES];
