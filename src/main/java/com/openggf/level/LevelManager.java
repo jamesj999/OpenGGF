@@ -4206,6 +4206,11 @@ public class LevelManager {
             int newY = playable.getCentreY() + request.playerOffsetY();
             playable.setCentreX((short) newX);
             playable.setCentreY((short) newY);
+            // The level reload replaced the pattern buffer; force DPLC re-upload
+            // so the player sprite is visible on the next draw.
+            if (playable.getSpriteRenderer() != null) {
+                playable.getSpriteRenderer().invalidateDplcCache();
+            }
         }
         AbstractPlayableSprite sidekick = spriteManager.getSidekick();
         if (sidekick != null) {
@@ -4213,6 +4218,9 @@ public class LevelManager {
             int newY = sidekick.getCentreY() + request.playerOffsetY();
             sidekick.setCentreX((short) newX);
             sidekick.setCentreY((short) newY);
+            if (sidekick.getSpriteRenderer() != null) {
+                sidekick.getSpriteRenderer().invalidateDplcCache();
+            }
         }
         cam.setX((short) (cam.getX() + request.cameraOffsetX()));
         cam.setY((short) (cam.getY() + request.cameraOffsetY()));

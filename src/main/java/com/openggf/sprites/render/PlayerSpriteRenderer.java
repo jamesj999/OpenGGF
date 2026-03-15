@@ -34,6 +34,16 @@ public class PlayerSpriteRenderer {
         patternBank.ensureCached(graphicsManager);
     }
 
+    /**
+     * Invalidates the DPLC frame cache, forcing tile re-upload on the next draw.
+     * Must be called after a seamless level transition that reloads the pattern
+     * buffer — the old VRAM tiles are gone but {@code lastFrame} would otherwise
+     * prevent re-upload.
+     */
+    public void invalidateDplcCache() {
+        lastFrame = -1;
+    }
+
     public void drawFrame(int frameIndex, int originX, int originY, boolean hFlip, boolean vFlip) {
         patternBank.ensureCached(graphicsManager);
         if (frameIndex < 0 || frameIndex >= artSet.mappingFrames().size()) {
