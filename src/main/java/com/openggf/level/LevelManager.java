@@ -4160,6 +4160,18 @@ public class LevelManager {
         // our managers capture act-specific scripts at construction time.
         initAnimatedContent();
 
+        // 4b. Re-register level-art-based object sheets for the new act.
+        // Act-specific objects (e.g. cork floor, floating platform) use different art
+        // keys per act; without re-registration they resolve to stale AIZ1 keys and
+        // appear invisible after the AIZ1→AIZ2 fakeout transition.
+        ObjectArtProvider artProvider = gameModule != null ? gameModule.getObjectArtProvider() : null;
+        if (artProvider instanceof Sonic3kObjectArtProvider s3kProvider) {
+            s3kProvider.registerLevelArtSheets(level, currentZone);
+            if (objectRenderManager != null) {
+                objectRenderManager.ensurePatternsCached(graphicsManager, OBJECT_PATTERN_BASE);
+            }
+        }
+
         // 5. Rebuild managers with new act's spawn data
         // (ROM: Load_Level swaps obj/ring pointers, then clears Dynamic_object_RAM + Ring_status_table)
         rebuildManagersForActTransition(cam);

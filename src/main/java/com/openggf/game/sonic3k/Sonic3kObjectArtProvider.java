@@ -558,6 +558,10 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
     public void registerLevelArtSheets(Level level, int zoneIndex) {
         if (level == null) return;
 
+        // Refresh act index from LevelManager — required for act transitions
+        // (e.g. AIZ1→AIZ2 seamless reload) where the act changed after initial load.
+        currentActIndex = LevelManager.getInstance().getCurrentAct();
+
         RomByteReader reader = null;
         try {
             Rom rom = GameServices.rom().getRom();
