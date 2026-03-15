@@ -21,15 +21,11 @@ import java.util.List;
  * - Slower aircraft (x_vel=$100) appear first, fastest ($200) last
  */
 public class AizMinibossDebrisChild extends AbstractObjectInstance {
-    /** ROM: MoveSprite2 gravity applied each frame AFTER wait phase. */
-    private static final int GRAVITY = 0x38;
-
     private int worldX;
     private int worldY;
     private int xFixed;
     private int yFixed;
     private final int xVel;
-    private int yVel;
     private int waitTimer;
     private boolean moving;
     private final int mappingFrame;
@@ -41,7 +37,6 @@ public class AizMinibossDebrisChild extends AbstractObjectInstance {
         this.xFixed = x << 16;
         this.yFixed = y << 16;
         this.xVel = xVel;
-        this.yVel = 0;
         // ROM: move.w word_68E60(pc,d0.w),$2E(a0) — wait = x_vel value
         this.waitTimer = xVel;
         this.moving = false;
@@ -59,12 +54,9 @@ public class AizMinibossDebrisChild extends AbstractObjectInstance {
             return;
         }
 
-        // ROM: loc_68E8C → MoveSprite2 (velocity + gravity)
-        yVel += GRAVITY;
+        // ROM: loc_68E8C → MoveSprite2 (no gravity — horizontal flight only)
         xFixed += (xVel << 8);
-        yFixed += (yVel << 8);
         worldX = xFixed >> 16;
-        worldY = yFixed >> 16;
 
         if (!isOnScreen(256)) {
             setDestroyed(true);

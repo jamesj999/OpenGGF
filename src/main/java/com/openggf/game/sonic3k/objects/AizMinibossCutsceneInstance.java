@@ -209,6 +209,12 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
             spawnChild(new AizMinibossFlameBarrelChild(this, i, true), objectManager);
         }
 
+        // Spawn jet thruster flame children (Child1_AIZ_MinibossFlames).
+        // ROM: loc_68616 is labeled "unused" by the disassembler, but the reference
+        // ROM clearly shows large orange flames under the craft during the cutscene.
+        // Spawn them at descent start so they're visible throughout the encounter.
+        spawnJetFlames(objectManager);
+
         AudioManager.getInstance().playMusic(Sonic3kMusic.MINIBOSS.id);
     }
 
@@ -321,6 +327,19 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         waitCallback = null;
         if (callback != null) {
             callback.run();
+        }
+    }
+
+    private void spawnJetFlames(ObjectManager objectManager) {
+        if (objectManager == null) {
+            return;
+        }
+        // ROM: Child1_AIZ_MinibossFlames — 4 flame children using Map_AIZMinibossFlame
+        int[] xOffsets = {-0x64, -0x54, -0x44, -0x2C};
+        int[] yOffsets = {4, 4, 4, 3};
+        for (int i = 0; i < xOffsets.length; i++) {
+            objectManager.addDynamicObject(new AizMinibossFlameChild(
+                    this, xOffsets[i], yOffsets[i], i * 2));
         }
     }
 
