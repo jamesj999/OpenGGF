@@ -21,12 +21,17 @@ import java.util.List;
  * - Immediately transitions to MoveSprite2 movement (no drift/wait phase)
  */
 public class AizMinibossDebrisChild extends AbstractObjectInstance {
+    /** ROM: gravity applied each frame to Y velocity. */
+    private static final int GRAVITY = 0x38;
+
     private int worldX;
     private int worldY;
     private int xFixed;
     private int yFixed;
     private final int xVel;
+    private int yVel;
     private final int mappingFrame;
+
     public AizMinibossDebrisChild(int x, int y, int xVel, int mappingFrame) {
         super(new ObjectSpawn(x, y, 0x90, 0, 0, false, 0), "AIZMinibossDebris");
         this.worldX = x;
@@ -34,12 +39,15 @@ public class AizMinibossDebrisChild extends AbstractObjectInstance {
         this.xFixed = x << 16;
         this.yFixed = y << 16;
         this.xVel = xVel;
+        this.yVel = 0;
         this.mappingFrame = mappingFrame;
     }
 
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
+        yVel += GRAVITY;
         xFixed += (xVel << 8);
+        yFixed += (yVel << 8);
         worldX = xFixed >> 16;
         worldY = yFixed >> 16;
 

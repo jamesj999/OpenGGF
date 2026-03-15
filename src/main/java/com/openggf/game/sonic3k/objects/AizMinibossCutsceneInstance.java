@@ -10,6 +10,8 @@ import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.graphics.GLCommand;
+import com.openggf.graphics.GraphicsManager;
+import com.openggf.level.Palette;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -30,6 +32,7 @@ import java.util.List;
  * - loc_68574 Obj_Wait
  * - loc_685B8 MoveWaitTouch
  * - loc_685FC Swing_UpAndDown + MoveWaitTouch
+ * - loc_6862E pre-exit (explosion + wait)
  * - loc_68646/loc_68690 exit + cleanup
  */
 public class AizMinibossCutsceneInstance extends AbstractBossInstance {
@@ -38,8 +41,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
     private static final int ROUTINE_WAIT = 4;
     private static final int ROUTINE_DESCEND = 6;
     private static final int ROUTINE_SWING = 8;
-    private static final int ROUTINE_FLAME_LOOP = 10;
-    private static final int ROUTINE_EXIT = 12;
+    private static final int ROUTINE_EXIT = 10;
 
     private static final int COLLISION_PROPERTY_UNKILLABLE = 0x60;
     private static final int COLLISION_SIZE = 0x0F;
@@ -48,10 +50,6 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
     private static final int DESCEND_VEL = 0x100;
     private static final int DESCEND_TIME = 0xAF;
     private static final int SWING_TIME = 0x7F;
-    /** ROM: loc_68616 wait between flame spawn iterations. */
-    private static final int FLAME_LOOP_WAIT = 0x40;
-    /** ROM: $39 counter initial value for flame loop (4 iterations: 3→2→1→0). */
-    private static final int FLAME_LOOP_COUNT = 3;
     private static final int PRE_EXIT_TIME = 0x10;
     private static final int EXIT_VEL = 0x400;
     private static final int EXIT_TIME_AIZ1 = 0x120;
@@ -67,13 +65,19 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
     private static final int[] DEBRIS_X_VELOCITIES = {0x200, 0x200, 0x180, 0x180, 0x100, 0x100};
     private static final int[] DEBRIS_FRAMES = {0, 0, 1, 1, 2, 2};
 
+    /** ROM: loc_68F62 custom flash — palette line 2 color indices (byte offsets $0E,$14,$16,$1C). */
+    private static final int[] CUSTOM_FLASH_INDICES = {7, 10, 11, 14};
+    /** ROM: loc_68F62 dark color set (bit 0 of timer set). */
+    private static final int[] CUSTOM_FLASH_DARK = {0x0644, 0x0240, 0x0020, 0x0644};
+    /** ROM: loc_68F62 bright color set (bit 0 of timer clear). */
+    private static final int[] CUSTOM_FLASH_BRIGHT = {0x0888, 0x0AAA, 0x0EEE, 0x0AAA};
+
     private final AizMinibossSwingMotion swingMotion = new AizMinibossSwingMotion();
 
     private int waitTimer = -1;
     private S3kBossExplosionController explosionController;
     private Runnable waitCallback;
     private int savedCameraMaxX;
-    private int flameLoopCounter;
 
     public AizMinibossCutsceneInstance(ObjectSpawn spawn, LevelManager levelManager) {
         super(spawn, levelManager, "AIZMinibossCutscene");
@@ -110,7 +114,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
 
     @Override
     protected int getPaletteLineForFlash() {
-        return 1;
+        return -1; // Disable standard flash — custom flash via updateCustomFlash()
     }
 
     @Override
@@ -126,12 +130,39 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
             case ROUTINE_WAIT -> updateWaitOnly();
             case ROUTINE_DESCEND -> updateMoveAndWait(false);
             case ROUTINE_SWING -> updateMoveAndWait(true);
-            case ROUTINE_FLAME_LOOP -> updateMoveAndWait(true);
             case ROUTINE_EXIT -> updateExit();
             default -> {
             }
         }
         tickExplosionController();
+        updateCustomFlash();
+    }
+
+    /**
+     * ROM: loc_68F62 custom AIZ miniboss flash.
+     * Writes 4 specific palette entries on palette line 1 (engine index 1),
+     * alternating between dark and bright color sets every frame.
+     */
+    private void updateCustomFlash() {
+        if (!state.invulnerable) {
+            return;
+        }
+        var level = levelManager.getCurrentLevel();
+        if (level == null || level.getPaletteCount() <= 1) {
+            return;
+        }
+        Palette pal = level.getPalette(1);
+        // ROM: bit 0 of $20(a0) determines which color set
+        boolean useDark = (state.invulnerabilityTimer & 1) != 0;
+        int[] colors = useDark ? CUSTOM_FLASH_DARK : CUSTOM_FLASH_BRIGHT;
+        for (int i = 0; i < CUSTOM_FLASH_INDICES.length; i++) {
+            byte[] bytes = {(byte) ((colors[i] >> 8) & 0xFF), (byte) (colors[i] & 0xFF)};
+            pal.getColor(CUSTOM_FLASH_INDICES[i]).fromSegaFormat(bytes, 0);
+        }
+        GraphicsManager gm = GraphicsManager.getInstance();
+        if (gm.isGlInitialized()) {
+            gm.cachePaletteTexture(pal, 1);
+        }
     }
 
     private void updateInit() {
@@ -190,35 +221,11 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         setWait(SWING_TIME, this::onSwingComplete);
     }
 
-    /**
-     * ROM: After swing wait expires, enter the flame/wait loop.
-     * loc_68616: play SFX, wait $40 frames.
-     * Repeats while $39 counter >= 0 (4 iterations total).
-     * The visible jet thruster flames are the body child's frames 3-5
-     * animation (already looping), not separate flame children.
-     */
     private void onSwingComplete() {
-        flameLoopCounter = FLAME_LOOP_COUNT;
-        enterFlameLoopIteration();
-    }
-
-    private void enterFlameLoopIteration() {
-        state.routine = ROUTINE_FLAME_LOOP;
-        AudioManager.getInstance().playSfx(Sonic3kSfx.FLAMETHROWER_QUIET.id);
-        setWait(FLAME_LOOP_WAIT, this::onFlameLoopWaitComplete);
-    }
-
-    private void onFlameLoopWaitComplete() {
-        flameLoopCounter--;
-        if (flameLoopCounter >= 0) {
-            enterFlameLoopIteration();
-            return;
-        }
-        // ROM: loc_6862E — $39 went negative, proceed to pre-exit with explosion
+        // ROM: loc_6862E — directly after swing, spawn explosion and set pre-exit wait
         setWait(PRE_EXIT_TIME, this::onPreExitComplete);
-        Camera camera = Camera.getInstance();
-        explosionController = new S3kBossExplosionController(
-                camera.getX() + 160, camera.getY() + 112, 2);
+        // ROM: ChildObjDat_69104 spawns Obj_BossExplosionSpecial at parent position
+        explosionController = new S3kBossExplosionController(state.x, state.y, 2);
     }
 
     private void tickExplosionController() {

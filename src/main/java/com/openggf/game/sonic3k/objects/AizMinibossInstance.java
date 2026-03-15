@@ -10,6 +10,8 @@ import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.graphics.GLCommand;
+import com.openggf.graphics.GraphicsManager;
+import com.openggf.level.Palette;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -68,6 +70,13 @@ public class AizMinibossInstance extends AbstractBossInstance {
     private static final int[] BREATH_FLAME_X_OFFSETS = {-0x64, -0x54, -0x44, -0x2C};
     private static final int[] BREATH_FLAME_Y_OFFSETS = {4, 4, 4, 3};
 
+    /** ROM: loc_68F62 custom flash — palette line 2 color indices (byte offsets $0E,$14,$16,$1C). */
+    private static final int[] CUSTOM_FLASH_INDICES = {7, 10, 11, 14};
+    /** ROM: loc_68F62 dark color set (bit 0 of timer set). */
+    private static final int[] CUSTOM_FLASH_DARK = {0x0644, 0x0240, 0x0020, 0x0644};
+    /** ROM: loc_68F62 bright color set (bit 0 of timer clear). */
+    private static final int[] CUSTOM_FLASH_BRIGHT = {0x0888, 0x0AAA, 0x0EEE, 0x0AAA};
+
     private final AizMinibossSwingMotion swingMotion = new AizMinibossSwingMotion();
 
     private int waitTimer = -1;
@@ -114,7 +123,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
 
     @Override
     protected int getPaletteLineForFlash() {
-        return 1;
+        return -1; // Disable standard flash — custom flash via updateCustomFlash()
     }
 
     @Override
@@ -163,6 +172,34 @@ public class AizMinibossInstance extends AbstractBossInstance {
             case ROUTINE_DEFEATED -> updateDefeated(frameCounter);
             default -> {
             }
+        }
+        updateCustomFlash();
+    }
+
+    /**
+     * ROM: loc_68F62 custom AIZ miniboss flash.
+     * Writes 4 specific palette entries on palette line 1 (engine index 1),
+     * alternating between dark and bright color sets every frame.
+     */
+    private void updateCustomFlash() {
+        if (!state.invulnerable) {
+            return;
+        }
+        var level = levelManager.getCurrentLevel();
+        if (level == null || level.getPaletteCount() <= 1) {
+            return;
+        }
+        Palette pal = level.getPalette(1);
+        // ROM: bit 0 of $20(a0) determines which color set
+        boolean useDark = (state.invulnerabilityTimer & 1) != 0;
+        int[] colors = useDark ? CUSTOM_FLASH_DARK : CUSTOM_FLASH_BRIGHT;
+        for (int i = 0; i < CUSTOM_FLASH_INDICES.length; i++) {
+            byte[] bytes = {(byte) ((colors[i] >> 8) & 0xFF), (byte) (colors[i] & 0xFF)};
+            pal.getColor(CUSTOM_FLASH_INDICES[i]).fromSegaFormat(bytes, 0);
+        }
+        GraphicsManager gm = GraphicsManager.getInstance();
+        if (gm.isGlInitialized()) {
+            gm.cachePaletteTexture(pal, 1);
         }
     }
 

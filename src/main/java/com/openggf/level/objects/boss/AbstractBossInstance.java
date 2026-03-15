@@ -373,6 +373,9 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
                 return null;
             }
             int paletteIndex = getPaletteLineForFlash();
+            if (paletteIndex < 0) {
+                return null;
+            }
             int paletteCount = levelManager.getCurrentLevel().getPaletteCount();
             if (paletteCount <= paletteIndex) {
                 return null;
