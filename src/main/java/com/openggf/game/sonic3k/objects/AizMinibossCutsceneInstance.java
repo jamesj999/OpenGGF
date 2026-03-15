@@ -38,7 +38,8 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
     private static final int ROUTINE_WAIT = 4;
     private static final int ROUTINE_DESCEND = 6;
     private static final int ROUTINE_SWING = 8;
-    private static final int ROUTINE_EXIT = 10;
+    private static final int ROUTINE_FLAME_LOOP = 10;
+    private static final int ROUTINE_EXIT = 12;
 
     private static final int COLLISION_PROPERTY_UNKILLABLE = 0x60;
     private static final int COLLISION_SIZE = 0x0F;
@@ -47,6 +48,10 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
     private static final int DESCEND_VEL = 0x100;
     private static final int DESCEND_TIME = 0xAF;
     private static final int SWING_TIME = 0x7F;
+    /** ROM: loc_68616 wait between flame spawn iterations. */
+    private static final int FLAME_LOOP_WAIT = 0x40;
+    /** ROM: $39 counter initial value for flame loop (4 iterations: 3→2→1→0). */
+    private static final int FLAME_LOOP_COUNT = 3;
     private static final int PRE_EXIT_TIME = 0x10;
     private static final int EXIT_VEL = 0x400;
     private static final int EXIT_TIME_AIZ1 = 0x120;
@@ -68,6 +73,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
     private S3kBossExplosionController explosionController;
     private Runnable waitCallback;
     private int savedCameraMaxX;
+    private int flameLoopCounter;
 
     public AizMinibossCutsceneInstance(ObjectSpawn spawn, LevelManager levelManager) {
         super(spawn, levelManager, "AIZMinibossCutscene");
@@ -120,6 +126,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
             case ROUTINE_WAIT -> updateWaitOnly();
             case ROUTINE_DESCEND -> updateMoveAndWait(false);
             case ROUTINE_SWING -> updateMoveAndWait(true);
+            case ROUTINE_FLAME_LOOP -> updateMoveAndWait(true);
             case ROUTINE_EXIT -> updateExit();
             default -> {
             }
@@ -183,12 +190,49 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         setWait(SWING_TIME, this::onSwingComplete);
     }
 
+    /**
+     * ROM: After swing wait expires, enter the flame spawn loop.
+     * loc_68616: spawn 4 flame children, play SFX, wait $40 frames.
+     * Repeats while $39 counter >= 0 (4 iterations total).
+     */
     private void onSwingComplete() {
+        flameLoopCounter = FLAME_LOOP_COUNT;
+        spawnFlameLoopIteration();
+    }
+
+    private void spawnFlameLoopIteration() {
+        state.routine = ROUTINE_FLAME_LOOP;
+        AudioManager.getInstance().playSfx(Sonic3kSfx.FLAMETHROWER_QUIET.id);
+        spawnCutsceneFlames();
+        setWait(FLAME_LOOP_WAIT, this::onFlameLoopWaitComplete);
+    }
+
+    private void onFlameLoopWaitComplete() {
+        flameLoopCounter--;
+        if (flameLoopCounter >= 0) {
+            // ROM: subq.b #1,$39 / bpl.s loc_68616 — continue spawning
+            spawnFlameLoopIteration();
+            return;
+        }
+        // ROM: loc_6862E — $39 went negative, proceed to pre-exit with explosion
         setWait(PRE_EXIT_TIME, this::onPreExitComplete);
         Camera camera = Camera.getInstance();
-        // ROM: Obj_BossExplosionSpecial positions at screen center
         explosionController = new S3kBossExplosionController(
                 camera.getX() + 160, camera.getY() + 112, 2);
+    }
+
+    private void spawnCutsceneFlames() {
+        var objectManager = levelManager.getObjectManager();
+        if (objectManager == null) {
+            return;
+        }
+        // ROM: Child1_AIZ_MinibossFlames — 4 flame children at body-relative offsets
+        int[] xOffsets = {-0x64, -0x54, -0x44, -0x2C};
+        int[] yOffsets = {4, 4, 4, 3};
+        for (int i = 0; i < xOffsets.length; i++) {
+            objectManager.addDynamicObject(new AizMinibossFlameChild(
+                    this, xOffsets[i], yOffsets[i], i * 2));
+        }
     }
 
     private void tickExplosionController() {
