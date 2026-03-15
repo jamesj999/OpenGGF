@@ -14,18 +14,34 @@ import java.util.List;
 
 /**
  * S3K boss explosion child (ROM: Obj_BossExplosion2).
- * Plays sfx_Explode (0xB4) on init, animates through AniRaw_BossExplosion frames.
- * Uses ArtTile_BossExplosion2 — same ArtNem_BossExplosion as S2.
+ * Plays sfx_Explode (0xB4) on init, animates through AniRaw_BossExplosion.
+ *
+ * ROM animation format: Animate_RawMultiDelay — (delay, frame) pairs.
+ * AniRaw_BossExplosion (sonic3k.asm:176871):
+ *   dc.b 0,0, 0,1, 1,1, 2,2, 3,3, 4,4, 5,4, $F4
+ * $F4 = end (calls Go_Delete_Sprite via $34 callback).
  */
 public class S3kBossExplosionChild extends AbstractObjectInstance {
-    private static final int[] ANIM_SEQUENCE = {0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 4, 4, 5, 4};
+    // ROM: (delay, frame) pairs from AniRaw_BossExplosion
+    // delay N = show frame for N+1 ticks
+    private static final int[][] ANIM_PAIRS = {
+            {0, 0},  // frame 0, 1 tick
+            {0, 1},  // frame 1, 1 tick
+            {1, 1},  // frame 1, 2 ticks
+            {2, 2},  // frame 2, 3 ticks
+            {3, 3},  // frame 3, 4 ticks
+            {4, 4},  // frame 4, 5 ticks
+            {5, 4},  // frame 4, 6 ticks  (total: 22 ticks)
+    };
 
-    private int animTick;
+    private int pairIndex;
+    private int delayCounter;
     private boolean sfxPlayed;
 
     public S3kBossExplosionChild(int x, int y) {
         super(new ObjectSpawn(x, y, 0, 0, 0, false, 0), "S3kBossExplosion");
-        this.animTick = 0;
+        this.pairIndex = 0;
+        this.delayCounter = ANIM_PAIRS[0][0];
         this.sfxPlayed = false;
     }
 
@@ -35,22 +51,27 @@ public class S3kBossExplosionChild extends AbstractObjectInstance {
             AudioManager.getInstance().playSfx(Sonic3kSfx.EXPLODE.id);
             sfxPlayed = true;
         }
-        // Increment AFTER render pass uses the current tick, so ANIM_SEQUENCE[0] is displayed
-        if (animTick + 1 >= ANIM_SEQUENCE.length) {
+        if (delayCounter > 0) {
+            delayCounter--;
+            return;
+        }
+        // Advance to next pair
+        pairIndex++;
+        if (pairIndex >= ANIM_PAIRS.length) {
             setDestroyed(true);
             return;
         }
-        animTick++;
+        delayCounter = ANIM_PAIRS[pairIndex][0];
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (isDestroyed() || animTick >= ANIM_SEQUENCE.length) return;
+        if (isDestroyed() || pairIndex >= ANIM_PAIRS.length) return;
         ObjectRenderManager rm = LevelManager.getInstance().getObjectRenderManager();
         if (rm == null) return;
         PatternSpriteRenderer renderer = rm.getBossExplosionRenderer();
         if (renderer == null || !renderer.isReady()) return;
-        renderer.drawFrameIndex(ANIM_SEQUENCE[animTick], spawn.x(), spawn.y(), false, false);
+        renderer.drawFrameIndex(ANIM_PAIRS[pairIndex][1], spawn.x(), spawn.y(), false, false);
     }
 
     @Override
