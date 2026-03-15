@@ -46,7 +46,8 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
     private boolean specialSfx = false; // Driver-specific "special SFX" class (e.g. S1 0xD0+)
     private boolean isSfx = false; // Cached SFX status for performance (set by SmpsDriver.addSequencer)
     private int psgLatchChannel = -1; // Cached PSG latch channel for performance (set by SmpsDriver.writePsg)
-    private int speedMultiplier = 1; // S3K: extra tick calls per tempo frame for speed shoes
+    private int speedMultiplier = 1; // S3K: zTempoSpeedup value (0/1=off, 8=speed shoes)
+    private int speedupTimeout = 0;  // S3K: zSpeedupTimeout countdown for double-update
 
     public void setPitch(float pitch) {
         this.pitch = pitch;
@@ -978,9 +979,22 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
                     // No overflow → tick normally
                     processFade();
                     tick();
-                    for (int m = 1; m < speedMultiplier; m++) {
-                        processFade();
-                        tick();
+                }
+                // S3K speed-up: timeout-based double update (ROM: zDoSpeedUp)
+                // zTempoSpeedup=N → one extra zUpdateMusic every (N+1) frames.
+                if (speedMultiplier > 1) {
+                    if (speedupTimeout <= 0) {
+                        speedupTimeout = speedMultiplier;
+                        // Re-run tempo processing for the extra update
+                        tempoAccumulator += tempoWeight;
+                        if (tempoAccumulator >= tempoModBase) {
+                            tempoAccumulator -= tempoModBase;
+                        } else {
+                            processFade();
+                            tick();
+                        }
+                    } else {
+                        speedupTimeout--;
                     }
                 }
             }
@@ -2531,6 +2545,9 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
 
     public void setSpeedMultiplier(int multiplier) {
         this.speedMultiplier = Math.max(1, multiplier);
+        if (this.speedMultiplier <= 1) {
+            this.speedupTimeout = 0;
+        }
     }
 
     public int getSpeedMultiplier() {
