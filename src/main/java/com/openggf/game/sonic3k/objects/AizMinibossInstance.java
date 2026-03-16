@@ -95,9 +95,8 @@ public class AizMinibossInstance extends AbstractBossInstance {
             {0, -0x24}, {8, -0x1C}, {-8, -0x1C},
             {4, -0x14}, {-4, -0x14}, {4, -4}, {-4, -4}
     };
-    /** Delay before spawning the 7 fixed explosions (approximates barrel closing + body fall). */
-    private static final int DEFEAT_EXPLOSION_DELAY = 30;
-    private int defeatTimer;
+    /** Stagger explosion controller for boss defeat (ROM: Child6_CreateBossExplosion subtype 0). */
+    private S3kBossExplosionController defeatExplosionController;
 
     public AizMinibossInstance(ObjectSpawn spawn, LevelManager levelManager) {
         super(spawn, levelManager, "AIZMiniboss");
@@ -110,7 +109,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
         waitTimer = -1;
         waitCallback = null;
         defeatRenderComplete = false;
-        defeatTimer = 0;
+        defeatExplosionController = null;
     }
 
     @Override
@@ -177,9 +176,11 @@ public class AizMinibossInstance extends AbstractBossInstance {
         state.invulnerabilityTimer = 0;
         loadBossPalette(); // Restore clean boss palette colors on line 1
 
-        // ROM: loc_46C96 spawns 7 fixed-position explosions after barrel defeat.
-        // We use a delay timer to approximate the barrel closing + body fall timing.
-        defeatTimer = DEFEAT_EXPLOSION_DELAY;
+        // ROM: loc_46ED4 creates Child6_CreateBossExplosion (sub_52850, subtype 0).
+        // CreateBossExp00: timer=$20 (33 explosions), xRange=$20, yRange=$20.
+        // Plays sfx_Explode (0xB4) once at creation, then staggers explosions 3 frames apart.
+        defeatExplosionController = new S3kBossExplosionController(state.x, state.y, 0);
+        AudioManager.getInstance().playSfx(Sonic3kSfx.EXPLODE.id);
 
         AudioManager.getInstance().fadeOutMusic();
 
@@ -373,18 +374,18 @@ public class AizMinibossInstance extends AbstractBossInstance {
     }
 
     private void updateDefeated(int frameCounter) {
-        // Phase 1: wait for defeat delay, then spawn 7 fixed-position explosions
-        if (defeatTimer > 0) {
-            defeatTimer--;
-            if (defeatTimer == 0) {
-                spawnDefeatExplosions();
+        // Tick the stagger explosion controller each frame.
+        // ROM: Obj_CreateBossExplosion (sub_52850) spawns one explosion every 3 frames
+        // at random offsets within ±$20 pixels. Total: 33 explosions over ~102 frames.
+        if (defeatExplosionController != null && !defeatExplosionController.isFinished()) {
+            defeatExplosionController.tick();
+            var objectManager = levelManager.getObjectManager();
+            if (objectManager != null) {
+                for (var pending : defeatExplosionController.drainPendingExplosions()) {
+                    objectManager.addDynamicObject(
+                            new S3kBossExplosionChild(pending.x(), pending.y()));
+                }
             }
-            return;
-        }
-
-        // Phase 2: wait for explosion animations to finish (22 ticks)
-        if (defeatTimer > -22) {
-            defeatTimer--;
             return;
         }
 
