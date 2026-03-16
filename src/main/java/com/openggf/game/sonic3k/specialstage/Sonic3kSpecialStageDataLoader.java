@@ -204,10 +204,12 @@ public class Sonic3kSpecialStageDataLoader {
 
     public byte[] getBgEnigmaMap() throws IOException {
         if (bgEnigmaMap == null) {
+            // ROM: make_art_tile(ArtTile_SStage_BG,2,0) = (palette 2 << 13) | 0x59B = 0x459B
+            int startTile = (2 << 13) | Sonic3kSpecialStageConstants.ART_TILE_BG;
             bgEnigmaMap = loadEnigmaMap(
                     Sonic3kSpecialStageRomOffsets.MAP_ENI_BG,
                     Sonic3kSpecialStageRomOffsets.MAP_ENI_BG_SIZE,
-                    Sonic3kSpecialStageConstants.ART_TILE_BG,
+                    startTile,
                     "BG");
         }
         return bgEnigmaMap;

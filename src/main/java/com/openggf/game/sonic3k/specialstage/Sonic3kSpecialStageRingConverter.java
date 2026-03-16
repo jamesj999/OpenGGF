@@ -49,15 +49,19 @@ public class Sonic3kSpecialStageRingConverter {
      * @param touchedIndex grid buffer index of the touched sphere (already marked 0x0A)
      * @return conversion result
      */
+    /** Counter for blue spheres converted during DFS loop seeding (processLoop). */
+    private int seedBlueConverted;
+
     public ConversionResult convert(Sonic3kSpecialStageGrid grid, int touchedIndex) {
         // Phase 1: Find loops and seed the ring queue
+        seedBlueConverted = 0;
         List<Integer> ringQueue = findRedSphereLoops(grid, touchedIndex);
 
         if (ringQueue.isEmpty()) {
             return new ConversionResult(false, 0);
         }
 
-        int blueConverted = 0;
+        int blueConverted = seedBlueConverted; // Include DFS-seeded conversions
 
         // Phase 2: BFS flood fill - convert connected blue spheres to rings
         // ROM: Blue_To_Ring_Next_Ring_B (sonic3k.asm:12916)
@@ -340,9 +344,11 @@ public class Sonic3kSpecialStageRingConverter {
         int checkCell = grid.getCellByIndex(checkPos);
 
         if (checkCell == CELL_BLUE) {
-            // Convert to ring and add to queue
+            // Convert to ring, decrement sphere count, and add to queue
+            // ROM: Red_Loop_Blue_To_Ring calls Decrement_BlueSphere_Count
             grid.setCellByIndex(checkPos, CELL_RING);
             ringQueue.add(checkPos);
+            seedBlueConverted++;
             // blueConverted is tracked by the caller
         }
         // If cell is already a ring (0x04), skip silently

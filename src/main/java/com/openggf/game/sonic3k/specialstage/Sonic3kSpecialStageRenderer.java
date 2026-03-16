@@ -3,6 +3,9 @@ package com.openggf.game.sonic3k.specialstage;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.PatternDesc;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.logging.Logger;
 
 import static com.openggf.game.sonic3k.specialstage.Sonic3kSpecialStageConstants.*;
@@ -48,12 +51,20 @@ public class Sonic3kSpecialStageRenderer {
     /** Decompressed Enigma floor map (9 frames of 40x28 tiles). */
     private byte[] floorMapData;
 
+    /** Decompressed Enigma BG map (64x32 tiles, starfield). */
+    private byte[] bgMapData;
+
     /** Raw mapping data for Sonic's SS sprite. */
     private byte[] sonicMappingData;
     /** Raw DPLC data for Sonic's SS sprite. */
     private byte[] sonicDplcData;
     /** Number of mapping frames in the header. */
     private int sonicMappingFrameCount;
+
+    /** MapUnc_SSNum data (120 bytes: 3 rows × 10 digits × 4 bytes). */
+    private byte[] hudNumberMap;
+    /** MapUnc_SSNum000 template (48 bytes: 8 tiles × 3 rows × 2 bytes). */
+    private byte[] hudTemplate;
 
     /**
      * Direction table for perspective grid traversal.
@@ -83,6 +94,18 @@ public class Sonic3kSpecialStageRenderer {
         this.floorMapData = data;
     }
 
+    public void setBgMapData(byte[] data) {
+        this.bgMapData = data;
+    }
+
+    public void setHudNumberMap(byte[] data) {
+        this.hudNumberMap = data;
+    }
+
+    public void setHudTemplate(byte[] data) {
+        this.hudTemplate = data;
+    }
+
     public void setSonicMappingData(byte[] mappingData, byte[] dplcData) {
         this.sonicMappingData = mappingData;
         this.sonicDplcData = dplcData;
@@ -92,17 +115,320 @@ public class Sonic3kSpecialStageRenderer {
 
     // ==================== Main Render ====================
 
+    /** BG plane dimensions (VDP plane size 64x32). */
+    private static final int BG_PLANE_W = 64;
+    private static final int BG_PLANE_H = 32;
+    /** Screen viewport in tiles. */
+    private static final int SCREEN_TILES_X = 40;
+    private static final int SCREEN_TILES_Y = 28;
+
     public void render(Sonic3kSpecialStageManager manager) {
         Sonic3kSpecialStagePlayer player = manager.getPlayer();
         Sonic3kSpecialStageGrid grid = manager.getGrid();
 
-        // Background is black (cleared by engine)
+        // Render starfield background (Plane B) with scroll
+        renderBackground(manager, player);
 
         // Render checkerboard floor (Plane A)
         renderFloor(manager, player);
 
         // Render grid sprites with perspective projection (VDP sprites)
         renderGridSprites3D(manager, grid, player);
+
+        // Render HUD (sphere/ring counts and icons)
+        renderHud(manager);
+
+        // Render "Get Blue Spheres" banner
+        renderBanner(manager);
+    }
+
+    /** Raw mapping data for the "Get Blue Spheres" banner sprite. */
+    private byte[] bannerMappingData;
+
+    public void setBannerMappingData(byte[] data) {
+        this.bannerMappingData = data;
+    }
+
+    /**
+     * Render HUD showing sphere count and ring count.
+     * <p>
+     * ROM layout:
+     * - Sphere icon at screen (72, 8) — 3×3 tile sprite, tiles 0-8 of icons art
+     * - Ring icon at screen (224, 8) — 3×3 tile sprite, tiles 9-17
+     * - Sphere count 3 digits at screen (24, 8)
+     * - Ring count 3 digits at screen (248, 8)
+     */
+    /**
+     * Render the "Get Blue Spheres" banner.
+     * <p>
+     * Two halves slide in from the screen edges, display for 3 seconds, then slide out.
+     * ROM: Obj_SStage_8E40 (sonic3k.asm:11310). Object center at VDP (0x120, 0xE8)
+     * = screen (160, 104). Left half slides from -0xC0 to 0, right from +0xC0 to 0.
+     * <p>
+     * Map_GetBlueSpheres has 4 frames: 0=left part1, 1=right part1, 2=left part2, 3=right part2.
+     */
+    private void renderBanner(Sonic3kSpecialStageManager manager) {
+        if (!artLoaded || getBlueSpherePatternBase <= 0 || bannerMappingData == null) return;
+
+        Sonic3kSpecialStageBanner banner = manager.getBanner();
+        if (banner == null || !banner.isVisible()) return;
+
+        int slideOffset = banner.getSlideOffset();
+        // Banner center Y: VDP 0xE8 = screen 0xE8-128 = 104
+        int centerY = 104;
+
+        graphicsManager.beginPatternBatch();
+
+        // Left half: slides from center to left (center - slideOffset)
+        int leftX = 160 - slideOffset;
+        // Right half: slides from center to right (center + slideOffset)
+        int rightX = 160 + slideOffset;
+
+        // Frames 0+1 = "GET BLUE SPHERES" text
+        // Frames 2+3 = "PERFECT" text (only shown on re-entry after all rings collected)
+        // ROM: Obj_SStage_8E40 adds 2 to mapping_frame at loc_8EA4 after the initial
+        // exit, so the re-entry uses frames 2+3.
+        if (banner.getPhase() == Sonic3kSpecialStageBanner.Phase.SLIDING_IN
+                || (banner.getPhase() == Sonic3kSpecialStageBanner.Phase.DISPLAYING
+                    && banner.getSlideOffset() == 0 && manager.getSpheresLeft() <= 0)) {
+            // Re-entry: show "PERFECT"
+            renderBannerHalf(leftX, centerY, 2);
+            renderBannerHalf(rightX, centerY, 3);
+        } else {
+            // Initial: show "GET BLUE SPHERES"
+            renderBannerHalf(leftX, centerY, 0);
+            renderBannerHalf(rightX, centerY, 1);
+        }
+
+        graphicsManager.flushPatternBatch();
+    }
+
+    /**
+     * Render one mapping frame of the banner at the given center position.
+     */
+    private void renderBannerHalf(int centerX, int centerY, int frame) {
+        if (bannerMappingData == null) return;
+        if (frame * 2 + 1 >= bannerMappingData.length) return;
+
+        int frameOffset = readWord(bannerMappingData, frame * 2);
+        if (frameOffset + 1 >= bannerMappingData.length) return;
+
+        int pieceCount = readWord(bannerMappingData, frameOffset);
+        if (pieceCount <= 0 || pieceCount > 10) return;
+
+        for (int p = 0; p < pieceCount; p++) {
+            int po = frameOffset + 2 + p * 6;
+            if (po + 5 >= bannerMappingData.length) break;
+
+            int yOff = (byte) bannerMappingData[po];
+            int sizeByte = bannerMappingData[po + 1] & 0xFF;
+            int patternWord = readWord(bannerMappingData, po + 2);
+            int xOff = readSignedWord(bannerMappingData, po + 4);
+
+            int tilesW = ((sizeByte >> 2) & 3) + 1;
+            int tilesH = (sizeByte & 3) + 1;
+            int tileIdx = patternWord & 0x07FF;
+            boolean hFlip = (patternWord & 0x0800) != 0;
+
+            // Tile index 0x199 is from the GBS Arrow art; others from Get Blue Spheres art
+            // Both share the same VRAM base (ART_TILE_GET_BLUE_SPHERES = 0x055F)
+            int patternId = getBlueSpherePatternBase + tileIdx;
+
+            for (int col = 0; col < tilesW; col++) {
+                for (int row = 0; row < tilesH; row++) {
+                    int tileOff;
+                    if (hFlip) {
+                        tileOff = (tilesW - 1 - col) * tilesH + row;
+                    } else {
+                        tileOff = col * tilesH + row;
+                    }
+
+                    int drawX = centerX + xOff + col * TILE_SIZE;
+                    int drawY = centerY + yOff + row * TILE_SIZE;
+
+                    reusableDesc.set(0);
+                    reusableDesc.setPriority(true);
+                    reusableDesc.setPaletteIndex(1); // Banner uses palette 1
+                    reusableDesc.setHFlip(hFlip);
+                    graphicsManager.renderPatternWithId(patternId + tileOff,
+                            reusableDesc, drawX, drawY);
+                }
+            }
+        }
+    }
+
+    private void renderHud(Sonic3kSpecialStageManager manager) {
+        if (!artLoaded) return;
+
+        graphicsManager.beginPatternBatch();
+
+        // Render number boxes first (Plane A — behind sprites)
+        if (digitsPatternBase > 0) {
+            renderThreeDigitNumber(manager.getSpheresLeft(), 16, 8);
+            renderThreeDigitNumber(manager.getRingsLeft(), 240, 8);
+        }
+
+        // Render icons on top (VDP sprites — in front of plane tiles)
+        if (iconsPatternBase > 0) {
+            renderHudIcon(72, 8, 0);   // Sphere icon
+            renderHudIcon(224, 8, 9);  // Ring icon
+        }
+
+        graphicsManager.flushPatternBatch();
+    }
+
+    /** Render a 3×3 tile HUD icon. */
+    private void renderHudIcon(int x, int y, int tileOff) {
+        for (int col = 0; col < 3; col++) {
+            for (int row = 0; row < 3; row++) {
+                int tileIdx = col * 3 + row;
+                reusableDesc.set(0);
+                reusableDesc.setPriority(true);
+                reusableDesc.setPaletteIndex(2);
+                graphicsManager.renderPatternWithId(iconsPatternBase + tileOff + tileIdx,
+                        reusableDesc, x + col * TILE_SIZE, y + row * TILE_SIZE);
+            }
+        }
+    }
+
+    /**
+     * Render a 3-digit number with surrounding box template.
+     * The template (MapUnc_SSNum000) is 8×3 tiles with end bars at columns 0 and 7.
+     * The 3 digits fill columns 1-6 (2 tiles per digit).
+     */
+    private void renderThreeDigitNumber(int value, int x, int y) {
+        value = Math.max(0, Math.min(value, 999));
+
+        // Render only the end bar columns (0 and 7) from the template.
+        // Columns 1-6 contain "000" which would show through under the actual digits.
+        if (hudTemplate != null) {
+            for (int row = 0; row < 3; row++) {
+                for (int col : new int[]{0, 7}) {
+                    int off = (row * 8 + col) * 2;
+                    if (off + 1 >= hudTemplate.length) continue;
+                    int word = ((hudTemplate[off] & 0xFF) << 8) | (hudTemplate[off + 1] & 0xFF);
+                    int tileIdx = word & 0x7FF;
+                    boolean hFlip = (word & 0x0800) != 0;
+                    boolean vFlip = (word & 0x1000) != 0;
+                    int palette = (word >> 13) & 3;
+                    int patternId = digitsPatternBase + (tileIdx - Sonic3kSpecialStageConstants.ART_TILE_DIGITS);
+                    reusableDesc.set(0);
+                    reusableDesc.setPriority(true);
+                    reusableDesc.setPaletteIndex(palette);
+                    reusableDesc.setHFlip(hFlip);
+                    reusableDesc.setVFlip(vFlip);
+                    graphicsManager.renderPatternWithId(patternId, reusableDesc,
+                            x + col * TILE_SIZE, y + row * TILE_SIZE);
+                }
+            }
+        }
+
+        // Render digits over the template (columns 1-2, 3-4, 5-6)
+        renderDigit(value / 100, x + 1 * TILE_SIZE, y);
+        renderDigit((value / 10) % 10, x + 3 * TILE_SIZE, y);
+        renderDigit(value % 10, x + 5 * TILE_SIZE, y);
+    }
+
+    /**
+     * Render a single digit (0-9) as 2×3 tiles using MapUnc_SSNum.
+     * <p>
+     * The map is organized as 3 row blocks of 40 bytes each (10 digits × 4 bytes).
+     * Row 0 at offset 0x00, row 1 at 0x28, row 2 at 0x50.
+     * Each digit entry is 4 bytes = 2 VDP tile words (left + right tile).
+     * Each word: PCCV_HTTT_TTTT_TTTT (priority, palette, vflip, hflip, tile index).
+     */
+    private void renderDigit(int digit, int x, int y) {
+        if (hudNumberMap == null || digit < 0 || digit > 9) return;
+
+        for (int row = 0; row < 3; row++) {
+            int rowOffset = row * 0x28; // 40 bytes per row block
+            int off = rowOffset + digit * 4;
+            if (off + 3 >= hudNumberMap.length) break;
+
+            for (int col = 0; col < 2; col++) {
+                int word = ((hudNumberMap[off + col * 2] & 0xFF) << 8)
+                         | (hudNumberMap[off + col * 2 + 1] & 0xFF);
+
+                int tileIdx = word & 0x7FF;
+                boolean hFlip = (word & 0x0800) != 0;
+                boolean vFlip = (word & 0x1000) != 0;
+                int palette = (word >> 13) & 3;
+
+                // Convert from VDP tile index to our pattern atlas index
+                int patternId = digitsPatternBase + (tileIdx - Sonic3kSpecialStageConstants.ART_TILE_DIGITS);
+
+                reusableDesc.set(0);
+                reusableDesc.setPriority(true);
+                reusableDesc.setPaletteIndex(palette);
+                reusableDesc.setHFlip(hFlip);
+                reusableDesc.setVFlip(vFlip);
+                graphicsManager.renderPatternWithId(patternId, reusableDesc,
+                        x + col * TILE_SIZE, y + row * TILE_SIZE);
+            }
+        }
+    }
+
+    /**
+     * Render the starfield background (Plane B).
+     * The BG is a 64x32 tile plane with H-scroll and V-scroll.
+     * ROM: sub_9D5E computes V_scroll_value_BG and H_scroll_buffer.
+     * H-scroll = angle * 4, V-scroll = accumulated position delta / 4.
+     */
+    private void renderBackground(Sonic3kSpecialStageManager manager,
+                                  Sonic3kSpecialStagePlayer player) {
+        if (!artLoaded || bgMapData == null || bgPatternBase <= 0) return;
+
+        // Get scroll values from background handler
+        Sonic3kSpecialStageBackground bg = manager.getBackground();
+        int hScroll = bg != null ? bg.getHScroll() : 0;
+        int vScroll = bg != null ? bg.getVScroll() : 0;
+
+        // Convert scroll to tile offsets (pixels / 8) and pixel sub-offsets
+        // Use Math.floorMod/floorDiv to handle negative scroll values correctly
+        int hScrollTile = Math.floorMod(Math.floorDiv(hScroll, TILE_SIZE), BG_PLANE_W);
+        int hScrollPx = Math.floorMod(hScroll, TILE_SIZE);
+        int vScrollTile = Math.floorMod(Math.floorDiv(vScroll, TILE_SIZE), BG_PLANE_H);
+        int vScrollPx = Math.floorMod(vScroll, TILE_SIZE);
+
+        graphicsManager.beginPatternBatch();
+
+        // Render visible viewport (40x28 tiles + 1 extra for sub-tile scroll)
+        for (int sy = 0; sy <= SCREEN_TILES_Y; sy++) {
+            for (int sx = 0; sx <= SCREEN_TILES_X; sx++) {
+                // Map screen tile to plane tile with scroll wrapping
+                int planeX = ((sx + hScrollTile) % BG_PLANE_W + BG_PLANE_W) % BG_PLANE_W;
+                int planeY = ((sy + vScrollTile) % BG_PLANE_H + BG_PLANE_H) % BG_PLANE_H;
+
+                int mapIdx = (planeY * BG_PLANE_W + planeX) * 2;
+                if (mapIdx + 1 >= bgMapData.length) continue;
+
+                int word = ((bgMapData[mapIdx] & 0xFF) << 8) | (bgMapData[mapIdx + 1] & 0xFF);
+
+                // Enigma word: PCCV_HTTT_TTTT_TTTT
+                int patternIdx = word & 0x7FF;
+                boolean hFlip = (word & 0x0800) != 0;
+                boolean vFlip = (word & 0x1000) != 0;
+                int palette = (word >> 13) & 3;
+                boolean priority = (word & 0x8000) != 0;
+
+                // The Enigma map was decompressed with startTile including the art base,
+                // so patternIdx already includes ArtTile_SStage_BG offset.
+                // We need to subtract the base and add our bgPatternBase.
+                int tileId = patternIdx - Sonic3kSpecialStageConstants.ART_TILE_BG;
+                if (tileId < 0) tileId = 0;
+                int patternId = bgPatternBase + tileId;
+
+                reusableDesc.set(0);
+                reusableDesc.setPriority(false); // BG behind everything
+                reusableDesc.setPaletteIndex(palette);
+                reusableDesc.setHFlip(hFlip);
+                reusableDesc.setVFlip(vFlip);
+                graphicsManager.renderPatternWithId(patternId, reusableDesc,
+                        sx * TILE_SIZE - hScrollPx, sy * TILE_SIZE - vScrollPx);
+            }
+        }
+
+        graphicsManager.flushPatternBatch();
     }
 
     /**
@@ -262,16 +588,17 @@ public class Sonic3kSpecialStageRenderer {
         // d5 = row variable: dir[1] (row_start) + d1, masked by dir[5]
         int d5 = (dir[1] + d1) & dir[5];
 
-        graphicsManager.beginPatternBatch();
+        // Collect all visible sprites with their screen positions, then sort
+        // by screen Y ascending so that far sprites (top of screen) draw first
+        // and close sprites (bottom of screen) draw last (on top).
+        // This matches VDP behaviour where lower sprite table entries (drawn first
+        // by Draw_SSSprites for close rows) appear in front of later entries.
+        List<int[]> spriteList = new ArrayList<>();
+        int ringAnim = manager.getRingAnimFrame();
 
-        int perspIdx = 0; // sequential index into perspective entries
+        int perspIdx = 0;
 
-        // 16 rows (outer loop) — ROM: moveq #$10-1,d2 / dbf d2
         for (int rowIdx = 0; rowIdx < 16; rowIdx++) {
-            // d4 = column variable: reset each row
-            // bit6=0: d4 = dir[0] + X_pos_high_byte (ROM line 12339: move.b (X_pos).w,d0)
-            // bit6=1: d4 = dir[0] + Y_pos_high_byte (ROM line 12418: move.b (Y_pos).w,d0)
-            // 68000 move.b reads HIGH byte of word = grid cell coordinate
             int d4;
             if (axisBit6) {
                 d4 = (dir[0] + ((yPos >> 8) & 0xFF)) & dir[3];
@@ -279,11 +606,7 @@ public class Sonic3kSpecialStageRenderer {
                 d4 = (dir[0] + ((xPos >> 8) & 0xFF)) & dir[3];
             }
 
-            // 15 columns per row (inner loop) — ROM: moveq #$F-1,d3
             for (int colIdx = 0; colIdx < 15; colIdx++) {
-                // Grid index computation:
-                // bit6=0: index = (d5 << 5) | d4   (d5=Y row, d4=X col)
-                // bit6=1: index = (d4 << 5) | d5   (d4=Y col, d5=X row)
                 int gridIndex;
                 if (axisBit6) {
                     gridIndex = ((d4 & 0x1F) << 5) | (d5 & 0x1F);
@@ -293,41 +616,57 @@ public class Sonic3kSpecialStageRenderer {
 
                 int cellType = grid.getCellByIndex(gridIndex & 0x3FF);
 
-                // Read perspective entry for this cell (6 bytes)
                 if (cellType != CELL_EMPTY && perspFrameOffset >= 0) {
                     int entryOff = perspFrameOffset + perspIdx * 6;
                     if (entryOff + 5 < perspectiveMaps.length) {
                         int perspWord = readWord(perspectiveMaps, entryOff);
-                        int scrX = readSignedWord(perspectiveMaps, entryOff + 2);
-                        int scrY = readSignedWord(perspectiveMaps, entryOff + 4);
-
-                        // Convert VDP coordinates to screen coordinates
-                        // VDP adds 128 to both X and Y; engine uses direct screen coords
-                        scrX -= 128;
-                        scrY -= 128;
+                        int scrX = readSignedWord(perspectiveMaps, entryOff + 2) - 128;
+                        int scrY = readSignedWord(perspectiveMaps, entryOff + 4) - 128;
 
                         int sizeField = (perspWord & 0x7C) >> 2;
                         int sizeIndex = sizeField - 6;
 
                         if (sizeIndex >= 0 && sizeIndex < 16) {
-                            renderPerspectiveSprite(cellType, scrX, scrY, sizeIndex);
+                            spriteList.add(new int[]{cellType, scrX, scrY, sizeIndex});
                         }
                     }
                 }
 
                 perspIdx++;
-                d4 = (d4 + dir[2]) & dir[3]; // col_step
+                d4 = (d4 + dir[2]) & dir[3];
             }
 
-            d5 = (d5 + dir[4]) & dir[5]; // row_step
+            d5 = (d5 + dir[4]) & dir[5];
         }
 
-        // Render player at fixed screen position
-        // ROM: player object has $30=0xA0 (160), $32=0x70 (112) as center offsets,
-        // plus $36=-0x800 which after 3D projection places Sonic near screen bottom.
-        // The mapping y-offsets are VDP-relative (include +128 offset).
-        // For the on-screen position, use approximately (160, 160) as the sprite origin.
-        renderPlayerSprite(player, PLAYER_SCREEN_CENTER_X, 160);
+        // Sort by screen Y ascending: far/top sprites first, close/bottom sprites last (on top)
+        spriteList.sort(Comparator.comparingInt(a -> a[2]));
+
+        // Apply fly-away effect during clear sequence
+        // ROM: Draw_SSSprite_FlyAway modifies sprite positions:
+        //   Y -= clearTimer (sprites fly upward)
+        //   X = ((X - 160) * (clearTimer + 256)) / 256 + 160 (spread outward)
+        int clearTimer = manager.getClearTimer();
+
+        graphicsManager.beginPatternBatch();
+        for (int[] s : spriteList) {
+            int sx = s[1], sy = s[2];
+            if (clearTimer > 0) {
+                sy -= clearTimer;                              // Fly upward
+                sx = (((sx - 160) * (clearTimer + 256)) >> 8) + 160; // Spread outward
+            }
+            renderPerspectiveSprite(s[0], sx, sy, s[3], ringAnim);
+        }
+
+        // Render player with jump height offset.
+        // Full 3D projection trace with actual scalar values gives:
+        //   Ground ($36=-0x800): screenY=162, Peak ($36=-0x858): screenY=130
+        //   Delta = 32 pixels for jumpHeight peak of -0x580000.
+        // Scale factor: 32 / 0x580000 ≈ 1 / 0x2C000. Approximated as >> 17 * 3/4.
+        // Simplified: (jumpHeight >> 16) * 32 / 0x58 = (jumpHeight >> 16) / 2.75
+        long swapped = player.getJumpHeight() >> 16;
+        int jumpYOffset = (int)(swapped * 32 / 0x58);
+        renderPlayerSprite(player, PLAYER_SCREEN_CENTER_X, 160 + jumpYOffset);
 
         graphicsManager.flushPatternBatch();
     }
@@ -370,7 +709,8 @@ public class Sonic3kSpecialStageRenderer {
      * Render a sprite at a perspective-projected position with size scaling.
      * Maps sizeIndex to the correct sphere/ring mapping frame.
      */
-    private void renderPerspectiveSprite(int cellType, int screenX, int screenY, int sizeIndex) {
+    private void renderPerspectiveSprite(int cellType, int screenX, int screenY, int sizeIndex,
+                                         int ringAnimPhase) {
         int patternBase;
         int paletteIndex;
 
@@ -406,17 +746,39 @@ public class Sonic3kSpecialStageRenderer {
             tileOffset = 0x74 + (sizeIndex - 12);
         }
 
-        // Ring art has different frame layout
+        // Emerald art (Map_SStageChaosEmerald) has different frame layout from spheres.
+        // Frames 0-1: 4×4 (0x00, 0x10), Frames 2-5: 3×3 (0x20, 0x29, 0x32, 0x3B),
+        // Frames 6-9: 2×2 (0x44, 0x48, 0x4C, 0x50), Frames 10-13: 1×1 (0x54-0x57)
+        boolean isEmerald = (cellType == CELL_CHAOS_EMERALD || cellType == CELL_SUPER_EMERALD);
+        if (isEmerald) {
+            int[][] em = {
+                {4,4,0x00},{4,4,0x10},                              // sizeIndex 0-1
+                {3,3,0x20},{3,3,0x29},{3,3,0x32},{3,3,0x3B},        // sizeIndex 2-5
+                {2,2,0x44},{2,2,0x48},{2,2,0x4C},{2,2,0x50},        // sizeIndex 6-9
+                {1,1,0x54},{1,1,0x55},{1,1,0x56},{1,1,0x57},        // sizeIndex 10-13
+            };
+            int idx = Math.min(sizeIndex, em.length - 1);
+            tilesW = em[idx][0]; tilesH = em[idx][1]; tileOffset = em[idx][2];
+        }
+
+        // Ring art has 3 rotation phases (from Map_SStageRing).
+        // Phase 0: front view (3xN wide), Phase 1: side view (2xN narrow),
+        // Phase 2: same tiles as phase 1 but with H-flip.
         boolean isRing = (cellType == CELL_RING || (cellType >= CELL_RING_ANIM_1 && cellType <= CELL_RING_ANIM_4));
+        boolean ringHFlip = false;
         if (isRing) {
-            if (sizeIndex < 4) {
-                tilesW = 2; tilesH = 3; tileOffset = 0;
-            } else if (sizeIndex < 8) {
-                tilesW = 2; tilesH = 2; tileOffset = 0x33;
-            } else if (sizeIndex < 12) {
-                tilesW = 2; tilesH = 1; tileOffset = 0x45;
+            int idx = Math.min(sizeIndex, 8);
+            if (ringAnimPhase == 0) {
+                // Phase 0: front-facing (wider)
+                int[][] p0 = {{3,2,0x00},{3,2,0x0C},{3,3,0x18},{3,2,0x27},
+                              {2,2,0x33},{2,2,0x39},{2,2,0x3F},{2,1,0x45},{1,1,0x48}};
+                tilesW = p0[idx][0]; tilesH = p0[idx][1]; tileOffset = p0[idx][2];
             } else {
-                tilesW = 1; tilesH = 1; tileOffset = 0x48;
+                // Phase 1 & 2: side view (narrower), phase 2 adds H-flip
+                int[][] p1 = {{2,3,0x06},{2,3,0x12},{2,3,0x21},{2,3,0x2D},
+                              {1,2,0x37},{1,2,0x3D},{1,2,0x43},{1,1,0x47},{1,1,0x49}};
+                tilesW = p1[idx][0]; tilesH = p1[idx][1]; tileOffset = p1[idx][2];
+                ringHFlip = (ringAnimPhase == 2);
             }
         }
 
@@ -432,13 +794,23 @@ public class Sonic3kSpecialStageRenderer {
         // Render using column-major VDP ordering
         for (int col = 0; col < tilesW; col++) {
             for (int row = 0; row < tilesH; row++) {
-                int tileIdx = col * tilesH + row;
+                int tileIdx;
+                int drawCol;
+                if (ringHFlip) {
+                    // H-flip: reverse column order and set flip flag on each tile
+                    tileIdx = (tilesW - 1 - col) * tilesH + row;
+                    drawCol = col;
+                } else {
+                    tileIdx = col * tilesH + row;
+                    drawCol = col;
+                }
                 int patternId = patternBase + tileOffset + tileIdx;
                 reusableDesc.set(0);
                 reusableDesc.setPriority(true);
                 reusableDesc.setPaletteIndex(paletteIndex);
+                reusableDesc.setHFlip(ringHFlip);
                 graphicsManager.renderPatternWithId(patternId, reusableDesc,
-                        screenX + centerOffX + col * TILE_SIZE,
+                        screenX + centerOffX + drawCol * TILE_SIZE,
                         screenY + centerOffY + row * TILE_SIZE);
             }
         }

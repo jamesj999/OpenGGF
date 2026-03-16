@@ -79,6 +79,14 @@ public class Sonic3kSpecialStageManager {
 
     // ==================== Remaining rings from sphere conversion ====================
     private int ringsLeft;
+    /** Whether the exit spin animation has been started. */
+    private boolean exitSpinStarted;
+
+    // ==================== Ring Animation ====================
+    /** Ring animation timer (counts down from 7, resets). */
+    private int ringAnimTimer;
+    /** Ring animation frame: 0, 1, or 2 (cycles every 8 game frames). */
+    private int ringAnimFrame;
 
     // Debug state
     private boolean spriteDebugMode;
@@ -112,6 +120,7 @@ public class Sonic3kSpecialStageManager {
         this.emeraldTimer = 0;
         this.emeraldInteractIndex = -1;
         this.ringsLeft = 0;
+        this.exitSpinStarted = false;
         this.bannerPhase = 0;
         this.bannerTimer = 0;
         this.bannerOffset = 0;
@@ -160,6 +169,7 @@ public class Sonic3kSpecialStageManager {
         int[] params = grid.loadFromLayoutData(stageData);
         player.initialize(params[0], params[1], params[2], false);
         spheresLeft = grid.countBlueSpheres();
+        ringsLeft = params[3]; // ROM: Special_stage_rings_left from layout trailer
         LOGGER.info("Loaded S3K SS layout for stage " + currentStage +
                 ": angle=0x" + Integer.toHexString(params[0]) +
                 " pos=(" + Integer.toHexString(params[1]) + "," +
@@ -210,13 +220,20 @@ public class Sonic3kSpecialStageManager {
         }
         nextBase += shadowPatterns.length;
 
-        // "Get Blue Spheres" text art
+        // "Get Blue Spheres" text art + arrow art
+        // ROM loads GBS art at ART_TILE_GET_BLUE_SPHERES (0x055F) and
+        // arrow art at offset 0x199 from that base.
         Pattern[] gbsPatterns = dataLoader.getGetBlueSphereArt();
+        Pattern[] gbsArrowPatterns = dataLoader.getGbsArrowArt();
         renderer.setGetBlueSpherePatternBase(nextBase);
         for (int i = 0; i < gbsPatterns.length; i++) {
             gm.cachePatternTexture(gbsPatterns[i], nextBase + i);
         }
-        nextBase += gbsPatterns.length;
+        // Load arrow art at offset 0x199 from the GBS base
+        for (int i = 0; i < gbsArrowPatterns.length; i++) {
+            gm.cachePatternTexture(gbsArrowPatterns[i], nextBase + 0x199 + i);
+        }
+        nextBase += 0x199 + gbsArrowPatterns.length;
 
         // Digits art (HUD numbers)
         Pattern[] digitsPatterns = dataLoader.getDigitsArt();
@@ -251,6 +268,10 @@ public class Sonic3kSpecialStageManager {
         byte[] floorMap = dataLoader.getLayoutEnigmaMap();
         renderer.setFloorMapData(floorMap);
 
+        // Load BG map (Enigma-decompressed starfield - 64x32 tiles)
+        byte[] bgMap = dataLoader.getBgEnigmaMap();
+        renderer.setBgMapData(bgMap);
+
         // Load Sonic mapping + DPLC data for sprite rendering
         // Map_SStageSonic and PLC_SStageSonic are in the same include file,
         // immediately after ArtUnc_SStageSonic in ROM.
@@ -260,6 +281,24 @@ public class Sonic3kSpecialStageManager {
                 + Sonic3kSpecialStageRomOffsets.ART_UNC_SONIC_SIZE;
         byte[] sonicMapData = rom.readBytes(sonicMapAddr, 400);
         renderer.setSonicMappingData(sonicMapData, sonicMapData);
+
+        // Load banner mapping data (Map_GetBlueSpheres at ROM 0x8F5E, ~76 bytes)
+        byte[] bannerMapData = rom.readBytes(0x8F5E, 76);
+        renderer.setBannerMappingData(bannerMapData);
+
+        // Load HUD number map and template
+        byte[] hudNumMap = dataLoader.getHudNumberMap();
+        renderer.setHudNumberMap(hudNumMap);
+        byte[] hudTemplate = dataLoader.getHudDisplayMap();
+        renderer.setHudTemplate(hudTemplate);
+
+        // Load emerald art (KosinskiM compressed)
+        Pattern[] emeraldPatterns = dataLoader.getChaosEmeraldArt();
+        renderer.setEmeraldPatternBase(nextBase);
+        for (int i = 0; i < emeraldPatterns.length; i++) {
+            gm.cachePatternTexture(emeraldPatterns[i], nextBase + i);
+        }
+        nextBase += emeraldPatterns.length;
 
         // Load scalar table
         byte[] scalars = dataLoader.getScalarTable();
@@ -326,8 +365,8 @@ public class Sonic3kSpecialStageManager {
         player.update(heldButtons, pressedButtons);
         player.updateJump(pressedButtons);
 
-        // Collision detection (only when not jumping and not in clear sequence)
-        if ((player.getJumping() & 0x80) == 0 && clearRoutine == 0) {
+        // Collision detection (only when not jumping, not in clear sequence, not exiting)
+        if ((player.getJumping() & 0x80) == 0 && clearRoutine == 0 && !exitSpinStarted) {
             processCollision();
         }
 
@@ -335,22 +374,54 @@ public class Sonic3kSpecialStageManager {
         collisionQueue.update(grid, this::onBlueSphereAnimComplete,
                 player.getXPos(), player.getYPos());
 
+        // Ring rotation animation (ROM: Animate_SSRings, sonic3k.asm:12723)
+        // Cycles through 3 frames (0, 1, 2) every 8 game frames
+        ringAnimTimer--;
+        if (ringAnimTimer < 0) {
+            ringAnimTimer = 7;
+            ringAnimFrame++;
+            if (ringAnimFrame >= 3) {
+                ringAnimFrame = 0;
+            }
+        }
+
         // Clear sequence
         if (clearRoutine > 0) {
             updateClearSequence();
         }
 
-        // Check for stage failure
-        if (player.isFailed()) {
+        // During exit spin, fade the palette to white.
+        // ROM: Pal_ToWhite called every 3 frames during the 60-frame exit loop.
+        if (exitSpinStarted && player.getFadeTimer() > 0) {
+            // Fade palette toward white by incrementing color components
+            if (player.getFadeTimer() % 3 == 0 && palette != null) {
+                for (int line = 0; line < 4; line++) {
+                    com.openggf.level.Palette pal = palette.getPalette(line);
+                    for (int c = 0; c < 16; c++) {
+                        int r = pal.colors[c].r & 0xFF;
+                        int g = pal.colors[c].g & 0xFF;
+                        int b = pal.colors[c].b & 0xFF;
+                        pal.colors[c].r = (byte) Math.min(255, r + 28);
+                        pal.colors[c].g = (byte) Math.min(255, g + 28);
+                        pal.colors[c].b = (byte) Math.min(255, b + 28);
+                    }
+                    GraphicsManager.getInstance().cachePaletteTexture(pal, line);
+                }
+            }
+        }
+
+        // Finish stage after the exit spin animation completes.
+        // fadeTimer goes 1→0x61 (spinning), then resets to 0 when aligned.
+        if (exitSpinStarted && player.getFadeTimer() == 0) {
             finished = true;
-            emeraldCollected = false;
         }
 
         // Update perspective animation frame
         perspective.updateAnimFrame(player);
 
         // Palette rotation — cycles palette line 3 colors to animate the floor
-        if (palette != null) {
+        // Skip during exit spin so the fade-to-white isn't overwritten
+        if (palette != null && !exitSpinStarted) {
             palette.updateRotation(
                     perspective.getAnimFrame(),
                     perspective.getPaletteFrame(),
@@ -411,14 +482,19 @@ public class Sonic3kSpecialStageManager {
                 break;
 
             case BLUE_SPHERE:
-                collisionQueue.addBlueSphere(result.gridIndex);
-                AudioManager.getInstance().playSfx(Sonic3kSfx.BLUE_SPHERE.id);
+                if (collisionQueue.addBlueSphere(result.gridIndex)) {
+                    AudioManager.getInstance().playSfx(Sonic3kSfx.BLUE_SPHERE.id);
+                }
                 break;
 
             case RED_SPHERE:
-                player.setFailed(true);
-                player.setFadeTimer(1);
-                AudioManager.getInstance().playSfx(Sonic3kSfx.GOAL.id);
+                if (!exitSpinStarted) {
+                    player.setFailed(true);
+                    player.setFadeTimer(1);
+                    exitSpinStarted = true;
+                    emeraldCollected = false;
+                    AudioManager.getInstance().playSfx(Sonic3kSfx.GOAL.id);
+                }
                 break;
 
             case BUMPER:
@@ -427,7 +503,9 @@ public class Sonic3kSpecialStageManager {
                 break;
 
             case RING:
-                collectRing(result.gridIndex);
+                if (collisionQueue.addRing(result.gridIndex)) {
+                    collectRing(result.gridIndex);
+                }
                 break;
 
             case SPRING:
@@ -446,14 +524,15 @@ public class Sonic3kSpecialStageManager {
      * ROM: loc_9822 (sonic3k.asm:12173)
      */
     private void collectRing(int gridIndex) {
-        collisionQueue.addRing(gridIndex);
+        // Ring queue entry already added by caller
 
         // Track remaining rings from sphere conversion
         if (ringsLeft > 0) {
             ringsLeft--;
             if (ringsLeft == 0) {
-                // All converted rings collected - play perfect SFX
-                AudioManager.getInstance().playMusic(Sonic3kSfx.PERFECT.id);
+                // All rings collected — play PERFECT SFX and show PERFECT banner
+                AudioManager.getInstance().playSfx(Sonic3kSfx.PERFECT.id);
+                banner.triggerReEntry(); // Shows "PERFECT" text
             }
         }
 
@@ -461,7 +540,7 @@ public class Sonic3kSpecialStageManager {
 
         // Extra life thresholds
         if (ringsCollected == EXTRA_LIFE_THRESHOLD_CONTINUE) {
-            AudioManager.getInstance().playMusic(Sonic3kSfx.CONTINUE.id);
+            AudioManager.getInstance().playSfx(Sonic3kSfx.CONTINUE.id);
         } else if (ringsCollected == EXTRA_LIFE_THRESHOLD_1
                 || ringsCollected == EXTRA_LIFE_THRESHOLD_2) {
             AudioManager.getInstance().playSfx(Sonic3kSfx.RING_LOSS.id);
@@ -484,7 +563,9 @@ public class Sonic3kSpecialStageManager {
 
         clearRoutine = 4; // Skip to completion
         player.setFadeTimer(1);
-        finished = true;
+        exitSpinStarted = true;
+        // Don't set finished=true here — let the spin animation play first.
+        // finished will be set when fadeTimer completes its cycle.
         AudioManager.getInstance().playSfx(Sonic3kSfx.GOAL.id);
     }
 
@@ -676,10 +757,22 @@ public class Sonic3kSpecialStageManager {
         return spheresLeft;
     }
 
+    public int getRingsLeft() {
+        return ringsLeft;
+    }
+
     // ==================== Accessors for Renderer ====================
 
     public Sonic3kSpecialStageGrid getGrid() {
         return grid;
+    }
+
+    public Sonic3kSpecialStageBackground getBackground() {
+        return background;
+    }
+
+    public Sonic3kSpecialStageBanner getBanner() {
+        return banner;
     }
 
     public Sonic3kSpecialStagePlayer getPlayer() {
@@ -704,6 +797,10 @@ public class Sonic3kSpecialStageManager {
 
     public int getFrameCounter() {
         return frameCounter;
+    }
+
+    public int getRingAnimFrame() {
+        return ringAnimFrame;
     }
 
     // ==================== Debug Methods ====================
