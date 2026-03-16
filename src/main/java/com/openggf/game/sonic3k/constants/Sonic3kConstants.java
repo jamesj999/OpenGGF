@@ -570,6 +570,24 @@ public class Sonic3kConstants {
     public static final int VRAM_TITLE_CARD_ACT_NUM = 0x53D;     // Act number art
     public static final int VRAM_TITLE_CARD_ZONE_ART = 0x54D;    // Zone-specific letters
 
+    // ===== Results Screen Art (KosinskiM) =====
+    public static final int ART_KOSM_RESULTS_GENERAL_ADDR = 0x0D6A62;    // "GOT THROUGH", bonus labels
+    public static final int ART_KOSM_RESULTS_SONIC_ADDR = 0x39A786;      // "SONIC" name art
+    public static final int ART_KOSM_RESULTS_MILES_ADDR = 0x39AA18;      // "MILES" name art
+    public static final int ART_KOSM_RESULTS_TAILS_ADDR = 0x39AB6A;      // "TAILS" name art
+    public static final int ART_KOSM_RESULTS_KNUCKLES_ADDR = 0x0D67F0;   // "KNUCKLES" name art
+
+    // ===== Results Screen Palette & Mappings =====
+    public static final int PAL_RESULTS_ADDR = 0x22D39E;                 // 128 bytes, full palette
+    public static final int MAP_RESULTS_ADDR = 0x0002F26A;               // Mapping frames (59 entries)
+
+    // ===== Results Screen VRAM Layout =====
+    public static final int VRAM_RESULTS_BASE = 0x520;                   // General art destination
+    public static final int VRAM_RESULTS_NUMBERS = 0x568;                // Digit tile destination
+    public static final int VRAM_RESULTS_CHAR_NAME_ACT1 = 0x578;         // Character name (act 1)
+    public static final int VRAM_RESULTS_CHAR_NAME_ACT2 = 0x5A0;         // Character name (act 2)
+    public static final int VRAM_RESULTS_ARRAY_SIZE = 0x100;             // Total tile range $520-$61F
+
     // ===== Shield Art (uncompressed binclude in S3 data region) =====
     // Verified by binary pattern match against skdisasm .bin files, 2026-02-17
 
