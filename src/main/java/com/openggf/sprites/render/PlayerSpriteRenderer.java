@@ -26,14 +26,6 @@ public class PlayerSpriteRenderer {
         this.patternBank = new DynamicPatternBank(artSet.basePatternIndex(), capacity);
     }
 
-    /**
-     * Pre-loads tiles from the art set into fixed bank positions.
-     * Emulates ROM DMA loads (e.g., lightning spark tiles loaded once at init).
-     */
-    public void preloadTiles(int destOffset, int srcStart, int count) {
-        patternBank.preloadTiles(destOffset, artSet.artTiles(), srcStart, count);
-    }
-
     public void setRenderContext(RenderContext ctx) {
         this.renderContext = ctx;
     }

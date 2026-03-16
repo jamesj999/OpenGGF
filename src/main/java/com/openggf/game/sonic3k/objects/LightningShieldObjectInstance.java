@@ -94,12 +94,10 @@ public class LightningShieldObjectInstance extends ShieldObjectInstance {
     public void triggerSparks() {
         AbstractPlayableSprite player = getPlayer();
         if (player == null) return;
-        // Get the dedicated spark renderer (separate from shield's DPLC renderer)
         Sonic3kObjectArtProvider artProvider = getS3kArtProvider();
         if (artProvider == null) return;
-        PlayerSpriteRenderer sparkRenderer = artProvider.getShieldDplcRenderer(Sonic3kObjectArtKeys.LIGHTNING_SPARK);
         SpriteArtSet sparkArtSet = artProvider.getShieldArtSet(Sonic3kObjectArtKeys.LIGHTNING_SPARK);
-        if (sparkRenderer == null || sparkArtSet == null || sparkArtSet.animationSet() == null) return;
+        if (sparkArtSet == null || sparkArtSet.animationSet() == null) return;
 
         int cx = player.getCentreX();
         int cy = player.getCentreY();
@@ -110,7 +108,7 @@ public class LightningShieldObjectInstance extends ShieldObjectInstance {
         };
         for (int[] vel : velocities) {
             LightningSparkObjectInstance spark = new LightningSparkObjectInstance(
-                    cx, cy, vel[0], vel[1], sparkRenderer, sparkArtSet.animationSet());
+                    cx, cy, vel[0], vel[1], sparkArtSet.animationSet(), sparkArtSet.artTiles());
             spawnDynamicObject(spark);
         }
     }

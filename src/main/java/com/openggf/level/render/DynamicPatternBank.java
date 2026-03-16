@@ -46,25 +46,6 @@ public class DynamicPatternBank {
         cached = true;
     }
 
-    /**
-     * Pre-loads tiles at a specific bank offset (emulates one-time DMA loads).
-     * In the ROM, some objects DMA tiles to fixed VRAM positions at init time,
-     * separate from the per-frame DPLC system.
-     */
-    public void preloadTiles(int destOffset, Pattern[] source, int srcStart, int count) {
-        if (source == null) return;
-        for (int i = 0; i < count; i++) {
-            int dst = destOffset + i;
-            int src = srcStart + i;
-            if (dst >= 0 && dst < patterns.length && src >= 0 && src < source.length) {
-                patterns[dst].copyFrom(source[src]);
-                if (cached && graphicsManager != null) {
-                    graphicsManager.updatePatternTexture(patterns[dst], basePatternIndex + dst);
-                }
-            }
-        }
-    }
-
     public void applyRequests(List<TileLoadRequest> requests, Pattern[] source) {
         if (requests == null || source == null) {
             return;
