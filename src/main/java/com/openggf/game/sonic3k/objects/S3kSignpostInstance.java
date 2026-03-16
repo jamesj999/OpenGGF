@@ -346,6 +346,16 @@ public class S3kSignpostInstance extends AbstractObjectInstance {
         // Animation 0x13 = victory/celebration pose
         player.setAnimationId(0x13);
 
+        // ROM line 176215: st (Ctrl_2_locked).w — lock sidekick (Tails) input
+        var sidekick = com.openggf.sprites.managers.SpriteManager.getInstance().getSidekick();
+        if (sidekick != null) {
+            sidekick.setControlLocked(true);
+            sidekick.setObjectControlled(true);
+            sidekick.setXSpeed((short) 0);
+            sidekick.setYSpeed((short) 0);
+            sidekick.setGSpeed((short) 0);
+        }
+
         // Spawn the results screen (handles score tally and act transition signal)
         spawnDynamicObject(new S3kResultsScreenObjectInstance(
                 getPlayerCharacter(),

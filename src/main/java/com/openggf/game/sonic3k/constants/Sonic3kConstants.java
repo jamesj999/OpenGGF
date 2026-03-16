@@ -586,7 +586,7 @@ public class Sonic3kConstants {
     public static final int VRAM_RESULTS_NUMBERS = 0x568;                // Digit tile destination
     public static final int VRAM_RESULTS_CHAR_NAME_ACT1 = 0x578;         // Character name (act 1)
     public static final int VRAM_RESULTS_CHAR_NAME_ACT2 = 0x5A0;         // Character name (act 2)
-    public static final int VRAM_RESULTS_ARRAY_SIZE = 0x100;             // Total tile range $520-$61F
+    public static final int VRAM_RESULTS_ARRAY_SIZE = 0x200;             // Total tile range $520-$71F (includes HUD text tiles at $6xx)
 
     // ===== Shield Art (uncompressed binclude in S3 data region) =====
     // Verified by binary pattern match against skdisasm .bin files, 2026-02-17

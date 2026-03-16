@@ -450,6 +450,14 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
             playerRef.setControlLocked(false);
             playerRef.setObjectControlled(false);
         }
+        // Unlock sidekick (Tails) — ROM: Ctrl_2_locked cleared at level transition
+        var sidekick = com.openggf.sprites.managers.SpriteManager.getInstance().getSidekick();
+        if (sidekick != null) {
+            sidekick.setControlLocked(false);
+            sidekick.setObjectControlled(false);
+        }
+        // Unfreeze camera/scroll
+        Camera.getInstance().setFrozen(false);
 
         int zone = LevelManager.getInstance().getRomZoneId();
 
@@ -498,6 +506,23 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
             List<SpriteMappingFrame> rawMappings = objectArt.loadResultsMappings();
 
             if (combinedPatterns != null && !rawMappings.isEmpty()) {
+                // Some mapping frames (TIME/RING/BONUS labels) reference HUD text tiles
+                // at VRAM $6xx that are already loaded by the level. Copy them into our
+                // expanded pattern array so the renderer can access them.
+                var level = LevelManager.getInstance().getCurrentLevel();
+                if (level != null) {
+                    int levelPatternCount = level.getPatternCount();
+                    for (int vram = 0x620; vram < Sonic3kConstants.VRAM_RESULTS_BASE
+                            + Sonic3kConstants.VRAM_RESULTS_ARRAY_SIZE; vram++) {
+                        int arrayIdx = vram - Sonic3kConstants.VRAM_RESULTS_BASE;
+                        if (arrayIdx >= 0 && arrayIdx < combinedPatterns.length
+                                && combinedPatterns[arrayIdx] == null
+                                && vram < levelPatternCount) {
+                            combinedPatterns[arrayIdx] = level.getPattern(vram);
+                        }
+                    }
+                }
+
                 // Adjust tile indices: ROM mappings use absolute VRAM tile indices (e.g. 0x520),
                 // but our patterns array is 0-based (patterns[0] = VRAM $520).
                 // Subtract VRAM_RESULTS_BASE so piece.tileIndex() maps to array indices.
@@ -593,15 +618,15 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
 
     /**
      * Renders a 7-digit BCD value with leading zero suppression.
-     * Digits are positioned starting at (worldX + DIGIT_OFFSET_X) rightward at 8px intervals.
-     * Uses individual pattern tiles from the number art region.
+     * ROM: LevResults_DisplayScore (sonic3k.asm lines 62789-62815).
+     * Each digit is 1×2 tiles (8×16 pixels) — top and bottom halves.
+     * Number art from ArtKosM_TitleCardNum has 2 tiles per digit (column-major).
      */
     private void renderBonusDigits(int worldX, int worldY, int value) {
         int x = worldX + DIGIT_OFFSET_X;
         boolean hasNonZero = false;
         int remaining = value;
-        // The digit pattern index within the patterns array:
-        // VRAM_RESULTS_NUMBERS - VRAM_RESULTS_BASE = offset to first digit tile (digit '0')
+        // Number art starts at VRAM_RESULTS_NUMBERS, each digit = 2 tiles (top + bottom)
         int digitBase = Sonic3kConstants.VRAM_RESULTS_NUMBERS - Sonic3kConstants.VRAM_RESULTS_BASE;
 
         for (int i = 0; i < DIGIT_COUNT; i++) {
@@ -609,7 +634,11 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
             remaining %= DIVISORS[i];
             if (digit != 0) hasNonZero = true;
             if (hasNonZero || i == DIGIT_COUNT - 1) {
-                renderer.drawPatternIndex(digitBase + digit, x + i * DIGIT_SPACING, worldY, 0);
+                int tileIdx = digitBase + (digit * 2); // 2 tiles per digit
+                // Top half (8×8)
+                renderer.drawPatternIndex(tileIdx, x + i * DIGIT_SPACING, worldY, 0);
+                // Bottom half (8×8)
+                renderer.drawPatternIndex(tileIdx + 1, x + i * DIGIT_SPACING, worldY + 8, 0);
             }
         }
     }
