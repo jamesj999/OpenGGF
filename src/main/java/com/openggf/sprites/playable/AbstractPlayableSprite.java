@@ -2364,6 +2364,20 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         }
 
         /**
+         * Fills position history with current position.
+         * ROM: Reset_Player_Position_Array — called on spindash release & fire dash
+         * so the camera delay looks back to "right here" instead of stale positions.
+         */
+        public void resetPositionHistory() {
+                short currentX = getX();
+                short currentY = getY();
+                for (int i = 0; i < xHistory.length; i++) {
+                        xHistory[i] = currentX;
+                        yHistory[i] = currentY;
+                }
+        }
+
+        /**
          * Returns the recorded input bitmask from framesBehind frames ago.
          * ROM: Reads from Sonic_Stat_Record_Buf for Tails CPU input replay.
          * Use INPUT_UP/DOWN/LEFT/RIGHT/JUMP constants to test individual bits.
