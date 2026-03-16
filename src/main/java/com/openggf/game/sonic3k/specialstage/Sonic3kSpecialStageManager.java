@@ -81,6 +81,8 @@ public class Sonic3kSpecialStageManager {
     private int ringsLeft;
     /** Whether the exit spin animation has been started. */
     private boolean exitSpinStarted;
+    /** Palette fade delay counter (ROM: Pal_fade_delay, counts down from 2). */
+    private int palFadeDelay;
 
     // ==================== Ring Animation ====================
     /** Ring animation timer (counts down from 7, resets). */
@@ -121,6 +123,7 @@ public class Sonic3kSpecialStageManager {
         this.emeraldInteractIndex = -1;
         this.ringsLeft = 0;
         this.exitSpinStarted = false;
+        this.palFadeDelay = 0;
         this.bannerPhase = 0;
         this.bannerTimer = 0;
         this.bannerOffset = 0;
@@ -407,20 +410,32 @@ public class Sonic3kSpecialStageManager {
             updateClearSequence();
         }
 
-        // During exit spin, fade the palette to white.
-        // ROM: Pal_ToWhite called every 3 frames during the 60-frame exit loop.
+        // During exit spin, fade palette to white.
+        // ROM: Pal_fade_delay counts down from 2, calls Pal_ToWhite when < 0,
+        // then resets to 2. This calls every 3 frames. Each call increments
+        // each color channel by one Mega Drive step (3-bit: 7 steps to max).
+        // In 0-255 range: step = ceil(255/7) = 37. Full white in ~21 frames.
         if (exitSpinStarted && player.getFadeTimer() > 0) {
-            // Fade palette toward white by incrementing color components
-            if (player.getFadeTimer() % 3 == 0 && palette != null) {
+            palFadeDelay--;
+            if (palFadeDelay < 0 && palette != null) {
+                palFadeDelay = 2;
+                // ROM Pal_AddColor2: increments only ONE channel per color per call.
+                // Checks R first, then G, then B. Only the first non-maxed channel
+                // is incremented. One MD step = 255/7 ≈ 37 in 0-255 range.
+                int step = 37;
                 for (int line = 0; line < 4; line++) {
                     com.openggf.level.Palette pal = palette.getPalette(line);
                     for (int c = 0; c < 16; c++) {
                         int r = pal.colors[c].r & 0xFF;
                         int g = pal.colors[c].g & 0xFF;
                         int b = pal.colors[c].b & 0xFF;
-                        pal.colors[c].r = (byte) Math.min(255, r + 28);
-                        pal.colors[c].g = (byte) Math.min(255, g + 28);
-                        pal.colors[c].b = (byte) Math.min(255, b + 28);
+                        if (r < 255) {
+                            pal.colors[c].r = (byte) Math.min(255, r + step);
+                        } else if (g < 255) {
+                            pal.colors[c].g = (byte) Math.min(255, g + step);
+                        } else if (b < 255) {
+                            pal.colors[c].b = (byte) Math.min(255, b + step);
+                        }
                     }
                     GraphicsManager.getInstance().cachePaletteTexture(pal, line);
                 }
