@@ -769,6 +769,15 @@ public class LWJGLAudioBackend implements AudioBackend {
         }
     }
 
+    @Override
+    public void changeMusicTempo(int newDividingTiming) {
+        synchronized (streamLock) {
+            if (currentSmps != null) {
+                currentSmps.updateDividingTiming(newDividingTiming);
+            }
+        }
+    }
+
     private void updateSynthesizerConfig() {
         if (currentSmps == null || currentSmps.getSynthesizer() == null)
             return;

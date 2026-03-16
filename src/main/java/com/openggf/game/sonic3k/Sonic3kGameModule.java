@@ -25,8 +25,10 @@ import com.openggf.game.LevelGamestate;
 import com.openggf.game.TitleCardProvider;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
+import com.openggf.game.SpecialStageProvider;
 import com.openggf.game.sonic3k.objects.Sonic3kObjectRegistry;
 import com.openggf.game.sonic3k.scroll.Sonic3kScrollHandlerProvider;
+import com.openggf.game.sonic3k.specialstage.Sonic3kSpecialStageProvider;
 import com.openggf.game.sonic3k.titlecard.Sonic3kTitleCardManager;
 import com.openggf.game.OscillationManager;
 import com.openggf.level.objects.ObjectRegistry;
@@ -47,6 +49,7 @@ public class Sonic3kGameModule implements GameModule {
     private Sonic3kLevelEventManager levelEventManager;
     private PhysicsProvider physicsProvider;
     private Sonic3kObjectArtProvider objectArtProvider;
+    private Sonic3kSpecialStageProvider specialStageProvider;
 
     @Override
     public String getIdentifier() {
@@ -195,6 +198,14 @@ public class Sonic3kGameModule implements GameModule {
     public void onLevelLoad() {
         // Reset oscillation values used by moving platforms, etc.
         OscillationManager.reset();
+    }
+
+    @Override
+    public SpecialStageProvider getSpecialStageProvider() {
+        if (specialStageProvider == null) {
+            specialStageProvider = new Sonic3kSpecialStageProvider();
+        }
+        return specialStageProvider;
     }
 
     @Override

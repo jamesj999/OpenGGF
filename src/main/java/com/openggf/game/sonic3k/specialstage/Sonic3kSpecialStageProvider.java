@@ -1,0 +1,221 @@
+package com.openggf.game.sonic3k.specialstage;
+
+import com.openggf.game.NoOpResultsScreen;
+import com.openggf.game.ResultsScreen;
+import com.openggf.game.SpecialStageAccessType;
+import com.openggf.game.SpecialStageDebugProvider;
+import com.openggf.game.SpecialStageProvider;
+import com.openggf.game.sonic3k.audio.Sonic3kMusic;
+import com.openggf.game.sonic3k.audio.Sonic3kSfx;
+
+import java.io.IOException;
+
+/**
+ * Sonic 3&K special stage provider implementation.
+ * Wraps {@link Sonic3kSpecialStageManager} with the {@link SpecialStageProvider}
+ * interface, following the same pattern as {@code Sonic2SpecialStageProvider}.
+ * <p>
+ * S3K special stages are accessed via giant rings hidden in levels.
+ * Each stage awards one of seven Chaos Emeralds upon successful completion.
+ */
+public class Sonic3kSpecialStageProvider implements SpecialStageProvider {
+    private final Sonic3kSpecialStageManager manager;
+
+    public Sonic3kSpecialStageProvider() {
+        this.manager = Sonic3kSpecialStageManager.getInstance();
+    }
+
+    @Override
+    public int getTransitionSfxId() {
+        return Sonic3kSfx.BIG_RING.id;
+    }
+
+    @Override
+    public int getStageMusicId() {
+        return Sonic3kMusic.SPECIAL_STAGE.id;
+    }
+
+    @Override
+    public int getResultsMusicId() {
+        return Sonic3kMusic.ACT_CLEAR.id;
+    }
+
+    @Override
+    public boolean hasSpecialStages() {
+        return true;
+    }
+
+    @Override
+    public SpecialStageAccessType getAccessType() {
+        return SpecialStageAccessType.GIANT_RING;
+    }
+
+    @Override
+    public void initializeStage(int stageIndex) throws IOException {
+        manager.reset();
+        manager.initialize(stageIndex);
+    }
+
+    @Override
+    public int getCurrentStage() {
+        return manager.getCurrentStage();
+    }
+
+    @Override
+    public boolean isEmeraldCollected() {
+        return manager.hasEmeraldCollected();
+    }
+
+    @Override
+    public int getEmeraldIndex() {
+        return isEmeraldCollected() ? getCurrentStage() : -1;
+    }
+
+    @Override
+    public int getRingsCollected() {
+        return manager.getRingsCollected();
+    }
+
+    @Override
+    public void setEmeraldCollected(boolean collected) {
+        manager.setEmeraldCollected(collected);
+    }
+
+    @Override
+    public int getDebugCompletionRingCount(int stageIndex) {
+        // S3K special stages don't have checkpoint ring requirements
+        // like S2. Return a nominal value for debug purposes.
+        return 50;
+    }
+
+    // ==================== Debug Methods ====================
+
+    @Override
+    public boolean isSpriteDebugMode() {
+        return manager.isSpriteDebugMode();
+    }
+
+    @Override
+    public void toggleSpriteDebugMode() {
+        manager.toggleSpriteDebugMode();
+    }
+
+    @Override
+    public void cyclePlaneDebugMode() {
+        manager.cyclePlaneDebugMode();
+    }
+
+    @Override
+    public SpecialStageDebugProvider getDebugProvider() {
+        return manager.getDebugProvider();
+    }
+
+    // ==================== Alignment Test Methods ====================
+
+    @Override
+    public boolean isAlignmentTestMode() {
+        return manager.isAlignmentTestMode();
+    }
+
+    @Override
+    public void toggleAlignmentTestMode() {
+        manager.toggleAlignmentTestMode();
+    }
+
+    @Override
+    public void adjustAlignmentOffset(int delta) {
+        manager.adjustAlignmentOffset(delta);
+    }
+
+    @Override
+    public void adjustAlignmentSpeed(double delta) {
+        manager.adjustAlignmentSpeed(delta);
+    }
+
+    @Override
+    public void toggleAlignmentStepMode() {
+        manager.toggleAlignmentStepMode();
+    }
+
+    @Override
+    public void renderAlignmentOverlay(int viewportWidth, int viewportHeight) {
+        manager.renderAlignmentOverlay(viewportWidth, viewportHeight);
+    }
+
+    // ==================== Lag Compensation Methods ====================
+
+    @Override
+    public void renderLagCompensationOverlay(int viewportWidth, int viewportHeight) {
+        manager.renderLagCompensationOverlay(viewportWidth, viewportHeight);
+    }
+
+    @Override
+    public double getLagCompensation() {
+        return manager.getLagCompensation();
+    }
+
+    @Override
+    public void setLagCompensation(double factor) {
+        manager.setLagCompensation(factor);
+    }
+
+    // ==================== Results Screen ====================
+
+    @Override
+    public ResultsScreen createResultsScreen(int ringsCollected, boolean gotEmerald,
+                                             int stageIndex, int totalEmeraldCount) {
+        // TODO Phase 7: Return Sonic3kSpecialStageResultsScreen
+        return NoOpResultsScreen.INSTANCE;
+    }
+
+    // ==================== MiniGameProvider Methods ====================
+
+    @Override
+    public void initialize() throws IOException {
+        // No-op: Use initializeStage(int) instead
+    }
+
+    @Override
+    public void update() {
+        manager.update();
+    }
+
+    @Override
+    public void draw() {
+        manager.draw();
+    }
+
+    @Override
+    public void handleInput(int heldButtons, int pressedButtons) {
+        manager.handleInput(heldButtons, pressedButtons);
+    }
+
+    @Override
+    public void handlePlayer2Input(int heldButtons, int logicalButtons) {
+        manager.handlePlayer2Input(heldButtons, logicalButtons);
+    }
+
+    @Override
+    public boolean isFinished() {
+        return manager.isFinished();
+    }
+
+    @Override
+    public void reset() {
+        manager.reset();
+    }
+
+    @Override
+    public boolean isInitialized() {
+        return manager.isInitialized();
+    }
+
+    /**
+     * Gets the underlying manager for advanced functionality.
+     *
+     * @return the Sonic3kSpecialStageManager instance
+     */
+    public Sonic3kSpecialStageManager getManager() {
+        return manager;
+    }
+}

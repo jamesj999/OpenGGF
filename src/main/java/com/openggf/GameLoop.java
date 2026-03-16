@@ -279,6 +279,19 @@ public class GameLoop {
         if (currentGameMode == GameMode.SPECIAL_STAGE) {
             SpecialStageProvider ssProvider = getActiveSpecialStageProvider();
 
+            // Debug: X key = next stage within current set
+            if (inputHandler.isKeyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_X)) {
+                if (ssProvider instanceof com.openggf.game.sonic3k.specialstage.Sonic3kSpecialStageProvider s3kProvider) {
+                    s3kProvider.getManager().debugNextStage();
+                }
+            }
+            // Debug: Z key = switch layout set (S3 ↔ SK)
+            if (inputHandler.isKeyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_Z)) {
+                if (ssProvider instanceof com.openggf.game.sonic3k.specialstage.Sonic3kSpecialStageProvider s3kProvider) {
+                    s3kProvider.getManager().debugToggleLayoutSet();
+                }
+            }
+
             // Debug complete special stage with emerald (for testing results screen)
             if (inputHandler.isKeyPressed(configService.getInt(SonicConfiguration.SPECIAL_STAGE_COMPLETE_KEY))) {
                 debugCompleteSpecialStageWithEmerald();
@@ -1813,20 +1826,19 @@ public class GameLoop {
             heldButtons |= 0x08;
         }
 
-        if (ssProvider.isGameplayDebugMode()) {
-            if (inputHandler.isKeyDown(upKey)) {
-                heldButtons |= 0x01;
-            }
-            if (inputHandler.isKeyDown(downKey)) {
-                heldButtons |= 0x02;
-            }
-        } else {
-            if (inputHandler.isKeyPressed(jumpKey)) {
-                pressedButtons |= 0x70;
-            }
-            if (inputHandler.isKeyDown(jumpKey)) {
-                heldButtons |= 0x70;
-            }
+        // Up/Down: always mapped (S3K Blue Ball needs UP for forward movement)
+        if (inputHandler.isKeyDown(upKey)) {
+            heldButtons |= 0x01;
+        }
+        if (inputHandler.isKeyDown(downKey)) {
+            heldButtons |= 0x02;
+        }
+        // Jump (A/B/C)
+        if (inputHandler.isKeyPressed(jumpKey)) {
+            pressedButtons |= 0x70;
+        }
+        if (inputHandler.isKeyDown(jumpKey)) {
+            heldButtons |= 0x70;
         }
 
         if (inputHandler.isKeyDown(p2LeftKey)) {

@@ -155,13 +155,13 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
         AudioManager.getInstance().playSfx(Sonic3kSfx.BIG_RING.id);
 
         // ROM: if all emeralds collected, award 50 rings instead of SS transition
-        // For now, always award 50 rings (SS transition not yet implemented)
         if (gameState.hasAllEmeralds()) {
             LOGGER.fine("SSEntryRing #" + bitIndex + " collected — all emeralds owned, awarding 50 rings");
+            player.addRings(RING_REWARD);
         } else {
-            LOGGER.fine("SSEntryRing #" + bitIndex + " collected — would enter Special Stage (not yet implemented), awarding 50 rings");
+            LOGGER.fine("SSEntryRing #" + bitIndex + " collected — entering Special Stage");
+            LevelManager.getInstance().requestSpecialStageEntry();
         }
-        player.addRings(RING_REWARD);
 
         // Mark as destroyed so ObjectManager removes it
         setDestroyed(true);
