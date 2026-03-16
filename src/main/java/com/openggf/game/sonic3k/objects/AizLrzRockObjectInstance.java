@@ -70,6 +70,11 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
     private static final int BIT_BREAK_SIDE = 0x04;
     private static final int BIT_BREAK_BOTTOM = 0x08;
 
+    // ROM (sonic3k.asm:43880-43884): when subtype lower nibble == 0x0F, the object
+    // uses a completely separate routine (loc_20002) that only breaks when Knuckles
+    // stands on it — no rolling check, no push, no side/bottom break.
+    private static final int KNUCKLES_ONLY_STANDING_NIBBLE = 0x0F;
+
     // Side-break speed threshold: ROM loc_1FD90 cmpi.w #$480,d0
     private static final int SIDE_BREAK_SPEED_THRESHOLD = 0x480;
 
@@ -145,6 +150,7 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
     private final int sizeIndex;
     private final int behaviorBits;
     private final boolean knucklesOnly;
+    private final boolean knucklesOnlyStanding; // subtype $xF: loc_20002 path
     private final int displayFrame;
 
     // Push mode state
@@ -175,7 +181,11 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
         this.dynamicSpawn = spawn;
 
         this.sizeIndex = (spawn.subtype() >> 4) & 0x07;
-        this.behaviorBits = spawn.subtype() & 0x0F;
+        int lowerNibble = spawn.subtype() & 0x0F;
+        // ROM (sonic3k.asm:43880-43884): lower nibble 0x0F = Knuckles-only standing break (loc_20002).
+        // Normal behavior bits are NOT used; this is a separate routine entirely.
+        this.knucklesOnlyStanding = (lowerNibble == KNUCKLES_ONLY_STANDING_NIBBLE);
+        this.behaviorBits = knucklesOnlyStanding ? 0 : lowerNibble;
         // ROM (sonic3k.asm:44155): tst.b subtype(a0) / bpl.s — bit 7 gates Knuckles-only side break
         this.knucklesOnly = (spawn.subtype() & 0x80) != 0;
 
@@ -214,10 +224,10 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
             }
         }
 
-        // Bottom break: player hits from below
+        // Bottom break: player hits from below (not applicable for knucklesOnlyStanding variant)
         // ROM (loc_1FF48): breaks on ANY bottom contact - no spin check.
         // ROM restores saved y_vel so the player continues upward through the breaking rock.
-        if ((behaviorBits & BIT_BREAK_BOTTOM) != 0 && contact.touchBottom()) {
+        if (!knucklesOnlyStanding && (behaviorBits & BIT_BREAK_BOTTOM) != 0 && contact.touchBottom()) {
             breakRock(player);
             // ROM (loc_1FF84): move.w $30(a0),y_vel(a1) — restore pre-contact y velocity
             player.setYSpeed((short) savedPreContactYSpeed);
@@ -228,6 +238,22 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
     public void update(int frameCounter, AbstractPlayableSprite player) {
         if (breaking) {
             // Already broken — destroyed by debris children going offscreen
+            return;
+        }
+
+        // ROM (loc_20002): subtype lower nibble 0x0F — only Knuckles standing on it breaks.
+        // No rolling check, no push, no side/bottom. Just standing + character_id == 2.
+        if (knucklesOnlyStanding && playerStandingOnRock && player != null) {
+            if (isKnuckles()) {
+                // ROM (sub_20056): same break physics as normal top break
+                player.setRolling(true);
+                player.setYSpeed((short) -0x300);
+                player.setAir(true);
+                player.setOnObject(false);
+                breakRock(player);
+            }
+            playerStandingOnRock = false;
+            playerPushingSide = false;
             return;
         }
 
