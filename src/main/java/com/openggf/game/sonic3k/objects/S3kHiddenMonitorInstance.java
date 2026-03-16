@@ -11,6 +11,7 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
 import java.util.List;
 import java.util.logging.Logger;
 
+
 /**
  * S3K hidden monitor (Object 0x80).
  *
@@ -64,6 +65,8 @@ public class S3kHiddenMonitorInstance extends AbstractObjectInstance {
 
         if (dx >= RANGE_LEFT && dx < RANGE_RIGHT && dy >= RANGE_TOP && dy < RANGE_BOTTOM) {
             // In range: reveal monitor, bounce signpost
+            // ROM: loc_83760 — bclr #0,$38(a1) clears signpost landed flag,
+            // then transforms into Obj_Monitor with y_vel = -$500
             LOG.fine("Hidden monitor at (" + monitorX + "," + monitorY
                     + ") IN RANGE of signpost — revealing");
             try {
@@ -73,8 +76,12 @@ public class S3kHiddenMonitorInstance extends AbstractObjectInstance {
             }
             signpost.setLanded(false);
 
-            // TODO: Transform into visible monitor (requires MonitorInstance integration).
-            // For now, just destroy self as the monitor cannot yet be interacted with.
+            // Spawn a visible monitor that pops upward and falls with gravity
+            ObjectSpawn monitorSpawn = new ObjectSpawn(
+                    monitorX, monitorY, 0x01, monitorSubtype, 0, false, 0);
+            Sonic3kMonitorObjectInstance monitor = new Sonic3kMonitorObjectInstance(monitorSpawn);
+            monitor.revealFromHidden();
+            spawnDynamicObject(monitor);
             setDestroyed(true);
         } else {
             // Out of range: play sound and disappear
