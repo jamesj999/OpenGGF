@@ -178,9 +178,14 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
      * ROM: sonic3k.asm lines 62919-63003.
      */
     private void createElements() {
+        // ROM ObjArray_LevResults uses VDP coordinates (+128 hardware offset on X and Y).
+        // Our engine uses direct screen coordinates, so subtract 128 from all positions.
+        // CLAUDE.md: "VDP hardware adds 128 to X/Y. Convert: screen_position = vdp_value - 128"
+        final int V = 128; // VDP offset
+
         int charNameFrame = getCharNameFrame();
-        int charNameTargetX = 0xE0;
-        int charNameStartX = -0x220;
+        int charNameTargetX = 0xE0 - V;
+        int charNameStartX = -0x220 - V;
         int charNameWidth = 0x48;
 
         if (character == PlayerCharacter.KNUCKLES) {
@@ -194,18 +199,18 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
             charNameWidth -= 8;
         }
 
-        elements[0]  = new ResultsElement(ResultsElement.Type.CHAR_NAME,  charNameTargetX, charNameStartX, 0xB8, charNameFrame, charNameWidth, 1);
-        elements[1]  = new ResultsElement(ResultsElement.Type.GENERAL,    0x130, -0x1D0, 0xB8, 0x11, 0x30, 1);
-        elements[2]  = new ResultsElement(ResultsElement.Type.GENERAL,    0xE8,   0x468, 0xCC, 0x10, 0x70, 3);
-        elements[3]  = new ResultsElement(ResultsElement.Type.GENERAL,    0x160,  0x4E0, 0xBC, 0x0F, 0x38, 3);
-        elements[4]  = new ResultsElement(ResultsElement.Type.GENERAL,    0xC0,   0x4C0, 0xF0, 0x0E, 0x20, 5);
-        elements[5]  = new ResultsElement(ResultsElement.Type.GENERAL,    0xE8,   0x4E8, 0xF0, 0x0C, 0x30, 5);
-        elements[6]  = new ResultsElement(ResultsElement.Type.TIME_BONUS, 0x178,  0x578, 0xF0, 1,    0x40, 5);
-        elements[7]  = new ResultsElement(ResultsElement.Type.GENERAL,    0xC0,   0x500, 0x100, 0x0D, 0x20, 7);
-        elements[8]  = new ResultsElement(ResultsElement.Type.GENERAL,    0xE8,   0x528, 0x100, 0x0C, 0x30, 7);
-        elements[9]  = new ResultsElement(ResultsElement.Type.RING_BONUS, 0x178,  0x5B8, 0x100, 1,    0x40, 7);
-        elements[10] = new ResultsElement(ResultsElement.Type.GENERAL,    0xD4,   0x554, 0x11C, 0x0B, 0x30, 9);
-        elements[11] = new ResultsElement(ResultsElement.Type.TOTAL,      0x178,  0x5F8, 0x11C, 1,    0x40, 9);
+        elements[0]  = new ResultsElement(ResultsElement.Type.CHAR_NAME,  charNameTargetX, charNameStartX, 0xB8 - V, charNameFrame, charNameWidth, 1);
+        elements[1]  = new ResultsElement(ResultsElement.Type.GENERAL,    0x130 - V, -0x1D0 - V, 0xB8 - V, 0x11, 0x30, 1);
+        elements[2]  = new ResultsElement(ResultsElement.Type.GENERAL,    0xE8 - V,   0x468 - V, 0xCC - V, 0x10, 0x70, 3);
+        elements[3]  = new ResultsElement(ResultsElement.Type.GENERAL,    0x160 - V,  0x4E0 - V, 0xBC - V, 0x0F, 0x38, 3);
+        elements[4]  = new ResultsElement(ResultsElement.Type.GENERAL,    0xC0 - V,   0x4C0 - V, 0xF0 - V, 0x0E, 0x20, 5);
+        elements[5]  = new ResultsElement(ResultsElement.Type.GENERAL,    0xE8 - V,   0x4E8 - V, 0xF0 - V, 0x0C, 0x30, 5);
+        elements[6]  = new ResultsElement(ResultsElement.Type.TIME_BONUS, 0x178 - V,  0x578 - V, 0xF0 - V, 1,    0x40, 5);
+        elements[7]  = new ResultsElement(ResultsElement.Type.GENERAL,    0xC0 - V,   0x500 - V, 0x100 - V, 0x0D, 0x20, 7);
+        elements[8]  = new ResultsElement(ResultsElement.Type.GENERAL,    0xE8 - V,   0x528 - V, 0x100 - V, 0x0C, 0x30, 7);
+        elements[9]  = new ResultsElement(ResultsElement.Type.RING_BONUS, 0x178 - V,  0x5B8 - V, 0x100 - V, 1,    0x40, 7);
+        elements[10] = new ResultsElement(ResultsElement.Type.GENERAL,    0xD4 - V,   0x554 - V, 0x11C - V, 0x0B, 0x30, 9);
+        elements[11] = new ResultsElement(ResultsElement.Type.TOTAL,      0x178 - V,  0x5F8 - V, 0x11C - V, 1,    0x40, 9);
         childrenRemaining = 12;
     }
 
@@ -464,17 +469,9 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
                 LOG.warning("Failed to load results screen art");
             }
 
-            // Load palette -- 128 bytes = 4 palette lines
-            byte[] palette = objectArt.loadResultsPalette();
-            if (palette != null) {
-                LevelManager lm = LevelManager.getInstance();
-                for (int line = 0; line < 4 && line * 32 < palette.length; line++) {
-                    byte[] lineData = new byte[32];
-                    System.arraycopy(palette, line * 32, lineData, 0,
-                            Math.min(32, palette.length - line * 32));
-                    lm.updatePalette(line, lineData);
-                }
-            }
+            // Note: The level results screen uses the existing level palette.
+            // Pal_Results in the ROM is for the special stage results screen, not here.
+            // (S2 results screen also does not load a palette.)
         } catch (Exception e) {
             artLoaded = false;
             LOG.warning("Failed to load results screen art: " + e.getMessage());

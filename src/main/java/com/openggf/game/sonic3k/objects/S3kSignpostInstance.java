@@ -335,6 +335,15 @@ public class S3kSignpostInstance extends AbstractObjectInstance {
             return;
         }
 
+        // ROM: Set_PlayerEndingPose (sonic3k.asm lines 181977-181988)
+        // Lock controls, set victory animation, clear all velocity
+        player.setControlLocked(true);
+        player.setXSpeed((short) 0);
+        player.setYSpeed((short) 0);
+        player.setGSpeed((short) 0);
+        // Animation 0x13 = victory/celebration pose (ROM: Set_PlayerEndingPose)
+        player.setAnimationId(0x13);
+
         // Spawn the results screen (handles score tally and act transition signal)
         spawnDynamicObject(new S3kResultsScreenObjectInstance(
                 getPlayerCharacter(),
