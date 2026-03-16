@@ -764,7 +764,10 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
 
                 ObjectSpawn bossSpawn = new ObjectSpawn(bossX, bossY, 0x91, 0, 0, false, bossY);
                 AizMinibossInstance boss = new AizMinibossInstance(bossSpawn, LevelManager.getInstance());
-                LevelManager.getInstance().getObjectManager().addDynamicObject(boss);
+                var objManager = LevelManager.getInstance().getObjectManager();
+                if (objManager != null) {
+                    objManager.addDynamicObject(boss);
+                }
                 LOG.info("AIZ2 resize: spawned miniboss at (0x" + Integer.toHexString(bossX)
                         + ", 0x" + Integer.toHexString(bossY) + ")");
             }
