@@ -10,6 +10,8 @@ import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
+import com.openggf.physics.ObjectTerrainUtils;
+import com.openggf.physics.TerrainCheckResult;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -78,6 +80,7 @@ public class S3kSignpostInstance extends AbstractObjectInstance {
     private static final int[] FACE_FRAMES = {0, 0, 1, 2};
 
     private static final int GRAVITY = 0x0C;
+    private static final int Y_RADIUS = 0x1E;
     private static final int ANIM_FRAME_DELAY = 2;
     private static final int SPARKLE_INTERVAL = 4;
     private static final int POST_LAND_TIMER = 0x40;
@@ -223,9 +226,16 @@ public class S3kSignpostInstance extends AbstractObjectInstance {
         // Animate spin
         advanceAnimation();
 
-        // Landing check
+        // Landing check — use terrain collision (ROM: ObjCheckFloorDist)
+        // Only check when moving downward and past the minimum camera-relative Y
         if (yVel > 0 && worldY >= camera.getY() + LAND_Y_THRESHOLD) {
-            // Use simple Y threshold (terrain collision can be added later)
+            TerrainCheckResult floor = ObjectTerrainUtils.checkFloorDist(worldX, worldY, Y_RADIUS);
+            if (floor.distance() < 0) {
+                // Snap to floor surface
+                worldY += floor.distance();
+            } else {
+                return; // No floor contact yet — keep falling
+            }
             landed = true;
             postLandTimer = POST_LAND_TIMER;
             yVel = 0;
