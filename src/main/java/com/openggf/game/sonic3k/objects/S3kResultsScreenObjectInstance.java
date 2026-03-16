@@ -2,7 +2,9 @@ package com.openggf.game.sonic3k.objects;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
+import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
+import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.sonic2.objects.AbstractResultsScreen;
@@ -11,6 +13,8 @@ import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.titlecard.Sonic3kTitleCardManager;
+import com.openggf.sprites.managers.SpriteManager;
+import com.openggf.tools.NemesisReader;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.LevelManager;
@@ -21,7 +25,8 @@ import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpriteMappingPiece;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.util.ArrayList;
+import java.nio.channels.FileChannel;
+import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -451,7 +456,7 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
             playerRef.setObjectControlled(false);
         }
         // Unlock sidekick (Tails) — ROM: Ctrl_2_locked cleared at level transition
-        var sidekick = com.openggf.sprites.managers.SpriteManager.getInstance().getSidekick();
+        var sidekick = SpriteManager.getInstance().getSidekick();
         if (sidekick != null) {
             sidekick.setControlLocked(false);
             sidekick.setObjectControlled(false);
@@ -485,7 +490,7 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
             // The level data continues seamlessly (S3K acts share the same level).
 
             // Play act 2 music
-            var zoneRegistry = com.openggf.game.GameModuleRegistry.getCurrent().getZoneRegistry();
+            var zoneRegistry = GameModuleRegistry.getCurrent().getZoneRegistry();
             int act2MusicId = zoneRegistry.getMusicId(zone, 1);
             if (act2MusicId >= 0) {
                 try { AudioManager.getInstance().playMusic(act2MusicId); } catch (Exception e) { /* ignore */ }
@@ -531,7 +536,7 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
                 // Adjust tile indices: ROM mappings use absolute VRAM tile indices (e.g. 0x520),
                 // but our patterns array is 0-based (patterns[0] = VRAM $520).
                 // Subtract VRAM_RESULTS_BASE so piece.tileIndex() maps to array indices.
-                mappingFrames = adjustTileIndices(rawMappings, -Sonic3kConstants.VRAM_RESULTS_BASE);
+                mappingFrames = Sonic3kObjectArt.adjustTileIndices(rawMappings, -Sonic3kConstants.VRAM_RESULTS_BASE);
 
                 // Create sprite sheet and renderer
                 spriteSheet = new ObjectSpriteSheet(combinedPatterns, mappingFrames, 0, 1);
@@ -551,29 +556,6 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
         }
     }
 
-    /**
-     * Adjusts tile indices in mapping frames by a fixed offset.
-     * Mirrors {@code Sonic3kObjectArt.adjustTileIndices()} (which is private).
-     */
-    private static List<SpriteMappingFrame> adjustTileIndices(
-            List<SpriteMappingFrame> frames, int adjustment) {
-        if (adjustment == 0) return frames;
-        List<SpriteMappingFrame> adjusted = new ArrayList<>(frames.size());
-        for (SpriteMappingFrame frame : frames) {
-            List<SpriteMappingPiece> adjustedPieces = new ArrayList<>(frame.pieces().size());
-            for (SpriteMappingPiece piece : frame.pieces()) {
-                adjustedPieces.add(new SpriteMappingPiece(
-                        piece.xOffset(), piece.yOffset(),
-                        piece.widthTiles(), piece.heightTiles(),
-                        piece.tileIndex() + adjustment,
-                        piece.hFlip(), piece.vFlip(),
-                        piece.paletteIndex(), piece.priority()
-                ));
-            }
-            adjusted.add(new SpriteMappingFrame(adjustedPieces));
-        }
-        return adjusted;
-    }
 
     /**
      * Loads HUD text tiles from ArtNem_RingHUDText and places them at the correct
@@ -583,11 +565,11 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
      * ring art ($6BC-$6C9), tiles 14+ are HUD text starting at $6CA.
      * The results mapping frames reference these tiles for TIME/RING/BONUS labels.
      */
-    private void loadHudTextIntoPatterns(com.openggf.data.Rom rom, Pattern[] patterns) {
+    private void loadHudTextIntoPatterns(Rom rom, Pattern[] patterns) {
         try {
-            java.nio.channels.FileChannel channel = rom.getFileChannel();
+            FileChannel channel = rom.getFileChannel();
             channel.position(Sonic3kConstants.ART_NEM_RING_HUD_TEXT_ADDR);
-            byte[] data = com.openggf.tools.NemesisReader.decompress(channel);
+            byte[] data = NemesisReader.decompress(channel);
 
             int totalTiles = data.length / Pattern.PATTERN_SIZE_IN_ROM;
             // ArtTile_Ring = $6BC. Place ALL tiles starting at array index $6BC - $520 = $19C
@@ -595,7 +577,7 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
             for (int i = 0; i < totalTiles; i++) {
                 int arrayIdx = (vramBase + i) - Sonic3kConstants.VRAM_RESULTS_BASE;
                 if (arrayIdx >= 0 && arrayIdx < patterns.length) {
-                    byte[] tileData = java.util.Arrays.copyOfRange(data,
+                    byte[] tileData = Arrays.copyOfRange(data,
                             i * Pattern.PATTERN_SIZE_IN_ROM,
                             (i + 1) * Pattern.PATTERN_SIZE_IN_ROM);
                     Pattern pat = new Pattern();

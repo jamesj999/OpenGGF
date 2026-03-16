@@ -930,7 +930,7 @@ public class Sonic3kObjectArt {
         return new SpriteMappingFrame(List.of(piece));
     }
 
-    private List<SpriteMappingFrame> adjustTileIndices(List<SpriteMappingFrame> frames, int adjustment) {
+    public static List<SpriteMappingFrame> adjustTileIndices(List<SpriteMappingFrame> frames, int adjustment) {
         if (adjustment == 0) {
             return frames;
         }

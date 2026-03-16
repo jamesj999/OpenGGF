@@ -16,6 +16,7 @@ import com.openggf.physics.TerrainCheckResult;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -353,7 +354,7 @@ public class S3kSignpostInstance extends AbstractObjectInstance {
 
         // ROM line 176215: st (Ctrl_2_locked).w — lock sidekick (Tails) input
         // Also apply Set_PlayerEndingPose equivalent so Tails does a victory pose
-        var sidekick = com.openggf.sprites.managers.SpriteManager.getInstance().getSidekick();
+        var sidekick = SpriteManager.getInstance().getSidekick();
         if (sidekick != null) {
             sidekick.setObjectControlled(true);
             sidekick.setControlLocked(true);

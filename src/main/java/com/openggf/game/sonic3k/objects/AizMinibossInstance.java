@@ -86,15 +86,6 @@ public class AizMinibossInstance extends AbstractBossInstance {
     private Runnable waitCallback;
     private boolean defeatRenderComplete;
 
-    /**
-     * ROM: ChildObjDat_46FEE — 7 fixed-position explosions spawned by the body
-     * child at loc_46C96 after the barrel defeat animation. Offsets are (x, y)
-     * relative to the boss centre.
-     */
-    private static final int[][] DEFEAT_EXPLOSION_OFFSETS = {
-            {0, -0x24}, {8, -0x1C}, {-8, -0x1C},
-            {4, -0x14}, {-4, -0x14}, {4, -4}, {-4, -4}
-    };
     /** Stagger explosion controller for boss defeat (ROM: Child6_CreateBossExplosion subtype 0). */
     private S3kBossExplosionController defeatExplosionController;
 
@@ -464,21 +455,6 @@ public class AizMinibossInstance extends AbstractBossInstance {
         }
     }
 
-    /**
-     * Spawn 7 fixed-position explosions matching ROM ChildObjDat_46FEE.
-     * ROM: loc_46C96 plays sfx_MissileExplode and creates 7 children at fixed offsets.
-     */
-    private void spawnDefeatExplosions() {
-        AudioManager.getInstance().playSfx(Sonic3kSfx.MISSILE_EXPLODE.id);
-        var objectManager = levelManager.getObjectManager();
-        if (objectManager == null) {
-            return;
-        }
-        for (int[] offset : DEFEAT_EXPLOSION_OFFSETS) {
-            objectManager.addDynamicObject(
-                    new S3kBossExplosionChild(state.x + offset[0], state.y + offset[1]));
-        }
-    }
 
     /**
      * Destroy all in-flight attack objects spawned by this boss.
