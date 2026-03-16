@@ -61,7 +61,9 @@ public class Sonic3kObjectProfile implements GameObjectProfile {
             0x08, // Spikes
             0x0E, // TwistedRamp
             0x28, // InvisibleBlock
+            0x2A, // CorkFloor
             0x34, // StarPost
+            0x51, // FloatingPlatform
             0x85  // SSEntryRing
     );
 
