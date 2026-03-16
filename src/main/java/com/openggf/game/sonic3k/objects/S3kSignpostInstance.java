@@ -359,9 +359,12 @@ public class S3kSignpostInstance extends AbstractObjectInstance {
         }
 
         // Spawn the results screen (handles score tally and act transition signal)
+        // Use the level event manager's act (= ROM's Apparent_act), NOT LevelManager.getCurrentAct().
+        // AIZ reloads act 2 resources mid-level (seamless terrain swap) which changes
+        // LevelManager.currentAct to 1, but ROM's Apparent_act stays 0 until results exit.
+        int apparentAct = Sonic3kLevelEventManager.getInstance().getCurrentAct();
         spawnDynamicObject(new S3kResultsScreenObjectInstance(
-                getPlayerCharacter(),
-                LevelManager.getInstance().getCurrentAct()));
+                getPlayerCharacter(), apparentAct));
         LOG.fine("S3K Signpost RESULTS -> AFTER (results instance spawned)");
         state = State.AFTER;
     }
