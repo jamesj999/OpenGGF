@@ -388,19 +388,16 @@ public class AizMinibossInstance extends AbstractBossInstance {
             S3kBossDefeatSignpostFlow defeatFlow = new S3kBossDefeatSignpostFlow(
                     state.x,
                     () -> {
-                        // AIZ1 AfterBoss_Cleanup: restore palette from Pal_AIZ.
-                        // ROM copies 96 bytes (3 palette lines) to Normal_palette_line_2.
-                        // S3K uses 1-based palette naming: Normal_palette_line_2 at offset 0x20
-                        // = VDP line 1 = engine palette index 1.
-                        // Restores engine lines 1, 2, 3 (everything except character palette on line 0).
+                        // AfterBoss_AIZ2: restore fire palette to palette line 1.
+                        // ROM: lea (Pal_AIZFire).l,a1 / jsr (PalLoad_Line1).l
+                        // PalLoad_Line1 copies 32 bytes to Normal_palette_line_2
+                        // (S3K 1-based naming: line_2 = engine index 1).
+                        // The real miniboss fights in the post-fire section (technically AIZ2),
+                        // so we restore Pal_AIZFire, NOT Pal_AIZ (green AIZ1 palette).
                         try {
                             byte[] palData = GameServices.rom().getRom().readBytes(
-                                    Sonic3kConstants.PAL_AIZ_ADDR, Sonic3kConstants.PAL_AIZ_SIZE);
-                            for (int i = 0; i < 3 && (i * 32 + 32) <= palData.length; i++) {
-                                byte[] line = new byte[32];
-                                System.arraycopy(palData, i * 32, line, 0, 32);
-                                levelManager.updatePalette(i + 1, line);  // engine lines 1, 2, 3
-                            }
+                                    Sonic3kConstants.PAL_AIZ_FIRE_ADDR, 32);
+                            levelManager.updatePalette(1, palData);
                         } catch (Exception ignored) {
                             // Palette restore failures should not crash gameplay.
                         }

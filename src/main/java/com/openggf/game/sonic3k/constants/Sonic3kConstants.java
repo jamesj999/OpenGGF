@@ -577,9 +577,9 @@ public class Sonic3kConstants {
     public static final int ART_UNC_FIRE_SHIELD_ADDR = 0x18C704;
     public static final int ART_UNC_FIRE_SHIELD_SIZE = 8608;
 
-    // ArtUnc_LightningShield - Lightning Shield.bin (130 tiles)
+    // ArtUnc_LightningShield - Lightning Shield.bin (130 tiles) + Sparks.bin (5 tiles, contiguous)
     public static final int ART_UNC_LIGHTNING_SHIELD_ADDR = 0x18E8A4;
-    public static final int ART_UNC_LIGHTNING_SHIELD_SIZE = 4160;
+    public static final int ART_UNC_LIGHTNING_SHIELD_SIZE = 4320;
 
     // ArtUnc_LightningShield_Sparks - Sparks.bin (5 tiles)
     public static final int ART_UNC_LIGHTNING_SHIELD_SPARKS_ADDR = 0x18F8E4;
@@ -839,9 +839,13 @@ public class Sonic3kConstants {
     public static final int ART_TILE_END_SIGNS = 0x04AC;
     public static final int ART_TILE_SIGNPOST_STUB = 0x069E;
 
-    // ===== Pal_AIZ - Main AIZ palette (for AfterBoss_Cleanup restoring palette line 2) =====
+    // ===== Pal_AIZ - Main AIZ palette (for AfterBoss_Cleanup) =====
     public static final int PAL_AIZ_ADDR = 0x0A8B7C;
     public static final int PAL_AIZ_SIZE = 96;
+
+    // Pal_AIZFire - AIZ fire/post-transition palette (96 bytes = 3 lines)
+    // AfterBoss_AIZ2 loads first 32 bytes into palette line 1 via PalLoad_Line1
+    public static final int PAL_AIZ_FIRE_ADDR = 0x0A8BDC;
 
     private static boolean scanned = false;
 
