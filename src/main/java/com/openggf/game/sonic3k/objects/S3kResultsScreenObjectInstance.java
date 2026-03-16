@@ -467,9 +467,11 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
 
         GameServices.gameState().setEndOfLevelActive(false);
 
-        if (isAct2OrSpecial) {
-            GameServices.gameState().setEndOfLevelFlag(true);
-        } else {
+        // Always set endOfLevelFlag so S3kBossDefeatSignpostFlow can self-destruct
+        // and release camera boundaries. For act 2 this also triggers the zone transition.
+        GameServices.gameState().setEndOfLevelFlag(true);
+
+        if (!isAct2OrSpecial) {
             // Act 1: show act 2 title card (ROM lines 62708-62720)
             // ROM sets Apparent_act = 1 — in our engine the title card handles this visually.
             // The level data continues seamlessly (S3K acts share the same level).
@@ -619,26 +621,34 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
     /**
      * Renders a 7-digit BCD value with leading zero suppression.
      * ROM: LevResults_DisplayScore (sonic3k.asm lines 62789-62815).
-     * Each digit is 1×2 tiles (8×16 pixels) — top and bottom halves.
-     * Number art from ArtKosM_TitleCardNum has 2 tiles per digit (column-major).
+     *
+     * Each digit uses a mapping frame from Map_Results:
+     *   Frame 0 = blank (suppressed leading zero)
+     *   Frame 1 = "0", Frame 2 = "1", ... Frame 10 = "9"
+     * These frames reference tiles from ArtKosM_ResultsGeneral ($520+),
+     * NOT the act number art at $568.
      */
     private void renderBonusDigits(int worldX, int worldY, int value) {
         int x = worldX + DIGIT_OFFSET_X;
         boolean hasNonZero = false;
         int remaining = value;
-        // Number art starts at VRAM_RESULTS_NUMBERS, each digit = 2 tiles (top + bottom)
-        int digitBase = Sonic3kConstants.VRAM_RESULTS_NUMBERS - Sonic3kConstants.VRAM_RESULTS_BASE;
 
         for (int i = 0; i < DIGIT_COUNT; i++) {
             int digit = remaining / DIVISORS[i];
             remaining %= DIVISORS[i];
             if (digit != 0) hasNonZero = true;
+
+            // ROM: mapping_frame = (hasNonZero) ? digit + 1 : 0
+            // Frame 0 = blank, Frame 1 = "0", Frame 2 = "1", ..., Frame 10 = "9"
+            int frameIdx;
             if (hasNonZero || i == DIGIT_COUNT - 1) {
-                int tileIdx = digitBase + (digit * 2); // 2 tiles per digit
-                // Top half (8×8)
-                renderer.drawPatternIndex(tileIdx, x + i * DIGIT_SPACING, worldY, 0);
-                // Bottom half (8×8)
-                renderer.drawPatternIndex(tileIdx + 1, x + i * DIGIT_SPACING, worldY + 8, 0);
+                frameIdx = digit + 1;
+            } else {
+                frameIdx = 0; // Suppress leading zero
+            }
+
+            if (frameIdx > 0) {
+                renderMappingFrame(frameIdx, x + i * DIGIT_SPACING, worldY);
             }
         }
     }
