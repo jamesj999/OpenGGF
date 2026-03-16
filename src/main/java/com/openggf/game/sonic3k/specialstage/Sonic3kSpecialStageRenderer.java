@@ -184,18 +184,11 @@ public class Sonic3kSpecialStageRenderer {
         // Right half: slides from center to right (center + slideOffset)
         int rightX = 160 + slideOffset;
 
-        // Frames 0+1 = "GET BLUE SPHERES" text
-        // Frames 2+3 = "PERFECT" text (only shown on re-entry after all rings collected)
-        // ROM: Obj_SStage_8E40 adds 2 to mapping_frame at loc_8EA4 after the initial
-        // exit, so the re-entry uses frames 2+3.
-        if (banner.getPhase() == Sonic3kSpecialStageBanner.Phase.SLIDING_IN
-                || (banner.getPhase() == Sonic3kSpecialStageBanner.Phase.DISPLAYING
-                    && banner.getSlideOffset() == 0 && manager.getSpheresLeft() <= 0)) {
-            // Re-entry: show "PERFECT"
+        // Frames 0+1 = "GET BLUE SPHERES", Frames 2+3 = "PERFECT"
+        if (banner.isShowPerfect()) {
             renderBannerHalf(leftX, centerY, 2);
             renderBannerHalf(rightX, centerY, 3);
         } else {
-            // Initial: show "GET BLUE SPHERES"
             renderBannerHalf(leftX, centerY, 0);
             renderBannerHalf(rightX, centerY, 1);
         }
@@ -265,7 +258,7 @@ public class Sonic3kSpecialStageRenderer {
         // Render number boxes first (Plane A — behind sprites)
         if (digitsPatternBase > 0) {
             renderThreeDigitNumber(manager.getSpheresLeft(), 16, 8);
-            renderThreeDigitNumber(manager.getRingsLeft(), 240, 8);
+            renderThreeDigitNumber(manager.getRingsCollected(), 240, 8);
         }
 
         // Render icons on top (VDP sprites — in front of plane tiles)
@@ -720,7 +713,9 @@ public class Sonic3kSpecialStageRenderer {
             case CELL_TOUCHED:  // Touched spheres display as red
                              patternBase = spherePatternBase; paletteIndex = 0; break;
             case CELL_BUMPER: patternBase = spherePatternBase; paletteIndex = 1; break;
-            case CELL_RING: case CELL_RING_ANIM_1: case CELL_RING_ANIM_2:
+            case CELL_RING:
+                patternBase = ringPatternBase; paletteIndex = 2; break;
+            case CELL_RING_ANIM_1: case CELL_RING_ANIM_2:
             case CELL_RING_ANIM_3: case CELL_RING_ANIM_4:
                 patternBase = ringPatternBase; paletteIndex = 2; break;
             case CELL_SPRING: patternBase = spherePatternBase; paletteIndex = 3; break;
@@ -766,6 +761,7 @@ public class Sonic3kSpecialStageRenderer {
         // Phase 2: same tiles as phase 1 but with H-flip.
         boolean isRing = (cellType == CELL_RING || (cellType >= CELL_RING_ANIM_1 && cellType <= CELL_RING_ANIM_4));
         boolean ringHFlip = false;
+        boolean sparkleVFlip = false;
         if (isRing) {
             int idx = Math.min(sizeIndex, 8);
             if (ringAnimPhase == 0) {
@@ -782,6 +778,21 @@ public class Sonic3kSpecialStageRenderer {
             }
         }
 
+        // Ring collection sparkle animation (cell types 6-9).
+        // ROM: these use fixed 3×3 tiles at offset 0x50 with flip variations,
+        // regardless of distance. Frames 50-53 in Map_SStageRing.
+        boolean isSparkle = (cellType >= CELL_RING_ANIM_1 && cellType <= CELL_RING_ANIM_4);
+        if (isSparkle) {
+            tilesW = 3; tilesH = 3; tileOffset = 0x50;
+            ringHFlip = false; sparkleVFlip = false;
+            switch (cellType) {
+                case CELL_RING_ANIM_1: break;                                      // No flip
+                case CELL_RING_ANIM_2: ringHFlip = true; sparkleVFlip = true; break; // H+V flip
+                case CELL_RING_ANIM_3: ringHFlip = true; break;                     // H flip
+                case CELL_RING_ANIM_4: sparkleVFlip = true; break;                  // V flip
+            }
+        }
+
         // Apply the mapping piece offsets to center the sprite on the grid position.
         // From Map_SStageSphere: each size has specific y/x offsets:
         //   4x4 (32px): y=-16 (0xF0), x=-16 (0xFFF0)
@@ -795,20 +806,19 @@ public class Sonic3kSpecialStageRenderer {
         for (int col = 0; col < tilesW; col++) {
             for (int row = 0; row < tilesH; row++) {
                 int tileIdx;
-                int drawCol;
-                if (ringHFlip) {
-                    // H-flip: reverse column order and set flip flag on each tile
-                    tileIdx = (tilesW - 1 - col) * tilesH + row;
-                    drawCol = col;
-                } else {
-                    tileIdx = col * tilesH + row;
-                    drawCol = col;
-                }
+                int drawCol = col;
+                // VDP column-major: tileIdx = col * tilesH + row
+                // H-flip reverses which column's tiles are used at each screen column
+                // V-flip reverses which row's tile is used at each screen row
+                int srcCol = ringHFlip ? (tilesW - 1 - col) : col;
+                int srcRow = sparkleVFlip ? (tilesH - 1 - row) : row;
+                tileIdx = srcCol * tilesH + srcRow;
                 int patternId = patternBase + tileOffset + tileIdx;
                 reusableDesc.set(0);
                 reusableDesc.setPriority(true);
                 reusableDesc.setPaletteIndex(paletteIndex);
                 reusableDesc.setHFlip(ringHFlip);
+                reusableDesc.setVFlip(sparkleVFlip);
                 graphicsManager.renderPatternWithId(patternId, reusableDesc,
                         screenX + centerOffX + drawCol * TILE_SIZE,
                         screenY + centerOffY + row * TILE_SIZE);

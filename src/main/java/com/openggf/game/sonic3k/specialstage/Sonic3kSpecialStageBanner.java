@@ -32,12 +32,15 @@ public class Sonic3kSpecialStageBanner {
     private int slideOffset;
     private int displayTimer;
     private boolean triggeredAdvance;
+    /** True after re-entry has been triggered (show PERFECT instead of GET BLUE SPHERES). */
+    private boolean showPerfect;
 
     public void initialize() {
         phase = Phase.DISPLAYING;
         slideOffset = 0;
         displayTimer = BANNER_DISPLAY_FRAMES;
         triggeredAdvance = false;
+        showPerfect = false;
     }
 
     /**
@@ -88,10 +91,12 @@ public class Sonic3kSpecialStageBanner {
         if (phase == Phase.IDLE) {
             phase = Phase.SLIDING_IN;
             slideOffset = BANNER_MAX_OFFSET;
+            showPerfect = true;
         }
     }
 
     public Phase getPhase() { return phase; }
     public int getSlideOffset() { return slideOffset; }
     public boolean isVisible() { return phase != Phase.IDLE; }
+    public boolean isShowPerfect() { return showPerfect; }
 }
