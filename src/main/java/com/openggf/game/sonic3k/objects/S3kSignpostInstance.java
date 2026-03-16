@@ -347,13 +347,15 @@ public class S3kSignpostInstance extends AbstractObjectInstance {
         player.setAnimationId(0x13);
 
         // ROM line 176215: st (Ctrl_2_locked).w — lock sidekick (Tails) input
+        // Also apply Set_PlayerEndingPose equivalent so Tails does a victory pose
         var sidekick = com.openggf.sprites.managers.SpriteManager.getInstance().getSidekick();
         if (sidekick != null) {
-            sidekick.setControlLocked(true);
             sidekick.setObjectControlled(true);
+            sidekick.setControlLocked(true);
             sidekick.setXSpeed((short) 0);
             sidekick.setYSpeed((short) 0);
             sidekick.setGSpeed((short) 0);
+            sidekick.setAnimationId(0x13); // Victory/celebration pose
         }
 
         // Spawn the results screen (handles score tally and act transition signal)

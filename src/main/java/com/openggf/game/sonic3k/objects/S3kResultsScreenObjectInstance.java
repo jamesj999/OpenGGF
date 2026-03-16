@@ -509,21 +509,9 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
 
             if (combinedPatterns != null && !rawMappings.isEmpty()) {
                 // Some mapping frames (TIME/RING/BONUS labels) reference HUD text tiles
-                // at VRAM $6xx that are already loaded by the level. Copy them into our
-                // expanded pattern array so the renderer can access them.
-                var level = LevelManager.getInstance().getCurrentLevel();
-                if (level != null) {
-                    int levelPatternCount = level.getPatternCount();
-                    for (int vram = 0x620; vram < Sonic3kConstants.VRAM_RESULTS_BASE
-                            + Sonic3kConstants.VRAM_RESULTS_ARRAY_SIZE; vram++) {
-                        int arrayIdx = vram - Sonic3kConstants.VRAM_RESULTS_BASE;
-                        if (arrayIdx >= 0 && arrayIdx < combinedPatterns.length
-                                && combinedPatterns[arrayIdx] == null
-                                && vram < levelPatternCount) {
-                            combinedPatterns[arrayIdx] = level.getPattern(vram);
-                        }
-                    }
-                }
+                // at VRAM $6CA+. These are from ArtNem_RingHUDText loaded to ArtTile_Ring ($6BC).
+                // First 14 tiles are ring art, tiles 14+ are HUD text (S,C,O,R,E,R,I,N,G,S,T,I,M,E).
+                loadHudTextIntoPatterns(rom, combinedPatterns);
 
                 // Adjust tile indices: ROM mappings use absolute VRAM tile indices (e.g. 0x520),
                 // but our patterns array is 0-based (patterns[0] = VRAM $520).
@@ -570,6 +558,40 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
             adjusted.add(new SpriteMappingFrame(adjustedPieces));
         }
         return adjusted;
+    }
+
+    /**
+     * Loads HUD text tiles from ArtNem_RingHUDText and places them at the correct
+     * VRAM offsets in the combined pattern array.
+     *
+     * ROM: ArtNem_RingHUDText loads to ArtTile_Ring ($6BC). First 14 tiles are
+     * ring art ($6BC-$6C9), tiles 14+ are HUD text starting at $6CA.
+     * The results mapping frames reference these tiles for TIME/RING/BONUS labels.
+     */
+    private void loadHudTextIntoPatterns(com.openggf.data.Rom rom, Pattern[] patterns) {
+        try {
+            java.nio.channels.FileChannel channel = rom.getFileChannel();
+            channel.position(Sonic3kConstants.ART_NEM_RING_HUD_TEXT_ADDR);
+            byte[] data = com.openggf.tools.NemesisReader.decompress(channel);
+
+            int totalTiles = data.length / Pattern.PATTERN_SIZE_IN_ROM;
+            // ArtTile_Ring = $6BC. Place ALL tiles starting at array index $6BC - $520 = $19C
+            int vramBase = 0x6BC;
+            for (int i = 0; i < totalTiles; i++) {
+                int arrayIdx = (vramBase + i) - Sonic3kConstants.VRAM_RESULTS_BASE;
+                if (arrayIdx >= 0 && arrayIdx < patterns.length) {
+                    byte[] tileData = java.util.Arrays.copyOfRange(data,
+                            i * Pattern.PATTERN_SIZE_IN_ROM,
+                            (i + 1) * Pattern.PATTERN_SIZE_IN_ROM);
+                    Pattern pat = new Pattern();
+                    pat.fromSegaFormat(tileData);
+                    patterns[arrayIdx] = pat;
+                }
+            }
+            LOG.fine("Loaded " + totalTiles + " ring/HUD text tiles from ROM");
+        } catch (Exception e) {
+            LOG.warning("Failed to load HUD text tiles: " + e.getMessage());
+        }
     }
 
     // ---- Pattern caching ----
