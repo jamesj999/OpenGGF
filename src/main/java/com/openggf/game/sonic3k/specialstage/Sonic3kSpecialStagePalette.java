@@ -64,12 +64,22 @@ public class Sonic3kSpecialStagePalette {
             }
         }
 
-        // Load stage-specific palette for floor rotation
+        // Load stage-specific palette for floor rotation and BG tint
         stagePaletteData = dataLoader.getStagePalette(stageIndex & 7, skMode);
 
-        // Apply initial stage palette to line 3
         if (stagePaletteData != null) {
+            // Apply initial stage palette to line 3 (floor colors)
             applyRotationPalette(0);
+
+            // Apply stage-specific colors to palette line 2 (background tint).
+            // ROM: move.l $10(a1),$50(a2) / move.w $14(a1),$54(a2)
+            // Reads bytes 32-37 of stage palette → line 2 colors 8-10.
+            if (stagePaletteData.length >= 38) {
+                for (int c = 0; c < 3; c++) {
+                    int offset = 32 + c * 2;
+                    palettes[2].colors[c + 8].fromSegaFormat(stagePaletteData, offset);
+                }
+            }
         }
 
         fadeActive = false;

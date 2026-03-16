@@ -378,8 +378,11 @@ public class Sonic3kSpecialStageRenderer {
 
         // Convert scroll to tile offsets (pixels / 8) and pixel sub-offsets
         // Use Math.floorMod/floorDiv to handle negative scroll values correctly
-        int hScrollTile = Math.floorMod(Math.floorDiv(hScroll, TILE_SIZE), BG_PLANE_W);
-        int hScrollPx = Math.floorMod(hScroll, TILE_SIZE);
+        // VDP H-scroll moves the plane left (positive = content shifts right on screen).
+        // Negate so increasing angle moves the background in the correct direction.
+        int hScrollNeg = -hScroll;
+        int hScrollTile = Math.floorMod(Math.floorDiv(hScrollNeg, TILE_SIZE), BG_PLANE_W);
+        int hScrollPx = Math.floorMod(hScrollNeg, TILE_SIZE);
         int vScrollTile = Math.floorMod(Math.floorDiv(vScroll, TILE_SIZE), BG_PLANE_H);
         int vScrollPx = Math.floorMod(vScroll, TILE_SIZE);
 
