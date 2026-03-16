@@ -595,7 +595,8 @@ public class Sonic3kSpecialStageManager {
                 || ringsCollected == EXTRA_LIFE_THRESHOLD_2) {
             AudioManager.getInstance().playSfx(Sonic3kSfx.RING_LOSS.id);
         } else {
-            AudioManager.getInstance().playSfx(Sonic3kSfx.RING_RIGHT.id);
+            // Use GameSound.RING which auto-alternates between left and right channels
+            AudioManager.getInstance().playSfx(com.openggf.audio.GameSound.RING);
         }
     }
 
