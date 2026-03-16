@@ -4,12 +4,15 @@ import com.openggf.camera.Camera;
 import com.openggf.data.Rom;
 import com.openggf.game.CheckpointState;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayerCharacter;
+import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.Sonic3kLoadBootstrap;
 import com.openggf.game.sonic3k.Sonic3kLevel;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.game.sonic3k.objects.AizHollowTreeObjectInstance;
+import com.openggf.game.sonic3k.objects.AizMinibossInstance;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.level.LevelConstants;
 import com.openggf.level.Level;
@@ -129,6 +132,8 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     private int appliedTreeRevealChunkCopiesMask;
 
     // --- Boss / fire transition state ---
+    /** One-shot guard for AIZ2 resize boss spawn after fire transition completes. */
+    private boolean minibossSpawned;
     /** ROM: (Events_fg_5).w - set by boss exit sequence to trigger fire transition. */
     private boolean eventsFg5;
     /** Boss_flag equivalent - set when boss is present, cleared on cleanup. */
@@ -190,8 +195,9 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
             0x004E, 0x006E, 0x00AE, 0x00CE, 0x02EE, 0x0AEE
     };
     // ROM: AIZ2BGE_WaitFire rewrites line 4 once the fire finally clears.
+    // move.l #$8EE00AA,(a1)+ / move.l #$8E004E,(a1)+ / move.l #$2E000C,(a1)
     private static final int[] POST_FIRE_LINE4_WORDS = {
-            0x08EE, 0x00AA, 0x08E0, 0x004E, 0x02E0, 0x000C
+            0x08EE, 0x00AA, 0x008E, 0x004E, 0x002E, 0x000C
     };
     private static volatile PendingFireSequence pendingFireSequence;
 
@@ -255,6 +261,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         paletteSwapped = false;
         boundariesUnlocked = false;
         appliedTreeRevealChunkCopiesMask = 0;
+        minibossSpawned = false;
         eventsFg5 = false;
         bossFlag = false;
         act2TransitionRequested = false;
@@ -704,45 +711,62 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     }
 
     private void updateAct2Continuation() {
-        if (!fireSequencePhase.curtainActive() && fireSequencePhase != FireSequencePhase.AIZ2_BG_REDRAW) {
-            return;
+        if (fireSequencePhase.curtainActive() || fireSequencePhase == FireSequencePhase.AIZ2_BG_REDRAW) {
+            switch (fireSequencePhase) {
+                case AIZ2_FIRE_REDRAW -> {
+                    advanceFireRise(false);
+                    firePhaseFrames++;
+                    if (firePhaseFrames >= FIRE_REDRAW_FRAMES) {
+                        fireSequencePhase = FireSequencePhase.AIZ2_WAIT_FIRE;
+                        firePhaseFrames = 0;
+                        act2WaitFireDrawActive = true;
+                    }
+                }
+                case AIZ2_WAIT_FIRE -> {
+                    advanceFireRise(false);
+                    int fireBgY = getFireTransitionBgY();
+                    int mod = fireBgY & 0x7F;
+                    if (mod >= 0x20 && mod < 0x30) {
+                        int snappedY = mod + 0x180;
+                        fireBgCopyFixed = (snappedY << 16) | (fireBgCopyFixed & 0xFFFF);
+                    }
+                    if (getFireTransitionBgY() >= FIRE_BG_FINISH_Y) {
+                        applyPostFireContinuationPaletteLine4(LevelManager.getInstance());
+                        fireSequencePhase = FireSequencePhase.AIZ2_BG_REDRAW;
+                        firePhaseFrames = 0;
+                    }
+                }
+                case AIZ2_BG_REDRAW -> {
+                    firePhaseFrames++;
+                    if (firePhaseFrames >= FIRE_REDRAW_FRAMES) {
+                        fireSequencePhase = FireSequencePhase.COMPLETE;
+                        postFireHazeActive = true;
+                        pendingFireSequence = null;
+                        setTransitionControlLock(false);
+                    }
+                }
+                default -> {
+                    // Act 1 phases are handled by updateFireTransition().
+                }
+            }
         }
 
-        switch (fireSequencePhase) {
-            case AIZ2_FIRE_REDRAW -> {
-                advanceFireRise(false);
-                firePhaseFrames++;
-                if (firePhaseFrames >= FIRE_REDRAW_FRAMES) {
-                    fireSequencePhase = FireSequencePhase.AIZ2_WAIT_FIRE;
-                    firePhaseFrames = 0;
-                    act2WaitFireDrawActive = true;
-                }
-            }
-            case AIZ2_WAIT_FIRE -> {
-                advanceFireRise(false);
-                int fireBgY = getFireTransitionBgY();
-                int mod = fireBgY & 0x7F;
-                if (mod >= 0x20 && mod < 0x30) {
-                    int snappedY = mod + 0x180;
-                    fireBgCopyFixed = (snappedY << 16) | (fireBgCopyFixed & 0xFFFF);
-                }
-                if (getFireTransitionBgY() >= FIRE_BG_FINISH_Y) {
-                    applyPostFireContinuationPaletteLine4(LevelManager.getInstance());
-                    fireSequencePhase = FireSequencePhase.AIZ2_BG_REDRAW;
-                    firePhaseFrames = 0;
-                }
-            }
-            case AIZ2_BG_REDRAW -> {
-                firePhaseFrames++;
-                if (firePhaseFrames >= FIRE_REDRAW_FRAMES) {
-                    fireSequencePhase = FireSequencePhase.COMPLETE;
-                    postFireHazeActive = true;
-                    pendingFireSequence = null;
-                    setTransitionControlLock(false);
-                }
-            }
-            default -> {
-                // Act 1 phases are handled by updateFireTransition().
+        // AIZ2 resize: spawn real miniboss when camera reaches threshold.
+        // ROM: AIZ2_SonicResize2 (line 39076) / AIZ2_KnuxResize2 (line 39187)
+        if (!minibossSpawned && fireSequencePhase == FireSequencePhase.COMPLETE) {
+            PlayerCharacter character = Sonic3kLevelEventManager.getInstance().getPlayerCharacter();
+            int cameraTrigger = (character == PlayerCharacter.KNUCKLES) ? 0x1040 : 0x0F50;
+
+            if (Camera.getInstance().getX() >= cameraTrigger) {
+                minibossSpawned = true;
+                int bossX = (character == PlayerCharacter.KNUCKLES) ? 0x11D0 : 0x11F0;
+                int bossY = (character == PlayerCharacter.KNUCKLES) ? 0x0420 : 0x0289;
+
+                ObjectSpawn bossSpawn = new ObjectSpawn(bossX, bossY, 0x91, 0, 0, false, bossY);
+                AizMinibossInstance boss = new AizMinibossInstance(bossSpawn, LevelManager.getInstance());
+                LevelManager.getInstance().getObjectManager().addDynamicObject(boss);
+                LOG.info("AIZ2 resize: spawned miniboss at (0x" + Integer.toHexString(bossX)
+                        + ", 0x" + Integer.toHexString(bossY) + ")");
             }
         }
     }
