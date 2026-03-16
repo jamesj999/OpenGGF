@@ -577,9 +577,9 @@ public class Sonic3kConstants {
     public static final int ART_UNC_FIRE_SHIELD_ADDR = 0x18C704;
     public static final int ART_UNC_FIRE_SHIELD_SIZE = 8608;
 
-    // ArtUnc_LightningShield - Lightning Shield.bin (130 tiles) + Sparks.bin (5 tiles, contiguous)
+    // ArtUnc_LightningShield - Lightning Shield.bin (130 tiles)
     public static final int ART_UNC_LIGHTNING_SHIELD_ADDR = 0x18E8A4;
-    public static final int ART_UNC_LIGHTNING_SHIELD_SIZE = 4320;
+    public static final int ART_UNC_LIGHTNING_SHIELD_SIZE = 4160;
 
     // ArtUnc_LightningShield_Sparks - Sparks.bin (5 tiles)
     public static final int ART_UNC_LIGHTNING_SHIELD_SPARKS_ADDR = 0x18F8E4;

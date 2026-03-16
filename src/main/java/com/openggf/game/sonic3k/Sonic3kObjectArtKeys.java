@@ -26,6 +26,7 @@ public final class Sonic3kObjectArtKeys {
     public static final String MONKEY_DUDE = "aiz_monkey_dude";
     public static final String FIRE_SHIELD = "fire_shield";
     public static final String LIGHTNING_SHIELD = "lightning_shield";
+    public static final String LIGHTNING_SPARK = "lightning_spark";
     public static final String BUBBLE_SHIELD = "bubble_shield";
     public static final String END_SIGN = "EndSign";
     public static final String SIGNPOST_STUB = "SignpostStub";

@@ -498,6 +498,11 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
                     Sonic3kConstants.ANI_LIGHTNING_SHIELD_ADDR, Sonic3kConstants.ANI_LIGHTNING_SHIELD_COUNT,
                     Sonic3kConstants.ART_TILE_SHIELD, 0);
 
+            // ROM: Obj_LightningShield init DMA-loads spark art to ArtTile_Shield_Sparks
+            // (fixed VRAM, not managed by PLCLoad_Shields). Sparks use their own renderer
+            // with the 5 spark tiles and rebased mappings (tile indices 0-4 instead of 31-35).
+            buildSparkRenderer(reader);
+
             loadSingleShieldArt(reader, Sonic3kObjectArtKeys.BUBBLE_SHIELD,
                     Sonic3kConstants.ART_UNC_BUBBLE_SHIELD_ADDR, Sonic3kConstants.ART_UNC_BUBBLE_SHIELD_SIZE,
                     Sonic3kConstants.MAP_BUBBLE_SHIELD_ADDR, Sonic3kConstants.DPLC_BUBBLE_SHIELD_ADDR,
@@ -536,6 +541,74 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
 
         LOG.info("Loaded " + key + " art: " + tiles.length + " tiles, "
                 + mappings.size() + " mapping frames, " + animCount + " animations");
+    }
+
+    /**
+     * Builds a dedicated spark renderer (ROM: DMA to ArtTile_Shield_Sparks).
+     * The spark uses 5 tiles loaded once via DMA, not the shield's DPLC system.
+     * We create a separate SpriteArtSet with:
+     * - 5 spark tiles (rebased to indices 0-4)
+     * - 3 mapping frames matching ROM frames $C, $D, $17 with adjusted tile indices
+     * - No DPLCs (tiles are static)
+     * - Animation script matching ROM Ani_LightningShield script 1
+     */
+    private void buildSparkRenderer(RomByteReader reader) throws IOException {
+        // Load just the 5 spark tiles
+        Pattern[] sparkTiles = S3kSpriteDataLoader.loadArtTiles(reader,
+                Sonic3kConstants.ART_UNC_LIGHTNING_SHIELD_SPARKS_ADDR,
+                Sonic3kConstants.ART_UNC_LIGHTNING_SHIELD_SPARKS_SIZE);
+
+        // ROM Map_LightningShield frame $C (word_19EE8): 1 piece, y=-4, 1×1, tile=0x1F, x=-4
+        // ROM Map_LightningShield frame $D (word_19EF0): 1 piece, y=-8, 2×2, tile=0x20, x=-8
+        // ROM Map_LightningShield frame $17 (word_19EF8): 0 pieces (empty)
+        // Rebase tile indices: 0x1F→0, 0x20→1
+        SpriteMappingFrame sparkFrame0 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-4, -4, 1, 1, 0, false, false, 0)));
+        SpriteMappingFrame sparkFrame1 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 1, false, false, 0)));
+        SpriteMappingFrame sparkFrame2 = new SpriteMappingFrame(List.of()); // empty
+
+        List<SpriteMappingFrame> sparkMappings = List.of(sparkFrame0, sparkFrame1, sparkFrame2);
+
+        // No DPLCs needed — all tiles are pre-loaded (like ROM DMA)
+        List<SpriteDplcFrame> sparkDplcs = List.of(
+                new SpriteDplcFrame(List.of()),
+                new SpriteDplcFrame(List.of()),
+                new SpriteDplcFrame(List.of()));
+
+        // Animation script matching ROM Ani_LightningShield script 1:
+        // delay=0, pattern [0,1,2] × 6 then [0,1], endAction=LOOP
+        List<Integer> sparkFrames = new ArrayList<>();
+        for (int i = 0; i < 6; i++) {
+            sparkFrames.add(0);
+            sparkFrames.add(1);
+            sparkFrames.add(2);
+        }
+        sparkFrames.add(0);
+        sparkFrames.add(1);
+        SpriteAnimationScript sparkScript = new SpriteAnimationScript(
+                0, sparkFrames, SpriteAnimationEndAction.LOOP, 0);
+
+        SpriteAnimationSet sparkAnimSet = new SpriteAnimationSet();
+        sparkAnimSet.addScript(0, sparkScript);
+
+        // Use a pattern index beyond the shield's bank to avoid overlap.
+        // Shield bank: ART_TILE_SHIELD (0x079C) + bankSize (up to 36) = 0x07C0.
+        // The ROM puts sparks at 0x07BB which overlaps the shield's bank range.
+        // In our engine both renderers cache to the same atlas, so we offset to avoid conflict.
+        int sparkPatternBase = Sonic3kConstants.ART_TILE_SHIELD + 36;
+        int bankSize = 5; // 5 spark tiles, all pre-loaded
+        SpriteArtSet sparkArtSet = new SpriteArtSet(sparkTiles, sparkMappings, sparkDplcs,
+                0, sparkPatternBase, 1, bankSize, null, sparkAnimSet);
+        PlayerSpriteRenderer sparkRenderer = new PlayerSpriteRenderer(sparkArtSet);
+        // Pre-load all 5 spark tiles into the bank (emulates ROM one-time DMA)
+        sparkRenderer.preloadTiles(0, 0, sparkTiles.length);
+
+        shieldArtSets.put(Sonic3kObjectArtKeys.LIGHTNING_SPARK, sparkArtSet);
+        dplcRenderers.put(Sonic3kObjectArtKeys.LIGHTNING_SPARK, sparkRenderer);
+
+        LOG.info("Built lightning spark renderer: " + sparkTiles.length + " tiles, "
+                + sparkMappings.size() + " mapping frames");
     }
 
     /** Returns the DPLC-driven renderer for a shield type, or null. */
