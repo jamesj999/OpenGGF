@@ -156,6 +156,22 @@ public class AizMinibossInstance extends AbstractBossInstance {
         waitCallback = null;
         defeatTimer = DEFEAT_TIME;
         AudioManager.getInstance().fadeOutMusic();
+
+        // Spawn the defeat-to-signpost flow as a dynamic object
+        S3kBossDefeatSignpostFlow defeatFlow = new S3kBossDefeatSignpostFlow(
+                state.x,
+                () -> {
+                    // AIZ1 AfterBoss_Cleanup: restore palette line 2 from Pal_AIZ
+                    try {
+                        byte[] palData = GameServices.rom().getRom().readBytes(
+                                Sonic3kConstants.PAL_AIZ_ADDR, Sonic3kConstants.PAL_AIZ_SIZE);
+                        levelManager.updatePalette(2, palData);
+                    } catch (Exception ignored) {
+                        // Palette restore failures should not crash gameplay.
+                    }
+                }
+        );
+        spawnDynamicObject(defeatFlow);
     }
 
     @Override
@@ -329,13 +345,8 @@ public class AizMinibossInstance extends AbstractBossInstance {
         if (defeatTimer > 0) {
             return;
         }
-
-        Sonic3kAIZEvents events = getAizEvents();
-        if (events != null) {
-            events.setBossFlag(false);
-        }
-        AudioManager.getInstance().getBackend().restoreMusic();
-        setDestroyed(true);
+        // Defeat flow handles boss flag, music, and signpost from here.
+        // Boss stays alive but inactive.
     }
 
     private void setWait(int frames, Runnable callback) {
