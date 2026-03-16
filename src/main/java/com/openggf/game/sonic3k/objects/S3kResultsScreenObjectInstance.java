@@ -1,17 +1,27 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.audio.AudioManager;
+import com.openggf.camera.Camera;
+import com.openggf.data.RomByteReader;
 import com.openggf.game.GameServices;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.sonic2.objects.AbstractResultsScreen;
+import com.openggf.game.sonic3k.Sonic3kObjectArt;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
+import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.titlecard.Sonic3kTitleCardManager;
 import com.openggf.graphics.GLCommand;
+import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.LevelManager;
 import com.openggf.level.Pattern;
+import com.openggf.level.objects.ObjectSpriteSheet;
+import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.level.render.SpriteMappingFrame;
+import com.openggf.level.render.SpriteMappingPiece;
+import com.openggf.sprites.playable.AbstractPlayableSprite;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -50,6 +60,12 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
     // Pattern caching
     private static final int PATTERN_BASE = 0x60000;  // High ID to avoid conflicts
 
+    // Digit rendering constants
+    private static final int DIGIT_OFFSET_X = -0x38;  // Digits start 0x38 pixels left of element X
+    private static final int DIGIT_SPACING = 8;        // 8px per digit
+    private static final int DIGIT_COUNT = 7;           // 7-digit display
+    private static final int[] DIVISORS = {1000000, 100000, 10000, 1000, 100, 10, 1};
+
     // State
     private final PlayerCharacter character;
     private final int act;  // 0-indexed: 0=Act 1, 1=Act 2
@@ -65,8 +81,17 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
     private boolean artLoaded;
     private boolean artCached;
 
+    // Rendering
+    private ObjectSpriteSheet spriteSheet;
+    private PatternSpriteRenderer renderer;
+
     // Music flag
     private boolean musicPlayed;
+
+    // Elements
+    private final ResultsElement[] elements = new ResultsElement[12];
+    private int exitQueueCounter;
+    private int childrenRemaining;
 
     public S3kResultsScreenObjectInstance(PlayerCharacter character, int act) {
         super("S3kResults");
@@ -79,14 +104,121 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
         // Fade out current music immediately (ROM line 62513)
         fadeOutMusic();
 
-        // Load art (stub -- Task 4-5 will add implementation)
+        // Load art
         loadArt();
 
-        // Create elements (stub -- Task 4-5 will add implementation)
+        // Create elements
         createElements();
 
         LOG.fine(() -> String.format("S3K results init: character=%s act=%d timeBonus=%d ringBonus=%d",
                 character, act, timeBonus, ringBonus));
+    }
+
+    // ---- Element data structure ----
+
+    /**
+     * A single visual element on the results screen that slides in and out.
+     * ROM: ObjArray_LevResults (sonic3k.asm lines 62919-63003).
+     */
+    private static class ResultsElement {
+        enum Type { CHAR_NAME, GENERAL, TIME_BONUS, RING_BONUS, TOTAL }
+        enum SlideDirection { FROM_LEFT, FROM_RIGHT }
+
+        final Type type;
+        final int targetX;
+        final int startX;
+        final int y;
+        final int mappingFrame;
+        final int widthPixels;
+        final int exitQueuePriority;
+        final SlideDirection slideDirection;
+        int currentX;
+        boolean exitStarted;
+        boolean offScreen;
+
+        ResultsElement(Type type, int targetX, int startX, int y,
+                       int mappingFrame, int widthPixels, int exitQueuePriority) {
+            this.type = type;
+            this.targetX = targetX;
+            this.startX = startX;
+            this.y = y;
+            this.mappingFrame = mappingFrame;
+            this.widthPixels = widthPixels;
+            this.exitQueuePriority = exitQueuePriority;
+            this.slideDirection = startX < 0 ? SlideDirection.FROM_LEFT : SlideDirection.FROM_RIGHT;
+            this.currentX = startX;
+        }
+
+        /** Move toward targetX at 16px/frame. Returns true when reached. */
+        boolean slideIn() {
+            if (currentX == targetX) return true;
+            if (currentX < targetX) {
+                currentX = Math.min(currentX + SLIDE_IN_SPEED, targetX);
+            } else {
+                currentX = Math.max(currentX - SLIDE_IN_SPEED, targetX);
+            }
+            return currentX == targetX;
+        }
+
+        /** Move at 32px/frame back toward the direction it came from. */
+        void slideOut() {
+            if (slideDirection == SlideDirection.FROM_LEFT) {
+                currentX -= SLIDE_OUT_SPEED;
+            } else {
+                currentX += SLIDE_OUT_SPEED;
+            }
+            offScreen = (currentX < -256 || currentX > 576);
+        }
+    }
+
+    // ---- Element creation ----
+
+    /**
+     * Populates the elements array from ROM data (ObjArray_LevResults).
+     * ROM: sonic3k.asm lines 62919-63003.
+     */
+    private void createElements() {
+        int charNameFrame = getCharNameFrame();
+        int charNameTargetX = 0xE0;
+        int charNameStartX = -0x220;
+        int charNameWidth = 0x48;
+
+        if (character == PlayerCharacter.KNUCKLES) {
+            charNameTargetX -= 0x30;
+            charNameStartX -= 0x30;
+            charNameWidth += 0x30;
+        }
+        if (character == PlayerCharacter.TAILS_ALONE) {
+            charNameTargetX += 8;
+            charNameStartX += 8;
+            charNameWidth -= 8;
+        }
+
+        elements[0]  = new ResultsElement(ResultsElement.Type.CHAR_NAME,  charNameTargetX, charNameStartX, 0xB8, charNameFrame, charNameWidth, 1);
+        elements[1]  = new ResultsElement(ResultsElement.Type.GENERAL,    0x130, -0x1D0, 0xB8, 0x11, 0x30, 1);
+        elements[2]  = new ResultsElement(ResultsElement.Type.GENERAL,    0xE8,   0x468, 0xCC, 0x10, 0x70, 3);
+        elements[3]  = new ResultsElement(ResultsElement.Type.GENERAL,    0x160,  0x4E0, 0xBC, 0x0F, 0x38, 3);
+        elements[4]  = new ResultsElement(ResultsElement.Type.GENERAL,    0xC0,   0x4C0, 0xF0, 0x0E, 0x20, 5);
+        elements[5]  = new ResultsElement(ResultsElement.Type.GENERAL,    0xE8,   0x4E8, 0xF0, 0x0C, 0x30, 5);
+        elements[6]  = new ResultsElement(ResultsElement.Type.TIME_BONUS, 0x178,  0x578, 0xF0, 1,    0x40, 5);
+        elements[7]  = new ResultsElement(ResultsElement.Type.GENERAL,    0xC0,   0x500, 0x100, 0x0D, 0x20, 7);
+        elements[8]  = new ResultsElement(ResultsElement.Type.GENERAL,    0xE8,   0x528, 0x100, 0x0C, 0x30, 7);
+        elements[9]  = new ResultsElement(ResultsElement.Type.RING_BONUS, 0x178,  0x5B8, 0x100, 1,    0x40, 7);
+        elements[10] = new ResultsElement(ResultsElement.Type.GENERAL,    0xD4,   0x554, 0x11C, 0x0B, 0x30, 9);
+        elements[11] = new ResultsElement(ResultsElement.Type.TOTAL,      0x178,  0x5F8, 0x11C, 1,    0x40, 9);
+        childrenRemaining = 12;
+    }
+
+    /**
+     * Returns the mapping frame index for the character name.
+     * ROM: character-specific name art frames in Map_LevelResults.
+     */
+    private int getCharNameFrame() {
+        return switch (character) {
+            case TAILS_ALONE -> 0x13 + 2;
+            case KNUCKLES -> 0x13 + 3;
+            default -> 0x13;
+        };
     }
 
     // ---- Bonus calculation ----
@@ -130,6 +262,48 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
     @Override
     protected int getWaitDuration() {
         return S3K_WAIT_DURATION;
+    }
+
+    // ---- Update with element sliding ----
+
+    @Override
+    public void update(int frameCounter, AbstractPlayableSprite player) {
+        super.update(frameCounter, player);
+
+        // Slide elements during pre-tally delay and tally
+        if (state <= STATE_TALLY) {
+            for (ResultsElement elem : elements) {
+                if (elem != null && !elem.offScreen) {
+                    elem.slideIn();
+                }
+            }
+        }
+
+        // Exit queue after STATE_WAIT ends
+        if (state == STATE_EXIT) {
+            updateExitQueue();
+        }
+    }
+
+    private void updateExitQueue() {
+        if (childrenRemaining <= 0) {
+            complete = true;
+            onExitReady();
+            return;
+        }
+        exitQueueCounter++;
+        for (ResultsElement elem : elements) {
+            if (elem == null || elem.offScreen) continue;
+            if (exitQueueCounter >= elem.exitQueuePriority) {
+                elem.exitStarted = true;
+            }
+            if (elem.exitStarted) {
+                elem.slideOut();
+                if (elem.offScreen) {
+                    childrenRemaining--;
+                }
+            }
+        }
     }
 
     // ---- Pre-tally delay with music trigger ----
@@ -264,22 +438,139 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
         return true;  // Survives screen boundary checks
     }
 
-    // ---- Rendering (stub -- Task 4-5) ----
+    // ---- Art loading ----
+
+    private void loadArt() {
+        try {
+            var rom = GameServices.rom().getRom();
+            RomByteReader reader = RomByteReader.fromRom(rom);
+            Sonic3kObjectArt objectArt = new Sonic3kObjectArt(null, reader);
+
+            combinedPatterns = objectArt.loadResultsArt(character, act);
+            List<SpriteMappingFrame> rawMappings = objectArt.loadResultsMappings();
+
+            if (combinedPatterns != null && !rawMappings.isEmpty()) {
+                // Adjust tile indices: ROM mappings use absolute VRAM tile indices (e.g. 0x520),
+                // but our patterns array is 0-based (patterns[0] = VRAM $520).
+                // Subtract VRAM_RESULTS_BASE so piece.tileIndex() maps to array indices.
+                mappingFrames = adjustTileIndices(rawMappings, -Sonic3kConstants.VRAM_RESULTS_BASE);
+
+                // Create sprite sheet and renderer
+                spriteSheet = new ObjectSpriteSheet(combinedPatterns, mappingFrames, 0, 1);
+                renderer = new PatternSpriteRenderer(spriteSheet);
+                artLoaded = true;
+            } else {
+                artLoaded = false;
+                LOG.warning("Failed to load results screen art");
+            }
+
+            // Load palette -- 128 bytes = 4 palette lines
+            byte[] palette = objectArt.loadResultsPalette();
+            if (palette != null) {
+                LevelManager lm = LevelManager.getInstance();
+                for (int line = 0; line < 4 && line * 32 < palette.length; line++) {
+                    byte[] lineData = new byte[32];
+                    System.arraycopy(palette, line * 32, lineData, 0,
+                            Math.min(32, palette.length - line * 32));
+                    lm.updatePalette(line, lineData);
+                }
+            }
+        } catch (Exception e) {
+            artLoaded = false;
+            LOG.warning("Failed to load results screen art: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Adjusts tile indices in mapping frames by a fixed offset.
+     * Mirrors {@code Sonic3kObjectArt.adjustTileIndices()} (which is private).
+     */
+    private static List<SpriteMappingFrame> adjustTileIndices(
+            List<SpriteMappingFrame> frames, int adjustment) {
+        if (adjustment == 0) return frames;
+        List<SpriteMappingFrame> adjusted = new ArrayList<>(frames.size());
+        for (SpriteMappingFrame frame : frames) {
+            List<SpriteMappingPiece> adjustedPieces = new ArrayList<>(frame.pieces().size());
+            for (SpriteMappingPiece piece : frame.pieces()) {
+                adjustedPieces.add(new SpriteMappingPiece(
+                        piece.xOffset(), piece.yOffset(),
+                        piece.widthTiles(), piece.heightTiles(),
+                        piece.tileIndex() + adjustment,
+                        piece.hFlip(), piece.vFlip(),
+                        piece.paletteIndex(), piece.priority()
+                ));
+            }
+            adjusted.add(new SpriteMappingFrame(adjustedPieces));
+        }
+        return adjusted;
+    }
+
+    // ---- Pattern caching ----
+
+    private void ensureArtCached() {
+        if (artCached || !artLoaded || renderer == null) return;
+        GraphicsManager gm = GraphicsManager.getInstance();
+        if (gm == null) return;
+        renderer.ensurePatternsCached(gm, PATTERN_BASE);
+        artCached = true;
+    }
+
+    // ---- Rendering ----
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        // Stub: rendering will be added in Task 4-5
+        if (!artLoaded || renderer == null) return;
+        ensureArtCached();
+        if (!renderer.isReady()) return;
+
+        Camera camera = Camera.getInstance();
+        if (camera == null) return;
+
+        int baseX = camera.getX();
+        int baseY = camera.getY();
+
+        for (ResultsElement elem : elements) {
+            if (elem == null || elem.offScreen) continue;
+            int worldX = baseX + elem.currentX;
+            int worldY = baseY + elem.y;
+
+            switch (elem.type) {
+                case TIME_BONUS -> renderBonusDigits(worldX, worldY, timeBonus);
+                case RING_BONUS -> renderBonusDigits(worldX, worldY, ringBonus);
+                case TOTAL -> renderBonusDigits(worldX, worldY, totalBonusCountUp);
+                default -> renderMappingFrame(elem.mappingFrame, worldX, worldY);
+            }
+        }
     }
 
-    // ---- Art loading (stub -- Task 4-5) ----
-
-    private void loadArt() {
-        // Stub: art loading will be added in Task 4-5
+    /**
+     * Renders a mapping frame at the given world position using the PatternSpriteRenderer.
+     */
+    private void renderMappingFrame(int frameIndex, int worldX, int worldY) {
+        if (frameIndex < 0 || frameIndex >= spriteSheet.getFrameCount()) return;
+        renderer.drawFrameIndex(frameIndex, worldX, worldY, false, false);
     }
 
-    // ---- Element creation (stub -- Task 4-5) ----
+    /**
+     * Renders a 7-digit BCD value with leading zero suppression.
+     * Digits are positioned starting at (worldX + DIGIT_OFFSET_X) rightward at 8px intervals.
+     * Uses individual pattern tiles from the number art region.
+     */
+    private void renderBonusDigits(int worldX, int worldY, int value) {
+        int x = worldX + DIGIT_OFFSET_X;
+        boolean hasNonZero = false;
+        int remaining = value;
+        // The digit pattern index within the patterns array:
+        // VRAM_RESULTS_NUMBERS - VRAM_RESULTS_BASE = offset to first digit tile (digit '0')
+        int digitBase = Sonic3kConstants.VRAM_RESULTS_NUMBERS - Sonic3kConstants.VRAM_RESULTS_BASE;
 
-    private void createElements() {
-        // Stub: element creation will be added in Task 4-5
+        for (int i = 0; i < DIGIT_COUNT; i++) {
+            int digit = remaining / DIVISORS[i];
+            remaining %= DIVISORS[i];
+            if (digit != 0) hasNonZero = true;
+            if (hasNonZero || i == DIGIT_COUNT - 1) {
+                renderer.drawPatternIndex(digitBase + digit, x + i * DIGIT_SPACING, worldY, 0);
+            }
+        }
     }
 }
