@@ -4,6 +4,7 @@ import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.game.PlayerCharacter;
+import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
@@ -101,16 +102,21 @@ public class S3kSignpostInstance extends AbstractObjectInstance {
 
     private int[] animSequence;
 
+    /** ROM's Apparent_act — display-only act number, not affected by seamless reloads. */
+    private final int apparentAct;
+
     /**
      * Creates the signpost at the given X position.
      * Y is set to above the camera in INIT state.
      *
-     * @param spawnX world X position for the signpost
+     * @param spawnX      world X position for the signpost
+     * @param apparentAct ROM's Apparent_act (0 = act 1 display, 1 = act 2 display)
      */
-    public S3kSignpostInstance(int spawnX) {
+    public S3kSignpostInstance(int spawnX, int apparentAct) {
         super(null, "S3kSignpost");
         this.worldX = spawnX;
         this.worldY = 0; // Set properly in INIT
+        this.apparentAct = apparentAct;
     }
 
     @Override
@@ -343,8 +349,7 @@ public class S3kSignpostInstance extends AbstractObjectInstance {
         player.setXSpeed((short) 0);
         player.setYSpeed((short) 0);
         player.setGSpeed((short) 0);
-        // Animation 0x13 = victory/celebration pose
-        player.setAnimationId(0x13);
+        player.setAnimationId(Sonic3kAnimationIds.VICTORY);
 
         // ROM line 176215: st (Ctrl_2_locked).w — lock sidekick (Tails) input
         // Also apply Set_PlayerEndingPose equivalent so Tails does a victory pose
@@ -355,14 +360,12 @@ public class S3kSignpostInstance extends AbstractObjectInstance {
             sidekick.setXSpeed((short) 0);
             sidekick.setYSpeed((short) 0);
             sidekick.setGSpeed((short) 0);
-            sidekick.setAnimationId(0x13); // Victory/celebration pose
+            sidekick.setAnimationId(Sonic3kAnimationIds.VICTORY);
         }
 
-        // Spawn the results screen (handles score tally and act transition signal)
-        // Use the level event manager's act (= ROM's Apparent_act), NOT LevelManager.getCurrentAct().
-        // AIZ reloads act 2 resources mid-level (seamless terrain swap) which changes
-        // LevelManager.currentAct to 1, but ROM's Apparent_act stays 0 until results exit.
-        int apparentAct = Sonic3kLevelEventManager.getInstance().getCurrentAct();
+        // Spawn the results screen — pass apparentAct (ROM's Apparent_act), not
+        // LevelManager.getCurrentAct(). AIZ reloads act 2 resources mid-level which
+        // changes LevelManager.currentAct to 1, but Apparent_act stays 0 until results exit.
         spawnDynamicObject(new S3kResultsScreenObjectInstance(
                 getPlayerCharacter(), apparentAct));
         LOG.fine("S3K Signpost RESULTS -> AFTER (results instance spawned)");

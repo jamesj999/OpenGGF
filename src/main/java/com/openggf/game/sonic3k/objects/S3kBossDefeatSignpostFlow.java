@@ -40,17 +40,22 @@ public class S3kBossDefeatSignpostFlow extends AbstractObjectInstance {
     private Phase phase;
     private int timer;
     private final int signpostX;
+    private final int apparentAct;
     private final Runnable zoneCleanupCallback;
 
     /**
      * Creates the defeat-to-signpost flow orchestrator.
      *
      * @param signpostX           world X position where the signpost should appear
+     * @param apparentAct         ROM's Apparent_act value (0 = act 1, 1 = act 2 display).
+     *                            For mid-act bosses like AIZ1 miniboss, this is 0 even though
+     *                            the engine may have reloaded act 2 resources.
      * @param zoneCleanupCallback called after spawning the signpost (e.g. palette restore)
      */
-    public S3kBossDefeatSignpostFlow(int signpostX, Runnable zoneCleanupCallback) {
+    public S3kBossDefeatSignpostFlow(int signpostX, int apparentAct, Runnable zoneCleanupCallback) {
         super(null, "S3kBossDefeatSignpostFlow");
         this.signpostX = signpostX;
+        this.apparentAct = apparentAct;
         this.zoneCleanupCallback = zoneCleanupCallback;
         this.phase = Phase.WAIT_FADE;
         this.timer = FADE_TIMER;
@@ -118,7 +123,7 @@ public class S3kBossDefeatSignpostFlow extends AbstractObjectInstance {
         GameServices.gameState().setCurrentBossId(0);
 
         // Spawn signpost above camera
-        S3kSignpostInstance signpost = new S3kSignpostInstance(signpostX);
+        S3kSignpostInstance signpost = new S3kSignpostInstance(signpostX, apparentAct);
         spawnDynamicObject(signpost);
         LOG.fine("S3K defeat flow spawned signpost at X=" + signpostX);
 

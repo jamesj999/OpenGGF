@@ -396,8 +396,10 @@ public class AizMinibossInstance extends AbstractBossInstance {
             defeatRenderComplete = true;
             spawnDynamicObject(new SongFadeTransitionInstance(120, Sonic3kMusic.AIZ1.id));
 
+            // apparentAct = 0: AIZ miniboss ends act 1 (ROM's Apparent_act is 0 here,
+            // even though the engine reloaded act 2 resources for the fire terrain swap)
             S3kBossDefeatSignpostFlow defeatFlow = new S3kBossDefeatSignpostFlow(
-                    state.x,
+                    state.x, 0,
                     () -> {
                         // AfterBoss_AIZ2: restore fire palette to palette line 1.
                         // ROM: lea (Pal_AIZFire).l,a1 / jsr (PalLoad_Line1).l
