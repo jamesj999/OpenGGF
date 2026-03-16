@@ -3,7 +3,6 @@ package com.openggf.game.sonic3k;
 import com.openggf.camera.Camera;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
-import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
 import com.openggf.level.Palette;
@@ -35,21 +34,11 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
         if (cycles == null || cycles.isEmpty()) {
             return;
         }
-        if (shouldSuspendAizPaletteCycles()) {
-            return;
-        }
+        // ROM: AnimatePalettes dispatches to AnPal_* every frame unconditionally,
+        // regardless of fire transition state.  Never suspend palette cycling.
         for (PaletteCycle cycle : cycles) {
             cycle.tick(level, graphicsManager);
         }
-    }
-
-    private boolean shouldSuspendAizPaletteCycles() {
-        if (level == null || level.getZoneIndex() != 0) {
-            return false;
-        }
-        Sonic3kLevelEventManager levelEventManager = Sonic3kLevelEventManager.getInstance();
-        Sonic3kAIZEvents aizEvents = levelEventManager != null ? levelEventManager.getAizEvents() : null;
-        return aizEvents != null && aizEvents.isFireTransitionActive();
     }
 
     private List<PaletteCycle> loadCycles(RomByteReader reader, int zoneIndex, int actIndex) {
