@@ -99,7 +99,7 @@ public class Sonic3kObjectRegistry implements ObjectRegistry {
         factories.put(Sonic3kObjectIds.AIZ_FOREGROUND_PLANT,
                 (spawn, registry) -> new AizForegroundPlantInstance(spawn));
         factories.put(Sonic3kObjectIds.HIDDEN_MONITOR,
-                (spawn, registry) -> new PlaceholderObjectInstance(spawn, "HiddenMonitor"));
+                (spawn, registry) -> new S3kHiddenMonitorInstance(spawn));
         factories.put(Sonic3kObjectIds.SS_ENTRY_RING,
                 (spawn, registry) -> new Sonic3kSSEntryRingObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.BLOOMINATOR,
