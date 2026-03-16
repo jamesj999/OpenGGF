@@ -934,9 +934,20 @@ public final class Sonic3kPlcArtRegistry {
                 -1
         ));
 
+        // PLC_EndSignStuff - end sign face (uncompressed art + DPLC remap)
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.END_SIGN,
+                Sonic3kConstants.ART_UNC_END_SIGNS_ADDR,
+                CompressionType.UNCOMPRESSED,
+                Sonic3kConstants.ART_UNC_END_SIGNS_SIZE,
+                Sonic3kConstants.MAP_END_SIGNS_ADDR,
+                0,
+                Sonic3kConstants.DPLC_END_SIGNS_ADDR));
+
         // PLC_EndSignStuff - signpost pole/stub (Nemesis compressed)
         standalone.add(new StandaloneArtEntry(
-                "SignpostStub", Sonic3kConstants.ART_NEM_SIGNPOST_STUB_ADDR,
+                Sonic3kObjectArtKeys.SIGNPOST_STUB,
+                Sonic3kConstants.ART_NEM_SIGNPOST_STUB_ADDR,
                 CompressionType.NEMESIS, -1, Sonic3kConstants.MAP_SIGNPOST_STUB_ADDR,
                 0, -1));
 

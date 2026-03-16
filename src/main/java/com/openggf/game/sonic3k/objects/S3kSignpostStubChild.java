@@ -1,8 +1,12 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
+import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.ObjectRenderManager;
+import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -61,13 +65,27 @@ public class S3kSignpostStubChild extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        // Stub: art loading is handled in Chunk 6.
-        // Render a small placeholder line for the post.
-        float r = 0.6f, g = 0.6f, b = 0.3f;
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1,
-                GLCommand.BlendType.SOLID, r, g, b, currentX, currentY - 4, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1,
-                GLCommand.BlendType.SOLID, r, g, b, currentX, currentY + 12, 0, 0));
+        PatternSpriteRenderer renderer = getStubRenderer();
+        if (renderer == null || !renderer.isReady()) {
+            return;
+        }
+        // Single frame (frame 0) at stub position
+        renderer.drawFrameIndex(0, currentX, currentY, false, false);
+    }
+
+    private PatternSpriteRenderer getStubRenderer() {
+        try {
+            LevelManager lm = LevelManager.getInstance();
+            if (lm != null) {
+                ObjectRenderManager orm = lm.getObjectRenderManager();
+                if (orm != null) {
+                    return orm.getRenderer(Sonic3kObjectArtKeys.SIGNPOST_STUB);
+                }
+            }
+        } catch (Exception ignored) {
+            // Render manager unavailable (e.g. headless test)
+        }
+        return null;
     }
 
     @Override

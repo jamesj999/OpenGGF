@@ -5,10 +5,14 @@ import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
+import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
+import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.ObjectRenderManager;
+import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -356,36 +360,31 @@ public class S3kSignpostInstance extends AbstractObjectInstance {
     }
 
     // =========================================================================
-    // Rendering (stub — art loading in Chunk 6)
+    // Rendering
     // =========================================================================
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        // Stub: art loading is handled in Chunk 6.
-        // For now, render a simple placeholder box.
-        int halfW = 16;
-        int halfH = 24;
-        float r = 0.2f, g = 0.8f, b = 0.2f;
-        appendPlaceholderBox(commands, worldX - halfW, worldY - halfH,
-                worldX + halfW, worldY + halfH, r, g, b);
+        PatternSpriteRenderer renderer = getEndSignRenderer();
+        if (renderer == null || !renderer.isReady()) {
+            return;
+        }
+        renderer.drawFrameIndex(animFrame, worldX, worldY, false, false);
     }
 
-    private void appendPlaceholderBox(List<GLCommand> commands,
-                                      int left, int top, int right, int bottom,
-                                      float r, float g, float b) {
-        appendLine(commands, left, top, right, top, r, g, b);
-        appendLine(commands, right, top, right, bottom, r, g, b);
-        appendLine(commands, right, bottom, left, bottom, r, g, b);
-        appendLine(commands, left, bottom, left, top, r, g, b);
-    }
-
-    private void appendLine(List<GLCommand> commands,
-                            int x1, int y1, int x2, int y2,
-                            float r, float g, float b) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1,
-                GLCommand.BlendType.SOLID, r, g, b, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1,
-                GLCommand.BlendType.SOLID, r, g, b, x2, y2, 0, 0));
+    private PatternSpriteRenderer getEndSignRenderer() {
+        try {
+            LevelManager lm = LevelManager.getInstance();
+            if (lm != null) {
+                ObjectRenderManager orm = lm.getObjectRenderManager();
+                if (orm != null) {
+                    return orm.getRenderer(Sonic3kObjectArtKeys.END_SIGN);
+                }
+            }
+        } catch (Exception ignored) {
+            // Render manager unavailable (e.g. headless test)
+        }
+        return null;
     }
 
     @Override
