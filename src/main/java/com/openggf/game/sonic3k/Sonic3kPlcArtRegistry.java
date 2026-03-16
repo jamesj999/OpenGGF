@@ -274,6 +274,15 @@ public final class Sonic3kPlcArtRegistry {
                 1,
                 -1
         ));
+
+        // Floating Platform: ArtTile_HCZMisc + $53
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.FLOATING_PLATFORM_HCZ,
+                Sonic3kConstants.MAP_HCZ_FLOATING_PLATFORM_ADDR,
+                Sonic3kConstants.ARTTILE_HCZ_MISC + 0x53,
+                2,
+                null
+        ));
     }
 
     /**
@@ -346,6 +355,15 @@ public final class Sonic3kPlcArtRegistry {
         levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.SPRING_DIAGONAL, -1, Sonic3kConstants.ARTTILE_MGZ_MHZ_DIAGONAL_SPRING, 0, "buildSpringDiagonalSheet"));
         levelArt.removeIf(e -> e.key().equals(Sonic3kObjectArtKeys.SPRING_DIAGONAL_YELLOW));
         levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.SPRING_DIAGONAL_YELLOW, -1, Sonic3kConstants.ARTTILE_MGZ_MHZ_DIAGONAL_SPRING, 0, "buildSpringDiagonalYellowSheet"));
+
+        // Floating Platform: art_tile = $001, palette 2
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.FLOATING_PLATFORM_MGZ,
+                Sonic3kConstants.MAP_MGZ_FLOATING_PLATFORM_ADDR,
+                1,
+                2,
+                null
+        ));
     }
 
     /**
@@ -399,6 +417,15 @@ public final class Sonic3kPlcArtRegistry {
                 Sonic3kConstants.MAP_CNZ_BALLOON_ADDR,
                 0,
                 -1
+        ));
+
+        // Cork Floor: ArtTile_CNZPlatform
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.CORK_FLOOR_CNZ,
+                Sonic3kConstants.MAP_CNZ_CORK_FLOOR_ADDR,
+                Sonic3kConstants.ARTTILE_CNZ_PLATFORM,
+                2,
+                null
         ));
     }
 
@@ -455,6 +482,15 @@ public final class Sonic3kPlcArtRegistry {
                 0,
                 -1
         ));
+
+        // Cork Floor: ArtTile_FBZMisc + $C1
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.CORK_FLOOR_FBZ,
+                Sonic3kConstants.MAP_FBZ_CORK_FLOOR_ADDR,
+                Sonic3kConstants.ARTTILE_FBZ_MISC + 0xC1,
+                1,
+                null
+        ));
     }
 
     /**
@@ -499,6 +535,15 @@ public final class Sonic3kPlcArtRegistry {
                 Sonic3kConstants.MAP_PENGUINATOR_ADDR,
                 1,
                 Sonic3kConstants.DPLC_PENGUINATOR_ADDR
+        ));
+
+        // Cork Floor: art_tile = $001, palette 2
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.CORK_FLOOR_ICZ,
+                Sonic3kConstants.MAP_ICZ_CORK_FLOOR_ADDR,
+                1,
+                2,
+                null
         ));
     }
 
@@ -554,6 +599,15 @@ public final class Sonic3kPlcArtRegistry {
                 Sonic3kConstants.MAP_CORKEY_ADDR,
                 1,
                 -1
+        ));
+
+        // Cork Floor: art_tile = $001, palette 2
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.CORK_FLOOR_LBZ,
+                Sonic3kConstants.MAP_LBZ_CORK_FLOOR_ADDR,
+                1,
+                2,
+                null
         ));
     }
 
@@ -880,6 +934,12 @@ public final class Sonic3kPlcArtRegistry {
                 -1
         ));
 
+        // PLC_EndSignStuff - signpost pole/stub (Nemesis compressed)
+        standalone.add(new StandaloneArtEntry(
+                "SignpostStub", Sonic3kConstants.ART_NEM_SIGNPOST_STUB_ADDR,
+                CompressionType.NEMESIS, -1, Sonic3kConstants.MAP_SIGNPOST_STUB_ADDR,
+                0, -1));
+
         // Level-art shared across both acts
         levelArt.add(new LevelArtEntry(
                 Sonic3kObjectArtKeys.AIZ_RIDE_VINE,
@@ -947,6 +1007,22 @@ public final class Sonic3kPlcArtRegistry {
                     2,
                     null
             ));
+            // Cork Floor: art_tile = make_art_tile($001, 2, 0)
+            levelArt.add(new LevelArtEntry(
+                    Sonic3kObjectArtKeys.CORK_FLOOR_AIZ1,
+                    Sonic3kConstants.MAP_AIZ_CORK_FLOOR_ADDR,
+                    1,
+                    2,
+                    null
+            ));
+            // Floating Platform: ArtTile_AIZFloatingPlatform
+            levelArt.add(new LevelArtEntry(
+                    Sonic3kObjectArtKeys.FLOATING_PLATFORM_AIZ1,
+                    Sonic3kConstants.MAP_AIZ_FLOATING_PLATFORM_ADDR,
+                    Sonic3kConstants.ARTTILE_AIZ_FLOATING_PLATFORM,
+                    2,
+                    null
+            ));
         } else {
             levelArt.add(new LevelArtEntry(
                     Sonic3kObjectArtKeys.AIZ2_ROCK,
@@ -959,6 +1035,22 @@ public final class Sonic3kPlcArtRegistry {
                     Sonic3kObjectArtKeys.COLLAPSING_PLATFORM_AIZ2,
                     Sonic3kConstants.MAP_AIZ_COLLAPSING_PLATFORM2_ADDR,
                     1,
+                    2,
+                    null
+            ));
+            // Cork Floor: AIZ2 variant
+            levelArt.add(new LevelArtEntry(
+                    Sonic3kObjectArtKeys.CORK_FLOOR_AIZ2,
+                    Sonic3kConstants.MAP_AIZ_CORK_FLOOR_2_ADDR,
+                    1,
+                    2,
+                    null
+            ));
+            // Floating Platform: ArtTile_AIZ2FloatingPlatform
+            levelArt.add(new LevelArtEntry(
+                    Sonic3kObjectArtKeys.FLOATING_PLATFORM_AIZ2,
+                    Sonic3kConstants.MAP_AIZ_FLOATING_PLATFORM_ADDR,
+                    Sonic3kConstants.ARTTILE_AIZ2_FLOATING_PLATFORM,
                     2,
                     null
             ));
