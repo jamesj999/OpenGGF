@@ -3,6 +3,7 @@ package com.openggf.game.sonic3k.objects;
 import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayerCharacter;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
@@ -66,6 +67,9 @@ public class AizMinibossInstance extends AbstractBossInstance {
     private static final int PARENT_BIT_BARREL_ACTIVATE = 1 << 1;
     private static final int PARENT_BIT_ALT_VERTICAL = 1 << 2;
     private static final int PARENT_BIT_ALT_HORIZONTAL = 1 << 3;
+    /** ROM: bit set by boss when Knuckles fight activates napalm. */
+    private static final int PARENT_BIT_NAPALM_ACTIVATE = 1 << 4;
+    private static final int TRIGGER_X_KNUCKLES = 0x10C0;
 
     private static final int[] BREATH_FLAME_X_OFFSETS = {-0x64, -0x54, -0x44, -0x2C};
     private static final int[] BREATH_FLAME_Y_OFFSETS = {4, 4, 4, 3};
@@ -230,12 +234,14 @@ public class AizMinibossInstance extends AbstractBossInstance {
 
     private void updateWaitTrigger() {
         Camera camera = Camera.getInstance();
-        if (camera.getX() < TRIGGER_X) {
+        PlayerCharacter character = Sonic3kLevelEventManager.getInstance().getPlayerCharacter();
+        int triggerX = (character == PlayerCharacter.KNUCKLES) ? TRIGGER_X_KNUCKLES : TRIGGER_X;
+        if (camera.getX() < triggerX) {
             return;
         }
 
-        camera.setMinX((short) TRIGGER_X);
-        camera.setMaxX((short) TRIGGER_X);
+        camera.setMinX((short) triggerX);
+        camera.setMaxX((short) triggerX);
         AudioManager.getInstance().fadeOutMusic();
 
         state.routine = ROUTINE_WAIT;
@@ -253,6 +259,8 @@ public class AizMinibossInstance extends AbstractBossInstance {
         for (int i = 0; i < 3; i++) {
             spawnChild(new AizMinibossFlameBarrelChild(this, i, false), objectManager);
         }
+        // Napalm controller (stays idle for Sonic, activates for Knuckles)
+        spawnChild(new AizMinibossNapalmController(this, 0), objectManager);
 
         AudioManager.getInstance().playMusic(Sonic3kMusic.MINIBOSS.id);
     }
@@ -279,6 +287,12 @@ public class AizMinibossInstance extends AbstractBossInstance {
     }
 
     private void onBreathCycleComplete() {
+        // ROM: loc_68ADE — Knuckles fight triggers napalm after breath cycle
+        PlayerCharacter character = Sonic3kLevelEventManager.getInstance().getPlayerCharacter();
+        if (character == PlayerCharacter.KNUCKLES) {
+            setCustomFlag(FLAG_PARENT_BITS, getCustomFlag(FLAG_PARENT_BITS) | PARENT_BIT_NAPALM_ACTIVATE);
+        }
+
         state.routine = ROUTINE_DESCEND;
         int bits = getCustomFlag(FLAG_PARENT_BITS) ^ PARENT_BIT_ALT_VERTICAL;
         setCustomFlag(FLAG_PARENT_BITS, bits);
