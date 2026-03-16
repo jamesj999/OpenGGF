@@ -382,10 +382,11 @@ public class AizMinibossInstance extends AbstractBossInstance {
 
         // Explosions finished — spawn music fade-to-level transition, then signpost flow.
         // ROM: Wait_FadeToLevelMusic → Obj_Song_Fade_ToLevelMusic → Restore_LevelMusic
-        // The real miniboss is in AIZ2 (post-fire), so restore AIZ2 music.
+        // The fire transition swaps tileset/palette to AIZ2's look, but the zone is still
+        // technically AIZ1 and the level music is AIZ1.
         if (!defeatRenderComplete) {
             defeatRenderComplete = true;
-            spawnDynamicObject(new SongFadeTransitionInstance(120, Sonic3kMusic.AIZ2.id));
+            spawnDynamicObject(new SongFadeTransitionInstance(120, Sonic3kMusic.AIZ1.id));
 
             S3kBossDefeatSignpostFlow defeatFlow = new S3kBossDefeatSignpostFlow(
                     state.x,
