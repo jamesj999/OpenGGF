@@ -89,6 +89,20 @@ public class GameStateManager {
      */
     private int collectedSpecialRings;
 
+    /**
+     * End-of-level signpost active flag (ROM: Level_end_flag at $FFFFFFD1).
+     * Set when the end-of-act signpost begins its sequence; gates player
+     * control lock and score tally trigger.
+     */
+    private boolean endOfLevelActive;
+
+    /**
+     * End-of-level completed flag (ROM: End_of_level_flag).
+     * Set when the signpost spin/land sequence finishes and the act
+     * transition should begin.
+     */
+    private boolean endOfLevelFlag;
+
     private GameStateManager() {
         configureSpecialStageProgress(DEFAULT_SPECIAL_STAGE_COUNT, DEFAULT_CHAOS_EMERALD_COUNT);
         resetSession();
@@ -122,6 +136,17 @@ public class GameStateManager {
         this.itemBonus = 0;
         this.reverseGravityActive = false;
         this.collectedSpecialRings = 0;
+        this.endOfLevelActive = false;
+        this.endOfLevelFlag = false;
+    }
+
+    /**
+     * Resets per-level state flags between act transitions.
+     * Session-persistent state (score, lives, emeralds) is NOT reset.
+     */
+    public void resetForLevel() {
+        endOfLevelActive = false;
+        endOfLevelFlag = false;
     }
 
     public int getScore() {
@@ -406,5 +431,33 @@ public class GameStateManager {
     public void setReverseGravityActive(boolean active) {
         this.reverseGravityActive = active;
     }
+
+    /**
+     * Gets the end-of-level active flag.
+     * ROM: tst.b (Level_end_flag).w
+     *
+     * @return true if the end-of-level signpost sequence is active
+     */
+    public boolean isEndOfLevelActive() { return endOfLevelActive; }
+
+    /**
+     * Sets the end-of-level active flag.
+     * ROM: move.b #1,(Level_end_flag).w
+     */
+    public void setEndOfLevelActive(boolean active) { this.endOfLevelActive = active; }
+
+    /**
+     * Gets the end-of-level completed flag.
+     * ROM: tst.b (End_of_level_flag).w
+     *
+     * @return true if the act transition should begin
+     */
+    public boolean isEndOfLevelFlag() { return endOfLevelFlag; }
+
+    /**
+     * Sets the end-of-level completed flag.
+     * ROM: move.b #1,(End_of_level_flag).w
+     */
+    public void setEndOfLevelFlag(boolean flag) { this.endOfLevelFlag = flag; }
 }
 
