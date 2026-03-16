@@ -94,6 +94,15 @@ public interface AudioBackend {
         // Default no-op; backends that support S3K override this.
     }
 
+    /**
+     * Change the music dividing timing (tempo).
+     * ROM: Change_Music_Tempo. Lower values = faster music.
+     * Used by S3K special stages to speed up music as the player accelerates.
+     */
+    default void changeMusicTempo(int newDividingTiming) {
+        // Default no-op; backends with SMPS sequencers override this.
+    }
+
     void restoreMusic();
 
     /**

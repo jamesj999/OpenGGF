@@ -83,6 +83,8 @@ public class Sonic3kSpecialStageManager {
     private boolean exitSpinStarted;
     /** Palette fade delay counter (ROM: Pal_fade_delay, counts down from 2). */
     private int palFadeDelay;
+    /** Whether music has been sped up (first speed increase). */
+    private boolean musicSpedUp;
 
     // ==================== Ring Animation ====================
     /** Ring animation timer (counts down from 7, resets). */
@@ -124,6 +126,7 @@ public class Sonic3kSpecialStageManager {
         this.ringsLeft = 0;
         this.exitSpinStarted = false;
         this.palFadeDelay = 0;
+        this.musicSpedUp = false;
         this.bannerPhase = 0;
         this.bannerTimer = 0;
         this.bannerOffset = 0;
@@ -385,6 +388,17 @@ public class Sonic3kSpecialStageManager {
         player.update(heldButtons, pressedButtons);
         player.updateJump(pressedButtons);
 
+        // Update music speed when rate increases.
+        // ROM: Change_Music_Tempo writes to zTempoSpeedup in the Z80 driver,
+        // which is exactly our SmpsSequencer.speedMultiplier.
+        // The ROM value = (0x20 - (rate>>8)) * 2 + 8.
+        // Rate 0x1000→40, 0x1400→32, 0x1800→24, 0x2000→8.
+        if (player.didRateJustIncrease()) {
+            int tempo = player.calculateMusicTempo();
+            AudioManager.getInstance().getBackend().setSpeedMultiplier(tempo);
+            musicSpedUp = true;
+        }
+
         // Collision detection (only when not jumping, not in clear sequence, not exiting)
         if ((player.getJumping() & 0x80) == 0 && clearRoutine == 0 && !exitSpinStarted) {
             processCollision();
@@ -446,6 +460,10 @@ public class Sonic3kSpecialStageManager {
         // fadeTimer goes 1→0x61 (spinning), then resets to 0 when aligned.
         if (exitSpinStarted && player.getFadeTimer() == 0) {
             finished = true;
+            // Reset music speed on exit
+            if (musicSpedUp) {
+                AudioManager.getInstance().getBackend().setSpeedMultiplier(1);
+            }
         }
 
         // Update perspective animation frame
@@ -669,7 +687,9 @@ public class Sonic3kSpecialStageManager {
 
         clearTimer += 2;
         if (clearTimer == 2) {
-            AudioManager.getInstance().playMusic(Sonic3kSfx.ALL_SPHERES.id);
+            // ROM: sfx_AllSpheres (0x66) plays as SFX over the music.
+            // Music continues until the chaos emerald jingle replaces it later.
+            AudioManager.getInstance().playSfx(Sonic3kSfx.ALL_SPHERES.id);
         }
 
         // Accelerate timer after thresholds

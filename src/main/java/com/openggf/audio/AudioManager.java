@@ -246,6 +246,18 @@ public class AudioManager {
     }
 
     /**
+     * Change the music dividing timing (tempo).
+     * ROM: Change_Music_Tempo. Lower values = faster playback.
+     *
+     * @param newDividingTiming the new dividing timing value
+     */
+    public void changeMusicTempo(int newDividingTiming) {
+        if (backend != null) {
+            backend.changeMusicTempo(newDividingTiming);
+        }
+    }
+
+    /**
      * Stops all playing SFX without affecting music.
      * Clears both SFX sequencers in the active music driver and the standalone SFX stream.
      */

@@ -133,7 +133,11 @@ public class Sonic3kSpecialStagePlayer {
      * rate increases by 0x400, up to max 0x2000.
      * ROM: loc_903E (sonic3k.asm:11445)
      */
+    /** Whether the rate just increased (for the manager to trigger tempo change). */
+    private boolean rateJustIncreased;
+
     private void updateRateTimer() {
+        rateJustIncreased = false;
         if (rateTimer <= 0) {
             return;
         }
@@ -146,9 +150,23 @@ public class Sonic3kSpecialStagePlayer {
         // Increase rate
         if (rate < MAX_RATE) {
             rate += RATE_INCREMENT;
-            // Music tempo change would happen here
-            // ROM: Change_Music_Tempo with (rate>>8 - 0x20) * -2 + 8
+            rateJustIncreased = true;
         }
+    }
+
+    public boolean didRateJustIncrease() {
+        return rateJustIncreased;
+    }
+
+    /**
+     * Calculate the music tempo for the current rate.
+     * ROM: move.b (rate).w,d0 / subi.b #$20,d0 / neg.b d0 / add.b d0,d0 / addq.b #8,d0
+     * Lower return value = faster music.
+     */
+    public int calculateMusicTempo() {
+        int rateHighByte = (rate >> 8) & 0xFF;
+        int d0 = (0x20 - rateHighByte) & 0xFF;
+        return ((d0 * 2) + 8) & 0xFF;
     }
 
     /**
