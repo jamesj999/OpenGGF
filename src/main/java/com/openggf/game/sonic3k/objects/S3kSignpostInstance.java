@@ -335,8 +335,10 @@ public class S3kSignpostInstance extends AbstractObjectInstance {
             return;
         }
 
-        // Spawn the results screen stub (handles score tally and act transition signal)
-        spawnDynamicObject(new S3kLevelResultsInstance());
+        // Spawn the results screen (handles score tally and act transition signal)
+        spawnDynamicObject(new S3kResultsScreenObjectInstance(
+                getPlayerCharacter(),
+                LevelManager.getInstance().getCurrentAct()));
         LOG.fine("S3K Signpost RESULTS -> AFTER (results instance spawned)");
         state = State.AFTER;
     }
