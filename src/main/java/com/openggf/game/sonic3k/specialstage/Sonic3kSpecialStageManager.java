@@ -92,6 +92,27 @@ public class Sonic3kSpecialStageManager {
     /** Ring animation frame: 0, 1, or 2 (cycles every 8 game frames). */
     private int ringAnimFrame;
 
+    // ==================== Tails (P2) ====================
+    private final Sonic3kSpecialStageTailsAI tailsAI = new Sonic3kSpecialStageTailsAI();
+    /** Tails animation frame timer (same format as Sonic's). */
+    private int tailsAnimTimer;
+    /** Tails current mapping frame. */
+    private int tailsMappingFrame;
+    /** Tails tails animation timer (overflows to advance frame). */
+    private int tailsTailsAnimTimer;
+    /** Tails tails current mapping frame (cycles 1-14). */
+    private int tailsTailsMappingFrame = 1;
+    /** Tails jump state: 0=ground, 0x80=normal, 0x81=spring. */
+    private int tailsJumping;
+    /** Tails jump height (same format as Sonic's). */
+    private long tailsJumpHeight;
+    /** Tails jump velocity. */
+    private long tailsJumpVelocity;
+    /** P2 held buttons from input. */
+    private int p2HeldButtons;
+    /** Whether Tails P2 is active (Sonic & Tails mode). */
+    private boolean tailsEnabled = true;
+
     // Debug state
     private boolean spriteDebugMode;
 
@@ -153,6 +174,9 @@ public class Sonic3kSpecialStageManager {
         background.initialize(player.getXPos(), player.getYPos());
         hud.initialize();
         banner.initialize();
+        tailsAI.initialize();
+        tailsAnimTimer = 0;
+        tailsMappingFrame = 0;
     }
 
     /** Pattern ID base for special stage art (avoids conflicts with level patterns). */
@@ -321,6 +345,55 @@ public class Sonic3kSpecialStageManager {
         }
         nextBase += emeraldPatterns.length;
 
+        // Load Tails art (uncompressed, from S3 Lockon ROM half)
+        if (tailsEnabled) {
+            byte[] tailsArtData = dataLoader.getTailsArt();
+            int tailsPatternCount = tailsArtData.length / Pattern.PATTERN_SIZE_IN_ROM;
+            Pattern[] tailsPatterns = new Pattern[tailsPatternCount];
+            for (int i = 0; i < tailsPatternCount; i++) {
+                tailsPatterns[i] = new Pattern();
+                byte[] sub = new byte[Pattern.PATTERN_SIZE_IN_ROM];
+                System.arraycopy(tailsArtData, i * Pattern.PATTERN_SIZE_IN_ROM,
+                        sub, 0, Pattern.PATTERN_SIZE_IN_ROM);
+                tailsPatterns[i].fromSegaFormat(sub);
+            }
+            renderer.setTailsPatternBase(nextBase);
+            for (int i = 0; i < tailsPatterns.length; i++) {
+                gm.cachePatternTexture(tailsPatterns[i], nextBase + i);
+            }
+            nextBase += tailsPatterns.length;
+
+            // Load Tails mapping data (follows art in Lockon ROM)
+            long tailsMapAddr = Sonic3kSpecialStageRomOffsets.ART_UNC_TAILS
+                    + Sonic3kSpecialStageRomOffsets.ART_UNC_TAILS_SIZE;
+            byte[] tailsMapData = rom.readBytes(tailsMapAddr, 400);
+            renderer.setTailsMappingData(tailsMapData, tailsMapData);
+
+            // Load Tails' tails art (separate sprite)
+            byte[] tailsTailsArtData = dataLoader.getTailsTailsArt();
+            int ttPatternCount = tailsTailsArtData.length / Pattern.PATTERN_SIZE_IN_ROM;
+            Pattern[] ttPatterns = new Pattern[ttPatternCount];
+            for (int i = 0; i < ttPatternCount; i++) {
+                ttPatterns[i] = new Pattern();
+                byte[] sub = new byte[Pattern.PATTERN_SIZE_IN_ROM];
+                System.arraycopy(tailsTailsArtData, i * Pattern.PATTERN_SIZE_IN_ROM,
+                        sub, 0, Pattern.PATTERN_SIZE_IN_ROM);
+                ttPatterns[i].fromSegaFormat(sub);
+            }
+            renderer.setTailsTailsPatternBase(nextBase);
+            for (int i = 0; i < ttPatterns.length; i++) {
+                gm.cachePatternTexture(ttPatterns[i], nextBase + i);
+            }
+            nextBase += ttPatterns.length;
+
+            // Load Tails' tails mapping (follows tails tails art in Lockon ROM)
+            long ttMapAddr = Sonic3kSpecialStageRomOffsets.ART_UNC_TAILS_TAILS
+                    + Sonic3kSpecialStageRomOffsets.ART_UNC_TAILS_TAILS_SIZE;
+            byte[] ttMapData = rom.readBytes(ttMapAddr, 300);
+            renderer.setTailsTailsMappingData(ttMapData);
+        }
+        nextBase += emeraldPatterns.length;
+
         // Load scalar table
         byte[] scalars = dataLoader.getScalarTable();
         // Scalars are used by the 3D projection system
@@ -387,6 +460,61 @@ public class Sonic3kSpecialStageManager {
         // Player movement (includes speed timer, input, velocity, position)
         player.update(heldButtons, pressedButtons);
         player.updateJump(pressedButtons);
+
+        // Update Tails (P2)
+        if (tailsEnabled) {
+            // Tails AI: replay P1 input with delay, or use P2 controller
+            int tailsInput = tailsAI.update(heldButtons, player.getJumping(), p2HeldButtons);
+
+            // Tails jump — uses delayed input from AI (4 frames behind Sonic)
+            if ((tailsInput & 0x70) != 0 && tailsJumping == 0) {
+                // Check if this is a spring jump or normal jump
+                if (tailsAI.shouldAutoSpringJump()) {
+                    tailsJumpVelocity = Sonic3kSpecialStageConstants.SPRING_JUMP_VELOCITY;
+                    tailsJumping = 0x81;
+                    AudioManager.getInstance().playSfx(
+                            com.openggf.game.sonic3k.audio.Sonic3kSfx.SPRING.id);
+                } else {
+                    tailsJumpVelocity = -0x100000; // Normal jump
+                    tailsJumping = 0x80;
+                    AudioManager.getInstance().playSfx(
+                            com.openggf.game.sonic3k.audio.Sonic3kSfx.JUMP.id);
+                }
+            }
+            // Tails jump physics
+            if ((tailsJumping & 0x80) != 0) {
+                tailsJumpHeight += tailsJumpVelocity;
+                if (tailsJumpHeight >= 0) {
+                    tailsJumpHeight = 0;
+                    tailsJumpVelocity = 0;
+                    tailsJumping = 0;
+                } else {
+                    tailsJumpVelocity += (long) player.getRate() << 4;
+                }
+            }
+
+            // Tails body animation (same cycle as Sonic)
+            tailsAnimTimer = (tailsAnimTimer + (player.getVelocity() >> 5)) & 0xFFFF;
+            int frameIdx = (tailsAnimTimer >> 8) & 0xFF;
+            if ((frameIdx & 0x80) != 0) frameIdx = (frameIdx + 12) & 0xFF;
+            if (frameIdx >= 12) frameIdx = (frameIdx - 12) & 0xFF;
+            tailsAnimTimer = (frameIdx << 8) | (tailsAnimTimer & 0xFF);
+
+            int[] animTable = ((tailsJumping & 0x80) != 0)
+                    ? Sonic3kSpecialStageConstants.ANIM_JUMP_P2
+                    : Sonic3kSpecialStageConstants.ANIM_WALKING;
+            if (frameIdx >= animTable.length) frameIdx = animTable.length - 1;
+            tailsMappingFrame = animTable[frameIdx];
+
+            // Tails tails animation — independent spinning cycle
+            // ROM: adds 0x2AAA + velocity to 16-bit timer, advances frame on overflow
+            tailsTailsAnimTimer = (tailsTailsAnimTimer + 0x2AAA + Math.max(0, player.getVelocity())) & 0xFFFF;
+            if (tailsTailsAnimTimer < 0x2AAA + Math.max(0, player.getVelocity())) {
+                // Overflow occurred — advance frame
+                tailsTailsMappingFrame++;
+                if (tailsTailsMappingFrame >= 15) tailsTailsMappingFrame = 1;
+            }
+        }
 
         // Update music speed when rate increases.
         // ROM: Change_Music_Tempo writes to zTempoSpeedup in the Z80 driver,
@@ -515,7 +643,7 @@ public class Sonic3kSpecialStageManager {
      * Handle player 2 input (Tails).
      */
     public void handlePlayer2Input(int heldButtons, int logicalButtons) {
-        // TODO: Tails AI
+        this.p2HeldButtons = heldButtons;
     }
 
     // ==================== Collision Processing ====================
@@ -854,6 +982,22 @@ public class Sonic3kSpecialStageManager {
 
     public int getRingAnimFrame() {
         return ringAnimFrame;
+    }
+
+    public int getTailsMappingFrame() {
+        return tailsMappingFrame;
+    }
+
+    public boolean isTailsEnabled() {
+        return tailsEnabled;
+    }
+
+    public long getTailsJumpHeight() {
+        return tailsJumpHeight;
+    }
+
+    public int getTailsTailsMappingFrame() {
+        return tailsTailsMappingFrame;
     }
 
     // ==================== Debug Methods ====================

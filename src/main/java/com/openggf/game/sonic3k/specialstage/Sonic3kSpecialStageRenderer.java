@@ -41,6 +41,15 @@ public class Sonic3kSpecialStageRenderer {
     private int iconsPatternBase;
     private int playerPatternBase;
     private int emeraldPatternBase;
+    private int tailsPatternBase;
+    private int tailsTailsPatternBase;
+
+    /** Raw mapping data for Tails' SS sprite. */
+    private byte[] tailsMappingData;
+    private int tailsMappingFrameCount = 12;
+    /** Raw mapping data for Tails' tails sprite. */
+    private byte[] tailsTailsMappingData;
+    private int tailsTailsMappingFrameCount = 15;
 
     private boolean artLoaded;
 
@@ -662,7 +671,15 @@ public class Sonic3kSpecialStageRenderer {
         // Simplified: (jumpHeight >> 16) * 32 / 0x58 = (jumpHeight >> 16) / 2.75
         long swapped = player.getJumpHeight() >> 16;
         int jumpYOffset = (int)(swapped * 32 / 0x58);
+
+        // Render Sonic first (behind Tails — Tails is closer to camera)
         renderPlayerSprite(player, PLAYER_SCREEN_CENTER_X, 160 + jumpYOffset);
+
+        // Render Tails on top (closer to camera, lower on screen)
+        // ROM: Tails at $38=-0x20 (closer to camera in Z), rendered lower on screen
+        if (manager.isTailsEnabled() && tailsPatternBase > 0 && tailsMappingData != null) {
+            renderTailsSprite(manager, PLAYER_SCREEN_CENTER_X, 172);
+        }
 
         graphicsManager.flushPatternBatch();
     }
@@ -840,30 +857,62 @@ public class Sonic3kSpecialStageRenderer {
      * correspond to the DPLC-loaded tiles. We resolve the actual art tile
      * by walking the DPLC entries to build a VRAM→art tile index map.
      */
-    private void renderPlayerSprite(Sonic3kSpecialStagePlayer player, int centerX, int centerY) {
-        if (!artLoaded || playerPatternBase <= 0 || sonicMappingData == null || sonicDplcData == null) return;
+    /**
+     * Render Tails and Tails' tails sprites.
+     * ROM: Obj_SStage_9212 (Tails body) + Obj_SStage_9444 (tails' tails).
+     * Tails uses palette 1 and has an independent jump height.
+     */
+    private void renderTailsSprite(Sonic3kSpecialStageManager manager, int centerX, int centerY) {
+        // Apply Tails' own jump height offset
+        long swapped = manager.getTailsJumpHeight() >> 16;
+        int tailsJumpY = (int)(swapped * 32 / 0x58);
+        int tailsY = centerY + tailsJumpY;
 
-        int frame = player.getMappingFrame();
-        if (frame >= sonicMappingFrameCount) return;
+        // Render Tails body first (behind tails' tails)
+        int frame = manager.getTailsMappingFrame();
+        renderCharacterSprite(tailsMappingData, tailsMappingFrameCount,
+                tailsPatternBase, 1, frame, centerX, tailsY);
+
+        // Render Tails' tails on top of body
+        if (tailsTailsPatternBase > 0 && tailsTailsMappingData != null) {
+            int ttFrame = manager.getTailsTailsMappingFrame();
+            if (ttFrame >= 0 && ttFrame < tailsTailsMappingFrameCount
+                    && ttFrame * 2 + 1 < tailsTailsMappingData.length) {
+                renderCharacterSprite(tailsTailsMappingData, tailsTailsMappingFrameCount,
+                        tailsTailsPatternBase, 1, ttFrame, centerX, tailsY);
+            }
+        }
+    }
+
+    private void renderPlayerSprite(Sonic3kSpecialStagePlayer player, int centerX, int centerY) {
+        if (!artLoaded || playerPatternBase <= 0 || sonicMappingData == null) return;
+        renderCharacterSprite(sonicMappingData, sonicMappingFrameCount,
+                playerPatternBase, 0, player.getMappingFrame(), centerX, centerY);
+    }
+
+    /**
+     * Render a character sprite using ROM mapping + DPLC data.
+     * Shared between Sonic and Tails rendering.
+     */
+    private void renderCharacterSprite(byte[] mappingData, int frameCount,
+                                       int patternBase, int paletteIndex,
+                                       int frame, int centerX, int centerY) {
+        if (mappingData == null || patternBase <= 0) return;
+        if (frame >= frameCount) return;
 
         // --- Step 1: Parse DPLC to build tile remapping table ---
-        // DPLC header: word offsets to per-frame entries (same count as mappings)
-        // DPLC data starts after the mapping header in the combined file
-        // PLC_SStageSonic starts at offset 24 (12 frames * 2 bytes) in the mapping data
-        int dplcHeaderOff = sonicMappingFrameCount * 2; // 24 for 12 frames
-        if (dplcHeaderOff + frame * 2 + 1 >= sonicMappingData.length) return;
+        int dplcHeaderOff = frameCount * 2;
+        if (dplcHeaderOff + frame * 2 + 1 >= mappingData.length) return;
 
-        int dplcFrameOff = dplcHeaderOff + readWord(sonicMappingData, dplcHeaderOff + frame * 2);
-        if (dplcFrameOff + 1 >= sonicMappingData.length) return;
-        int dplcCount = readWord(sonicMappingData, dplcFrameOff);
+        int dplcFrameOff = dplcHeaderOff + readWord(mappingData, dplcHeaderOff + frame * 2);
+        if (dplcFrameOff + 1 >= mappingData.length) return;
+        int dplcCount = readWord(mappingData, dplcFrameOff);
         if (dplcCount <= 0 || dplcCount > 20) return;
 
-        // Build VRAM tile → art tile mapping
-        // Each DPLC entry loads N tiles from art offset T into sequential VRAM slots
-        int[] vramToArt = new int[64]; // Max 64 VRAM tiles
+        int[] vramToArt = new int[64];
         int vramSlot = 0;
         for (int d = 0; d < dplcCount; d++) {
-            int dplcWord = readWord(sonicMappingData, dplcFrameOff + 2 + d * 2);
+            int dplcWord = readWord(mappingData, dplcFrameOff + 2 + d * 2);
             int tileCount = ((dplcWord >> 12) & 0xF) + 1;
             int artTileIdx = dplcWord & 0xFFF;
             for (int t = 0; t < tileCount && vramSlot < 64; t++) {
@@ -872,21 +921,21 @@ public class Sonic3kSpecialStageRenderer {
         }
 
         // --- Step 2: Parse mapping and render pieces ---
-        if (frame * 2 + 1 >= sonicMappingData.length) return;
-        int mapFrameOff = readWord(sonicMappingData, frame * 2);
-        if (mapFrameOff + 1 >= sonicMappingData.length) return;
+        if (frame * 2 + 1 >= mappingData.length) return;
+        int mapFrameOff = readWord(mappingData, frame * 2);
+        if (mapFrameOff + 1 >= mappingData.length) return;
 
-        int pieceCount = readWord(sonicMappingData, mapFrameOff);
+        int pieceCount = readWord(mappingData, mapFrameOff);
         if (pieceCount <= 0 || pieceCount > 10) return;
 
         for (int p = 0; p < pieceCount; p++) {
             int po = mapFrameOff + 2 + p * 6;
-            if (po + 5 >= sonicMappingData.length) break;
+            if (po + 5 >= mappingData.length) break;
 
-            int yOff = (byte) sonicMappingData[po];
-            int sizeByte = sonicMappingData[po + 1] & 0xFF;
-            int patternWord = readWord(sonicMappingData, po + 2);
-            int xOff = readSignedWord(sonicMappingData, po + 4);
+            int yOff = (byte) mappingData[po];
+            int sizeByte = mappingData[po + 1] & 0xFF;
+            int patternWord = readWord(mappingData, po + 2);
+            int xOff = readSignedWord(mappingData, po + 4);
 
             int tilesW = ((sizeByte >> 2) & 3) + 1;
             int tilesH = (sizeByte & 3) + 1;
@@ -901,7 +950,7 @@ public class Sonic3kSpecialStageRenderer {
 
                     // Resolve VRAM tile to actual art tile via DPLC
                     int artTile = (vramTile < vramSlot) ? vramToArt[vramTile] : vramTile;
-                    int patternId = playerPatternBase + artTile;
+                    int patternId = patternBase + artTile;
 
                     int drawX = centerX + xOff + col * TILE_SIZE;
                     int drawY = centerY + yOff + row * TILE_SIZE;
@@ -913,7 +962,7 @@ public class Sonic3kSpecialStageRenderer {
 
                     reusableDesc.set(0);
                     reusableDesc.setPriority(true);
-                    reusableDesc.setPaletteIndex(0);
+                    reusableDesc.setPaletteIndex(paletteIndex);
                     reusableDesc.setHFlip(hFlip);
                     graphicsManager.renderPatternWithId(patternId, reusableDesc, drawX, drawY);
                 }
@@ -968,4 +1017,13 @@ public class Sonic3kSpecialStageRenderer {
     public void setIconsPatternBase(int base) { this.iconsPatternBase = base; }
     public void setPlayerPatternBase(int base) { this.playerPatternBase = base; }
     public void setEmeraldPatternBase(int base) { this.emeraldPatternBase = base; }
+    public void setTailsPatternBase(int base) { this.tailsPatternBase = base; }
+    public void setTailsMappingData(byte[] mappingData, byte[] dplcData) {
+        this.tailsMappingData = mappingData;
+        this.tailsMappingFrameCount = 12;
+    }
+    public void setTailsTailsPatternBase(int base) { this.tailsTailsPatternBase = base; }
+    public void setTailsTailsMappingData(byte[] data) {
+        this.tailsTailsMappingData = data;
+    }
 }
