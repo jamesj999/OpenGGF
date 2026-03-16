@@ -63,22 +63,26 @@ public class TestSolidObjectManager {
         player.setAir(true);
         player.setYSpeed((short) 0);
 
-        // Left-side sample (heightmap value 0x20): expected center Y after snap = 59.
+        // ROM: SlopeObject uses absolute slope — surfaceY = objectY - slopeSample.
+        // Stable centreY on surface = surfaceY - yRadius - 1 (where Platform3's +3 offset
+        // cancels the +4 in the relY formula, leaving distY=3, newY = centreY - 3 + 3 = centreY).
+
+        // Left-side sample (heightmap value 0x20=32): surfaceY=100-32=68, stable centreY=48.
         // Use an interior X so top resolution wins over side resolution.
         player.setCentreX((short) 64);
-        player.setCentreY((short) 59);
+        player.setCentreY((short) 48);
         manager.updateSolidContacts(player);
         int leftCenterY = player.getCentreY();
-        assertEquals(59, leftCenterY);
+        assertEquals(48, leftCenterY);
 
-        // Right-side sample (heightmap value 0x30): expected center Y after snap = 43.
+        // Right-side sample (heightmap value 0x30=48): surfaceY=100-48=52, stable centreY=32.
         player.setAir(true);
         player.setYSpeed((short) 0);
         player.setCentreX((short) 136);
-        player.setCentreY((short) 43);
+        player.setCentreY((short) 32);
         manager.updateSolidContacts(player);
         int rightCenterY = player.getCentreY();
-        assertEquals(43, rightCenterY);
+        assertEquals(32, rightCenterY);
 
         // Shape must not be flat: right edge is 16px higher than left edge.
         assertEquals(16, leftCenterY - rightCenterY);
