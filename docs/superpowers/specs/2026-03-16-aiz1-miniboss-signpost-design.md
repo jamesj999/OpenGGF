@@ -434,7 +434,7 @@ All SFX used in this spec mapped to `Sonic3kSfx` enum values:
 | `sfx_MissileExplode` | `MISSILE_EXPLODE` | 0x4E | Napalm floor impact |
 | `sfx_BubbleAttack` | `BUBBLE_ATTACK` | 0x44 | Hidden monitor reveal (in range) |
 | `sfx_GroundSlide` | `GROUND_SLIDE` | 0x7E | Hidden monitor fail (out of range) |
-| `sfx_BossHit` | `BOSS_HIT` | 0x70 | Boss hit (existing) |
+| `sfx_BossHit` | `BOSS_HIT` | 0x6E | Boss hit (existing) |
 
 ## 12. Signpost DPLC Integration
 
