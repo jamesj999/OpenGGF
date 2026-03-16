@@ -109,7 +109,7 @@ public class Sonic3kSpecialStageManager {
      */
     public void initialize(int stageIndex) throws IOException {
         LOGGER.info("Initializing S3K special stage " + stageIndex);
-        this.currentStage = stageIndex & 7;
+        this.currentStage = stageIndex;
         this.initialized = true;
         this.finished = false;
         this.emeraldCollected = false;
@@ -160,12 +160,27 @@ public class Sonic3kSpecialStageManager {
         dataLoader = Sonic3kSpecialStageDataLoader.create();
         GraphicsManager gm = GraphicsManager.getInstance();
 
-        // Load layout directly from ROM (S3 Lockon data, each 0x408 bytes)
+        // Load layout from ROM.
+        // Stages 0-7: S3 layouts (Lockon data, uncompressed)
+        // Stages 8-15: SK layouts (Kosinski compressed Set 1)
         com.openggf.data.Rom rom = GameServices.rom().getRom();
-        long layoutAddr = Sonic3kSpecialStageRomOffsets.LAYOUT_S3_STAGE_1
-                + (long) currentStage * Sonic3kSpecialStageRomOffsets.LAYOUT_STAGE_SIZE;
-        byte[] stageData = rom.readBytes(layoutAddr,
-                Sonic3kSpecialStageRomOffsets.LAYOUT_STAGE_SIZE);
+        byte[] stageData;
+        if (currentStage < 8) {
+            // S3 layouts
+            long layoutAddr = Sonic3kSpecialStageRomOffsets.LAYOUT_S3_STAGE_1
+                    + (long) currentStage * Sonic3kSpecialStageRomOffsets.LAYOUT_STAGE_SIZE;
+            stageData = rom.readBytes(layoutAddr,
+                    Sonic3kSpecialStageRomOffsets.LAYOUT_STAGE_SIZE);
+        } else {
+            // SK layouts (Kosinski compressed)
+            byte[] skCompressed = dataLoader.getCompressedLayoutSet(0);
+            int skStage = (currentStage - 8) % 8;
+            int offset = skStage * Sonic3kSpecialStageRomOffsets.LAYOUT_STAGE_SIZE;
+            stageData = new byte[Sonic3kSpecialStageRomOffsets.LAYOUT_STAGE_SIZE];
+            if (offset + stageData.length <= skCompressed.length) {
+                System.arraycopy(skCompressed, offset, stageData, 0, stageData.length);
+            }
+        }
         int[] params = grid.loadFromLayoutData(stageData);
         player.initialize(params[0], params[1], params[2], false);
         spheresLeft = grid.countBlueSpheres();
@@ -308,7 +323,9 @@ public class Sonic3kSpecialStageManager {
         // In the combined S3K ROM, SK_alone_flag=0 and SK_special_stage_flag=0
         // for the first playthrough (chaos emeralds), so use S3 palettes (skMode=false).
         // skMode=true would be for S&K standalone or super emerald stages.
-        palette.initialize(dataLoader, currentStage, false, false);
+        // Use SK palettes for stages 8+ (S&K layout set)
+        boolean skPalettes = currentStage >= 8;
+        palette.initialize(dataLoader, currentStage & 7, false, skPalettes);
         com.openggf.level.Palette[] palLines = palette.getPalettes();
         for (int i = 0; i < palLines.length; i++) {
             if (palLines[i] != null) {
@@ -804,6 +821,47 @@ public class Sonic3kSpecialStageManager {
     }
 
     // ==================== Debug Methods ====================
+
+    /** Whether we're using the SK layout set (stages 8-15) vs S3 (0-7). */
+    private boolean useSkLayouts = false;
+
+    /**
+     * Debug: advance to the next stage within the current layout set.
+     * X key in special stage mode.
+     */
+    public void debugNextStage() {
+        int nextStage;
+        if (useSkLayouts) {
+            nextStage = ((currentStage - 8 + 1) % 8) + 8;
+        } else {
+            nextStage = (currentStage + 1) % 8;
+        }
+        LOGGER.info("Debug: switching to stage " + nextStage
+                + (useSkLayouts ? " (SK)" : " (S3)"));
+        try {
+            reset();
+            initialize(nextStage);
+        } catch (java.io.IOException e) {
+            LOGGER.severe("Failed to load stage " + nextStage + ": " + e.getMessage());
+        }
+    }
+
+    /**
+     * Debug: toggle between S3 and SK layout sets.
+     * Z key in special stage mode.
+     */
+    public void debugToggleLayoutSet() {
+        useSkLayouts = !useSkLayouts;
+        int newStage = useSkLayouts ? 8 : 0;
+        LOGGER.info("Debug: switching to " + (useSkLayouts ? "SK" : "S3")
+                + " layout set, stage " + newStage);
+        try {
+            reset();
+            initialize(newStage);
+        } catch (java.io.IOException e) {
+            LOGGER.severe("Failed to load stage " + newStage + ": " + e.getMessage());
+        }
+    }
 
     public boolean isSpriteDebugMode() {
         return spriteDebugMode;

@@ -67,8 +67,8 @@ public final class Sonic3kSpecialStageConstants {
     public static final int ACCELERATION = 0x200;
     /** Normal jump velocity. */
     public static final int JUMP_VELOCITY = -0x100000;
-    /** Spring jump velocity. */
-    public static final int SPRING_JUMP_VELOCITY = -0xE8000;
+    /** Spring jump velocity. ROM: $FFE80000 = -0x180000 */
+    public static final int SPRING_JUMP_VELOCITY = -0x180000;
     /** Turn increment per frame (positive = left). */
     public static final int TURN_LEFT = 4;
     /** Turn increment per frame (negative = right). */

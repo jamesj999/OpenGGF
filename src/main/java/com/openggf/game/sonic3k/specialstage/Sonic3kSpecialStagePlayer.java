@@ -399,7 +399,8 @@ public class Sonic3kSpecialStagePlayer {
                 jumpVelocity = JUMP_VELOCITY;
                 jumping = JUMP_NORMAL;
                 turning = 0;
-                // sfx_Jump would play here
+                com.openggf.audio.AudioManager.getInstance().playSfx(
+                        com.openggf.game.sonic3k.audio.Sonic3kSfx.JUMP.id);
             }
         }
 

@@ -279,6 +279,19 @@ public class GameLoop {
         if (currentGameMode == GameMode.SPECIAL_STAGE) {
             SpecialStageProvider ssProvider = getActiveSpecialStageProvider();
 
+            // Debug: X key = next stage within current set
+            if (inputHandler.isKeyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_X)) {
+                if (ssProvider instanceof com.openggf.game.sonic3k.specialstage.Sonic3kSpecialStageProvider s3kProvider) {
+                    s3kProvider.getManager().debugNextStage();
+                }
+            }
+            // Debug: Z key = switch layout set (S3 ↔ SK)
+            if (inputHandler.isKeyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_Z)) {
+                if (ssProvider instanceof com.openggf.game.sonic3k.specialstage.Sonic3kSpecialStageProvider s3kProvider) {
+                    s3kProvider.getManager().debugToggleLayoutSet();
+                }
+            }
+
             // Debug complete special stage with emerald (for testing results screen)
             if (inputHandler.isKeyPressed(configService.getInt(SonicConfiguration.SPECIAL_STAGE_COMPLETE_KEY))) {
                 debugCompleteSpecialStageWithEmerald();
