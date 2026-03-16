@@ -77,6 +77,10 @@ public class AizMinibossFlameChild extends AbstractObjectInstance implements Tou
 
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
+        if (parent != null && parent.getState().defeated) {
+            setDestroyed(true);
+            return;
+        }
         syncWithParent();
 
         switch (phase) {

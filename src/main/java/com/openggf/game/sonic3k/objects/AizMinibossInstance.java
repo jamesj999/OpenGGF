@@ -85,7 +85,19 @@ public class AizMinibossInstance extends AbstractBossInstance {
     private int waitTimer = -1;
     private Runnable waitCallback;
     private boolean defeatRenderComplete;
-    private S3kBossExplosionController explosionController;
+
+    /**
+     * ROM: ChildObjDat_46FEE — 7 fixed-position explosions spawned by the body
+     * child at loc_46C96 after the barrel defeat animation. Offsets are (x, y)
+     * relative to the boss centre.
+     */
+    private static final int[][] DEFEAT_EXPLOSION_OFFSETS = {
+            {0, -0x24}, {8, -0x1C}, {-8, -0x1C},
+            {4, -0x14}, {-4, -0x14}, {4, -4}, {-4, -4}
+    };
+    /** Delay before spawning the 7 fixed explosions (approximates barrel closing + body fall). */
+    private static final int DEFEAT_EXPLOSION_DELAY = 30;
+    private int defeatTimer;
 
     public AizMinibossInstance(ObjectSpawn spawn, LevelManager levelManager) {
         super(spawn, levelManager, "AIZMiniboss");
@@ -98,7 +110,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
         waitTimer = -1;
         waitCallback = null;
         defeatRenderComplete = false;
-        explosionController = null;
+        defeatTimer = 0;
     }
 
     @Override
@@ -160,27 +172,27 @@ public class AizMinibossInstance extends AbstractBossInstance {
         waitTimer = -1;
         waitCallback = null;
 
-        // Bug 2 fix: clear invulnerability immediately to stop palette flash
+        // Clear invulnerability immediately to stop palette flash
         state.invulnerable = false;
         state.invulnerabilityTimer = 0;
         loadBossPalette(); // Restore clean boss palette colors on line 1
 
-        // Bug 1 fix: use S3K explosion controller (subtype 2 = standard boss defeat)
-        explosionController = new S3kBossExplosionController(state.x, state.y, 2);
+        // ROM: loc_46C96 spawns 7 fixed-position explosions after barrel defeat.
+        // We use a delay timer to approximate the barrel closing + body fall timing.
+        defeatTimer = DEFEAT_EXPLOSION_DELAY;
 
         AudioManager.getInstance().fadeOutMusic();
 
         // Clean up all visible children — barrels, body, arm, napalm controller.
-        // The parent stays alive for the defeat explosion flow, but children should
-        // not render (barrel jets stay visible otherwise since isDestroyed() never fires).
         for (var child : childComponents) {
             child.setDestroyed(true);
         }
         childComponents.clear();
 
-        // Bug 3 fix: Do NOT spawn S3kBossDefeatSignpostFlow yet.
-        // ROM flow is sequential: explosions finish → restore music → THEN signpost wait.
-        // The signpost flow is spawned in updateDefeated() when explosionController.isFinished().
+        // Destroy all in-flight attack objects (barrel shots, flames, napalm projectiles).
+        // ROM: barrel children enter defeat animation and stop spawning new attacks;
+        // existing projectiles check parent state and become inert.
+        destroyAttackObjects();
     }
 
     @Override
@@ -361,22 +373,18 @@ public class AizMinibossInstance extends AbstractBossInstance {
     }
 
     private void updateDefeated(int frameCounter) {
-        if (explosionController == null) {
+        // Phase 1: wait for defeat delay, then spawn 7 fixed-position explosions
+        if (defeatTimer > 0) {
+            defeatTimer--;
+            if (defeatTimer == 0) {
+                spawnDefeatExplosions();
+            }
             return;
         }
 
-        // Tick the S3K explosion controller and spawn children
-        if (!explosionController.isFinished()) {
-            explosionController.tick();
-            var objectManager = levelManager.getObjectManager();
-            if (objectManager != null) {
-                for (var pending : explosionController.drainPendingExplosions()) {
-                    if (pending.playSfx()) {
-                        AudioManager.getInstance().playSfx(Sonic3kSfx.EXPLODE.id);
-                    }
-                    objectManager.addDynamicObject(new S3kBossExplosionChild(pending.x(), pending.y()));
-                }
-            }
+        // Phase 2: wait for explosion animations to finish (22 ticks)
+        if (defeatTimer > -22) {
+            defeatTimer--;
             return;
         }
 
@@ -450,6 +458,47 @@ public class AizMinibossInstance extends AbstractBossInstance {
                     BREATH_FLAME_X_OFFSETS[i],
                     BREATH_FLAME_Y_OFFSETS[i],
                     i * 2));
+        }
+    }
+
+    /**
+     * Spawn 7 fixed-position explosions matching ROM ChildObjDat_46FEE.
+     * ROM: loc_46C96 plays sfx_MissileExplode and creates 7 children at fixed offsets.
+     */
+    private void spawnDefeatExplosions() {
+        AudioManager.getInstance().playSfx(Sonic3kSfx.MISSILE_EXPLODE.id);
+        var objectManager = levelManager.getObjectManager();
+        if (objectManager == null) {
+            return;
+        }
+        for (int[] offset : DEFEAT_EXPLOSION_OFFSETS) {
+            objectManager.addDynamicObject(
+                    new S3kBossExplosionChild(state.x + offset[0], state.y + offset[1]));
+        }
+    }
+
+    /**
+     * Destroy all in-flight attack objects spawned by this boss.
+     * ROM: barrel children enter defeat animation; existing shots/flames check parent
+     * state and stop. We achieve the same by scanning active objects.
+     */
+    private void destroyAttackObjects() {
+        var objectManager = levelManager.getObjectManager();
+        if (objectManager == null) {
+            return;
+        }
+        for (var obj : objectManager.getActiveObjects()) {
+            if (obj instanceof AizMinibossBarrelShotChild attack) {
+                attack.setDestroyed(true);
+            } else if (obj instanceof AizMinibossFlameChild flame) {
+                flame.setDestroyed(true);
+            } else if (obj instanceof AizMinibossImpactFlameChild impact) {
+                impact.setDestroyed(true);
+            } else if (obj instanceof AizMinibossNapalmProjectile napalm) {
+                napalm.setDestroyed(true);
+            } else if (obj instanceof AizMinibossBarrelShotFlareChild flare) {
+                flare.setDestroyed(true);
+            }
         }
     }
 

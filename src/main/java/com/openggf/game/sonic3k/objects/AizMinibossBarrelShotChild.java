@@ -105,7 +105,7 @@ public class AizMinibossBarrelShotChild extends AbstractObjectInstance implement
 
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
-        if (parent == null || parent.isDestroyed()) {
+        if (parent == null || parent.isDestroyed() || parent.getState().defeated) {
             setDestroyed(true);
             return;
         }
