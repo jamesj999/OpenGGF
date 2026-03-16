@@ -86,6 +86,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
     private int waitTimer = -1;
     private Runnable waitCallback;
     private int defeatTimer;
+    private boolean defeatRenderComplete;
 
     public AizMinibossInstance(ObjectSpawn spawn, LevelManager levelManager) {
         super(spawn, levelManager, "AIZMiniboss");
@@ -98,6 +99,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
         waitTimer = -1;
         waitCallback = null;
         defeatTimer = 0;
+        defeatRenderComplete = false;
     }
 
     @Override
@@ -165,11 +167,20 @@ public class AizMinibossInstance extends AbstractBossInstance {
         S3kBossDefeatSignpostFlow defeatFlow = new S3kBossDefeatSignpostFlow(
                 state.x,
                 () -> {
-                    // AIZ1 AfterBoss_Cleanup: restore palette line 2 from Pal_AIZ
+                    // AIZ1 AfterBoss_Cleanup: restore palette lines 2-3 from Pal_AIZ.
+                    // ROM copies 96 bytes (3 palette lines) to Normal_palette_line_2.
+                    // Split into per-line 32-byte updates for updatePalette().
                     try {
                         byte[] palData = GameServices.rom().getRom().readBytes(
                                 Sonic3kConstants.PAL_AIZ_ADDR, Sonic3kConstants.PAL_AIZ_SIZE);
-                        levelManager.updatePalette(2, palData);
+                        if (palData.length >= 64) {
+                            byte[] line2 = new byte[32];
+                            byte[] line3 = new byte[32];
+                            System.arraycopy(palData, 0, line2, 0, 32);
+                            System.arraycopy(palData, 32, line3, 0, 32);
+                            levelManager.updatePalette(2, line2);
+                            levelManager.updatePalette(3, line3);
+                        }
                     } catch (Exception ignored) {
                         // Palette restore failures should not crash gameplay.
                     }
@@ -228,6 +239,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
         if (events != null) {
             events.setBossFlag(true);
         }
+        GameServices.gameState().setCurrentBossId(0x91);
         loadBossPalette();
         state.routine = ROUTINE_WAIT_TRIGGER;
     }
@@ -352,15 +364,16 @@ public class AizMinibossInstance extends AbstractBossInstance {
     }
 
     private void updateDefeated(int frameCounter) {
+        if (defeatTimer <= 0) {
+            if (!defeatRenderComplete) {
+                defeatRenderComplete = true;
+            }
+            return; // Explosions finished, waiting for defeat flow to complete
+        }
         defeatTimer--;
         if ((defeatTimer & 7) == 0) {
             spawnDefeatExplosion();
         }
-        if (defeatTimer > 0) {
-            return;
-        }
-        // Defeat flow handles boss flag, music, and signpost from here.
-        // Boss stays alive but inactive.
     }
 
     private void setWait(int frames, Runnable callback) {
@@ -422,7 +435,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (isDestroyed() || state.routine < ROUTINE_DESCEND || state.routine == ROUTINE_DEFEATED) {
+        if (isDestroyed() || state.routine < ROUTINE_DESCEND || defeatRenderComplete) {
             return;
         }
         ObjectRenderManager renderManager = levelManager.getObjectRenderManager();

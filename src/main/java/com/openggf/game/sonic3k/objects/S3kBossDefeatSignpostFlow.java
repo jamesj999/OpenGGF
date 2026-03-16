@@ -106,7 +106,7 @@ public class S3kBossDefeatSignpostFlow extends AbstractObjectInstance {
     // =========================================================================
 
     private void updateSpawnSignpost() {
-        // Clear boss flag so level events resume normal behavior
+        // Clear boss flag and boss ID so level events resume normal behavior
         try {
             Sonic3kAIZEvents events = Sonic3kLevelEventManager.getInstance().getAizEvents();
             if (events != null) {
@@ -115,6 +115,7 @@ public class S3kBossDefeatSignpostFlow extends AbstractObjectInstance {
         } catch (Exception e) {
             LOG.fine("Could not clear boss flag: " + e.getMessage());
         }
+        GameServices.gameState().setCurrentBossId(0);
 
         // Spawn signpost above camera
         S3kSignpostInstance signpost = new S3kSignpostInstance(signpostX);
