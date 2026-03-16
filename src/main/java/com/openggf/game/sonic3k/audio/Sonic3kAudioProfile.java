@@ -36,7 +36,7 @@ public class Sonic3kAudioProfile implements GameAudioProfile {
         map.put(GameSound.SPINDASH_CHARGE, Sonic3kSfx.SPINDASH.id);
         map.put(GameSound.SPINDASH_RELEASE, Sonic3kSfx.SPINDASH.id);
         map.put(GameSound.SKID, Sonic3kSfx.SKID.id);
-        map.put(GameSound.HURT, Sonic3kSfx.SPIKE_HIT.id);
+        map.put(GameSound.HURT, Sonic3kSfx.DEATH.id);
         map.put(GameSound.HURT_SPIKE, Sonic3kSfx.SPIKE_HIT.id);
         map.put(GameSound.BADNIK_HIT, Sonic3kSfx.BOSS_HIT.id);
         map.put(GameSound.CHECKPOINT, Sonic3kSfx.STARPOST.id);
