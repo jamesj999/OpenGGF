@@ -1,5 +1,7 @@
 package com.openggf.sprites.animation;
 
+import com.openggf.game.AnimationId;
+
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -16,6 +18,10 @@ public class SpriteAnimationSet {
 
     public SpriteAnimationScript getScript(int id) {
         return scripts.get(id);
+    }
+
+    public SpriteAnimationScript getScript(AnimationId id) {
+        return scripts.get(id.id());
     }
 
     public int getScriptCount() {

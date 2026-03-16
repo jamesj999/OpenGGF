@@ -20,14 +20,14 @@ public class TestSonic1TeleporterObjectInstance {
         teleporter.update(1, player);
         assertTrue(player.isObjectControlled());
         assertTrue(player.isControlLocked());
-        assertEquals(Sonic1AnimationIds.ROLL, player.getForcedAnimationId());
+        assertEquals(Sonic1AnimationIds.ROLL.id(), player.getForcedAnimationId());
 
         // Continue until release; roll animation must remain forced during transport.
         int frame = 2;
         while (player.isObjectControlled() && frame < 800) {
             teleporter.update(frame, player);
             if (player.isObjectControlled()) {
-                assertEquals(Sonic1AnimationIds.ROLL, player.getForcedAnimationId());
+                assertEquals(Sonic1AnimationIds.ROLL.id(), player.getForcedAnimationId());
             }
             frame++;
         }
@@ -46,7 +46,7 @@ public class TestSonic1TeleporterObjectInstance {
 
         teleporter.update(1, player);
         assertTrue(player.isObjectControlled());
-        assertEquals(Sonic1AnimationIds.ROLL, player.getForcedAnimationId());
+        assertEquals(Sonic1AnimationIds.ROLL.id(), player.getForcedAnimationId());
 
         teleporter.onUnload();
 

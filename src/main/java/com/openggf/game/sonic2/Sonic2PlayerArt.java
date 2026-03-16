@@ -94,8 +94,8 @@ public class Sonic2PlayerArt {
         // Tails' TailsAni_Hurt (0x19) uses the same frame ($5D) as TailsAni_Death (0x18).
         // Use TailsAni_Hurt2 (0x1A, frame $5C) for Tails so hurt looks distinct from death.
         int hurtAnimId = (basePatternIndex == Sonic2Constants.ART_TILE_TAILS)
-                ? Sonic2AnimationIds.HURT2
-                : Sonic2AnimationIds.HURT;
+                ? Sonic2AnimationIds.HURT2.id()
+                : Sonic2AnimationIds.HURT.id();
 
         SpriteAnimationProfile animationProfile = new ScriptedVelocityAnimationProfile()
                 .setIdleAnimId(Sonic2AnimationIds.WAIT)

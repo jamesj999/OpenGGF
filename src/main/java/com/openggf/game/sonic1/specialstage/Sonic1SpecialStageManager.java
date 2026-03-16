@@ -233,7 +233,7 @@ public final class Sonic1SpecialStageManager {
         wallVramAnimTimer = 0;
         ssAnimBuffer = new int[SS_ANIM_BUFFER_SIZE][4];
         ssAnimGlassFinalBlock = new int[SS_ANIM_BUFFER_SIZE];
-        sonicAnimId = Sonic1AnimationIds.ROLL;
+        sonicAnimId = Sonic1AnimationIds.ROLL.id();
         sonicAnimFrameIndex = 0;
         sonicAnimFrameTimer = 0;
 
@@ -1171,7 +1171,7 @@ public final class Sonic1SpecialStageManager {
                 ? sonicArt.animationSet().getScript(Sonic1AnimationIds.ROLL2)
                 : null;
 
-        sonicAnimId = Sonic1AnimationIds.ROLL;
+        sonicAnimId = Sonic1AnimationIds.ROLL.id();
         sonicAnimFrameIndex = 0;
         sonicAnimFrameTimer = 0;
         sonicSpriteFrame = resolveSpecialStageSonicFrame(sonicArt);
@@ -1199,7 +1199,7 @@ public final class Sonic1SpecialStageManager {
                 && sonicRoll2Script != null
                 && sonicRoll2Script.frames() != null
                 && !sonicRoll2Script.frames().isEmpty();
-        int targetAnimId = useRoll2 ? Sonic1AnimationIds.ROLL2 : Sonic1AnimationIds.ROLL;
+        int targetAnimId = useRoll2 ? Sonic1AnimationIds.ROLL2.id() : Sonic1AnimationIds.ROLL.id();
         SpriteAnimationScript activeScript = useRoll2 ? sonicRoll2Script : rollScript;
 
         if (sonicAnimId != targetAnimId) {
@@ -1729,7 +1729,7 @@ public final class Sonic1SpecialStageManager {
         sonicAnimFrameTimer = 0;
         exitFadeStarted = false;
         exitFadeTimer = 0;
-        sonicAnimId = Sonic1AnimationIds.ROLL;
+        sonicAnimId = Sonic1AnimationIds.ROLL.id();
         wallVramAnimFrame = 0;
         wallVramAnimTimer = 0;
         ssAnimBuffer = null;

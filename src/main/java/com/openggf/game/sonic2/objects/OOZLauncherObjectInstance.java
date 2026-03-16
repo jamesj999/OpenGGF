@@ -174,7 +174,7 @@ public class OOZLauncherObjectInstance extends AbstractObjectInstance
         int savedAnim = isSidekick ? savedTailsAnim : savedSonicAnim;
         int savedYVel = isSidekick ? savedTailsYVel : savedSonicYVel;
 
-        if (savedAnim == Sonic2AnimationIds.ROLL) {
+        if (savedAnim == Sonic2AnimationIds.ROLL.id()) {
             launchPlayer(player, savedYVel, frameCounter);
             breakBlock(frameCounter);
         }

@@ -32,7 +32,7 @@ public class TestSonic1PoleThatBreaksObjectInstance {
         assertEquals(200 + 0x14, player.getCentreX());
         assertEquals(0, player.getXSpeed());
         assertEquals(0, player.getYSpeed());
-        assertEquals(Sonic1AnimationIds.HANG, player.getAnimationId());
+        assertEquals(Sonic1AnimationIds.HANG.id(), player.getAnimationId());
         assertEquals(Direction.RIGHT, player.getDirection());
     }
 

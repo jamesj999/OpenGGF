@@ -1,5 +1,6 @@
 package com.openggf.sprites.animation;
 
+import com.openggf.game.AnimationId;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 /**
@@ -41,25 +42,45 @@ public class ScriptedVelocityAnimationProfile implements SpriteAnimationProfile 
     }
 
     public ScriptedVelocityAnimationProfile setIdleAnimId(int idleAnimId) { this.idleAnimId = idleAnimId; return this; }
+    public ScriptedVelocityAnimationProfile setIdleAnimId(AnimationId id) { return setIdleAnimId(id.id()); }
     public ScriptedVelocityAnimationProfile setWalkAnimId(int walkAnimId) { this.walkAnimId = walkAnimId; return this; }
+    public ScriptedVelocityAnimationProfile setWalkAnimId(AnimationId id) { return setWalkAnimId(id.id()); }
     public ScriptedVelocityAnimationProfile setRunAnimId(int runAnimId) { this.runAnimId = runAnimId; return this; }
+    public ScriptedVelocityAnimationProfile setRunAnimId(AnimationId id) { return setRunAnimId(id.id()); }
     public ScriptedVelocityAnimationProfile setRollAnimId(int rollAnimId) { this.rollAnimId = rollAnimId; return this; }
+    public ScriptedVelocityAnimationProfile setRollAnimId(AnimationId id) { return setRollAnimId(id.id()); }
     public ScriptedVelocityAnimationProfile setRoll2AnimId(int roll2AnimId) { this.roll2AnimId = roll2AnimId; return this; }
+    public ScriptedVelocityAnimationProfile setRoll2AnimId(AnimationId id) { return setRoll2AnimId(id.id()); }
     public ScriptedVelocityAnimationProfile setPushAnimId(int pushAnimId) { this.pushAnimId = pushAnimId; return this; }
+    public ScriptedVelocityAnimationProfile setPushAnimId(AnimationId id) { return setPushAnimId(id.id()); }
     public ScriptedVelocityAnimationProfile setDuckAnimId(int duckAnimId) { this.duckAnimId = duckAnimId; return this; }
+    public ScriptedVelocityAnimationProfile setDuckAnimId(AnimationId id) { return setDuckAnimId(id.id()); }
     public ScriptedVelocityAnimationProfile setLookUpAnimId(int lookUpAnimId) { this.lookUpAnimId = lookUpAnimId; return this; }
+    public ScriptedVelocityAnimationProfile setLookUpAnimId(AnimationId id) { return setLookUpAnimId(id.id()); }
     public ScriptedVelocityAnimationProfile setSpindashAnimId(int spindashAnimId) { this.spindashAnimId = spindashAnimId; return this; }
+    public ScriptedVelocityAnimationProfile setSpindashAnimId(AnimationId id) { return setSpindashAnimId(id.id()); }
     public ScriptedVelocityAnimationProfile setSpringAnimId(int springAnimId) { this.springAnimId = springAnimId; return this; }
+    public ScriptedVelocityAnimationProfile setSpringAnimId(AnimationId id) { return setSpringAnimId(id.id()); }
     public ScriptedVelocityAnimationProfile setDeathAnimId(int deathAnimId) { this.deathAnimId = deathAnimId; return this; }
+    public ScriptedVelocityAnimationProfile setDeathAnimId(AnimationId id) { return setDeathAnimId(id.id()); }
     public ScriptedVelocityAnimationProfile setHurtAnimId(int hurtAnimId) { this.hurtAnimId = hurtAnimId; return this; }
+    public ScriptedVelocityAnimationProfile setHurtAnimId(AnimationId id) { return setHurtAnimId(id.id()); }
     public ScriptedVelocityAnimationProfile setSkidAnimId(int skidAnimId) { this.skidAnimId = skidAnimId; return this; }
+    public ScriptedVelocityAnimationProfile setSkidAnimId(AnimationId id) { return setSkidAnimId(id.id()); }
     public ScriptedVelocityAnimationProfile setSlideAnimId(int slideAnimId) { this.slideAnimId = slideAnimId; return this; }
+    public ScriptedVelocityAnimationProfile setSlideAnimId(AnimationId id) { return setSlideAnimId(id.id()); }
     public ScriptedVelocityAnimationProfile setDrownAnimId(int drownAnimId) { this.drownAnimId = drownAnimId; return this; }
+    public ScriptedVelocityAnimationProfile setDrownAnimId(AnimationId id) { return setDrownAnimId(id.id()); }
     public ScriptedVelocityAnimationProfile setAirAnimId(int airAnimId) { this.airAnimId = airAnimId; return this; }
+    public ScriptedVelocityAnimationProfile setAirAnimId(AnimationId id) { return setAirAnimId(id.id()); }
     public ScriptedVelocityAnimationProfile setBalanceAnimId(int balanceAnimId) { this.balanceAnimId = balanceAnimId; return this; }
+    public ScriptedVelocityAnimationProfile setBalanceAnimId(AnimationId id) { return setBalanceAnimId(id.id()); }
     public ScriptedVelocityAnimationProfile setBalance2AnimId(int balance2AnimId) { this.balance2AnimId = balance2AnimId; return this; }
+    public ScriptedVelocityAnimationProfile setBalance2AnimId(AnimationId id) { return setBalance2AnimId(id.id()); }
     public ScriptedVelocityAnimationProfile setBalance3AnimId(int balance3AnimId) { this.balance3AnimId = balance3AnimId; return this; }
+    public ScriptedVelocityAnimationProfile setBalance3AnimId(AnimationId id) { return setBalance3AnimId(id.id()); }
     public ScriptedVelocityAnimationProfile setBalance4AnimId(int balance4AnimId) { this.balance4AnimId = balance4AnimId; return this; }
+    public ScriptedVelocityAnimationProfile setBalance4AnimId(AnimationId id) { return setBalance4AnimId(id.id()); }
     public ScriptedVelocityAnimationProfile setRunSpeedThreshold(int runSpeedThreshold) { this.runSpeedThreshold = runSpeedThreshold; return this; }
     public ScriptedVelocityAnimationProfile setWalkSpeedThreshold(int walkSpeedThreshold) { this.walkSpeedThreshold = walkSpeedThreshold; return this; }
     public ScriptedVelocityAnimationProfile setFallbackFrame(int fallbackFrame) { this.fallbackFrame = fallbackFrame; return this; }

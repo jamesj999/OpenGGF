@@ -736,7 +736,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
 
         // ROM: cmpi.b #id_Roll,(v_player+obAnim).w
         int animId = player.getAnimationId();
-        boolean rollAnimating = animId == Sonic1AnimationIds.ROLL || animId == Sonic1AnimationIds.ROLL2;
+        boolean rollAnimating = animId == Sonic1AnimationIds.ROLL.id() || animId == Sonic1AnimationIds.ROLL2.id();
         if (!rollAnimating && !player.getRolling()) return;
 
         // ROM: Bounce player back — move.w #$300,d0

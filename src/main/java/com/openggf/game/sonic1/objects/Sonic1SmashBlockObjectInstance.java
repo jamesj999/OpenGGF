@@ -173,7 +173,7 @@ public class Sonic1SmashBlockObjectInstance extends AbstractObjectInstance
         //   bne.s .notspinning                - if not, branch
         // The animation check uses the pre-collision animation cached in update(),
         // matching ROM behavior when landing clears rolling during collision resolution.
-        boolean wasRollAnimating = cachedSonicAnimationId == Sonic1AnimationIds.ROLL;
+        boolean wasRollAnimating = cachedSonicAnimationId == Sonic1AnimationIds.ROLL.id();
         if (!wasRollAnimating && !player.getRolling()) {
             return;
         }

@@ -2,6 +2,7 @@ package com.openggf.sprites.playable;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic1.objects.Sonic1SplashObjectInstance;
+import com.openggf.game.AnimationId;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
 import com.openggf.game.sonic2.objects.SplashObjectInstance;
 import com.openggf.game.CrossGameFeatureProvider;
@@ -735,12 +736,20 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 this.animationId = Math.max(0, animationId);
         }
 
+        public void setAnimationId(AnimationId animationId) {
+                this.animationId = Math.max(0, animationId.id());
+        }
+
         public int getForcedAnimationId() {
                 return forcedAnimationId;
         }
 
         public void setForcedAnimationId(int forcedAnimationId) {
                 this.forcedAnimationId = forcedAnimationId;
+        }
+
+        public void setForcedAnimationId(AnimationId animationId) {
+                this.forcedAnimationId = animationId.id();
         }
 
         public boolean isObjectMappingFrameControl() {

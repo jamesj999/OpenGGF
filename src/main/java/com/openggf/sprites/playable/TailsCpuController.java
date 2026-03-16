@@ -21,7 +21,7 @@ public class TailsCpuController {
     private static final int RESPAWN_Y_OFFSET = 192;
     private static final int MAX_FLY_ACCEL = 12;
     private static final int MANUAL_CONTROL_FRAMES = 600;
-    private static final int FLY_ANIM_ID = 0x20;
+    private static final int FLY_ANIM_ID = Sonic2AnimationIds.FLY.id();
     private static final int INPUT_START = 0x20;
     private static final int MANUAL_HELD_MASK = AbstractPlayableSprite.INPUT_UP
             | AbstractPlayableSprite.INPUT_DOWN
@@ -281,7 +281,7 @@ public class TailsCpuController {
             if (passesDistanceGate
                     && dy <= -JUMP_HEIGHT_THRESHOLD
                     && (frameCounter & 0x3F) == 0
-                    && tails.getAnimationId() != Sonic2AnimationIds.DUCK) {
+                    && tails.getAnimationId() != Sonic2AnimationIds.DUCK.id()) {
                 inputJump = true;
                 jumpingFlag = true;
             }
@@ -313,7 +313,7 @@ public class TailsCpuController {
                 state = State.NORMAL;
                 return;
             }
-            if (tails.getAnimationId() == Sonic2AnimationIds.DUCK) {
+            if (tails.getAnimationId() == Sonic2AnimationIds.DUCK.id()) {
                 inputJump = true;
             }
             return;

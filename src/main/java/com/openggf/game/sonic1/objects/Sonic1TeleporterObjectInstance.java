@@ -51,7 +51,7 @@ public class Sonic1TeleporterObjectInstance extends AbstractObjectInstance {
     // From disassembly: move.b #$81,(f_playerctrl).w
     // Bit 0 = control lock, bit 7 = disable object interaction
     // From disassembly: move.b #id_Roll,obAnim(a1)
-    private static final int CAPTURE_ANIMATION = Sonic1AnimationIds.ROLL;
+    private static final int CAPTURE_ANIMATION = Sonic1AnimationIds.ROLL.id();
     // From disassembly: move.w #$800,obInertia(a1)
     private static final int CAPTURE_INERTIA = 0x800;
 

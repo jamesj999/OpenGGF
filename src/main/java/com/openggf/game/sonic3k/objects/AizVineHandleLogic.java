@@ -226,7 +226,7 @@ final class AizVineHandleLogic {
         player.setJumping(true);
         player.applyRollingRadii(false);
         player.setRolling(true);
-        player.setAnimationId(0x02);
+        player.setAnimationId(Sonic3kAnimationIds.ROLL);
     }
 
     private static void setPlayerHeldMode0(State handle, AbstractPlayableSprite player, int parentAngle) {

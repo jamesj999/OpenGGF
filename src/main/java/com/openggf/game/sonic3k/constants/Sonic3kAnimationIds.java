@@ -1,33 +1,58 @@
 package com.openggf.game.sonic3k.constants;
 
-/**
- * Animation script IDs for Sonic in S3K (indices into AniSonic_ table).
- *
- * <p>IDs 0x00-0x1E match the S2 layout. S3K adds 0x1F (Super transformation)
- * and 0x20-0x23 (snowboard/surfboard).
- */
-public final class Sonic3kAnimationIds {
-    public static final int WALK = 0x00;
-    public static final int RUN = 0x01;
-    public static final int ROLL = 0x02;
-    public static final int ROLL2 = 0x03;
-    public static final int PUSH = 0x04;
-    public static final int WAIT = 0x05;
-    public static final int BALANCE = 0x06;
-    public static final int LOOK_UP = 0x07;
-    public static final int DUCK = 0x08;
-    public static final int SPINDASH = 0x09;
-    public static final int BALANCE2 = 0x0C;
-    public static final int SKID = 0x0D;
-    public static final int SPRING = 0x10;
-    public static final int HANG = 0x11;
-    public static final int HANG2 = 0x14;
-    public static final int DEATH = 0x18;
-    public static final int HURT = 0x19;
-    public static final int BALANCE3 = 0x1D;
-    public static final int BALANCE4 = 0x1E;
-    public static final int SUPER_TRANSFORM = 0x1F;
+import com.openggf.game.AnimationId;
 
-    private Sonic3kAnimationIds() {
+/**
+ * Animation script IDs for Sonic/Tails/Knuckles in S3K (indices into AniSonic_ table).
+ *
+ * <p>IDs 0x00-0x1E largely follow the S2 table layout, but several entries
+ * were repurposed (0x13 = Victory, 0x1A/0x1B = hurt variants, 0x19 = drown).
+ * S3K adds 0x1F (Super transformation), 0x20 (Tails flight), and
+ * 0x21-0x23 (Knuckles glide states).
+ */
+public enum Sonic3kAnimationIds implements AnimationId {
+    WALK(0x00),
+    RUN(0x01),
+    ROLL(0x02),
+    ROLL2(0x03),
+    PUSH(0x04),
+    WAIT(0x05),
+    BALANCE(0x06),
+    LOOK_UP(0x07),
+    DUCK(0x08),
+    SPINDASH(0x09),
+    BLINK(0x0A),         // Idle blink/tapping foot interrupt (sonic3k.asm:21613)
+    GET_UP(0x0B),        // Get up from idle blink sequence (sonic3k.asm:21616)
+    BALANCE2(0x0C),      // Balancing on edge, more precarious
+    SKID(0x0D),
+    FLOAT(0x0E),         // Suspended/floating (single frame $C8)
+    FLOAT2(0x0F),        // Extended float animation sequence
+    SPRING(0x10),
+    HANG(0x11),
+    VICTORY(0x13),       // Victory/celebration pose (Set_PlayerEndingPose, sonic3k.asm:181979)
+    HANG2(0x14),         // Hanging from object
+    BUBBLE(0x15),        // Breathing air bubble underwater (sonic3k.asm:64707)
+    DROWN(0x17),         // Drowning death (s3.asm:27706, sonic3k.asm:33553)
+    DEATH(0x18),         // Death (Kill_Character, sonic3k.asm:21152)
+    HURT(0x1A),          // Hurt recoil (Player_Hurt, sonic3k.asm:21109)
+    HURT_FALL(0x1B),     // Hurt/fall in intros (sonic3k.asm:8135, 9089)
+    BLANK(0x1C),         // Blank/invisible animation (sonic3k.asm:67021)
+    BALANCE3(0x1D),      // Balancing on edge, facing away
+    BALANCE4(0x1E),      // Balancing on edge, facing away, more precarious
+    SUPER_TRANSFORM(0x1F), // Super transformation (s3.asm:21148)
+    FLY(0x20),           // Tails helicopter flight (s3.asm:23944, sonic3k.asm:26664)
+    GLIDE_DROP(0x21),    // Knuckles falling after glide (sonic3k.asm:20930)
+    GLIDE_LAND(0x22),    // Knuckles glide landing (sonic3k.asm:30987)
+    GLIDE_SLIDE(0x23);   // Knuckles glide slide on ground (sonic3k.asm:30940)
+
+    private final int id;
+
+    Sonic3kAnimationIds(int id) {
+        this.id = id;
+    }
+
+    @Override
+    public int id() {
+        return id;
     }
 }

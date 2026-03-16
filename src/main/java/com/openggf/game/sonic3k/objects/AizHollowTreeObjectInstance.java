@@ -1,6 +1,7 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
@@ -164,7 +165,7 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
         player.setAngle((byte) 0);
         player.setYSpeed((short) 0);
         player.setObjectMappingFrameControl(true);
-        player.setForcedAnimationId(0);
+        player.setForcedAnimationId(Sonic3kAnimationIds.WALK);
         // Engine update order runs objects before player movement; keep movement disabled while
         // riding so AIZTree_SetPlayerPos writes are not overwritten later in the frame.
         player.setObjectControlled(true);
@@ -172,7 +173,7 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
         player.setAir(false);
         // RideObject_SetRide semantics: preserve horizontal inertia as ground speed.
         player.setGSpeed(player.getXSpeed());
-        player.setAnimationId(0);
+        player.setAnimationId(Sonic3kAnimationIds.WALK);
 
         if (mainPlayer) {
             Camera camera = Camera.getInstance();
@@ -188,7 +189,7 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
         // otherwise clear onObject each frame. Keep this sticky while the tree ride is active.
         player.setOnObject(true);
         player.setObjectMappingFrameControl(true);
-        player.setForcedAnimationId(0);
+        player.setForcedAnimationId(Sonic3kAnimationIds.WALK);
 
         int progressValue = progress[slot];
         progressValue += player.getGSpeed() << 8;
@@ -247,7 +248,7 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
         }
         player.setRolling(false);
         player.applyStandingRadii(false);
-        player.setAnimationId(1);
+        player.setAnimationId(Sonic3kAnimationIds.RUN);
         player.setOnObject(false);
         player.setFlipsRemaining(0);
         player.setFlipSpeed(4);
