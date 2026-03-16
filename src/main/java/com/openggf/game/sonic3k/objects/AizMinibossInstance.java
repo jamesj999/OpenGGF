@@ -59,7 +59,6 @@ public class AizMinibossInstance extends AbstractBossInstance {
     private static final int HOLD_TIME = 0x10;
     private static final int HORIZONTAL_TIME = 0x60;
     private static final int HORIZONTAL_RECOVERY_TIME = 0x30;
-    private static final int DEFEAT_TIME = 0x90;
     private static final int INVULN_TIME = 0x20;
 
     private static final int FLAG_PARENT_BITS = 0x38;
@@ -85,8 +84,8 @@ public class AizMinibossInstance extends AbstractBossInstance {
 
     private int waitTimer = -1;
     private Runnable waitCallback;
-    private int defeatTimer;
     private boolean defeatRenderComplete;
+    private S3kBossExplosionController explosionController;
 
     public AizMinibossInstance(ObjectSpawn spawn, LevelManager levelManager) {
         super(spawn, levelManager, "AIZMiniboss");
@@ -98,8 +97,8 @@ public class AizMinibossInstance extends AbstractBossInstance {
         state.hitCount = HIT_COUNT;
         waitTimer = -1;
         waitCallback = null;
-        defeatTimer = 0;
         defeatRenderComplete = false;
+        explosionController = null;
     }
 
     @Override
@@ -160,32 +159,16 @@ public class AizMinibossInstance extends AbstractBossInstance {
         state.yVel = 0;
         waitTimer = -1;
         waitCallback = null;
-        defeatTimer = DEFEAT_TIME;
-        AudioManager.getInstance().fadeOutMusic();
 
-        // Spawn the defeat-to-signpost flow as a dynamic object
-        S3kBossDefeatSignpostFlow defeatFlow = new S3kBossDefeatSignpostFlow(
-                state.x,
-                () -> {
-                    // AIZ1 AfterBoss_Cleanup: restore palette from Pal_AIZ.
-                    // ROM copies 96 bytes (3 palette lines) to Normal_palette_line_2.
-                    // S3K uses 1-based palette naming: Normal_palette_line_2 at offset 0x20
-                    // = VDP line 1 = engine palette index 1.
-                    // Restores engine lines 1, 2, 3 (everything except character palette on line 0).
-                    try {
-                        byte[] palData = GameServices.rom().getRom().readBytes(
-                                Sonic3kConstants.PAL_AIZ_ADDR, Sonic3kConstants.PAL_AIZ_SIZE);
-                        for (int i = 0; i < 3 && (i * 32 + 32) <= palData.length; i++) {
-                            byte[] line = new byte[32];
-                            System.arraycopy(palData, i * 32, line, 0, 32);
-                            levelManager.updatePalette(i + 1, line);  // engine lines 1, 2, 3
-                        }
-                    } catch (Exception ignored) {
-                        // Palette restore failures should not crash gameplay.
-                    }
-                }
-        );
-        spawnDynamicObject(defeatFlow);
+        // Bug 2 fix: clear invulnerability immediately to stop palette flash
+        state.invulnerable = false;
+        state.invulnerabilityTimer = 0;
+        loadBossPalette(); // Restore clean boss palette colors on line 1
+
+        // Bug 1 fix: use S3K explosion controller (subtype 2 = standard boss defeat)
+        explosionController = new S3kBossExplosionController(state.x, state.y, 2);
+
+        AudioManager.getInstance().fadeOutMusic();
 
         // Clean up all visible children — barrels, body, arm, napalm controller.
         // The parent stays alive for the defeat explosion flow, but children should
@@ -194,6 +177,10 @@ public class AizMinibossInstance extends AbstractBossInstance {
             child.setDestroyed(true);
         }
         childComponents.clear();
+
+        // Bug 3 fix: Do NOT spawn S3kBossDefeatSignpostFlow yet.
+        // ROM flow is sequential: explosions finish → restore music → THEN signpost wait.
+        // The signpost flow is spawned in updateDefeated() when explosionController.isFinished().
     }
 
     @Override
@@ -220,6 +207,9 @@ public class AizMinibossInstance extends AbstractBossInstance {
      * alternating between dark and bright color sets every frame.
      */
     private void updateCustomFlash() {
+        if (state.defeated) {
+            return;
+        }
         if (!state.invulnerable) {
             return;
         }
@@ -371,15 +361,52 @@ public class AizMinibossInstance extends AbstractBossInstance {
     }
 
     private void updateDefeated(int frameCounter) {
-        if (defeatTimer <= 0) {
-            if (!defeatRenderComplete) {
-                defeatRenderComplete = true;
-            }
-            return; // Explosions finished, waiting for defeat flow to complete
+        if (explosionController == null) {
+            return;
         }
-        defeatTimer--;
-        if ((defeatTimer & 7) == 0) {
-            spawnDefeatExplosion();
+
+        // Tick the S3K explosion controller and spawn children
+        if (!explosionController.isFinished()) {
+            explosionController.tick();
+            var objectManager = levelManager.getObjectManager();
+            if (objectManager != null) {
+                for (var pending : explosionController.drainPendingExplosions()) {
+                    if (pending.playSfx()) {
+                        AudioManager.getInstance().playSfx(Sonic3kSfx.EXPLODE.id);
+                    }
+                    objectManager.addDynamicObject(new S3kBossExplosionChild(pending.x(), pending.y()));
+                }
+            }
+            return;
+        }
+
+        // Explosions finished — restore music, then spawn the signpost flow.
+        if (!defeatRenderComplete) {
+            defeatRenderComplete = true;
+            AudioManager.getInstance().getBackend().restoreMusic();
+
+            S3kBossDefeatSignpostFlow defeatFlow = new S3kBossDefeatSignpostFlow(
+                    state.x,
+                    () -> {
+                        // AIZ1 AfterBoss_Cleanup: restore palette from Pal_AIZ.
+                        // ROM copies 96 bytes (3 palette lines) to Normal_palette_line_2.
+                        // S3K uses 1-based palette naming: Normal_palette_line_2 at offset 0x20
+                        // = VDP line 1 = engine palette index 1.
+                        // Restores engine lines 1, 2, 3 (everything except character palette on line 0).
+                        try {
+                            byte[] palData = GameServices.rom().getRom().readBytes(
+                                    Sonic3kConstants.PAL_AIZ_ADDR, Sonic3kConstants.PAL_AIZ_SIZE);
+                            for (int i = 0; i < 3 && (i * 32 + 32) <= palData.length; i++) {
+                                byte[] line = new byte[32];
+                                System.arraycopy(palData, i * 32, line, 0, 32);
+                                levelManager.updatePalette(i + 1, line);  // engine lines 1, 2, 3
+                            }
+                        } catch (Exception ignored) {
+                            // Palette restore failures should not crash gameplay.
+                        }
+                    }
+            );
+            spawnDynamicObject(defeatFlow);
         }
     }
 
