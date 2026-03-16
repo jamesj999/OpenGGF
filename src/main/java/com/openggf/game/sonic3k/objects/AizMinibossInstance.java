@@ -167,19 +167,18 @@ public class AizMinibossInstance extends AbstractBossInstance {
         S3kBossDefeatSignpostFlow defeatFlow = new S3kBossDefeatSignpostFlow(
                 state.x,
                 () -> {
-                    // AIZ1 AfterBoss_Cleanup: restore palette lines 2-3 from Pal_AIZ.
+                    // AIZ1 AfterBoss_Cleanup: restore palette from Pal_AIZ.
                     // ROM copies 96 bytes (3 palette lines) to Normal_palette_line_2.
-                    // Split into per-line 32-byte updates for updatePalette().
+                    // S3K uses 1-based palette naming: Normal_palette_line_2 at offset 0x20
+                    // = VDP line 1 = engine palette index 1.
+                    // Restores engine lines 1, 2, 3 (everything except character palette on line 0).
                     try {
                         byte[] palData = GameServices.rom().getRom().readBytes(
                                 Sonic3kConstants.PAL_AIZ_ADDR, Sonic3kConstants.PAL_AIZ_SIZE);
-                        if (palData.length >= 64) {
-                            byte[] line2 = new byte[32];
-                            byte[] line3 = new byte[32];
-                            System.arraycopy(palData, 0, line2, 0, 32);
-                            System.arraycopy(palData, 32, line3, 0, 32);
-                            levelManager.updatePalette(2, line2);
-                            levelManager.updatePalette(3, line3);
+                        for (int i = 0; i < 3 && (i * 32 + 32) <= palData.length; i++) {
+                            byte[] line = new byte[32];
+                            System.arraycopy(palData, i * 32, line, 0, 32);
+                            levelManager.updatePalette(i + 1, line);  // engine lines 1, 2, 3
                         }
                     } catch (Exception ignored) {
                         // Palette restore failures should not crash gameplay.
@@ -187,6 +186,14 @@ public class AizMinibossInstance extends AbstractBossInstance {
                 }
         );
         spawnDynamicObject(defeatFlow);
+
+        // Clean up all visible children — barrels, body, arm, napalm controller.
+        // The parent stays alive for the defeat explosion flow, but children should
+        // not render (barrel jets stay visible otherwise since isDestroyed() never fires).
+        for (var child : childComponents) {
+            child.setDestroyed(true);
+        }
+        childComponents.clear();
     }
 
     @Override
