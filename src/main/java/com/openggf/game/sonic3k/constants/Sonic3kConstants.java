@@ -152,10 +152,29 @@ public class Sonic3kConstants {
     public static final int ART_NEM_AIZ_CORK_FLOOR_ADDR = 0x38D586;
     public static final int ART_NEM_AIZ_CORK_FLOOR_2_ADDR = 0x38D72A;
 
-    // Map_AIZCorkFloor - Cork floor sprite mappings (2 frames: intact + broken)
-    // Frame labels: Frame_229B64 (intact, 6 pieces), Frame_229B8A (broken, 12 pieces)
-    // Used by rock child object (ObjDat3_66432) during AIZ1 intro
-    public static final int MAP_AIZ_CORK_FLOOR_ADDR = 0x229B60;
+    // ===== Cork Floor mappings (Obj_CorkFloor, ID 0x2A) =====
+    // Each zone has its own mapping table: frame 0 = intact, frame 1 = broken fragments.
+    // Addresses derived from frame labels in LockOn Data.asm sequential includes.
+    public static final int MAP_AIZ_CORK_FLOOR_ADDR = 0x229B60;   // Map_AIZCorkFloor (2 frames, 6/12 pieces)
+    public static final int MAP_AIZ_CORK_FLOOR_2_ADDR = 0x229BD4; // Map_AIZCorkFloor2 (2 frames, 6/12 pieces)
+    public static final int MAP_CNZ_CORK_FLOOR_ADDR = 0x229C48;   // Map_CNZCorkFloor (2 frames, 8/16 pieces)
+    public static final int MAP_ICZ_CORK_FLOOR_ADDR = 0x229CE0;   // Map_ICZCorkFloor (12 frames: 6 intact pairs + break frames)
+    public static final int MAP_LBZ_CORK_FLOOR_ADDR = 0x229EE8;   // Map_LBZCorkFloor (2 frames, 8/16 pieces)
+    public static final int MAP_FBZ_CORK_FLOOR_ADDR = 0x2A920;    // Map_FBZCorkFloor (2 frames, 2/4 pieces, in sonic3k.asm)
+
+    // ===== Floating Platform mappings (Obj_FloatingPlatform, ID 0x51) =====
+    public static final int MAP_AIZ_FLOATING_PLATFORM_ADDR = 0x256A2; // Map_AIZFloatingPlatform (1 frame, 4 pieces)
+    public static final int MAP_HCZ_FLOATING_PLATFORM_ADDR = 0x25688; // Map_HCZFloatingPlatform (2 frames, 2/1 pieces)
+    public static final int MAP_MGZ_FLOATING_PLATFORM_ADDR = 0x25654; // Map_MGZFloatingPlatform (1 frame, 8 pieces)
+
+    // ===== ArtTile constants from sonic3k.constants.asm =====
+    public static final int ARTTILE_AIZ_FLOATING_PLATFORM = 0x03F7;
+    public static final int ARTTILE_AIZ2_FLOATING_PLATFORM = 0x0440;
+    public static final int ARTTILE_HCZ_MISC = 0x03CA;
+    public static final int ARTTILE_CNZ_PLATFORM = 0x0430;
+    public static final int ARTTILE_ICZ_MISC1 = 0x03B6;
+    public static final int ARTTILE_LBZ_MISC = 0x03C3;
+    public static final int ARTTILE_FBZ_MISC = 0x0379;
 
     // ===== HUD Art =====
     // ArtUnc_HUDDigits - Score/Time/Ring digits (0-9, colon, E)
@@ -251,7 +270,6 @@ public class Sonic3kConstants {
     public static final int ARTTILE_AIZ_MISC2 = 0x02E9;
     public static final int ARTTILE_LRZ2_MISC = 0x040D;
     public static final int ARTTILE_AIZ_FALLING_LOG = 0x03CF;
-    public static final int ARTTILE_AIZ_FLOATING_PLATFORM = 0x03F7;
     public static final int ARTTILE_AIZ_SWING_VINE = 0x041B;
     public static final int ARTTILE_BUBBLES = 0x045C;
     public static final int ARTTILE_MONITORS = 0x04C4;
@@ -552,6 +570,24 @@ public class Sonic3kConstants {
     public static final int VRAM_TITLE_CARD_ACT_NUM = 0x53D;     // Act number art
     public static final int VRAM_TITLE_CARD_ZONE_ART = 0x54D;    // Zone-specific letters
 
+    // ===== Results Screen Art (KosinskiM) =====
+    public static final int ART_KOSM_RESULTS_GENERAL_ADDR = 0x0D6A62;    // "GOT THROUGH", bonus labels
+    public static final int ART_KOSM_RESULTS_SONIC_ADDR = 0x39A786;      // "SONIC" name art
+    public static final int ART_KOSM_RESULTS_MILES_ADDR = 0x39AA18;      // "MILES" name art
+    public static final int ART_KOSM_RESULTS_TAILS_ADDR = 0x39AB6A;      // "TAILS" name art
+    public static final int ART_KOSM_RESULTS_KNUCKLES_ADDR = 0x0D67F0;   // "KNUCKLES" name art
+
+    // ===== Results Screen Palette & Mappings =====
+    public static final int PAL_RESULTS_ADDR = 0x22D39E;                 // 128 bytes, full palette
+    public static final int MAP_RESULTS_ADDR = 0x0002F26A;               // Mapping frames (59 entries)
+
+    // ===== Results Screen VRAM Layout =====
+    public static final int VRAM_RESULTS_BASE = 0x520;                   // General art destination
+    public static final int VRAM_RESULTS_NUMBERS = 0x568;                // Digit tile destination
+    public static final int VRAM_RESULTS_CHAR_NAME_ACT1 = 0x578;         // Character name (act 1)
+    public static final int VRAM_RESULTS_CHAR_NAME_ACT2 = 0x5A0;         // Character name (act 2)
+    public static final int VRAM_RESULTS_ARRAY_SIZE = 0x100;             // Total tile range $520-$61F
+
     // ===== Shield Art (uncompressed binclude in S3 data region) =====
     // Verified by binary pattern match against skdisasm .bin files, 2026-02-17
 
@@ -804,6 +840,30 @@ public class Sonic3kConstants {
     public static final int MAP_AIZ_MINIBOSS_SMALL_ADDR = 0x3625EA;
     // Map_BossExplosion - Boss explosion mappings (6 frames, shared with S2)
     public static final int MAP_BOSS_EXPLOSION_ADDR = 0x083FFC;
+
+    // ===== Signpost (Obj_EndSign) - End of act signpost =====
+    // ArtUnc_EndSigns - Uncompressed end-of-act signpost art (3328 bytes)
+    public static final int ART_UNC_END_SIGNS_ADDR = 0x0DCC76;
+    public static final int ART_UNC_END_SIGNS_SIZE = 3328;
+    // ArtNem_SignpostStub - Nemesis-compressed signpost pole/stub art
+    public static final int ART_NEM_SIGNPOST_STUB_ADDR = 0x0DD976;
+    // Map_EndSigns - Signpost face sprite mappings
+    public static final int MAP_END_SIGNS_ADDR = 0x083B9E;
+    // DPLC_EndSigns - Signpost DPLC table
+    public static final int DPLC_END_SIGNS_ADDR = 0x083B6C;
+    // Map_SignpostStub - Signpost pole/stub mappings
+    public static final int MAP_SIGNPOST_STUB_ADDR = 0x083BFC;
+    // VRAM tile indices for signpost art
+    public static final int ART_TILE_END_SIGNS = 0x04AC;
+    public static final int ART_TILE_SIGNPOST_STUB = 0x069E;
+
+    // ===== Pal_AIZ - Main AIZ palette (for AfterBoss_Cleanup) =====
+    public static final int PAL_AIZ_ADDR = 0x0A8B7C;
+    public static final int PAL_AIZ_SIZE = 96;
+
+    // Pal_AIZFire - AIZ fire/post-transition palette (96 bytes = 3 lines)
+    // AfterBoss_AIZ2 loads first 32 bytes into palette line 1 via PalLoad_Line1
+    public static final int PAL_AIZ_FIRE_ADDR = 0x0A8BDC;
 
     private static boolean scanned = false;
 

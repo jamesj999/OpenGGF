@@ -134,12 +134,19 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
     private int x;
     private int y;
 
-    // State machine: 0=normal, 1=collapsing(timer), 2=fragmented(falling)
+    // State machine: 0=normal, 1=collapsing(timer), 2=solid-stay(invisible but solid),
+    //                3=falling(gravity, offscreen destroy)
+    // ROM flow: loc_20594 (states 0-1) -> loc_205DE (state 2) -> loc_20620 (state 3)
     private int state;
     private int collapseTimer;
     // Note: triggered flag is set alongside state=1 in onSolidContact() - kept for clarity
     private boolean triggered;  // player has stood on platform ($3A flag)
     private boolean fragmented;
+
+    // Post-fragment solid-stay timer: ROM reuses $38 with first delay table entry.
+    // The parent remains solid and invisible for this many frames after fragments spawn,
+    // then releases the player. (ROM: loc_205DE countdown -> sub_205FC release)
+    private int solidStayTimer;
 
     // Post-fragment parent fall state
     private int velY;
@@ -186,7 +193,9 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
 
     @Override
     public boolean isSolidFor(AbstractPlayableSprite player) {
-        return state < 2; // solid during normal and collapsing states
+        // Solid during normal, collapsing, AND solid-stay states.
+        // ROM: loc_205DE still calls SolidObjectTopSloped2 after fragments spawn.
+        return state < 3;
     }
 
     // ===== SolidObjectListener =====
@@ -220,6 +229,21 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
                 }
             }
             case 2 -> {
+                // Solid-stay: parent is invisible but still solid (ROM: loc_205DE).
+                // Player continues standing on the invisible platform while fragments
+                // fall away beneath them. Timer counts down from collapseDelays[0].
+                solidStayTimer--;
+                if (solidStayTimer <= 0) {
+                    // Timer expired: release the player and start falling.
+                    // ROM: sub_205FC clears Status_OnObj, Status_Push, sets Status_InAir.
+                    state = 3;
+                    if (player != null) {
+                        player.setAir(true);
+                        player.setOnObject(false);
+                    }
+                }
+            }
+            case 3 -> {
                 // Post-fragment: parent falls with gravity, destroy when offscreen
                 velY += GRAVITY;
                 int y32 = (y << 16) | (yFrac & 0xFFFF);
@@ -243,7 +267,12 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
             return;
         }
         fragmented = true;
+
+        // Enter solid-stay state: parent remains invisible but solid while fragments fall.
+        // ROM: ObjPlatformCollapse_SmashObject writes collapseDelays[0] into the parent's $38,
+        // and loc_205DE counts it down while still calling SolidObjectTopSloped2.
         state = 2;
+        solidStayTimer = config.collapseDelays[0];
 
         // Play collapse SFX
         if (isOnScreen()) {
@@ -270,8 +299,11 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
         int pieceCount = fragmentFrame.pieces().size();
         int maxFragments = Math.min(pieceCount, config.collapseDelays.length);
 
-        // Spawn fragment children for each piece
-        for (int i = 0; i < maxFragments; i++) {
+        // Spawn fragment children for each piece, starting from index 1.
+        // ROM: ObjPlatformCollapse_SmashObject's first loop iteration writes to the
+        // parent (a1=a0), consuming piece 0 and delay[0] for the parent's solid-stay.
+        // Subsequent iterations allocate new fragment objects starting from piece 1.
+        for (int i = 1; i < maxFragments; i++) {
             int delay = config.collapseDelays[i];
             CollapsingPlatformFragment fragment = new CollapsingPlatformFragment(
                     x, y, fragmentFrameIndex, i, delay, config.artKey, hFlip);
@@ -281,15 +313,8 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
         // Mark remembered so platform doesn't respawn when player returns
         markRemembered();
 
-        // Release player from this object
-        try {
-            LevelManager lm = LevelManager.getInstance();
-            if (lm != null && lm.getObjectManager() != null) {
-                lm.getObjectManager().clearRidingObject(null);
-            }
-        } catch (Exception e) {
-            // Safe fallback
-        }
+        // Do NOT release the player here - they continue riding the invisible solid
+        // platform until solidStayTimer expires (handled in state 2 update).
     }
 
     private void markRemembered() {

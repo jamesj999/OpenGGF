@@ -2,8 +2,11 @@ package com.openggf.game.sonic3k;
 
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
+import com.openggf.game.GameServices;
+import com.openggf.game.PlayerCharacter;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.level.Level;
+import com.openggf.level.LevelManager;
 import com.openggf.level.Pattern;
 import com.openggf.level.objects.ObjectSpriteSheet;
 import com.openggf.level.render.SpriteDplcFrame;
@@ -644,6 +647,125 @@ public class Sonic3kObjectArt {
         }
 
         return new ObjectSpriteSheet(patterns, mappings, entry.palette(), 1);
+    }
+
+    // ===== Results Screen art loading =====
+
+    /**
+     * Loads all results screen art from ROM into a combined pattern array
+     * covering the VRAM range $520-$61F (256 tiles).
+     *
+     * <p>Layout matches the ROM's Load_EndOfAct routine:
+     * <ol>
+     *   <li>General art ("GOT THROUGH", bonus labels) at VRAM $520 (index 0)</li>
+     *   <li>Number art at VRAM $568 (index $48). Uses Num1 for act 1 (non-DDZ), Num2 otherwise</li>
+     *   <li>Character name art at VRAM $578 (act 1) or $5A0 (act 2), selected by character</li>
+     * </ol>
+     *
+     * @param character the player character, determines which name art to load
+     * @param act       act index (0 = act 1, 1 = act 2)
+     * @return pattern array of size {@link Sonic3kConstants#VRAM_RESULTS_ARRAY_SIZE}, or null on failure
+     */
+    public Pattern[] loadResultsArt(PlayerCharacter character, int act) {
+        try {
+            Rom rom = GameServices.rom().getRom();
+            if (rom == null) return null;
+            Pattern[] patterns = new Pattern[Sonic3kConstants.VRAM_RESULTS_ARRAY_SIZE];
+            Pattern empty = new Pattern();
+            Arrays.fill(patterns, empty);
+
+            // 1. General art → VRAM $520 (index 0)
+            loadKosmArtInto(rom, Sonic3kConstants.ART_KOSM_RESULTS_GENERAL_ADDR,
+                    patterns, 0);
+
+            // 2. Number art → VRAM $568 (index $48)
+            // Use Num1 when act == 0 AND zone != 0x16 (DDZ), else Num2
+            int zone = LevelManager.getInstance().getCurrentZone();
+            int numArtAddr = (act == 0 && zone != 0x16)
+                    ? Sonic3kConstants.ART_KOSM_TITLE_CARD_NUM1_ADDR
+                    : Sonic3kConstants.ART_KOSM_TITLE_CARD_NUM2_ADDR;
+            loadKosmArtInto(rom, numArtAddr, patterns,
+                    Sonic3kConstants.VRAM_RESULTS_NUMBERS - Sonic3kConstants.VRAM_RESULTS_BASE);
+
+            // 3. Character name art → VRAM $578 (act 1) or $5A0 (act 2)
+            int charArtAddr = switch (character) {
+                case SONIC_AND_TAILS, SONIC_ALONE -> Sonic3kConstants.ART_KOSM_RESULTS_SONIC_ADDR;
+                case TAILS_ALONE -> Sonic3kConstants.ART_KOSM_RESULTS_TAILS_ADDR;
+                case KNUCKLES -> Sonic3kConstants.ART_KOSM_RESULTS_KNUCKLES_ADDR;
+            };
+            int charDestVram = (act == 0)
+                    ? Sonic3kConstants.VRAM_RESULTS_CHAR_NAME_ACT1
+                    : Sonic3kConstants.VRAM_RESULTS_CHAR_NAME_ACT2;
+            loadKosmArtInto(rom, charArtAddr, patterns,
+                    charDestVram - Sonic3kConstants.VRAM_RESULTS_BASE);
+
+            return patterns;
+        } catch (Exception e) {
+            LOG.warning("Failed to load results screen art: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Loads the results screen palette (128 bytes = 4 lines x 16 colors).
+     *
+     * @return raw palette bytes, or null on failure
+     */
+    public byte[] loadResultsPalette() {
+        try {
+            Rom rom = GameServices.rom().getRom();
+            if (rom == null) return null;
+            return rom.readBytes(Sonic3kConstants.PAL_RESULTS_ADDR, 128);
+        } catch (Exception e) {
+            LOG.warning("Failed to load results palette: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Parses results screen mapping frames from ROM.
+     *
+     * @return list of sprite mapping frames (59 entries), or empty list on failure
+     */
+    public List<SpriteMappingFrame> loadResultsMappings() {
+        if (reader == null) return List.of();
+        try {
+            return S3kSpriteDataLoader.loadMappingFrames(reader, Sonic3kConstants.MAP_RESULTS_ADDR);
+        } catch (Exception e) {
+            LOG.warning("Failed to load results mappings: " + e.getMessage());
+            return List.of();
+        }
+    }
+
+    /**
+     * Decompresses KosinskiM art from ROM and places patterns into a destination array.
+     * Follows the same pattern as {@code Sonic3kTitleCardManager.loadKosmArt()}.
+     */
+    private void loadKosmArtInto(Rom rom, int romAddr, Pattern[] dest, int destIndex)
+            throws IOException {
+        byte[] header = rom.readBytes(romAddr, 2);
+        int fullSize = ((header[0] & 0xFF) << 8) | (header[1] & 0xFF);
+        int inputSize = Math.min(Math.max(fullSize + 256, 0x10000), 0x40000);
+        long romSize = rom.getSize();
+        if (romAddr + inputSize > romSize) {
+            inputSize = (int) (romSize - romAddr);
+        }
+
+        byte[] romData = rom.readBytes(romAddr, inputSize);
+        byte[] decompressed = KosinskiReader.decompressModuled(romData, 0);
+
+        int tileCount = decompressed.length / Pattern.PATTERN_SIZE_IN_ROM;
+        for (int i = 0; i < tileCount; i++) {
+            int idx = destIndex + i;
+            if (idx >= 0 && idx < dest.length) {
+                byte[] tileData = Arrays.copyOfRange(decompressed,
+                        i * Pattern.PATTERN_SIZE_IN_ROM,
+                        (i + 1) * Pattern.PATTERN_SIZE_IN_ROM);
+                Pattern pat = new Pattern();
+                pat.fromSegaFormat(tileData);
+                dest[idx] = pat;
+            }
+        }
     }
 
     private Pattern[] loadNemesisPatterns(Rom rom, int addr) throws IOException {

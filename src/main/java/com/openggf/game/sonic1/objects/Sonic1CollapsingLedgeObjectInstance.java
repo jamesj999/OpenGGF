@@ -408,7 +408,8 @@ public class Sonic1CollapsingLedgeObjectInstance extends AbstractObjectInstance
 
     @Override
     public int getSlopeBaseline() {
-        // ROM uses absolute slope values: surface Y = obY - slopeSample.
+        // ROM: SlopeObject uses absolute slope values (surfaceY = obY - slopeSample).
+        // No baseline subtraction — unlike SolidObject2F which subtracts slopeData[0].
         return 0;
     }
 

@@ -25,7 +25,7 @@ public class TestSonic3kPlcArtRegistry {
     @Test
     public void aiz1PlanIncludesBadnikAndLevelArt() {
         Sonic3kPlcArtRegistry.ZoneArtPlan plan = Sonic3kPlcArtRegistry.getPlan(0x00, 0);
-        assertEquals(3, plan.standaloneArt().size());
+        assertEquals(5, plan.standaloneArt().size());
 
         // Verify Bloominator
         Sonic3kPlcArtRegistry.StandaloneArtEntry bloominator = plan.standaloneArt().stream()
@@ -47,7 +47,7 @@ public class TestSonic3kPlcArtRegistry {
     @Test
     public void aiz2PlanHasAct2SpecificEntries() {
         Sonic3kPlcArtRegistry.ZoneArtPlan plan = Sonic3kPlcArtRegistry.getPlan(0x00, 1);
-        assertEquals(3, plan.standaloneArt().size());
+        assertEquals(5, plan.standaloneArt().size());
         boolean hasAiz2Rock = plan.levelArt().stream()
                 .anyMatch(e -> e.key().equals(Sonic3kObjectArtKeys.AIZ2_ROCK));
         assertTrue(hasAiz2Rock);

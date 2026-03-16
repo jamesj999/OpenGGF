@@ -390,6 +390,8 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		int speedIndex = Math.min((sprite.getSpindashCounter() >> 8) & 0xFF, table.length - 1);
 		short spindashGSpeed = table[speedIndex];
 
+		// ROM: Reset_Player_Position_Array before setting scroll delay
+		sprite.resetPositionHistory();
 		Camera camera = Camera.getInstance();
 		if (camera != null && camera.getFocusedSprite() == sprite) {
 			camera.setHorizScrollDelay(32 - ((spindashGSpeed - 0x800) >> 7));
@@ -538,11 +540,17 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		return true;
 	}
 
-	/** Fire dash: horizontal burst in facing direction (s3.asm:21072-21091) */
+	/** Fire dash: horizontal burst in facing direction (sonic3k.asm:23411-23430) */
 	private void fireShieldDash() {
 		int dir = sprite.getDirection() == Direction.RIGHT ? 1 : -1;
 		sprite.setXSpeed((short) (0x800 * dir));
 		sprite.setYSpeed((short) 0);
+		// ROM: Reset_Player_Position_Array then set H_scroll_frame_offset = $2000
+		sprite.resetPositionHistory();
+		Camera camera = Camera.getInstance();
+		if (camera != null && camera.getFocusedSprite() == sprite) {
+			camera.setHorizScrollDelay(32);
+		}
 		audioManager.playSfx(GameSound.FIRE_ATTACK);
 		ShieldObjectInstance shield = sprite.getShieldObject();
 		if (shield instanceof FireShieldObjectInstance fire) fire.setAnimation(1);

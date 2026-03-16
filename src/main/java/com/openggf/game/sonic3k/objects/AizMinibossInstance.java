@@ -3,6 +3,7 @@ package com.openggf.game.sonic3k.objects;
 import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayerCharacter;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
@@ -58,7 +59,6 @@ public class AizMinibossInstance extends AbstractBossInstance {
     private static final int HOLD_TIME = 0x10;
     private static final int HORIZONTAL_TIME = 0x60;
     private static final int HORIZONTAL_RECOVERY_TIME = 0x30;
-    private static final int DEFEAT_TIME = 0x90;
     private static final int INVULN_TIME = 0x20;
 
     private static final int FLAG_PARENT_BITS = 0x38;
@@ -66,6 +66,9 @@ public class AizMinibossInstance extends AbstractBossInstance {
     private static final int PARENT_BIT_BARREL_ACTIVATE = 1 << 1;
     private static final int PARENT_BIT_ALT_VERTICAL = 1 << 2;
     private static final int PARENT_BIT_ALT_HORIZONTAL = 1 << 3;
+    /** ROM: bit set by boss when Knuckles fight activates napalm. */
+    private static final int PARENT_BIT_NAPALM_ACTIVATE = 1 << 4;
+    private static final int TRIGGER_X_KNUCKLES = 0x10C0;
 
     private static final int[] BREATH_FLAME_X_OFFSETS = {-0x64, -0x54, -0x44, -0x2C};
     private static final int[] BREATH_FLAME_Y_OFFSETS = {4, 4, 4, 3};
@@ -81,6 +84,19 @@ public class AizMinibossInstance extends AbstractBossInstance {
 
     private int waitTimer = -1;
     private Runnable waitCallback;
+    private boolean defeatRenderComplete;
+
+    /**
+     * ROM: ChildObjDat_46FEE — 7 fixed-position explosions spawned by the body
+     * child at loc_46C96 after the barrel defeat animation. Offsets are (x, y)
+     * relative to the boss centre.
+     */
+    private static final int[][] DEFEAT_EXPLOSION_OFFSETS = {
+            {0, -0x24}, {8, -0x1C}, {-8, -0x1C},
+            {4, -0x14}, {-4, -0x14}, {4, -4}, {-4, -4}
+    };
+    /** Delay before spawning the 7 fixed explosions (approximates barrel closing + body fall). */
+    private static final int DEFEAT_EXPLOSION_DELAY = 30;
     private int defeatTimer;
 
     public AizMinibossInstance(ObjectSpawn spawn, LevelManager levelManager) {
@@ -93,6 +109,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
         state.hitCount = HIT_COUNT;
         waitTimer = -1;
         waitCallback = null;
+        defeatRenderComplete = false;
         defeatTimer = 0;
     }
 
@@ -154,8 +171,28 @@ public class AizMinibossInstance extends AbstractBossInstance {
         state.yVel = 0;
         waitTimer = -1;
         waitCallback = null;
-        defeatTimer = DEFEAT_TIME;
+
+        // Clear invulnerability immediately to stop palette flash
+        state.invulnerable = false;
+        state.invulnerabilityTimer = 0;
+        loadBossPalette(); // Restore clean boss palette colors on line 1
+
+        // ROM: loc_46C96 spawns 7 fixed-position explosions after barrel defeat.
+        // We use a delay timer to approximate the barrel closing + body fall timing.
+        defeatTimer = DEFEAT_EXPLOSION_DELAY;
+
         AudioManager.getInstance().fadeOutMusic();
+
+        // Clean up all visible children — barrels, body, arm, napalm controller.
+        for (var child : childComponents) {
+            child.setDestroyed(true);
+        }
+        childComponents.clear();
+
+        // Destroy all in-flight attack objects (barrel shots, flames, napalm projectiles).
+        // ROM: barrel children enter defeat animation and stop spawning new attacks;
+        // existing projectiles check parent state and become inert.
+        destroyAttackObjects();
     }
 
     @Override
@@ -182,6 +219,9 @@ public class AizMinibossInstance extends AbstractBossInstance {
      * alternating between dark and bright color sets every frame.
      */
     private void updateCustomFlash() {
+        if (state.defeated) {
+            return;
+        }
         if (!state.invulnerable) {
             return;
         }
@@ -208,18 +248,21 @@ public class AizMinibossInstance extends AbstractBossInstance {
         if (events != null) {
             events.setBossFlag(true);
         }
+        GameServices.gameState().setCurrentBossId(0x91);
         loadBossPalette();
         state.routine = ROUTINE_WAIT_TRIGGER;
     }
 
     private void updateWaitTrigger() {
         Camera camera = Camera.getInstance();
-        if (camera.getX() < TRIGGER_X) {
+        PlayerCharacter character = Sonic3kLevelEventManager.getInstance().getPlayerCharacter();
+        int triggerX = (character == PlayerCharacter.KNUCKLES) ? TRIGGER_X_KNUCKLES : TRIGGER_X;
+        if (camera.getX() < triggerX) {
             return;
         }
 
-        camera.setMinX((short) TRIGGER_X);
-        camera.setMaxX((short) TRIGGER_X);
+        camera.setMinX((short) triggerX);
+        camera.setMaxX((short) triggerX);
         AudioManager.getInstance().fadeOutMusic();
 
         state.routine = ROUTINE_WAIT;
@@ -237,6 +280,8 @@ public class AizMinibossInstance extends AbstractBossInstance {
         for (int i = 0; i < 3; i++) {
             spawnChild(new AizMinibossFlameBarrelChild(this, i, false), objectManager);
         }
+        // Napalm controller (stays idle for Sonic, activates for Knuckles)
+        spawnChild(new AizMinibossNapalmController(this, 0), objectManager);
 
         AudioManager.getInstance().playMusic(Sonic3kMusic.MINIBOSS.id);
     }
@@ -263,6 +308,12 @@ public class AizMinibossInstance extends AbstractBossInstance {
     }
 
     private void onBreathCycleComplete() {
+        // ROM: loc_68ADE — Knuckles fight triggers napalm after breath cycle
+        PlayerCharacter character = Sonic3kLevelEventManager.getInstance().getPlayerCharacter();
+        if (character == PlayerCharacter.KNUCKLES) {
+            setCustomFlag(FLAG_PARENT_BITS, getCustomFlag(FLAG_PARENT_BITS) | PARENT_BIT_NAPALM_ACTIVATE);
+        }
+
         state.routine = ROUTINE_DESCEND;
         int bits = getCustomFlag(FLAG_PARENT_BITS) ^ PARENT_BIT_ALT_VERTICAL;
         setCustomFlag(FLAG_PARENT_BITS, bits);
@@ -322,20 +373,49 @@ public class AizMinibossInstance extends AbstractBossInstance {
     }
 
     private void updateDefeated(int frameCounter) {
-        defeatTimer--;
-        if ((defeatTimer & 7) == 0) {
-            spawnDefeatExplosion();
-        }
+        // Phase 1: wait for defeat delay, then spawn 7 fixed-position explosions
         if (defeatTimer > 0) {
+            defeatTimer--;
+            if (defeatTimer == 0) {
+                spawnDefeatExplosions();
+            }
             return;
         }
 
-        Sonic3kAIZEvents events = getAizEvents();
-        if (events != null) {
-            events.setBossFlag(false);
+        // Phase 2: wait for explosion animations to finish (22 ticks)
+        if (defeatTimer > -22) {
+            defeatTimer--;
+            return;
         }
-        AudioManager.getInstance().getBackend().restoreMusic();
-        setDestroyed(true);
+
+        // Explosions finished — spawn music fade-to-level transition, then signpost flow.
+        // ROM: Wait_FadeToLevelMusic → Obj_Song_Fade_ToLevelMusic → Restore_LevelMusic
+        // The fire transition swaps tileset/palette to AIZ2's look, but the zone is still
+        // technically AIZ1 and the level music is AIZ1.
+        if (!defeatRenderComplete) {
+            defeatRenderComplete = true;
+            spawnDynamicObject(new SongFadeTransitionInstance(120, Sonic3kMusic.AIZ1.id));
+
+            S3kBossDefeatSignpostFlow defeatFlow = new S3kBossDefeatSignpostFlow(
+                    state.x,
+                    () -> {
+                        // AfterBoss_AIZ2: restore fire palette to palette line 1.
+                        // ROM: lea (Pal_AIZFire).l,a1 / jsr (PalLoad_Line1).l
+                        // PalLoad_Line1 copies 32 bytes to Normal_palette_line_2
+                        // (S3K 1-based naming: line_2 = engine index 1).
+                        // The real miniboss fights in the post-fire section (technically AIZ2),
+                        // so we restore Pal_AIZFire, NOT Pal_AIZ (green AIZ1 palette).
+                        try {
+                            byte[] palData = GameServices.rom().getRom().readBytes(
+                                    Sonic3kConstants.PAL_AIZ_FIRE_ADDR, 32);
+                            levelManager.updatePalette(1, palData);
+                        } catch (Exception ignored) {
+                            // Palette restore failures should not crash gameplay.
+                        }
+                    }
+            );
+            spawnDynamicObject(defeatFlow);
+        }
     }
 
     private void setWait(int frames, Runnable callback) {
@@ -381,6 +461,47 @@ public class AizMinibossInstance extends AbstractBossInstance {
         }
     }
 
+    /**
+     * Spawn 7 fixed-position explosions matching ROM ChildObjDat_46FEE.
+     * ROM: loc_46C96 plays sfx_MissileExplode and creates 7 children at fixed offsets.
+     */
+    private void spawnDefeatExplosions() {
+        AudioManager.getInstance().playSfx(Sonic3kSfx.MISSILE_EXPLODE.id);
+        var objectManager = levelManager.getObjectManager();
+        if (objectManager == null) {
+            return;
+        }
+        for (int[] offset : DEFEAT_EXPLOSION_OFFSETS) {
+            objectManager.addDynamicObject(
+                    new S3kBossExplosionChild(state.x + offset[0], state.y + offset[1]));
+        }
+    }
+
+    /**
+     * Destroy all in-flight attack objects spawned by this boss.
+     * ROM: barrel children enter defeat animation; existing shots/flames check parent
+     * state and stop. We achieve the same by scanning active objects.
+     */
+    private void destroyAttackObjects() {
+        var objectManager = levelManager.getObjectManager();
+        if (objectManager == null) {
+            return;
+        }
+        for (var obj : objectManager.getActiveObjects()) {
+            if (obj instanceof AizMinibossBarrelShotChild attack) {
+                attack.setDestroyed(true);
+            } else if (obj instanceof AizMinibossFlameChild flame) {
+                flame.setDestroyed(true);
+            } else if (obj instanceof AizMinibossImpactFlameChild impact) {
+                impact.setDestroyed(true);
+            } else if (obj instanceof AizMinibossNapalmProjectile napalm) {
+                napalm.setDestroyed(true);
+            } else if (obj instanceof AizMinibossBarrelShotFlareChild flare) {
+                flare.setDestroyed(true);
+            }
+        }
+    }
+
     private void loadBossPalette() {
         try {
             byte[] line = GameServices.rom().getRom().readBytes(
@@ -397,7 +518,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (isDestroyed() || state.routine < ROUTINE_DESCEND || state.routine == ROUTINE_DEFEATED) {
+        if (isDestroyed() || state.routine < ROUTINE_DESCEND || defeatRenderComplete) {
             return;
         }
         ObjectRenderManager renderManager = levelManager.getObjectRenderManager();

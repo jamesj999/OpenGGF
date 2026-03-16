@@ -15,6 +15,8 @@ import com.openggf.level.objects.*;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpriteMappingPiece;
+import com.openggf.physics.ObjectTerrainUtils;
+import com.openggf.physics.TerrainCheckResult;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.ShieldType;
 
@@ -62,10 +64,17 @@ public class Sonic3kMonitorObjectInstance extends AbstractObjectInstance
     // (Mapping frames: 0=box, 1=eggman, 2=1up, 3=eggman2, 4=rings, ...)
     private static final int ICON_FRAME_OFFSET = 1;
 
+    // Y radius for floor collision (from solid params d2)
+    private static final int Y_RADIUS = 0x10;
+
     private final MonitorType type;
     private final ObjectAnimationState animationState;
     private boolean broken;
     private int mappingFrame;
+
+    // "Revealed from hidden monitor" mode: pop up with velocity, fall with gravity
+    private boolean revealed;
+    private final SubpixelMotion.State motion;
 
     // Icon rising state (inline PowerUp object)
     private boolean iconActive;
@@ -78,6 +87,7 @@ public class Sonic3kMonitorObjectInstance extends AbstractObjectInstance
     public Sonic3kMonitorObjectInstance(ObjectSpawn spawn) {
         super(spawn, "Monitor");
         this.type = MonitorType.fromSubtype(spawn.subtype());
+        this.motion = new SubpixelMotion.State(spawn.x(), spawn.y(), 0, 0, 0, 0);
 
         // Check persistence: if previously broken, spawn as broken shell
         ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
@@ -98,6 +108,41 @@ public class Sonic3kMonitorObjectInstance extends AbstractObjectInstance
         }
     }
 
+    /**
+     * Activate "revealed from hidden monitor" mode.
+     * ROM: loc_83760 — sets y_vel = -$500, transforms to Obj_Monitor routine 2.
+     * The monitor pops upward and falls with standard gravity until landing.
+     */
+    public void revealFromHidden() {
+        revealed = true;
+        motion.yVel = -0x500;
+    }
+
+    @Override
+    public int getX() {
+        return motion.x;
+    }
+
+    @Override
+    public int getY() {
+        return motion.y;
+    }
+
+    /** Current X position (uses motion state, which tracks spawn for static monitors). */
+    private int posX() {
+        return motion.x;
+    }
+
+    /** Current Y position (uses motion state, which tracks spawn for static monitors). */
+    private int posY() {
+        return motion.y;
+    }
+
+    @Override
+    public boolean isPersistent() {
+        return revealed;
+    }
+
     @Override
     public boolean shouldStayActiveWhenRemembered() {
         return true;
@@ -105,12 +150,35 @@ public class Sonic3kMonitorObjectInstance extends AbstractObjectInstance
 
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
+        if (revealed && !broken) {
+            updateRevealed();
+        }
         if (!broken) {
             animationState.update();
             mappingFrame = animationState.getMappingFrame();
             return;
         }
         updateIcon();
+    }
+
+    /**
+     * Physics for a monitor popping out of a hidden monitor slot.
+     * ROM: Obj_MonitorNorm — SpeedToPos + gravity + ObjCheckFloorDist.
+     */
+    private void updateRevealed() {
+        SubpixelMotion.moveSprite(motion, SubpixelMotion.S3K_GRAVITY);
+
+        // Only check floor when moving downward
+        if (motion.yVel > 0) {
+            TerrainCheckResult floor = ObjectTerrainUtils.checkFloorDist(
+                    motion.x, motion.y, Y_RADIUS);
+            if (floor.distance() < 0) {
+                motion.y += floor.distance();
+                motion.yVel = 0;
+                revealed = false; // Landed — become a normal static monitor
+                LOGGER.fine("Revealed monitor landed at Y=" + motion.y);
+            }
+        }
     }
 
     /**
@@ -164,7 +232,7 @@ public class Sonic3kMonitorObjectInstance extends AbstractObjectInstance
 
         // Initialize icon rising
         iconActive = true;
-        iconSubY = spawn.y() << 8;
+        iconSubY = posY() << 8;
         iconVelY = ICON_INITIAL_VELOCITY;
         iconWaitFrames = 0;
         effectApplied = false;
@@ -175,7 +243,7 @@ public class Sonic3kMonitorObjectInstance extends AbstractObjectInstance
         if (renderManager != null && objectManager != null
                 && renderManager.getExplosionRenderer() != null) {
             objectManager.addDynamicObject(
-                    new ExplosionObjectInstance(0x27, spawn.x(), spawn.y(), renderManager));
+                    new ExplosionObjectInstance(0x27, posX(), posY(), renderManager));
         }
         // ROM: Obj_Explosion loc_1E61A plays sfx_Break ($3D)
         AudioManager.getInstance().playSfx(Sonic3kSfx.BREAK.id);
@@ -277,7 +345,7 @@ public class Sonic3kMonitorObjectInstance extends AbstractObjectInstance
         if (hasRenderer) {
             // Draw monitor body (broken shell or animated frame)
             int frameIndex = broken ? BROKEN_FRAME : mappingFrame;
-            renderer.drawFrameIndex(frameIndex, spawn.x(), spawn.y(), false, false);
+            renderer.drawFrameIndex(frameIndex, posX(), posY(), false, false);
         } else {
             // Fallback: full box when intact, half-height shell when broken
             appendFallbackBox(commands, broken);
@@ -293,12 +361,12 @@ public class Sonic3kMonitorObjectInstance extends AbstractObjectInstance
                     if (frame != null && !frame.pieces().isEmpty()) {
                         // Draw only the first piece (the icon overlay, not the box base)
                         SpriteMappingPiece iconPiece = frame.pieces().get(0);
-                        renderer.drawPieces(List.of(iconPiece), spawn.x(), iconSubY >> 8, false, false);
+                        renderer.drawPieces(List.of(iconPiece), posX(), iconSubY >> 8, false, false);
                     }
                 }
             } else {
                 // Fallback: small box for rising icon
-                appendFallbackIcon(commands, spawn.x(), iconSubY >> 8);
+                appendFallbackIcon(commands, posX(), iconSubY >> 8);
             }
         }
     }
@@ -312,8 +380,8 @@ public class Sonic3kMonitorObjectInstance extends AbstractObjectInstance
     }
 
     private void appendFallbackBox(List<GLCommand> commands, boolean isBroken) {
-        int cx = spawn.x();
-        int cy = spawn.y();
+        int cx = posX();
+        int cy = posY();
         int half = 0x0E;
         int left = cx - half;
         int right = cx + half;

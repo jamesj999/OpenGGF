@@ -26,10 +26,28 @@ public final class Sonic3kObjectArtKeys {
     public static final String MONKEY_DUDE = "aiz_monkey_dude";
     public static final String FIRE_SHIELD = "fire_shield";
     public static final String LIGHTNING_SHIELD = "lightning_shield";
+    public static final String LIGHTNING_SPARK = "lightning_spark";
     public static final String BUBBLE_SHIELD = "bubble_shield";
+    public static final String END_SIGN = "EndSign";
+    public static final String SIGNPOST_STUB = "SignpostStub";
+
     public static final String AIZ_MINIBOSS = "aiz_miniboss";
     public static final String AIZ_MINIBOSS_FLAME = "aiz_miniboss_flame";
     public static final String AIZ_MINIBOSS_SMALL = "aiz_miniboss_small";
+
+    // Cork Floor (zone-specific sheets)
+    public static final String CORK_FLOOR_AIZ1 = "cork_floor_aiz1";
+    public static final String CORK_FLOOR_AIZ2 = "cork_floor_aiz2";
+    public static final String CORK_FLOOR_CNZ = "cork_floor_cnz";
+    public static final String CORK_FLOOR_FBZ = "cork_floor_fbz";
+    public static final String CORK_FLOOR_ICZ = "cork_floor_icz";
+    public static final String CORK_FLOOR_LBZ = "cork_floor_lbz";
+
+    // Floating Platform (zone-specific sheets)
+    public static final String FLOATING_PLATFORM_AIZ1 = "floating_platform_aiz1";
+    public static final String FLOATING_PLATFORM_AIZ2 = "floating_platform_aiz2";
+    public static final String FLOATING_PLATFORM_HCZ = "floating_platform_hcz";
+    public static final String FLOATING_PLATFORM_MGZ = "floating_platform_mgz";
 
     // HCZ badniks
     public static final String HCZ_BLASTOID = "hcz_blastoid";

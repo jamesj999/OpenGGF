@@ -23,8 +23,8 @@ public class LightningSparkObjectInstance extends AbstractObjectInstance {
     /** Lifetime in frames before auto-delete */
     private static final int MAX_LIFE = 21;
 
-    /** Animation script index for sparks (Ani_LightningShield script 2) */
-    private static final int SPARK_ANIM_SCRIPT = 2;
+    /** Animation script index for sparks (dedicated spark renderer has a single script at index 0) */
+    private static final int SPARK_ANIM_SCRIPT = 0;
 
     // Relies on parent (LightningShieldObjectInstance) passing valid DPLC renderer.
     // currentMappingFrame indices must match the DPLC-remapped frame table.

@@ -1502,11 +1502,21 @@ public class ObjectManager {
 
             int sourceX = instance != null ? instance.getX() : player.getCentreX();
             boolean spikeHit = instance != null && instance.getSpawn().objectId() == 0x36;
+
+            // S3K shield_reaction bit 4: fire shield blocks fire damage
+            boolean fireHit = !spikeHit && instance instanceof TouchResponseProvider trp
+                    && (trp.getShieldReactionFlags() & 0x10) != 0;
+
+            AbstractPlayableSprite.DamageCause cause = spikeHit
+                    ? AbstractPlayableSprite.DamageCause.SPIKE
+                    : fireHit ? AbstractPlayableSprite.DamageCause.FIRE
+                    : AbstractPlayableSprite.DamageCause.NORMAL;
+
             boolean hadRings = player.getRingCount() > 0;
             if (hadRings && !player.hasShield()) {
                 LevelManager.getInstance().spawnLostRings(player, currentFrameCounter);
             }
-            player.applyHurtOrDeath(sourceX, spikeHit, hadRings);
+            player.applyHurtOrDeath(sourceX, cause, hadRings);
         }
 
         TouchResponseDebugState getDebugState() {

@@ -257,8 +257,9 @@ public class TestTouchResponseManager {
 
         objectManager.update(0, player, null, 1);
 
-        // Verify applyHurtOrDeath was called
-        verify(player).applyHurtOrDeath(anyInt(), anyBoolean(), anyBoolean());
+        // Verify applyHurtOrDeath was called (DamageCause overload)
+        verify(player).applyHurtOrDeath(anyInt(),
+                any(AbstractPlayableSprite.DamageCause.class), anyBoolean());
     }
 
     @Test
@@ -271,8 +272,9 @@ public class TestTouchResponseManager {
 
         objectManager.update(0, player, null, 1);
 
-        // Verify applyHurtOrDeath was NOT called
-        verify(player, never()).applyHurtOrDeath(anyInt(), anyBoolean(), anyBoolean());
+        // Verify applyHurtOrDeath was NOT called (DamageCause overload)
+        verify(player, never()).applyHurtOrDeath(anyInt(),
+                any(AbstractPlayableSprite.DamageCause.class), anyBoolean());
     }
 
     // ==================== Overlap Persistence Tests ====================

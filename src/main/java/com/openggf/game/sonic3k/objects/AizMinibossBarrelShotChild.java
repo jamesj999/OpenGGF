@@ -105,7 +105,7 @@ public class AizMinibossBarrelShotChild extends AbstractObjectInstance implement
 
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
-        if (parent == null || parent.isDestroyed()) {
+        if (parent == null || parent.isDestroyed() || parent.getState().defeated) {
             setDestroyed(true);
             return;
         }
@@ -255,7 +255,8 @@ public class AizMinibossBarrelShotChild extends AbstractObjectInstance implement
 
     @Override
     public int getShieldReactionFlags() {
-        return SHIELD_REACTION_BOUNCE;
+        // Bit 3: bounce shield deflection. Bit 4: fire shield immunity.
+        return SHIELD_REACTION_BOUNCE | (1 << 4);
     }
 
     @Override
