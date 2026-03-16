@@ -456,8 +456,16 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
             sidekick.setControlLocked(false);
             sidekick.setObjectControlled(false);
         }
-        // Unfreeze camera/scroll
-        Camera.getInstance().setFrozen(false);
+        // Restore camera bounds from level data (boss arena locked the boundaries)
+        Camera cam = Camera.getInstance();
+        cam.setFrozen(false);
+        var level = LevelManager.getInstance().getCurrentLevel();
+        if (level != null) {
+            cam.setMinX((short) level.getMinX());
+            cam.setMaxX((short) level.getMaxX());
+            cam.setMinY((short) level.getMinY());
+            cam.setMaxY((short) level.getMaxY());
+        }
 
         int zone = LevelManager.getInstance().getRomZoneId();
 
@@ -472,9 +480,16 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
         GameServices.gameState().setEndOfLevelFlag(true);
 
         if (!isAct2OrSpecial) {
-            // Act 1: show act 2 title card (ROM lines 62708-62720)
+            // Act 1: transition to act 2 (ROM lines 62708-62720)
             // ROM sets Apparent_act = 1 — in our engine the title card handles this visually.
             // The level data continues seamlessly (S3K acts share the same level).
+
+            // Play act 2 music
+            var zoneRegistry = com.openggf.game.GameModuleRegistry.getCurrent().getZoneRegistry();
+            int act2MusicId = zoneRegistry.getMusicId(zone, 1);
+            if (act2MusicId >= 0) {
+                try { AudioManager.getInstance().playMusic(act2MusicId); } catch (Exception e) { /* ignore */ }
+            }
 
             // Show act 2 title card (except SOZ zone $8 and DEZ zone $B)
             // ROM lines 62713-62720

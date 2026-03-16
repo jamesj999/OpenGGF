@@ -572,7 +572,7 @@ public class Sonic3kConstants {
 
     // ===== Results Screen Art (KosinskiM) =====
     public static final int ART_KOSM_RESULTS_GENERAL_ADDR = 0x0D6A62;    // "GOT THROUGH", bonus labels
-    public static final int ART_KOSM_RESULTS_SONIC_ADDR = 0x39A786;      // "SONIC" name art
+    public static final int ART_KOSM_RESULTS_SONIC_ADDR = 0x15B95C;      // "SONIC" name art (S&K version; S3 version at 0x39A786 shows "SUPER")
     public static final int ART_KOSM_RESULTS_MILES_ADDR = 0x39AA18;      // "MILES" name art
     public static final int ART_KOSM_RESULTS_TAILS_ADDR = 0x39AB6A;      // "TAILS" name art
     public static final int ART_KOSM_RESULTS_KNUCKLES_ADDR = 0x0D67F0;   // "KNUCKLES" name art
