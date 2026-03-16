@@ -59,21 +59,19 @@ public class Sonic3kSpecialStageTailsAI {
             return p2HeldButtons;
         }
 
-        // AI mode: replay P1 input from 4 entries ago
-        // ROM: reads from Pos_table at (index - 4*4) for jump state
+        // AI mode: replay P1 jump state from 4 entries ago.
+        // Detect when the delayed P1 state transitions to jumping (0x80 or 0x81)
+        // from not-jumping (0 or 1). This triggers Tails to jump 4 frames after Sonic.
         int delayedIndex = (posTableIndex - TAILS_POS_DELAY) & 0xFF;
         int prevIndex = (delayedIndex - 1) & 0xFF;
 
         int delayedJump = posTableJump[delayedIndex];
         int prevJump = posTableJump[prevIndex];
 
-        // Auto-jump: if P1 was on ground at prev and jumping at delayed
         int result = 0;
-        if (prevJump < 0 && delayedJump >= 0) {
-            // P1 just landed at this delayed point
-        } else if (delayedJump == 0x81 && prevJump >= 0) {
-            // P1 was on a spring at this delayed point - trigger jump
-            result = 0x70; // A+B+C pressed
+        // If P1 just started jumping at the delayed point (was grounded, now airborne)
+        if ((delayedJump & 0x80) != 0 && (prevJump & 0x80) == 0) {
+            result = 0x70; // A+B+C pressed — trigger jump
         }
 
         return result;
@@ -85,7 +83,10 @@ public class Sonic3kSpecialStageTailsAI {
      *
      * @return true if Tails should auto-jump this frame
      */
-    public boolean shouldAutoJump() {
+    /**
+     * Check if the delayed P1 state shows a spring jump transition.
+     */
+    public boolean shouldAutoSpringJump() {
         int delayedIndex = (posTableIndex - TAILS_POS_DELAY) & 0xFF;
         int prevIndex = (delayedIndex - 1) & 0xFF;
 
