@@ -88,6 +88,9 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
     // Music flag
     private boolean musicPlayed;
 
+    // Player reference for control restoration on exit
+    private AbstractPlayableSprite playerRef;
+
     // Elements
     private final ResultsElement[] elements = new ResultsElement[12];
     private int exitQueueCounter;
@@ -271,11 +274,31 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
 
     // ---- Update with element sliding ----
 
+    /**
+     * Fully overrides base update() because S3K has a slide-out exit phase
+     * that the base class doesn't support (base STATE_EXIT immediately sets
+     * complete=true, but S3K needs exit queue animation first).
+     *
+     * ROM flow: Obj_LevelResultsWait2 counts down 90 frames, THEN runs exit
+     * queue each frame until all children are off-screen, THEN transitions.
+     */
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
-        super.update(frameCounter, player);
+        this.playerRef = player;
+        this.frameCounter = frameCounter;
+        stateTimer++;
+        totalFrames++;
 
-        // Slide elements during pre-tally delay and tally
+        switch (state) {
+            case STATE_SLIDE_IN -> updateSlideIn();
+            case STATE_PRE_TALLY_DELAY -> updatePreTallyDelay();
+            case STATE_TALLY -> updateTally();
+            case STATE_WAIT -> updateWait();
+            case STATE_EXIT -> updateExitQueue();
+            // Do NOT set complete=true here — exitQueue handles it
+        }
+
+        // Slide elements toward targets during pre-tally and tally
         if (state <= STATE_TALLY) {
             for (ResultsElement elem : elements) {
                 if (elem != null && !elem.offScreen) {
@@ -283,17 +306,31 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
                 }
             }
         }
+    }
 
-        // Exit queue after STATE_WAIT ends
-        if (state == STATE_EXIT) {
-            updateExitQueue();
+    /**
+     * Override: transition to STATE_EXIT without calling onExitReady().
+     * ROM: Obj_LevelResultsWait2 first counts down 90 frames, then the
+     * exit queue runs. onExitReady() fires only after ALL children are gone.
+     */
+    @Override
+    protected void updateWait() {
+        if (stateTimer >= getWaitDuration()) {
+            state = STATE_EXIT;
+            stateTimer = 0;
+            // Do NOT call onExitReady() here — wait for exit queue to finish
         }
     }
 
+    /**
+     * ROM: Obj_LevelResultsWait2 after 90-frame wait (sonic3k.asm lines 62686-62690).
+     * Increments exit queue counter each frame. Children start sliding out when
+     * the counter reaches their priority. When all are gone, fire onExitReady().
+     */
     private void updateExitQueue() {
         if (childrenRemaining <= 0) {
-            complete = true;
             onExitReady();
+            complete = true;
             return;
         }
         exitQueueCounter++;
@@ -408,6 +445,12 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
 
     @Override
     protected void onExitReady() {
+        // Restore player controls (locked by signpost in Set_PlayerEndingPose)
+        if (playerRef != null) {
+            playerRef.setControlLocked(false);
+            playerRef.setObjectControlled(false);
+        }
+
         int zone = LevelManager.getInstance().getRomZoneId();
 
         // Act 2, Sky Sanctuary ($A), or LRZ boss ($16): set End_of_level_flag
@@ -420,7 +463,7 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
             GameServices.gameState().setEndOfLevelFlag(true);
         } else {
             // Act 1: show act 2 title card (ROM lines 62708-62720)
-            // ROM sets Apparent_act = 1 -- in our engine the title card handles this visually.
+            // ROM sets Apparent_act = 1 — in our engine the title card handles this visually.
             // The level data continues seamlessly (S3K acts share the same level).
 
             // Show act 2 title card (except SOZ zone $8 and DEZ zone $B)
