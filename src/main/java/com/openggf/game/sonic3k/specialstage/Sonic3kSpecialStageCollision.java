@@ -58,7 +58,7 @@ public class Sonic3kSpecialStageCollision {
     public CollisionData checkCollision(Sonic3kSpecialStageGrid grid,
                                         Sonic3kSpecialStagePlayer player) {
         // Skip collision during jump
-        if (player.getJumping() < 0) {
+        if ((player.getJumping() & 0x80) != 0) {
             return CollisionData.NONE;
         }
         // Skip during clear routine
@@ -120,7 +120,7 @@ public class Sonic3kSpecialStageCollision {
      * ROM: loc_97EE (sonic3k.asm:12158)
      */
     private CollisionData checkSpring(Sonic3kSpecialStagePlayer player, int gridIndex) {
-        if (player.getJumping() < 0) {
+        if ((player.getJumping() & 0x80) != 0) {
             return CollisionData.NONE;
         }
         if ((player.getAngle() & ANGLE_ALIGN_MASK) != 0) {

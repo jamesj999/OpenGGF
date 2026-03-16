@@ -84,7 +84,8 @@ public class Sonic3kSpecialStagePlayer {
      * @param blueSpheres true for Blue Spheres standalone mode
      */
     public void initialize(int startAngle, int startX, int startY, boolean blueSpheres) {
-        this.angle = startAngle & 0xFF;
+        // ROM stores angle as a word but reads with move.b (high byte in big-endian)
+        this.angle = (startAngle >> 8) & 0xFF;
         this.xPos = startX & 0xFFFF;
         this.yPos = startY & 0xFFFF;
         this.velocity = 0;
@@ -182,7 +183,7 @@ public class Sonic3kSpecialStagePlayer {
 
         // Process turning
         if (turning != 0 && (axisPos & CELL_ALIGN_MASK) == 0) {
-            if (jumping < 0) {
+            if ((jumping & 0x80) != 0) {
                 // Can't turn while jumping; skip to position update
             } else {
                 angle = (angle + turning) & 0xFF;
@@ -402,8 +403,8 @@ public class Sonic3kSpecialStagePlayer {
             }
         }
 
-        // Jump physics
-        if (jumping < 0) { // 0x80 or 0x81 (active jump)
+        // Jump physics — ROM uses tst.b which treats 0x80 as negative
+        if ((jumping & 0x80) != 0) { // 0x80 (normal) or 0x81 (spring)
             jumpHeight += jumpVelocity;
             if (jumpHeight >= 0) {
                 // Landed
@@ -422,7 +423,7 @@ public class Sonic3kSpecialStagePlayer {
      * ROM: loc_97EE (sonic3k.asm:12158)
      */
     public void springJump() {
-        if (jumping < 0 || clearRoutineActive) {
+        if ((jumping & 0x80) != 0 || clearRoutineActive) {
             return;
         }
         if ((angle & ANGLE_ALIGN_MASK) != 0) {
@@ -454,12 +455,13 @@ public class Sonic3kSpecialStagePlayer {
      * ROM: Obj_SStage_8FAA loc_907E (sonic3k.asm:11466)
      * <p>
      * ROM logic:
-     * - anim_frame_timer is a WORD (16-bit), velocity>>5 is added to it each frame
-     * - Only the LOW BYTE of the timer is used as the frame index
+     * - anim_frame_timer is a WORD (16-bit), velocity>>5 is added each frame
+     * - move.b reads the HIGH BYTE of the word (68000 big-endian) as the frame index
      * - If the byte is negative (signed), add 12
      * - If the byte >= 12, subtract 12
      * - This gives a value 0-11 indexing into the animation table
      * - If velocity is 0, frame index 12 (idle) is used
+     * - move.b d0,anim_frame_timer(a0) writes back to the HIGH BYTE
      */
     private void updateAnimation() {
         int frameIdx;
@@ -469,10 +471,10 @@ public class Sonic3kSpecialStagePlayer {
             // ROM: asr.w #5,d1 / add.w d1,anim_frame_timer(a0)
             animFrameTimer = (animFrameTimer + (velocity >> 5)) & 0xFFFF;
 
-            // ROM: move.b anim_frame_timer(a0),d0 — read LOW BYTE only
-            frameIdx = animFrameTimer & 0xFF;
+            // ROM: move.b anim_frame_timer(a0),d0 — reads HIGH BYTE (big-endian!)
+            frameIdx = (animFrameTimer >> 8) & 0xFF;
 
-            // ROM: bpl.s (if positive, check >= 12)
+            // ROM: bpl.s (if positive as signed byte, check >= 12)
             if ((frameIdx & 0x80) != 0) {
                 // Signed negative: addi.b #$C,d0
                 frameIdx = (frameIdx + 12) & 0xFF;
@@ -483,13 +485,13 @@ public class Sonic3kSpecialStagePlayer {
                 frameIdx = (frameIdx - 12) & 0xFF;
             }
 
-            // Store back to low byte of timer (ROM: move.b d0,anim_frame_timer(a0))
-            animFrameTimer = (animFrameTimer & 0xFF00) | (frameIdx & 0xFF);
+            // ROM: move.b d0,anim_frame_timer(a0) — writes back to HIGH BYTE
+            animFrameTimer = (frameIdx << 8) | (animFrameTimer & 0xFF);
         }
 
         // Select animation table based on jump state
         int[] animTable;
-        if (jumping < 0) {
+        if ((jumping & 0x80) != 0) {
             animTable = ANIM_JUMP_P1;
             if (velocity == 0) {
                 // ROM: idle during jump uses Level_frame_counter & 3

@@ -77,13 +77,18 @@ public class Sonic3kSpecialStageRingConverter {
             }
         }
 
-        // Phase 3: Convert red sphere neighbors of rings to rings
+        // Phase 3: Convert red/touched sphere neighbors of rings to rings
         // ROM: Blue_To_Ring_Next_Ring_R (sonic3k.asm:12943)
         // Re-scan the entire queue (including newly added entries from phase 2)
         for (int ringPos : ringQueue) {
             for (int dir : DIRECTIONS_8) {
                 int neighbor = (ringPos + dir) & 0x3FF;
-                if (grid.getCellByIndex(neighbor) == CELL_RED) {
+                int neighborCell = grid.getCellByIndex(neighbor);
+                // Convert RED (1) and TOUCHED (0x0A) neighbors to rings
+                // TOUCHED cells are border spheres that haven't completed Phase 2 yet
+                if (neighborCell == CELL_RED || neighborCell == CELL_TOUCHED
+                        || (neighborCell & 0x7F) == CELL_RED
+                        || (neighborCell & 0x7F) == CELL_TOUCHED) {
                     grid.setCellByIndex(neighbor, CELL_RING);
                 }
             }
@@ -191,6 +196,8 @@ public class Sonic3kSpecialStageRingConverter {
             if (dirIndex < lowerBound) {
                 // All directions exhausted at this position - pop stack
                 if (stackSize == 0) {
+                    // Unmark the last position before returning
+                    grid.andCellByIndex(currentPos, 0x7F);
                     return; // No more loops to find
                 }
                 stackSize--;
@@ -229,9 +236,10 @@ public class Sonic3kSpecialStageRingConverter {
             }
 
             // Anti-backtrack: if stack has 2+ entries, reject if candidate
-            // is one step away from stack[-2]
+            // is one step away from the grandparent position (stack[-2]).
+            // This prevents the DFS from making a 180-degree turn.
             if (stackSize >= 2) {
-                int prevPrevPos = stackPos[stackSize - 1]; // stack[-2] in ROM terms
+                int prevPrevPos = stackPos[stackSize - 2]; // grandparent position
                 int diff = (candidate - prevPrevPos) & 0xFFFF;
                 // Sign-extend for comparison
                 if (diff > 0x7FFF) diff -= 0x10000;
@@ -280,12 +288,14 @@ public class Sonic3kSpecialStageRingConverter {
         // Final direction (last walk -> start, i.e. closing the loop)
         int finalDir = -startToLast;
 
-        // Get second position in path (first stack entry's position after touched)
+        // Get second position in the walk path.
+        // ROM: lea (SStage_red_sphere_dfs_walk_stack+6).w,a4 / move.w (a4),d2
+        // This reads stackPos[1] — the position stored when the DFS took its
+        // SECOND step (the first step stores touchedIndex in stackPos[0]).
         int secondPos;
-        if (stackSize > 0) {
-            // Walk path: touched -> stack[0].pos -> stack[1].pos -> ...
-            // The "second position" is the first entry after the DFS stack base
-            // which represents the position after the touched sphere
+        if (stackSize > 1) {
+            secondPos = stackPos[1];
+        } else if (stackSize > 0) {
             secondPos = stackPos[0];
         } else {
             secondPos = lastWalkPos;
@@ -295,10 +305,11 @@ public class Sonic3kSpecialStageRingConverter {
         int initialDir = (secondPos - touchedIndex) & 0x3FF;
         if (initialDir > 0x1FF) initialDir -= 0x400;
 
-        // Re-walk the path to find where direction changes
+        // Re-walk the path to find where direction changes.
+        // ROM: starts reading from stackPos[1] onward (a4 was set to entry 1).
         int walkHead = touchedIndex;
         int newDir = initialDir;
-        int walkIdx = 0;
+        int walkIdx = 1; // Start from entry 1 (entry 0 = touchedIndex itself)
 
         // Find first direction change
         while (walkIdx < stackSize) {

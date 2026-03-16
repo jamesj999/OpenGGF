@@ -145,15 +145,16 @@ public class Sonic3kSpecialStageRenderer {
         if (turnBits != 0) animFrame = 0x0F + (turnBits >> 3);
 
         // Floor frame selection.
-        // The checkerboard scrolling effect is achieved through PALETTE ROTATION
-        // (Rotate_SSPal), not through frame switching. All floor tiles use palette
-        // line 3, and the stage palette colors are shifted each anim frame to
-        // create the illusion of movement.
-        // Forward movement uses floor frame 0 (with palette rotation providing motion).
+        // The ROM uses BOTH palette rotation (Rotate_SSPal) AND map frame swapping
+        // together: palette rotation shifts colors on even anim frames, and the map
+        // swap between frames 0/1 shifts the tile pattern on odd anim frames. Combined,
+        // this gives 16 visual updates per cell crossing instead of 8.
         // Turning uses dedicated pre-rendered perspective frames 2-8.
-        int floorFrame = 0;
+        int floorFrame;
         if (animFrame >= 16 && animFrame < FLOOR_FRAME_MAP.length) {
-            floorFrame = FLOOR_FRAME_MAP[animFrame]; // Turning frames only
+            floorFrame = FLOOR_FRAME_MAP[animFrame]; // Turning frames
+        } else {
+            floorFrame = FLOOR_FRAME_MAP[animFrame & 0xF]; // 0 or 1 alternating
         }
         int maxFrames = floorMapData.length / (40 * 28 * 2);
         if (floorFrame >= maxFrames) floorFrame = 0;
@@ -375,7 +376,9 @@ public class Sonic3kSpecialStageRenderer {
 
         switch (cellType) {
             case CELL_BLUE:  patternBase = spherePatternBase; paletteIndex = 2; break;
-            case CELL_RED:   patternBase = spherePatternBase; paletteIndex = 0; break;
+            case CELL_RED:
+            case CELL_TOUCHED:  // Touched spheres display as red
+                             patternBase = spherePatternBase; paletteIndex = 0; break;
             case CELL_BUMPER: patternBase = spherePatternBase; paletteIndex = 1; break;
             case CELL_RING: case CELL_RING_ANIM_1: case CELL_RING_ANIM_2:
             case CELL_RING_ANIM_3: case CELL_RING_ANIM_4:
@@ -417,6 +420,15 @@ public class Sonic3kSpecialStageRenderer {
             }
         }
 
+        // Apply the mapping piece offsets to center the sprite on the grid position.
+        // From Map_SStageSphere: each size has specific y/x offsets:
+        //   4x4 (32px): y=-16 (0xF0), x=-16 (0xFFF0)
+        //   3x3 (24px): y=-12 (0xF4), x=-12 (0xFFF4)
+        //   2x2 (16px): y=-8  (0xF8), x=-8  (0xFFF8)
+        //   1x1 (8px):  y=-4  (0xFC), x=-4  (0xFFFC)
+        int centerOffX = -(tilesW * TILE_SIZE) / 2;
+        int centerOffY = -(tilesH * TILE_SIZE) / 2;
+
         // Render using column-major VDP ordering
         for (int col = 0; col < tilesW; col++) {
             for (int row = 0; row < tilesH; row++) {
@@ -426,7 +438,8 @@ public class Sonic3kSpecialStageRenderer {
                 reusableDesc.setPriority(true);
                 reusableDesc.setPaletteIndex(paletteIndex);
                 graphicsManager.renderPatternWithId(patternId, reusableDesc,
-                        screenX + col * TILE_SIZE, screenY + row * TILE_SIZE);
+                        screenX + centerOffX + col * TILE_SIZE,
+                        screenY + centerOffY + row * TILE_SIZE);
             }
         }
     }

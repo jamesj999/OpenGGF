@@ -1813,20 +1813,19 @@ public class GameLoop {
             heldButtons |= 0x08;
         }
 
-        if (ssProvider.isGameplayDebugMode()) {
-            if (inputHandler.isKeyDown(upKey)) {
-                heldButtons |= 0x01;
-            }
-            if (inputHandler.isKeyDown(downKey)) {
-                heldButtons |= 0x02;
-            }
-        } else {
-            if (inputHandler.isKeyPressed(jumpKey)) {
-                pressedButtons |= 0x70;
-            }
-            if (inputHandler.isKeyDown(jumpKey)) {
-                heldButtons |= 0x70;
-            }
+        // Up/Down: always mapped (S3K Blue Ball needs UP for forward movement)
+        if (inputHandler.isKeyDown(upKey)) {
+            heldButtons |= 0x01;
+        }
+        if (inputHandler.isKeyDown(downKey)) {
+            heldButtons |= 0x02;
+        }
+        // Jump (A/B/C)
+        if (inputHandler.isKeyPressed(jumpKey)) {
+            pressedButtons |= 0x70;
+        }
+        if (inputHandler.isKeyDown(jumpKey)) {
+            heldButtons |= 0x70;
         }
 
         if (inputHandler.isKeyDown(p2LeftKey)) {

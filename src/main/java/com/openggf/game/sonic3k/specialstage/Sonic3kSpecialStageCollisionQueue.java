@@ -73,17 +73,17 @@ public class Sonic3kSpecialStageCollisionQueue {
      * Add a blue sphere collection entry.
      * ROM: Find_SStageCollisionResponseSlot + move.b #2,(a2) (sonic3k.asm:12136)
      * <p>
-     * Skips if this grid index already has a pending entry (prevents
-     * duplicate processing when the player is on the cell for multiple frames).
+     * Deduplicated: only one entry per grid index to prevent queue saturation.
+     * The ROM creates entries every frame but clears them fast enough to avoid
+     * overflow. Our dedup achieves the same result — one entry per sphere.
      *
      * @param gridIndex grid buffer index of the sphere
      * @return true if added, false if queue is full or already pending
      */
     public boolean addBlueSphere(int gridIndex) {
-        // Check for existing entry at this grid index
         for (int i = 0; i < COLLISION_QUEUE_SIZE; i++) {
-            if (types[i] == RESPONSE_BLUE_SPHERE && gridIndices[i] == gridIndex) {
-                return false; // Already pending
+            if (types[i] != 0 && gridIndices[i] == gridIndex) {
+                return false; // Already has an entry for this cell
             }
         }
         int slot = findEmptySlot();
@@ -101,8 +101,11 @@ public class Sonic3kSpecialStageCollisionQueue {
      *
      * @param grid the game grid
      * @param callback callback for blue sphere animation completion
+     * @param playerXPos player X position (for alignment check in Phase 2)
+     * @param playerYPos player Y position (for alignment check in Phase 2)
      */
-    public void update(Sonic3kSpecialStageGrid grid, BlueSphereCallback callback) {
+    public void update(Sonic3kSpecialStageGrid grid, BlueSphereCallback callback,
+                       int playerXPos, int playerYPos) {
         for (int i = 0; i < COLLISION_QUEUE_SIZE; i++) {
             if (types[i] == 0) continue;
 
@@ -111,7 +114,7 @@ public class Sonic3kSpecialStageCollisionQueue {
                     updateRing(i, grid);
                     break;
                 case RESPONSE_BLUE_SPHERE:
-                    updateBlueSphere(i, grid, callback);
+                    updateBlueSphere(i, grid, callback, playerXPos, playerYPos);
                     break;
             }
         }
@@ -153,7 +156,8 @@ public class Sonic3kSpecialStageCollisionQueue {
      * </ol>
      */
     private void updateBlueSphere(int slot, Sonic3kSpecialStageGrid grid,
-                                   BlueSphereCallback callback) {
+                                   BlueSphereCallback callback,
+                                   int playerXPos, int playerYPos) {
         timers[slot]--;
         if (timers[slot] >= 0) return;
 
@@ -168,19 +172,28 @@ public class Sonic3kSpecialStageCollisionQueue {
             if (callback != null) {
                 callback.onBlueSphereAnimComplete(gridIndex);
             }
-            // Check if Sphere_To_Rings converted it (cell would now be CELL_RING=4)
-            if (grid.getCellByIndex(gridIndex) == CELL_RING) {
-                // Conversion happened — clear entry
+            // The ring converter's DFS may leave bit 7 set on the cell (0x8A).
+            // Clear it so Phase 2 can properly detect TOUCHED (0x0A).
+            int afterCell = grid.getCellByIndex(gridIndex);
+            if ((afterCell & 0x80) != 0) {
+                grid.andCellByIndex(gridIndex, 0x7F);
+                afterCell = grid.getCellByIndex(gridIndex);
+            }
+            if (afterCell == CELL_RING) {
                 clearSlot(slot);
             }
             // Otherwise entry stays alive for phase 2
         } else {
-            // Phase 2: cell is no longer blue
-            // ROM: loc_9E62 — reset timer, check alignment, convert touched→red
-            timers[slot] = 0; // ROM: move.b #0,2(a0)
-
-            // ROM checks player position alignment before converting
-            // For simplicity, convert immediately (alignment check is cosmetic)
+            // Phase 2: cell is no longer blue.
+            // ROM: loc_9E62 — reset timer to 0, then check player alignment.
+            // If player IS aligned (on cell center), DON'T convert yet — the player
+            // might still be on this cell. Wait until they've moved away.
+            timers[slot] = 0;
+            int posCheck = (playerXPos | playerYPos) & 0xE0;
+            if (posCheck == 0) {
+                // Player is aligned (on a cell center) — don't convert yet, keep entry alive
+                return;
+            }
             if (cellType == CELL_TOUCHED) {
                 grid.setCellByIndex(gridIndex, CELL_RED);
             }

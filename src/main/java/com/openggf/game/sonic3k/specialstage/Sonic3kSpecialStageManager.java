@@ -266,7 +266,10 @@ public class Sonic3kSpecialStageManager {
         // Scalars are used by the 3D projection system
 
         // Load and apply palettes to the graphics manager
-        palette.initialize(dataLoader, currentStage, false, true);
+        // In the combined S3K ROM, SK_alone_flag=0 and SK_special_stage_flag=0
+        // for the first playthrough (chaos emeralds), so use S3 palettes (skMode=false).
+        // skMode=true would be for S&K standalone or super emerald stages.
+        palette.initialize(dataLoader, currentStage, false, false);
         com.openggf.level.Palette[] palLines = palette.getPalettes();
         for (int i = 0; i < palLines.length; i++) {
             if (palLines[i] != null) {
@@ -324,12 +327,13 @@ public class Sonic3kSpecialStageManager {
         player.updateJump(pressedButtons);
 
         // Collision detection (only when not jumping and not in clear sequence)
-        if (player.getJumping() >= 0 && clearRoutine == 0) {
+        if ((player.getJumping() & 0x80) == 0 && clearRoutine == 0) {
             processCollision();
         }
 
         // Collision response queue (ring/sphere animations)
-        collisionQueue.update(grid, this::onBlueSphereAnimComplete);
+        collisionQueue.update(grid, this::onBlueSphereAnimComplete,
+                player.getXPos(), player.getYPos());
 
         // Clear sequence
         if (clearRoutine > 0) {
