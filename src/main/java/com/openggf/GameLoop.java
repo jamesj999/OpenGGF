@@ -1038,8 +1038,16 @@ public class GameLoop {
         if (sprite instanceof AbstractPlayableSprite playable) {
             RespawnState checkpointState = levelManager.getCheckpointState();
 
-            if (checkpointState != null && checkpointState.isActive()) {
-                // Restore player and camera position from checkpoint (ROM-accurate)
+            if (levelManager.hasBigRingReturnPosition()) {
+                // S3K big ring path: restore to ring location (ROM: Saved2_* variables)
+                playable.setX((short) levelManager.getBigRingReturnX());
+                playable.setY((short) levelManager.getBigRingReturnY());
+                camera.setX((short) levelManager.getBigRingReturnCameraX());
+                camera.setY((short) levelManager.getBigRingReturnCameraY());
+                camera.updatePosition(true);
+                levelManager.clearBigRingReturnPosition();
+            } else if (checkpointState != null && checkpointState.isActive()) {
+                // S2 checkpoint star path: restore to checkpoint (ROM: Saved_* variables)
                 checkpointState.restoreToPlayer(playable, camera);
             } else {
                 // No checkpoint - camera will follow player at level start position

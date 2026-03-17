@@ -244,6 +244,13 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
     private void enterSpecialStageSequence(AbstractPlayableSprite player) {
         state = State.ENTERED;
 
+        // ROM: Save_Level_Data2 — save player position at ring for return from SS.
+        // This is separate from checkpoint state (ROM: Saved_ vs Saved2_).
+        Camera camera = Camera.getInstance();
+        LevelManager.getInstance().saveBigRingReturnPosition(
+                player.getCentreX(), player.getCentreY(),
+                camera.getX(), camera.getY());
+
         // Lock player: hidden + object controlled
         // ROM: move.b #$53,object_control(a2) — disables input
         // ROM: move.b #-1,(Player_prev_frame).w — makes player invisible
@@ -251,7 +258,7 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
         player.setObjectControlled(true);
 
         // Freeze camera at player's last position
-        Camera.getInstance().setFrozen(true);
+        camera.setFrozen(true);
 
         // Spawn flash child object
         // ROM: direction bit is set on the ring (not flash) based on player approach,

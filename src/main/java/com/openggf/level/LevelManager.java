@@ -173,6 +173,15 @@ public class LevelManager {
 
     private boolean specialStageRequestedFromCheckpoint;
     private boolean specialStageReturnLevelReloadRequested;
+
+    // S3K big ring return position (ROM: Saved2_* variables from Save_Level_Data2).
+    // Separate from checkpoint state (ROM: Saved_*) so the player returns to the
+    // big ring location, not the last starpost.
+    private boolean bigRingReturnActive;
+    private int bigRingReturnX;
+    private int bigRingReturnY;
+    private int bigRingReturnCameraX;
+    private int bigRingReturnCameraY;
     private boolean titleCardRequested;
     private int titleCardZone = -1;
     private int titleCardAct = -1;
@@ -4371,6 +4380,38 @@ public class LevelManager {
     }
 
     /**
+     * Saves the big ring return position (ROM: Save_Level_Data2 → Saved2_* variables).
+     * Called by S3K SSEntryRing before entering the special stage so the player
+     * returns to the ring location, not the last checkpoint.
+     */
+    public void saveBigRingReturnPosition(int playerX, int playerY, int cameraX, int cameraY) {
+        this.bigRingReturnActive = true;
+        this.bigRingReturnX = playerX;
+        this.bigRingReturnY = playerY;
+        this.bigRingReturnCameraX = cameraX;
+        this.bigRingReturnCameraY = cameraY;
+    }
+
+    /** Returns true if a big ring return position is saved. */
+    public boolean hasBigRingReturnPosition() {
+        return bigRingReturnActive;
+    }
+
+    /** Returns saved big ring return X. */
+    public int getBigRingReturnX() { return bigRingReturnX; }
+    /** Returns saved big ring return Y. */
+    public int getBigRingReturnY() { return bigRingReturnY; }
+    /** Returns saved big ring return camera X. */
+    public int getBigRingReturnCameraX() { return bigRingReturnCameraX; }
+    /** Returns saved big ring return camera Y. */
+    public int getBigRingReturnCameraY() { return bigRingReturnCameraY; }
+
+    /** Consumes and clears the big ring return position. */
+    public void clearBigRingReturnPosition() {
+        this.bigRingReturnActive = false;
+    }
+
+    /**
      * Requests a title card to be shown for the current zone/act.
      * Called when a new level is loaded.
      *
@@ -4486,6 +4527,7 @@ public class LevelManager {
         patternLookupDirty = true;
         specialStageRequestedFromCheckpoint = false;
         specialStageReturnLevelReloadRequested = false;
+        bigRingReturnActive = false;
         titleCardRequested = false;
         titleCardZone = -1;
         titleCardAct = -1;
