@@ -180,6 +180,15 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     private static final int FIRE_SOURCE_X_AIZ2 = 0x0200;
     private static final int FIRE_BG_X_PHASE_MASK = 0x0060;
     private static final int FIRE_WAVE_PHASE_STEP = 6;
+    /**
+     * Extra frames to hold fire at full screen before transitioning to act 2.
+     * The ROM's Kos decompression wait in AIZ1BGE_Finish creates a natural
+     * linger where the fire covers the screen while art decompresses.  At 60fps
+     * the same game-frame math produces a visually shorter fire because there
+     * is no decompression overhead.  This constant approximates the ROM's
+     * visual duration by pausing fire advance for the equivalent frames.
+     */
+    private static final int FIRE_LINGER_FRAMES = 48;
     private static final int FIRE_TRANSITION_FALLBACK_FRAMES = 240;
     private static final int FIRE_REDRAW_FRAMES = 16;
     private static final int FIRE_OVERLAY_STAGE_X = 0x2E00;
@@ -226,6 +235,14 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
             return switch (this) {
                 case AIZ1_FIRE_TRANSITION, AIZ1_FIRE_REFRESH, AIZ1_FINISH,
                      AIZ2_FIRE_REDRAW, AIZ2_WAIT_FIRE, AIZ2_BG_REDRAW -> true;
+                default -> false;
+            };
+        }
+
+        /** True for act 1 phases where the fire overlay wraps (loops) tiles. */
+        boolean wrapFireTiles() {
+            return switch (this) {
+                case AIZ1_FIRE_TRANSITION, AIZ1_FIRE_REFRESH, AIZ1_FINISH -> true;
                 default -> false;
             };
         }
@@ -654,6 +671,8 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
             return FireCurtainRenderState.inactive();
         }
 
+        boolean wrapActive = fireSequencePhase.wrapFireTiles();
+
         return new FireCurtainRenderState(
                 true,
                 resolveCoverHeight(screenHeight),
@@ -664,7 +683,8 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
                 buildFireColumnWaveOffsets(fireTransitionFrames),
                 mapCurtainStage(fireSequencePhase),
                 FIRE_OVERLAY_TILE_DEST,
-                fireOverlayTileCount);
+                fireOverlayTileCount,
+                wrapActive);
     }
 
     private int resolveCoverHeight(int screenHeight) {
@@ -714,22 +734,19 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         if (fireSequencePhase.curtainActive() || fireSequencePhase == FireSequencePhase.AIZ2_BG_REDRAW) {
             switch (fireSequencePhase) {
                 case AIZ2_FIRE_REDRAW -> {
+                    // After transition, fire scrolls off the top to reveal
+                    // act 2 terrain.  Wrapping is disabled (wrapFireTiles=false
+                    // for act 2 phases), so fire exits naturally.
                     advanceFireRise(false);
                     firePhaseFrames++;
                     if (firePhaseFrames >= FIRE_REDRAW_FRAMES) {
                         fireSequencePhase = FireSequencePhase.AIZ2_WAIT_FIRE;
                         firePhaseFrames = 0;
-                        act2WaitFireDrawActive = true;
                     }
                 }
                 case AIZ2_WAIT_FIRE -> {
+                    // Continue scroll-off until fire has exited the screen.
                     advanceFireRise(false);
-                    int fireBgY = getFireTransitionBgY();
-                    int mod = fireBgY & 0x7F;
-                    if (mod >= 0x20 && mod < 0x30) {
-                        int snappedY = mod + 0x180;
-                        fireBgCopyFixed = (snappedY << 16) | (fireBgCopyFixed & 0xFFFF);
-                    }
                     if (getFireTransitionBgY() >= FIRE_BG_FINISH_Y) {
                         applyPostFireContinuationPaletteLine4(LevelManager.getInstance());
                         fireSequencePhase = FireSequencePhase.AIZ2_BG_REDRAW;
@@ -835,8 +852,13 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
                 }
             }
             case AIZ1_FINISH -> {
+                // Fire covers the screen while the level transitions behind it.
+                // Linger with looping fire, then request transition mid-fire.
+                // The fire persists through the reload (deactivateLevelNow=false)
+                // and scrolls off in act 2 to reveal the new terrain.
                 advanceFireRise(false);
-                if (!act2TransitionRequested) {
+                firePhaseFrames++;
+                if (firePhaseFrames >= FIRE_LINGER_FRAMES && !act2TransitionRequested) {
                     requestAct2Transition();
                 }
             }
@@ -855,6 +877,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         fireTransitionFrames = 0;
         firePhaseFrames = 0;
         act2WaitFireDrawActive = false;
+
         fireTransitionMutationRequested = false;
         act2TransitionRequested = false;
         postFireHazeActive = false;
@@ -895,9 +918,15 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         if (!fireTransitionMutationRequested) {
             applyFireTransitionMutation();
         }
+        // Reset BG_Y to within the fire zone so the act 2 scroll-off works.
+        // During the linger, BG_Y advanced well past the fire zone (wrapping
+        // handled the visuals).  For act 2, the fire needs to start within
+        // the zone and scroll off the top naturally (wrapping disabled).
+        // 0x1E0 gives full-screen fire that scrolls off over ~19 frames.
+        int scrollOffStartY = 0x01E0_0000;
         pendingFireSequence = new PendingFireSequence(
                 FireSequencePhase.AIZ2_FIRE_REDRAW,
-                fireBgCopyFixed,
+                scrollOffStartY,
                 fireRiseSpeed,
                 fireWavePhase,
                 fireTransitionFrames,
@@ -911,7 +940,13 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
                         // ROM loads AIZ act 2 resources here, but this is presented as
                         // a seamless continuation (no title card transition).
                         .targetZoneAct(levelManager.getCurrentZone(), 1)
-                        .deactivateLevelNow(true)
+                        // ROM: level stays active during the Kos decompression
+                        // wait in AIZ1BGE_Finish — fire keeps rising and rendering.
+                        // deactivateLevelNow(true) freezes the game loop, killing all
+                        // fire state machine updates.  Keep the level active so the
+                        // fire overlay continues rendering through the transition.
+                        // Player controls are already locked (set during REFRESH).
+                        .deactivateLevelNow(false)
                         .preserveMusic(false)
                         .showInLevelTitleCard(false)
                         .mutationKey(S3kSeamlessMutationExecutor.MUTATION_AIZ1_POST_RELOAD_ACT2)

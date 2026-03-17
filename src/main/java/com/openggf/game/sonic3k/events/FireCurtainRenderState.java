@@ -24,7 +24,8 @@ public record FireCurtainRenderState(
         int[] columnWaveOffsetsPx,
         FireCurtainStage stage,
         int fireOverlayTileBase,
-        int fireOverlayTileCount) {
+        int fireOverlayTileCount,
+        boolean wrapFireTiles) {
 
     public FireCurtainRenderState(
             boolean active,
@@ -36,7 +37,22 @@ public record FireCurtainRenderState(
             int[] columnWaveOffsetsPx,
             FireCurtainStage stage) {
         this(active, coverHeightPx, wavePhase, frameCounter, sourceWorldX, sourceWorldY,
-                columnWaveOffsetsPx, stage, 0, 0);
+                columnWaveOffsetsPx, stage, 0, 0, true);
+    }
+
+    public FireCurtainRenderState(
+            boolean active,
+            int coverHeightPx,
+            int wavePhase,
+            int frameCounter,
+            int sourceWorldX,
+            int sourceWorldY,
+            int[] columnWaveOffsetsPx,
+            FireCurtainStage stage,
+            int fireOverlayTileBase,
+            int fireOverlayTileCount) {
+        this(active, coverHeightPx, wavePhase, frameCounter, sourceWorldX, sourceWorldY,
+                columnWaveOffsetsPx, stage, fireOverlayTileBase, fireOverlayTileCount, true);
     }
 
     public FireCurtainRenderState {

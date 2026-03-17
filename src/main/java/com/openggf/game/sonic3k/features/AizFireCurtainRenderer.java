@@ -22,6 +22,11 @@ final class AizFireCurtainRenderer {
     private static final int FIRE_TILE_END_BG_Y = 0x310;
     /** Number of BG tile rows in the fire zone. */
     private static final int FIRE_ZONE_ROWS = (FIRE_TILE_END_BG_Y - FIRE_TILE_START_BG_Y) / TILE_SIZE;
+    /** Start of the dense (loopable) fire body, well past the top flame-tip fringe. */
+    private static final int FIRE_DENSE_START_BG_Y = 0x150;
+    /** End of the dense fire body, well before the bottom transition fringe.
+     *  Height = 0x250 - 0x150 = 0x100 = 256px, matching the VDP nametable period. */
+    private static final int FIRE_DENSE_END_BG_Y = 0x250;
     /** Screen-width tile columns (320 / 8). */
     private static final int SCREEN_TILE_COLS = 40;
     private static final java.util.logging.Logger LOG =
@@ -198,7 +203,8 @@ final class AizFireCurtainRenderer {
                 if (drawY >= screenHeight || drawY + TILE_SIZE <= clipTop) {
                     continue;
                 }
-                if (bgTileY < FIRE_TILE_START_BG_Y || bgTileY >= FIRE_TILE_END_BG_Y) {
+                int wrappedBgTileY = wrapFireTileY(bgTileY, state.wrapFireTiles());
+                if (wrappedBgTileY < 0) {
                     continue;
                 }
                 for (int subColumn = 0; subColumn < subColumns; subColumn++) {
@@ -207,7 +213,7 @@ final class AizFireCurtainRenderer {
                         continue;
                     }
                     int sourceX = state.sourceWorldX() + drawX;
-                    int descriptor = sampleBackgroundStripDescriptor(sourceX, bgTileY);
+                    int descriptor = sampleBackgroundStripDescriptor(sourceX, wrappedBgTileY);
                     int patternIndex = descriptor & 0x7FF;
 
                     // Skip empty tiles — fire zone boundary rows contain
@@ -298,10 +304,14 @@ final class AizFireCurtainRenderer {
             int subColumns = Math.max(1, (columnWidth + TILE_SIZE - 1) / TILE_SIZE);
             for (int bgRow = bgRowBottom; bgRow >= bgRowTop; bgRow--) {
                 int bgTileY = bgRow * TILE_SIZE;
-                if (bgTileY < FIRE_TILE_START_BG_Y || bgTileY >= FIRE_TILE_END_BG_Y) {
+                // Wrap tile Y into the fire zone to emulate VDP BG plane
+                // wrapping — fire tiles loop as the BG scrolls past the
+                // fire zone end, matching the ROM's continuous fire effect.
+                int wrappedTileY = wrapFireTileY(bgTileY, state.wrapFireTiles());
+                if (wrappedTileY < 0) {
                     continue;
                 }
-                int fireRow = (bgTileY - FIRE_TILE_START_BG_Y) / TILE_SIZE;
+                int fireRow = (wrappedTileY - FIRE_TILE_START_BG_Y) / TILE_SIZE;
                 int drawY = bgTileY - columnVScroll;
                 if (drawY >= screenHeight || drawY + TILE_SIZE <= clipTop) {
                     continue;
@@ -368,22 +378,21 @@ final class AizFireCurtainRenderer {
             int subColumns = Math.max(1, (columnWidth + TILE_SIZE - 1) / TILE_SIZE);
             for (int bgRow = bgRowBottom; bgRow >= bgRowTop; bgRow--) {
                 int bgTileY = bgRow * TILE_SIZE;
-                // Only skip tiles BELOW the fire zone start; no upper bound
-                // so synthetic fire tiles extend indefinitely as BG scrolls.
-                if (bgTileY < FIRE_TILE_START_BG_Y) {
+                int wrappedTileY = wrapFireTileY(bgTileY, state.wrapFireTiles());
+                if (wrappedTileY < 0) {
                     continue;
                 }
                 int drawY = bgTileY - columnVScroll;
                 if (drawY >= screenHeight || drawY + TILE_SIZE <= clipTop) {
                     continue;
                 }
-                int bgRowIndex = bgTileY / TILE_SIZE;
+                int wrappedRowIndex = wrappedTileY / TILE_SIZE;
                 for (int subColumn = 0; subColumn < subColumns; subColumn++) {
                     int drawX = columnLeft + subColumn * TILE_SIZE;
                     if (drawX >= columnRight) {
                         continue;
                     }
-                    int tileIndex = ((drawX / TILE_SIZE) + (bgRowIndex & 0x7F)) % tileCount;
+                    int tileIndex = ((drawX / TILE_SIZE) + (wrappedRowIndex & 0x7F)) % tileCount;
                     int patternIndex = tileBase + tileIndex;
                     int descriptor = (FIRE_PALETTE_INDEX << 13) | (patternIndex & 0x7FF);
                     draws.add(new TileDraw(descriptor, patternIndex, drawX, drawY));
@@ -405,18 +414,32 @@ final class AizFireCurtainRenderer {
     }
 
     /**
-     * Wraps a BG tile Y coordinate into the fire zone [FIRE_TILE_START_BG_Y, FIRE_TILE_END_BG_Y).
-     * Emulates VDP BG plane wrapping so fire tiles repeat beyond the original range.
-     * Returns -1 if the input is below the fire zone start (pre-fire region).
+     * Wraps a BG tile Y coordinate for the fire curtain.
+     * <ul>
+     *   <li>Below fire zone (&lt; 0x100): returns -1 (skip)</li>
+     *   <li>Within fire zone [0x100, 0x310): returns as-is (includes flame
+     *       tips at top and transition tiles at bottom)</li>
+     *   <li>Past fire zone (&ge; 0x310): wraps into the <em>dense middle</em>
+     *       [0x118, 0x2B8) so the fire body loops without repeating the
+     *       flame-tip or transition fringe rows</li>
+     * </ul>
      */
-    private static int wrapFireTileY(int bgTileY) {
+    private static int wrapFireTileY(int bgTileY, boolean wrapEnabled) {
         if (bgTileY < FIRE_TILE_START_BG_Y) {
             return -1;
         }
-        int offset = bgTileY - FIRE_TILE_START_BG_Y;
-        int fireHeight = FIRE_TILE_END_BG_Y - FIRE_TILE_START_BG_Y;
-        int wrapped = ((offset % fireHeight) + fireHeight) % fireHeight;
-        return FIRE_TILE_START_BG_Y + wrapped;
+        if (bgTileY < FIRE_DENSE_END_BG_Y) {
+            return bgTileY;
+        }
+        if (!wrapEnabled) {
+            // Scroll-off: show tiles through the full fire zone [0x100, 0x310),
+            // clip only past the actual fire zone end.
+            return bgTileY < FIRE_TILE_END_BG_Y ? bgTileY : -1;
+        }
+        // Linger: wrap into the dense middle body so fire loops.
+        // Dense height is 256 (power of 2) so use bitmask instead of modulo.
+        int offset = bgTileY - FIRE_DENSE_START_BG_Y;
+        return FIRE_DENSE_START_BG_Y + (offset & 0xFF);
     }
 
     private static int forceFirePalette(int descriptor) {

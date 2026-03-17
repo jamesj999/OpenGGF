@@ -4172,6 +4172,12 @@ public class LevelManager {
             }
         }
 
+        // 4c. Reinitialize water for the new act.
+        // ROM: CheckLevelForWater (s3.asm:5811) runs during every level load,
+        // including act transitions. Sets Water_flag, Water_level, Mean_water_level,
+        // Target_water_level, Water_speed, and the zone-specific dynamic handler.
+        initWater();
+
         // 5. Rebuild managers with new act's spawn data
         // (ROM: Load_Level swaps obj/ring pointers, then clears Dynamic_object_RAM + Ring_status_table)
         rebuildManagersForActTransition(cam);
