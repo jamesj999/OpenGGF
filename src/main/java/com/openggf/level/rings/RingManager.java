@@ -130,8 +130,19 @@ public class RingManager {
         }
     }
 
+    public void updateLostRingPhysics(int frameCounter) {
+        lostRings.updatePhysics(frameCounter);
+    }
+
+    public void checkLostRingCollection(AbstractPlayableSprite player) {
+        lostRings.checkCollection(player);
+    }
+
+    /** @deprecated Use {@link #updateLostRingPhysics} + {@link #checkLostRingCollection} instead. */
+    @Deprecated
     public void updateLostRings(AbstractPlayableSprite player, int frameCounter) {
-        lostRings.update(player, frameCounter);
+        lostRings.updatePhysics(frameCounter);
+        lostRings.checkCollection(player);
     }
 
     public void draw(int frameCounter) {
@@ -579,6 +590,7 @@ public class RingManager {
         private int spillAnimCounter;
         private int spillAnimAccum;
         private int spillAnimFrame;
+        private int frameCounter;
 
         private LostRingPool(LevelManager levelManager, RingRenderer renderer, TouchResponseTable touchResponseTable) {
             this.levelManager = levelManager;
@@ -643,7 +655,8 @@ public class RingManager {
             audioManager.playSfx(GameSound.RING_SPILL);
         }
 
-        private void update(AbstractPlayableSprite player, int frameCounter) {
+        private void updatePhysics(int frameCounter) {
+            this.frameCounter = frameCounter;
             if (renderer == null || activeRingCount == 0) {
                 return;
             }
@@ -675,21 +688,6 @@ public class RingManager {
             // S3K: Reverse_gravity_flag gates Obj_Bouncing_Ring_Reverse_Gravity variant.
             boolean reverseGravity = GameStateManager.getInstance().isReverseGravityActive();
             int gravity = reverseGravity ? -GRAVITY : GRAVITY;
-
-            int playerX = 0;
-            int playerY = 0;
-            int playerHeight = 0;
-            if (player != null) {
-                int baseYRadius = Math.max(1, player.getYRadius() - 3);
-                playerX = player.getCentreX() - 8;
-                // ROM: d3 = y_pos - (y_radius - 3) (s2.asm:84487-84493)
-                playerY = player.getCentreY() - baseYRadius;
-                playerHeight = baseYRadius * 2;
-                if (player.getCrouching()) {
-                    playerY += 12;
-                    playerHeight = 20;
-                }
-            }
 
             int cameraBottom = camera.getMaxY() + 224;
 
@@ -730,23 +728,44 @@ public class RingManager {
                             }
                         }
                     }
-
-                    // ROM: Touch_ChkValue (s2.asm:84750-84756) — collection gated only
-                    // by invulnerable_time >= 90 (0x5A). No per-ring age delay exists.
-                    if (player != null
-                            && !player.getDead()
-                            && player.getInvulnerableFrames() < 90
-                            && ringOverlapsPlayer(playerX, playerY, playerHeight, ring)) {
-                        ring.markCollected(frameCounter);
-                        player.addRings(1);
-                        audioManager.playSfx(GameSound.RING);
-                    }
                 }
 
                 ring.decLifetime();
                 // ROM: tst.b (Ring_spill_anim_counter).w / beq.s Obj37_Delete
                 if (ring.getLifetime() <= 0 || ring.getY() > cameraBottom) {
                     ring.deactivate();
+                }
+            }
+        }
+
+        private void checkCollection(AbstractPlayableSprite player) {
+            if (activeRingCount == 0 || player == null || player.getDead()) {
+                return;
+            }
+
+            int baseYRadius = Math.max(1, player.getYRadius() - 3);
+            int playerX = player.getCentreX() - 8;
+            // ROM: d3 = y_pos - (y_radius - 3) (s2.asm:84487-84493)
+            int playerY = player.getCentreY() - baseYRadius;
+            int playerHeight = baseYRadius * 2;
+            if (player.getCrouching()) {
+                playerY += 12;
+                playerHeight = 20;
+            }
+
+            for (int i = 0; i < activeRingCount; i++) {
+                LostRing ring = ringPool[i];
+                if (!ring.isActive() || ring.isCollected()) {
+                    continue;
+                }
+
+                // ROM: Touch_ChkValue (s2.asm:84750-84756) — collection gated only
+                // by invulnerable_time >= 90 (0x5A). No per-ring age delay exists.
+                if (player.getInvulnerableFrames() < 90
+                        && ringOverlapsPlayer(playerX, playerY, playerHeight, ring)) {
+                    ring.markCollected(frameCounter);
+                    player.addRings(1);
+                    audioManager.playSfx(GameSound.RING);
                 }
             }
         }

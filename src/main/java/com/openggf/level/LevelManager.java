@@ -950,12 +950,14 @@ public class LevelManager {
         }
         if (ringManager != null) {
             ringManager.update(Camera.getInstance().getX(), playable, frameCounter + 1);
-            ringManager.updateLostRings(playable, frameCounter + 1);
+            // Lost ring physics run once per frame; collection checks run per-player.
+            ringManager.updateLostRingPhysics(frameCounter + 1);
+            ringManager.checkLostRingCollection(playable);
             // ROM: CPU Tails can also collect rings in 1P mode
             AbstractPlayableSprite sidekick = spriteManager.getSidekick();
             if (sidekick != null && !sidekick.getDead()) {
                 ringManager.update(Camera.getInstance().getX(), sidekick, frameCounter + 1);
-                ringManager.updateLostRings(sidekick, frameCounter + 1);
+                ringManager.checkLostRingCollection(sidekick);
             }
         }
         // Water movement — ROM order: MoveWater (move toward target) runs BEFORE
