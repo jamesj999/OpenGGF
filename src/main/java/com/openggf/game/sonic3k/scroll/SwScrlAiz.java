@@ -81,6 +81,28 @@ public class SwScrlAiz implements ZoneScrollHandler {
              0,  0,  0,  0,  0,  0,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1
     };
 
+    /**
+     * AIZ2_ALZ_BGDeformDelta: noisy +/-2px shimmer for BG above water.
+     * 32-word cycle (mask 0x3E). Phase = (frameCounter>>1) + Camera_Y_pos_BG_copy*2.
+     * ROM reference: sonic3k.asm line 105652.
+     */
+    private static final short[] AIZ_BG_HAZE_DEFORM = {
+            -2,  1,  2,  2, -1,  2,  2,  1,  2, -1, -2, -2, -2,  1, -1, -1,
+            -1,  0, -2,  0,  0,  0, -2,  0, -2,  2,  0, -2,  2,  2, -1, -2
+    };
+
+    /**
+     * AIZ1_WaterBGDeformDelta: smooth sinusoidal wave for BG below water.
+     * 64-word cycle (mask 0x7E). Phase = (frameCounter>>1) + waterBgY*2.
+     * ROM reference: sonic3k.asm line 104254.
+     */
+    private static final short[] AIZ_WATER_BG_DEFORM = {
+             0,  0, -1, -1, -1, -1, -1, -1,  0,  0,  0,  1,  1,  1,  1,  1,
+             1,  0,  0,  0, -1, -1, -1, -1, -1, -1,  0,  0,  0,  1,  1,  1,
+             1,  1,  1,  0,  0,  0, -1, -1, -1, -1, -1, -1,  0,  0,  0,  1,
+             1,  1,  1,  1,  1,  0, -1, -2, -2, -1,  0,  2,  2,  2,  2,  0
+    };
+
     private short vscrollFactorBG;
     private int minScrollOffset;
     private int maxScrollOffset;
@@ -518,14 +540,24 @@ public class SwScrlAiz implements ZoneScrollHandler {
     }
 
     /**
-     * Apply per-line FG deformation, splitting at the water surface.
+     * Apply per-line FG and BG deformation, splitting at the water surface.
      *
      * <p>ROM reference: AIZ2_ApplyDeform (Lockon S3/Screen Events.asm line 789).
+     *
+     * <p><b>FG deformation</b> (MakeFGDeformArray):
      * <ul>
      *   <li>Above water: {@code AIZ2_SOZ1_LRZ3_FGDeformDelta} — subtle 0/1px heat shimmer,
      *       32-word cycle, phase = {@code (frameCounter + cameraY*2) & 0x3E}.</li>
      *   <li>Below water: {@code AIZ1_WaterFGDeformDelta} — smooth +/-1px sinusoidal ripple,
      *       64-word cycle, phase = {@code (frameCounter + waterLevel*2) & 0x7E}.</li>
+     * </ul>
+     *
+     * <p><b>BG deformation</b> (ApplyFGandBGDeformation):
+     * <ul>
+     *   <li>Above water: {@code AIZ2_ALZ_BGDeformDelta} — noisy +/-2px shimmer,
+     *       32-word cycle, phase = {@code ((frameCounter>>1) + bgY*2) & 0x3E}.</li>
+     *   <li>Below water: {@code AIZ1_WaterBGDeformDelta} — smooth sinusoidal ripple,
+     *       64-word cycle, phase = {@code ((frameCounter>>1) + waterBgY*2) & 0x7E}.</li>
      * </ul>
      *
      * @param waterScreenY screen-relative water Y (0..223 = split, &ge;224 = no water visible,
@@ -535,30 +567,37 @@ public class SwScrlAiz implements ZoneScrollHandler {
                                      int frameCounter, int waterScreenY) {
         short baseFg = negWord(cameraX);
 
-        // Heat haze phase (above water): ROM uses Camera_Y_pos_copy in the phase
-        int hazePhase = ((frameCounter + (cameraY << 1)) & 0x3E) >> 1;
+        // FG heat haze phase (above water): ROM uses Camera_Y_pos_copy in the phase
+        int fgHazePhase = ((frameCounter + (cameraY << 1)) & 0x3E) >> 1;
 
-        // Water ripple phase (below water): ROM uses Water_level in the phase
+        // FG water ripple phase (below water): ROM uses Water_level in the phase
         int waterLevel = cameraY + waterScreenY; // reconstruct world-space water level
-        int waterPhase = ((frameCounter + (waterLevel << 1)) & 0x7E) >> 1;
+        int fgWaterPhase = ((frameCounter + (waterLevel << 1)) & 0x7E) >> 1;
+
+        // BG heat haze phase (above water): ROM uses (frameCounter>>1) + Camera_Y_pos_BG_copy*2
+        short bgY = vscrollFactorBG;
+        int bgHazePhase = (((frameCounter >> 1) + (bgY << 1)) & 0x3E) >> 1;
+
+        // BG water ripple phase (below water): ROM uses waterBgY = Water_level - cameraY + bgY
+        int waterBgY = waterScreenY + bgY;
+        int bgWaterPhase = (((frameCounter >> 1) + (waterBgY << 1)) & 0x7E) >> 1;
 
         // Determine split boundaries
         int hazeEnd = Math.min(Math.max(waterScreenY, 0), VISIBLE_LINES);
-        int waterStart = hazeEnd;
 
-        // Above water: heat haze deformation
+        // Above water: heat haze deformation (FG + BG)
         for (int line = 0; line < hazeEnd; line++) {
             int packed = horizScrollBuf[line];
-            short bg = unpackBG(packed);
-            short fg = (short) (baseFg + AIZ_FINE_HAZE_FG_DEFORM[(hazePhase + line) & 0x1F]);
+            short bg = (short) (unpackBG(packed) + AIZ_BG_HAZE_DEFORM[(bgHazePhase + line) & 0x1F]);
+            short fg = (short) (baseFg + AIZ_FINE_HAZE_FG_DEFORM[(fgHazePhase + line) & 0x1F]);
             horizScrollBuf[line] = packScrollWords(fg, bg);
         }
 
-        // Below water: water ripple deformation
-        for (int line = waterStart; line < VISIBLE_LINES; line++) {
+        // Below water: water ripple deformation (FG + BG)
+        for (int line = hazeEnd; line < VISIBLE_LINES; line++) {
             int packed = horizScrollBuf[line];
-            short bg = unpackBG(packed);
-            short fg = (short) (baseFg + AIZ_WATER_FG_DEFORM[(waterPhase + line) & 0x3F]);
+            short bg = (short) (unpackBG(packed) + AIZ_WATER_BG_DEFORM[(bgWaterPhase + line) & 0x3F]);
+            short fg = (short) (baseFg + AIZ_WATER_FG_DEFORM[(fgWaterPhase + line) & 0x3F]);
             horizScrollBuf[line] = packScrollWords(fg, bg);
         }
     }
