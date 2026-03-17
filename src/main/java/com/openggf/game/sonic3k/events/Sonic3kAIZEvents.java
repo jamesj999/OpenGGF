@@ -741,6 +741,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
                     firePhaseFrames++;
                     if (firePhaseFrames >= FIRE_REDRAW_FRAMES) {
                         fireSequencePhase = FireSequencePhase.AIZ2_WAIT_FIRE;
+                        act2WaitFireDrawActive = true;
                         firePhaseFrames = 0;
                     }
                 }

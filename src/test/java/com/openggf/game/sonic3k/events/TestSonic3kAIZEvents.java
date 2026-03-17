@@ -171,7 +171,8 @@ public class TestSonic3kAIZEvents {
         assertTrue(afterReload.active());
         assertEquals(224, afterReload.coverHeightPx());
         assertEquals(beforeReload.wavePhase(), afterReload.wavePhase());
-        assertEquals(beforeReload.sourceWorldY(), afterReload.sourceWorldY());
+        // requestAct2Transition() intentionally resets BG Y to 0x1E0 for scroll-off start
+        assertEquals(0x01E0, afterReload.sourceWorldY());
         assertEquals(FireCurtainStage.AIZ2_REDRAW, afterReload.stage());
     }
 

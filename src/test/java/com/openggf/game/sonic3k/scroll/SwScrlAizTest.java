@@ -311,14 +311,16 @@ public class SwScrlAizTest {
         //   band 2 = 0x38 (56px): 16-56 < 0 → partial (40 visible lines)
         short fgScroll = negWord(cameraX);
 
-        // Band 2 (speed 5): 40 visible lines at start
+        // Band 2 (speed 5): 40 visible lines at start.
+        // AIZ2 BG heat haze is active (aizEvents == null && actId > 0 defaults to haze-on).
+        // bgHazePhase = 0 for frameCounter=0, bgY=64.  Per-line offsets from AIZ_BG_HAZE_DEFORM.
         short bg2 = negWord(values[2]);
-        assertEquals("Band 2 at line 0", bg2, unpackBG(buffer[0]));
-        assertEquals("Band 2 at line 39", bg2, unpackBG(buffer[39]));
+        assertEquals("Band 2 at line 0", (short)(bg2 - 2), unpackBG(buffer[0]));   // haze[0]=-2
+        assertEquals("Band 2 at line 39", (short)(bg2 + 1), unpackBG(buffer[39])); // haze[7]=+1
 
         // Band 3 (speed 6, height 0x58=88): starts at line 40
         short bg3 = negWord(values[3]);
-        assertEquals("Band 3 at line 40", bg3, unpackBG(buffer[40]));
+        assertEquals("Band 3 at line 40", (short)(bg3 + 2), unpackBG(buffer[40])); // haze[8]=+2
 
         // Band 3 is faster (speed 6) than band 2 (speed 5)
         assertNotEquals("Speed 5 != speed 6", bg2, bg3);
