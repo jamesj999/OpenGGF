@@ -1,14 +1,18 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.audio.AudioManager;
+import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
+import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -22,57 +26,83 @@ import java.util.logging.Logger;
  * {@code Collected_special_ring_array} bitfield. If the ring's bit is already
  * set, it is deleted immediately on spawn.
  * <p>
- * The ring plays a formation animation (sparkle effect) for the first 8
- * animation frames (~48 game frames at 6 frames per animation frame).
- * Collision is only enabled after the formation completes.
- * <p>
- * Collision box: +/-24 X, +/-40 Y from center.
- * ROM: {@code SSEntry_Range: dc.w -$18, $30, -$28, $50}
- * (x_offset=-24, x_range=48, y_offset=-40, y_range=80)
- * <p>
- * On touch:
+ * Animation (AniRaw_SSEntryRing):
  * <ul>
- *   <li>Play sfx_BigRing (0xB3)</li>
- *   <li>Mark the ring's bit as collected</li>
- *   <li>If all emeralds collected: award 50 rings</li>
- *   <li>Otherwise: would transition to special stage (deferred for now; awards 50 rings)</li>
+ *   <li>Formation (anim 0): delay=4, frames 0,0,1,2,3,4,5,6,7, loop</li>
+ *   <li>Idle (anim 1): delay=6, frames 10,9,8,11, loop</li>
  * </ul>
  * <p>
- * Reference: docs/skdisasm/sonic3k.asm Obj_SSEntryRing
+ * On touch (SSEntryRing_Main collision):
+ * <ol>
+ *   <li>Play sfx_BigRing</li>
+ *   <li>Branch based on emerald state:
+ *     <ul>
+ *       <li>Chaos emeralds &lt; 7: enter Special Stage (full flash sequence)</li>
+ *       <li>All emeralds collected: award 50 rings, ring vanishes immediately</li>
+ *       <li>TODO: Hidden Palace route (subtype bit 7, or S3+7chaos+7super)</li>
+ *     </ul>
+ *   </li>
+ *   <li>For Special Stage path: lock player (hidden + object controlled),
+ *       freeze camera, spawn {@link Sonic3kSSEntryFlashObjectInstance} which
+ *       handles the flash animation, wait, sfx_EnterSS, and transition</li>
+ * </ol>
+ * <p>
+ * Art: ArtUnc_SSEntryRing (9984 bytes), Map_SSEntryRing (12 frames),
+ * DPLC_SSEntryRing (12 frames). art_tile = make_art_tile(ArtTile_Explosion,1,0).
+ * <p>
+ * Reference: docs/skdisasm/sonic3k.asm Obj_SSEntryRing (lines 128211-128530)
  */
 public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
     private static final Logger LOGGER = Logger.getLogger(Sonic3kSSEntryRingObjectInstance.class.getName());
 
-    // Collision extents from center (ROM: SSEntry_Range)
-    private static final int COLLISION_HALF_WIDTH = 24;   // 0x18
-    private static final int COLLISION_HALF_HEIGHT = 40;  // 0x28
+    // Collision extents from center (ROM: SSEntry_Range: dc.w -$18, $30, -$28, $50)
+    // Asymmetric box: X [-24, +48], Y [-40, +80] relative to ring center
+    private static final int COLLISION_X_MIN = -0x18;  // -24
+    private static final int COLLISION_X_MAX =  0x30;  //  48
+    private static final int COLLISION_Y_MIN = -0x28;  // -40
+    private static final int COLLISION_Y_MAX =  0x50;  //  80
 
     // ROM: render_flags = 4 (on-screen check), priority = $280 (bucket 5)
     private static final int RENDER_PRIORITY = 5;
 
-    // Formation animation: collision disabled until anim frame >= 8
-    // At 6 game frames per animation frame, that's 48 game frames
-    private static final int FORMATION_ANIM_FRAMES = 8;
-    private static final int FRAMES_PER_ANIM_FRAME = 6;
-    private static final int FORMATION_DURATION = FORMATION_ANIM_FRAMES * FRAMES_PER_ANIM_FRAME;
+    // Formation animation: mapping frames 0-7, delay=4 game frames per anim frame
+    // ROM: AniRaw_SSEntryRing anim 0: dc.b 4, 0, 0, 1, 2, 3, 4, 5, 6, 7, $F8, $0C
+    private static final int FORMATION_DELAY = 4;
+    private static final int[] FORMATION_FRAMES = {0, 0, 1, 2, 3, 4, 5, 6, 7};
+
+    // Idle animation: mapping frames 8-11, delay=6 game frames per anim frame
+    // ROM: AniRaw_SSEntryRing anim 1: dc.b 6, $A, 9, 8, $B, $FC
+    private static final int IDLE_DELAY = 6;
+    private static final int[] IDLE_FRAMES = {10, 9, 8, 11};
 
     // Ring award when all emeralds already collected
     private static final int RING_REWARD = 50;
 
+    /** Object states matching ROM routine progression. */
+    private enum State {
+        /** Formation animation playing, collision disabled. */
+        FORMING,
+        /** Idle animation, collision active. */
+        IDLE,
+        /** Player touched ring, flash animation playing, awaiting deletion mark. */
+        ENTERED,
+        /** Ring marked for deletion by flash (bit 5 in ROM). */
+        MARKED_DELETE
+    }
+
     /** Subtype is the bit index (0-31) into Collected_special_ring_array. */
     private final int bitIndex;
 
-    /** Frame counter for formation animation. */
-    private int formationTimer;
+    private State state;
 
-    /** Whether the formation animation is complete and collision is active. */
-    private boolean formationComplete;
+    /** Game frame counter for animation timing. */
+    private int animTimer;
 
-    /** Whether this ring has been collected during this session. */
-    private boolean collected;
+    /** Current index into the active animation frame array. */
+    private int animIndex;
 
-    /** Visual sparkle animation phase for rendering. */
-    private int sparklePhase;
+    /** Current mapping frame to display. */
+    private int mappingFrame;
 
     public Sonic3kSSEntryRingObjectInstance(ObjectSpawn spawn) {
         super(spawn, "SSEntryRing");
@@ -82,37 +112,60 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
         GameStateManager gameState = GameServices.gameState();
         if (gameState.isSpecialRingCollected(bitIndex)) {
             setDestroyed(true);
-            this.collected = true;
+            this.state = State.MARKED_DELETE;
             return;
         }
 
-        this.formationTimer = 0;
-        this.formationComplete = false;
-        this.collected = false;
-        this.sparklePhase = 0;
+        this.state = State.FORMING;
+        this.animTimer = 0;
+        this.animIndex = 0;
+        this.mappingFrame = FORMATION_FRAMES[0];
     }
 
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
-        if (collected || isDestroyed()) {
-            return;
-        }
-
-        // Advance formation animation
-        if (!formationComplete) {
-            formationTimer++;
-            if (formationTimer >= FORMATION_DURATION) {
-                formationComplete = true;
+        switch (state) {
+            case FORMING -> updateFormation(player);
+            case IDLE -> updateIdle(player);
+            case ENTERED -> { /* Ring continues displaying; flash controls deletion */ }
+            case MARKED_DELETE -> {
+                // ROM restores palette + reloads ArtKosM_BadnikExplosion here because
+                // the ring's DPLC overwrites shared VRAM at ArtTile_Explosion. Our engine
+                // uses standalone Pattern[] arrays so no restoration is needed.
+                setDestroyed(true);
             }
-            // Sparkle phase for visual effect
-            sparklePhase = formationTimer / FRAMES_PER_ANIM_FRAME;
-            return;
         }
+    }
 
-        // Increment sparkle for idle animation
-        sparklePhase++;
+    private void updateFormation(AbstractPlayableSprite player) {
+        animTimer++;
+        if (animTimer >= FORMATION_DELAY) {
+            animTimer = 0;
+            animIndex++;
+            if (animIndex >= FORMATION_FRAMES.length) {
+                state = State.IDLE;
+                animIndex = 0;
+                animTimer = 0;
+                mappingFrame = IDLE_FRAMES[0];
+                return;
+            }
+        }
+        mappingFrame = FORMATION_FRAMES[animIndex];
+    }
 
-        // Check collision with player
+    private void updateIdle(AbstractPlayableSprite player) {
+        // Advance idle animation
+        animTimer++;
+        if (animTimer >= IDLE_DELAY) {
+            animTimer = 0;
+            animIndex++;
+            if (animIndex >= IDLE_FRAMES.length) {
+                animIndex = 0;
+            }
+        }
+        mappingFrame = IDLE_FRAMES[animIndex];
+
+        // Check collision with player (ROM: mapping_frame >= 8 check)
         if (player != null) {
             checkCollision(player);
         }
@@ -121,9 +174,13 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
     /**
      * Checks collision between the player and this ring.
      * Uses center-to-center distance matching the ROM's SSEntry_Range box.
-     * ROM: x_offset=-$18, x_range=$30, y_offset=-$28, y_range=$50
      */
     private void checkCollision(AbstractPlayableSprite player) {
+        // ROM: skip if player dead (routine >= 6)
+        if (player.getDead()) {
+            return;
+        }
+
         int playerCX = player.getCentreX();
         int playerCY = player.getCentreY();
         int ringX = spawn.x();
@@ -132,111 +189,116 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
         int dx = playerCX - ringX;
         int dy = playerCY - ringY;
 
-        if (dx >= -COLLISION_HALF_WIDTH && dx <= COLLISION_HALF_WIDTH
-                && dy >= -COLLISION_HALF_HEIGHT && dy <= COLLISION_HALF_HEIGHT) {
-            onCollected(player);
+        if (dx >= COLLISION_X_MIN && dx < COLLISION_X_MAX
+                && dy >= COLLISION_Y_MIN && dy < COLLISION_Y_MAX) {
+            onTouched(player);
         }
     }
 
     /**
-     * Handle ring collection.
-     * ROM: plays sfx_BigRing, marks bit in Collected_special_ring_array,
-     * checks emerald count to decide between SS transition and ring award.
+     * Handle ring touch. Branches based on emerald state.
+     * <p>
+     * ROM branching (SSEntryRing_Main lines 128272-128323):
+     * <ul>
+     *   <li>Chaos emeralds &lt; 7 → enter Special Stage</li>
+     *   <li>SK_alone + 7 chaos → award 50 rings</li>
+     *   <li>S3 level + 7 chaos → enter Special Stage (for super emeralds)</li>
+     *   <li>SK level + 7 chaos + 7 super → award 50 rings</li>
+     *   <li>Subtype bit 7 set → Hidden Palace (TODO)</li>
+     * </ul>
      */
-    private void onCollected(AbstractPlayableSprite player) {
-        collected = true;
-
-        // Mark bit in collected array
-        // ROM: bset d0,d1 / move.l d1,(Collected_special_ring_array).w
+    private void onTouched(AbstractPlayableSprite player) {
         GameStateManager gameState = GameServices.gameState();
-        gameState.markSpecialRingCollected(bitIndex);
 
-        // Play sfx_BigRing ($B3)
+        // Play sfx_BigRing ($B3) — always plays on touch
         AudioManager.getInstance().playSfx(Sonic3kSfx.BIG_RING.id);
 
-        // ROM: if all emeralds collected, award 50 rings instead of SS transition
-        if (gameState.hasAllEmeralds()) {
-            LOGGER.fine("SSEntryRing #" + bitIndex + " collected — all emeralds owned, awarding 50 rings");
-            player.addRings(RING_REWARD);
-        } else {
-            LOGGER.fine("SSEntryRing #" + bitIndex + " collected — entering Special Stage");
-            LevelManager.getInstance().requestSpecialStageEntry();
-        }
+        // TODO: Hidden Palace route — subtype bit 7, or S3 completed + 7 chaos + 7 super
+        // When implemented: check (bitIndex & 0x80) != 0 or SSEntry_CheckLevel + emerald state
+        // and route to HPZ (zone 0x17, act 0x01) instead of special stage.
 
-        // Mark as destroyed so ObjectManager removes it
-        setDestroyed(true);
+        if (gameState.hasAllEmeralds()) {
+            // Path B: All emeralds collected — award 50 rings, instant delete
+            LOGGER.fine("SSEntryRing #" + bitIndex + " — all emeralds, awarding 50 rings");
+            gameState.markSpecialRingCollected(bitIndex);
+            player.addRings(RING_REWARD);
+            setDestroyed(true);
+        } else {
+            // Path A: Enter Special Stage — full flash sequence
+            // ROM: loc_61774 — lock player, spawn flash
+            LOGGER.fine("SSEntryRing #" + bitIndex + " — entering Special Stage sequence");
+            enterSpecialStageSequence(player);
+        }
+    }
+
+    /**
+     * Initiates the special stage entry sequence.
+     * ROM: SSEntryRing_Main lines 128287-128305
+     * <ol>
+     *   <li>Lock player: object_control=$53, anim=$1C, Player_prev_frame=-1</li>
+     *   <li>Freeze camera at current position</li>
+     *   <li>Spawn Obj_SSEntryFlash child</li>
+     *   <li>Ring enters ENTERED state (continues displaying until flash marks it)</li>
+     * </ol>
+     */
+    private void enterSpecialStageSequence(AbstractPlayableSprite player) {
+        state = State.ENTERED;
+
+        // Lock player: hidden + object controlled
+        // ROM: move.b #$53,object_control(a2) — disables input
+        // ROM: move.b #-1,(Player_prev_frame).w — makes player invisible
+        player.setHidden(true);
+        player.setObjectControlled(true);
+
+        // Freeze camera at player's last position
+        Camera.getInstance().setFrozen(true);
+
+        // Spawn flash child object
+        // ROM: direction bit is set on the ring (not flash) based on player approach,
+        // but has no visual effect since flash uses internal h-flip toggle.
+        spawnDynamicObject(new Sonic3kSSEntryFlashObjectInstance(
+                this, spawn.x(), spawn.y()));
+    }
+
+    /**
+     * Called by {@link Sonic3kSSEntryFlashObjectInstance} at anim_frame 3
+     * to mark this ring for deletion.
+     * ROM: bset #5,$38(a1) — sets deletion flag on parent ring.
+     */
+    public void markForDeletion() {
+        state = State.MARKED_DELETE;
+        GameServices.gameState().markSpecialRingCollected(bitIndex);
+        LOGGER.fine("SSEntryRing #" + bitIndex + " marked for deletion by flash");
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (collected || isDestroyed()) {
+        if (isDestroyed() || state == State.MARKED_DELETE) {
             return;
         }
 
+        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        if (renderManager != null) {
+            PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic3kObjectArtKeys.SS_ENTRY_RING);
+            if (renderer != null && renderer.isReady()) {
+                renderer.drawFrameIndex(mappingFrame, spawn.x(), spawn.y(), false, false);
+                return;
+            }
+        }
+
+        // Fallback wireframe if art not loaded
+        appendFallbackRing(commands);
+    }
+
+    private void appendFallbackRing(List<GLCommand> commands) {
         int cx = spawn.x();
         int cy = spawn.y();
-
-        // During formation: draw with increasing opacity/size
-        if (!formationComplete) {
-            float progress = (float) formationTimer / FORMATION_DURATION;
-            appendFormingRing(commands, cx, cy, progress);
-            return;
-        }
-
-        // Full ring: draw as a wireframe diamond/ring shape
-        appendFullRing(commands, cx, cy);
-    }
-
-    /**
-     * Draw the ring during its formation phase with increasing scale.
-     */
-    private void appendFormingRing(List<GLCommand> commands, int cx, int cy, float progress) {
-        // Scale up from 0 to full size
-        int halfW = (int) (COLLISION_HALF_WIDTH * progress);
-        int halfH = (int) (COLLISION_HALF_HEIGHT * progress);
-        if (halfW < 2) halfW = 2;
-        if (halfH < 2) halfH = 2;
-
-        // Gold color with increasing brightness
-        float r = 1.0f;
-        float g = 0.85f * progress;
-        float b = 0.2f * progress;
-
-        appendDiamondWire(commands, cx, cy, halfW, halfH, r, g, b);
-    }
-
-    /**
-     * Draw the fully formed ring as a large wireframe diamond shape.
-     * The sparkle phase creates a subtle pulsing effect.
-     */
-    private void appendFullRing(List<GLCommand> commands, int cx, int cy) {
-        // Pulse effect via sparkle phase
-        float pulse = 0.9f + 0.1f * (float) Math.sin(sparklePhase * 0.15);
-        float r = 1.0f;
-        float g = 0.85f * pulse;
-        float b = 0.2f;
-
-        // Outer diamond
-        appendDiamondWire(commands, cx, cy, COLLISION_HALF_WIDTH, COLLISION_HALF_HEIGHT, r, g, b);
-        // Inner diamond (slightly smaller for ring appearance)
-        int innerW = COLLISION_HALF_WIDTH - 4;
-        int innerH = COLLISION_HALF_HEIGHT - 6;
-        appendDiamondWire(commands, cx, cy, innerW, innerH, r * 0.8f, g * 0.8f, b * 0.6f);
-    }
-
-    /**
-     * Draws a diamond-shaped wireframe (4 line segments forming a diamond).
-     */
-    private void appendDiamondWire(List<GLCommand> commands, int cx, int cy,
-            int halfW, int halfH, float r, float g, float b) {
-        // Top to Right
-        addLine(commands, cx, cy - halfH, cx + halfW, cy, r, g, b);
-        // Right to Bottom
-        addLine(commands, cx + halfW, cy, cx, cy + halfH, r, g, b);
-        // Bottom to Left
-        addLine(commands, cx, cy + halfH, cx - halfW, cy, r, g, b);
-        // Left to Top
-        addLine(commands, cx - halfW, cy, cx, cy - halfH, r, g, b);
+        int hw = 24, hh = 40;
+        float r = 1.0f, g = 0.85f, b = 0.2f;
+        addLine(commands, cx, cy - hh, cx + hw, cy, r, g, b);
+        addLine(commands, cx + hw, cy, cx, cy + hh, r, g, b);
+        addLine(commands, cx, cy + hh, cx - hw, cy, r, g, b);
+        addLine(commands, cx - hw, cy, cx, cy - hh, r, g, b);
     }
 
     private void addLine(List<GLCommand> commands, int x1, int y1, int x2, int y2,
@@ -249,7 +311,17 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
 
     @Override
     public int getPriorityBucket() {
-        // ROM: priority = $280, which maps to bucket 5
         return RenderPriority.clamp(RENDER_PRIORITY);
+    }
+
+    @Override
+    public boolean isPersistent() {
+        // Ring must persist while flash animation is playing
+        return state == State.ENTERED;
+    }
+
+    @Override
+    public boolean shouldStayActiveWhenRemembered() {
+        return state == State.ENTERED;
     }
 }

@@ -1057,6 +1057,11 @@ public class GameLoop {
             playable.setDeathCountdown(0);
             playable.setInvulnerableFrames(0);
             playable.setRolling(false);
+            // Restore visibility and controls (cleared by S3K big ring entry sequence)
+            playable.setHidden(false);
+            playable.setObjectControlled(false);
+            // Unfreeze camera (frozen by S3K big ring entry sequence)
+            camera.setFrozen(false);
 
             // Reset rings to 0 when returning from special stage
             LevelState gamestate = levelManager.getLevelGamestate();

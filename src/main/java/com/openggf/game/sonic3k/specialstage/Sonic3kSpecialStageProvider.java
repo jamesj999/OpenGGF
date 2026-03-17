@@ -27,7 +27,8 @@ public class Sonic3kSpecialStageProvider implements SpecialStageProvider {
 
     @Override
     public int getTransitionSfxId() {
-        return Sonic3kSfx.BIG_RING.id;
+        // ROM: sfx_EnterSS ($AF) — played by SSEntryFlash_GoSS before entering special stage
+        return Sonic3kSfx.ENTER_SS.id;
     }
 
     @Override

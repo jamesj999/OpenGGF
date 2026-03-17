@@ -140,9 +140,33 @@ public final class Sonic3kPlcArtRegistry {
     );
 
     /**
+     * Shared standalone art entries present in every zone: SS Entry Ring (big ring).
+     */
+    private static final List<StandaloneArtEntry> SHARED_STANDALONE_ART = List.of(
+            new StandaloneArtEntry(
+                    Sonic3kObjectArtKeys.SS_ENTRY_RING,
+                    Sonic3kConstants.ART_UNC_SS_ENTRY_RING_ADDR,
+                    CompressionType.UNCOMPRESSED,
+                    Sonic3kConstants.ART_UNC_SS_ENTRY_RING_SIZE,
+                    Sonic3kConstants.MAP_SS_ENTRY_RING_ADDR,
+                    1,  // palette line 1 (ROM: make_art_tile(ArtTile_Explosion,1,0))
+                    Sonic3kConstants.DPLC_SS_ENTRY_RING_ADDR
+            ),
+            new StandaloneArtEntry(
+                    Sonic3kObjectArtKeys.SS_ENTRY_FLASH,
+                    Sonic3kConstants.ART_UNC_SS_ENTRY_FLASH_ADDR,
+                    CompressionType.UNCOMPRESSED,
+                    Sonic3kConstants.ART_UNC_SS_ENTRY_FLASH_SIZE,
+                    Sonic3kConstants.MAP_SS_ENTRY_FLASH_ADDR,
+                    1,  // palette line 1 (ROM: make_art_tile(ArtTile_Player_1,1,0))
+                    Sonic3kConstants.DPLC_SS_ENTRY_FLASH_ADDR
+            )
+    );
+
+    /**
      * Returns the art plan for the given zone and act.
      *
-     * <p>The plan includes shared entries (spikes, springs) for all zones,
+     * <p>The plan includes shared entries (spikes, springs, big ring) for all zones,
      * plus any zone-specific entries registered in {@link #addZoneEntries}.
      *
      * @param zoneIndex zone index (0=AIZ, 1=HCZ, ...)
@@ -150,7 +174,7 @@ public final class Sonic3kPlcArtRegistry {
      * @return immutable art plan for the zone+act
      */
     public static ZoneArtPlan getPlan(int zoneIndex, int actIndex) {
-        List<StandaloneArtEntry> standalone = new ArrayList<>();
+        List<StandaloneArtEntry> standalone = new ArrayList<>(SHARED_STANDALONE_ART);
         List<LevelArtEntry> levelArt = new ArrayList<>(SHARED_LEVEL_ART);
 
         addZoneEntries(zoneIndex, actIndex, standalone, levelArt);

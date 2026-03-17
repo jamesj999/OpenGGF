@@ -211,6 +211,12 @@ public class Sonic3kConstants {
     public static final int ART_NEM_RING_HUD_TEXT_ADDR = 0x192AEE;
     public static final int ART_NEM_ENEMY_PTS_STARPOST_ADDR = 0x192D2A;
     public static final int ART_NEM_STARPOST_ADDR = 0x35D8A2; // Dedicated StarPost art (20 tiles)
+    // ArtKosM_StarPost_Stars1/Stars2/Stars3 - bonus star variants (KosinskiM, 3 tiles each)
+    // Loaded dynamically at checkpoint activation based on ring count.
+    // Stars1=Blue (Glowing Spheres), Stars2=Red (Slot Machine), Stars3=Yellow (Gumball)
+    public static final int ART_KOSM_STARPOST_STARS1_ADDR = 0x187B8A; // Blue stars
+    public static final int ART_KOSM_STARPOST_STARS2_ADDR = 0x187BEC; // Red stars
+    public static final int ART_KOSM_STARPOST_STARS3_ADDR = 0x187C4E; // Yellow stars
     public static final int ART_NEM_SPIKES_SPRINGS_ADDR = 0x1927FE;
 
     // VRAM tile index for SpikesSprings shared art (spikes start at +8)
@@ -856,6 +862,24 @@ public class Sonic3kConstants {
     // VRAM tile indices for signpost art
     public static final int ART_TILE_END_SIGNS = 0x04AC;
     public static final int ART_TILE_SIGNPOST_STUB = 0x069E;
+
+    // ===== SS Entry Ring (Obj_SSEntryRing) - Special Stage big ring =====
+    // ArtUnc_SSEntryRing - Uncompressed art (9984 bytes = 312 tiles)
+    public static final int ART_UNC_SS_ENTRY_RING_ADDR = 0x0D8766;
+    public static final int ART_UNC_SS_ENTRY_RING_SIZE = 9984;
+    // Map_SSEntryRing - 12 mapping frames
+    public static final int MAP_SS_ENTRY_RING_ADDR = 0x0619E0;
+    // DPLC_SSEntryRing - 12 DPLC frames
+    public static final int DPLC_SS_ENTRY_RING_ADDR = 0x061ABE;
+
+    // ===== SS Entry Flash (Obj_SSEntryFlash) - Big ring collection flash effect =====
+    // ArtUnc_SSEntryFlash - Uncompressed art (1440 bytes = 45 tiles)
+    public static final int ART_UNC_SS_ENTRY_FLASH_ADDR = 0x0DAE66;
+    public static final int ART_UNC_SS_ENTRY_FLASH_SIZE = 1440;
+    // Map_SSEntryFlash - 4 mapping frames (+ 1 extra embedded frame not in offset table)
+    public static final int MAP_SS_ENTRY_FLASH_ADDR = 0x061B28;
+    // DPLC_SSEntryFlash - 4 DPLC frames
+    public static final int DPLC_SS_ENTRY_FLASH_ADDR = 0x061BFA;
 
     // ===== Pal_AIZ - Main AIZ palette (for AfterBoss_Cleanup) =====
     public static final int PAL_AIZ_ADDR = 0x0A8B7C;
