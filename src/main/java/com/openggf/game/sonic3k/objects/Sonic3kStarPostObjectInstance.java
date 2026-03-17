@@ -1,6 +1,7 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.audio.AudioManager;
+import com.openggf.game.BonusStageType;
 import com.openggf.game.CheckpointState;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
@@ -8,6 +9,7 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -66,6 +68,62 @@ public class Sonic3kStarPostObjectInstance extends AbstractObjectInstance {
     // S3K uses 20 rings for bonus stars (NOT 50 like S2)
     // ROM: cmpi.w #20,(Ring_count).w (line 61635)
     private static final int BONUS_STAR_RING_THRESHOLD = 20;
+
+    /**
+     * Bonus star variant determined by ring count at checkpoint activation.
+     * ROM: loc_2D436 (sonic3k.asm lines 61856-61881).
+     * <p>
+     * Formula: {@code remainder = ((rings - 20) / 15) % divisor}
+     * where divisor=3 for S3K (locked-on) and 2 for S&K standalone.
+     * <p>
+     * Each variant maps to a different bonus stage and loads different star art:
+     * <ul>
+     *   <li>YELLOW (Stars3, remainder=0) → Gumball Machine ($1500)</li>
+     *   <li>BLUE (Stars1, remainder=1) → Glowing Spheres ($1400)</li>
+     *   <li>RED (Stars2, remainder=2) → Slot Machine ($1300, S3K only)</li>
+     * </ul>
+     */
+    public enum BonusStarVariant {
+        YELLOW(1.0f, 1.0f, 0.3f, BonusStageType.GUMBALL, ObjectArtKeys.CHECKPOINT_STAR_YELLOW),
+        BLUE(0.3f, 0.5f, 1.0f, BonusStageType.GLOWING_SPHERE, ObjectArtKeys.CHECKPOINT_STAR_BLUE),
+        RED(1.0f, 0.3f, 0.3f, BonusStageType.SLOT_MACHINE, ObjectArtKeys.CHECKPOINT_STAR_RED);
+
+        public final float r, g, b;
+        public final BonusStageType bonusStageType;
+        public final String artKey;
+
+        BonusStarVariant(float r, float g, float b, BonusStageType bonusStageType, String artKey) {
+            this.r = r;
+            this.g = g;
+            this.b = b;
+            this.bonusStageType = bonusStageType;
+            this.artKey = artKey;
+        }
+    }
+
+    /**
+     * Computes the bonus star variant from ring count using the ROM formula.
+     * ROM: loc_2D436 (sonic3k.asm lines 61857-61877).
+     * <pre>
+     * subi.w #20,d0      ; rings - 20
+     * divu.w #15,d0      ; / 15
+     * ext.l  d0          ; clear remainder
+     * moveq  #3,d2       ; divisor (2 for SK alone, 3 for S3K)
+     * divu.w d2,d0       ; / divisor
+     * swap   d0          ; remainder
+     * </pre>
+     */
+    static BonusStarVariant computeBonusStarVariant(int ringCount) {
+        // ROM formula: remainder = ((rings - 20) / 15) % divisor
+        // S3K locked-on: divisor=3 (all 3 bonus stages available)
+        int quotient = (ringCount - 20) / 15;
+        int remainder = quotient % 3;
+        return switch (remainder) {
+            case 1 -> BonusStarVariant.BLUE;
+            case 2 -> BonusStarVariant.RED;
+            default -> BonusStarVariant.YELLOW;
+        };
+    }
 
     // Animation IDs matching Ani_Starpost
     private static final int ANIM_IDLE = 0;     // Frame 0 (red ball), delay 15, loop
@@ -197,7 +255,7 @@ public class Sonic3kStarPostObjectInstance extends AbstractObjectInstance {
 
         // 3. ROM: cmpi.w #20,(Ring_count).w / blo.s loc_2D0D0 / bsr.w sub_2D3C8
         if (shouldSpawnBonusStars(player)) {
-            spawnBonusStars();
+            spawnBonusStars(player.getRingCount());
         }
 
         // 4. ROM loc_2D0D0: move.b #1,anim(a0)
@@ -244,16 +302,21 @@ public class Sonic3kStarPostObjectInstance extends AbstractObjectInstance {
     /**
      * Spawns 4 bonus stars at angle offsets 0, 0x40, 0x80, 0xC0.
      * ROM: sub_2D3C8 (lines 61828-61881).
+     * Star art variant is determined by ring count formula (loc_2D436).
      */
-    private void spawnBonusStars() {
+    private void spawnBonusStars(int ringCount) {
         ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
         if (objectManager == null) {
             return;
         }
+        BonusStarVariant variant = computeBonusStarVariant(ringCount);
+        LOGGER.fine("S3K bonus stars: rings=" + ringCount + " → variant=" + variant
+                + " (" + variant.bonusStageType + ")");
         // ROM: moveq #4-1,d1 / moveq #0,d2 / ... / addi.w #$40,d2 / dbf d1,...
         for (int i = 0; i < 4; i++) {
             int angleOffset = i * 0x40;
-            objectManager.addDynamicObject(new Sonic3kStarPostBonusStarChild(this, angleOffset));
+            objectManager.addDynamicObject(
+                    new Sonic3kStarPostBonusStarChild(this, angleOffset, variant));
         }
     }
 

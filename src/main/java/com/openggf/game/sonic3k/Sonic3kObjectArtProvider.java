@@ -25,6 +25,7 @@ import com.openggf.sprites.animation.SpriteAnimationScript;
 import com.openggf.sprites.animation.SpriteAnimationSet;
 import com.openggf.sprites.art.SpriteArtSet;
 import com.openggf.sprites.render.PlayerSpriteRenderer;
+import com.openggf.tools.KosinskiReader;
 import com.openggf.tools.NemesisReader;
 
 import java.io.IOException;
@@ -471,8 +472,56 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         ObjectSpriteSheet starSheet = new ObjectSpriteSheet(allPatterns, adjustedStars, 0, 1);
         registerSheet(ObjectArtKeys.CHECKPOINT_STAR, starSheet);
 
+        // Load 3 KosinskiM star art variants (ROM: Queue_Kos_Module at loc_2D436).
+        // Each variant is 3 tiles replacing tiles at ArtTile_StarPost+8 (index 8 in our blob).
+        loadStarVariant(rom, allPatterns, adjustedStars,
+                Sonic3kConstants.ART_KOSM_STARPOST_STARS3_ADDR, ObjectArtKeys.CHECKPOINT_STAR_YELLOW);
+        loadStarVariant(rom, allPatterns, adjustedStars,
+                Sonic3kConstants.ART_KOSM_STARPOST_STARS1_ADDR, ObjectArtKeys.CHECKPOINT_STAR_BLUE);
+        loadStarVariant(rom, allPatterns, adjustedStars,
+                Sonic3kConstants.ART_KOSM_STARPOST_STARS2_ADDR, ObjectArtKeys.CHECKPOINT_STAR_RED);
+
         LOG.info("Loaded S3K StarPost art: " + allPatterns.length + " patterns, "
-                + adjusted.size() + " frames, " + adjustedStars.size() + " star frames");
+                + adjusted.size() + " frames, " + adjustedStars.size() + " star frames"
+                + ", 3 bonus star variants");
+    }
+
+    /**
+     * Loads a single KosinskiM star art variant and creates a sprite sheet.
+     * ROM: Stars are 3 tiles decompressed to ArtTile_StarPost+8 (tile index 8 in our blob).
+     */
+    private void loadStarVariant(Rom rom, Pattern[] basePatterns,
+                                  List<SpriteMappingFrame> starFrames,
+                                  int kosmAddr, String artKey) {
+        try {
+            // Read and decompress KosinskiM data
+            byte[] header = rom.readBytes(kosmAddr, 2);
+            int fullSize = ((header[0] & 0xFF) << 8) | (header[1] & 0xFF);
+            int inputSize = Math.min(Math.max(fullSize + 256, 0x10000), 0x40000);
+            byte[] romData = rom.readBytes(kosmAddr, inputSize);
+            byte[] decompressed = KosinskiReader.decompressModuled(romData, 0);
+
+            int tileCount = decompressed.length / Pattern.PATTERN_SIZE_IN_ROM;
+            if (tileCount < 1) {
+                LOG.warning("Star variant at 0x" + Integer.toHexString(kosmAddr)
+                        + " decompressed to " + decompressed.length + " bytes (0 tiles)");
+                return;
+            }
+
+            // Clone base patterns and replace tiles 8..8+tileCount with variant art
+            Pattern[] variantPatterns = Arrays.copyOf(basePatterns, basePatterns.length);
+            for (int i = 0; i < tileCount && (8 + i) < variantPatterns.length; i++) {
+                variantPatterns[8 + i] = new Pattern();
+                byte[] tile = Arrays.copyOfRange(decompressed, i * Pattern.PATTERN_SIZE_IN_ROM,
+                        (i + 1) * Pattern.PATTERN_SIZE_IN_ROM);
+                variantPatterns[8 + i].fromSegaFormat(tile);
+            }
+
+            registerSheet(artKey, new ObjectSpriteSheet(variantPatterns, starFrames, 0, 1));
+        } catch (Exception e) {
+            LOG.warning("Failed to load star variant at 0x" + Integer.toHexString(kosmAddr)
+                    + ": " + e.getMessage());
+        }
     }
 
     /**

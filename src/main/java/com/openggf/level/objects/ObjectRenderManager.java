@@ -172,6 +172,15 @@ public class ObjectRenderManager {
         return provider.getRenderer(ObjectArtKeys.CHECKPOINT_STAR);
     }
 
+    /**
+     * Returns a variant-specific bonus star renderer for S3K ring-count-based star colors.
+     * Falls back to the default checkpoint star renderer if the variant sheet isn't loaded.
+     */
+    public PatternSpriteRenderer getCheckpointStarRenderer(String variantArtKey) {
+        PatternSpriteRenderer variant = provider.getRenderer(variantArtKey);
+        return variant != null ? variant : provider.getRenderer(ObjectArtKeys.CHECKPOINT_STAR);
+    }
+
     public ObjectSpriteSheet getCheckpointSheet() {
         return provider.getSheet(ObjectArtKeys.CHECKPOINT);
     }

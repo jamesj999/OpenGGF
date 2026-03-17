@@ -64,6 +64,8 @@ import com.openggf.sprites.Sprite;
 import com.openggf.sprites.SensorConfiguration;
 import com.openggf.sprites.art.SpriteArtSet;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
+import com.openggf.game.sonic2.objects.InvincibilityStarsObjectInstance;
+import com.openggf.game.sonic2.objects.ShieldObjectInstance;
 import com.openggf.game.sonic3k.Sonic3kPlayerArt;
 import com.openggf.sprites.managers.SpindashDustController;
 import com.openggf.sprites.managers.SpriteManager;
@@ -4272,6 +4274,26 @@ public class LevelManager {
         ringManager = new RingManager(level.getRings(), ringSpriteSheet, this, touchResponseTable);
         ringManager.reset(cameraX);
         ringManager.ensurePatternsCached(graphicsManager, level.getPatternCount());
+
+        // Re-register player dynamic objects (shield, invincibility) that were
+        // orphaned when the old ObjectManager was replaced.
+        // ROM: these live in Dynamic_object_RAM which persists across act transitions.
+        reregisterPlayerDynamicObjects(cam.getFocusedSprite());
+        reregisterPlayerDynamicObjects(spriteManager.getSidekick());
+    }
+
+    private void reregisterPlayerDynamicObjects(Sprite sprite) {
+        if (!(sprite instanceof AbstractPlayableSprite playable)) {
+            return;
+        }
+        ShieldObjectInstance shield = playable.getShieldObject();
+        if (shield != null && !shield.isDestroyed()) {
+            objectManager.addDynamicObject(shield);
+        }
+        InvincibilityStarsObjectInstance invincibility = playable.getInvincibilityObject();
+        if (invincibility != null && !invincibility.isDestroyed()) {
+            objectManager.addDynamicObject(invincibility);
+        }
     }
 
     private void initLevelEventsForCurrentZoneAct() {

@@ -616,6 +616,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 return shieldObject;
         }
 
+        public InvincibilityStarsObjectInstance getInvincibilityObject() {
+                return invincibilityObject;
+        }
+
         public void giveSpeedShoes() {
                 this.speedShoes = true;
                 // Register speed shoes timer using the existing timer framework

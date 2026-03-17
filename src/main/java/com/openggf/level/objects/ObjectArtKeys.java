@@ -29,6 +29,10 @@ public final class ObjectArtKeys {
     public static final String INVINCIBILITY_STARS = "invincibility_stars";
     public static final String CHECKPOINT = "checkpoint";
     public static final String CHECKPOINT_STAR = "checkpoint_star";
+    // S3K bonus star variants (different KosinskiM art per ring-count bracket)
+    public static final String CHECKPOINT_STAR_YELLOW = "checkpoint_star_yellow";
+    public static final String CHECKPOINT_STAR_BLUE = "checkpoint_star_blue";
+    public static final String CHECKPOINT_STAR_RED = "checkpoint_star_red";
     public static final String SIGNPOST = "signpost";
     public static final String ANIMAL = "animal";
     public static final String ANIMAL_ENDING = "animal_ending";

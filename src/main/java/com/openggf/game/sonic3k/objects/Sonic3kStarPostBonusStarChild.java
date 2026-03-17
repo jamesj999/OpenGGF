@@ -1,6 +1,7 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.CheckpointState;
+import com.openggf.game.sonic3k.objects.Sonic3kStarPostObjectInstance.BonusStarVariant;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
@@ -58,6 +59,7 @@ public class Sonic3kStarPostBonusStarChild extends AbstractObjectInstance {
     private static final int RING_THRESHOLD = 20;
 
     private final Sonic3kStarPostObjectInstance parentStarPost;
+    private final BonusStarVariant variant;
     private final int centerX;  // $30
     private final int centerY;  // $32
     private int angle;          // $34
@@ -68,9 +70,11 @@ public class Sonic3kStarPostBonusStarChild extends AbstractObjectInstance {
     private int mappingFrame;
     private boolean collisionEnabled;
 
-    public Sonic3kStarPostBonusStarChild(Sonic3kStarPostObjectInstance parent, int angleOffset) {
+    public Sonic3kStarPostBonusStarChild(Sonic3kStarPostObjectInstance parent, int angleOffset,
+                                         BonusStarVariant variant) {
         super(createDummySpawn(parent), "StarPostBonusStar");
         this.parentStarPost = parent;
+        this.variant = variant;
         this.centerX = parent.getCenterX();
         // ROM: subi.w #$30,d0 (line 61844)
         this.centerY = parent.getCenterY() - 0x30;
@@ -130,11 +134,15 @@ public class Sonic3kStarPostBonusStarChild extends AbstractObjectInstance {
             if (player.getRingCount() < RING_THRESHOLD) {
                 return;
             }
-            LOGGER.info("Player touched S3K bonus star - requesting special stage entry");
+            // ROM: S3K lampposts enter bonus stages, not special stages.
+            // loc_2D47E uses Saved_ring_count with same formula as star art selection.
+            // Bonus stages (Gumball/Glowing Spheres/Slot Machine) are NYI.
+            LOGGER.info("Player touched S3K bonus star - " + variant.bonusStageType
+                    + " bonus stage entry NYI (variant=" + variant + ", rings="
+                    + player.getRingCount() + ")");
             if (parentStarPost != null) {
                 parentStarPost.markUsedForSpecialStage();
             }
-            LevelManager.getInstance().requestSpecialStageEntry();
             setDestroyed(true);
         }
     }
@@ -251,9 +259,9 @@ public class Sonic3kStarPostBonusStarChild extends AbstractObjectInstance {
         if (renderManager == null) {
             return;
         }
-        PatternSpriteRenderer renderer = renderManager.getCheckpointStarRenderer();
+        PatternSpriteRenderer renderer = renderManager.getCheckpointStarRenderer(variant.artKey);
         if (renderer == null || !renderer.isReady()) {
-            // Fallback: small dot
+            // Fallback: small dot with variant-specific color
             appendFallbackDot(commands);
             return;
         }
@@ -261,11 +269,11 @@ public class Sonic3kStarPostBonusStarChild extends AbstractObjectInstance {
     }
 
     /**
-     * Fallback debug rendering: small sparkle dot.
+     * Fallback debug rendering: small sparkle dot using variant-specific color.
      */
     private void appendFallbackDot(List<GLCommand> commands) {
         int half = 2;
-        float r = 1.0f, g = 1.0f, b = 0.3f;
+        float r = variant.r, g = variant.g, b = variant.b;
         commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
                 r, g, b, currentX - half, currentY, 0, 0));
         commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,

@@ -6,11 +6,12 @@ package com.openggf.game;
  * <p>Bonus stages are typically accessed via checkpoints and provide
  * rewards like rings, shields, or extra lives (not Chaos Emeralds).
  *
- * <p>Sonic 3&K bonus stage selection (based on ring count at checkpoint):
+ * <p>Sonic 3&K bonus stage selection uses a cyclic formula:
+ * {@code remainder = ((rings - 20) / 15) % divisor} where divisor=3 for S3K.
  * <ul>
- *   <li>20-34 rings: Gumball Machine</li>
- *   <li>35-49 rings: Glowing Spheres</li>
- *   <li>50+ rings: Slot Machine</li>
+ *   <li>remainder 0 (20-34, 65-79, ...): Gumball Machine</li>
+ *   <li>remainder 1 (35-49, 80-94, ...): Glowing Spheres</li>
+ *   <li>remainder 2 (50-64, 95-109, ...): Slot Machine</li>
  * </ul>
  */
 public enum BonusStageType {
