@@ -338,6 +338,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         private ShieldType shieldType = null;
         private ShieldObjectInstance shieldObject;
         private InstaShieldObjectInstance instaShieldObject;
+        private boolean instaShieldRegistered = false;
         private InvincibilityStarsObjectInstance invincibilityObject;
         protected boolean speedShoes = false;
         /**
@@ -572,6 +573,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 this.lrbSolidBit = 0x0D;
                 this.loopLowPlane = false;
                 defineSpeeds(); // Reset speeds to default
+                instaShieldRegistered = false; // Force re-registration with new ObjectManager on level load
                 resolvePhysicsProfile();
                 // ROM: Obj01_Init unconditionally sets y_radius=$13, x_radius=9.
                 // Since we reuse the sprite rather than recreating it, we must
@@ -1236,6 +1238,17 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 // Update Super Sonic state (ring drain, palette cycling, transformation)
                 if (controller != null && controller.getSuperState() != null) {
                         controller.getSuperState().update();
+                }
+                // Lazy-register insta-shield with ObjectManager if not yet done (e.g. created before level load).
+                // When registered, ObjectManager drives update(); explicit call only needed for headless tests.
+                if (instaShieldObject != null && !instaShieldRegistered) {
+                        LevelManager lm = LevelManager.getInstance();
+                        if (lm != null && lm.getObjectManager() != null) {
+                                lm.getObjectManager().addDynamicObject(instaShieldObject);
+                                instaShieldRegistered = true;
+                        } else {
+                                instaShieldObject.update(0, this);
+                        }
                 }
         }
 
@@ -1932,6 +1945,19 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 // Cross-game donation: override only the feature set with hybrid (donor spindash + base physics)
                 if (CrossGameFeatureProvider.isActive()) {
                         this.physicsFeatureSet = CrossGameFeatureProvider.getInstance().getHybridFeatureSet();
+                }
+                // Create or re-register persistent insta-shield object (ROM: SpawnLevelMainSprites_SpawnPlayers)
+                if (physicsFeatureSet != null && physicsFeatureSet.instaShieldEnabled()) {
+                        if (instaShieldObject == null) {
+                                instaShieldObject = new InstaShieldObjectInstance(this);
+                        }
+                        if (!instaShieldRegistered) {
+                                LevelManager lm = LevelManager.getInstance();
+                                if (lm != null && lm.getObjectManager() != null) {
+                                        lm.getObjectManager().addDynamicObject(instaShieldObject);
+                                        instaShieldRegistered = true;
+                                }
+                        }
                 }
         }
 
