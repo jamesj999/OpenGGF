@@ -973,6 +973,8 @@ public class ObjectManager {
         private static final int SHIELD_TOUCH_SIZE = SHIELD_TOUCH_HALF_SIZE * 2;
         private static final int SHIELD_REACTION_BOUNCE_BIT = 1 << 3;
         private int currentFrameCounter;
+        private boolean instaShieldActive;
+        private AbstractPlayableSprite currentPlayer;
 
         TouchResponses(ObjectManager objectManager, TouchResponseTable table) {
             this.objectManager = objectManager;
@@ -1015,6 +1017,21 @@ public class ObjectManager {
                 playerY += 12;
                 playerHeight = 20;
             }
+            // ROM (sonic3k.asm:20620-20640): Insta-shield expands hitbox to 48x48
+            instaShieldActive = false;
+            currentPlayer = player;
+            int playerWidth = 0x10; // Normal width
+            PhysicsFeatureSet fs = player.getPhysicsFeatureSet();
+            if (fs != null && fs.instaShieldEnabled()
+                    && player.getDoubleJumpFlag() == 1
+                    && player.getShieldType() == null
+                    && player.getInvincibleFrames() == 0) {
+                instaShieldActive = true;
+                playerX = player.getCentreX() - 0x18;
+                playerY = player.getCentreY() - 0x18;
+                playerHeight = 0x30;
+                playerWidth = 0x30;
+            }
             debugState.setPlayer(playerX, playerY, playerHeight, baseYRadius, crouching);
             debugState.clear();
 
@@ -1033,7 +1050,7 @@ public class ObjectManager {
                 // Multi-region providers (e.g., spiked pole helix) check each region independently
                 TouchResponseProvider.TouchRegion[] regions = provider.getMultiTouchRegions();
                 if (regions != null) {
-                    checkMultiRegionTouch(player, playerX, playerY, playerHeight, instance, provider, regions);
+                    checkMultiRegionTouch(player, playerX, playerY, playerHeight, instance, provider, regions, playerWidth);
                     continue;
                 }
 
@@ -1053,7 +1070,7 @@ public class ObjectManager {
                 // ROM: Touch_CheckCollision uses x_pos(a1)/y_pos(a1) — the object's current
                 // position, not its spawn position. Use getX()/getY() which moving objects
                 // (badniks, projectiles, boss children) override to return current coords.
-                boolean overlap = isOverlapping(playerX, playerY, playerHeight, instance.getX(), instance.getY(), width, height);
+                boolean overlap = isOverlapping(playerX, playerY, playerHeight, instance.getX(), instance.getY(), width, height, playerWidth);
                 if (debugState.isEnabled()) {
                     debugState.addHit(
                             new TouchResponseDebugHit(instance.getSpawn(), flags, sizeIndex, width, height, category, overlap));
@@ -1081,6 +1098,8 @@ public class ObjectManager {
             Set<ObjectInstance> temp = overlapping;
             overlapping = building;
             building = temp;
+            instaShieldActive = false;
+            currentPlayer = null;
         }
 
         /**
@@ -1090,6 +1109,7 @@ public class ObjectManager {
          * rings when hurt and can never die from enemy contact.
          */
         void updateSidekick(AbstractPlayableSprite sidekick, int frameCounter) {
+            currentPlayer = null; // Sidekick doesn't get insta-shield
             currentFrameCounter = frameCounter;
             if (sidekick == null || objectManager == null || sidekick.getDead() || table == null) {
                 sidekickOverlapping.clear();
@@ -1139,7 +1159,7 @@ public class ObjectManager {
                     continue;
                 }
 
-                boolean overlap = isOverlapping(playerX, playerY, playerHeight, instance.getX(), instance.getY(), width, height);
+                boolean overlap = isOverlapping(playerX, playerY, playerHeight, instance.getX(), instance.getY(), width, height, 0x10);
                 if (!overlap) {
                     continue;
                 }
@@ -1249,14 +1269,14 @@ public class ObjectManager {
         }
 
         private boolean isOverlapping(int playerX, int playerY, int playerHeight,
-                int objectX, int objectY, int objectWidth, int objectHeight) {
+                int objectX, int objectY, int objectWidth, int objectHeight, int playerWidth) {
             int dx = objectX - objectWidth - playerX;
             if (dx < 0) {
                 int sum = (dx & 0xFFFF) + ((objectWidth * 2) & 0xFFFF);
                 if (sum <= 0xFFFF) {
                     return false;
                 }
-            } else if (dx > 0x10) {
+            } else if (dx > playerWidth) {
                 return false;
             }
 
@@ -1292,14 +1312,14 @@ public class ObjectManager {
          * Used by multi-region touch collision.
          */
         private boolean isOverlappingXY(int playerX, int playerY, int playerHeight,
-                int objX, int objY, int objectWidth, int objectHeight) {
+                int objX, int objY, int objectWidth, int objectHeight, int playerWidth) {
             int dx = objX - objectWidth - playerX;
             if (dx < 0) {
                 int sum = (dx & 0xFFFF) + ((objectWidth * 2) & 0xFFFF);
                 if (sum <= 0xFFFF) {
                     return false;
                 }
-            } else if (dx > 0x10) {
+            } else if (dx > playerWidth) {
                 return false;
             }
 
@@ -1324,7 +1344,7 @@ public class ObjectManager {
         private void checkMultiRegionTouch(AbstractPlayableSprite player,
                 int playerX, int playerY, int playerHeight,
                 ObjectInstance instance, TouchResponseProvider provider,
-                TouchResponseProvider.TouchRegion[] regions) {
+                TouchResponseProvider.TouchRegion[] regions, int playerWidth) {
             for (TouchResponseProvider.TouchRegion region : regions) {
                 int flags = region.collisionFlags();
                 if (flags == 0) {
@@ -1336,7 +1356,7 @@ public class ObjectManager {
                 TouchCategory category = decodeCategory(flags);
 
                 boolean overlap = isOverlappingXY(playerX, playerY, playerHeight,
-                        region.x(), region.y(), width, height);
+                        region.x(), region.y(), width, height, playerWidth);
                 if (!overlap) {
                     continue;
                 }
@@ -1372,7 +1392,7 @@ public class ObjectManager {
                 TouchCategory category = decodeCategory(flags);
 
                 boolean overlap = isOverlappingXY(playerX, playerY, playerHeight,
-                        region.x(), region.y(), width, height);
+                        region.x(), region.y(), width, height, 0x10);
                 if (!overlap) {
                     continue;
                 }
@@ -1455,7 +1475,8 @@ public class ObjectManager {
             return player.isSuperSonic()
                     || player.getInvincibleFrames() > 0
                     || player.getRolling()
-                    || player.getSpindash();
+                    || player.getSpindash()
+                    || (instaShieldActive && player == currentPlayer);
         }
 
         private void applyEnemyBounce(AbstractPlayableSprite player, ObjectInstance instance) {
