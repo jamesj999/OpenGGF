@@ -25,6 +25,7 @@ import com.openggf.game.sonic2.objects.ShieldObjectInstance;
 import com.openggf.game.sonic3k.objects.FireShieldObjectInstance;
 import com.openggf.game.sonic3k.objects.LightningShieldObjectInstance;
 import com.openggf.game.sonic3k.objects.BubbleShieldObjectInstance;
+import com.openggf.game.sonic3k.objects.InstaShieldObjectInstance;
 import com.openggf.level.WaterSystem;
 import com.openggf.physics.Direction;
 import com.openggf.physics.Sensor;
@@ -336,6 +337,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         protected boolean shield = false;
         private ShieldType shieldType = null;
         private ShieldObjectInstance shieldObject;
+        private InstaShieldObjectInstance instaShieldObject;
         private InvincibilityStarsObjectInstance invincibilityObject;
         protected boolean speedShoes = false;
         /**
@@ -628,6 +630,14 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
 
         public ShieldObjectInstance getShieldObject() {
                 return shieldObject;
+        }
+
+        public InstaShieldObjectInstance getInstaShieldObject() {
+                return instaShieldObject;
+        }
+
+        public void setInstaShieldObject(InstaShieldObjectInstance obj) {
+                this.instaShieldObject = obj;
         }
 
         public InvincibilityStarsObjectInstance getInvincibilityObject() {

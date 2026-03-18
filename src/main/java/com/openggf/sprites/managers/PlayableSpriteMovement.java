@@ -27,6 +27,7 @@ import com.openggf.game.sonic2.objects.ShieldObjectInstance;
 import com.openggf.game.sonic3k.objects.FireShieldObjectInstance;
 import com.openggf.game.sonic3k.objects.LightningShieldObjectInstance;
 import com.openggf.game.sonic3k.objects.BubbleShieldObjectInstance;
+import com.openggf.game.sonic3k.objects.InstaShieldObjectInstance;
 
 /**
  * ROM-accurate movement handler for playable sprites.
@@ -515,26 +516,61 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	}
 
 	/**
-	 * Sonic_ShieldMoves: Try to activate the player's shield ability (s3.asm:21059-21159).
-	 * @return true if an ability was activated
+	 * Sonic_ShieldMoves: Try to activate the player's shield ability (sonic3k.asm:23397-23479).
+	 * @return true if an ability was activated (or suppressed by Super)
 	 */
 	private boolean tryShieldAbility() {
 		PhysicsFeatureSet fs = sprite.getPhysicsFeatureSet();
-		if (fs == null || !fs.elementalShieldsEnabled()) {
+		if (fs == null) {
 			return false;
 		}
+		boolean hasElemental = fs.elementalShieldsEnabled();
+		boolean hasInsta = fs.instaShieldEnabled();
+		if (!hasElemental && !hasInsta) {
+			return false;
+		}
+
+		// ROM (sonic3k.asm:23404-23408): Super Sonic suppresses all abilities
+		if (sprite.isSuperSonic()) {
+			sprite.setDoubleJumpFlag(1);
+			return true;
+		}
+
+		// ROM (sonic3k.asm:23412-23413): Invincibility suppresses all abilities
+		if (sprite.getInvincibleFrames() > 0) {
+			return false;
+		}
+
+		// ROM (sonic3k.asm:23411-23453): Elemental shield abilities
 		ShieldType shield = sprite.getShieldType();
-		if (shield == null) {
-			return false;
+		if (hasElemental && shield != null) {
+			switch (shield) {
+				case FIRE -> fireShieldDash();
+				case LIGHTNING -> lightningShieldJump();
+				case BUBBLE -> bubbleShieldBounce();
+				default -> { return false; } // BASIC shield: no ability
+			}
+			sprite.setDoubleJumpFlag(1);
+			return true;
 		}
-		switch (shield) {
-			case FIRE -> fireShieldDash();
-			case LIGHTNING -> lightningShieldJump();
-			case BUBBLE -> bubbleShieldBounce();
-			default -> { return false; }
+
+		// ROM (sonic3k.asm:23473-23479): Insta-shield (no shield equipped)
+		if (hasInsta && shield == null) {
+			activateInstaShield();
+			return true;
 		}
+
+		return false;
+	}
+
+	/** ROM: Sonic_InstaShield (sonic3k.asm:23473-23479) */
+	private void activateInstaShield() {
 		sprite.setDoubleJumpFlag(1);
-		return true;
+		InstaShieldObjectInstance instaShield = sprite.getInstaShieldObject();
+		if (instaShield != null) {
+			instaShield.triggerAttack();
+		}
+		audioManager.playSfx(GameSound.INSTA_SHIELD);
 	}
 
 	/** Fire dash: horizontal burst in facing direction (sonic3k.asm:23411-23430) */
