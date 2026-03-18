@@ -304,7 +304,8 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
                 false,                                          // elementalShieldsEnabled (donor doesn't donate shields)
                 baseFeatureSet.angleDiffCardinalSnap(),          // angleDiffCardinalSnap (from base game)
                 baseFeatureSet.extendedEdgeBalance(),            // extendedEdgeBalance (from base game)
-                baseFeatureSet.ringFloorCheckMask()              // ringFloorCheckMask (from base game)
+                baseFeatureSet.ringFloorCheckMask(),             // ringFloorCheckMask (from base game)
+                null                                             // superSpindashSpeedTable (not donated)
         );
     }
 }

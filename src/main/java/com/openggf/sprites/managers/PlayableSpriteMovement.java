@@ -44,11 +44,6 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		0x0800, 0x0880, 0x0900, 0x0980, 0x0A00, 0x0A80, 0x0B00, 0x0B80, 0x0C00
 	};
 
-	// ROM Super Sonic spindash speed table (s2.asm:37305-37314)
-	private static final short[] SPINDASH_SPEEDS_SUPER = {
-		0x0B00, 0x0B80, 0x0C00, 0x0C80, 0x0D00, 0x0D80, 0x0E00, 0x0E80, 0x0F00
-	};
-
 	// Angle classification thresholds
 	private static final int ANGLE_STEEP_OFFSET = 0x20;
 	private static final int ANGLE_STEEP_MASK = 0x40;
@@ -107,13 +102,15 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	/**
 	 * Returns the spindash speed table from the physics feature set,
 	 * falling back to the static SPINDASH_SPEEDS constant.
-	 * Uses Super Sonic table when in super state (s2.asm:37305-37314).
+	 * S3K Super/Hyper forms use a higher speed table (sonic3k.asm:23743 word_11D04).
+	 * S2 Super Sonic uses the normal table (no separate Super table in S2).
 	 */
 	private short[] getSpindashSpeedTable() {
-		if (sprite.isSuperSonic()) {
-			return SPINDASH_SPEEDS_SUPER;
-		}
 		PhysicsFeatureSet featureSet = sprite.getPhysicsFeatureSet();
+		if (sprite.isSuperSonic() && featureSet != null
+				&& featureSet.superSpindashSpeedTable() != null) {
+			return featureSet.superSpindashSpeedTable();
+		}
 		if (featureSet != null && featureSet.spindashSpeedTable() != null) {
 			return featureSet.spindashSpeedTable();
 		}

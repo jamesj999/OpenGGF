@@ -43,7 +43,8 @@ public class TestHybridPhysicsFeatureSet {
                 false,  // elementalShieldsEnabled - S1
                 false,  // angleDiffCardinalSnap - S1
                 false,  // extendedEdgeBalance - S1
-                PhysicsFeatureSet.RING_FLOOR_CHECK_MASK_S1  // ringFloorCheckMask - S1
+                PhysicsFeatureSet.RING_FLOOR_CHECK_MASK_S1,  // ringFloorCheckMask - S1
+                null   // superSpindashSpeedTable - not donated
         );
 
         // Verify spindash is enabled (donor contribution)
