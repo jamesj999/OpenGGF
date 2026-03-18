@@ -1984,6 +1984,17 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 return physicsFeatureSet;
         }
 
+        /** Package-private for testing. */
+        protected void setPhysicsFeatureSet(PhysicsFeatureSet fs) {
+                this.physicsFeatureSet = fs;
+        }
+
+        /** Sets shield state directly without spawning a shield object. For testing only. */
+        protected void setShieldState(boolean hasShield, ShieldType type) {
+                this.shield = hasShield;
+                this.shieldType = type;
+        }
+
         /**
          * Returns the physics modifiers (water/speed shoes rules) for the current game.
          * May be null if no GameModule provider is active.
