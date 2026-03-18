@@ -13,6 +13,7 @@ import com.openggf.sprites.animation.SpriteAnimationSet;
 import com.openggf.sprites.art.SpriteArtSet;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.SuperStateController;
+import com.openggf.sprites.playable.Tails;
 import com.openggf.sprites.render.PlayerSpriteRenderer;
 
 import java.util.logging.Logger;
@@ -130,11 +131,21 @@ public class Sonic3kSuperStateController extends SuperStateController {
 
     @Override
     protected PhysicsProfile getSuperProfile() {
+        // S3K Super Tails: max=$800, accel=$18, decel=$C0 (sonic3k.asm:26325-26327)
+        // S3K Super Sonic: max=$A00, accel=$30, decel=$100 (sonic3k.asm:22084-22086)
+        if (player instanceof Tails) {
+            return PhysicsProfile.SONIC_3K_SUPER_TAILS;
+        }
         return PhysicsProfile.SONIC_3K_SUPER_SONIC;
     }
 
     @Override
     protected PhysicsProfile getNormalProfile() {
+        // On revert, use canonical "reset" values — NOT init (Character_Speeds) values.
+        // ROM: speed shoes expire code sets $600/$C/$80 for all characters.
+        if (player instanceof Tails) {
+            return PhysicsProfile.SONIC_2_TAILS;
+        }
         return PhysicsProfile.SONIC_2_SONIC;
     }
 

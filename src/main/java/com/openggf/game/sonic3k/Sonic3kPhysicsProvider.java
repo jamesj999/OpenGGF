@@ -8,7 +8,11 @@ import com.openggf.game.PhysicsProvider;
 /**
  * Physics provider for Sonic 3 &amp; Knuckles.
  * Returns character-specific profiles; spindash is enabled.
- * Knuckles uses the same base constants as Sonic (sonic3k.asm:30361-30363).
+ *
+ * <p>Normal single-player mode uses the same base constants as S2 ($600/$C/$80).
+ * The {@code Character_Speeds} table (sonic3k.asm:202288) is only used in
+ * Competition mode ({@code Sonic2P_Index}, line 21457); it is NOT loaded
+ * during normal single-player init.
  */
 public class Sonic3kPhysicsProvider implements PhysicsProvider {
 
@@ -17,7 +21,6 @@ public class Sonic3kPhysicsProvider implements PhysicsProvider {
         if ("tails".equalsIgnoreCase(characterType)) {
             return PhysicsProfile.SONIC_2_TAILS;
         }
-        // Sonic and Knuckles share the same base constants
         return PhysicsProfile.SONIC_2_SONIC;
     }
 

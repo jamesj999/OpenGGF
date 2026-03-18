@@ -20,7 +20,10 @@ public record PhysicsFeatureSet(
         boolean extendedEdgeBalance,
         /** Bitmask for scattered ring floor-check frequency.
          *  S1: 0x03 (every 4 frames, andi.b #3,d0). S2/S3K: 0x07 (every 8 frames, andi.b #7,d0). */
-        int ringFloorCheckMask
+        int ringFloorCheckMask,
+        /** Spindash speed table used when in Super/Hyper form.
+         *  S3K: word_11D04 (sonic3k.asm:23743), higher speeds ($B00-$F00). S1/S2: null (use normal table). */
+        short[] superSpindashSpeedTable
 ) {
     /** S1: no delay - camera pans immediately (s1.asm: Sonic_LookUp directly modifies v_lookshift). */
     public static final short LOOK_SCROLL_DELAY_NONE = 0;
@@ -38,7 +41,7 @@ public record PhysicsFeatureSet(
      *  simple edge balance: single animation, always faces edge (s1disasm/_incObj/01 Sonic.asm:354-375). */
     public static final PhysicsFeatureSet SONIC_1 = new PhysicsFeatureSet(
             false, null, CollisionModel.UNIFIED, true, LOOK_SCROLL_DELAY_NONE, true, true, false, false, false,
-            RING_FLOOR_CHECK_MASK_S1);
+            RING_FLOOR_CHECK_MASK_S1, null);
 
     /** Sonic 2: spindash with standard speed table (s2.asm:37294), dual collision paths, delayed look scroll,
      *  preserves high ground speed on input (s2.asm:36610-36616),
@@ -47,16 +50,19 @@ public record PhysicsFeatureSet(
     public static final PhysicsFeatureSet SONIC_2 = new PhysicsFeatureSet(true, new short[]{
             0x0800, 0x0880, 0x0900, 0x0980, 0x0A00, 0x0A80, 0x0B00, 0x0B80, 0x0C00
     }, CollisionModel.DUAL_PATH, false, LOOK_SCROLL_DELAY_S2, false, false, false, true, true,
-            RING_FLOOR_CHECK_MASK_S2);
+            RING_FLOOR_CHECK_MASK_S2, null);
 
     /** Sonic 3&K: spindash with same speed table as S2, dual collision paths, delayed look scroll,
      *  preserves high ground speed on input, elemental shields,
      *  angle diff cardinal snap (inherited from S2 Sonic_Angle),
-     *  extended edge balance (inherited from S2). */
+     *  extended edge balance (inherited from S2),
+     *  Super spindash table (sonic3k.asm:23743 word_11D04). */
     public static final PhysicsFeatureSet SONIC_3K = new PhysicsFeatureSet(true, new short[]{
             0x0800, 0x0880, 0x0900, 0x0980, 0x0A00, 0x0A80, 0x0B00, 0x0B80, 0x0C00
     }, CollisionModel.DUAL_PATH, false, LOOK_SCROLL_DELAY_S2, false, false, true, true, true,
-            RING_FLOOR_CHECK_MASK_S2);
+            RING_FLOOR_CHECK_MASK_S2, new short[]{
+            0x0B00, 0x0B80, 0x0C00, 0x0C80, 0x0D00, 0x0D80, 0x0E00, 0x0E80, 0x0F00
+    });
 
     /** Returns true when the game supports dual collision paths (primary/secondary). */
     public boolean hasDualCollisionPaths() {

@@ -28,7 +28,7 @@ import java.util.Locale;
  *   <li>VRAM base tile is 0x0680 (vs S2's 0x0780)</li>
  *   <li>Extra art tiles for mapping frames &gt;= 0xDA (Super Sonic / special frames)</li>
  *   <li>36 animation scripts (vs S2's 34)</li>
- *   <li>anglePreAdjust is false (S3K does NOT subtract 1 from angle index)</li>
+ *   <li>anglePreAdjust is true (S3K subtracts 1 from angle index: sonic3k.asm:24816)</li>
  * </ul>
  */
 public class Sonic3kPlayerArt {
@@ -124,7 +124,8 @@ public class Sonic3kPlayerArt {
                 .setBalance4AnimId(Sonic3kAnimationIds.BALANCE4)
                 .setWalkSpeedThreshold(0x40)
                 .setRunSpeedThreshold(0x600)
-                .setFallbackFrame(0);
+                .setFallbackFrame(0)
+                .setAnglePreAdjust(true);      // sonic3k.asm:24816 — subq.b #1,d0
 
         cachedSonic = new SpriteArtSet(
                 allTiles,
@@ -195,7 +196,8 @@ public class Sonic3kPlayerArt {
                 .setBalance4AnimId(Sonic3kAnimationIds.BALANCE4)
                 .setWalkSpeedThreshold(0x40)
                 .setRunSpeedThreshold(0x600)
-                .setFallbackFrame(0);
+                .setFallbackFrame(0)
+                .setAnglePreAdjust(true);      // sonic3k.asm:29358 — Tails uses same subq.b #1,d0
 
         cachedTails = new SpriteArtSet(
                 allTiles,
@@ -315,7 +317,8 @@ public class Sonic3kPlayerArt {
                 .setBalance4AnimId(Sonic3kAnimationIds.BALANCE4)
                 .setWalkSpeedThreshold(0x40)
                 .setRunSpeedThreshold(0x600)
-                .setFallbackFrame(0);
+                .setFallbackFrame(0)
+                .setAnglePreAdjust(true);      // sonic3k.asm:24816 — same subq.b #1,d0
 
         cachedSuperSonic = new SpriteArtSet(
                 allTiles,

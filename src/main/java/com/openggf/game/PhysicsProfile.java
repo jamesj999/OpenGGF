@@ -27,7 +27,8 @@ public record PhysicsProfile(
         short rollXRadius,
         short rollYRadius
 ) {
-    // Sonic 2 Sonic (also identical for S1 Sonic and S3K Sonic)
+    // Sonic 2 Sonic (also identical for S1 Sonic; S3K canonical reset profile)
+    // S3K uses this as the "reset" profile after water/shoes events (sonic3k.asm:22253)
     public static final PhysicsProfile SONIC_2_SONIC = new PhysicsProfile(
             (short) 12,    // runAccel (0x0C)
             (short) 128,   // runDecel (0x80)
@@ -89,6 +90,75 @@ public record PhysicsProfile(
             (short) 38,    // runHeight
             (short) 9,     // standXRadius
             (short) 19,    // standYRadius
+            (short) 7,     // rollXRadius
+            (short) 14     // rollYRadius
+    );
+
+    // S3K Sonic Competition mode — Character_Speeds table (sonic3k.asm:202288, loaded at line 21467)
+    // Only used by Sonic2P_Index (Competition mode init, line 21457), NOT normal single-player.
+    // Differs from canonical in accel ($10 vs $C), decel ($20 vs $80).
+    public static final PhysicsProfile SONIC_3K_SONIC_INIT = new PhysicsProfile(
+            (short) 0x10,  // runAccel (Character_Speeds word 2)
+            (short) 0x20,  // runDecel (Character_Speeds word 3)
+            (short) 12,    // friction (0x0C, not set by Character_Speeds — keeps canonical)
+            (short) 0x600, // max (Character_Speeds word 1)
+            (short) 1664,  // jump (0x680)
+            (short) 32,    // slopeRunning
+            (short) 20,    // slopeRollingUp
+            (short) 80,    // slopeRollingDown
+            (short) 32,    // rollDecel
+            (short) 128,   // minStartRollSpeed
+            (short) 128,   // minRollSpeed
+            (short) 4096,  // maxRoll
+            (short) 28,    // rollHeight
+            (short) 38,    // runHeight
+            (short) 9,     // standXRadius
+            (short) 19,    // standYRadius
+            (short) 7,     // rollXRadius
+            (short) 14     // rollYRadius
+    );
+
+    // S3K Tails Competition mode — Character_Speeds table (sonic3k.asm:202290)
+    // Only used by Competition mode. max=$4C0, accel=$1C, decel=$70.
+    public static final PhysicsProfile SONIC_3K_TAILS_INIT = new PhysicsProfile(
+            (short) 0x1C,  // runAccel (Character_Speeds word 2)
+            (short) 0x70,  // runDecel (Character_Speeds word 3)
+            (short) 12,    // friction (0x0C, not set by Character_Speeds)
+            (short) 0x4C0, // max (Character_Speeds word 1)
+            (short) 1664,  // jump
+            (short) 32,    // slopeRunning
+            (short) 20,    // slopeRollingUp
+            (short) 80,    // slopeRollingDown
+            (short) 32,    // rollDecel
+            (short) 264,   // minStartRollSpeed (Tails-specific)
+            (short) 128,   // minRollSpeed
+            (short) 4096,  // maxRoll
+            (short) 28,    // rollHeight
+            (short) 30,    // runHeight (Tails shorter)
+            (short) 9,     // standXRadius
+            (short) 15,    // standYRadius (0x0F, shorter than Sonic)
+            (short) 7,     // rollXRadius
+            (short) 14     // rollYRadius
+    );
+
+    // S3K Super Tails (sonic3k.asm:26325-26327: max=$800, accel=$18, decel=$C0)
+    public static final PhysicsProfile SONIC_3K_SUPER_TAILS = new PhysicsProfile(
+            (short) 0x18,  // runAccel
+            (short) 0xC0,  // runDecel
+            (short) 0x18,  // friction (same as accel for Super)
+            (short) 0x800, // max
+            (short) 0x800, // jump (Super form override)
+            (short) 32,    // slopeRunning
+            (short) 20,    // slopeRollingUp
+            (short) 80,    // slopeRollingDown
+            (short) 32,    // rollDecel
+            (short) 264,   // minStartRollSpeed (Tails-specific)
+            (short) 128,   // minRollSpeed
+            (short) 4096,  // maxRoll
+            (short) 28,    // rollHeight
+            (short) 30,    // runHeight (Tails shorter)
+            (short) 9,     // standXRadius
+            (short) 15,    // standYRadius (Tails)
             (short) 7,     // rollXRadius
             (short) 14     // rollYRadius
     );

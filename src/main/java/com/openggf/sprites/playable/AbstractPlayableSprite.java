@@ -350,6 +350,20 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         private PhysicsFeatureSet physicsFeatureSet;
 
         /**
+         * Canonical "reset" profile — the base used for water/shoes modifier math.
+         * For S3K, this is SONIC_2_SONIC ($600/$C/$80), which differs from the init profile.
+         * For S1/S2, this is null (init profile equals canonical).
+         */
+        private PhysicsProfile canonicalProfile;
+        /**
+         * When true, the Character_Speeds init values (from {@code PhysicsProvider.getInitProfile()})
+         * are active in the mutable speed fields. Cleared on first water, speed shoes, or Super
+         * transition — those events reset the mutable fields to the canonical profile values.
+         * <p>ROM ref: sonic3k.asm:202288 (Character_Speeds table loaded at init/respawn).
+         */
+        private boolean initPhysicsActive;
+
+        /**
          * When true, forces right input regardless of actual keyboard input.
          * Used for end-of-act walk-off sequences (Control_Locked + button_right_mask in
          * ROM).
@@ -621,6 +635,9 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         }
 
         public void giveSpeedShoes() {
+                // S3K: shoes activation uses absolute values from canonical base ($C00/$18/$80),
+                // not 2x of Character_Speeds init values (sonic3k.asm:40823-40825)
+                clearInitOverride();
                 this.speedShoes = true;
                 // Register speed shoes timer using the existing timer framework
                 // Duration is 1200 frames (20 seconds @ 60fps) per SPG Sonic 2
@@ -631,8 +648,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         /**
          * Called by SpeedShoesTimer when the effect expires.
          * Deactivates speed shoes and resets physics values.
+         * ROM: sets absolute canonical values ($600/$C/$80 normal, $A00/$30/$100 Super Sonic).
          */
         public void deactivateSpeedShoes() {
+                clearInitOverride();
                 this.speedShoes = false;
         }
 
@@ -1876,27 +1895,26 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                         PhysicsProfile profile = provider.getProfile(charType);
                         if (profile != null) {
                                 this.physicsProfile = profile;
-                                this.runAccel = profile.runAccel();
-                                this.runDecel = profile.runDecel();
-                                this.friction = profile.friction();
-                                this.max = profile.max();
-                                this.jump = profile.jump();
-                                this.slopeRunning = profile.slopeRunning();
-                                this.slopeRollingUp = profile.slopeRollingUp();
-                                this.slopeRollingDown = profile.slopeRollingDown();
-                                this.rollDecel = profile.rollDecel();
-                                this.minStartRollSpeed = profile.minStartRollSpeed();
-                                this.minRollSpeed = profile.minRollSpeed();
-                                this.maxRoll = profile.maxRoll();
-                                this.rollHeight = profile.rollHeight();
-                                this.runHeight = profile.runHeight();
-                                this.standXRadius = profile.standXRadius();
-                                this.standYRadius = profile.standYRadius();
-                                this.rollXRadius = profile.rollXRadius();
-                                this.rollYRadius = profile.rollYRadius();
+                                applyProfileToFields(profile);
                         }
                         this.physicsModifiers = provider.getModifiers();
                         this.physicsFeatureSet = provider.getFeatureSet();
+
+                        // S3K init override: Character_Speeds table provides different init-time
+                        // values that persist until the first water or speed shoes event.
+                        // ROM ref: sonic3k.asm:21467-21474 (Character_Speeds loaded at player init)
+                        PhysicsProfile initProfile = provider.getInitProfile(charType);
+                        if (initProfile != null && profile != null) {
+                                this.canonicalProfile = profile;
+                                // Overwrite only the fields that Character_Speeds sets (max, accel, decel)
+                                this.runAccel = initProfile.runAccel();
+                                this.runDecel = initProfile.runDecel();
+                                this.max = initProfile.max();
+                                this.initPhysicsActive = true;
+                        } else {
+                                this.canonicalProfile = null;
+                                this.initPhysicsActive = false;
+                        }
                 } catch (Exception e) {
                         // Graceful fallback: defineSpeeds() values remain
                         LOGGER.fine("PhysicsProvider unavailable, using defineSpeeds() values: " + e.getMessage());
@@ -1908,12 +1926,36 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         }
 
         /**
+         * Clears the S3K Character_Speeds init override and resets the mutable speed fields
+         * to the canonical profile values. Called on water entry/exit, speed shoes give/expire,
+         * and Super state transitions — matching ROM behavior where any of these events
+         * overwrites the Character_Speeds values with hardcoded constants.
+         * <p>No-op if no init override was active (S1/S2, or already cleared).
+         */
+        private void clearInitOverride() {
+                if (!initPhysicsActive) return;
+                initPhysicsActive = false;
+                if (canonicalProfile != null) {
+                        this.runAccel = canonicalProfile.runAccel();
+                        this.runDecel = canonicalProfile.runDecel();
+                        this.max = canonicalProfile.max();
+                }
+        }
+
+        /**
          * Applies an external physics profile, overwriting current speed values.
          * Used by SuperStateController to swap between normal and Super physics.
+         * Also clears the S3K init override since Super transitions reset constants.
          */
         public void applyExternalPhysicsProfile(PhysicsProfile profile) {
                 if (profile == null) return;
+                clearInitOverride();
                 this.physicsProfile = profile;
+                applyProfileToFields(profile);
+        }
+
+        /** Writes all 18 profile values to the mutable speed fields. */
+        private void applyProfileToFields(PhysicsProfile profile) {
                 this.runAccel = profile.runAccel();
                 this.runDecel = profile.runDecel();
                 this.friction = profile.friction();
@@ -2633,6 +2675,9 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
          */
         protected void onEnterWater() {
                 LOGGER.fine("Player entered water");
+                // S3K: water entry resets Character_Speeds init values to canonical
+                // (sonic3k.asm:22225-22227 sets absolute values, not relative to init)
+                clearInitOverride();
 
                 // Fire and Lightning shields dissipate on water entry (s3.asm:34693, 34780)
                 PhysicsFeatureSet fs = getPhysicsFeatureSet();
@@ -2678,6 +2723,9 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
          */
         protected void onExitWater() {
                 LOGGER.fine("Player exited water");
+                // S3K: water exit resets Character_Speeds init values to canonical
+                // (sonic3k.asm:22253-22255 sets absolute $600/$C/$80, not relative to init)
+                clearInitOverride();
 
                 // ROM does NOT modify x_vel on water exit - only top_speed/accel/decel
                 // change, which affects future acceleration but not current velocity
