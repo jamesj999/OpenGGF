@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.CrossGameFeatureProvider;
 import com.openggf.game.GameModule;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.ObjectArtProvider;
@@ -41,6 +42,11 @@ public class InstaShieldObjectInstance extends ShieldObjectInstance {
         if (artProvider != null) {
             this.dplcRenderer = artProvider.getShieldDplcRenderer(Sonic3kObjectArtKeys.INSTA_SHIELD);
             SpriteArtSet artSet = artProvider.getShieldArtSet(Sonic3kObjectArtKeys.INSTA_SHIELD);
+            this.animSet = artSet != null ? artSet.animationSet() : null;
+        } else if (CrossGameFeatureProvider.isActive()) {
+            CrossGameFeatureProvider donor = CrossGameFeatureProvider.getInstance();
+            this.dplcRenderer = donor.getInstaShieldRenderer();
+            SpriteArtSet artSet = donor.getInstaShieldArtSet();
             this.animSet = artSet != null ? artSet.animationSet() : null;
         } else {
             this.dplcRenderer = null;

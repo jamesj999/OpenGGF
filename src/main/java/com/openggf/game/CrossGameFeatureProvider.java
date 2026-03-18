@@ -11,6 +11,7 @@ import com.openggf.data.RomByteReader;
 import com.openggf.data.RomManager;
 import com.openggf.data.SpindashDustArtProvider;
 import com.openggf.game.sonic2.Sonic2SuperStateController;
+import com.openggf.game.sonic3k.S3kSpriteDataLoader;
 import com.openggf.game.sonic3k.Sonic3kPlayerArt;
 import com.openggf.game.sonic3k.Sonic3kSuperStateController;
 import com.openggf.game.sonic2.Sonic2DustArt;
@@ -21,9 +22,14 @@ import com.openggf.game.sonic3k.audio.Sonic3kAudioProfile;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.graphics.RenderContext;
 import com.openggf.level.Palette;
+import com.openggf.level.Pattern;
+import com.openggf.level.render.SpriteDplcFrame;
+import com.openggf.level.render.SpriteMappingFrame;
+import com.openggf.sprites.animation.SpriteAnimationSet;
 import com.openggf.sprites.art.SpriteArtSet;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.SuperStateController;
+import com.openggf.sprites.render.PlayerSpriteRenderer;
 
 import java.io.IOException;
 import java.util.Map;
@@ -51,6 +57,8 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
     private DacData donorDacData;
     private PhysicsFeatureSet hybridFeatureSet;
     private RenderContext donorRenderContext;
+    private PlayerSpriteRenderer instaShieldRenderer;
+    private SpriteArtSet instaShieldArtSet;
     private boolean active;
 
     private CrossGameFeatureProvider() {
@@ -97,6 +105,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
         }
 
         initializeDonorAudio();
+        loadInstaShieldArt();
 
         active = true;
         LOGGER.info("Cross-game feature provider initialized with donor: " + donorGameId);
@@ -266,6 +275,8 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
         donorDacData = null;
         hybridFeatureSet = null;
         donorRenderContext = null;
+        instaShieldRenderer = null;
+        instaShieldArtSet = null;
         active = false;
     }
 
@@ -274,6 +285,56 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
             instance.close();
             instance = null;
         }
+    }
+
+    /**
+     * Loads insta-shield art tiles, mappings, DPLCs, and animations from the S3K donor ROM.
+     * Only runs when the donor is S3K; silently skips for S2 donors.
+     */
+    private void loadInstaShieldArt() {
+        if (!"s3k".equalsIgnoreCase(donorGameId) || donorReader == null) {
+            return;
+        }
+        try {
+            Pattern[] tiles = S3kSpriteDataLoader.loadArtTiles(donorReader,
+                    Sonic3kConstants.ART_UNC_INSTA_SHIELD_ADDR,
+                    Sonic3kConstants.ART_UNC_INSTA_SHIELD_SIZE);
+            java.util.List<SpriteMappingFrame> mappings = S3kSpriteDataLoader.loadMappingFrames(
+                    donorReader, Sonic3kConstants.MAP_INSTA_SHIELD_ADDR);
+            java.util.List<SpriteDplcFrame> dplcs = S3kSpriteDataLoader.loadDplcFrames(
+                    donorReader, Sonic3kConstants.DPLC_INSTA_SHIELD_ADDR);
+
+            // Ensure DPLC count doesn't exceed mapping count
+            if (dplcs.size() > mappings.size()) {
+                dplcs = new java.util.ArrayList<>(dplcs.subList(0, mappings.size()));
+            }
+            // Pad DPLC list if shorter than mappings (empty DPLC = reuse previous tiles)
+            while (dplcs.size() < mappings.size()) {
+                dplcs.add(new SpriteDplcFrame(java.util.List.of()));
+            }
+
+            int bankSize = S3kSpriteDataLoader.resolveBankSize(dplcs, mappings);
+            SpriteAnimationSet animSet = S3kSpriteDataLoader.loadAnimationSet(donorReader,
+                    Sonic3kConstants.ANI_INSTA_SHIELD_ADDR,
+                    Sonic3kConstants.ANI_INSTA_SHIELD_COUNT);
+
+            instaShieldArtSet = new SpriteArtSet(tiles, mappings, dplcs,
+                    0, Sonic3kConstants.ART_TILE_SHIELD, 1, bankSize, null, animSet);
+            instaShieldRenderer = new PlayerSpriteRenderer(instaShieldArtSet);
+
+            LOGGER.info("Loaded donor insta-shield art: " + tiles.length + " tiles, "
+                    + mappings.size() + " mapping frames");
+        } catch (IOException e) {
+            LOGGER.warning("Failed to load donor insta-shield art: " + e.getMessage());
+        }
+    }
+
+    public PlayerSpriteRenderer getInstaShieldRenderer() {
+        return instaShieldRenderer;
+    }
+
+    public SpriteArtSet getInstaShieldArtSet() {
+        return instaShieldArtSet;
     }
 
     /**
