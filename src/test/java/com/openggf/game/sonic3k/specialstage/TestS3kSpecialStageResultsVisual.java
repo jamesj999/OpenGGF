@@ -5,6 +5,7 @@ import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
+import com.openggf.data.RomManager;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
@@ -85,6 +86,10 @@ public class TestS3kSpecialStageResultsVisual {
             glfwMakeContextCurrent(window);
             GL.createCapabilities();
 
+            // Reset stale singleton state from prior tests (e.g. headless mode)
+            GraphicsManager.resetInstance();
+            Camera.resetInstance();
+
             GraphicsManager gm = GraphicsManager.getInstance();
             gm.init(Engine.RESOURCES_SHADERS_PIXEL_SHADER_GLSL);
 
@@ -106,6 +111,7 @@ public class TestS3kSpecialStageResultsVisual {
             Rom rom = new Rom();
             assertTrue("Failed to open S3K ROM", rom.open(romFile.getAbsolutePath()));
             GameModuleRegistry.detectAndSetModule(rom);
+            RomManager.getInstance().setRom(rom);
 
             // Configure emerald state for tests
             GameStateManager gs = GameServices.gameState();

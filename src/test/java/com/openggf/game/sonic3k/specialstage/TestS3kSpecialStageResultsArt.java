@@ -2,6 +2,7 @@ package com.openggf.game.sonic3k.specialstage;
 
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
+import com.openggf.data.RomManager;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
 import com.openggf.game.PlayerCharacter;
@@ -32,6 +33,7 @@ public class TestS3kSpecialStageResultsArt {
         Rom rom = new Rom();
         assumeTrue("Failed to open S3K ROM", rom.open(romFile.getAbsolutePath()));
         GameModuleRegistry.detectAndSetModule(rom);
+        RomManager.getInstance().setRom(rom);
 
         Sonic3kObjectArt objectArt = new Sonic3kObjectArt(null, RomByteReader.fromRom(rom));
         Pattern[] patterns = objectArt.loadSSResultsArt(PlayerCharacter.SONIC_AND_TAILS);
@@ -76,6 +78,7 @@ public class TestS3kSpecialStageResultsArt {
         Rom rom = new Rom();
         assumeTrue("Failed to open S3K ROM", rom.open(romFile.getAbsolutePath()));
         GameModuleRegistry.detectAndSetModule(rom);
+        RomManager.getInstance().setRom(rom);
         GameServices.gameState().resetSession();
         GameServices.gameState().addScore(2200);
 

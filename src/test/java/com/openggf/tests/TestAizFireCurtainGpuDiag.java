@@ -5,6 +5,7 @@ import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
+import com.openggf.data.RomManager;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.events.FireCurtainRenderState;
@@ -81,6 +82,11 @@ public class TestAizFireCurtainGpuDiag {
             glfwMakeContextCurrent(window);
             GL.createCapabilities();
 
+            // Reset stale singleton state from prior tests (e.g. headless mode)
+            GraphicsManager.resetInstance();
+            Camera.resetInstance();
+            SpriteManager.getInstance().resetState();
+
             GraphicsManager gm = GraphicsManager.getInstance();
             gm.init(Engine.RESOURCES_SHADERS_PIXEL_SHADER_GLSL);
             glViewport(0, 0, W, H);
@@ -110,6 +116,7 @@ public class TestAizFireCurtainGpuDiag {
             Rom rom = new Rom();
             assertTrue("Failed to open S3K ROM", rom.open(romFile.getAbsolutePath()));
             GameModuleRegistry.detectAndSetModule(rom);
+            RomManager.getInstance().setRom(rom);
 
             // Create player and load AIZ1
             String mainCode = config.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
@@ -145,6 +152,8 @@ public class TestAizFireCurtainGpuDiag {
             glfwDestroyWindow(window);
         }
         glfwTerminate();
+        GraphicsManager.resetInstance();
+        Camera.resetInstance();
     }
 
     @Test
