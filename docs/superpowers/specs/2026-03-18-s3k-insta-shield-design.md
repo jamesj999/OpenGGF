@@ -69,7 +69,7 @@ Modify `tryShieldAbility()` to handle the insta-shield as the null-shield fallba
 
 **`activateInstaShield()` method:**
 - Sets `doubleJumpFlag = 1`
-- Creates `InstaShieldObjectInstance`, registers it with `SpriteManager` as a transient render object
+- Triggers the persistent `InstaShieldObjectInstance` by setting its animation to 1 (attack sequence)
 - Plays `GameSound.INSTA_SHIELD` SFX (already mapped to S3K SFX 0x42)
 
 **Super Sonic gate (sonic3k.asm:23404-23408):**
@@ -115,46 +115,55 @@ if (fs != null && fs.instaShieldEnabled()
 
 **Sidekick:** The `updateSidekick()` path does not need insta-shield logic — only Sonic uses it.
 
-### 4. InstaShieldObjectInstance (Visual)
+### 4. InstaShieldObjectInstance (Visual) — Persistent Model
 
 **New file: `com.openggf.game.sonic3k.objects.InstaShieldObjectInstance`**
 
 Extends `ShieldObjectInstance`, follows the same DPLC-driven pattern as `FireShieldObjectInstance`.
 
-**Key differences from elemental shields:**
+**ROM-accurate persistent lifecycle:** In the ROM, `Obj_InstaShield` lives in the dedicated `(Shield)` RAM slot for the entire level (initialized at `SpawnLevelMainSprites_SpawnPlayers`, line 8361). It idles on anim 0 (empty mapping frame — nothing renders) until `Sonic_InstaShield` sets `(Shield+anim)` to 1 to trigger the attack animation. When elemental shields are destroyed, their destroy routines replace themselves with `Obj_InstaShield` in the same slot.
+
+Our implementation follows this model. The `InstaShieldObjectInstance` is created once and stored in a dedicated `instaShieldObject` field on `AbstractPlayableSprite` (separate from `shieldObject` which holds elemental shields). It persists for the level's lifetime.
+
+**Comparison with elemental shields:**
 
 | Aspect | Elemental Shields | Insta-Shield |
 |--------|------------------|--------------|
-| Lifecycle | Persistent until damage/water | Ephemeral — self-destructs at frame 7 |
-| Storage | `sprite.shieldObject` | Transient via `SpriteManager` |
-| Animation | Loops idle, switches to attack | Starts at attack (anim 1), plays once |
+| Lifecycle | Created on pickup, destroyed on damage/water | Created at level init, persists for level |
+| Storage | `sprite.shieldObject` | `sprite.instaShieldObject` (new field) |
+| Idle state | Loops idle animation (visible) | Anim 0 = empty frame (invisible, no-op render) |
+| Attack state | `setAnimation(1)` on ability use | `setAnimation(1)` on ability use |
 | doubleJumpFlag | Not managed by shield object | Transitions 1→2 at frame 7 |
 
-**Intentional divergence from ROM:** In the ROM, `Obj_InstaShield` is a persistent object that lives in the dedicated `(Shield)` RAM slot for the entire level (initialized at `SpawnLevelMainSprites_SpawnPlayers`, line 8361). It sits idle (anim 0, empty frame) until `Sonic_InstaShield` sets `(Shield+anim)` to 1 to trigger the attack animation. It is never created or destroyed — only its animation changes. When elemental shields are destroyed, their destroy routines replace themselves with `Obj_InstaShield` in the same slot.
-
-Our engine uses an ephemeral model instead: a new `InstaShieldObjectInstance` is created on each activation and removed after the animation completes. This is simpler than maintaining a persistent shield-slot object that idles most of the time, and is functionally equivalent since the only observable effect is the 15-frame attack animation + `doubleJumpFlag` lifecycle. The trade-off is a small allocation per activation rather than one persistent object.
+**Shield slot transitions:**
+- Level init (`instaShieldEnabled`): create `InstaShieldObjectInstance`, store in `sprite.instaShieldObject`
+- `giveShield(FIRE/LIGHTNING/BUBBLE)`: elemental shield goes into `sprite.shieldObject`. Insta-shield object stays in its field but is not rendered (elemental shield takes visual priority via `shieldObject != null` check)
+- Elemental shield destroyed (damage/water): `sprite.shieldObject` cleared. Insta-shield object resumes rendering on next activation
+- Ability activation: `sprite.instaShieldObject.setAnimation(1)` — no allocation, no registration
 
 **Constructor:**
 - Takes `AbstractPlayableSprite` parent reference
 - Loads art via `Sonic3kObjectArtProvider.getShieldDplcRenderer(INSTA_SHIELD)` (native S3K) or `CrossGameFeatureProvider` (donation mode)
-- Starts animation index 1 (attack sequence)
+- Starts on animation index 0 (idle — empty frame)
 
 **`update()` per frame:**
 1. Step animation
-2. If `mapping_frame == 7` (final frame) and parent's `doubleJumpFlag == 1`:
+2. If `mapping_frame == 7` (final frame of attack) and parent's `doubleJumpFlag == 1`:
    - Set parent's `doubleJumpFlag = 2` (attack over, normal hitbox resumes)
-3. If `mapping_frame == 7`: remove self from `SpriteManager`
+3. Animation's SWITCH end-action returns to anim 0 (idle) automatically
 
 **`appendRenderCommands()`:**
-- DPLC renderer at parent's centre position, inheriting facing direction
+- If `shieldObject != null` (elemental shield active): don't render (elemental takes priority)
+- If current mapping frame has 0 pieces (anim 0 idle): don't render (nothing to draw)
+- Otherwise: DPLC renderer at parent's centre position, inheriting facing direction
 - Hidden when parent has `Status_Invincible` (star sparkles take visual priority)
 - Wireframe fallback: white/cyan diamond, 24px half-size
 
-**Animation sequence** (Anim script 1):
-```
-delay=0, frames: [0, 0, 1, 2, 3, 4, 5, 6, 6, 6, 6, 6, 6, 6, 7]
-endAction: SWITCH to anim 0 (but we self-destruct at frame 7 before this)
-```
+**Animation scripts:**
+- **Anim 0 (idle):** `delay=0x1F, frames: [6], endAction: HOLD` — frame 6 maps to `word_1A152` which has `dc.w 0` (0 pieces = invisible). This is the default state.
+- **Anim 1 (attack):** `delay=0, frames: [0, 0, 1, 2, 3, 4, 5, 6, 6, 6, 6, 6, 6, 6, 7], endAction: SWITCH to anim 0` — plays the attack sequence, then returns to idle.
+
+**Initialization site:** When `instaShieldEnabled` is true, the insta-shield object is created during player sprite initialization (alongside spindash dust, shield object, etc.). For cross-game donation, this happens when `CrossGameFeatureProvider.isActive()` and the donor is S3K.
 
 ### 5. Art Loading
 
@@ -188,9 +197,9 @@ public PlayerSpriteRenderer getInstaShieldRenderer() { ... }
 public SpriteArtSet getInstaShieldArtSet() { ... }
 ```
 
-These load the insta-shield art/map/dplc/anim from the S3K donor ROM using the same `loadSingleShieldArt()` pattern. Called lazily on first insta-shield activation.
+These load the insta-shield art/map/dplc/anim from the S3K donor ROM using the same `loadSingleShieldArt()` pattern. Loaded eagerly during `CrossGameFeatureProvider.initialize()` alongside the other donor assets.
 
-**`InstaShieldObjectInstance` resolution order:**
+**`InstaShieldObjectInstance` art resolution order:**
 1. If `CrossGameFeatureProvider.isActive()` → use donor art
 2. Else if `Sonic3kObjectArtProvider` available → use native S3K art
 3. Else → wireframe fallback
@@ -205,7 +214,7 @@ No new states. The existing 3-state system matches the ROM exactly:
 | 1 | Attacking (expanded hitbox, enemy invincibility) | `tryShieldAbility()` | `InstaShieldObjectInstance` at frame 7 |
 | 2 | Post-attack (normal hitbox, visual fading) | `InstaShieldObjectInstance` at frame 7 | Landing via `resetOnFloor()` |
 
-The 1→2 transition happens inside `InstaShieldObjectInstance.update()` when `mapping_frame == 7`, matching sonic3k.asm:34607-34611.
+The 1→2 transition happens inside `InstaShieldObjectInstance.update()` when `mapping_frame == 7`, matching sonic3k.asm:34607-34611. The animation then SWITCHes back to anim 0 (idle), and the object is ready for the next activation.
 
 ## Files Changed
 
@@ -218,7 +227,8 @@ The 1→2 transition happens inside `InstaShieldObjectInstance.update()` when `m
 | `CrossGameFeatureProvider.java` | Set `instaShieldEnabled = "s3k".equalsIgnoreCase(donorGameId)` in `buildHybridFeatureSet()`; add insta-shield art loading methods |
 | `PlayableSpriteMovement.java` | Add invincibility gate, Super Sonic gate, and insta-shield branch in `tryShieldAbility()` |
 | `ObjectManager.java` (TouchResponses) | Hitbox expansion when `doubleJumpFlag == 1` with `$73` mask guard; `isOverlapping()`/`isOverlappingXY()` gain `playerWidth` param; `isPlayerAttacking()` gains `instaShieldActive` condition |
-| `InstaShieldObjectInstance.java` (new) | Ephemeral DPLC visual, self-destructs at frame 7, transitions doubleJumpFlag 1→2 |
+| `InstaShieldObjectInstance.java` (new) | Persistent DPLC visual, idles on anim 0, transitions doubleJumpFlag 1→2 at frame 7 |
+| `AbstractPlayableSprite.java` | Add `instaShieldObject` field, create during init when `instaShieldEnabled` |
 | `Sonic3kObjectArtKeys.java` | Add `INSTA_SHIELD` key |
 | `Sonic3kObjectArtProvider.java` | Add insta-shield to `loadShieldArt()` |
 | `Sonic3kConstants.java` | Add 6 ROM address constants |
