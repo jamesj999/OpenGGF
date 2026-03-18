@@ -718,11 +718,17 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		doWallCollisionGround();
 	}
 
-	/** Sonic_Roll: Check if should start rolling (s2.asm:36954) */
+	/** Sonic_Roll / SonicKnux_Roll: Check if should start rolling.
+	 *  S2: s2.asm:36954 (threshold 0x80). S3K: sonic3k.asm:23223 (threshold 0x100). */
 	private void doCheckStartRoll() {
 		short gSpeed = sprite.getGSpeed();
 
-		if (Math.abs(gSpeed) < minStartRollSpeed) return;
+		// S3K uses movingCrouchThreshold ($100) as the roll speed threshold;
+		// below that speed, down enters crouch (handled in updateCrouchState).
+		PhysicsFeatureSet fs = sprite.getPhysicsFeatureSet();
+		int rollThreshold = (fs != null && fs.movingCrouchThreshold() > 0)
+				? fs.movingCrouchThreshold() : minStartRollSpeed;
+		if (Math.abs(gSpeed) < rollThreshold) return;
 		if (inputLeft || inputRight) return;
 		if (!inputDown) return;
 		if (sprite.getAir() || sprite.getRolling()) return;
@@ -1675,6 +1681,20 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	}
 
 	private void updateCrouchState() {
+		// S3K: allow ducking while moving at speeds below the roll threshold.
+		// ROM: sonic3k.asm:23223-23240 (SonicKnux_Roll) — down pressed + |gSpeed| < $100
+		// + not left/right + not on object → enter duck animation.
+		PhysicsFeatureSet fs = sprite.getPhysicsFeatureSet();
+		short movingThreshold = (fs != null) ? fs.movingCrouchThreshold() : 0;
+		if (movingThreshold > 0 && inputDown && !inputLeft && !inputRight
+				&& !sprite.getAir() && !sprite.getRolling() && !sprite.getSpindash()
+				&& Math.abs(sprite.getGSpeed()) < movingThreshold
+				&& !sprite.isOnObject()) {
+			sprite.setCrouching(true);
+			sprite.setBalanceState(0);
+			return;
+		}
+
 		// ROM s2.asm:36237-36245: Balance/crouch/lookup checks happen when standing still
 		// on flat ground (angle + 0x20 & 0xC0 == 0) and not moving (inertia == 0)
 		boolean standingStill = sprite.getGSpeed() == 0 && isOnFlatGround()
