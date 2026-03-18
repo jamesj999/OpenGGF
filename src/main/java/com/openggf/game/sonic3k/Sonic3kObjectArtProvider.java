@@ -557,6 +557,12 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
                     Sonic3kConstants.MAP_BUBBLE_SHIELD_ADDR, Sonic3kConstants.DPLC_BUBBLE_SHIELD_ADDR,
                     Sonic3kConstants.ANI_BUBBLE_SHIELD_ADDR, Sonic3kConstants.ANI_BUBBLE_SHIELD_COUNT,
                     Sonic3kConstants.ART_TILE_SHIELD, 0);
+
+            loadSingleShieldArt(reader, Sonic3kObjectArtKeys.INSTA_SHIELD,
+                    Sonic3kConstants.ART_UNC_INSTA_SHIELD_ADDR, Sonic3kConstants.ART_UNC_INSTA_SHIELD_SIZE,
+                    Sonic3kConstants.MAP_INSTA_SHIELD_ADDR, Sonic3kConstants.DPLC_INSTA_SHIELD_ADDR,
+                    Sonic3kConstants.ANI_INSTA_SHIELD_ADDR, Sonic3kConstants.ANI_INSTA_SHIELD_COUNT,
+                    Sonic3kConstants.ART_TILE_SHIELD, 0);
         } catch (IOException e) {
             LOG.warning("Failed to load shield art: " + e.getMessage());
         }
