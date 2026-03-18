@@ -654,6 +654,15 @@ public class Sonic3kConstants {
     public static final int MAP_BUBBLE_SHIELD_ADDR = 0x019F82;
     public static final int DPLC_BUBBLE_SHIELD_ADDR = 0x01A076;
 
+    // Insta-Shield: 8 mapping frames, 8 DPLC frames, 2 animations
+    // Verified by ROM binary search, 2026-03-18
+    public static final int ART_UNC_INSTA_SHIELD_ADDR = 0x18C084;
+    public static final int ART_UNC_INSTA_SHIELD_SIZE = 1664;  // 52 tiles x 32 bytes
+    public static final int ANI_INSTA_SHIELD_ADDR = 0x0199EA;
+    public static final int ANI_INSTA_SHIELD_COUNT = 2;
+    public static final int MAP_INSTA_SHIELD_ADDR = 0x01A0D0;
+    public static final int DPLC_INSTA_SHIELD_ADDR = 0x01A154;
+
     // ===== Collapsing Platform Mappings (Object 0x04) =====
     // Verified by ROM binary pattern search for offset table fingerprints, 2026-02-17
 

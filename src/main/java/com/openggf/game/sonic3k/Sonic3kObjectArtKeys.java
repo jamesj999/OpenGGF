@@ -28,6 +28,7 @@ public final class Sonic3kObjectArtKeys {
     public static final String LIGHTNING_SHIELD = "lightning_shield";
     public static final String LIGHTNING_SPARK = "lightning_spark";
     public static final String BUBBLE_SHIELD = "bubble_shield";
+    public static final String INSTA_SHIELD = "insta_shield";
     public static final String SS_ENTRY_RING = "ss_entry_ring";
     public static final String SS_ENTRY_FLASH = "ss_entry_flash";
     public static final String END_SIGN = "EndSign";
