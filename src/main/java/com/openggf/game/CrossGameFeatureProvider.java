@@ -302,6 +302,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
                 baseFeatureSet.waterShimmerEnabled(),            // waterShimmerEnabled (from base game)
                 baseFeatureSet.inputAlwaysCapsGroundSpeed(),     // inputAlwaysCapsGroundSpeed (from base game)
                 false,                                          // elementalShieldsEnabled (donor doesn't donate shields)
+                "s3k".equalsIgnoreCase(donorGameId),            // instaShieldEnabled (S3K donor only)
                 baseFeatureSet.angleDiffCardinalSnap(),          // angleDiffCardinalSnap (from base game)
                 baseFeatureSet.extendedEdgeBalance(),            // extendedEdgeBalance (from base game)
                 baseFeatureSet.ringFloorCheckMask(),             // ringFloorCheckMask (from base game)

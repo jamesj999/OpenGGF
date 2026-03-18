@@ -41,6 +41,7 @@ public class TestHybridPhysicsFeatureSet {
                 true,   // waterShimmerEnabled - S1
                 true,   // inputAlwaysCapsGroundSpeed - S1
                 false,  // elementalShieldsEnabled - S1
+                false,  // instaShieldEnabled - S1 (test uses S1 base, no donor context)
                 false,  // angleDiffCardinalSnap - S1
                 false,  // extendedEdgeBalance - S1
                 PhysicsFeatureSet.RING_FLOOR_CHECK_MASK_S1,  // ringFloorCheckMask - S1

@@ -16,6 +16,7 @@ public record PhysicsFeatureSet(
         boolean waterShimmerEnabled,
         boolean inputAlwaysCapsGroundSpeed,
         boolean elementalShieldsEnabled,
+        boolean instaShieldEnabled,
         boolean angleDiffCardinalSnap,
         boolean extendedEdgeBalance,
         /** Bitmask for scattered ring floor-check frequency.
@@ -44,7 +45,7 @@ public record PhysicsFeatureSet(
      *  no angle diff cardinal snap (s1disasm Sonic_Angle directly applies sensor angle),
      *  simple edge balance: single animation, always faces edge (s1disasm/_incObj/01 Sonic.asm:354-375). */
     public static final PhysicsFeatureSet SONIC_1 = new PhysicsFeatureSet(
-            false, null, CollisionModel.UNIFIED, true, LOOK_SCROLL_DELAY_NONE, true, true, false, false, false,
+            false, null, CollisionModel.UNIFIED, true, LOOK_SCROLL_DELAY_NONE, true, true, false, false, false, false,
             RING_FLOOR_CHECK_MASK_S1, null, (short) 0);
 
     /** Sonic 2: spindash with standard speed table (s2.asm:37294), dual collision paths, delayed look scroll,
@@ -53,7 +54,7 @@ public record PhysicsFeatureSet(
      *  extended edge balance: 4 states with precarious/facing-away checks (s2.asm:36246-36373). */
     public static final PhysicsFeatureSet SONIC_2 = new PhysicsFeatureSet(true, new short[]{
             0x0800, 0x0880, 0x0900, 0x0980, 0x0A00, 0x0A80, 0x0B00, 0x0B80, 0x0C00
-    }, CollisionModel.DUAL_PATH, false, LOOK_SCROLL_DELAY_S2, false, false, false, true, true,
+    }, CollisionModel.DUAL_PATH, false, LOOK_SCROLL_DELAY_S2, false, false, false, false, true, true,
             RING_FLOOR_CHECK_MASK_S2, null, (short) 0);
 
     /** Sonic 3&K: spindash with same speed table as S2, dual collision paths, delayed look scroll,
@@ -64,7 +65,7 @@ public record PhysicsFeatureSet(
      *  duck while moving below 0x100 (sonic3k.asm:23236). */
     public static final PhysicsFeatureSet SONIC_3K = new PhysicsFeatureSet(true, new short[]{
             0x0800, 0x0880, 0x0900, 0x0980, 0x0A00, 0x0A80, 0x0B00, 0x0B80, 0x0C00
-    }, CollisionModel.DUAL_PATH, false, LOOK_SCROLL_DELAY_S2, false, false, true, true, true,
+    }, CollisionModel.DUAL_PATH, false, LOOK_SCROLL_DELAY_S2, false, false, true, true, true, true,
             RING_FLOOR_CHECK_MASK_S2, new short[]{
             0x0B00, 0x0B80, 0x0C00, 0x0C80, 0x0D00, 0x0D80, 0x0E00, 0x0E80, 0x0F00
     }, (short) 0x100);
