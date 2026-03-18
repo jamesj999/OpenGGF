@@ -688,11 +688,7 @@ public class Sonic3kObjectArt {
                     Sonic3kConstants.VRAM_RESULTS_NUMBERS - Sonic3kConstants.VRAM_RESULTS_BASE);
 
             // 3. Character name art → VRAM $578 (act 1) or $5A0 (act 2)
-            int charArtAddr = switch (character) {
-                case SONIC_AND_TAILS, SONIC_ALONE -> Sonic3kConstants.ART_KOSM_RESULTS_SONIC_ADDR;
-                case TAILS_ALONE -> Sonic3kConstants.ART_KOSM_RESULTS_TAILS_ADDR;
-                case KNUCKLES -> Sonic3kConstants.ART_KOSM_RESULTS_KNUCKLES_ADDR;
-            };
+            int charArtAddr = getCharacterNameArtAddr(character);
             int charDestVram = (act == 0)
                     ? Sonic3kConstants.VRAM_RESULTS_CHAR_NAME_ACT1
                     : Sonic3kConstants.VRAM_RESULTS_CHAR_NAME_ACT2;
@@ -735,6 +731,139 @@ public class Sonic3kObjectArt {
             LOG.warning("Failed to load results mappings: " + e.getMessage());
             return List.of();
         }
+    }
+
+    /**
+     * Load special stage results screen art from ROM.
+     * <p>
+     * ROM loads art at the SS-specific VRAM positions ($4F1, $523, $5B8, $6BC),
+     * NOT the level results positions. Per-object art_tile offsets in the results
+     * screen code compensate for the difference between these positions and the
+     * tile references in Map_Results.
+     * <p>
+     * Layout (base = $4F1):
+     * <ul>
+     *   <li>$4F1 (index 0): Character name art</li>
+     *   <li>$523 (index $32): SS results text art</li>
+     *   <li>$5B8 (index $C7): General results art</li>
+     *   <li>$6BC (index $1CB): HUD text art</li>
+     * </ul>
+     *
+     * @param character the player character
+     * @return pattern array covering VRAM range $4F1-$7F0, or null on failure
+     */
+    public Pattern[] loadSSResultsArt(PlayerCharacter character) {
+        try {
+            Rom rom = GameServices.rom().getRom();
+            if (rom == null) return null;
+
+            int base = Sonic3kConstants.VRAM_SS_RESULTS_BASE; // $4F1
+            Pattern[] patterns = new Pattern[Sonic3kConstants.VRAM_SS_RESULTS_ARRAY_SIZE];
+            Pattern empty = new Pattern();
+            Arrays.fill(patterns, empty);
+
+            // 1. Character name → VRAM $4F1 (index 0)
+            loadKosmArtInto(rom, getCharacterNameArtAddr(character), patterns,
+                    Sonic3kConstants.VRAM_SS_RESULTS_CHAR_NAME - base);
+
+            // 2. SS results text → VRAM $523 (index $32)
+            loadKosmArtInto(rom, Sonic3kConstants.ART_KOSM_SS_RESULTS_ADDR, patterns,
+                    Sonic3kConstants.VRAM_SS_RESULTS_TEXT - base);
+
+            // 3. General results art → VRAM $5B8 (index $C7)
+            loadKosmArtInto(rom, Sonic3kConstants.ART_KOSM_RESULTS_GENERAL_ADDR, patterns,
+                    Sonic3kConstants.VRAM_SS_RESULTS_GENERAL - base);
+
+            // 4. Ring/HUD text → VRAM $6BC (index $1CB, Nemesis compressed)
+            loadNemesisArtInto(rom, Sonic3kConstants.ART_NEM_RING_HUD_TEXT_ADDR, patterns,
+                    Sonic3kConstants.VRAM_SS_RESULTS_HUD_TEXT - base);
+
+            // 5. Mirror HUD_DrawInitial, which overwrites $6E2+ with large HUD digits.
+            // This is what gives frame $31 its correct "E" plus blank/zero suffix tiles.
+            overlaySpecialStageHudInitial(rom, patterns, base);
+
+            return patterns;
+        } catch (Exception e) {
+            LOG.warning("Failed to load SS results screen art: " + e.getMessage());
+            return null;
+        }
+    }
+
+    // ROM: HUD_DrawInitial reads HUD_Initial_Parts then HUD_Zero_Rings,
+    // producing 15 8x16 glyph uploads: "E      00:00  0"
+    private static final char[] HUD_INITIAL_GLYPHS =
+            {'E', ' ', ' ', ' ', ' ', ' ', ' ', '0', '0', ':', '0', '0', ' ', ' ', '0'};
+
+    private void overlaySpecialStageHudInitial(Rom rom, Pattern[] dest, int base)
+            throws IOException {
+        Pattern[] hudDigits = loadUncompressedPatterns(rom,
+                Sonic3kConstants.ART_UNC_HUD_DIGITS_ADDR,
+                Sonic3kConstants.ART_UNC_HUD_DIGITS_SIZE);
+        int destIndex = Sonic3kConstants.VRAM_SS_RESULTS_HUD_INITIAL - base;
+
+        for (char glyph : HUD_INITIAL_GLYPHS) {
+            writeHudInitialGlyph(dest, destIndex, glyph, hudDigits);
+            destIndex += 2;
+        }
+    }
+
+    private void writeHudInitialGlyph(Pattern[] dest, int destIndex, char glyph,
+            Pattern[] hudDigits) {
+        int srcIndex = switch (glyph) {
+            case '0' -> 0;
+            case ':' -> 0x14;
+            case 'E' -> 0x16;
+            default -> -1;
+        };
+        // Each position needs its own Pattern instance (Pattern is mutable and
+        // downstream code may modify individual tiles in-place).
+        Pattern top = (srcIndex >= 0) ? hudDigits[srcIndex] : new Pattern();
+        Pattern bottom = (srcIndex >= 0 && srcIndex + 1 < hudDigits.length)
+                ? hudDigits[srcIndex + 1] : new Pattern();
+        if (destIndex >= 0 && destIndex + 1 < dest.length) {
+            dest[destIndex] = top;
+            dest[destIndex + 1] = bottom;
+        }
+    }
+
+    /**
+     * Decompresses Nemesis art from ROM and places patterns into a destination array.
+     */
+    private void loadNemesisArtInto(Rom rom, int romAddr, Pattern[] dest, int destIndex)
+            throws IOException {
+        loadNemesisArtInto(rom, romAddr, dest, destIndex, -1);
+    }
+
+    /**
+     * Decompresses Nemesis art from ROM and places patterns into a destination array.
+     * @param maxTiles maximum tiles to load, or -1 for all
+     */
+    private void loadNemesisArtInto(Rom rom, int romAddr, Pattern[] dest, int destIndex, int maxTiles)
+            throws IOException {
+        FileChannel channel = rom.getFileChannel();
+        channel.position(romAddr);
+        byte[] data = NemesisReader.decompress(channel);
+        int tileCount = data.length / Pattern.PATTERN_SIZE_IN_ROM;
+        if (maxTiles >= 0) tileCount = Math.min(tileCount, maxTiles);
+        for (int i = 0; i < tileCount; i++) {
+            int idx = destIndex + i;
+            if (idx >= 0 && idx < dest.length) {
+                byte[] tileData = Arrays.copyOfRange(data,
+                        i * Pattern.PATTERN_SIZE_IN_ROM,
+                        (i + 1) * Pattern.PATTERN_SIZE_IN_ROM);
+                Pattern pat = new Pattern();
+                pat.fromSegaFormat(tileData);
+                dest[idx] = pat;
+            }
+        }
+    }
+
+    private int getCharacterNameArtAddr(PlayerCharacter character) {
+        return switch (character) {
+            case SONIC_AND_TAILS, SONIC_ALONE -> Sonic3kConstants.ART_KOSM_RESULTS_SONIC_ADDR;
+            case TAILS_ALONE -> Sonic3kConstants.ART_KOSM_RESULTS_TAILS_ADDR;
+            case KNUCKLES -> Sonic3kConstants.ART_KOSM_RESULTS_KNUCKLES_ADDR;
+        };
     }
 
     /**

@@ -1,6 +1,6 @@
 package com.openggf.game.sonic3k.specialstage;
 
-import com.openggf.game.NoOpResultsScreen;
+import com.openggf.game.PlayerCharacter;
 import com.openggf.game.ResultsScreen;
 import com.openggf.game.SpecialStageAccessType;
 import com.openggf.game.SpecialStageDebugProvider;
@@ -38,7 +38,10 @@ public class Sonic3kSpecialStageProvider implements SpecialStageProvider {
 
     @Override
     public int getResultsMusicId() {
-        return Sonic3kMusic.ACT_CLEAR.id;
+        // Return -1: S3K results screen plays music internally at the ROM-accurate
+        // frame (71 frames into the 360-frame pre-tally wait, when countdown == 289).
+        // Returning a music ID here would cause GameLoop to double-play it immediately.
+        return -1;
     }
 
     @Override
@@ -165,8 +168,10 @@ public class Sonic3kSpecialStageProvider implements SpecialStageProvider {
     @Override
     public ResultsScreen createResultsScreen(int ringsCollected, boolean gotEmerald,
                                              int stageIndex, int totalEmeraldCount) {
-        // TODO Phase 7: Return Sonic3kSpecialStageResultsScreen
-        return NoOpResultsScreen.INSTANCE;
+        PlayerCharacter character = com.openggf.game.sonic3k.Sonic3kLevelEventManager
+                .getInstance().getPlayerCharacter();
+        return new S3kSpecialStageResultsScreen(
+                ringsCollected, gotEmerald, stageIndex, totalEmeraldCount, character);
     }
 
     // ==================== MiniGameProvider Methods ====================

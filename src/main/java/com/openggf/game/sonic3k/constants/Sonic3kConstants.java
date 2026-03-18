@@ -594,6 +594,26 @@ public class Sonic3kConstants {
     public static final int VRAM_RESULTS_CHAR_NAME_ACT2 = 0x5A0;         // Character name (act 2)
     public static final int VRAM_RESULTS_ARRAY_SIZE = 0x200;             // Total tile range $520-$71F (includes HUD text tiles at $6xx)
 
+    // ===== Special Stage Results Art (KosinskiM) =====
+    // ROM: SpecialStage_Results (sonic3k.asm lines 63054-63094)
+    public static final int ART_KOSM_SS_RESULTS_ADDR = 0x15BABE;          // SS results text art (149 tiles, 4768 bytes decompressed)
+    public static final int ART_KOSM_SS_RESULTS_SUPER_ADDR = 0x15B374;    // Super form art (Sonic)
+    public static final int ART_KOSM_SS_RESULTS_SUPER_K_ADDR = 0x15B4F6;  // Super form art (Knuckles)
+
+    // ===== Special Stage Results VRAM Layout =====
+    // Different from level results: character name at $4F1, Super art at $50F, text at $523, general at $5B8
+    public static final int VRAM_SS_RESULTS_CHAR_NAME = 0x4F1;   // Character name art dest
+    public static final int VRAM_SS_RESULTS_SUPER = 0x50F;        // Super form art dest
+    public static final int VRAM_SS_RESULTS_TEXT = 0x523;          // SS results specific text dest
+    public static final int VRAM_SS_RESULTS_GENERAL = 0x5B8;      // General results art dest (same art, different VRAM)
+    public static final int VRAM_SS_RESULTS_HUD_TEXT = 0x6BC;       // Ring/HUD text art dest (Nemesis)
+    public static final int VRAM_SS_RESULTS_HUD_INITIAL = 0x6E2;  // HUD_DrawInitial overlay dest
+    public static final int VRAM_SS_RESULTS_BASE = 0x4F1;         // Lowest VRAM address used
+    public static final int VRAM_SS_RESULTS_ARRAY_SIZE = 0x300;   // Tile range $4F1-$7F0
+
+    // HUD text art (Nemesis) — loaded by HUD_DrawInitial to VRAM $6E2 in SS results
+    public static final int ART_NEM_HUD_TEXT_ADDR = 0x35CDBA;   // 24 tiles (768 bytes)
+
     // ===== Shield Art (uncompressed binclude in S3 data region) =====
     // Verified by binary pattern match against skdisasm .bin files, 2026-02-17
 

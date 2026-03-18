@@ -572,7 +572,8 @@ public class Engine {
 				glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 			}
 		} else if (getCurrentGameMode() == GameMode.SPECIAL_STAGE_RESULTS) {
-			glClearColor(0.85f, 0.9f, 0.95f, 1.0f);
+			// White background — Pal_Results sets backdrop color to white ($0EEE)
+			glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 		} else if (getCurrentGameMode() == GameMode.TITLE_SCREEN) {
 			// Title screen backdrop is palette 2, color 0 (per VDP register $8720)
 			TitleScreenProvider titleScreen = gameLoop.getTitleScreenProvider();
@@ -738,10 +739,18 @@ public class Engine {
 				resultsCommands.clear();
 				resultsScreen.appendRenderCommands(resultsCommands);
 
+				// Flush pattern batch (PatternSpriteRenderer renders through the
+				// instanced batch system, not through the GLCommand list)
+				graphicsManager.flushPatternBatch();
+
+				// Also register any GLCommand-based rendering (S2 results screen)
 				if (!resultsCommands.isEmpty()) {
 					graphicsManager.registerCommand(new GLCommandGroup(
 							GL_LINES, resultsCommands));
 				}
+
+				// Execute all queued commands in screen space (camera at 0,0)
+				graphicsManager.flushScreenSpace();
 			}
 		} else if (getCurrentGameMode() == GameMode.TITLE_SCREEN) {
 			// Render title screen
