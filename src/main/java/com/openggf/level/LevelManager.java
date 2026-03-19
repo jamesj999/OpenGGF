@@ -909,8 +909,8 @@ public class LevelManager {
         if (objectManager != null) {
             Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
             AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
-            AbstractPlayableSprite sidekick = spriteManager.getSidekick();
-            objectManager.update(Camera.getInstance().getX(), playable, sidekick, frameCounter + 1);
+            List<AbstractPlayableSprite> sidekicks = spriteManager.getSidekicks();
+            objectManager.update(Camera.getInstance().getX(), playable, sidekicks, frameCounter + 1);
         }
     }
 
@@ -925,8 +925,8 @@ public class LevelManager {
         if (objectManager != null) {
             Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
             AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
-            AbstractPlayableSprite sidekick = spriteManager.getSidekick();
-            objectManager.update(Camera.getInstance().getX(), playable, sidekick, frameCounter + 1, false);
+            List<AbstractPlayableSprite> sidekicks = spriteManager.getSidekicks();
+            objectManager.update(Camera.getInstance().getX(), playable, sidekicks, frameCounter + 1, false);
         }
     }
 
