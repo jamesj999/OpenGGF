@@ -305,7 +305,8 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
                 baseFeatureSet.angleDiffCardinalSnap(),          // angleDiffCardinalSnap (from base game)
                 baseFeatureSet.extendedEdgeBalance(),            // extendedEdgeBalance (from base game)
                 baseFeatureSet.ringFloorCheckMask(),             // ringFloorCheckMask (from base game)
-                null                                             // superSpindashSpeedTable (not donated)
+                null,                                            // superSpindashSpeedTable (not donated)
+                (short) 0                                        // movingCrouchThreshold (not donated)
         );
     }
 }
