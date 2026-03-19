@@ -343,4 +343,18 @@ public interface GameModule {
     default LevelInitProfile getLevelInitProfile() {
         return AbstractLevelInitProfile.EMPTY;
     }
+
+    /**
+     * Returns the donor capabilities for this game, describing which characters,
+     * moves, and art assets it can supply when used as a sprite donor in
+     * cross-game feature donation.
+     *
+     * <p>Returns {@code null} by default, meaning this game does not support
+     * acting as a donor. Override in game modules that implement donation.</p>
+     *
+     * @return a {@link DonorCapabilities} instance, or {@code null} if not supported
+     */
+    default DonorCapabilities getDonorCapabilities() {
+        return null;
+    }
 }
