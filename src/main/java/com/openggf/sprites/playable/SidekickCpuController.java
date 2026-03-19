@@ -113,32 +113,36 @@ public class SidekickCpuController {
     }
 
     private void updateSpawning() {
-        if (leader.getDead()) {
+        // Use effective leader for respawn checks — if our direct leader is also
+        // despawned, chain-heal to whoever IS available (allows parallel respawn
+        // instead of sequential cascade).
+        AbstractPlayableSprite target = getEffectiveLeader();
+        if (target == null || target.getDead()) {
             return;
         }
         if ((controller2Logical & RESPAWN_BYPASS_MASK) != 0) {
-            respawnToApproaching();
+            respawnToApproaching(target);
             return;
         }
         if ((frameCounter & 0x3F) != 0) {
             return;
         }
-        if (leader.isObjectControlled()) {
+        if (target.isObjectControlled()) {
             return;
         }
-        if (leader.getAir() || leader.getRollingJump() || leader.isInWater() || leader.isPreventTailsRespawn()) {
+        if (target.getAir() || target.getRollingJump() || target.isInWater() || target.isPreventTailsRespawn()) {
             return;
         }
-        respawnToApproaching();
+        respawnToApproaching(target);
     }
 
-    private void respawnToApproaching() {
+    private void respawnToApproaching(AbstractPlayableSprite target) {
         state = State.APPROACHING;
         controlCounter = 0;
         despawnCounter = 0;
         normalFrameCount = 0;
         jumpingFlag = false;
-        respawnStrategy.beginApproach(sidekick, leader);
+        respawnStrategy.beginApproach(sidekick, target);
     }
 
     private void updateApproaching() {
