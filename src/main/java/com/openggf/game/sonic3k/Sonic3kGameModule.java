@@ -6,6 +6,7 @@ import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.sonic3k.audio.Sonic3kAudioProfile;
 import com.openggf.game.CanonicalAnimation;
+import com.openggf.game.CrossGameFeatureProvider;
 import com.openggf.game.DebugModeProvider;
 import com.openggf.game.DonorCapabilities;
 import com.openggf.game.PlayerCharacter;
@@ -195,6 +196,9 @@ public class Sonic3kGameModule implements GameModule {
     @Override
     public SuperStateController createSuperStateController(
             AbstractPlayableSprite player) {
+        if (CrossGameFeatureProvider.isActive()) {
+            return CrossGameFeatureProvider.getInstance().createSuperStateController(player);
+        }
         return new Sonic3kSuperStateController(player);
     }
 
