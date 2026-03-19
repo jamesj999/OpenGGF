@@ -501,7 +501,9 @@ public class SidekickCpuController {
         controller2Logical = 0;
         normalFrameCount = 0;
         jumpingFlag = false;
-        leader = null;
+        // Note: leader is NOT cleared — it's a structural chain relationship set at
+        // construction time, not per-level state. Clearing it would break the sidekick
+        // permanently since findLeader() scanning was removed in favor of explicit assignment.
         lastRidingObject = null;
         minXBound = Integer.MIN_VALUE;
         maxXBound = Integer.MIN_VALUE;

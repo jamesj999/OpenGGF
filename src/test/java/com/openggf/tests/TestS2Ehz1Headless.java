@@ -660,19 +660,15 @@ public class TestS2Ehz1Headless {
     }
 
     @Test
-    public void testClearsInputsWhenNoSonicFound() {
+    public void testClearsInputsWhenNoLeader() {
         createTailsForTest();
-        // Remove Sonic from SpriteManager
-        SpriteManager.getInstance().clearAllSprites();
-        // Re-add only Tails
-        SpriteManager.getInstance().addSprite(tails);
-
-        // Reset controller to clear cached Sonic reference
-        controller.reset();
+        // Explicitly clear leader — simulates a disconnected sidekick.
+        // With explicit leader assignment (no scan), null leader = idle.
+        controller.setLeader(null);
         controller.update(0);
 
-        // Should stay in INIT (can't transition without Sonic)
-        assertEquals("Should stay in INIT when no Sonic found",
+        // Should stay in INIT (leader is null, update() returns early)
+        assertEquals("Should stay in INIT when no leader set",
                 SidekickCpuController.State.INIT, controller.getState());
         assertFalse(controller.getInputLeft());
         assertFalse(controller.getInputRight());
