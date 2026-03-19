@@ -19,9 +19,13 @@ import com.openggf.game.sonic2.objects.Sonic2ObjectRegistry;
 import com.openggf.game.sonic2.scroll.Sonic2ScrollHandlerProvider;
 import com.openggf.game.sonic2.titlecard.TitleCardManager;
 import com.openggf.game.sonic2.titlescreen.TitleScreenManager;
+import com.openggf.game.CanonicalAnimation;
 import com.openggf.game.CheckpointState;
 import com.openggf.game.CrossGameFeatureProvider;
+import com.openggf.game.DonorCapabilities;
 import com.openggf.game.EndingProvider;
+import com.openggf.game.PlayerCharacter;
+import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
 import com.openggf.game.GameModule;
 import com.openggf.game.LevelEventProvider;
 import com.openggf.game.WaterDataProvider;
@@ -256,5 +260,100 @@ public class Sonic2GameModule implements GameModule {
     @Override
     public EndingProvider getEndingProvider() {
         return new Sonic2EndingProvider();
+    }
+
+    @Override
+    public DonorCapabilities getDonorCapabilities() {
+        return Sonic2DonorCapabilities.INSTANCE;
+    }
+
+    /** Lazily-constructed singleton holding S2 donation metadata. */
+    private static final class Sonic2DonorCapabilities implements DonorCapabilities {
+
+        static final Sonic2DonorCapabilities INSTANCE = new Sonic2DonorCapabilities();
+
+        private static final java.util.Set<PlayerCharacter> CHARACTERS =
+                java.util.Set.of(
+                        PlayerCharacter.SONIC_ALONE,
+                        PlayerCharacter.SONIC_AND_TAILS,
+                        PlayerCharacter.TAILS_ALONE);
+
+        private static final java.util.Map<CanonicalAnimation, CanonicalAnimation> FALLBACKS =
+                buildFallbacks();
+
+        private static java.util.Map<CanonicalAnimation, CanonicalAnimation> buildFallbacks() {
+            java.util.Map<CanonicalAnimation, CanonicalAnimation> map =
+                    new java.util.EnumMap<>(CanonicalAnimation.class);
+            // Identity entries for all native S2 animations (skip super-table variants)
+            for (Sonic2AnimationIds anim : Sonic2AnimationIds.values()) {
+                CanonicalAnimation canonical = anim.toCanonical();
+                if (canonical != null) {
+                    map.put(canonical, canonical);
+                }
+            }
+            // S1-specific animations -> nearest S2 native fallback
+            map.put(CanonicalAnimation.STOP,           CanonicalAnimation.SKID);
+            map.put(CanonicalAnimation.WARP1,          CanonicalAnimation.ROLL);
+            map.put(CanonicalAnimation.WARP2,          CanonicalAnimation.ROLL);
+            map.put(CanonicalAnimation.WARP3,          CanonicalAnimation.ROLL);
+            map.put(CanonicalAnimation.WARP4,          CanonicalAnimation.ROLL);
+            map.put(CanonicalAnimation.FLOAT3,         CanonicalAnimation.SPRING);
+            map.put(CanonicalAnimation.FLOAT4,         CanonicalAnimation.SPRING);
+            map.put(CanonicalAnimation.LEAP1,          CanonicalAnimation.SPRING);
+            map.put(CanonicalAnimation.LEAP2,          CanonicalAnimation.SPRING);
+            map.put(CanonicalAnimation.SURF,           CanonicalAnimation.WAIT);
+            map.put(CanonicalAnimation.GET_AIR,        CanonicalAnimation.BUBBLE);
+            map.put(CanonicalAnimation.BURNT,          CanonicalAnimation.HURT);
+            map.put(CanonicalAnimation.SHRINK,         CanonicalAnimation.DEATH);
+            map.put(CanonicalAnimation.WATER_SLIDE,    CanonicalAnimation.SLIDE);
+            map.put(CanonicalAnimation.NULL_ANIM,      CanonicalAnimation.WAIT);
+            // S3K-specific animations -> nearest S2 native fallback
+            map.put(CanonicalAnimation.BLINK,          CanonicalAnimation.WAIT);
+            map.put(CanonicalAnimation.GET_UP,         CanonicalAnimation.WAIT);
+            map.put(CanonicalAnimation.VICTORY,        CanonicalAnimation.WAIT);
+            map.put(CanonicalAnimation.GLIDE_DROP,     CanonicalAnimation.SPRING);
+            map.put(CanonicalAnimation.GLIDE_LAND,     CanonicalAnimation.WAIT);
+            map.put(CanonicalAnimation.GLIDE_SLIDE,    CanonicalAnimation.SLIDE);
+            map.put(CanonicalAnimation.BLANK,          CanonicalAnimation.WAIT);
+            map.put(CanonicalAnimation.HURT_FALL,      CanonicalAnimation.HURT);
+            return java.util.Collections.unmodifiableMap(map);
+        }
+
+        @Override
+        public java.util.Set<PlayerCharacter> getPlayableCharacters() { return CHARACTERS; }
+
+        @Override
+        public boolean hasSpindash() { return true; }
+
+        @Override
+        public boolean hasSuperTransform() { return true; }
+
+        @Override
+        public boolean hasHyperTransform() { return false; }
+
+        @Override
+        public boolean hasInstaShield() { return false; }
+
+        @Override
+        public boolean hasElementalShields() { return false; }
+
+        @Override
+        public boolean hasSidekick() { return true; }
+
+        @Override
+        public java.util.Map<CanonicalAnimation, CanonicalAnimation> getAnimationFallbacks() {
+            return FALLBACKS;
+        }
+
+        @Override
+        public int resolveNativeId(CanonicalAnimation canonical) {
+            return Sonic2AnimationIds.fromCanonical(canonical);
+        }
+
+        @Override
+        public com.openggf.data.PlayerSpriteArtProvider getPlayerArtProvider(
+                com.openggf.data.RomByteReader reader) {
+            return characterCode -> new Sonic2PlayerArt(reader).loadForCharacter(characterCode);
+        }
     }
 }

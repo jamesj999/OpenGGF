@@ -5,7 +5,11 @@ import com.openggf.data.Game;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.sonic3k.audio.Sonic3kAudioProfile;
+import com.openggf.game.CanonicalAnimation;
 import com.openggf.game.DebugModeProvider;
+import com.openggf.game.DonorCapabilities;
+import com.openggf.game.PlayerCharacter;
+import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.game.DebugOverlayProvider;
 import com.openggf.game.GameModule;
 import com.openggf.game.LevelEventProvider;
@@ -211,5 +215,95 @@ public class Sonic3kGameModule implements GameModule {
     @Override
     public boolean supportsSidekick() {
         return true;
+    }
+
+    @Override
+    public DonorCapabilities getDonorCapabilities() {
+        return Sonic3kDonorCapabilities.INSTANCE;
+    }
+
+    /** Lazily-constructed singleton holding S3K donation metadata. */
+    private static final class Sonic3kDonorCapabilities implements DonorCapabilities {
+
+        static final Sonic3kDonorCapabilities INSTANCE = new Sonic3kDonorCapabilities();
+
+        private static final java.util.Set<PlayerCharacter> CHARACTERS =
+                java.util.Set.of(
+                        PlayerCharacter.SONIC_ALONE,
+                        PlayerCharacter.SONIC_AND_TAILS,
+                        PlayerCharacter.TAILS_ALONE,
+                        PlayerCharacter.KNUCKLES);
+
+        private static final java.util.Map<CanonicalAnimation, CanonicalAnimation> FALLBACKS =
+                buildFallbacks();
+
+        private static java.util.Map<CanonicalAnimation, CanonicalAnimation> buildFallbacks() {
+            java.util.Map<CanonicalAnimation, CanonicalAnimation> map =
+                    new java.util.EnumMap<>(CanonicalAnimation.class);
+            // Identity entries for all native S3K animations
+            for (Sonic3kAnimationIds anim : Sonic3kAnimationIds.values()) {
+                CanonicalAnimation canonical = anim.toCanonical();
+                if (canonical != null) {
+                    map.put(canonical, canonical);
+                }
+            }
+            // S1-specific animations -> nearest S3K native fallback
+            map.put(CanonicalAnimation.STOP,           CanonicalAnimation.SKID);
+            map.put(CanonicalAnimation.WARP1,          CanonicalAnimation.ROLL);
+            map.put(CanonicalAnimation.WARP2,          CanonicalAnimation.ROLL);
+            map.put(CanonicalAnimation.WARP3,          CanonicalAnimation.ROLL);
+            map.put(CanonicalAnimation.WARP4,          CanonicalAnimation.ROLL);
+            map.put(CanonicalAnimation.FLOAT3,         CanonicalAnimation.SPRING);
+            map.put(CanonicalAnimation.FLOAT4,         CanonicalAnimation.SPRING);
+            map.put(CanonicalAnimation.LEAP1,          CanonicalAnimation.SPRING);
+            map.put(CanonicalAnimation.LEAP2,          CanonicalAnimation.SPRING);
+            map.put(CanonicalAnimation.SURF,           CanonicalAnimation.WAIT);
+            map.put(CanonicalAnimation.GET_AIR,        CanonicalAnimation.BLANK);
+            map.put(CanonicalAnimation.BURNT,          CanonicalAnimation.HURT);
+            map.put(CanonicalAnimation.SHRINK,         CanonicalAnimation.DEATH);
+            map.put(CanonicalAnimation.WATER_SLIDE,    CanonicalAnimation.HURT_FALL);
+            map.put(CanonicalAnimation.NULL_ANIM,      CanonicalAnimation.BLANK);
+            // S2-specific animations not in S3K -> nearest S3K native fallback
+            map.put(CanonicalAnimation.SLIDE,          CanonicalAnimation.HURT_FALL);
+            map.put(CanonicalAnimation.HURT2,          CanonicalAnimation.HURT);
+            return java.util.Collections.unmodifiableMap(map);
+        }
+
+        @Override
+        public java.util.Set<PlayerCharacter> getPlayableCharacters() { return CHARACTERS; }
+
+        @Override
+        public boolean hasSpindash() { return true; }
+
+        @Override
+        public boolean hasSuperTransform() { return true; }
+
+        @Override
+        public boolean hasHyperTransform() { return true; }
+
+        @Override
+        public boolean hasInstaShield() { return true; }
+
+        @Override
+        public boolean hasElementalShields() { return true; }
+
+        @Override
+        public boolean hasSidekick() { return true; }
+
+        @Override
+        public java.util.Map<CanonicalAnimation, CanonicalAnimation> getAnimationFallbacks() {
+            return FALLBACKS;
+        }
+
+        @Override
+        public int resolveNativeId(CanonicalAnimation canonical) {
+            return Sonic3kAnimationIds.fromCanonical(canonical);
+        }
+
+        @Override
+        public com.openggf.data.PlayerSpriteArtProvider getPlayerArtProvider(
+                com.openggf.data.RomByteReader reader) {
+            return characterCode -> new Sonic3kPlayerArt(reader).loadForCharacter(characterCode);
+        }
     }
 }

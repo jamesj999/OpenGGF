@@ -37,9 +37,13 @@ import com.openggf.game.sonic1.levelselect.Sonic1LevelSelectManager;
 import com.openggf.game.sonic1.objects.Sonic1ObjectRegistry;
 import com.openggf.game.sonic1.scroll.Sonic1ScrollHandlerProvider;
 import com.openggf.game.CheckpointState;
+import com.openggf.game.CanonicalAnimation;
 import com.openggf.game.CrossGameFeatureProvider;
+import com.openggf.game.DonorCapabilities;
 import com.openggf.game.LevelGamestate;
 import com.openggf.game.OscillationManager;
+import com.openggf.game.PlayerCharacter;
+import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
 import com.openggf.game.sonic1.titlecard.Sonic1TitleCardManager;
 import com.openggf.level.objects.ObjectRegistry;
 import com.openggf.level.objects.PlaneSwitcherConfig;
@@ -262,5 +266,92 @@ public class Sonic1GameModule implements GameModule {
             return CrossGameFeatureProvider.getInstance().createSuperStateController(player);
         }
         return null; // Vanilla S1 has no Super Sonic
+    }
+
+    @Override
+    public DonorCapabilities getDonorCapabilities() {
+        return Sonic1DonorCapabilities.INSTANCE;
+    }
+
+    /** Lazily-constructed singleton holding S1 donation metadata. */
+    private static final class Sonic1DonorCapabilities implements DonorCapabilities {
+
+        static final Sonic1DonorCapabilities INSTANCE = new Sonic1DonorCapabilities();
+
+        private static final java.util.Set<PlayerCharacter> CHARACTERS =
+                java.util.Set.of(PlayerCharacter.SONIC_ALONE);
+
+        private static final java.util.Map<CanonicalAnimation, CanonicalAnimation> FALLBACKS =
+                buildFallbacks();
+
+        private static java.util.Map<CanonicalAnimation, CanonicalAnimation> buildFallbacks() {
+            java.util.Map<CanonicalAnimation, CanonicalAnimation> map =
+                    new java.util.EnumMap<>(CanonicalAnimation.class);
+            // Identity entries for all native S1 animations
+            for (Sonic1AnimationIds anim : Sonic1AnimationIds.values()) {
+                CanonicalAnimation canonical = anim.toCanonical();
+                if (canonical != null) {
+                    map.put(canonical, canonical);
+                }
+            }
+            // Non-native animations -> nearest native fallback
+            map.put(CanonicalAnimation.SPINDASH,       CanonicalAnimation.DUCK);
+            map.put(CanonicalAnimation.SKID,           CanonicalAnimation.STOP);
+            map.put(CanonicalAnimation.SLIDE,          CanonicalAnimation.ROLL);
+            map.put(CanonicalAnimation.BLINK,          CanonicalAnimation.WAIT);
+            map.put(CanonicalAnimation.GET_UP,         CanonicalAnimation.WAIT);
+            map.put(CanonicalAnimation.VICTORY,        CanonicalAnimation.WAIT);
+            map.put(CanonicalAnimation.BLANK,          CanonicalAnimation.WAIT);
+            map.put(CanonicalAnimation.GLIDE_DROP,     CanonicalAnimation.SPRING);
+            map.put(CanonicalAnimation.GLIDE_LAND,     CanonicalAnimation.WAIT);
+            map.put(CanonicalAnimation.GLIDE_SLIDE,    CanonicalAnimation.PUSH);
+            map.put(CanonicalAnimation.HANG2,          CanonicalAnimation.HANG);
+            map.put(CanonicalAnimation.BALANCE2,       CanonicalAnimation.BALANCE);
+            map.put(CanonicalAnimation.BALANCE3,       CanonicalAnimation.BALANCE);
+            map.put(CanonicalAnimation.BALANCE4,       CanonicalAnimation.BALANCE);
+            map.put(CanonicalAnimation.FLY,            CanonicalAnimation.SPRING);
+            map.put(CanonicalAnimation.SUPER_TRANSFORM, CanonicalAnimation.WAIT);
+            map.put(CanonicalAnimation.BUBBLE,         CanonicalAnimation.GET_AIR);
+            map.put(CanonicalAnimation.HURT2,          CanonicalAnimation.HURT);
+            map.put(CanonicalAnimation.HURT_FALL,      CanonicalAnimation.HURT);
+            return java.util.Collections.unmodifiableMap(map);
+        }
+
+        @Override
+        public java.util.Set<PlayerCharacter> getPlayableCharacters() { return CHARACTERS; }
+
+        @Override
+        public boolean hasSpindash() { return false; }
+
+        @Override
+        public boolean hasSuperTransform() { return false; }
+
+        @Override
+        public boolean hasHyperTransform() { return false; }
+
+        @Override
+        public boolean hasInstaShield() { return false; }
+
+        @Override
+        public boolean hasElementalShields() { return false; }
+
+        @Override
+        public boolean hasSidekick() { return false; }
+
+        @Override
+        public java.util.Map<CanonicalAnimation, CanonicalAnimation> getAnimationFallbacks() {
+            return FALLBACKS;
+        }
+
+        @Override
+        public int resolveNativeId(CanonicalAnimation canonical) {
+            return Sonic1AnimationIds.fromCanonical(canonical);
+        }
+
+        @Override
+        public com.openggf.data.PlayerSpriteArtProvider getPlayerArtProvider(
+                com.openggf.data.RomByteReader reader) {
+            return characterCode -> new Sonic1PlayerArt(reader).loadForCharacter(characterCode);
+        }
     }
 }
