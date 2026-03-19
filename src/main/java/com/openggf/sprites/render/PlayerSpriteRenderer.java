@@ -78,6 +78,9 @@ public class PlayerSpriteRenderer {
                 hFlip,
                 vFlip,
                 (patternIndex, pieceHFlip, pieceVFlip, paletteIndex, drawX, drawY) -> {
+                    // Build a PatternDesc for flip/palette, but use renderPatternWithId()
+                    // to pass the full pattern index — bypassing PatternDesc's 11-bit
+                    // VDP limit so sidekick banks above 0x800 resolve correctly.
                     int descIndex = patternIndex & 0x7FF;
                     if (pieceHFlip) {
                         descIndex |= 0x800;
@@ -92,7 +95,7 @@ public class PlayerSpriteRenderer {
                         reusableDesc.setPaletteIndex(
                                 renderContext.getEffectivePaletteLine(paletteIndex));
                     }
-                    graphicsManager.renderPattern(reusableDesc, drawX, drawY);
+                    graphicsManager.renderPatternWithId(patternIndex, reusableDesc, drawX, drawY);
                 }
         );
     }
