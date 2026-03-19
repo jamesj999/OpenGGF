@@ -6,7 +6,6 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.physics.Direction;
-import com.openggf.sprites.managers.SpriteManager;
 
 /**
  * CPU-controlled sidekick follower with daisy-chain support.
@@ -39,6 +38,8 @@ public class SidekickCpuController {
         PANIC
     }
 
+    private static final int SETTLED_FRAME_THRESHOLD = 15;
+
     private final AbstractPlayableSprite sidekick;
     private AbstractPlayableSprite leader;
 
@@ -58,20 +59,24 @@ public class SidekickCpuController {
     private int maxXBound = Integer.MIN_VALUE;
     private int maxYBound = Integer.MIN_VALUE;
     private ObjectInstance lastRidingObject;
+    private int normalFrameCount;
+    private int sidekickCount = 1;
 
     public SidekickCpuController(AbstractPlayableSprite sidekick) {
+        this(sidekick, null);
+    }
+
+    public SidekickCpuController(AbstractPlayableSprite sidekick, AbstractPlayableSprite leader) {
         this.sidekick = sidekick;
+        this.leader = leader;
     }
 
     public void update(int frameCount) {
         this.frameCounter = frameCount;
 
         if (leader == null) {
-            leader = findLeader();
-            if (leader == null) {
-                clearInputs();
-                return;
-            }
+            clearInputs();
+            return;
         }
 
         clearInputs();
@@ -97,6 +102,7 @@ public class SidekickCpuController {
         state = State.NORMAL;
         controlCounter = 0;
         despawnCounter = 0;
+        normalFrameCount = 0;
         jumpingFlag = false;
         lastRidingObject = null;
         sidekick.setForcedAnimationId(-1);
@@ -131,6 +137,7 @@ public class SidekickCpuController {
         state = State.APPROACHING;
         controlCounter = 0;
         despawnCounter = 0;
+        normalFrameCount = 0;
         jumpingFlag = false;
         sidekick.setCentreX(leader.getCentreX());
         sidekick.setCentreY((short) (leader.getCentreY() - RESPAWN_Y_OFFSET));
@@ -156,8 +163,12 @@ public class SidekickCpuController {
             return;
         }
 
-        int targetX = getDelayedLeaderX();
-        int targetY = clampTargetYToWater(getDelayedLeaderY());
+        AbstractPlayableSprite effectiveLeader = getEffectiveLeader();
+        if (effectiveLeader == null) {
+            return;
+        }
+        int targetX = effectiveLeader.getCentreX(FOLLOW_DELAY_FRAMES);
+        int targetY = clampTargetYToWater(effectiveLeader.getCentreY(FOLLOW_DELAY_FRAMES));
         int sidekickX = sidekick.getCentreX();
         int sidekickY = sidekick.getCentreY();
 
@@ -194,7 +205,7 @@ public class SidekickCpuController {
 
         int remainingDx = targetX - sidekick.getCentreX();
         int remainingDy = targetY - sidekick.getCentreY();
-        byte recordedStatus = leader.getStatusHistory(FOLLOW_DELAY_FRAMES);
+        byte recordedStatus = effectiveLeader.getStatusHistory(FOLLOW_DELAY_FRAMES);
         if ((recordedStatus & FLY_LAND_BLOCKERS) == 0 && remainingDx == 0 && remainingDy == 0) {
             sidekick.setForcedAnimationId(-1);
             sidekick.setControlLocked(false);
@@ -205,11 +216,14 @@ public class SidekickCpuController {
             sidekick.setHurt(false);
             sidekick.setAir(true);
             state = State.NORMAL;
+            normalFrameCount = 0;
             despawnCounter = 0;
         }
     }
 
     private void updateNormal() {
+        normalFrameCount++;
+
         if (leader.getDead()) {
             enterApproachingState();
             return;
@@ -230,12 +244,17 @@ public class SidekickCpuController {
 
         if (sidekick.getMoveLockTimer() > 0 && sidekick.getGSpeed() == 0) {
             state = State.PANIC;
+            normalFrameCount = 0;
         }
 
-        short recordedInput = leader.getInputHistory(FOLLOW_DELAY_FRAMES);
-        byte recordedStatus = leader.getStatusHistory(FOLLOW_DELAY_FRAMES);
-        int targetX = getDelayedLeaderX();
-        int targetY = getDelayedLeaderY();
+        AbstractPlayableSprite effectiveLeader = getEffectiveLeader();
+        if (effectiveLeader == null) {
+            return;
+        }
+        short recordedInput = effectiveLeader.getInputHistory(FOLLOW_DELAY_FRAMES);
+        byte recordedStatus = effectiveLeader.getStatusHistory(FOLLOW_DELAY_FRAMES);
+        int targetX = effectiveLeader.getCentreX(FOLLOW_DELAY_FRAMES);
+        int targetY = effectiveLeader.getCentreY(FOLLOW_DELAY_FRAMES);
         int dx = targetX - sidekick.getCentreX();
         int dy = targetY - sidekick.getCentreY();
 
@@ -311,6 +330,7 @@ public class SidekickCpuController {
             if (phase == 0) {
                 clearInputs();
                 state = State.NORMAL;
+                normalFrameCount = 0;
                 return;
             }
             if (sidekick.getAnimationId() == Sonic2AnimationIds.DUCK.id()) {
@@ -322,6 +342,7 @@ public class SidekickCpuController {
         if (phase == 0) {
             clearInputs();
             state = State.NORMAL;
+            normalFrameCount = 0;
             return;
         }
         if ((phase & 0x1F) == 0) {
@@ -342,20 +363,13 @@ public class SidekickCpuController {
         state = State.APPROACHING;
         despawnCounter = 0;
         controlCounter = 0;
+        normalFrameCount = 0;
         sidekick.setSpindash(false);
         sidekick.setSpindashCounter((short) 0);
         sidekick.setForcedAnimationId(FLY_ANIM_ID);
         sidekick.setAir(true);
         sidekick.setControlLocked(true);
         sidekick.setObjectControlled(true);
-    }
-
-    private int getDelayedLeaderX() {
-        return leader.getCentreX(FOLLOW_DELAY_FRAMES);
-    }
-
-    private int getDelayedLeaderY() {
-        return leader.getCentreY(FOLLOW_DELAY_FRAMES);
     }
 
     private int clampTargetYToWater(int targetY) {
@@ -410,6 +424,7 @@ public class SidekickCpuController {
         state = State.SPAWNING;
         despawnCounter = 0;
         controlCounter = 0;
+        normalFrameCount = 0;
         jumpingFlag = false;
         sidekick.setX((short) 0x4000);
         sidekick.setY((short) 0);
@@ -436,13 +451,66 @@ public class SidekickCpuController {
         inputJump = false;
     }
 
-    private AbstractPlayableSprite findLeader() {
-        for (var sprite : SpriteManager.getInstance().getAllSprites()) {
-            if (sprite instanceof AbstractPlayableSprite playable && sprite != sidekick && !playable.isCpuControlled()) {
-                return playable;
+    public void setLeader(AbstractPlayableSprite leader) {
+        this.leader = leader;
+    }
+
+    public AbstractPlayableSprite getLeader() {
+        return leader;
+    }
+
+    public void setSidekickCount(int sidekickCount) {
+        this.sidekickCount = sidekickCount;
+    }
+
+    /**
+     * Returns true when this sidekick has been in NORMAL state for at least
+     * {@link #SETTLED_FRAME_THRESHOLD} consecutive frames, meaning it has
+     * "caught up" to its position in the chain.
+     */
+    public boolean isSettled() {
+        return state == State.NORMAL && normalFrameCount >= SETTLED_FRAME_THRESHOLD;
+    }
+
+    /**
+     * Walks up the leader chain to find the nearest settled leader (or the main
+     * player). If the direct leader is not CPU-controlled or is settled, it is
+     * returned immediately. Otherwise the chain is walked until a settled
+     * sidekick or the main player is found.
+     */
+    public AbstractPlayableSprite getEffectiveLeader() {
+        AbstractPlayableSprite current = leader;
+        int maxSteps = sidekickCount;
+        while (current != null && current.isCpuControlled() && maxSteps-- > 0) {
+            SidekickCpuController ctrl = current.getCpuController();
+            if (ctrl == null) {
+                return current;
             }
+            if (ctrl.isSettled()) {
+                return current;
+            }
+            current = ctrl.getLeader();
         }
-        return null;
+        return current;
+    }
+
+    /**
+     * Sets the initial state for production use (e.g. pre-setting SPAWNING
+     * after a level transition).
+     */
+    public void setInitialState(State state) {
+        this.state = state;
+        if (state != State.NORMAL) {
+            normalFrameCount = 0;
+        }
+    }
+
+    /**
+     * Package-private test helper: sets both state and normalFrameCount directly.
+     */
+    void forceStateForTest(State state, int normalFrames) {
+        this.state = state;
+        this.normalFrameCount = normalFrames;
     }
 
     public boolean getInputUp() { return inputUp; }
@@ -483,6 +551,7 @@ public class SidekickCpuController {
         controlCounter = 0;
         controller2Held = 0;
         controller2Logical = 0;
+        normalFrameCount = 0;
         jumpingFlag = false;
         leader = null;
         lastRidingObject = null;

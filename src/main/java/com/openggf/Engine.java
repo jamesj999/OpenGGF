@@ -373,7 +373,7 @@ public class Engine {
 				sidekick = new Sonic(sidekickSpriteCode, (short) (mainSprite.getX() - 0x20), (short) (mainSprite.getY() + 4));
 			}
 			sidekick.setCpuControlled(true);
-			SidekickCpuController cpuController = new SidekickCpuController(sidekick);
+			SidekickCpuController cpuController = new SidekickCpuController(sidekick, mainSprite);
 			sidekick.setCpuController(cpuController);
 			spriteManager.addSprite(sidekick);
 		}
