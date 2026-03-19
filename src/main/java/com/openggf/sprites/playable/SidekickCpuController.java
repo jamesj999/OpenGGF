@@ -176,7 +176,7 @@ public class SidekickCpuController {
         if (dx != 0) {
             int move = Math.abs(dx) / 16;
             move = Math.min(move, MAX_FLY_ACCEL);
-            move += Math.abs(leader.getXSpeed()) / 256;
+            move += Math.abs(effectiveLeader.getXSpeed()) / 256;
             move += 1;
             move = Math.min(move, Math.abs(dx));
             if (dx > 0) {
