@@ -60,6 +60,7 @@ Key field changes:
 States: `INIT`, `SPAWNING`, `APPROACHING` (renamed from `FLYING`), `NORMAL`, `PANIC`.
 
 - `APPROACHING` is the movement-agnostic state for "actively returning to the chain." What happens during this state is determined by the `SidekickRespawnStrategy`.
+- `SPAWNING` checks use the **direct leader** (not effective leader) for "safe to respawn" conditions (`getDead()`, `isObjectControlled()`, `getAir()`, etc.). The sidekick respawns relative to who it directly follows in the chain, not a fallback target.
 
 ### Leader Assignment
 
@@ -80,19 +81,31 @@ AbstractPlayableSprite getEffectiveLeader() {
         }
         current = ctrl.getLeader();  // walk up the chain
     }
-    return current;  // main player (not cpu-controlled)
+    return current;  // main player (not cpu-controlled), or null during level transitions
 }
 ```
 
-`isSettled()` returns `true` when the sidekick has been in `NORMAL` state for 15+ consecutive frames (~quarter second at 60fps).
+**Null contract:** `getEffectiveLeader()` may return null during level transitions when sprites are cleared. Callers must handle null by keeping the sidekick idle (no input, no history reads).
+
+`isSettled()` returns `true` when the sidekick has been in `NORMAL` state for 15+ consecutive frames (~quarter second at 60fps). This is an engine-original heuristic (the ROM only has one sidekick so has no chain concept). 15 frames provides enough time for the sidekick to visually "catch up" before downstream chain members begin following it.
 
 The history buffer is read from whichever sprite `getEffectiveLeader()` resolves to.
+
+**Chain contraction behavior:** When chain healing collapses links (e.g. sidekick[2] skips despawned sidekick[1] and follows sidekick[0]), the follow delay is always a constant 17 frames behind the effective leader — delays do NOT accumulate. This means the chain visually contracts when a middle link despawns, and expands again when it respawns and settles. This is intentional and avoids exceeding the 64-entry history buffer.
+
+**Sidekick lifecycle:** Despawned sidekicks remain in the `sidekicks` list with `SPAWNING` state — they are never removed. Chain healing handles the gap. This preserves chain order across respawn cycles without re-insertion logic.
 
 ### Following Behavior
 
 - Each sidekick reads from its effective leader's position/input history with a fixed **17-frame delay** (ROM-accurate value, `FOLLOW_DELAY_FRAMES`).
-- With N sidekicks, the total delay from Sonic to the last sidekick is `17 * N` frames.
+- With N sidekicks all settled, the total delay from Sonic to the last sidekick is `17 * N` frames.
 - If this proves unworkable at high sidekick counts, the delay can be tuned later — starting with the ROM value.
+
+**History buffer invariant:** Every sidekick records its own position/input/status history via `endOfTick()` each frame (already called for all playable sprites in `SpriteManager`). This is critical — each link in the chain must maintain its own 64-entry history ring so that downstream sidekicks can read from it. The 64-entry buffer supports up to `floor(64 / 17) = 3` chain links reading from a single sprite's history, but since each sidekick reads only 17 frames behind its *immediate effective leader* (not accumulated), the buffer is always sufficient regardless of chain length.
+
+### P2 Controller Input
+
+Only sidekick[0] (the first in the chain) receives Player 2 controller input, matching ROM behavior where only one Tails exists. P2 input triggers manual control override (600 frames) and respawn bypass on sidekick[0] only. Remaining sidekicks are purely CPU-driven.
 
 ## Respawn Strategy Interface
 
@@ -138,11 +151,11 @@ becomes:
 
 Currently maintains a dedicated pair of overlap buffers (`sidekickBufferA`/`sidekickBufferB`) for the single sidekick.
 
-Changes to a `Map<AbstractPlayableSprite, Set<ObjectInstance>>` keyed by sidekick — each sidekick gets independent overlap tracking for proper edge-detection of new touches.
+Changes to a `Map<AbstractPlayableSprite, OverlapBufferPair>` keyed by sidekick. Each `OverlapBufferPair` contains the double-buffer (`overlapping`/`building`) swap pair needed for edge detection — a touch only fires when an object enters the overlap set this frame but was not in last frame's set. A single set per sidekick would lose this two-frame relationship.
 
-- `updateSidekick(sidekick, frameCounter)` called in a loop for each sidekick
+- `updateSidekick(sidekick, frameCounter)` called in a loop for each sidekick, each using its own `OverlapBufferPair`
 - `handleTouchResponseSidekick`, `applySidekickHurt`, `checkMultiRegionTouchSidekick` already take `AbstractPlayableSprite` as a parameter — no signature changes, just called more times
-- `reset()` clears the entire map
+- `reset()` clears the entire map (all buffer pairs)
 
 ### Performance Note
 
