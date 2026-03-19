@@ -274,7 +274,7 @@ public class TestS2Ehz1Headless {
         sprite.setY((short) 624);
         tails = new Tails("tails", (short) 60, (short) 624);
         tails.setCpuControlled(true);
-        controller = new SidekickCpuController(tails);
+        controller = new SidekickCpuController(tails, sprite);
         tails.setCpuController(controller);
         SpriteManager.getInstance().addSprite(tails);
     }
