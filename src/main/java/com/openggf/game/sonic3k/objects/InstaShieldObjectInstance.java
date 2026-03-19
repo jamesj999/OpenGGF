@@ -97,16 +97,6 @@ public class InstaShieldObjectInstance extends ShieldObjectInstance {
         initAnimation(ATTACK_ANIM);
     }
 
-    /** Exposes current mapping frame for diagnostics. */
-    public int getCurrentMappingFrame() {
-        return currentMappingFrame;
-    }
-
-    /** Exposes current animation ID for diagnostics. */
-    public int getCurrentAnimId() {
-        return currentAnimId;
-    }
-
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
         if (isShieldDestroyed() || !isShieldVisible()) {
