@@ -104,11 +104,6 @@ public enum Sonic3kAnimationIds implements AnimationId {
      * or -1 if S3K does not have an equivalent for that animation.
      */
     public static int fromCanonical(CanonicalAnimation canonical) {
-        for (Sonic3kAnimationIds anim : values()) {
-            if (anim.toCanonical() == canonical) {
-                return anim.id();
-            }
-        }
-        return -1;
+        return AnimationId.fromCanonical(values(), Sonic3kAnimationIds::toCanonical, canonical);
     }
 }

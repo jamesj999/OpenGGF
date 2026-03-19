@@ -242,35 +242,29 @@ public class Sonic3kGameModule implements GameModule {
                 buildFallbacks();
 
         private static java.util.Map<CanonicalAnimation, CanonicalAnimation> buildFallbacks() {
-            java.util.Map<CanonicalAnimation, CanonicalAnimation> map =
-                    new java.util.EnumMap<>(CanonicalAnimation.class);
-            // Identity entries for all native S3K animations
-            for (Sonic3kAnimationIds anim : Sonic3kAnimationIds.values()) {
-                CanonicalAnimation canonical = anim.toCanonical();
-                if (canonical != null) {
-                    map.put(canonical, canonical);
-                }
-            }
-            // S1-specific animations -> nearest S3K native fallback
-            map.put(CanonicalAnimation.STOP,           CanonicalAnimation.SKID);
-            map.put(CanonicalAnimation.WARP1,          CanonicalAnimation.ROLL);
-            map.put(CanonicalAnimation.WARP2,          CanonicalAnimation.ROLL);
-            map.put(CanonicalAnimation.WARP3,          CanonicalAnimation.ROLL);
-            map.put(CanonicalAnimation.WARP4,          CanonicalAnimation.ROLL);
-            map.put(CanonicalAnimation.FLOAT3,         CanonicalAnimation.SPRING);
-            map.put(CanonicalAnimation.FLOAT4,         CanonicalAnimation.SPRING);
-            map.put(CanonicalAnimation.LEAP1,          CanonicalAnimation.SPRING);
-            map.put(CanonicalAnimation.LEAP2,          CanonicalAnimation.SPRING);
-            map.put(CanonicalAnimation.SURF,           CanonicalAnimation.WAIT);
-            map.put(CanonicalAnimation.GET_AIR,        CanonicalAnimation.BLANK);
-            map.put(CanonicalAnimation.BURNT,          CanonicalAnimation.HURT);
-            map.put(CanonicalAnimation.SHRINK,         CanonicalAnimation.DEATH);
-            map.put(CanonicalAnimation.WATER_SLIDE,    CanonicalAnimation.HURT_FALL);
-            map.put(CanonicalAnimation.NULL_ANIM,      CanonicalAnimation.BLANK);
-            // S2-specific animations not in S3K -> nearest S3K native fallback
-            map.put(CanonicalAnimation.SLIDE,          CanonicalAnimation.HURT_FALL);
-            map.put(CanonicalAnimation.HURT2,          CanonicalAnimation.HURT);
-            return java.util.Collections.unmodifiableMap(map);
+            return DonorCapabilities.buildFallbackMap(
+                    Sonic3kAnimationIds.values(), Sonic3kAnimationIds::toCanonical,
+                    java.util.Map.ofEntries(
+                            // S1-specific animations -> nearest S3K native fallback
+                            java.util.Map.entry(CanonicalAnimation.STOP,        CanonicalAnimation.SKID),
+                            java.util.Map.entry(CanonicalAnimation.WARP1,       CanonicalAnimation.ROLL),
+                            java.util.Map.entry(CanonicalAnimation.WARP2,       CanonicalAnimation.ROLL),
+                            java.util.Map.entry(CanonicalAnimation.WARP3,       CanonicalAnimation.ROLL),
+                            java.util.Map.entry(CanonicalAnimation.WARP4,       CanonicalAnimation.ROLL),
+                            java.util.Map.entry(CanonicalAnimation.FLOAT3,      CanonicalAnimation.SPRING),
+                            java.util.Map.entry(CanonicalAnimation.FLOAT4,      CanonicalAnimation.SPRING),
+                            java.util.Map.entry(CanonicalAnimation.LEAP1,       CanonicalAnimation.SPRING),
+                            java.util.Map.entry(CanonicalAnimation.LEAP2,       CanonicalAnimation.SPRING),
+                            java.util.Map.entry(CanonicalAnimation.SURF,        CanonicalAnimation.WAIT),
+                            java.util.Map.entry(CanonicalAnimation.GET_AIR,     CanonicalAnimation.BLANK),
+                            java.util.Map.entry(CanonicalAnimation.BURNT,       CanonicalAnimation.HURT),
+                            java.util.Map.entry(CanonicalAnimation.SHRINK,      CanonicalAnimation.DEATH),
+                            java.util.Map.entry(CanonicalAnimation.WATER_SLIDE, CanonicalAnimation.HURT_FALL),
+                            java.util.Map.entry(CanonicalAnimation.NULL_ANIM,   CanonicalAnimation.BLANK),
+                            // S2-specific animations not in S3K -> nearest S3K native fallback
+                            java.util.Map.entry(CanonicalAnimation.SLIDE,       CanonicalAnimation.HURT_FALL),
+                            java.util.Map.entry(CanonicalAnimation.HURT2,       CanonicalAnimation.HURT)
+                    ));
         }
 
         @Override
@@ -307,7 +301,8 @@ public class Sonic3kGameModule implements GameModule {
         @Override
         public com.openggf.data.PlayerSpriteArtProvider getPlayerArtProvider(
                 com.openggf.data.RomByteReader reader) {
-            return characterCode -> new Sonic3kPlayerArt(reader).loadForCharacter(characterCode);
+            var art = new Sonic3kPlayerArt(reader);
+            return art::loadForCharacter;
         }
     }
 }

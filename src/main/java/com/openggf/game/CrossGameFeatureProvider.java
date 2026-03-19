@@ -85,7 +85,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
 
         // Same-game guard: disable donation when donor == host
         GameId donorId = GameId.fromCode(donorGameId);
-        GameId hostId = GameId.fromCode(resolveHostCode());
+        GameId hostId = GameModuleRegistry.getCurrent().getGameId();
         if (donorId == hostId) {
             LOGGER.info("Donor same as host (" + donorGameId + "), donation disabled");
             active = false;
@@ -93,8 +93,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
         }
 
         // Resolve donor capabilities before any ROM access
-        GameModule donorModule = resolveModule(donorGameId);
-        this.donorCapabilities = donorModule != null ? donorModule.getDonorCapabilities() : null;
+        this.donorCapabilities = resolveDonorCapabilities(donorGameId);
         if (donorCapabilities == null) {
             LOGGER.warning("No donor capabilities for: " + donorGameId);
             active = false;
@@ -408,26 +407,14 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
     }
 
     /**
-     * Resolves the host game code from the current game module's identifier.
+     * Resolves donor capabilities for the given game code by constructing a
+     * temporary GameModule and extracting its DonorCapabilities.
      */
-    private String resolveHostCode() {
-        String id = GameModuleRegistry.getCurrent().getIdentifier();
-        return switch (id) {
-            case "Sonic1" -> "s1";
-            case "Sonic2" -> "s2";
-            case "Sonic3k" -> "s3k";
-            default -> id.toLowerCase();
-        };
-    }
-
-    /**
-     * Creates a GameModule instance for the given game code.
-     */
-    private static GameModule resolveModule(String gameCode) {
+    private static DonorCapabilities resolveDonorCapabilities(String gameCode) {
         return switch (gameCode.toLowerCase()) {
-            case "s1" -> new com.openggf.game.sonic1.Sonic1GameModule();
-            case "s2" -> new com.openggf.game.sonic2.Sonic2GameModule();
-            case "s3k" -> new com.openggf.game.sonic3k.Sonic3kGameModule();
+            case "s1" -> new com.openggf.game.sonic1.Sonic1GameModule().getDonorCapabilities();
+            case "s2" -> new com.openggf.game.sonic2.Sonic2GameModule().getDonorCapabilities();
+            case "s3k" -> new com.openggf.game.sonic3k.Sonic3kGameModule().getDonorCapabilities();
             default -> null;
         };
     }

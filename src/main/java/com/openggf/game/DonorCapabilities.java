@@ -3,6 +3,8 @@ package com.openggf.game;
 import com.openggf.data.PlayerSpriteArtProvider;
 import com.openggf.data.RomByteReader;
 
+import java.util.Collections;
+import java.util.EnumMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -88,6 +90,24 @@ public interface DonorCapabilities {
      * @return non-null map from requested animation to fallback animation
      */
     Map<CanonicalAnimation, CanonicalAnimation> getAnimationFallbacks();
+
+    /**
+     * Builds a fallback map seeded with identity entries for all native animations,
+     * then applies the given overrides. Shared across all game module implementations.
+     */
+    static <E extends Enum<E> & AnimationId> Map<CanonicalAnimation, CanonicalAnimation> buildFallbackMap(
+            E[] animValues, java.util.function.Function<E, CanonicalAnimation> toCanonical,
+            Map<CanonicalAnimation, CanonicalAnimation> overrides) {
+        Map<CanonicalAnimation, CanonicalAnimation> map = new EnumMap<>(CanonicalAnimation.class);
+        for (E anim : animValues) {
+            CanonicalAnimation canonical = toCanonical.apply(anim);
+            if (canonical != null) {
+                map.put(canonical, canonical);
+            }
+        }
+        map.putAll(overrides);
+        return Collections.unmodifiableMap(map);
+    }
 
     /**
      * Resolves a {@link CanonicalAnimation} to this donor game's native integer

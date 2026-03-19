@@ -285,36 +285,30 @@ public class Sonic1GameModule implements GameModule {
                 buildFallbacks();
 
         private static java.util.Map<CanonicalAnimation, CanonicalAnimation> buildFallbacks() {
-            java.util.Map<CanonicalAnimation, CanonicalAnimation> map =
-                    new java.util.EnumMap<>(CanonicalAnimation.class);
-            // Identity entries for all native S1 animations
-            for (Sonic1AnimationIds anim : Sonic1AnimationIds.values()) {
-                CanonicalAnimation canonical = anim.toCanonical();
-                if (canonical != null) {
-                    map.put(canonical, canonical);
-                }
-            }
-            // Non-native animations -> nearest native fallback
-            map.put(CanonicalAnimation.SPINDASH,       CanonicalAnimation.DUCK);
-            map.put(CanonicalAnimation.SKID,           CanonicalAnimation.STOP);
-            map.put(CanonicalAnimation.SLIDE,          CanonicalAnimation.ROLL);
-            map.put(CanonicalAnimation.BLINK,          CanonicalAnimation.WAIT);
-            map.put(CanonicalAnimation.GET_UP,         CanonicalAnimation.WAIT);
-            map.put(CanonicalAnimation.VICTORY,        CanonicalAnimation.WAIT);
-            map.put(CanonicalAnimation.BLANK,          CanonicalAnimation.WAIT);
-            map.put(CanonicalAnimation.GLIDE_DROP,     CanonicalAnimation.SPRING);
-            map.put(CanonicalAnimation.GLIDE_LAND,     CanonicalAnimation.WAIT);
-            map.put(CanonicalAnimation.GLIDE_SLIDE,    CanonicalAnimation.PUSH);
-            map.put(CanonicalAnimation.HANG2,          CanonicalAnimation.HANG);
-            map.put(CanonicalAnimation.BALANCE2,       CanonicalAnimation.BALANCE);
-            map.put(CanonicalAnimation.BALANCE3,       CanonicalAnimation.BALANCE);
-            map.put(CanonicalAnimation.BALANCE4,       CanonicalAnimation.BALANCE);
-            map.put(CanonicalAnimation.FLY,            CanonicalAnimation.SPRING);
-            map.put(CanonicalAnimation.SUPER_TRANSFORM, CanonicalAnimation.WAIT);
-            map.put(CanonicalAnimation.BUBBLE,         CanonicalAnimation.GET_AIR);
-            map.put(CanonicalAnimation.HURT2,          CanonicalAnimation.HURT);
-            map.put(CanonicalAnimation.HURT_FALL,      CanonicalAnimation.HURT);
-            return java.util.Collections.unmodifiableMap(map);
+            return DonorCapabilities.buildFallbackMap(
+                    Sonic1AnimationIds.values(), Sonic1AnimationIds::toCanonical,
+                    java.util.Map.ofEntries(
+                            // Non-native animations -> nearest native fallback
+                            java.util.Map.entry(CanonicalAnimation.SPINDASH,        CanonicalAnimation.DUCK),
+                            java.util.Map.entry(CanonicalAnimation.SKID,            CanonicalAnimation.STOP),
+                            java.util.Map.entry(CanonicalAnimation.SLIDE,           CanonicalAnimation.ROLL),
+                            java.util.Map.entry(CanonicalAnimation.BLINK,           CanonicalAnimation.WAIT),
+                            java.util.Map.entry(CanonicalAnimation.GET_UP,          CanonicalAnimation.WAIT),
+                            java.util.Map.entry(CanonicalAnimation.VICTORY,         CanonicalAnimation.WAIT),
+                            java.util.Map.entry(CanonicalAnimation.BLANK,           CanonicalAnimation.WAIT),
+                            java.util.Map.entry(CanonicalAnimation.GLIDE_DROP,      CanonicalAnimation.SPRING),
+                            java.util.Map.entry(CanonicalAnimation.GLIDE_LAND,      CanonicalAnimation.WAIT),
+                            java.util.Map.entry(CanonicalAnimation.GLIDE_SLIDE,     CanonicalAnimation.PUSH),
+                            java.util.Map.entry(CanonicalAnimation.HANG2,           CanonicalAnimation.HANG),
+                            java.util.Map.entry(CanonicalAnimation.BALANCE2,        CanonicalAnimation.BALANCE),
+                            java.util.Map.entry(CanonicalAnimation.BALANCE3,        CanonicalAnimation.BALANCE),
+                            java.util.Map.entry(CanonicalAnimation.BALANCE4,        CanonicalAnimation.BALANCE),
+                            java.util.Map.entry(CanonicalAnimation.FLY,             CanonicalAnimation.SPRING),
+                            java.util.Map.entry(CanonicalAnimation.SUPER_TRANSFORM, CanonicalAnimation.WAIT),
+                            java.util.Map.entry(CanonicalAnimation.BUBBLE,          CanonicalAnimation.GET_AIR),
+                            java.util.Map.entry(CanonicalAnimation.HURT2,           CanonicalAnimation.HURT),
+                            java.util.Map.entry(CanonicalAnimation.HURT_FALL,       CanonicalAnimation.HURT)
+                    ));
         }
 
         @Override
@@ -351,7 +345,8 @@ public class Sonic1GameModule implements GameModule {
         @Override
         public com.openggf.data.PlayerSpriteArtProvider getPlayerArtProvider(
                 com.openggf.data.RomByteReader reader) {
-            return characterCode -> new Sonic1PlayerArt(reader).loadForCharacter(characterCode);
+            var art = new Sonic1PlayerArt(reader);
+            return art::loadForCharacter;
         }
     }
 }

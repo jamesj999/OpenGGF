@@ -357,4 +357,14 @@ public interface GameModule {
     default DonorCapabilities getDonorCapabilities() {
         return null;
     }
+
+    /** Returns the GameId for this module. Default derives from getIdentifier(). */
+    default GameId getGameId() {
+        return switch (getIdentifier()) {
+            case "Sonic1" -> GameId.S1;
+            case "Sonic2" -> GameId.S2;
+            case "Sonic3k" -> GameId.S3K;
+            default -> throw new IllegalStateException("Unknown module: " + getIdentifier());
+        };
+    }
 }

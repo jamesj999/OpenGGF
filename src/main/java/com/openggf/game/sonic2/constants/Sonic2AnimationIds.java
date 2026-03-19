@@ -114,11 +114,6 @@ public enum Sonic2AnimationIds implements AnimationId {
      * Skips entries where {@link #toCanonical()} returns null (super table variants).
      */
     public static int fromCanonical(CanonicalAnimation canonical) {
-        for (Sonic2AnimationIds anim : values()) {
-            if (anim.toCanonical() == canonical) {
-                return anim.id();
-            }
-        }
-        return -1;
+        return AnimationId.fromCanonical(values(), Sonic2AnimationIds::toCanonical, canonical);
     }
 }

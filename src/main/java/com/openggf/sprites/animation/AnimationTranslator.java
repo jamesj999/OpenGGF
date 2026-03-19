@@ -45,45 +45,28 @@ public final class AnimationTranslator {
         result.setFallbackFrame(donorProfile.getFallbackFrame());
 
         // Translate each animation field
-        int idleId   = resolve(CanonicalAnimation.WAIT,      fallbacks, donor, donorAnimSet);
-        int walkId   = resolve(CanonicalAnimation.WALK,      fallbacks, donor, donorAnimSet);
-        int runId    = resolve(CanonicalAnimation.RUN,       fallbacks, donor, donorAnimSet);
-        int rollId   = resolve(CanonicalAnimation.ROLL,      fallbacks, donor, donorAnimSet);
-        int roll2Id  = resolve(CanonicalAnimation.ROLL2,     fallbacks, donor, donorAnimSet);
-        int pushId   = resolve(CanonicalAnimation.PUSH,      fallbacks, donor, donorAnimSet);
-        int duckId   = resolve(CanonicalAnimation.DUCK,      fallbacks, donor, donorAnimSet);
-        int lookUpId = resolve(CanonicalAnimation.LOOK_UP,   fallbacks, donor, donorAnimSet);
-        int spindashId = resolve(CanonicalAnimation.SPINDASH, fallbacks, donor, donorAnimSet);
-        int springId = resolve(CanonicalAnimation.SPRING,    fallbacks, donor, donorAnimSet);
-        int deathId  = resolve(CanonicalAnimation.DEATH,     fallbacks, donor, donorAnimSet);
-        int hurtId   = resolve(CanonicalAnimation.HURT,      fallbacks, donor, donorAnimSet);
-        int skidId   = resolve(CanonicalAnimation.SKID,      fallbacks, donor, donorAnimSet);
-        int slideId  = resolve(CanonicalAnimation.SLIDE,     fallbacks, donor, donorAnimSet);
-        int drownId  = resolve(CanonicalAnimation.DROWN,     fallbacks, donor, donorAnimSet);
-        int balanceId  = resolve(CanonicalAnimation.BALANCE,  fallbacks, donor, donorAnimSet);
-        int balance2Id = resolve(CanonicalAnimation.BALANCE2, fallbacks, donor, donorAnimSet);
-        int balance3Id = resolve(CanonicalAnimation.BALANCE3, fallbacks, donor, donorAnimSet);
-        int balance4Id = resolve(CanonicalAnimation.BALANCE4, fallbacks, donor, donorAnimSet);
+        // walkId is kept as a variable because airAnimId reuses it
+        int walkId = resolve(CanonicalAnimation.WALK, fallbacks, donor, donorAnimSet);
 
-        result.setIdleAnimId(idleId);
+        result.setIdleAnimId(resolve(CanonicalAnimation.WAIT,      fallbacks, donor, donorAnimSet));
         result.setWalkAnimId(walkId);
-        result.setRunAnimId(runId);
-        result.setRollAnimId(rollId);
-        result.setRoll2AnimId(roll2Id);
-        result.setPushAnimId(pushId);
-        result.setDuckAnimId(duckId);
-        result.setLookUpAnimId(lookUpId);
-        result.setSpindashAnimId(spindashId);
-        result.setSpringAnimId(springId);
-        result.setDeathAnimId(deathId);
-        result.setHurtAnimId(hurtId);
-        result.setSkidAnimId(skidId);
-        result.setSlideAnimId(slideId);
-        result.setDrownAnimId(drownId);
-        result.setBalanceAnimId(balanceId);
-        result.setBalance2AnimId(balance2Id);
-        result.setBalance3AnimId(balance3Id);
-        result.setBalance4AnimId(balance4Id);
+        result.setRunAnimId(resolve(CanonicalAnimation.RUN,        fallbacks, donor, donorAnimSet));
+        result.setRollAnimId(resolve(CanonicalAnimation.ROLL,       fallbacks, donor, donorAnimSet));
+        result.setRoll2AnimId(resolve(CanonicalAnimation.ROLL2,    fallbacks, donor, donorAnimSet));
+        result.setPushAnimId(resolve(CanonicalAnimation.PUSH,      fallbacks, donor, donorAnimSet));
+        result.setDuckAnimId(resolve(CanonicalAnimation.DUCK,      fallbacks, donor, donorAnimSet));
+        result.setLookUpAnimId(resolve(CanonicalAnimation.LOOK_UP, fallbacks, donor, donorAnimSet));
+        result.setSpindashAnimId(resolve(CanonicalAnimation.SPINDASH, fallbacks, donor, donorAnimSet));
+        result.setSpringAnimId(resolve(CanonicalAnimation.SPRING,  fallbacks, donor, donorAnimSet));
+        result.setDeathAnimId(resolve(CanonicalAnimation.DEATH,    fallbacks, donor, donorAnimSet));
+        result.setHurtAnimId(resolve(CanonicalAnimation.HURT,      fallbacks, donor, donorAnimSet));
+        result.setSkidAnimId(resolve(CanonicalAnimation.SKID,      fallbacks, donor, donorAnimSet));
+        result.setSlideAnimId(resolve(CanonicalAnimation.SLIDE,    fallbacks, donor, donorAnimSet));
+        result.setDrownAnimId(resolve(CanonicalAnimation.DROWN,    fallbacks, donor, donorAnimSet));
+        result.setBalanceAnimId(resolve(CanonicalAnimation.BALANCE,   fallbacks, donor, donorAnimSet));
+        result.setBalance2AnimId(resolve(CanonicalAnimation.BALANCE2, fallbacks, donor, donorAnimSet));
+        result.setBalance3AnimId(resolve(CanonicalAnimation.BALANCE3, fallbacks, donor, donorAnimSet));
+        result.setBalance4AnimId(resolve(CanonicalAnimation.BALANCE4, fallbacks, donor, donorAnimSet));
 
         // Special case: airAnimId always equals the translated walkAnimId
         result.setAirAnimId(walkId);

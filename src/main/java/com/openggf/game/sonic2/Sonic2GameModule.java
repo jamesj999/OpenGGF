@@ -282,41 +282,35 @@ public class Sonic2GameModule implements GameModule {
                 buildFallbacks();
 
         private static java.util.Map<CanonicalAnimation, CanonicalAnimation> buildFallbacks() {
-            java.util.Map<CanonicalAnimation, CanonicalAnimation> map =
-                    new java.util.EnumMap<>(CanonicalAnimation.class);
-            // Identity entries for all native S2 animations (skip super-table variants)
-            for (Sonic2AnimationIds anim : Sonic2AnimationIds.values()) {
-                CanonicalAnimation canonical = anim.toCanonical();
-                if (canonical != null) {
-                    map.put(canonical, canonical);
-                }
-            }
-            // S1-specific animations -> nearest S2 native fallback
-            map.put(CanonicalAnimation.STOP,           CanonicalAnimation.SKID);
-            map.put(CanonicalAnimation.WARP1,          CanonicalAnimation.ROLL);
-            map.put(CanonicalAnimation.WARP2,          CanonicalAnimation.ROLL);
-            map.put(CanonicalAnimation.WARP3,          CanonicalAnimation.ROLL);
-            map.put(CanonicalAnimation.WARP4,          CanonicalAnimation.ROLL);
-            map.put(CanonicalAnimation.FLOAT3,         CanonicalAnimation.SPRING);
-            map.put(CanonicalAnimation.FLOAT4,         CanonicalAnimation.SPRING);
-            map.put(CanonicalAnimation.LEAP1,          CanonicalAnimation.SPRING);
-            map.put(CanonicalAnimation.LEAP2,          CanonicalAnimation.SPRING);
-            map.put(CanonicalAnimation.SURF,           CanonicalAnimation.WAIT);
-            map.put(CanonicalAnimation.GET_AIR,        CanonicalAnimation.BUBBLE);
-            map.put(CanonicalAnimation.BURNT,          CanonicalAnimation.HURT);
-            map.put(CanonicalAnimation.SHRINK,         CanonicalAnimation.DEATH);
-            map.put(CanonicalAnimation.WATER_SLIDE,    CanonicalAnimation.SLIDE);
-            map.put(CanonicalAnimation.NULL_ANIM,      CanonicalAnimation.WAIT);
-            // S3K-specific animations -> nearest S2 native fallback
-            map.put(CanonicalAnimation.BLINK,          CanonicalAnimation.WAIT);
-            map.put(CanonicalAnimation.GET_UP,         CanonicalAnimation.WAIT);
-            map.put(CanonicalAnimation.VICTORY,        CanonicalAnimation.WAIT);
-            map.put(CanonicalAnimation.GLIDE_DROP,     CanonicalAnimation.SPRING);
-            map.put(CanonicalAnimation.GLIDE_LAND,     CanonicalAnimation.WAIT);
-            map.put(CanonicalAnimation.GLIDE_SLIDE,    CanonicalAnimation.SLIDE);
-            map.put(CanonicalAnimation.BLANK,          CanonicalAnimation.WAIT);
-            map.put(CanonicalAnimation.HURT_FALL,      CanonicalAnimation.HURT);
-            return java.util.Collections.unmodifiableMap(map);
+            return DonorCapabilities.buildFallbackMap(
+                    Sonic2AnimationIds.values(), Sonic2AnimationIds::toCanonical,
+                    java.util.Map.ofEntries(
+                            // S1-specific animations -> nearest S2 native fallback
+                            java.util.Map.entry(CanonicalAnimation.STOP,        CanonicalAnimation.SKID),
+                            java.util.Map.entry(CanonicalAnimation.WARP1,       CanonicalAnimation.ROLL),
+                            java.util.Map.entry(CanonicalAnimation.WARP2,       CanonicalAnimation.ROLL),
+                            java.util.Map.entry(CanonicalAnimation.WARP3,       CanonicalAnimation.ROLL),
+                            java.util.Map.entry(CanonicalAnimation.WARP4,       CanonicalAnimation.ROLL),
+                            java.util.Map.entry(CanonicalAnimation.FLOAT3,      CanonicalAnimation.SPRING),
+                            java.util.Map.entry(CanonicalAnimation.FLOAT4,      CanonicalAnimation.SPRING),
+                            java.util.Map.entry(CanonicalAnimation.LEAP1,       CanonicalAnimation.SPRING),
+                            java.util.Map.entry(CanonicalAnimation.LEAP2,       CanonicalAnimation.SPRING),
+                            java.util.Map.entry(CanonicalAnimation.SURF,        CanonicalAnimation.WAIT),
+                            java.util.Map.entry(CanonicalAnimation.GET_AIR,     CanonicalAnimation.BUBBLE),
+                            java.util.Map.entry(CanonicalAnimation.BURNT,       CanonicalAnimation.HURT),
+                            java.util.Map.entry(CanonicalAnimation.SHRINK,      CanonicalAnimation.DEATH),
+                            java.util.Map.entry(CanonicalAnimation.WATER_SLIDE, CanonicalAnimation.SLIDE),
+                            java.util.Map.entry(CanonicalAnimation.NULL_ANIM,   CanonicalAnimation.WAIT),
+                            // S3K-specific animations -> nearest S2 native fallback
+                            java.util.Map.entry(CanonicalAnimation.BLINK,       CanonicalAnimation.WAIT),
+                            java.util.Map.entry(CanonicalAnimation.GET_UP,      CanonicalAnimation.WAIT),
+                            java.util.Map.entry(CanonicalAnimation.VICTORY,     CanonicalAnimation.WAIT),
+                            java.util.Map.entry(CanonicalAnimation.GLIDE_DROP,  CanonicalAnimation.SPRING),
+                            java.util.Map.entry(CanonicalAnimation.GLIDE_LAND,  CanonicalAnimation.WAIT),
+                            java.util.Map.entry(CanonicalAnimation.GLIDE_SLIDE, CanonicalAnimation.SLIDE),
+                            java.util.Map.entry(CanonicalAnimation.BLANK,       CanonicalAnimation.WAIT),
+                            java.util.Map.entry(CanonicalAnimation.HURT_FALL,   CanonicalAnimation.HURT)
+                    ));
         }
 
         @Override
@@ -353,7 +347,8 @@ public class Sonic2GameModule implements GameModule {
         @Override
         public com.openggf.data.PlayerSpriteArtProvider getPlayerArtProvider(
                 com.openggf.data.RomByteReader reader) {
-            return characterCode -> new Sonic2PlayerArt(reader).loadForCharacter(characterCode);
+            var art = new Sonic2PlayerArt(reader);
+            return art::loadForCharacter;
         }
     }
 }
