@@ -51,6 +51,11 @@ public class Tails extends AbstractPlayableSprite {
 	}
 
 	@Override
+	public SecondaryAbility getSecondaryAbility() {
+		return SecondaryAbility.FLY;
+	}
+
+	@Override
 	public void defineSpeeds() {
 		// Base values - speed shoes boost is applied dynamically in getters
 		runAccel = 12;

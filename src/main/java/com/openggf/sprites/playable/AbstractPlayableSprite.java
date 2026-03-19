@@ -700,6 +700,15 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 return superSonic;
         }
 
+        /**
+         * Returns this character's secondary (double-jump) ability.
+         * ROM: character_id determines Sonic=insta-shield, Tails=fly, Knuckles=glide.
+         * Subclasses override to declare their ability; default is NONE.
+         */
+        public SecondaryAbility getSecondaryAbility() {
+                return SecondaryAbility.NONE;
+        }
+
         public void setSuperSonic(boolean superSonic) {
                 this.superSonic = superSonic;
         }
@@ -1241,7 +1250,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 }
                 // Lazy-register insta-shield with ObjectManager if not yet done (e.g. created before level load).
                 // When registered, ObjectManager drives update(); explicit call only needed for headless tests.
-                if (instaShieldObject != null && !instaShieldRegistered && !(this instanceof Tails)) {
+                if (instaShieldObject != null && !instaShieldRegistered) {
                         LevelManager lm = LevelManager.getInstance();
                         if (lm != null && lm.getObjectManager() != null) {
                                 lm.getObjectManager().addDynamicObject(instaShieldObject);
@@ -1949,7 +1958,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 // Create or re-register persistent insta-shield object (ROM: SpawnLevelMainSprites_SpawnPlayers)
                 // ROM (sonic3k.asm:20614-20615): character_id == 0 check — Sonic only, not Tails/Knuckles
                 if (physicsFeatureSet != null && physicsFeatureSet.instaShieldEnabled()
-                        && !(this instanceof Tails)) {
+                        && getSecondaryAbility() == SecondaryAbility.INSTA_SHIELD) {
                         if (instaShieldObject == null) {
                                 instaShieldObject = new InstaShieldObjectInstance(this);
                         }
