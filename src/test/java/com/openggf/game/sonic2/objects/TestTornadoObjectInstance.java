@@ -86,7 +86,7 @@ public class TestTornadoObjectInstance {
         invokePrivate(tornado, "moveWithPlayer",
                 new Class<?>[]{AbstractPlayableSprite.class, boolean.class}, main, false);
 
-        // SCZ suppresses CPU sidekick in SpriteManager.getSidekick(), so the Tornado
+        // SCZ suppresses CPU sidekick (isCpuSidekickSuppressed()), so the Tornado
         // anchors to main player. Sidekick at 140 would give smoothOffsetX=-10 (closer),
         // but it's suppressed, so main at 300 gives smoothOffsetX=150.
         assertEquals("SCZ Tornado anchors to main when sidekick is suppressed", 151, tornado.getX());
