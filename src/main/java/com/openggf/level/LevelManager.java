@@ -1097,9 +1097,29 @@ public class LevelManager {
         AbstractPlayableSprite sidekick = spriteManager.getSidekick();
         if (sidekick != null) {
             try {
-                SpriteArtSet sidekickArt = artProvider.loadPlayerSpriteArt(sidekick.getCode());
+                // Use the config's base character name for art lookup — sidekick.getCode()
+                // may have a "_p2" suffix for HashMap uniqueness.
+                String sidekickCharName = configService.getString(SonicConfiguration.SIDEKICK_CHARACTER_CODE);
+                String mainCharName = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+                SpriteArtSet sidekickArt = artProvider.loadPlayerSpriteArt(sidekickCharName);
                 if (sidekickArt != null && sidekickArt.bankSize() > 0 && !sidekickArt.mappingFrames().isEmpty()
                         && !sidekickArt.dplcFrames().isEmpty()) {
+                    // When main and sidekick are the same character, they share the same
+                    // cached SpriteArtSet with the same basePatternIndex. Both renderers
+                    // would write DPLC tiles to the same atlas slots, causing corruption.
+                    // Give the sidekick a shifted base so each has its own pattern bank.
+                    if (sidekickCharName.equalsIgnoreCase(mainCharName)) {
+                        sidekickArt = new SpriteArtSet(
+                                sidekickArt.artTiles(),
+                                sidekickArt.mappingFrames(),
+                                sidekickArt.dplcFrames(),
+                                sidekickArt.paletteIndex(),
+                                sidekickArt.basePatternIndex() + sidekickArt.bankSize(),
+                                sidekickArt.frameDelay(),
+                                sidekickArt.bankSize(),
+                                sidekickArt.animationProfile(),
+                                sidekickArt.animationSet());
+                    }
                     PlayerSpriteRenderer sidekickRenderer = new PlayerSpriteRenderer(sidekickArt);
                     if (CrossGameFeatureProvider.isActive()) {
                         sidekickRenderer.setRenderContext(

@@ -363,11 +363,14 @@ public class Engine {
 		boolean sidekickAllowed = GameModuleRegistry.getCurrent().supportsSidekick()
 				|| CrossGameFeatureProvider.isActive();
 		if (!sidekickCode.isEmpty() && sidekickAllowed) {
+			// Use a distinct code for the sidekick sprite so it doesn't collide with
+			// the main player in SpriteManager's HashMap (e.g. sonic+sonic).
+			String sidekickSpriteCode = sidekickCode + "_p2";
 			AbstractPlayableSprite sidekick;
 			if ("tails".equalsIgnoreCase(sidekickCode)) {
-				sidekick = new Tails(sidekickCode, (short) (mainSprite.getX() - 0x20), (short) (mainSprite.getY() + 4));
+				sidekick = new Tails(sidekickSpriteCode, (short) (mainSprite.getX() - 0x20), (short) (mainSprite.getY() + 4));
 			} else {
-				sidekick = new Sonic(sidekickCode, (short) (mainSprite.getX() - 0x20), (short) (mainSprite.getY() + 4));
+				sidekick = new Sonic(sidekickSpriteCode, (short) (mainSprite.getX() - 0x20), (short) (mainSprite.getY() + 4));
 			}
 			sidekick.setCpuControlled(true);
 			TailsCpuController cpuController = new TailsCpuController(sidekick);
