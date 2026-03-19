@@ -22,7 +22,7 @@
 | `src/main/java/com/openggf/sprites/playable/SidekickRespawnStrategy.java` | Interface for per-character respawn behavior |
 | `src/main/java/com/openggf/sprites/playable/TailsRespawnStrategy.java` | Tails fly-in respawn (extracted from current FLYING logic) |
 | `src/test/java/com/openggf/game/TestSidekickConfigParsing.java` | Config parsing unit tests |
-| `src/test/java/com/openggf/game/TestSidekickChainHealing.java` | Chain healing unit tests |
+| `src/test/java/com/openggf/sprites/playable/TestSidekickChainHealing.java` | Chain healing unit tests (same package for package-private access) |
 | `src/test/java/com/openggf/game/TestSidekickArtBankAllocation.java` | VRAM bank allocation unit tests |
 
 ### Modified Files
@@ -159,10 +159,10 @@ Replace the `findSonic()` scan with an explicit `leader` reference and add the c
 
 - [ ] **Step 1: Write the failing test for chain healing**
 
-Create `src/test/java/com/openggf/game/TestSidekickChainHealing.java`:
+Create `src/test/java/com/openggf/sprites/playable/TestSidekickChainHealing.java` (same package as `SidekickCpuController` for package-private access):
 
 ```java
-package com.openggf.game;
+package com.openggf.sprites.playable;
 
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.SidekickCpuController;
@@ -293,7 +293,7 @@ public AbstractPlayableSprite getEffectiveLeader() {
 
 8. Add `setInitialState(State state)` — public method for production use (setting SPAWNING on off-screen sidekicks at spawn time). Also add `forceStateForTest(State state, int normalFrames)` package-private method for testing only (also sets `normalFrameCount`).
 
-8. Update the `update()` method to use `getEffectiveLeader()` when reading history buffers (the `NORMAL` state's position/input reads).
+9. Update the `update()` method to use `getEffectiveLeader()` when reading history buffers (the `NORMAL` state's position/input reads).
 
 - [ ] **Step 4: Update Engine.java constructor call**
 
@@ -427,7 +427,7 @@ public AbstractPlayableSprite getSidekick() {
 }
 ```
 
-4. Maintain the list: in `addSprite()`, if the sprite is `AbstractPlayableSprite` and `isCpuControlled()`, append to `sidekicks`. In `removeSprite()`, remove from `sidekicks`. In `reset()`, clear `sidekicks`.
+4. Maintain the list: in `addSprite()`, if the sprite is `AbstractPlayableSprite` and `isCpuControlled()`, append to `sidekicks`. In `removeSprite()`, remove from `sidekicks`. In `clearAllSprites()` and `resetState()` (the actual cleanup methods used during level transitions), clear `sidekicks` and `sidekickCharacterNames`.
 
 - [ ] **Step 2: Build and run tests**
 
@@ -860,7 +860,14 @@ for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks(
 }
 ```
 
-For vine/tree objects that call `updatePlayer(sidekick, PLAYER_SLOT_SIDEKICK, ...)`, these may need per-sidekick slot indices. Read each file carefully before migrating — some objects track per-player state using slot constants. For now, all sidekicks share `PLAYER_SLOT_SIDEKICK` (slot 1). Multi-slot support can be a follow-up if needed.
+**Slot-array objects:** `AizHollowTreeObjectInstance` uses fixed-size per-player arrays (`progress[2]`, `riding[2]`) indexed by `PLAYER_SLOT_SIDEKICK` (slot 1). Multiple sidekicks sharing slot 1 would corrupt state. For this object specifically, pass only the **first sidekick** to preserve current behavior:
+```java
+List<AbstractPlayableSprite> sidekicks = SpriteManager.getInstance().getSidekicks();
+if (!sidekicks.isEmpty()) {
+    updatePlayer(sidekicks.getFirst(), PLAYER_SLOT_SIDEKICK, false);
+}
+```
+Add a `// TODO: multi-slot support for hollow tree` comment. Other vine objects (`AizRideVineObjectInstance`, `AizGiantRideVineObjectInstance`) do not use slot arrays and can iterate all sidekicks normally.
 
 For `Sonic2ZoneEvents.setSidekickBounds()`: loop over `getSidekicks()` and set bounds on each controller.
 
