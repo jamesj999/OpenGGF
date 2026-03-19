@@ -172,7 +172,7 @@ public class TestS2PostLoadAssemblyHeadless {
         Tails tails = createSidekick();
 
         // S2 sidekick offset: -40 X, 0 Y
-        LevelManager.getInstance().spawnSidekick(-40, 0);
+        LevelManager.getInstance().spawnSidekicks(-40, 0);
 
         assertEquals("S2 sidekick X should be player X - 40",
                 playerX - 40, tails.getX());
@@ -190,7 +190,7 @@ public class TestS2PostLoadAssemblyHeadless {
         Tails tails = createSidekick();
 
         // S3K sidekick offset: -32 X, +4 Y
-        LevelManager.getInstance().spawnSidekick(-32, 4);
+        LevelManager.getInstance().spawnSidekicks(-32, 4);
 
         assertEquals("S3K sidekick X should be player X - 32",
                 playerX - 32, tails.getX());
@@ -207,7 +207,7 @@ public class TestS2PostLoadAssemblyHeadless {
         tails.setDead(true);
         tails.setAir(true);
 
-        LevelManager.getInstance().spawnSidekick(-40, 0);
+        LevelManager.getInstance().spawnSidekicks(-40, 0);
 
         assertEquals("Sidekick X speed should be 0 after spawn", 0, tails.getXSpeed());
         assertEquals("Sidekick Y speed should be 0 after spawn", 0, tails.getYSpeed());

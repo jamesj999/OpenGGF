@@ -91,7 +91,7 @@ public class Sonic3kLevelInitProfile extends AbstractLevelInitProfile {
     protected InitStep spawnSidekickStep() {
         return new InitStep("SpawnSidekick",
             "S3K: SpawnLevelMainSprites_SpawnPlayers — Tails at player_pos - $20, +4 Y",
-            () -> LevelManager.getInstance().spawnSidekick(-32, 4));
+            () -> LevelManager.getInstance().spawnSidekicks(-32, 4));
     }
 
     /** S3K: skip title card on checkpoint resume (ROM: {@code tst.b (Last_star_post_hit)}). */

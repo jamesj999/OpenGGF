@@ -109,7 +109,7 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
     protected InitStep spawnSidekickStep() {
         return new InitStep("SpawnSidekick",
             "S2: InitPlayers multi-char, S3K: SpawnLevelMainSprites_SpawnPlayers",
-            () -> LevelManager.getInstance().spawnSidekick(-40, 0));
+            () -> LevelManager.getInstance().spawnSidekicks(-40, 0));
     }
 
     /** Step 20: Request title card display. */

@@ -963,10 +963,11 @@ public class LevelManager {
             ringManager.updateLostRingPhysics(frameCounter + 1);
             ringManager.checkLostRingCollection(playable);
             // ROM: CPU Tails can also collect rings in 1P mode
-            AbstractPlayableSprite sidekick = spriteManager.getSidekick();
-            if (sidekick != null && !sidekick.getDead()) {
-                ringManager.update(Camera.getInstance().getX(), sidekick, frameCounter + 1);
-                ringManager.checkLostRingCollection(sidekick);
+            for (AbstractPlayableSprite sidekick : spriteManager.getSidekicks()) {
+                if (!sidekick.getDead()) {
+                    ringManager.update(Camera.getInstance().getX(), sidekick, frameCounter + 1);
+                    ringManager.checkLostRingCollection(sidekick);
+                }
             }
         }
         // Water movement — ROM order: MoveWater (move toward target) runs BEFORE
@@ -1093,9 +1094,8 @@ public class LevelManager {
             LOGGER.log(SEVERE, "Failed to load player sprite art.", e);
         }
 
-        // Also initialize art for sidekick (CPU-controlled Tails)
-        AbstractPlayableSprite sidekick = spriteManager.getSidekick();
-        if (sidekick != null) {
+        // Also initialize art for each sidekick (CPU-controlled Tails etc.)
+        for (AbstractPlayableSprite sidekick : spriteManager.getSidekicks()) {
             try {
                 // Use the config's base character name for art lookup — sidekick.getCode()
                 // may have a "_p2" suffix for HashMap uniqueness.
@@ -1154,8 +1154,7 @@ public class LevelManager {
         if (player instanceof AbstractPlayableSprite playable) {
             playable.resetState();
         }
-        AbstractPlayableSprite sidekick = spriteManager.getSidekick();
-        if (sidekick != null) {
+        for (AbstractPlayableSprite sidekick : spriteManager.getSidekicks()) {
             sidekick.resetState();
             if (sidekick.getCpuController() != null) {
                 sidekick.getCpuController().reset();
@@ -3968,16 +3967,15 @@ public class LevelManager {
     }
 
     /**
-     * Step 19: Spawn sidekick (Tails) near the main player.
+     * Step 19: Spawn sidekicks (Tails etc.) near the main player.
      * S2: InitPlayers multi-char. S3K: SpawnLevelMainSprites_SpawnPlayers (-$20 X, +4 Y).
      *
      * @param xOffset sidekick X offset from player (negative = behind). S2 uses -40, S3K uses -32.
      * @param yOffset sidekick Y offset from player. S2 uses 0, S3K uses +4.
      */
-    public void spawnSidekick(int xOffset, int yOffset) {
+    public void spawnSidekicks(int xOffset, int yOffset) {
         Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
-        AbstractPlayableSprite sidekick = spriteManager.getSidekick();
-        if (sidekick != null) {
+        for (AbstractPlayableSprite sidekick : spriteManager.getSidekicks()) {
             sidekick.setX((short) (player.getX() + xOffset));
             sidekick.setY((short) (player.getY() + yOffset));
             sidekick.setXSpeed((short) 0);
@@ -4269,8 +4267,7 @@ public class LevelManager {
                 playable.getInstaShieldObject().invalidateDplcCache();
             }
         }
-        AbstractPlayableSprite sidekick = spriteManager.getSidekick();
-        if (sidekick != null) {
+        for (AbstractPlayableSprite sidekick : spriteManager.getSidekicks()) {
             int newX = sidekick.getCentreX() + request.playerOffsetX();
             int newY = sidekick.getCentreY() + request.playerOffsetY();
             sidekick.setCentreX((short) newX);
@@ -4316,7 +4313,9 @@ public class LevelManager {
         // orphaned when the old ObjectManager was replaced.
         // ROM: these live in Dynamic_object_RAM which persists across act transitions.
         reregisterPlayerDynamicObjects(cam.getFocusedSprite());
-        reregisterPlayerDynamicObjects(spriteManager.getSidekick());
+        for (AbstractPlayableSprite sidekick : spriteManager.getSidekicks()) {
+            reregisterPlayerDynamicObjects(sidekick);
+        }
     }
 
     private void reregisterPlayerDynamicObjects(Sprite sprite) {
