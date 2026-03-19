@@ -642,6 +642,15 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 this.instaShieldObject = obj;
         }
 
+        /**
+         * Marks the insta-shield for re-registration with the current ObjectManager.
+         * Must be called after seamless transitions that rebuild the ObjectManager,
+         * since the old manager (which held the dynamic object) is replaced.
+         */
+        public void markInstaShieldForReregistration() {
+                this.instaShieldRegistered = false;
+        }
+
         public InvincibilityStarsObjectInstance getInvincibilityObject() {
                 return invincibilityObject;
         }

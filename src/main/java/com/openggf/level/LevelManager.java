@@ -4242,8 +4242,10 @@ public class LevelManager {
             if (playable.getSpriteRenderer() != null) {
                 playable.getSpriteRenderer().invalidateDplcCache();
             }
-            // Persistent insta-shield object survives transitions — its DPLC cache is stale
+            // Persistent insta-shield survives transitions but the ObjectManager was rebuilt
+            // (rebuildManagersForActTransition creates a new one). Re-register + invalidate DPLC.
             if (playable.getInstaShieldObject() != null) {
+                playable.markInstaShieldForReregistration();
                 playable.getInstaShieldObject().invalidateDplcCache();
             }
         }
