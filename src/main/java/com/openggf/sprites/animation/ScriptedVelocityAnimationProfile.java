@@ -233,8 +233,16 @@ public class ScriptedVelocityAnimationProfile implements SpriteAnimationProfile 
         return deathAnimId;
     }
 
+    public int getHurtAnimId() {
+        return hurtAnimId;
+    }
+
     public int getSkidAnimId() {
         return skidAnimId;
+    }
+
+    public int getSlideAnimId() {
+        return slideAnimId;
     }
 
     public int getDrownAnimId() {
