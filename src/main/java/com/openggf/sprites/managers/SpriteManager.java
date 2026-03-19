@@ -25,7 +25,9 @@ import com.openggf.sprites.playable.GroundMode;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -42,6 +44,9 @@ public class SpriteManager {
 	private static SpriteManager spriteManager;
 
 	private Map<String, Sprite> sprites;
+
+	private final List<AbstractPlayableSprite> sidekicks = new ArrayList<>();
+	private final Map<AbstractPlayableSprite, String> sidekickCharacterNames = new IdentityHashMap<>();
 
 	private static final SensorConfiguration[][] MOVEMENT_MAPPING_ARRAY = createMovementMappingArray();
 
@@ -101,13 +106,37 @@ public class SpriteManager {
 	/**
 	 * Adds the given sprite to the SpriteManager. Returns true if we have
 	 * overwritten a sprite, false if we are creating a new one.
+	 * <p>
+	 * If {@code sprite} is a CPU-controlled {@link AbstractPlayableSprite} that is
+	 * not already tracked, it is added to the sidekick list so that
+	 * {@link #getSidekicks()} returns it. Prefer
+	 * {@link #addSprite(AbstractPlayableSprite, String)} when the character name is
+	 * known.
 	 *
 	 * @param sprite
-	 * @return
+	 * @return true if an existing sprite was replaced
 	 */
 	public boolean addSprite(Sprite sprite) {
 		bucketsDirty = true;
-		return (sprites.put(sprite.getCode(), sprite) != null);
+		boolean replaced = (sprites.put(sprite.getCode(), sprite) != null);
+		if (!replaced && sprite instanceof AbstractPlayableSprite playable && playable.isCpuControlled()) {
+			sidekicks.add(playable);
+			// characterName is null when registered via the untyped overload
+		}
+		return replaced;
+	}
+
+	/**
+	 * Adds a CPU-controlled sidekick sprite with its character name for art loading.
+	 * The character name is stored for later use by art loading and VRAM bank allocation.
+	 */
+	public void addSprite(AbstractPlayableSprite sprite, String characterName) {
+		addSprite((Sprite) sprite);
+		if (sprite.isCpuControlled()) {
+			// addSprite(Sprite) already added the sprite to the sidekicks list on first
+			// insertion. Just record the character name.
+			sidekickCharacterNames.put(sprite, characterName);
+		}
 	}
 
 	/**
@@ -127,6 +156,8 @@ public class SpriteManager {
 	 */
 	public void clearAllSprites() {
 		sprites.clear();
+		sidekicks.clear();
+		sidekickCharacterNames.clear();
 		bucketsDirty = true;
 	}
 
@@ -150,24 +181,36 @@ public class SpriteManager {
 	}
 
 	/**
+	 * Returns all CPU-controlled sidekick sprites in chain order.
+	 * Returns empty list when sidekicks are suppressed for the current zone.
+	 */
+	public List<AbstractPlayableSprite> getSidekicks() {
+		if (isCpuSidekickSuppressed()) {
+			return List.of();
+		}
+		return Collections.unmodifiableList(sidekicks);
+	}
+
+	/**
+	 * Returns the character name for a sidekick (e.g. "tails", "sonic", "knuckles").
+	 */
+	public String getSidekickCharacterName(AbstractPlayableSprite sidekick) {
+		return sidekickCharacterNames.get(sidekick);
+	}
+
+	/**
 	 * Returns the sidekick sprite (Tails in 2-player or AI mode).
-	 * Currently returns null as sidekick AI is not implemented.
 	 * <p>
 	 * In the original Sonic 2, the sidekick is stored at RAM $FFFFB040
 	 * (Sidekick) vs the main character at $FFFFB000 (MainCharacter).
 	 *
 	 * @return the sidekick sprite, or null if no sidekick is active
+	 * @deprecated Use {@link #getSidekicks()} instead. Returns first sidekick for compatibility.
 	 */
+	@Deprecated
 	public AbstractPlayableSprite getSidekick() {
-		if (isCpuSidekickSuppressed()) {
-			return null;
-		}
-		for (Sprite sprite : sprites.values()) {
-			if (sprite instanceof AbstractPlayableSprite playable && playable.isCpuControlled()) {
-				return playable;
-			}
-		}
-		return null;
+		List<AbstractPlayableSprite> list = getSidekicks();
+		return list.isEmpty() ? null : list.getFirst();
 	}
 
 	public void update(InputHandler handler) {
@@ -533,6 +576,10 @@ public class SpriteManager {
 
 	private boolean removeSprite(Sprite sprite) {
 		bucketsDirty = true;
+		if (sprite instanceof AbstractPlayableSprite playable) {
+			sidekicks.remove(playable);
+			sidekickCharacterNames.remove(playable);
+		}
 		return (sprites.remove(sprite) != null);
 	}
 
