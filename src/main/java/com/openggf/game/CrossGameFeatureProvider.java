@@ -25,6 +25,8 @@ import com.openggf.level.Palette;
 import com.openggf.level.Pattern;
 import com.openggf.level.render.SpriteDplcFrame;
 import com.openggf.level.render.SpriteMappingFrame;
+import com.openggf.sprites.animation.ScriptedVelocityAnimationProfile;
+import com.openggf.sprites.animation.AnimationTranslator;
 import com.openggf.sprites.animation.SpriteAnimationSet;
 import com.openggf.sprites.art.SpriteArtSet;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -59,6 +61,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
     private RenderContext donorRenderContext;
     private PlayerSpriteRenderer instaShieldRenderer;
     private SpriteArtSet instaShieldArtSet;
+    private DonorCapabilities donorCapabilities;
     private boolean active;
 
     private CrossGameFeatureProvider() {
@@ -79,6 +82,25 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
      */
     public void initialize(String donorGameId) throws IOException {
         this.donorGameId = donorGameId;
+
+        // Same-game guard: disable donation when donor == host
+        GameId donorId = GameId.fromCode(donorGameId);
+        GameId hostId = GameId.fromCode(resolveHostCode());
+        if (donorId == hostId) {
+            LOGGER.info("Donor same as host (" + donorGameId + "), donation disabled");
+            active = false;
+            return;
+        }
+
+        // Resolve donor capabilities before any ROM access
+        GameModule donorModule = resolveModule(donorGameId);
+        this.donorCapabilities = donorModule != null ? donorModule.getDonorCapabilities() : null;
+        if (donorCapabilities == null) {
+            LOGGER.warning("No donor capabilities for: " + donorGameId);
+            active = false;
+            return;
+        }
+
         Rom donorRom = RomManager.getInstance().getSecondaryRom(donorGameId);
         this.donorReader = RomByteReader.fromRom(donorRom);
 
@@ -97,7 +119,6 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
         hybridFeatureSet = buildHybridFeatureSet();
 
         // Create donor render context for palette isolation
-        GameId donorId = GameId.fromCode(donorGameId);
         donorRenderContext = RenderContext.getOrCreateDonor(donorId);
         Palette charPalette = loadCharacterPalette();
         if (charPalette != null) {
@@ -120,14 +141,23 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
 
     @Override
     public SpriteArtSet loadPlayerSpriteArt(String characterCode) throws IOException {
-        if (s3kPlayerArt != null) {
-            return s3kPlayerArt.loadForCharacter(characterCode);
+        if (donorCapabilities == null) {
+            return null;
         }
-        if (s2PlayerArt != null) {
-            return s2PlayerArt.loadForCharacter(characterCode);
+        PlayerSpriteArtProvider artProvider = donorCapabilities.getPlayerArtProvider(donorReader);
+        SpriteArtSet donorArt = artProvider.loadPlayerSpriteArt(characterCode);
+        if (donorArt == null || donorArt.animationProfile() == null) {
+            return donorArt;
         }
-        LOGGER.warning("CrossGameFeatureProvider is active but no art loader available for: " + characterCode);
-        return null;
+        // Translate the animation profile for host compatibility
+        if (donorArt.animationProfile() instanceof ScriptedVelocityAnimationProfile donorProfile) {
+            ScriptedVelocityAnimationProfile translated = AnimationTranslator.translate(
+                    donorCapabilities, donorProfile, donorArt.animationSet());
+            return new SpriteArtSet(donorArt.artTiles(), donorArt.mappingFrames(),
+                    donorArt.dplcFrames(), donorArt.paletteIndex(), donorArt.basePatternIndex(),
+                    donorArt.frameDelay(), donorArt.bankSize(), translated, donorArt.animationSet());
+        }
+        return donorArt;
     }
 
     @Override
@@ -139,17 +169,18 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
     }
 
     /**
-     * Returns a hybrid PhysicsFeatureSet: spindash from donor, everything else from S1.
+     * Returns a hybrid PhysicsFeatureSet: spindash/insta-shield from donor capabilities,
+     * everything else from the current (base) game module.
      */
     public PhysicsFeatureSet getHybridFeatureSet() {
         return hybridFeatureSet;
     }
 
     /**
-     * Donor games (S2/S3K) always support a sidekick character.
+     * Returns true if the donor game natively includes a sidekick character (e.g., Tails).
      */
     public boolean supportsSidekick() {
-        return true;
+        return donorCapabilities != null && donorCapabilities.hasSidekick();
     }
 
     /**
@@ -246,9 +277,13 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
      * @return a donor-game SuperStateController with ROM data pre-loaded, or null
      */
     public SuperStateController createSuperStateController(AbstractPlayableSprite player) {
-        if (!active || donorReader == null) {
+        if (!active || donorReader == null || donorCapabilities == null) {
             return null;
         }
+        if (!donorCapabilities.hasSuperTransform()) {
+            return null;  // S1 donor: no super transformation
+        }
+        // Controller selection stays game-specific (different palette formats)
         SuperStateController ctrl;
         if ("s3k".equalsIgnoreCase(donorGameId)) {
             ctrl = new Sonic3kSuperStateController(player);
@@ -260,7 +295,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
             ctrl.setRomDataPreLoaded(true);
             LOGGER.fine("Created cross-game Super Sonic controller from donor: " + donorGameId);
         } catch (Exception e) {
-            LOGGER.warning("Failed to load donor Super Sonic ROM data: " + e.getMessage());
+            LOGGER.warning("Failed to load donor Super ROM data: " + e.getMessage());
             return null;
         }
         return ctrl;
@@ -277,6 +312,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
         donorRenderContext = null;
         instaShieldRenderer = null;
         instaShieldArtSet = null;
+        donorCapabilities = null;
         active = false;
     }
 
@@ -338,16 +374,15 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
     }
 
     /**
-     * Builds a hybrid feature set: spindash enabled with donor speed table,
-     * but collision model and other flags inherited from the current (base) game module.
+     * Builds a hybrid feature set: spindash/insta-shield enabled based on donor capabilities,
+     * collision model and other flags inherited from the current (base) game module.
      * This ensures that S2/S3K levels keep DUAL_PATH collision (required for plane switching)
      * while S1 levels keep UNIFIED collision.
      */
     private PhysicsFeatureSet buildHybridFeatureSet() {
-        // Spindash speed table is the same for S2 and S3K
-        short[] spindashSpeedTable = new short[]{
-                0x0800, 0x0880, 0x0900, 0x0980, 0x0A00, 0x0A80, 0x0B00, 0x0B80, 0x0C00
-        };
+        short[] spindashSpeedTable = donorCapabilities.hasSpindash()
+                ? new short[]{0x0800, 0x0880, 0x0900, 0x0980, 0x0A00, 0x0A80, 0x0B00, 0x0B80, 0x0C00}
+                : null;
 
         // Inherit collision model from the base game module so plane switching
         // works correctly in S2/S3K levels with cross-game features enabled
@@ -355,20 +390,45 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
                 .getPhysicsProvider().getFeatureSet();
 
         return new PhysicsFeatureSet(
-                true,                                           // spindashEnabled (from donor)
+                donorCapabilities.hasSpindash(),                // spindashEnabled (from donor)
                 spindashSpeedTable,                             // spindashSpeedTable (from donor)
                 baseFeatureSet.collisionModel(),                // collisionModel (from base game)
                 baseFeatureSet.fixedAnglePosThreshold(),        // fixedAnglePosThreshold (from base game)
                 baseFeatureSet.lookScrollDelay(),               // lookScrollDelay (from base game)
-                baseFeatureSet.waterShimmerEnabled(),            // waterShimmerEnabled (from base game)
-                baseFeatureSet.inputAlwaysCapsGroundSpeed(),     // inputAlwaysCapsGroundSpeed (from base game)
-                false,                                          // elementalShieldsEnabled (donor doesn't donate shields)
-                "s3k".equalsIgnoreCase(donorGameId),            // instaShieldEnabled (S3K donor only)
-                baseFeatureSet.angleDiffCardinalSnap(),          // angleDiffCardinalSnap (from base game)
-                baseFeatureSet.extendedEdgeBalance(),            // extendedEdgeBalance (from base game)
-                baseFeatureSet.ringFloorCheckMask(),             // ringFloorCheckMask (from base game)
-                null,                                            // superSpindashSpeedTable (not donated)
-                (short) 0                                        // movingCrouchThreshold (not donated)
+                baseFeatureSet.waterShimmerEnabled(),           // waterShimmerEnabled (from base game)
+                baseFeatureSet.inputAlwaysCapsGroundSpeed(),    // inputAlwaysCapsGroundSpeed (from base game)
+                donorCapabilities.hasElementalShields(),        // elementalShieldsEnabled (from donor)
+                donorCapabilities.hasInstaShield(),             // instaShieldEnabled (from donor)
+                baseFeatureSet.angleDiffCardinalSnap(),         // angleDiffCardinalSnap (from base game)
+                baseFeatureSet.extendedEdgeBalance(),           // extendedEdgeBalance (from base game)
+                baseFeatureSet.ringFloorCheckMask(),            // ringFloorCheckMask (from base game)
+                baseFeatureSet.superSpindashSpeedTable(),       // superSpindashSpeedTable (from base game)
+                baseFeatureSet.movingCrouchThreshold()          // movingCrouchThreshold (from base game)
         );
+    }
+
+    /**
+     * Resolves the host game code from the current game module's identifier.
+     */
+    private String resolveHostCode() {
+        String id = GameModuleRegistry.getCurrent().getIdentifier();
+        return switch (id) {
+            case "Sonic1" -> "s1";
+            case "Sonic2" -> "s2";
+            case "Sonic3k" -> "s3k";
+            default -> id.toLowerCase();
+        };
+    }
+
+    /**
+     * Creates a GameModule instance for the given game code.
+     */
+    private static GameModule resolveModule(String gameCode) {
+        return switch (gameCode.toLowerCase()) {
+            case "s1" -> new com.openggf.game.sonic1.Sonic1GameModule();
+            case "s2" -> new com.openggf.game.sonic2.Sonic2GameModule();
+            case "s3k" -> new com.openggf.game.sonic3k.Sonic3kGameModule();
+            default -> null;
+        };
     }
 }
