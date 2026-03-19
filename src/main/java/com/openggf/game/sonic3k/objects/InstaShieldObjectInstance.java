@@ -29,8 +29,8 @@ public class InstaShieldObjectInstance extends ShieldObjectInstance {
     private static final int ATTACK_ANIM = 1;
     private static final int FINAL_FRAME = 7;
 
-    private final PlayerSpriteRenderer dplcRenderer;
-    private final SpriteAnimationSet animSet;
+    private PlayerSpriteRenderer dplcRenderer;
+    private SpriteAnimationSet animSet;
     private int currentAnimId;
     private int frameIndex;
     private int delayCounter;
@@ -38,25 +38,36 @@ public class InstaShieldObjectInstance extends ShieldObjectInstance {
 
     public InstaShieldObjectInstance(AbstractPlayableSprite player) {
         super(player);
-        Sonic3kObjectArtProvider artProvider = getS3kArtProvider();
-        if (artProvider != null) {
-            this.dplcRenderer = artProvider.getShieldDplcRenderer(Sonic3kObjectArtKeys.INSTA_SHIELD);
-            SpriteArtSet artSet = artProvider.getShieldArtSet(Sonic3kObjectArtKeys.INSTA_SHIELD);
-            this.animSet = artSet != null ? artSet.animationSet() : null;
-        } else if (CrossGameFeatureProvider.isActive()) {
-            CrossGameFeatureProvider donor = CrossGameFeatureProvider.getInstance();
-            this.dplcRenderer = donor.getInstaShieldRenderer();
-            SpriteArtSet artSet = donor.getInstaShieldArtSet();
-            this.animSet = artSet != null ? artSet.animationSet() : null;
-        } else {
-            this.dplcRenderer = null;
-            this.animSet = null;
-        }
+        acquireArt();
         currentAnimId = IDLE_ANIM;
         frameIndex = 0;
         delayCounter = 0;
         currentMappingFrame = 0;
         initAnimation(IDLE_ANIM);
+    }
+
+    /**
+     * Acquires DPLC renderer and animation set from the art provider.
+     * Called at construction and lazily on first triggerAttack() if art wasn't
+     * available at construction time (sprite created before level load).
+     */
+    private void acquireArt() {
+        Sonic3kObjectArtProvider artProvider = getS3kArtProvider();
+        if (artProvider != null) {
+            PlayerSpriteRenderer r = artProvider.getShieldDplcRenderer(Sonic3kObjectArtKeys.INSTA_SHIELD);
+            if (r != null) {
+                this.dplcRenderer = r;
+                SpriteArtSet artSet = artProvider.getShieldArtSet(Sonic3kObjectArtKeys.INSTA_SHIELD);
+                this.animSet = artSet != null ? artSet.animationSet() : null;
+                return;
+            }
+        }
+        if (CrossGameFeatureProvider.isActive()) {
+            CrossGameFeatureProvider donor = CrossGameFeatureProvider.getInstance();
+            this.dplcRenderer = donor.getInstaShieldRenderer();
+            SpriteArtSet artSet = donor.getInstaShieldArtSet();
+            this.animSet = artSet != null ? artSet.animationSet() : null;
+        }
     }
 
     @Override
@@ -78,6 +89,11 @@ public class InstaShieldObjectInstance extends ShieldObjectInstance {
 
     /** Triggers the insta-shield attack animation. */
     public void triggerAttack() {
+        // Lazy init: art may not have been loaded at construction time
+        // (sprite created before level load). Acquire it now if needed.
+        if (animSet == null) {
+            acquireArt();
+        }
         initAnimation(ATTACK_ANIM);
     }
 
