@@ -1136,14 +1136,21 @@ public class LevelManager {
                     continue;
                 }
                 // When a sidekick shares a character type with the main or another
-                // sidekick, give it a unique pattern bank in the dedicated sidekick
-                // range (0x30000+) so DPLC writes don't collide with level tiles or
-                // the main player's VRAM bank.
+                // sidekick, shift its base pattern index so each has its own DPLC bank.
+                // The 11-bit VDP pattern word limits us to indices 0x000-0x7FF (2048 tiles).
+                // Sonic's base is 0x780 with bankSize ~48-64, so we can fit a few duplicates
+                // before hitting the 0x800 ceiling. Cap to avoid overflow into level tiles.
                 int slot = vramSlots.get(i);
                 if (slot > 0) {
-                    // Slot 0 = use same base as main player (no conflict for different chars).
-                    // Slot 1+ = place in dedicated high range to avoid VRAM collisions.
-                    int shiftedBase = SIDEKICK_PATTERN_BASE + sidekickArt.bankSize() * (slot - 1);
+                    int shiftedBase = sidekickArt.basePatternIndex() + sidekickArt.bankSize() * slot;
+                    if (shiftedBase + sidekickArt.bankSize() > 0x800) {
+                        LOGGER.warning("Sidekick " + i + " (" + sidekickCharName
+                                + ") VRAM bank would exceed 0x800 limit (base=0x"
+                                + Integer.toHexString(shiftedBase) + "). Sharing bank with previous slot.");
+                        // Fall back to sharing the previous slot's bank — visually they'll
+                        // glitch when in different animation frames, but won't corrupt level tiles.
+                        shiftedBase = sidekickArt.basePatternIndex() + sidekickArt.bankSize() * (slot - 1);
+                    }
                     sidekickArt = new SpriteArtSet(
                             sidekickArt.artTiles(),
                             sidekickArt.mappingFrames(),
