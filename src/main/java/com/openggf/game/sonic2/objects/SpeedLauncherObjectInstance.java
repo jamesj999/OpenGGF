@@ -237,8 +237,7 @@ public class SpeedLauncherObjectInstance extends AbstractObjectInstance
         // moved players to our surface.
         launchPlayerIfStanding(player);
 
-        AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
-        if (sidekick != null) {
+        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
             launchPlayerIfStanding(sidekick);
         }
     }
@@ -393,9 +392,10 @@ public class SpeedLauncherObjectInstance extends AbstractObjectInstance
         // ROM: Sync both standing players (loc_3BFB4)
         syncPlayer(player);
 
-        AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
-        if (sidekick != null && sidekick.isOnObject()) {
-            syncPlayer(sidekick);
+        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+            if (sidekick.isOnObject()) {
+                syncPlayer(sidekick);
+            }
         }
     }
 

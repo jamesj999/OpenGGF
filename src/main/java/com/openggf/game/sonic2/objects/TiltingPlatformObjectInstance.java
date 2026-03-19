@@ -597,10 +597,11 @@ public class TiltingPlatformObjectInstance extends AbstractObjectInstance
             objectManager.clearRidingObject(main);
         }
 
-        // Get sidekick (ROM: Sidekick)
-        AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
-        if (sidekick != null && objectManager.isRidingObject(sidekick, this)) {
-            objectManager.clearRidingObject(sidekick);
+        // Get sidekick(s) (ROM: Sidekick)
+        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+            if (objectManager.isRidingObject(sidekick, this)) {
+                objectManager.clearRidingObject(sidekick);
+            }
         }
     }
 
@@ -645,7 +646,6 @@ public class TiltingPlatformObjectInstance extends AbstractObjectInstance
      */
     private boolean isPlayerToLeft(AbstractPlayableSprite player) {
         AbstractPlayableSprite main = Camera.getInstance().getFocusedSprite();
-        AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
 
         // Determine the closest player by absolute horizontal distance
         AbstractPlayableSprite closest = null;
@@ -660,10 +660,11 @@ public class TiltingPlatformObjectInstance extends AbstractObjectInstance
             }
         }
 
-        if (sidekick != null) {
+        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
             int diff = spawn.x() - sidekick.getCentreX();
             int absDiff = Math.abs(diff);
             if (absDiff < closestAbsDist) {
+                closestAbsDist = absDiff;
                 closest = sidekick;
             }
         }

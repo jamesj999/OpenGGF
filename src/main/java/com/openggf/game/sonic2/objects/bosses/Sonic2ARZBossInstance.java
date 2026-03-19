@@ -189,8 +189,8 @@ public class Sonic2ARZBossInstance extends AbstractBossInstance {
     }
 
     private boolean checkInitConditions(AbstractPlayableSprite player) {
-        AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
-        if (sidekick != null) {
+        var sidekicks = SpriteManager.getInstance().getSidekicks();
+        if (!sidekicks.isEmpty()) {
             AbstractPlayableSprite mainPlayer = Camera.getInstance().getFocusedSprite();
             if (mainPlayer != null) {
                 int mainX = mainPlayer.getCentreX();
@@ -198,9 +198,11 @@ public class Sonic2ARZBossInstance extends AbstractBossInstance {
                     return false;
                 }
             }
-            int sidekickX = sidekick.getCentreX();
-            if (sidekickX < PLAYER_CHECK_LEFT_X || sidekickX > PLAYER_CHECK_RIGHT_X) {
-                return false;
+            for (AbstractPlayableSprite sidekick : sidekicks) {
+                int sidekickX = sidekick.getCentreX();
+                if (sidekickX < PLAYER_CHECK_LEFT_X || sidekickX > PLAYER_CHECK_RIGHT_X) {
+                    return false;
+                }
             }
         }
         return true;

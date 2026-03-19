@@ -301,7 +301,8 @@ public class AizRideVineObjectInstance extends AbstractObjectInstance {
     private void updateHandle(AbstractPlayableSprite player) {
         Segment lastSegment = chain[chain.length - 1];
         AizVineHandleLogic.positionFromParent(handle, lastSegment.x, lastSegment.y, lastSegment.angle);
-        AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
+        var sidekicks = SpriteManager.getInstance().getSidekicks();
+        AbstractPlayableSprite sidekick = sidekicks.isEmpty() ? null : sidekicks.getFirst();
         AizVineHandleLogic.updatePlayers(handle, player, sidekick, lastSegment.angle);
     }
 
@@ -328,7 +329,8 @@ public class AizRideVineObjectInstance extends AbstractObjectInstance {
 
     private void clearGrabbedPlayers() {
         AbstractPlayableSprite player = resolveMainPlayer();
-        AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
+        var sidekicks = SpriteManager.getInstance().getSidekicks();
+        AbstractPlayableSprite sidekick = sidekicks.isEmpty() ? null : sidekicks.getFirst();
         clearControlFor(player, handle.p1.grabFlag != 0);
         clearControlFor(sidekick, handle.p2.grabFlag != 0);
         handle.p1.grabFlag = 0;

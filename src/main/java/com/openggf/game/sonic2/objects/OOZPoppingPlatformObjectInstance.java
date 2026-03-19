@@ -225,7 +225,8 @@ public class OOZPoppingPlatformObjectInstance extends AbstractObjectInstance
 
     private void updateWaitForPlayer(AbstractPlayableSprite player, int frameCounter) {
         ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
-        AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
+        var sidekicks = SpriteManager.getInstance().getSidekicks();
+        AbstractPlayableSprite sidekick = sidekicks.isEmpty() ? null : sidekicks.getFirst();
 
         // ROM: Check standing bits first, then X range
         boolean mainStanding = isPlayerStandingOnThis(player, objectManager);
@@ -337,7 +338,8 @@ public class OOZPoppingPlatformObjectInstance extends AbstractObjectInstance
         }
         mainCharLocked = false;
 
-        AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
+        var sidekicks = SpriteManager.getInstance().getSidekicks();
+        AbstractPlayableSprite sidekick = sidekicks.isEmpty() ? null : sidekicks.getFirst();
         if (sidekickLocked && sidekick != null && objectManager.isRidingObject(sidekick, this)) {
             launchPlayer(sidekick, frameCounter);
         }
@@ -352,7 +354,8 @@ public class OOZPoppingPlatformObjectInstance extends AbstractObjectInstance
             mainChar.setCentreX((short) x);
             mainChar.setCentreY((short) (currentY - SOLID_HALF_HEIGHT_AIR));
         }
-        AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
+        var sidekicks2 = SpriteManager.getInstance().getSidekicks();
+        AbstractPlayableSprite sidekick = sidekicks2.isEmpty() ? null : sidekicks2.getFirst();
         if (sidekickLocked && sidekick != null) {
             sidekick.setCentreX((short) x);
             sidekick.setCentreY((short) (currentY - SOLID_HALF_HEIGHT_AIR));

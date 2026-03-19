@@ -455,9 +455,8 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
             playerRef.setControlLocked(false);
             playerRef.setObjectControlled(false);
         }
-        // Unlock sidekick (Tails) — ROM: Ctrl_2_locked cleared at level transition
-        var sidekick = SpriteManager.getInstance().getSidekick();
-        if (sidekick != null) {
+        // Unlock sidekick(s) — ROM: Ctrl_2_locked cleared at level transition
+        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
             sidekick.setControlLocked(false);
             sidekick.setObjectControlled(false);
         }

@@ -150,8 +150,7 @@ public class OOZLauncherObjectInstance extends AbstractObjectInstance
         savedSonicAnim = player.getAnimationId();
         savedSonicYVel = player.getYSpeed();
 
-        AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
-        if (sidekick != null) {
+        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
             savedTailsAnim = sidekick.getAnimationId();
             savedTailsYVel = sidekick.getYSpeed();
         }
@@ -167,8 +166,7 @@ public class OOZLauncherObjectInstance extends AbstractObjectInstance
         }
 
         // Determine which player is contacting
-        AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
-        boolean isSidekick = (sidekick != null && player == sidekick);
+        boolean isSidekick = SpriteManager.getInstance().getSidekicks().contains(player);
 
         // Check if standing player is rolling (ROM: cmpi.b #AniIDSonAni_Roll,objoff_32)
         int savedAnim = isSidekick ? savedTailsAnim : savedSonicAnim;
@@ -267,13 +265,11 @@ public class OOZLauncherObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
-
         // Process main character (Sonic)
         sonicLauncherState = processLauncherState(player, sonicLauncherState);
 
         // Process Tails
-        if (sidekick != null) {
+        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
             tailsLauncherState = processLauncherState(sidekick, tailsLauncherState);
         }
 
@@ -320,8 +316,8 @@ public class OOZLauncherObjectInstance extends AbstractObjectInstance
         // ROM: Skip Tails if flying (CPU routine 4)
         // The engine doesn't expose Tails CPU routine directly, but this check
         // prevents capturing Tails while they're in flight mode
-        AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
-        if (player == sidekick && player.getAir() && !player.getRolling()) {
+        if (SpriteManager.getInstance().getSidekicks().contains(player)
+                && player.getAir() && !player.getRolling()) {
             return 0;
         }
 

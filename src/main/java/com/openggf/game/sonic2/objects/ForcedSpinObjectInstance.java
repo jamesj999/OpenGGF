@@ -106,9 +106,8 @@ public class ForcedSpinObjectInstance extends BoxObjectInstance {
         // Check for Sonic (main player)
         checkPlayerCrossing(player, true);
 
-        // Check for Tails (sidekick) if present
-        AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
-        if (sidekick != null) {
+        // Check for sidekick(s) if present
+        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
             checkPlayerCrossing(sidekick, false);
         }
     }
@@ -134,9 +133,8 @@ public class ForcedSpinObjectInstance extends BoxObjectInstance {
             sonicPastTrigger = playerX > objX;
         }
 
-        // Initialize Tails state similarly if present
-        AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
-        if (sidekick != null) {
+        // Initialize sidekick state similarly if present
+        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
             int sidekickX = sidekick.getCentreX();
             int sidekickY = sidekick.getCentreY();
             if (verticalMode) {

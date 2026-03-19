@@ -135,9 +135,8 @@ public class LauncherBallObjectInstance extends AbstractObjectInstance {
         // Process main character
         processPlayer(player, frameCounter);
 
-        // Process sidekick (Tails)
-        AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
-        if (sidekick != null) {
+        // Process sidekick(s)
+        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
             processPlayer(sidekick, frameCounter);
         }
     }

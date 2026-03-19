@@ -231,8 +231,7 @@ public class Sonic1FalseFloorInstance extends AbstractObjectInstance
         if (objectManager != null) {
             objectManager.clearRidingObject(player);
 
-            AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
-            if (sidekick != null) {
+            for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
                 objectManager.clearRidingObject(sidekick);
             }
         }

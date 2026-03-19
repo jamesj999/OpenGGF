@@ -281,9 +281,8 @@ public class HPropellerObjectInstance extends AbstractObjectInstance {
             checkAndPushPlayer(mainPlayer);
         }
 
-        // Check sidekick
-        AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
-        if (sidekick != null) {
+        // Check sidekick(s)
+        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
             checkAndPushPlayer(sidekick);
         }
     }

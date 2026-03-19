@@ -352,10 +352,9 @@ public class S3kSignpostInstance extends AbstractObjectInstance {
         player.setGSpeed((short) 0);
         player.setAnimationId(Sonic3kAnimationIds.VICTORY);
 
-        // ROM line 176215: st (Ctrl_2_locked).w — lock sidekick (Tails) input
+        // ROM line 176215: st (Ctrl_2_locked).w — lock sidekick input
         // Also apply Set_PlayerEndingPose equivalent so Tails does a victory pose
-        var sidekick = SpriteManager.getInstance().getSidekick();
-        if (sidekick != null) {
+        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
             sidekick.setObjectControlled(true);
             sidekick.setControlLocked(true);
             sidekick.setXSpeed((short) 0);

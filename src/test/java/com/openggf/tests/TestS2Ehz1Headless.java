@@ -770,8 +770,8 @@ public class TestS2Ehz1Headless {
     @Test
     public void testSpriteManagerGetSidekick() {
         createTailsForTest();
-        AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
-        assertNotNull("getSidekick() should return Tails", sidekick);
+        AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekicks().getFirst();
+        assertNotNull("getSidekicks() should return Tails", sidekick);
         assertTrue("Sidekick should be CPU controlled", sidekick.isCpuControlled());
         assertSame("Sidekick should be our Tails instance", tails, sidekick);
     }
