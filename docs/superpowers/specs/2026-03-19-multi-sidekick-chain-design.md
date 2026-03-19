@@ -74,9 +74,13 @@ When a sidekick's direct leader is despawned or not yet settled, the chain self-
 ```java
 AbstractPlayableSprite getEffectiveLeader() {
     AbstractPlayableSprite current = leader;
-    while (current != null && current.isCpuControlled()) {
+    int maxSteps = sidekickCount;  // cycle guard
+    while (current != null && current.isCpuControlled() && maxSteps-- > 0) {
         SidekickCpuController ctrl = current.getCpuController();
-        if (ctrl != null && ctrl.isSettled()) {
+        if (ctrl == null) {
+            return current;  // defensive: cpu-controlled but no controller attached
+        }
+        if (ctrl.isSettled()) {
             return current;  // leader is spawned and settled
         }
         current = ctrl.getLeader();  // walk up the chain
