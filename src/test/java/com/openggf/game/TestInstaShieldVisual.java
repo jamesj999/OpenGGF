@@ -232,6 +232,13 @@ public class TestInstaShieldVisual {
             // Step one frame of game logic (no input)
             stepFrame(false, false, false, false, false);
 
+            // Log animation state before render
+            var shield = player.getInstaShieldObject();
+            if (shield != null) {
+                System.out.println("  PRE-RENDER: animId=" + shield.getCurrentAnimId()
+                    + " mappingFrame=" + shield.getCurrentMappingFrame());
+            }
+
             // Render and capture
             BufferedImage frame = renderFrame(lm, sm);
             assertNotNull(frame, "Framebuffer capture returned null at frame " + i);
@@ -264,6 +271,65 @@ public class TestInstaShieldVisual {
         assertTrue(framesWithContent > 0,
                 "Expected at least one frame with insta-shield visual content. "
                 + "Check output PNGs in " + OUT_DIR.toAbsolutePath());
+
+        // Diagnostic: render each mapping frame in isolation via the DPLC renderer
+        // This bypasses the game render pipeline to isolate tile data issues
+        var instaShield = player.getInstaShieldObject();
+        if (instaShield != null) {
+            captureIsolatedMappingFrames(instaShield);
+        }
+    }
+
+    /**
+     * Renders each mapping frame of the insta-shield in isolation using its
+     * DPLC renderer directly, bypassing the game's render pipeline.
+     * Output: target/insta-shield-visual/isolated_XX.png
+     */
+    private void captureIsolatedMappingFrames(
+            com.openggf.game.sonic3k.objects.InstaShieldObjectInstance shield) throws Exception {
+        // Access the DPLC renderer via reflection to call drawFrame directly
+        var rendererField = shield.getClass().getDeclaredField("dplcRenderer");
+        rendererField.setAccessible(true);
+        var renderer = (com.openggf.sprites.render.PlayerSpriteRenderer) rendererField.get(shield);
+        if (renderer == null) {
+            System.out.println("DIAG: dplcRenderer is null — can't render isolated frames");
+            return;
+        }
+
+        var animSetField = shield.getClass().getDeclaredField("animSet");
+        animSetField.setAccessible(true);
+        var animSet = animSetField.get(shield);
+        System.out.println("DIAG: dplcRenderer=" + renderer + " animSet=" + (animSet != null ? "present" : "null"));
+
+        GraphicsManager gm = GraphicsManager.getInstance();
+        int cx = W / 2;  // centre of screen
+        int cy = H / 2;
+
+        // Render mapping frames 0-7 in isolation
+        System.out.println("\n=== Isolated Mapping Frame Renders ===");
+        for (int mf = 0; mf < 8; mf++) {
+            glClearColor(0f, 0f, 0f, 1f);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            // Force DPLC reload by invalidating cache
+            renderer.invalidateDplcCache();
+
+            // Begin a pattern batch (required for renderPattern to queue draws)
+            gm.beginPatternBatch();
+            renderer.drawFrame(mf, cx, cy, false, false);
+            gm.flushPatternBatch();
+
+            // Flush with zero camera offset (screen-space rendering)
+            gm.flushWithCamera((short) 0, (short) 0, (short) W, (short) H);
+            glFinish();
+
+            BufferedImage img = ScreenshotCapture.captureFramebuffer(W, H);
+            String filename = String.format("isolated_%02d.png", mf);
+            ScreenshotCapture.savePNG(img, OUT_DIR.resolve(filename));
+
+            int pixels = countNonBackgroundPixelsAround(img, cx, cy, 40);
+            System.out.println("  Mapping frame " + mf + ": " + filename + " nonBgPixels=" + pixels);
+        }
     }
 
     /**

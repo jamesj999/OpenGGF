@@ -1971,13 +1971,8 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                         if (instaShieldObject == null) {
                                 instaShieldObject = new InstaShieldObjectInstance(this);
                         }
-                        if (!instaShieldRegistered) {
-                                LevelManager lm = LevelManager.getInstance();
-                                if (lm != null && lm.getObjectManager() != null) {
-                                        lm.getObjectManager().addDynamicObject(instaShieldObject);
-                                        instaShieldRegistered = true;
-                                }
-                        }
+                        // Registration deferred to tickStatus() to avoid double-add
+                        // when resolvePhysicsProfile() and tickStatus() both run on the same frame
                 }
         }
 
