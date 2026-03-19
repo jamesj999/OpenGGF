@@ -15,6 +15,7 @@ import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 public class TestSpriteManagerRender {
     @Test
@@ -90,7 +91,7 @@ public class TestSpriteManagerRender {
                                              List<String> drawOrder, int zone) throws Exception {
         drawOrder.clear();
         setCurrentZone(levelManager, zone);
-        assertNull("Zone should suppress CPU sidekick gameplay instance", spriteManager.getSidekick());
+        assertTrue("Zone should suppress CPU sidekick gameplay instance", spriteManager.getSidekicks().isEmpty());
         spriteManager.draw();
         assertEquals("Suppressed zone should render only the main character sprite", List.of("main"), drawOrder);
     }

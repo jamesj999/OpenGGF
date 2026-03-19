@@ -552,10 +552,11 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
         // ROM uses objoff_36 for P1 and objoff_37 for P2
         processPlayer(player, camera);
 
-        // Also process sidekick if present (two-player support)
-        AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
-        if (sidekick != null && sidekick != player) {
-            processPlayer(sidekick, camera);
+        // Also process sidekick(s) if present (two-player support)
+        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+            if (sidekick != player) {
+                processPlayer(sidekick, camera);
+            }
         }
 
         // ROM behavior (lines 57477-57492, 57636-57652):

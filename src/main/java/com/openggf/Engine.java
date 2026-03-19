@@ -21,11 +21,13 @@ import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.sprites.playable.Tails;
-import com.openggf.sprites.playable.TailsCpuController;
+import com.openggf.sprites.playable.SidekickCpuController;
 import com.openggf.debug.playback.PlaybackDebugManager;
 
 import java.io.IOException;
 import java.nio.IntBuffer;
+import java.util.Arrays;
+import java.util.List;
 import java.util.logging.Logger;
 
 import static org.lwjgl.glfw.Callbacks.*;
@@ -357,25 +359,37 @@ public class Engine {
 		}
 		spriteManager.addSprite(mainSprite);
 
-		// Create CPU-controlled sidekick if configured (empty string = no sidekick).
-		// ROM: sidekick starts slightly behind and below the main character.
-		String sidekickCode = configService.getString(SonicConfiguration.SIDEKICK_CHARACTER_CODE);
+		// Create CPU-controlled sidekicks if configured (empty string = no sidekick).
+		// Supports comma-separated list for multiple sidekicks chained leader-to-follower.
+		List<String> sidekickNames = parseSidekickConfig(
+			configService.getString(SonicConfiguration.SIDEKICK_CHARACTER_CODE));
 		boolean sidekickAllowed = GameModuleRegistry.getCurrent().supportsSidekick()
 				|| CrossGameFeatureProvider.isActive();
-		if (!sidekickCode.isEmpty() && sidekickAllowed) {
-			// Use a distinct code for the sidekick sprite so it doesn't collide with
-			// the main player in SpriteManager's HashMap (e.g. sonic+sonic).
-			String sidekickSpriteCode = sidekickCode + "_p2";
-			AbstractPlayableSprite sidekick;
-			if ("tails".equalsIgnoreCase(sidekickCode)) {
-				sidekick = new Tails(sidekickSpriteCode, (short) (mainSprite.getX() - 0x20), (short) (mainSprite.getY() + 4));
-			} else {
-				sidekick = new Sonic(sidekickSpriteCode, (short) (mainSprite.getX() - 0x20), (short) (mainSprite.getY() + 4));
+		if (sidekickAllowed) {
+			AbstractPlayableSprite previousLeader = mainSprite;
+			int cameraLeftBound = 0; // camera not yet positioned, use 0 as minimum
+			for (int i = 0; i < sidekickNames.size(); i++) {
+				String charName = sidekickNames.get(i);
+				String code = charName + "_p" + (i + 2);
+				int spawnX = Math.max(cameraLeftBound, mainSprite.getX() - 0x20 * (i + 1));
+				boolean offScreen = (mainSprite.getX() - 0x20 * (i + 1)) < cameraLeftBound;
+
+				AbstractPlayableSprite sidekick;
+				if ("tails".equalsIgnoreCase(charName)) {
+					sidekick = new Tails(code, (short) spawnX, (short) (mainSprite.getY() + 4));
+				} else {
+					sidekick = new Sonic(code, (short) spawnX, (short) (mainSprite.getY() + 4));
+				}
+				sidekick.setCpuControlled(true);
+				SidekickCpuController controller = new SidekickCpuController(sidekick, previousLeader);
+				controller.setSidekickCount(sidekickNames.size());
+				if (offScreen) {
+					controller.setInitialState(SidekickCpuController.State.SPAWNING);
+				}
+				sidekick.setCpuController(controller);
+				spriteManager.addSprite(sidekick, charName);
+				previousLeader = sidekick;
 			}
-			sidekick.setCpuControlled(true);
-			TailsCpuController cpuController = new TailsCpuController(sidekick);
-			sidekick.setCpuController(cpuController);
-			spriteManager.addSprite(sidekick);
 		}
 
 		camera.setFocusedSprite(mainSprite);
@@ -1040,5 +1054,19 @@ public class Engine {
 	 */
 	public boolean isFBOProjectionActive() {
 		return fboProjectionActive;
+	}
+
+	/**
+	 * Parses a comma-separated sidekick configuration string into a list of
+	 * character names. Returns an empty list for null, empty, or blank input.
+	 */
+	public static List<String> parseSidekickConfig(String value) {
+		if (value == null || value.isBlank()) {
+			return List.of();
+		}
+		return Arrays.stream(value.split(","))
+			.map(String::trim)
+			.filter(s -> !s.isEmpty())
+			.toList();
 	}
 }

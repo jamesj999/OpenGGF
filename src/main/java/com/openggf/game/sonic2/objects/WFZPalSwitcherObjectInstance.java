@@ -102,8 +102,7 @@ public class WFZPalSwitcherObjectInstance extends BoxObjectInstance {
 
         // Check Tails (sidekick)
         // ROM: lea (Sidekick).w,a1 (s2.asm:46573)
-        AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
-        if (sidekick != null) {
+        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
             checkPlayerCrossing(sidekick, false);
         }
     }
@@ -121,9 +120,8 @@ public class WFZPalSwitcherObjectInstance extends BoxObjectInstance {
         // Falls through when objX < playerX (player to right, set objoff_34 = 1)
         sonicPastTrigger = player.getCentreX() > objX;
 
-        // Same check for Tails
-        AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
-        if (sidekick != null) {
+        // Same check for sidekick(s)
+        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
             // ROM: cmp.w x_pos(a1),d1 / bhs.s Obj8B_Main (s2.asm:46562-46563)
             tailsPastTrigger = sidekick.getCentreX() > objX;
         }

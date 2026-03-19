@@ -1033,11 +1033,12 @@ public class TornadoObjectInstance extends AbstractObjectInstance
             main.setAir(true);
         }
 
-        AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
-        if (sidekick != null && objectManager.isRidingObject(sidekick, this)) {
-            objectManager.clearRidingObject(sidekick);
-            sidekick.setOnObject(false);
-            sidekick.setAir(true);
+        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+            if (objectManager.isRidingObject(sidekick, this)) {
+                objectManager.clearRidingObject(sidekick);
+                sidekick.setOnObject(false);
+                sidekick.setAir(true);
+            }
         }
     }
 
@@ -1048,12 +1049,13 @@ public class TornadoObjectInstance extends AbstractObjectInstance
 
         // ROM: Obj_GetOrientationToPlayer always considers both players,
         // returning the closest one. No zone-specific filtering.
-        AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
-        if (sidekick != null && !sidekick.getDead()) {
-            int signedSidekick = currentX - sidekick.getCentreX();
-            int absSidekick = Math.abs(signedSidekick);
-            if (absSidekick < absMain) {
-                return new Orientation(sidekick, signedSidekick);
+        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+            if (!sidekick.getDead()) {
+                int signedSidekick = currentX - sidekick.getCentreX();
+                int absSidekick = Math.abs(signedSidekick);
+                if (absSidekick < absMain) {
+                    return new Orientation(sidekick, signedSidekick);
+                }
             }
         }
 

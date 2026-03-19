@@ -103,11 +103,11 @@ public class ObjectManager {
         }
     }
 
-    public void update(int cameraX, AbstractPlayableSprite player, AbstractPlayableSprite sidekick, int touchFrameCounter) {
-        update(cameraX, player, sidekick, touchFrameCounter, true);
+    public void update(int cameraX, AbstractPlayableSprite player, List<AbstractPlayableSprite> sidekicks, int touchFrameCounter) {
+        update(cameraX, player, sidekicks, touchFrameCounter, true);
     }
 
-    public void update(int cameraX, AbstractPlayableSprite player, AbstractPlayableSprite sidekick,
+    public void update(int cameraX, AbstractPlayableSprite player, List<AbstractPlayableSprite> sidekicks,
             int touchFrameCounter, boolean enableTouchResponses) {
         frameCounter++;
         // ROM parity: object execution uses the previously streamed set, and object placement
@@ -172,9 +172,9 @@ public class ObjectManager {
                     DebugOverlayManager.getInstance().isEnabled(DebugOverlayToggle.TOUCH_RESPONSE));
             touchResponses.update(player, touchFrameCounter);
             // ROM: Both players participate in touch responses.
-            // Sidekick uses separate overlap tracking and special hurt handling.
-            if (sidekick != null) {
-                touchResponses.updateSidekick(sidekick, touchFrameCounter);
+            // Each sidekick uses separate overlap tracking and special hurt handling.
+            for (AbstractPlayableSprite sk : sidekicks) {
+                touchResponses.updateSidekick(sk, touchFrameCounter);
             }
         }
 
@@ -963,11 +963,28 @@ public class ObjectManager {
         private final Set<ObjectInstance> bufferB = Collections.newSetFromMap(new IdentityHashMap<>());
         private Set<ObjectInstance> overlapping = bufferA;
         private Set<ObjectInstance> building = bufferB;
-        // Separate overlap tracking for sidekick (CPU Tails)
-        private final Set<ObjectInstance> sidekickBufferA = Collections.newSetFromMap(new IdentityHashMap<>());
-        private final Set<ObjectInstance> sidekickBufferB = Collections.newSetFromMap(new IdentityHashMap<>());
-        private Set<ObjectInstance> sidekickOverlapping = sidekickBufferA;
-        private Set<ObjectInstance> sidekickBuilding = sidekickBufferB;
+        // Per-sidekick overlap tracking (each sidekick needs independent edge detection)
+        private static class OverlapBufferPair {
+            final Set<ObjectInstance> bufferA = Collections.newSetFromMap(new IdentityHashMap<>());
+            final Set<ObjectInstance> bufferB = Collections.newSetFromMap(new IdentityHashMap<>());
+            Set<ObjectInstance> overlapping = bufferA;
+            Set<ObjectInstance> building = bufferB;
+
+            void swap() {
+                Set<ObjectInstance> temp = overlapping;
+                overlapping = building;
+                building = temp;
+            }
+
+            void reset() {
+                bufferA.clear();
+                bufferB.clear();
+                overlapping = bufferA;
+                building = bufferB;
+            }
+        }
+
+        private final Map<AbstractPlayableSprite, OverlapBufferPair> sidekickOverlaps = new IdentityHashMap<>();
         private final TouchResponseDebugState debugState = new TouchResponseDebugState();
         private static final int SHIELD_TOUCH_HALF_SIZE = 0x18;
         private static final int SHIELD_TOUCH_SIZE = SHIELD_TOUCH_HALF_SIZE * 2;
@@ -986,10 +1003,7 @@ public class ObjectManager {
             bufferB.clear();
             overlapping = bufferA;
             building = bufferB;
-            sidekickBufferA.clear();
-            sidekickBufferB.clear();
-            sidekickOverlapping = sidekickBufferA;
-            sidekickBuilding = sidekickBufferB;
+            sidekickOverlaps.values().forEach(OverlapBufferPair::reset);
             currentFrameCounter = 0;
         }
 
@@ -1111,13 +1125,14 @@ public class ObjectManager {
         void updateSidekick(AbstractPlayableSprite sidekick, int frameCounter) {
             currentPlayer = null; // Sidekick doesn't get insta-shield
             currentFrameCounter = frameCounter;
+            OverlapBufferPair buffers = sidekickOverlaps.computeIfAbsent(sidekick, k -> new OverlapBufferPair());
             if (sidekick == null || objectManager == null || sidekick.getDead() || table == null) {
-                sidekickOverlapping.clear();
+                buffers.overlapping.clear();
                 return;
             }
 
             if (sidekick.isDebugMode()) {
-                sidekickOverlapping.clear();
+                buffers.overlapping.clear();
                 return;
             }
 
@@ -1131,7 +1146,7 @@ public class ObjectManager {
                 playerHeight = 20;
             }
 
-            sidekickBuilding.clear();
+            buffers.building.clear();
 
             Collection<ObjectInstance> activeObjects = objectManager.getActiveObjects();
             for (ObjectInstance instance : activeObjects) {
@@ -1142,7 +1157,7 @@ public class ObjectManager {
                 // Multi-region providers check each region independently
                 TouchResponseProvider.TouchRegion[] regions = provider.getMultiTouchRegions();
                 if (regions != null) {
-                    checkMultiRegionTouchSidekick(sidekick, playerX, playerY, playerHeight, instance, provider, regions);
+                    checkMultiRegionTouchSidekick(sidekick, playerX, playerY, playerHeight, instance, provider, regions, buffers);
                     continue;
                 }
 
@@ -1164,10 +1179,10 @@ public class ObjectManager {
                     continue;
                 }
 
-                sidekickBuilding.add(instance);
+                buffers.building.add(instance);
                 boolean shouldTrigger = category == TouchCategory.BOSS
                         || provider.requiresContinuousTouchCallbacks()
-                        || !sidekickOverlapping.contains(instance);
+                        || !buffers.overlapping.contains(instance);
                 if (shouldTrigger) {
                     TouchResponseResult result = new TouchResponseResult(sizeIndex, width, height, category);
                     TouchResponseListener listener = instance instanceof TouchResponseListener casted ? casted : null;
@@ -1175,9 +1190,7 @@ public class ObjectManager {
                 }
             }
 
-            Set<ObjectInstance> temp = sidekickOverlapping;
-            sidekickOverlapping = sidekickBuilding;
-            sidekickBuilding = temp;
+            buffers.swap();
         }
 
         private boolean tryShieldDeflect(AbstractPlayableSprite player, ObjectInstance instance,
@@ -1375,12 +1388,12 @@ public class ObjectManager {
         }
 
         /**
-         * Multi-region touch check for CPU sidekick (Tails).
+         * Multi-region touch check for CPU sidekick.
          */
         private void checkMultiRegionTouchSidekick(AbstractPlayableSprite sidekick,
                 int playerX, int playerY, int playerHeight,
                 ObjectInstance instance, TouchResponseProvider provider,
-                TouchResponseProvider.TouchRegion[] regions) {
+                TouchResponseProvider.TouchRegion[] regions, OverlapBufferPair buffers) {
             for (TouchResponseProvider.TouchRegion region : regions) {
                 int flags = region.collisionFlags();
                 if (flags == 0) {
@@ -1397,10 +1410,10 @@ public class ObjectManager {
                     continue;
                 }
 
-                sidekickBuilding.add(instance);
+                buffers.building.add(instance);
                 boolean shouldTrigger = category == TouchCategory.BOSS
                         || provider.requiresContinuousTouchCallbacks()
-                        || !sidekickOverlapping.contains(instance);
+                        || !buffers.overlapping.contains(instance);
                 if (shouldTrigger) {
                     TouchResponseResult result = new TouchResponseResult(sizeIndex, width, height, category);
                     TouchResponseListener listener = instance instanceof TouchResponseListener casted ? casted : null;

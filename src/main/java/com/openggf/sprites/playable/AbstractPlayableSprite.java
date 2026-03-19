@@ -124,7 +124,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         private boolean cpuControlled = false;
 
         /** The CPU controller for AI-driven sprites */
-        private TailsCpuController cpuController;
+        private SidekickCpuController cpuController;
 
         /**
          * Whether or not this sprite is rolling
@@ -2216,11 +2216,11 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 this.cpuControlled = cpuControlled;
         }
 
-        public TailsCpuController getCpuController() {
+        public SidekickCpuController getCpuController() {
                 return cpuController;
         }
 
-        public void setCpuController(TailsCpuController cpuController) {
+        public void setCpuController(SidekickCpuController cpuController) {
                 this.cpuController = cpuController;
         }
 

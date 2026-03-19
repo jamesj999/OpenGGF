@@ -217,9 +217,8 @@ public class SlidingSpikesObjectInstance extends AbstractObjectInstance
         // Check main character
         checkSinglePlayer(player);
 
-        // Check sidekick (Tails) if present - matches disassembly behavior
-        AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
-        if (sidekick != null) {
+        // Check sidekick(s) if present - matches disassembly behavior
+        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
             checkSinglePlayer(sidekick);
         }
     }

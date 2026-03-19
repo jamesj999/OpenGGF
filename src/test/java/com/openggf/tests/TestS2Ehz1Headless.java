@@ -18,7 +18,7 @@ import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.sprites.playable.Tails;
-import com.openggf.sprites.playable.TailsCpuController;
+import com.openggf.sprites.playable.SidekickCpuController;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
@@ -37,7 +37,7 @@ import static org.junit.Assert.*;
  * <ul>
  *   <li>TestHeadlessWallCollision</li>
  *   <li>TestHeadlessStaticObjectPushStability</li>
- *   <li>TestTailsCpuController</li>
+ *   <li>TestSidekickCpuController</li>
  *   <li>TestSignpostWalkOff</li>
  * </ul>
  */
@@ -264,17 +264,17 @@ public class TestS2Ehz1Headless {
         }
     }
 
-    // ========== From TestTailsCpuController ==========
+    // ========== From TestSidekickCpuController ==========
 
     private Tails tails;
-    private TailsCpuController controller;
+    private SidekickCpuController controller;
 
     private void createTailsForTest() {
         sprite.setX((short) 100);
         sprite.setY((short) 624);
         tails = new Tails("tails", (short) 60, (short) 624);
         tails.setCpuControlled(true);
-        controller = new TailsCpuController(tails);
+        controller = new SidekickCpuController(tails, sprite);
         tails.setCpuController(controller);
         SpriteManager.getInstance().addSprite(tails);
     }
@@ -285,7 +285,7 @@ public class TestS2Ehz1Headless {
     public void testInitialState() {
         createTailsForTest();
         assertEquals("Controller should start in INIT state",
-                TailsCpuController.State.INIT, controller.getState());
+                SidekickCpuController.State.INIT, controller.getState());
     }
 
     @Test
@@ -293,7 +293,7 @@ public class TestS2Ehz1Headless {
         createTailsForTest();
         controller.update(0);
         assertEquals("INIT should immediately transition to NORMAL",
-                TailsCpuController.State.NORMAL, controller.getState());
+                SidekickCpuController.State.NORMAL, controller.getState());
     }
 
     @Test
@@ -301,11 +301,11 @@ public class TestS2Ehz1Headless {
         createTailsForTest();
         // Run a few updates to change state
         controller.update(0);
-        assertEquals(TailsCpuController.State.NORMAL, controller.getState());
+        assertEquals(SidekickCpuController.State.NORMAL, controller.getState());
 
         controller.reset();
         assertEquals("Reset should return to INIT",
-                TailsCpuController.State.INIT, controller.getState());
+                SidekickCpuController.State.INIT, controller.getState());
         assertFalse("Reset should clear all inputs", controller.getInputLeft());
         assertFalse(controller.getInputRight());
         assertFalse(controller.getInputJump());
@@ -460,14 +460,14 @@ public class TestS2Ehz1Headless {
         createTailsForTest();
         // Get to NORMAL state first
         controller.update(0);
-        assertEquals(TailsCpuController.State.NORMAL, controller.getState());
+        assertEquals(SidekickCpuController.State.NORMAL, controller.getState());
 
         // Move Tails far off-screen and mark airborne (fell off-screen)
         // Must be airborne to avoid triggering PANIC (stuck detection) before despawn
         forceDespawn();
 
         assertEquals("Should transition to SPAWNING after being off-screen for 300 frames",
-                TailsCpuController.State.SPAWNING, controller.getState());
+                SidekickCpuController.State.SPAWNING, controller.getState());
     }
 
     @Test
@@ -475,7 +475,7 @@ public class TestS2Ehz1Headless {
         createTailsForTest();
         controller.update(0);
         forceDespawn();
-        assertEquals(TailsCpuController.State.SPAWNING, controller.getState());
+        assertEquals(SidekickCpuController.State.SPAWNING, controller.getState());
 
         // Ensure Sonic is safely grounded
         sonic.setAir(false);
@@ -483,14 +483,14 @@ public class TestS2Ehz1Headless {
 
         controller.update(311);
         assertEquals("Respawn should still wait off the 64-frame cadence",
-                TailsCpuController.State.SPAWNING, controller.getState());
+                SidekickCpuController.State.SPAWNING, controller.getState());
         controller.update(320);
 
-        // After respawn, should be in FLYING state
-        assertEquals("Should transition to FLYING after respawn",
-                TailsCpuController.State.FLYING, controller.getState());
-        assertTrue("isFlying() should return true in FLYING state",
-                controller.isFlying());
+        // After respawn, should be in APPROACHING state
+        assertEquals("Should transition to APPROACHING after respawn",
+                SidekickCpuController.State.APPROACHING, controller.getState());
+        assertTrue("isApproaching() should return true in APPROACHING state",
+                controller.isApproaching());
     }
 
     @Test
@@ -498,14 +498,14 @@ public class TestS2Ehz1Headless {
         createTailsForTest();
         controller.update(0);
         forceDespawn();
-        assertEquals(TailsCpuController.State.SPAWNING, controller.getState());
+        assertEquals(SidekickCpuController.State.SPAWNING, controller.getState());
 
         // Set Sonic as dead
         sonic.setDead(true);
         controller.update(320);
 
         assertEquals("Should stay in SPAWNING while Sonic is dead",
-                TailsCpuController.State.SPAWNING, controller.getState());
+                SidekickCpuController.State.SPAWNING, controller.getState());
     }
 
     @Test
@@ -513,7 +513,7 @@ public class TestS2Ehz1Headless {
         createTailsForTest();
         controller.update(0);
         forceDespawn();
-        assertEquals(TailsCpuController.State.SPAWNING, controller.getState());
+        assertEquals(SidekickCpuController.State.SPAWNING, controller.getState());
 
         // Set Sonic as airborne
         sonic.setAir(true);
@@ -521,7 +521,7 @@ public class TestS2Ehz1Headless {
         controller.update(320);
 
         assertEquals("Should stay in SPAWNING while Sonic is airborne",
-                TailsCpuController.State.SPAWNING, controller.getState());
+                SidekickCpuController.State.SPAWNING, controller.getState());
     }
 
     // -- Flying State Tests --
@@ -529,9 +529,9 @@ public class TestS2Ehz1Headless {
     @Test
     public void testFlyingStateBypassesNormalPhysics() {
         createTailsForTest();
-        assertFalse("isFlying() should be false initially", controller.isFlying());
+        assertFalse("isApproaching() should be false initially", controller.isApproaching());
 
-        // Get to FLYING state via despawn/respawn
+        // Get to APPROACHING state via despawn/respawn
         controller.update(0);
         forceDespawn();
 
@@ -539,21 +539,21 @@ public class TestS2Ehz1Headless {
         sonic.setDead(false);
         controller.update(320);
 
-        assertEquals(TailsCpuController.State.FLYING, controller.getState());
-        assertTrue("isFlying() should return true", controller.isFlying());
+        assertEquals(SidekickCpuController.State.APPROACHING, controller.getState());
+        assertTrue("isApproaching() should return true", controller.isApproaching());
     }
 
     @Test
     public void testFlyingToNormalWhenReachedTarget() {
         createTailsForTest();
-        // Get to FLYING state
+        // Get to APPROACHING state
         controller.update(0);
         forceDespawn();
 
         sonic.setAir(false);
         sonic.setDead(false);
         controller.update(320);
-        assertEquals(TailsCpuController.State.FLYING, controller.getState());
+        assertEquals(SidekickCpuController.State.APPROACHING, controller.getState());
 
         // Place Tails right at Sonic's delayed position (17-frame delay)
         short targetX = sonic.getCentreX(17);
@@ -566,10 +566,10 @@ public class TestS2Ehz1Headless {
 
         controller.update(312);
 
-        assertEquals("Should transition from FLYING to NORMAL when at target and Sonic grounded",
-                TailsCpuController.State.NORMAL, controller.getState());
-        assertFalse("isFlying() should be false after landing",
-                controller.isFlying());
+        assertEquals("Should transition from APPROACHING to NORMAL when at target and Sonic grounded",
+                SidekickCpuController.State.NORMAL, controller.getState());
+        assertFalse("isApproaching() should be false after landing",
+                controller.isApproaching());
     }
 
     // -- Panic State Tests --
@@ -579,7 +579,7 @@ public class TestS2Ehz1Headless {
         createTailsForTest();
         // Get to NORMAL state
         controller.update(0);
-        assertEquals(TailsCpuController.State.NORMAL, controller.getState());
+        assertEquals(SidekickCpuController.State.NORMAL, controller.getState());
 
         // ROM: PANIC trigger is move_lock && zero inertia, not an idle timer.
         tails.setGSpeed((short) 0);
@@ -587,7 +587,7 @@ public class TestS2Ehz1Headless {
         controller.update(1);
 
         assertEquals("Should enter PANIC state when move lock is active and inertia is zero",
-                TailsCpuController.State.PANIC, controller.getState());
+                SidekickCpuController.State.PANIC, controller.getState());
     }
 
     @Test
@@ -598,7 +598,7 @@ public class TestS2Ehz1Headless {
         tails.setGSpeed((short) 0);
         tails.setMoveLockTimer(1);
         controller.update(1);
-        assertEquals(TailsCpuController.State.PANIC, controller.getState());
+        assertEquals(SidekickCpuController.State.PANIC, controller.getState());
 
         // Place Sonic to the right of Tails
         tails.setX((short) (sonic.getX() - 50));
@@ -618,7 +618,7 @@ public class TestS2Ehz1Headless {
         tails.setGSpeed((short) 0);
         tails.setMoveLockTimer(1);
         controller.update(1);
-        assertEquals(TailsCpuController.State.PANIC, controller.getState());
+        assertEquals(SidekickCpuController.State.PANIC, controller.getState());
 
         tails.setMoveLockTimer(0);
         controller.update(2);
@@ -627,7 +627,7 @@ public class TestS2Ehz1Headless {
         controller.update(128);
 
         assertEquals("Should return to NORMAL on the 128-frame boundary",
-                TailsCpuController.State.NORMAL, controller.getState());
+                SidekickCpuController.State.NORMAL, controller.getState());
     }
 
     @Test
@@ -640,7 +640,7 @@ public class TestS2Ehz1Headless {
         sonic.setDead(true);
         controller.update(1);
 
-        assertEquals(TailsCpuController.State.FLYING, controller.getState());
+        assertEquals(SidekickCpuController.State.APPROACHING, controller.getState());
         assertEquals(originalX, tails.getX());
         assertEquals(originalY, tails.getY());
     }
@@ -656,7 +656,7 @@ public class TestS2Ehz1Headless {
         // If Sonic wasn't found, all inputs would be cleared and state unchanged
         // Since state transitions to NORMAL, Sonic was found
         assertEquals("Should find Sonic and transition to NORMAL",
-                TailsCpuController.State.NORMAL, controller.getState());
+                SidekickCpuController.State.NORMAL, controller.getState());
     }
 
     @Test
@@ -673,7 +673,7 @@ public class TestS2Ehz1Headless {
 
         // Should stay in INIT (can't transition without Sonic)
         assertEquals("Should stay in INIT when no Sonic found",
-                TailsCpuController.State.INIT, controller.getState());
+                SidekickCpuController.State.INIT, controller.getState());
         assertFalse(controller.getInputLeft());
         assertFalse(controller.getInputRight());
         assertFalse(controller.getInputJump());
@@ -770,8 +770,8 @@ public class TestS2Ehz1Headless {
     @Test
     public void testSpriteManagerGetSidekick() {
         createTailsForTest();
-        AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
-        assertNotNull("getSidekick() should return Tails", sidekick);
+        AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekicks().getFirst();
+        assertNotNull("getSidekicks() should return Tails", sidekick);
         assertTrue("Sidekick should be CPU controlled", sidekick.isCpuControlled());
         assertSame("Sidekick should be our Tails instance", tails, sidekick);
     }
@@ -782,7 +782,7 @@ public class TestS2Ehz1Headless {
      * Forces Tails into SPAWNING state by simulating off-screen for 300+ frames.
      * Sets Tails as airborne to avoid PANIC (stuck detection at 120 frames).
      * Also sets Sonic as airborne to prevent SPAWNING from immediately transitioning
-     * to FLYING (which happens when Sonic is safely grounded).
+     * to APPROACHING (which happens when Sonic is safely grounded).
      */
     private void forceDespawn() {
         tails.setX((short) -500);
@@ -790,7 +790,7 @@ public class TestS2Ehz1Headless {
         tails.setAir(true); // Airborne prevents stuck detection -> PANIC
 
         for (int i = 1; i <= 310; i++) {
-            // Keep Sonic airborne so SPAWNING doesn't auto-transition to FLYING
+            // Keep Sonic airborne so SPAWNING doesn't auto-transition to APPROACHING
             sonic.setAir(true);
             controller.update(i);
             // Keep Tails off-screen and airborne each frame
@@ -806,7 +806,7 @@ public class TestS2Ehz1Headless {
      */
     private void stepTailsFrame() {
         controller.update(fixture.frameCount());
-        if (!controller.isFlying()) {
+        if (!controller.isApproaching()) {
             tails.getMovementManager().handleMovement(
                     controller.getInputUp(),
                     controller.getInputDown(),

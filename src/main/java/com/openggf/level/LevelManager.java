@@ -909,8 +909,8 @@ public class LevelManager {
         if (objectManager != null) {
             Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
             AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
-            AbstractPlayableSprite sidekick = spriteManager.getSidekick();
-            objectManager.update(Camera.getInstance().getX(), playable, sidekick, frameCounter + 1);
+            List<AbstractPlayableSprite> sidekicks = spriteManager.getSidekicks();
+            objectManager.update(Camera.getInstance().getX(), playable, sidekicks, frameCounter + 1);
         }
     }
 
@@ -925,8 +925,8 @@ public class LevelManager {
         if (objectManager != null) {
             Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
             AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
-            AbstractPlayableSprite sidekick = spriteManager.getSidekick();
-            objectManager.update(Camera.getInstance().getX(), playable, sidekick, frameCounter + 1, false);
+            List<AbstractPlayableSprite> sidekicks = spriteManager.getSidekicks();
+            objectManager.update(Camera.getInstance().getX(), playable, sidekicks, frameCounter + 1, false);
         }
     }
 
@@ -963,10 +963,11 @@ public class LevelManager {
             ringManager.updateLostRingPhysics(frameCounter + 1);
             ringManager.checkLostRingCollection(playable);
             // ROM: CPU Tails can also collect rings in 1P mode
-            AbstractPlayableSprite sidekick = spriteManager.getSidekick();
-            if (sidekick != null && !sidekick.getDead()) {
-                ringManager.update(Camera.getInstance().getX(), sidekick, frameCounter + 1);
-                ringManager.checkLostRingCollection(sidekick);
+            for (AbstractPlayableSprite sidekick : spriteManager.getSidekicks()) {
+                if (!sidekick.getDead()) {
+                    ringManager.update(Camera.getInstance().getX(), sidekick, frameCounter + 1);
+                    ringManager.checkLostRingCollection(sidekick);
+                }
             }
         }
         // Water movement — ROM order: MoveWater (move toward target) runs BEFORE
@@ -1093,53 +1094,79 @@ public class LevelManager {
             LOGGER.log(SEVERE, "Failed to load player sprite art.", e);
         }
 
-        // Also initialize art for sidekick (CPU-controlled Tails)
-        AbstractPlayableSprite sidekick = spriteManager.getSidekick();
-        if (sidekick != null) {
+        // Also initialize art for each sidekick (CPU-controlled Tails etc.)
+        // Build character name list and compute VRAM slot assignments so that
+        // sidekicks sharing a character type with the main (or each other) get
+        // shifted pattern banks to avoid atlas corruption.
+        List<AbstractPlayableSprite> sidekicks = spriteManager.getSidekicks();
+        String mainCharName = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        List<String> sidekickCharNames = new ArrayList<>(sidekicks.size());
+        for (AbstractPlayableSprite sidekick : sidekicks) {
+            String name = spriteManager.getSidekickCharacterName(sidekick);
+            if (name == null) {
+                // Fallback: use the config's single sidekick code
+                name = configService.getString(SonicConfiguration.SIDEKICK_CHARACTER_CODE);
+            }
+            sidekickCharNames.add(name);
+        }
+        java.util.Map<Integer, Integer> vramSlots = computeVramSlots(mainCharName, sidekickCharNames);
+        // Cache loaded art per character type to avoid redundant ROM reads
+        java.util.Map<String, SpriteArtSet> artCache = new java.util.HashMap<>();
+        for (int i = 0; i < sidekicks.size(); i++) {
+            AbstractPlayableSprite sidekick = sidekicks.get(i);
+            String sidekickCharName = sidekickCharNames.get(i);
             try {
-                // Use the config's base character name for art lookup — sidekick.getCode()
-                // may have a "_p2" suffix for HashMap uniqueness.
-                String sidekickCharName = configService.getString(SonicConfiguration.SIDEKICK_CHARACTER_CODE);
-                String mainCharName = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-                SpriteArtSet sidekickArt = artProvider.loadPlayerSpriteArt(sidekickCharName);
-                if (sidekickArt != null && sidekickArt.bankSize() > 0 && !sidekickArt.mappingFrames().isEmpty()
-                        && !sidekickArt.dplcFrames().isEmpty()) {
-                    // When main and sidekick are the same character, they share the same
-                    // cached SpriteArtSet with the same basePatternIndex. Both renderers
-                    // would write DPLC tiles to the same atlas slots, causing corruption.
-                    // Give the sidekick a shifted base so each has its own pattern bank.
-                    if (sidekickCharName.equalsIgnoreCase(mainCharName)) {
-                        sidekickArt = new SpriteArtSet(
-                                sidekickArt.artTiles(),
-                                sidekickArt.mappingFrames(),
-                                sidekickArt.dplcFrames(),
-                                sidekickArt.paletteIndex(),
-                                sidekickArt.basePatternIndex() + sidekickArt.bankSize(),
-                                sidekickArt.frameDelay(),
-                                sidekickArt.bankSize(),
-                                sidekickArt.animationProfile(),
-                                sidekickArt.animationSet());
-                    }
-                    PlayerSpriteRenderer sidekickRenderer = new PlayerSpriteRenderer(sidekickArt);
-                    if (CrossGameFeatureProvider.isActive()) {
-                        sidekickRenderer.setRenderContext(
-                                CrossGameFeatureProvider.getInstance().getDonorRenderContext());
-                    }
-                    sidekickRenderer.ensureCached(graphicsManager);
-                    sidekick.setSpriteRenderer(sidekickRenderer);
-                    sidekick.setMappingFrame(0);
-                    sidekick.setAnimationFrameCount(sidekickArt.mappingFrames().size());
-                    sidekick.setAnimationProfile(sidekickArt.animationProfile());
-                    sidekick.setAnimationSet(sidekickArt.animationSet());
-                    sidekick.setAnimationId(0);
-                    sidekick.setAnimationFrameIndex(0);
-                    sidekick.setAnimationTick(0);
-                    initSpindashDust(sidekick);
-                    initTailsTails(sidekick, sidekickArt);
-                    initSuperState(sidekick);
+                SpriteArtSet sidekickArt = artCache.computeIfAbsent(
+                        sidekickCharName.toLowerCase(),
+                        key -> {
+                            try {
+                                return artProvider.loadPlayerSpriteArt(key);
+                            } catch (IOException e) {
+                                LOGGER.log(SEVERE, "Failed to load art for sidekick character: " + key, e);
+                                return null;
+                            }
+                        });
+                if (sidekickArt == null || sidekickArt.bankSize() <= 0
+                        || sidekickArt.mappingFrames().isEmpty()
+                        || sidekickArt.dplcFrames().isEmpty()) {
+                    LOGGER.warning("Skipping art init for sidekick " + i
+                            + " (" + sidekickCharName + "): art unavailable or empty.");
+                    continue;
                 }
-            } catch (IOException e) {
-                LOGGER.log(SEVERE, "Failed to load sidekick sprite art.", e);
+                // When a sidekick shares a character type with the main or another
+                // sidekick, shift its base pattern index so each has its own VRAM bank.
+                int slot = vramSlots.get(i);
+                if (slot > 0) {
+                    sidekickArt = new SpriteArtSet(
+                            sidekickArt.artTiles(),
+                            sidekickArt.mappingFrames(),
+                            sidekickArt.dplcFrames(),
+                            sidekickArt.paletteIndex(),
+                            sidekickArt.basePatternIndex() + sidekickArt.bankSize() * slot,
+                            sidekickArt.frameDelay(),
+                            sidekickArt.bankSize(),
+                            sidekickArt.animationProfile(),
+                            sidekickArt.animationSet());
+                }
+                PlayerSpriteRenderer sidekickRenderer = new PlayerSpriteRenderer(sidekickArt);
+                if (CrossGameFeatureProvider.isActive()) {
+                    sidekickRenderer.setRenderContext(
+                            CrossGameFeatureProvider.getInstance().getDonorRenderContext());
+                }
+                sidekickRenderer.ensureCached(graphicsManager);
+                sidekick.setSpriteRenderer(sidekickRenderer);
+                sidekick.setMappingFrame(0);
+                sidekick.setAnimationFrameCount(sidekickArt.mappingFrames().size());
+                sidekick.setAnimationProfile(sidekickArt.animationProfile());
+                sidekick.setAnimationSet(sidekickArt.animationSet());
+                sidekick.setAnimationId(0);
+                sidekick.setAnimationFrameIndex(0);
+                sidekick.setAnimationTick(0);
+                initSpindashDust(sidekick);
+                initTailsTails(sidekick, sidekickArt);
+                initSuperState(sidekick);
+            } catch (Exception e) {
+                LOGGER.log(SEVERE, "Failed to load sidekick sprite art for index " + i + ".", e);
             }
         }
 
@@ -1149,13 +1176,31 @@ public class LevelManager {
         }
     }
 
+    /**
+     * Computes VRAM bank slot index for each sidekick.
+     * Characters matching the main character start at slot 1 (main is slot 0).
+     * Different characters start at slot 0 (no conflict).
+     */
+    public static java.util.Map<Integer, Integer> computeVramSlots(String mainChar, List<String> sidekickChars) {
+        java.util.Map<String, Integer> nextSlot = new java.util.HashMap<>();
+        // Main character occupies slot 0 for its type
+        nextSlot.put(mainChar.toLowerCase(), 1);
+        java.util.Map<Integer, Integer> result = new java.util.HashMap<>();
+        for (int i = 0; i < sidekickChars.size(); i++) {
+            String charType = sidekickChars.get(i).toLowerCase();
+            int slot = nextSlot.getOrDefault(charType, 0);
+            result.put(i, slot);
+            nextSlot.put(charType, slot + 1);
+        }
+        return result;
+    }
+
     private void resetPlayerState() {
         Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
         if (player instanceof AbstractPlayableSprite playable) {
             playable.resetState();
         }
-        AbstractPlayableSprite sidekick = spriteManager.getSidekick();
-        if (sidekick != null) {
+        for (AbstractPlayableSprite sidekick : spriteManager.getSidekicks()) {
             sidekick.resetState();
             if (sidekick.getCpuController() != null) {
                 sidekick.getCpuController().reset();
@@ -3968,16 +4013,15 @@ public class LevelManager {
     }
 
     /**
-     * Step 19: Spawn sidekick (Tails) near the main player.
+     * Step 19: Spawn sidekicks (Tails etc.) near the main player.
      * S2: InitPlayers multi-char. S3K: SpawnLevelMainSprites_SpawnPlayers (-$20 X, +4 Y).
      *
      * @param xOffset sidekick X offset from player (negative = behind). S2 uses -40, S3K uses -32.
      * @param yOffset sidekick Y offset from player. S2 uses 0, S3K uses +4.
      */
-    public void spawnSidekick(int xOffset, int yOffset) {
+    public void spawnSidekicks(int xOffset, int yOffset) {
         Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
-        AbstractPlayableSprite sidekick = spriteManager.getSidekick();
-        if (sidekick != null) {
+        for (AbstractPlayableSprite sidekick : spriteManager.getSidekicks()) {
             sidekick.setX((short) (player.getX() + xOffset));
             sidekick.setY((short) (player.getY() + yOffset));
             sidekick.setXSpeed((short) 0);
@@ -4269,8 +4313,7 @@ public class LevelManager {
                 playable.getInstaShieldObject().invalidateDplcCache();
             }
         }
-        AbstractPlayableSprite sidekick = spriteManager.getSidekick();
-        if (sidekick != null) {
+        for (AbstractPlayableSprite sidekick : spriteManager.getSidekicks()) {
             int newX = sidekick.getCentreX() + request.playerOffsetX();
             int newY = sidekick.getCentreY() + request.playerOffsetY();
             sidekick.setCentreX((short) newX);
@@ -4316,7 +4359,9 @@ public class LevelManager {
         // orphaned when the old ObjectManager was replaced.
         // ROM: these live in Dynamic_object_RAM which persists across act transitions.
         reregisterPlayerDynamicObjects(cam.getFocusedSprite());
-        reregisterPlayerDynamicObjects(spriteManager.getSidekick());
+        for (AbstractPlayableSprite sidekick : spriteManager.getSidekicks()) {
+            reregisterPlayerDynamicObjects(sidekick);
+        }
     }
 
     private void reregisterPlayerDynamicObjects(Sprite sprite) {

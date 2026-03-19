@@ -77,7 +77,7 @@ public class TestHTZBossTouchResponse {
         assertEquals(8, boss.getState().hitCount);
         objectManager.addDynamicObject(boss);
 
-        objectManager.update(0, player, null, 1);
+        objectManager.update(0, player, List.of(), 1);
 
         assertEquals(7, boss.getState().hitCount);
         assertTrue(boss.getState().invulnerable);
@@ -106,12 +106,12 @@ public class TestHTZBossTouchResponse {
         objectManager.addDynamicObject(boss);
 
         // First frame: overlap begins while not attacking.
-        objectManager.update(0, dynamicPlayer, null, 1);
+        objectManager.update(0, dynamicPlayer, List.of(), 1);
         assertEquals(8, boss.getState().hitCount);
 
         // Second frame: still overlapping, now attacking.
         rolling.set(true);
-        objectManager.update(0, dynamicPlayer, null, 2);
+        objectManager.update(0, dynamicPlayer, List.of(), 2);
         assertEquals(7, boss.getState().hitCount);
     }
 

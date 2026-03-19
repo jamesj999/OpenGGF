@@ -974,8 +974,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         if (camera().getFocusedSprite() instanceof AbstractPlayableSprite player) {
             player.setControlLocked(locked);
         }
-        AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
-        if (sidekick != null) {
+        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
             sidekick.setControlLocked(locked);
         }
     }

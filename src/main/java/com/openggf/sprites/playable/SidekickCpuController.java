@@ -6,20 +6,17 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.physics.Direction;
-import com.openggf.sprites.managers.SpriteManager;
 
 /**
- * Sonic 2 Tails CPU follower.
+ * CPU-controlled sidekick follower with daisy-chain support.
  */
-public class TailsCpuController {
+public class SidekickCpuController {
 
     private static final int FOLLOW_DELAY_FRAMES = 17;
     private static final int HORIZONTAL_SNAP_THRESHOLD = 16;
     private static final int JUMP_DISTANCE_TRIGGER = 64;
     private static final int JUMP_HEIGHT_THRESHOLD = 32;
     private static final int DESPAWN_TIMEOUT = 300;
-    private static final int RESPAWN_Y_OFFSET = 192;
-    private static final int MAX_FLY_ACCEL = 12;
     private static final int MANUAL_CONTROL_FRAMES = 600;
     private static final int FLY_ANIM_ID = Sonic2AnimationIds.FLY.id();
     private static final int INPUT_START = 0x20;
@@ -29,18 +26,20 @@ public class TailsCpuController {
             | AbstractPlayableSprite.INPUT_RIGHT
             | AbstractPlayableSprite.INPUT_JUMP;
     private static final int RESPAWN_BYPASS_MASK = AbstractPlayableSprite.INPUT_JUMP | INPUT_START;
-    private static final int FLY_LAND_BLOCKERS = 0xD2;
 
     public enum State {
         INIT,
         SPAWNING,
-        FLYING,
+        APPROACHING,
         NORMAL,
         PANIC
     }
 
-    private final AbstractPlayableSprite tails;
-    private AbstractPlayableSprite sonic;
+    private static final int SETTLED_FRAME_THRESHOLD = 15;
+
+    private final AbstractPlayableSprite sidekick;
+    private AbstractPlayableSprite leader;
+    private SidekickRespawnStrategy respawnStrategy;
 
     private State state = State.INIT;
     private int despawnCounter;
@@ -58,20 +57,25 @@ public class TailsCpuController {
     private int maxXBound = Integer.MIN_VALUE;
     private int maxYBound = Integer.MIN_VALUE;
     private ObjectInstance lastRidingObject;
+    private int normalFrameCount;
+    private int sidekickCount = 1;
 
-    public TailsCpuController(AbstractPlayableSprite tails) {
-        this.tails = tails;
+    public SidekickCpuController(AbstractPlayableSprite sidekick) {
+        this(sidekick, null);
+    }
+
+    public SidekickCpuController(AbstractPlayableSprite sidekick, AbstractPlayableSprite leader) {
+        this.sidekick = sidekick;
+        this.leader = leader;
+        this.respawnStrategy = new TailsRespawnStrategy(this);
     }
 
     public void update(int frameCount) {
         this.frameCounter = frameCount;
 
-        if (sonic == null) {
-            sonic = findSonic();
-            if (sonic == null) {
-                clearInputs();
-                return;
-            }
+        if (leader == null) {
+            clearInputs();
+            return;
         }
 
         clearInputs();
@@ -82,7 +86,7 @@ public class TailsCpuController {
         switch (state) {
             case INIT -> updateInit();
             case SPAWNING -> updateSpawning();
-            case FLYING -> updateFlying();
+            case APPROACHING -> updateApproaching();
             case NORMAL -> updateNormal();
             case PANIC -> updatePanic();
         }
@@ -97,124 +101,78 @@ public class TailsCpuController {
         state = State.NORMAL;
         controlCounter = 0;
         despawnCounter = 0;
+        normalFrameCount = 0;
         jumpingFlag = false;
         lastRidingObject = null;
-        tails.setForcedAnimationId(-1);
-        tails.setControlLocked(false);
-        tails.setObjectControlled(false);
-        tails.setXSpeed((short) 0);
-        tails.setYSpeed((short) 0);
-        tails.setGSpeed((short) 0);
+        sidekick.setForcedAnimationId(-1);
+        sidekick.setControlLocked(false);
+        sidekick.setObjectControlled(false);
+        sidekick.setXSpeed((short) 0);
+        sidekick.setYSpeed((short) 0);
+        sidekick.setGSpeed((short) 0);
     }
 
     private void updateSpawning() {
-        if (sonic.getDead()) {
+        if (leader.getDead()) {
             return;
         }
         if ((controller2Logical & RESPAWN_BYPASS_MASK) != 0) {
-            respawnToFlying();
+            respawnToApproaching();
             return;
         }
         if ((frameCounter & 0x3F) != 0) {
             return;
         }
-        if (sonic.isObjectControlled()) {
+        if (leader.isObjectControlled()) {
             return;
         }
-        if (sonic.getAir() || sonic.getRollingJump() || sonic.isInWater() || sonic.isPreventTailsRespawn()) {
+        if (leader.getAir() || leader.getRollingJump() || leader.isInWater() || leader.isPreventTailsRespawn()) {
             return;
         }
-        respawnToFlying();
+        respawnToApproaching();
     }
 
-    private void respawnToFlying() {
-        state = State.FLYING;
+    private void respawnToApproaching() {
+        state = State.APPROACHING;
         controlCounter = 0;
         despawnCounter = 0;
+        normalFrameCount = 0;
         jumpingFlag = false;
-        tails.setCentreX(sonic.getCentreX());
-        tails.setCentreY((short) (sonic.getCentreY() - RESPAWN_Y_OFFSET));
-        tails.setXSpeed((short) 0);
-        tails.setYSpeed((short) 0);
-        tails.setGSpeed((short) 0);
-        tails.setAir(true);
-        tails.setDead(false);
-        tails.setHurt(false);
-        tails.setSpindash(false);
-        tails.setSpindashCounter((short) 0);
-        tails.setForcedAnimationId(FLY_ANIM_ID);
-        tails.setControlLocked(true);
-        tails.setObjectControlled(true);
+        respawnStrategy.beginApproach(sidekick, leader);
     }
 
-    private void updateFlying() {
-        tails.setForcedAnimationId(FLY_ANIM_ID);
-        tails.setControlLocked(true);
-        tails.setObjectControlled(true);
-
+    private void updateApproaching() {
         if (checkDespawn()) {
             return;
         }
 
-        int targetX = getDelayedSonicX();
-        int targetY = clampTargetYToWater(getDelayedSonicY());
-        int tailsX = tails.getCentreX();
-        int tailsY = tails.getCentreY();
-
-        int dx = targetX - tailsX;
-        if (dx != 0) {
-            int move = Math.abs(dx) / 16;
-            move = Math.min(move, MAX_FLY_ACCEL);
-            move += Math.abs(sonic.getXSpeed()) / 256;
-            move += 1;
-            move = Math.min(move, Math.abs(dx));
-            if (dx > 0) {
-                tails.setDirection(Direction.RIGHT);
-                tails.setX((short) (tails.getX() + move));
-                tails.setXSpeed((short) (move * 256));
-            } else {
-                tails.setDirection(Direction.LEFT);
-                tails.setX((short) (tails.getX() - move));
-                tails.setXSpeed((short) (-move * 256));
-            }
-        } else {
-            tails.setXSpeed((short) 0);
+        AbstractPlayableSprite effectiveLeader = getEffectiveLeader();
+        if (effectiveLeader == null) {
+            return;
         }
-
-        int dy = targetY - tailsY;
-        if (dy > 0) {
-            tails.setY((short) (tails.getY() + 1));
-            tails.setYSpeed((short) 0x100);
-        } else if (dy < 0) {
-            tails.setY((short) (tails.getY() - 1));
-            tails.setYSpeed((short) -0x100);
-        } else {
-            tails.setYSpeed((short) 0);
-        }
-
-        int remainingDx = targetX - tails.getCentreX();
-        int remainingDy = targetY - tails.getCentreY();
-        byte recordedStatus = sonic.getStatusHistory(FOLLOW_DELAY_FRAMES);
-        if ((recordedStatus & FLY_LAND_BLOCKERS) == 0 && remainingDx == 0 && remainingDy == 0) {
-            tails.setForcedAnimationId(-1);
-            tails.setControlLocked(false);
-            tails.setObjectControlled(false);
-            tails.setXSpeed((short) 0);
-            tails.setYSpeed((short) 0);
-            tails.setGSpeed((short) 0);
-            tails.setHurt(false);
-            tails.setAir(true);
+        if (respawnStrategy.updateApproaching(sidekick, effectiveLeader, frameCounter)) {
+            sidekick.setForcedAnimationId(-1);
+            sidekick.setControlLocked(false);
+            sidekick.setObjectControlled(false);
+            sidekick.setXSpeed((short) 0);
+            sidekick.setYSpeed((short) 0);
+            sidekick.setGSpeed((short) 0);
+            sidekick.setHurt(false);
+            sidekick.setAir(true);
             state = State.NORMAL;
+            normalFrameCount = 0;
             despawnCounter = 0;
         }
     }
 
     private void updateNormal() {
-        if (sonic.getDead()) {
-            enterFlyingState();
+        normalFrameCount++;
+
+        if (leader.getDead()) {
+            enterApproachingState();
             return;
         }
-        if (tails.getDead()) {
+        if (sidekick.getDead()) {
             return;
         }
         if (checkDespawn()) {
@@ -224,20 +182,25 @@ public class TailsCpuController {
             applyManualControl();
             return;
         }
-        if (tails.isObjectControlled()) {
+        if (sidekick.isObjectControlled()) {
             return;
         }
 
-        if (tails.getMoveLockTimer() > 0 && tails.getGSpeed() == 0) {
+        if (sidekick.getMoveLockTimer() > 0 && sidekick.getGSpeed() == 0) {
             state = State.PANIC;
+            normalFrameCount = 0;
         }
 
-        short recordedInput = sonic.getInputHistory(FOLLOW_DELAY_FRAMES);
-        byte recordedStatus = sonic.getStatusHistory(FOLLOW_DELAY_FRAMES);
-        int targetX = getDelayedSonicX();
-        int targetY = getDelayedSonicY();
-        int dx = targetX - tails.getCentreX();
-        int dy = targetY - tails.getCentreY();
+        AbstractPlayableSprite effectiveLeader = getEffectiveLeader();
+        if (effectiveLeader == null) {
+            return;
+        }
+        short recordedInput = effectiveLeader.getInputHistory(FOLLOW_DELAY_FRAMES);
+        byte recordedStatus = effectiveLeader.getStatusHistory(FOLLOW_DELAY_FRAMES);
+        int targetX = effectiveLeader.getCentreX(FOLLOW_DELAY_FRAMES);
+        int targetY = effectiveLeader.getCentreY(FOLLOW_DELAY_FRAMES);
+        int dx = targetX - sidekick.getCentreX();
+        int dy = targetY - sidekick.getCentreY();
 
         inputLeft = (recordedInput & AbstractPlayableSprite.INPUT_LEFT) != 0;
         inputRight = (recordedInput & AbstractPlayableSprite.INPUT_RIGHT) != 0;
@@ -246,42 +209,42 @@ public class TailsCpuController {
         inputJump = (recordedInput & AbstractPlayableSprite.INPUT_JUMP) != 0;
 
         if ((recordedStatus & AbstractPlayableSprite.STATUS_FACING_LEFT) != 0) {
-            tails.setDirection(Direction.LEFT);
+            sidekick.setDirection(Direction.LEFT);
         } else {
-            tails.setDirection(Direction.RIGHT);
+            sidekick.setDirection(Direction.RIGHT);
         }
 
-        boolean skipFollowSteering = tails.getPushing()
+        boolean skipFollowSteering = sidekick.getPushing()
                 && (recordedStatus & AbstractPlayableSprite.STATUS_PUSHING) == 0;
         if (!skipFollowSteering) {
             if (dx <= -HORIZONTAL_SNAP_THRESHOLD) {
                 inputLeft = true;
                 inputRight = false;
-                if (tails.getGSpeed() != 0 && tails.getDirection() == Direction.LEFT) {
-                    tails.setX((short) (tails.getX() - 1));
+                if (sidekick.getGSpeed() != 0 && sidekick.getDirection() == Direction.LEFT) {
+                    sidekick.setX((short) (sidekick.getX() - 1));
                 }
             } else if (dx >= HORIZONTAL_SNAP_THRESHOLD) {
                 inputRight = true;
                 inputLeft = false;
-                if (tails.getGSpeed() != 0 && tails.getDirection() == Direction.RIGHT) {
-                    tails.setX((short) (tails.getX() + 1));
+                if (sidekick.getGSpeed() != 0 && sidekick.getDirection() == Direction.RIGHT) {
+                    sidekick.setX((short) (sidekick.getX() + 1));
                 }
             }
         }
 
         if (jumpingFlag) {
             inputJump = true;
-            if (!tails.getAir()) {
+            if (!sidekick.getAir()) {
                 jumpingFlag = false;
             }
         }
 
-        if (!jumpingFlag && !tails.getAir()) {
+        if (!jumpingFlag && !sidekick.getAir()) {
             boolean passesDistanceGate = (frameCounter & 0xFF) == 0 || Math.abs(dx) < JUMP_DISTANCE_TRIGGER;
             if (passesDistanceGate
                     && dy <= -JUMP_HEIGHT_THRESHOLD
                     && (frameCounter & 0x3F) == 0
-                    && tails.getAnimationId() != Sonic2AnimationIds.DUCK.id()) {
+                    && sidekick.getAnimationId() != Sonic2AnimationIds.DUCK.id()) {
                 inputJump = true;
                 jumpingFlag = true;
             }
@@ -296,24 +259,25 @@ public class TailsCpuController {
             applyManualControl();
             return;
         }
-        if (tails.getMoveLockTimer() > 0) {
+        if (sidekick.getMoveLockTimer() > 0) {
             return;
         }
 
-        tails.setDirection(sonic.getCentreX() < tails.getCentreX() ? Direction.LEFT : Direction.RIGHT);
+        sidekick.setDirection(leader.getCentreX() < sidekick.getCentreX() ? Direction.LEFT : Direction.RIGHT);
         inputDown = true;
 
         int phase = frameCounter & 0x7F;
-        if (!tails.getSpindash()) {
-            if (tails.getGSpeed() != 0) {
+        if (!sidekick.getSpindash()) {
+            if (sidekick.getGSpeed() != 0) {
                 return;
             }
             if (phase == 0) {
                 clearInputs();
                 state = State.NORMAL;
+                normalFrameCount = 0;
                 return;
             }
-            if (tails.getAnimationId() == Sonic2AnimationIds.DUCK.id()) {
+            if (sidekick.getAnimationId() == Sonic2AnimationIds.DUCK.id()) {
                 inputJump = true;
             }
             return;
@@ -322,6 +286,7 @@ public class TailsCpuController {
         if (phase == 0) {
             clearInputs();
             state = State.NORMAL;
+            normalFrameCount = 0;
             return;
         }
         if ((phase & 0x1F) == 0) {
@@ -338,27 +303,20 @@ public class TailsCpuController {
         controlCounter--;
     }
 
-    private void enterFlyingState() {
-        state = State.FLYING;
+    private void enterApproachingState() {
+        state = State.APPROACHING;
         despawnCounter = 0;
         controlCounter = 0;
-        tails.setSpindash(false);
-        tails.setSpindashCounter((short) 0);
-        tails.setForcedAnimationId(FLY_ANIM_ID);
-        tails.setAir(true);
-        tails.setControlLocked(true);
-        tails.setObjectControlled(true);
+        normalFrameCount = 0;
+        sidekick.setSpindash(false);
+        sidekick.setSpindashCounter((short) 0);
+        sidekick.setForcedAnimationId(FLY_ANIM_ID);
+        sidekick.setAir(true);
+        sidekick.setControlLocked(true);
+        sidekick.setObjectControlled(true);
     }
 
-    private int getDelayedSonicX() {
-        return sonic.getCentreX(FOLLOW_DELAY_FRAMES);
-    }
-
-    private int getDelayedSonicY() {
-        return sonic.getCentreY(FOLLOW_DELAY_FRAMES);
-    }
-
-    private int clampTargetYToWater(int targetY) {
+    int clampTargetYToWater(int targetY) {
         LevelManager levelManager = LevelManager.getInstance();
         if (levelManager == null) {
             return targetY;
@@ -375,10 +333,10 @@ public class TailsCpuController {
         ObjectInstance ridingObject = null;
         LevelManager levelManager = LevelManager.getInstance();
         if (levelManager != null && levelManager.getObjectManager() != null) {
-            ridingObject = levelManager.getObjectManager().getRidingObject(tails);
+            ridingObject = levelManager.getObjectManager().getRidingObject(sidekick);
         }
 
-        boolean onScreen = camera != null && camera.isOnScreen(tails);
+        boolean onScreen = camera != null && camera.isOnScreen(sidekick);
         boolean keepAliveOnObject = ridingObject != null && ridingObject == lastRidingObject;
         if (!onScreen && lastRidingObject != null && ridingObject != null && ridingObject != lastRidingObject) {
             lastRidingObject = ridingObject;
@@ -401,8 +359,8 @@ public class TailsCpuController {
     }
 
     public void despawn() {
-        tails.setDead(false);
-        tails.setDeathCountdown(0);
+        sidekick.setDead(false);
+        sidekick.setDeathCountdown(0);
         triggerDespawn();
     }
 
@@ -410,21 +368,22 @@ public class TailsCpuController {
         state = State.SPAWNING;
         despawnCounter = 0;
         controlCounter = 0;
+        normalFrameCount = 0;
         jumpingFlag = false;
-        tails.setX((short) 0x4000);
-        tails.setY((short) 0);
-        tails.setXSpeed((short) 0);
-        tails.setYSpeed((short) 0);
-        tails.setGSpeed((short) 0);
-        tails.setHurt(false);
-        tails.setAir(true);
-        tails.setDead(false);
-        tails.setDeathCountdown(0);
-        tails.setSpindash(false);
-        tails.setSpindashCounter((short) 0);
-        tails.setForcedAnimationId(FLY_ANIM_ID);
-        tails.setControlLocked(true);
-        tails.setObjectControlled(true);
+        sidekick.setX((short) 0x4000);
+        sidekick.setY((short) 0);
+        sidekick.setXSpeed((short) 0);
+        sidekick.setYSpeed((short) 0);
+        sidekick.setGSpeed((short) 0);
+        sidekick.setHurt(false);
+        sidekick.setAir(true);
+        sidekick.setDead(false);
+        sidekick.setDeathCountdown(0);
+        sidekick.setSpindash(false);
+        sidekick.setSpindashCounter((short) 0);
+        sidekick.setForcedAnimationId(FLY_ANIM_ID);
+        sidekick.setControlLocked(true);
+        sidekick.setObjectControlled(true);
         lastRidingObject = null;
     }
 
@@ -436,13 +395,70 @@ public class TailsCpuController {
         inputJump = false;
     }
 
-    private AbstractPlayableSprite findSonic() {
-        for (var sprite : SpriteManager.getInstance().getAllSprites()) {
-            if (sprite instanceof AbstractPlayableSprite playable && sprite != tails && !playable.isCpuControlled()) {
-                return playable;
+    public void setRespawnStrategy(SidekickRespawnStrategy strategy) {
+        this.respawnStrategy = strategy;
+    }
+
+    public void setLeader(AbstractPlayableSprite leader) {
+        this.leader = leader;
+    }
+
+    public AbstractPlayableSprite getLeader() {
+        return leader;
+    }
+
+    public void setSidekickCount(int sidekickCount) {
+        this.sidekickCount = sidekickCount;
+    }
+
+    /**
+     * Returns true when this sidekick has been in NORMAL state for at least
+     * {@link #SETTLED_FRAME_THRESHOLD} consecutive frames, meaning it has
+     * "caught up" to its position in the chain.
+     */
+    public boolean isSettled() {
+        return state == State.NORMAL && normalFrameCount >= SETTLED_FRAME_THRESHOLD;
+    }
+
+    /**
+     * Walks up the leader chain to find the nearest settled leader (or the main
+     * player). If the direct leader is not CPU-controlled or is settled, it is
+     * returned immediately. Otherwise the chain is walked until a settled
+     * sidekick or the main player is found.
+     */
+    public AbstractPlayableSprite getEffectiveLeader() {
+        AbstractPlayableSprite current = leader;
+        int maxSteps = sidekickCount;
+        while (current != null && current.isCpuControlled() && maxSteps-- > 0) {
+            SidekickCpuController ctrl = current.getCpuController();
+            if (ctrl == null) {
+                return current;
             }
+            if (ctrl.isSettled()) {
+                return current;
+            }
+            current = ctrl.getLeader();
         }
-        return null;
+        return current;
+    }
+
+    /**
+     * Sets the initial state for production use (e.g. pre-setting SPAWNING
+     * after a level transition).
+     */
+    public void setInitialState(State state) {
+        this.state = state;
+        if (state != State.NORMAL) {
+            normalFrameCount = 0;
+        }
+    }
+
+    /**
+     * Package-private test helper: sets both state and normalFrameCount directly.
+     */
+    void forceStateForTest(State state, int normalFrames) {
+        this.state = state;
+        this.normalFrameCount = normalFrames;
     }
 
     public boolean getInputUp() { return inputUp; }
@@ -451,7 +467,7 @@ public class TailsCpuController {
     public boolean getInputRight() { return inputRight; }
     public boolean getInputJump() { return inputJump; }
     public State getState() { return state; }
-    public boolean isFlying() { return state == State.FLYING; }
+    public boolean isApproaching() { return state == State.APPROACHING; }
 
     public int getMinXBound(int fallback) {
         return minXBound == Integer.MIN_VALUE ? fallback : minXBound;
@@ -483,15 +499,16 @@ public class TailsCpuController {
         controlCounter = 0;
         controller2Held = 0;
         controller2Logical = 0;
+        normalFrameCount = 0;
         jumpingFlag = false;
-        sonic = null;
+        leader = null;
         lastRidingObject = null;
         minXBound = Integer.MIN_VALUE;
         maxXBound = Integer.MIN_VALUE;
         maxYBound = Integer.MIN_VALUE;
         clearInputs();
-        tails.setForcedAnimationId(-1);
-        tails.setControlLocked(false);
-        tails.setObjectControlled(false);
+        sidekick.setForcedAnimationId(-1);
+        sidekick.setControlLocked(false);
+        sidekick.setObjectControlled(false);
     }
 }

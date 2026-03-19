@@ -251,11 +251,12 @@ public class LateralCannonObjectInstance extends AbstractObjectInstance
         }
 
         // bclr #p2_standing_bit,status(a0) - same for sidekick
-        AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
-        if (sidekick != null && objectManager.isRidingObject(sidekick, this)) {
-            objectManager.clearRidingObject(sidekick);
-            sidekick.setOnObject(false);
-            sidekick.setAir(true);
+        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+            if (objectManager.isRidingObject(sidekick, this)) {
+                objectManager.clearRidingObject(sidekick);
+                sidekick.setOnObject(false);
+                sidekick.setAir(true);
+            }
         }
     }
 

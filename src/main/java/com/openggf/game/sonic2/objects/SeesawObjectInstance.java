@@ -177,12 +177,10 @@ public class SeesawObjectInstance extends BoxObjectInstance
 
     /**
      * Determines if the given player is the main character (player 1).
-     * The sidekick (player 2) is available from SpriteManager.getSidekick().
      */
     private boolean isMainCharacter(AbstractPlayableSprite player) {
-        AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
-        // If sidekick is null or player is not the sidekick, they're the main character
-        return sidekick == null || player != sidekick;
+        // If player is not any sidekick, they're the main character
+        return !SpriteManager.getInstance().getSidekicks().contains(player);
     }
 
     /**
@@ -277,10 +275,11 @@ public class SeesawObjectInstance extends BoxObjectInstance
         // This prepares for heavy landing detection before the player actually lands
         if (standingPlayer1 == null && standingPlayer2 == null) {
             // player parameter is always the main character
-            AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
-
             int p1Vel = (player != null) ? player.getYSpeed() : 0;
-            int p2Vel = (sidekick != null) ? sidekick.getYSpeed() : 0;
+            int p2Vel = 0;
+            for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+                p2Vel = Math.max(p2Vel, sidekick.getYSpeed());
+            }
 
             // Bug fix #4: ROM always overwrites with max of both players.
             // Java incorrectly only updated if new value was higher.

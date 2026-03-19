@@ -95,8 +95,7 @@ public class FanObjectInstance extends AbstractObjectInstance {
                 }
             }
 
-            AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
-            if (sidekick != null) {
+            for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
                 if (isVertical) {
                     applyVerticalPush(sidekick);
                 } else {

@@ -76,7 +76,10 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         updatePlayer(player, PLAYER_SLOT_MAIN, true);
-        updatePlayer(SpriteManager.getInstance().getSidekick(), PLAYER_SLOT_SIDEKICK, false);
+        var sidekicks = SpriteManager.getInstance().getSidekicks();
+        if (!sidekicks.isEmpty()) {
+            updatePlayer(sidekicks.getFirst(), PLAYER_SLOT_SIDEKICK, false);
+        }
         updateCameraLock(player);
     }
 

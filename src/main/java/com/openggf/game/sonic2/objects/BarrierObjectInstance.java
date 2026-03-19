@@ -128,9 +128,8 @@ public class BarrierObjectInstance extends AbstractObjectInstance implements Sol
         //   bsr.s Obj2D_CheckCharacter
         checkCharacter(player, detectLeft, detectRight, detectTop, detectBottom);
 
-        // Check sidekick (Tails AI) if present
-        AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekick();
-        if (sidekick != null) {
+        // Check sidekick(s) if present
+        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
             checkCharacter(sidekick, detectLeft, detectRight, detectTop, detectBottom);
         }
 
