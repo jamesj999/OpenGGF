@@ -97,6 +97,8 @@ public class LevelManager {
     private static final float SWITCHER_DEBUG_ALPHA = 0.35f;
     private static final int OBJECT_PATTERN_BASE = 0x20000;
     private static final int HUD_PATTERN_BASE = 0x28000;
+    /** Base for extra sidekick DPLC banks — above object/HUD ranges to avoid collision. */
+    private static final int SIDEKICK_PATTERN_BASE = 0x30000;
     private static final Palette.Color BLACK_BACKDROP = new Palette.Color((byte) 0, (byte) 0, (byte) 0);
     private static LevelManager levelManager;
     private Level level;
@@ -1134,15 +1136,20 @@ public class LevelManager {
                     continue;
                 }
                 // When a sidekick shares a character type with the main or another
-                // sidekick, shift its base pattern index so each has its own VRAM bank.
+                // sidekick, give it a unique pattern bank in the dedicated sidekick
+                // range (0x30000+) so DPLC writes don't collide with level tiles or
+                // the main player's VRAM bank.
                 int slot = vramSlots.get(i);
                 if (slot > 0) {
+                    // Slot 0 = use same base as main player (no conflict for different chars).
+                    // Slot 1+ = place in dedicated high range to avoid VRAM collisions.
+                    int shiftedBase = SIDEKICK_PATTERN_BASE + sidekickArt.bankSize() * (slot - 1);
                     sidekickArt = new SpriteArtSet(
                             sidekickArt.artTiles(),
                             sidekickArt.mappingFrames(),
                             sidekickArt.dplcFrames(),
                             sidekickArt.paletteIndex(),
-                            sidekickArt.basePatternIndex() + sidekickArt.bankSize() * slot,
+                            shiftedBase,
                             sidekickArt.frameDelay(),
                             sidekickArt.bankSize(),
                             sidekickArt.animationProfile(),
