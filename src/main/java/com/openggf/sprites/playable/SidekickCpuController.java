@@ -39,7 +39,7 @@ public class SidekickCpuController {
         PANIC
     }
 
-    private final AbstractPlayableSprite tails;
+    private final AbstractPlayableSprite sidekick;
     private AbstractPlayableSprite leader;
 
     private State state = State.INIT;
@@ -59,8 +59,8 @@ public class SidekickCpuController {
     private int maxYBound = Integer.MIN_VALUE;
     private ObjectInstance lastRidingObject;
 
-    public SidekickCpuController(AbstractPlayableSprite tails) {
-        this.tails = tails;
+    public SidekickCpuController(AbstractPlayableSprite sidekick) {
+        this.sidekick = sidekick;
     }
 
     public void update(int frameCount) {
@@ -99,12 +99,12 @@ public class SidekickCpuController {
         despawnCounter = 0;
         jumpingFlag = false;
         lastRidingObject = null;
-        tails.setForcedAnimationId(-1);
-        tails.setControlLocked(false);
-        tails.setObjectControlled(false);
-        tails.setXSpeed((short) 0);
-        tails.setYSpeed((short) 0);
-        tails.setGSpeed((short) 0);
+        sidekick.setForcedAnimationId(-1);
+        sidekick.setControlLocked(false);
+        sidekick.setObjectControlled(false);
+        sidekick.setXSpeed((short) 0);
+        sidekick.setYSpeed((short) 0);
+        sidekick.setGSpeed((short) 0);
     }
 
     private void updateSpawning() {
@@ -132,25 +132,25 @@ public class SidekickCpuController {
         controlCounter = 0;
         despawnCounter = 0;
         jumpingFlag = false;
-        tails.setCentreX(leader.getCentreX());
-        tails.setCentreY((short) (leader.getCentreY() - RESPAWN_Y_OFFSET));
-        tails.setXSpeed((short) 0);
-        tails.setYSpeed((short) 0);
-        tails.setGSpeed((short) 0);
-        tails.setAir(true);
-        tails.setDead(false);
-        tails.setHurt(false);
-        tails.setSpindash(false);
-        tails.setSpindashCounter((short) 0);
-        tails.setForcedAnimationId(FLY_ANIM_ID);
-        tails.setControlLocked(true);
-        tails.setObjectControlled(true);
+        sidekick.setCentreX(leader.getCentreX());
+        sidekick.setCentreY((short) (leader.getCentreY() - RESPAWN_Y_OFFSET));
+        sidekick.setXSpeed((short) 0);
+        sidekick.setYSpeed((short) 0);
+        sidekick.setGSpeed((short) 0);
+        sidekick.setAir(true);
+        sidekick.setDead(false);
+        sidekick.setHurt(false);
+        sidekick.setSpindash(false);
+        sidekick.setSpindashCounter((short) 0);
+        sidekick.setForcedAnimationId(FLY_ANIM_ID);
+        sidekick.setControlLocked(true);
+        sidekick.setObjectControlled(true);
     }
 
     private void updateApproaching() {
-        tails.setForcedAnimationId(FLY_ANIM_ID);
-        tails.setControlLocked(true);
-        tails.setObjectControlled(true);
+        sidekick.setForcedAnimationId(FLY_ANIM_ID);
+        sidekick.setControlLocked(true);
+        sidekick.setObjectControlled(true);
 
         if (checkDespawn()) {
             return;
@@ -158,10 +158,10 @@ public class SidekickCpuController {
 
         int targetX = getDelayedLeaderX();
         int targetY = clampTargetYToWater(getDelayedLeaderY());
-        int tailsX = tails.getCentreX();
-        int tailsY = tails.getCentreY();
+        int sidekickX = sidekick.getCentreX();
+        int sidekickY = sidekick.getCentreY();
 
-        int dx = targetX - tailsX;
+        int dx = targetX - sidekickX;
         if (dx != 0) {
             int move = Math.abs(dx) / 16;
             move = Math.min(move, MAX_FLY_ACCEL);
@@ -169,41 +169,41 @@ public class SidekickCpuController {
             move += 1;
             move = Math.min(move, Math.abs(dx));
             if (dx > 0) {
-                tails.setDirection(Direction.RIGHT);
-                tails.setX((short) (tails.getX() + move));
-                tails.setXSpeed((short) (move * 256));
+                sidekick.setDirection(Direction.RIGHT);
+                sidekick.setX((short) (sidekick.getX() + move));
+                sidekick.setXSpeed((short) (move * 256));
             } else {
-                tails.setDirection(Direction.LEFT);
-                tails.setX((short) (tails.getX() - move));
-                tails.setXSpeed((short) (-move * 256));
+                sidekick.setDirection(Direction.LEFT);
+                sidekick.setX((short) (sidekick.getX() - move));
+                sidekick.setXSpeed((short) (-move * 256));
             }
         } else {
-            tails.setXSpeed((short) 0);
+            sidekick.setXSpeed((short) 0);
         }
 
-        int dy = targetY - tailsY;
+        int dy = targetY - sidekickY;
         if (dy > 0) {
-            tails.setY((short) (tails.getY() + 1));
-            tails.setYSpeed((short) 0x100);
+            sidekick.setY((short) (sidekick.getY() + 1));
+            sidekick.setYSpeed((short) 0x100);
         } else if (dy < 0) {
-            tails.setY((short) (tails.getY() - 1));
-            tails.setYSpeed((short) -0x100);
+            sidekick.setY((short) (sidekick.getY() - 1));
+            sidekick.setYSpeed((short) -0x100);
         } else {
-            tails.setYSpeed((short) 0);
+            sidekick.setYSpeed((short) 0);
         }
 
-        int remainingDx = targetX - tails.getCentreX();
-        int remainingDy = targetY - tails.getCentreY();
+        int remainingDx = targetX - sidekick.getCentreX();
+        int remainingDy = targetY - sidekick.getCentreY();
         byte recordedStatus = leader.getStatusHistory(FOLLOW_DELAY_FRAMES);
         if ((recordedStatus & FLY_LAND_BLOCKERS) == 0 && remainingDx == 0 && remainingDy == 0) {
-            tails.setForcedAnimationId(-1);
-            tails.setControlLocked(false);
-            tails.setObjectControlled(false);
-            tails.setXSpeed((short) 0);
-            tails.setYSpeed((short) 0);
-            tails.setGSpeed((short) 0);
-            tails.setHurt(false);
-            tails.setAir(true);
+            sidekick.setForcedAnimationId(-1);
+            sidekick.setControlLocked(false);
+            sidekick.setObjectControlled(false);
+            sidekick.setXSpeed((short) 0);
+            sidekick.setYSpeed((short) 0);
+            sidekick.setGSpeed((short) 0);
+            sidekick.setHurt(false);
+            sidekick.setAir(true);
             state = State.NORMAL;
             despawnCounter = 0;
         }
@@ -214,7 +214,7 @@ public class SidekickCpuController {
             enterApproachingState();
             return;
         }
-        if (tails.getDead()) {
+        if (sidekick.getDead()) {
             return;
         }
         if (checkDespawn()) {
@@ -224,11 +224,11 @@ public class SidekickCpuController {
             applyManualControl();
             return;
         }
-        if (tails.isObjectControlled()) {
+        if (sidekick.isObjectControlled()) {
             return;
         }
 
-        if (tails.getMoveLockTimer() > 0 && tails.getGSpeed() == 0) {
+        if (sidekick.getMoveLockTimer() > 0 && sidekick.getGSpeed() == 0) {
             state = State.PANIC;
         }
 
@@ -236,8 +236,8 @@ public class SidekickCpuController {
         byte recordedStatus = leader.getStatusHistory(FOLLOW_DELAY_FRAMES);
         int targetX = getDelayedLeaderX();
         int targetY = getDelayedLeaderY();
-        int dx = targetX - tails.getCentreX();
-        int dy = targetY - tails.getCentreY();
+        int dx = targetX - sidekick.getCentreX();
+        int dy = targetY - sidekick.getCentreY();
 
         inputLeft = (recordedInput & AbstractPlayableSprite.INPUT_LEFT) != 0;
         inputRight = (recordedInput & AbstractPlayableSprite.INPUT_RIGHT) != 0;
@@ -246,42 +246,42 @@ public class SidekickCpuController {
         inputJump = (recordedInput & AbstractPlayableSprite.INPUT_JUMP) != 0;
 
         if ((recordedStatus & AbstractPlayableSprite.STATUS_FACING_LEFT) != 0) {
-            tails.setDirection(Direction.LEFT);
+            sidekick.setDirection(Direction.LEFT);
         } else {
-            tails.setDirection(Direction.RIGHT);
+            sidekick.setDirection(Direction.RIGHT);
         }
 
-        boolean skipFollowSteering = tails.getPushing()
+        boolean skipFollowSteering = sidekick.getPushing()
                 && (recordedStatus & AbstractPlayableSprite.STATUS_PUSHING) == 0;
         if (!skipFollowSteering) {
             if (dx <= -HORIZONTAL_SNAP_THRESHOLD) {
                 inputLeft = true;
                 inputRight = false;
-                if (tails.getGSpeed() != 0 && tails.getDirection() == Direction.LEFT) {
-                    tails.setX((short) (tails.getX() - 1));
+                if (sidekick.getGSpeed() != 0 && sidekick.getDirection() == Direction.LEFT) {
+                    sidekick.setX((short) (sidekick.getX() - 1));
                 }
             } else if (dx >= HORIZONTAL_SNAP_THRESHOLD) {
                 inputRight = true;
                 inputLeft = false;
-                if (tails.getGSpeed() != 0 && tails.getDirection() == Direction.RIGHT) {
-                    tails.setX((short) (tails.getX() + 1));
+                if (sidekick.getGSpeed() != 0 && sidekick.getDirection() == Direction.RIGHT) {
+                    sidekick.setX((short) (sidekick.getX() + 1));
                 }
             }
         }
 
         if (jumpingFlag) {
             inputJump = true;
-            if (!tails.getAir()) {
+            if (!sidekick.getAir()) {
                 jumpingFlag = false;
             }
         }
 
-        if (!jumpingFlag && !tails.getAir()) {
+        if (!jumpingFlag && !sidekick.getAir()) {
             boolean passesDistanceGate = (frameCounter & 0xFF) == 0 || Math.abs(dx) < JUMP_DISTANCE_TRIGGER;
             if (passesDistanceGate
                     && dy <= -JUMP_HEIGHT_THRESHOLD
                     && (frameCounter & 0x3F) == 0
-                    && tails.getAnimationId() != Sonic2AnimationIds.DUCK.id()) {
+                    && sidekick.getAnimationId() != Sonic2AnimationIds.DUCK.id()) {
                 inputJump = true;
                 jumpingFlag = true;
             }
@@ -296,16 +296,16 @@ public class SidekickCpuController {
             applyManualControl();
             return;
         }
-        if (tails.getMoveLockTimer() > 0) {
+        if (sidekick.getMoveLockTimer() > 0) {
             return;
         }
 
-        tails.setDirection(leader.getCentreX() < tails.getCentreX() ? Direction.LEFT : Direction.RIGHT);
+        sidekick.setDirection(leader.getCentreX() < sidekick.getCentreX() ? Direction.LEFT : Direction.RIGHT);
         inputDown = true;
 
         int phase = frameCounter & 0x7F;
-        if (!tails.getSpindash()) {
-            if (tails.getGSpeed() != 0) {
+        if (!sidekick.getSpindash()) {
+            if (sidekick.getGSpeed() != 0) {
                 return;
             }
             if (phase == 0) {
@@ -313,7 +313,7 @@ public class SidekickCpuController {
                 state = State.NORMAL;
                 return;
             }
-            if (tails.getAnimationId() == Sonic2AnimationIds.DUCK.id()) {
+            if (sidekick.getAnimationId() == Sonic2AnimationIds.DUCK.id()) {
                 inputJump = true;
             }
             return;
@@ -342,12 +342,12 @@ public class SidekickCpuController {
         state = State.APPROACHING;
         despawnCounter = 0;
         controlCounter = 0;
-        tails.setSpindash(false);
-        tails.setSpindashCounter((short) 0);
-        tails.setForcedAnimationId(FLY_ANIM_ID);
-        tails.setAir(true);
-        tails.setControlLocked(true);
-        tails.setObjectControlled(true);
+        sidekick.setSpindash(false);
+        sidekick.setSpindashCounter((short) 0);
+        sidekick.setForcedAnimationId(FLY_ANIM_ID);
+        sidekick.setAir(true);
+        sidekick.setControlLocked(true);
+        sidekick.setObjectControlled(true);
     }
 
     private int getDelayedLeaderX() {
@@ -375,10 +375,10 @@ public class SidekickCpuController {
         ObjectInstance ridingObject = null;
         LevelManager levelManager = LevelManager.getInstance();
         if (levelManager != null && levelManager.getObjectManager() != null) {
-            ridingObject = levelManager.getObjectManager().getRidingObject(tails);
+            ridingObject = levelManager.getObjectManager().getRidingObject(sidekick);
         }
 
-        boolean onScreen = camera != null && camera.isOnScreen(tails);
+        boolean onScreen = camera != null && camera.isOnScreen(sidekick);
         boolean keepAliveOnObject = ridingObject != null && ridingObject == lastRidingObject;
         if (!onScreen && lastRidingObject != null && ridingObject != null && ridingObject != lastRidingObject) {
             lastRidingObject = ridingObject;
@@ -401,8 +401,8 @@ public class SidekickCpuController {
     }
 
     public void despawn() {
-        tails.setDead(false);
-        tails.setDeathCountdown(0);
+        sidekick.setDead(false);
+        sidekick.setDeathCountdown(0);
         triggerDespawn();
     }
 
@@ -411,20 +411,20 @@ public class SidekickCpuController {
         despawnCounter = 0;
         controlCounter = 0;
         jumpingFlag = false;
-        tails.setX((short) 0x4000);
-        tails.setY((short) 0);
-        tails.setXSpeed((short) 0);
-        tails.setYSpeed((short) 0);
-        tails.setGSpeed((short) 0);
-        tails.setHurt(false);
-        tails.setAir(true);
-        tails.setDead(false);
-        tails.setDeathCountdown(0);
-        tails.setSpindash(false);
-        tails.setSpindashCounter((short) 0);
-        tails.setForcedAnimationId(FLY_ANIM_ID);
-        tails.setControlLocked(true);
-        tails.setObjectControlled(true);
+        sidekick.setX((short) 0x4000);
+        sidekick.setY((short) 0);
+        sidekick.setXSpeed((short) 0);
+        sidekick.setYSpeed((short) 0);
+        sidekick.setGSpeed((short) 0);
+        sidekick.setHurt(false);
+        sidekick.setAir(true);
+        sidekick.setDead(false);
+        sidekick.setDeathCountdown(0);
+        sidekick.setSpindash(false);
+        sidekick.setSpindashCounter((short) 0);
+        sidekick.setForcedAnimationId(FLY_ANIM_ID);
+        sidekick.setControlLocked(true);
+        sidekick.setObjectControlled(true);
         lastRidingObject = null;
     }
 
@@ -438,7 +438,7 @@ public class SidekickCpuController {
 
     private AbstractPlayableSprite findLeader() {
         for (var sprite : SpriteManager.getInstance().getAllSprites()) {
-            if (sprite instanceof AbstractPlayableSprite playable && sprite != tails && !playable.isCpuControlled()) {
+            if (sprite instanceof AbstractPlayableSprite playable && sprite != sidekick && !playable.isCpuControlled()) {
                 return playable;
             }
         }
@@ -490,8 +490,8 @@ public class SidekickCpuController {
         maxXBound = Integer.MIN_VALUE;
         maxYBound = Integer.MIN_VALUE;
         clearInputs();
-        tails.setForcedAnimationId(-1);
-        tails.setControlLocked(false);
-        tails.setObjectControlled(false);
+        sidekick.setForcedAnimationId(-1);
+        sidekick.setControlLocked(false);
+        sidekick.setObjectControlled(false);
     }
 }
