@@ -17,8 +17,6 @@ public class SidekickCpuController {
     private static final int JUMP_DISTANCE_TRIGGER = 64;
     private static final int JUMP_HEIGHT_THRESHOLD = 32;
     private static final int DESPAWN_TIMEOUT = 300;
-    private static final int RESPAWN_Y_OFFSET = 192;
-    private static final int MAX_FLY_ACCEL = 12;
     private static final int MANUAL_CONTROL_FRAMES = 600;
     private static final int FLY_ANIM_ID = Sonic2AnimationIds.FLY.id();
     private static final int INPUT_START = 0x20;
@@ -28,7 +26,6 @@ public class SidekickCpuController {
             | AbstractPlayableSprite.INPUT_RIGHT
             | AbstractPlayableSprite.INPUT_JUMP;
     private static final int RESPAWN_BYPASS_MASK = AbstractPlayableSprite.INPUT_JUMP | INPUT_START;
-    private static final int FLY_LAND_BLOCKERS = 0xD2;
 
     public enum State {
         INIT,
@@ -42,6 +39,7 @@ public class SidekickCpuController {
 
     private final AbstractPlayableSprite sidekick;
     private AbstractPlayableSprite leader;
+    private SidekickRespawnStrategy respawnStrategy;
 
     private State state = State.INIT;
     private int despawnCounter;
@@ -69,6 +67,7 @@ public class SidekickCpuController {
     public SidekickCpuController(AbstractPlayableSprite sidekick, AbstractPlayableSprite leader) {
         this.sidekick = sidekick;
         this.leader = leader;
+        this.respawnStrategy = new TailsRespawnStrategy(this);
     }
 
     public void update(int frameCount) {
@@ -139,26 +138,10 @@ public class SidekickCpuController {
         despawnCounter = 0;
         normalFrameCount = 0;
         jumpingFlag = false;
-        sidekick.setCentreX(leader.getCentreX());
-        sidekick.setCentreY((short) (leader.getCentreY() - RESPAWN_Y_OFFSET));
-        sidekick.setXSpeed((short) 0);
-        sidekick.setYSpeed((short) 0);
-        sidekick.setGSpeed((short) 0);
-        sidekick.setAir(true);
-        sidekick.setDead(false);
-        sidekick.setHurt(false);
-        sidekick.setSpindash(false);
-        sidekick.setSpindashCounter((short) 0);
-        sidekick.setForcedAnimationId(FLY_ANIM_ID);
-        sidekick.setControlLocked(true);
-        sidekick.setObjectControlled(true);
+        respawnStrategy.beginApproach(sidekick, leader);
     }
 
     private void updateApproaching() {
-        sidekick.setForcedAnimationId(FLY_ANIM_ID);
-        sidekick.setControlLocked(true);
-        sidekick.setObjectControlled(true);
-
         if (checkDespawn()) {
             return;
         }
@@ -167,46 +150,7 @@ public class SidekickCpuController {
         if (effectiveLeader == null) {
             return;
         }
-        int targetX = effectiveLeader.getCentreX(FOLLOW_DELAY_FRAMES);
-        int targetY = clampTargetYToWater(effectiveLeader.getCentreY(FOLLOW_DELAY_FRAMES));
-        int sidekickX = sidekick.getCentreX();
-        int sidekickY = sidekick.getCentreY();
-
-        int dx = targetX - sidekickX;
-        if (dx != 0) {
-            int move = Math.abs(dx) / 16;
-            move = Math.min(move, MAX_FLY_ACCEL);
-            move += Math.abs(effectiveLeader.getXSpeed()) / 256;
-            move += 1;
-            move = Math.min(move, Math.abs(dx));
-            if (dx > 0) {
-                sidekick.setDirection(Direction.RIGHT);
-                sidekick.setX((short) (sidekick.getX() + move));
-                sidekick.setXSpeed((short) (move * 256));
-            } else {
-                sidekick.setDirection(Direction.LEFT);
-                sidekick.setX((short) (sidekick.getX() - move));
-                sidekick.setXSpeed((short) (-move * 256));
-            }
-        } else {
-            sidekick.setXSpeed((short) 0);
-        }
-
-        int dy = targetY - sidekickY;
-        if (dy > 0) {
-            sidekick.setY((short) (sidekick.getY() + 1));
-            sidekick.setYSpeed((short) 0x100);
-        } else if (dy < 0) {
-            sidekick.setY((short) (sidekick.getY() - 1));
-            sidekick.setYSpeed((short) -0x100);
-        } else {
-            sidekick.setYSpeed((short) 0);
-        }
-
-        int remainingDx = targetX - sidekick.getCentreX();
-        int remainingDy = targetY - sidekick.getCentreY();
-        byte recordedStatus = effectiveLeader.getStatusHistory(FOLLOW_DELAY_FRAMES);
-        if ((recordedStatus & FLY_LAND_BLOCKERS) == 0 && remainingDx == 0 && remainingDy == 0) {
+        if (respawnStrategy.updateApproaching(sidekick, effectiveLeader, frameCounter)) {
             sidekick.setForcedAnimationId(-1);
             sidekick.setControlLocked(false);
             sidekick.setObjectControlled(false);
@@ -372,7 +316,7 @@ public class SidekickCpuController {
         sidekick.setObjectControlled(true);
     }
 
-    private int clampTargetYToWater(int targetY) {
+    int clampTargetYToWater(int targetY) {
         LevelManager levelManager = LevelManager.getInstance();
         if (levelManager == null) {
             return targetY;
@@ -449,6 +393,10 @@ public class SidekickCpuController {
         inputLeft = false;
         inputRight = false;
         inputJump = false;
+    }
+
+    public void setRespawnStrategy(SidekickRespawnStrategy strategy) {
+        this.respawnStrategy = strategy;
     }
 
     public void setLeader(AbstractPlayableSprite leader) {
