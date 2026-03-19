@@ -198,20 +198,6 @@ public class SpriteManager {
 		return sidekickCharacterNames.get(sidekick);
 	}
 
-	/**
-	 * Returns the sidekick sprite (Tails in 2-player or AI mode).
-	 * <p>
-	 * In the original Sonic 2, the sidekick is stored at RAM $FFFFB040
-	 * (Sidekick) vs the main character at $FFFFB000 (MainCharacter).
-	 *
-	 * @return the sidekick sprite, or null if no sidekick is active
-	 * @deprecated Use {@link #getSidekicks()} instead. Returns first sidekick for compatibility.
-	 */
-	@Deprecated
-	public AbstractPlayableSprite getSidekick() {
-		List<AbstractPlayableSprite> list = getSidekicks();
-		return list.isEmpty() ? null : list.getFirst();
-	}
 
 	public void update(InputHandler handler) {
 		frameCounter++;
@@ -275,7 +261,10 @@ public class SpriteManager {
 				if (playable.isCpuControlled() && playable.getCpuController() != null) {
 					// CPU-controlled sprite: run AI to generate virtual input
 					var cpuController = playable.getCpuController();
-					cpuController.setController2Input(p2Held, p2Logical);
+					boolean isFirstSidekick = !sidekicks.isEmpty() && sidekicks.getFirst() == playable;
+					if (isFirstSidekick) {
+						cpuController.setController2Input(p2Held, p2Logical);
+					}
 					cpuController.update(frameCounter);
 
 					// If approaching (respawn in progress), the AI moves the sidekick directly - skip normal physics
