@@ -68,6 +68,14 @@ public class InstaShieldObjectInstance extends ShieldObjectInstance {
         }
     }
 
+    /** Invalidates the DPLC tile cache, forcing re-upload on the next draw.
+     *  Must be called after seamless level transitions that reload the pattern buffer. */
+    public void invalidateDplcCache() {
+        if (dplcRenderer != null) {
+            dplcRenderer.invalidateDplcCache();
+        }
+    }
+
     /** Triggers the insta-shield attack animation. */
     public void triggerAttack() {
         initAnimation(ATTACK_ANIM);

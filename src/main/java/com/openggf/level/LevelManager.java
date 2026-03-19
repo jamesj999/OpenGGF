@@ -4242,6 +4242,10 @@ public class LevelManager {
             if (playable.getSpriteRenderer() != null) {
                 playable.getSpriteRenderer().invalidateDplcCache();
             }
+            // Persistent insta-shield object survives transitions — its DPLC cache is stale
+            if (playable.getInstaShieldObject() != null) {
+                playable.getInstaShieldObject().invalidateDplcCache();
+            }
         }
         AbstractPlayableSprite sidekick = spriteManager.getSidekick();
         if (sidekick != null) {
