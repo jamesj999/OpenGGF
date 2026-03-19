@@ -29,8 +29,12 @@ import java.util.List;
  */
 public class RingManager {
     private static final int MAX_ATTRACTED_RINGS = 32;
-    private static final int RING_ATTRACT_RADIUS = 64;
-    private static final int RING_ATTRACT_SPEED = 3;
+    // ROM: AttractedRing_Move — base acceleration is $30 subpixels/frame²
+    private static final int ATTRACT_ACCEL = 0x30;
+    // ROM: attraction detection uses a 128×128 box (±$40 from player centre)
+    private static final int ATTRACT_BOX_HALF = 0x40;
+    // ROM: ring collision half-width (d1=6 in Test_Ring_Collisions)
+    private static final int RING_COLLISION_HALF = 6;
 
     private final RingPlacement placement;
     private final RingRenderer renderer;
@@ -121,7 +125,9 @@ public class RingManager {
                 }
                 int dx = pcx - ring.x();
                 int dy = pcy - ring.y();
-                if (dx * dx + dy * dy <= RING_ATTRACT_RADIUS * RING_ATTRACT_RADIUS) {
+                // ROM: box check — ±$40 from player centre, extended by ring half-width
+                int effectiveHalf = ATTRACT_BOX_HALF + RING_COLLISION_HALF;
+                if (Math.abs(dx) <= effectiveHalf && Math.abs(dy) <= effectiveHalf) {
                     placement.markCollected(index);
                     addAttractedRing(index, ring.x(), ring.y());
                 }
@@ -333,27 +339,78 @@ public class RingManager {
                 ar.sourceIndex = sourceIndex;
                 ar.x = x;
                 ar.y = y;
+                ar.xSub = 0;
+                ar.ySub = 0;
+                ar.xVel = 0;
+                ar.yVel = 0;
                 ar.active = true;
                 return;
             }
         }
     }
 
+    /**
+     * ROM: AttractedRing_Move (sonic3k.asm:35795).
+     * Per-axis acceleration of $30 subpixels/frame². When the ring's velocity
+     * opposes the direction to the player, acceleration is 4× stronger to
+     * reverse quickly. Position updated via MoveSprite2 (velocity→subpixel).
+     */
     private void updateAttractedRings(AbstractPlayableSprite player, int frameCounter) {
         int pcx = player.getCentreX();
         int pcy = player.getCentreY();
         for (AttractedRing ar : attractedRings) {
             if (!ar.active) continue;
-            int dx = pcx - ar.x;
-            int dy = pcy - ar.y;
-            double dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist < 4) {
+
+            // --- X axis acceleration (AttractedRing_Move) ---
+            int accelX = ATTRACT_ACCEL;
+            if (pcx >= ar.x) {
+                // Player is right of ring: accelerate right (+)
+                if (ar.xVel < 0) {
+                    // Moving wrong way: 4× to reverse
+                    accelX *= 4;
+                }
+            } else {
+                // Player is left of ring: accelerate left (-)
+                accelX = -accelX;
+                if (ar.xVel >= 0) {
+                    accelX *= 4;
+                }
+            }
+            ar.xVel = (short) (ar.xVel + accelX);
+
+            // --- Y axis acceleration ---
+            int accelY = ATTRACT_ACCEL;
+            if (pcy >= ar.y) {
+                if (ar.yVel < 0) {
+                    accelY *= 4;
+                }
+            } else {
+                accelY = -accelY;
+                if (ar.yVel >= 0) {
+                    accelY *= 4;
+                }
+            }
+            ar.yVel = (short) (ar.yVel + accelY);
+
+            // --- MoveSprite2: apply velocity to position (subpixel precision) ---
+            int xLong = (ar.x << 16) | (ar.xSub & 0xFFFF);
+            xLong += ar.xVel << 8;
+            ar.x = xLong >> 16;
+            ar.xSub = xLong & 0xFFFF;
+
+            int yLong = (ar.y << 16) | (ar.ySub & 0xFFFF);
+            yLong += ar.yVel << 8;
+            ar.y = yLong >> 16;
+            ar.ySub = yLong & 0xFFFF;
+
+            // --- Collection: ROM uses collision_flags $47 (touch response) ---
+            // Check overlap between ring (8×8) and player hitbox
+            int dx = Math.abs(pcx - ar.x);
+            int dy = Math.abs(pcy - ar.y);
+            if (dx < 8 + player.getXRadius() && dy < 8 + player.getYRadius()) {
                 player.addRings(1);
                 AudioManager.getInstance().playSfx(GameSound.RING);
                 ar.active = false;
-            } else {
-                ar.x += (int)(RING_ATTRACT_SPEED * dx / dist);
-                ar.y += (int)(RING_ATTRACT_SPEED * dy / dist);
             }
         }
     }
@@ -361,6 +418,8 @@ public class RingManager {
     private static final class AttractedRing {
         int sourceIndex;
         int x, y;
+        int xSub, ySub;    // subpixel fraction (ROM: x_sub/y_sub, lower word of position long)
+        int xVel, yVel;    // velocity in subpixels/frame (ROM: x_vel/y_vel, 16-bit signed)
         boolean active;
     }
 
