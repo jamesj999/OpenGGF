@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.constants;
 
 import com.openggf.game.AnimationId;
+import com.openggf.game.CanonicalAnimation;
 
 public enum Sonic2AnimationIds implements AnimationId {
     WALK(0x00),
@@ -53,5 +54,71 @@ public enum Sonic2AnimationIds implements AnimationId {
     @Override
     public int id() {
         return id;
+    }
+
+    /**
+     * Maps this S2 animation to its canonical cross-game equivalent.
+     *
+     * <p>Super Sonic table variants (SUPER_WALK, SUPER_RUN, SUPER_ROLL, SUPER_ROLL2,
+     * SUPER_PUSH, SUPER_STAND, SUPER_BALANCE, SUPER_LOOK_UP, SUPER_DUCK, SUPER_SPINDASH)
+     * index a separate animation table and have no canonical mapping — returns null.
+     * SUPER_TRANSFORM uses the normal table at index 0x1F and maps to
+     * {@link CanonicalAnimation#SUPER_TRANSFORM}.</p>
+     */
+    public CanonicalAnimation toCanonical() {
+        return switch (this) {
+            case WALK           -> CanonicalAnimation.WALK;
+            case RUN            -> CanonicalAnimation.RUN;
+            case ROLL           -> CanonicalAnimation.ROLL;
+            case ROLL2          -> CanonicalAnimation.ROLL2;
+            case PUSH           -> CanonicalAnimation.PUSH;
+            case WAIT           -> CanonicalAnimation.WAIT;
+            case BALANCE        -> CanonicalAnimation.BALANCE;
+            case LOOK_UP        -> CanonicalAnimation.LOOK_UP;
+            case DUCK           -> CanonicalAnimation.DUCK;
+            case SPINDASH       -> CanonicalAnimation.SPINDASH;
+            case BALANCE2       -> CanonicalAnimation.BALANCE2;
+            case SKID           -> CanonicalAnimation.SKID;
+            case FLOAT          -> CanonicalAnimation.FLOAT;
+            case FLOAT2         -> CanonicalAnimation.FLOAT2;
+            case SPRING         -> CanonicalAnimation.SPRING;
+            case HANG           -> CanonicalAnimation.HANG;
+            case HANG2          -> CanonicalAnimation.HANG2;
+            case BUBBLE         -> CanonicalAnimation.BUBBLE;
+            case DROWN          -> CanonicalAnimation.DROWN;
+            case DEATH          -> CanonicalAnimation.DEATH;
+            case HURT           -> CanonicalAnimation.HURT;
+            case HURT2          -> CanonicalAnimation.HURT2;
+            case SLIDE          -> CanonicalAnimation.SLIDE;
+            case BALANCE3       -> CanonicalAnimation.BALANCE3;
+            case BALANCE4       -> CanonicalAnimation.BALANCE4;
+            case FLY            -> CanonicalAnimation.FLY;
+            case SUPER_TRANSFORM -> CanonicalAnimation.SUPER_TRANSFORM;
+            // Super table variants — no canonical mapping
+            case SUPER_WALK,
+                 SUPER_RUN,
+                 SUPER_ROLL,
+                 SUPER_ROLL2,
+                 SUPER_PUSH,
+                 SUPER_STAND,
+                 SUPER_BALANCE,
+                 SUPER_LOOK_UP,
+                 SUPER_DUCK,
+                 SUPER_SPINDASH -> null;
+        };
+    }
+
+    /**
+     * Returns the S2 animation ID for the given canonical animation,
+     * or -1 if S2 does not have an equivalent for that animation.
+     * Skips entries where {@link #toCanonical()} returns null (super table variants).
+     */
+    public static int fromCanonical(CanonicalAnimation canonical) {
+        for (Sonic2AnimationIds anim : values()) {
+            if (anim.toCanonical() == canonical) {
+                return anim.id();
+            }
+        }
+        return -1;
     }
 }

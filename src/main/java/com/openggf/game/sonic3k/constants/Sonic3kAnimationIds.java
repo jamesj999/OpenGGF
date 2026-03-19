@@ -1,6 +1,7 @@
 package com.openggf.game.sonic3k.constants;
 
 import com.openggf.game.AnimationId;
+import com.openggf.game.CanonicalAnimation;
 
 /**
  * Animation script IDs for Sonic/Tails/Knuckles in S3K (indices into AniSonic_ table).
@@ -54,5 +55,60 @@ public enum Sonic3kAnimationIds implements AnimationId {
     @Override
     public int id() {
         return id;
+    }
+
+    /**
+     * Maps this S3K animation to its canonical cross-game equivalent.
+     * SUPER_TRANSFORM maps to {@link CanonicalAnimation#SUPER_TRANSFORM}.
+     */
+    public CanonicalAnimation toCanonical() {
+        return switch (this) {
+            case WALK            -> CanonicalAnimation.WALK;
+            case RUN             -> CanonicalAnimation.RUN;
+            case ROLL            -> CanonicalAnimation.ROLL;
+            case ROLL2           -> CanonicalAnimation.ROLL2;
+            case PUSH            -> CanonicalAnimation.PUSH;
+            case WAIT            -> CanonicalAnimation.WAIT;
+            case BALANCE         -> CanonicalAnimation.BALANCE;
+            case LOOK_UP         -> CanonicalAnimation.LOOK_UP;
+            case DUCK            -> CanonicalAnimation.DUCK;
+            case SPINDASH        -> CanonicalAnimation.SPINDASH;
+            case BLINK           -> CanonicalAnimation.BLINK;
+            case GET_UP          -> CanonicalAnimation.GET_UP;
+            case BALANCE2        -> CanonicalAnimation.BALANCE2;
+            case SKID            -> CanonicalAnimation.SKID;
+            case FLOAT           -> CanonicalAnimation.FLOAT;
+            case FLOAT2          -> CanonicalAnimation.FLOAT2;
+            case SPRING          -> CanonicalAnimation.SPRING;
+            case HANG            -> CanonicalAnimation.HANG;
+            case VICTORY         -> CanonicalAnimation.VICTORY;
+            case HANG2           -> CanonicalAnimation.HANG2;
+            case BUBBLE          -> CanonicalAnimation.BUBBLE;
+            case DROWN           -> CanonicalAnimation.DROWN;
+            case DEATH           -> CanonicalAnimation.DEATH;
+            case HURT            -> CanonicalAnimation.HURT;
+            case HURT_FALL       -> CanonicalAnimation.HURT_FALL;
+            case BLANK           -> CanonicalAnimation.BLANK;
+            case BALANCE3        -> CanonicalAnimation.BALANCE3;
+            case BALANCE4        -> CanonicalAnimation.BALANCE4;
+            case SUPER_TRANSFORM -> CanonicalAnimation.SUPER_TRANSFORM;
+            case FLY             -> CanonicalAnimation.FLY;
+            case GLIDE_DROP      -> CanonicalAnimation.GLIDE_DROP;
+            case GLIDE_LAND      -> CanonicalAnimation.GLIDE_LAND;
+            case GLIDE_SLIDE     -> CanonicalAnimation.GLIDE_SLIDE;
+        };
+    }
+
+    /**
+     * Returns the S3K animation ID for the given canonical animation,
+     * or -1 if S3K does not have an equivalent for that animation.
+     */
+    public static int fromCanonical(CanonicalAnimation canonical) {
+        for (Sonic3kAnimationIds anim : values()) {
+            if (anim.toCanonical() == canonical) {
+                return anim.id();
+            }
+        }
+        return -1;
     }
 }
