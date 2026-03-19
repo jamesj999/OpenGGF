@@ -21,7 +21,7 @@ import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.sprites.playable.Tails;
-import com.openggf.sprites.playable.TailsCpuController;
+import com.openggf.sprites.playable.SidekickCpuController;
 import com.openggf.debug.playback.PlaybackDebugManager;
 
 import java.io.IOException;
@@ -373,7 +373,7 @@ public class Engine {
 				sidekick = new Sonic(sidekickSpriteCode, (short) (mainSprite.getX() - 0x20), (short) (mainSprite.getY() + 4));
 			}
 			sidekick.setCpuControlled(true);
-			TailsCpuController cpuController = new TailsCpuController(sidekick);
+			SidekickCpuController cpuController = new SidekickCpuController(sidekick);
 			sidekick.setCpuController(cpuController);
 			spriteManager.addSprite(sidekick);
 		}

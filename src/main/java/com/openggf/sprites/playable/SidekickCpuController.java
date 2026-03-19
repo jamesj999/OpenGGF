@@ -9,9 +9,9 @@ import com.openggf.physics.Direction;
 import com.openggf.sprites.managers.SpriteManager;
 
 /**
- * Sonic 2 Tails CPU follower.
+ * CPU-controlled sidekick follower with daisy-chain support.
  */
-public class TailsCpuController {
+public class SidekickCpuController {
 
     private static final int FOLLOW_DELAY_FRAMES = 17;
     private static final int HORIZONTAL_SNAP_THRESHOLD = 16;
@@ -34,13 +34,13 @@ public class TailsCpuController {
     public enum State {
         INIT,
         SPAWNING,
-        FLYING,
+        APPROACHING,
         NORMAL,
         PANIC
     }
 
     private final AbstractPlayableSprite tails;
-    private AbstractPlayableSprite sonic;
+    private AbstractPlayableSprite leader;
 
     private State state = State.INIT;
     private int despawnCounter;
@@ -59,16 +59,16 @@ public class TailsCpuController {
     private int maxYBound = Integer.MIN_VALUE;
     private ObjectInstance lastRidingObject;
 
-    public TailsCpuController(AbstractPlayableSprite tails) {
+    public SidekickCpuController(AbstractPlayableSprite tails) {
         this.tails = tails;
     }
 
     public void update(int frameCount) {
         this.frameCounter = frameCount;
 
-        if (sonic == null) {
-            sonic = findSonic();
-            if (sonic == null) {
+        if (leader == null) {
+            leader = findLeader();
+            if (leader == null) {
                 clearInputs();
                 return;
             }
@@ -82,7 +82,7 @@ public class TailsCpuController {
         switch (state) {
             case INIT -> updateInit();
             case SPAWNING -> updateSpawning();
-            case FLYING -> updateFlying();
+            case APPROACHING -> updateApproaching();
             case NORMAL -> updateNormal();
             case PANIC -> updatePanic();
         }
@@ -108,32 +108,32 @@ public class TailsCpuController {
     }
 
     private void updateSpawning() {
-        if (sonic.getDead()) {
+        if (leader.getDead()) {
             return;
         }
         if ((controller2Logical & RESPAWN_BYPASS_MASK) != 0) {
-            respawnToFlying();
+            respawnToApproaching();
             return;
         }
         if ((frameCounter & 0x3F) != 0) {
             return;
         }
-        if (sonic.isObjectControlled()) {
+        if (leader.isObjectControlled()) {
             return;
         }
-        if (sonic.getAir() || sonic.getRollingJump() || sonic.isInWater() || sonic.isPreventTailsRespawn()) {
+        if (leader.getAir() || leader.getRollingJump() || leader.isInWater() || leader.isPreventTailsRespawn()) {
             return;
         }
-        respawnToFlying();
+        respawnToApproaching();
     }
 
-    private void respawnToFlying() {
-        state = State.FLYING;
+    private void respawnToApproaching() {
+        state = State.APPROACHING;
         controlCounter = 0;
         despawnCounter = 0;
         jumpingFlag = false;
-        tails.setCentreX(sonic.getCentreX());
-        tails.setCentreY((short) (sonic.getCentreY() - RESPAWN_Y_OFFSET));
+        tails.setCentreX(leader.getCentreX());
+        tails.setCentreY((short) (leader.getCentreY() - RESPAWN_Y_OFFSET));
         tails.setXSpeed((short) 0);
         tails.setYSpeed((short) 0);
         tails.setGSpeed((short) 0);
@@ -147,7 +147,7 @@ public class TailsCpuController {
         tails.setObjectControlled(true);
     }
 
-    private void updateFlying() {
+    private void updateApproaching() {
         tails.setForcedAnimationId(FLY_ANIM_ID);
         tails.setControlLocked(true);
         tails.setObjectControlled(true);
@@ -156,8 +156,8 @@ public class TailsCpuController {
             return;
         }
 
-        int targetX = getDelayedSonicX();
-        int targetY = clampTargetYToWater(getDelayedSonicY());
+        int targetX = getDelayedLeaderX();
+        int targetY = clampTargetYToWater(getDelayedLeaderY());
         int tailsX = tails.getCentreX();
         int tailsY = tails.getCentreY();
 
@@ -165,7 +165,7 @@ public class TailsCpuController {
         if (dx != 0) {
             int move = Math.abs(dx) / 16;
             move = Math.min(move, MAX_FLY_ACCEL);
-            move += Math.abs(sonic.getXSpeed()) / 256;
+            move += Math.abs(leader.getXSpeed()) / 256;
             move += 1;
             move = Math.min(move, Math.abs(dx));
             if (dx > 0) {
@@ -194,7 +194,7 @@ public class TailsCpuController {
 
         int remainingDx = targetX - tails.getCentreX();
         int remainingDy = targetY - tails.getCentreY();
-        byte recordedStatus = sonic.getStatusHistory(FOLLOW_DELAY_FRAMES);
+        byte recordedStatus = leader.getStatusHistory(FOLLOW_DELAY_FRAMES);
         if ((recordedStatus & FLY_LAND_BLOCKERS) == 0 && remainingDx == 0 && remainingDy == 0) {
             tails.setForcedAnimationId(-1);
             tails.setControlLocked(false);
@@ -210,8 +210,8 @@ public class TailsCpuController {
     }
 
     private void updateNormal() {
-        if (sonic.getDead()) {
-            enterFlyingState();
+        if (leader.getDead()) {
+            enterApproachingState();
             return;
         }
         if (tails.getDead()) {
@@ -232,10 +232,10 @@ public class TailsCpuController {
             state = State.PANIC;
         }
 
-        short recordedInput = sonic.getInputHistory(FOLLOW_DELAY_FRAMES);
-        byte recordedStatus = sonic.getStatusHistory(FOLLOW_DELAY_FRAMES);
-        int targetX = getDelayedSonicX();
-        int targetY = getDelayedSonicY();
+        short recordedInput = leader.getInputHistory(FOLLOW_DELAY_FRAMES);
+        byte recordedStatus = leader.getStatusHistory(FOLLOW_DELAY_FRAMES);
+        int targetX = getDelayedLeaderX();
+        int targetY = getDelayedLeaderY();
         int dx = targetX - tails.getCentreX();
         int dy = targetY - tails.getCentreY();
 
@@ -300,7 +300,7 @@ public class TailsCpuController {
             return;
         }
 
-        tails.setDirection(sonic.getCentreX() < tails.getCentreX() ? Direction.LEFT : Direction.RIGHT);
+        tails.setDirection(leader.getCentreX() < tails.getCentreX() ? Direction.LEFT : Direction.RIGHT);
         inputDown = true;
 
         int phase = frameCounter & 0x7F;
@@ -338,8 +338,8 @@ public class TailsCpuController {
         controlCounter--;
     }
 
-    private void enterFlyingState() {
-        state = State.FLYING;
+    private void enterApproachingState() {
+        state = State.APPROACHING;
         despawnCounter = 0;
         controlCounter = 0;
         tails.setSpindash(false);
@@ -350,12 +350,12 @@ public class TailsCpuController {
         tails.setObjectControlled(true);
     }
 
-    private int getDelayedSonicX() {
-        return sonic.getCentreX(FOLLOW_DELAY_FRAMES);
+    private int getDelayedLeaderX() {
+        return leader.getCentreX(FOLLOW_DELAY_FRAMES);
     }
 
-    private int getDelayedSonicY() {
-        return sonic.getCentreY(FOLLOW_DELAY_FRAMES);
+    private int getDelayedLeaderY() {
+        return leader.getCentreY(FOLLOW_DELAY_FRAMES);
     }
 
     private int clampTargetYToWater(int targetY) {
@@ -436,7 +436,7 @@ public class TailsCpuController {
         inputJump = false;
     }
 
-    private AbstractPlayableSprite findSonic() {
+    private AbstractPlayableSprite findLeader() {
         for (var sprite : SpriteManager.getInstance().getAllSprites()) {
             if (sprite instanceof AbstractPlayableSprite playable && sprite != tails && !playable.isCpuControlled()) {
                 return playable;
@@ -451,7 +451,7 @@ public class TailsCpuController {
     public boolean getInputRight() { return inputRight; }
     public boolean getInputJump() { return inputJump; }
     public State getState() { return state; }
-    public boolean isFlying() { return state == State.FLYING; }
+    public boolean isApproaching() { return state == State.APPROACHING; }
 
     public int getMinXBound(int fallback) {
         return minXBound == Integer.MIN_VALUE ? fallback : minXBound;
@@ -484,7 +484,7 @@ public class TailsCpuController {
         controller2Held = 0;
         controller2Logical = 0;
         jumpingFlag = false;
-        sonic = null;
+        leader = null;
         lastRidingObject = null;
         minXBound = Integer.MIN_VALUE;
         maxXBound = Integer.MIN_VALUE;

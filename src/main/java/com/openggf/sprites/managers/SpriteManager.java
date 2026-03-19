@@ -235,8 +235,8 @@ public class SpriteManager {
 					cpuController.setController2Input(p2Held, p2Logical);
 					cpuController.update(frameCounter);
 
-					// If flying, the AI moves Tails directly - skip normal physics
-					if (cpuController.isFlying()) {
+					// If approaching (respawn in progress), the AI moves the sidekick directly - skip normal physics
+					if (cpuController.isApproaching()) {
 						playable.getAnimationManager().update(frameCounter);
 						playable.tickStatus();
 						playable.endOfTick();

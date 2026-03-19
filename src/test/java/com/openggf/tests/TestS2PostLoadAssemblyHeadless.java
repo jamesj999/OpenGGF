@@ -7,7 +7,7 @@ import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.sprites.playable.Tails;
-import com.openggf.sprites.playable.TailsCpuController;
+import com.openggf.sprites.playable.SidekickCpuController;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
@@ -221,7 +221,7 @@ public class TestS2PostLoadAssemblyHeadless {
     private Tails createSidekick() {
         Tails tails = new Tails("tails", (short) 0, (short) 0);
         tails.setCpuControlled(true);
-        TailsCpuController controller = new TailsCpuController(tails);
+        SidekickCpuController controller = new SidekickCpuController(tails);
         tails.setCpuController(controller);
         SpriteManager.getInstance().addSprite(tails);
         return tails;
