@@ -20,6 +20,7 @@ import com.openggf.audio.GameSound;
 import com.openggf.game.sonic2.objects.SkidDustObjectInstance;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.ShieldType;
+import com.openggf.sprites.playable.Tails;
 import com.openggf.sprites.animation.ScriptedVelocityAnimationProfile;
 import com.openggf.sprites.animation.SpriteAnimationProfile;
 import com.openggf.sprites.playable.GroundMode;
@@ -555,7 +556,8 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		}
 
 		// ROM (sonic3k.asm:23473-23479): Insta-shield (no shield equipped)
-		if (hasInsta && shield == null) {
+		// ROM (sonic3k.asm:20614-20615): character_id == 0 check — Sonic only, not Tails/Knuckles
+		if (hasInsta && shield == null && !(sprite instanceof Tails)) {
 			activateInstaShield();
 			return true;
 		}

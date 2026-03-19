@@ -1241,7 +1241,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 }
                 // Lazy-register insta-shield with ObjectManager if not yet done (e.g. created before level load).
                 // When registered, ObjectManager drives update(); explicit call only needed for headless tests.
-                if (instaShieldObject != null && !instaShieldRegistered) {
+                if (instaShieldObject != null && !instaShieldRegistered && !(this instanceof Tails)) {
                         LevelManager lm = LevelManager.getInstance();
                         if (lm != null && lm.getObjectManager() != null) {
                                 lm.getObjectManager().addDynamicObject(instaShieldObject);
@@ -1947,7 +1947,9 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                         this.physicsFeatureSet = CrossGameFeatureProvider.getInstance().getHybridFeatureSet();
                 }
                 // Create or re-register persistent insta-shield object (ROM: SpawnLevelMainSprites_SpawnPlayers)
-                if (physicsFeatureSet != null && physicsFeatureSet.instaShieldEnabled()) {
+                // ROM (sonic3k.asm:20614-20615): character_id == 0 check — Sonic only, not Tails/Knuckles
+                if (physicsFeatureSet != null && physicsFeatureSet.instaShieldEnabled()
+                        && !(this instanceof Tails)) {
                         if (instaShieldObject == null) {
                                 instaShieldObject = new InstaShieldObjectInstance(this);
                         }
