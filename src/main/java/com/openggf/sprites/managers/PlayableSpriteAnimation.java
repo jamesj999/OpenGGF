@@ -121,12 +121,16 @@ public class PlayableSpriteAnimation {
     }
 
     private void updateTumble(int flipAngle) {
+        // ROM: Anim_Tumble — S2 uses base 0x5F (s2.asm:38216), S3K uses 0x31 (sonic3k.asm:24955)
+        ScriptedVelocityAnimationProfile profile = resolveVelocityProfile();
+        int base = profile != null ? profile.getTumbleFrameBase() : 0x5F;
+
         int d0 = flipAngle & 0xFF;
         boolean facingLeft = Direction.LEFT.equals(sprite.getDirection());
         if (!facingLeft) {
             sprite.setRenderFlips(false, false);
             int frame = ((d0 + 0x0B) & 0xFF) / 0x16;
-            sprite.setMappingFrame(frame + 0x5F);
+            sprite.setMappingFrame(frame + base);
             sprite.setAnimationTick(0);
             return;
         }
@@ -143,7 +147,7 @@ public class PlayableSpriteAnimation {
             adjusted = (0x100 - d0) & 0xFF;
             adjusted = (adjusted + 0x8F) & 0xFF;
         }
-        int frame = (adjusted / 0x16) + 0x5F;
+        int frame = (adjusted / 0x16) + base;
         sprite.setRenderFlips(hFlip, vFlip);
         sprite.setMappingFrame(frame);
         sprite.setAnimationTick(0);
