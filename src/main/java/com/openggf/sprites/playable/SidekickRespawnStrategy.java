@@ -14,6 +14,7 @@ public interface SidekickRespawnStrategy {
 
     /**
      * Position and initialize the sidekick when transitioning from SPAWNING to APPROACHING.
+     * @return true if approach started, false if conditions not met (stay in SPAWNING)
      */
-    void beginApproach(AbstractPlayableSprite sidekick, AbstractPlayableSprite leader);
+    boolean beginApproach(AbstractPlayableSprite sidekick, AbstractPlayableSprite leader);
 }

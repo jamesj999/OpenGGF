@@ -22,7 +22,7 @@ public class TailsRespawnStrategy implements SidekickRespawnStrategy {
     }
 
     @Override
-    public void beginApproach(AbstractPlayableSprite sidekick, AbstractPlayableSprite leader) {
+    public boolean beginApproach(AbstractPlayableSprite sidekick, AbstractPlayableSprite leader) {
         sidekick.setCentreX(leader.getCentreX());
         sidekick.setCentreY((short) (leader.getCentreY() - RESPAWN_Y_OFFSET));
         sidekick.setXSpeed((short) 0);
@@ -36,6 +36,7 @@ public class TailsRespawnStrategy implements SidekickRespawnStrategy {
         sidekick.setForcedAnimationId(FLY_ANIM_ID);
         sidekick.setControlLocked(true);
         sidekick.setObjectControlled(true);
+        return true;
     }
 
     @Override
