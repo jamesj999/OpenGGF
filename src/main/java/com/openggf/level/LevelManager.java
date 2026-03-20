@@ -1115,6 +1115,9 @@ public class LevelManager {
         java.util.Map<Integer, Integer> vramSlots = computeVramSlots(mainCharName, sidekickCharNames);
         // Cache loaded art per character type to avoid redundant ROM reads
         java.util.Map<String, SpriteArtSet> artCache = new java.util.HashMap<>();
+        // Global running offset in SIDEKICK_PATTERN_BASE range — ensures different
+        // character types with the same per-type slot don't collide.
+        int sidekickBankOffset = 0;
         for (int i = 0; i < sidekicks.size(); i++) {
             AbstractPlayableSprite sidekick = sidekicks.get(i);
             String sidekickCharName = sidekickCharNames.get(i);
@@ -1138,12 +1141,13 @@ public class LevelManager {
                 }
                 // When a sidekick shares a character type with the main or another
                 // sidekick, give it a unique pattern bank in the dedicated sidekick
-                // range (SIDEKICK_PATTERN_BASE = 0x30000+). PlayerSpriteRenderer uses
-                // renderPatternWithId() to bypass PatternDesc's 11-bit VDP limit,
-                // and the atlas's sparse HashMap handles IDs in this range.
+                // range (SIDEKICK_PATTERN_BASE = 0x30000+). Uses a global running
+                // offset so different character types with the same per-type slot
+                // don't collide (e.g. sonic slot 1 and tails slot 1).
                 int slot = vramSlots.get(i);
                 if (slot > 0) {
-                    int shiftedBase = SIDEKICK_PATTERN_BASE + sidekickArt.bankSize() * (slot - 1);
+                    int shiftedBase = SIDEKICK_PATTERN_BASE + sidekickBankOffset;
+                    sidekickBankOffset += sidekickArt.bankSize();
                     sidekickArt = new SpriteArtSet(
                             sidekickArt.artTiles(),
                             sidekickArt.mappingFrames(),
