@@ -606,16 +606,10 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, DynamicSta
         }
 
         int index = zone * Sonic3kConstants.ACTS_PER_ZONE_STRIDE + act;
-        if (zone == 0 && act == 0 && bootstrap != null) {
-            if (bootstrap.mode() == Sonic3kLoadBootstrap.Mode.SKIP_INTRO) {
-                // Intro-skip bootstrap parity bridge:
-                // keep the wider intro profile so gameplay-after-intro bootstrap
-                // remains valid without full intro transition state.
-                index = Sonic3kConstants.LEVEL_SIZES_AIZ1_INTRO_INDEX;
-            }
-            // Mode.INTRO uses the normal AIZ1 LevelSizes bounds (already set above)
-            // and then overrides min X to 0 via boundariesMinXOverride.
-        }
+        // ROM parity: Get_LevelSizeStart always indexes by Current_zone_and_act,
+        // so AIZ1 always uses entry 0 (minX=$1308) regardless of intro/skip state.
+        // Entry 26 is only used by LoadLevelLoadBlock for *resource* loading.
+        // Mode.INTRO overrides min X to 0 via boundariesMinXOverride.
         return levelSizesAddr + index * Sonic3kConstants.LEVEL_SIZES_ENTRY_SIZE;
     }
 
