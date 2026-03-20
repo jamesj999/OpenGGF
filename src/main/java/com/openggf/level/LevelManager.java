@@ -1056,6 +1056,7 @@ public class LevelManager {
     }
 
     private void initPlayerSpriteArt() {
+        tailsTailBankCount = 0;
         PlayerSpriteArtProvider artProvider;
         if (CrossGameFeatureProvider.isActive()) {
             artProvider = CrossGameFeatureProvider.getInstance();
@@ -1244,6 +1245,9 @@ public class LevelManager {
         }
     }
 
+    /** Tracks how many tail appendage DPLC banks have been allocated this level load. */
+    private int tailsTailBankCount = 0;
+
     private void initTailsTails(AbstractPlayableSprite playable, SpriteArtSet artSet) {
         if (!(playable instanceof Tails)) {
             playable.setTailsTailsController(null);
@@ -1283,6 +1287,24 @@ public class LevelManager {
                     null
             );
         }
+        // Multiple Tails sidekicks need separate DPLC banks for the tail appendage,
+        // just like the main sprite body. The first Tails uses the original base;
+        // subsequent ones get shifted into SIDEKICK_PATTERN_BASE range.
+        if (tailsTailBankCount > 0) {
+            int shiftedBase = SIDEKICK_PATTERN_BASE + 0x1000 + tailsArt.bankSize() * (tailsTailBankCount - 1);
+            tailsArt = new SpriteArtSet(
+                    tailsArt.artTiles(),
+                    tailsArt.mappingFrames(),
+                    tailsArt.dplcFrames(),
+                    tailsArt.paletteIndex(),
+                    shiftedBase,
+                    tailsArt.frameDelay(),
+                    tailsArt.bankSize(),
+                    tailsArt.animationProfile(),
+                    tailsArt.animationSet()
+            );
+        }
+        tailsTailBankCount++;
         PlayerSpriteRenderer tailsRenderer = new PlayerSpriteRenderer(tailsArt);
         if (CrossGameFeatureProvider.isActive()) {
             tailsRenderer.setRenderContext(
