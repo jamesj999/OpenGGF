@@ -156,6 +156,31 @@ private void updateAizAct1Events() {
 
 **Extract arena coordinates from disassembly** - search for camera boundary writes in the boss code.
 
+### Reusable Engine Utilities
+
+**Check these before writing movement, physics, or collision code. Do NOT reimplement existing functionality.**
+
+| Utility | Location | Use When |
+|---------|----------|----------|
+| `SwingMotion.update()` | `com.openggf.physics.SwingMotion` | Boss oscillates/bobs/swings (ROM's `Swing_UpAndDown`). Returns velocity, direction, and peak-reached flag. |
+| `ObjectTerrainUtils.checkFloorDist()` | `com.openggf.physics` | Floor/ceiling/wall detection for boss projectiles or ground-following bosses. |
+| `TrigLookupTable.calcAngle()` / `sinHex()` / `cosHex()` | `com.openggf.physics` | Circular motion, aimed projectiles, angle-based velocity. ROM-accurate 256-step trig. |
+| `S3kBadnikProjectileInstance` | `game.sonic3k.objects.badniks` | Reusable projectile with gravity, HURT collision (0x80), and shield deflection. Spawn via `ObjectManager.addDynamicObject()`. |
+| `BoxObjectInstance` | `game.sonic2.objects` | Invisible trigger zones with debug visualization. |
+
+**Collision patterns:**
+- Boss body: `TouchResponseAttackable` + `TouchResponseProvider` — player can hit it, `collision_property` tracks hits
+- Boss projectiles: `TouchResponseProvider` only with `getCollisionFlags()` returning `0x80 | sizeIndex` — always hurts player
+- Indestructible hazard parts: `TouchResponseProvider` only with `0x80 | sizeIndex` — no `TouchResponseAttackable`
+
+**Subpixel movement** (24-bit position arithmetic) — use `AbstractS3kBadnikInstance.moveWithVelocity()` pattern:
+```java
+int xPos24 = (x << 8) | (xSub & 0xFF);
+xPos24 += xVelocity;
+x = xPos24 >> 8;
+xSub = xPos24 & 0xFF;
+```
+
 ### Phase 3: Boss Instance Class
 
 Create the boss class in the S3K objects package:

@@ -204,7 +204,67 @@ public class ObjectNameBadnikInstance extends AbstractBadnikInstance {
 - Has camera lock and arena setup behavior
 - Spawned by zone screen events
 
-#### 2.4 Implementation Requirements
+#### 2.4 Reusable Engine Utilities
+
+**IMPORTANT: Before writing any physics, movement, or collision code, check these existing utilities. Do NOT reimplement functionality that already exists.**
+
+##### Movement & Physics
+
+| Utility | Location | Use When |
+|---------|----------|----------|
+| `SwingMotion.update()` | `com.openggf.physics.SwingMotion` | Object oscillates/bobs/swings (ROM's `Swing_UpAndDown`). Returns `Result(velocity, directionDown, directionChanged)`. |
+| `AbstractS3kBadnikInstance.moveWithVelocity()` | `game.sonic3k.objects.badniks` | 24-bit subpixel position update. Inherited by all S3K badniks. For non-badnik objects, replicate the 8-line pattern inline. |
+| `ObjectTerrainUtils.checkFloorDist()` | `com.openggf.physics` | Single-point floor/ceiling/wall detection for objects (not player sensors). Returns distance + angle. |
+| `TrigLookupTable.calcAngle()` / `sinHex()` / `cosHex()` | `com.openggf.physics` | ROM-accurate angle calculation and trig. Used for projectile deflection, circular motion. |
+
+##### Collision & Touch Response
+
+| Pattern | When to Use |
+|---------|-------------|
+| `TouchResponseAttackable` + `TouchResponseProvider` | Destroyable enemies (head segments, normal badniks). Player jump/roll destroys them. |
+| `TouchResponseProvider` only (no `Attackable`) | Non-destroyable hazards (body segments, spikes, projectiles). Return `0x80 \| sizeIndex` from `getCollisionFlags()` for HURT category. |
+| `S3kBadnikProjectileInstance` | Reusable projectile with gravity, HURT collision, and shield deflection. Spawn via `spawnProjectile()`. |
+| `BoxObjectInstance` | Invisible trigger zones with debug visualization (extends for AutoSpin-style triggers). |
+
+##### Player State Manipulation
+
+**Force roll pattern** (used by AutoSpin, ForcedSpin, and tunnel triggers):
+```java
+if (!player.getRolling()) {
+    player.setRolling(true);
+    player.setY((short) (player.getY() + player.getRollHeightAdjustment()));
+    SpriteAnimationProfile profile = player.getAnimationProfile();
+    if (profile instanceof ScriptedVelocityAnimationProfile vp) {
+        player.setAnimationId(vp.getRollAnimId());
+        player.setAnimationFrameIndex(0);
+        player.setAnimationTick(0);
+    }
+    AudioManager.getInstance().playSfx(GameSound.ROLLING);
+}
+```
+
+**Pinball mode** (`player.setPinballMode(true)`) — prevents rolling from clearing on landing.
+
+##### Child Object Spawning
+
+Use `ObjectManager.addDynamicObject()` for runtime-spawned children (body segments, projectiles, explosions):
+```java
+ObjectManager om = levelManager.getObjectManager();
+if (om != null) om.addDynamicObject(childInstance);
+```
+
+##### Rendering
+
+All objects render via `PatternSpriteRenderer` from `ObjectRenderManager`:
+```java
+PatternSpriteRenderer renderer = renderManager.getRenderer(rendererKey);
+if (renderer != null && renderer.isReady()) {
+    renderer.drawFrameIndex(mappingFrame, x, y, hFlip, vFlip);
+}
+```
+Renderer keys are defined in `Sonic3kObjectArtKeys` and registered in `Sonic3kPlcArtRegistry`.
+
+#### 2.5 Implementation Requirements
 
 **Engine Extensions**: If the ROM uses functionality that the engine doesn't expose, **you MUST extend the engine** rather than working around it or documenting it as a limitation.
 
@@ -271,7 +331,7 @@ public void appendDebugRenderCommands(List<GLCommand> commands) {
 }
 ```
 
-#### 2.5 Factory Registration
+#### 2.6 Factory Registration
 
 Register in `Sonic3kObjectRegistry`:
 
