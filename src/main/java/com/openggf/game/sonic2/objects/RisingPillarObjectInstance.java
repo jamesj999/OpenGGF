@@ -2,7 +2,6 @@ package com.openggf.game.sonic2.objects;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
-import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.S2SpriteDataLoader;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.debug.DebugRenderContext;
@@ -224,10 +223,8 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
         x = subX >> 8;
         y = subY >> 8;
 
-        // Check if off-screen - delete if below screen
-        Camera camera = Camera.getInstance();
-        int screenBottom = camera.getY() + 224 + 128;
-        if (y > screenBottom) {
+        // Check if off-screen - delete if beyond camera viewport + margin
+        if (!isOnScreen(112)) {
             setDestroyed(true);
         }
     }
@@ -481,6 +478,16 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
         }
 
         @Override
+        public int getX() {
+            return currentX;
+        }
+
+        @Override
+        public int getY() {
+            return currentY;
+        }
+
+        @Override
         public void update(int frameCounter, AbstractPlayableSprite player) {
             if (isDestroyed()) {
                 return;
@@ -499,10 +506,8 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
             currentX = subX >> 8;
             currentY = subY >> 8;
 
-            // Check if off-screen
-            Camera camera = Camera.getInstance();
-            int screenBottom = camera.getY() + 224 + 128;
-            if (currentY > screenBottom) {
+            // Check if off-screen - delete if beyond camera viewport + margin
+            if (!isOnScreen(112)) {
                 setDestroyed(true);
             }
         }

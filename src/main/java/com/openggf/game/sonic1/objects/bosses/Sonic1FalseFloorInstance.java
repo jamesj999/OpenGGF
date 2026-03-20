@@ -1,7 +1,6 @@
 package com.openggf.game.sonic1.objects.bosses;
 
 import com.openggf.audio.AudioManager;
-import com.openggf.camera.Camera;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.graphics.GLCommand;
@@ -488,10 +487,8 @@ public class Sonic1FalseFloorInstance extends AbstractObjectInstance
             subY += yVel;
             currentY = subY >> 8;
 
-            // Delete when off-screen (below camera + margin)
-            Camera camera = Camera.getInstance();
-            int screenBottom = camera.getY() + 224 + 64;
-            if (currentY > screenBottom) {
+            // Delete when off-screen (beyond camera viewport + margin)
+            if (!isOnScreen(48)) {
                 setDestroyed(true);
             }
         }
