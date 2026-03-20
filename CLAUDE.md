@@ -295,9 +295,33 @@ VDP sprites use **column-major** ordering: `tileIndex = column * heightTiles + r
 ### VDP Coordinate Offset (Disassembly Only)
 VDP hardware adds 128 to X/Y. Convert: `screen_position = vdp_value - 128`. Our engine uses direct screen coordinates.
 
+## Virtual Pattern ID System
+
+The Mega Drive VDP uses 11-bit pattern indices (0x000–0x7FF, 2048 tiles). The engine extends this with a **virtual pattern ID** space so multiple subsystems can cache patterns without colliding. The `PatternAtlas` uses a tiered lookup: flat array (`fastEntries[8192]`) for dense low IDs (level tiles), `HashMap<Integer, Entry>` for sparse high IDs.
+
+| Range | Category | Notes |
+|-------|----------|-------|
+| `0x00000` | Level tiles | Corresponds to VDP VRAM tile indices |
+| `0x01000` | Special Stage | Track, objects, HUD |
+| `0x10000` | Results Screen | End-of-act results |
+| `0x20000` | Objects | Monitors, badniks, zone objects (`OBJECT_PATTERN_BASE`) |
+| `0x28000` | HUD | Score, time, rings (`HUD_PATTERN_BASE`) |
+| `0x30000` | Water surface | Underwater palette transition |
+| `0x38000+` | Sidekick DPLC banks | Duplicate-character body sprites (`SIDEKICK_PATTERN_BASE`) |
+| `0x39000+` | Sidekick tail appendages | Duplicate Tails Obj05 sprites |
+| `0x40000` | Title Card | Zone/act title card |
+
+**Key classes:**
+- `PatternAtlas` — stores all patterns keyed by virtual ID; tiered flat+sparse lookup
+- `DynamicPatternBank` — fixed-size bank for DPLC-driven updates (player sprites, objects)
+- `PlayerSpriteRenderer` — renders player sprites using `renderPatternWithId()` to bypass the 11-bit VDP limit in `PatternDesc`
+- `GraphicsManager.renderPatternWithId(patternId, desc, x, y)` — explicit pattern ID for atlas lookup, used when IDs exceed 0x7FF
+
+When adding new pattern categories, choose a base that doesn't overlap existing ranges. See **[docs/KNOWN_DISCREPANCIES.md](docs/KNOWN_DISCREPANCIES.md)** for the full range table.
+
 ## Intentional Divergences
 
-Documented in **[docs/KNOWN_DISCREPANCIES.md](docs/KNOWN_DISCREPANCIES.md)**: Gloop sound toggle, spindash release transpose fix, pattern ID ranges (GUI/Results use 0x20000+ IDs).
+Documented in **[docs/KNOWN_DISCREPANCIES.md](docs/KNOWN_DISCREPANCIES.md)**: Gloop sound toggle, spindash release transpose fix, pattern ID ranges, HTZ cloud scroll fix, MCZ child cleanup, multi-sidekick system.
 
 ## Special Stage Implementation
 
