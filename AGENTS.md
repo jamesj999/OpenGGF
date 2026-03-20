@@ -14,6 +14,7 @@ The project is in an **alpha** state. Core systems are functional with 962 passi
 *   **Level Data:** Patterns, chunks, and blocks load correctly from ROM via Kosinski decompression.
 *   **Flipping Logic:** Horizontal/vertical flip implemented in `PatternRenderCommand`, `BatchedPatternRenderer`, and `SpritePieceRenderer`.
 *   **Sprite Rendering:** Player sprites render with DPLC-based animation via `PlayerSpriteRenderer` and `SpritePieceRenderer`.
+*   **Virtual Pattern IDs:** The engine extends the VDP's 11-bit pattern index (0-2047) with a virtual ID space. `PatternAtlas` uses a tiered lookup: flat array for IDs 0-8191 (level tiles), `HashMap` for sparse high IDs (objects at `0x20000+`, HUD at `0x28000+`, sidekick banks at `0x38000+`, title cards at `0x40000+`). Use `GraphicsManager.renderPatternWithId()` when pattern IDs exceed `0x7FF`. See `KNOWN_DISCREPANCIES.md` for the full range table.
 *   **Supported Zones:** All Sonic 2 zones load and render. All Sonic 1 zones (GHZ through FZ/SBZ) load and render. Sonic 3&K zones load via LevelLoadBlock parsing (AIZ, HCZ, MGZ, etc.).
 
 ### Decompression
@@ -165,6 +166,36 @@ Located in `graphics.pipeline`, ensures correct render ordering:
 `Engine.display()` uses `UiRenderPipeline.updateFade()` and `renderFadePass()` for screen transitions.
 
 Includes `RenderOrderRecorder` for testing render order compliance.
+
+## Multi-Sidekick System
+
+The engine extends the ROM's single CPU-controlled sidekick (Tails at `$FFFFB040`) to support an arbitrary number of sidekick characters configured via comma-separated `SIDEKICK_CHARACTER_CODE` (e.g. `"tails,knuckles,sonic,sonic"`). This is a novelty feature — not present in any official Sonic game.
+
+### Key Classes
+
+| Class | Purpose |
+|-------|---------|
+| `SidekickCpuController` | Per-sidekick AI state machine (INIT, SPAWNING, APPROACHING, NORMAL, PANIC). Holds a `leader` reference for daisy-chain following and `getEffectiveLeader()` for chain healing. |
+| `SidekickRespawnStrategy` | Interface for per-character respawn behavior during APPROACHING state. |
+| `TailsRespawnStrategy` | Flies in from above (ROM-accurate). Default strategy. |
+| `KnucklesRespawnStrategy` | Glides in from screen edge, drops when X-aligned or after 3s timeout. |
+| `SonicRespawnStrategy` | Walks/spindashes in from nearest floor at screen edge. Requires physics (`requiresPhysics() = true`). |
+| `SpriteManager.getSidekicks()` | Returns ordered list of all CPU-controlled sidekicks. |
+
+### Daisy Chain
+
+Each sidekick follows the one in front via a 17-frame position/input history delay. When a middle sidekick despawns, `getEffectiveLeader()` walks up the chain to the nearest settled leader (or main player). `isSettled()` returns true after 15 consecutive frames in NORMAL state.
+
+### VRAM Banks
+
+Duplicate characters (e.g. multiple Sonics) need separate DPLC pattern banks to avoid atlas corruption. Banks are allocated at `SIDEKICK_PATTERN_BASE` (`0x38000+`) with a global running offset. Tail appendages (Obj05) for duplicate Tails use `0x39000+`. `PlayerSpriteRenderer` calls `renderPatternWithId()` to bypass the VDP's 11-bit limit. See `KNOWN_DISCREPANCIES.md` for range table and capacity limits.
+
+### Important Implementation Details
+
+- **`reset()` preserves `leader`** — the leader field is a structural chain relationship, not per-level state. Nulling it in `reset()` permanently breaks the sidekick.
+- **`requiresPhysics()`** — strategies that rely on ground speed (Sonic) must return `true` so `SpriteManager` doesn't skip the physics pipeline during APPROACHING.
+- **P2 input** — only sidekick[0] receives Player 2 controller input.
+- **Respawn** uses `getEffectiveLeader()` for both condition checks and approach targeting, enabling parallel respawn when all sidekicks despawn simultaneously.
 
 ## Multi-Game Support Architecture
 
