@@ -11,6 +11,7 @@ import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.util.AnimationTimer;
 
 import java.util.List;
 
@@ -116,6 +117,8 @@ public class CrawlBadnikInstance extends AbstractBadnikInstance {
     private int xSubpixel;           // Subpixel accumulator for smooth movement
     private boolean playerApproaching; // True when player is near and rolling
     private boolean vulnerable;      // True when hit from back (collision_flags = $17)
+    private final AnimationTimer walkAnim = new AnimationTimer(ANIM_DELAY, 2);
+    private int lastFrameCounter;    // Cached for wobble calculation in applyBounce
 
     public CrawlBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
         super(spawn, levelManager, "Crawl");
@@ -139,6 +142,8 @@ public class CrawlBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+        lastFrameCounter = frameCounter;
+
         // Check if player is approaching (to switch to attack mode)
         checkPlayerProximity(player);
 
@@ -308,8 +313,7 @@ public class CrawlBadnikInstance extends AbstractBadnikInstance {
         }
 
         // Add wobble based on frame counter (ROM: add (Timer_frames & 3) to angle)
-        // Using a simple counter here
-        double wobble = (animTimer & 3) * (2.0 * StrictMath.PI / 256.0);
+        double wobble = (lastFrameCounter & 3) * (2.0 * StrictMath.PI / 256.0);
         angle += wobble;
 
         // Calculate velocity components
@@ -342,11 +346,8 @@ public class CrawlBadnikInstance extends AbstractBadnikInstance {
         }
 
         // Walking animation - alternate between frames 0 and 1
-        animTimer++;
-        if (animTimer >= ANIM_DELAY) {
-            animTimer = 0;
-            animFrame = (animFrame == FRAME_WALK_1) ? FRAME_WALK_2 : FRAME_WALK_1;
-        }
+        walkAnim.tick();
+        animFrame = walkAnim.getFrame(); // 0 = FRAME_WALK_1, 1 = FRAME_WALK_2
     }
 
     @Override

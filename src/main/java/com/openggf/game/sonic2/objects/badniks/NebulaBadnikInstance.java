@@ -9,6 +9,7 @@ import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.util.AnimationTimer;
 
 import java.util.List;
 
@@ -55,6 +56,8 @@ public class NebulaBadnikInstance extends AbstractBadnikInstance {
     private boolean bombDropped;
     private int xSubpixel;
     private int ySubpixel;
+    // duration = ANIM_SPEED + 1 because original code uses > (not >=)
+    private final AnimationTimer anim = new AnimationTimer(ANIM_SPEED + 1, ANIM_FRAMES.length);
 
     public NebulaBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
         super(spawn, levelManager, "Nebula");
@@ -165,15 +168,9 @@ public class NebulaBadnikInstance extends AbstractBadnikInstance {
     @Override
     protected void updateAnimation(int frameCounter) {
         // Ani_obj99: dc.b 3, 0, 1, 2, 3, $FF
-        // Speed 3 means update every 4 frames
-        animTimer++;
-        if (animTimer > ANIM_SPEED) {
-            animTimer = 0;
-            animFrame++;
-            if (animFrame >= ANIM_FRAMES.length) {
-                animFrame = 0;
-            }
-        }
+        // Speed 3 means update every 4 frames (original uses > not >=)
+        anim.tick();
+        animFrame = anim.getFrame();
     }
 
     @Override

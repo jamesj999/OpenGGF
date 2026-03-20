@@ -12,6 +12,7 @@ import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.util.AnimationTimer;
 
 import java.util.List;
 
@@ -87,8 +88,7 @@ public class GrounderBadnikInstance extends AbstractBadnikInstance {
     private boolean activated;     // Activation flag for child objects (objoff_2B)
     private int pauseTimer;        // Timer for edge/wall pause (objoff_2A)
     private int idleAnimTimer;     // Timer for idle animation
-    private int walkAnimTimer;     // Timer for walking animation
-    private int walkAnimFrame;     // Current walking frame (0-2 -> frames 2-4)
+    private final AnimationTimer walkAnim = new AnimationTimer(WALK_ANIM_DURATION, 3);
 
     /**
      * Creates a Grounder badnik.
@@ -104,8 +104,6 @@ public class GrounderBadnikInstance extends AbstractBadnikInstance {
         this.activated = false;
         this.pauseTimer = 0;
         this.idleAnimTimer = 0;
-        this.walkAnimTimer = 0;
-        this.walkAnimFrame = 0;
 
         // Initial facing from render_flags
         boolean xFlip = (spawn.renderFlags() & 0x01) != 0;
@@ -248,8 +246,7 @@ public class GrounderBadnikInstance extends AbstractBadnikInstance {
         xVelocity = facingLeft ? -MOVEMENT_VELOCITY : MOVEMENT_VELOCITY;
 
         // Reset walking animation
-        walkAnimTimer = 0;
-        walkAnimFrame = 0;
+        walkAnim.reset();
 
         state = State.MOVEMENT;
     }
@@ -316,8 +313,7 @@ public class GrounderBadnikInstance extends AbstractBadnikInstance {
             xVelocity = facingLeft ? -MOVEMENT_VELOCITY : MOVEMENT_VELOCITY;
 
             // Reset walking animation
-            walkAnimTimer = 0;
-            walkAnimFrame = 0;
+            walkAnim.reset();
 
             state = State.MOVEMENT;
         }
@@ -336,12 +332,8 @@ public class GrounderBadnikInstance extends AbstractBadnikInstance {
             }
             case MOVEMENT_SETUP, MOVEMENT, ROCK_THROW -> {
                 // Walking animation: frames 2,3,4, duration 3
-                walkAnimTimer++;
-                if (walkAnimTimer >= WALK_ANIM_DURATION) {
-                    walkAnimTimer = 0;
-                    walkAnimFrame = (walkAnimFrame + 1) % 3;
-                }
-                animFrame = FRAME_WALK_1 + walkAnimFrame;
+                walkAnim.tick();
+                animFrame = FRAME_WALK_1 + walkAnim.getFrame();
             }
         }
     }

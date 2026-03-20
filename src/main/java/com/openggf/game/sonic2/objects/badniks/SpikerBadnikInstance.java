@@ -9,6 +9,7 @@ import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.util.AnimationTimer;
 
 import java.util.List;
 
@@ -46,6 +47,7 @@ public class SpikerBadnikInstance extends AbstractBadnikInstance {
     private boolean useAttackAnim;
     private boolean animateThisFrame;
     private boolean xFlipFlag;
+    private final AnimationTimer anim = new AnimationTimer(9, 2);
     private final boolean yFlipFlag;
 
     public SpikerBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
@@ -121,7 +123,7 @@ public class SpikerBadnikInstance extends AbstractBadnikInstance {
             hasThrown = true;
             useAttackAnim = true;
             animFrame = 2;
-            animTimer = 0;
+            anim.reset();
             state = returnState;
             return;
         }
@@ -182,14 +184,11 @@ public class SpikerBadnikInstance extends AbstractBadnikInstance {
         int baseFrame = useAttackAnim ? 2 : 0;
         if (animFrame < baseFrame || animFrame > baseFrame + 1) {
             animFrame = baseFrame;
-            animTimer = 0;
+            anim.reset();
         }
 
-        animTimer++;
-        if (animTimer >= 9) {
-            animTimer = 0;
-            animFrame = (animFrame == baseFrame) ? baseFrame + 1 : baseFrame;
-        }
+        anim.tick();
+        animFrame = baseFrame + anim.getFrame();
     }
 
     @Override
