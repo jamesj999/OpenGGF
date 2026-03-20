@@ -2,10 +2,7 @@ package com.openggf.game.sonic1.objects;
 
 import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.debug.DebugOverlayManager;
-import com.openggf.debug.DebugOverlayToggle;
-import com.openggf.game.GameServices;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
@@ -54,11 +51,6 @@ public class Sonic1SpikedPoleHelixObjectInstance extends AbstractObjectInstance
 
     // Number of animation frames in the rotation cycle: andi.b #7,d0
     private static final int FRAME_COUNT = 8;
-
-    // Debug state
-    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
-            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
 
     // ---- Spike data ----
 
@@ -192,10 +184,6 @@ public class Sonic1SpikedPoleHelixObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        if (isDebugViewEnabled()) {
-            appendDebug(commands);
-        }
-
         // Render each spike at its position with its current frame
         for (int i = 0; i < spikeCount; i++) {
             int frame = spikeFrame[i];
@@ -275,25 +263,16 @@ public class Sonic1SpikedPoleHelixObjectInstance extends AbstractObjectInstance
 
     // ---- Debug rendering ----
 
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         for (int i = 0; i < spikeCount; i++) {
             float r = spikeHarmful[i] ? 1.0f : 0.0f;
             float g = spikeHarmful[i] ? 0.0f : 1.0f;
             // Draw small cross at each spike position
-            appendLine(commands, spikeX[i] - 4, spikeY, spikeX[i] + 4, spikeY, r, g, 0.0f);
-            appendLine(commands, spikeX[i], spikeY - 4, spikeX[i], spikeY + 4, r, g, 0.0f);
+            ctx.drawLine(spikeX[i] - 4, spikeY, spikeX[i] + 4, spikeY, r, g, 0.0f);
+            ctx.drawLine(spikeX[i], spikeY - 4, spikeX[i], spikeY + 4, r, g, 0.0f);
         }
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2,
-                            float r, float g, float b) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x2, y2, 0, 0));
-    }
 
-    private boolean isDebugViewEnabled() {
-        return DEBUG_VIEW_ENABLED && OVERLAY_MANAGER.isEnabled(DebugOverlayToggle.OVERLAY);
-    }
 }

@@ -2,10 +2,7 @@ package com.openggf.game.sonic1.objects;
 
 import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.debug.DebugOverlayManager;
-import com.openggf.debug.DebugOverlayToggle;
-import com.openggf.game.GameServices;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -86,11 +83,6 @@ public class Sonic1ElevatorObjectInstance extends AbstractObjectInstance
             {0x14, 3}, {0x24, 3}, {0x2C, 3},   // subtypes 9-11
             {0x20, 5}, {0x20, 7}, {0x30, 9},   // subtypes 12-14
     };
-
-    // Debug state
-    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
-            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
 
     // Saved original positions (elev_origX = objoff_32, elev_origY = objoff_30)
     private final int origX;
@@ -464,10 +456,6 @@ public class Sonic1ElevatorObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        if (isDebugViewEnabled()) {
-            appendDebug(commands);
-        }
-
         // Render elevator at current position (single frame: frame 0)
         renderer.drawFrameIndex(0, x, y, false, false);
     }
@@ -549,38 +537,29 @@ public class Sonic1ElevatorObjectInstance extends AbstractObjectInstance
 
     // ---- Debug rendering ----
 
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         // Draw origin anchor point (yellow cross)
-        appendLine(commands, origX - 4, origY, origX + 4, origY, 1.0f, 1.0f, 0.0f);
-        appendLine(commands, origX, origY - 4, origX, origY + 4, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(origX - 4, origY, origX + 4, origY, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(origX, origY - 4, origX, origY + 4, 1.0f, 1.0f, 0.0f);
 
         // Draw line from origin to current position (cyan)
-        appendLine(commands, origX, origY, x, y, 0.0f, 1.0f, 1.0f);
+        ctx.drawLine(origX, origY, x, y, 0.0f, 1.0f, 1.0f);
 
         // Draw collision box (green for solid platform)
         int left = x - halfWidth;
         int right = x + halfWidth;
         int top = y - HALF_HEIGHT;
         int bottom = y + HALF_HEIGHT;
-        appendLine(commands, left, top, right, top, 0.0f, 1.0f, 0.0f);
-        appendLine(commands, right, top, right, bottom, 0.0f, 1.0f, 0.0f);
-        appendLine(commands, right, bottom, left, bottom, 0.0f, 1.0f, 0.0f);
-        appendLine(commands, left, bottom, left, top, 0.0f, 1.0f, 0.0f);
+        ctx.drawLine(left, top, right, top, 0.0f, 1.0f, 0.0f);
+        ctx.drawLine(right, top, right, bottom, 0.0f, 1.0f, 0.0f);
+        ctx.drawLine(right, bottom, left, bottom, 0.0f, 1.0f, 0.0f);
+        ctx.drawLine(left, bottom, left, top, 0.0f, 1.0f, 0.0f);
 
         // Draw platform center (red cross)
-        appendLine(commands, x - 4, y, x + 4, y, 1.0f, 0.0f, 0.0f);
-        appendLine(commands, x, y - 4, x, y + 4, 1.0f, 0.0f, 0.0f);
+        ctx.drawLine(x - 4, y, x + 4, y, 1.0f, 0.0f, 0.0f);
+        ctx.drawLine(x, y - 4, x, y + 4, 1.0f, 0.0f, 0.0f);
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2,
-                            float r, float g, float b) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x2, y2, 0, 0));
-    }
 
-    private boolean isDebugViewEnabled() {
-        return DEBUG_VIEW_ENABLED && OVERLAY_MANAGER.isEnabled(DebugOverlayToggle.OVERLAY);
-    }
 }

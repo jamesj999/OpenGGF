@@ -2,10 +2,7 @@ package com.openggf.game.sonic1.objects;
 
 import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.debug.DebugOverlayManager;
-import com.openggf.debug.DebugOverlayToggle;
-import com.openggf.game.GameServices;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
@@ -74,11 +71,6 @@ public class Sonic1SeesawObjectInstance extends AbstractObjectInstance
             0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x15,
             0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x15
     };
-
-    // Debug state
-    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
-            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
 
     // Saved original X position (see_origX = objoff_30)
     private final int origX;
@@ -373,10 +365,6 @@ public class Sonic1SeesawObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        if (isDebugViewEnabled()) {
-            appendDebug(commands);
-        }
-
         // From See_ChgFrame:
         // bclr #0,obRender(a0) — clear x-flip
         // btst #1,obFrame(a0) — if bit 1 set (frame 2)
@@ -425,7 +413,8 @@ public class Sonic1SeesawObjectInstance extends AbstractObjectInstance
 
     // ---- Debug rendering ----
 
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         int x = spawn.x();
         int y = spawn.y();
 
@@ -434,14 +423,14 @@ public class Sonic1SeesawObjectInstance extends AbstractObjectInstance
         int right = x + COLLISION_HALF_WIDTH;
         int top = y - COLLISION_HEIGHT;
         int bottom = y + COLLISION_HEIGHT;
-        appendLine(commands, left, top, right, top, 0.0f, 1.0f, 0.0f);
-        appendLine(commands, right, top, right, bottom, 0.0f, 1.0f, 0.0f);
-        appendLine(commands, right, bottom, left, bottom, 0.0f, 1.0f, 0.0f);
-        appendLine(commands, left, bottom, left, top, 0.0f, 1.0f, 0.0f);
+        ctx.drawLine(left, top, right, top, 0.0f, 1.0f, 0.0f);
+        ctx.drawLine(right, top, right, bottom, 0.0f, 1.0f, 0.0f);
+        ctx.drawLine(right, bottom, left, bottom, 0.0f, 1.0f, 0.0f);
+        ctx.drawLine(left, bottom, left, top, 0.0f, 1.0f, 0.0f);
 
         // Draw center (red cross)
-        appendLine(commands, x - 4, y, x + 4, y, 1.0f, 0.0f, 0.0f);
-        appendLine(commands, x, y - 4, x, y + 4, 1.0f, 0.0f, 0.0f);
+        ctx.drawLine(x - 4, y, x + 4, y, 1.0f, 0.0f, 0.0f);
+        ctx.drawLine(x, y - 4, x, y + 4, 1.0f, 0.0f, 0.0f);
 
         // Draw frame state (yellow text indicator)
         String state = "F" + mappingFrame + "/T" + targetFrame;
@@ -449,18 +438,8 @@ public class Sonic1SeesawObjectInstance extends AbstractObjectInstance
         float cr = (mappingFrame == 1) ? 0f : 1f;
         float cg = 1f;
         float cb = (mappingFrame == 1) ? 1f : 0f;
-        appendLine(commands, x - 2, y - 10, x + 2, y - 10, cr, cg, cb);
+        ctx.drawLine(x - 2, y - 10, x + 2, y - 10, cr, cg, cb);
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2,
-                            float r, float g, float b) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x2, y2, 0, 0));
-    }
 
-    private boolean isDebugViewEnabled() {
-        return DEBUG_VIEW_ENABLED && OVERLAY_MANAGER.isEnabled(DebugOverlayToggle.OVERLAY);
-    }
 }

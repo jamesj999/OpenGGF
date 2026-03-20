@@ -2,10 +2,7 @@ package com.openggf.game.sonic1.objects;
 
 import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.debug.DebugOverlayManager;
-import com.openggf.debug.DebugOverlayToggle;
-import com.openggf.game.GameServices;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.OscillationManager;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -69,11 +66,6 @@ public class Sonic1BigSpikedBallObjectInstance extends AbstractObjectInstance
 
     // Type 3 circular motion radius: move.b #$50,bball_radius(a0)
     private static final int CIRCLE_RADIUS = 0x50;
-
-    // Debug state
-    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
-            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
 
     // Stored original position (bball_origX = objoff_3A, bball_origY = objoff_38)
     private final int origX;
@@ -272,10 +264,6 @@ public class Sonic1BigSpikedBallObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        if (isDebugViewEnabled()) {
-            appendDebug(commands);
-        }
-
         // Render spiked ball (frame 0 from Map_BBall)
         renderer.drawFrameIndex(0, x, y, false, false);
     }
@@ -330,43 +318,34 @@ public class Sonic1BigSpikedBallObjectInstance extends AbstractObjectInstance
 
     // ---- Debug rendering ----
 
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         // Draw original position (yellow cross)
-        appendLine(commands, origX - 4, origY, origX + 4, origY, 1.0f, 1.0f, 0.0f);
-        appendLine(commands, origX, origY - 4, origX, origY + 4, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(origX - 4, origY, origX + 4, origY, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(origX, origY - 4, origX, origY + 4, 1.0f, 1.0f, 0.0f);
 
         // Draw collision bounds (red = harmful)
         int left = x - HALF_WIDTH;
         int right = x + HALF_WIDTH;
         int top = y - HALF_WIDTH;
         int bottom = y + HALF_WIDTH;
-        appendLine(commands, left, top, right, top, 1.0f, 0.0f, 0.0f);
-        appendLine(commands, right, top, right, bottom, 1.0f, 0.0f, 0.0f);
-        appendLine(commands, right, bottom, left, bottom, 1.0f, 0.0f, 0.0f);
-        appendLine(commands, left, bottom, left, top, 1.0f, 0.0f, 0.0f);
+        ctx.drawLine(left, top, right, top, 1.0f, 0.0f, 0.0f);
+        ctx.drawLine(right, top, right, bottom, 1.0f, 0.0f, 0.0f);
+        ctx.drawLine(right, bottom, left, bottom, 1.0f, 0.0f, 0.0f);
+        ctx.drawLine(left, bottom, left, top, 1.0f, 0.0f, 0.0f);
 
         // Draw ball center (red cross)
-        appendLine(commands, x - 4, y, x + 4, y, 1.0f, 0.0f, 0.0f);
-        appendLine(commands, x, y - 4, x, y + 4, 1.0f, 0.0f, 0.0f);
+        ctx.drawLine(x - 4, y, x + 4, y, 1.0f, 0.0f, 0.0f);
+        ctx.drawLine(x, y - 4, x, y + 4, 1.0f, 0.0f, 0.0f);
 
         // For type 3, draw the circular orbit path
         if (moveType == 3) {
-            appendLine(commands, origX - CIRCLE_RADIUS, origY, origX + CIRCLE_RADIUS, origY,
+            ctx.drawLine(origX - CIRCLE_RADIUS, origY, origX + CIRCLE_RADIUS, origY,
                     0.5f, 0.5f, 0.0f);
-            appendLine(commands, origX, origY - CIRCLE_RADIUS, origX, origY + CIRCLE_RADIUS,
+            ctx.drawLine(origX, origY - CIRCLE_RADIUS, origX, origY + CIRCLE_RADIUS,
                     0.5f, 0.5f, 0.0f);
         }
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2,
-                            float r, float g, float b) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x2, y2, 0, 0));
-    }
 
-    private boolean isDebugViewEnabled() {
-        return DEBUG_VIEW_ENABLED && OVERLAY_MANAGER.isEnabled(DebugOverlayToggle.OVERLAY);
-    }
 }

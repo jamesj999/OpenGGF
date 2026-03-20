@@ -2,10 +2,7 @@ package com.openggf.game.sonic1.objects;
 
 import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.debug.DebugOverlayManager;
-import com.openggf.debug.DebugOverlayToggle;
-import com.openggf.game.GameServices;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
@@ -68,11 +65,6 @@ public class Sonic1RunningDiscObjectInstance extends AbstractObjectInstance {
     // move.b #$10,disc_spot_distance(a0) / move.b #$38,disc_radius(a0)
     private static final int SMALL_SPOT_DISTANCE = 0x10;
     private static final int SMALL_RADIUS = 0x38;
-
-    // Debug state
-    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
-            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
 
     // disc_origX = objoff_32, disc_origY = objoff_30
     private final int origX;
@@ -371,10 +363,6 @@ public class Sonic1RunningDiscObjectInstance extends AbstractObjectInstance {
             return;
         }
 
-        if (isDebugViewEnabled()) {
-            appendDebug(commands);
-        }
-
         // Render the spot at current position (single frame: frame 0)
         renderer.drawFrameIndex(0, x, y, false, false);
     }
@@ -423,38 +411,29 @@ public class Sonic1RunningDiscObjectInstance extends AbstractObjectInstance {
 
     // ---- Debug rendering ----
 
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         // Draw origin anchor point (yellow cross)
-        appendLine(commands, origX - 4, origY, origX + 4, origY, 1.0f, 1.0f, 0.0f);
-        appendLine(commands, origX, origY - 4, origX, origY + 4, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(origX - 4, origY, origX + 4, origY, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(origX, origY - 4, origX, origY + 4, 1.0f, 1.0f, 0.0f);
 
         // Draw detection radius (magenta box)
         int left = origX - detectionRadius;
         int right = origX + detectionRadius;
         int top = origY - detectionRadius;
         int bottom = origY + detectionRadius;
-        appendLine(commands, left, top, right, top, 1.0f, 0.0f, 1.0f);
-        appendLine(commands, right, top, right, bottom, 1.0f, 0.0f, 1.0f);
-        appendLine(commands, right, bottom, left, bottom, 1.0f, 0.0f, 1.0f);
-        appendLine(commands, left, bottom, left, top, 1.0f, 0.0f, 1.0f);
+        ctx.drawLine(left, top, right, top, 1.0f, 0.0f, 1.0f);
+        ctx.drawLine(right, top, right, bottom, 1.0f, 0.0f, 1.0f);
+        ctx.drawLine(right, bottom, left, bottom, 1.0f, 0.0f, 1.0f);
+        ctx.drawLine(left, bottom, left, top, 1.0f, 0.0f, 1.0f);
 
         // Draw line from origin to current spot position (cyan)
-        appendLine(commands, origX, origY, x, y, 0.0f, 1.0f, 1.0f);
+        ctx.drawLine(origX, origY, x, y, 0.0f, 1.0f, 1.0f);
 
         // Draw spot center (red cross)
-        appendLine(commands, x - 4, y, x + 4, y, 1.0f, 0.0f, 0.0f);
-        appendLine(commands, x, y - 4, x, y + 4, 1.0f, 0.0f, 0.0f);
+        ctx.drawLine(x - 4, y, x + 4, y, 1.0f, 0.0f, 0.0f);
+        ctx.drawLine(x, y - 4, x, y + 4, 1.0f, 0.0f, 0.0f);
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2,
-                            float r, float g, float b) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x2, y2, 0, 0));
-    }
 
-    private boolean isDebugViewEnabled() {
-        return DEBUG_VIEW_ENABLED && OVERLAY_MANAGER.isEnabled(DebugOverlayToggle.OVERLAY);
-    }
 }
