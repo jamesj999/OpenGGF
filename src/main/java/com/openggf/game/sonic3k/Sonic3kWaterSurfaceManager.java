@@ -25,8 +25,8 @@ import java.util.logging.Logger;
  * <ul>
  *   <li>Art: ArtNem_HCZWaveSplash at ROM 0x38FBB4, Nemesis compressed, 16 tiles</li>
  *   <li>VRAM: ArtTile_HCZWaveSplash = $042E, palette line 0, priority 1</li>
- *   <li>Mappings: Map_HCZWaveSplash — 7 frames, each with 3 pieces (32x16px, 4x2 tiles)
- *       at X offsets -0x60, -0x20, +0x20. Frames 4-6 are wider (6 pieces) for button-pressed state.</li>
+ *   <li>Mappings: Map_HCZWaveSplash — 7 frames. Frames 0-3 have 3 pieces each (4x2 tiles)
+ *       at X offsets -0x60, -0x20, +0x20. Frames 4-6 have 6 pieces (wider coverage during pause).</li>
  *   <li>Animation: frames 1→2→3→1, 10 game frames per step (timer resets to 9)</li>
  *   <li>Main sprite origin: (Camera_X &amp; 0xFFE0) + 0x60, shifted +0x20 on odd frames</li>
  *   <li>Child sprite: at main + 0xC0 (same mapping frame), extending coverage rightward</li>
