@@ -198,6 +198,13 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
         return state < 3;
     }
 
+    @Override
+    public boolean shouldStayActiveWhenRemembered() {
+        // Platform must remain in the active set during the solid-stay phase so
+        // SolidContacts can keep repositioning the player on the invisible parent.
+        return state < 3;
+    }
+
     // ===== SolidObjectListener =====
 
     @Override
@@ -332,19 +339,25 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (fragmented) {
-            return; // fragments handle their own rendering
-        }
-
         ObjectRenderManager renderManager = getRenderManager();
         if (renderManager == null) {
             return;
         }
 
         PatternSpriteRenderer renderer = renderManager.getRenderer(config.artKey);
-        if (renderer != null && renderer.isReady()) {
+        if (renderer == null || !renderer.isReady()) {
+            return;
+        }
+
+        if (fragmented && state == 2) {
+            // ROM: static_mappings mode — parent renders only piece 0 from the
+            // fragment frame while providing invisible collision during solid-stay.
+            int fragmentFrameIndex = mappingFrame + config.fragmentFrameOffset;
+            renderer.drawFramePieceByIndex(fragmentFrameIndex, 0, x, y, hFlip, false);
+        } else if (!fragmented) {
             renderer.drawFrameIndex(mappingFrame, x, y, hFlip, false);
         }
+        // state 3 (falling): parent is off-screen heading down, no need to render
     }
 
     @Override

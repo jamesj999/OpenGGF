@@ -148,6 +148,9 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
     // State
     private static final int INITIAL_DELAY = 7;  // 7 frames before collapse starts
 
+    // Gravity from ObjectMoveAndFall (s2.asm line 29950)
+    private static final int GRAVITY = 0x38;
+
     private ZoneConfig config;
     private int delayCounter = INITIAL_DELAY;
     private boolean stoodOnFlag = false;
@@ -155,6 +158,11 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
     private boolean inFragmentPhase = false;  // ROM: parent becomes fragment 0, stays solid during delay
     private int fragmentPhaseDelay = 0;       // ROM: delay_counter for the parent-as-fragment-0
     private int mappingFrame = 0;  // 0 = intact, 1 = collapsed appearance
+
+    // Post-fragment parent fall state (ROM: Obj1F_FragmentFall)
+    private int parentVelY;
+    private int parentY;
+    private int parentYFrac;
 
     // Orientation from spawn render_flags (inherited by fragments per disassembly)
     private final boolean hFlip;
@@ -180,22 +188,44 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
 
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
-        if (collapsed || isDestroyed()) {
+        if (isDestroyed()) {
+            return;
+        }
+
+        // ROM: Obj1F_FragmentFall — collapsed parent falls with gravity, delete when offscreen.
+        if (collapsed) {
+            parentVelY += GRAVITY;
+            int y32 = (parentY << 16) | (parentYFrac & 0xFFFF);
+            y32 += ((int) (short) parentVelY) << 8;
+            parentY = y32 >> 16;
+            parentYFrac = y32 & 0xFFFF;
+            if (!isOnScreen(128)) {
+                setDestroyed(true);
+            }
             return;
         }
 
         // ROM: Obj1F_Fragment phase — parent stays solid at its original position
-        // until its fragment delay expires, then becomes non-solid.
+        // until its fragment delay expires, then detaches the player.
         // In the ROM, the parent object IS fragment 0 (routine changed to Obj1F_Fragment).
         // Only fragment 0 has stood_on_flag=1 so only it calls PlatformObject.
         if (inFragmentPhase) {
             if (fragmentPhaseDelay > 0) {
                 fragmentPhaseDelay--;
-            } else {
-                // ROM: Obj1F_FragmentFall — delay expired, platform is no longer solid.
-                // SolidContacts automatically clears the player's riding state when
-                // isSolidFor() returns false (matching ROM's sub_10B36 clearing on_object).
-                collapsed = true;
+                // ROM: sub_10B36 — when delay reaches zero, detach both players.
+                // bclr #status.player.on_object / bset #status.player.in_air
+                if (fragmentPhaseDelay <= 0) {
+                    collapsed = true;
+                    parentY = spawn.y();
+                    if (player != null) {
+                        LevelManager manager = LevelManager.getInstance();
+                        if (manager != null && manager.getObjectManager() != null) {
+                            manager.getObjectManager().clearRidingObject(player);
+                        }
+                        player.setAir(true);
+                        player.setOnObject(false);
+                    }
+                }
             }
             return;
         }
@@ -218,8 +248,8 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (isDestroyed()) {
-            return;
+        if (isDestroyed() || collapsed) {
+            return; // ROM: parent is invisible during fragment-fall; fragments handle rendering
         }
 
         ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
@@ -257,12 +287,25 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
 
     @Override
     public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
-        // Collision handling is managed via update() and isPlayerStanding()
+        // ROM: Obj1F_Main — standing_mask bits set stood_on_flag.
+        // Using the callback (like S1/S3K) instead of polling ensures the flag
+        // is set on the same frame the player lands, matching ROM timing.
+        if (contact.standing() && !inFragmentPhase && !collapsed) {
+            stoodOnFlag = true;
+        }
     }
 
     @Override
     public boolean isSolidFor(AbstractPlayableSprite player) {
         return !collapsed && !isDestroyed();
+    }
+
+    @Override
+    public boolean shouldStayActiveWhenRemembered() {
+        // Platform must remain in the active set during the fragment phase so
+        // SolidContacts can continue repositioning the player on the invisible
+        // parent. Matches S1 pattern where markRemembered is deferred to destroy.
+        return !collapsed;
     }
 
     @Override
