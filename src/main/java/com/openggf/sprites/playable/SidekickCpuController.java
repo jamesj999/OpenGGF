@@ -482,6 +482,12 @@ public class SidekickCpuController {
     public boolean getInputDown() { return inputDown; }
     public boolean getInputLeft() { return inputLeft; }
     public boolean getInputRight() { return inputRight; }
+
+    /** Package-private: allows respawn strategies to set directional input toward the leader. */
+    void setApproachInput(boolean left, boolean right) {
+        this.inputLeft = left;
+        this.inputRight = right;
+    }
     public boolean getInputJump() { return inputJump; }
     public State getState() { return state; }
     public boolean isApproaching() { return state == State.APPROACHING; }

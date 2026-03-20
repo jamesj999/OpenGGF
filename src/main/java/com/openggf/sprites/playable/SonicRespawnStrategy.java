@@ -29,8 +29,10 @@ public class SonicRespawnStrategy implements SidekickRespawnStrategy {
     /** Distance in pixels at which the sidekick is considered close enough to the leader. */
     private static final int APPROACH_COMPLETE_THRESHOLD = 32;
 
+    private final SidekickCpuController controller;
+
     public SonicRespawnStrategy(SidekickCpuController controller) {
-        // controller not currently used; accepted for API consistency with other strategies
+        this.controller = controller;
     }
 
     @Override
@@ -115,10 +117,11 @@ public class SonicRespawnStrategy implements SidekickRespawnStrategy {
     @Override
     public boolean updateApproaching(AbstractPlayableSprite sidekick, AbstractPlayableSprite leader,
                                      int frameCounter) {
-        // The sidekick is running via gSpeed set in beginApproach with normal physics.
-        // Check proximity to leader — when close enough, approach is complete.
-        int dx = Math.abs(leader.getCentreX() - sidekick.getCentreX());
-        return dx <= APPROACH_COMPLETE_THRESHOLD;
+        // Keep pressing toward the leader so friction doesn't stop the sidekick.
+        int dx = leader.getCentreX() - sidekick.getCentreX();
+        controller.setApproachInput(dx < 0, dx > 0);
+
+        return Math.abs(dx) <= APPROACH_COMPLETE_THRESHOLD;
     }
 
     @Override
