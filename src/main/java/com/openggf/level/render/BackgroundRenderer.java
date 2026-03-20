@@ -5,6 +5,7 @@ import com.openggf.graphics.HScrollBuffer;
 import com.openggf.graphics.ParallaxShaderProgram;
 import com.openggf.graphics.QuadRenderer;
 import com.openggf.graphics.VScrollBuffer;
+import com.openggf.util.FboHelper;
 
 import java.io.IOException;
 import java.util.logging.Logger;
@@ -37,6 +38,7 @@ public class BackgroundRenderer {
     public static final int SCREEN_WIDTH = 320;
     public static final int SCREEN_HEIGHT = 224;
 
+    private FboHelper.FboHandle fboHandle;
     private int fboId = -1;
     private int fboTextureId = -1;
     private int fboDepthId = -1;
@@ -123,42 +125,10 @@ public class BackgroundRenderer {
      * Create the framebuffer object and its attachments.
      */
     private void createFBO(int width, int height) {
-        // Generate FBO
-        fboId = glGenFramebuffers();
-
-        // Generate texture for color attachment
-        fboTextureId = glGenTextures();
-
-        glBindTexture(GL_TEXTURE_2D, fboTextureId);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0,
-                GL_RGBA, GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glBindTexture(GL_TEXTURE_2D, 0);
-
-        // Generate depth buffer
-        fboDepthId = glGenRenderbuffers();
-
-        glBindRenderbuffer(GL_RENDERBUFFER, fboDepthId);
-        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, width, height);
-        glBindRenderbuffer(GL_RENDERBUFFER, 0);
-
-        // Attach to FBO
-        glBindFramebuffer(GL_FRAMEBUFFER, fboId);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-                GL_TEXTURE_2D, fboTextureId, 0);
-        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
-                GL_RENDERBUFFER, fboDepthId);
-
-        // Check FBO completeness
-        int status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-        if (status != GL_FRAMEBUFFER_COMPLETE) {
-            LOGGER.severe("FBO creation failed with status: " + status);
-        }
-
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        fboHandle = FboHelper.createWithDepth(width, height, GL_REPEAT);
+        fboId = fboHandle.fboId();
+        fboTextureId = fboHandle.textureId();
+        fboDepthId = fboHandle.depthId();
     }
 
     /**
@@ -367,15 +337,7 @@ public class BackgroundRenderer {
         int newHeight = Math.max(height, fboAllocHeight);
 
         // Delete old FBO resources
-        if (fboId > 0) {
-            glDeleteFramebuffers(fboId);
-        }
-        if (fboTextureId > 0) {
-            glDeleteTextures(fboTextureId);
-        }
-        if (fboDepthId > 0) {
-            glDeleteRenderbuffers(fboDepthId);
-        }
+        FboHelper.destroy(fboHandle);
 
         fboAllocWidth = newWidth;
         fboAllocHeight = newHeight;
@@ -422,15 +384,11 @@ public class BackgroundRenderer {
             parallaxShader.cleanup();
         }
         quadRenderer.cleanup();
-        if (fboId > 0) {
-            glDeleteFramebuffers(fboId);
-        }
-        if (fboTextureId > 0) {
-            glDeleteTextures(fboTextureId);
-        }
-        if (fboDepthId > 0) {
-            glDeleteRenderbuffers(fboDepthId);
-        }
+        FboHelper.destroy(fboHandle);
+        fboHandle = null;
+        fboId = -1;
+        fboTextureId = -1;
+        fboDepthId = -1;
         initialized = false;
     }
 }

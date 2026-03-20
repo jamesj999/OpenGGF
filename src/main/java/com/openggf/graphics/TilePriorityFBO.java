@@ -1,5 +1,7 @@
 package com.openggf.graphics;
 
+import com.openggf.util.FboHelper;
+
 import java.util.logging.Logger;
 
 import static org.lwjgl.opengl.GL11.*;
@@ -20,13 +22,13 @@ public class TilePriorityFBO {
 
     private static final Logger LOGGER = Logger.getLogger(TilePriorityFBO.class.getName());
 
+    private FboHelper.FboHandle fboHandle;
     private int fboId = -1;
     private int textureId = -1;
     private int width;
     private int height;
     private boolean initialized = false;
-
-    private final int[] savedViewport = new int[4];
+    private int[] savedViewport;
 
     /**
      * Initialize the tile priority FBO.
@@ -42,39 +44,12 @@ public class TilePriorityFBO {
         this.width = width;
         this.height = height;
 
-        // Generate FBO
-        fboId = glGenFramebuffers();
+        // Create colour-only FBO via shared helper
+        fboHandle = FboHelper.createColorOnly(width, height, GL_CLAMP_TO_EDGE);
+        fboId = fboHandle.fboId();
+        textureId = fboHandle.textureId();
 
-        // Generate texture for color attachment
-        textureId = glGenTextures();
-
-        // Configure texture
-        glBindTexture(GL_TEXTURE_2D, textureId);
-        // Use RGBA format for priority (R channel: 0 = no tile, 1 = high-priority tile)
-        // Note: Changed from GL_R8 to GL_RGBA8 for macOS OpenGL 4.1 compatibility.
-        // The shader only reads the .r component, so the extra channels are unused.
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0,
-                GL_RGBA, GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glBindTexture(GL_TEXTURE_2D, 0);
-
-        // Attach texture to FBO
-        glBindFramebuffer(GL_FRAMEBUFFER, fboId);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-                GL_TEXTURE_2D, textureId, 0);
-
-        // Check FBO completeness
-        int status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-        if (status != GL_FRAMEBUFFER_COMPLETE) {
-            LOGGER.severe("Tile priority FBO creation failed with status: " + status);
-        } else {
-            LOGGER.info("TilePriorityFBO FBO is complete. FBO ID=" + fboId + ", Texture ID=" + textureId);
-        }
-
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        LOGGER.info("TilePriorityFBO FBO is complete. FBO ID=" + fboId + ", Texture ID=" + textureId);
 
         // Ensure texture is fully complete for macOS driver compatibility
         // by doing a sync and verifying the texture state
@@ -95,7 +70,7 @@ public class TilePriorityFBO {
         }
 
         // Save current viewport
-        glGetIntegerv(GL_VIEWPORT, savedViewport);
+        savedViewport = FboHelper.saveViewport();
 
         // Bind FBO and set viewport
         glBindFramebuffer(GL_FRAMEBUFFER, fboId);
@@ -117,7 +92,7 @@ public class TilePriorityFBO {
 
         // Restore framebuffer and viewport
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glViewport(savedViewport[0], savedViewport[1], savedViewport[2], savedViewport[3]);
+        FboHelper.restoreViewport(savedViewport);
     }
 
     /**
@@ -164,14 +139,10 @@ public class TilePriorityFBO {
      * Clean up OpenGL resources.
      */
     public void cleanup() {
-        if (fboId > 0) {
-            glDeleteFramebuffers(fboId);
-            fboId = -1;
-        }
-        if (textureId > 0) {
-            glDeleteTextures(textureId);
-            textureId = -1;
-        }
+        FboHelper.destroy(fboHandle);
+        fboHandle = null;
+        fboId = -1;
+        textureId = -1;
         initialized = false;
     }
 }

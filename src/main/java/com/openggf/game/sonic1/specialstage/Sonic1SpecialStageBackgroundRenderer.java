@@ -6,6 +6,7 @@ import com.openggf.graphics.HScrollBuffer;
 import com.openggf.graphics.ParallaxShaderProgram;
 import com.openggf.graphics.QuadRenderer;
 import com.openggf.level.PatternDesc;
+import com.openggf.util.FboHelper;
 
 import java.io.IOException;
 import java.util.logging.Logger;
@@ -48,6 +49,7 @@ public class Sonic1SpecialStageBackgroundRenderer {
     public static final int SCREEN_HEIGHT = 224;
 
     // OpenGL resources
+    private FboHelper.FboHandle fboHandle;
     private int fboId = -1;
     private int fboTextureId = -1;
     private int fboDepthId = -1;
@@ -73,7 +75,7 @@ public class Sonic1SpecialStageBackgroundRenderer {
 
     // State
     private boolean initialized = false;
-    private final int[] savedViewport = new int[4];
+    private int[] savedViewport;
     private float backdropR;
     private float backdropG;
     private float backdropB;
@@ -105,35 +107,10 @@ public class Sonic1SpecialStageBackgroundRenderer {
     }
 
     private void createFBO() {
-        fboId = glGenFramebuffers();
-
-        fboTextureId = glGenTextures();
-        glBindTexture(GL_TEXTURE_2D, fboTextureId);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, FBO_WIDTH, FBO_HEIGHT, 0,
-                GL_RGBA, GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glBindTexture(GL_TEXTURE_2D, 0);
-
-        fboDepthId = glGenRenderbuffers();
-        glBindRenderbuffer(GL_RENDERBUFFER, fboDepthId);
-        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, FBO_WIDTH, FBO_HEIGHT);
-        glBindRenderbuffer(GL_RENDERBUFFER, 0);
-
-        glBindFramebuffer(GL_FRAMEBUFFER, fboId);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-                GL_TEXTURE_2D, fboTextureId, 0);
-        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
-                GL_RENDERBUFFER, fboDepthId);
-
-        int status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-        if (status != GL_FRAMEBUFFER_COMPLETE) {
-            LOGGER.severe("S1 SS background FBO creation failed with status: " + status);
-        }
-
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        fboHandle = FboHelper.createWithDepth(FBO_WIDTH, FBO_HEIGHT, GL_REPEAT);
+        fboId = fboHandle.fboId();
+        fboTextureId = fboHandle.textureId();
+        fboDepthId = fboHandle.depthId();
         LOGGER.fine("Created FBO " + FBO_WIDTH + "x" + FBO_HEIGHT + " for S1 SS namespace renderer");
     }
 
@@ -200,7 +177,7 @@ public class Sonic1SpecialStageBackgroundRenderer {
     public void beginTilePass(int displayHeight) {
         if (!initialized) return;
 
-        glGetIntegerv(GL_VIEWPORT, savedViewport);
+        savedViewport = FboHelper.saveViewport();
 
         glBindFramebuffer(GL_FRAMEBUFFER, fboId);
         glViewport(0, 0, FBO_WIDTH, FBO_HEIGHT);
@@ -269,7 +246,7 @@ public class Sonic1SpecialStageBackgroundRenderer {
             engine.endFBOProjection();
         }
 
-        glViewport(savedViewport[0], savedViewport[1], savedViewport[2], savedViewport[3]);
+        FboHelper.restoreViewport(savedViewport);
     }
 
     /**
@@ -379,18 +356,11 @@ public class Sonic1SpecialStageBackgroundRenderer {
             shader = null;
         }
         quadRenderer.cleanup();
-        if (fboId > 0) {
-            glDeleteFramebuffers(fboId);
-            fboId = -1;
-        }
-        if (fboTextureId > 0) {
-            glDeleteTextures(fboTextureId);
-            fboTextureId = -1;
-        }
-        if (fboDepthId > 0) {
-            glDeleteRenderbuffers(fboDepthId);
-            fboDepthId = -1;
-        }
+        FboHelper.destroy(fboHandle);
+        fboHandle = null;
+        fboId = -1;
+        fboTextureId = -1;
+        fboDepthId = -1;
         initialized = false;
         LOGGER.info("Sonic1SpecialStageBackgroundRenderer cleaned up");
     }
