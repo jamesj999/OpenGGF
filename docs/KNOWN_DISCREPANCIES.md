@@ -9,6 +9,7 @@ This document tracks intentional deviations from the original Sonic 2 ROM implem
 3. [Pattern ID Ranges](#pattern-id-ranges-for-guiresults-screen)
 4. [HTZ Cloud Scroll Precision Fix](#htz-cloud-scroll-precision-fix)
 5. [MCZ Rotating Platforms Child Cleanup](#mcz-rotating-platforms-child-cleanup)
+6. [Multi-Sidekick Daisy Chain](#multi-sidekick-daisy-chain)
 
 ---
 
@@ -260,3 +261,64 @@ public void onUnload() {
 ### Verification
 
 When the camera leaves the MCZ crate area, all three objects are removed. On return, the parent is re-spawned by Placement and creates fresh children — no accumulation.
+
+---
+
+## Multi-Sidekick Daisy Chain
+
+**Location:** `Engine.java`, `SidekickCpuController.java`, `SpriteManager.java`, `LevelManager.java`
+**ROM Reference:** Sonic 2 supports exactly one CPU-controlled Tails at `$FFFFB040` (Sidekick). S3K adds Knuckles as a playable character but still has at most one CPU follower.
+
+### Original Implementation
+
+The ROM allocates a single fixed RAM slot for the sidekick character. `Tails_CPU` routines follow Sonic with a 17-frame position/input history delay. There is no support for multiple sidekicks, sidekick chains, duplicate characters, or the main player character also appearing as a sidekick.
+
+### Our Implementation
+
+The engine supports an arbitrary number of CPU-controlled sidekicks configured via comma-separated `SIDEKICK_CHARACTER_CODE` (e.g. `"tails,knuckles,sonic,sonic"`). Key divergences:
+
+**Daisy chain following.** Each sidekick follows the one in front of it rather than all following Sonic. The chain uses the same 17-frame history delay per link. When a middle sidekick despawns, downstream sidekicks self-heal to the nearest settled leader via `getEffectiveLeader()`.
+
+**Duplicate characters.** The same character can appear multiple times (e.g. five Sonics). Each duplicate gets a separate DPLC pattern bank in the virtual `0x38000+` range to prevent atlas corruption. The `PlayerSpriteRenderer` uses `renderPatternWithId()` to bypass the VDP's 11-bit pattern index limit.
+
+**Same character as player.** The main player's character can also be used as a sidekick (e.g. Sonic main + Sonic sidekick). VRAM bank slot allocation ensures each instance has independent DPLC storage.
+
+**Per-character respawn strategies.** The ROM's Tails CPU respawn is a single fly-in-from-above behavior. The engine generalizes this via `SidekickRespawnStrategy`:
+- **Tails**: flies in from above (ROM-accurate)
+- **Knuckles**: glides in from the screen edge opposite to the leader's movement direction
+- **Sonic**: walks or spindashes in from the nearest floor at the screen edge
+
+**Parallel respawn.** When multiple sidekicks despawn simultaneously, they respawn in parallel using chain healing rather than cascading one-by-one.
+
+**P2 input routing.** Only the first sidekick in the chain receives Player 2 controller input, matching the ROM's single-sidekick model.
+
+### VRAM Bank Limits
+
+Duplicate-character sidekick DPLC banks occupy pattern ID ranges above the VDP's native 11-bit (2048 tile) limit:
+
+| Range | Purpose | Capacity |
+|-------|---------|----------|
+| `0x38000+` | Sidekick body DPLC banks | ~512 Sonic-type or ~64 before hitting tail range |
+| `0x39000+` | Tails tail appendage (Obj05) banks | ~1,170 tail appendages |
+| `0x40000` | Title Card (next range) | Collision boundary |
+
+Practical limits before title card pattern corruption:
+- **All-Sonic sidekicks** (no tail appendages): ~512
+- **All-Tails sidekicks** (body + tail): ~65
+- **Mixed configurations**: proportional; typical setups (≤10 sidekicks) are well within budget
+
+### Rationale
+
+1. **Fun/novelty** — Multiple characters running together in a chain looks great and extends the ROM's single-sidekick concept naturally.
+2. **Architecture exercise** — The `SidekickRespawnStrategy` interface and chain healing demonstrate clean extension of ROM-accurate systems without if/else chains.
+3. **No impact on accuracy** — Single-sidekick configurations behave identically to the ROM. Multi-sidekick behavior only activates when explicitly configured.
+
+### Configuration
+
+```json
+{
+  "SIDEKICK_CHARACTER_CODE": "tails,knuckles,sonic"
+}
+```
+
+Empty string disables sidekicks (default). Single value preserves ROM-accurate single-sidekick behavior.
