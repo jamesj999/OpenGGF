@@ -3,6 +3,7 @@ package com.openggf.game.sonic2.objects;
 import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
@@ -165,7 +166,6 @@ public class ArrowProjectileInstance extends AbstractObjectInstance
 
         PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.ARROW_SHOOTER);
         if (renderer == null || !renderer.isReady()) {
-            appendDebug(commands);
             return;
         }
 
@@ -173,7 +173,8 @@ public class ArrowProjectileInstance extends AbstractObjectInstance
         renderer.drawFrameIndex(MAPPING_FRAME, currentX, currentY, facingLeft, false);
     }
 
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         int halfWidth = X_RADIUS;
         int halfHeight = Y_RADIUS;
         int left = currentX - halfWidth;
@@ -181,16 +182,10 @@ public class ArrowProjectileInstance extends AbstractObjectInstance
         int top = currentY - halfHeight;
         int bottom = currentY + halfHeight;
 
-        appendLine(commands, left, top, right, top);
-        appendLine(commands, right, top, right, bottom);
-        appendLine(commands, right, bottom, left, bottom);
-        appendLine(commands, left, bottom, left, top);
+        ctx.drawLine(left, top, right, top, 0.8f, 0.2f, 0.2f);
+        ctx.drawLine(right, top, right, bottom, 0.8f, 0.2f, 0.2f);
+        ctx.drawLine(right, bottom, left, bottom, 0.8f, 0.2f, 0.2f);
+        ctx.drawLine(left, bottom, left, top, 0.8f, 0.2f, 0.2f);
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.8f, 0.2f, 0.2f, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.8f, 0.2f, 0.2f, x2, y2, 0, 0));
-    }
 }

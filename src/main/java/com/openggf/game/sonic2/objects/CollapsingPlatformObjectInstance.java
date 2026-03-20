@@ -5,6 +5,7 @@ import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
@@ -254,7 +255,6 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
 
         ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
         if (renderManager == null || config == null) {
-            appendDebug(commands);
             return;
         }
 
@@ -265,7 +265,6 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
             // OOZ/MCZ use dedicated art
             PatternSpriteRenderer renderer = renderManager.getRenderer(config.artKey());
             if (renderer == null || !renderer.isReady()) {
-                appendDebug(commands);
                 return;
             }
             renderer.drawFrameIndex(mappingFrame, spawn.x(), spawn.y(), hFlip, vFlip);
@@ -421,7 +420,8 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
         }
     }
 
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         if (config == null) {
             return;
         }
@@ -438,17 +438,10 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
         float g = 0.4f;
         float b = collapsed ? 0.2f : 0.6f;
 
-        appendLine(commands, left, top, right, top, r, g, b);
-        appendLine(commands, right, top, right, bottom, r, g, b);
-        appendLine(commands, right, bottom, left, bottom, r, g, b);
-        appendLine(commands, left, bottom, left, top, r, g, b);
-    }
-
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2, float r, float g, float b) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x2, y2, 0, 0));
+        ctx.drawLine(left, top, right, top, r, g, b);
+        ctx.drawLine(right, top, right, bottom, r, g, b);
+        ctx.drawLine(right, bottom, left, bottom, r, g, b);
+        ctx.drawLine(left, bottom, left, top, r, g, b);
     }
 
     /**

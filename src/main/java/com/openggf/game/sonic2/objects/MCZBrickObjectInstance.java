@@ -1,12 +1,8 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.debug.DebugOverlayManager;
-import com.openggf.debug.DebugOverlayToggle;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.S2SpriteDataLoader;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
-import com.openggf.game.GameServices;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
@@ -77,11 +73,6 @@ public class MCZBrickObjectInstance extends AbstractObjectInstance
 
     // Static mapping data
     private static final LazyMappingHolder MAPPINGS = new LazyMappingHolder();
-
-    // Debug state
-    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
-            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
 
     // Mode
     private enum Mode { BRICK, SPIKE_BALL }
@@ -305,11 +296,6 @@ public class MCZBrickObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        // Draw debug collision when F1 debug view is enabled
-        if (isDebugViewEnabled()) {
-            appendDebug(commands);
-        }
-
         List<SpriteMappingFrame> mappings = MAPPINGS.get(
                 Sonic2Constants.MAP_UNC_OBJ75_ADDR, S2SpriteDataLoader::loadMappingFrames, "Obj75");
         if (mappings.isEmpty()) {
@@ -378,7 +364,8 @@ public class MCZBrickObjectInstance extends AbstractObjectInstance
         return RenderPriority.clamp(mode == Mode.BRICK ? 4 : 5);
     }
 
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         if (mode == Mode.BRICK) {
             // Draw brick collision box
             int left = initialX - BRICK_HALF_WIDTH;
@@ -387,39 +374,29 @@ public class MCZBrickObjectInstance extends AbstractObjectInstance
             int bottom = initialY + BRICK_BOTTOM_HEIGHT;
 
             // Green for solid collision
-            appendLine(commands, left, top, right, top, 0.0f, 1.0f, 0.0f);
-            appendLine(commands, right, top, right, bottom, 0.0f, 1.0f, 0.0f);
-            appendLine(commands, right, bottom, left, bottom, 0.0f, 1.0f, 0.0f);
-            appendLine(commands, left, bottom, left, top, 0.0f, 1.0f, 0.0f);
+            ctx.drawLine(left, top, right, top, 0.0f, 1.0f, 0.0f);
+            ctx.drawLine(right, top, right, bottom, 0.0f, 1.0f, 0.0f);
+            ctx.drawLine(right, bottom, left, bottom, 0.0f, 1.0f, 0.0f);
+            ctx.drawLine(left, bottom, left, top, 0.0f, 1.0f, 0.0f);
 
             // Center cross
-            appendLine(commands, initialX - 4, initialY, initialX + 4, initialY, 1.0f, 1.0f, 0.0f);
-            appendLine(commands, initialX, initialY - 4, initialX, initialY + 4, 1.0f, 1.0f, 0.0f);
+            ctx.drawLine(initialX - 4, initialY, initialX + 4, initialY, 1.0f, 1.0f, 0.0f);
+            ctx.drawLine(initialX, initialY - 4, initialX, initialY + 4, 1.0f, 1.0f, 0.0f);
         } else {
             // Draw center point (yellow)
-            appendLine(commands, initialX - 4, initialY, initialX + 4, initialY, 1.0f, 1.0f, 0.0f);
-            appendLine(commands, initialX, initialY - 4, initialX, initialY + 4, 1.0f, 1.0f, 0.0f);
+            ctx.drawLine(initialX - 4, initialY, initialX + 4, initialY, 1.0f, 1.0f, 0.0f);
+            ctx.drawLine(initialX, initialY - 4, initialX, initialY + 4, 1.0f, 1.0f, 0.0f);
 
             // Draw chain segment positions (small cyan crosses)
             for (int i = 0; i < chainCount; i++) {
-                appendLine(commands, chainX[i] - 2, chainY[i], chainX[i] + 2, chainY[i], 0.0f, 1.0f, 1.0f);
-                appendLine(commands, chainX[i], chainY[i] - 2, chainX[i], chainY[i] + 2, 0.0f, 1.0f, 1.0f);
+                ctx.drawLine(chainX[i] - 2, chainY[i], chainX[i] + 2, chainY[i], 0.0f, 1.0f, 1.0f);
+                ctx.drawLine(chainX[i], chainY[i] - 2, chainX[i], chainY[i] + 2, 0.0f, 1.0f, 1.0f);
             }
 
             // Draw spike ball head position (red cross)
-            appendLine(commands, spikeBallX - 4, spikeBallY, spikeBallX + 4, spikeBallY, 1.0f, 0.0f, 0.0f);
-            appendLine(commands, spikeBallX, spikeBallY - 4, spikeBallX, spikeBallY + 4, 1.0f, 0.0f, 0.0f);
+            ctx.drawLine(spikeBallX - 4, spikeBallY, spikeBallX + 4, spikeBallY, 1.0f, 0.0f, 0.0f);
+            ctx.drawLine(spikeBallX, spikeBallY - 4, spikeBallX, spikeBallY + 4, 1.0f, 0.0f, 0.0f);
         }
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2, float r, float g, float b) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x2, y2, 0, 0));
-    }
-
-    private boolean isDebugViewEnabled() {
-        return DEBUG_VIEW_ENABLED && OVERLAY_MANAGER.isEnabled(DebugOverlayToggle.OVERLAY);
-    }
 }

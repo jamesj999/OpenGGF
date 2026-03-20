@@ -2,12 +2,8 @@ package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.sonic2.S2SpriteDataLoader;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
-import com.openggf.game.GameServices;
 
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.debug.DebugOverlayManager;
-import com.openggf.debug.DebugOverlayToggle;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
@@ -91,11 +87,6 @@ public class SwingingPformObjectInstance extends AbstractObjectInstance
     private static final int CONTACT_DELAY = 0x1E;    // 30 frames delay before falling (Type 1/3)
 
     private static final LazyMappingHolder MAPPINGS = new LazyMappingHolder();
-
-    // Debug state (cached for performance)
-    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
-            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
 
     // Position state
     private int x;
@@ -423,11 +414,6 @@ public class SwingingPformObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        // Draw debug collision box only when F1 debug view is enabled
-        if (isDebugViewEnabled()) {
-            appendDebug(commands);
-        }
-
         List<SpriteMappingFrame> mappings = MAPPINGS.get(
                 Sonic2Constants.MAP_UNC_OBJ82_ADDR, S2SpriteDataLoader::loadMappingFrames, "Obj82");
         if (mappings.isEmpty()) {
@@ -524,7 +510,8 @@ public class SwingingPformObjectInstance extends AbstractObjectInstance
         }
     }
 
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         int halfWidth = widthPixels;
         int halfHeight = yRadius;
         int left = x - halfWidth;
@@ -533,32 +520,16 @@ public class SwingingPformObjectInstance extends AbstractObjectInstance
         int bottom = y + halfHeight;
 
         // Draw collision box in green
-        appendLine(commands, left, top, right, top, 0.0f, 1.0f, 0.0f);      // Top (standing surface)
-        appendLine(commands, right, top, right, bottom, 0.3f, 0.7f, 0.3f);
-        appendLine(commands, right, bottom, left, bottom, 0.3f, 0.7f, 0.3f);
-        appendLine(commands, left, bottom, left, top, 0.3f, 0.7f, 0.3f);
+        ctx.drawLine(left, top, right, top, 0.0f, 1.0f, 0.0f);      // Top (standing surface)
+        ctx.drawLine(right, top, right, bottom, 0.3f, 0.7f, 0.3f);
+        ctx.drawLine(right, bottom, left, bottom, 0.3f, 0.7f, 0.3f);
+        ctx.drawLine(left, bottom, left, top, 0.3f, 0.7f, 0.3f);
 
         // Draw center cross in red to show object origin
-        appendLine(commands, x - 4, y, x + 4, y, 1.0f, 0.0f, 0.0f);
-        appendLine(commands, x, y - 4, x, y + 4, 1.0f, 0.0f, 0.0f);
+        ctx.drawLine(x - 4, y, x + 4, y, 1.0f, 0.0f, 0.0f);
+        ctx.drawLine(x, y - 4, x, y + 4, 1.0f, 0.0f, 0.0f);
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2, float r, float g, float b) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x2, y2, 0, 0));
-    }
 
-    private boolean isDebugViewEnabled() {
-        return DEBUG_VIEW_ENABLED && OVERLAY_MANAGER.isEnabled(DebugOverlayToggle.OVERLAY);
-    }
-
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.3f, 0.7f, 0.4f, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.3f, 0.7f, 0.4f, x2, y2, 0, 0));
-    }
 }
 

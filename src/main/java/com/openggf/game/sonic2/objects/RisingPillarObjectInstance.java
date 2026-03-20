@@ -5,6 +5,7 @@ import com.openggf.audio.GameSound;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.S2SpriteDataLoader;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
@@ -302,7 +303,6 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
         List<SpriteMappingFrame> mappings = MAPPINGS.get(
                 Sonic2Constants.MAP_UNC_OBJ2B_ADDR, S2SpriteDataLoader::loadMappingFrames, "Obj2B");
         if (mappings.isEmpty()) {
-            appendDebug(commands);
             return;
         }
 
@@ -325,7 +325,6 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
 
         SpriteMappingFrame mapping = mappings.get(frame);
         if (mapping == null || mapping.pieces().isEmpty()) {
-            appendDebug(commands);
             return;
         }
 
@@ -436,7 +435,8 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
         }
     }
 
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         int halfWidth = HALF_WIDTH;
         int halfHeight = yRadius;
         int left = x - halfWidth;
@@ -444,18 +444,12 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
         int top = y - halfHeight;
         int bottom = y + halfHeight;
 
-        appendLine(commands, left, top, right, top);
-        appendLine(commands, right, top, right, bottom);
-        appendLine(commands, right, bottom, left, bottom);
-        appendLine(commands, left, bottom, left, top);
+        ctx.drawLine(left, top, right, top, 0.4f, 0.6f, 0.2f);
+        ctx.drawLine(right, top, right, bottom, 0.4f, 0.6f, 0.2f);
+        ctx.drawLine(right, bottom, left, bottom, 0.4f, 0.6f, 0.2f);
+        ctx.drawLine(left, bottom, left, top, 0.4f, 0.6f, 0.2f);
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.4f, 0.6f, 0.2f, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.4f, 0.6f, 0.2f, x2, y2, 0, 0));
-    }
 
     /**
      * Inner class for debris fragments (pieces 1-13).

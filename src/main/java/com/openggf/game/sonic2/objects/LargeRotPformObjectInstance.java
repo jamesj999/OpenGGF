@@ -1,14 +1,10 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.sonic2.S2SpriteDataLoader;
-import com.openggf.game.GameServices;
 import com.openggf.game.OscillationManager;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
-import com.openggf.debug.DebugOverlayManager;
-import com.openggf.debug.DebugOverlayToggle;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
@@ -84,11 +80,6 @@ public class LargeRotPformObjectInstance extends AbstractObjectInstance
 
     // Static mapping data loaded from ROM
     private static final LazyMappingHolder MAPPINGS = new LazyMappingHolder();
-
-    // Debug state
-    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
-            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
 
     // Instance state
     private final int baseX;       // objoff_34 - original X position
@@ -271,10 +262,6 @@ public class LargeRotPformObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (isDebugViewEnabled()) {
-            appendDebug(commands);
-        }
-
         if (isIndent) {
             renderIndent(commands);
         } else {
@@ -342,7 +329,8 @@ public class LargeRotPformObjectInstance extends AbstractObjectInstance
 
     // Debug rendering
 
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         if (!isIndent && solidParams != null) {
             int left = x - solidParams.halfWidth();
             int right = x + solidParams.halfWidth();
@@ -350,28 +338,18 @@ public class LargeRotPformObjectInstance extends AbstractObjectInstance
             int bottom = y + solidParams.groundHalfHeight();
 
             // Green box for collision bounds
-            appendLine(commands, left, top, right, top, 0.0f, 1.0f, 0.0f);
-            appendLine(commands, right, top, right, bottom, 0.3f, 0.7f, 0.3f);
-            appendLine(commands, right, bottom, left, bottom, 0.3f, 0.7f, 0.3f);
-            appendLine(commands, left, bottom, left, top, 0.3f, 0.7f, 0.3f);
+            ctx.drawLine(left, top, right, top, 0.0f, 1.0f, 0.0f);
+            ctx.drawLine(right, top, right, bottom, 0.3f, 0.7f, 0.3f);
+            ctx.drawLine(right, bottom, left, bottom, 0.3f, 0.7f, 0.3f);
+            ctx.drawLine(left, bottom, left, top, 0.3f, 0.7f, 0.3f);
         }
 
         // Center cross (yellow for base position, red for current)
-        appendLine(commands, baseX - 3, baseY, baseX + 3, baseY, 1.0f, 1.0f, 0.0f);
-        appendLine(commands, baseX, baseY - 3, baseX, baseY + 3, 1.0f, 1.0f, 0.0f);
-        appendLine(commands, x - 2, y, x + 2, y, 1.0f, 0.0f, 0.0f);
-        appendLine(commands, x, y - 2, x, y + 2, 1.0f, 0.0f, 0.0f);
+        ctx.drawLine(baseX - 3, baseY, baseX + 3, baseY, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(baseX, baseY - 3, baseX, baseY + 3, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(x - 2, y, x + 2, y, 1.0f, 0.0f, 0.0f);
+        ctx.drawLine(x, y - 2, x, y + 2, 1.0f, 0.0f, 0.0f);
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2,
-                            float r, float g, float b) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x2, y2, 0, 0));
-    }
 
-    private boolean isDebugViewEnabled() {
-        return DEBUG_VIEW_ENABLED && OVERLAY_MANAGER.isEnabled(DebugOverlayToggle.OVERLAY);
-    }
 }

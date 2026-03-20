@@ -1,10 +1,6 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.debug.DebugOverlayManager;
-import com.openggf.debug.DebugOverlayToggle;
-import com.openggf.game.GameServices;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.LevelManager;
@@ -53,11 +49,6 @@ public class MCZRotPformsObjectInstance extends AbstractObjectInstance
         implements SolidObjectProvider, SolidObjectListener {
 
     private static final Logger LOGGER = Logger.getLogger(MCZRotPformsObjectInstance.class.getName());
-
-    // Debug state
-    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
-            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
 
     // MCZ movement tables from disassembly (lines 53834-53846)
     // Format: {x_vel, y_vel, duration} per phase
@@ -401,11 +392,6 @@ public class MCZRotPformsObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        // Debug overlay
-        if (isDebugViewEnabled()) {
-            appendDebug(commands);
-        }
-
         // Try to render using loaded art
         ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
         PatternSpriteRenderer renderer = null;
@@ -433,7 +419,8 @@ public class MCZRotPformsObjectInstance extends AbstractObjectInstance
         }
     }
 
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         // Draw collision box
         int left = x - MCZ_HALF_WIDTH;
         int right = x + MCZ_HALF_WIDTH;
@@ -449,24 +436,14 @@ public class MCZRotPformsObjectInstance extends AbstractObjectInstance
             b = 0.2f;
         }
 
-        appendLine(commands, left, top, right, top, r, g, b);
-        appendLine(commands, right, top, right, bottom, r, g, b);
-        appendLine(commands, right, bottom, left, bottom, r, g, b);
-        appendLine(commands, left, bottom, left, top, r, g, b);
+        ctx.drawLine(left, top, right, top, r, g, b);
+        ctx.drawLine(right, top, right, bottom, r, g, b);
+        ctx.drawLine(right, bottom, left, bottom, r, g, b);
+        ctx.drawLine(left, bottom, left, top, r, g, b);
 
         // Draw center cross (cyan)
-        appendLine(commands, x - 4, y, x + 4, y, 0.0f, 1.0f, 1.0f);
-        appendLine(commands, x, y - 4, x, y + 4, 0.0f, 1.0f, 1.0f);
+        ctx.drawLine(x - 4, y, x + 4, y, 0.0f, 1.0f, 1.0f);
+        ctx.drawLine(x, y - 4, x, y + 4, 0.0f, 1.0f, 1.0f);
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2, float r, float g, float b) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x2, y2, 0, 0));
-    }
-
-    private boolean isDebugViewEnabled() {
-        return DEBUG_VIEW_ENABLED && OVERLAY_MANAGER.isEnabled(DebugOverlayToggle.OVERLAY);
-    }
 }

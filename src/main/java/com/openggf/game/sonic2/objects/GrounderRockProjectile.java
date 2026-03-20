@@ -2,6 +2,7 @@ package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.sonic2.objects.badniks.GrounderBadnikInstance;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
@@ -166,30 +167,24 @@ public class GrounderRockProjectile extends AbstractObjectInstance {
 
         PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.GROUNDER_ROCK);
         if (renderer == null || !renderer.isReady()) {
-            appendDebug(commands);
             return;
         }
 
         renderer.drawFrameIndex(mappingFrame, currentX, currentY, false, false);
     }
 
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         int halfSize = 8;
         int left = currentX - halfSize;
         int right = currentX + halfSize;
         int top = currentY - halfSize;
         int bottom = currentY + halfSize;
 
-        appendLine(commands, left, top, right, top);
-        appendLine(commands, right, top, right, bottom);
-        appendLine(commands, right, bottom, left, bottom);
-        appendLine(commands, left, bottom, left, top);
+        ctx.drawLine(left, top, right, top, 0.6f, 0.4f, 0.2f);
+        ctx.drawLine(right, top, right, bottom, 0.6f, 0.4f, 0.2f);
+        ctx.drawLine(right, bottom, left, bottom, 0.6f, 0.4f, 0.2f);
+        ctx.drawLine(left, bottom, left, top, 0.6f, 0.4f, 0.2f);
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.6f, 0.4f, 0.2f, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.6f, 0.4f, 0.2f, x2, y2, 0, 0));
-    }
 }

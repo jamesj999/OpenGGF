@@ -4,6 +4,7 @@ import com.openggf.data.RomByteReader;
 import com.openggf.game.sonic2.S2SpriteDataLoader;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.LevelManager;
@@ -176,8 +177,6 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
         if (renderer != null && renderer.isReady()) {
             // Frame 0 is the 48x16 platform
             renderer.drawFrameIndex(0, x, y, false, false);
-        } else {
-            appendDebug(commands);
         }
     }
 
@@ -190,14 +189,12 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
         ensureMczMappingsLoaded();
 
         if (mczMappings == null || mczMappings.isEmpty()) {
-            appendDebug(commands);
             return;
         }
 
         // Frame 0 is the 48x16 platform
         SpriteMappingFrame frame = mczMappings.get(0);
         if (frame == null || frame.pieces().isEmpty()) {
-            appendDebug(commands);
             return;
         }
 
@@ -391,26 +388,21 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
         }
     }
 
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         int left = x - HALF_WIDTH;
         int right = x + HALF_WIDTH;
         int top = y - HALF_HEIGHT;
         int bottom = y + HALF_HEIGHT;
 
-        appendLine(commands, left, top, right, top);
-        appendLine(commands, right, top, right, bottom);
-        appendLine(commands, right, bottom, left, bottom);
-        appendLine(commands, left, bottom, left, top);
+        ctx.drawLine(left, top, right, top, 0.4f, 0.8f, 0.6f);
+        ctx.drawLine(right, top, right, bottom, 0.4f, 0.8f, 0.6f);
+        ctx.drawLine(right, bottom, left, bottom, 0.4f, 0.8f, 0.6f);
+        ctx.drawLine(left, bottom, left, top, 0.4f, 0.8f, 0.6f);
 
         // Draw center cross
-        appendLine(commands, x - 4, y, x + 4, y);
-        appendLine(commands, x, y - 4, x, y + 4);
+        ctx.drawLine(x - 4, y, x + 4, y, 0.4f, 0.8f, 0.6f);
+        ctx.drawLine(x, y - 4, x, y + 4, 0.4f, 0.8f, 0.6f);
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.4f, 0.8f, 0.6f, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.4f, 0.8f, 0.6f, x2, y2, 0, 0));
-    }
 }

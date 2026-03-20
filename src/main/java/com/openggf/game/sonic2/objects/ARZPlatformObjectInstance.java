@@ -4,6 +4,7 @@ import com.openggf.camera.Camera;
 import com.openggf.game.OscillationManager;
 import com.openggf.game.sonic2.S2SpriteDataLoader;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.PatternDesc;
@@ -111,7 +112,6 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
     public void appendRenderCommands(List<GLCommand> commands) {
         List<SpriteMappingFrame> mappings = resolveMappings();
         if (mappings == null || mappings.isEmpty()) {
-            appendDebug(commands);
             return;
         }
 
@@ -125,7 +125,6 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
 
         SpriteMappingFrame mapping = mappings.get(frame);
         if (mapping == null || mapping.pieces().isEmpty()) {
-            appendDebug(commands);
             return;
         }
 
@@ -407,7 +406,8 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
                 Sonic2Constants.MAP_UNC_OBJ18_A_ADDR, S2SpriteDataLoader::loadMappingFrames, "Obj18A");
     }
 
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         int halfWidth = widthPixels;
         int halfHeight = routine == 8 ? yRadius : HALF_HEIGHT;
         int left = x - halfWidth;
@@ -415,16 +415,10 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
         int top = y - halfHeight;
         int bottom = y + halfHeight;
 
-        appendLine(commands, left, top, right, top);
-        appendLine(commands, right, top, right, bottom);
-        appendLine(commands, right, bottom, left, bottom);
-        appendLine(commands, left, bottom, left, top);
+        ctx.drawLine(left, top, right, top, 0.35f, 0.7f, 1.0f);
+        ctx.drawLine(right, top, right, bottom, 0.35f, 0.7f, 1.0f);
+        ctx.drawLine(right, bottom, left, bottom, 0.35f, 0.7f, 1.0f);
+        ctx.drawLine(left, bottom, left, top, 0.35f, 0.7f, 1.0f);
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.35f, 0.7f, 1.0f, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.35f, 0.7f, 1.0f, x2, y2, 0, 0));
-    }
 }

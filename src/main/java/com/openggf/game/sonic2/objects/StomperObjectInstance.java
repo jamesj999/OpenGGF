@@ -3,7 +3,7 @@ package com.openggf.game.sonic2.objects;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.debug.DebugOverlayManager;
-import com.openggf.debug.DebugOverlayToggle;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.GameServices;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
@@ -172,10 +172,6 @@ public class StomperObjectInstance extends AbstractObjectInstance
                     });
         }
 
-        // Debug overlay showing collision box
-        if (isDebugViewEnabled()) {
-            appendDebug(commands);
-        }
     }
 
     @Override
@@ -215,11 +211,9 @@ public class StomperObjectInstance extends AbstractObjectInstance
         }
     }
 
-    private boolean isDebugViewEnabled() {
-        return DEBUG_VIEW_ENABLED && OVERLAY_MANAGER.isEnabled(DebugOverlayToggle.OVERLAY);
-    }
 
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         int x = spawn.x();
         int y = currentY;
 
@@ -237,22 +231,15 @@ public class StomperObjectInstance extends AbstractObjectInstance
         float g = crushing ? 0.2f : 0.8f;
         float b = crushing ? 0.2f : 0.8f;
 
-        appendLine(commands, left, top, right, top, r, g, b);
-        appendLine(commands, right, top, right, bottom, r, g, b);
-        appendLine(commands, right, bottom, left, bottom, r, g, b);
-        appendLine(commands, left, bottom, left, top, r, g, b);
+        ctx.drawLine(left, top, right, top, r, g, b);
+        ctx.drawLine(right, top, right, bottom, r, g, b);
+        ctx.drawLine(right, bottom, left, bottom, r, g, b);
+        ctx.drawLine(left, bottom, left, top, r, g, b);
 
         // Cross at center
         int crossHalf = Math.min(halfWidth, halfHeight) / 4;
-        appendLine(commands, x - crossHalf, y, x + crossHalf, y, r, g, b);
-        appendLine(commands, x, y - crossHalf, x, y + crossHalf, r, g, b);
+        ctx.drawLine(x - crossHalf, y, x + crossHalf, y, r, g, b);
+        ctx.drawLine(x, y - crossHalf, x, y + crossHalf, r, g, b);
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2,
-                           float r, float g, float b) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x2, y2, 0, 0));
-    }
 }

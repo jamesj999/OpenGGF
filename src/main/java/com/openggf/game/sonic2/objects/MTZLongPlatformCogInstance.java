@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -108,21 +109,13 @@ public class MTZLongPlatformCogInstance extends AbstractObjectInstance {
         }
         if (renderer != null && renderer.isReady()) {
             renderer.drawFrameIndex(mappingFrame, x, y, xFlip, false);
-        } else {
-            appendDebug(commands);
         }
     }
 
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         // Draw small cross at cog position
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.9f, 0.6f, 0.2f, x - 8, y, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.9f, 0.6f, 0.2f, x + 8, y, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.9f, 0.6f, 0.2f, x, y - 8, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.9f, 0.6f, 0.2f, x, y + 8, 0, 0));
+        ctx.drawCross(x, y, 8, 0.9f, 0.6f, 0.2f);
     }
 
     private static ObjectSpawn createSpawn(int x, int y) {

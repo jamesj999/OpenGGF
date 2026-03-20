@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -339,14 +340,12 @@ public class CPZStaircaseObjectInstance extends AbstractObjectInstance
     public void appendRenderCommands(List<GLCommand> commands) {
         ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
         if (renderManager == null) {
-            appendDebug(commands);
             return;
         }
 
         // Use the dedicated CPZ Stair Block renderer (NOT cpzPlatformRenderer which is Obj19)
         PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.CPZ_STAIR_BLOCK);
         if (renderer == null || !renderer.isReady()) {
-            appendDebug(commands);
             return;
         }
 
@@ -391,7 +390,8 @@ public class CPZStaircaseObjectInstance extends AbstractObjectInstance
         }
     }
 
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         // Debug rendering - draw rectangles for each piece
         for (int i = 0; i < NUM_PIECES; i++) {
             int pieceIndex = xFlip ? (NUM_PIECES - 1 - i) : i;
@@ -403,17 +403,11 @@ public class CPZStaircaseObjectInstance extends AbstractObjectInstance
             int top = pieceY - PIECE_TOP_HEIGHT;
             int bottom = pieceY + PIECE_BOTTOM_HEIGHT;
 
-            appendLine(commands, left, top, right, top);
-            appendLine(commands, right, top, right, bottom);
-            appendLine(commands, right, bottom, left, bottom);
-            appendLine(commands, left, bottom, left, top);
+            ctx.drawLine(left, top, right, top, 0.6f, 0.8f, 0.3f);
+            ctx.drawLine(right, top, right, bottom, 0.6f, 0.8f, 0.3f);
+            ctx.drawLine(right, bottom, left, bottom, 0.6f, 0.8f, 0.3f);
+            ctx.drawLine(left, bottom, left, top, 0.6f, 0.8f, 0.3f);
         }
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.6f, 0.8f, 0.3f, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.6f, 0.8f, 0.3f, x2, y2, 0, 0));
-    }
 }

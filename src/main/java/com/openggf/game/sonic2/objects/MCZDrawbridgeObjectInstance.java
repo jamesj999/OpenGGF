@@ -1,12 +1,8 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.audio.AudioManager;
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.debug.DebugOverlayManager;
-import com.openggf.debug.DebugOverlayToggle;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
-import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.ButtonVineTriggerManager;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
@@ -87,11 +83,6 @@ public class MCZDrawbridgeObjectInstance extends AbstractObjectInstance
     // X position offset when bridge is down
     // ROM: addi.w #$48,x_pos(a0) or subi.w #$48,x_pos(a0)
     private static final int DOWN_X_OFFSET = 0x48;
-
-    // Debug state
-    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
-            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
 
     // State variables
     private final int switchId;           // ButtonVine trigger ID (0-15)
@@ -314,11 +305,6 @@ public class MCZDrawbridgeObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        // Draw debug overlay
-        if (isDebugViewEnabled()) {
-            appendDebug(commands);
-        }
-
         // Get renderer from art provider
         ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
         if (renderManager == null) {
@@ -343,20 +329,21 @@ public class MCZDrawbridgeObjectInstance extends AbstractObjectInstance
         return RenderPriority.clamp(5);  // Priority 5 from disassembly
     }
 
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         // Draw pivot point (yellow)
         int pivotX = originalX;
         int pivotY = originalY + INITIAL_Y_OFFSET;
         if (yFlipped) {
             pivotY += 0x90;
         }
-        appendLine(commands, pivotX - 4, pivotY, pivotX + 4, pivotY, 1.0f, 1.0f, 0.0f);
-        appendLine(commands, pivotX, pivotY - 4, pivotX, pivotY + 4, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(pivotX - 4, pivotY, pivotX + 4, pivotY, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(pivotX, pivotY - 4, pivotX, pivotY + 4, 1.0f, 1.0f, 0.0f);
 
         // Draw log segment positions (cyan crosses)
         for (int i = 0; i < NUM_LOG_SEGMENTS; i++) {
-            appendLine(commands, logX[i] - 4, logY[i], logX[i] + 4, logY[i], 0.0f, 1.0f, 1.0f);
-            appendLine(commands, logX[i], logY[i] - 4, logX[i], logY[i] + 4, 0.0f, 1.0f, 1.0f);
+            ctx.drawLine(logX[i] - 4, logY[i], logX[i] + 4, logY[i], 0.0f, 1.0f, 1.0f);
+            ctx.drawLine(logX[i], logY[i] - 4, logX[i], logY[i] + 4, 0.0f, 1.0f, 1.0f);
         }
 
         // Draw collision bounds (green)
@@ -370,24 +357,14 @@ public class MCZDrawbridgeObjectInstance extends AbstractObjectInstance
         int top = collisionY - airHalfHeight;
         int bottom = collisionY + groundHalfHeight;
 
-        appendLine(commands, left, top, right, top, 0.0f, 1.0f, 0.0f);
-        appendLine(commands, right, top, right, bottom, 0.0f, 0.7f, 0.0f);
-        appendLine(commands, right, bottom, left, bottom, 0.0f, 0.7f, 0.0f);
-        appendLine(commands, left, bottom, left, top, 0.0f, 0.7f, 0.0f);
+        ctx.drawLine(left, top, right, top, 0.0f, 1.0f, 0.0f);
+        ctx.drawLine(right, top, right, bottom, 0.0f, 0.7f, 0.0f);
+        ctx.drawLine(right, bottom, left, bottom, 0.0f, 0.7f, 0.0f);
+        ctx.drawLine(left, bottom, left, top, 0.0f, 0.7f, 0.0f);
 
         // Draw angle indicator
         String angleText = String.format("A:%02X", angle & 0xFF);
         // (Text rendering not available in GLCommand, but could add later)
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2, float r, float g, float b) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x2, y2, 0, 0));
-    }
-
-    private boolean isDebugViewEnabled() {
-        return DEBUG_VIEW_ENABLED && OVERLAY_MANAGER.isEnabled(DebugOverlayToggle.OVERLAY);
-    }
 }
