@@ -17,4 +17,13 @@ public interface SidekickRespawnStrategy {
      * @return true if approach started, false if conditions not met (stay in SPAWNING)
      */
     boolean beginApproach(AbstractPlayableSprite sidekick, AbstractPlayableSprite leader);
+
+    /**
+     * Whether this strategy needs the normal physics pipeline to run during APPROACHING.
+     * Strategies that manually position the sprite (Tails fly-in, Knuckles glide) return false.
+     * Strategies that rely on ground speed and terrain collision (Sonic walk/spindash) return true.
+     */
+    default boolean requiresPhysics() {
+        return false;
+    }
 }

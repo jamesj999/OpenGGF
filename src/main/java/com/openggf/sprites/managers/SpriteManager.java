@@ -267,8 +267,11 @@ public class SpriteManager {
 					}
 					cpuController.update(frameCounter);
 
-					// If approaching (respawn in progress), the AI moves the sidekick directly - skip normal physics
-					if (cpuController.isApproaching()) {
+					// If approaching (respawn in progress) and the strategy handles movement
+					// directly (Tails fly-in, Knuckles glide), skip normal physics.
+					// Strategies that need physics (Sonic walk/spindash) fall through.
+					if (cpuController.isApproaching()
+							&& !cpuController.getRespawnStrategy().requiresPhysics()) {
 						playable.getAnimationManager().update(frameCounter);
 						playable.tickStatus();
 						playable.endOfTick();

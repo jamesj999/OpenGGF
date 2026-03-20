@@ -631,18 +631,18 @@ public class TestS2Ehz1Headless {
     }
 
     @Test
-    public void testSonicDeathTransitionsToFlying() {
+    public void testSonicDeathTransitionsToApproaching() {
         createTailsForTest();
         controller.update(0);
-        short originalX = tails.getX();
-        short originalY = tails.getY();
 
         sonic.setDead(true);
         controller.update(1);
 
+        // enterApproachingState() now delegates to the respawn strategy,
+        // which repositions the sidekick to its fly-in start position.
         assertEquals(SidekickCpuController.State.APPROACHING, controller.getState());
-        assertEquals(originalX, tails.getX());
-        assertEquals(originalY, tails.getY());
+        // Tails strategy positions 192px above the leader
+        assertEquals(sonic.getCentreY() - 192, tails.getCentreY());
     }
 
     // -- findSonic Tests --

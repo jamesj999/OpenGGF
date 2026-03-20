@@ -120,4 +120,9 @@ public class SonicRespawnStrategy implements SidekickRespawnStrategy {
         int dx = Math.abs(leader.getCentreX() - sidekick.getCentreX());
         return dx <= APPROACH_COMPLETE_THRESHOLD;
     }
+
+    @Override
+    public boolean requiresPhysics() {
+        return true;
+    }
 }

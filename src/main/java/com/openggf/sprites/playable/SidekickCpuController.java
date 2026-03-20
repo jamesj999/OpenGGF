@@ -412,7 +412,7 @@ public class SidekickCpuController {
         this.respawnStrategy = strategy;
     }
 
-    SidekickRespawnStrategy getRespawnStrategy() {
+    public SidekickRespawnStrategy getRespawnStrategy() {
         return respawnStrategy;
     }
 
