@@ -16,7 +16,7 @@ import com.openggf.level.render.SpriteMappingPiece;
 import com.openggf.sprites.animation.SpriteAnimationEndAction;
 import com.openggf.sprites.animation.SpriteAnimationScript;
 import com.openggf.sprites.animation.SpriteAnimationSet;
-import com.openggf.tools.NemesisReader;
+import com.openggf.util.PatternDecompressor;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
@@ -339,26 +339,9 @@ public class Sonic2ObjectArt {
     }
 
     private Pattern[] loadNemesisPatterns(int artAddr) throws IOException {
-        byte[] result;
         synchronized (rom) {
-            FileChannel channel = rom.getFileChannel();
-            channel.position(artAddr);
-            result = NemesisReader.decompress(channel);
+            return PatternDecompressor.nemesis(rom, artAddr);
         }
-
-        if (result.length % Pattern.PATTERN_SIZE_IN_ROM != 0) {
-            throw new IOException("Inconsistent object art tile data");
-        }
-
-        int patternCount = result.length / Pattern.PATTERN_SIZE_IN_ROM;
-        Pattern[] patterns = new Pattern[patternCount];
-        for (int i = 0; i < patternCount; i++) {
-            patterns[i] = new Pattern();
-            byte[] subArray = Arrays.copyOfRange(result, i * Pattern.PATTERN_SIZE_IN_ROM,
-                    (i + 1) * Pattern.PATTERN_SIZE_IN_ROM);
-            patterns[i].fromSegaFormat(subArray);
-        }
-        return patterns;
     }
 
     private Pattern[] loadUncompressedPatterns(int artAddr, int length) throws IOException {

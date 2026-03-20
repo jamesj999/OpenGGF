@@ -16,6 +16,7 @@ import com.openggf.level.render.TileLoadRequest;
 import com.openggf.level.resources.CompressionType;
 import com.openggf.tools.KosinskiReader;
 import com.openggf.tools.NemesisReader;
+import com.openggf.util.PatternDecompressor;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
@@ -898,10 +899,7 @@ public class Sonic3kObjectArt {
     }
 
     private Pattern[] loadNemesisPatterns(Rom rom, int addr) throws IOException {
-        FileChannel channel = rom.getFileChannel();
-        channel.position(addr);
-        byte[] data = NemesisReader.decompress(channel);
-        return bytesToPatterns(data);
+        return PatternDecompressor.nemesis(rom, addr);
     }
 
     private Pattern[] loadKosinskiModuledPatterns(Rom rom, int romAddr) throws IOException {
@@ -926,20 +924,7 @@ public class Sonic3kObjectArt {
     }
 
     private Pattern[] bytesToPatterns(byte[] data) {
-        if (data == null || data.length == 0) {
-            return new Pattern[0];
-        }
-        int count = data.length / Pattern.PATTERN_SIZE_IN_ROM;
-        Pattern[] patterns = new Pattern[count];
-        for (int i = 0; i < count; i++) {
-            patterns[i] = new Pattern();
-            byte[] tile = Arrays.copyOfRange(
-                    data,
-                    i * Pattern.PATTERN_SIZE_IN_ROM,
-                    (i + 1) * Pattern.PATTERN_SIZE_IN_ROM);
-            patterns[i].fromSegaFormat(tile);
-        }
-        return patterns;
+        return PatternDecompressor.fromBytes(data);
     }
 
     /**

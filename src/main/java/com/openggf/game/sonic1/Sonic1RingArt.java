@@ -6,12 +6,10 @@ import com.openggf.level.Pattern;
 import com.openggf.level.rings.RingFrame;
 import com.openggf.level.rings.RingFramePiece;
 import com.openggf.level.rings.RingSpriteSheet;
-import com.openggf.tools.NemesisReader;
+import com.openggf.util.PatternDecompressor;
 
 import java.io.IOException;
-import java.nio.channels.FileChannel;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -54,23 +52,7 @@ public class Sonic1RingArt {
     }
 
     private Pattern[] loadRingPatterns() throws IOException {
-        FileChannel channel = rom.getFileChannel();
-        channel.position(Sonic1Constants.ART_NEM_RING_ADDR);
-        byte[] result = NemesisReader.decompress(channel);
-
-        if (result.length % Pattern.PATTERN_SIZE_IN_ROM != 0) {
-            throw new IOException("Inconsistent Sonic 1 ring pattern data");
-        }
-
-        int patternCount = result.length / Pattern.PATTERN_SIZE_IN_ROM;
-        Pattern[] patterns = new Pattern[patternCount];
-        for (int i = 0; i < patternCount; i++) {
-            patterns[i] = new Pattern();
-            byte[] subArray = Arrays.copyOfRange(result, i * Pattern.PATTERN_SIZE_IN_ROM,
-                    (i + 1) * Pattern.PATTERN_SIZE_IN_ROM);
-            patterns[i].fromSegaFormat(subArray);
-        }
-        return patterns;
+        return PatternDecompressor.nemesis(rom, Sonic1Constants.ART_NEM_RING_ADDR);
     }
 
     /**

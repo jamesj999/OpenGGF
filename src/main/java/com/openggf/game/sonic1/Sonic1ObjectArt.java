@@ -5,12 +5,9 @@ import com.openggf.data.RomByteReader;
 import com.openggf.level.Pattern;
 import com.openggf.level.objects.ObjectSpriteSheet;
 import com.openggf.level.render.SpriteMappingFrame;
-import com.openggf.tools.NemesisReader;
+import com.openggf.util.PatternDecompressor;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.nio.channels.Channels;
-import java.nio.channels.ReadableByteChannel;
 import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
@@ -22,9 +19,6 @@ import java.util.logging.Logger;
  */
 public class Sonic1ObjectArt {
     private static final Logger LOG = Logger.getLogger(Sonic1ObjectArt.class.getName());
-
-    // Read buffer for Nemesis decompression - NemesisReader stops at stream end
-    private static final int NEMESIS_READ_BUFFER_SIZE = 8192;
 
     private final Rom rom;
     private final RomByteReader reader;
@@ -101,21 +95,7 @@ public class Sonic1ObjectArt {
      */
     public Pattern[] loadNemesisPatterns(int address) {
         try {
-            byte[] compressed = rom.readBytes(address, NEMESIS_READ_BUFFER_SIZE);
-            try (ByteArrayInputStream bais = new ByteArrayInputStream(compressed);
-                 ReadableByteChannel channel = Channels.newChannel(bais)) {
-                byte[] decompressed = NemesisReader.decompress(channel);
-                int count = decompressed.length / Pattern.PATTERN_SIZE_IN_ROM;
-                Pattern[] patterns = new Pattern[count];
-                for (int i = 0; i < count; i++) {
-                    patterns[i] = new Pattern();
-                    byte[] sub = Arrays.copyOfRange(decompressed,
-                            i * Pattern.PATTERN_SIZE_IN_ROM,
-                            (i + 1) * Pattern.PATTERN_SIZE_IN_ROM);
-                    patterns[i].fromSegaFormat(sub);
-                }
-                return patterns;
-            }
+            return PatternDecompressor.nemesis(rom, address);
         } catch (IOException e) {
             LOG.warning("Failed to decompress Nemesis art at 0x"
                     + Integer.toHexString(address) + ": " + e.getMessage());
