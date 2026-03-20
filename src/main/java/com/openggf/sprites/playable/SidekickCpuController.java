@@ -137,12 +137,15 @@ public class SidekickCpuController {
     }
 
     private void respawnToApproaching(AbstractPlayableSprite target) {
+        boolean started = respawnStrategy.beginApproach(sidekick, target);
+        if (!started) {
+            return; // Strategy can't start — stay in SPAWNING
+        }
         state = State.APPROACHING;
         controlCounter = 0;
         despawnCounter = 0;
         normalFrameCount = 0;
         jumpingFlag = false;
-        respawnStrategy.beginApproach(sidekick, target);
     }
 
     private void updateApproaching() {
@@ -308,16 +311,22 @@ public class SidekickCpuController {
     }
 
     private void enterApproachingState() {
+        AbstractPlayableSprite target = getEffectiveLeader();
+        if (target == null) {
+            triggerDespawn();
+            return;
+        }
+        sidekick.setSpindash(false);
+        sidekick.setSpindashCounter((short) 0);
+        boolean started = respawnStrategy.beginApproach(sidekick, target);
+        if (!started) {
+            triggerDespawn();
+            return;
+        }
         state = State.APPROACHING;
         despawnCounter = 0;
         controlCounter = 0;
         normalFrameCount = 0;
-        sidekick.setSpindash(false);
-        sidekick.setSpindashCounter((short) 0);
-        sidekick.setForcedAnimationId(FLY_ANIM_ID);
-        sidekick.setAir(true);
-        sidekick.setControlLocked(true);
-        sidekick.setObjectControlled(true);
     }
 
     int clampTargetYToWater(int targetY) {
@@ -401,6 +410,10 @@ public class SidekickCpuController {
 
     public void setRespawnStrategy(SidekickRespawnStrategy strategy) {
         this.respawnStrategy = strategy;
+    }
+
+    SidekickRespawnStrategy getRespawnStrategy() {
+        return respawnStrategy;
     }
 
     public void setLeader(AbstractPlayableSprite leader) {

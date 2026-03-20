@@ -19,7 +19,9 @@ import com.openggf.debug.DebugState;
 import com.openggf.level.LevelManager;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.sprites.playable.KnucklesRespawnStrategy;
 import com.openggf.sprites.playable.Sonic;
+import com.openggf.sprites.playable.SonicRespawnStrategy;
 import com.openggf.sprites.playable.Tails;
 import com.openggf.sprites.playable.SidekickCpuController;
 import com.openggf.debug.playback.PlaybackDebugManager;
@@ -387,6 +389,15 @@ public class Engine {
 					controller.setInitialState(SidekickCpuController.State.SPAWNING);
 				}
 				sidekick.setCpuController(controller);
+
+				// Select respawn strategy based on character type
+				if ("knuckles".equalsIgnoreCase(charName)) {
+					controller.setRespawnStrategy(new KnucklesRespawnStrategy(controller));
+				} else if (!"tails".equalsIgnoreCase(charName)) {
+					controller.setRespawnStrategy(new SonicRespawnStrategy(controller));
+				}
+				// Tails is the default — already set in constructor
+
 				spriteManager.addSprite(sidekick, charName);
 				previousLeader = sidekick;
 			}
