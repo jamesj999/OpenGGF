@@ -1076,6 +1076,28 @@ public class GameLoop {
             if (gamestate != null) {
                 gamestate.setRings(0);
             }
+
+            // ROM parity: both S2 (InitPlayers) and S3K (SpawnLevelMainSprites_SpawnPlayers)
+            // do a full level re-init on special stage return, which spawns Tails at
+            // Player_1 - $20, + 4. We don't reload the level, so replicate the spawn here.
+            for (AbstractPlayableSprite sidekick : spriteManager.getSidekicks()) {
+                sidekick.setX((short) (playable.getX() - 0x20));
+                sidekick.setY((short) (playable.getY() + 4));
+                sidekick.setXSpeed((short) 0);
+                sidekick.setYSpeed((short) 0);
+                sidekick.setGSpeed((short) 0);
+                sidekick.setAir(false);
+                sidekick.setDead(false);
+                sidekick.setDeathCountdown(0);
+                sidekick.setHurt(false);
+                sidekick.setHidden(false);
+                sidekick.setObjectControlled(false);
+                sidekick.setRolling(false);
+                sidekick.setDirection(playable.getDirection());
+                if (sidekick.getCpuController() != null) {
+                    sidekick.getCpuController().reset();
+                }
+            }
         }
 
         // Initialize the title card manager
