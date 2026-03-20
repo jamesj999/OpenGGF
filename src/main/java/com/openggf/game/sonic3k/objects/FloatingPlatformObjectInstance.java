@@ -3,6 +3,7 @@ package com.openggf.game.sonic3k.objects;
 import com.openggf.game.OscillationManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
@@ -243,19 +244,16 @@ public class FloatingPlatformObjectInstance extends AbstractObjectInstance
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
         if (config == null || config.artKey == null) {
-            appendDebug(commands);
             return;
         }
 
         ObjectRenderManager renderManager = getRenderManager();
         if (renderManager == null) {
-            appendDebug(commands);
             return;
         }
 
         PatternSpriteRenderer renderer = renderManager.getRenderer(config.artKey);
         if (renderer == null || !renderer.isReady()) {
-            appendDebug(commands);
             return;
         }
 
@@ -569,22 +567,17 @@ public class FloatingPlatformObjectInstance extends AbstractObjectInstance
 
     // ===== Debug rendering =====
 
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         int left = x - halfWidth;
         int right = x + halfWidth;
         int top = y - halfHeight;
         int bottom = y + halfHeight;
 
-        appendLine(commands, left, top, right, top);
-        appendLine(commands, right, top, right, bottom);
-        appendLine(commands, right, bottom, left, bottom);
-        appendLine(commands, left, bottom, left, top);
+        ctx.drawLine(left, top, right, top, 0.2f, 0.8f, 0.5f);
+        ctx.drawLine(right, top, right, bottom, 0.2f, 0.8f, 0.5f);
+        ctx.drawLine(right, bottom, left, bottom, 0.2f, 0.8f, 0.5f);
+        ctx.drawLine(left, bottom, left, top, 0.2f, 0.8f, 0.5f);
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.2f, 0.8f, 0.5f, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.2f, 0.8f, 0.5f, x2, y2, 0, 0));
-    }
 }
