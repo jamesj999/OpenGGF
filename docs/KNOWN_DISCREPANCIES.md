@@ -138,6 +138,8 @@ We use **extended pattern ID ranges** with fixed bases that don't overlap:
 | `0x20000` | Objects | Monitors, springs, badniks, zone-specific objects |
 | `0x28000` | HUD | Score, time, rings display (fixed base) |
 | `0x30000` | Water surface | Underwater palette transition patterns |
+| `0x38000+` | Sidekick DPLC banks | Extra banks for duplicate-character sidekicks (global running offset) |
+| `0x39000+` | Sidekick tail appendages | Extra banks for duplicate Tails tail sprites (Obj05) |
 | `0x40000` | Title Card | Zone/act title card patterns |
 
 ```java

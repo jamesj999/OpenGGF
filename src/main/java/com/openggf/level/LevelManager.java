@@ -97,8 +97,8 @@ public class LevelManager {
     private static final float SWITCHER_DEBUG_ALPHA = 0.35f;
     private static final int OBJECT_PATTERN_BASE = 0x20000;
     private static final int HUD_PATTERN_BASE = 0x28000;
-    /** Base for extra sidekick DPLC banks — above object/HUD ranges to avoid collision. */
-    private static final int SIDEKICK_PATTERN_BASE = 0x30000;
+    /** Base for extra sidekick DPLC banks — above water (0x30000) and below title cards (0x40000). */
+    private static final int SIDEKICK_PATTERN_BASE = 0x38000;
     private static final Palette.Color BLACK_BACKDROP = new Palette.Color((byte) 0, (byte) 0, (byte) 0);
     private static LevelManager levelManager;
     private Level level;
