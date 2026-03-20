@@ -2,8 +2,6 @@ package com.openggf.game.sonic2.objects;
 
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.data.Rom;
-import com.openggf.data.RomByteReader;
 import com.openggf.debug.DebugOverlayManager;
 import com.openggf.debug.DebugOverlayToggle;
 import com.openggf.game.OscillationManager;
@@ -27,8 +25,8 @@ import com.openggf.level.render.SpriteMappingPiece;
 import com.openggf.level.render.SpritePieceRenderer;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.util.LazyMappingHolder;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -100,11 +98,10 @@ public class SwingingPlatformObjectInstance extends AbstractObjectInstance
     private static final int TRAP_ROTATION_MAX = 0x200; // Maximum rotation accumulator
 
     // Static mapping data (loaded per-zone)
-    private static List<SpriteMappingFrame> oozMappings;
-    private static List<SpriteMappingFrame> mczMappings;
-    private static List<SpriteMappingFrame> arzMappings;
-    private static List<SpriteMappingFrame> trapMappings;
-    private static boolean mappingsLoadAttempted;
+    private static final LazyMappingHolder OOZ_MAPPINGS = new LazyMappingHolder();
+    private static final LazyMappingHolder MCZ_MAPPINGS = new LazyMappingHolder();
+    private static final LazyMappingHolder ARZ_MAPPINGS = new LazyMappingHolder();
+    private static final LazyMappingHolder TRAP_MAPPINGS = new LazyMappingHolder();
 
     // Debug state
     private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
@@ -390,8 +387,6 @@ public class SwingingPlatformObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ensureMappingsLoaded();
-
         // Draw debug collision box when F1 debug view is enabled
         if (isDebugViewEnabled()) {
             appendDebug(commands);
@@ -437,12 +432,16 @@ public class SwingingPlatformObjectInstance extends AbstractObjectInstance
 
     private List<SpriteMappingFrame> getMappingsForZone() {
         if (behaviorMode == BehaviorMode.TRAP) {
-            return trapMappings;
+            return TRAP_MAPPINGS.get(
+                    Sonic2Constants.MAP_UNC_OBJ15_TRAP_ADDR, S2SpriteDataLoader::loadMappingFrames, "Obj15Trap");
         }
         return switch (zoneConfig) {
-            case OOZ -> oozMappings;
-            case ARZ -> arzMappings;
-            case MCZ -> mczMappings;
+            case OOZ -> OOZ_MAPPINGS.get(
+                    Sonic2Constants.MAP_UNC_OBJ15_A_ADDR, S2SpriteDataLoader::loadMappingFrames, "Obj15OOZ");
+            case ARZ -> ARZ_MAPPINGS.get(
+                    Sonic2Constants.MAP_UNC_OBJ83_ADDR, S2SpriteDataLoader::loadMappingFrames, "Obj15ARZ");
+            case MCZ -> MCZ_MAPPINGS.get(
+                    Sonic2Constants.MAP_UNC_OBJ15_MCZ_ADDR, S2SpriteDataLoader::loadMappingFrames, "Obj15MCZ");
         };
     }
 
@@ -509,42 +508,6 @@ public class SwingingPlatformObjectInstance extends AbstractObjectInstance
                     spawn.renderFlags(),
                     spawn.respawnTracked(),
                     spawn.rawYWord());
-        }
-    }
-
-    private static void ensureMappingsLoaded() {
-        if (mappingsLoadAttempted) {
-            return;
-        }
-        mappingsLoadAttempted = true;
-
-        LevelManager manager = LevelManager.getInstance();
-        if (manager == null || manager.getGame() == null) {
-            return;
-        }
-
-        try {
-            Rom rom = manager.getGame().getRom();
-            RomByteReader reader = RomByteReader.fromRom(rom);
-
-            // Load OOZ mappings
-            oozMappings = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ15_A_ADDR);
-            LOGGER.fine("Loaded " + oozMappings.size() + " Obj15 OOZ mapping frames");
-
-            // Load MCZ mappings (Obj15_Obj7A_MapUnc_10256)
-            mczMappings = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ15_MCZ_ADDR);
-            LOGGER.fine("Loaded " + mczMappings.size() + " Obj15 MCZ mapping frames");
-
-            // Load ARZ mappings (Obj15_Obj83_MapUnc_1021E) - shared with ARZRotPforms
-            arzMappings = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ83_ADDR);
-            LOGGER.fine("Loaded " + arzMappings.size() + " Obj15 ARZ mapping frames");
-
-            // Load trap mode mappings
-            trapMappings = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ15_TRAP_ADDR);
-            LOGGER.fine("Loaded " + trapMappings.size() + " Obj15 trap mapping frames");
-
-        } catch (IOException | RuntimeException e) {
-            LOGGER.warning("Failed to load Obj15 mappings: " + e.getMessage());
         }
     }
 

@@ -2,8 +2,6 @@ package com.openggf.game.sonic2.objects;
 
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.data.Rom;
-import com.openggf.data.RomByteReader;
 import com.openggf.game.sonic2.S2SpriteDataLoader;
 import com.openggf.game.GameServices;
 import com.openggf.game.OscillationManager;
@@ -27,8 +25,8 @@ import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpritePieceRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.util.LazyMappingHolder;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -85,8 +83,7 @@ public class LargeRotPformObjectInstance extends AbstractObjectInstance
     private static final int OSC_CENTER_HALF = 0x1C;
 
     // Static mapping data loaded from ROM
-    private static List<SpriteMappingFrame> mappings;
-    private static boolean mappingsLoadAttempted;
+    private static final LazyMappingHolder MAPPINGS = new LazyMappingHolder();
 
     // Debug state
     private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
@@ -274,8 +271,6 @@ public class LargeRotPformObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ensureMappingsLoaded();
-
         if (isDebugViewEnabled()) {
             appendDebug(commands);
         }
@@ -292,7 +287,9 @@ public class LargeRotPformObjectInstance extends AbstractObjectInstance
      * These frames reference patterns from the zone's level art (ArtTile_ArtKos_LevelArt = tile 0).
      */
     private void renderLevelArt(List<GLCommand> commands) {
-        if (mappings == null || mappingFrame >= mappings.size()) {
+        List<SpriteMappingFrame> mappings = MAPPINGS.get(
+                Sonic2Constants.MAP_UNC_OBJ6E_ADDR, S2SpriteDataLoader::loadMappingFrames, "Obj6E");
+        if (mappings.isEmpty() || mappingFrame >= mappings.size()) {
             return;
         }
 
@@ -341,29 +338,6 @@ public class LargeRotPformObjectInstance extends AbstractObjectInstance
     @Override
     public int getPriorityBucket() {
         return RenderPriority.clamp(priority);
-    }
-
-    // Mapping loading from ROM
-
-    private static void ensureMappingsLoaded() {
-        if (mappingsLoadAttempted) {
-            return;
-        }
-        mappingsLoadAttempted = true;
-
-        LevelManager manager = LevelManager.getInstance();
-        if (manager == null || manager.getGame() == null) {
-            return;
-        }
-
-        try {
-            Rom rom = manager.getGame().getRom();
-            RomByteReader reader = RomByteReader.fromRom(rom);
-            mappings = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ6E_ADDR);
-            LOGGER.fine("Loaded " + mappings.size() + " Obj6E mapping frames");
-        } catch (IOException | RuntimeException e) {
-            LOGGER.warning("Failed to load Obj6E mappings: " + e.getMessage());
-        }
     }
 
     // Debug rendering

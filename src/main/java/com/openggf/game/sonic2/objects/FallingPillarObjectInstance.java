@@ -1,8 +1,6 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.camera.Camera;
-import com.openggf.data.Rom;
-import com.openggf.data.RomByteReader;
 import com.openggf.game.sonic2.S2SpriteDataLoader;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.graphics.GLCommand;
@@ -24,8 +22,8 @@ import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.util.LazyMappingHolder;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -66,8 +64,7 @@ public class FallingPillarObjectInstance extends AbstractObjectInstance
 
     private static final byte[] SHAKE_OFFSETS = { 0, 1, -1, 1, 0, -1, 0, 1 };
 
-    private static List<SpriteMappingFrame> mappings;
-    private static boolean mappingLoadAttempted;
+    private static final LazyMappingHolder MAPPINGS = new LazyMappingHolder();
 
     private final boolean isChild;
     private int x;
@@ -224,8 +221,9 @@ public class FallingPillarObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ensureMappingsLoaded();
-        if (mappings == null || mappings.isEmpty()) {
+        List<SpriteMappingFrame> mappings = MAPPINGS.get(
+                Sonic2Constants.MAP_UNC_OBJ23_ADDR, S2SpriteDataLoader::loadMappingFrames, "Obj23");
+        if (mappings.isEmpty()) {
             appendDebug(commands);
             return;
         }
@@ -315,25 +313,6 @@ public class FallingPillarObjectInstance extends AbstractObjectInstance
                     spawn.renderFlags(),
                     spawn.respawnTracked(),
                     spawn.rawYWord());
-        }
-    }
-
-    private static void ensureMappingsLoaded() {
-        if (mappingLoadAttempted) {
-            return;
-        }
-        mappingLoadAttempted = true;
-        LevelManager manager = LevelManager.getInstance();
-        if (manager == null || manager.getGame() == null) {
-            return;
-        }
-        try {
-            Rom rom = manager.getGame().getRom();
-            RomByteReader reader = RomByteReader.fromRom(rom);
-            mappings = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ23_ADDR);
-            LOGGER.fine("Loaded " + mappings.size() + " Obj23 mapping frames");
-        } catch (IOException | RuntimeException e) {
-            LOGGER.warning("Failed to load Obj23 mappings: " + e.getMessage());
         }
     }
 

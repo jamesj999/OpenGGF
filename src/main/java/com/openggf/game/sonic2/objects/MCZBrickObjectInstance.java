@@ -2,8 +2,6 @@ package com.openggf.game.sonic2.objects;
 
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.data.Rom;
-import com.openggf.data.RomByteReader;
 import com.openggf.debug.DebugOverlayManager;
 import com.openggf.debug.DebugOverlayToggle;
 import com.openggf.game.sonic2.S2SpriteDataLoader;
@@ -12,7 +10,6 @@ import com.openggf.game.GameServices;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.PatternDesc;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
@@ -26,8 +23,8 @@ import com.openggf.level.render.SpriteMappingPiece;
 import com.openggf.level.render.SpritePieceRenderer;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.util.LazyMappingHolder;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -79,8 +76,7 @@ public class MCZBrickObjectInstance extends AbstractObjectInstance
     private static final int SPIKE_BALL_COLLISION_FLAGS = 0x9A;
 
     // Static mapping data
-    private static List<SpriteMappingFrame> mappings;
-    private static boolean mappingsLoadAttempted;
+    private static final LazyMappingHolder MAPPINGS = new LazyMappingHolder();
 
     // Debug state
     private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
@@ -309,14 +305,14 @@ public class MCZBrickObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ensureMappingsLoaded();
-
         // Draw debug collision when F1 debug view is enabled
         if (isDebugViewEnabled()) {
             appendDebug(commands);
         }
 
-        if (mappings == null || mappings.isEmpty()) {
+        List<SpriteMappingFrame> mappings = MAPPINGS.get(
+                Sonic2Constants.MAP_UNC_OBJ75_ADDR, S2SpriteDataLoader::loadMappingFrames, "Obj75");
+        if (mappings.isEmpty()) {
             return;
         }
 
@@ -380,27 +376,6 @@ public class MCZBrickObjectInstance extends AbstractObjectInstance
     public int getPriorityBucket() {
         // From disassembly: brick = priority 4, spike ball = priority 5
         return RenderPriority.clamp(mode == Mode.BRICK ? 4 : 5);
-    }
-
-    private static void ensureMappingsLoaded() {
-        if (mappingsLoadAttempted) {
-            return;
-        }
-        mappingsLoadAttempted = true;
-
-        LevelManager manager = LevelManager.getInstance();
-        if (manager == null || manager.getGame() == null) {
-            return;
-        }
-
-        try {
-            Rom rom = manager.getGame().getRom();
-            RomByteReader reader = RomByteReader.fromRom(rom);
-            mappings = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ75_ADDR);
-            LOGGER.fine("Loaded " + mappings.size() + " Obj75 mapping frames");
-        } catch (IOException | RuntimeException e) {
-            LOGGER.warning("Failed to load Obj75 mappings: " + e.getMessage());
-        }
     }
 
     private void appendDebug(List<GLCommand> commands) {

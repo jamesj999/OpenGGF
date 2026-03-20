@@ -1,8 +1,6 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.camera.Camera;
-import com.openggf.data.Rom;
-import com.openggf.data.RomByteReader;
 import com.openggf.game.OscillationManager;
 import com.openggf.game.sonic2.S2SpriteDataLoader;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
@@ -21,8 +19,8 @@ import com.openggf.level.render.SpriteMappingPiece;
 import com.openggf.level.render.SpritePieceRenderer;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.util.LazyMappingHolder;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -52,9 +50,8 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
 
     private static final byte[] BUTTON_VINE_TRIGGERS = new byte[16];
 
-    private static List<SpriteMappingFrame> mappingsA;
-    private static List<SpriteMappingFrame> mappingsB;
-    private static boolean mappingLoadAttempted;
+    private static final LazyMappingHolder MAPPINGS_A = new LazyMappingHolder();
+    private static final LazyMappingHolder MAPPINGS_B = new LazyMappingHolder();
 
     private int x;
     private int y;
@@ -402,27 +399,12 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
     }
 
     private List<SpriteMappingFrame> resolveMappings() {
-        ensureMappingsLoaded();
-        return isAquaticRuin() ? mappingsB : mappingsA;
-    }
-
-    private static void ensureMappingsLoaded() {
-        if (mappingLoadAttempted) {
-            return;
+        if (isAquaticRuin()) {
+            return MAPPINGS_B.get(
+                    Sonic2Constants.MAP_UNC_OBJ18_B_ADDR, S2SpriteDataLoader::loadMappingFrames, "Obj18B");
         }
-        mappingLoadAttempted = true;
-        LevelManager manager = LevelManager.getInstance();
-        if (manager == null || manager.getGame() == null) {
-            return;
-        }
-        try {
-            Rom rom = manager.getGame().getRom();
-            RomByteReader reader = RomByteReader.fromRom(rom);
-            mappingsA = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ18_A_ADDR);
-            mappingsB = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ18_B_ADDR);
-        } catch (IOException | RuntimeException e) {
-            LOGGER.warning("Failed to load Obj18 mappings: " + e.getMessage());
-        }
+        return MAPPINGS_A.get(
+                Sonic2Constants.MAP_UNC_OBJ18_A_ADDR, S2SpriteDataLoader::loadMappingFrames, "Obj18A");
     }
 
     private void appendDebug(List<GLCommand> commands) {

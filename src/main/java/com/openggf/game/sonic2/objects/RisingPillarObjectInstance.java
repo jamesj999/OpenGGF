@@ -3,8 +3,6 @@ package com.openggf.game.sonic2.objects;
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.camera.Camera;
-import com.openggf.data.Rom;
-import com.openggf.data.RomByteReader;
 import com.openggf.game.sonic2.S2SpriteDataLoader;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.graphics.GLCommand;
@@ -23,8 +21,8 @@ import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpriteMappingPiece;
 import com.openggf.level.render.SpritePieceRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.util.LazyMappingHolder;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -84,8 +82,7 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
             { 0x080, -0x080, 20}   // Fragment 13
     };
 
-    private static List<SpriteMappingFrame> mappings;
-    private static boolean mappingLoadAttempted;
+    private static final LazyMappingHolder MAPPINGS = new LazyMappingHolder();
 
     // Position (8.8 fixed point for debris mode)
     private int x;
@@ -252,8 +249,9 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
         // in its initial shrunken state when the player returns to this area.
 
         // Get debris frame (mapping_frame + 7)
-        ensureMappingsLoaded();
-        if (mappings == null || mappings.isEmpty()) {
+        List<SpriteMappingFrame> mappings = MAPPINGS.get(
+                Sonic2Constants.MAP_UNC_OBJ2B_ADDR, S2SpriteDataLoader::loadMappingFrames, "Obj2B");
+        if (mappings.isEmpty()) {
             setDestroyed(true);
             return;
         }
@@ -301,8 +299,9 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ensureMappingsLoaded();
-        if (mappings == null || mappings.isEmpty()) {
+        List<SpriteMappingFrame> mappings = MAPPINGS.get(
+                Sonic2Constants.MAP_UNC_OBJ2B_ADDR, S2SpriteDataLoader::loadMappingFrames, "Obj2B");
+        if (mappings.isEmpty()) {
             appendDebug(commands);
             return;
         }
@@ -317,6 +316,8 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
     }
 
     private void renderFullFrame(List<GLCommand> commands) {
+        List<SpriteMappingFrame> mappings = MAPPINGS.get(
+                Sonic2Constants.MAP_UNC_OBJ2B_ADDR, S2SpriteDataLoader::loadMappingFrames, "Obj2B");
         int frame = mappingFrame;
         if (frame < 0 || frame >= mappings.size()) {
             frame = 0;
@@ -432,25 +433,6 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
                     spawn.renderFlags(),
                     spawn.respawnTracked(),
                     spawn.rawYWord());
-        }
-    }
-
-    private static void ensureMappingsLoaded() {
-        if (mappingLoadAttempted) {
-            return;
-        }
-        mappingLoadAttempted = true;
-        LevelManager manager = LevelManager.getInstance();
-        if (manager == null || manager.getGame() == null) {
-            return;
-        }
-        try {
-            Rom rom = manager.getGame().getRom();
-            RomByteReader reader = RomByteReader.fromRom(rom);
-            mappings = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ2B_ADDR);
-            LOGGER.fine("Loaded " + mappings.size() + " Obj2B mapping frames");
-        } catch (IOException | RuntimeException e) {
-            LOGGER.warning("Failed to load Obj2B mappings: " + e.getMessage());
         }
     }
 
