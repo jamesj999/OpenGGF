@@ -127,7 +127,7 @@ public class MonitorObjectInstance extends BoxObjectInstance implements TouchRes
 
     @Override
     public void onTouchResponse(AbstractPlayableSprite player, TouchResponseResult result, int frameCounter) {
-        if (broken || player == null || player instanceof Tails) {
+        if (broken || player == null || player.isCpuControlled()) {
             return;
         }
 

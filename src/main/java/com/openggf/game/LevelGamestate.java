@@ -1,7 +1,7 @@
 package com.openggf.game;
 
 import com.openggf.audio.AudioManager;
-import com.openggf.game.sonic2.audio.Sonic2Music;
+import com.openggf.audio.GameAudioProfile;
 import com.openggf.game.sonic2.LevelTimer;
 
 /**
@@ -43,12 +43,13 @@ public class LevelGamestate implements LevelState {
 
             // Ring Bonus Logic: 100 and 200 rings grant an extra life
             if (amount > 0) {
-                if (previousRings < 100 && rings >= 100) {
+                if ((previousRings < 100 && rings >= 100)
+                        || (previousRings < 200 && rings >= 200)) {
                     GameServices.gameState().addLife();
-                    AudioManager.getInstance().playMusic(Sonic2Music.EXTRA_LIFE.id);
-                } else if (previousRings < 200 && rings >= 200) {
-                    GameServices.gameState().addLife();
-                    AudioManager.getInstance().playMusic(Sonic2Music.EXTRA_LIFE.id);
+                    GameAudioProfile profile = AudioManager.getInstance().getAudioProfile();
+                    if (profile != null) {
+                        AudioManager.getInstance().playMusic(profile.getExtraLifeMusicId());
+                    }
                 }
             }
         }
