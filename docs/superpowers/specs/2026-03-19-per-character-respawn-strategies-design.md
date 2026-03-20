@@ -17,7 +17,7 @@ Implement `KnucklesRespawnStrategy` and `SonicRespawnStrategy` to replace the de
 ### updateApproaching
 
 1. Move horizontally toward leader at ~4px/frame, descend at ~1px/frame (shallow glide angle).
-2. When within 16px of leader's X position, stop horizontal movement and let gravity take over (drop).
+2. **Drop trigger:** when within 16px of leader's X position **OR** after 180 frames (3 second timeout) in APPROACHING — whichever comes first — stop horizontal movement and let gravity take over (drop). The timeout prevents infinite glide if the leader keeps moving away.
 3. Return `true` when the sidekick is no longer airborne (has landed on ground).
 
 ## SonicRespawnStrategy
@@ -26,11 +26,11 @@ Implement `KnucklesRespawnStrategy` and `SonicRespawnStrategy` to replace the de
 
 1. Determine screen edge: leader moving right → spawn from left edge, left → right edge. If stationary, default to left.
 2. Get target Y from leader's centre Y position.
-3. Terrain probe: use `ObjectTerrainUtils.checkFloorDist(edgeX, targetY)` to find the nearest floor below (or at) that Y position, searching up to 128px downward.
-4. **If no floor found**: do NOT transition to APPROACHING — return immediately. The controller stays in SPAWNING and retries on the next eligible frame (every 64 frames per the existing spawning gate). This prevents spawning over pits.
-5. **If floor found**: place sidekick at (edgeX, floorY). Set direction toward leader.
-   - If leader's absolute ground speed > 0x200 (512 subpixels, ~2px/frame): spawn in spindash-release state — set rolling flag, set ground speed toward leader at a fixed charge value (e.g. 0x800).
-   - Otherwise: spawn in walking state — set ground speed toward leader at a walking pace (e.g. 0x200).
+3. **Terrain probe:** The existing `ObjectTerrainUtils.checkFloorDist(x, y)` only searches ~32px (current tile + one extension). To search up to 128px, call it in a loop stepping down 16px per iteration until a floor is found or 128px is exhausted. Compute absolute floor Y as: `floorY = probeY + result.distance()`.
+4. **If no floor found**: return `false` from `beginApproach`. The controller stays in SPAWNING and retries on the next eligible frame (every 64 frames). This prevents spawning over pits. The bypass path (`Jump`/`Start` in SPAWNING) also respects this — if no floor, the bypass does nothing (Sonic should never spawn over a pit regardless of player input).
+5. **If floor found**: place sidekick at (edgeX, floorY). Set `controlLocked = false` and `objectControlled = false` so directional input works. Set direction toward leader.
+   - If leader's absolute ground speed > 0x600 (1536 subpixels, ~6px/frame — ROM running threshold): spawn in spindash-release state — set rolling flag, set ground speed toward leader at 0x800.
+   - Otherwise: spawn in walking state — set ground speed toward leader at 0x200.
 
 ### updateApproaching
 
@@ -70,6 +70,10 @@ public interface SidekickRespawnStrategy {
 
 The controller's `respawnToApproaching()` checks the return value — if `false`, remains in SPAWNING.
 
+### enterApproachingState() Delegation
+
+`SidekickCpuController.enterApproachingState()` (called when the leader dies) currently hardcodes Tails fly-in behavior and bypasses the strategy. This must be updated to delegate to `respawnStrategy.beginApproach()` as well. If the strategy returns `false` (e.g. Sonic can't find floor), the controller transitions to SPAWNING instead of APPROACHING.
+
 ## Strategy Selection
 
 In `Engine.java` spawn loop, after creating the `SidekickCpuController`:
@@ -84,6 +88,8 @@ if ("knuckles".equalsIgnoreCase(charName)) {
 // Tails is the default — already set in constructor
 ```
 
+**Note:** The spawn loop's sprite class instantiation currently only handles `"tails"` → `Tails` and everything else → `Sonic`. There is no `Knuckles` sprite class. For now, Knuckles sidekicks use a `Sonic` sprite instance with `KnucklesRespawnStrategy`. A dedicated `Knuckles` sprite class (with correct height, physics) is a separate effort.
+
 ## Constants
 
 | Constant | Value | Used By |
@@ -91,8 +97,9 @@ if ("knuckles".equalsIgnoreCase(charName)) {
 | `GLIDE_HORIZONTAL_SPEED` | 4 px/frame | Knuckles |
 | `GLIDE_DESCENT_SPEED` | 1 px/frame | Knuckles |
 | `GLIDE_X_THRESHOLD` | 16 px | Knuckles (X-aligned → drop) |
-| `FLOOR_SEARCH_DEPTH` | 128 px | Sonic (max downward probe) |
-| `SPINDASH_SPEED_THRESHOLD` | 0x200 (512 subpixels) | Sonic (walk vs spindash) |
+| `GLIDE_TIMEOUT_FRAMES` | 180 (3 seconds) | Knuckles (max glide before forced drop) |
+| `FLOOR_SEARCH_DEPTH` | 128 px (8 iterations × 16px) | Sonic (max downward probe loop) |
+| `SPINDASH_SPEED_THRESHOLD` | 0x600 (1536 subpixels, ~6px/frame) | Sonic (walk vs spindash, matches ROM running threshold) |
 | `SPINDASH_RELEASE_SPEED` | 0x800 (2048 subpixels) | Sonic (initial roll speed) |
 | `WALK_ENTRY_SPEED` | 0x200 (512 subpixels) | Sonic (initial walk speed) |
 | `APPROACH_COMPLETE_THRESHOLD` | 32 px | Sonic (close enough → NORMAL) |
@@ -126,7 +133,7 @@ if ("knuckles".equalsIgnoreCase(charName)) {
 |------|--------|
 | `src/main/java/com/openggf/sprites/playable/SidekickRespawnStrategy.java` | `beginApproach` returns `boolean` |
 | `src/main/java/com/openggf/sprites/playable/TailsRespawnStrategy.java` | Update `beginApproach` to return `true` |
-| `src/main/java/com/openggf/sprites/playable/SidekickCpuController.java` | Handle `false` from `beginApproach`, stay in SPAWNING |
+| `src/main/java/com/openggf/sprites/playable/SidekickCpuController.java` | Handle `false` from `beginApproach` (stay in SPAWNING), delegate `enterApproachingState()` to strategy |
 | `src/main/java/com/openggf/Engine.java` | Strategy selection in spawn loop |
 
 ## Out of Scope
