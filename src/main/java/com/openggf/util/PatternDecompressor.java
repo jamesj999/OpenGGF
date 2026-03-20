@@ -16,7 +16,9 @@ import java.util.Arrays;
  *
  * <p>Convenience methods handle ROM channel setup and decompression for the
  * three compression formats used across the Sonic series: Nemesis, Kosinski,
- * and Kosinski Moduled.
+ * and Kosinski Moduled. These methods use {@code rom.getFileChannel()} without
+ * internal synchronization. Callers that share a Rom across threads (e.g.
+ * Sonic2ObjectArt) must synchronize on the Rom instance externally.
  */
 public final class PatternDecompressor {
 
