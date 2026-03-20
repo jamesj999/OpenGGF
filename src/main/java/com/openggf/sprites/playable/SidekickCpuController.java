@@ -412,6 +412,10 @@ public class SidekickCpuController {
         this.respawnStrategy = strategy;
     }
 
+    SidekickRespawnStrategy getRespawnStrategy() {
+        return respawnStrategy;
+    }
+
     public void setLeader(AbstractPlayableSprite leader) {
         this.leader = leader;
     }

@@ -19,19 +19,24 @@ public class KnucklesRespawnStrategy implements SidekickRespawnStrategy {
     private int approachFrameCount;
     private boolean dropping;
 
+    public KnucklesRespawnStrategy(SidekickCpuController controller) {
+        // controller not currently used; accepted for API consistency with other strategies
+    }
+
     @Override
     public boolean beginApproach(AbstractPlayableSprite sidekick, AbstractPlayableSprite leader) {
         approachFrameCount = 0;
         dropping = false;
 
         Camera camera = Camera.getInstance();
+        int cameraX = (camera != null) ? camera.getX() : leader.getCentreX();
         int edgeX;
         if (leader.getXSpeed() >= 0) {
             // Moving right (or stopped) — enter from left edge
-            edgeX = camera.getX() - 32;
+            edgeX = cameraX - 32;
         } else {
             // Moving left — enter from right edge
-            edgeX = camera.getX() + 320 + 32;
+            edgeX = cameraX + 320 + 32;
         }
 
         sidekick.setX((short) edgeX);

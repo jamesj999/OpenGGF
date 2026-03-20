@@ -29,6 +29,10 @@ public class SonicRespawnStrategy implements SidekickRespawnStrategy {
     /** Distance in pixels at which the sidekick is considered close enough to the leader. */
     private static final int APPROACH_COMPLETE_THRESHOLD = 32;
 
+    public SonicRespawnStrategy(SidekickCpuController controller) {
+        // controller not currently used; accepted for API consistency with other strategies
+    }
+
     @Override
     public boolean beginApproach(AbstractPlayableSprite sidekick, AbstractPlayableSprite leader) {
         Camera camera = Camera.getInstance();
