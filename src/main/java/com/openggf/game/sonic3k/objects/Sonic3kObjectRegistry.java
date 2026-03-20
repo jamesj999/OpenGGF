@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.sonic3k.objects.badniks.CaterkillerJrHeadInstance;
 import com.openggf.game.sonic3k.objects.badniks.MonkeyDudeBadnikInstance;
 import com.openggf.game.sonic3k.constants.S3kZoneSet;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
@@ -84,8 +85,18 @@ public class Sonic3kObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new AizGiantRideVineObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.TWISTED_RAMP,
                 (spawn, registry) -> new Sonic3kTwistedRampObjectInstance(spawn));
+        factories.put(Sonic3kObjectIds.AUTO_SPIN,
+                (spawn, registry) -> new AutoSpinObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.CORK_FLOOR,
                 (spawn, registry) -> new CorkFloorObjectInstance(spawn));
+        factories.put(Sonic3kObjectIds.AIZ_FALLING_LOG,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new AizFallingLogObjectInstance(spawn);
+                });
         factories.put(Sonic3kObjectIds.INVISIBLE_BLOCK,
                 (spawn, registry) -> new Sonic3kInvisibleBlockObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.FLOATING_PLATFORM,
@@ -125,6 +136,14 @@ public class Sonic3kObjectRegistry implements ObjectRegistry {
                         return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
                     }
                     return new MonkeyDudeBadnikInstance(spawn, LevelManager.getInstance());
+                });
+        factories.put(Sonic3kObjectIds.CATERKILLER_JR,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new CaterkillerJrHeadInstance(spawn, LevelManager.getInstance());
                 });
         factories.put(Sonic3kObjectIds.AIZ_MINIBOSS_CUTSCENE,
                 (spawn, registry) -> {

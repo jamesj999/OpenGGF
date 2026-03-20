@@ -152,6 +152,13 @@ public class Sonic3kConstants {
     public static final int ART_NEM_AIZ_CORK_FLOOR_ADDR = 0x38D586;
     public static final int ART_NEM_AIZ_CORK_FLOOR_2_ADDR = 0x38D72A;
 
+    // ===== Falling Log mappings (Obj_AIZFallingLog, ID 0x2D) =====
+    // 4 mapping tables: act-specific log body + splash. ROM addresses from LockOn Data.asm.
+    public static final int MAP_AIZ_FALLING_LOG_ADDR = 0x22AE30;         // Map_AIZFallingLog (Act 1 log, 1 frame)
+    public static final int MAP_AIZ_FALLING_LOG_2_ADDR = 0x22AE20;       // Map_AIZFallingLog2 (Act 2 log, 1 frame)
+    public static final int MAP_AIZ_FALLING_LOG_SPLASH_ADDR = 0x22AEB0;  // Map_AIZFallingLogSplash (Act 1 splash, 4 frames)
+    public static final int MAP_AIZ_FALLING_LOG_SPLASH_2_ADDR = 0x22AE40; // Map_AIZFallingLogSplash2 (Act 2 splash, 4 frames)
+
     // ===== Cork Floor mappings (Obj_CorkFloor, ID 0x2A) =====
     // Each zone has its own mapping table: frame 0 = intact, frame 1 = broken fragments.
     // Addresses derived from frame labels in LockOn Data.asm sequential includes.
@@ -165,6 +172,8 @@ public class Sonic3kConstants {
     // ===== Floating Platform mappings (Obj_FloatingPlatform, ID 0x51) =====
     public static final int MAP_AIZ_FLOATING_PLATFORM_ADDR = 0x256A2; // Map_AIZFloatingPlatform (1 frame, 4 pieces)
     public static final int MAP_HCZ_FLOATING_PLATFORM_ADDR = 0x25688; // Map_HCZFloatingPlatform (2 frames, 2/1 pieces)
+    public static final int MAP_HCZ_WAVE_SPLASH_ADDR = 0x01F2CE;     // Map_HCZWaveSplash (7 frames, S&K side)
+    public static final int ART_NEM_HCZ_WAVE_SPLASH_ADDR = 0x38FBB4; // ArtNem_HCZWaveSplash (Nemesis, 16 tiles)
     public static final int MAP_MGZ_FLOATING_PLATFORM_ADDR = 0x25654; // Map_MGZFloatingPlatform (1 frame, 8 pieces)
 
     // ===== ArtTile constants from sonic3k.constants.asm =====
@@ -718,6 +727,10 @@ public class Sonic3kConstants {
     public static final int ART_KOSM_AIZ_BLOOMINATOR_ADDR = 0x367DCA;
     // ArtKosM_AIZ_MonkeyDude - Kosinski Moduled compressed art.
     public static final int ART_KOSM_AIZ_MONKEY_DUDE_ADDR = 0x36800C;
+    // Map_CaterKillerJr - 6 mapping frames (head, tall body, thin body, coconut large/med/small)
+    public static final int MAP_CATERKILLER_JR_ADDR = 0x361A18;
+    // ArtKosM_AIZ_CaterkillerJr - Kosinski Moduled compressed art ($202 bytes).
+    public static final int ART_KOSM_AIZ_CATERKILLER_JR_ADDR = 0x3681FE;
     // AIZ1_8x8_Flames_KosM - fire overlay tiles loaded at x >= $2E00 (Act 1).
     public static final int ART_KOSM_AIZ1_FIRE_OVERLAY_ADDR = 0x3AF5D0;
 

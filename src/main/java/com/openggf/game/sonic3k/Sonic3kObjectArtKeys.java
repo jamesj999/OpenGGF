@@ -24,6 +24,7 @@ public final class Sonic3kObjectArtKeys {
     public static final String BLOOMINATOR = "aiz_bloominator";
     public static final String RHINOBOT = "aiz_rhinobot";
     public static final String MONKEY_DUDE = "aiz_monkey_dude";
+    public static final String CATERKILLER_JR = "aiz_caterkiller_jr";
     public static final String FIRE_SHIELD = "fire_shield";
     public static final String LIGHTNING_SHIELD = "lightning_shield";
     public static final String LIGHTNING_SPARK = "lightning_spark";
@@ -37,6 +38,12 @@ public final class Sonic3kObjectArtKeys {
     public static final String AIZ_MINIBOSS = "aiz_miniboss";
     public static final String AIZ_MINIBOSS_FLAME = "aiz_miniboss_flame";
     public static final String AIZ_MINIBOSS_SMALL = "aiz_miniboss_small";
+
+    // AIZ Falling Log (act-specific log body + splash)
+    public static final String AIZ1_FALLING_LOG = "aiz1_falling_log";
+    public static final String AIZ2_FALLING_LOG = "aiz2_falling_log";
+    public static final String AIZ1_FALLING_LOG_SPLASH = "aiz1_falling_log_splash";
+    public static final String AIZ2_FALLING_LOG_SPLASH = "aiz2_falling_log_splash";
 
     // Cork Floor (zone-specific sheets)
     public static final String CORK_FLOOR_AIZ1 = "cork_floor_aiz1";

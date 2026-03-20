@@ -60,10 +60,14 @@ public class Sonic3kObjectProfile implements GameObjectProfile {
             0x07, // Spring
             0x08, // Spikes
             0x0E, // TwistedRamp
+            0x26, // AutoSpin
             0x28, // InvisibleBlock
             0x2A, // CorkFloor
+            0x2F, // StillSprite
+            0x30, // AnimatedStillSprite
             0x34, // StarPost
             0x51, // FloatingPlatform
+            0x80, // HiddenMonitor
             0x85  // SSEntryRing
     );
 
@@ -80,10 +84,12 @@ public class Sonic3kObjectProfile implements GameObjectProfile {
                 0x09, // AIZ1Tree
                 0x0A, // AIZ1ZiplinePeg
                 0x0C, // AIZGiantRideVine
+                0x2D, // AIZFallingLog
                 0x35, // AIZForegroundPlant
                 0x8C, // Bloominator
                 0x8D, // Rhinobot
                 0x8E, // MonkeyDude
+                0x8F, // CaterKillerJr
                 0x90, // AIZMinibossCutscene
                 0x91  // AIZMiniboss
         ));

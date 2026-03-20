@@ -957,6 +957,15 @@ public final class Sonic3kPlcArtRegistry {
                 1,
                 -1
         ));
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.CATERKILLER_JR,
+                Sonic3kConstants.ART_KOSM_AIZ_CATERKILLER_JR_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                Sonic3kConstants.MAP_CATERKILLER_JR_ADDR,
+                1,
+                -1
+        ));
 
         // PLC_EndSignStuff - end sign face (uncompressed art + DPLC remap)
         standalone.add(new StandaloneArtEntry(
@@ -1011,6 +1020,41 @@ public final class Sonic3kPlcArtRegistry {
         levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.STILL_AIZ_WATERFALL,
                 Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 1, 3,
                 null, new int[]{4}));
+
+        // Falling Log: act-specific log body + splash mappings
+        // Act 1: ArtTile_AIZFallingLog (0x03CF), palette 2 for both log and splash
+        // Act 2: ArtTile_AIZMisc2 (0x02E9), palette 2 for log, palette 3 for splash
+        if (actIndex == 0) {
+            levelArt.add(new LevelArtEntry(
+                    Sonic3kObjectArtKeys.AIZ1_FALLING_LOG,
+                    Sonic3kConstants.MAP_AIZ_FALLING_LOG_ADDR,
+                    Sonic3kConstants.ARTTILE_AIZ_FALLING_LOG,
+                    2,
+                    null
+            ));
+            levelArt.add(new LevelArtEntry(
+                    Sonic3kObjectArtKeys.AIZ1_FALLING_LOG_SPLASH,
+                    Sonic3kConstants.MAP_AIZ_FALLING_LOG_SPLASH_ADDR,
+                    Sonic3kConstants.ARTTILE_AIZ_FALLING_LOG,
+                    2,
+                    null
+            ));
+        } else {
+            levelArt.add(new LevelArtEntry(
+                    Sonic3kObjectArtKeys.AIZ2_FALLING_LOG,
+                    Sonic3kConstants.MAP_AIZ_FALLING_LOG_2_ADDR,
+                    Sonic3kConstants.ARTTILE_AIZ_MISC2,
+                    2,
+                    null
+            ));
+            levelArt.add(new LevelArtEntry(
+                    Sonic3kObjectArtKeys.AIZ2_FALLING_LOG_SPLASH,
+                    Sonic3kConstants.MAP_AIZ_FALLING_LOG_SPLASH_2_ADDR,
+                    Sonic3kConstants.ARTTILE_AIZ_MISC2,
+                    3,
+                    null
+            ));
+        }
 
         // Act-specific level-art
         if (actIndex == 0) {
