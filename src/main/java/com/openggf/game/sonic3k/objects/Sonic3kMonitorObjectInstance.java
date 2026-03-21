@@ -11,7 +11,19 @@ import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
-import com.openggf.level.objects.*;
+import com.openggf.level.objects.AbstractMonitorObjectInstance;
+import com.openggf.level.objects.ObjectManager;
+import com.openggf.level.objects.ObjectRenderManager;
+import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.ObjectSpriteSheet;
+import com.openggf.level.objects.SolidContact;
+import com.openggf.level.objects.SolidObjectListener;
+import com.openggf.level.objects.SolidObjectParams;
+import com.openggf.level.objects.SolidObjectProvider;
+import com.openggf.level.objects.SubpixelMotion;
+import com.openggf.level.objects.TouchResponseListener;
+import com.openggf.level.objects.TouchResponseProvider;
+import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpriteMappingPiece;
@@ -35,7 +47,7 @@ import java.util.logging.Logger;
  * <p>
  * Reference: docs/skdisasm/sonic3k.asm lines 40442-40995
  */
-public class Sonic3kMonitorObjectInstance extends AbstractObjectInstance
+public class Sonic3kMonitorObjectInstance extends AbstractMonitorObjectInstance
         implements TouchResponseProvider, TouchResponseListener,
         SolidObjectProvider, SolidObjectListener {
     private static final Logger LOGGER = Logger.getLogger(Sonic3kMonitorObjectInstance.class.getName());
@@ -44,11 +56,6 @@ public class Sonic3kMonitorObjectInstance extends AbstractObjectInstance
     private static final int SOLID_WIDTH = 0x19;
     private static final int SOLID_D2 = 0x10;
     private static final int SOLID_D3 = 0x11;
-
-    // Icon rising physics (same as S1/S2: Pow_Move)
-    private static final int ICON_INITIAL_VELOCITY = -0x300;
-    private static final int ICON_RISE_ACCEL = 0x18;
-    private static final int ICON_WAIT_FRAMES = 0x1D;
 
     // Map_Monitor frame 11 = broken shell
     private static final int BROKEN_FRAME = 0x0B;
@@ -76,13 +83,7 @@ public class Sonic3kMonitorObjectInstance extends AbstractObjectInstance
     private boolean revealed;
     private final SubpixelMotion.State motion;
 
-    // Icon rising state (inline PowerUp object)
-    private boolean iconActive;
-    private int iconSubY;
-    private int iconVelY;
-    private int iconWaitFrames;
-    private boolean effectApplied;
-    private AbstractPlayableSprite effectTarget;
+    // (Icon rising state is managed by AbstractMonitorObjectInstance)
 
     public Sonic3kMonitorObjectInstance(ObjectSpawn spawn) {
         super(spawn, "Monitor");
@@ -231,12 +232,7 @@ public class Sonic3kMonitorObjectInstance extends AbstractObjectInstance
         mappingFrame = BROKEN_FRAME;
 
         // Initialize icon rising
-        iconActive = true;
-        iconSubY = posY() << 8;
-        iconVelY = ICON_INITIAL_VELOCITY;
-        iconWaitFrames = 0;
-        effectApplied = false;
-        effectTarget = player;
+        startIconRise(posY(), player);
 
         // Spawn explosion
         ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
@@ -250,42 +246,11 @@ public class Sonic3kMonitorObjectInstance extends AbstractObjectInstance
     }
 
     /**
-     * Update the rising icon and apply power-up effect when it reaches the top.
-     * ROM: Pow_Move, Pow_ChkX
-     */
-    private void updateIcon() {
-        if (!iconActive) {
-            return;
-        }
-        if (iconVelY < 0) {
-            // Rising phase
-            iconSubY += iconVelY;
-            iconVelY += ICON_RISE_ACCEL;
-            if (iconVelY >= 0) {
-                iconVelY = 0;
-                iconWaitFrames = ICON_WAIT_FRAMES;
-                if (!effectApplied && effectTarget != null) {
-                    applyMonitorEffect(effectTarget);
-                    effectApplied = true;
-                    effectTarget = null;
-                }
-            }
-            return;
-        }
-
-        // Waiting phase
-        if (iconWaitFrames > 0) {
-            iconWaitFrames--;
-            return;
-        }
-        iconActive = false;
-    }
-
-    /**
      * Apply the monitor's power-up effect.
      * ROM: Pow_ChkX branch table (sonic3k.asm ~line 40780)
      */
-    private void applyMonitorEffect(AbstractPlayableSprite player) {
+    @Override
+    protected void applyPowerup(AbstractPlayableSprite player) {
         switch (type) {
             case EGGMAN, EGGMAN_2 -> {
                 // Eggman monitor hurts the player

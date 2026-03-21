@@ -11,7 +11,18 @@ import com.openggf.game.sonic2.objects.ObjectAnimationState;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
-import com.openggf.level.objects.*;
+import com.openggf.level.objects.AbstractMonitorObjectInstance;
+import com.openggf.level.objects.ObjectManager;
+import com.openggf.level.objects.ObjectRenderManager;
+import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.ObjectSpriteSheet;
+import com.openggf.level.objects.SolidContact;
+import com.openggf.level.objects.SolidObjectListener;
+import com.openggf.level.objects.SolidObjectParams;
+import com.openggf.level.objects.SolidObjectProvider;
+import com.openggf.level.objects.TouchResponseListener;
+import com.openggf.level.objects.TouchResponseProvider;
+import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpriteMappingPiece;
@@ -31,22 +42,13 @@ import java.util.logging.Logger;
  * <p>
  * Reference: docs/s1disasm/_incObj/26 Monitor.asm
  */
-public class Sonic1MonitorObjectInstance extends AbstractObjectInstance
+public class Sonic1MonitorObjectInstance extends AbstractMonitorObjectInstance
         implements TouchResponseProvider, TouchResponseListener,
         SolidObjectProvider, SolidObjectListener {
     private static final Logger LOGGER = Logger.getLogger(Sonic1MonitorObjectInstance.class.getName());
 
     // From disassembly: obHeight/obWidth = $0E
     private static final int HALF_RADIUS = 0x0E;
-
-    // From disassembly: Pow_Main sets obVelY = -$300
-    private static final int ICON_INITIAL_VELOCITY = -0x300;
-
-    // From disassembly: Pow_Move adds $18 to obVelY per frame
-    private static final int ICON_RISE_ACCEL = 0x18;
-
-    // From disassembly: Pow_Move sets timer to $1D (29 frames)
-    private static final int ICON_WAIT_FRAMES = 0x1D;
 
     // Map_Monitor frame 11 = broken shell
     private static final int BROKEN_FRAME = 0x0B;
@@ -68,13 +70,7 @@ public class Sonic1MonitorObjectInstance extends AbstractObjectInstance
     private boolean broken;
     private int mappingFrame;
 
-    // Icon rising state (PowerUp object in disassembly)
-    private boolean iconActive;
-    private int iconSubY;
-    private int iconVelY;
-    private int iconWaitFrames;
-    private boolean effectApplied;
-    private AbstractPlayableSprite effectTarget;
+    // Player reference preserved for icon rendering (effectTarget is cleared after apply)
     private AbstractPlayableSprite iconPlayer;
 
     // Falling state (ob2ndRout = 4 in disassembly)
@@ -198,12 +194,7 @@ public class Sonic1MonitorObjectInstance extends AbstractObjectInstance
         mappingFrame = BROKEN_FRAME;
 
         // Initialize icon rising (PowerUp object)
-        iconActive = true;
-        iconSubY = currentY << 8;
-        iconVelY = ICON_INITIAL_VELOCITY;
-        iconWaitFrames = 0;
-        effectApplied = false;
-        effectTarget = player;
+        startIconRise(currentY, player);
         iconPlayer = player;
 
         // Spawn explosion (id_ExplosionItem = $27) - only if explosion art is loaded
@@ -216,36 +207,8 @@ public class Sonic1MonitorObjectInstance extends AbstractObjectInstance
         AudioManager.getInstance().playSfx(Sonic1Sfx.BREAK_ITEM.id);
     }
 
-    /**
-     * Update the rising icon and apply power-up effect when it reaches the top.
-     * ROM: Pow_Move, Pow_ChkX
-     */
-    private void updateIcon() {
-        if (!iconActive) {
-            return;
-        }
-        if (iconVelY < 0) {
-            // Rising phase: apply velocity and deceleration
-            iconSubY += iconVelY;
-            iconVelY += ICON_RISE_ACCEL;
-            if (iconVelY >= 0) {
-                iconVelY = 0;
-                iconWaitFrames = ICON_WAIT_FRAMES;
-                if (!effectApplied && effectTarget != null) {
-                    applyMonitorEffect(effectTarget);
-                    effectApplied = true;
-                    effectTarget = null;
-                }
-            }
-            return;
-        }
-
-        // Waiting phase: count down then delete icon
-        if (iconWaitFrames > 0) {
-            iconWaitFrames--;
-            return;
-        }
-        iconActive = false;
+    @Override
+    protected void onIconDeactivated() {
         iconPlayer = null;
     }
 
@@ -253,7 +216,8 @@ public class Sonic1MonitorObjectInstance extends AbstractObjectInstance
      * Apply the monitor's power-up effect.
      * ROM: Pow_ChkX branch table
      */
-    private void applyMonitorEffect(AbstractPlayableSprite player) {
+    @Override
+    protected void applyPowerup(AbstractPlayableSprite player) {
         switch (type) {
             // Pow_ChkRings: v_rings += 10, play sfx_Ring
             case RINGS -> {
