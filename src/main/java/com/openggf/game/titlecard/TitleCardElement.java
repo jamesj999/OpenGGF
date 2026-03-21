@@ -1,4 +1,4 @@
-package com.openggf.game.sonic2.titlecard;
+package com.openggf.game.titlecard;
 
 /**
  * Represents an individual animated element of the title card.

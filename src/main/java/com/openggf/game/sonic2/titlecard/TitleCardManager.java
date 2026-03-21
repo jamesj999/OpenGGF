@@ -1,6 +1,8 @@
 package com.openggf.game.sonic2.titlecard;
 
 import com.openggf.game.sonic2.constants.Sonic2Constants;
+import com.openggf.game.titlecard.TitleCardElement;
+import com.openggf.game.titlecard.TitleCardMappings;
 import com.openggf.game.GameServices;
 
 import com.openggf.data.Rom;

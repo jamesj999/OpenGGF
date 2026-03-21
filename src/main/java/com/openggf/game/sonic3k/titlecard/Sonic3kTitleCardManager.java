@@ -3,7 +3,7 @@ package com.openggf.game.sonic3k.titlecard;
 import com.openggf.data.Rom;
 import com.openggf.game.GameServices;
 import com.openggf.game.TitleCardProvider;
-import com.openggf.game.sonic2.titlecard.TitleCardMappings;
+import com.openggf.game.titlecard.TitleCardMappings;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;

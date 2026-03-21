@@ -1,4 +1,4 @@
-package com.openggf.game.sonic2.titlecard;
+package com.openggf.game.titlecard;
 
 /**
  * Sprite mapping data for Sonic 2 title cards.

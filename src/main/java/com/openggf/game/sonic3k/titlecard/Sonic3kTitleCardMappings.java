@@ -1,6 +1,6 @@
 package com.openggf.game.sonic3k.titlecard;
 
-import com.openggf.game.sonic2.titlecard.TitleCardMappings;
+import com.openggf.game.titlecard.TitleCardMappings;
 
 /**
  * S3K title card sprite mapping data, transcribed from Map - Title Card.asm (S&K version).

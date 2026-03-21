@@ -1,6 +1,6 @@
 package com.openggf.game.sonic1.titlecard;
 
-import com.openggf.game.sonic2.titlecard.TitleCardMappings;
+import com.openggf.game.titlecard.TitleCardMappings;
 
 /**
  * Sprite mapping data for Sonic 1 title cards.

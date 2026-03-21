@@ -1,6 +1,6 @@
 package com.openggf.graphics;
 
-import com.openggf.game.sonic2.titlecard.TitleCardMappings;
+import com.openggf.game.titlecard.TitleCardMappings;
 import com.openggf.level.PatternDesc;
 
 /**
