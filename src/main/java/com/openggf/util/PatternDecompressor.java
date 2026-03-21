@@ -1,6 +1,7 @@
 package com.openggf.util;
 
 import com.openggf.data.Rom;
+import com.openggf.data.RomByteReader;
 import com.openggf.level.Pattern;
 import com.openggf.tools.KosinskiReader;
 import com.openggf.tools.NemesisReader;
@@ -98,6 +99,29 @@ public final class PatternDecompressor {
         channel.position(address);
         byte[] data = KosinskiReader.decompressModuled(channel);
         return fromBytes(data);
+    }
+
+    /**
+     * Reads uncompressed art tiles directly from ROM via a {@link RomByteReader}.
+     *
+     * @param reader ROM byte reader
+     * @param address ROM address of the uncompressed art data
+     * @param size    total size in bytes (must be a multiple of {@link Pattern#PATTERN_SIZE_IN_ROM})
+     * @return pattern array, or empty array if size &lt;= 0
+     * @throws IOException if the data size is not a multiple of 32
+     */
+    public static Pattern[] uncompressed(RomByteReader reader, int address, int size) throws IOException {
+        if (size <= 0) return new Pattern[0];
+        if (size % Pattern.PATTERN_SIZE_IN_ROM != 0) {
+            throw new IOException("Uncompressed art size is not a multiple of " + Pattern.PATTERN_SIZE_IN_ROM);
+        }
+        int count = size / Pattern.PATTERN_SIZE_IN_ROM;
+        Pattern[] patterns = new Pattern[count];
+        for (int i = 0; i < count; i++) {
+            patterns[i] = new Pattern();
+            patterns[i].fromSegaFormat(reader.slice(address + i * Pattern.PATTERN_SIZE_IN_ROM, Pattern.PATTERN_SIZE_IN_ROM));
+        }
+        return patterns;
     }
 
     private static Pattern[] buildPatterns(byte[] data, int count) {

@@ -2,6 +2,7 @@ package com.openggf.game.sonic2;
 
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.ZoneArtProvider;
+import com.openggf.game.common.CommonSpriteDataLoader;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.badniks.AnimalType;
@@ -1962,45 +1963,7 @@ public class Sonic2ObjectArt {
     }
 
     private SpriteAnimationSet loadAnimationSet(int animAddr, int scriptCount) {
-        SpriteAnimationSet set = new SpriteAnimationSet();
-        for (int i = 0; i < scriptCount; i++) {
-            int scriptAddr = animAddr + reader.readU16BE(animAddr + i * 2);
-            int delay = reader.readU8(scriptAddr);
-            scriptAddr += 1;
-
-            List<Integer> frames = new ArrayList<>();
-            SpriteAnimationEndAction endAction = SpriteAnimationEndAction.LOOP;
-            int endParam = 0;
-
-            while (true) {
-                int value = reader.readU8(scriptAddr);
-                scriptAddr += 1;
-                if (value >= 0xF0) {
-                    if (value == 0xFF) {
-                        endAction = SpriteAnimationEndAction.LOOP;
-                        break;
-                    }
-                    if (value == 0xFE) {
-                        endAction = SpriteAnimationEndAction.LOOP_BACK;
-                        endParam = reader.readU8(scriptAddr);
-                        scriptAddr += 1;
-                        break;
-                    }
-                    if (value == 0xFD) {
-                        endAction = SpriteAnimationEndAction.SWITCH;
-                        endParam = reader.readU8(scriptAddr);
-                        scriptAddr += 1;
-                        break;
-                    }
-                    endAction = SpriteAnimationEndAction.HOLD;
-                    break;
-                }
-                frames.add(value);
-            }
-
-            set.addScript(i, new SpriteAnimationScript(delay, frames, endAction, endParam));
-        }
-        return set;
+        return CommonSpriteDataLoader.loadAnimationSet(reader, animAddr, scriptCount);
     }
 
     private SpriteMappingFrame createSimpleFrame(int x, int y, int wTiles, int hTiles, int tileIndex) {

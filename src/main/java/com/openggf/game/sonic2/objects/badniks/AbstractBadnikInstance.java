@@ -1,20 +1,19 @@
 package com.openggf.game.sonic2.objects.badniks;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
-import com.openggf.game.GameServices;
 
 import com.openggf.debug.DebugColor;
 
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.DestructionEffects;
+import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseAttackable;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import com.openggf.game.sonic2.objects.ExplosionObjectInstance;
 import com.openggf.game.sonic2.objects.PointsObjectInstance;
 
 /**
@@ -24,6 +23,13 @@ import com.openggf.game.sonic2.objects.PointsObjectInstance;
  */
 public abstract class AbstractBadnikInstance extends AbstractObjectInstance
         implements TouchResponseProvider, TouchResponseAttackable {
+
+    private static final DestructionConfig S2_DESTRUCTION_CONFIG = new DestructionConfig(
+            Sonic2Sfx.EXPLOSION.id,
+            true,   // spawnAnimal
+            false,  // useRespawnTracking
+            (spawn, lm, pts) -> new PointsObjectInstance(spawn, lm, pts)
+    );
 
     protected int currentX;
     protected int currentY;
@@ -96,46 +102,21 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
     }
 
     /**
+     * Returns the destruction configuration for this badnik.
+     * S2 badniks use the default; S1 badniks can override to return S1 config.
+     */
+    protected DestructionConfig getDestructionConfig() {
+        return S2_DESTRUCTION_CONFIG;
+    }
+
+    /**
      * Handles Badnik destruction: spawn explosion, animal, points, award score.
      */
     protected void destroyBadnik(AbstractPlayableSprite player) {
         destroyed = true;
         setDestroyed(true);
-
-        // Remove from active spawns to prevent immediate respawn
-        // (badniks will still respawn when camera leaves and returns - ROM accurate)
-        var objectManager = levelManager.getObjectManager();
-        if (objectManager != null) {
-            objectManager.removeFromActiveSpawns(spawn);
-        }
-
-        // Spawn explosion
-        ExplosionObjectInstance explosion = new ExplosionObjectInstance(0x27, currentX, currentY,
-                levelManager.getObjectRenderManager());
-        levelManager.getObjectManager().addDynamicObject(explosion);
-
-        // Spawn animal
-        AnimalObjectInstance animal = new AnimalObjectInstance(
-                new ObjectSpawn(currentX, currentY, 0x28, 0, 0, false, 0), levelManager);
-        levelManager.getObjectManager().addDynamicObject(animal);
-
-        // Calculate points based on chain
-        int pointsValue = 100;
-        if (player != null) {
-            pointsValue = player.incrementBadnikChain();
-            GameServices.gameState().addScore(pointsValue);
-        }
-
-        // Spawn points
-        PointsObjectInstance points = new PointsObjectInstance(
-                new ObjectSpawn(currentX, currentY, 0x29, 0, 0, false, 0), levelManager, pointsValue);
-        levelManager.getObjectManager().addDynamicObject(points);
-
-        // Play explosion SFX
-        AudioManager.getInstance().playSfx(Sonic2Sfx.EXPLOSION.id);
-
-        // Remove self
-        // Remove self (handled by update loop via destroyed flag)
+        DestructionEffects.destroyBadnik(currentX, currentY, spawn, player, levelManager,
+                getDestructionConfig());
     }
 
     /**

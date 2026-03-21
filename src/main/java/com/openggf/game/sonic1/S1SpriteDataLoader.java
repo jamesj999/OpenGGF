@@ -1,12 +1,13 @@
 package com.openggf.game.sonic1;
 
 import com.openggf.data.RomByteReader;
+import com.openggf.game.common.CommonSpriteDataLoader;
 import com.openggf.level.Pattern;
 import com.openggf.level.render.SpriteDplcFrame;
+import com.openggf.util.PatternDecompressor;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpriteMappingPiece;
 import com.openggf.level.render.TileLoadRequest;
-import com.openggf.sprites.animation.SpriteAnimationEndAction;
 import com.openggf.sprites.animation.SpriteAnimationScript;
 import com.openggf.sprites.animation.SpriteAnimationSet;
 
@@ -39,17 +40,7 @@ public final class S1SpriteDataLoader {
      * @return array of Pattern tiles
      */
     public static Pattern[] loadArtTiles(RomByteReader reader, int artAddr, int artSize) throws IOException {
-        if (artSize % Pattern.PATTERN_SIZE_IN_ROM != 0) {
-            throw new IOException("Inconsistent S1 art tile data");
-        }
-        int tileCount = artSize / Pattern.PATTERN_SIZE_IN_ROM;
-        Pattern[] patterns = new Pattern[tileCount];
-        for (int i = 0; i < tileCount; i++) {
-            patterns[i] = new Pattern();
-            int start = i * Pattern.PATTERN_SIZE_IN_ROM;
-            patterns[i].fromSegaFormat(reader.slice(artAddr + start, Pattern.PATTERN_SIZE_IN_ROM));
-        }
-        return patterns;
+        return PatternDecompressor.uncompressed(reader, artAddr, artSize);
     }
 
     /**
@@ -178,24 +169,7 @@ public final class S1SpriteDataLoader {
      * @return bank size in tiles
      */
     public static int resolveBankSize(List<SpriteDplcFrame> dplcFrames, List<SpriteMappingFrame> mappingFrames) {
-        int maxDplcTotal = 0;
-        for (SpriteDplcFrame frame : dplcFrames) {
-            int total = 0;
-            for (TileLoadRequest request : frame.requests()) {
-                total += Math.max(0, request.count());
-            }
-            maxDplcTotal = Math.max(maxDplcTotal, total);
-        }
-
-        int maxMappingIndex = 0;
-        for (SpriteMappingFrame frame : mappingFrames) {
-            for (SpriteMappingPiece piece : frame.pieces()) {
-                int tileCount = piece.widthTiles() * piece.heightTiles();
-                maxMappingIndex = Math.max(maxMappingIndex, piece.tileIndex() + tileCount);
-            }
-        }
-
-        return Math.max(maxDplcTotal, maxMappingIndex);
+        return CommonSpriteDataLoader.resolveBankSize(dplcFrames, mappingFrames);
     }
 
     /**
@@ -207,38 +181,7 @@ public final class S1SpriteDataLoader {
      * @return parsed animation script
      */
     public static SpriteAnimationScript parseAnimationScript(RomByteReader reader, int scriptAddr) {
-        int delay = reader.readU8(scriptAddr);
-        scriptAddr += 1;
-
-        List<Integer> frames = new ArrayList<>();
-        SpriteAnimationEndAction endAction = SpriteAnimationEndAction.LOOP;
-        int endParam = 0;
-
-        while (true) {
-            int value = reader.readU8(scriptAddr);
-            scriptAddr += 1;
-            if (value >= 0xF0) {
-                if (value == 0xFF) {
-                    endAction = SpriteAnimationEndAction.LOOP;
-                    break;
-                }
-                if (value == 0xFE) {
-                    endAction = SpriteAnimationEndAction.LOOP_BACK;
-                    endParam = reader.readU8(scriptAddr);
-                    break;
-                }
-                if (value == 0xFD) {
-                    endAction = SpriteAnimationEndAction.SWITCH;
-                    endParam = reader.readU8(scriptAddr);
-                    break;
-                }
-                endAction = SpriteAnimationEndAction.HOLD;
-                break;
-            }
-            frames.add(value);
-        }
-
-        return new SpriteAnimationScript(delay, frames, endAction, endParam);
+        return CommonSpriteDataLoader.parseAnimationScript(reader, scriptAddr);
     }
 
     /**
@@ -250,12 +193,6 @@ public final class S1SpriteDataLoader {
      * @return animation set
      */
     public static SpriteAnimationSet loadAnimationSet(RomByteReader reader, int baseAddr, int count) {
-        SpriteAnimationSet set = new SpriteAnimationSet();
-        for (int i = 0; i < count; i++) {
-            int scriptAddr = baseAddr + reader.readU16BE(baseAddr + i * 2);
-            SpriteAnimationScript script = parseAnimationScript(reader, scriptAddr);
-            set.addScript(i, script);
-        }
-        return set;
+        return CommonSpriteDataLoader.loadAnimationSet(reader, baseAddr, count);
     }
 }

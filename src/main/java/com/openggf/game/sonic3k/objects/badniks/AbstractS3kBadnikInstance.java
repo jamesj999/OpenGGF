@@ -1,12 +1,11 @@
 package com.openggf.game.sonic3k.objects.badniks;
 
-import com.openggf.audio.AudioManager;
-import com.openggf.game.GameServices;
-import com.openggf.game.sonic2.objects.ExplosionObjectInstance;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.DestructionEffects;
+import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -68,6 +67,14 @@ abstract class AbstractS3kBadnikInstance extends AbstractObjectInstance
         defeat(player);
     }
 
+    /** S3K destruction config: no animal, no points popup, no respawn tracking, S3K break SFX. */
+    private static final DestructionConfig S3K_DESTRUCTION_CONFIG = new DestructionConfig(
+            Sonic3kSfx.BREAK.id,
+            false,  // spawnAnimal
+            false,  // useRespawnTracking (S3K always removeFromActiveSpawns)
+            null    // no points popup
+    );
+
     protected final void defeat(AbstractPlayableSprite player) {
         if (destroyed) {
             return;
@@ -75,23 +82,9 @@ abstract class AbstractS3kBadnikInstance extends AbstractObjectInstance
         destroyed = true;
         setDestroyed(true);
 
-        ObjectManager objectManager = levelManager != null ? levelManager.getObjectManager() : null;
-        if (objectManager != null) {
-            objectManager.removeFromActiveSpawns(spawn);
-        }
-
-        ObjectRenderManager renderManager = levelManager != null ? levelManager.getObjectRenderManager() : null;
-        if (objectManager != null && renderManager != null) {
-            objectManager.addDynamicObject(
-                    new ExplosionObjectInstance(0x27, getBodyAnchorX(), getBodyAnchorY(), renderManager));
-        }
-
-        if (player != null) {
-            int pointsValue = player.incrementBadnikChain();
-            GameServices.gameState().addScore(pointsValue);
-        }
-
-        AudioManager.getInstance().playSfx(Sonic3kSfx.BREAK.id);
+        DestructionEffects.destroyBadnik(
+                getBodyAnchorX(), getBodyAnchorY(), spawn, player, levelManager,
+                S3K_DESTRUCTION_CONFIG);
     }
 
     protected final void spawnProjectile(S3kBadnikProjectileInstance projectile) {
