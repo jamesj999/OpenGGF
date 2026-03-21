@@ -12,7 +12,7 @@ public class ShaderProgram {
     private int indexedColorTextureLocation = -1;
     private int paletteLineLocation = -1;
     private int totalPaletteLinesLocation = -1;
-    private boolean uniformsCached = false;
+    protected boolean uniformsCached = false;
 
     public int getProgramId() {
         return programId;

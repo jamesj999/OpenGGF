@@ -9,17 +9,14 @@ import static org.lwjgl.opengl.GL20.*;
  * Extends the base shader functionality with uniforms for per-scanline
  * scrolling.
  */
-public class ParallaxShaderProgram {
-
-    private int programId;
-    private boolean uniformsCached = false;
+public class ParallaxShaderProgram extends ShaderProgram {
 
     // Texture sampler locations
     private int backgroundTextureLocation = -1;
     private int hScrollTextureLocation = -1;
     private int vScrollTextureLocation = -1;
     private int vScrollColumnTextureLocation = -1;
-    private int paletteLocation = -1;
+    private int parallaxPaletteLocation = -1;
 
     // Scroll and dimension uniforms
     private int screenHeightLocation = -1;
@@ -51,42 +48,28 @@ public class ParallaxShaderProgram {
      * @throws IOException if shader loading fails
      */
     public ParallaxShaderProgram(String fragmentShaderPath) throws IOException {
-        int vertexShaderId = ShaderLoader.loadShader(FULLSCREEN_VERTEX_SHADER, GL_VERTEX_SHADER);
-        int fragmentShaderId = ShaderLoader.loadShader(fragmentShaderPath, GL_FRAGMENT_SHADER);
-
-        programId = glCreateProgram();
-        glAttachShader(programId, vertexShaderId);
-        glAttachShader(programId, fragmentShaderId);
-        glLinkProgram(programId);
-
-        // Check for linking errors
-        int linked = glGetProgrami(programId, GL_LINK_STATUS);
-        if (linked == 0) {
-            String log = glGetProgramInfoLog(programId);
-            System.err.println("Parallax shader linking failed:\n" + log);
-        }
-
-        // Detach and delete shader objects - they're no longer needed after linking
-        glDetachShader(programId, vertexShaderId);
-        glDetachShader(programId, fragmentShaderId);
-        glDeleteShader(vertexShaderId);
-        glDeleteShader(fragmentShaderId);
+        super(FULLSCREEN_VERTEX_SHADER, fragmentShaderPath);
     }
 
     /**
      * Cache all uniform locations for efficient access.
+     * Calls the parent to cache base uniforms, then caches parallax-specific ones.
      */
+    @Override
     public void cacheUniformLocations() {
         if (uniformsCached) {
             return;
         }
+        super.cacheUniformLocations();
+
+        int programId = getProgramId();
 
         // Texture samplers
         backgroundTextureLocation = glGetUniformLocation(programId, "BackgroundTexture");
         hScrollTextureLocation = glGetUniformLocation(programId, "HScrollTexture");
         vScrollTextureLocation = glGetUniformLocation(programId, "VScrollTexture");
         vScrollColumnTextureLocation = glGetUniformLocation(programId, "VScrollColumnTexture");
-        paletteLocation = glGetUniformLocation(programId, "Palette");
+        parallaxPaletteLocation = glGetUniformLocation(programId, "Palette");
 
         // Scroll and dimensions
         screenHeightLocation = glGetUniformLocation(programId, "ScreenHeight");
@@ -108,20 +91,6 @@ public class ParallaxShaderProgram {
         frameCounterLocation = glGetUniformLocation(programId, "FrameCounter");
         shimmerStyleLocation = glGetUniformLocation(programId, "ShimmerStyle");
         waterlineScreenYLocation = glGetUniformLocation(programId, "WaterlineScreenY");
-
-        uniformsCached = true;
-    }
-
-    public void use() {
-        glUseProgram(programId);
-    }
-
-    public void stop() {
-        glUseProgram(0);
-    }
-
-    public int getProgramId() {
-        return programId;
     }
 
     // Texture unit setters
@@ -150,8 +119,8 @@ public class ParallaxShaderProgram {
     }
 
     public void setPalette(int textureUnit) {
-        if (paletteLocation >= 0) {
-            glUniform1i(paletteLocation, textureUnit);
+        if (parallaxPaletteLocation >= 0) {
+            glUniform1i(parallaxPaletteLocation, textureUnit);
         }
     }
 
@@ -255,10 +224,4 @@ public class ParallaxShaderProgram {
         }
     }
 
-    public void cleanup() {
-        if (programId != 0) {
-            glDeleteProgram(programId);
-            programId = 0;
-        }
-    }
 }
