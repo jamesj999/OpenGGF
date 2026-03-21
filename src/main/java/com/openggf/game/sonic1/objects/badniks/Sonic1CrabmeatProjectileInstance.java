@@ -2,12 +2,10 @@ package com.openggf.game.sonic1.objects.badniks;
 
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
-import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.AbstractProjectileInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SubpixelMotion;
-import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -21,22 +19,20 @@ import java.util.List;
  * <p>
  * Behavior:
  * <ul>
- *   <li>Launched with horizontal velocity (±$100) and upward velocity (-$400)</li>
+ *   <li>Launched with horizontal velocity (+/-$100) and upward velocity (-$400)</li>
  *   <li>Gravity applied each frame via ObjectFall ($38 subpixels/frame²)</li>
  *   <li>Alternates between ball animation frames 5 and 6 at speed 1</li>
  *   <li>Collision type $87: HURT category + size index 7</li>
  *   <li>Deleted when falling below level bottom boundary + $E0</li>
  * </ul>
  */
-public class Sonic1CrabmeatProjectileInstance extends AbstractObjectInstance
-        implements TouchResponseProvider {
-
-    // Collision: obColType = $87 -> category HURT ($80), size index 7
-    // Size 7: width=$06 (6px), height=$06 (6px)
-    private static final int COLLISION_SIZE_INDEX = 0x07;
+public class Sonic1CrabmeatProjectileInstance extends AbstractProjectileInstance {
 
     // Standard Mega Drive gravity: $38 subpixels/frame² (ObjectFall)
     private static final int GRAVITY = 0x38;
+
+    // Collision: obColType = $87 -> category HURT ($80), size index 7
+    private static final int COLLISION_SIZE_INDEX = 0x07;
 
     // Animation: speed 1 = each frame shows for 2 game frames
     private static final int ANIM_SPEED = 2;
@@ -48,14 +44,6 @@ public class Sonic1CrabmeatProjectileInstance extends AbstractObjectInstance
     // Level bottom margin for deletion: $E0 (224 pixels)
     private static final int BOTTOM_MARGIN = 0xE0;
 
-    private int currentX;
-    private int currentY;
-    private final int xVelocity;
-    private int yVelocity;
-    private final SubpixelMotion.State motionState;
-    private final Sonic1CrabmeatBadnikInstance parent;
-    private final LevelManager levelManager;
-
     private int animTimer;
     private int renderedFrame;
 
@@ -64,77 +52,39 @@ public class Sonic1CrabmeatProjectileInstance extends AbstractObjectInstance
      *
      * @param x    Starting X position
      * @param y    Starting Y position
-     * @param xVel X velocity in subpixels (±$100)
+     * @param xVel X velocity in subpixels (+/-$100)
      * @param yVel Initial Y velocity in subpixels (-$400, upward)
-     * @param parent Reference to parent Crabmeat
-     * @param levelManager Level manager reference
+     * @param parent Reference to parent Crabmeat (unused, kept for spawn-site compatibility)
+     * @param levelManager Level manager reference (unused, kept for spawn-site compatibility)
      */
     public Sonic1CrabmeatProjectileInstance(int x, int y, int xVel, int yVel,
-            Sonic1CrabmeatBadnikInstance parent, LevelManager levelManager) {
-        super(new ObjectSpawn(x, y, 0x1F, 0, 0, false, 0), "CrabmeatBall");
-        this.currentX = x;
-        this.currentY = y;
-        this.xVelocity = xVel;
-        this.yVelocity = yVel;
-        this.motionState = new SubpixelMotion.State(x, y, 0, 0, xVel, yVel);
-        this.parent = parent;
-        this.levelManager = levelManager;
+            Sonic1CrabmeatBadnikInstance parent,
+            com.openggf.level.LevelManager levelManager) {
+        super(new ObjectSpawn(x, y, 0x1F, 0, 0, false, 0), "CrabmeatBall",
+                xVel, yVel, GRAVITY, COLLISION_SIZE_INDEX, BOTTOM_MARGIN);
         this.animTimer = 0;
         this.renderedFrame = BALL_FRAME_1;
     }
 
+    /**
+     * S1 ObjectFall order: gravity is applied BEFORE the move, not after.
+     * This differs from the S3K moveSprite convention (move-then-gravity).
+     */
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
-        // Apply gravity (ObjectFall: addi.w #$38,obVelY(a0))
-        yVelocity += GRAVITY;
-
-        // SpeedToPos: apply velocity with subpixel precision
-        motionState.x = currentX;
-        motionState.y = currentY;
-        motionState.xVel = xVelocity;
-        motionState.yVel = yVelocity;
+    protected void updateMotion() {
+        // ObjectFall: addi.w #$38,obVelY(a0) then SpeedToPos
+        motionState.yVel += gravity;
         SubpixelMotion.moveSprite2(motionState);
-        currentX = motionState.x;
-        currentY = motionState.y;
+    }
 
-        // Check if below level bottom boundary + $E0
-        if (!isOnScreen(BOTTOM_MARGIN)) {
-            setDestroyed(true);
-            return;
-        }
-
+    @Override
+    protected void updateExtra(int frameCounter, AbstractPlayableSprite player) {
         // Animate: alternate between ball frame 1 and 2 at speed 1
         animTimer++;
         if (animTimer >= ANIM_SPEED) {
             animTimer = 0;
             renderedFrame = (renderedFrame == BALL_FRAME_1) ? BALL_FRAME_2 : BALL_FRAME_1;
         }
-    }
-
-    @Override
-    public int getCollisionFlags() {
-        // HURT category ($80) + size index 7
-        return 0x80 | (COLLISION_SIZE_INDEX & 0x3F);
-    }
-
-    @Override
-    public int getCollisionProperty() {
-        return 0;
-    }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return new ObjectSpawn(currentX, currentY, 0x1F, 0, 0, false, 0);
-    }
-
-    @Override
-    public int getX() {
-        return currentX;
-    }
-
-    @Override
-    public int getY() {
-        return currentY;
     }
 
     @Override
