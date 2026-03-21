@@ -7,6 +7,7 @@ import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
+import com.openggf.level.objects.AbstractFallingFragment;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -461,15 +462,8 @@ public class Sonic1CollapsingLedgeObjectInstance extends AbstractObjectInstance
      * - ledge_timedelay = delay from CFlo_Data1
      * - Falls via ObjectFall when delay reaches 0
      */
-    public static class CollapsingLedgeFragmentInstance extends AbstractObjectInstance {
+    public static class CollapsingLedgeFragmentInstance extends AbstractFallingFragment {
 
-        private int x;
-        private int y;
-        private int velY;
-        private int xFrac;
-        private int yFrac;
-        private int collapseDelay;
-        private boolean falling;
         private final int smashFrameIndex;
         private final int pieceIndex;
         private final boolean hFlip;
@@ -478,75 +472,21 @@ public class Sonic1CollapsingLedgeObjectInstance extends AbstractObjectInstance
                                                int smashFrameIndex, int pieceIndex,
                                                int delay, int renderFlags) {
             super(new ObjectSpawn(parentX, parentY, Sonic1ObjectIds.COLLAPSING_LEDGE,
-                    0, renderFlags, false, 0), "LedgeFragment");
-            this.x = parentX;
-            this.y = parentY;
+                    0, renderFlags, false, 0), "LedgeFragment", delay, PRIORITY);
             this.smashFrameIndex = smashFrameIndex;
             this.pieceIndex = pieceIndex;
-            this.collapseDelay = delay;
-            this.falling = false;
             this.hFlip = (renderFlags & 0x01) != 0;
         }
 
         @Override
-        public int getX() {
-            return x;
-        }
-
-        @Override
-        public int getY() {
-            return y;
-        }
-
-        @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
-            if (collapseDelay > 0) {
-                collapseDelay--;
-                return;
-            }
-
-            // Ledge_TimeZero: ObjectFall
-            falling = true;
-            int y32 = (y << 16) | (yFrac & 0xFFFF);
-            int vy32 = (int) (short) velY;
-            velY += GRAVITY;
-            y32 += vy32 << 8;
-            y = y32 >> 16;
-            yFrac = y32 & 0xFFFF;
-
-            // Delete when offscreen
-            var camera = Camera.getInstance();
-            if (camera != null) {
-                int screenY = y - camera.getY();
-                if (screenY > 224 + 0x80) {
-                    setDestroyed(true);
-                }
-            }
-        }
-
-        @Override
         public void appendRenderCommands(List<GLCommand> commands) {
-            ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-            if (renderManager == null) {
-                return;
-            }
-            PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.COLLAPSING_LEDGE);
-            if (renderer == null || !renderer.isReady()) {
+            PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.COLLAPSING_LEDGE);
+            if (renderer == null) {
                 return;
             }
 
             // Render just this piece from the smash frame (inheriting parent's X-flip)
-            renderer.drawFramePieceByIndex(smashFrameIndex, pieceIndex, x, y, hFlip, false);
-        }
-
-        @Override
-        public int getPriorityBucket() {
-            return RenderPriority.clamp(PRIORITY);
-        }
-
-        @Override
-        public boolean isPersistent() {
-            return !isDestroyed();
+            renderer.drawFramePieceByIndex(smashFrameIndex, pieceIndex, getX(), getY(), hFlip, false);
         }
     }
 }

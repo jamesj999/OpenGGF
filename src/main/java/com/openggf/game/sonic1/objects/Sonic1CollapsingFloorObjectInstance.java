@@ -9,6 +9,7 @@ import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
+import com.openggf.level.objects.AbstractFallingFragment;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectManager;
@@ -530,13 +531,8 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
      *   <li>Falls via ObjectFall when delay reaches 0</li>
      * </ul>
      */
-    public static class CollapsingFloorFragmentInstance extends AbstractObjectInstance {
+    public static class CollapsingFloorFragmentInstance extends AbstractFallingFragment {
 
-        private int x;
-        private int y;
-        private int velY;
-        private int yFrac;
-        private int collapseDelay;
         private final int smashFrameIndex;
         private final int pieceIndex;
         private final boolean hFlip;
@@ -546,54 +542,11 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
                                                int smashFrameIndex, int pieceIndex,
                                                int delay, boolean hFlip, String artKey) {
             super(new ObjectSpawn(parentX, parentY, Sonic1ObjectIds.COLLAPSING_FLOOR,
-                    0, 0, false, 0), "CFloFragment");
-            this.x = parentX;
-            this.y = parentY;
+                    0, 0, false, 0), "CFloFragment", delay, PRIORITY);
             this.smashFrameIndex = smashFrameIndex;
             this.pieceIndex = pieceIndex;
-            this.collapseDelay = delay;
             this.hFlip = hFlip;
             this.artKey = artKey;
-        }
-
-        @Override
-        public int getX() {
-            return x;
-        }
-
-        @Override
-        public int getY() {
-            return y;
-        }
-
-        @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
-            if (isDestroyed()) {
-                return;
-            }
-
-            if (collapseDelay > 0) {
-                // Count down delay before falling
-                collapseDelay--;
-                return;
-            }
-
-            // CFlo_TimeZero: ObjectFall
-            int y32 = (y << 16) | (yFrac & 0xFFFF);
-            int vy32 = (int) (short) velY;
-            velY += GRAVITY;
-            y32 += vy32 << 8;
-            y = y32 >> 16;
-            yFrac = y32 & 0xFFFF;
-
-            // tst.b obRender(a0) / bpl.s CFlo_Delete - delete when offscreen
-            Camera cam = Camera.getInstance();
-            if (cam != null) {
-                int screenY = y - cam.getY();
-                if (screenY > 224 + 0x80) {
-                    setDestroyed(true);
-                }
-            }
         }
 
         @Override
@@ -601,26 +554,12 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
             if (isDestroyed()) {
                 return;
             }
-            ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-            if (renderManager == null) {
-                return;
-            }
-            PatternSpriteRenderer renderer = renderManager.getRenderer(artKey);
-            if (renderer == null || !renderer.isReady()) {
+            PatternSpriteRenderer renderer = getRenderer(artKey);
+            if (renderer == null) {
                 return;
             }
 
-            renderer.drawFramePieceByIndex(smashFrameIndex, pieceIndex, x, y, hFlip, false);
-        }
-
-        @Override
-        public int getPriorityBucket() {
-            return RenderPriority.clamp(PRIORITY);
-        }
-
-        @Override
-        public boolean isPersistent() {
-            return !isDestroyed();
+            renderer.drawFramePieceByIndex(smashFrameIndex, pieceIndex, getX(), getY(), hFlip, false);
         }
     }
 }

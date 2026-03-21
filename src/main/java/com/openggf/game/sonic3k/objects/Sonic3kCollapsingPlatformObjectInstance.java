@@ -8,6 +8,7 @@ import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
+import com.openggf.level.objects.AbstractFallingFragment;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -410,13 +411,8 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
      * <p>
      * ROM: loc_205CE (fragment routine in Obj_CollapsingPlatform).
      */
-    public static class CollapsingPlatformFragment extends AbstractObjectInstance {
+    public static class CollapsingPlatformFragment extends AbstractFallingFragment {
 
-        private int x;
-        private int y;
-        private int velY;
-        private int yFrac;
-        private int delayTimer;
         private final int fragmentFrameIndex;
         private final int pieceIndex;
         private final String artKey;
@@ -426,67 +422,21 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
                                           int fragmentFrameIndex, int pieceIndex,
                                           int delay, String artKey, boolean hFlip) {
             super(new ObjectSpawn(parentX, parentY, Sonic3kObjectIds.COLLAPSING_PLATFORM,
-                    0, hFlip ? 1 : 0, false, 0), "PlatformFragment");
-            this.x = parentX;
-            this.y = parentY;
+                    0, hFlip ? 1 : 0, false, 0), "PlatformFragment", delay, PRIORITY);
             this.fragmentFrameIndex = fragmentFrameIndex;
             this.pieceIndex = pieceIndex;
-            this.delayTimer = delay;
             this.artKey = artKey;
             this.hFlip = hFlip;
         }
 
         @Override
-        public int getX() {
-            return x;
-        }
-
-        @Override
-        public int getY() {
-            return y;
-        }
-
-        @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
-            if (delayTimer > 0) {
-                delayTimer--;
-                return;
-            }
-
-            // Apply gravity and move
-            velY += GRAVITY;
-            int y32 = (y << 16) | (yFrac & 0xFFFF);
-            y32 += ((int) (short) velY) << 8;
-            y = y32 >> 16;
-            yFrac = y32 & 0xFFFF;
-
-            // Destroy when far offscreen
-            if (!isOnScreen(128)) {
-                setDestroyed(true);
-            }
-        }
-
-        @Override
         public void appendRenderCommands(List<GLCommand> commands) {
-            ObjectRenderManager renderManager = getRenderManager();
-            if (renderManager == null) {
+            PatternSpriteRenderer renderer = getRenderer(artKey);
+            if (renderer == null) {
                 return;
             }
 
-            PatternSpriteRenderer renderer = renderManager.getRenderer(artKey);
-            if (renderer != null && renderer.isReady()) {
-                renderer.drawFramePieceByIndex(fragmentFrameIndex, pieceIndex, x, y, hFlip, false);
-            }
-        }
-
-        @Override
-        public int getPriorityBucket() {
-            return RenderPriority.clamp(PRIORITY);
-        }
-
-        @Override
-        public boolean isPersistent() {
-            return !isDestroyed();
+            renderer.drawFramePieceByIndex(fragmentFrameIndex, pieceIndex, getX(), getY(), hFlip, false);
         }
     }
 }
