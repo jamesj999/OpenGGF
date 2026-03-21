@@ -12,7 +12,7 @@ import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Pattern;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.level.slotmachine.CNZSlotMachineRenderer;
+import com.openggf.game.sonic2.slotmachine.CNZSlotMachineRenderer;
 
 import static org.lwjgl.glfw.GLFW.*;
 

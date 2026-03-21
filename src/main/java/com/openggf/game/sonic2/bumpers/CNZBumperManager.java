@@ -1,4 +1,4 @@
-package com.openggf.level.bumpers;
+package com.openggf.game.sonic2.bumpers;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;

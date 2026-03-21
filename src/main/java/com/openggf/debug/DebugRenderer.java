@@ -7,7 +7,7 @@ import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.level.objects.TouchCategory;
-import com.openggf.level.slotmachine.CNZSlotMachineRenderer;
+import com.openggf.game.sonic2.slotmachine.CNZSlotMachineRenderer;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.ObjectManager;

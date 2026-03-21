@@ -13,8 +13,8 @@ import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.*;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.level.slotmachine.CNZSlotMachineManager;
-import com.openggf.level.slotmachine.CNZSlotMachineRenderer;
+import com.openggf.game.sonic2.slotmachine.CNZSlotMachineManager;
+import com.openggf.game.sonic2.slotmachine.CNZSlotMachineRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;

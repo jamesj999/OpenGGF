@@ -1,4 +1,4 @@
-package com.openggf.level.bumpers;
+package com.openggf.game.sonic2.bumpers;
 
 import com.openggf.data.Rom;
 import com.openggf.game.sonic2.constants.Sonic2Constants;

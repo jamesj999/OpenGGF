@@ -1,4 +1,4 @@
-package com.openggf.level.bumpers;
+package com.openggf.game.sonic2.bumpers;
 
 /**
  * CNZ Map Bumper types with collision dimensions and bounce behavior.

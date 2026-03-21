@@ -1,4 +1,4 @@
-package com.openggf.level.slotmachine;
+package com.openggf.game.sonic2.slotmachine;
 
 import com.openggf.graphics.RenderContext;
 import org.lwjgl.system.MemoryUtil;

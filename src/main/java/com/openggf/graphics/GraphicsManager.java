@@ -10,7 +10,7 @@ import com.openggf.level.render.BackgroundRenderer;
 
 import static com.openggf.level.LevelConstants.*;
 
-import com.openggf.level.slotmachine.CNZSlotMachineRenderer;
+import com.openggf.game.sonic2.slotmachine.CNZSlotMachineRenderer;
 
 import org.lwjgl.system.MemoryUtil;
 
