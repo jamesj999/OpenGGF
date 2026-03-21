@@ -15,7 +15,7 @@ import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.game.GameServices;
-import com.openggf.game.sonic2.objects.ExplosionObjectInstance;
+import com.openggf.level.objects.ExplosionObjectInstance;
 import com.openggf.game.sonic2.objects.PointsObjectInstance;
 
 import java.util.List;

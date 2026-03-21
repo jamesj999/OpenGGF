@@ -4,7 +4,7 @@ import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameAudioProfile;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
-import com.openggf.game.sonic2.objects.BreathingBubbleInstance;
+import com.openggf.level.objects.BreathingBubbleInstance;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;

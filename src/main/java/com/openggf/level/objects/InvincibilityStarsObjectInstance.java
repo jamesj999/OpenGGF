@@ -1,4 +1,4 @@
-package com.openggf.game.sonic2.objects;
+package com.openggf.level.objects;
 
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.graphics.GLCommand;
@@ -176,7 +176,7 @@ public class InvincibilityStarsObjectInstance extends AbstractObjectInstance {
         }
     }
 
-    static int s1FramesBehindForStar(int starIndex, int trailPhase) {
+    public static int s1FramesBehindForStar(int starIndex, int trailPhase) {
         int normalizedStar = Math.max(0, Math.min(STAR_COUNT - 1, starIndex));
         int normalizedPhase = Math.floorMod(trailPhase, S1_TRAIL_PHASE_COUNT);
         return 1 + (normalizedStar * S1_TRAIL_PHASE_COUNT) + normalizedPhase;

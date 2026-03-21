@@ -4,7 +4,7 @@ import com.openggf.game.CrossGameFeatureProvider;
 import com.openggf.game.GameModule;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.ObjectArtProvider;
-import com.openggf.game.sonic2.objects.ShieldObjectInstance;
+import com.openggf.level.objects.ShieldObjectInstance;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.Sonic3kObjectArtProvider;
 import com.openggf.graphics.GLCommand;

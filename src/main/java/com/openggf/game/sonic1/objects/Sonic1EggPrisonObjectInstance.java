@@ -7,7 +7,7 @@ import com.openggf.game.sonic1.audio.Sonic1Music;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.objects.EggPrisonAnimalInstance;
-import com.openggf.game.sonic2.objects.ExplosionObjectInstance;
+import com.openggf.level.objects.ExplosionObjectInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;

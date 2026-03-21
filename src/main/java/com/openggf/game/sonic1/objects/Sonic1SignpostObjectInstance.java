@@ -12,7 +12,7 @@ import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.game.sonic2.objects.SignpostSparkleObjectInstance;
+import com.openggf.level.objects.SignpostSparkleObjectInstance;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;

@@ -1,4 +1,4 @@
-package com.openggf.game.sonic2.objects;
+package com.openggf.level.objects;
 
 import com.openggf.sprites.animation.SpriteAnimationScript;
 import com.openggf.sprites.animation.SpriteAnimationSet;

@@ -1,4 +1,5 @@
 package com.openggf.game.sonic2.objects.bosses;
+import com.openggf.level.objects.ExplosionObjectInstance;
 
 import com.openggf.game.sonic2.objects.BossExplosionObjectInstance;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;

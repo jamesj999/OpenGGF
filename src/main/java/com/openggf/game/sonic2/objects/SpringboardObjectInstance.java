@@ -1,4 +1,7 @@
 package com.openggf.game.sonic2.objects;
+import com.openggf.level.objects.SpringHelper;
+import com.openggf.level.objects.BoxObjectInstance;
+import com.openggf.level.objects.ObjectAnimationState;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;

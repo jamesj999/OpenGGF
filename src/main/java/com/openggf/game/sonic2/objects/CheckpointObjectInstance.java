@@ -1,4 +1,5 @@
 package com.openggf.game.sonic2.objects;
+import com.openggf.level.objects.BoxObjectInstance;
 
 import com.openggf.game.CheckpointState;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;

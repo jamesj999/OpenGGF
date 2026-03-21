@@ -1,4 +1,5 @@
 package com.openggf.game.sonic2.objects;
+import com.openggf.level.objects.BoxObjectInstance;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;

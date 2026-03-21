@@ -1,4 +1,4 @@
-package com.openggf.game.sonic2.objects;
+package com.openggf.level.objects;
 import com.openggf.audio.AudioManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;

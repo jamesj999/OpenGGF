@@ -5,7 +5,7 @@ import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
-import com.openggf.game.sonic2.objects.ExplosionObjectInstance;
+import com.openggf.level.objects.ExplosionObjectInstance;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;

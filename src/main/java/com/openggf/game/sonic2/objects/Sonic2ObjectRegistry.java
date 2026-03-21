@@ -1,4 +1,5 @@
 package com.openggf.game.sonic2.objects;
+import com.openggf.level.objects.ExplosionObjectInstance;
 
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.bosses.Sonic2MCZBossInstance;

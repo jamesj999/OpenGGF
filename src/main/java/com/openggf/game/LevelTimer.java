@@ -1,4 +1,4 @@
-package com.openggf.game.sonic2;
+package com.openggf.game;
 
 /**
  * Tracks the time spent in the current level.

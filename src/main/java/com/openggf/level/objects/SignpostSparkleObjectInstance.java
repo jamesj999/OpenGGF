@@ -1,4 +1,4 @@
-package com.openggf.game.sonic2.objects;
+package com.openggf.level.objects;
 
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
