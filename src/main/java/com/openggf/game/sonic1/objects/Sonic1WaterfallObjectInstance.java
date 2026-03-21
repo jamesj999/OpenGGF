@@ -95,14 +95,7 @@ public class Sonic1WaterfallObjectInstance extends AbstractObjectInstance {
 
     @Override
     public ObjectSpawn getSpawn() {
-        return new ObjectSpawn(
-                x,
-                y,
-                spawn.objectId(),
-                spawn.subtype(),
-                spawn.renderFlags(),
-                spawn.respawnTracked(),
-                spawn.rawYWord());
+        return buildSpawnAt(x, y);
     }
 
     @Override

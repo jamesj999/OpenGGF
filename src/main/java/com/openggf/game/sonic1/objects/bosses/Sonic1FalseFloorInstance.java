@@ -300,11 +300,7 @@ public class Sonic1FalseFloorInstance extends AbstractObjectInstance
     }
 
     private void refreshDynamicSpawn() {
-        dynamicSpawn = new ObjectSpawn(
-                currentX, currentY,
-                spawn.objectId(), spawn.subtype(),
-                spawn.renderFlags(), spawn.respawnTracked(),
-                spawn.rawYWord());
+        dynamicSpawn = buildSpawnAt(currentX, currentY);
     }
 
     // =========================================================================

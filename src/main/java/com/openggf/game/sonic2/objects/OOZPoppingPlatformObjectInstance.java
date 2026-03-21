@@ -420,9 +420,7 @@ public class OOZPoppingPlatformObjectInstance extends AbstractObjectInstance
 
     private void refreshDynamicSpawn() {
         if (dynamicSpawn == null || dynamicSpawn.y() != currentY) {
-            dynamicSpawn = new ObjectSpawn(
-                    x, currentY, spawn.objectId(), spawn.subtype(),
-                    spawn.renderFlags(), spawn.respawnTracked(), spawn.rawYWord());
+            dynamicSpawn = buildSpawnAt(x, currentY);
         }
     }
 }

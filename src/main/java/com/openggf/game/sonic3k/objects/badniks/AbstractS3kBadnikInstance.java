@@ -109,14 +109,7 @@ abstract class AbstractS3kBadnikInstance extends AbstractObjectInstance
     public ObjectSpawn getSpawn() {
         int bodyX = getBodyAnchorX();
         int bodyY = getBodyAnchorY();
-        return new ObjectSpawn(
-                bodyX,
-                bodyY,
-                spawn.objectId(),
-                spawn.subtype(),
-                spawn.renderFlags(),
-                spawn.respawnTracked(),
-                spawn.rawYWord());
+        return buildSpawnAt(bodyX, bodyY);
     }
 
     @Override

@@ -370,14 +370,7 @@ public class CPZStaircaseObjectInstance extends AbstractObjectInstance
         // Track the position of the first piece for riding calculations
         int pieceY = baseY + yOffsets[0];
         if (dynamicSpawn == null || dynamicSpawn.y() != pieceY) {
-            dynamicSpawn = new ObjectSpawn(
-                    baseX,
-                    pieceY,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
+            dynamicSpawn = buildSpawnAt(baseX, pieceY);
         }
     }
 

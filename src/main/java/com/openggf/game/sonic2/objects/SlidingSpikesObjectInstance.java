@@ -303,14 +303,7 @@ public class SlidingSpikesObjectInstance extends AbstractObjectInstance
         if (dynamicSpawn.x() == currentX) {
             return;
         }
-        dynamicSpawn = new ObjectSpawn(
-                currentX,
-                spawn.y(),
-                spawn.objectId(),
-                spawn.subtype(),
-                spawn.renderFlags(),
-                spawn.respawnTracked(),
-                spawn.rawYWord());
+        dynamicSpawn = buildSpawnAt(currentX, spawn.y());
     }
 
     /**

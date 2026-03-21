@@ -390,13 +390,7 @@ public class Sonic1RunningDiscObjectInstance extends AbstractObjectInstance {
 
     private void refreshDynamicSpawn() {
         if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = new ObjectSpawn(
-                    x, y,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
+            dynamicSpawn = buildSpawnAt(x, y);
         }
     }
 

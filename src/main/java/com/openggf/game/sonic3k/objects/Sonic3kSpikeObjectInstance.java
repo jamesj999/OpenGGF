@@ -276,14 +276,7 @@ public class Sonic3kSpikeObjectInstance extends AbstractObjectInstance
         if (dynamicSpawn.x() == currentX && dynamicSpawn.y() == currentY) {
             return;
         }
-        dynamicSpawn = new ObjectSpawn(
-                currentX,
-                currentY,
-                spawn.objectId(),
-                spawn.subtype(),
-                spawn.renderFlags(),
-                spawn.respawnTracked(),
-                spawn.rawYWord());
+        dynamicSpawn = buildSpawnAt(currentX, currentY);
     }
 
     private void playSpikeMoveSfx() {

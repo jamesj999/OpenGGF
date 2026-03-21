@@ -125,6 +125,15 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     }
 
     /**
+     * Builds an ObjectSpawn at the given position, preserving all other fields from the
+     * original spawn. Use in getSpawn() overrides and dynamic spawn tracking.
+     */
+    protected ObjectSpawn buildSpawnAt(int x, int y) {
+        return new ObjectSpawn(x, y, spawn.objectId(), spawn.subtype(),
+                spawn.renderFlags(), spawn.respawnTracked(), spawn.rawYWord());
+    }
+
+    /**
      * Returns the ObjectRenderManager, or null if not available.
      */
     protected static ObjectRenderManager getRenderManager() {

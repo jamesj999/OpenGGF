@@ -419,13 +419,7 @@ public class Sonic1StaircaseObjectInstance extends AbstractObjectInstance
     private void refreshDynamicSpawn() {
         int pieceY = baseY + yOffsets[0];
         if (dynamicSpawn == null || dynamicSpawn.y() != pieceY) {
-            dynamicSpawn = new ObjectSpawn(
-                    baseX, pieceY,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
+            dynamicSpawn = buildSpawnAt(baseX, pieceY);
         }
     }
 

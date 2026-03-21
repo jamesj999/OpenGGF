@@ -286,14 +286,7 @@ public class SteamSpringObjectInstance extends AbstractObjectInstance
         if (dynamicSpawn != null && dynamicSpawn.y() == currentY) {
             return;
         }
-        dynamicSpawn = new ObjectSpawn(
-                spawn.x(),
-                currentY,
-                spawn.objectId(),
-                spawn.subtype(),
-                spawn.renderFlags(),
-                spawn.respawnTracked(),
-                spawn.rawYWord());
+        dynamicSpawn = buildSpawnAt(spawn.x(), currentY);
     }
 
     // --- Rendering ---

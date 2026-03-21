@@ -363,14 +363,7 @@ public class MonitorObjectInstance extends BoxObjectInstance implements TouchRes
     public ObjectSpawn getSpawn() {
         // Return spawn with dynamic Y for solid collision checks
         if (currentY != spawn.y()) {
-            return new ObjectSpawn(
-                    spawn.x(),
-                    currentY,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
+            return buildSpawnAt(spawn.x(), currentY);
         }
         return spawn;
     }

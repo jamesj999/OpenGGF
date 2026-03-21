@@ -200,14 +200,7 @@ public class StomperObjectInstance extends AbstractObjectInstance
 
     private void refreshDynamicSpawn() {
         if (dynamicSpawn == null || dynamicSpawn.y() != currentY) {
-            dynamicSpawn = new ObjectSpawn(
-                    spawn.x(),
-                    currentY,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
+            dynamicSpawn = buildSpawnAt(spawn.x(), currentY);
         }
     }
 

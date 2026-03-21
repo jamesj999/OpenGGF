@@ -651,14 +651,7 @@ public class Sonic1SLZBossSpikeball extends AbstractObjectInstance
 
     @Override
     public ObjectSpawn getSpawn() {
-        return new ObjectSpawn(
-                xPos >> 16,
-                yPos >> 16,
-                spawn.objectId(),
-                spawn.subtype(),
-                spawn.renderFlags(),
-                spawn.respawnTracked(),
-                spawn.rawYWord());
+        return buildSpawnAt(xPos >> 16, yPos >> 16);
     }
 
     // ---- Rendering ----

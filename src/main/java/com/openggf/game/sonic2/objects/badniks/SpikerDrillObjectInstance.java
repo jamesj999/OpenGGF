@@ -65,14 +65,7 @@ public class SpikerDrillObjectInstance extends AbstractObjectInstance implements
 
     @Override
     public ObjectSpawn getSpawn() {
-        return new ObjectSpawn(
-                currentX,
-                currentY,
-                spawn.objectId(),
-                spawn.subtype(),
-                spawn.renderFlags(),
-                spawn.respawnTracked(),
-                spawn.rawYWord());
+        return buildSpawnAt(currentX, currentY);
     }
 
     @Override

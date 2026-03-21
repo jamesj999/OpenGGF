@@ -317,14 +317,7 @@ public class HTZLiftObjectInstance extends AbstractObjectInstance
         int currentY = yFixed >> 8;
 
         if (dynamicSpawn == null || dynamicSpawn.x() != currentX || dynamicSpawn.y() != currentY) {
-            dynamicSpawn = new ObjectSpawn(
-                    currentX,
-                    currentY,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
+            dynamicSpawn = buildSpawnAt(currentX, currentY);
         }
     }
 }

@@ -314,11 +314,7 @@ public class MTZTwinStompersObjectInstance extends AbstractObjectInstance
 
     private void refreshDynamicSpawn() {
         if (dynamicSpawn.y() != currentY) {
-            dynamicSpawn = new ObjectSpawn(
-                    baseX, currentY,
-                    spawn.objectId(), spawn.subtype(),
-                    spawn.renderFlags(), spawn.respawnTracked(),
-                    spawn.rawYWord());
+            dynamicSpawn = buildSpawnAt(baseX, currentY);
         }
     }
 
