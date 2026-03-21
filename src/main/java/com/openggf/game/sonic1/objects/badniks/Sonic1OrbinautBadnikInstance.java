@@ -1,6 +1,6 @@
 package com.openggf.game.sonic1.objects.badniks;
 
-import com.openggf.game.sonic2.objects.badniks.AbstractBadnikInstance;
+import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
@@ -193,7 +193,7 @@ public class Sonic1OrbinautBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public boolean isPersistent() {
-        return !destroyed && isOnScreenX(192);
+        return !isDestroyed() && isOnScreenX(192);
     }
 
     @Override
@@ -216,7 +216,7 @@ public class Sonic1OrbinautBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 

@@ -1,5 +1,7 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
@@ -83,7 +85,7 @@ public class SlicerBadnikInstance extends AbstractBadnikInstance {
     private boolean walkAnimToggle; // Toggles between frame 0 and frame 2
 
     public SlicerBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Slicer");
+        super(spawn, levelManager, "Slicer", Sonic2BadnikConfig.DESTRUCTION);
         this.currentX = spawn.x();
         this.currentY = spawn.y();
 
@@ -254,7 +256,7 @@ public class SlicerBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) return;
+        if (isDestroyed()) return;
 
         ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
         if (renderManager == null) return;

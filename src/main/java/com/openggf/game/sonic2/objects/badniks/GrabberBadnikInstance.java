@@ -1,5 +1,7 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -69,7 +71,7 @@ public class GrabberBadnikInstance extends AbstractBadnikInstance {
     private int ySubpixel;          // Y subpixel position (0-255)
 
     public GrabberBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Grabber");
+        super(spawn, levelManager, "Grabber", Sonic2BadnikConfig.DESTRUCTION);
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         this.anchorY = spawn.y();
@@ -345,7 +347,7 @@ public class GrabberBadnikInstance extends AbstractBadnikInstance {
      */
     private void triggerDestruction() {
         state = State.DEATH;
-        destroyed = true;
+        setDestroyed(true);
         // Grabber transforms to explosion object (no animal spawned)
     }
 
@@ -435,7 +437,7 @@ public class GrabberBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void onPlayerAttack(AbstractPlayableSprite player, TouchResponseResult result) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 
@@ -467,7 +469,7 @@ public class GrabberBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 

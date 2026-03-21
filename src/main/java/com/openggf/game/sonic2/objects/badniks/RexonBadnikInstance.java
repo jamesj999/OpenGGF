@@ -1,5 +1,7 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -61,7 +63,7 @@ public class RexonBadnikInstance extends AbstractBadnikInstance
     private final List<RexonHeadObjectInstance> heads = new ArrayList<>();
 
     public RexonBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Rexon");
+        super(spawn, levelManager, "Rexon", Sonic2BadnikConfig.DESTRUCTION);
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         this.xVelocity = X_VELOCITY;
@@ -259,7 +261,7 @@ public class RexonBadnikInstance extends AbstractBadnikInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 

@@ -1,6 +1,6 @@
 package com.openggf.game.sonic1.objects.badniks;
 
-import com.openggf.game.sonic2.objects.badniks.AbstractBadnikInstance;
+import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
@@ -223,7 +223,7 @@ public class Sonic1BuzzBomberBadnikInstance extends AbstractBadnikInstance {
     public boolean isPersistent() {
         // ROM MarkObjGone: ~128px left margin, ~64px right margin.
         // We use 160px for a symmetric, generous margin.
-        return !destroyed && isOnScreenX(160);
+        return !isDestroyed() && isOnScreenX(160);
     }
 
     @Override
@@ -233,7 +233,7 @@ public class Sonic1BuzzBomberBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 

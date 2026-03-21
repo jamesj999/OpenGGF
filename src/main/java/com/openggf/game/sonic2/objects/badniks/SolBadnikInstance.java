@@ -1,5 +1,7 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.objects.ObjectAnimationState;
 import com.openggf.graphics.GLCommand;
@@ -47,7 +49,7 @@ public class SolBadnikInstance extends AbstractBadnikInstance {
     private State state;
 
     public SolBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Sol");
+        super(spawn, levelManager, "Sol", Sonic2BadnikConfig.DESTRUCTION);
         this.xFlip = (spawn.renderFlags() & 0x01) != 0;
         this.orbitDirection = xFlip ? -1 : 1;
         this.xVelocity = xFlip ? X_VELOCITY : -X_VELOCITY;
@@ -164,7 +166,7 @@ public class SolBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 

@@ -1,5 +1,7 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -59,7 +61,7 @@ public class ChopChopBadnikInstance extends AbstractBadnikInstance {
     private final int startX;        // Initial X position for direction reference
 
     public ChopChopBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "ChopChop");
+        super(spawn, levelManager, "ChopChop", Sonic2BadnikConfig.DESTRUCTION);
         this.state = State.PATROLLING;
         this.moveTimer = MOVE_TIMER_INIT;
         this.waitTimer = 0;
@@ -230,7 +232,7 @@ public class ChopChopBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 

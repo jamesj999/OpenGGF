@@ -1,5 +1,7 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -120,7 +122,7 @@ public class CrawlBadnikInstance extends AbstractBadnikInstance {
     private int lastFrameCounter;    // Cached for wobble calculation in applyBounce
 
     public CrawlBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Crawl");
+        super(spawn, levelManager, "Crawl", Sonic2BadnikConfig.DESTRUCTION);
         this.state = State.WALKING;
         this.previousState = State.WALKING;
         this.walkTimer = WALK_DURATION;
@@ -245,7 +247,7 @@ public class CrawlBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void onPlayerAttack(AbstractPlayableSprite player, TouchResponseResult result) {
-        if (destroyed || player == null) {
+        if (isDestroyed() || player == null) {
             return;
         }
 
@@ -361,7 +363,7 @@ public class CrawlBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 

@@ -1,5 +1,7 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -59,7 +61,7 @@ public class NebulaBadnikInstance extends AbstractBadnikInstance {
     private final AnimationTimer anim = new AnimationTimer(ANIM_SPEED + 1, ANIM_FRAMES.length);
 
     public NebulaBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Nebula");
+        super(spawn, levelManager, "Nebula", Sonic2BadnikConfig.DESTRUCTION);
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         this.xVelocity = INIT_X_VEL;
@@ -94,7 +96,7 @@ public class NebulaBadnikInstance extends AbstractBadnikInstance {
         // ROM: Obj_DeleteBehindScreen - delete if scrolled off left
         if (!isOnScreen(64)) {
             setDestroyed(true);
-            destroyed = true;
+            setDestroyed(true);
         }
     }
 
@@ -185,7 +187,7 @@ public class NebulaBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 

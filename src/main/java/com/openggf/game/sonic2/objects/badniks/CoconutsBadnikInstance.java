@@ -1,5 +1,7 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -53,7 +55,7 @@ public class CoconutsBadnikInstance extends AbstractBadnikInstance {
     private ThrowState throwState;
 
     public CoconutsBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Coconuts");
+        super(spawn, levelManager, "Coconuts", Sonic2BadnikConfig.DESTRUCTION);
         this.currentY = spawn.y();
         this.currentX = spawn.x();
         this.timer = IDLE_TIMER_INIT;
@@ -188,7 +190,7 @@ public class CoconutsBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 

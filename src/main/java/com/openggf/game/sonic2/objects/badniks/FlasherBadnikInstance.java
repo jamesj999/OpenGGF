@@ -1,5 +1,7 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -73,7 +75,7 @@ public class FlasherBadnikInstance extends AbstractBadnikInstance {
     private int animationIndex;
 
     public FlasherBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Flasher");
+        super(spawn, levelManager, "Flasher", Sonic2BadnikConfig.DESTRUCTION);
         this.state = State.WAITING;
         this.stateTimer = WAIT_TIMER_INIT;
         this.xPosFixed = currentX << 8;
@@ -130,7 +132,7 @@ public class FlasherBadnikInstance extends AbstractBadnikInstance {
         }
 
         if (flightCounter < 0) {
-            destroyed = true;
+            setDestroyed(true);
             setDestroyed(true); // ObjA3: delete if objoff_2A wrapped negative
             return;
         }
@@ -248,7 +250,7 @@ public class FlasherBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public int getCollisionFlags() {
-        if (destroyed) {
+        if (isDestroyed()) {
             return 0;
         }
         int category = electrified ? 0x80 : 0x00;
@@ -267,7 +269,7 @@ public class FlasherBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 

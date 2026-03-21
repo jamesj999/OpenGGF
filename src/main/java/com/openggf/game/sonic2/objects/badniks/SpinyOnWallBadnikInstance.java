@@ -1,5 +1,7 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -62,7 +64,7 @@ public class SpinyOnWallBadnikInstance extends AbstractBadnikInstance {
     private int ySubpixel;        // Subpixel accumulator for smooth movement
 
     public SpinyOnWallBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "SpinyOnWall");
+        super(spawn, levelManager, "SpinyOnWall", Sonic2BadnikConfig.DESTRUCTION);
         this.state = State.PATROLLING;
         this.moveCounter = MOVE_TIMER;
         this.attackTimer = 0;
@@ -199,7 +201,7 @@ public class SpinyOnWallBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 

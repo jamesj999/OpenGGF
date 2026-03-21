@@ -1,5 +1,7 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -25,7 +27,7 @@ public class MasherBadnikInstance extends AbstractBadnikInstance {
     private int localYVel; // Current y velocity in subpixels
 
     public MasherBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Masher");
+        super(spawn, levelManager, "Masher", Sonic2BadnikConfig.DESTRUCTION);
         this.baseY = spawn.y();
         this.currentY = baseY;
         this.localYVel = INITIAL_Y_VEL; // Start moving upward
@@ -81,7 +83,7 @@ public class MasherBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 

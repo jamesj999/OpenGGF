@@ -1,5 +1,7 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.objects.ObjectAnimationState;
 import com.openggf.graphics.GLCommand;
@@ -63,7 +65,7 @@ public class AquisBadnikInstance extends AbstractBadnikInstance {
     private boolean wingDestroyed;
 
     public AquisBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Aquis");
+        super(spawn, levelManager, "Aquis", Sonic2BadnikConfig.DESTRUCTION);
         this.state = State.WAIT_FOR_SCREEN;
         this.timer = 0;
         this.shotsRemaining = INITIAL_SHOTS;
@@ -170,7 +172,7 @@ public class AquisBadnikInstance extends AbstractBadnikInstance {
         applyMovement();
 
         if (!isOnScreen(64)) {
-            destroyed = true;
+            setDestroyed(true);
             setDestroyed(true);
             wingDestroyed = true;
         }
@@ -226,7 +228,7 @@ public class AquisBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 

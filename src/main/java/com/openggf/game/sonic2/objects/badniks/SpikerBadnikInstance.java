@@ -1,5 +1,7 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
@@ -51,7 +53,7 @@ public class SpikerBadnikInstance extends AbstractBadnikInstance {
     private final boolean yFlipFlag;
 
     public SpikerBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Spiker");
+        super(spawn, levelManager, "Spiker", Sonic2BadnikConfig.DESTRUCTION);
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         this.xVelocity = X_VELOCITY;
@@ -203,7 +205,7 @@ public class SpikerBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 

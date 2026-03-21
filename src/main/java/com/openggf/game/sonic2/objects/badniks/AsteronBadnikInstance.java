@@ -1,5 +1,7 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
@@ -74,7 +76,7 @@ public class AsteronBadnikInstance extends AbstractBadnikInstance {
     private final SubpixelMotion.State motionState;
 
     public AsteronBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Asteron");
+        super(spawn, levelManager, "Asteron", Sonic2BadnikConfig.DESTRUCTION);
         this.state = State.IDLE;
         this.moveTimer = 0;
         this.motionState = new SubpixelMotion.State(spawn.x(), spawn.y(), 0, 0, 0, 0);
@@ -185,7 +187,7 @@ public class AsteronBadnikInstance extends AbstractBadnikInstance {
      */
     private void explode() {
         // Destroy self (the Asteron becomes an explosion)
-        destroyed = true;
+        setDestroyed(true);
         setDestroyed(true);
 
         var objectManager = levelManager.getObjectManager();
@@ -249,7 +251,7 @@ public class AsteronBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 

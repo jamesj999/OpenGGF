@@ -1,7 +1,7 @@
 package com.openggf.game.sonic1.objects.badniks;
 
 import com.openggf.debug.DebugRenderContext;
-import com.openggf.game.sonic2.objects.badniks.AbstractBadnikInstance;
+import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
@@ -499,7 +499,7 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
     @Override
     protected void destroyBadnik(AbstractPlayableSprite player) {
         deleting = true;
-        destroyed = true;
+        setDestroyed(true);
         setDestroyed(true);
         DestructionEffects.destroyBadnik(currentX, currentY, spawn, player, levelManager,
                 getDestructionConfig());
@@ -557,7 +557,7 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
      * This starts fragment behavior without awarding points or spawning explosions.
      */
     void triggerFragmentFromBodyHit() {
-        if (deleting || destroyed || fragmenting) {
+        if (deleting || isDestroyed() || fragmenting) {
             return;
         }
         startHeadFragment();
@@ -578,7 +578,7 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
             // ROM checks both X and Y via obRender on-screen flag.
             return isOnScreen(160);
         }
-        return !destroyed && isOnScreenX(160);
+        return !isDestroyed() && isOnScreenX(160);
     }
 
     @Override

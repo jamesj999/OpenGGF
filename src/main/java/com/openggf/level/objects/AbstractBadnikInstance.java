@@ -1,20 +1,11 @@
-package com.openggf.game.sonic2.objects.badniks;
+package com.openggf.level.objects;
 
 import com.openggf.debug.DebugRenderContext;
-import com.openggf.game.sonic2.audio.Sonic2Sfx;
-
 import com.openggf.debug.DebugColor;
 
 import com.openggf.level.LevelManager;
-import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.DestructionEffects;
 import com.openggf.level.objects.DestructionEffects.DestructionConfig;
-import com.openggf.level.objects.ObjectSpawn;
-import com.openggf.level.objects.TouchResponseAttackable;
-import com.openggf.level.objects.TouchResponseProvider;
-import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import com.openggf.game.sonic2.objects.PointsObjectInstance;
 
 /**
  * Abstract base class for all Badnik enemies.
@@ -24,13 +15,6 @@ import com.openggf.game.sonic2.objects.PointsObjectInstance;
 public abstract class AbstractBadnikInstance extends AbstractObjectInstance
         implements TouchResponseProvider, TouchResponseAttackable {
 
-    private static final DestructionConfig S2_DESTRUCTION_CONFIG = new DestructionConfig(
-            Sonic2Sfx.EXPLOSION.id,
-            true,   // spawnAnimal
-            false,  // useRespawnTracking
-            (spawn, lm, pts) -> new PointsObjectInstance(spawn, lm, pts)
-    );
-
     protected int currentX;
     protected int currentY;
     protected int xVelocity;
@@ -38,13 +22,21 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
     protected int animTimer;
     protected int animFrame;
     protected boolean facingLeft;
-    protected boolean destroyed;
 
     protected final LevelManager levelManager;
 
-    protected AbstractBadnikInstance(ObjectSpawn spawn, LevelManager levelManager, String name) {
+    private final DestructionConfig destructionConfig;
+
+    /**
+     * Full constructor with explicit DestructionConfig.
+     * S2 badniks pass Sonic2BadnikConfig.DESTRUCTION; S1 badniks use the 3-arg
+     * constructor and override getDestructionConfig().
+     */
+    protected AbstractBadnikInstance(ObjectSpawn spawn, LevelManager levelManager,
+            String name, DestructionConfig destructionConfig) {
         super(spawn, name);
         this.levelManager = levelManager;
+        this.destructionConfig = destructionConfig;
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         this.xVelocity = 0;
@@ -52,12 +44,19 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
         this.animTimer = 0;
         this.animFrame = 0;
         this.facingLeft = false;
-        this.destroyed = false;
+    }
+
+    /**
+     * Backwards-compatible 3-arg constructor for subclasses that override
+     * getDestructionConfig() (e.g. S1 badniks).
+     */
+    protected AbstractBadnikInstance(ObjectSpawn spawn, LevelManager levelManager, String name) {
+        this(spawn, levelManager, name, null);
     }
 
     @Override
     public final void update(int frameCounter, AbstractPlayableSprite player) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
         updateMovement(frameCounter, player);
@@ -95,7 +94,7 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
 
     @Override
     public void onPlayerAttack(AbstractPlayableSprite player, TouchResponseResult result) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
         destroyBadnik(player);
@@ -103,17 +102,17 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
 
     /**
      * Returns the destruction configuration for this badnik.
-     * S2 badniks use the default; S1 badniks can override to return S1 config.
+     * Subclasses can override to return game-specific config (e.g. S1 badniks).
+     * When using the 4-arg constructor, the injected config is returned.
      */
     protected DestructionConfig getDestructionConfig() {
-        return S2_DESTRUCTION_CONFIG;
+        return destructionConfig;
     }
 
     /**
      * Handles Badnik destruction: spawn explosion, animal, points, award score.
      */
     protected void destroyBadnik(AbstractPlayableSprite player) {
-        destroyed = true;
         setDestroyed(true);
         DestructionEffects.destroyBadnik(currentX, currentY, spawn, player, levelManager,
                 getDestructionConfig());
@@ -194,4 +193,3 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
         return baseY + (int) (amplitude * Math.sin(angle));
     }
 }
-

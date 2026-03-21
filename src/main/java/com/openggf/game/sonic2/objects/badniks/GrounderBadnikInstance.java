@@ -1,5 +1,7 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.objects.GrounderRockProjectile;
 import com.openggf.game.sonic2.objects.GrounderWallInstance;
@@ -99,7 +101,7 @@ public class GrounderBadnikInstance extends AbstractBadnikInstance {
      * @param skipWallSetup True for 0x8E variant (skips wall/rock spawning)
      */
     public GrounderBadnikInstance(ObjectSpawn spawn, LevelManager levelManager, boolean skipWallSetup) {
-        super(spawn, levelManager, "Grounder");
+        super(spawn, levelManager, "Grounder", Sonic2BadnikConfig.DESTRUCTION);
         this.skipWallSetup = skipWallSetup;
         this.state = State.INIT;
         this.activated = false;
@@ -340,7 +342,7 @@ public class GrounderBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 

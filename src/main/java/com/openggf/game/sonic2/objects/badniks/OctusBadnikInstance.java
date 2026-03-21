@@ -1,5 +1,7 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.objects.ObjectAnimationState;
 import com.openggf.graphics.GLCommand;
@@ -53,7 +55,7 @@ public class OctusBadnikInstance extends AbstractBadnikInstance {
     private final ObjectAnimationState animationState;
 
     public OctusBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Octus");
+        super(spawn, levelManager, "Octus", Sonic2BadnikConfig.DESTRUCTION);
         this.startY = spawn.y();
         this.xFlip = (spawn.renderFlags() & 0x01) != 0;
         // Octus faces left by default; x_flip in spawn means face right
@@ -191,7 +193,7 @@ public class OctusBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 

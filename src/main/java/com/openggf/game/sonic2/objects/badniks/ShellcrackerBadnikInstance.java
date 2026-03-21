@@ -1,5 +1,7 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
@@ -93,7 +95,7 @@ public class ShellcrackerBadnikInstance extends AbstractBadnikInstance {
     private boolean clawDone; // Set by claw piece 0 when retracted (objoff_2C equivalent)
 
     public ShellcrackerBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Shellcracker");
+        super(spawn, levelManager, "Shellcracker", Sonic2BadnikConfig.DESTRUCTION);
         this.currentX = spawn.x();
         this.currentY = spawn.y();
 
@@ -351,7 +353,7 @@ public class ShellcrackerBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) return;
+        if (isDestroyed()) return;
 
         ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
         if (renderManager == null) return;

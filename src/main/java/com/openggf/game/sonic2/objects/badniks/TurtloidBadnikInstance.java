@@ -1,5 +1,7 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
@@ -85,7 +87,7 @@ public class TurtloidBadnikInstance extends AbstractBadnikInstance
     private final SolidObjectParams platformParams;
 
     public TurtloidBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Turtloid");
+        super(spawn, levelManager, "Turtloid", Sonic2BadnikConfig.DESTRUCTION);
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         this.xVelocity = X_VELOCITY;
@@ -305,7 +307,7 @@ public class TurtloidBadnikInstance extends AbstractBadnikInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 
@@ -335,5 +337,5 @@ public class TurtloidBadnikInstance extends AbstractBadnikInstance
     /** Used by rider and jet to track parent position. */
     public int getParentX() { return currentX; }
     public int getParentY() { return currentY; }
-    public boolean isParentDestroyed() { return destroyed; }
+    public boolean isParentDestroyed() { return isDestroyed(); }
 }

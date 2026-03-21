@@ -1,5 +1,7 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.graphics.GLCommand;
@@ -45,7 +47,7 @@ public class BalkiryBadnikInstance extends AbstractBadnikInstance {
     private int subPixelY;
 
     public BalkiryBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Balkiry");
+        super(spawn, levelManager, "Balkiry", Sonic2BadnikConfig.DESTRUCTION);
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         this.subPixelX = 0;
@@ -129,7 +131,7 @@ public class BalkiryBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 
