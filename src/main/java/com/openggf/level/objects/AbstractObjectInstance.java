@@ -2,6 +2,7 @@ package com.openggf.level.objects;
 
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.LevelManager;
+import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -121,6 +122,25 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
         } catch (Exception e) {
             LOG.fine("Could not spawn dynamic object (test env?): " + e.getMessage());
         }
+    }
+
+    /**
+     * Returns the ObjectRenderManager, or null if not available.
+     */
+    protected static ObjectRenderManager getRenderManager() {
+        LevelManager lm = LevelManager.getInstance();
+        return (lm != null) ? lm.getObjectRenderManager() : null;
+    }
+
+    /**
+     * Returns the ready PatternSpriteRenderer for the given art key, or null
+     * if the render manager or renderer is unavailable/not ready.
+     */
+    protected static PatternSpriteRenderer getRenderer(String artKey) {
+        ObjectRenderManager rm = getRenderManager();
+        if (rm == null) return null;
+        PatternSpriteRenderer renderer = rm.getRenderer(artKey);
+        return (renderer != null && renderer.isReady()) ? renderer : null;
     }
 }
 

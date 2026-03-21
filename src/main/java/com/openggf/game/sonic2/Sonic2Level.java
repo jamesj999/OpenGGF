@@ -23,31 +23,11 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
 
-public class Sonic2Level implements Level {
-    private static final int PALETTE_COUNT = 4;
+public class Sonic2Level extends AbstractLevel {
     private static final int MAP_LAYERS = 2;
     private static final int MAP_HEIGHT = 16;
     private static final int MAP_WIDTH = 128;
 
-    private Palette[] palettes;
-    private Pattern[] patterns;
-    private Chunk[] chunks;
-    private Block[] blocks;
-    private SolidTile[] solidTiles;
-    private Map map;
-    private List<ObjectSpawn> objects;
-    private List<RingSpawn> rings;
-    private RingSpriteSheet ringSpriteSheet;
-    private final int zoneIndex;
-
-    private int patternCount;
-    private int chunkCount;
-    private int blockCount;
-    private int solidTileCount;
-    private int minX;
-    private int maxX;
-    private int minY;
-    private int maxY;
     private static final boolean KOS_DEBUG_LOG = false;
 
     private static final Logger LOG = Logger.getLogger(Sonic2Level.class.getName());
@@ -70,7 +50,7 @@ public class Sonic2Level implements Level {
             List<RingSpawn> ringSpawns,
             RingSpriteSheet ringSpriteSheet,
             int levelBoundariesAddr) throws IOException {
-        this.zoneIndex = zoneIndex;
+        super(zoneIndex);
         loadPalettes(rom, characterPaletteAddr, levelPalettesAddr, levelPalettesSize);
         loadPatterns(rom, patternsAddr);
         loadSolidTiles(rom, solidTileHeightsAddr, solidTileWidthsAddr, solidTilesAngleAddr);
@@ -119,7 +99,7 @@ public class Sonic2Level implements Level {
             List<RingSpawn> ringSpawns,
             RingSpriteSheet ringSpriteSheet,
             int levelBoundariesAddr) throws IOException {
-        this.zoneIndex = zoneIndex;
+        super(zoneIndex);
         loadPalettes(rom, characterPaletteAddr, levelPalettesAddr, levelPalettesSize);
         loadPatternsWithPlan(rom, resourcePlan);
         loadSolidTiles(rom, solidTileHeightsAddr, solidTileWidthsAddr, solidTilesAngleAddr);
@@ -130,130 +110,6 @@ public class Sonic2Level implements Level {
         this.rings = List.copyOf(ringSpawns);
         this.ringSpriteSheet = ringSpriteSheet;
         loadBoundaries(rom, levelBoundariesAddr);
-    }
-
-    @Override
-    public int getPaletteCount() {
-        return PALETTE_COUNT;
-    }
-
-    @Override
-    public Palette getPalette(int index) {
-        if (index >= PALETTE_COUNT) {
-            throw new IllegalArgumentException("Invalid palette index");
-        }
-        return palettes[index];
-    }
-
-    @Override
-    public void setPalette(int index, Palette palette) {
-        if (index >= 0 && index < PALETTE_COUNT && palette != null) {
-            palettes[index] = palette;
-        }
-    }
-
-    @Override
-    public int getPatternCount() {
-        return patternCount;
-    }
-
-    @Override
-    public Pattern getPattern(int index) {
-        if (index >= patternCount) {
-            throw new IllegalArgumentException("Invalid pattern index");
-        }
-        return patterns[index];
-    }
-
-    @Override
-    public void ensurePatternCapacity(int minCount) {
-        if (minCount <= patternCount) {
-            return;
-        }
-        int newCount = Math.max(minCount, patternCount);
-        patterns = Arrays.copyOf(patterns, newCount);
-        GraphicsManager graphicsMan = GraphicsManager.getInstance();
-        for (int i = patternCount; i < newCount; i++) {
-            patterns[i] = new Pattern();
-            if (graphicsMan.isGlInitialized()) {
-                graphicsMan.cachePatternTexture(patterns[i], i);
-            }
-        }
-        patternCount = newCount;
-    }
-
-    @Override
-    public int getChunkCount() {
-        return chunkCount;
-    }
-
-    @Override
-    public Chunk getChunk(int index) {
-        if (index >= chunkCount) {
-            throw new IllegalArgumentException("Invalid chunk index: " + index);
-        }
-        return chunks[index];
-    }
-
-    @Override
-    public int getBlockCount() {
-        return blockCount;
-    }
-
-    @Override
-    public Block getBlock(int index) {
-        if (index >= blockCount) {
-            throw new IllegalArgumentException("Invalid block index: " + index);
-        }
-        return blocks[index];
-    }
-
-    @Override
-    public SolidTile getSolidTile(int index) {
-        if (index >= solidTileCount) {
-            throw new IllegalArgumentException("Invalid block index");
-        }
-        return solidTiles[index];
-    }
-
-    @Override
-    public Map getMap() {
-        return map;
-    }
-
-    @Override
-    public List<ObjectSpawn> getObjects() {
-        return objects;
-    }
-
-    @Override
-    public List<RingSpawn> getRings() {
-        return rings;
-    }
-
-    @Override
-    public RingSpriteSheet getRingSpriteSheet() {
-        return ringSpriteSheet;
-    }
-
-    @Override
-    public int getMinX() {
-        return minX;
-    }
-
-    @Override
-    public int getMaxX() {
-        return maxX;
-    }
-
-    @Override
-    public int getMinY() {
-        return minY;
-    }
-
-    @Override
-    public int getMaxY() {
-        return maxY;
     }
 
     private void loadPalettes(Rom rom, int characterPaletteAddr, int levelPalettesAddr, int levelPalettesSize)
@@ -375,10 +231,6 @@ public class Sonic2Level implements Level {
         }
 
         LOG.fine("Chunk count: " + chunkCount + " (" + chunkBuffer.length + " bytes)");
-    }
-
-    public int getZoneIndex() {
-        return zoneIndex;
     }
 
     private byte[] applyAnimatedPatternMappings(Rom rom, byte[] chunkBuffer) throws IOException {

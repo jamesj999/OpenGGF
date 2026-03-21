@@ -5,8 +5,8 @@ import static com.openggf.game.sonic2.audio.Sonic2SmpsConstants.*;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.audio.smps.AbstractSmpsData;
+import com.openggf.audio.smps.AbstractSmpsLoader;
 import com.openggf.audio.smps.DacData;
-import com.openggf.audio.smps.SmpsLoader;
 import com.openggf.data.Rom;
 import com.openggf.tools.DcmDecoder;
 import com.openggf.tools.SaxmanDecompressor;
@@ -16,18 +16,16 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Logger;
 
-public class Sonic2SmpsLoader implements SmpsLoader {
+public class Sonic2SmpsLoader extends AbstractSmpsLoader {
     private static final Logger LOGGER = Logger.getLogger(Sonic2SmpsLoader.class.getName());
-    private final Rom rom;
     private final SaxmanDecompressor decompressor = new SaxmanDecompressor();
     private final DcmDecoder dcmDecoder = new DcmDecoder();
     private final Map<Integer, Integer> musicMap = new HashMap<>();
     private final Map<String, Integer> sfxMap = new HashMap<>();
-    private final Map<Integer, AbstractSmpsData> sfxCache = new HashMap<>();
     private final Map<Integer, String> sfxNames = new HashMap<>();
 
     public Sonic2SmpsLoader(Rom rom) {
-        this.rom = rom;
+        super(rom);
         populateSfxNames();
         cacheAllSfx();
         // Known Sonic 2 final music offsets (ROM addresses, Saxman compressed)
@@ -225,20 +223,20 @@ public class Sonic2SmpsLoader implements SmpsLoader {
         return mapped != null ? mapped : resolveMusicOffset(musicId);
     }
 
+    @Override
     public AbstractSmpsData loadSfx(String name) {
+        // Check named sfxMap first (e.g. "RING")
         Integer offset = sfxMap.get(name);
         if (offset != null) {
             return loadSmps(offset, Z80_UNCOMPRESSED_LOAD_ADDR);
         }
-        // Try parsing as hex ID (e.g. "A0")
-        try {
-            int id = Integer.parseInt(name, 16);
-            if (id >= Sonic2Sfx.ID_BASE && id <= Sonic2Sfx.ID_MAX + 1) {
-                return loadSfx(id);
-            }
-        } catch (NumberFormatException ignored) {
-        }
-        return null;
+        // Fall back to base class hex-ID parsing
+        return super.loadSfx(name);
+    }
+
+    @Override
+    protected boolean isValidSfxId(int id) {
+        return id >= Sonic2Sfx.ID_BASE && id <= Sonic2Sfx.ID_MAX + 1;
     }
 
     public AbstractSmpsData loadSfx(int sfxId) {

@@ -3,9 +3,7 @@ package com.openggf.game.sonic2.objects;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -131,16 +129,8 @@ public class VerticalLaserObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance() != null
-                ? LevelManager.getInstance().getObjectRenderManager()
-                : null;
-        if (renderManager == null) {
-            appendDebugBox(commands);
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.WFZ_VERTICAL_LASER);
-        if (renderer == null || !renderer.isReady()) {
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.WFZ_VERTICAL_LASER);
+        if (renderer == null) {
             appendDebugBox(commands);
             return;
         }

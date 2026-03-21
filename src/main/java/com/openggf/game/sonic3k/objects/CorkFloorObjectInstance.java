@@ -483,14 +483,7 @@ public class CorkFloorObjectInstance extends AbstractObjectInstance
 
     // ===== Helpers =====
 
-    private static ObjectRenderManager getRenderManager() {
-        try {
-            LevelManager lm = LevelManager.getInstance();
-            return lm != null ? lm.getObjectRenderManager() : null;
-        } catch (Exception e) {
-            return null;
-        }
-    }
+    // Uses inherited getRenderManager() from AbstractObjectInstance
 
     private static ObjectManager getObjectManager() {
         try {

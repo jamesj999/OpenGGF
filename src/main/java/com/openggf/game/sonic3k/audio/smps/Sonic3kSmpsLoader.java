@@ -6,8 +6,8 @@ import com.openggf.game.sonic3k.audio.Sonic3kSmpsConstants;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 
 import com.openggf.audio.smps.AbstractSmpsData;
+import com.openggf.audio.smps.AbstractSmpsLoader;
 import com.openggf.audio.smps.DacData;
-import com.openggf.audio.smps.SmpsLoader;
 import com.openggf.data.Rom;
 import com.openggf.tools.KosinskiReader;
 
@@ -36,7 +36,7 @@ import java.util.logging.Logger;
  *   <li>DAC samples use DPCM compression with bank-switching.</li>
  * </ul>
  */
-public class Sonic3kSmpsLoader implements SmpsLoader {
+public class Sonic3kSmpsLoader extends AbstractSmpsLoader {
     private static final Logger LOGGER = Logger.getLogger(Sonic3kSmpsLoader.class.getName());
 
     /** Maximum reasonable size for a single SMPS song/SFX blob. */
@@ -45,9 +45,6 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
     /** Voice table padding for SFX (25 bytes per voice, generous margin). */
     private static final int SFX_VOICE_TABLE_PADDING = 0x100;
 
-    private final Rom rom;
-    private final Map<Integer, AbstractSmpsData> musicCache = new HashMap<>();
-    private final Map<Integer, AbstractSmpsData> sfxCache = new HashMap<>();
     private final Map<Integer, byte[]> bankCache = new HashMap<>();
 
     // Decompressed Z80 driver data
@@ -67,7 +64,7 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
     private int[] s3MusicPointers;
 
     public Sonic3kSmpsLoader(Rom rom) {
-        this.rom = rom;
+        super(rom);
         decompressZ80Data();
         parseZ80Tables();
         parseS3MusicTables();
@@ -235,17 +232,8 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
     }
 
     @Override
-    public AbstractSmpsData loadSfx(String sfxName) {
-        if (sfxName != null) {
-            try {
-                int id = Integer.parseInt(sfxName, 16);
-                if (id >= Sonic3kSfx.ID_BASE && id <= Sonic3kSfx.ID_MAX) {
-                    return loadSfx(id);
-                }
-            } catch (NumberFormatException ignored) {
-            }
-        }
-        return null;
+    protected boolean isValidSfxId(int id) {
+        return id >= Sonic3kSfx.ID_BASE && id <= Sonic3kSfx.ID_MAX;
     }
 
     @Override

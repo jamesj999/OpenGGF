@@ -9,7 +9,6 @@ import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
@@ -414,19 +413,7 @@ public class AizFallingLogObjectInstance extends AbstractObjectInstance {
         return new ObjectSpawn(x, y, 0x2D, 0, 4, false, 0);
     }
 
-    private static PatternSpriteRenderer getRenderer(String artKey) {
-        try {
-            LevelManager lm = LevelManager.getInstance();
-            if (lm != null) {
-                ObjectRenderManager orm = lm.getObjectRenderManager();
-                if (orm != null) {
-                    return orm.getRenderer(artKey);
-                }
-            }
-        } catch (Exception ignored) {
-        }
-        return null;
-    }
+    // Uses inherited getRenderer(String) from AbstractObjectInstance
 
     private static void appendDebugBox(List<GLCommand> commands, int cx, int cy,
             int hw, int hh, float r, float g, float b) {

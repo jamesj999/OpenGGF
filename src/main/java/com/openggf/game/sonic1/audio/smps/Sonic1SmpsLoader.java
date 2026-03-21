@@ -5,8 +5,8 @@ import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.sonic1.audio.Sonic1SmpsConstants;
 
 import com.openggf.audio.smps.AbstractSmpsData;
+import com.openggf.audio.smps.AbstractSmpsLoader;
 import com.openggf.audio.smps.DacData;
-import com.openggf.audio.smps.SmpsLoader;
 import com.openggf.audio.smps.Sonic1SmpsData;
 import com.openggf.data.Rom;
 import com.openggf.tools.DcmDecoder;
@@ -35,20 +35,24 @@ import java.util.logging.Logger;
  *   <li>PSG envelope data is loaded from a 9-entry pointer table in ROM.</li>
  * </ul>
  */
-public class Sonic1SmpsLoader implements SmpsLoader {
+public class Sonic1SmpsLoader extends AbstractSmpsLoader {
     private static final Logger LOGGER = Logger.getLogger(Sonic1SmpsLoader.class.getName());
 
     /** Maximum reasonable size for a single SMPS song/SFX blob. */
     private static final int MAX_BLOB_SIZE = 0x4000; // 16 KB safety limit
 
-    private final Rom rom;
-    private final Map<Integer, AbstractSmpsData> musicCache = new HashMap<>();
-    private final Map<Integer, AbstractSmpsData> sfxCache = new HashMap<>();
     private byte[][] psgEnvelopes;
 
     public Sonic1SmpsLoader(Rom rom) {
-        this.rom = rom;
+        super(rom);
         loadPsgEnvelopes();
+    }
+
+    @Override
+    protected boolean isValidSfxId(int id) {
+        return (id >= Sonic1Sfx.ID_BASE && id <= Sonic1Sfx.ID_MAX)
+                || (id >= Sonic1SmpsConstants.SPECIAL_SFX_ID_BASE
+                    && id < Sonic1SmpsConstants.SPECIAL_SFX_ID_BASE + Sonic1SmpsConstants.SPECIAL_SFX_COUNT);
     }
 
     @Override
@@ -134,21 +138,6 @@ public class Sonic1SmpsLoader implements SmpsLoader {
             e.printStackTrace();
             return null;
         }
-    }
-
-    @Override
-    public AbstractSmpsData loadSfx(String sfxName) {
-        // Try parsing as hex ID
-        if (sfxName != null) {
-            try {
-                int id = Integer.parseInt(sfxName, 16);
-                if (id >= Sonic1Sfx.ID_BASE && id <= Sonic1Sfx.ID_MAX) {
-                    return loadSfx(id);
-                }
-            } catch (NumberFormatException ignored) {
-            }
-        }
-        return null;
     }
 
     @Override

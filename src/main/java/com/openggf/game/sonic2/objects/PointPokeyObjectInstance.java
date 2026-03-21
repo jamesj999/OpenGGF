@@ -489,13 +489,8 @@ public class PointPokeyObjectInstance extends BoxObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            super.appendRenderCommands(commands);
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.CNZ_CAGE);
-        if (renderer == null || !renderer.isReady()) {
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.CNZ_CAGE);
+        if (renderer == null) {
             super.appendRenderCommands(commands);
             return;
         }

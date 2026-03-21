@@ -3,9 +3,7 @@ package com.openggf.game.sonic2.objects;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
@@ -372,15 +370,12 @@ public class NutObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager != null) {
-            PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.MTZ_NUT);
-            if (renderer != null && renderer.isReady()) {
-                // Clamp frame to 0-3
-                int frame = mappingFrame & 3;
-                renderer.drawFrameIndex(frame, x, y, false, false);
-                return;
-            }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.MTZ_NUT);
+        if (renderer != null) {
+            // Clamp frame to 0-3
+            int frame = mappingFrame & 3;
+            renderer.drawFrameIndex(frame, x, y, false, false);
+            return;
         }
         appendDebugRender(commands);
     }

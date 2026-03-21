@@ -532,14 +532,7 @@ public class FloatingPlatformObjectInstance extends AbstractObjectInstance
         }
     }
 
-    private static ObjectRenderManager getRenderManager() {
-        try {
-            LevelManager lm = LevelManager.getInstance();
-            return lm != null ? lm.getObjectRenderManager() : null;
-        } catch (Exception e) {
-            return null;
-        }
-    }
+    // Uses inherited getRenderManager() from AbstractObjectInstance
 
     private static ZoneConfig resolveConfig() {
         try {

@@ -4,9 +4,7 @@ import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -114,13 +112,10 @@ public class SteamPuffObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager != null) {
-            PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.MTZ_STEAM);
-            if (renderer != null && renderer.isReady()) {
-                renderer.drawFrameIndex(mappingFrame, spawn.x(), spawn.y(), xFlipped, false);
-                return;
-            }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.MTZ_STEAM);
+        if (renderer != null) {
+            renderer.drawFrameIndex(mappingFrame, spawn.x(), spawn.y(), xFlipped, false);
+            return;
         }
 
         // Fallback: debug marker

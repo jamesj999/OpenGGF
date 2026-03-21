@@ -270,15 +270,8 @@ public class RivetObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.WFZ_RIVET);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.WFZ_RIVET);
+        if (renderer == null) return;
 
         // ROM: single mapping frame (frame 0), no flip
         renderer.drawFrameIndex(0, spawn.x(), spawn.y(), false, false);
