@@ -7,16 +7,8 @@ import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.game.sonic3k.objects.badniks.BloominatorBadnikInstance;
 import com.openggf.game.sonic3k.objects.badniks.RhinobotBadnikInstance;
 import com.openggf.level.LevelManager;
-import com.openggf.level.objects.ObjectFactory;
-import com.openggf.level.objects.ObjectInstance;
-import com.openggf.level.objects.ObjectRegistry;
-import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.AbstractObjectRegistry;
 import com.openggf.level.objects.PlaceholderObjectInstance;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.logging.Logger;
 
 /**
  * Object registry for Sonic 3 &amp; Knuckles.
@@ -30,38 +22,10 @@ import java.util.logging.Logger;
  * use SK Set 1 as the canonical source; S3-only remappings share the
  * same underlying object names in most cases.
  */
-public class Sonic3kObjectRegistry implements ObjectRegistry {
-    private static final Logger LOG = Logger.getLogger(Sonic3kObjectRegistry.class.getName());
-
-    private final Map<Integer, ObjectFactory> factories = new HashMap<>();
-    private boolean loaded;
-
-    private final ObjectFactory defaultFactory = (spawn, registry) ->
-            new PlaceholderObjectInstance(spawn, registry.getPrimaryName(spawn.objectId()));
+public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
 
     @Override
-    public ObjectInstance create(ObjectSpawn spawn) {
-        ensureLoaded();
-        int id = spawn.objectId();
-        ObjectFactory factory = factories.getOrDefault(id, defaultFactory);
-        return factory.create(spawn, this);
-    }
-
-    @Override
-    public void reportCoverage(List<ObjectSpawn> spawns) {
-        // No-op for now
-    }
-
-    private void ensureLoaded() {
-        if (loaded) {
-            return;
-        }
-        loaded = true;
-        registerDefaultFactories();
-        LOG.fine("Sonic3kObjectRegistry loaded with " + factories.size() + " factories.");
-    }
-
-    private void registerDefaultFactories() {
+    protected void registerDefaultFactories() {
         factories.put(Sonic3kObjectIds.MONITOR,
                 (spawn, registry) -> new Sonic3kMonitorObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.PATH_SWAP, (spawn, registry) -> null);

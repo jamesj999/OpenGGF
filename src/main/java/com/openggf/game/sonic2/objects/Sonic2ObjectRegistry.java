@@ -2,12 +2,11 @@ package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.bosses.Sonic2MCZBossInstance;
+import com.openggf.level.objects.AbstractObjectRegistry;
 import com.openggf.level.objects.ObjectFactory;
 import com.openggf.level.objects.ObjectInstance;
-import com.openggf.level.objects.ObjectRegistry;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectSpawn;
-import com.openggf.level.objects.PlaceholderObjectInstance;
 import com.openggf.game.sonic2.objects.badniks.AsteronBadnikInstance;
 import com.openggf.game.sonic2.objects.badniks.AquisBadnikInstance;
 import com.openggf.game.sonic2.objects.badniks.OctusBadnikInstance;
@@ -51,20 +50,16 @@ import java.util.Map;
 import java.util.Set;
 import java.util.logging.Logger;
 
-public class Sonic2ObjectRegistry implements ObjectRegistry {
+public class Sonic2ObjectRegistry extends AbstractObjectRegistry {
     private static final Logger LOGGER = Logger.getLogger(Sonic2ObjectRegistry.class.getName());
 
     private final Map<Integer, List<String>> namesById = new HashMap<>();
-    private final Map<Integer, ObjectFactory> factories = new HashMap<>();
     private final Set<Integer> unknownIds = new HashSet<>();
-    private boolean loaded;
-
-    private final ObjectFactory defaultFactory = (spawn, registry) -> new PlaceholderObjectInstance(spawn,
-            registry.getPrimaryName(spawn.objectId()));
 
     public Sonic2ObjectRegistry() {
     }
 
+    @Override
     public ObjectInstance create(ObjectSpawn spawn) {
         ensureLoaded();
         int id = spawn.objectId();
@@ -78,11 +73,12 @@ public class Sonic2ObjectRegistry implements ObjectRegistry {
         return factory.create(spawn, this);
     }
 
+    @Override
     public void registerFactory(int objectId, ObjectFactory factory) {
-        ensureLoaded();
         factories.put(objectId & 0xFF, factory);
     }
 
+    @Override
     public String getPrimaryName(int objectId) {
         ensureLoaded();
         List<String> names = namesById.get(objectId);
@@ -92,6 +88,7 @@ public class Sonic2ObjectRegistry implements ObjectRegistry {
         return names.get(0);
     }
 
+    @Override
     public List<String> getAliases(int objectId) {
         ensureLoaded();
         List<String> names = namesById.get(objectId);
@@ -101,6 +98,7 @@ public class Sonic2ObjectRegistry implements ObjectRegistry {
         return Collections.unmodifiableList(names);
     }
 
+    @Override
     public void reportCoverage(List<ObjectSpawn> spawns) {
         ensureLoaded();
         if (spawns == null || spawns.isEmpty()) {
@@ -129,17 +127,9 @@ public class Sonic2ObjectRegistry implements ObjectRegistry {
         }
     }
 
-    private void ensureLoaded() {
-        if (loaded) {
-            return;
-        }
-        loaded = true;
+    @Override
+    protected void registerDefaultFactories() {
         namesById.putAll(Sonic2ObjectRegistryData.NAMES_BY_ID);
-        registerDefaultFactories();
-        LOGGER.fine("Loaded " + namesById.size() + " object name ids from built-in registry.");
-    }
-
-    private void registerDefaultFactories() {
         // LayerSwitcher (0x03) is handled by PlaneSwitcherManager, not as a rendered object
         registerFactory(Sonic2ObjectIds.LAYER_SWITCHER, (spawn, registry) -> null);
 

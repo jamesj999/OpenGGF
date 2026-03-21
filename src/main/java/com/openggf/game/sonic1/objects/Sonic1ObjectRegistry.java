@@ -26,53 +26,16 @@ import com.openggf.game.sonic1.objects.bosses.Sonic1FZBossInstance;
 import com.openggf.game.sonic1.objects.bosses.Sonic1FalseFloorInstance;
 import com.openggf.game.sonic1.objects.bosses.Sonic1ScrapEggmanInstance;
 import com.openggf.level.LevelManager;
-import com.openggf.level.objects.ObjectFactory;
-import com.openggf.level.objects.ObjectInstance;
-import com.openggf.level.objects.ObjectRegistry;
-import com.openggf.level.objects.ObjectSpawn;
-import com.openggf.level.objects.PlaceholderObjectInstance;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.logging.Logger;
+import com.openggf.level.objects.AbstractObjectRegistry;
 
 /**
  * Object registry for Sonic the Hedgehog 1.
  * Uses factory-based registration following the Sonic 2 pattern.
  */
-public class Sonic1ObjectRegistry implements ObjectRegistry {
-    private static final Logger LOGGER = Logger.getLogger(Sonic1ObjectRegistry.class.getName());
-
-    private final Map<Integer, ObjectFactory> factories = new HashMap<>();
-    private boolean loaded;
-
-    private final ObjectFactory defaultFactory = (spawn, registry) ->
-            new PlaceholderObjectInstance(spawn, registry.getPrimaryName(spawn.objectId()));
+public class Sonic1ObjectRegistry extends AbstractObjectRegistry {
 
     @Override
-    public ObjectInstance create(ObjectSpawn spawn) {
-        ensureLoaded();
-        int id = spawn.objectId();
-        ObjectFactory factory = factories.getOrDefault(id, defaultFactory);
-        return factory.create(spawn, this);
-    }
-
-    @Override
-    public void reportCoverage(List<ObjectSpawn> spawns) {
-        // No-op for now
-    }
-
-    private void ensureLoaded() {
-        if (loaded) {
-            return;
-        }
-        loaded = true;
-        registerDefaultFactories();
-        LOGGER.fine("Sonic1ObjectRegistry loaded with " + factories.size() + " factories.");
-    }
-
-    private void registerDefaultFactories() {
+    protected void registerDefaultFactories() {
         factories.put(Sonic1ObjectIds.BREAKABLE_POLE,
                 (spawn, registry) -> new Sonic1PoleThatBreaksObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.FLAPPING_DOOR,
