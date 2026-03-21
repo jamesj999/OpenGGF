@@ -14,7 +14,7 @@ import com.openggf.level.Pattern;
 import com.openggf.level.PatternDesc;
 import com.openggf.tools.EnigmaReader;
 import com.openggf.tools.KosinskiReader;
-import com.openggf.tools.NemesisReader;
+import com.openggf.util.PatternDecompressor;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -128,19 +128,19 @@ public class Sonic1TitleScreenDataLoader {
 
         try {
             // Load title foreground patterns
-            fgPatterns = loadNemesisPatterns(rom, Sonic1Constants.ART_NEM_TITLE_FG_ADDR, 8192, "TitleFg");
+            fgPatterns = PatternDecompressor.nemesis(rom, Sonic1Constants.ART_NEM_TITLE_FG_ADDR, 8192, "TitleFg");
             LOGGER.info("Loaded S1 title FG patterns: " + (fgPatterns != null ? fgPatterns.length : 0));
 
             // Load Sonic sprite patterns
-            sonicPatterns = loadNemesisPatterns(rom, Sonic1Constants.ART_NEM_TITLE_SONIC_ADDR, 65536, "TitleSonic");
+            sonicPatterns = PatternDecompressor.nemesis(rom, Sonic1Constants.ART_NEM_TITLE_SONIC_ADDR, 65536, "TitleSonic");
             LOGGER.info("Loaded S1 title Sonic patterns: " + (sonicPatterns != null ? sonicPatterns.length : 0));
 
             // Load TM patterns
-            tmPatterns = loadNemesisPatterns(rom, Sonic1Constants.ART_NEM_TITLE_TM_ADDR, 1024, "TitleTM");
+            tmPatterns = PatternDecompressor.nemesis(rom, Sonic1Constants.ART_NEM_TITLE_TM_ADDR, 1024, "TitleTM");
             LOGGER.info("Loaded S1 title TM patterns: " + (tmPatterns != null ? tmPatterns.length : 0));
 
             // Load credit text patterns
-            creditTextPatterns = loadNemesisPatterns(rom, Sonic1Constants.ART_NEM_CREDIT_TEXT_ADDR, 4096, "CreditText");
+            creditTextPatterns = PatternDecompressor.nemesis(rom, Sonic1Constants.ART_NEM_CREDIT_TEXT_ADDR, 4096, "CreditText");
             LOGGER.info("Loaded S1 credit text patterns: " + (creditTextPatterns != null ? creditTextPatterns.length : 0));
 
             // Load Enigma-compressed title foreground nametable
@@ -271,28 +271,6 @@ public class Sonic1TitleScreenDataLoader {
         gm.cachePaletteTexture(titlePaletteLines[line], line);
     }
 
-    private Pattern[] loadNemesisPatterns(Rom rom, int address, int maxCompressedSize, String name) {
-        try {
-            byte[] compressed = rom.readBytes(address, maxCompressedSize);
-            try (ByteArrayInputStream bais = new ByteArrayInputStream(compressed);
-                 ReadableByteChannel channel = Channels.newChannel(bais)) {
-                byte[] decompressed = NemesisReader.decompress(channel);
-                int patternCount = decompressed.length / Pattern.PATTERN_SIZE_IN_ROM;
-                Pattern[] patterns = new Pattern[patternCount];
-                for (int i = 0; i < patternCount; i++) {
-                    patterns[i] = new Pattern();
-                    byte[] subArray = Arrays.copyOfRange(decompressed,
-                            i * Pattern.PATTERN_SIZE_IN_ROM,
-                            (i + 1) * Pattern.PATTERN_SIZE_IN_ROM);
-                    patterns[i].fromSegaFormat(subArray);
-                }
-                return patterns;
-            }
-        } catch (IOException e) {
-            LOGGER.warning("Failed to load " + name + " patterns: " + e.getMessage());
-            return new Pattern[0];
-        }
-    }
 
     /**
      * Loads the Plane A (title foreground) nametable from Enigma-compressed data.
@@ -355,7 +333,7 @@ public class Sonic1TitleScreenDataLoader {
      * Loads GHZ 8x8 patterns (Nemesis compressed).
      */
     private void loadGhzPatterns(Rom rom) {
-        ghzPatterns = loadNemesisPatterns(rom, Sonic1Constants.ART_NEM_GHZ_1ST_ADDR, 16384, "GHZ_1st");
+        ghzPatterns = PatternDecompressor.nemesis(rom, Sonic1Constants.ART_NEM_GHZ_1ST_ADDR, 16384, "GHZ_1st");
         LOGGER.info("Loaded GHZ patterns: " + (ghzPatterns != null ? ghzPatterns.length : 0));
     }
 

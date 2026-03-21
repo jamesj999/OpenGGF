@@ -15,7 +15,7 @@ import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpriteMappingPiece;
 import com.openggf.tools.EnigmaReader;
-import com.openggf.tools.NemesisReader;
+import com.openggf.util.PatternDecompressor;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -23,7 +23,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -137,7 +136,8 @@ public class Sonic2LogoFlashManager {
 
         try {
             // Load Nemesis-compressed logo art (ArtNem_EndingTitle loaded to VRAM 0x0000)
-            logoPatterns = loadNemesisPatterns(rom);
+            logoPatterns = PatternDecompressor.nemesis(rom,
+                    Sonic2Constants.ART_NEM_ENDING_TITLE_ADDR, 65536, "logo");
             if (logoPatterns == null || logoPatterns.length == 0) {
                 LOGGER.warning("Failed to load logo patterns");
                 state = State.DONE;
@@ -306,29 +306,6 @@ public class Sonic2LogoFlashManager {
     /**
      * Loads Nemesis-compressed logo art from ROM.
      */
-    private Pattern[] loadNemesisPatterns(Rom rom) {
-        try {
-            byte[] compressed = rom.readBytes(Sonic2Constants.ART_NEM_ENDING_TITLE_ADDR, 65536);
-            try (ByteArrayInputStream bais = new ByteArrayInputStream(compressed);
-                 ReadableByteChannel channel = Channels.newChannel(bais)) {
-                byte[] decompressed = NemesisReader.decompress(channel);
-                int patternCount = decompressed.length / Pattern.PATTERN_SIZE_IN_ROM;
-                Pattern[] patterns = new Pattern[patternCount];
-                for (int i = 0; i < patternCount; i++) {
-                    patterns[i] = new Pattern();
-                    byte[] subArray = Arrays.copyOfRange(decompressed,
-                            i * Pattern.PATTERN_SIZE_IN_ROM,
-                            (i + 1) * Pattern.PATTERN_SIZE_IN_ROM);
-                    patterns[i].fromSegaFormat(subArray);
-                }
-                LOGGER.fine("Loaded " + patternCount + " logo patterns from ROM");
-                return patterns;
-            }
-        } catch (IOException e) {
-            LOGGER.warning("Failed to load logo patterns: " + e.getMessage());
-            return null;
-        }
-    }
 
     /**
      * Decodes the Enigma-compressed logo mapping and builds a SpriteMappingFrame.

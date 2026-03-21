@@ -10,12 +10,8 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Pattern;
 import com.openggf.level.PatternDesc;
-import com.openggf.tools.NemesisReader;
+import com.openggf.util.PatternDecompressor;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.nio.channels.Channels;
-import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -302,13 +298,13 @@ public class TitleCardManager implements TitleCardProvider {
             Rom rom = romManager.getRom();
 
             // Load ArtNem_TitleCard - base title card art (E,N,O,Z, numbers, bar, stripes)
-            titleCardBasePatterns = loadNemesisPatterns(rom,
+            titleCardBasePatterns = PatternDecompressor.nemesis(rom,
                     Sonic2Constants.ART_NEM_TITLE_CARD_ADDR, "TitleCard");
             LOGGER.info("Loaded " + (titleCardBasePatterns != null ? titleCardBasePatterns.length : 0) +
                     " title card base patterns");
 
             // Load ArtNem_TitleCard2 - zone name alphabet (keep in "RAM")
-            titleCard2RawPatterns = loadNemesisPatterns(rom,
+            titleCard2RawPatterns = PatternDecompressor.nemesis(rom,
                     Sonic2Constants.ART_NEM_TITLE_CARD2_ADDR, "TitleCard2");
             LOGGER.info("Loaded " + (titleCard2RawPatterns != null ? titleCard2RawPatterns.length : 0) +
                     " title card 2 alphabet patterns");
@@ -417,28 +413,6 @@ public class TitleCardManager implements TitleCardProvider {
                    " tiles for zone " + zoneName);
     }
 
-    private Pattern[] loadNemesisPatterns(Rom rom, int address, String name) {
-        try {
-            byte[] compressed = rom.readBytes(address, 8192);
-            try (ByteArrayInputStream bais = new ByteArrayInputStream(compressed);
-                 ReadableByteChannel channel = Channels.newChannel(bais)) {
-                byte[] decompressed = NemesisReader.decompress(channel);
-                int patternCount = decompressed.length / Pattern.PATTERN_SIZE_IN_ROM;
-                Pattern[] patterns = new Pattern[patternCount];
-                for (int i = 0; i < patternCount; i++) {
-                    patterns[i] = new Pattern();
-                    byte[] subArray = Arrays.copyOfRange(decompressed,
-                            i * Pattern.PATTERN_SIZE_IN_ROM,
-                            (i + 1) * Pattern.PATTERN_SIZE_IN_ROM);
-                    patterns[i].fromSegaFormat(subArray);
-                }
-                return patterns;
-            }
-        } catch (IOException e) {
-            LOGGER.warning("Failed to load " + name + " patterns: " + e.getMessage());
-            return new Pattern[0];
-        }
-    }
 
     /**
      * Ensures art is cached to GPU.

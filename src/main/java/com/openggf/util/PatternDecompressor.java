@@ -6,8 +6,12 @@ import com.openggf.level.Pattern;
 import com.openggf.tools.KosinskiReader;
 import com.openggf.tools.NemesisReader;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.nio.channels.Channels;
+import java.nio.channels.ReadableByteChannel;
 import java.util.Arrays;
+import java.util.logging.Logger;
 
 /**
  * Converts raw tile bytes into {@link Pattern} arrays.
@@ -22,6 +26,8 @@ import java.util.Arrays;
  * Sonic2ObjectArt) must synchronize on the Rom instance externally.
  */
 public final class PatternDecompressor {
+
+    private static final Logger LOGGER = Logger.getLogger(PatternDecompressor.class.getName());
 
     private PatternDecompressor() {}
 
@@ -69,6 +75,45 @@ public final class PatternDecompressor {
         channel.position(address);
         byte[] data = NemesisReader.decompress(channel);
         return fromBytes(data);
+    }
+
+    /**
+     * Decompresses Nemesis-compressed art from ROM and converts to patterns.
+     * Uses {@code rom.readBytes()} with a default read size of 8192 bytes.
+     * Returns an empty array on failure instead of throwing.
+     *
+     * @param rom     the ROM to read from
+     * @param address ROM address of the Nemesis-compressed data
+     * @param name    descriptive name for logging on failure
+     * @return pattern array, or empty array on decompression failure
+     */
+    public static Pattern[] nemesis(Rom rom, int address, String name) {
+        return nemesis(rom, address, 8192, name);
+    }
+
+    /**
+     * Decompresses Nemesis-compressed art from ROM and converts to patterns.
+     * Uses {@code rom.readBytes()} with the specified read size.
+     * Returns an empty array on failure instead of throwing.
+     *
+     * @param rom      the ROM to read from
+     * @param address  ROM address of the Nemesis-compressed data
+     * @param readSize number of bytes to read from ROM (must cover compressed data)
+     * @param name     descriptive name for logging on failure
+     * @return pattern array, or empty array on decompression failure
+     */
+    public static Pattern[] nemesis(Rom rom, int address, int readSize, String name) {
+        try {
+            byte[] compressed = rom.readBytes(address, readSize);
+            try (ByteArrayInputStream bais = new ByteArrayInputStream(compressed);
+                 ReadableByteChannel channel = Channels.newChannel(bais)) {
+                byte[] decompressed = NemesisReader.decompress(channel);
+                return fromBytes(decompressed);
+            }
+        } catch (IOException e) {
+            LOGGER.warning("Failed to load " + name + " patterns: " + e.getMessage());
+            return new Pattern[0];
+        }
     }
 
     /**

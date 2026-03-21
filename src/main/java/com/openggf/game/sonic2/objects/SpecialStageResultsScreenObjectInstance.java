@@ -14,12 +14,9 @@ import com.openggf.level.Palette;
 import com.openggf.level.Pattern;
 import com.openggf.level.PatternDesc;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import com.openggf.tools.NemesisReader;
+import com.openggf.util.PatternDecompressor;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.nio.channels.Channels;
-import java.nio.channels.ReadableByteChannel;
 import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
@@ -200,7 +197,7 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
             Rom rom = romManager.getRom();
 
             // Load ArtNem_TitleCard2 - contains other letters (A,B,C,D,F,G,H,I,J,K,L,M,P,Q,R,S,T,U,V,W,X,Y)
-            Pattern[] titleCard2Patterns = loadNemesisPatterns(rom,
+            Pattern[] titleCard2Patterns = PatternDecompressor.nemesis(rom,
                     Sonic2Constants.ART_NEM_TITLE_CARD2_ADDR, "TitleCard2");
             LOGGER.fine("Loaded " + (titleCard2Patterns != null ? titleCard2Patterns.length : 0) + " title card 2 patterns");
 
@@ -211,7 +208,7 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
             LOGGER.fine("Loaded " + (numbersPatterns != null ? numbersPatterns.length : 0) + " number patterns");
 
             // Load ArtNem_TitleCard - contains E, N, O, Z at the start (for "ZONE")
-            Pattern[] titleCardPatterns = loadNemesisPatterns(rom,
+            Pattern[] titleCardPatterns = PatternDecompressor.nemesis(rom,
                     Sonic2Constants.ART_NEM_TITLE_CARD_ADDR, "TitleCard");
             LOGGER.fine("Loaded " + (titleCardPatterns != null ? titleCardPatterns.length : 0) + " title card patterns (E,N,O,Z)");
 
@@ -227,7 +224,7 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
             LOGGER.fine("Loaded " + (resultsArtPatterns != null ? resultsArtPatterns.length : 0) + " results art patterns");
 
             // Load ArtNem_HUD - HUD text (SCORE/TIME/RING/etc)
-            Pattern[] hudPatterns = loadNemesisPatterns(rom,
+            Pattern[] hudPatterns = PatternDecompressor.nemesis(rom,
                     Sonic2Constants.ART_NEM_HUD_ADDR, "HUD");
             LOGGER.fine("Loaded " + (hudPatterns != null ? hudPatterns.length : 0) + " HUD patterns");
 
@@ -451,29 +448,6 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
         LOGGER.fine("Extracted " + copiedLetters + " letters from TitleCard2");
     }
 
-    private Pattern[] loadNemesisPatterns(Rom rom, int address, String name) {
-        try {
-            // Read a generous amount - Nemesis compression is variable
-            byte[] compressed = rom.readBytes(address, 8192);
-            try (ByteArrayInputStream bais = new ByteArrayInputStream(compressed);
-                 ReadableByteChannel channel = Channels.newChannel(bais)) {
-                byte[] decompressed = NemesisReader.decompress(channel);
-                int patternCount = decompressed.length / Pattern.PATTERN_SIZE_IN_ROM;
-                Pattern[] patterns = new Pattern[patternCount];
-                for (int i = 0; i < patternCount; i++) {
-                    patterns[i] = new Pattern();
-                    byte[] subArray = Arrays.copyOfRange(decompressed,
-                            i * Pattern.PATTERN_SIZE_IN_ROM,
-                            (i + 1) * Pattern.PATTERN_SIZE_IN_ROM);
-                    patterns[i].fromSegaFormat(subArray);
-                }
-                return patterns;
-            }
-        } catch (IOException e) {
-            LOGGER.warning("Failed to load " + name + " patterns: " + e.getMessage());
-            return new Pattern[0];
-        }
-    }
 
     private void ensureArtCached() {
         if (artCached) {

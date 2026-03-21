@@ -9,12 +9,8 @@ import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Palette;
 import com.openggf.level.Pattern;
-import com.openggf.tools.NemesisReader;
+import com.openggf.util.PatternDecompressor;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.nio.channels.Channels;
-import java.nio.channels.ReadableByteChannel;
 import java.util.Arrays;
 import java.util.logging.Logger;
 
@@ -173,15 +169,15 @@ public class Sonic2EndingArt {
             case SUPER_SONIC -> Sonic2Constants.ART_NEM_ENDING_SUPER_SONIC_ADDR;
             case TAILS -> Sonic2Constants.ART_NEM_ENDING_TAILS_ADDR;
         };
-        characterPatterns = loadNemesisPatterns(rom, characterAddr, 8192, "EndingCharacter");
+        characterPatterns = PatternDecompressor.nemesis(rom, characterAddr, 8192, "EndingCharacter");
 
         // Load shared art
-        finalTornadoPatterns = loadNemesisPatterns(rom, Sonic2Constants.ART_NEM_ENDING_FINAL_TORNADO_ADDR, 16384, "EndingFinalTornado");
-        picsPatterns = loadNemesisPatterns(rom, Sonic2Constants.ART_NEM_ENDING_PICS_ADDR, 16384, "EndingPics");
-        miniTornadoPatterns = loadNemesisPatterns(rom, Sonic2Constants.ART_NEM_ENDING_MINI_TORNADO_ADDR, 8192, "EndingMiniTornado");
+        finalTornadoPatterns = PatternDecompressor.nemesis(rom, Sonic2Constants.ART_NEM_ENDING_FINAL_TORNADO_ADDR, 16384, "EndingFinalTornado");
+        picsPatterns = PatternDecompressor.nemesis(rom, Sonic2Constants.ART_NEM_ENDING_PICS_ADDR, 16384, "EndingPics");
+        miniTornadoPatterns = PatternDecompressor.nemesis(rom, Sonic2Constants.ART_NEM_ENDING_MINI_TORNADO_ADDR, 8192, "EndingMiniTornado");
         // ROM loads standard Tornado art at VRAM 0x0500 for ObjCF frames that reference those tiles
-        tornadoPatterns = loadNemesisPatterns(rom, Sonic2Constants.ART_NEM_TORNADO_ADDR, 16384, "Tornado");
-        cloudPatterns = loadNemesisPatterns(rom, Sonic2Constants.ART_NEM_CLOUDS_ADDR, 8192, "Clouds");
+        tornadoPatterns = PatternDecompressor.nemesis(rom, Sonic2Constants.ART_NEM_TORNADO_ADDR, 16384, "Tornado");
+        cloudPatterns = PatternDecompressor.nemesis(rom, Sonic2Constants.ART_NEM_CLOUDS_ADDR, 8192, "Clouds");
 
         // Load animal companion art
         int animalAddr = switch (routine) {
@@ -189,7 +185,7 @@ public class Sonic2EndingArt {
             case SUPER_SONIC -> Sonic2Constants.ART_NEM_EAGLE_ADDR;
             case TAILS -> Sonic2Constants.ART_NEM_CHICKEN_ADDR;
         };
-        animalPatterns = loadNemesisPatterns(rom, animalAddr, 4096, "EndingAnimal");
+        animalPatterns = PatternDecompressor.nemesis(rom, animalAddr, 4096, "EndingAnimal");
 
         // Load standard uncompressed player art for CHARACTER_APPEAR rendering.
         // ROM: ObjCA routine $A spawns a real Sonic/Tails object using standard art
@@ -403,33 +399,6 @@ public class Sonic2EndingArt {
     // Internal helpers
     // ========================================================================
 
-    /**
-     * Loads Nemesis-compressed patterns from ROM.
-     */
-    private Pattern[] loadNemesisPatterns(Rom rom, int address, int maxCompressedSize, String name) {
-        try {
-            byte[] compressed = rom.readBytes(address, maxCompressedSize);
-            try (ByteArrayInputStream bais = new ByteArrayInputStream(compressed);
-                 ReadableByteChannel channel = Channels.newChannel(bais)) {
-                byte[] decompressed = NemesisReader.decompress(channel);
-                int patternCount = decompressed.length / Pattern.PATTERN_SIZE_IN_ROM;
-                Pattern[] patterns = new Pattern[patternCount];
-                for (int i = 0; i < patternCount; i++) {
-                    patterns[i] = new Pattern();
-                    byte[] subArray = Arrays.copyOfRange(decompressed,
-                            i * Pattern.PATTERN_SIZE_IN_ROM,
-                            (i + 1) * Pattern.PATTERN_SIZE_IN_ROM);
-                    patterns[i].fromSegaFormat(subArray);
-                }
-                LOGGER.fine("Loaded " + patternCount + " " + name + " patterns from ROM at 0x"
-                        + Integer.toHexString(address));
-                return patterns;
-            }
-        } catch (IOException e) {
-            LOGGER.warning("Failed to load " + name + " patterns: " + e.getMessage());
-            return new Pattern[0];
-        }
-    }
 
     /**
      * Loads uncompressed (raw) patterns from ROM. Used for standard player art

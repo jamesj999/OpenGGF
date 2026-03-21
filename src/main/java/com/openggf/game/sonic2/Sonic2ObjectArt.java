@@ -339,12 +339,6 @@ public class Sonic2ObjectArt {
         return artData;
     }
 
-    private Pattern[] loadNemesisPatterns(int artAddr) throws IOException {
-        synchronized (rom) {
-            return PatternDecompressor.nemesis(rom, artAddr);
-        }
-    }
-
     private Pattern[] loadUncompressedPatterns(int artAddr, int length) throws IOException {
         if (length <= 0) {
             return new Pattern[0];
@@ -388,7 +382,9 @@ public class Sonic2ObjectArt {
      */
     private Pattern[] safeLoadNemesisPatterns(int artAddr, String assetName) {
         try {
-            return loadNemesisPatterns(artAddr);
+            synchronized (rom) {
+                return PatternDecompressor.nemesis(rom, artAddr);
+            }
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE,
                     String.format("Failed to load art '%s' at 0x%06X", assetName, artAddr), e);

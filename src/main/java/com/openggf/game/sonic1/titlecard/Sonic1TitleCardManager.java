@@ -11,14 +11,9 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Pattern;
 import com.openggf.level.PatternDesc;
-import com.openggf.tools.NemesisReader;
+import com.openggf.util.PatternDecompressor;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.nio.channels.Channels;
-import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -177,7 +172,7 @@ public class Sonic1TitleCardManager implements TitleCardProvider {
             }
             Rom rom = romManager.getRom();
 
-            patterns = loadNemesisPatterns(rom,
+            patterns = PatternDecompressor.nemesis(rom,
                     Sonic1Constants.ART_NEM_TITLE_CARD_ADDR, "S1 TitleCard");
 
             if (patterns == null) {
@@ -193,28 +188,6 @@ public class Sonic1TitleCardManager implements TitleCardProvider {
         }
     }
 
-    private Pattern[] loadNemesisPatterns(Rom rom, int address, String name) {
-        try {
-            byte[] compressed = rom.readBytes(address, 8192);
-            try (ByteArrayInputStream bais = new ByteArrayInputStream(compressed);
-                 ReadableByteChannel channel = Channels.newChannel(bais)) {
-                byte[] decompressed = NemesisReader.decompress(channel);
-                int patternCount = decompressed.length / Pattern.PATTERN_SIZE_IN_ROM;
-                Pattern[] result = new Pattern[patternCount];
-                for (int i = 0; i < patternCount; i++) {
-                    result[i] = new Pattern();
-                    byte[] subArray = Arrays.copyOfRange(decompressed,
-                            i * Pattern.PATTERN_SIZE_IN_ROM,
-                            (i + 1) * Pattern.PATTERN_SIZE_IN_ROM);
-                    result[i].fromSegaFormat(subArray);
-                }
-                return result;
-            }
-        } catch (IOException e) {
-            LOGGER.warning("Failed to load " + name + " patterns: " + e.getMessage());
-            return new Pattern[0];
-        }
-    }
 
     private void ensureArtCached() {
         if (artCached || !artLoaded || patterns == null) {

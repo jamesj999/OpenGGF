@@ -632,7 +632,7 @@ public class Sonic3kObjectArt {
             case KOSINSKI_MODULED ->
                 patterns = loadKosinskiModuledPatterns(rom, entry.artAddr());
             case NEMESIS ->
-                patterns = loadNemesisPatterns(rom, entry.artAddr());
+                patterns = PatternDecompressor.nemesis(rom, entry.artAddr());
             case UNCOMPRESSED ->
                 patterns = loadUncompressedPatterns(rom, entry.artAddr(), entry.artSize());
             default -> { return null; }
@@ -898,9 +898,6 @@ public class Sonic3kObjectArt {
         }
     }
 
-    private Pattern[] loadNemesisPatterns(Rom rom, int addr) throws IOException {
-        return PatternDecompressor.nemesis(rom, addr);
-    }
 
     private Pattern[] loadKosinskiModuledPatterns(Rom rom, int romAddr) throws IOException {
         byte[] header = rom.readBytes(romAddr, 2);

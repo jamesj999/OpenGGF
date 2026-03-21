@@ -8,14 +8,13 @@ import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Palette;
 import com.openggf.level.Pattern;
 import com.openggf.tools.EnigmaReader;
-import com.openggf.tools.NemesisReader;
+import com.openggf.util.PatternDecompressor;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
-import java.util.Arrays;
 import java.util.logging.Logger;
 
 /**
@@ -111,16 +110,16 @@ public class TitleScreenDataLoader {
 
         try {
             // Load Nemesis-compressed art (background: ~180 patterns, 8KB buffer is sufficient)
-            titlePatterns = loadNemesisPatterns(rom, Sonic2Constants.ART_NEM_TITLE_ADDR, 8192, "Title");
+            titlePatterns = PatternDecompressor.nemesis(rom, Sonic2Constants.ART_NEM_TITLE_ADDR, 8192, "Title");
             LOGGER.info("Loaded title patterns: " + (titlePatterns != null ? titlePatterns.length : 0));
 
             // Load sprite art (Sonic/Tails/stars: 674 patterns)
-            spritePatterns = loadNemesisPatterns(rom, Sonic2Constants.ART_NEM_TITLE_SPRITES_ADDR, 65536, "TitleSprites");
+            spritePatterns = PatternDecompressor.nemesis(rom, Sonic2Constants.ART_NEM_TITLE_SPRITES_ADDR, 65536, "TitleSprites");
             LOGGER.info("Loaded title sprite patterns: " + (spritePatterns != null ? spritePatterns.length : 0));
 
             // Load MenuJunk art (extra tiles at VRAM 0x03F2, which is sprite index 0x2A2)
             // These tiles contain Sonic's right arm (frame 18 last piece) and Tails' hand (frame 19)
-            Pattern[] menuJunkPatterns = loadNemesisPatterns(rom, Sonic2Constants.ART_NEM_MENU_JUNK_ADDR, 1024, "MenuJunk");
+            Pattern[] menuJunkPatterns = PatternDecompressor.nemesis(rom, Sonic2Constants.ART_NEM_MENU_JUNK_ADDR, 1024, "MenuJunk");
             LOGGER.info("Loaded MenuJunk patterns: " + (menuJunkPatterns != null ? menuJunkPatterns.length : 0));
 
             // Extend spritePatterns to include MenuJunk at the correct offset (0x2A2)
@@ -136,7 +135,7 @@ public class TitleScreenDataLoader {
             }
 
             // Load credit text art (64 Nemesis patterns for intro text screen)
-            creditTextPatterns = loadNemesisPatterns(rom, Sonic2Constants.ART_NEM_CREDIT_TEXT_ADDR, 4096, "CreditText");
+            creditTextPatterns = PatternDecompressor.nemesis(rom, Sonic2Constants.ART_NEM_CREDIT_TEXT_ADDR, 4096, "CreditText");
             LOGGER.info("Loaded credit text patterns: " + (creditTextPatterns != null ? creditTextPatterns.length : 0));
 
             // Load intro palette (Sonic/Tails palette used as text color on the intro screen)
@@ -161,35 +160,6 @@ public class TitleScreenDataLoader {
         }
     }
 
-    /**
-     * Loads Nemesis-compressed patterns from ROM.
-     *
-     * @param maxCompressedSize maximum bytes to read from ROM for the compressed data.
-     *                          Must be large enough to contain the full Nemesis stream,
-     *                          or the decompressor will fail with truncated input.
-     */
-    private Pattern[] loadNemesisPatterns(Rom rom, int address, int maxCompressedSize, String name) {
-        try {
-            byte[] compressed = rom.readBytes(address, maxCompressedSize);
-            try (ByteArrayInputStream bais = new ByteArrayInputStream(compressed);
-                 ReadableByteChannel channel = Channels.newChannel(bais)) {
-                byte[] decompressed = NemesisReader.decompress(channel);
-                int patternCount = decompressed.length / Pattern.PATTERN_SIZE_IN_ROM;
-                Pattern[] patterns = new Pattern[patternCount];
-                for (int i = 0; i < patternCount; i++) {
-                    patterns[i] = new Pattern();
-                    byte[] subArray = Arrays.copyOfRange(decompressed,
-                            i * Pattern.PATTERN_SIZE_IN_ROM,
-                            (i + 1) * Pattern.PATTERN_SIZE_IN_ROM);
-                    patterns[i].fromSegaFormat(subArray);
-                }
-                return patterns;
-            }
-        } catch (IOException e) {
-            LOGGER.warning("Failed to load " + name + " patterns: " + e.getMessage());
-            return new Pattern[0];
-        }
-    }
 
     /**
      * Loads and composes the plane maps from Enigma-compressed data.
