@@ -10,6 +10,7 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.PlatformBobHelper;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
@@ -56,12 +57,8 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
     // From disassembly: move.b #4,obPriority(a0)
     private static final int PRIORITY = 4;
 
-    // Nudge physics: move.w #$400,d1
-    private static final int NUDGE_AMPLITUDE = 0x400;
-    // From disassembly: cmpi.b #$40,objoff_38(a0)
-    private static final int NUDGE_MAX_ANGLE = 0x40;
-    // From disassembly: addq.b #4,objoff_38(a0) / subq.b #4,objoff_38(a0)
-    private static final int NUDGE_ANGLE_STEP = 4;
+    // Nudge physics handled by PlatformBobHelper (step=4, maxAngle=0x40, amplitude >>6)
+    // ROM: move.w #$400,d1; muls.w d1,d0; swap d0 ≡ sinHex(angle) >> 6
 
     // Type 03: move.w #30,objoff_3A(a0)
     private static final int FALL_STAND_DELAY = 30;
@@ -101,8 +98,8 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
     // Movement subtype (low nybble of obSubtype)
     private int moveType;
 
-    // Nudge angle (objoff_38): 0 = no nudge, increases to $40 while stood on
-    private int nudgeAngle;
+    // Nudge displacement: sine-based vertical bob when player stands on platform
+    private final PlatformBobHelper bobHelper = new PlatformBobHelper();
 
     // Timer (objoff_3A): multi-purpose timer for types 03, 04, 07
     private int timer;
@@ -153,7 +150,6 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
         // Disasm: cmpi.b #$A,d0 compares full byte after SLZ override.
         this.mappingFrame = effectiveSubtype == 0x0A ? 1 : 0;
 
-        this.nudgeAngle = 0;
         this.timer = 0;
         this.yVelocity = 0;
         this.yFrac = 0;
@@ -187,19 +183,9 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
         // Check if player is standing on us via ObjectManager
         playerStanding = isPlayerRiding();
 
-        if (inFallingRoutine) {
-            // Routine 8 (Plat_Action): nudge angle is frozen — no increment/decrement.
-            // Only Plat_Move and Plat_Nudge execute.
-        } else if (playerStanding) {
-            // Routine 4 (Plat_Action2): increment nudge angle toward max (addq.b #4,objoff_38)
-            if (nudgeAngle < NUDGE_MAX_ANGLE) {
-                nudgeAngle += NUDGE_ANGLE_STEP;
-            }
-        } else {
-            // Routine 2 (Plat_Solid): decrement nudge angle toward 0 (subq.b #4,objoff_38)
-            if (nudgeAngle > 0) {
-                nudgeAngle -= NUDGE_ANGLE_STEP;
-            }
+        if (!inFallingRoutine) {
+            // Routine 2/4: update bob angle (frozen in routine 8 / Plat_Action)
+            bobHelper.update(playerStanding);
         }
 
         // Apply movement
@@ -251,14 +237,11 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
     }
 
     /**
-     * Nudge: CalcSine(objoff_38) * $400 >> 16, added to workingY.
+     * Nudge: sinHex(bobAngle) >> 6, added to workingY.
      * Creates a downward spring effect when player stands on the platform.
      */
     private void applyNudge() {
-        int sineValue = calcSine(nudgeAngle);
-        // muls.w d1,d0 / swap d0 = (sine * $400) >> 16
-        int nudgeOffset = (sineValue * NUDGE_AMPLITUDE) >> 16;
-        y = workingY + nudgeOffset;
+        y = workingY + bobHelper.getOffset();
     }
 
     /**
@@ -511,14 +494,4 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
         }
     }
 
-    /**
-     * Mega Drive CalcSine for angles 0 to $40 (0 to 90 degrees).
-     * Returns 8.8 fixed-point value: 0 at angle 0, 256 ($100) at angle $40.
-     */
-    private static int calcSine(int angle) {
-        if (angle <= 0) return 0;
-        if (angle > NUDGE_MAX_ANGLE) angle = NUDGE_MAX_ANGLE;
-        double radians = (angle * Math.PI) / (2.0 * NUDGE_MAX_ANGLE);
-        return (int) (Math.sin(radians) * 256);
-    }
 }

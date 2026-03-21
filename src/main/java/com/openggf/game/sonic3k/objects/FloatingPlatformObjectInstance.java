@@ -10,6 +10,7 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.PlatformBobHelper;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
@@ -18,7 +19,6 @@ import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
-import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -121,9 +121,8 @@ public class FloatingPlatformObjectInstance extends AbstractObjectInstance
     private final int baseY;  // objoff_34: saved Y position
     private ObjectSpawn dynamicSpawn;
 
-    // Stationary bob state (type 0)
-    // $3A(a0): bob angle, incremented/decremented by 4 per frame
-    private int bobAngle;
+    // Stationary bob state (type 0) — sine-based vertical nudge when player stands
+    private final PlatformBobHelper bobHelper = new PlatformBobHelper();
 
     // Rising state (type 7) — uses SubpixelMotion for ROM-accurate 16:8 movement
     private final SubpixelMotion.State risingState;
@@ -293,13 +292,8 @@ public class FloatingPlatformObjectInstance extends AbstractObjectInstance
      * clamped to [0, 0x40]. Displacement = GetSineCosine(angle) >> 6 (max ~4px).
      */
     private void applyStationaryBob() {
-        if (isPlayerRiding()) {
-            bobAngle = Math.min(bobAngle + 4, 0x40);
-        } else {
-            bobAngle = Math.max(bobAngle - 4, 0);
-        }
-
-        y = baseY + (TrigLookupTable.sinHex(bobAngle) >> 6);
+        bobHelper.update(isPlayerRiding());
+        y = baseY + bobHelper.getOffset();
     }
 
     // ===== Movement types 1-2: Horizontal oscillation =====

@@ -11,6 +11,7 @@ import com.openggf.level.PatternDesc;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.PlatformBobHelper;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
@@ -18,7 +19,6 @@ import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpriteMappingPiece;
 import com.openggf.level.render.SpritePieceRenderer;
-import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.util.LazyMappingHolder;
 
@@ -63,7 +63,7 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
     private int mappingFrame;
     private int subtype;
     private int routine;
-    private int bobAngle;
+    private final PlatformBobHelper bobHelper = new PlatformBobHelper();
     private int angle;
     private int timer;
     private int yVel;
@@ -96,7 +96,7 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
 
         boolean standing = isPlayerRiding();
         if (routine == 2 || routine == 8) {
-            updateBobAngle(standing);
+            bobHelper.update(standing);
         }
 
         boolean updateAngle = applyBehaviour(player, standing);
@@ -104,7 +104,7 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
             angle = OscillationManager.getByte(0x18);
         }
 
-        applySineBob();
+        y = (baseYFixed >> 8) + bobHelper.getOffset();
         refreshDynamicSpawn();
     }
 
@@ -339,28 +339,6 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
         if ((baseYFixed >> 8) == (baseY - 0x200)) {
             subtype = 0;
         }
-    }
-
-    private void updateBobAngle(boolean standing) {
-        if (!standing) {
-            if (bobAngle > 0) {
-                bobAngle = Math.max(0, bobAngle - 4);
-            }
-            return;
-        }
-        if (bobAngle < 0x40) {
-            bobAngle = Math.min(0x40, bobAngle + 4);
-        }
-    }
-
-    private void applySineBob() {
-        int sin = calcSine(bobAngle);
-        int offset = (sin * 0x400) >> 16;
-        y = (baseYFixed >> 8) + offset;
-    }
-
-    private int calcSine(int angle) {
-        return TrigLookupTable.sinHex(angle);
     }
 
     private int signedByte(int value) {
