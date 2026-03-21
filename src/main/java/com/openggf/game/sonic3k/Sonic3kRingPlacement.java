@@ -1,11 +1,10 @@
 package com.openggf.game.sonic3k;
 
 import com.openggf.data.RomByteReader;
+import com.openggf.game.common.CommonPlacementParser;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.level.rings.RingSpawn;
 
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -24,10 +23,6 @@ import java.util.List;
  * 32-bit absolute addresses, indexed as {@code zone * 2 + act}.
  */
 public class Sonic3kRingPlacement {
-
-    private static final int RECORD_SIZE = 4;
-    private static final int TERMINATOR = 0xFFFF;
-    private static final int RING_SPACING = 0x18;
 
     private final RomByteReader rom;
 
@@ -50,31 +45,6 @@ public class Sonic3kRingPlacement {
             return List.of();
         }
 
-        List<RingSpawn> spawns = new ArrayList<>();
-        int cursor = listAddr;
-
-        while (cursor + RECORD_SIZE <= rom.size()) {
-            int x = rom.readU16BE(cursor);
-            if (x == TERMINATOR) {
-                break;
-            }
-
-            int yWord = rom.readU16BE(cursor + 2);
-            int y = yWord & 0x0FFF;
-            int countNibble = (yWord >> 12) & 0xF;
-            boolean vertical = countNibble >= 0x8;
-            int extra = vertical ? (countNibble - 0x8) : countNibble;
-            int total = extra + 1;
-
-            for (int i = 0; i < total; i++) {
-                int ringX = x + (vertical ? 0 : i * RING_SPACING);
-                int ringY = y + (vertical ? i * RING_SPACING : 0);
-                spawns.add(new RingSpawn(ringX, ringY));
-            }
-            cursor += RECORD_SIZE;
-        }
-
-        spawns.sort(Comparator.comparingInt(RingSpawn::x));
-        return List.copyOf(spawns);
+        return CommonPlacementParser.parseRingRecords(rom, listAddr);
     }
 }
