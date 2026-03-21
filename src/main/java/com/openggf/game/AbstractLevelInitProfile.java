@@ -11,6 +11,9 @@ import com.openggf.physics.CollisionSystem;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.timer.TimerManager;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -57,6 +60,84 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
     /** Game-specific post-teardown fixups. Override to add game-specific ones. */
     protected List<StaticFixup> gameSpecificFixups() {
         return List.of();
+    }
+
+    // ── IOException helper ───────────────────────────────────────────────
+
+    /** Runnable that may throw {@link IOException}. */
+    @FunctionalInterface
+    protected interface IORunnable {
+        void run() throws IOException;
+    }
+
+    /**
+     * Creates an {@link InitStep} whose action wraps an {@link IORunnable},
+     * converting any {@link IOException} to {@link UncheckedIOException}.
+     */
+    protected static InitStep ioStep(String name, String desc, IORunnable action) {
+        return new InitStep(name, desc, () -> {
+            try { action.run(); } catch (IOException e) { throw new UncheckedIOException(e); }
+        });
+    }
+
+    // ── Shared core level-load steps ─────────────────────────────────────
+
+    /**
+     * Builds the 13 core level-load steps that are identical across all
+     * three game profiles.  Each step delegates to the corresponding
+     * {@link LevelManager} method.
+     * <p>
+     * Order matches the ROM's {@code Level:} routine (game-agnostic
+     * sequence): module init → audio → geometry → animation → objects →
+     * camera bounds → gameplay state → rings → zone features → art →
+     * player/checkpoint → water → background renderer.
+     *
+     * @param ctx the level-load context accumulated across steps
+     * @return mutable list — callers may append post-load assembly steps
+     */
+    protected List<InitStep> buildCoreSteps(LevelLoadContext ctx) {
+        LevelManager lm = LevelManager.getInstance();
+        List<InitStep> steps = new ArrayList<>(20);
+        steps.add(ioStep("InitGameModule",
+                "Create Game instance, fade out, clear PLC",
+                () -> lm.initGameModule(ctx.getLevelIndex())));
+        steps.add(ioStep("InitAudio",
+                "Play level music from zone playlist",
+                () -> lm.initAudio(ctx.getLevelIndex())));
+        steps.add(ioStep("LoadLevelData",
+                "Load level geometry, tiles, collision indices",
+                () -> ctx.setLevel(lm.loadLevelData(ctx.getLevelIndex()))));
+        steps.add(new InitStep("InitAnimatedContent",
+                "Pattern animation scripts and palette cycling",
+                lm::initAnimatedContent));
+        steps.add(ioStep("InitObjectManager",
+                "Spawn players, create ObjectManager, wire CollisionSystem",
+                lm::initObjectManager));
+        steps.add(new InitStep("InitCameraBounds",
+                "Reset camera bounds from level geometry",
+                lm::initCameraBounds));
+        steps.add(new InitStep("InitGameplayState",
+                "OscillateNumInit, clear game state, HUD update flags",
+                lm::initGameplayState));
+        steps.add(new InitStep("InitRings",
+                "Initial ring placement and pattern caching",
+                lm::initRings));
+        steps.add(ioStep("InitZoneFeatures",
+                "Zone-specific features (water surface, bumpers, etc.)",
+                lm::initZoneFeatures));
+        steps.add(new InitStep("InitArt",
+                "Zone PLC, character art, shared HUD/ring/monitor patterns",
+                lm::initArt));
+        steps.add(new InitStep("InitPlayerAndCheckpoint",
+                "Player spawn state and checkpoint clear",
+                lm::initPlayerAndCheckpoint));
+        steps.add(ioStep("InitWater",
+                "Water system loading for water zones",
+                lm::initWater));
+        steps.add(new InitStep("InitBackgroundRenderer",
+                "Engine-specific: pre-allocate BG FBO",
+                lm::initBackgroundRenderer));
+        return steps;
     }
 
     // Not final: subclasses provide game-specific level load steps.
