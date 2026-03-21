@@ -4,7 +4,6 @@ import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.GameServices;
 import com.openggf.game.ObjectArtProvider;
-import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
@@ -770,7 +769,7 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
 
             // Entry 3: boss explosion art (ArtNem_BossExplosion → ArtTile_BossExplosion2)
             if (decompressed.size() >= 4) {
-                registerSheet(Sonic2ObjectArtKeys.BOSS_EXPLOSION,
+                registerSheet(ObjectArtKeys.BOSS_EXPLOSION,
                         buildSheetFromPatterns(decompressed.get(3), reader,
                                 Sonic3kConstants.MAP_BOSS_EXPLOSION_ADDR, 0));
             }

@@ -1,5 +1,7 @@
 package com.openggf.game.sonic2;
 
+import com.openggf.level.objects.ObjectArtKeys;
+
 /**
  * Sonic 2-specific object art keys.
  * These keys are for objects that only exist in Sonic 2 or have
@@ -52,8 +54,8 @@ public final class Sonic2ObjectArtKeys {
     public static final String SPRINGBOARD = "springboard";
     public static final String ANIM_SPRINGBOARD = "springboard";
 
-    // Underwater objects (ARZ/CPZ/HPZ)
-    public static final String BUBBLES = "bubbles";
+    // Underwater objects (ARZ/CPZ/HPZ) — delegates to cross-game constant
+    public static final String BUBBLES = ObjectArtKeys.BUBBLES;
 
     // ARZ specific
     public static final String LEAVES = "leaves";
@@ -172,7 +174,7 @@ public final class Sonic2ObjectArtKeys {
     public static final String EHZ_BOSS = "ehz_boss";
     public static final String MCZ_BOSS = "mcz_boss";
     public static final String MCZ_FALLING_ROCKS = "mcz_falling_rocks";
-    public static final String BOSS_EXPLOSION = "boss_explosion";
+    public static final String BOSS_EXPLOSION = ObjectArtKeys.BOSS_EXPLOSION;
     public static final String CPZ_BOSS_EGGPOD = "cpz_boss_eggpod";
     public static final String CPZ_BOSS_PARTS = "cpz_boss_parts";
     public static final String CPZ_BOSS_JETS = "cpz_boss_jets";
@@ -196,6 +198,6 @@ public final class Sonic2ObjectArtKeys {
     public static final String LAVA_BUBBLE = "lava_bubble";
     public static final String GROUND_FIRE = "ground_fire";
 
-    // Super Sonic stars (Object 0x7E)
-    public static final String SUPER_SONIC_STARS = "super_sonic_stars";
+    // Super Sonic stars (Object 0x7E) — delegates to cross-game constant
+    public static final String SUPER_SONIC_STARS = ObjectArtKeys.SUPER_SONIC_STARS;
 }

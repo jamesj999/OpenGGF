@@ -1,7 +1,7 @@
 package com.openggf.level.objects;
 
-import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.ObjectArtProvider;
+import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Pattern;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -141,7 +141,7 @@ public class ObjectRenderManager {
     }
 
     public PatternSpriteRenderer getBossExplosionRenderer() {
-        return provider.getRenderer(Sonic2ObjectArtKeys.BOSS_EXPLOSION);
+        return provider.getRenderer(ObjectArtKeys.BOSS_EXPLOSION);
     }
 
     public PatternSpriteRenderer getShieldRenderer() {
@@ -153,7 +153,7 @@ public class ObjectRenderManager {
     }
 
     public PatternSpriteRenderer getSuperSonicStarsRenderer() {
-        return provider.getRenderer(Sonic2ObjectArtKeys.SUPER_SONIC_STARS);
+        return provider.getRenderer(ObjectArtKeys.SUPER_SONIC_STARS);
     }
 
     public PatternSpriteRenderer getBridgeRenderer() {

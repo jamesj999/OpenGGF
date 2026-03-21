@@ -228,6 +228,11 @@ public final class ObjectArtKeys {
     public static final String SBZ2_BUTTON = "sbz2_button";
     public static final String SBZ2_FALSE_FLOOR = "sbz2_false_floor";
 
+    // Cross-game boss/underwater art
+    public static final String BOSS_EXPLOSION = "boss_explosion";
+    public static final String BUBBLES = "bubbles";
+    public static final String SUPER_SONIC_STARS = "super_sonic_stars";
+
     // Zone data keys
     public static final String ANIMAL_TYPE_A = "animal_type_a";
     public static final String ANIMAL_TYPE_B = "animal_type_b";

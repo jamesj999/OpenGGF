@@ -3,7 +3,6 @@ package com.openggf.sprites.playable;
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameAudioProfile;
 import com.openggf.audio.GameSound;
-import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.level.objects.BreathingBubbleInstance;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectArtKeys;
@@ -302,9 +301,9 @@ public class DrowningController {
         }
 
         // Check for S2 bubble art (BUBBLES)
-        PatternSpriteRenderer s2Renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.BUBBLES);
+        PatternSpriteRenderer s2Renderer = renderManager.getRenderer(ObjectArtKeys.BUBBLES);
         if (s2Renderer != null && s2Renderer.isReady()) {
-            bubbleArtKey = Sonic2ObjectArtKeys.BUBBLES;
+            bubbleArtKey = ObjectArtKeys.BUBBLES;
             bubbleCountdownFrames = S2_COUNTDOWN_FRAMES;
             bubbleMaxFrame = S2_MAX_BUBBLE_FRAME;
             return;

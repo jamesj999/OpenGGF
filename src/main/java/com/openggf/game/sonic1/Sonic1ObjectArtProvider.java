@@ -5,7 +5,6 @@ import com.openggf.data.RomByteReader;
 import com.openggf.game.GameServices;
 import com.openggf.game.ObjectArtProvider;
 import com.openggf.game.sonic1.objects.bosses.Sonic1BossMappings;
-import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.level.objects.AnimalType;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.graphics.GraphicsManager;
@@ -7501,7 +7500,7 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // S1 explosion has 5 frames (vs S2's 7); frames 5-6 will be no-ops (graceful bounds check).
         ObjectSpriteSheet explosionSheet = sheets.get(ObjectArtKeys.EXPLOSION);
         if (explosionSheet != null) {
-            registerSheet(Sonic2ObjectArtKeys.BOSS_EXPLOSION,
+            registerSheet(ObjectArtKeys.BOSS_EXPLOSION,
                     explosionSheet);
         }
     }

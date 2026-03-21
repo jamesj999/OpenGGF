@@ -172,7 +172,8 @@ public class CheckpointObjectInstance extends BoxObjectInstance {
         }
 
         // Save checkpoint state
-        checkpointState.saveFromCheckpoint(this, player);
+        checkpointState.saveCheckpoint(getCheckpointIndex(),
+                getCenterX(), getCenterY(), hasCameraLockFlag());
 
         // Spawn dongle helper
         spawnDongle();
