@@ -441,15 +441,8 @@ public class SeesawObjectInstance extends BoxObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.SEESAW);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.SEESAW);
+        if (renderer == null) return;
 
         boolean vFlip = (spawn.renderFlags() & 0x2) != 0;
 

@@ -4,9 +4,7 @@ import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -323,13 +321,8 @@ public class HexBumperObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager rm = LevelManager.getInstance().getObjectRenderManager();
-        if (rm == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = rm.getRenderer(Sonic2ObjectArtKeys.HEX_BUMPER);
-        if (renderer != null && renderer.isReady()) {
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.HEX_BUMPER);
+        if (renderer != null) {
             boolean hFlip = (spawn.renderFlags() & 0x1) != 0;
             boolean vFlip = (spawn.renderFlags() & 0x2) != 0;
             renderer.drawFrameIndex(animFrame, getCurrentX(), spawn.y(), hFlip, vFlip);

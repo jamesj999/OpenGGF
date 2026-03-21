@@ -143,14 +143,8 @@ public class Sonic1GargoyleObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.LZ_GARGOYLE);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.LZ_GARGOYLE);
+        if (renderer == null) return;
 
         // Head uses frame 0. Gargoyle art is authored facing left by default, so apply
         // H-flip when obStatus bit 0 is set (facing right).

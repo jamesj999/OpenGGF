@@ -9,7 +9,6 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.TrigLookupTable;
@@ -504,13 +503,8 @@ public class BonusBlockObjectInstance extends AbstractObjectInstance {
             return;
         }
 
-        ObjectRenderManager rm = LevelManager.getInstance().getObjectRenderManager();
-        if (rm == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = rm.getRenderer(Sonic2ObjectArtKeys.BONUS_BLOCK);
-        if (renderer != null && renderer.isReady()) {
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.BONUS_BLOCK);
+        if (renderer != null) {
             boolean hFlip = (spawn.renderFlags() & 0x1) != 0;
             boolean vFlip = (spawn.renderFlags() & 0x2) != 0;
             // Pass paletteIndex for color change (2=green, 1=yellow, 0=red)

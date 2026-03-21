@@ -9,7 +9,6 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectManager;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -167,14 +166,8 @@ public class Sonic1RingFlashObjectInstance extends AbstractObjectInstance {
         if (finished || animFrame < 0) {
             return;
         }
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.GIANT_RING_FLASH);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.GIANT_RING_FLASH);
+        if (renderer == null) return;
         renderer.drawFrameIndex(animFrame, posX, posY, hFlip, false);
     }
 

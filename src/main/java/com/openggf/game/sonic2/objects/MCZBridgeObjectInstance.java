@@ -7,9 +7,7 @@ import com.openggf.game.sonic2.ButtonVineTriggerManager;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
@@ -169,15 +167,8 @@ public class MCZBridgeObjectInstance extends AbstractObjectInstance
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
         // Get renderer from art provider
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.MCZ_BRIDGE);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.MCZ_BRIDGE);
+        if (renderer == null) return;
 
         // Render the current frame at object position
         renderer.drawFrameIndex(mappingFrame, getX(), getY(), false, false);

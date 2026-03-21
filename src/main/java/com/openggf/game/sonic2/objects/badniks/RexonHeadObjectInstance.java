@@ -538,15 +538,8 @@ public class RexonHeadObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.REXON);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.REXON);
+        if (renderer == null) return;
 
         // From s2.asm:73791-73793:
         // - Tip head (headIndex == 8 / headNumber == 4): uses frame 0 (head with eyes)

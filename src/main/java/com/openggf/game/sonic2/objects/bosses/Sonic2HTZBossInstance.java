@@ -8,7 +8,6 @@ import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.GameServices;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.LevelManager;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.boss.AbstractBossInstance;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -590,16 +589,9 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(
+        PatternSpriteRenderer renderer = getRenderer(
                 Sonic2ObjectArtKeys.HTZ_BOSS);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        if (renderer == null) return;
 
         // Determine flip based on which side the boss is on
         // Left side = flipped (facing right), right side = not flipped (facing left)

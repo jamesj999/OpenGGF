@@ -5,7 +5,6 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -79,15 +78,8 @@ public class Sonic1SplashObjectInstance extends AbstractObjectInstance {
         if (lm == null) {
             return;
         }
-        ObjectRenderManager renderManager = lm.getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.LZ_SPLASH);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.LZ_SPLASH);
+        if (renderer == null) return;
 
         renderer.drawFrameIndex(frameIndex, posX, posY, false, false);
     }

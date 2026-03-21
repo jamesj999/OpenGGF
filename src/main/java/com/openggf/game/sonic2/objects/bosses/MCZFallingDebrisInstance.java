@@ -2,9 +2,7 @@ package com.openggf.game.sonic2.objects.bosses;
 
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -90,15 +88,8 @@ public class MCZFallingDebrisInstance extends AbstractObjectInstance implements 
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.MCZ_FALLING_ROCKS);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.MCZ_FALLING_ROCKS);
+        if (renderer == null) return;
 
         int frame = isSpike ? FRAME_SPIKE : FRAME_STONE;
         renderer.drawFrameIndex(frame, posX, posY, false, false);

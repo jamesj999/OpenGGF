@@ -11,7 +11,6 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -562,15 +561,8 @@ public class MovingVineObjectInstance extends AbstractObjectInstance {
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
         // Get renderer from art provider
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(variant.artKey);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(variant.artKey);
+        if (renderer == null) return;
 
         // Render the vine/chain at current position
         boolean hFlip = (spawn.renderFlags() & 0x1) != 0;

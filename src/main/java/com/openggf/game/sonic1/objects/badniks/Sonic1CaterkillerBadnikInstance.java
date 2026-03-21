@@ -8,7 +8,6 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.objects.DestructionEffects;
 import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.ObjectTerrainUtils;
@@ -593,15 +592,8 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.CATERKILLER);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.CATERKILLER);
+        if (renderer == null) return;
 
         int frame = getHeadMappingFrame();
         // S1: default art faces left. hFlip when facing right (obStatus bit 0 set).

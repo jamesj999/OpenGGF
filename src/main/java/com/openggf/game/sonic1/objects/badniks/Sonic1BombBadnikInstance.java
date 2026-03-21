@@ -550,15 +550,8 @@ public class Sonic1BombBadnikInstance extends AbstractObjectInstance
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.BOMB);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.BOMB);
+        if (renderer == null) return;
 
         int frame = getMappingFrame();
         // ori.b #4,obRender(a0): bit 2 set = use obStatus for flipping

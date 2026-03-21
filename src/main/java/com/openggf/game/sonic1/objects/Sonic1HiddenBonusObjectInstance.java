@@ -6,10 +6,8 @@ import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -194,14 +192,8 @@ public class Sonic1HiddenBonusObjectInstance extends AbstractObjectInstance {
         if (state != State.DISPLAYING) {
             return;
         }
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.HIDDEN_BONUS);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.HIDDEN_BONUS);
+        if (renderer == null) return;
         renderer.drawFrameIndex(frameIndex, spawn.x(), spawn.y(), false, false);
     }
 

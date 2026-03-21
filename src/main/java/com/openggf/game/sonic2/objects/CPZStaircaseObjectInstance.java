@@ -3,10 +3,8 @@ package com.openggf.game.sonic2.objects;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.MultiPieceSolidProvider;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
@@ -338,16 +336,9 @@ public class CPZStaircaseObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
         // Use the dedicated CPZ Stair Block renderer (NOT cpzPlatformRenderer which is Obj19)
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.CPZ_STAIR_BLOCK);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.CPZ_STAIR_BLOCK);
+        if (renderer == null) return;
 
         // Calculate checkerboard oscillation for states 2, 6 (wait at bottom with countdown)
         // Disassembly: lsr.b #2,d0 / andi.b #1,d0 - toggles every 4 frames

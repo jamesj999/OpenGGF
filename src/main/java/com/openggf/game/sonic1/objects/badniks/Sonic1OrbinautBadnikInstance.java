@@ -220,15 +220,8 @@ public class Sonic1OrbinautBadnikInstance extends AbstractBadnikInstance {
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.ORBINAUT);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.ORBINAUT);
+        if (renderer == null) return;
 
         renderer.drawFrameIndex(animationFrame, currentX, currentY, !facingLeft, false);
     }

@@ -14,7 +14,6 @@ import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import com.openggf.debug.DebugColor;
@@ -399,14 +398,8 @@ public class SmallMetalPformObjectInstance extends AbstractObjectInstance {
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
-            ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-            if (renderManager == null) {
-                return;
-            }
-            PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.WFZ_BELT_PLATFORM);
-            if (renderer == null || !renderer.isReady()) {
-                return;
-            }
+            PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.WFZ_BELT_PLATFORM);
+            if (renderer == null) return;
             // ROM: render_flags.x_flip determines horizontal flip
             renderer.drawFrameIndex(mappingFrame, currentX, currentY, xFlipped, false);
         }

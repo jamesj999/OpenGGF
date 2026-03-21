@@ -253,15 +253,8 @@ public class AsteronBadnikInstance extends AbstractBadnikInstance {
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.ASTERON);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.ASTERON);
+        if (renderer == null) return;
 
         // Asteron has no directional flipping - it's a symmetric starfish
         renderer.drawFrameIndex(animFrame, currentX, currentY, false, false);

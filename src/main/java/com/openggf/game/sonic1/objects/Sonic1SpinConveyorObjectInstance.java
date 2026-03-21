@@ -10,7 +10,6 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectManager;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
@@ -772,16 +771,9 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
         // Uses same art as Object 0x69 spinner: Map_Spin, ArtTile_SBZ_Spinning_Platform, palette 0
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.SBZ_SPINNING_PLATFORM);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.SBZ_SPINNING_PLATFORM);
+        if (renderer == null) return;
 
         // Extract flip flags from the current raw animation frame byte.
         // AnimateSprite Anim_Next: bits 5-6 encode hFlip/vFlip

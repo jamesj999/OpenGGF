@@ -6,10 +6,8 @@ import com.openggf.game.sonic1.Sonic1SwitchManager;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
@@ -541,14 +539,8 @@ public class Sonic1ChainedStomperObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-        PatternSpriteRenderer stomperRenderer = renderManager.getRenderer(ObjectArtKeys.MZ_CHAINED_STOMPER);
-        if (stomperRenderer == null || !stomperRenderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer stomperRenderer = getRenderer(ObjectArtKeys.MZ_CHAINED_STOMPER);
+        if (stomperRenderer == null) return;
 
         // Render ceiling anchor (routine 6, priority 3 = behind everything else)
         stomperRenderer.drawFrameIndex(FRAME_CEILING, x, ceilingY, false, false);
@@ -569,8 +561,8 @@ public class Sonic1ChainedStomperObjectInstance extends AbstractObjectInstance
         // Use exact Map_CStom .spikes spacing by drawing five single-spike pieces.
         // All pieces use yflip=1 in disassembly.
         if (spikesHaveCollision) {
-            PatternSpriteRenderer spikeRenderer = renderManager.getRenderer(ObjectArtKeys.SPIKE);
-            if (spikeRenderer != null && spikeRenderer.isReady()) {
+            PatternSpriteRenderer spikeRenderer = getRenderer(ObjectArtKeys.SPIKE);
+            if (spikeRenderer != null) {
                 for (int xOffset : STOMPER_SPIKE_RENDER_X_OFFSETS) {
                     spikeRenderer.drawFrameIndex(SPIKE_SINGLE_FRAME, x + xOffset, spikeY, false, true);
                 }

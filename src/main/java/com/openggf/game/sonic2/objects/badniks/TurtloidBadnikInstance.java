@@ -309,15 +309,8 @@ public class TurtloidBadnikInstance extends AbstractBadnikInstance
             return;
         }
 
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.TURTLOID);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.TURTLOID);
+        if (renderer == null) return;
 
         // Turtloid body: frame 0 = flying, frame 1 = neck raised
         renderer.drawFrameIndex(animFrame, currentX, currentY, false, false);

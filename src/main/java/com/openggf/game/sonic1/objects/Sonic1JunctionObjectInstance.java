@@ -509,14 +509,8 @@ public class Sonic1JunctionObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.SBZ_JUNCTION);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.SBZ_JUNCTION);
+        if (renderer == null) return;
 
         // Render the main disc at the current gap frame
         renderer.drawFrameIndex(mappingFrame, getX(), getY(), false, false);
