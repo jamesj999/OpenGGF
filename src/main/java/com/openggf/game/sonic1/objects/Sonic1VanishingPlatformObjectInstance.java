@@ -322,8 +322,4 @@ public class Sonic1VanishingPlatformObjectInstance extends AbstractObjectInstanc
 
     // ---- Helpers ----
 
-    private boolean isPlayerRiding() {
-        var objectManager = levelManager.getObjectManager();
-        return objectManager != null && objectManager.isAnyPlayerRiding(this);
-    }
 }

@@ -487,18 +487,6 @@ public class Sonic1LargeGrassyPlatformObjectInstance extends AbstractObjectInsta
     // --- Helpers ---
 
     /**
-     * Check if any player is riding this platform, via ObjectManager.
-     */
-    private boolean isPlayerRiding() {
-        var levelManager = LevelManager.getInstance();
-        if (levelManager == null) {
-            return false;
-        }
-        var objectManager = levelManager.getObjectManager();
-        return objectManager != null && objectManager.isAnyPlayerRiding(this);
-    }
-
-    /**
      * Check if the object is within out-of-range distance from camera using spawn X.
      */
     private boolean isOnScreenX(int objectX, int range) {

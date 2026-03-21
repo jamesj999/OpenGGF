@@ -595,17 +595,6 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
     }
 
     /**
-     * Check if any player is riding this object, via ObjectManager.
-     * Matches ROM's btst #3,obStatus(a0).
-     */
-    private boolean isPlayerRiding() {
-        LevelManager lm = LevelManager.getInstance();
-        if (lm == null) return false;
-        var objectManager = lm.getObjectManager();
-        return objectManager != null && objectManager.isAnyPlayerRiding(this);
-    }
-
-    /**
      * Check if the object is within out-of-range distance from camera.
      * Matches ROM's out_of_range.w macro.
      */

@@ -466,14 +466,6 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
     }
 
     /**
-     * Check if any player is riding this platform, via ObjectManager.
-     */
-    private boolean isPlayerRiding() {
-        var objectManager = levelManager.getObjectManager();
-        return objectManager != null && objectManager.isAnyPlayerRiding(this);
-    }
-
-    /**
      * Object 18 uses DeleteObject once the faller passes v_limitbtm2+$E0.
      * Keep the spawn suppressed until it exits the placement window, matching
      * ROM-style "don't instantly respawn in place" behavior.

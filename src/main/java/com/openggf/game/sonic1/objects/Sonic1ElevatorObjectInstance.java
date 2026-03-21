@@ -513,14 +513,6 @@ public class Sonic1ElevatorObjectInstance extends AbstractObjectInstance
         }
     }
 
-    /**
-     * Check if any player is riding this platform, via ObjectManager.
-     */
-    private boolean isPlayerRiding() {
-        var objectManager = LevelManager.getInstance().getObjectManager();
-        return objectManager != null && objectManager.isAnyPlayerRiding(this);
-    }
-
     // ---- Debug rendering ----
 
     @Override

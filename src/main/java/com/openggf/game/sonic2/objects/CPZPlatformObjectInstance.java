@@ -4,7 +4,6 @@ import com.openggf.game.OscillationManager;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
@@ -213,7 +212,7 @@ public class CPZPlatformObjectInstance extends AbstractObjectInstance
      * When player stands on platform, increment subtype (move to next routine).
      */
     private void applyTriggerOnStanding() {
-        if (isStanding()) {
+        if (isPlayerRiding()) {
             moveType = (moveType + 1) & 0x0F;
         }
     }
@@ -296,14 +295,6 @@ public class CPZPlatformObjectInstance extends AbstractObjectInstance
 
         x = baseX + d1;
         y = baseY + d2;
-    }
-
-    private boolean isStanding() {
-        LevelManager manager = LevelManager.getInstance();
-        if (manager == null || manager.getObjectManager() == null) {
-            return false;
-        }
-        return manager.getObjectManager().isAnyPlayerRiding(this);
     }
 
     private void refreshDynamicSpawn() {

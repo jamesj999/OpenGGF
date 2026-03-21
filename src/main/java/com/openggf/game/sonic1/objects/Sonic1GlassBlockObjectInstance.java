@@ -449,14 +449,6 @@ public class Sonic1GlassBlockObjectInstance extends AbstractObjectInstance
     }
 
     /**
-     * Check if any player is riding this block, via ObjectManager.
-     */
-    private boolean isPlayerRiding() {
-        var objectManager = levelManager.getObjectManager();
-        return objectManager != null && objectManager.isAnyPlayerRiding(this);
-    }
-
-    /**
      * Check if the object is within out-of-range distance from camera using given X.
      * Matches the S1 out_of_range macro.
      */

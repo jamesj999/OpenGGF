@@ -134,6 +134,17 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     }
 
     /**
+     * Returns true if any player is currently riding (standing on) this object.
+     * Safe to call in test environments where LevelManager/ObjectManager may be null.
+     */
+    protected boolean isPlayerRiding() {
+        LevelManager lm = LevelManager.getInstance();
+        if (lm == null) return false;
+        var om = lm.getObjectManager();
+        return om != null && om.isAnyPlayerRiding(this);
+    }
+
+    /**
      * Returns the ObjectRenderManager, or null if not available.
      */
     protected static ObjectRenderManager getRenderManager() {

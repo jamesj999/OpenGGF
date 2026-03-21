@@ -760,16 +760,6 @@ public class Sonic1LZConveyorObjectInstance extends AbstractObjectInstance
     // ---- Utility methods ----
 
     /**
-     * Check if any player is riding this platform, via ObjectManager.
-     */
-    private boolean isPlayerRiding() {
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null) return false;
-        var objectManager = levelManager.getObjectManager();
-        return objectManager != null && objectManager.isAnyPlayerRiding(this);
-    }
-
-    /**
      * Check if the object is within out-of-range distance from camera.
      * Matches the S1 out_of_range.s macro with objoff_30 as the reference X.
      */

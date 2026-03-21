@@ -293,7 +293,7 @@ public class FloatingPlatformObjectInstance extends AbstractObjectInstance
      * clamped to [0, 0x40]. Displacement = GetSineCosine(angle) >> 6 (max ~4px).
      */
     private void applyStationaryBob() {
-        if (isStanding()) {
+        if (isPlayerRiding()) {
             bobAngle = Math.min(bobAngle + 4, 0x40);
         } else {
             bobAngle = Math.max(bobAngle - 4, 0);
@@ -364,7 +364,7 @@ public class FloatingPlatformObjectInstance extends AbstractObjectInstance
      */
     private void applyRising(AbstractPlayableSprite player) {
         if (!rising) {
-            if (isStanding()) {
+            if (isPlayerRiding()) {
                 rising = true;
             } else {
                 return;
@@ -400,7 +400,7 @@ public class FloatingPlatformObjectInstance extends AbstractObjectInstance
         }
 
         // Crush detection (sonic3k.asm:50496-50521): kill standing player if headroom < 0
-        if (player != null && isStanding()) {
+        if (player != null && isPlayerRiding()) {
             try {
                 TerrainCheckResult headroom = ObjectTerrainUtils.checkCeilingDist(
                         player.getCentreX(), player.getCentreY(), player.getYRadius());
@@ -510,18 +510,6 @@ public class FloatingPlatformObjectInstance extends AbstractObjectInstance
      */
     private int applyOscFlip(int oscValue, int amplitude) {
         return xFlip ? -oscValue + amplitude : oscValue;
-    }
-
-    private boolean isStanding() {
-        try {
-            LevelManager manager = LevelManager.getInstance();
-            if (manager != null && manager.getObjectManager() != null) {
-                return manager.getObjectManager().isAnyPlayerRiding(this);
-            }
-        } catch (Exception e) {
-            // Safe fallback for test environments
-        }
-        return false;
     }
 
     private void refreshDynamicSpawn() {

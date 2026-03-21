@@ -94,7 +94,7 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
     public void update(int frameCounter, AbstractPlayableSprite player) {
         x = baseX;
 
-        boolean standing = isStanding();
+        boolean standing = isPlayerRiding();
         if (routine == 2 || routine == 8) {
             updateBobAngle(standing);
         }
@@ -298,7 +298,7 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
         if (timer != 0) {
             timer--;
             if (timer == 0) {
-                if (player != null && isStanding()) {
+                if (player != null && isPlayerRiding()) {
                     releasePlayer(player);
                 }
                 routine = 6;
@@ -369,14 +369,6 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
 
     private void setBaseY(int value) {
         baseYFixed = value << 8;
-    }
-
-    private boolean isStanding() {
-        LevelManager manager = LevelManager.getInstance();
-        if (manager == null || manager.getObjectManager() == null) {
-            return false;
-        }
-        return manager.getObjectManager().isAnyPlayerRiding(this);
     }
 
     private boolean isAquaticRuin() {
