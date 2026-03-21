@@ -212,10 +212,26 @@ public class ObjectNameBadnikInstance extends AbstractBadnikInstance {
 
 | Utility | Location | Use When |
 |---------|----------|----------|
+| `SubpixelMotion.moveSprite(state, gravity)` | `com.openggf.level.objects.SubpixelMotion` | 16:8 fixed-point position update with gravity (ROM's `MoveSprite`). Create a `SubpixelMotion.State` field, sync before call, read back after. |
+| `SubpixelMotion.moveSprite2(state)` | `com.openggf.level.objects.SubpixelMotion` | Same without gravity (ROM's `MoveSprite2`). |
+| `SubpixelMotion.moveX(state)` | `com.openggf.level.objects.SubpixelMotion` | X-only movement. |
 | `SwingMotion.update()` | `com.openggf.physics.SwingMotion` | Object oscillates/bobs/swings (ROM's `Swing_UpAndDown`). Returns `Result(velocity, directionDown, directionChanged)`. |
-| `AbstractS3kBadnikInstance.moveWithVelocity()` | `game.sonic3k.objects.badniks` | 24-bit subpixel position update. Inherited by all S3K badniks. For non-badnik objects, replicate the 8-line pattern inline. |
+| `PatrolMovementHelper` | `com.openggf.level.objects.PatrolMovementHelper` | Left-right patrol with turn-at-edge detection. |
+| `PlatformBobHelper` | `com.openggf.level.objects.PlatformBobHelper` | Sine-based standing-nudge displacement for platforms. |
 | `ObjectTerrainUtils.checkFloorDist()` | `com.openggf.physics` | Single-point floor/ceiling/wall detection for objects (not player sensors). Returns distance + angle. |
 | `TrigLookupTable.calcAngle()` / `sinHex()` / `cosHex()` | `com.openggf.physics` | ROM-accurate angle calculation and trig. Used for projectile deflection, circular motion. |
+
+##### Base Classes
+
+| Base Class | Location | Use When |
+|------------|----------|----------|
+| `AbstractBadnikInstance` | `com.openggf.level.objects` | All badniks. Provides touch response, destruction with `DestructionEffects`, debug rendering. |
+| `AbstractS3kBadnikInstance` | `game.sonic3k.objects.badniks` | S3K-specific badnik base. Extends `AbstractObjectInstance` directly with S3K-specific conveniences (`moveWithVelocity()`). |
+| `AbstractProjectileInstance` | `com.openggf.level.objects` | Fire-and-forget projectiles. Handles motion, gravity, off-screen destroy, HURT collision. |
+| `S3kBadnikProjectileInstance` | `game.sonic3k.objects.badniks` | S3K-specific reusable projectile with shield deflection. |
+| `AbstractSpikeObjectInstance` | `com.openggf.level.objects` | Spike objects with retract/extend behavior. S3K subclass adds push mode. |
+| `AbstractMonitorObjectInstance` | `com.openggf.level.objects` | Monitor objects. Shared icon-rise physics. Override `applyPowerup()`. |
+| `GravityDebrisChild` | `com.openggf.level.objects` | Debris/fragment children with gravity. Override `appendRenderCommands()`. |
 
 ##### Collision & Touch Response
 
@@ -223,7 +239,8 @@ public class ObjectNameBadnikInstance extends AbstractBadnikInstance {
 |---------|-------------|
 | `TouchResponseAttackable` + `TouchResponseProvider` | Destroyable enemies (head segments, normal badniks). Player jump/roll destroys them. |
 | `TouchResponseProvider` only (no `Attackable`) | Non-destroyable hazards (body segments, spikes, projectiles). Return `0x80 \| sizeIndex` from `getCollisionFlags()` for HURT category. |
-| `S3kBadnikProjectileInstance` | Reusable projectile with gravity, HURT collision, and shield deflection. Spawn via `spawnProjectile()`. |
+| `DestructionEffects.destroyBadnik()` | Explosion + animal + points on badnik defeat. |
+| `SpringBounceHelper` | `com.openggf.level.objects.SpringBounceHelper` — shared spring bounce physics. |
 | `BoxObjectInstance` | Invisible trigger zones with debug visualization (extends for AutoSpin-style triggers). |
 
 ##### Player State Manipulation
@@ -245,6 +262,27 @@ if (!player.getRolling()) {
 
 **Pinball mode** (`player.setPinballMode(true)`) — prevents rolling from clearing on landing.
 
+##### Rendering & Animation
+
+| Utility | Use When |
+|---------|----------|
+| `getRenderer(artKey)` | Inherited from `AbstractObjectInstance`. Returns ready `PatternSpriteRenderer` or null. Use instead of manually calling `LevelManager.getInstance().getObjectRenderManager()`. |
+| `AnimationTimer` | `com.openggf.util.AnimationTimer` — cyclic frame animation timer. |
+| `LazyMappingHolder` | `com.openggf.util.LazyMappingHolder` — lazy-loading holder for sprite mappings. |
+| `PatternDecompressor` | `com.openggf.util.PatternDecompressor` — bytes→Pattern[] conversion. |
+| `S3kSpriteDataLoader.loadMappingFrames()` | Parse S3K mappings from ROM. Prefer over hardcoded mappings. |
+
+Renderer keys are defined in `Sonic3kObjectArtKeys` and registered in `Sonic3kPlcArtRegistry`.
+
+##### Object Lifecycle
+
+| Utility | Use When |
+|---------|----------|
+| `buildSpawnAt(x, y)` | Inherited from `AbstractObjectInstance`. Use in `getSpawn()` overrides instead of constructing `new ObjectSpawn(...)` manually. |
+| `isPlayerRiding()` | Inherited from `AbstractObjectInstance`. Safe null-check chain for platform riding detection. |
+| `isOnScreen(margin)` | Inherited from `AbstractObjectInstance`. Off-screen visibility check. |
+| `DebugRenderContext` | `com.openggf.debug.DebugRenderContext` — use for `appendDebugRenderCommands()`. |
+
 ##### Child Object Spawning
 
 Use `ObjectManager.addDynamicObject()` for runtime-spawned children (body segments, projectiles, explosions):
@@ -252,17 +290,6 @@ Use `ObjectManager.addDynamicObject()` for runtime-spawned children (body segmen
 ObjectManager om = levelManager.getObjectManager();
 if (om != null) om.addDynamicObject(childInstance);
 ```
-
-##### Rendering
-
-All objects render via `PatternSpriteRenderer` from `ObjectRenderManager`:
-```java
-PatternSpriteRenderer renderer = renderManager.getRenderer(rendererKey);
-if (renderer != null && renderer.isReady()) {
-    renderer.drawFrameIndex(mappingFrame, x, y, hFlip, vFlip);
-}
-```
-Renderer keys are defined in `Sonic3kObjectArtKeys` and registered in `Sonic3kPlcArtRegistry`.
 
 #### 2.5 Implementation Requirements
 

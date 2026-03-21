@@ -217,9 +217,29 @@ Tests in `src/test/java/uk/co/jamesj999/sonic/game/`: `TestPhysicsProfile`, `Tes
 
 ## Object & Badnik System
 
-Objects use a factory pattern with game-specific registries. `ObjectRegistry` creates `ObjectInstance` from `ObjectSpawn`. Factories registered in `Sonic2ObjectRegistry.registerDefaultFactories()`.
+Objects use a factory pattern with game-specific registries. `ObjectRegistry` creates `ObjectInstance` from `ObjectSpawn`. Factories registered via `AbstractObjectRegistry` subclasses.
 
-Badniks extend `AbstractBadnikInstance` (which provides touch response collision, destruction behavior, movement/animation framework). Subclasses implement `updateMovement()` and `getCollisionSizeIndex()`.
+Badniks extend `AbstractBadnikInstance` (`com.openggf.level.objects` — game-agnostic) which provides touch response collision, destruction behavior via `DestructionEffects`, and movement/animation framework. Subclasses implement `updateMovement()` and `getCollisionSizeIndex()`.
+
+### Reusable Object Utilities
+
+**Before implementing any object, check these utilities. Do NOT reimplement existing functionality.** The implement-object skills (S1/S2/S3K) have full details in their section 2.4.
+
+| Utility | Package | Purpose |
+|---------|---------|---------|
+| `SubpixelMotion` | `level.objects` | 16:8 fixed-point position updates (moveSprite, moveSprite2, moveX) |
+| `PatrolMovementHelper` | `level.objects` | Left-right patrol with edge detection |
+| `PlatformBobHelper` | `level.objects` | Sine-based standing-nudge for platforms |
+| `SpringBounceHelper` | `level.objects` | Shared spring bounce physics |
+| `DestructionEffects` | `level.objects` | Badnik explosion + animal + points |
+| `AnimationTimer` | `util` | Cyclic frame animation timer |
+| `LazyMappingHolder` | `util` | Lazy-loading sprite mapping holder |
+| `PatternDecompressor` | `util` | Bytes→Pattern[] conversion |
+| `FboHelper` | `util` | FBO creation/destruction + viewport |
+
+**Base classes** (in `level.objects`): `AbstractBadnikInstance`, `AbstractProjectileInstance`, `AbstractSpikeObjectInstance`, `AbstractMonitorObjectInstance`, `AbstractPointsObjectInstance`, `GravityDebrisChild`.
+
+**Inherited from `AbstractObjectInstance`**: `getRenderer(artKey)`, `buildSpawnAt(x, y)`, `isPlayerRiding()`, `isOnScreen(margin)`.
 
 To add objects: add ID to `Sonic2ObjectIds`, create instance class, register factory in `Sonic2ObjectRegistry`.
 

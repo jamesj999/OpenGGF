@@ -9,7 +9,7 @@ $ARGUMENTS: Boss name or zone (e.g., "AIZ mini-boss", "Angel Island end boss", "
 ## Related Skills
 
 - **s3k-disasm-guide** (`.claude/skills/s3k-disasm-guide/skill.md`) - Disassembly navigation, label conventions, RomOffsetFinder
-- **s3k-implement-object** (`.claude/skills/s3k-implement-object/skill.md`) - For non-boss Sonic 3&K objects and badniks
+- **s3k-implement-object** (`.claude/skills/s3k-implement-object/skill.md`) - For non-boss Sonic 3&K objects and badniks. **Section 2.4 lists all reusable engine utilities** — check it before writing movement, collision, or rendering code.
 
 ## Zone-Set-Aware Boss IDs
 

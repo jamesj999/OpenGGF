@@ -9,7 +9,7 @@ $ARGUMENTS: Boss name or zone (e.g., "EHZ boss", "Chemical Plant boss", "0x56")
 ## Related Skills
 
 - **s2disasm-guide** (`.claude/skills/s2disasm-guide/skill.md`) - Disassembly navigation, label conventions, RomOffsetFinder
-- **s2-implement-object** (`.claude/skills/s2-implement-object/skill.md`) - For non-boss Sonic 2 objects and badniks
+- **s2-implement-object** (`.claude/skills/s2-implement-object/skill.md`) - For non-boss Sonic 2 objects and badniks. **Section 2.4 lists all reusable engine utilities** — check it before writing movement, collision, or rendering code.
 
 ## Key Differences: Bosses vs Regular Objects
 

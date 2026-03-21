@@ -9,7 +9,7 @@ $ARGUMENTS: Boss name or zone (e.g., "GHZ boss", "Green Hill boss", "0x3D", "Fin
 ## Related Skills
 
 - **s1disasm-guide** (`.claude/skills/s1disasm-guide/skill.md`) - Disassembly navigation, label conventions, RomOffsetFinder
-- **s1-implement-object** (`.claude/skills/s1-implement-object/skill.md`) - For non-boss Sonic 1 objects and badniks
+- **s1-implement-object** (`.claude/skills/s1-implement-object/skill.md`) - For non-boss Sonic 1 objects and badniks. **Section 2.4 lists all reusable engine utilities** — check it before writing movement, collision, or rendering code.
 
 ## Sonic 1 Boss List
 
