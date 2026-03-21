@@ -1,7 +1,7 @@
 package com.openggf.game.sonic1.objects;
 
 import com.openggf.game.GameServices;
-import com.openggf.game.sonic2.objects.badniks.AnimalType;
+import com.openggf.level.objects.AnimalType;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;

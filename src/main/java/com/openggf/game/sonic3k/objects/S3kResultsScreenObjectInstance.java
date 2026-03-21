@@ -7,7 +7,7 @@ import com.openggf.data.RomByteReader;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
 import com.openggf.game.PlayerCharacter;
-import com.openggf.game.sonic2.objects.AbstractResultsScreen;
+import com.openggf.level.objects.AbstractResultsScreen;
 import com.openggf.game.sonic3k.Sonic3kObjectArt;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;

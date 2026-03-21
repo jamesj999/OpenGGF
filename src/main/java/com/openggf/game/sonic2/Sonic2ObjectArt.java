@@ -5,7 +5,7 @@ import com.openggf.game.ZoneArtProvider;
 import com.openggf.game.common.CommonSpriteDataLoader;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
-import com.openggf.game.sonic2.objects.badniks.AnimalType;
+import com.openggf.level.objects.AnimalType;
 
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
@@ -1907,10 +1907,30 @@ public class Sonic2ObjectArt {
         return ZONE_ANIMALS[zoneIndex];
     }
 
+    /**
+     * Returns the S2-specific Nemesis art ROM address for the given animal type.
+     */
+    public static int getAnimalArtAddr(AnimalType type) {
+        return switch (type) {
+            case RABBIT -> Sonic2Constants.ART_NEM_RABBIT_ADDR;
+            case CHICKEN -> Sonic2Constants.ART_NEM_CHICKEN_ADDR;
+            case PENGUIN -> Sonic2Constants.ART_NEM_PENGUIN_ADDR;
+            case SEAL -> Sonic2Constants.ART_NEM_SEAL_ADDR;
+            case PIG -> Sonic2Constants.ART_NEM_PIG_ADDR;
+            case FLICKY -> Sonic2Constants.ART_NEM_FLICKY_ADDR;
+            case SQUIRREL -> Sonic2Constants.ART_NEM_SQUIRREL_ADDR;
+            case EAGLE -> Sonic2Constants.ART_NEM_EAGLE_ADDR;
+            case MOUSE -> Sonic2Constants.ART_NEM_MOUSE_ADDR;
+            case MONKEY -> Sonic2Constants.ART_NEM_MONKEY_ADDR;
+            case TURTLE -> Sonic2Constants.ART_NEM_TURTLE_ADDR;
+            case BEAR -> Sonic2Constants.ART_NEM_BEAR_ADDR;
+        };
+    }
+
     private Pattern[] loadAnimalPatterns(AnimalType animalTypeA, AnimalType animalTypeB) {
-        Pattern[] animalPatternsA = safeLoadNemesisPatterns(animalTypeA.artAddr(),
+        Pattern[] animalPatternsA = safeLoadNemesisPatterns(getAnimalArtAddr(animalTypeA),
                 "Animal-" + animalTypeA.displayName());
-        Pattern[] animalPatternsB = safeLoadNemesisPatterns(animalTypeB.artAddr(),
+        Pattern[] animalPatternsB = safeLoadNemesisPatterns(getAnimalArtAddr(animalTypeB),
                 "Animal-" + animalTypeB.displayName());
         int minLength = ANIMAL_TILE_OFFSET * 2;
         int combinedLength = Math.max(Math.max(animalPatternsA.length, ANIMAL_TILE_OFFSET + animalPatternsB.length),

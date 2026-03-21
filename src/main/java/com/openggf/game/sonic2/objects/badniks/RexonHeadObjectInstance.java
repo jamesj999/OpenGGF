@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects.badniks;
 
 import com.openggf.audio.AudioManager;
+import com.openggf.level.objects.AnimalObjectInstance;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;

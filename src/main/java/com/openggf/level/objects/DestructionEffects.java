@@ -2,7 +2,6 @@ package com.openggf.level.objects;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.game.GameServices;
-import com.openggf.game.sonic2.objects.badniks.AnimalObjectInstance;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.level.LevelManager;
 

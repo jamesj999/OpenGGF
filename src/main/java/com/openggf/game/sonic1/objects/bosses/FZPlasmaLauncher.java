@@ -11,7 +11,8 @@ import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.objects.boss.AbstractBossChild;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import com.openggf.game.sonic2.objects.BossExplosionObjectInstance;
+import com.openggf.game.sonic1.audio.Sonic1Sfx;
+import com.openggf.level.objects.boss.BossExplosionObjectInstance;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -105,7 +106,7 @@ public class FZPlasmaLauncher extends AbstractBossChild implements SolidObjectPr
                 ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
                 if (renderManager != null && levelManager.getObjectManager() != null) {
                     levelManager.getObjectManager().addDynamicObject(
-                            new BossExplosionObjectInstance(currentX, currentY, renderManager));
+                            new BossExplosionObjectInstance(currentX, currentY, renderManager, Sonic1Sfx.BOSS_EXPLOSION.id));
                 }
                 explodedOnDefeat = true;
             }

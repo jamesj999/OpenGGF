@@ -1,7 +1,8 @@
 package com.openggf.game.sonic2.objects.bosses;
 import com.openggf.level.objects.ExplosionObjectInstance;
 
-import com.openggf.game.sonic2.objects.BossExplosionObjectInstance;
+import com.openggf.game.sonic2.audio.Sonic2Sfx;
+import com.openggf.level.objects.boss.BossExplosionObjectInstance;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.LevelManager;
@@ -94,7 +95,7 @@ public class CPZBossFallingPart extends AbstractObjectInstance {
         if (renderManager == null) {
             return;
         }
-        BossExplosionObjectInstance explosion = new BossExplosionObjectInstance(x, y, renderManager);
+        BossExplosionObjectInstance explosion = new BossExplosionObjectInstance(x, y, renderManager, Sonic2Sfx.BOSS_EXPLOSION.id);
         levelManager.getObjectManager().addDynamicObject(explosion);
     }
 

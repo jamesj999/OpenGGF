@@ -6,7 +6,7 @@ import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
-import com.openggf.game.sonic2.objects.BossExplosionObjectInstance;
+import com.openggf.level.objects.boss.BossExplosionObjectInstance;
 import com.openggf.game.sonic1.scroll.Sonic1ZoneConstants;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.LevelManager;
@@ -822,7 +822,8 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
         BossExplosionObjectInstance explosion = new BossExplosionObjectInstance(
                 sourceX + xOffset,
                 sourceY + yOffset,
-                renderManager);
+                renderManager,
+                Sonic1Sfx.BOSS_EXPLOSION.id);
         levelManager.getObjectManager().addDynamicObject(explosion);
     }
 

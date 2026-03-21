@@ -7,7 +7,7 @@ import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.game.sonic1.scroll.Sonic1ZoneConstants;
-import com.openggf.game.sonic2.objects.AbstractResultsScreen;
+import com.openggf.level.objects.AbstractResultsScreen;
 import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;

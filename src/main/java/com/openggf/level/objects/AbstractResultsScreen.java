@@ -1,14 +1,11 @@
-package com.openggf.game.sonic2.objects;
+package com.openggf.level.objects;
 
-import com.openggf.game.sonic2.audio.Sonic2Sfx;
+import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 
-import com.openggf.audio.AudioManager;
-import com.openggf.camera.Camera;
 import com.openggf.game.ResultsScreen;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -18,7 +15,7 @@ import java.util.logging.Logger;
  * Base class for results screens (end-of-act and special stage).
  * <p>
  * Provides shared functionality:
- * - State machine (SLIDE_IN → TALLY → WAIT → EXIT)
+ * - State machine (SLIDE_IN -> TALLY -> WAIT -> EXIT)
  * - Bonus tally mechanics with tick sounds
  * - Slide animation calculations
  * - Score updating
@@ -201,22 +198,10 @@ public abstract class AbstractResultsScreen extends AbstractObjectInstance imple
         return DEFAULT_TALLY_TICK_INTERVAL;
     }
 
-    // Audio helpers
-    protected void playTickSound() {
-        try {
-            AudioManager.getInstance().playSfx(Sonic2Sfx.BLIP.id);
-        } catch (Exception e) {
-            // Ignore audio errors
-        }
-    }
+    // Audio helpers - each game provides its own SFX IDs
+    protected abstract void playTickSound();
 
-    protected void playTallyEndSound() {
-        try {
-            AudioManager.getInstance().playSfx(Sonic2Sfx.TALLY_END.id);
-        } catch (Exception e) {
-            // Ignore audio errors
-        }
-    }
+    protected abstract void playTallyEndSound();
 
     // Slide animation helper (legacy - uses duration-based alpha)
     protected float getSlideAlpha() {
@@ -326,4 +311,3 @@ public abstract class AbstractResultsScreen extends AbstractObjectInstance imple
         return state;
     }
 }
-

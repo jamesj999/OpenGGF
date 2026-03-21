@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects.badniks;
 
 import com.openggf.level.objects.AbstractBadnikInstance;
+import com.openggf.level.objects.AnimalObjectInstance;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;

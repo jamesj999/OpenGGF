@@ -13,7 +13,6 @@ import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseAttackable;
 import com.openggf.level.objects.TouchResponseResult;
-import com.openggf.game.sonic2.objects.BossExplosionObjectInstance;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -182,6 +181,14 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
         return Sonic2Sfx.BOSS_HIT.id;
     }
 
+    /**
+     * SFX played by boss defeat explosions.
+     * Defaults to Sonic 2 behavior; game-specific bosses can override.
+     */
+    protected int getBossExplosionSfxId() {
+        return Sonic2Sfx.BOSS_EXPLOSION.id;
+    }
+
     // ========================================================================
     // HELPER METHODS - Common functionality for all bosses
     // ========================================================================
@@ -213,7 +220,8 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
         BossExplosionObjectInstance explosion = new BossExplosionObjectInstance(
                 state.x + xOffset,
                 state.y + yOffset,
-                renderManager);
+                renderManager,
+                getBossExplosionSfxId());
         levelManager.getObjectManager().addDynamicObject(explosion);
     }
 

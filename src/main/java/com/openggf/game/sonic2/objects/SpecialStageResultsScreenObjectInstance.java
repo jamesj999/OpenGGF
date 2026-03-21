@@ -1,6 +1,9 @@
 package com.openggf.game.sonic2.objects;
 
+import com.openggf.audio.AudioManager;
+import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
+import com.openggf.level.objects.AbstractResultsScreen;
 import com.openggf.game.sonic2.specialstage.Sonic2SpecialStageConstants;
 import com.openggf.game.sonic2.specialstage.Sonic2SpecialStageDataLoader;
 import com.openggf.game.sonic2.specialstage.Sonic2SpecialStageManager;
@@ -669,7 +672,7 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
         // Update total
         totalBonus += totalIncrement;
 
-        return new TallyResult(anyRemaining, totalIncrement);
+        return tallyResult(anyRemaining, totalIncrement);
     }
 
     @Override
@@ -1157,6 +1160,24 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
                 }
             }
             // Leading zeros are blank (not rendered)
+        }
+    }
+
+    @Override
+    protected void playTickSound() {
+        try {
+            AudioManager.getInstance().playSfx(Sonic2Sfx.BLIP.id);
+        } catch (Exception e) {
+            // Ignore audio errors
+        }
+    }
+
+    @Override
+    protected void playTallyEndSound() {
+        try {
+            AudioManager.getInstance().playSfx(Sonic2Sfx.TALLY_END.id);
+        } catch (Exception e) {
+            // Ignore audio errors
         }
     }
 

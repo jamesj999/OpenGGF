@@ -1,7 +1,9 @@
 package com.openggf.game.sonic2.objects;
 import com.openggf.level.objects.ExplosionObjectInstance;
 
+import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
+import com.openggf.level.objects.boss.BossExplosionObjectInstance;
 import com.openggf.game.sonic2.objects.bosses.Sonic2MCZBossInstance;
 import com.openggf.level.objects.AbstractObjectRegistry;
 import com.openggf.level.objects.ObjectFactory;
@@ -353,7 +355,8 @@ public class Sonic2ObjectRegistry extends AbstractObjectRegistry {
                 (spawn, registry) -> new BossExplosionObjectInstance(
                         spawn.x(),
                         spawn.y(),
-                        LevelManager.getInstance().getObjectRenderManager()));
+                        LevelManager.getInstance().getObjectRenderManager(),
+                        Sonic2Sfx.BOSS_EXPLOSION.id));
 
         // SwingingPlatform (Object 0x15) - chain-suspended platform in OOZ, ARZ, MCZ
         registerFactory(Sonic2ObjectIds.SWINGING_PLATFORM,

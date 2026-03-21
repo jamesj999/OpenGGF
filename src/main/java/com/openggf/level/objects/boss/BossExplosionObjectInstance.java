@@ -1,9 +1,6 @@
-package com.openggf.game.sonic2.objects;
-import com.openggf.level.objects.ExplosionObjectInstance;
+package com.openggf.level.objects.boss;
 
 import com.openggf.audio.AudioManager;
-import com.openggf.game.sonic2.audio.Sonic2Sfx;
-import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -22,13 +19,15 @@ public class BossExplosionObjectInstance extends AbstractObjectInstance {
     private static final int LAST_FRAME = 6;
 
     private final ObjectRenderManager renderManager;
+    private final int sfxId;
     private int mappingFrame;
     private int frameTimer;
     private boolean initialized;
 
-    public BossExplosionObjectInstance(int x, int y, ObjectRenderManager renderManager) {
-        super(new ObjectSpawn(x, y, Sonic2ObjectIds.BOSS_EXPLOSION, 0, 0, false, 0), "Boss Explosion");
+    public BossExplosionObjectInstance(int x, int y, ObjectRenderManager renderManager, int sfxId) {
+        super(new ObjectSpawn(x, y, 0, 0, 0, false, 0), "Boss Explosion");
         this.renderManager = renderManager;
+        this.sfxId = sfxId;
         this.mappingFrame = 0;
         this.frameTimer = FRAME_DELAY;
     }
@@ -36,7 +35,7 @@ public class BossExplosionObjectInstance extends AbstractObjectInstance {
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         if (!initialized) {
-            AudioManager.getInstance().playSfx(Sonic2Sfx.BOSS_EXPLOSION.id);
+            AudioManager.getInstance().playSfx(sfxId);
             initialized = true;
         }
         frameTimer--;

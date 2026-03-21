@@ -6,7 +6,7 @@ import com.openggf.game.GameServices;
 import com.openggf.game.ObjectArtProvider;
 import com.openggf.game.sonic1.objects.bosses.Sonic1BossMappings;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
-import com.openggf.game.sonic2.objects.badniks.AnimalType;
+import com.openggf.level.objects.AnimalType;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
