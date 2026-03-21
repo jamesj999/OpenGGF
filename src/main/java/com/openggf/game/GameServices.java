@@ -1,7 +1,11 @@
 package com.openggf.game;
 
+import com.openggf.audio.AudioManager;
+import com.openggf.camera.Camera;
 import com.openggf.data.RomManager;
 import com.openggf.debug.DebugOverlayManager;
+import com.openggf.graphics.FadeManager;
+import com.openggf.level.LevelManager;
 import com.openggf.timer.TimerManager;
 
 public final class GameServices {
@@ -23,6 +27,22 @@ public final class GameServices {
 
     public static DebugOverlayManager debugOverlay() {
         return DebugOverlayManager.getInstance();
+    }
+
+    public static AudioManager audio() {
+        return AudioManager.getInstance();
+    }
+
+    public static Camera camera() {
+        return Camera.getInstance();
+    }
+
+    public static LevelManager level() {
+        return LevelManager.getInstance();
+    }
+
+    public static FadeManager fade() {
+        return FadeManager.getInstance();
     }
 }
 
