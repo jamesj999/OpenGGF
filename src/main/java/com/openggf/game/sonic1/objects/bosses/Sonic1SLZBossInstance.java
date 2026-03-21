@@ -1,7 +1,6 @@
 package com.openggf.game.sonic1.objects.bosses;
 
 import com.openggf.audio.AudioManager;
-import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.audio.Sonic1Music;
 import com.openggf.game.sonic1.objects.Sonic1SeesawObjectInstance;
@@ -11,7 +10,6 @@ import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
-import com.openggf.level.objects.boss.AbstractBossInstance;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -37,7 +35,7 @@ import java.util.List;
  *
  * Face, flame, and tube are rendered as overlays on the ship (not separate object instances).
  */
-public class Sonic1SLZBossInstance extends AbstractBossInstance {
+public class Sonic1SLZBossInstance extends AbstractS1EggmanBossInstance {
 
     // State machine constants (routineSecondary values, matching ROM's even-numbered index)
     private static final int STATE_ENTRANCE = 0;
@@ -77,12 +75,6 @@ public class Sonic1SLZBossInstance extends AbstractBossInstance {
 
     // General-purpose timer — objoff_3C
     private int timer;
-
-    // Face animation state
-    private int faceAnim;
-
-    // Flame animation state
-    private int flameAnim;
 
     // Seesaw references (objoff_2A array, up to 3 seesaws)
     private final List<Sonic1SeesawObjectInstance> seesaws = new ArrayList<>();
@@ -330,29 +322,8 @@ public class Sonic1SLZBossInstance extends AbstractBossInstance {
         state.xVel = ESCAPE_X_VEL;  // $400
         state.yVel = ESCAPE_Y_VEL;  // -$40
 
-        Camera camera = Camera.getInstance();
-        int rightBoundary = camera.getMaxX() & 0xFFFF;
-
-        if (rightBoundary >= BOSS_SLZ_END) {
-            // ROM: tst.b obRender(a0) / bpl.w BossStarLight_Delete
-            if (!isBossOnScreen()) {
-                setDestroyed(true);
-                return;
-            }
-        } else {
-            // ROM: addq.w #2,(v_limitright2).w
-            camera.setMaxX((short) (rightBoundary + 2));
-        }
+        runCameraExpandEscape(BOSS_SLZ_END);
         // BossMove + sine called centrally after state handler
-    }
-
-    /**
-     * BossMove subroutine — applies velocity to fixed-point position.
-     * ROM: sonic.asm (BossMove) — applies xVel/yVel shifted left 8 to fixed-point X/Y.
-     */
-    private void bossMove() {
-        state.xFixed += (state.xVel << 8);
-        state.yFixed += (state.yVel << 8);
     }
 
     /**
@@ -490,12 +461,6 @@ public class Sonic1SLZBossInstance extends AbstractBossInstance {
         hitHandler.processHit(null);
     }
 
-    private boolean isBossOnScreen() {
-        Camera camera = Camera.getInstance();
-        int screenX = state.x - camera.getX();
-        return screenX >= -64 && screenX <= 384;
-    }
-
     @Override
     public int getPriorityBucket() {
         return 3; // ROM: obPriority = 3
@@ -503,70 +468,21 @@ public class Sonic1SLZBossInstance extends AbstractBossInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
+        renderEggmanShip();
 
-        PatternSpriteRenderer eggmanRenderer = renderManager.getRenderer(ObjectArtKeys.EGGMAN);
-        if (eggmanRenderer == null || !eggmanRenderer.isReady()) {
-            return;
-        }
-
-        boolean flipped = (state.renderFlags & 1) != 0;
-
-        // Draw ship body (frame 0)
-        eggmanRenderer.drawFrameIndex(0, state.x, state.y, flipped, false);
-
-        // Draw face overlay (frames 1-7)
-        int faceFrame = getFaceFrame();
-        if (faceFrame >= 0) {
-            eggmanRenderer.drawFrameIndex(faceFrame, state.x, state.y, flipped, false);
-        }
-
-        // Draw flame overlay (frames 8-12)
-        int flameFrame = getFlameFrame();
-        if (flameFrame >= 0) {
-            eggmanRenderer.drawFrameIndex(flameFrame, state.x, state.y, flipped, false);
-        }
-
-        // Draw tube/jet pipe (Map_BossItems frame 3 = .widepipe)
+        // Draw tube/jet pipe (Map_BossItems frame 3 = .widepipe) — SLZ-specific overlay
         // ROM: BossStarLight_TubeMain — uses Map_BossItems with ArtTile_Eggman_Weapons
         if (state.routineSecondary != STATE_ESCAPE || isBossOnScreen()) {
+            ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+            if (renderManager == null) {
+                return;
+            }
+            boolean flipped = (state.renderFlags & 1) != 0;
             PatternSpriteRenderer weaponsRenderer = renderManager.getRenderer(ObjectArtKeys.BOSS_WEAPONS);
             if (weaponsRenderer != null && weaponsRenderer.isReady()) {
                 weaponsRenderer.drawFrameIndex(3, state.x, state.y, flipped, false);
             }
         }
-    }
-
-    /**
-     * Map face animation ID to current mapping frame index.
-     */
-    private int getFaceFrame() {
-        return switch (faceAnim) {
-            case Sonic1BossAnimations.ANIM_FACE_NORMAL_1,
-                 Sonic1BossAnimations.ANIM_FACE_NORMAL_2,
-                 Sonic1BossAnimations.ANIM_FACE_NORMAL_3 -> 1;
-            case Sonic1BossAnimations.ANIM_FACE_LAUGH -> 3;
-            case Sonic1BossAnimations.ANIM_FACE_HIT -> 5;
-            case Sonic1BossAnimations.ANIM_FACE_PANIC -> 6;
-            case Sonic1BossAnimations.ANIM_FACE_DEFEAT -> 7;
-            default -> -1;
-        };
-    }
-
-    /**
-     * Map flame animation ID to current mapping frame index.
-     */
-    private int getFlameFrame() {
-        return switch (flameAnim) {
-            case Sonic1BossAnimations.ANIM_FLAME_1,
-                 Sonic1BossAnimations.ANIM_FLAME_2 -> 8;
-            case Sonic1BossAnimations.ANIM_ESCAPE_FLAME -> 11;
-            case Sonic1BossAnimations.ANIM_BLANK -> -1;
-            default -> -1;
-        };
     }
 
     @Override

@@ -1,7 +1,6 @@
 package com.openggf.game.sonic1.objects.bosses;
 
 import com.openggf.audio.AudioManager;
-import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.objects.Sonic1LavaBallObjectInstance;
 import com.openggf.game.sonic1.audio.Sonic1Music;
@@ -11,7 +10,6 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
-import com.openggf.level.objects.boss.AbstractBossInstance;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -34,7 +32,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * MZ boss uses loc_1833E (direct fixed-point → display copy).
  * Sine is only applied as VELOCITY during descent via CalcSine >> 2.
  */
-public class Sonic1MZBossInstance extends AbstractBossInstance {
+public class Sonic1MZBossInstance extends AbstractS1EggmanBossInstance {
 
     // State machine constants (routineSecondary values)
     private static final int STATE_DESCENT = 0;
@@ -79,10 +77,6 @@ public class Sonic1MZBossInstance extends AbstractBossInstance {
     // ROM: obSubtype — combat sub-state (0,2,4,6)
     // 0,4 = movement (loc_183CA); 2,6 = return-to-center (BossMarble_MakeLava2)
     private int combatSubtype;
-
-    // Face/flame animation state
-    private int faceAnim;
-    private int flameAnim;
 
     public Sonic1MZBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
         super(spawn, levelManager, "MZ Boss");
@@ -417,33 +411,11 @@ public class Sonic1MZBossInstance extends AbstractBossInstance {
         state.xVel = 0x500;
         state.yVel = -0x40;
 
-        Camera camera = Camera.getInstance();
-        if (camera.getFrozen()) {
-            camera.setFrozen(false);
-        }
-
-        int rightBoundary = camera.getMaxX() & 0xFFFF;
-        if (rightBoundary >= BOSS_MZ_END) {
-            // ROM: tst.b obRender(a0) / bpl.s BossMarble_ShipDel
-            if (!isBossOnScreen()) {
-                setDestroyed(true);
-                return;
-            }
-        } else {
-            // ROM: addq.w #2,(v_limitright2).w
-            camera.setMaxX((short) (rightBoundary + 2));
+        if (runCameraExpandEscape(BOSS_MZ_END)) {
+            return; // Destroyed (off-screen)
         }
 
         bossMove();
-    }
-
-    /**
-     * BossMove: applies velocity to fixed-point position.
-     * ROM: objoff_30 += obVelX << 8; objoff_38 += obVelY << 8
-     */
-    private void bossMove() {
-        state.xFixed += (state.xVel << 8);
-        state.yFixed += (state.yVel << 8);
     }
 
     private void updateFaceAnimation(AbstractPlayableSprite player) {
@@ -482,12 +454,6 @@ public class Sonic1MZBossInstance extends AbstractBossInstance {
         }
     }
 
-    private boolean isBossOnScreen() {
-        Camera camera = Camera.getInstance();
-        int screenX = state.x - camera.getX();
-        return screenX >= -64 && screenX <= 384;
-    }
-
     /**
      * ROM: andi.b #$1F,d0 / addi.b #$40,d0 → random delay 64-95 frames.
      */
@@ -502,59 +468,18 @@ public class Sonic1MZBossInstance extends AbstractBossInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
+        renderEggmanShip();
+
+        // Exhaust tube (Boss Items frame 4) — MZ-specific overlay
         ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
         if (renderManager == null) {
             return;
         }
-        PatternSpriteRenderer eggmanRenderer = renderManager.getRenderer(ObjectArtKeys.EGGMAN);
-        if (eggmanRenderer == null || !eggmanRenderer.isReady()) {
-            return;
-        }
         boolean flipped = (state.renderFlags & 1) != 0;
-
-        // Ship body (frame 0)
-        eggmanRenderer.drawFrameIndex(0, state.x, state.y, flipped, false);
-
-        // Face overlay
-        int faceFrame = getFaceFrame();
-        if (faceFrame >= 0) {
-            eggmanRenderer.drawFrameIndex(faceFrame, state.x, state.y, flipped, false);
-        }
-
-        // Flame overlay
-        int flameFrame = getFlameFrame();
-        if (flameFrame >= 0) {
-            eggmanRenderer.drawFrameIndex(flameFrame, state.x, state.y, flipped, false);
-        }
-
-        // Exhaust tube (Boss Items frame 4)
         PatternSpriteRenderer weaponsRenderer = renderManager.getRenderer(ObjectArtKeys.BOSS_WEAPONS);
         if (weaponsRenderer != null && weaponsRenderer.isReady()) {
             weaponsRenderer.drawFrameIndex(4, state.x, state.y, flipped, false);
         }
-    }
-
-    private int getFaceFrame() {
-        return switch (faceAnim) {
-            case Sonic1BossAnimations.ANIM_FACE_NORMAL_1,
-                 Sonic1BossAnimations.ANIM_FACE_NORMAL_2,
-                 Sonic1BossAnimations.ANIM_FACE_NORMAL_3 -> 1;
-            case Sonic1BossAnimations.ANIM_FACE_LAUGH -> 3;
-            case Sonic1BossAnimations.ANIM_FACE_HIT -> 5;
-            case Sonic1BossAnimations.ANIM_FACE_PANIC -> 6;
-            case Sonic1BossAnimations.ANIM_FACE_DEFEAT -> 7;
-            default -> -1;
-        };
-    }
-
-    private int getFlameFrame() {
-        return switch (flameAnim) {
-            case Sonic1BossAnimations.ANIM_FLAME_1,
-                 Sonic1BossAnimations.ANIM_FLAME_2 -> 8;
-            case Sonic1BossAnimations.ANIM_ESCAPE_FLAME -> 11;
-            case Sonic1BossAnimations.ANIM_BLANK -> -1;
-            default -> -1;
-        };
     }
 
     @Override

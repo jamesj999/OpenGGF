@@ -1,21 +1,13 @@
 package com.openggf.game.sonic1.objects.bosses;
 
 import com.openggf.audio.AudioManager;
-import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.audio.Sonic1Music;
-import com.openggf.graphics.GLCommand;
 import com.openggf.level.LevelManager;
-import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
-import com.openggf.level.objects.boss.AbstractBossInstance;
-import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-
-import java.util.List;
 
 /**
  * Object 0x75 — Spring Yard Zone Boss (Eggman with spike, grabs blocks).
@@ -35,7 +27,7 @@ import java.util.List;
  *  - Flame overlay (movement-driven)
  *  - Spike (child component with collision, extends below ship)
  */
-public class Sonic1SYZBossInstance extends AbstractBossInstance {
+public class Sonic1SYZBossInstance extends AbstractS1EggmanBossInstance {
 
     // State machine constants (routineSecondary, even-numbered to match ROM)
     private static final int STATE_APPROACH = 0;
@@ -105,10 +97,6 @@ public class Sonic1SYZBossInstance extends AbstractBossInstance {
 
     // Block reference (objoff_36 in ROM — pointer to grabbed block)
     private Sonic1BossBlockInstance grabbedBlock;
-
-    // Face/flame animation state
-    private int faceAnim;
-    private int flameAnim;
 
     // Spike child component
     private SYZBossSpike spikeChild;
@@ -487,21 +475,8 @@ public class Sonic1SYZBossInstance extends AbstractBossInstance {
         state.xVel = ESCAPE_X_VEL;   // $400
         state.yVel = ESCAPE_Y_VEL;   // -$40
 
-        Camera camera = Camera.getInstance();
-        if (camera.getFrozen()) {
-            camera.setFrozen(false);
-        }
-
-        int rightBoundary = camera.getMaxX() & 0xFFFF;
-        if (rightBoundary >= BOSS_SYZ_END) {
-            // ROM: tst.b obRender(a0) / bpl.s delete
-            if (!isBossOnScreen()) {
-                setDestroyed(true);
-                return;
-            }
-        } else {
-            // ROM: addq.w #2,(v_limitright2).w
-            camera.setMaxX((short) (rightBoundary + 2));
+        if (runCameraExpandEscape(BOSS_SYZ_END)) {
+            return; // Destroyed (off-screen)
         }
 
         // ROM: loc_19512 — first BossMove with escape velocities
@@ -515,15 +490,6 @@ public class Sonic1SYZBossInstance extends AbstractBossInstance {
     // ========================================================================
     // Helper methods
     // ========================================================================
-
-    /**
-     * BossMove: applies velocity to fixed-point position.
-     * ROM: sonic.asm:6692
-     */
-    private void bossMove() {
-        state.xFixed += (state.xVel << 8);
-        state.yFixed += (state.yVel << 8);
-    }
 
     /**
      * Apply sine oscillation to Y velocity.
@@ -605,12 +571,6 @@ public class Sonic1SYZBossInstance extends AbstractBossInstance {
         spikeChild.updateExtension();
     }
 
-    private boolean isBossOnScreen() {
-        Camera camera = Camera.getInstance();
-        int screenX = state.x - camera.getX();
-        return screenX >= -64 && screenX <= 384;
-    }
-
     /**
      * Update face animation based on boss state.
      * ROM: BossSpringYard_FaceMain (routine 4)
@@ -677,59 +637,6 @@ public class Sonic1SYZBossInstance extends AbstractBossInstance {
     @Override
     public int getPriorityBucket() {
         return 5; // ROM: obPriority = 5 (BossSpringYard_ObjData)
-    }
-
-    @Override
-    public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer eggmanRenderer = renderManager.getRenderer(ObjectArtKeys.EGGMAN);
-        if (eggmanRenderer == null || !eggmanRenderer.isReady()) {
-            return;
-        }
-
-        boolean flipped = (state.renderFlags & 1) != 0;
-
-        // Ship body (frame 0)
-        eggmanRenderer.drawFrameIndex(0, state.x, state.y, flipped, false);
-
-        // Face overlay
-        int faceFrame = getFaceFrame();
-        if (faceFrame >= 0) {
-            eggmanRenderer.drawFrameIndex(faceFrame, state.x, state.y, flipped, false);
-        }
-
-        // Flame overlay
-        int flameFrame = getFlameFrame();
-        if (flameFrame >= 0) {
-            eggmanRenderer.drawFrameIndex(flameFrame, state.x, state.y, flipped, false);
-        }
-    }
-
-    private int getFaceFrame() {
-        return switch (faceAnim) {
-            case Sonic1BossAnimations.ANIM_FACE_NORMAL_1,
-                 Sonic1BossAnimations.ANIM_FACE_NORMAL_2,
-                 Sonic1BossAnimations.ANIM_FACE_NORMAL_3 -> 1;
-            case Sonic1BossAnimations.ANIM_FACE_LAUGH -> 3;
-            case Sonic1BossAnimations.ANIM_FACE_HIT -> 5;
-            case Sonic1BossAnimations.ANIM_FACE_PANIC -> 6;
-            case Sonic1BossAnimations.ANIM_FACE_DEFEAT -> 7;
-            default -> -1;
-        };
-    }
-
-    private int getFlameFrame() {
-        return switch (flameAnim) {
-            case Sonic1BossAnimations.ANIM_FLAME_1,
-                 Sonic1BossAnimations.ANIM_FLAME_2 -> 8;
-            case Sonic1BossAnimations.ANIM_ESCAPE_FLAME -> 11;
-            case Sonic1BossAnimations.ANIM_BLANK -> -1;
-            default -> -1;
-        };
     }
 
     @Override
