@@ -8,8 +8,8 @@ import com.openggf.data.RomManager;
 import com.openggf.game.TitleCardProvider;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
+import com.openggf.graphics.TitleCardSpriteRenderer;
 import com.openggf.level.Pattern;
-import com.openggf.level.PatternDesc;
 import com.openggf.util.PatternDecompressor;
 
 import java.util.ArrayList;
@@ -815,66 +815,9 @@ public class TitleCardManager implements TitleCardProvider {
         int centerY = element.getY();
 
         for (TitleCardMappings.SpritePiece piece : pieces) {
-            renderSpritePiece(graphicsManager, piece, centerX, centerY);
-        }
-    }
-
-    /**
-     * Renders a single sprite piece.
-     */
-    private void renderSpritePiece(GraphicsManager graphicsManager,
-                                    TitleCardMappings.SpritePiece piece,
-                                    int originX, int originY) {
-        int baseTileIndex = piece.tileIndex();
-
-        // Convert VRAM tile index to our pattern array index
-        // Array index = VRAM address - VRAM_BASE
-        int patternArrayIndex = baseTileIndex - VRAM_BASE;
-        if (patternArrayIndex < 0) {
-            patternArrayIndex = 0;
-        }
-
-        int widthTiles = piece.widthTiles();
-        int heightTiles = piece.heightTiles();
-
-        // Render each 8x8 tile in the piece (column-major order like VDP)
-        for (int tx = 0; tx < widthTiles; tx++) {
-            for (int ty = 0; ty < heightTiles; ty++) {
-                int tileOffset = tx * heightTiles + ty;
-                int arrayIndex = patternArrayIndex + tileOffset;
-
-                // Bounds check
-                if (arrayIndex < 0 || arrayIndex >= combinedPatterns.length) {
-                    continue;
-                }
-
-                int patternId = PATTERN_BASE + arrayIndex;
-
-                // Calculate screen position
-                int tileX = originX + piece.xOffset() + (tx * 8);
-                int tileY = originY + piece.yOffset() + (ty * 8);
-
-                // Handle flipping - swap column/row order
-                if (piece.hFlip()) {
-                    tileX = originX + piece.xOffset() + ((widthTiles - 1 - tx) * 8);
-                }
-                if (piece.vFlip()) {
-                    tileY = originY + piece.yOffset() + ((heightTiles - 1 - ty) * 8);
-                }
-
-                // Build PatternDesc with flip flags and palette
-                int descIndex = patternId & 0x7FF;
-                if (piece.hFlip()) {
-                    descIndex |= 0x800;
-                }
-                if (piece.vFlip()) {
-                    descIndex |= 0x1000;
-                }
-                descIndex |= (piece.paletteIndex() & 0x3) << 13;
-                PatternDesc desc = new PatternDesc(descIndex);
-
-                graphicsManager.renderPatternWithId(patternId, desc, tileX, tileY);
-            }
+            TitleCardSpriteRenderer.renderSpritePiece(
+                    graphicsManager, piece, centerX, centerY,
+                    VRAM_BASE, PATTERN_BASE, combinedPatterns.length);
         }
     }
 

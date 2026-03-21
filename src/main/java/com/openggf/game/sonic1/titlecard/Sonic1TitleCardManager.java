@@ -9,8 +9,8 @@ import com.openggf.game.sonic2.titlecard.TitleCardMappings;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
+import com.openggf.graphics.TitleCardSpriteRenderer;
 import com.openggf.level.Pattern;
-import com.openggf.level.PatternDesc;
 import com.openggf.util.PatternDecompressor;
 
 import java.util.ArrayList;
@@ -335,60 +335,11 @@ public class Sonic1TitleCardManager implements TitleCardProvider {
         // decoration where border pieces (indices 0-7) must render over fill
         // pieces (indices 8-12).
         for (int i = pieces.length - 1; i >= 0; i--) {
-            renderSpritePiece(graphicsManager, pieces[i], centerX, centerY);
-        }
-    }
-
-    /**
-     * Renders a single sprite piece using column-major tile ordering.
-     *
-     * <p>Sonic 1 tile indices are 0-based (direct index into the art pattern array),
-     * unlike Sonic 2 where tile indices include a VRAM base offset ($580+).
-     */
-    private void renderSpritePiece(GraphicsManager graphicsManager,
-                                    TitleCardMappings.SpritePiece piece,
-                                    int originX, int originY) {
-        int baseTileIndex = piece.tileIndex();
-        int widthTiles = piece.widthTiles();
-        int heightTiles = piece.heightTiles();
-
-        for (int tx = 0; tx < widthTiles; tx++) {
-            for (int ty = 0; ty < heightTiles; ty++) {
-                // Column-major tile ordering (same as VDP)
-                int tileOffset = tx * heightTiles + ty;
-                int arrayIndex = baseTileIndex + tileOffset;
-
-                if (arrayIndex < 0 || arrayIndex >= patterns.length) {
-                    continue;
-                }
-
-                int patternId = PATTERN_BASE + arrayIndex;
-
-                // Calculate screen position
-                int tileX = originX + piece.xOffset() + (tx * 8);
-                int tileY = originY + piece.yOffset() + (ty * 8);
-
-                // Handle flipping - swap column/row order
-                if (piece.hFlip()) {
-                    tileX = originX + piece.xOffset() + ((widthTiles - 1 - tx) * 8);
-                }
-                if (piece.vFlip()) {
-                    tileY = originY + piece.yOffset() + ((heightTiles - 1 - ty) * 8);
-                }
-
-                // Build PatternDesc with flip flags and palette
-                int descIndex = patternId & 0x7FF;
-                if (piece.hFlip()) {
-                    descIndex |= 0x800;
-                }
-                if (piece.vFlip()) {
-                    descIndex |= 0x1000;
-                }
-                descIndex |= (piece.paletteIndex() & 0x3) << 13;
-                PatternDesc desc = new PatternDesc(descIndex);
-
-                graphicsManager.renderPatternWithId(patternId, desc, tileX, tileY);
-            }
+            // S1 tile indices are 0-based (vramBase=0), unlike S2/S3K which
+            // include a VRAM base offset.
+            TitleCardSpriteRenderer.renderSpritePiece(
+                    graphicsManager, pieces[i], centerX, centerY,
+                    0, PATTERN_BASE, patterns.length);
         }
     }
 

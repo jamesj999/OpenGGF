@@ -7,8 +7,8 @@ import com.openggf.game.sonic2.titlecard.TitleCardMappings;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
+import com.openggf.graphics.TitleCardSpriteRenderer;
 import com.openggf.level.Pattern;
-import com.openggf.level.PatternDesc;
 import com.openggf.tools.KosinskiReader;
 
 import java.io.IOException;
@@ -443,44 +443,9 @@ public class Sonic3kTitleCardManager implements TitleCardProvider {
         // pieces (e.g. game name text on the banner) end up on top of lower-priority
         // pieces (e.g. the red fill blocks).
         for (int i = pieces.length - 1; i >= 0; i--) {
-            renderSpritePiece(gm, pieces[i], centerX, centerY);
-        }
-    }
-
-    private void renderSpritePiece(GraphicsManager gm, TitleCardMappings.SpritePiece piece,
-                                   int originX, int originY) {
-        int baseTile = piece.tileIndex();
-        int arrIndex = baseTile - VRAM_BASE;
-        if (arrIndex < 0) arrIndex = 0;
-
-        int w = piece.widthTiles();
-        int h = piece.heightTiles();
-
-        for (int tx = 0; tx < w; tx++) {
-            for (int ty = 0; ty < h; ty++) {
-                int tileOff = tx * h + ty;  // Column-major VDP order
-                int idx = arrIndex + tileOff;
-                if (idx < 0 || idx >= VRAM_ARRAY_SIZE) continue;
-
-                int patId = PATTERN_BASE + idx;
-                int tileX = originX + piece.xOffset() + (tx * 8);
-                int tileY = originY + piece.yOffset() + (ty * 8);
-
-                if (piece.hFlip()) {
-                    tileX = originX + piece.xOffset() + ((w - 1 - tx) * 8);
-                }
-                if (piece.vFlip()) {
-                    tileY = originY + piece.yOffset() + ((h - 1 - ty) * 8);
-                }
-
-                int descBits = patId & 0x7FF;
-                if (piece.hFlip()) descBits |= 0x800;
-                if (piece.vFlip()) descBits |= 0x1000;
-                descBits |= (piece.paletteIndex() & 0x3) << 13;
-                PatternDesc desc = new PatternDesc(descBits);
-
-                gm.renderPatternWithId(patId, desc, tileX, tileY);
-            }
+            TitleCardSpriteRenderer.renderSpritePiece(
+                    gm, pieces[i], centerX, centerY,
+                    VRAM_BASE, PATTERN_BASE, VRAM_ARRAY_SIZE);
         }
     }
 }
