@@ -17,7 +17,7 @@ The engine has 44 singletons with ~1,650 `getInstance()` calls. The worst coupli
 Two complementary changes targeting different layers:
 
 1. **GameServices facade expansion** — static accessors for the remaining high-traffic singletons (AudioManager, Camera, LevelManager, FadeManager). For non-factory code: event handlers, scroll handlers, title screens, GameLoop.
-2. **ObjectServices interface** — injectable service handle for objects created by ObjectManager. Replaces direct singleton access in AbstractObjectInstance and AbstractBadnikInstance.
+2. **ObjectServices interface** — injectable service handle for objects created by ObjectManager. Replaces direct singleton access in AbstractObjectInstance, AbstractBadnikInstance, AbstractS3kBadnikInstance, and AbstractBossInstance.
 
 ## Strategy 1: GameServices Facade Expansion
 
@@ -59,16 +59,28 @@ Located in `com.openggf.level.objects`:
 
 ```java
 public interface ObjectServices {
+    // Object management
     ObjectManager objectManager();
     ObjectRenderManager renderManager();
-    LevelGamestate levelGamestate();
-    int currentZone();
+
+    // Level state
+    LevelState levelGamestate();
+    RespawnState checkpointState();
+    Level currentLevel();
+    int romZoneId();
     int currentAct();
+
+    // Audio
     void playSfx(int soundId);
+    void playMusic(int musicId);
+    void fadeOutMusic();
+
+    // Gameplay
+    void spawnLostRings(AbstractPlayableSprite player, int frameCounter);
 }
 ```
 
-This exposes only what objects actually need from LevelManager and AudioManager, based on grep analysis of ~600 call sites.
+This surface was derived from grep analysis of all `LevelManager.getInstance()` and `levelManager.` field access patterns across object, badnik, and boss files.
 
 ### Default Implementation
 
@@ -87,13 +99,23 @@ public class DefaultObjectServices implements ObjectServices {
     }
 
     @Override
-    public LevelGamestate levelGamestate() {
+    public LevelState levelGamestate() {
         return LevelManager.getInstance().getLevelGamestate();
     }
 
     @Override
-    public int currentZone() {
-        return LevelManager.getInstance().getCurrentZone();
+    public RespawnState checkpointState() {
+        return LevelManager.getInstance().getCheckpointState();
+    }
+
+    @Override
+    public Level currentLevel() {
+        return LevelManager.getInstance().getCurrentLevel();
+    }
+
+    @Override
+    public int romZoneId() {
+        return LevelManager.getInstance().getRomZoneId();
     }
 
     @Override
@@ -104,6 +126,21 @@ public class DefaultObjectServices implements ObjectServices {
     @Override
     public void playSfx(int soundId) {
         AudioManager.getInstance().playSfx(soundId);
+    }
+
+    @Override
+    public void playMusic(int musicId) {
+        AudioManager.getInstance().playMusic(musicId);
+    }
+
+    @Override
+    public void fadeOutMusic() {
+        AudioManager.getInstance().fadeOutMusic();
+    }
+
+    @Override
+    public void spawnLostRings(AbstractPlayableSprite player, int frameCounter) {
+        LevelManager.getInstance().spawnLostRings(player, frameCounter);
     }
 }
 ```
@@ -120,6 +157,8 @@ if (instance instanceof AbstractObjectInstance aoi) {
 ```
 
 ObjectManager holds one `DefaultObjectServices` instance, created in its constructor or set via a setter.
+
+`ObjectManager.addDynamicObject()` must also call `setServices()` on the new object. This is currently a simple list-add — it needs a one-line addition to inject services on dynamically spawned children.
 
 ### AbstractObjectInstance Changes
 
@@ -164,7 +203,28 @@ protected AbstractBadnikInstance(ObjectSpawn spawn, String name)
 
 Subclasses that currently pass `LevelManager.getInstance()` to super stop doing so. Code that accessed `levelManager.getObjectManager()` migrates to `services().objectManager()`.
 
-`DestructionEffects.destroyBadnik()` currently receives `LevelManager` as a parameter. Change it to accept `ObjectServices` instead.
+### AbstractS3kBadnikInstance Changes
+
+Same pattern as AbstractBadnikInstance. This is a separate class hierarchy (not a subclass of AbstractBadnikInstance) in `com.openggf.game.sonic3k.objects.badniks` that also holds `protected final LevelManager levelManager`. Remove the field and constructor parameter. Subclasses (Bloominator, Rhinobot, MonkeyDude, CaterkillerJrHead) update accordingly.
+
+### AbstractBossInstance Changes
+
+`AbstractBossInstance` in `com.openggf.level.objects.boss` also holds `protected final LevelManager levelManager`. Same migration: remove field, remove constructor parameter, subclasses (~15 across S1/S2/S3K) switch to `services()`.
+
+Note: Some boss classes call level-mutation methods (`invalidateForegroundTilemap()`, `updatePalette()`, `requestZoneAndAct()`) that go beyond ObjectServices' scope. These remain on `GameServices.level()` during Phase 3 migration.
+
+### DestructionEffects Cascade
+
+`DestructionEffects.destroyBadnik()` currently accepts `LevelManager`. Changing it to accept `ObjectServices` cascades to:
+
+1. `PointsFactory` interface signature (`LevelManager` param → `ObjectServices`)
+2. All `PointsFactory` lambda implementations (`Sonic2BadnikConfig`, `Sonic1DestructionConfig`)
+3. `AbstractPointsObjectInstance` constructor (`LevelManager` param → receives services via `setServices()`)
+4. `PointsObjectInstance` and `Sonic1PointsObjectInstance` constructors
+5. `AnimalObjectInstance` constructor
+6. `BreakableBlockObjectInstance` and `SmashableGroundObjectInstance` — these directly instantiate `PointsObjectInstance` (not via `PointsFactory`), so they are affected by the constructor change in item 3, not by item 1
+
+All of these are scoped to Phase 2.
 
 ### Factory Signature
 
@@ -176,18 +236,6 @@ ObjectInstance create(ObjectSpawn spawn, ObjectRegistry registry);
 
 Services are injected post-construction by ObjectManager, not passed through the factory. This avoids changing every factory lambda across all three game registries.
 
-### Dynamic Object Spawning
-
-Objects that spawn children (e.g., EggPrison spawning animals, Turtloid firing projectiles) currently call `LevelManager.getInstance().getObjectManager().addDynamicObject(child)`. With ObjectServices:
-
-```java
-services().objectManager().addDynamicObject(child);
-```
-
-The child object also needs services. ObjectManager already handles this — `addDynamicObject()` flows through the same path that calls `setServices()`.
-
-Verify: `ObjectManager.addDynamicObject()` must call `setServices()` on the new object, same as `syncActiveSpawns()` does. This is a one-line addition to the existing `addDynamicObject()` method.
-
 ### Test Usage
 
 Tests can create a stub implementation:
@@ -196,10 +244,15 @@ Tests can create a stub implementation:
 ObjectServices stubServices = new ObjectServices() {
     @Override public ObjectManager objectManager() { return mockOm; }
     @Override public ObjectRenderManager renderManager() { return null; }
-    @Override public LevelGamestate levelGamestate() { return mockState; }
-    @Override public int currentZone() { return 0; }
+    @Override public LevelState levelGamestate() { return mockState; }
+    @Override public RespawnState checkpointState() { return null; }
+    @Override public Level currentLevel() { return null; }
+    @Override public int romZoneId() { return 0; }
     @Override public int currentAct() { return 0; }
     @Override public void playSfx(int soundId) { /* no-op */ }
+    @Override public void playMusic(int musicId) { /* no-op */ }
+    @Override public void fadeOutMusic() { /* no-op */ }
+    @Override public void spawnLostRings(AbstractPlayableSprite p, int f) { /* no-op */ }
 };
 object.setServices(stubServices);
 ```
@@ -216,20 +269,31 @@ Both patterns coexist during migration. No big-bang change required.
 3. Add `services` field + setter + accessor to `AbstractObjectInstance`
 4. Wire `ObjectManager` to inject services after object creation (both `syncActiveSpawns` and `addDynamicObject`)
 
-### Phase 2: AbstractBadnikInstance migration (breaking for badnik constructors)
-1. Remove `LevelManager` constructor parameter from `AbstractBadnikInstance`
-2. Update `DestructionEffects.destroyBadnik()` to accept `ObjectServices`
-3. Update all badnik subclass constructors across S1, S2, S3K
-4. Update all badnik factory registrations to stop passing `LevelManager.getInstance()`
+### Phase 2: Base class migration (breaking for constructors)
+1. Remove `LevelManager` constructor parameter from `AbstractBadnikInstance` (36 subclasses)
+2. Remove `LevelManager` constructor parameter from `AbstractS3kBadnikInstance` (4 subclasses)
+3. Remove `LevelManager` constructor parameter from `AbstractBossInstance` (~15 subclasses)
+4. Update `DestructionEffects.destroyBadnik()` and its cascade: `PointsFactory`, `AbstractPointsObjectInstance`, `AnimalObjectInstance`, `Sonic2BadnikConfig`, `Sonic1DestructionConfig`, `BreakableBlockObjectInstance`, `SmashableGroundObjectInstance`
+5. Update all factory registrations in `Sonic1ObjectRegistry`, `Sonic2ObjectRegistry`, `Sonic3kObjectRegistry` to stop passing `LevelManager.getInstance()`
 
 ### Phase 3: Incremental object migration (non-breaking, file-by-file)
 - Migrate individual object files from `LevelManager.getInstance().getXxx()` to `services().xxx()`
 - Migrate `AudioManager.getInstance().playSfx(x)` to `services().playSfx(x)` in objects
+- Boss classes using level-mutation methods (`invalidateForegroundTilemap()`, `requestZoneAndAct()`) migrate those calls to `GameServices.level()` instead
 - Each file is independent — can be done alongside other work
 
 ### Phase 4: Incremental non-object migration (non-breaking, file-by-file)
 - Migrate event handlers, scroll handlers, etc. from `AudioManager.getInstance()` to `GameServices.audio()`
 - Migrate `LevelManager.getInstance()` to `GameServices.level()` in non-object code
+
+## Out of Scope
+
+The following singleton accesses from object files are **not** covered by ObjectServices and remain on direct singleton or `GameServices` access:
+
+- `Camera.getInstance()` (~151 refs from objects) — objects use camera position for projectile targeting, screen-relative checks beyond the static `CameraBounds`. Potential future `ObjectServices` addition.
+- `SpriteManager.getInstance()` (~42 refs from objects) — objects accessing player list for multi-character interactions. Potential future addition.
+- `GraphicsManager.getInstance()` (~34 refs from objects) — direct GL rendering calls. Potential future addition.
+- Object registry factory lambdas that call `LevelManager.getInstance().getRomZoneId()` for zone-set resolution (~4 refs) — these are in factory scope, not object scope.
 
 ## Files Modified
 
@@ -244,9 +308,16 @@ Both patterns coexist during migration. No big-bang change required.
 
 ### Modified files (Phase 2)
 - `AbstractBadnikInstance.java` — remove LevelManager field and constructor param
-- `DestructionEffects.java` — change LevelManager param to ObjectServices
-- All badnik subclasses (~60 files across S1/S2/S3K) — update constructor calls
-- All badnik factory registrations in `Sonic1ObjectRegistry`, `Sonic2ObjectRegistry`, `Sonic3kObjectRegistry`
+- `AbstractS3kBadnikInstance.java` — remove LevelManager field and constructor param
+- `AbstractBossInstance.java` — remove LevelManager field and constructor param
+- `AbstractS1EggmanBossInstance.java` — intermediate S1 boss base class, passes LevelManager through to super
+- `DestructionEffects.java` — change LevelManager param to ObjectServices across cascade
+- `AbstractPointsObjectInstance.java`, `PointsObjectInstance.java`, `Sonic1PointsObjectInstance.java` — remove LevelManager constructor params
+- `AnimalObjectInstance.java` — remove LevelManager constructor param
+- `Sonic2BadnikConfig.java`, `Sonic1DestructionConfig.java` — update PointsFactory lambdas
+- `BreakableBlockObjectInstance.java`, `SmashableGroundObjectInstance.java` — update PointsFactory usage
+- ~55 badnik/boss subclass files — update constructor calls
+- `Sonic1ObjectRegistry.java`, `Sonic2ObjectRegistry.java`, `Sonic3kObjectRegistry.java` — update factory registrations
 
 ### Modified files (Phase 3-4, incremental)
 - ~400 object files, migrated individually
@@ -264,5 +335,5 @@ Both patterns coexist during migration. No big-bang change required.
 
 - All existing tests pass with no changes to test logic
 - New objects can be tested without singleton resets by passing stub ObjectServices
-- AbstractBadnikInstance no longer holds a LevelManager reference
-- Object files migrated in Phase 3 have zero `LevelManager.getInstance()` calls
+- AbstractBadnikInstance, AbstractS3kBadnikInstance, and AbstractBossInstance no longer hold LevelManager references
+- Object files migrated in Phase 3 have zero `LevelManager.getInstance()` calls (except for level-mutation operations documented in Out of Scope)
