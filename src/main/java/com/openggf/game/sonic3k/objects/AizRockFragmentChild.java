@@ -1,11 +1,9 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.GravityDebrisChild;
 import com.openggf.level.objects.ObjectSpawn;
-import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
 
@@ -24,7 +22,7 @@ import java.util.List;
  * ROM also sets high_priority on fragment art tiles (ori.w #high_priority),
  * so fragments render in front of high-priority FG tiles.
  */
-public class AizRockFragmentChild extends AbstractObjectInstance {
+public class AizRockFragmentChild extends GravityDebrisChild {
 
     /**
      * Fragment-specific gravity: 0x18 subpixels/frame.
@@ -46,70 +44,19 @@ public class AizRockFragmentChild extends AbstractObjectInstance {
             {  -0x60,  -0xC0 }, {   0x60,  -0xC0 },
     };
 
-    private int currentX;
-    private int currentY;
-    private int xSub;
-    private int ySub;
-    private int xVel;
-    private int yVel;
     private final int mappingFrame;
     private final int pieceIndex;
 
-    /** Shared state object for SubpixelMotion calls. */
-    private final SubpixelMotion.State motionState = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
-
     public AizRockFragmentChild(ObjectSpawn spawn, int xVel, int yVel, int mappingFrame, int pieceIndex) {
-        super(spawn, "RockFragment");
-        this.currentX = spawn.x();
-        this.currentY = spawn.y();
-        this.xSub = 0;
-        this.ySub = 0;
-        this.xVel = xVel;
-        this.yVel = yVel;
+        super(spawn, "RockFragment", xVel, yVel, GRAVITY);
         this.mappingFrame = mappingFrame;
         this.pieceIndex = pieceIndex;
-    }
-
-    @Override
-    public int getX() {
-        return currentX;
-    }
-
-    @Override
-    public int getY() {
-        return currentY;
-    }
-
-    @Override
-    public boolean isPersistent() {
-        return false;
-    }
-
-    @Override
-    public boolean isHighPriority() {
-        return true; // ROM: ori.w #high_priority,art_tile(a1)
-    }
-
-    @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
-        motionState.x = currentX; motionState.y = currentY;
-        motionState.xSub = xSub;  motionState.ySub = ySub;
-        motionState.xVel = xVel;  motionState.yVel = yVel;
-        SubpixelMotion.moveSprite(motionState, GRAVITY);
-        currentX = motionState.x; currentY = motionState.y;
-        xSub = motionState.xSub;  ySub = motionState.ySub;
-        yVel = motionState.yVel;
-
-        // Delete when offscreen
-        if (!isOnScreen()) {
-            setDestroyed(true);
-        }
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
         PatternSpriteRenderer renderer = AizIntroArtLoader.getCorkFloorRenderer();
         if (renderer == null || !renderer.isReady()) return;
-        renderer.drawFramePieceByIndex(mappingFrame, pieceIndex, currentX, currentY, false, false);
+        renderer.drawFramePieceByIndex(mappingFrame, pieceIndex, motionState.x, motionState.y, false, false);
     }
 }
