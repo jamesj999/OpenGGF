@@ -16,6 +16,7 @@ import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.objects.SubpixelMotion;
+import com.openggf.level.objects.WaypointPathFollower;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -222,16 +223,8 @@ public class Sonic1LZConveyorObjectInstance extends AbstractObjectInstance
                 this.waypointStep = -WAYPOINT_STEP;
 
                 // Advance to next waypoint in reverse direction
-                int nextIdx = currentWaypointIdx + waypointStep;
-                if (nextIdx < 0 || nextIdx >= waypointCount) {
-                    // Wrap: if negative, use last waypoint; if >= count, use 0
-                    if (nextIdx < 0) {
-                        nextIdx = waypointCount - WAYPOINT_STEP;
-                    } else {
-                        nextIdx = 0;
-                    }
-                }
-                currentWaypointIdx = nextIdx;
+                currentWaypointIdx = WaypointPathFollower.wrapWaypointIndex(
+                        currentWaypointIdx + waypointStep, waypointCount, WAYPOINT_STEP);
             }
 
             // Set initial target from current waypoint
@@ -555,38 +548,13 @@ public class Sonic1LZConveyorObjectInstance extends AbstractObjectInstance
     /**
      * Advances to the next waypoint and recalculates velocity.
      * <p>
-     * From disassembly loc_12534:
-     * <pre>
-     *   moveq   #0,d1
-     *   move.b  objoff_38(a0),d1           ; current waypoint offset
-     *   add.b   objoff_3A(a0),d1           ; advance by step
-     *   cmp.b   objoff_39(a0),d1           ; past end?
-     *   blo.s   loc_12552                  ; no -> use new index
-     *   move.b  d1,d0
-     *   moveq   #0,d1
-     *   tst.b   d0                         ; check if negative (underflow)
-     *   bpl.s   loc_12552                  ; positive -> use 0
-     *   move.b  objoff_39(a0),d1           ; negative -> wrap to last
-     *   subq.b  #4,d1
-     * </pre>
+     * From disassembly loc_12534.
+     *
+     * @see WaypointPathFollower#wrapWaypointIndex
      */
     private void advanceWaypoint() {
-        int nextIdx = currentWaypointIdx + waypointStep;
-
-        // Wrap logic matching disassembly unsigned byte comparison
-        // cmp.b objoff_39(a0),d1 — compares against total waypoint byte count
-        // blo.s (below/unsigned lower): if nextIdx < waypointCount, use it
-        // Otherwise: if byte value went negative (>= 0x80), wrap to last waypoint
-        //            if byte value is positive but >= count, wrap to 0
-        if (nextIdx < 0 || nextIdx >= waypointCount) {
-            if (nextIdx < 0) {
-                // Underflow: wrap to last waypoint
-                nextIdx = waypointCount - WAYPOINT_STEP;
-            } else {
-                // Overflow: wrap to first waypoint
-                nextIdx = 0;
-            }
-        }
+        int nextIdx = WaypointPathFollower.wrapWaypointIndex(
+                currentWaypointIdx + waypointStep, waypointCount, WAYPOINT_STEP);
 
         currentWaypointIdx = nextIdx;
 
@@ -603,88 +571,18 @@ public class Sonic1LZConveyorObjectInstance extends AbstractObjectInstance
 
     /**
      * LCon_ChangeDir: Calculates velocity components to move from current
-     * position toward the target waypoint.
+     * position toward the target waypoint using the shared dominant-axis algorithm.
      * <p>
-     * Algorithm: Determine which axis has the greater absolute distance.
-     * The dominant axis gets a fixed speed of $100 (256 subpixels/frame).
-     * The minor axis gets a proportionally scaled speed via 68000 signed division.
-     * The division remainder initializes the subpixel fractional accumulator.
-     * <p>
-     * From disassembly LCon_ChangeDir (lines 226-280):
-     * <pre>
-     *   d0 = |obX - targetX|, d2 = signed X speed (+-$100 toward target)
-     *   d1 = |obY - targetY|, d3 = signed Y speed (+-$100 toward target)
-     *   if |deltaY| >= |deltaX|:
-     *       velX = -((obX-targetX) << 8) / |deltaY|, velY = d3
-     *       xFrac = division remainder, yFrac = 0
-     *   else:
-     *       velY = -((obY-targetY) << 8) / |deltaX|, velX = d2
-     *       yFrac = division remainder, xFrac = 0
-     * </pre>
+     * From disassembly LCon_ChangeDir (lines 226-280).
+     *
+     * @see WaypointPathFollower#calculateWaypointVelocity
      */
     private void changeDirection() {
-        // Step 1: Calculate absolute deltas and signed speed directions
-        // d0 = obX - targetX; d2 = -$100 initially
-        int deltaX = (short) (x - targetX); // signed word subtraction
-        int absDeltaX = Math.abs(deltaX);
-        int speedDirX = -MOVE_SPEED; // d2 starts as -$100
-        if (deltaX < 0) {
-            // bcc not taken -> neg.w d0, neg.w d2
-            speedDirX = MOVE_SPEED; // move right toward target
-        }
-
-        // d1 = obY - targetY; d3 = -$100 initially
-        int deltaY = (short) (y - targetY); // signed word subtraction
-        int absDeltaY = Math.abs(deltaY);
-        int speedDirY = -MOVE_SPEED; // d3 starts as -$100
-        if (deltaY < 0) {
-            // bcc not taken -> neg.w d1, neg.w d3
-            speedDirY = MOVE_SPEED; // move down toward target
-        }
-
-        // Step 2: Compare magnitudes
-        // cmp.w d0,d1 / blo.s loc_125C2 -> if absDeltaY < absDeltaX, X-dominant
-        if (absDeltaY < absDeltaX) {
-            // X-dominant path (loc_125C2): X gets fixed speed, Y is proportional
-            velX = speedDirX; // move.w d2,obVelX(a0)
-
-            // d1 = obY - targetY (re-read as signed)
-            int signedDeltaY = (short) (y - targetY);
-            if (signedDeltaY == 0) {
-                velY = 0;
-            } else {
-                // ext.l d1 / asl.l #8,d1 / divs.w d0,d1 / neg.w d1
-                int numerator = signedDeltaY << 8;
-                int quotient = numerator / absDeltaX;
-                int remainder = numerator % absDeltaX;
-                velY = (short) (-quotient); // neg.w d1, truncate to 16-bit
-
-                // swap d1 -> move.w d1,obY+2(a0): remainder becomes Y subpixel
-                yFrac = (remainder & 0xFFFF) << 8; // approximate: the swap gets the high word
-            }
-
-            xFrac = 0; // clr.w obX+2(a0)
-        } else {
-            // Y-dominant path (loc_12598 fall-through): Y gets fixed speed, X is proportional
-            velY = speedDirY; // move.w d3,obVelY(a0)
-
-            // d0 = obX - targetX (re-read as signed)
-            int signedDeltaX = (short) (x - targetX);
-            if (signedDeltaX == 0) {
-                velX = 0;
-            } else {
-                // ext.l d0 / asl.l #8,d0 / divs.w d1,d0 / neg.w d0
-                int numerator = signedDeltaX << 8;
-                int quotient = numerator / absDeltaY;
-                int remainder = numerator % absDeltaY;
-                velX = (short) (-quotient); // neg.w d0, truncate to 16-bit
-
-                // swap d0 -> move.w d0,obX+2(a0): remainder becomes X subpixel
-                xFrac = (remainder & 0xFFFF) << 8; // approximate
-            }
-
-            yFrac = 0; // clr.w obY+2(a0)
-        }
+        var vel = WaypointPathFollower.calculateWaypointVelocity(x, y, targetX, targetY, MOVE_SPEED);
+        velX = vel.xVel();
+        velY = vel.yVel();
+        xFrac = vel.xSub();
+        yFrac = vel.ySub();
     }
 
     /**

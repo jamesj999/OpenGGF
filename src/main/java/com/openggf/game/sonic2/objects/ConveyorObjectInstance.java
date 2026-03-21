@@ -16,6 +16,7 @@ import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.objects.SubpixelMotion;
+import com.openggf.level.objects.WaypointPathFollower;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -388,66 +389,19 @@ public class ConveyorObjectInstance extends AbstractObjectInstance
     }
 
     /**
-     * Calculate velocity to move from current position to target.
-     * Picks the dominant axis (whichever distance is larger), sets that axis to
-     * +/-0x100 (1 pixel/frame), and calculates proportional velocity for the other axis.
+     * Calculate velocity to move from current position to target using
+     * the shared LCon_ChangeDir dominant-axis algorithm.
      * <p>
-     * From disassembly loc_281DA (lines 54345-54398):
-     * <pre>
-     * d0 = |x_pos - targetX|,  d2 = sign(x_pos - targetX) * -$100
-     * d1 = |y_pos - targetY|,  d3 = sign(y_pos - targetY) * -$100
-     * if d1 >= d0:  (Y dominant)
-     *   x_vel = -(x_pos - targetX) * 256 / d1
-     *   y_vel = d3
-     * else:  (X dominant)
-     *   y_vel = -(y_pos - targetY) * 256 / d0
-     *   x_vel = d2
-     * </pre>
+     * From disassembly loc_281DA (lines 54345-54398).
+     *
+     * @see WaypointPathFollower#calculateWaypointVelocity
      */
     private void calculateVelocity() {
-        int dx = x - targetX;
-        int dy = y - targetY;
-
-        int absDx = Math.abs(dx);
-        int absDy = Math.abs(dy);
-
-        // Sign for velocity on dominant axis: move toward target
-        int signX = (dx >= 0) ? -MOVE_SPEED : MOVE_SPEED;
-        int signY = (dy >= 0) ? -MOVE_SPEED : MOVE_SPEED;
-
-        if (absDy >= absDx) {
-            // Y-axis dominant (or equal)
-            yVel = signY;
-            ySub = 0;
-            if (absDy == 0 || dx == 0) {
-                xVel = 0;
-                xSub = 0;
-            } else {
-                // x_vel = -(dx * 256 / |dy|), x_sub = remainder from divs
-                // From disassembly: ext.l d0; asl.l #8,d0; divs.w d1,d0; neg.w d0
-                long scaled = ((long) dx) << 8;
-                int divided = (int) (scaled / absDy);
-                xVel = (short) -divided;
-                // swap d0 → remainder (from divs, same sign as dividend)
-                int remainder = (int) (scaled % absDy);
-                xSub = remainder & 0xFFFF;
-            }
-        } else {
-            // X-axis dominant
-            xVel = signX;
-            xSub = 0;
-            if (absDx == 0 || dy == 0) {
-                yVel = 0;
-                ySub = 0;
-            } else {
-                // y_vel = -(dy * 256 / |dx|), y_sub = remainder from divs
-                long scaled = ((long) dy) << 8;
-                int divided = (int) (scaled / absDx);
-                yVel = (short) -divided;
-                int remainder = (int) (scaled % absDx);
-                ySub = remainder & 0xFFFF;
-            }
-        }
+        var vel = WaypointPathFollower.calculateWaypointVelocity(x, y, targetX, targetY, MOVE_SPEED);
+        xVel = vel.xVel();
+        yVel = vel.yVel();
+        xSub = vel.xSub();
+        ySub = vel.ySub();
     }
 
     /**
@@ -477,35 +431,12 @@ public class ConveyorObjectInstance extends AbstractObjectInstance
      * Wrap waypoint offset around the path length.
      * When advancing past the end, wraps to 0. When going before 0, wraps to end.
      * <p>
-     * From disassembly (lines 54319-54327):
-     * <pre>
-     * add.b objoff_3A(a0),d1   ; d1 = current offset + delta
-     * cmp.b objoff_39(a0),d1   ; compare with path length
-     * blo.s loc_281B0          ; if d1 < length, use it
-     * tst.b d0                 ; check if d1 overflowed (went negative)
-     * bpl.s loc_281B0          ; if positive (just exceeded), use 0
-     * move.b objoff_39(a0),d1  ; if negative (went below 0), use length - 4
-     * subq.b #4,d1
-     * </pre>
+     * From disassembly (lines 54319-54327).
+     *
+     * @see WaypointPathFollower#wrapWaypointIndex
      */
     private int wrapWaypointOffset(int offset) {
-        // The ROM uses unsigned byte comparison (cmp.b, blo)
-        int offsetByte = offset & 0xFF;
-        int lengthByte = pathLength & 0xFF;
-
-        if (offsetByte < lengthByte) {
-            // Within bounds
-            return offsetByte;
-        }
-
-        // Out of bounds - check direction
-        if (offset >= 0 && offset < 256) {
-            // Exceeded path length going forward: wrap to 0
-            return 0;
-        } else {
-            // Went negative going backward: wrap to last waypoint
-            return (lengthByte - WAYPOINT_STEP) & 0xFF;
-        }
+        return WaypointPathFollower.wrapWaypointIndex(offset, pathLength, WAYPOINT_STEP);
     }
 
     @Override
