@@ -26,17 +26,12 @@ package com.openggf.level.scroll;
  *
  * Ripple phase advances every 8 frames (matching EHZ behavior).
  */
-public class SwScrlCpz implements ZoneScrollHandler {
+public class SwScrlCpz extends AbstractZoneScrollHandler {
 
     private static final int LINES_PER_BLOCK = 16;
     private static final int SEAM_BLOCK_INDEX = 18; // The water boundary block
 
     private final ParallaxTables tables;
-
-    // Scroll tracking for LevelManager bounds
-    private int minScrollOffset;
-    private int maxScrollOffset;
-    private short vscrollFactorBG;
 
     // 16.16 fixed-point background camera accumulators
     // These track the cumulative BG position across frames
@@ -98,8 +93,7 @@ public class SwScrlCpz implements ZoneScrollHandler {
             init(cameraX, cameraY);
         }
 
-        minScrollOffset = Integer.MAX_VALUE;
-        maxScrollOffset = Integer.MIN_VALUE;
+        resetScrollTracking();
 
         // ==================== Step 1: Calculate Camera Diffs ====================
         // Diffs in subpixels (1/256 pixel units, which is camera diff << 8)
@@ -221,31 +215,6 @@ public class SwScrlCpz implements ZoneScrollHandler {
             currentBlockIdx++;
             remainingInBlock = LINES_PER_BLOCK;
         }
-    }
-
-    private void trackOffset(short fgScroll, short bgScroll) {
-        int offset = bgScroll - fgScroll;
-        if (offset < minScrollOffset) {
-            minScrollOffset = offset;
-        }
-        if (offset > maxScrollOffset) {
-            maxScrollOffset = offset;
-        }
-    }
-
-    @Override
-    public short getVscrollFactorBG() {
-        return vscrollFactorBG;
-    }
-
-    @Override
-    public int getMinScrollOffset() {
-        return minScrollOffset;
-    }
-
-    @Override
-    public int getMaxScrollOffset() {
-        return maxScrollOffset;
     }
 
     /**

@@ -23,7 +23,7 @@ import com.openggf.camera.Camera;
  *   Phase 2 (descend): when cameraY >= $500 -> velX=1, velY=0
  *   Phase 3 (resume right): when cameraX >= $1400 -> velX=0, velY=0
  */
-public class SwScrlScz implements ZoneScrollHandler {
+public class SwScrlScz extends AbstractZoneScrollHandler {
 
     // Tornado velocity (pixels per frame), controlled by level events
     private int tornadoVelocityX = 0;
@@ -35,10 +35,6 @@ public class SwScrlScz implements ZoneScrollHandler {
 
     // Level events routine index (ROM: Dynamic_Resize_Routine)
     private int routineIndex = 0;
-
-    // Scroll tracking
-    private int minScrollOffset;
-    private int maxScrollOffset;
 
     public SwScrlScz() {
     }
@@ -59,8 +55,7 @@ public class SwScrlScz implements ZoneScrollHandler {
                        int cameraY,
                        int frameCounter,
                        int actId) {
-        minScrollOffset = Integer.MAX_VALUE;
-        maxScrollOffset = Integer.MIN_VALUE;
+        resetScrollTracking();
 
         Camera camera = Camera.getInstance();
 
@@ -170,22 +165,6 @@ public class SwScrlScz implements ZoneScrollHandler {
                 // LevEvents_SCZ_RoutineNull: Do nothing
             }
         }
-    }
-
-    @Override
-    public short getVscrollFactorBG() {
-        // BG Y stays at 0 forever in SCZ
-        return 0;
-    }
-
-    @Override
-    public int getMinScrollOffset() {
-        return minScrollOffset;
-    }
-
-    @Override
-    public int getMaxScrollOffset() {
-        return maxScrollOffset;
     }
 
     /**

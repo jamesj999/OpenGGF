@@ -28,7 +28,7 @@ import com.openggf.game.GameServices;
  * Row 2: 0x30 (48 pixels)
  * ... etc
  */
-public class SwScrlArz implements ZoneScrollHandler {
+public class SwScrlArz extends AbstractZoneScrollHandler {
 
     private final ParallaxTables tables;
 
@@ -39,11 +39,6 @@ public class SwScrlArz implements ZoneScrollHandler {
     };
 
     private static final int TOTAL_ROW_HEIGHT = 1728; // Sum of all row heights
-
-    // Scroll tracking for LevelManager bounds
-    private int minScrollOffset;
-    private int maxScrollOffset;
-    private short vscrollFactorBG;
 
     // Screen shake offsets for FG/sprite rendering
     private int shakeOffsetX = 0;
@@ -106,8 +101,7 @@ public class SwScrlArz implements ZoneScrollHandler {
             init(actId, cameraX, cameraY);
         }
 
-        minScrollOffset = Integer.MAX_VALUE;
-        maxScrollOffset = Integer.MIN_VALUE;
+        resetScrollTracking();
 
         // ==================== Step 1: Calculate Camera Diffs ====================
         int diffX = cameraX - lastCameraX;
@@ -277,21 +271,6 @@ public class SwScrlArz implements ZoneScrollHandler {
             rowIdx = (rowIdx + 1) % 16;
             pixelsInRow = ROW_HEIGHTS[rowIdx];
         }
-    }
-
-    @Override
-    public short getVscrollFactorBG() {
-        return vscrollFactorBG;
-    }
-
-    @Override
-    public int getMinScrollOffset() {
-        return minScrollOffset;
-    }
-
-    @Override
-    public int getMaxScrollOffset() {
-        return maxScrollOffset;
     }
 
     /**

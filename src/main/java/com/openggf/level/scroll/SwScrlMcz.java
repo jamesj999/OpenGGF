@@ -38,17 +38,13 @@ import com.openggf.game.GameServices;
  * 22:452..475 (23) x0.8
  * 23:475..512 (37) x0.9
  */
-public class SwScrlMcz implements ZoneScrollHandler {
+public class SwScrlMcz extends AbstractZoneScrollHandler {
 
     /** MCZ segment cycle height (sum of all 24 segment heights). */
     private static final int MCZ_CYCLE_HEIGHT = 512;
 
     private final ParallaxTables tables;
 
-    // Scroll tracking for LevelManager bounds
-    private int minScrollOffset;
-    private int maxScrollOffset;
-    private short vscrollFactorBG;
     private short vscrollFactorFG;
     private int bgY; // Raw background Y position (without ripple)
 
@@ -80,8 +76,7 @@ public class SwScrlMcz implements ZoneScrollHandler {
             int frameCounter,
             int actId) {
 
-        minScrollOffset = Integer.MAX_VALUE;
-        maxScrollOffset = Integer.MIN_VALUE;
+        resetScrollTracking();
 
         // ==================== Step 1: Calculate BG Y (Act Dependent)
         // ====================
@@ -294,16 +289,6 @@ public class SwScrlMcz implements ZoneScrollHandler {
         return (dividend - divisor + 1) / divisor;
     }
 
-    private void trackOffset(short fgScroll, short bgScroll) {
-        int offset = bgScroll - fgScroll;
-        if (offset < minScrollOffset) {
-            minScrollOffset = offset;
-        }
-        if (offset > maxScrollOffset) {
-            maxScrollOffset = offset;
-        }
-    }
-
     private void fillFallback(int[] horizScrollBuf, int cameraX) {
         short fgScroll = M68KMath.negWord(cameraX);
         short bgScroll = M68KMath.asrWord(cameraX, 1); // 0.5x scroll as fallback
@@ -317,23 +302,8 @@ public class SwScrlMcz implements ZoneScrollHandler {
         maxScrollOffset = minScrollOffset;
     }
 
-    @Override
-    public short getVscrollFactorBG() {
-        return vscrollFactorBG;
-    }
-
     public short getVscrollFactorFG() {
         return vscrollFactorFG;
-    }
-
-    @Override
-    public int getMinScrollOffset() {
-        return minScrollOffset;
-    }
-
-    @Override
-    public int getMaxScrollOffset() {
-        return maxScrollOffset;
     }
 
     /**

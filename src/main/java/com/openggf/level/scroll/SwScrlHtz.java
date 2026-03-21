@@ -24,15 +24,11 @@ import com.openggf.game.sonic2.Sonic2LevelEventManager;
  * - 15 lines at scroll value 6
  * - 48 lines in 3 groups of 16 at values 7, 8, 9
  */
-public class SwScrlHtz implements ZoneScrollHandler {
+public class SwScrlHtz extends AbstractZoneScrollHandler {
 
     private final ParallaxTables tables;
     private final BackgroundCamera bgCamera;
 
-    // Scroll tracking for LevelManager bounds
-    private int minScrollOffset;
-    private int maxScrollOffset;
-    private short vscrollFactorBG;
     private short vscrollFactorFG;
 
     // Screen shake offsets for FG/sprite rendering (calculated during updateScreenShake)
@@ -100,8 +96,7 @@ public class SwScrlHtz implements ZoneScrollHandler {
                        int frameCounter,
                        int actId) {
 
-        minScrollOffset = Integer.MAX_VALUE;
-        maxScrollOffset = Integer.MIN_VALUE;
+        resetScrollTracking();
 
         // Default vertical factors for normal mode.
         vscrollFactorBG = (short) bgCamera.getBgYPos();
@@ -370,35 +365,8 @@ public class SwScrlHtz implements ZoneScrollHandler {
         trackOffsetFromPacked(packed);
     }
 
-    private void trackOffsetFromPacked(int packed) {
-        short fg = (short) (packed >> 16);
-        short bg = (short) packed;
-        int offset = bg - fg;
-        if (offset < minScrollOffset) {
-            minScrollOffset = offset;
-        }
-        if (offset > maxScrollOffset) {
-            maxScrollOffset = offset;
-        }
-    }
-
-    @Override
-    public short getVscrollFactorBG() {
-        return vscrollFactorBG;
-    }
-
     public short getVscrollFactorFG() {
         return vscrollFactorFG;
-    }
-
-    @Override
-    public int getMinScrollOffset() {
-        return minScrollOffset;
-    }
-
-    @Override
-    public int getMaxScrollOffset() {
-        return maxScrollOffset;
     }
 
     /**

@@ -25,14 +25,9 @@ import static com.openggf.level.scroll.M68KMath.*;
  * 45 lines: gradient 0.75 -> 1.00 speed
  * Total: 222 lines (last 2 lines intentionally unwritten - original bug)
  */
-public class SwScrlEhz implements ZoneScrollHandler {
+public class SwScrlEhz extends AbstractZoneScrollHandler {
 
     private final ParallaxTables tables;
-
-    // Scroll tracking for LevelManager bounds
-    private int minScrollOffset;
-    private int maxScrollOffset;
-    private short vscrollFactorBG;
 
     // Persistent ripple counter, decrements every 8 frames (matches TempArray_LayerDef)
     private int ripplePhase = 0;
@@ -47,8 +42,7 @@ public class SwScrlEhz implements ZoneScrollHandler {
             int cameraY,
             int frameCounter,
             int actId) {
-        minScrollOffset = Integer.MAX_VALUE;
-        maxScrollOffset = Integer.MIN_VALUE;
+        resetScrollTracking();
 
         // d2 = -Camera_X_pos (FG scroll, constant for all lines)
         short d2 = negWord(cameraX);
@@ -245,28 +239,4 @@ public class SwScrlEhz implements ZoneScrollHandler {
         // Original EHZ only writes 222 lines, leaving last 2 uninitialized.
     }
 
-    private void trackOffset(short fgScroll, short bgScroll) {
-        int offset = bgScroll - fgScroll;
-        if (offset < minScrollOffset) {
-            minScrollOffset = offset;
-        }
-        if (offset > maxScrollOffset) {
-            maxScrollOffset = offset;
-        }
-    }
-
-    @Override
-    public short getVscrollFactorBG() {
-        return vscrollFactorBG;
-    }
-
-    @Override
-    public int getMinScrollOffset() {
-        return minScrollOffset;
-    }
-
-    @Override
-    public int getMaxScrollOffset() {
-        return maxScrollOffset;
-    }
 }

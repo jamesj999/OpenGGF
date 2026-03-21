@@ -1,7 +1,7 @@
 package com.openggf.game.sonic1.scroll;
 
 import com.openggf.camera.Camera;
-import com.openggf.level.scroll.ZoneScrollHandler;
+import com.openggf.level.scroll.AbstractZoneScrollHandler;
 import static com.openggf.level.scroll.M68KMath.*;
 
 /**
@@ -18,11 +18,7 @@ import static com.openggf.level.scroll.M68KMath.*;
  * Initial BG position: BgScroll_LZ sets bgscreenposy = screenposy &gt;&gt; 1.
  * Uses ScrollBlock1 for per-frame accumulation.
  */
-public class SwScrlLz implements ZoneScrollHandler {
-
-    private int minScrollOffset;
-    private int maxScrollOffset;
-    private short vscrollFactorBG;
+public class SwScrlLz extends AbstractZoneScrollHandler {
 
     // Persistent BG camera positions (16.16 fixed point)
     private long bgXPos;
@@ -56,8 +52,7 @@ public class SwScrlLz implements ZoneScrollHandler {
             init(cameraX, cameraY);
         }
 
-        minScrollOffset = Integer.MAX_VALUE;
-        maxScrollOffset = Integer.MIN_VALUE;
+        resetScrollTracking();
 
         // Compute deltas
         int deltaX = cameraX - lastCameraX;
@@ -109,28 +104,4 @@ public class SwScrlLz implements ZoneScrollHandler {
         }
     }
 
-    private void trackOffset(short fgScroll, short bgScroll) {
-        int offset = bgScroll - fgScroll;
-        if (offset < minScrollOffset) {
-            minScrollOffset = offset;
-        }
-        if (offset > maxScrollOffset) {
-            maxScrollOffset = offset;
-        }
-    }
-
-    @Override
-    public short getVscrollFactorBG() {
-        return vscrollFactorBG;
-    }
-
-    @Override
-    public int getMinScrollOffset() {
-        return minScrollOffset;
-    }
-
-    @Override
-    public int getMaxScrollOffset() {
-        return maxScrollOffset;
-    }
 }

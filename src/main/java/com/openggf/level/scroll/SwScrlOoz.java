@@ -28,14 +28,9 @@ import java.util.Arrays;
  * 10. Medium clouds (8 lines) - BG = BGX >> 3
  * 11. Empty sky (72 lines) - BG = BGX (full speed)
  */
-public class SwScrlOoz implements ZoneScrollHandler {
+public class SwScrlOoz extends AbstractZoneScrollHandler {
 
     private final ParallaxTables tables;
-
-    // Scroll tracking for LevelManager bounds
-    private int minScrollOffset;
-    private int maxScrollOffset;
-    private short vscrollFactorBG;
 
     // Persistent heat-haze phase counter (TempArray_LayerDef equivalent)
     // In the original, this is stored as a word in TempArray_LayerDef
@@ -105,8 +100,7 @@ public class SwScrlOoz implements ZoneScrollHandler {
                        int frameCounter,
                        int actId) {
 
-        minScrollOffset = Integer.MAX_VALUE;
-        maxScrollOffset = Integer.MIN_VALUE;
+        resetScrollTracking();
 
         // ==================== Step 1: Initialize if needed ====================
         if (!initialized) {
@@ -332,31 +326,6 @@ public class SwScrlOoz implements ZoneScrollHandler {
                 lastFrameForPhaseUpdate = frameCounter;
             }
         }
-    }
-
-    private void trackOffset(short fgScroll, short bgScroll) {
-        int offset = bgScroll - fgScroll;
-        if (offset < minScrollOffset) {
-            minScrollOffset = offset;
-        }
-        if (offset > maxScrollOffset) {
-            maxScrollOffset = offset;
-        }
-    }
-
-    @Override
-    public short getVscrollFactorBG() {
-        return vscrollFactorBG;
-    }
-
-    @Override
-    public int getMinScrollOffset() {
-        return minScrollOffset;
-    }
-
-    @Override
-    public int getMaxScrollOffset() {
-        return maxScrollOffset;
     }
 
     // ==================== Test Access Methods ====================

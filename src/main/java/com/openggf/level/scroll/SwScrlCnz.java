@@ -20,14 +20,9 @@ package com.openggf.level.scroll;
  * - Values 7-8: X >> 4 (1/16 speed)
  * - Value 9: X >> 3 (1/8 speed)
  */
-public class SwScrlCnz implements ZoneScrollHandler {
+public class SwScrlCnz extends AbstractZoneScrollHandler {
 
     private final ParallaxTables tables;
-
-    // Scroll tracking for LevelManager bounds
-    private int minScrollOffset;
-    private int maxScrollOffset;
-    private short vscrollFactorBG;
 
     // Row heights from ROM (0xD156)
     // [16, 16, 16, 16, 16, 16, 16, 16, 0, 240]
@@ -68,8 +63,7 @@ public class SwScrlCnz implements ZoneScrollHandler {
                        int frameCounter,
                        int actId) {
 
-        minScrollOffset = Integer.MAX_VALUE;
-        maxScrollOffset = Integer.MIN_VALUE;
+        resetScrollTracking();
 
         // ==================== Step 1: Vertical Scroll ====================
         // CNZ: Camera_BG_Y_pos = Camera_Y_pos >>> 6 (unsigned logical shift)
@@ -257,31 +251,6 @@ public class SwScrlCnz implements ZoneScrollHandler {
             horizScrollBuf[startLine + i] = M68KMath.packScrollWords(fgScroll, bgScroll);
             trackOffset(fgScroll, bgScroll);
         }
-    }
-
-    private void trackOffset(short fgScroll, short bgScroll) {
-        int offset = bgScroll - fgScroll;
-        if (offset < minScrollOffset) {
-            minScrollOffset = offset;
-        }
-        if (offset > maxScrollOffset) {
-            maxScrollOffset = offset;
-        }
-    }
-
-    @Override
-    public short getVscrollFactorBG() {
-        return vscrollFactorBG;
-    }
-
-    @Override
-    public int getMinScrollOffset() {
-        return minScrollOffset;
-    }
-
-    @Override
-    public int getMaxScrollOffset() {
-        return maxScrollOffset;
     }
 
     // ==================== Test Access Methods ====================

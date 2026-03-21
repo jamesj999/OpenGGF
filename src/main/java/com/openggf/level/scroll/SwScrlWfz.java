@@ -33,15 +33,10 @@ import java.util.Arrays;
  * read data from the start of SwScrl_HTZ. We reproduce this behavior by
  * falling through to a default layer (0) when the array runs out.
  */
-public class SwScrlWfz implements ZoneScrollHandler {
+public class SwScrlWfz extends AbstractZoneScrollHandler {
 
     private final ParallaxTables tables;
     private final BackgroundCamera bgCamera;
-
-    // Scroll tracking for LevelManager bounds
-    private int minScrollOffset;
-    private int maxScrollOffset;
-    private short vscrollFactorBG;
 
     // TempArray_LayerDef simulation - 5 longword values stored as 32-bit fixed-point
     // Layer 0: static BG (Camera_BG_X_pos)
@@ -78,8 +73,7 @@ public class SwScrlWfz implements ZoneScrollHandler {
                        int frameCounter,
                        int actId) {
 
-        minScrollOffset = Integer.MAX_VALUE;
-        maxScrollOffset = Integer.MIN_VALUE;
+        resetScrollTracking();
 
         // ==================== Step 1: Update VScroll factor ====================
         // move.w (Camera_BG_Y_pos).w,(Vscroll_Factor_BG).w
@@ -204,16 +198,6 @@ public class SwScrlWfz implements ZoneScrollHandler {
         }
     }
 
-    private void trackOffset(short fgScroll, short bgScroll) {
-        int offset = bgScroll - fgScroll;
-        if (offset < minScrollOffset) {
-            minScrollOffset = offset;
-        }
-        if (offset > maxScrollOffset) {
-            maxScrollOffset = offset;
-        }
-    }
-
     private void fillFallback(int[] horizScrollBuf, int cameraX) {
         short fgScroll = M68KMath.negWord(cameraX);
         short bgScroll = M68KMath.negWord(cameraX >> 4);
@@ -225,18 +209,4 @@ public class SwScrlWfz implements ZoneScrollHandler {
         maxScrollOffset = minScrollOffset;
     }
 
-    @Override
-    public short getVscrollFactorBG() {
-        return vscrollFactorBG;
-    }
-
-    @Override
-    public int getMinScrollOffset() {
-        return minScrollOffset;
-    }
-
-    @Override
-    public int getMaxScrollOffset() {
-        return maxScrollOffset;
-    }
 }

@@ -1,6 +1,6 @@
 package com.openggf.game.sonic1.scroll;
 
-import com.openggf.level.scroll.ZoneScrollHandler;
+import com.openggf.level.scroll.AbstractZoneScrollHandler;
 import static com.openggf.level.scroll.M68KMath.*;
 
 /**
@@ -23,14 +23,10 @@ import static com.openggf.level.scroll.M68KMath.*;
  * not delta-accumulated. Vertical scroll uses delta-accumulated Bg_Scroll_Y
  * at scrshifty * 48/256 (~18.75%).
  */
-public class SwScrlSyz implements ZoneScrollHandler {
+public class SwScrlSyz extends AbstractZoneScrollHandler {
 
     private static final int BUFFER_SIZE = 33;
     private static final int LINES_PER_ENTRY = 16;
-
-    private int minScrollOffset;
-    private int maxScrollOffset;
-    private short vscrollFactorBG;
 
     // Delta-accumulated BG Y position (16.16 fixed point)
     private long bgYPos;
@@ -59,8 +55,7 @@ public class SwScrlSyz implements ZoneScrollHandler {
             init(cameraX, cameraY);
         }
 
-        minScrollOffset = Integer.MAX_VALUE;
-        maxScrollOffset = Integer.MIN_VALUE;
+        resetScrollTracking();
 
         // Vertical scroll: delta-accumulated at scrshifty * 48/256
         int deltaY = cameraY - lastCameraY;
@@ -210,28 +205,4 @@ public class SwScrlSyz implements ZoneScrollHandler {
         }
     }
 
-    private void trackOffset(short fgScroll, short bgScroll) {
-        int offset = bgScroll - fgScroll;
-        if (offset < minScrollOffset) {
-            minScrollOffset = offset;
-        }
-        if (offset > maxScrollOffset) {
-            maxScrollOffset = offset;
-        }
-    }
-
-    @Override
-    public short getVscrollFactorBG() {
-        return vscrollFactorBG;
-    }
-
-    @Override
-    public int getMinScrollOffset() {
-        return minScrollOffset;
-    }
-
-    @Override
-    public int getMaxScrollOffset() {
-        return maxScrollOffset;
-    }
 }

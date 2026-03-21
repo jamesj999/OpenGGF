@@ -19,14 +19,9 @@ package com.openggf.level.scroll;
  * Earth edge has 3 rows (3, 5, 8 lines) plus a 16-line transition.
  * Sky is 3 rows of 128 lines each (far more than needed).
  */
-public class SwScrlDez implements ZoneScrollHandler {
+public class SwScrlDez extends AbstractZoneScrollHandler {
 
     private final ParallaxTables tables;
-
-    // Scroll tracking for LevelManager bounds
-    private int minScrollOffset;
-    private int maxScrollOffset;
-    private short vscrollFactorBG;
 
     // Persistent TempArray (36 words, accumulate each frame)
     // In the original, this is TempArray_LayerDef in RAM
@@ -74,8 +69,7 @@ public class SwScrlDez implements ZoneScrollHandler {
                        int frameCounter,
                        int actId) {
 
-        minScrollOffset = Integer.MAX_VALUE;
-        maxScrollOffset = Integer.MIN_VALUE;
+        resetScrollTracking();
 
         // ==================== Step 1: Vertical Scroll ====================
         // DEZ BG Y tracks via Camera_Y_pos_diff << 8 through SetHorizVertiScrollFlagsBG
@@ -245,31 +239,6 @@ public class SwScrlDez implements ZoneScrollHandler {
      */
     public void setVscrollFactorBG(short value) {
         this.vscrollFactorBG = value;
-    }
-
-    private void trackOffset(short fgScroll, short bgScroll) {
-        int offset = bgScroll - fgScroll;
-        if (offset < minScrollOffset) {
-            minScrollOffset = offset;
-        }
-        if (offset > maxScrollOffset) {
-            maxScrollOffset = offset;
-        }
-    }
-
-    @Override
-    public short getVscrollFactorBG() {
-        return vscrollFactorBG;
-    }
-
-    @Override
-    public int getMinScrollOffset() {
-        return minScrollOffset;
-    }
-
-    @Override
-    public int getMaxScrollOffset() {
-        return maxScrollOffset;
     }
 
     // ==================== Test Access Methods ====================

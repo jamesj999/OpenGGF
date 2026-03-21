@@ -1,6 +1,6 @@
 package com.openggf.game.sonic3k.scroll;
 
-import com.openggf.level.scroll.ZoneScrollHandler;
+import com.openggf.level.scroll.AbstractZoneScrollHandler;
 
 import java.util.Arrays;
 
@@ -13,7 +13,7 @@ import static com.openggf.level.scroll.M68KMath.packScrollWords;
  * Ports MGZ1_Deform / MGZ2_BGDeform (normal path) from the S3K disassembly to
  * produce real per-line parallax rather than a flat fallback ratio.
  */
-public class SwScrlMgz implements ZoneScrollHandler {
+public class SwScrlMgz extends AbstractZoneScrollHandler {
     private static final int VISIBLE_LINES = 224;
 
     // MGZ1_BGDeformArray
@@ -48,10 +48,6 @@ public class SwScrlMgz implements ZoneScrollHandler {
 
     private int lastActId = -1;
 
-    private short vscrollFactorBG;
-    private int minScrollOffset;
-    private int maxScrollOffset;
-
     @Override
     public void update(int[] horizScrollBuf,
                        int cameraX,
@@ -62,8 +58,7 @@ public class SwScrlMgz implements ZoneScrollHandler {
             resetActState(actId);
         }
 
-        minScrollOffset = Integer.MAX_VALUE;
-        maxScrollOffset = Integer.MIN_VALUE;
+        resetScrollTracking();
 
         Arrays.fill(hScrollTable, (short) 0);
         short fgScroll = negWord(cameraX);
@@ -242,18 +237,4 @@ public class SwScrlMgz implements ZoneScrollHandler {
         return (short) (d0 >> 16);
     }
 
-    @Override
-    public short getVscrollFactorBG() {
-        return vscrollFactorBG;
-    }
-
-    @Override
-    public int getMinScrollOffset() {
-        return minScrollOffset;
-    }
-
-    @Override
-    public int getMaxScrollOffset() {
-        return maxScrollOffset;
-    }
 }
