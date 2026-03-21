@@ -68,8 +68,6 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
     private int timer;
     private int yVel;
     private int yRadius;
-    private ObjectSpawn dynamicSpawn;
-
     public ARZPlatformObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
         init();
@@ -84,12 +82,6 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         x = baseX;
@@ -105,7 +97,7 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
         }
 
         y = (baseYFixed >> 8) + bobHelper.getOffset();
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -213,7 +205,7 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
             yRadius = HALF_HEIGHT;
         }
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     private boolean applyBehaviour(AbstractPlayableSprite player, boolean standing) {
@@ -352,12 +344,6 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
     private boolean isAquaticRuin() {
         LevelManager manager = LevelManager.getInstance();
         return manager != null && manager.getCurrentZone() == Sonic2Constants.ZONE_AQUATIC_RUIN;
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
-        }
     }
 
     private List<SpriteMappingFrame> resolveMappings() {

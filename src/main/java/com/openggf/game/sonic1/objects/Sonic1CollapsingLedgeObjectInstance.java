@@ -117,8 +117,6 @@ public class Sonic1CollapsingLedgeObjectInstance extends AbstractObjectInstance
     // Whether fragments have been spawned
     private boolean fragmented;
 
-    private ObjectSpawn dynamicSpawn;
-
     public Sonic1CollapsingLedgeObjectInstance(ObjectSpawn spawn, LevelManager levelManager) {
         super(spawn, "CollapsingLedge");
         this.levelManager = levelManager;
@@ -130,7 +128,7 @@ public class Sonic1CollapsingLedgeObjectInstance extends AbstractObjectInstance
         this.collapseFlag = false;
         this.routine = 2; // Skip init, go straight to Ledge_Touch
         this.fragmented = false;
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -142,12 +140,6 @@ public class Sonic1CollapsingLedgeObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         switch (routine) {
@@ -157,7 +149,7 @@ public class Sonic1CollapsingLedgeObjectInstance extends AbstractObjectInstance
             case 8 -> destroyWithWindowGatedRespawn();
             default -> { }
         }
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -455,12 +447,6 @@ public class Sonic1CollapsingLedgeObjectInstance extends AbstractObjectInstance
         int camRounded = (camera.getX() - 128) & 0xFF80;
         int distance = (objRounded - camRounded) & 0xFFFF;
         return distance <= (128 + 320 + 192);
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
-        }
     }
 
     /**

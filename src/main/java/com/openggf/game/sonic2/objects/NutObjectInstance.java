@@ -97,9 +97,6 @@ public class NutObjectInstance extends AbstractObjectInstance
     // Subtype flags
     private boolean fallsOff;       // Bit 7 of subtype: nut falls off at max travel
 
-    // Dynamic spawn for moving position
-    private ObjectSpawn dynamicSpawn;
-
     public NutObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
         init();
@@ -124,7 +121,7 @@ public class NutObjectInstance extends AbstractObjectInstance
         p1Mode = MODE_IDLE;
         p1Direction = 0;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -136,12 +133,6 @@ public class NutObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public SolidObjectParams getSolidParams() {
         return new SolidObjectParams(HALF_WIDTH, Y_RADIUS, GROUND_HALF_HEIGHT);
@@ -180,7 +171,7 @@ public class NutObjectInstance extends AbstractObjectInstance
         // Mask Y to 11 bits (from line 53531: andi.w #$7FF,y_pos(a0))
         y &= 0x7FF;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -418,11 +409,5 @@ public class NutObjectInstance extends AbstractObjectInstance
     public int getPriorityBucket() {
         // From disassembly: move.b #4,priority(a0)
         return RenderPriority.clamp(4);
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
-        }
     }
 }

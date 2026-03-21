@@ -169,8 +169,6 @@ public class Sonic1FloatingBlockObjectInstance extends AbstractObjectInstance
     // Zone index
     private final int zoneIndex;
 
-    private ObjectSpawn dynamicSpawn;
-
     public Sonic1FloatingBlockObjectInstance(ObjectSpawn spawn, int zoneIndex) {
         super(spawn, "FloatingBlock");
         this.zoneIndex = zoneIndex;
@@ -237,7 +235,7 @@ public class Sonic1FloatingBlockObjectInstance extends AbstractObjectInstance
         // Select art key based on zone
         this.artKey = isLZ ? ObjectArtKeys.LZ_FLOATING_BLOCK : ObjectArtKeys.SYZ_FLOATING_BLOCK;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -249,16 +247,10 @@ public class Sonic1FloatingBlockObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         applyMovement();
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -682,11 +674,5 @@ public class Sonic1FloatingBlockObjectInstance extends AbstractObjectInstance
         int camRounded = (camera.getX() - 128) & 0xFF80;
         int distance = (objRounded - camRounded) & 0xFFFF;
         return distance <= (128 + 320 + 192);
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
-        }
     }
 }

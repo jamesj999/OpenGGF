@@ -130,9 +130,6 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
     // X-flip state (obRender bit 0). Can change dynamically for subtype bit 7 objects.
     private boolean hFlip;
 
-    // Dynamic spawn for updated position tracking
-    private ObjectSpawn dynamicSpawn;
-
     public Sonic1CollapsingFloorObjectInstance(ObjectSpawn spawn, int zoneIndex) {
         super(spawn, "CollapsingFloor");
         this.subtype = spawn.subtype() & 0xFF;
@@ -153,7 +150,7 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
 
         // Skip init routine, start at routine 2 (CFlo_Touch)
         this.routine = 2;
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -165,12 +162,6 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         switch (routine) {
@@ -180,7 +171,7 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
             case 8 -> destroyWithWindowGatedRespawn();
             default -> { }
         }
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -523,12 +514,6 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
         int camRounded = (camera.getX() - 128) & 0xFF80;
         int distance = (objRounded - camRounded) & 0xFFFF;
         return distance <= (128 + 320 + 192);
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
-        }
     }
 
     /**

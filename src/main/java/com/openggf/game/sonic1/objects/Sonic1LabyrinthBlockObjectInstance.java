@@ -130,8 +130,6 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
     // Sub-pixel accumulator for SpeedToPos Y
     private int ySubpixel;
 
-    private ObjectSpawn dynamicSpawn;
-
     public Sonic1LabyrinthBlockObjectInstance(ObjectSpawn spawn) {
         super(spawn, "LabyrinthBlock");
 
@@ -169,7 +167,7 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
         // cmpi.b #7,d0 / beq.s LBlk_Action (subtype 7 -> no untouched flag)
         this.untouched = (moveType != 0 && moveType != 7);
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -181,12 +179,6 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         // LBlk_Action: save X on stack, dispatch movement, then SolidObject + sink effect
@@ -200,7 +192,7 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
         // loc_12180: Gradual sink effect for untouched blocks while Sonic stands on them
         applySinkEffect();
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -607,11 +599,5 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
         int camRounded = (camera.getX() - 128) & 0xFF80;
         int distance = (objRounded - camRounded) & 0xFFFF;
         return distance <= (128 + 320 + 192);
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
-        }
     }
 }

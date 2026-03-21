@@ -79,8 +79,6 @@ public class MTZPlatformObjectInstance extends AbstractObjectInstance
     // Contact tracking
     private int lastContactFrame = -2;
 
-    private ObjectSpawn dynamicSpawn;
-
     public MTZPlatformObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
         init();
@@ -95,12 +93,6 @@ public class MTZPlatformObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public SolidObjectParams getSolidParams() {
         // From disassembly line 53930-53937:
@@ -131,7 +123,7 @@ public class MTZPlatformObjectInstance extends AbstractObjectInstance
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         applyMovement(frameCounter);
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -195,7 +187,7 @@ public class MTZPlatformObjectInstance extends AbstractObjectInstance
         yVel = 0;
         bounceAccel = 0;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -348,12 +340,6 @@ public class MTZPlatformObjectInstance extends AbstractObjectInstance
                 x = baseX - radius;
                 y = baseY - radius + d0;
             }
-        }
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
         }
     }
 

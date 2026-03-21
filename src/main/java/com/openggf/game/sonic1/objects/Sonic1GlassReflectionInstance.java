@@ -61,8 +61,6 @@ public class Sonic1GlassReflectionInstance extends AbstractObjectInstance {
     // glass_dist: synced from parent each frame
     private int glassDist;
 
-    private ObjectSpawn dynamicSpawn;
-
     Sonic1GlassReflectionInstance(ObjectSpawn parentSpawn,
                                   Sonic1GlassBlockObjectInstance parent,
                                   int reflectSubtype,
@@ -77,7 +75,7 @@ public class Sonic1GlassReflectionInstance extends AbstractObjectInstance {
         this.glassDist = parent.getGlassDist();
         this.y = baseY - glassDist;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -89,12 +87,6 @@ public class Sonic1GlassReflectionInstance extends AbstractObjectInstance {
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         // Check if parent is destroyed -> self-destruct
@@ -115,7 +107,7 @@ public class Sonic1GlassReflectionInstance extends AbstractObjectInstance {
         // Apply Glass_Types movement using reflection subtype
         applyReflectionMovement();
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -184,11 +176,5 @@ public class Sonic1GlassReflectionInstance extends AbstractObjectInstance {
 
         // loc_B5EE: move.w objoff_30(a0),d1 / sub.w d0,d1 / move.w d1,obY(a0)
         y = baseY - d0;
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
-        }
     }
 }

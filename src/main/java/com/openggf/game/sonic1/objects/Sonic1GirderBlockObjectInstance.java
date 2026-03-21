@@ -102,9 +102,6 @@ public class Sonic1GirderBlockObjectInstance extends AbstractObjectInstance
     // Delay countdown (gird_delay = objoff_3A) — frames to wait before next movement starts
     private int delay;
 
-    // Dynamic spawn for position tracking
-    private ObjectSpawn dynamicSpawn;
-
     public Sonic1GirderBlockObjectInstance(ObjectSpawn spawn) {
         super(spawn, "Girder");
 
@@ -119,7 +116,7 @@ public class Sonic1GirderBlockObjectInstance extends AbstractObjectInstance
         this.movePhase = 0;
         applyPhaseSettings();
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -131,12 +128,6 @@ public class Sonic1GirderBlockObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         // Gird_Action (routine 2):
@@ -146,7 +137,7 @@ public class Sonic1GirderBlockObjectInstance extends AbstractObjectInstance
             delay--;
             if (delay > 0) {
                 // Still waiting; skip movement but still provide solidity
-                refreshDynamicSpawn();
+                updateDynamicSpawn(x, y);
                 return;
             }
             // Delay just hit zero — fall through to begin movement
@@ -162,7 +153,7 @@ public class Sonic1GirderBlockObjectInstance extends AbstractObjectInstance
             advancePhase();
         }
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -312,11 +303,5 @@ public class Sonic1GirderBlockObjectInstance extends AbstractObjectInstance
         int camRounded = (camera.getX() - 128) & 0xFF80;
         int distance = (objRounded - camRounded) & 0xFFFF;
         return distance <= (128 + 320 + 192);
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
-        }
     }
 }

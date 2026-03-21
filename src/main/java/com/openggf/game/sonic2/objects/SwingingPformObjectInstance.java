@@ -104,8 +104,6 @@ public class SwingingPformObjectInstance extends AbstractObjectInstance
     private int swingAngle;     // objoff_3E - current swing angle (0 to MAX_SWING_ANGLE)
     private boolean swingEnabled; // objoff_38 - whether swinging is active
     private boolean playerStanding; // Tracks if player is currently standing on platform
-    private ObjectSpawn dynamicSpawn;
-
     public SwingingPformObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
         this.x = spawn.x();
@@ -118,7 +116,7 @@ public class SwingingPformObjectInstance extends AbstractObjectInstance
         this.playerStanding = false;
 
         initFromSubtype();
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     private void initFromSubtype() {
@@ -171,12 +169,6 @@ public class SwingingPformObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         if (isDestroyed()) {
@@ -189,7 +181,7 @@ public class SwingingPformObjectInstance extends AbstractObjectInstance
         // Update swinging animation
         updateSwinging();
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -495,12 +487,6 @@ public class SwingingPformObjectInstance extends AbstractObjectInstance
     @Override
     public boolean isSolidFor(AbstractPlayableSprite player) {
         return !isDestroyed();
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
-        }
     }
 
     @Override

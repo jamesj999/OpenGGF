@@ -125,9 +125,6 @@ public class MTZLongPlatformObjectInstance extends AbstractObjectInstance
     // Standing detection
     private int lastContactFrame = -2;
 
-    // Dynamic spawn for position updates
-    private ObjectSpawn dynamicSpawn;
-
     public MTZLongPlatformObjectInstance(ObjectSpawn spawn) {
         super(spawn, "MTZLongPlatform");
         init();
@@ -142,12 +139,6 @@ public class MTZLongPlatformObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public SolidObjectParams getSolidParams() {
         // From s2.asm lines 52457-52463: d1=width+5, d2=y_radius, d3=y_radius+1
@@ -175,7 +166,7 @@ public class MTZLongPlatformObjectInstance extends AbstractObjectInstance
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         executeMovement(frameCounter, player);
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -555,12 +546,6 @@ public class MTZLongPlatformObjectInstance extends AbstractObjectInstance
             d0 = -d0 + 0x80; // neg.w d0; addi.w #$80,d0
         }
         x = baseX - d0;
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
-        }
     }
 
     @Override

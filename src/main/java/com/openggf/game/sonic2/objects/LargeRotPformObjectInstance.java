@@ -96,9 +96,6 @@ public class LargeRotPformObjectInstance extends AbstractObjectInstance
     private int x;
     private int y;
 
-    // Dynamic spawn for moving solid collision
-    private ObjectSpawn dynamicSpawn;
-
     // Collision params (null for indent subtype)
     private final SolidObjectParams solidParams;
 
@@ -150,12 +147,6 @@ public class LargeRotPformObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         if (isDestroyed()) {
@@ -220,13 +211,7 @@ public class LargeRotPformObjectInstance extends AbstractObjectInstance
         y = baseY + d2;
 
         if (!isIndent) {
-            refreshDynamicSpawn();
-        }
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
+            updateDynamicSpawn(x, y);
         }
     }
 

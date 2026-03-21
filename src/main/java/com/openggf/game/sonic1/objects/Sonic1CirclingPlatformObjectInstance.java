@@ -72,9 +72,6 @@ public class Sonic1CirclingPlatformObjectInstance extends AbstractObjectInstance
     private final boolean rotated;      // Bit 1: negate X, exchange X/Y
     private final boolean type04;       // Bits 2-3: type04 additionally negates X
 
-    // Dynamic spawn for position tracking
-    private ObjectSpawn dynamicSpawn;
-
     public Sonic1CirclingPlatformObjectInstance(ObjectSpawn spawn) {
         super(spawn, "CirclingPlatform");
 
@@ -99,7 +96,7 @@ public class Sonic1CirclingPlatformObjectInstance extends AbstractObjectInstance
         this.x = origX;
         this.y = origY;
         updatePosition();
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -111,19 +108,13 @@ public class Sonic1CirclingPlatformObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         if (isDestroyed()) {
             return;
         }
         updatePosition();
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -250,12 +241,6 @@ public class Sonic1CirclingPlatformObjectInstance extends AbstractObjectInstance
         int distance = (objRounded - camRounded) & 0xFFFF;
         // out_of_range: cmpi.w #128+320+192,d0 / bhi.s exit
         return distance <= (128 + 320 + 192);
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
-        }
     }
 
     // ---- Debug rendering ----

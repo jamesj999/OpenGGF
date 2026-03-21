@@ -134,8 +134,6 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
     // Which art key to use for this zone
     private final String artKey;
 
-    private ObjectSpawn dynamicSpawn;
-
     public Sonic1MovingBlockObjectInstance(ObjectSpawn spawn, LevelManager levelManager) {
         super(spawn, "MovingBlock");
         this.zoneIndex = levelManager.getRomZoneId();
@@ -167,7 +165,7 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
         // Select art key based on zone
         this.artKey = selectArtKey(fullSubtype);
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -201,12 +199,6 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         playerStanding = isPlayerRiding();
@@ -216,7 +208,7 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
         // Both call MBlock_Move then check deletion.
         applyMovement();
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -570,11 +562,5 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
         int camRounded = (camera.getX() - 128) & 0xFF80;
         int distance = (objRounded - camRounded) & 0xFFFF;
         return distance <= (128 + 320 + 192);
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
-        }
     }
 }

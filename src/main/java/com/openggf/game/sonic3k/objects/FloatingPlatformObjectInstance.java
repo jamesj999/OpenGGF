@@ -119,8 +119,6 @@ public class FloatingPlatformObjectInstance extends AbstractObjectInstance
     private int y;
     private final int baseX;  // objoff_30: saved X position
     private final int baseY;  // objoff_34: saved Y position
-    private ObjectSpawn dynamicSpawn;
-
     // Stationary bob state (type 0) — sine-based vertical nudge when player stands
     private final PlatformBobHelper bobHelper = new PlatformBobHelper();
 
@@ -184,7 +182,7 @@ public class FloatingPlatformObjectInstance extends AbstractObjectInstance
         // Resolve zone-specific art config
         this.config = resolveConfig();
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     // ===== SolidObjectProvider =====
@@ -224,12 +222,6 @@ public class FloatingPlatformObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public int getPriorityBucket() {
         return RenderPriority.clamp(PRIORITY);
@@ -238,7 +230,7 @@ public class FloatingPlatformObjectInstance extends AbstractObjectInstance
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         applyMovement(player);
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -504,12 +496,6 @@ public class FloatingPlatformObjectInstance extends AbstractObjectInstance
      */
     private int applyOscFlip(int oscValue, int amplitude) {
         return xFlip ? -oscValue + amplitude : oscValue;
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
-        }
     }
 
     // Uses inherited getRenderManager() from AbstractObjectInstance

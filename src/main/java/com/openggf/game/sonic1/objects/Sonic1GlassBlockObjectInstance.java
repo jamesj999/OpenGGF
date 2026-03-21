@@ -134,8 +134,6 @@ public class Sonic1GlassBlockObjectInstance extends AbstractObjectInstance
     // The spawned reflection child (for cleanup)
     private Sonic1GlassReflectionInstance reflectionChild;
 
-    private ObjectSpawn dynamicSpawn;
-
     public Sonic1GlassBlockObjectInstance(ObjectSpawn spawn, LevelManager levelManager) {
         super(spawn, "MzGlassBlock");
         this.levelManager = levelManager;
@@ -164,7 +162,7 @@ public class Sonic1GlassBlockObjectInstance extends AbstractObjectInstance
         this.type4Activated = false;
         this.playerStanding = false;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
 
         // Spawn reflection child
         spawnReflection();
@@ -179,12 +177,6 @@ public class Sonic1GlassBlockObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         playerStanding = isPlayerRiding();
@@ -196,7 +188,7 @@ public class Sonic1GlassBlockObjectInstance extends AbstractObjectInstance
         // From disassembly loc_B5EE: move.w objoff_30(a0),d1 / sub.w d0,d1 / move.w d1,obY(a0)
         y = baseY - glassDist;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -461,11 +453,5 @@ public class Sonic1GlassBlockObjectInstance extends AbstractObjectInstance
         int camRounded = (camera.getX() - 128) & 0xFF80;
         int distance = (objRounded - camRounded) & 0xFFFF;
         return distance <= (128 + 320 + 192);
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
-        }
     }
 }

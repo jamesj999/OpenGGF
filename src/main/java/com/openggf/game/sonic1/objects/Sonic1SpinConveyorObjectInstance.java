@@ -219,9 +219,6 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
     private int spawnerSlotIndex;    // v_obj63 slot index (objoff_2F & 0x7F)
     private boolean spawnerDone;
 
-    // Dynamic spawn for position updates
-    private ObjectSpawn dynamicSpawn;
-
     /**
      * Creates a spin conveyor object instance.
      *
@@ -323,7 +320,7 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
             changeDirection();
         }
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -343,12 +340,6 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         switch (mode) {
@@ -486,7 +477,7 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
             applyConveyorMovement();
         }
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -895,11 +886,5 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
                 mappingFrame,
                 state);
         ctx.drawWorldLabel(x, y - SOLID_PARAMS.groundHalfHeight() - 8, 0, label, DebugColor.CYAN);
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
-        }
     }
 }

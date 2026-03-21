@@ -154,9 +154,6 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
     // Art key for rendering (MZ vs LZ)
     private final String artKey;
 
-    // Dynamic spawn for position updates
-    private ObjectSpawn dynamicSpawn;
-
     // Frame counter when push sound was last triggered.
     // ROM's SMPS driver uses f_push_playing flag: sfx_Push is ignored while already
     // playing, and smpsClearPush at the end of the sound data clears the flag.
@@ -206,7 +203,7 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
         // In all other acts/zones bit 7 retains its spawn value.
         this.chainedToStomper = (subtype & 0x80) != 0;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -218,12 +215,6 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         switch (routine) {
@@ -231,7 +222,7 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
             case 4 -> updateOffscreen();
             default -> { }
         }
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -556,7 +547,7 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
         ySubpixel = 0;
         pushMomentum = 0;
         lastGeyserSpawnX = Integer.MIN_VALUE;
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -685,7 +676,7 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
         // tst.b obSubtype(a0) / bmi.s locret_C2E4
         // If chained to stomper (bit 7 set), skip ledge check
         if (chainedToStomper) {
-            refreshDynamicSpawn();
+            updateDynamicSpawn(x, y);
             return;
         }
 
@@ -705,7 +696,7 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
             y += floorResult.distance();
         }
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -905,11 +896,5 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
             stateLabel = "PushBlk:IDLE";
         }
         ctx.drawWorldLabel(x, y, -2, stateLabel, DebugColor.ORANGE);
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
-        }
     }
 }

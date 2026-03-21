@@ -160,9 +160,6 @@ public class Sonic1LZConveyorObjectInstance extends AbstractObjectInstance
     // Wheel mode state
     private int wheelFrame;          // current animation frame (0-3)
 
-    // Dynamic spawn for position updates
-    private ObjectSpawn dynamicSpawn;
-
     /**
      * Creates a conveyor belt object instance.
      *
@@ -253,7 +250,7 @@ public class Sonic1LZConveyorObjectInstance extends AbstractObjectInstance
             changeDirection();
         }
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -274,12 +271,6 @@ public class Sonic1LZConveyorObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         switch (mode) {
@@ -517,7 +508,7 @@ public class Sonic1LZConveyorObjectInstance extends AbstractObjectInstance
         // Apply waypoint movement (sub_12502)
         applyConveyorMovement();
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -806,12 +797,6 @@ public class Sonic1LZConveyorObjectInstance extends AbstractObjectInstance
             ctx.drawRect(x, y, 0x10, 0x10, 0.5f, 0.5f, 0.2f);
             String label = String.format("WHL f%d", wheelFrame);
             ctx.drawWorldLabel(x, y - 0x10 - 8, 0, label, com.openggf.debug.DebugColor.YELLOW);
-        }
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
         }
     }
 }

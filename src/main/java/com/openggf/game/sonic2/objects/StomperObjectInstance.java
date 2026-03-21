@@ -83,14 +83,11 @@ public class StomperObjectInstance extends AbstractObjectInstance
     private int timer = 0;             // Movement timer (objoff_30)
     private boolean crushing = false;  // routine_secondary != 0
 
-    // Dynamic spawn for moving Y position
-    private ObjectSpawn dynamicSpawn;
-
     public StomperObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
         this.baseY = spawn.y();
         this.currentY = baseY;
-        refreshDynamicSpawn();
+        updateDynamicSpawn(spawn.x(), currentY);
     }
 
     @Override
@@ -102,12 +99,6 @@ public class StomperObjectInstance extends AbstractObjectInstance
     public int getY() {
         return currentY;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         if (isDestroyed()) {
@@ -135,7 +126,7 @@ public class StomperObjectInstance extends AbstractObjectInstance
         // Update Y position: Y = baseY - timer (lines 24110-24112)
         currentY = baseY - timer;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(spawn.x(), currentY);
     }
 
     @Override
@@ -197,13 +188,6 @@ public class StomperObjectInstance extends AbstractObjectInstance
     public boolean isSolidFor(AbstractPlayableSprite player) {
         return !isDestroyed();
     }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.y() != currentY) {
-            dynamicSpawn = buildSpawnAt(spawn.x(), currentY);
-        }
-    }
-
 
     @Override
     public void appendDebugRenderCommands(DebugRenderContext ctx) {

@@ -79,9 +79,6 @@ public class ElevatorObjectInstance extends BoxObjectInstance
     // Contact tracking
     private int lastContactFrame = -2;
 
-    // Dynamic spawn for moving position
-    private ObjectSpawn dynamicSpawn;
-
     public ElevatorObjectInstance(ObjectSpawn spawn, String name) {
         // Use platform half-width for debug box, cyan color
         super(spawn, name, HALF_WIDTH, PLATFORM_HEIGHT, 0.2f, 0.8f, 0.8f, false);
@@ -113,7 +110,7 @@ public class ElevatorObjectInstance extends BoxObjectInstance
         yVel = 0;
         state = STATE_WAIT_FOR_CONTACT;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -125,12 +122,6 @@ public class ElevatorObjectInstance extends BoxObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public SolidObjectParams getSolidParams() {
         // From disassembly: d1 = 0x10 (half-width), d3 = 9 (platform height)
@@ -174,7 +165,7 @@ public class ElevatorObjectInstance extends BoxObjectInstance
             case STATE_RETURN -> updateReturnAcceleration();
         }
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -294,12 +285,6 @@ public class ElevatorObjectInstance extends BoxObjectInstance
             }
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic
-        }
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
         }
     }
 

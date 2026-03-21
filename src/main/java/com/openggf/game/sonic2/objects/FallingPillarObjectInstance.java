@@ -76,7 +76,6 @@ public class FallingPillarObjectInstance extends AbstractObjectInstance
     private int yVel;
     private int mappingFrame;
     private int yFixed;
-    private ObjectSpawn dynamicSpawn;
     private FallingPillarObjectInstance childInstance;
     private boolean childSpawned;
 
@@ -102,7 +101,7 @@ public class FallingPillarObjectInstance extends AbstractObjectInstance
             this.routineSecondary = 0;
         }
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     public FallingPillarObjectInstance createChild() {
@@ -119,12 +118,6 @@ public class FallingPillarObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     public FallingPillarObjectInstance getChildInstance() {
         return childInstance;
     }
@@ -146,7 +139,7 @@ public class FallingPillarObjectInstance extends AbstractObjectInstance
         if (isChild) {
             updateChild(player);
         }
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     private void spawnChild() {
@@ -300,12 +293,6 @@ public class FallingPillarObjectInstance extends AbstractObjectInstance
     @Override
     public boolean isSolidFor(AbstractPlayableSprite player) {
         return !isDestroyed();
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
-        }
     }
 
     @Override

@@ -102,9 +102,6 @@ public class Sonic1StaircaseObjectInstance extends AbstractObjectInstance
     private int lastTopContactFrame = -2;
     private int lastBottomContactFrame = -2;
 
-    // Dynamic spawn for position tracking
-    private ObjectSpawn dynamicSpawn;
-
     public Sonic1StaircaseObjectInstance(ObjectSpawn spawn) {
         super(spawn, "Staircase");
         this.baseX = spawn.x();
@@ -127,7 +124,7 @@ public class Sonic1StaircaseObjectInstance extends AbstractObjectInstance
             pieceToOffset[i] = startOffset + (i * direction);
         }
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(baseX, baseY + yOffsets[0]);
     }
 
     @Override
@@ -139,12 +136,6 @@ public class Sonic1StaircaseObjectInstance extends AbstractObjectInstance
     public int getY() {
         return baseY;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     // MultiPieceSolidProvider implementation
 
     @Override
@@ -222,7 +213,7 @@ public class Sonic1StaircaseObjectInstance extends AbstractObjectInstance
             default -> {} // Subtypes 4-7 unused in SLZ placement data
         }
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(baseX, baseY + yOffsets[0]);
     }
 
     /**
@@ -414,13 +405,6 @@ public class Sonic1StaircaseObjectInstance extends AbstractObjectInstance
         int camRounded = (camera.getX() - 128) & 0xFF80;
         int distance = (objRounded - camRounded) & 0xFFFF;
         return distance <= (128 + 320 + 192);
-    }
-
-    private void refreshDynamicSpawn() {
-        int pieceY = baseY + yOffsets[0];
-        if (dynamicSpawn == null || dynamicSpawn.y() != pieceY) {
-            dynamicSpawn = buildSpawnAt(baseX, pieceY);
-        }
     }
 
     @Override

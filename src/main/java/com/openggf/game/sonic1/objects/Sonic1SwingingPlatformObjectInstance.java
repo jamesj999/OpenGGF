@@ -89,9 +89,6 @@ public class Sonic1SwingingPlatformObjectInstance extends AbstractObjectInstance
     // obColType for touch collision (SBZ=$86, Giant Ball=$81, 0=no touch collision)
     private final int collisionType;
 
-    // Dynamic spawn for position tracking
-    private ObjectSpawn dynamicSpawn;
-
     public Sonic1SwingingPlatformObjectInstance(ObjectSpawn spawn, LevelManager levelManager) {
         super(spawn, "SwingingPlatform");
 
@@ -217,7 +214,7 @@ public class Sonic1SwingingPlatformObjectInstance extends AbstractObjectInstance
         this.x = baseX;
         this.y = baseY;
         updatePositions();
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -229,19 +226,13 @@ public class Sonic1SwingingPlatformObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         if (isDestroyed()) {
             return;
         }
         updatePositions();
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -386,12 +377,6 @@ public class Sonic1SwingingPlatformObjectInstance extends AbstractObjectInstance
         int camRounded = (camera.getX() - 128) & 0xFF80;
         int distance = (objRounded - camRounded) & 0xFFFF;
         return distance <= (128 + 320 + 192);
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
-        }
     }
 
     // ---- Debug rendering ----

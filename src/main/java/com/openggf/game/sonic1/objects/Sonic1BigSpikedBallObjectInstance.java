@@ -80,9 +80,6 @@ public class Sonic1BigSpikedBallObjectInstance extends AbstractObjectInstance
     // Type 3 circular motion angle (bball_radius already fixed at CIRCLE_RADIUS)
     private int angle;                // obAngle: accumulating angle for circular motion
 
-    // Dynamic spawn for position tracking
-    private ObjectSpawn dynamicSpawn;
-
     public Sonic1BigSpikedBallObjectInstance(ObjectSpawn spawn) {
         super(spawn, "BigSpikedBall");
 
@@ -117,7 +114,7 @@ public class Sonic1BigSpikedBallObjectInstance extends AbstractObjectInstance
         // move.b d0,obAngle(a0) — writes to high byte of word (68000 big-endian)
         this.angle = (d0 & 0xC0) << 8;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -129,12 +126,6 @@ public class Sonic1BigSpikedBallObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         if (isDestroyed()) {
@@ -149,7 +140,7 @@ public class Sonic1BigSpikedBallObjectInstance extends AbstractObjectInstance
             default -> {} // types 4-7: not defined in disasm jump table, but index has only 4 entries
         }
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -293,12 +284,6 @@ public class Sonic1BigSpikedBallObjectInstance extends AbstractObjectInstance
         int camRounded = (camera.getX() - 128) & 0xFF80;
         int distance = (objRounded - camRounded) & 0xFFFF;
         return distance <= (128 + 320 + 192);
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
-        }
     }
 
     // ---- Debug rendering ----

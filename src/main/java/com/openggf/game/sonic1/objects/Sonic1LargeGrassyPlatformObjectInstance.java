@@ -170,8 +170,6 @@ public class Sonic1LargeGrassyPlatformObjectInstance extends AbstractObjectInsta
     // Type 5 state: the initial walker fire (subtype 0) for cleanup tracking
     private Sonic1GrassFireObjectInstance walkerFire;
 
-    private ObjectSpawn dynamicSpawn;
-
     public Sonic1LargeGrassyPlatformObjectInstance(ObjectSpawn spawn, LevelManager levelManager) {
         super(spawn, "MzLargeGrassyPlatform");
 
@@ -205,7 +203,7 @@ public class Sonic1LargeGrassyPlatformObjectInstance extends AbstractObjectInsta
         this.fireSpawned = false;
         this.playerStanding = false;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -217,12 +215,6 @@ public class Sonic1LargeGrassyPlatformObjectInstance extends AbstractObjectInsta
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         playerStanding = isPlayerRiding();
@@ -230,7 +222,7 @@ public class Sonic1LargeGrassyPlatformObjectInstance extends AbstractObjectInsta
         // LGrass_Types: dispatch movement
         applyMovement();
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -534,11 +526,5 @@ public class Sonic1LargeGrassyPlatformObjectInstance extends AbstractObjectInsta
         // Sine of angle in range [0, $40] maps to [0, $100] (0.0 to 1.0 in 8.8)
         double radians = (angle & 0xFF) * Math.PI * 2.0 / 256.0;
         return (int) (Math.sin(radians) * 256) & 0xFFFF;
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
-        }
     }
 }

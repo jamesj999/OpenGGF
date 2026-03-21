@@ -55,8 +55,6 @@ public class AizRideVineObjectInstance extends AbstractObjectInstance {
 
     private int currentX;
     private int currentY;
-    private ObjectSpawn dynamicSpawn;
-
     private final Segment first = new Segment();
     private final Segment[] chain = {
             new Segment(),
@@ -89,7 +87,6 @@ public class AizRideVineObjectInstance extends AbstractObjectInstance {
         this.subtype = spawn.subtype();
         this.currentX = spawn.x();
         this.currentY = spawn.y();
-        this.dynamicSpawn = spawn;
         this.targetX = currentX + ((subtype & 0x7F) << 4);
 
         first.x = currentX;
@@ -103,12 +100,6 @@ public class AizRideVineObjectInstance extends AbstractObjectInstance {
         handle.prevX = handle.x;
         handle.prevY = handle.y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn;
-    }
-
     @Override
     public int getX() {
         return currentX;
@@ -134,7 +125,7 @@ public class AizRideVineObjectInstance extends AbstractObjectInstance {
         updateRootState();
         updateSegments();
         updateHandle(player);
-        updateDynamicSpawn();
+        updateDynamicSpawn(currentX, currentY);
 
         // ROM cull path in loc_21F38/loc_21F52.
         int coarse = (currentX & 0xFF80) - Camera.getInstance().getX();
@@ -380,13 +371,6 @@ public class AizRideVineObjectInstance extends AbstractObjectInstance {
         if (AizVineHandleLogic.shouldRender(handle)) {
             renderer.drawFrameIndex(HANDLE_FRAME, handle.x, handle.y, false, false);
         }
-    }
-
-    private void updateDynamicSpawn() {
-        if (dynamicSpawn.x() == currentX && dynamicSpawn.y() == currentY) {
-            return;
-        }
-        dynamicSpawn = buildSpawnAt(currentX, currentY);
     }
 
     private static int asSigned16(int value) {

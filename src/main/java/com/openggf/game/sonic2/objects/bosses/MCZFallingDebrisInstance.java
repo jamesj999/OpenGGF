@@ -35,7 +35,6 @@ public class MCZFallingDebrisInstance extends AbstractObjectInstance implements 
     private int posY;
     private int yFixed;
     private int yVel;
-    private ObjectSpawn dynamicSpawn;
 
     public MCZFallingDebrisInstance(int x, int y, boolean isSpike) {
         super(new ObjectSpawn(x, y, 0x57, 4, 0, false, 0), "MCZ Debris");
@@ -44,16 +43,7 @@ public class MCZFallingDebrisInstance extends AbstractObjectInstance implements 
         this.posY = y;
         this.yFixed = y << 16;
         this.yVel = 0;
-        this.dynamicSpawn = getSpawn();
-    }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        if (dynamicSpawn != null && dynamicSpawn.x() == posX && dynamicSpawn.y() == posY) {
-            return dynamicSpawn;
-        }
-        dynamicSpawn = new ObjectSpawn(posX, posY, 0x57, 4, 0, false, 0);
-        return dynamicSpawn;
+        updateDynamicSpawn(posX, posY);
     }
 
     @Override
@@ -63,6 +53,7 @@ public class MCZFallingDebrisInstance extends AbstractObjectInstance implements 
         yVel += GRAVITY;
 
         posY = yFixed >> 16;
+        updateDynamicSpawn(posX, posY);
 
         // ROM: cmpi.w #$6F0,y_pos(a0) - delete if below boundary
         if (posY > DELETE_Y) {

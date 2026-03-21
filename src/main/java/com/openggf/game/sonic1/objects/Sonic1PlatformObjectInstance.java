@@ -123,8 +123,6 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
     // This happens after type 04 timer expires and detaches the player.
     private boolean inFallingRoutine;
 
-    private ObjectSpawn dynamicSpawn;
-
     public Sonic1PlatformObjectInstance(ObjectSpawn spawn, LevelManager levelManager) {
         super(spawn, "Platform");
         this.levelManager = levelManager;
@@ -160,7 +158,7 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
         this.cachedOscillator = 0x00;
         this.inFallingRoutine = false;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -172,12 +170,6 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         // Check if player is standing on us via ObjectManager
@@ -194,7 +186,7 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
         // Apply nudge (sine-based vertical offset)
         applyNudge();
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -487,11 +479,4 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
         // out_of_range: cmpi.w #128+320+192,d0 / bhi.s exit
         return distance <= (128 + 320 + 192);
     }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
-        }
-    }
-
 }

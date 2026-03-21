@@ -103,8 +103,6 @@ public class MovingVineObjectInstance extends AbstractObjectInstance {
     // === Position Tracking ===
     private int currentY;                   // Dynamic Y position = initialY + currentExtension
     private int mappingFrame;               // Current frame based on extension
-    private ObjectSpawn dynamicSpawn;       // Updated spawn with current position
-
     /**
      * Creates a new MovingVine object instance.
      *
@@ -164,7 +162,7 @@ public class MovingVineObjectInstance extends AbstractObjectInstance {
         updateMappingFrame();
 
         // Refresh dynamic spawn for position tracking
-        refreshDynamicSpawn();
+        updateDynamicSpawn(spawn.x(), currentY);
 
         LOGGER.fine(() -> String.format(
                 "MovingVine init: pos=(%d,%d), subtype=0x%02X, variant=%s, maxExt=%d, reversed=%s, button=%s(id=%d)",
@@ -196,12 +194,6 @@ public class MovingVineObjectInstance extends AbstractObjectInstance {
     public int getY() {
         return currentY;  // Y position varies with extension
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         if (isDestroyed()) {
@@ -224,7 +216,7 @@ public class MovingVineObjectInstance extends AbstractObjectInstance {
         // TODO: Player 2 (Sidekick) when multiplayer is implemented
 
         // 4. Update dynamic spawn for collision system
-        refreshDynamicSpawn();
+        updateDynamicSpawn(spawn.x(), currentY);
     }
 
     /**
@@ -579,14 +571,7 @@ public class MovingVineObjectInstance extends AbstractObjectInstance {
 
     /**
      * Updates the dynamic spawn to track current position.
-     */
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.y() != currentY) {
-            dynamicSpawn = buildSpawnAt(spawn.x(), currentY);
-        }
-    }
-
-    @Override
+     */    @Override
     public void appendDebugRenderCommands(DebugRenderContext ctx) {
         int x = spawn.x();
 

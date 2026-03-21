@@ -119,8 +119,6 @@ public class Sonic1ElevatorObjectInstance extends AbstractObjectInstance
     // Routine state: 2 = platform (waiting), 4 = action (riding)
     private int routine;
 
-    private ObjectSpawn dynamicSpawn;
-
     /**
      * Creates a normal elevator from a level placement spawn.
      */
@@ -170,7 +168,7 @@ public class Sonic1ElevatorObjectInstance extends AbstractObjectInstance
         this.moveSpeed = 0;
         this.decelerating = false;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -197,7 +195,7 @@ public class Sonic1ElevatorObjectInstance extends AbstractObjectInstance
         this.moveSpeed = 0;
         this.decelerating = false;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -209,12 +207,6 @@ public class Sonic1ElevatorObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         if (isDestroyed()) {
@@ -238,7 +230,7 @@ public class Sonic1ElevatorObjectInstance extends AbstractObjectInstance
             executeWaitingTypes(player);
         }
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -505,12 +497,6 @@ public class Sonic1ElevatorObjectInstance extends AbstractObjectInstance
         int camRounded = (camera.getX() - 128) & 0xFF80;
         int distance = (objRounded - camRounded) & 0xFFFF;
         return distance <= (128 + 320 + 192);
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
-        }
     }
 
     // ---- Debug rendering ----

@@ -160,9 +160,6 @@ public class ConveyorObjectInstance extends AbstractObjectInstance
     /** X-flip from status byte. */
     private final boolean xFlip;
 
-    /** Dynamic spawn for solid collision tracking. */
-    private ObjectSpawn dynamicSpawn;
-
     /** Collision params: half-width = width_pixels, d3 = 8. */
     private static final SolidObjectParams SOLID_PARAMS =
             new SolidObjectParams(WIDTH_PIXELS, Y_RADIUS, Y_RADIUS + 1);
@@ -213,7 +210,7 @@ public class ConveyorObjectInstance extends AbstractObjectInstance
         this.ySub = 0;
         calculateVelocity();
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -280,12 +277,6 @@ public class ConveyorObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public SolidObjectParams getSolidParams() {
         return SOLID_PARAMS;
@@ -327,7 +318,7 @@ public class ConveyorObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -514,12 +505,6 @@ public class ConveyorObjectInstance extends AbstractObjectInstance
         } else {
             // Went negative going backward: wrap to last waypoint
             return (lengthByte - WAYPOINT_STEP) & 0xFF;
-        }
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
         }
     }
 

@@ -103,14 +103,12 @@ public class Sonic1FalseFloorInstance extends AbstractObjectInstance
     private int solidOffsetX = 0;
 
     private final List<FalseFloorBlock> childBlocks = new ArrayList<>();
-    private ObjectSpawn dynamicSpawn;
-
     public Sonic1FalseFloorInstance(ObjectSpawn spawn, LevelManager levelManager) {
         super(spawn, "FalseFloor");
         this.currentX = MASTER_X;
         this.currentY = MASTER_Y;
         this.currentHalfWidth = 0x80;
-        refreshDynamicSpawn();
+        updateDynamicSpawn(currentX, currentY);
     }
 
     /**
@@ -131,12 +129,6 @@ public class Sonic1FalseFloorInstance extends AbstractObjectInstance
     public int getY() {
         return currentY;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public boolean isPersistent() {
         return true;
@@ -160,7 +152,7 @@ public class Sonic1FalseFloorInstance extends AbstractObjectInstance
     private void updateInit() {
         currentX = MASTER_X;
         currentY = MASTER_Y;
-        refreshDynamicSpawn();
+        updateDynamicSpawn(currentX, currentY);
 
         ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
         if (objectManager == null) {
@@ -297,10 +289,6 @@ public class Sonic1FalseFloorInstance extends AbstractObjectInstance
     @Override
     public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
         // Handled by ObjectManager
-    }
-
-    private void refreshDynamicSpawn() {
-        dynamicSpawn = buildSpawnAt(currentX, currentY);
     }
 
     // =========================================================================

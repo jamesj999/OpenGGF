@@ -41,15 +41,12 @@ public abstract class AbstractSpikeObjectInstance extends AbstractObjectInstance
     protected int retractOffset;
     protected int retractState;
     protected int retractTimer;
-    protected ObjectSpawn dynamicSpawn;
-
     protected AbstractSpikeObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
         this.baseX = spawn.x();
         this.baseY = spawn.y();
         this.currentX = baseX;
         this.currentY = baseY;
-        this.dynamicSpawn = spawn;
     }
 
     // ---- Solid object contract ----
@@ -89,14 +86,8 @@ public abstract class AbstractSpikeObjectInstance extends AbstractObjectInstance
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         moveSpikes(player);
-        updateDynamicSpawn();
+        updateDynamicSpawn(currentX, currentY);
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn;
-    }
-
     @Override
     public int getX() {
         return currentX;
@@ -196,13 +187,6 @@ public abstract class AbstractSpikeObjectInstance extends AbstractObjectInstance
     }
 
     // ---- Internal helpers ----
-
-    protected void updateDynamicSpawn() {
-        if (dynamicSpawn.x() == currentX && dynamicSpawn.y() == currentY) {
-            return;
-        }
-        dynamicSpawn = buildSpawnAt(currentX, currentY);
-    }
 
     /**
      * Play the spike-retract sound effect. Subclasses provide game-specific SFX IDs.

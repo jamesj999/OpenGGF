@@ -105,9 +105,6 @@ public class OOZPoppingPlatformObjectInstance extends AbstractObjectInstance
     // Flame child
     private OOZBurnerFlameObjectInstance flameChild;
 
-    // Dynamic spawn for moving Y
-    private ObjectSpawn dynamicSpawn;
-
     public OOZPoppingPlatformObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
         this.x = spawn.x();
@@ -123,7 +120,7 @@ public class OOZPoppingPlatformObjectInstance extends AbstractObjectInstance
 
         // Spawn flame child (ROM: AllocateObjectAfterCurrent)
         spawnFlameChild();
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, currentY);
     }
 
     private void spawnFlameChild() {
@@ -145,12 +142,6 @@ public class OOZPoppingPlatformObjectInstance extends AbstractObjectInstance
     public int getY() {
         return currentY;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public int getPriorityBucket() {
         return RenderPriority.clamp(3);
@@ -165,7 +156,7 @@ public class OOZPoppingPlatformObjectInstance extends AbstractObjectInstance
             case RISE_AND_LAUNCH -> updateRiseAndLaunch(player, frameCounter);
             case IDLE -> { /* rts - do nothing */ }
         }
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, currentY);
     }
 
     // ========================================================================
@@ -416,11 +407,5 @@ public class OOZPoppingPlatformObjectInstance extends AbstractObjectInstance
      */
     int getPlatformY() {
         return currentY;
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.y() != currentY) {
-            dynamicSpawn = buildSpawnAt(x, currentY);
-        }
     }
 }

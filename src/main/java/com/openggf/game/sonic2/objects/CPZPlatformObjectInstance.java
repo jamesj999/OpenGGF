@@ -59,8 +59,6 @@ public class CPZPlatformObjectInstance extends AbstractObjectInstance
     private int moveType;
     private int yVel;
     private boolean xFlip;
-    private ObjectSpawn dynamicSpawn;
-
     public CPZPlatformObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
         init();
@@ -75,18 +73,12 @@ public class CPZPlatformObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         // Apply movement based on subtype
         applyMovement(player);
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -155,7 +147,7 @@ public class CPZPlatformObjectInstance extends AbstractObjectInstance
 
         yVel = 0;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -295,12 +287,6 @@ public class CPZPlatformObjectInstance extends AbstractObjectInstance
 
         x = baseX + d1;
         y = baseY + d2;
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
-        }
     }
 
     @Override

@@ -20,6 +20,7 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     protected final ObjectSpawn spawn;
     protected final String name;
     private boolean destroyed;
+    private ObjectSpawn dynamicSpawn;
 
     protected AbstractObjectInstance(ObjectSpawn spawn, String name) {
         this.spawn = spawn;
@@ -40,7 +41,18 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
 
     @Override
     public ObjectSpawn getSpawn() {
-        return spawn;
+        return dynamicSpawn != null ? dynamicSpawn : spawn;
+    }
+
+    /**
+     * Lazily updates the dynamic spawn to track the object's current position.
+     * After this call, {@link #getSpawn()} returns a spawn at (x, y) instead of
+     * the original placement position. No allocation occurs if the position is unchanged.
+     */
+    protected void updateDynamicSpawn(int x, int y) {
+        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
+            dynamicSpawn = buildSpawnAt(x, y);
+        }
     }
 
     public String getName() {

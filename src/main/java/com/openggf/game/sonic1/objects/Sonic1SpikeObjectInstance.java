@@ -69,15 +69,12 @@ public class Sonic1SpikeObjectInstance extends AbstractObjectInstance
     private int direction;       // objoff_36: 0=extending, 1=retracting
     private int delayTimer;      // objoff_38: frame delay counter
 
-    private ObjectSpawn dynamicSpawn;
-
     public Sonic1SpikeObjectInstance(ObjectSpawn spawn) {
         super(spawn, "Spikes");
         this.baseX = spawn.x();
         this.baseY = spawn.y();
         this.currentX = baseX;
         this.currentY = baseY;
-        this.dynamicSpawn = spawn;
 
         // From disassembly: high nybble selects Spik_Var entry
         int visualType = (spawn.subtype() >> 4) & 0x0F;
@@ -94,7 +91,7 @@ public class Sonic1SpikeObjectInstance extends AbstractObjectInstance
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         updateMovement();
-        updateDynamicSpawn();
+        updateDynamicSpawn(currentX, currentY);
     }
 
     @Override
@@ -147,12 +144,6 @@ public class Sonic1SpikeObjectInstance extends AbstractObjectInstance
         // Spik_Upright: d1=obActWid+$B, d2=$10. Match ROM-effective overlap height.
         return new SolidObjectParams(actWidth + 0x0B, 0x10, 0x10);
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn;
-    }
-
     @Override
     public int getX() {
         return currentX;
@@ -284,12 +275,5 @@ public class Sonic1SpikeObjectInstance extends AbstractObjectInstance
             direction = 1;
             delayTimer = RETRACT_DELAY;
         }
-    }
-
-    private void updateDynamicSpawn() {
-        if (dynamicSpawn.x() == currentX && dynamicSpawn.y() == currentY) {
-            return;
-        }
-        dynamicSpawn = buildSpawnAt(currentX, currentY);
     }
 }

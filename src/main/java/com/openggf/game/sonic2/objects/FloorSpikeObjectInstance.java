@@ -74,16 +74,12 @@ public class FloorSpikeObjectInstance extends AbstractObjectInstance
     // floorspike_delay (objoff_3A) - frames to wait after full expansion
     private int delay;
 
-    // Dynamic spawn for position updates (used by touch collision system)
-    private ObjectSpawn dynamicSpawn;
-
     public FloorSpikeObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
         this.initialX = spawn.x();
         this.initialY = spawn.y();
         this.currentX = initialX;
         this.currentY = initialY;
-        this.dynamicSpawn = spawn;
     }
 
     @Override
@@ -98,7 +94,7 @@ public class FloorSpikeObjectInstance extends AbstractObjectInstance
         currentY = initialY - pixelOffset;
         currentX = initialX;
 
-        updateDynamicSpawn();
+        updateDynamicSpawn(currentX, currentY);
     }
 
     /**
@@ -159,12 +155,6 @@ public class FloorSpikeObjectInstance extends AbstractObjectInstance
     public int getY() {
         return currentY;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn;
-    }
-
     @Override
     public int getPriorityBucket() {
         return RenderPriority.clamp(PRIORITY);
@@ -212,12 +202,5 @@ public class FloorSpikeObjectInstance extends AbstractObjectInstance
         int pxOffset = (offset >> 8) & 0xFF;
         String label = name + " " + state + " ofs=" + pxOffset;
         ctx.drawWorldLabel(currentX, currentY, -2, label, DebugColor.RED);
-    }
-
-    private void updateDynamicSpawn() {
-        if (dynamicSpawn.x() == currentX && dynamicSpawn.y() == currentY) {
-            return;
-        }
-        dynamicSpawn = buildSpawnAt(currentX, currentY);
     }
 }

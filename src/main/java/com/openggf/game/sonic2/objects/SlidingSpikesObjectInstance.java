@@ -73,8 +73,6 @@ public class SlidingSpikesObjectInstance extends AbstractObjectInstance
     private int currentX;
     private int slidingRemainingMovement = 0;
     private int currentSubtype;  // 0 = waiting, 2 = sliding
-    private ObjectSpawn dynamicSpawn;
-
     // Orientation from spawn render_flags
     private final boolean hFlip;
 
@@ -105,7 +103,6 @@ public class SlidingSpikesObjectInstance extends AbstractObjectInstance
         super(spawn, name);
         this.baseX = spawn.x();
         this.currentX = baseX;
-        this.dynamicSpawn = spawn;
         // Extract h_flip from render_flags bit 0 (status.npc.x_flip in disassembly)
         this.hFlip = (spawn.renderFlags() & 0x01) != 0;
         // subtype starts at 0 (waiting mode)
@@ -144,7 +141,7 @@ public class SlidingSpikesObjectInstance extends AbstractObjectInstance
             slideOut();
         }
 
-        updateDynamicSpawn();
+        updateDynamicSpawn(currentX, spawn.y());
     }
 
     @Override
@@ -192,12 +189,6 @@ public class SlidingSpikesObjectInstance extends AbstractObjectInstance
         }
         player.applyHurtOrDeath(currentX, true, hadRings);
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn;
-    }
-
     @Override
     public int getPriorityBucket() {
         return RenderPriority.clamp(4);
@@ -298,15 +289,7 @@ public class SlidingSpikesObjectInstance extends AbstractObjectInstance
 
     /**
      * Update dynamic spawn to reflect current position for collision detection.
-     */
-    private void updateDynamicSpawn() {
-        if (dynamicSpawn.x() == currentX) {
-            return;
-        }
-        dynamicSpawn = buildSpawnAt(currentX, spawn.y());
-    }
-
-    /**
+     */    /**
      * Render using mixed art sources.
      * <p>
      * Body pieces (tiles 0x40/0x48) use level art patterns (ArtTile_ArtKos_LevelArt).

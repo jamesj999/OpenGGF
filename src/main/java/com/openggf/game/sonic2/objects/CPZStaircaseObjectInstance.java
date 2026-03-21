@@ -74,9 +74,6 @@ public class CPZStaircaseObjectInstance extends AbstractObjectInstance
     private int lastTopContactFrame = -2;
     private int lastBottomContactFrame = -2;
 
-    // Dynamic spawn for position tracking
-    private ObjectSpawn dynamicSpawn;
-
     public CPZStaircaseObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
         this.baseX = spawn.x();
@@ -105,7 +102,7 @@ public class CPZStaircaseObjectInstance extends AbstractObjectInstance
         // Apply initial staircase interpolation
         applyStaircaseInterpolation();
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(baseX, baseY + yOffsets[0]);
     }
 
     @Override
@@ -117,12 +114,6 @@ public class CPZStaircaseObjectInstance extends AbstractObjectInstance
     public int getY() {
         return baseY;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     // MultiPieceSolidProvider implementation
 
     @Override
@@ -214,7 +205,7 @@ public class CPZStaircaseObjectInstance extends AbstractObjectInstance
         // Apply staircase interpolation to all pieces
         applyStaircaseInterpolation();
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(baseX, baseY + yOffsets[0]);
     }
 
     /**
@@ -363,14 +354,6 @@ public class CPZStaircaseObjectInstance extends AbstractObjectInstance
 
             // Draw the stair block at this position (frame 2 = single 32x32 block)
             renderer.drawFrameIndex(2, pieceX, pieceY, xFlip, false);
-        }
-    }
-
-    private void refreshDynamicSpawn() {
-        // Track the position of the first piece for riding calculations
-        int pieceY = baseY + yOffsets[0];
-        if (dynamicSpawn == null || dynamicSpawn.y() != pieceY) {
-            dynamicSpawn = buildSpawnAt(baseX, pieceY);
         }
     }
 

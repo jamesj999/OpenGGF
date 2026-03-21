@@ -74,9 +74,6 @@ public class SteamSpringObjectInstance extends AbstractObjectInstance
     private int timer;           // objoff_32: countdown timer for wait states
     private int state;           // routine_secondary / 2
 
-    // Dynamic spawn for solid collision (Y position changes)
-    private ObjectSpawn dynamicSpawn;
-
     public SteamSpringObjectInstance(ObjectSpawn spawn) {
         // ROM: move.w y_pos(a0),objoff_34(a0) stores original Y
         // ROM: addi.w #$10,y_pos(a0) shifts visible position down 16px
@@ -85,7 +82,7 @@ public class SteamSpringObjectInstance extends AbstractObjectInstance
         this.yOffset = INITIAL_Y_OFFSET;
         this.timer = 0;
         this.state = STATE_WAIT_BEFORE_RISE;
-        updateDynamicSpawn();
+        updateDynamicSpawn(spawn.x(), baseY + yOffset);
     }
 
     @Override
@@ -96,7 +93,7 @@ public class SteamSpringObjectInstance extends AbstractObjectInstance
             case STATE_WAIT_BEFORE_SINK -> updateWaitBeforeSink();
             case STATE_SINKING -> updateSinking();
         }
-        updateDynamicSpawn();
+        updateDynamicSpawn(spawn.x(), baseY + yOffset);
     }
 
     // ROM: routine_secondary == 0 (loc_266C6)
@@ -275,20 +272,6 @@ public class SteamSpringObjectInstance extends AbstractObjectInstance
         // ROM: y_pos = objoff_34 + objoff_36 (base + offset)
         return baseY + yOffset;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn;
-    }
-
-    private void updateDynamicSpawn() {
-        int currentY = baseY + yOffset;
-        if (dynamicSpawn != null && dynamicSpawn.y() == currentY) {
-            return;
-        }
-        dynamicSpawn = buildSpawnAt(spawn.x(), currentY);
-    }
-
     // --- Rendering ---
 
     @Override

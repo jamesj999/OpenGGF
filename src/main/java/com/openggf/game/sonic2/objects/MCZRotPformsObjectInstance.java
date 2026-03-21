@@ -107,9 +107,6 @@ public class MCZRotPformsObjectInstance extends AbstractObjectInstance
     private final boolean yFlip;
     private final boolean isParent;  // Subtype 0x18 parent doesn't render
 
-    // Dynamic spawn for moving position
-    private ObjectSpawn dynamicSpawn;
-
     // Child tracking for cleanup on unload
     private final List<MCZRotPformsObjectInstance> children = new ArrayList<>();
 
@@ -151,7 +148,7 @@ public class MCZRotPformsObjectInstance extends AbstractObjectInstance
             spawnChildren();
         }
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
 
         LOGGER.fine(() -> String.format(
                 "MCZRotPforms init: pos=(%d,%d), subtype=0x%02X, xFlip=%b, isParent=%b",
@@ -167,12 +164,6 @@ public class MCZRotPformsObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public SolidObjectParams getSolidParams() {
         // From disassembly lines 53771-53777:
@@ -240,7 +231,7 @@ public class MCZRotPformsObjectInstance extends AbstractObjectInstance
 
         prevStandingFlags = playerStanding ? 1 : 0;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -403,12 +394,6 @@ public class MCZRotPformsObjectInstance extends AbstractObjectInstance
         if (renderer != null && renderer.isReady()) {
             // Frame 0 is the crate
             renderer.drawFrameIndex(0, x, y, xFlip, yFlip);
-        }
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
         }
     }
 

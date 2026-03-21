@@ -93,9 +93,6 @@ public class Sonic1MzBrickObjectInstance extends AbstractObjectInstance
     // Fractional Y accumulator for 16.16 fixed-point position during falling (SpeedToPos)
     private int ySubpixel;
 
-    // Dynamic spawn for position updates
-    private ObjectSpawn dynamicSpawn;
-
     public Sonic1MzBrickObjectInstance(ObjectSpawn spawn) {
         super(spawn, "MzBrick");
 
@@ -109,7 +106,7 @@ public class Sonic1MzBrickObjectInstance extends AbstractObjectInstance
         this.yVelocity = 0;
         this.ySubpixel = 0;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -121,12 +118,6 @@ public class Sonic1MzBrickObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         // From disassembly: tst.b obRender(a0) / bpl.s .chkdel
@@ -144,7 +135,7 @@ public class Sonic1MzBrickObjectInstance extends AbstractObjectInstance
             default -> { /* Types 5-7 not used in MZ placements */ }
         }
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -351,11 +342,5 @@ public class Sonic1MzBrickObjectInstance extends AbstractObjectInstance
             default -> String.format("MZBrick:T%d", behaviorType);
         };
         ctx.drawWorldLabel(x, y, -2, typeLabel, DebugColor.CYAN);
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
-        }
     }
 }

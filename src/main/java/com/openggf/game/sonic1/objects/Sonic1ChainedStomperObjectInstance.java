@@ -194,8 +194,6 @@ public class Sonic1ChainedStomperObjectInstance extends AbstractObjectInstance
     // Ceiling sub-object Y (routine 6: static display)
     private final int ceilingY;
 
-    // Dynamic spawn for position updates
-    private ObjectSpawn dynamicSpawn;
     private final TouchRegion[] spikeTouchRegion = new TouchRegion[1];
 
     public Sonic1ChainedStomperObjectInstance(ObjectSpawn spawn) {
@@ -278,7 +276,7 @@ public class Sonic1ChainedStomperObjectInstance extends AbstractObjectInstance
 
         // Apply initial Y offset
         updatePositions();
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -290,12 +288,6 @@ public class Sonic1ChainedStomperObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         // Main block behavior: loc_B798 (routine 2)
@@ -304,7 +296,7 @@ public class Sonic1ChainedStomperObjectInstance extends AbstractObjectInstance
 
         // Update all sub-object positions based on current yOffset
         updatePositions();
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -666,11 +658,5 @@ public class Sonic1ChainedStomperObjectInstance extends AbstractObjectInstance
         String label = String.format("CStom:T%d off=%d/%d v=%d",
                 typeIndex, (yOffset >> 8) & 0xFF, (maxFallDistance >> 8) & 0xFF, yVelocity);
         ctx.drawWorldLabel(x, y, -2, label, DebugColor.CYAN);
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
-        }
     }
 }

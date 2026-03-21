@@ -206,9 +206,6 @@ public class SmallMetalPformObjectInstance extends AbstractObjectInstance {
         private int animFrameIndex;  // index into UNFOLD_FRAMES or FOLD_FRAMES
         private int animDelayCounter;
 
-        // Dynamic spawn for moving Y position
-        private ObjectSpawn dynamicSpawn;
-
         /**
          * Create a child platform instance.
          *
@@ -242,7 +239,7 @@ public class SmallMetalPformObjectInstance extends AbstractObjectInstance {
             this.animFrameIndex = -1;
             this.animDelayCounter = 0;
 
-            refreshDynamicSpawn();
+            updateDynamicSpawn(currentX, currentY);
         }
 
         @Override
@@ -254,12 +251,6 @@ public class SmallMetalPformObjectInstance extends AbstractObjectInstance {
         public int getY() {
             return currentY;
         }
-
-        @Override
-        public ObjectSpawn getSpawn() {
-            return dynamicSpawn != null ? dynamicSpawn : spawn;
-        }
-
         @Override
         public int getPriorityBucket() {
             // subObjData: priority = 4
@@ -274,7 +265,7 @@ public class SmallMetalPformObjectInstance extends AbstractObjectInstance {
                 case FOLD -> updateFold();
                 case DELETE -> updateDelete();
             }
-            refreshDynamicSpawn();
+            updateDynamicSpawn(currentX, currentY);
         }
 
         // ================================================================
@@ -414,13 +405,6 @@ public class SmallMetalPformObjectInstance extends AbstractObjectInstance {
                             state.name(), mappingFrame, moveTimer, yVelocity),
                     DebugColor.GREEN);
         }
+}
 
-        private void refreshDynamicSpawn() {
-            if (dynamicSpawn == null || dynamicSpawn.y() != currentY) {
-                dynamicSpawn = new ObjectSpawn(
-                        currentX, currentY, spawn.objectId(), spawn.subtype(),
-                        spawn.renderFlags(), false, spawn.rawYWord());
-            }
-        }
-    }
 }

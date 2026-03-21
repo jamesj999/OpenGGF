@@ -74,8 +74,6 @@ public class BarrierObjectInstance extends AbstractObjectInstance implements Sol
     private boolean wasMovingUp; // Previous frame's movingUp state for detection boundary calculation
     private boolean xFlip;
 
-    private ObjectSpawn dynamicSpawn;
-
     public BarrierObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
         init();
@@ -90,12 +88,6 @@ public class BarrierObjectInstance extends AbstractObjectInstance implements Sol
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         // Calculate detection boundaries using PREVIOUS frame's movingUp state
@@ -156,7 +148,7 @@ public class BarrierObjectInstance extends AbstractObjectInstance implements Sol
         // Save current movingUp state for next frame's detection boundary calculation
         wasMovingUp = movingUp;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -261,12 +253,6 @@ public class BarrierObjectInstance extends AbstractObjectInstance implements Sol
             rightBoundary = x + X_RIGHT_OFFSET + X_FLIP_RIGHT_ADD;
         }
 
-        refreshDynamicSpawn();
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
-        }
+        updateDynamicSpawn(x, y);
     }
 }

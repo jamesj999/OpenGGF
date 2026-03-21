@@ -80,8 +80,6 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
     // Zone-specific rendering: MCZ uses level art, CPZ uses dedicated stair block art
     private final boolean isMcz;
 
-    private ObjectSpawn dynamicSpawn;
-
     /**
      * Creates a new SidewaysPform instance.
      *
@@ -121,12 +119,6 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public SolidObjectParams getSolidParams() {
         return new SolidObjectParams(HALF_WIDTH, HALF_HEIGHT, HALF_HEIGHT);
@@ -150,7 +142,7 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         applyMovement();
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -259,7 +251,7 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
         // Direction: subtype 0x0C starts moving left (direction=1), others start moving right
         direction = (spawn.subtype() == 0x0C) ? 1 : 0;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
 
         // Create child platform if needed
         if (totalChildren > 0 && !isChild) {
@@ -286,7 +278,7 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
         // Only the parent of subtype 0x0C gets direction=1; child is fresh allocation
         direction = 0;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     private void createChildPlatform(int childXOffset) {
@@ -373,12 +365,6 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
             case 0x12 -> 3;
             default -> 0;  // Default to first entry
         };
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
-        }
     }
 
     @Override

@@ -87,9 +87,6 @@ public class Sonic1RunningDiscObjectInstance extends AbstractObjectInstance {
     // disc_sonic_attached = objoff_3A: whether Sonic is currently attached
     private boolean sonicAttached;
 
-    // Dynamic spawn for position tracking
-    private ObjectSpawn dynamicSpawn;
-
     public Sonic1RunningDiscObjectInstance(ObjectSpawn spawn) {
         super(spawn, "RunningDisc");
 
@@ -125,7 +122,7 @@ public class Sonic1RunningDiscObjectInstance extends AbstractObjectInstance {
 
         // Calculate initial spot position
         updateSpotPosition();
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -146,12 +143,6 @@ public class Sonic1RunningDiscObjectInstance extends AbstractObjectInstance {
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         if (isDestroyed()) {
@@ -161,7 +152,7 @@ public class Sonic1RunningDiscObjectInstance extends AbstractObjectInstance {
         // Disc_Action: bsr.w Disc_MoveSonic / bsr.w Disc_MoveSpot / bra.w Disc_ChkDel
         updateSonicAttachment(player);
         updateSpotPosition();
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -386,12 +377,6 @@ public class Sonic1RunningDiscObjectInstance extends AbstractObjectInstance {
         int distance = (objRounded - camRounded) & 0xFFFF;
         // out_of_range: cmpi.w #128+320+192,d0 / bhi.s exit
         return distance <= (128 + 320 + 192);
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
-        }
     }
 
     // ---- Debug rendering ----

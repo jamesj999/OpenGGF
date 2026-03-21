@@ -128,9 +128,6 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
     private final boolean routeEnabled;
     private int currentY;
 
-    /** Dynamic spawn for Y position updates. */
-    private ObjectSpawn dynamicSpawn;
-
     /** Cached frame counter from last update for use in onSolidContact. */
     private int lastFrameCounter;
 
@@ -147,7 +144,7 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
         this.widthPixels = SUBTYPE_WIDTHS[widthIndex];
         this.routeEnabled = isEnabledForCurrentRoute(subtype, Camera.getInstance().getY());
 
-        updateDynamicSpawn();
+        updateDynamicSpawn(baseX, currentY);
     }
 
     /**
@@ -186,7 +183,7 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
         int bgYOffset = Sonic2LevelEventManager.getInstance().getCameraBgYOffset();
         currentY = baseY + bgYOffset;
 
-        updateDynamicSpawn();
+        updateDynamicSpawn(baseX, currentY);
 
         // Note: Hurt check for subtype 6 is handled in onSolidContact callback
         // when the player is standing on this platform
@@ -228,18 +225,6 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
     public int getY() {
         return currentY;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn;
-    }
-
-    private void updateDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.y() != currentY) {
-            dynamicSpawn = buildSpawnAt(baseX, currentY);
-        }
-    }
-
     // ========================================================================
     // SolidObjectProvider Implementation
     // ========================================================================

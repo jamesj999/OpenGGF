@@ -95,9 +95,6 @@ public class HTZLiftObjectInstance extends AbstractObjectInstance
     // Track if scenery spawned
     private boolean scenerySpawned;
 
-    // Dynamic spawn for moving position
-    private ObjectSpawn dynamicSpawn;
-
     public HTZLiftObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
         this.baseX = spawn.x();
@@ -117,7 +114,7 @@ public class HTZLiftObjectInstance extends AbstractObjectInstance
         this.yVel = 0;
         this.scenerySpawned = false;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(xFixed >> 8, yFixed >> 8);
 
         LOGGER.fine(() -> String.format(
                 "HTZLift init: pos=(%d,%d), subtype=0x%02X, duration=%d frames, flipped=%b",
@@ -133,12 +130,6 @@ public class HTZLiftObjectInstance extends AbstractObjectInstance
     public int getY() {
         return yFixed >> 8;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         if (isDestroyed()) {
@@ -151,7 +142,7 @@ public class HTZLiftObjectInstance extends AbstractObjectInstance
             case STATE_FALL -> updateFall(player);
         }
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(xFixed >> 8, yFixed >> 8);
     }
 
     /**
@@ -310,14 +301,5 @@ public class HTZLiftObjectInstance extends AbstractObjectInstance
     @Override
     public int getPriorityBucket() {
         return RenderPriority.clamp(PRIORITY);
-    }
-
-    private void refreshDynamicSpawn() {
-        int currentX = xFixed >> 8;
-        int currentY = yFixed >> 8;
-
-        if (dynamicSpawn == null || dynamicSpawn.x() != currentX || dynamicSpawn.y() != currentY) {
-            dynamicSpawn = buildSpawnAt(currentX, currentY);
-        }
     }
 }

@@ -120,8 +120,6 @@ public class MTZTwinStompersObjectInstance extends AbstractObjectInstance
     private int extension;             // objoff_3A: current extension amount (0 to maxTravel)
     private int timer;                 // objoff_36: countdown timer
 
-    private ObjectSpawn dynamicSpawn;
-
     public MTZTwinStompersObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
 
@@ -162,7 +160,7 @@ public class MTZTwinStompersObjectInstance extends AbstractObjectInstance
         extension = 0;
         timer = 0;
 
-        dynamicSpawn = spawn;
+        updateDynamicSpawn(baseX, currentY);
     }
 
     @Override
@@ -174,12 +172,6 @@ public class MTZTwinStompersObjectInstance extends AbstractObjectInstance
     public int getY() {
         return currentY;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn;
-    }
-
     @Override
     public SolidObjectParams getSolidParams() {
         // s2.asm:52260-52267: d1 = width_pixels + $B, d2 = objoff_2E, d3 = objoff_2E + 1
@@ -219,7 +211,7 @@ public class MTZTwinStompersObjectInstance extends AbstractObjectInstance
         }
         // Mode 0 is just rts (no movement)
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(baseX, currentY);
     }
 
     /**
@@ -309,12 +301,6 @@ public class MTZTwinStompersObjectInstance extends AbstractObjectInstance
                         descIndex |= (finalPalette & 0x3) << 13;
                         graphicsManager.renderPattern(new PatternDesc(descIndex), drawX, drawY);
                     });
-        }
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn.y() != currentY) {
-            dynamicSpawn = buildSpawnAt(baseX, currentY);
         }
     }
 

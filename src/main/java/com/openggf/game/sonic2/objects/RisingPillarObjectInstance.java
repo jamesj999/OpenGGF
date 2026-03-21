@@ -99,8 +99,6 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
     private int velY;
     private int debrisDelay;       // objoff_3F in ROM - delay before debris starts moving
     private SpriteMappingPiece debrisPiece;  // single piece for debris mode
-    private ObjectSpawn dynamicSpawn;
-
     public RisingPillarObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
         this.x = spawn.x();
@@ -117,7 +115,7 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
         this.debrisDelay = 0;
         this.debrisPiece = null;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -129,12 +127,6 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         if (routine == 2) {
@@ -142,7 +134,7 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
         } else if (routine == 4) {
             updateDebris();
         }
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -417,12 +409,6 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
     public boolean isSolidFor(AbstractPlayableSprite player) {
         // Only solid in main routine (not when debris)
         return routine == 2 && !isDestroyed();
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
-        }
     }
 
     @Override

@@ -144,8 +144,6 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
     private final int baseY;
     private int currentX;
     private int currentY;
-    private ObjectSpawn dynamicSpawn;
-
     private final ZoneVariant variant;
     private final int sizeIndex;
     private final int behaviorBits;
@@ -178,7 +176,6 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
         this.baseY = spawn.y();
         this.currentX = baseX;
         this.currentY = baseY;
-        this.dynamicSpawn = spawn;
 
         this.sizeIndex = (spawn.subtype() >> 4) & 0x07;
         int lowerNibble = spawn.subtype() & 0x0F;
@@ -310,7 +307,7 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
         playerStandingOnRock = false;
         playerPushingSide = false;
 
-        updateDynamicSpawn();
+        updateDynamicSpawn(currentX, currentY);
     }
 
     /**
@@ -375,12 +372,6 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
         // +0x0B offset verified: sonic3k.asm:43924 (addi.w #$B,d1 before SolidObjectFull call)
         return new SolidObjectParams(halfWidth + 0x0B, halfHeight, halfHeight + 1);
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn;
-    }
-
     @Override
     public int getX() {
         return currentX;
@@ -523,13 +514,6 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
         // ROM: subq.w #1,x_pos(a0) / subq.w #1,x_pos(a1) — push LEFT
         currentX--;
         player.setCentreX((short) (playerX - 1));
-    }
-
-    private void updateDynamicSpawn() {
-        if (dynamicSpawn.x() == currentX && dynamicSpawn.y() == currentY) {
-            return;
-        }
-        dynamicSpawn = buildSpawnAt(currentX, currentY);
     }
 
     /**

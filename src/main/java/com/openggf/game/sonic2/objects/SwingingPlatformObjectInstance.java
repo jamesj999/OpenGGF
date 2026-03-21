@@ -123,8 +123,6 @@ public class SwingingPlatformObjectInstance extends AbstractObjectInstance
 
     // Player tracking
     private boolean playerStanding;
-    private ObjectSpawn dynamicSpawn;
-
     public SwingingPlatformObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
         this.baseX = spawn.x();
@@ -162,7 +160,7 @@ public class SwingingPlatformObjectInstance extends AbstractObjectInstance
 
         // Calculate initial positions
         updatePositions(0);
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
 
         LOGGER.fine(() -> String.format(
                 "SwingingPlatform init: pos=(%d,%d), subtype=0x%02X, chains=%d, mode=%s, zone=%s",
@@ -192,12 +190,6 @@ public class SwingingPlatformObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         if (isDestroyed()) {
@@ -213,7 +205,7 @@ public class SwingingPlatformObjectInstance extends AbstractObjectInstance
             case STATIC -> { /* No update needed */ }
         }
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -482,12 +474,6 @@ public class SwingingPlatformObjectInstance extends AbstractObjectInstance
     @Override
     public boolean isSolidFor(AbstractPlayableSprite player) {
         return !isDestroyed();
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = buildSpawnAt(x, y);
-        }
     }
 
     @Override
