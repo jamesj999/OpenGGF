@@ -1,6 +1,6 @@
 package com.openggf.game.sonic1;
 
-import com.openggf.game.ZoneRegistry;
+import com.openggf.game.AbstractZoneRegistry;
 import com.openggf.game.sonic1.audio.Sonic1Music;
 import com.openggf.level.LevelData;
 
@@ -10,20 +10,7 @@ import java.util.List;
  * Zone registry for Sonic the Hedgehog 1.
  * Defines all main gameplay zones, Final Zone, and the ending sequence variants.
  */
-public class Sonic1ZoneRegistry implements ZoneRegistry {
-    private static final Sonic1ZoneRegistry INSTANCE = new Sonic1ZoneRegistry();
-
-    // Gameplay progression order: GHZ → MZ → SYZ → LZ → SLZ → SBZ → FZ → ENDING
-    private final List<List<LevelData>> zones = List.of(
-            List.of(LevelData.S1_GREEN_HILL_1, LevelData.S1_GREEN_HILL_2, LevelData.S1_GREEN_HILL_3),
-            List.of(LevelData.S1_MARBLE_1, LevelData.S1_MARBLE_2, LevelData.S1_MARBLE_3),
-            List.of(LevelData.S1_SPRING_YARD_1, LevelData.S1_SPRING_YARD_2, LevelData.S1_SPRING_YARD_3),
-            List.of(LevelData.S1_LABYRINTH_1, LevelData.S1_LABYRINTH_2, LevelData.S1_LABYRINTH_3),
-            List.of(LevelData.S1_STAR_LIGHT_1, LevelData.S1_STAR_LIGHT_2, LevelData.S1_STAR_LIGHT_3),
-            List.of(LevelData.S1_SCRAP_BRAIN_1, LevelData.S1_SCRAP_BRAIN_2, LevelData.S1_SCRAP_BRAIN_3),
-            List.of(LevelData.S1_FINAL_ZONE),
-            List.of(LevelData.S1_ENDING_FLOWERS, LevelData.S1_ENDING_NO_EMERALDS)
-    );
+public class Sonic1ZoneRegistry extends AbstractZoneRegistry {
 
     private static final String[] ZONE_NAMES = {
             "GREEN HILL",
@@ -47,32 +34,24 @@ public class Sonic1ZoneRegistry implements ZoneRegistry {
             Sonic1Music.ENDING.id // Ending sequence
     };
 
+    private static final Sonic1ZoneRegistry INSTANCE = new Sonic1ZoneRegistry();
+
     private Sonic1ZoneRegistry() {
+        // Gameplay progression order: GHZ -> MZ -> SYZ -> LZ -> SLZ -> SBZ -> FZ -> ENDING
+        super(List.of(
+                List.of(LevelData.S1_GREEN_HILL_1, LevelData.S1_GREEN_HILL_2, LevelData.S1_GREEN_HILL_3),
+                List.of(LevelData.S1_MARBLE_1, LevelData.S1_MARBLE_2, LevelData.S1_MARBLE_3),
+                List.of(LevelData.S1_SPRING_YARD_1, LevelData.S1_SPRING_YARD_2, LevelData.S1_SPRING_YARD_3),
+                List.of(LevelData.S1_LABYRINTH_1, LevelData.S1_LABYRINTH_2, LevelData.S1_LABYRINTH_3),
+                List.of(LevelData.S1_STAR_LIGHT_1, LevelData.S1_STAR_LIGHT_2, LevelData.S1_STAR_LIGHT_3),
+                List.of(LevelData.S1_SCRAP_BRAIN_1, LevelData.S1_SCRAP_BRAIN_2, LevelData.S1_SCRAP_BRAIN_3),
+                List.of(LevelData.S1_FINAL_ZONE),
+                List.of(LevelData.S1_ENDING_FLOWERS, LevelData.S1_ENDING_NO_EMERALDS)
+        ), ZONE_NAMES);
     }
 
     public static Sonic1ZoneRegistry getInstance() {
         return INSTANCE;
-    }
-
-    @Override
-    public int getZoneCount() {
-        return zones.size();
-    }
-
-    @Override
-    public int getActCount(int zoneIndex) {
-        if (zoneIndex < 0 || zoneIndex >= zones.size()) {
-            return 0;
-        }
-        return zones.get(zoneIndex).size();
-    }
-
-    @Override
-    public String getZoneName(int zoneIndex) {
-        if (zoneIndex < 0 || zoneIndex >= ZONE_NAMES.length) {
-            return "UNKNOWN";
-        }
-        return ZONE_NAMES[zoneIndex];
     }
 
     @Override
@@ -86,19 +65,6 @@ public class Sonic1ZoneRegistry implements ZoneRegistry {
         }
         LevelData level = acts.get(actIndex);
         return new int[]{level.getStartXPos(), level.getStartYPos()};
-    }
-
-    @Override
-    public List<LevelData> getLevelDataForZone(int zoneIndex) {
-        if (zoneIndex < 0 || zoneIndex >= zones.size()) {
-            return List.of();
-        }
-        return zones.get(zoneIndex);
-    }
-
-    @Override
-    public List<List<LevelData>> getAllZones() {
-        return zones;
     }
 
     @Override
