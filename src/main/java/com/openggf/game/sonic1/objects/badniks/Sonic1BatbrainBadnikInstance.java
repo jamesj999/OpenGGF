@@ -14,6 +14,7 @@ import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import com.openggf.debug.DebugColor;
@@ -103,8 +104,7 @@ public class Sonic1BatbrainBadnikInstance extends AbstractBadnikInstance {
     private int state;              // ob2ndRout / 2
     private int currentAnim;        // Current animation ID
     private int animTickCounter;    // Ticks within current animation
-    private int xSubpixel;          // Fractional X for SpeedToPos
-    private int ySubpixel;          // Fractional Y for SpeedToPos
+    private final SubpixelMotion.State motionState; // Subpixel position/velocity state
     private int targetY;            // objoff_36: Sonic's Y position when drop was initiated
     private final int slotSalt;     // d7 proxy: randomization value derived from spawn position
 
@@ -119,8 +119,7 @@ public class Sonic1BatbrainBadnikInstance extends AbstractBadnikInstance {
         this.animTickCounter = 0;
         this.xVelocity = 0;
         this.yVelocity = 0;
-        this.xSubpixel = 0;
-        this.ySubpixel = 0;
+        this.motionState = new SubpixelMotion.State(spawn.x(), spawn.y(), 0, 0, 0, 0);
         this.targetY = 0;
         // d7 in the ROM is the object's RAM slot offset, which varies per spawn.
         // We derive a deterministic salt from the spawn position to replicate
@@ -335,8 +334,8 @@ public class Sonic1BatbrainBadnikInstance extends AbstractBadnikInstance {
             currentX = currentX & 0xFFF8;
             xVelocity = 0;
             yVelocity = 0;
-            xSubpixel = 0;
-            ySubpixel = 0;
+            motionState.xSub = 0;
+            motionState.ySub = 0;
             setAnimation(ANIM_STILL);
             state = STATE_DROP_CHECK;
         }
@@ -365,17 +364,13 @@ public class Sonic1BatbrainBadnikInstance extends AbstractBadnikInstance {
      * ROM SpeedToPos adds 16-bit velocity (subpixels) to 16.8 position.
      */
     private void applyVelocity() {
-        // X movement
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
-        xPos24 += xVelocity;
-        currentX = xPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
-
-        // Y movement
-        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
-        yPos24 += yVelocity;
-        currentY = yPos24 >> 8;
-        ySubpixel = yPos24 & 0xFF;
+        motionState.x = currentX;
+        motionState.y = currentY;
+        motionState.xVel = xVelocity;
+        motionState.yVel = yVelocity;
+        SubpixelMotion.moveSprite2(motionState);
+        currentX = motionState.x;
+        currentY = motionState.y;
     }
 
     /**

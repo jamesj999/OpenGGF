@@ -6,6 +6,7 @@ import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
@@ -56,7 +57,7 @@ public class RexonBadnikInstance extends AbstractBadnikInstance
 
     private State state;
     private int patrolTimer;
-    private int xSubpixel;
+    private final SubpixelMotion.State motionState;
     private boolean xFlipFlag;
     private final List<RexonHeadObjectInstance> heads = new ArrayList<>();
 
@@ -66,7 +67,7 @@ public class RexonBadnikInstance extends AbstractBadnikInstance
         this.currentY = spawn.y();
         this.xVelocity = X_VELOCITY;
         this.patrolTimer = PATROL_TIMER;
-        this.xSubpixel = 0;
+        this.motionState = new SubpixelMotion.State(spawn.x(), spawn.y(), 0, 0, 0, 0);
         this.state = State.WAIT_FOR_PLAYER;
 
         // Initial flip from spawn
@@ -101,10 +102,10 @@ public class RexonBadnikInstance extends AbstractBadnikInstance
         }
 
         // Apply velocity (8.8 fixed point)
-        int xPos32 = (currentX << 8) | (xSubpixel & 0xFF);
-        xPos32 += xVelocity;
-        currentX = xPos32 >> 8;
-        xSubpixel = xPos32 & 0xFF;
+        motionState.x = currentX;
+        motionState.xVel = xVelocity;
+        SubpixelMotion.moveX(motionState);
+        currentX = motionState.x;
     }
 
     /**

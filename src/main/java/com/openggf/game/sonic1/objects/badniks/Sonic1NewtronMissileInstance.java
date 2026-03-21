@@ -7,6 +7,7 @@ import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -44,7 +45,7 @@ public class Sonic1NewtronMissileInstance extends AbstractObjectInstance
     private int currentX;
     private int currentY;
     private final int xVelocity;
-    private int xSubpixel;
+    private final SubpixelMotion.State motionState;
     private final boolean facingLeft;
 
     private int animTimer;
@@ -63,7 +64,7 @@ public class Sonic1NewtronMissileInstance extends AbstractObjectInstance
         this.currentX = x;
         this.currentY = y;
         this.xVelocity = xVel;
-        this.xSubpixel = 0;
+        this.motionState = new SubpixelMotion.State(x, y, 0, 0, xVel, 0);
         this.facingLeft = facingLeft;
         this.animTimer = 0;
         this.animFrame = 0;
@@ -79,10 +80,10 @@ public class Sonic1NewtronMissileInstance extends AbstractObjectInstance
         }
 
         // SpeedToPos: apply horizontal velocity with subpixel precision
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
-        xPos24 += xVelocity;
-        currentX = xPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
+        motionState.x = currentX;
+        motionState.xVel = xVelocity;
+        SubpixelMotion.moveX(motionState);
+        currentX = motionState.x;
 
         // Animate: alternate frames 2-3 (Ball1/Ball2) at speed 1
         animTimer++;

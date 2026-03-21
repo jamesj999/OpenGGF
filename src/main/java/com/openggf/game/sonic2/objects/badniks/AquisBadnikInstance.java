@@ -8,6 +8,7 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.animation.SpriteAnimationEndAction;
 import com.openggf.sprites.animation.SpriteAnimationScript;
@@ -55,8 +56,7 @@ public class AquisBadnikInstance extends AbstractBadnikInstance {
     private int timer;
     private int shotsRemaining;
     private boolean shootingFlag; // prevents double-fire per shooting phase
-    private int xSubpixel;
-    private int ySubpixel;
+    private final SubpixelMotion.State motionState;
     private final ObjectAnimationState animationState;
 
     // Wing child state
@@ -69,8 +69,7 @@ public class AquisBadnikInstance extends AbstractBadnikInstance {
         this.timer = 0;
         this.shotsRemaining = INITIAL_SHOTS;
         this.shootingFlag = false;
-        this.xSubpixel = 0;
-        this.ySubpixel = 0;
+        this.motionState = new SubpixelMotion.State(spawn.x(), spawn.y(), 0, 0, 0, 0);
         this.facingLeft = (spawn.renderFlags() & 0x01) != 0;
         this.animationState = new ObjectAnimationState(ANIMATIONS, 0, 0);
         this.wingAnimationState = new ObjectAnimationState(WING_ANIMATIONS, 0, 1);
@@ -201,14 +200,13 @@ public class AquisBadnikInstance extends AbstractBadnikInstance {
     }
 
     private void applyMovement() {
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
-        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
-        xPos24 += xVelocity;
-        yPos24 += yVelocity;
-        currentX = xPos24 >> 8;
-        currentY = yPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
-        ySubpixel = yPos24 & 0xFF;
+        motionState.x = currentX;
+        motionState.y = currentY;
+        motionState.xVel = xVelocity;
+        motionState.yVel = yVelocity;
+        SubpixelMotion.moveSprite2(motionState);
+        currentX = motionState.x;
+        currentY = motionState.y;
     }
 
     private static int clampSpeed(int velocity, int max) {

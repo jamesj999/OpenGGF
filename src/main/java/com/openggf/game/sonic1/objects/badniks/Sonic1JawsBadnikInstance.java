@@ -10,6 +10,7 @@ import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import com.openggf.debug.DebugColor;
@@ -61,7 +62,7 @@ public class Sonic1JawsBadnikInstance extends AbstractBadnikInstance {
 
     private int turnTimeCount;       // jaws_timecount (objoff_30): current countdown timer
     private final int turnTimeDelay; // jaws_timedelay (objoff_32): reload value for timer
-    private int xSubpixel;           // Fractional X position for SpeedToPos precision
+    private final SubpixelMotion.State motionState; // Subpixel position/velocity state
     private int animTickCounter;     // Ticks within current animation frame
     private int prevAnim;            // obPrevAni: tracks animation reset trigger
 
@@ -69,7 +70,7 @@ public class Sonic1JawsBadnikInstance extends AbstractBadnikInstance {
         super(spawn, levelManager, "Jaws");
         this.currentX = spawn.x();
         this.currentY = spawn.y();
-        this.xSubpixel = 0;
+        this.motionState = new SubpixelMotion.State(spawn.x(), spawn.y(), 0, 0, 0, 0);
         this.animTickCounter = 0;
         this.prevAnim = 0;
 
@@ -118,10 +119,10 @@ public class Sonic1JawsBadnikInstance extends AbstractBadnikInstance {
         }
 
         // SpeedToPos: apply velocity to X position with subpixel precision
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
-        xPos24 += xVelocity;
-        currentX = xPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
+        motionState.x = currentX;
+        motionState.xVel = xVelocity;
+        SubpixelMotion.moveX(motionState);
+        currentX = motionState.x;
     }
 
     @Override

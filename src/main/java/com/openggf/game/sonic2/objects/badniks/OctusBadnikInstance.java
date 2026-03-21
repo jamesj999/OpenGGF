@@ -8,6 +8,7 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.animation.SpriteAnimationEndAction;
 import com.openggf.sprites.animation.SpriteAnimationScript;
@@ -48,7 +49,7 @@ public class OctusBadnikInstance extends AbstractBadnikInstance {
     private final boolean xFlip;
     private State state;
     private int timer;
-    private int ySubpixel;
+    private final SubpixelMotion.State motionState;
     private boolean bulletFired;
     private final ObjectAnimationState animationState;
 
@@ -60,7 +61,7 @@ public class OctusBadnikInstance extends AbstractBadnikInstance {
         this.facingLeft = !xFlip;
         this.state = State.WAIT_FOR_PLAYER;
         this.timer = 0;
-        this.ySubpixel = 0;
+        this.motionState = new SubpixelMotion.State(spawn.x(), spawn.y(), 0, 0, 0, 0);
         this.bulletFired = false;
         this.animationState = new ObjectAnimationState(ANIMATIONS, 0, 1);
     }
@@ -136,7 +137,7 @@ public class OctusBadnikInstance extends AbstractBadnikInstance {
             // Returned to start position - reset
             currentY = startY;
             yVelocity = 0;
-            ySubpixel = 0;
+            motionState.ySub = 0;
             state = State.WAIT_FOR_PLAYER;
             bulletFired = false;
             animationState.setAnimId(0); // Back to idle
@@ -145,10 +146,10 @@ public class OctusBadnikInstance extends AbstractBadnikInstance {
     }
 
     private void applyYMovement() {
-        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
-        yPos24 += yVelocity;
-        currentY = yPos24 >> 8;
-        ySubpixel = yPos24 & 0xFF;
+        motionState.y = currentY;
+        motionState.yVel = yVelocity;
+        SubpixelMotion.moveSprite2(motionState);
+        currentY = motionState.y;
     }
 
     private void fireBullet() {

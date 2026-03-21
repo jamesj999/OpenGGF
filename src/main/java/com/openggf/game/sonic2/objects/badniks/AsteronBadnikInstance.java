@@ -10,6 +10,7 @@ import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -70,15 +71,13 @@ public class AsteronBadnikInstance extends AbstractBadnikInstance {
 
     private State state;
     private int moveTimer;
-    private int subPixelX;
-    private int subPixelY;
+    private final SubpixelMotion.State motionState;
 
     public AsteronBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
         super(spawn, levelManager, "Asteron");
         this.state = State.IDLE;
         this.moveTimer = 0;
-        this.subPixelX = 0;
-        this.subPixelY = 0;
+        this.motionState = new SubpixelMotion.State(spawn.x(), spawn.y(), 0, 0, 0, 0);
     }
 
     @Override
@@ -170,14 +169,13 @@ public class AsteronBadnikInstance extends AbstractBadnikInstance {
         }
 
         // ObjectMove: position += velocity (8.8 fixed point)
-        int xPos24 = (currentX << 8) | (subPixelX & 0xFF);
-        int yPos24 = (currentY << 8) | (subPixelY & 0xFF);
-        xPos24 += xVelocity;
-        yPos24 += yVelocity;
-        currentX = xPos24 >> 8;
-        currentY = yPos24 >> 8;
-        subPixelX = xPos24 & 0xFF;
-        subPixelY = yPos24 & 0xFF;
+        motionState.x = currentX;
+        motionState.y = currentY;
+        motionState.xVel = xVelocity;
+        motionState.yVel = yVelocity;
+        SubpixelMotion.moveSprite2(motionState);
+        currentX = motionState.x;
+        currentY = motionState.y;
     }
 
     /**

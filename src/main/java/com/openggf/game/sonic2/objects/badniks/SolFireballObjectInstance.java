@@ -8,6 +8,7 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.TrigLookupTable;
@@ -35,7 +36,7 @@ public class SolFireballObjectInstance extends AbstractObjectInstance implements
     private int currentX;
     private int currentY;
     private int xVelocity;
-    private int xSubpixel;
+    private final SubpixelMotion.State motionState;
 
     public SolFireballObjectInstance(ObjectSpawn spawn, SolBadnikInstance parent, int angle) {
         super(spawn, "SolFireball");
@@ -44,6 +45,7 @@ public class SolFireballObjectInstance extends AbstractObjectInstance implements
         this.state = State.ORBIT;
         this.currentX = parent != null ? parent.getX() : spawn.x();
         this.currentY = parent != null ? parent.getY() : spawn.y();
+        this.motionState = new SubpixelMotion.State(currentX, currentY, 0, 0, 0, 0);
         this.animationState = new ObjectAnimationState(SolBadnikInstance.getFireballAnimations(), 0, 3);
     }
 
@@ -81,10 +83,10 @@ public class SolFireballObjectInstance extends AbstractObjectInstance implements
     }
 
     private void updateFlying() {
-        int xPos32 = (currentX << 8) | (xSubpixel & 0xFF);
-        xPos32 += xVelocity;
-        currentX = xPos32 >> 8;
-        xSubpixel = xPos32 & 0xFF;
+        motionState.x = currentX;
+        motionState.xVel = xVelocity;
+        SubpixelMotion.moveX(motionState);
+        currentX = motionState.x;
 
         if (!isOnScreen()) {
             setDestroyed(true);

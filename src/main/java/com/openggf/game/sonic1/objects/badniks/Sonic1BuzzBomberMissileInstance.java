@@ -7,6 +7,7 @@ import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -58,8 +59,7 @@ public class Sonic1BuzzBomberMissileInstance extends AbstractObjectInstance
     private int currentY;
     private final int xVelocity;
     private final int yVelocity;
-    private int xSubpixel;
-    private int ySubpixel;
+    private final SubpixelMotion.State motionState;
     private final boolean facingLeft;
     private final Sonic1BuzzBomberBadnikInstance parent;
     private final LevelManager levelManager;
@@ -90,6 +90,7 @@ public class Sonic1BuzzBomberMissileInstance extends AbstractObjectInstance
         this.currentY = y;
         this.xVelocity = xVel;
         this.yVelocity = yVel;
+        this.motionState = new SubpixelMotion.State(x, y, 0, 0, xVel, yVel);
         this.facingLeft = facingLeft;
         this.parent = parent;
         this.levelManager = levelManager;
@@ -157,14 +158,13 @@ public class Sonic1BuzzBomberMissileInstance extends AbstractObjectInstance
      */
     private void updateActive() {
         // Apply velocity (SpeedToPos: 16.8 fixed-point)
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
-        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
-        xPos24 += xVelocity;
-        yPos24 += yVelocity;
-        currentX = xPos24 >> 8;
-        currentY = yPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
-        ySubpixel = yPos24 & 0xFF;
+        motionState.x = currentX;
+        motionState.y = currentY;
+        motionState.xVel = xVelocity;
+        motionState.yVel = yVelocity;
+        SubpixelMotion.moveSprite2(motionState);
+        currentX = motionState.x;
+        currentY = motionState.y;
 
         // Check if below level bottom boundary + $E0
         if (!isOnScreen(BOTTOM_MARGIN)) {

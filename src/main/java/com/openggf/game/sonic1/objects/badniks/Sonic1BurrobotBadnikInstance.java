@@ -11,6 +11,7 @@ import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -44,8 +45,7 @@ public class Sonic1BurrobotBadnikInstance extends AbstractBadnikInstance {
     private int state;
     private int stateTimer;
 
-    private int xSubpixel;
-    private int ySubpixel;
+    private final SubpixelMotion.State motionState;
     private boolean floorProbeToggle;
 
     private int animationId;
@@ -62,8 +62,7 @@ public class Sonic1BurrobotBadnikInstance extends AbstractBadnikInstance {
         this.state = STATE_CHECK_SONIC;
         this.stateTimer = 0;
 
-        this.xSubpixel = 0;
-        this.ySubpixel = 0;
+        this.motionState = new SubpixelMotion.State(spawn.x(), spawn.y(), 0, 0, 0, 0);
         this.floorProbeToggle = false;
 
         this.animationId = ANIM_DIGGING;
@@ -216,15 +215,13 @@ public class Sonic1BurrobotBadnikInstance extends AbstractBadnikInstance {
     }
 
     private void applySpeedToPos() {
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
-        xPos24 += xVelocity;
-        currentX = xPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
-
-        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
-        yPos24 += yVelocity;
-        currentY = yPos24 >> 8;
-        ySubpixel = yPos24 & 0xFF;
+        motionState.x = currentX;
+        motionState.y = currentY;
+        motionState.xVel = xVelocity;
+        motionState.yVel = yVelocity;
+        SubpixelMotion.moveSprite2(motionState);
+        currentX = motionState.x;
+        currentY = motionState.y;
     }
 
     @Override

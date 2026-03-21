@@ -10,6 +10,7 @@ import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import com.openggf.debug.DebugColor;
@@ -54,8 +55,7 @@ public class Sonic1BombShrapnelInstance extends AbstractObjectInstance
     private int currentY;
     private int xVelocity;
     private int yVelocity;
-    private int xSubpixel;
-    private int ySubpixel;
+    private final SubpixelMotion.State motionState;
     private int animTickCounter;
     private boolean destroyed;
 
@@ -76,8 +76,7 @@ public class Sonic1BombShrapnelInstance extends AbstractObjectInstance
         this.currentY = y;
         this.xVelocity = xVel;
         this.yVelocity = yVel;
-        this.xSubpixel = 0;
-        this.ySubpixel = 0;
+        this.motionState = new SubpixelMotion.State(x, y, 0, 0, xVel, yVel);
         this.animTickCounter = 0;
         this.destroyed = false;
     }
@@ -95,16 +94,14 @@ public class Sonic1BombShrapnelInstance extends AbstractObjectInstance
         // tst.b obRender(a0) / bpl.w DeleteObject - delete if off-screen
         // bra.w DisplaySprite
 
-        // SpeedToPos: apply velocity
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
-        xPos24 += xVelocity;
-        currentX = xPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
-
-        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
-        yPos24 += yVelocity;
-        currentY = yPos24 >> 8;
-        ySubpixel = yPos24 & 0xFF;
+        // SpeedToPos + gravity: apply velocity then add gravity
+        motionState.x = currentX;
+        motionState.y = currentY;
+        motionState.xVel = xVelocity;
+        motionState.yVel = yVelocity;
+        SubpixelMotion.moveSprite2(motionState);
+        currentX = motionState.x;
+        currentY = motionState.y;
 
         // Apply gravity
         yVelocity += GRAVITY;

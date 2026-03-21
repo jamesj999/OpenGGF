@@ -14,6 +14,7 @@ import com.openggf.level.ParallaxManager;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
@@ -75,7 +76,7 @@ public class TurtloidBadnikInstance extends AbstractBadnikInstance
 
     private State state;
     private int timer;
-    private int xSubpixel;
+    private final SubpixelMotion.State motionState;
 
     // Child references
     private TurtloidRiderInstance rider;
@@ -88,6 +89,7 @@ public class TurtloidBadnikInstance extends AbstractBadnikInstance
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         this.xVelocity = X_VELOCITY;
+        this.motionState = new SubpixelMotion.State(spawn.x(), spawn.y(), 0, 0, X_VELOCITY, 0);
         this.state = State.MOVING;
         this.timer = 0;
         this.animFrame = 0;
@@ -130,10 +132,10 @@ public class TurtloidBadnikInstance extends AbstractBadnikInstance
         }
 
         // Apply movement (ObjectMove: x_pos += x_vel in 8.8 fixed-point)
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
-        xPos24 += xVelocity;
-        currentX = xPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
+        motionState.x = currentX;
+        motionState.xVel = xVelocity;
+        SubpixelMotion.moveX(motionState);
+        currentX = motionState.x;
 
         // ROM: loc_36776 - add Tornado_Velocity_X/Y to position each frame
         ParallaxManager parallax = ParallaxManager.getInstance();

@@ -7,6 +7,7 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.ParallaxManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.util.AnimationTimer;
@@ -54,8 +55,7 @@ public class NebulaBadnikInstance extends AbstractBadnikInstance {
 
     private State state;
     private boolean bombDropped;
-    private int xSubpixel;
-    private int ySubpixel;
+    private final SubpixelMotion.State motionState;
     // duration = ANIM_SPEED + 1 because original code uses > (not >=)
     private final AnimationTimer anim = new AnimationTimer(ANIM_SPEED + 1, ANIM_FRAMES.length);
 
@@ -65,6 +65,7 @@ public class NebulaBadnikInstance extends AbstractBadnikInstance {
         this.currentY = spawn.y();
         this.xVelocity = INIT_X_VEL;
         this.yVelocity = 0;
+        this.motionState = new SubpixelMotion.State(spawn.x(), spawn.y(), 0, 0, INIT_X_VEL, 0);
         this.state = State.FLYING;
         this.bombDropped = false;
         this.facingLeft = true; // Always flies left
@@ -78,14 +79,13 @@ public class NebulaBadnikInstance extends AbstractBadnikInstance {
         }
 
         // Apply velocity (8.8 fixed-point)
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
-        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
-        xPos24 += xVelocity;
-        yPos24 += yVelocity;
-        currentX = xPos24 >> 8;
-        currentY = yPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
-        ySubpixel = yPos24 & 0xFF;
+        motionState.x = currentX;
+        motionState.y = currentY;
+        motionState.xVel = xVelocity;
+        motionState.yVel = yVelocity;
+        SubpixelMotion.moveSprite2(motionState);
+        currentX = motionState.x;
+        currentY = motionState.y;
 
         // ROM: loc_36776 - add Tornado velocity each frame
         ParallaxManager parallax = ParallaxManager.getInstance();

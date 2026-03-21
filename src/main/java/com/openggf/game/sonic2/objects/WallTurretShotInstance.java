@@ -5,6 +5,7 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -51,8 +52,7 @@ public class WallTurretShotInstance extends AbstractObjectInstance
     private int currentY;
     private int xVelocity;   // Fixed-point 8.8
     private int yVelocity;   // Fixed-point 8.8
-    private int xSubpixel;   // Fractional accumulator
-    private int ySubpixel;   // Fractional accumulator
+    private final SubpixelMotion.State motionState; // Subpixel position/velocity state
     private int animTimer;
     private int animIndex;
     private int mappingFrame; // 3 or 4 (projectile art frames from shared mapping set)
@@ -64,8 +64,7 @@ public class WallTurretShotInstance extends AbstractObjectInstance
         this.currentY = startY;
         this.xVelocity = xVel;
         this.yVelocity = yVel;
-        this.xSubpixel = 0;
-        this.ySubpixel = 0;
+        this.motionState = new SubpixelMotion.State(startX, startY, 0, 0, xVel, yVel);
         // Initial mapping_frame = 3 (set by parent: move.b #3,mapping_frame(a1))
         this.mappingFrame = 3;
         // ROM: object slot is zero-cleared by AllocateObjectAfterCurrent, so
@@ -93,16 +92,13 @@ public class WallTurretShotInstance extends AbstractObjectInstance
         //   jmpto JmpTo25_AnimateSprite
 
         // ObjectMove: apply velocity to position (fixed-point 8.8)
-        // Combine whole + subpixel into a 24.8 position, add velocity, then split back
-        int xPos32 = (currentX << 8) | (xSubpixel & 0xFF);
-        xPos32 += xVelocity;
-        currentX = xPos32 >> 8;
-        xSubpixel = xPos32 & 0xFF;
-
-        int yPos32 = (currentY << 8) | (ySubpixel & 0xFF);
-        yPos32 += yVelocity;
-        currentY = yPos32 >> 8;
-        ySubpixel = yPos32 & 0xFF;
+        motionState.x = currentX;
+        motionState.y = currentY;
+        motionState.xVel = xVelocity;
+        motionState.yVel = yVelocity;
+        SubpixelMotion.moveSprite2(motionState);
+        currentX = motionState.x;
+        currentY = motionState.y;
 
         // AnimateSprite: cycle through animation frames
         animTimer--;

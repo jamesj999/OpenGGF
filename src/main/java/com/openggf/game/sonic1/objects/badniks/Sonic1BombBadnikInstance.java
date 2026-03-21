@@ -15,6 +15,7 @@ import com.openggf.level.objects.TouchResponseAttackable;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import com.openggf.debug.DebugColor;
@@ -133,8 +134,7 @@ public class Sonic1BombBadnikInstance extends AbstractObjectInstance
     private int currentY;
     private int xVelocity;
     private int yVelocity;
-    private int xSubpixel;
-    private int ySubpixel;
+    private final SubpixelMotion.State motionState;
     private boolean facingLeft;
     private boolean ceilingBomb; // obStatus bit 1: bomb is upside-down on ceiling
     private boolean destroyed;
@@ -151,8 +151,7 @@ public class Sonic1BombBadnikInstance extends AbstractObjectInstance
         this.currentY = spawn.y();
         this.xVelocity = 0;
         this.yVelocity = 0;
-        this.xSubpixel = 0;
-        this.ySubpixel = 0;
+        this.motionState = new SubpixelMotion.State(spawn.x(), spawn.y(), 0, 0, 0, 0);
 
         // obStatus bit 0 is initialized from spawn data's render flags.
         // Bom_Main: bchg #0,obStatus(a0) toggles it.
@@ -472,15 +471,13 @@ public class Sonic1BombBadnikInstance extends AbstractObjectInstance
      * SpeedToPos: Apply X and Y velocity to position with subpixel precision.
      */
     private void applyVelocity() {
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
-        xPos24 += xVelocity;
-        currentX = xPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
-
-        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
-        yPos24 += yVelocity;
-        currentY = yPos24 >> 8;
-        ySubpixel = yPos24 & 0xFF;
+        motionState.x = currentX;
+        motionState.y = currentY;
+        motionState.xVel = xVelocity;
+        motionState.yVel = yVelocity;
+        SubpixelMotion.moveSprite2(motionState);
+        currentX = motionState.x;
+        currentY = motionState.y;
     }
 
     /**

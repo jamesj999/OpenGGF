@@ -8,6 +8,7 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.animation.SpriteAnimationEndAction;
 import com.openggf.sprites.animation.SpriteAnimationScript;
@@ -43,7 +44,7 @@ public class SolBadnikInstance extends AbstractBadnikInstance {
     private final ObjectAnimationState afterAnimation;
     private final List<SolFireballObjectInstance> fireballs = new ArrayList<>();
     private int fireballsRemaining;
-    private int xSubpixel;
+    private final SubpixelMotion.State motionState;
     private State state;
 
     public SolBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
@@ -55,7 +56,7 @@ public class SolBadnikInstance extends AbstractBadnikInstance {
         this.bodyAnimation = new ObjectAnimationState(BODY_ANIMATIONS, 0, 0);
         this.afterAnimation = new ObjectAnimationState(FIREBALL_ANIMATIONS, 0, 3);
         this.state = resolveInitialState(spawn.subtype());
-        this.xSubpixel = 0;
+        this.motionState = new SubpixelMotion.State(spawn.x(), spawn.y(), 0, 0, 0, 0);
         spawnFireballs();
     }
 
@@ -101,10 +102,10 @@ public class SolBadnikInstance extends AbstractBadnikInstance {
     }
 
     private void applyObjectMove() {
-        int xPos32 = (currentX << 8) | (xSubpixel & 0xFF);
-        xPos32 += xVelocity;
-        currentX = xPos32 >> 8;
-        xSubpixel = xPos32 & 0xFF;
+        motionState.x = currentX;
+        motionState.xVel = xVelocity;
+        SubpixelMotion.moveX(motionState);
+        currentX = motionState.x;
     }
 
     private void spawnFireballs() {

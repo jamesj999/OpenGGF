@@ -7,6 +7,7 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -51,8 +52,7 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
     private int currentY;
     private int xVelocity; // In subpixels (8.8 fixed point)
     private int yVelocity; // In subpixels (8.8 fixed point)
-    private int xSubpixel; // Fractional X position (low 8 bits of 16.8 position)
-    private int ySubpixel; // Fractional Y position (low 8 bits of 16.8 position)
+    private final SubpixelMotion.State motionState; // Subpixel position/velocity state
     private boolean applyGravity;
     private int gravity;
     private int collisionSizeIndex;
@@ -84,6 +84,7 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
         this.currentY = y;
         this.xVelocity = xVel;
         this.yVelocity = yVel;
+        this.motionState = new SubpixelMotion.State(x, y, 0, 0, xVel, yVel);
         this.applyGravity = gravity;
         this.animFrame = 0;
         this.hFlip = hFlip;
@@ -172,15 +173,13 @@ public class BadnikProjectileInstance extends AbstractObjectInstance
         }
 
         // Update position using 16.8 fixed-point (matches ObjectMove in s2.asm:29969-29982)
-        // Velocity (8.8) is added to position (16.8) for subpixel precision
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
-        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
-        xPos24 += xVelocity;
-        yPos24 += yVelocity;
-        currentX = xPos24 >> 8;
-        currentY = yPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
-        ySubpixel = yPos24 & 0xFF;
+        motionState.x = currentX;
+        motionState.y = currentY;
+        motionState.xVel = xVelocity;
+        motionState.yVel = yVelocity;
+        SubpixelMotion.moveSprite2(motionState);
+        currentX = motionState.x;
+        currentY = motionState.y;
 
         // Check if off-screen (with margin) and destroy
         if (!isOnScreen(32)) {

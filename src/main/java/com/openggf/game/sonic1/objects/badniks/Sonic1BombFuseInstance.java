@@ -9,6 +9,7 @@ import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import com.openggf.debug.DebugColor;
@@ -42,7 +43,7 @@ public class Sonic1BombFuseInstance extends AbstractObjectInstance {
     private int currentY;
     private final int origY;        // bom_origY (objoff_34): original Y position
     private int yVelocity;
-    private int ySubpixel;
+    private final SubpixelMotion.State motionState;
     private int timer;              // bom_time
     private int animTickCounter;
     private boolean facingLeft;
@@ -72,7 +73,7 @@ public class Sonic1BombFuseInstance extends AbstractObjectInstance {
         this.currentY = y;
         this.origY = y;
         this.yVelocity = fuseYSpeed;
-        this.ySubpixel = 0;
+        this.motionState = new SubpixelMotion.State(x, y, 0, 0, 0, fuseYSpeed);
         this.timer = fuseTime;
         this.facingLeft = facingLeft;
         this.ceilingBomb = ceilingBomb;
@@ -102,10 +103,10 @@ public class Sonic1BombFuseInstance extends AbstractObjectInstance {
         }
 
         // SpeedToPos: apply Y velocity
-        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
-        yPos24 += yVelocity;
-        currentY = yPos24 >> 8;
-        ySubpixel = yPos24 & 0xFF;
+        motionState.y = currentY;
+        motionState.yVel = yVelocity;
+        SubpixelMotion.moveSprite2(motionState);
+        currentY = motionState.y;
 
         // Animate
         animTickCounter++;

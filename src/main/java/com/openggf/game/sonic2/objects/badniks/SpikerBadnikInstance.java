@@ -7,6 +7,7 @@ import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.util.AnimationTimer;
@@ -42,7 +43,7 @@ public class SpikerBadnikInstance extends AbstractBadnikInstance {
     private int moveTimer;
     private int pauseTimer;
     private int throwTimer;
-    private int xSubpixel;
+    private final SubpixelMotion.State motionState;
     private boolean hasThrown;
     private boolean useAttackAnim;
     private boolean animateThisFrame;
@@ -60,7 +61,7 @@ public class SpikerBadnikInstance extends AbstractBadnikInstance {
         this.throwTimer = 0;
         this.state = State.MOVE;
         this.returnState = State.MOVE;
-        this.xSubpixel = 0;
+        this.motionState = new SubpixelMotion.State(spawn.x(), spawn.y(), 0, 0, X_VELOCITY, 0);
         this.hasThrown = false;
         this.useAttackAnim = false;
 
@@ -94,10 +95,10 @@ public class SpikerBadnikInstance extends AbstractBadnikInstance {
             }
         }
 
-        int xPos32 = (currentX << 8) | (xSubpixel & 0xFF);
-        xPos32 += xVelocity;
-        currentX = xPos32 >> 8;
-        xSubpixel = xPos32 & 0xFF;
+        motionState.x = currentX;
+        motionState.xVel = xVelocity;
+        SubpixelMotion.moveX(motionState);
+        currentX = motionState.x;
 
         animateThisFrame = true;
     }
