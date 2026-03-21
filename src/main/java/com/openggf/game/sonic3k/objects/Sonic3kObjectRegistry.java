@@ -83,6 +83,8 @@ public class Sonic3kObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Aiz1ZiplinePegObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.AIZ_GIANT_RIDE_VINE,
                 (spawn, registry) -> new AizGiantRideVineObjectInstance(spawn));
+        factories.put(Sonic3kObjectIds.BREAKABLE_WALL,
+                (spawn, registry) -> new BreakableWallObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.TWISTED_RAMP,
                 (spawn, registry) -> new Sonic3kTwistedRampObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.AUTO_SPIN,

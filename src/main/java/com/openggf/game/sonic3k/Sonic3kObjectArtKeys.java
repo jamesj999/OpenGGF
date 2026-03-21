@@ -53,6 +53,17 @@ public final class Sonic3kObjectArtKeys {
     public static final String CORK_FLOOR_ICZ = "cork_floor_icz";
     public static final String CORK_FLOOR_LBZ = "cork_floor_lbz";
 
+    // Breakable Wall (zone-specific sheets)
+    public static final String BREAKABLE_WALL_AIZ = "breakable_wall_aiz";
+    public static final String BREAKABLE_WALL_HCZ = "breakable_wall_hcz";
+    public static final String BREAKABLE_WALL_HCZ_KNUX = "breakable_wall_hcz_knux";
+    public static final String BREAKABLE_WALL_MGZ = "breakable_wall_mgz";
+    public static final String BREAKABLE_WALL_CNZ = "breakable_wall_cnz";
+    public static final String BREAKABLE_WALL_SOZ = "breakable_wall_soz";
+    public static final String BREAKABLE_WALL_LBZ = "breakable_wall_lbz";
+    public static final String BREAKABLE_WALL_MHZ = "breakable_wall_mhz";
+    public static final String BREAKABLE_WALL_LRZ = "breakable_wall_lrz";
+
     // Floating Platform (zone-specific sheets)
     public static final String FLOATING_PLATFORM_AIZ1 = "floating_platform_aiz1";
     public static final String FLOATING_PLATFORM_AIZ2 = "floating_platform_aiz2";

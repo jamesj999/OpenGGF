@@ -299,6 +299,24 @@ public final class Sonic3kPlcArtRegistry {
                 -1
         ));
 
+        // Breakable Wall: frames 0-1 use art_tile $001/pal 3, frames 2-3 use $0350/pal 2
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.BREAKABLE_WALL_HCZ,
+                Sonic3kConstants.MAP_HCZ_BREAKABLE_WALL_ADDR,
+                1,
+                3,
+                null,
+                new int[]{0, 1}
+        ));
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.BREAKABLE_WALL_HCZ_KNUX,
+                Sonic3kConstants.MAP_HCZ_BREAKABLE_WALL_ADDR,
+                Sonic3kConstants.ARTTILE_HCZ2_KNUX_WALL,
+                2,
+                null,
+                new int[]{2, 3}
+        ));
+
         // Floating Platform: ArtTile_HCZMisc + $53
         levelArt.add(new LevelArtEntry(
                 Sonic3kObjectArtKeys.FLOATING_PLATFORM_HCZ,
@@ -380,6 +398,15 @@ public final class Sonic3kPlcArtRegistry {
         levelArt.removeIf(e -> e.key().equals(Sonic3kObjectArtKeys.SPRING_DIAGONAL_YELLOW));
         levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.SPRING_DIAGONAL_YELLOW, -1, Sonic3kConstants.ARTTILE_MGZ_MHZ_DIAGONAL_SPRING, 0, "buildSpringDiagonalYellowSheet"));
 
+        // Breakable Wall: art_tile = $001, palette 2
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.BREAKABLE_WALL_MGZ,
+                Sonic3kConstants.MAP_MGZ_BREAKABLE_WALL_ADDR,
+                1,
+                2,
+                null
+        ));
+
         // Floating Platform: art_tile = $001, palette 2
         levelArt.add(new LevelArtEntry(
                 Sonic3kObjectArtKeys.FLOATING_PLATFORM_MGZ,
@@ -448,6 +475,15 @@ public final class Sonic3kPlcArtRegistry {
                 Sonic3kObjectArtKeys.CORK_FLOOR_CNZ,
                 Sonic3kConstants.MAP_CNZ_CORK_FLOOR_ADDR,
                 Sonic3kConstants.ARTTILE_CNZ_PLATFORM,
+                2,
+                null
+        ));
+
+        // Breakable Wall: art_tile = ArtTile_CNZMisc + $CF = $0420, palette 2
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.BREAKABLE_WALL_CNZ,
+                Sonic3kConstants.MAP_CNZ_SOZ_BREAKABLE_WALL_ADDR,
+                Sonic3kConstants.ARTTILE_CNZ_MISC + 0xCF,
                 2,
                 null
         ));
@@ -633,6 +669,15 @@ public final class Sonic3kPlcArtRegistry {
                 2,
                 null
         ));
+
+        // Breakable Wall: art_tile = ArtTile_LBZ2Misc = $02EA, palette 1
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.BREAKABLE_WALL_LBZ,
+                Sonic3kConstants.MAP_LBZ_BREAKABLE_WALL_ADDR,
+                Sonic3kConstants.ARTTILE_LBZ2_MISC,
+                1,
+                null
+        ));
     }
 
     /**
@@ -716,6 +761,15 @@ public final class Sonic3kPlcArtRegistry {
         levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.SPRING_DIAGONAL, -1, Sonic3kConstants.ARTTILE_MGZ_MHZ_DIAGONAL_SPRING, 0, "buildSpringDiagonalSheet"));
         levelArt.removeIf(e -> e.key().equals(Sonic3kObjectArtKeys.SPRING_DIAGONAL_YELLOW));
         levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.SPRING_DIAGONAL_YELLOW, -1, Sonic3kConstants.ARTTILE_MGZ_MHZ_DIAGONAL_SPRING, 0, "buildSpringDiagonalYellowSheet"));
+
+        // Breakable Wall: art_tile = ArtTile_MHZMisc + $4 = $034B, palette 2
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.BREAKABLE_WALL_MHZ,
+                Sonic3kConstants.MAP_MHZ_BREAKABLE_WALL_ADDR,
+                Sonic3kConstants.ARTTILE_MHZ_MISC + 0x4,
+                2,
+                null
+        ));
     }
 
     /**
@@ -766,6 +820,15 @@ public final class Sonic3kPlcArtRegistry {
                 Sonic3kConstants.MAP_ROCKN_ADDR,
                 1,
                 -1
+        ));
+
+        // Breakable Wall: art_tile = ArtTile_SOZMisc + $C3 = $048C, palette 2
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.BREAKABLE_WALL_SOZ,
+                Sonic3kConstants.MAP_CNZ_SOZ_BREAKABLE_WALL_ADDR,
+                Sonic3kConstants.ARTTILE_SOZ_MISC + 0xC3,
+                2,
+                null
         ));
     }
 
@@ -843,6 +906,15 @@ public final class Sonic3kPlcArtRegistry {
                 Sonic3kConstants.MAP_TOXOMISTER_ADDR,
                 1,
                 -1
+        ));
+
+        // Breakable Wall: art_tile = ArtTile_LRZ2Misc = $040D, palette 3
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.BREAKABLE_WALL_LRZ,
+                Sonic3kConstants.MAP_LRZ_BREAKABLE_WALL_ADDR,
+                Sonic3kConstants.ARTTILE_LRZ2_MISC,
+                3,
+                null
         ));
     }
 
@@ -1020,6 +1092,15 @@ public final class Sonic3kPlcArtRegistry {
         levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.STILL_AIZ_WATERFALL,
                 Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 1, 3,
                 null, new int[]{4}));
+
+        // Breakable Wall: art_tile = make_art_tile($001, 2, 0), all 6 frames
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.BREAKABLE_WALL_AIZ,
+                Sonic3kConstants.MAP_AIZ_BREAKABLE_WALL_ADDR,
+                1,
+                2,
+                null
+        ));
 
         // Falling Log: act-specific log body + splash mappings
         // Act 1: ArtTile_AIZFallingLog (0x03CF), palette 2 for both log and splash

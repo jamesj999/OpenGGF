@@ -169,6 +169,24 @@ public class Sonic3kConstants {
     public static final int MAP_LBZ_CORK_FLOOR_ADDR = 0x229EE8;   // Map_LBZCorkFloor (2 frames, 8/16 pieces)
     public static final int MAP_FBZ_CORK_FLOOR_ADDR = 0x2A920;    // Map_FBZCorkFloor (2 frames, 2/4 pieces, in sonic3k.asm)
 
+    // ===== Breakable Wall mappings (Obj_BreakableWall, ID 0x0D) =====
+    // Each zone has its own mapping table: even frames = intact, odd frames = broken fragments.
+    // S3 half (>= 0x200000) addresses for S3-era zones, S&K half for S&K-era zones.
+    public static final int MAP_AIZ_BREAKABLE_WALL_ADDR = 0x21FD52;     // Map_AIZBreakableWall (6 frames)
+    public static final int MAP_HCZ_BREAKABLE_WALL_ADDR = 0x21FFD8;     // Map_HCZBreakableWall (4 frames)
+    public static final int MAP_MGZ_BREAKABLE_WALL_ADDR = 0x21FF18;     // Map_MGZBreakableWall (4 frames)
+    public static final int MAP_CNZ_SOZ_BREAKABLE_WALL_ADDR = 0x021ABA; // Map_CNZSOZBreakableWall (6 frames)
+    public static final int MAP_LBZ_BREAKABLE_WALL_ADDR = 0x22005E;     // Map_LBZBreakableWall (2 frames)
+    public static final int MAP_MHZ_BREAKABLE_WALL_ADDR = 0x021BCE;     // Map_MHZBreakableWall (2 frames)
+    public static final int MAP_LRZ_BREAKABLE_WALL_ADDR = 0x021C1E;     // Map_LRZBreakableWall (2 frames)
+
+    // ArtTile constants for breakable walls (from sonic3k.constants.asm)
+    public static final int ARTTILE_HCZ2_KNUX_WALL = 0x0350;   // ArtTile_HCZ2KnuxWall
+    public static final int ARTTILE_CNZ_MISC = 0x0351;          // ArtTile_CNZMisc
+    public static final int ARTTILE_LBZ2_MISC = 0x02EA;         // ArtTile_LBZ2Misc
+    public static final int ARTTILE_MHZ_MISC = 0x0347;          // ArtTile_MHZMisc
+    public static final int ARTTILE_SOZ_MISC = 0x03C9;          // ArtTile_SOZMisc
+
     // ===== Floating Platform mappings (Obj_FloatingPlatform, ID 0x51) =====
     public static final int MAP_AIZ_FLOATING_PLATFORM_ADDR = 0x256A2; // Map_AIZFloatingPlatform (1 frame, 4 pieces)
     public static final int MAP_HCZ_FLOATING_PLATFORM_ADDR = 0x25688; // Map_HCZFloatingPlatform (2 frames, 2/1 pieces)
@@ -853,9 +871,6 @@ public class Sonic3kConstants {
     // Mapping tables (ROM addresses verified via binary search)
     public static final int MAP_STILL_SPRITES_ADDR = 0x02BA9A;
     public static final int MAP_ANIMATED_STILL_SPRITES_ADDR = 0x02BFDA;
-
-    // ArtTile constants for zone objects
-    public static final int ARTTILE_SOZ_MISC = 0x03C9;
 
     // VRAM tile destinations for shields
     public static final int ART_TILE_SHIELD = 0x079C;

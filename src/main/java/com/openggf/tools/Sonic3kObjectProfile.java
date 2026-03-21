@@ -59,6 +59,7 @@ public class Sonic3kObjectProfile implements GameObjectProfile {
             0x05, // AIZLRZEMZRock
             0x07, // Spring
             0x08, // Spikes
+            0x0D, // BreakableWall
             0x0E, // TwistedRamp
             0x26, // AutoSpin
             0x28, // InvisibleBlock
