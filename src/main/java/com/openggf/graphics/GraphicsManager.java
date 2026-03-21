@@ -62,7 +62,6 @@ public class GraphicsManager {
 	private static final String WATER_SHADER_PATH = "shaders/shader_water.glsl";
 	private static final String TILEMAP_SHADER_PATH = "shaders/shader_tilemap.glsl";
 	private static final String BASIC_VERTEX_SHADER_PATH = "shaders/shader_basic.vert";
-	private static final String FULLSCREEN_VERTEX_SHADER_PATH = "shaders/shader_fullscreen.vert";
 	private static final String DEBUG_VERTEX_SHADER_PATH = "shaders/shader_debug_color.vert";
 	private static final String INSTANCED_VERTEX_SHADER_PATH = "shaders/shader_instanced.vert";
 	private static final String CNZ_SLOTS_SHADER_PATH = "shaders/shader_cnz_slots.glsl";
@@ -166,7 +165,7 @@ public class GraphicsManager {
 		this.currentShaderProgram = this.defaultShaderProgram; // Start with default
 		this.shaderProgram = this.currentShaderProgram; // Compatibility
 		this.debugShaderProgram = new ShaderProgram(DEBUG_VERTEX_SHADER_PATH, DEBUG_SHADER_PATH);
-		this.fadeShaderProgram = new ShaderProgram(FULLSCREEN_VERTEX_SHADER_PATH, FADE_SHADER_PATH);
+		this.fadeShaderProgram = new ShaderProgram(ShaderProgram.FULLSCREEN_VERTEX_SHADER, FADE_SHADER_PATH);
 		this.shadowShaderProgram = new ShaderProgram(BASIC_VERTEX_SHADER_PATH, SHADOW_SHADER_PATH);
 		this.shadowShaderProgram.cacheUniformLocations();
 		this.tilemapGpuRenderer = new TilemapGpuRenderer();
@@ -1236,7 +1235,7 @@ public class GraphicsManager {
 	public CNZSlotMachineRenderer getCnzSlotMachineRenderer() {
 		if (cnzSlotMachineRenderer != null && cnzSlotsShaderProgram == null && glInitialized) {
 			try {
-				cnzSlotsShaderProgram = new ShaderProgram(FULLSCREEN_VERTEX_SHADER_PATH, CNZ_SLOTS_SHADER_PATH);
+				cnzSlotsShaderProgram = new ShaderProgram(ShaderProgram.FULLSCREEN_VERTEX_SHADER, CNZ_SLOTS_SHADER_PATH);
 				cnzSlotMachineRenderer.setShader(cnzSlotsShaderProgram);
 			} catch (Exception e) {
 				System.err.println("Failed to load CNZ slot shader: " + e.getMessage());

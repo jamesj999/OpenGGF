@@ -24,18 +24,14 @@ import java.util.Set;
  */
 public final class Sonic1SmpsSequencerConfig {
 
-    /**
-     * Base value for the tempo modulo counter.
-     * The sequencer decrements a counter each frame; when it wraps past zero
-     * the track advances. Setting this to 0x100 matches the S1 TIMEOUT algorithm.
-     */
-    public static final int TEMPO_MOD_BASE = 0x100;
+    /** Tempo modulo base — same across all games, references shared default. */
+    public static final int TEMPO_MOD_BASE = SmpsSequencerConfig.DEFAULT_TEMPO_MOD_BASE;
 
-    /** FM channel assignment order: DAC(0x16), FM1-FM6. Same as S2. */
-    public static final int[] FM_CHANNEL_ORDER = { 0x16, 0, 1, 2, 4, 5, 6 };
+    /** FM channel order — same across all games, references shared default. */
+    public static final int[] FM_CHANNEL_ORDER = SmpsSequencerConfig.DEFAULT_FM_CHANNEL_ORDER;
 
-    /** PSG channel assignment order: PSG1(0x80), PSG2(0xA0), PSG3(0xC0). Same as S2. */
-    public static final int[] PSG_CHANNEL_ORDER = { 0x80, 0xA0, 0xC0 };
+    /** PSG channel order — same across all games, references shared default. */
+    public static final int[] PSG_CHANNEL_ORDER = SmpsSequencerConfig.DEFAULT_PSG_CHANNEL_ORDER;
 
     /**
      * Speed-up tempos map: music ID to sped-up main tempo byte.

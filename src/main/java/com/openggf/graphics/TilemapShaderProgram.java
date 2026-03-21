@@ -45,8 +45,6 @@ public class TilemapShaderProgram extends ShaderProgram {
     private int frameCounterLocation = -1;
     private int shimmerStyleLocation = -1;
 
-    private static final String FULLSCREEN_VERTEX_SHADER = "shaders/shader_fullscreen.vert";
-
     public TilemapShaderProgram(String fragmentShaderPath) throws IOException {
         super(FULLSCREEN_VERTEX_SHADER, fragmentShaderPath);
     }

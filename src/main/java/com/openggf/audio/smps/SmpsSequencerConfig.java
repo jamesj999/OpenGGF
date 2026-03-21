@@ -58,6 +58,19 @@ public final class SmpsSequencerConfig {
         MOD_Z80
     }
 
+    // -----------------------------------------------------------------------
+    // Default constants shared across all three games (S1, S2, S3K)
+    // -----------------------------------------------------------------------
+
+    /** Default tempo modulation base (0x100). Same for S1, S2, and S3K. */
+    public static final int DEFAULT_TEMPO_MOD_BASE = 0x100;
+
+    /** Default FM channel order: DAC(0x16), FM1-FM6. Same for S1, S2, and S3K. */
+    public static final int[] DEFAULT_FM_CHANNEL_ORDER = { 0x16, 0, 1, 2, 4, 5, 6 };
+
+    /** Default PSG channel order: PSG1(0x80), PSG2(0xA0), PSG3(0xC0). Same for S1, S2, and S3K. */
+    public static final int[] DEFAULT_PSG_CHANNEL_ORDER = { 0x80, 0xA0, 0xC0 };
+
     private final Map<Integer, Integer> speedUpTempos;
     private final int tempoModBase;
     private final int[] fmChannelOrder;
@@ -322,11 +335,11 @@ public final class SmpsSequencerConfig {
      * Use this for S3K and other configs that need the new fields.
      */
     public static final class Builder {
-        // Required
+        // Required (defaults reference shared constants)
         private Map<Integer, Integer> speedUpTempos = Collections.emptyMap();
-        private int tempoModBase = 0x100;
-        private int[] fmChannelOrder = { 0x16, 0, 1, 2, 4, 5, 6 };
-        private int[] psgChannelOrder = { 0x80, 0xA0, 0xC0 };
+        private int tempoModBase = DEFAULT_TEMPO_MOD_BASE;
+        private int[] fmChannelOrder = DEFAULT_FM_CHANNEL_ORDER;
+        private int[] psgChannelOrder = DEFAULT_PSG_CHANNEL_ORDER;
 
         // S2-compatible defaults
         private TempoMode tempoMode = TempoMode.OVERFLOW2;

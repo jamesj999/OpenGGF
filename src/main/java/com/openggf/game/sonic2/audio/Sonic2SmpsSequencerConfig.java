@@ -7,9 +7,14 @@ import java.util.HashMap;
 import java.util.Map;
 
 public final class Sonic2SmpsSequencerConfig {
-    public static final int TEMPO_MOD_BASE = 0x100;
-    public static final int[] FM_CHANNEL_ORDER = { 0x16, 0, 1, 2, 4, 5, 6 };
-    public static final int[] PSG_CHANNEL_ORDER = { 0x80, 0xA0, 0xC0 };
+    /** Tempo modulo base — same across all games, references shared default. */
+    public static final int TEMPO_MOD_BASE = SmpsSequencerConfig.DEFAULT_TEMPO_MOD_BASE;
+
+    /** FM channel order — same across all games, references shared default. */
+    public static final int[] FM_CHANNEL_ORDER = SmpsSequencerConfig.DEFAULT_FM_CHANNEL_ORDER;
+
+    /** PSG channel order — same across all games, references shared default. */
+    public static final int[] PSG_CHANNEL_ORDER = SmpsSequencerConfig.DEFAULT_PSG_CHANNEL_ORDER;
 
     public static final Map<Integer, Integer> SPEED_UP_TEMPOS;
     public static final SmpsSequencerConfig CONFIG;

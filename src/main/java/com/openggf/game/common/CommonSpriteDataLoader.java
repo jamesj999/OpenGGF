@@ -1,6 +1,7 @@
 package com.openggf.game.common;
 
 import com.openggf.data.RomByteReader;
+import com.openggf.level.Pattern;
 import com.openggf.level.render.SpriteDplcFrame;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpriteMappingPiece;
@@ -8,7 +9,9 @@ import com.openggf.level.render.TileLoadRequest;
 import com.openggf.sprites.animation.SpriteAnimationEndAction;
 import com.openggf.sprites.animation.SpriteAnimationScript;
 import com.openggf.sprites.animation.SpriteAnimationSet;
+import com.openggf.util.PatternDecompressor;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,6 +29,22 @@ import java.util.List;
 public final class CommonSpriteDataLoader {
 
     private CommonSpriteDataLoader() {}
+
+    /**
+     * Loads uncompressed art tiles from ROM.
+     *
+     * <p>This is a thin wrapper around {@link PatternDecompressor#uncompressed}
+     * shared by S1 and S3K sprite data loaders.
+     *
+     * @param reader ROM byte reader
+     * @param artAddr ROM address of art data
+     * @param artSize size in bytes (must be multiple of 32)
+     * @return array of Pattern tiles
+     * @throws IOException if reading fails
+     */
+    public static Pattern[] loadArtTiles(RomByteReader reader, int artAddr, int artSize) throws IOException {
+        return PatternDecompressor.uncompressed(reader, artAddr, artSize);
+    }
 
     /**
      * Parses a single animation script from ROM.

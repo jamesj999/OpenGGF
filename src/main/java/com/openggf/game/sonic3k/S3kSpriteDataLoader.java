@@ -4,7 +4,6 @@ import com.openggf.data.RomByteReader;
 import com.openggf.game.common.CommonSpriteDataLoader;
 import com.openggf.level.Pattern;
 import com.openggf.level.render.SpriteDplcFrame;
-import com.openggf.util.PatternDecompressor;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpriteMappingPiece;
 import com.openggf.level.render.TileLoadRequest;
@@ -36,7 +35,7 @@ public final class S3kSpriteDataLoader {
      * @return array of Pattern tiles
      */
     public static Pattern[] loadArtTiles(RomByteReader reader, int artAddr, int artSize) throws IOException {
-        return PatternDecompressor.uncompressed(reader, artAddr, artSize);
+        return CommonSpriteDataLoader.loadArtTiles(reader, artAddr, artSize);
     }
 
     /**
