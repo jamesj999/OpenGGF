@@ -4,7 +4,7 @@ import com.openggf.debug.DebugRenderContext;
 import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
@@ -116,8 +116,8 @@ public class Sonic1RollerBadnikInstance extends AbstractBadnikInstance {
     private boolean hasStopped;     // objoff_32 bit 7: has stopped once before
     private boolean hasJumped;      // objoff_32 bit 0: has jumped once (controls jump velocity)
 
-    public Sonic1RollerBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Roller");
+    public Sonic1RollerBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Roller");
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         this.facingLeft = false;

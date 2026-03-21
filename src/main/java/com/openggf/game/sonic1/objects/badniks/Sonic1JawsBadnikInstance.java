@@ -4,7 +4,7 @@ import com.openggf.debug.DebugRenderContext;
 import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
@@ -65,8 +65,8 @@ public class Sonic1JawsBadnikInstance extends AbstractBadnikInstance {
     private int animTickCounter;     // Ticks within current animation frame
     private int prevAnim;            // obPrevAni: tracks animation reset trigger
 
-    public Sonic1JawsBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Jaws");
+    public Sonic1JawsBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Jaws");
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         this.motionState = new SubpixelMotion.State(spawn.x(), spawn.y(), 0, 0, 0, 0);

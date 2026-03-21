@@ -1,7 +1,6 @@
 package com.openggf.level.objects;
 
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -31,9 +30,9 @@ public abstract class AbstractPointsObjectInstance extends AbstractObjectInstanc
     protected int scoreFrame;
 
     protected AbstractPointsObjectInstance(ObjectSpawn spawn, String name,
-                                           LevelManager levelManager, int points) {
+                                           ObjectServices services, int points) {
         super(spawn, name);
-        this.renderer = levelManager.getObjectRenderManager().getPointsRenderer();
+        this.renderer = services.renderManager().getPointsRenderer();
         this.currentX = spawn.x();
         this.ySubpixel = spawn.y() << 8;
         this.yVel = INITIAL_Y_VEL;

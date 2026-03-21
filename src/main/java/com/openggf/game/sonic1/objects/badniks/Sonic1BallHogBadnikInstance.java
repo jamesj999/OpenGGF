@@ -3,7 +3,6 @@ package com.openggf.game.sonic1.objects.badniks;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.DestructionEffects;
 import com.openggf.level.objects.ObjectArtKeys;
@@ -85,7 +84,6 @@ public class Sonic1BallHogBadnikInstance extends AbstractObjectInstance
     private static final int OPEN_FRAME = 1;
 
     // --- Instance state ---
-    private final LevelManager levelManager;
     private int currentX;
     private int currentY;
     private int yVelocity;
@@ -101,9 +99,8 @@ public class Sonic1BallHogBadnikInstance extends AbstractObjectInstance
     // hog_launchflag (objoff_32): 0 = ready to launch, nonzero = already launched this cycle
     private boolean launchFlag;
 
-    public Sonic1BallHogBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
+    public Sonic1BallHogBadnikInstance(ObjectSpawn spawn) {
         super(spawn, "BallHog");
-        this.levelManager = levelManager;
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         this.yVelocity = 0;
@@ -249,7 +246,7 @@ public class Sonic1BallHogBadnikInstance extends AbstractObjectInstance
      * </pre>
      */
     private void spawnCannonball() {
-        var objectManager = levelManager.getObjectManager();
+        var objectManager = services() != null ? services().objectManager() : null;
         if (objectManager == null) {
             return;
         }
@@ -271,7 +268,7 @@ public class Sonic1BallHogBadnikInstance extends AbstractObjectInstance
         int subtype = spawn.subtype();
 
         Sonic1CannonballInstance cannonball = new Sonic1CannonballInstance(
-                ballX, ballY, ballXVel, subtype, levelManager);
+                ballX, ballY, ballXVel, subtype, com.openggf.game.GameServices.level());
         objectManager.addDynamicObject(cannonball);
     }
 
@@ -312,7 +309,7 @@ public class Sonic1BallHogBadnikInstance extends AbstractObjectInstance
     private void destroyBadnik(AbstractPlayableSprite player) {
         destroyed = true;
         setDestroyed(true);
-        DestructionEffects.destroyBadnik(currentX, currentY, spawn, player, levelManager,
+        DestructionEffects.destroyBadnik(currentX, currentY, spawn, player, services(),
                 Sonic1DestructionConfig.S1_DESTRUCTION_CONFIG);
     }
 

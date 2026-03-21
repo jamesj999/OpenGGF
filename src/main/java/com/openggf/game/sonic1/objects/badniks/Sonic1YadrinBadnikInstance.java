@@ -4,7 +4,7 @@ import com.openggf.debug.DebugRenderContext;
 import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
@@ -94,8 +94,8 @@ public class Sonic1YadrinBadnikInstance extends AbstractBadnikInstance implement
     private boolean initialized;
     private int walkAnimIndex;     // Current index into WALK_ANIM_FRAMES
 
-    public Sonic1YadrinBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Yadrin");
+    public Sonic1YadrinBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Yadrin");
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         // S1: obStatus bit 0 set = facing right (xFlip)
@@ -348,8 +348,8 @@ public class Sonic1YadrinBadnikInstance extends AbstractBadnikInstance implement
         }
 
         boolean hadRings = player.getRingCount() > 0;
-        if (hadRings && !player.hasShield() && levelManager != null) {
-            levelManager.spawnLostRings(player, frameCounter);
+        if (hadRings && !player.hasShield() && services() != null) {
+            services().spawnLostRings(player, frameCounter);
         }
         player.applyHurtOrDeath(currentX, false, hadRings);
     }

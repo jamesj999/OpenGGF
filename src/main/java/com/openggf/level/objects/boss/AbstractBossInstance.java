@@ -5,7 +5,6 @@ import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.graphics.GraphicsManager;
-import com.openggf.level.LevelManager;
 import com.openggf.level.Palette;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.TouchResponseProvider;
@@ -42,7 +41,6 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
     /** Boss explosion spawn interval (every 8 frames) */
     protected static final int EXPLOSION_INTERVAL = 8;
 
-    protected final LevelManager levelManager;
     protected final BossStateContext state;
     protected final BossHitHandler hitHandler;
     protected final BossPaletteFlasher paletteFlasher;
@@ -51,9 +49,8 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
     protected final Map<Integer, Integer> customMemory;
     private ObjectSpawn dynamicSpawn;
 
-    public AbstractBossInstance(ObjectSpawn spawn, LevelManager levelManager, String name) {
+    public AbstractBossInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
-        this.levelManager = levelManager;
         this.state = new BossStateContext(spawn.x(), spawn.y(), getInitialHitCount());
         this.hitHandler = new BossHitHandler();
         this.paletteFlasher = new BossPaletteFlasher();
@@ -210,8 +207,11 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
      * Uses standard random offset calculation: (random >> 2) - 0x20.
      */
     protected void spawnDefeatExplosion() {
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
-        if (renderManager == null || levelManager.getObjectManager() == null) {
+        if (services() == null) {
+            return;
+        }
+        ObjectRenderManager renderManager = services().renderManager();
+        if (renderManager == null || services().objectManager() == null) {
             return;
         }
         int random = ThreadLocalRandom.current().nextInt(0x10000);
@@ -222,7 +222,7 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
                 state.y + yOffset,
                 renderManager,
                 getBossExplosionSfxId());
-        levelManager.getObjectManager().addDynamicObject(explosion);
+        services().objectManager().addDynamicObject(explosion);
     }
 
     /**
@@ -377,18 +377,18 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
         }
 
         private Palette getPaletteForFlash() {
-            if (levelManager == null || levelManager.getCurrentLevel() == null) {
+            if (services() == null || services().currentLevel() == null) {
                 return null;
             }
             int paletteIndex = getPaletteLineForFlash();
             if (paletteIndex < 0) {
                 return null;
             }
-            int paletteCount = levelManager.getCurrentLevel().getPaletteCount();
+            int paletteCount = services().currentLevel().getPaletteCount();
             if (paletteCount <= paletteIndex) {
                 return null;
             }
-            return levelManager.getCurrentLevel().getPalette(paletteIndex);
+            return services().currentLevel().getPalette(paletteIndex);
         }
     }
 

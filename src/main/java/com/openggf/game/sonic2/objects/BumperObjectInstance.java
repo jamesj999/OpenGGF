@@ -228,11 +228,10 @@ public class BumperObjectInstance extends AbstractObjectInstance {
 
         // Award 10 points and spawn points display (ROM: lines 44675-44683)
         GameServices.gameState().addScore(10);
-        LevelManager levelManager = LevelManager.getInstance();
         PointsObjectInstance pointsObj = new PointsObjectInstance(
                 new ObjectSpawn(spawn.x(), spawn.y(), 0x29, 0, 0, false, 0),
-                levelManager, 10);
-        levelManager.getObjectManager().addDynamicObject(pointsObj);
+                services(), 10);
+        services().objectManager().addDynamicObject(pointsObj);
     }
 
     @Override

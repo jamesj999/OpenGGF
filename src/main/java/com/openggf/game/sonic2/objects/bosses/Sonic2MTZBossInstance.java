@@ -197,8 +197,8 @@ public class Sonic2MTZBossInstance extends AbstractBossInstance {
     // Laser shooter child reference
     private MTZLaserShooter laserShooter;
 
-    public Sonic2MTZBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "MTZ Boss");
+    public Sonic2MTZBossInstance(ObjectSpawn spawn) {
+        super(spawn, "MTZ Boss");
     }
 
     @Override
@@ -232,8 +232,8 @@ public class Sonic2MTZBossInstance extends AbstractBossInstance {
         // Spawn laser shooter child
         laserShooter = new MTZLaserShooter(this);
         childComponents.add(laserShooter);
-        if (levelManager.getObjectManager() != null) {
-            levelManager.getObjectManager().addDynamicObject(laserShooter);
+        if (services() != null && services().objectManager() != null) {
+            services().objectManager().addDynamicObject(laserShooter);
         }
 
         // Spawn 7 orbiting shield orbs (Obj53)
@@ -250,8 +250,8 @@ public class Sonic2MTZBossInstance extends AbstractBossInstance {
         for (int i = 0; i < 7; i++) {
             MTZBossOrb orb = new MTZBossOrb(this, i, phaseOffsets[i], tiltFlags[i]);
             childComponents.add(orb);
-            if (levelManager.getObjectManager() != null) {
-                levelManager.getObjectManager().addDynamicObject(orb);
+            if (services() != null && services().objectManager() != null) {
+                services().objectManager().addDynamicObject(orb);
             }
         }
     }
@@ -776,7 +776,7 @@ public class Sonic2MTZBossInstance extends AbstractBossInstance {
     }
 
     private void spawnEggPrison() {
-        if (levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
         // Spawn at center of arena
@@ -785,7 +785,7 @@ public class Sonic2MTZBossInstance extends AbstractBossInstance {
                 Sonic2ObjectIds.EGG_PRISON,
                 0, 0, false, 0);
         EggPrisonObjectInstance prisonInstance = new EggPrisonObjectInstance(prisonSpawn, "Egg Prison");
-        levelManager.getObjectManager().addDynamicObject(prisonInstance);
+        services().objectManager().addDynamicObject(prisonInstance);
     }
 
     // =========================================================================
@@ -865,7 +865,7 @@ public class Sonic2MTZBossInstance extends AbstractBossInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
@@ -1118,7 +1118,7 @@ public class Sonic2MTZBossInstance extends AbstractBossInstance {
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
             ObjectRenderManager renderManager =
-                    ((Sonic2MTZBossInstance) parent).levelManager.getObjectRenderManager();
+                    ((Sonic2MTZBossInstance) parent).services().renderManager();
             if (renderManager == null) {
                 return;
             }
@@ -1166,7 +1166,7 @@ public class Sonic2MTZBossInstance extends AbstractBossInstance {
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
             ObjectRenderManager renderManager =
-                    ((Sonic2MTZBossInstance) parent).levelManager.getObjectRenderManager();
+                    ((Sonic2MTZBossInstance) parent).services().renderManager();
             if (renderManager == null) {
                 return;
             }

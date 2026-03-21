@@ -424,8 +424,8 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     // Targeting sensor (transient child)
     private SensorChild sensorChild;
 
-    public Sonic2DeathEggRobotInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "DeathEggRobot");
+    public Sonic2DeathEggRobotInstance(ObjectSpawn spawn) {
+        super(spawn, "DeathEggRobot");
     }
 
     // ========================================================================
@@ -498,10 +498,10 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         childComponents.add(backThigh);
 
         // Register children with ObjectManager for rendering (matches Silver Sonic pattern)
-        if (levelManager.getObjectManager() != null) {
+        if (services() != null && services().objectManager() != null) {
             for (var child : childComponents) {
                 if (child instanceof com.openggf.level.objects.boss.AbstractBossChild bossChild) {
-                    levelManager.getObjectManager().addDynamicObject(bossChild);
+                    services().objectManager().addDynamicObject(bossChild);
                 }
             }
         }
@@ -1402,8 +1402,8 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     }
 
     private void spawnBombs(AbstractPlayableSprite player) {
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
-        if (renderManager == null || levelManager.getObjectManager() == null) return;
+        ObjectRenderManager renderManager = services().renderManager();
+        if (renderManager == null || services().objectManager() == null) return;
 
         int xSign = facingLeft ? -1 : 1;
         int spawnX = state.x + (BOMB_SPAWN_DX * xSign);
@@ -1411,11 +1411,11 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
         BombChild bomb1 = new BombChild(this, spawnX, spawnY, 0x60 * xSign, -0x800);
         childComponents.add(bomb1);
-        levelManager.getObjectManager().addDynamicObject(bomb1);
+        services().objectManager().addDynamicObject(bomb1);
 
         BombChild bomb2 = new BombChild(this, spawnX, spawnY, 0xC0 * xSign, -0xA00);
         childComponents.add(bomb2);
-        levelManager.getObjectManager().addDynamicObject(bomb2);
+        services().objectManager().addDynamicObject(bomb2);
     }
 
     /** Spawn the targeting sensor child */
@@ -1423,8 +1423,8 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         if (player == null) return;
         sensorChild = new SensorChild(this, player.getCentreX(), player.getCentreY());
         // Register with ObjectManager for rendering if available
-        if (levelManager.getObjectManager() != null) {
-            levelManager.getObjectManager().addDynamicObject(sensorChild);
+        if (services().objectManager() != null) {
+            services().objectManager().addDynamicObject(sensorChild);
         }
     }
 
@@ -1487,7 +1487,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             return;
         }
 
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) return;
 
         PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.DEZ_BOSS);
@@ -1547,8 +1547,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
-            ObjectRenderManager renderManager = ((Sonic2DeathEggRobotInstance) parent).levelManager
-                    .getObjectRenderManager();
+            ObjectRenderManager renderManager = ((Sonic2DeathEggRobotInstance) parent).services().renderManager();
             if (renderManager == null) return;
             PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.DEZ_BOSS);
             if (renderer == null || !renderer.isReady()) return;
@@ -1808,8 +1807,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
-            ObjectRenderManager renderManager = ((Sonic2DeathEggRobotInstance) parent).levelManager
-                    .getObjectRenderManager();
+            ObjectRenderManager renderManager = ((Sonic2DeathEggRobotInstance) parent).services().renderManager();
             if (renderManager == null) return;
             PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.DEZ_BOSS);
             if (renderer == null || !renderer.isReady()) return;
@@ -1930,8 +1928,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
-            ObjectRenderManager renderManager = ((Sonic2DeathEggRobotInstance) parent).levelManager
-                    .getObjectRenderManager();
+            ObjectRenderManager renderManager = ((Sonic2DeathEggRobotInstance) parent).services().renderManager();
             if (renderManager == null) return;
             PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.DEZ_BOSS);
             if (renderer == null || !renderer.isReady()) return;
@@ -2107,8 +2104,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
-            ObjectRenderManager renderManager = ((Sonic2DeathEggRobotInstance) parent).levelManager
-                    .getObjectRenderManager();
+            ObjectRenderManager renderManager = ((Sonic2DeathEggRobotInstance) parent).services().renderManager();
             if (renderManager == null) return;
             PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.DEZ_BOSS);
             if (renderer == null || !renderer.isReady()) return;
@@ -2214,8 +2210,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
-            ObjectRenderManager renderManager = ((Sonic2DeathEggRobotInstance) parent).levelManager
-                    .getObjectRenderManager();
+            ObjectRenderManager renderManager = ((Sonic2DeathEggRobotInstance) parent).services().renderManager();
             if (renderManager == null) return;
             PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.DEZ_BOSS);
             if (renderer == null || !renderer.isReady()) return;

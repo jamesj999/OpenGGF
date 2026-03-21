@@ -1,7 +1,7 @@
 package com.openggf.game.sonic1.objects;
 
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractPointsObjectInstance;
+import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
 
 /**
@@ -12,8 +12,8 @@ import com.openggf.level.objects.ObjectSpawn;
  */
 public class Sonic1PointsObjectInstance extends AbstractPointsObjectInstance {
 
-    public Sonic1PointsObjectInstance(ObjectSpawn spawn, LevelManager levelManager, int points) {
-        super(spawn, "S1Points", levelManager, points);
+    public Sonic1PointsObjectInstance(ObjectSpawn spawn, ObjectServices services, int points) {
+        super(spawn, "S1Points", services, points);
     }
 
     @Override

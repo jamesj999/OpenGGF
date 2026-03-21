@@ -3,7 +3,7 @@ package com.openggf.game.sonic1.objects.bosses;
 import com.openggf.audio.AudioManager;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.audio.Sonic1Music;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.physics.TrigLookupTable;
@@ -101,8 +101,8 @@ public class Sonic1SYZBossInstance extends AbstractS1EggmanBossInstance {
     // Spike child component
     private SYZBossSpike spikeChild;
 
-    public Sonic1SYZBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "SYZ Boss");
+    public Sonic1SYZBossInstance(ObjectSpawn spawn) {
+        super(spawn, "SYZ Boss");
     }
 
     @Override
@@ -525,12 +525,12 @@ public class Sonic1SYZBossInstance extends AbstractS1EggmanBossInstance {
      */
     private void findAndTargetBlock() {
         grabbedBlock = null;
-        if (levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
         // ROM: Linear search through object RAM for matching block
-        for (ObjectInstance obj : levelManager.getObjectManager().getActiveObjects()) {
+        for (ObjectInstance obj : services().objectManager().getActiveObjects()) {
             if (obj instanceof Sonic1BossBlockInstance block) {
                 if (!block.isDestroyed() && !block.isGrabbed()
                         && block.getBlockColumn() == columnIndex) {
@@ -545,10 +545,10 @@ public class Sonic1SYZBossInstance extends AbstractS1EggmanBossInstance {
      * Spawn the spike child component.
      */
     private void spawnSpikeChild() {
-        spikeChild = new SYZBossSpike(this, levelManager);
+        spikeChild = new SYZBossSpike(this, com.openggf.game.GameServices.level());
         childComponents.add(spikeChild);
-        if (levelManager.getObjectManager() != null) {
-            levelManager.getObjectManager().addDynamicObject(spikeChild);
+        if (services().objectManager() != null) {
+            services().objectManager().addDynamicObject(spikeChild);
         }
     }
 

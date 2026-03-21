@@ -168,8 +168,8 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
     private WFZLaser laser;
     private WFZRobotnik robotnik;
 
-    public Sonic2WFZBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "WFZ Boss");
+    public Sonic2WFZBossInstance(ObjectSpawn spawn) {
+        super(spawn, "WFZ Boss");
     }
 
     @Override
@@ -250,7 +250,7 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         // Phase 2 (CaseWaitDown): Wait $5A frames with NO movement. Then advance to DESCEND.
         if (!childrenSpawned) {
             // First call: spawn children and set up wait
-            if (levelManager.getObjectManager() != null) {
+            if (services().objectManager() != null) {
                 spawnChildObjects();
             }
             state.yVel = DESCENT_SPEED;
@@ -276,27 +276,27 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         // 1. Left wall at x - $88, y + $60
         leftWall = new WFZLaserWall(this, spawnX - WALL_OFFSET_X, state.y + WALL_OFFSET_Y);
         childComponents.add(leftWall);
-        levelManager.getObjectManager().addDynamicObject(leftWall);
+        services().objectManager().addDynamicObject(leftWall);
 
         // 2. Right wall at x + $88, y + $60
         rightWall = new WFZLaserWall(this, spawnX + WALL_OFFSET_X, state.y + WALL_OFFSET_Y);
         childComponents.add(rightWall);
-        levelManager.getObjectManager().addDynamicObject(rightWall);
+        services().objectManager().addDynamicObject(rightWall);
 
         // 3. Laser shooter (follows parent)
         laserShooter = new WFZLaserShooter(this);
         childComponents.add(laserShooter);
-        levelManager.getObjectManager().addDynamicObject(laserShooter);
+        services().objectManager().addDynamicObject(laserShooter);
 
         // 4. Platform releaser (follows parent X)
         platformReleaser = new WFZPlatformReleaser(this);
         childComponents.add(platformReleaser);
-        levelManager.getObjectManager().addDynamicObject(platformReleaser);
+        services().objectManager().addDynamicObject(platformReleaser);
 
         // 5. Robotnik at fixed position ($2C60, $4E6)
         robotnik = new WFZRobotnik(this);
         childComponents.add(robotnik);
-        levelManager.getObjectManager().addDynamicObject(robotnik);
+        services().objectManager().addDynamicObject(robotnik);
     }
 
     // ========================================================================
@@ -461,10 +461,10 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         // ROM: ObjC5_CaseLoadLaser spawns laser then advances routine.
         // ObjC5_CaseWaitMove ($14) then waits for laser to signal.
         // We combine both in this routine.
-        if (levelManager.getObjectManager() != null && laser == null) {
+        if (services().objectManager() != null && laser == null) {
             laser = new WFZLaser(this);
             childComponents.add(laser);
-            levelManager.getObjectManager().addDynamicObject(laser);
+            services().objectManager().addDynamicObject(laser);
             laserSignaled = false;
             return; // Wait for laser signal starting next frame
         }
@@ -680,7 +680,7 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

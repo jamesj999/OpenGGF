@@ -241,13 +241,12 @@ public class Sonic1BumperObjectInstance extends AbstractObjectInstance {
         GameServices.gameState().addScore(POINTS_PER_HIT);
 
         // Spawn points popup (id_Points = 0x29)
-        LevelManager levelManager = LevelManager.getInstance();
-        ObjectManager objectManager = levelManager.getObjectManager();
+        ObjectManager objectManager = services() != null ? services().objectManager() : null;
         if (objectManager != null) {
             ObjectSpawn pointsSpawn = new ObjectSpawn(
                     spawn.x(), spawn.y(), 0x29, 0, 0, false, 0);
             Sonic1PointsObjectInstance pointsObj = new Sonic1PointsObjectInstance(
-                    pointsSpawn, levelManager, POINTS_PER_HIT);
+                    pointsSpawn, services(), POINTS_PER_HIT);
             pointsObj.setScoreFrameIndex(POINTS_FRAME_INDEX);
             objectManager.addDynamicObject(pointsObj);
         }

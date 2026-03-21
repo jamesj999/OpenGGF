@@ -6,7 +6,7 @@ import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SubpixelMotion;
@@ -48,8 +48,8 @@ public class SolBadnikInstance extends AbstractBadnikInstance {
     private final SubpixelMotion.State motionState;
     private State state;
 
-    public SolBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Sol", Sonic2BadnikConfig.DESTRUCTION);
+    public SolBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Sol", Sonic2BadnikConfig.DESTRUCTION);
         this.xFlip = (spawn.renderFlags() & 0x01) != 0;
         this.orbitDirection = xFlip ? -1 : 1;
         this.xVelocity = xFlip ? X_VELOCITY : -X_VELOCITY;
@@ -110,7 +110,7 @@ public class SolBadnikInstance extends AbstractBadnikInstance {
     }
 
     private void spawnFireballs() {
-        ObjectManager objectManager = levelManager.getObjectManager();
+        ObjectManager objectManager = services() != null ? services().objectManager() : null;
         if (objectManager == null) {
             return;
         }

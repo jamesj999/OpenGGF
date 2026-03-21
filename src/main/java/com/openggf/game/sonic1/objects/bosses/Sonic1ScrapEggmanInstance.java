@@ -132,9 +132,9 @@ public class Sonic1ScrapEggmanInstance extends AbstractObjectInstance implements
     /** The button child object */
     private ScrapEggmanButton button;
 
-    public Sonic1ScrapEggmanInstance(ObjectSpawn spawn, LevelManager levelManager) {
+    public Sonic1ScrapEggmanInstance(ObjectSpawn spawn) {
         super(spawn, "ScrapEggman");
-        this.levelManager = levelManager;
+        this.levelManager = LevelManager.getInstance();
 
         // Initialise Eggman position
         this.currentX = EGGMAN_INIT_X;

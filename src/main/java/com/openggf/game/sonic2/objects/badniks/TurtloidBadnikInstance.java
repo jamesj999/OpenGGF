@@ -3,7 +3,6 @@ package com.openggf.game.sonic2.objects.badniks;
 import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.level.objects.AnimalObjectInstance;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.GameServices;
@@ -12,7 +11,6 @@ import com.openggf.level.objects.ExplosionObjectInstance;
 import com.openggf.game.sonic2.objects.PointsObjectInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.ParallaxManager;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -87,8 +85,8 @@ public class TurtloidBadnikInstance extends AbstractBadnikInstance
 
     private final SolidObjectParams platformParams;
 
-    public TurtloidBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Turtloid", Sonic2BadnikConfig.DESTRUCTION);
+    public TurtloidBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Turtloid", Sonic2BadnikConfig.DESTRUCTION);
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         this.xVelocity = X_VELOCITY;
@@ -105,7 +103,7 @@ public class TurtloidBadnikInstance extends AbstractBadnikInstance
     }
 
     private void spawnChildren() {
-        ObjectManager objectManager = levelManager.getObjectManager();
+        ObjectManager objectManager = services() != null ? services().objectManager() : null;
         if (objectManager == null) {
             return;
         }
@@ -234,7 +232,7 @@ public class TurtloidBadnikInstance extends AbstractBadnikInstance
                 false,  // No gravity
                 false); // No H-flip
 
-        levelManager.getObjectManager().addDynamicObject(projectile);
+        services().objectManager().addDynamicObject(projectile);
     }
 
     void onRiderDestroyed(int riderX, int riderY, AbstractPlayableSprite player) {
@@ -248,17 +246,20 @@ public class TurtloidBadnikInstance extends AbstractBadnikInstance
             animFrame = 0;
         }
 
-        ObjectManager objectManager = levelManager.getObjectManager();
+        if (services() == null) {
+            return;
+        }
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
 
         ExplosionObjectInstance explosion = new ExplosionObjectInstance(
-                0x27, riderX, riderY, levelManager.getObjectRenderManager());
+                0x27, riderX, riderY, services().renderManager());
         objectManager.addDynamicObject(explosion);
 
         AnimalObjectInstance animal = new AnimalObjectInstance(
-                new ObjectSpawn(riderX, riderY, 0x28, 0, 0, false, 0), levelManager);
+                new ObjectSpawn(riderX, riderY, 0x28, 0, 0, false, 0), services());
         objectManager.addDynamicObject(animal);
 
         int pointsValue = 100;
@@ -268,10 +269,10 @@ public class TurtloidBadnikInstance extends AbstractBadnikInstance
         }
 
         PointsObjectInstance points = new PointsObjectInstance(
-                new ObjectSpawn(riderX, riderY, 0x29, 0, 0, false, 0), levelManager, pointsValue);
+                new ObjectSpawn(riderX, riderY, 0x29, 0, 0, false, 0), services(), pointsValue);
         objectManager.addDynamicObject(points);
 
-        AudioManager.getInstance().playSfx(Sonic2Sfx.EXPLOSION.id);
+        services().playSfx(Sonic2Sfx.EXPLOSION.id);
     }
 
     @Override

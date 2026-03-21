@@ -4,7 +4,7 @@ import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.audio.Sonic1Music;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -90,8 +90,8 @@ public class Sonic1LZBossInstance extends AbstractS1EggmanBossInstance {
     // ROM: objoff_3E — counts down from $20 during flash, re-enables collision at 0
     private int hitFlashTimer; // objoff_3E
 
-    public Sonic1LZBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "LZ Boss");
+    public Sonic1LZBossInstance(ObjectSpawn spawn) {
+        super(spawn, "LZ Boss");
     }
 
     @Override

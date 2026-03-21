@@ -5,7 +5,7 @@ import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -90,8 +90,8 @@ public final class MonkeyDudeBadnikInstance extends AbstractS3kBadnikInstance {
     private int[] frames = WAIT_FRAMES_SEQ;
     private int[] delays = WAIT_DELAYS;
 
-    public MonkeyDudeBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, "MonkeyDude", levelManager,
+    public MonkeyDudeBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "MonkeyDude",
                 Sonic3kObjectArtKeys.MONKEY_DUDE, COLLISION_SIZE_INDEX, PRIORITY_BUCKET);
 
         // ROM init:
@@ -295,10 +295,10 @@ public final class MonkeyDudeBadnikInstance extends AbstractS3kBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed || levelManager == null) {
+        if (destroyed || services() == null) {
             return;
         }
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

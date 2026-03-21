@@ -5,7 +5,7 @@ import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.ParallaxManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SubpixelMotion;
@@ -60,8 +60,8 @@ public class NebulaBadnikInstance extends AbstractBadnikInstance {
     // duration = ANIM_SPEED + 1 because original code uses > (not >=)
     private final AnimationTimer anim = new AnimationTimer(ANIM_SPEED + 1, ANIM_FRAMES.length);
 
-    public NebulaBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Nebula", Sonic2BadnikConfig.DESTRUCTION);
+    public NebulaBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Nebula", Sonic2BadnikConfig.DESTRUCTION);
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         this.xVelocity = INIT_X_VEL;
@@ -163,7 +163,7 @@ public class NebulaBadnikInstance extends AbstractBadnikInstance {
                 true, // Apply gravity (ObjectMoveAndFall)
                 false);
 
-        LevelManager.getInstance().getObjectManager().addDynamicObject(bomb);
+        services().objectManager().addDynamicObject(bomb);
     }
 
     @Override

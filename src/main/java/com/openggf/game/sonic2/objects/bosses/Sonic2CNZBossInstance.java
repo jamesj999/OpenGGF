@@ -156,16 +156,16 @@ public class Sonic2CNZBossInstance extends AbstractBossInstance {
     /**
      * Creates the main CNZ boss (generic factory path, no event handler reference).
      */
-    public Sonic2CNZBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        this(spawn, levelManager, null);
+    public Sonic2CNZBossInstance(ObjectSpawn spawn) {
+        this(spawn, null);
     }
 
     /**
      * Creates the main CNZ boss with a reference to the zone event handler
      * for boss defeat callbacks.
      */
-    public Sonic2CNZBossInstance(ObjectSpawn spawn, LevelManager levelManager, Sonic2CNZEvents cnzEvents) {
-        super(spawn, levelManager, "CNZ Boss");
+    public Sonic2CNZBossInstance(ObjectSpawn spawn, Sonic2CNZEvents cnzEvents) {
+        super(spawn, "CNZ Boss");
         this.cnzEvents = cnzEvents;
     }
 
@@ -679,14 +679,14 @@ public class Sonic2CNZBossInstance extends AbstractBossInstance {
      * objoff_28 (ballRiseOffset) during attach phase.
      */
     private void spawnElectricBall() {
-        if (levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
         // ROM: move.b #4,boss_subtype(a1) / move.l a0,objoff_34(a1)
         // The spawn coordinates are informational - ball uses parent position directly
         ObjectSpawn ballSpawn = new ObjectSpawn(state.x, state.y, Sonic2ObjectIds.CNZ_BOSS, 4, 0, false, 0);
-        CNZBossElectricBall ball = new CNZBossElectricBall(ballSpawn, levelManager, this);
-        levelManager.getObjectManager().addDynamicObject(ball);
+        CNZBossElectricBall ball = new CNZBossElectricBall(ballSpawn, com.openggf.game.GameServices.level(), this);
+        services().objectManager().addDynamicObject(ball);
     }
 
     // ========================================================================
@@ -762,8 +762,8 @@ public class Sonic2CNZBossInstance extends AbstractBossInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = levelManager != null
-                ? levelManager.getObjectRenderManager() : null;
+        ObjectRenderManager renderManager = services() != null
+                ? services().renderManager() : null;
         if (renderManager == null) {
             return;
         }

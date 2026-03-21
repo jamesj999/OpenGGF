@@ -3,7 +3,7 @@ package com.openggf.game.sonic1.objects.badniks;
 import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
@@ -64,8 +64,8 @@ public class Sonic1ChopperBadnikInstance extends AbstractBadnikInstance {
     private int currentAnim;          // Current animation index (0=slow, 1=fast, 2=still)
     private int animTickCounter;      // Ticks within current animation frame
 
-    public Sonic1ChopperBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Chopper");
+    public Sonic1ChopperBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Chopper");
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         this.origY = spawn.y();

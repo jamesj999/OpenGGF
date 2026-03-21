@@ -104,7 +104,7 @@ public class Sonic2ARZEvents extends Sonic2ZoneEvents {
         // ROM spawns obj89 with no specific coordinates - the object positions itself
         ObjectSpawn bossSpawn = new ObjectSpawn(
                 0x2AE0, 0x388, Sonic2ObjectIds.ARZ_BOSS, 0, 0, false, 0);
-        arzBoss = new Sonic2ARZBossInstance(bossSpawn, LevelManager.getInstance());
+        arzBoss = new Sonic2ARZBossInstance(bossSpawn);
         spawnObject(arzBoss);
     }
 }

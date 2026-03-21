@@ -5,7 +5,7 @@ import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -74,8 +74,8 @@ public class FlasherBadnikInstance extends AbstractBadnikInstance {
     private int animationDelayCounter;
     private int animationIndex;
 
-    public FlasherBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Flasher", Sonic2BadnikConfig.DESTRUCTION);
+    public FlasherBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Flasher", Sonic2BadnikConfig.DESTRUCTION);
         this.state = State.WAITING;
         this.stateTimer = WAIT_TIMER_INIT;
         this.xPosFixed = currentX << 8;

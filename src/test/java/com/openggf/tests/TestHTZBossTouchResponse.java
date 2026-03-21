@@ -44,11 +44,9 @@ public class TestHTZBossTouchResponse {
 
         objectManager = new ObjectManager(List.of(), new NoOpObjectRegistry(), 0, null, touchTable);
 
-        LevelManager levelManager = mock(LevelManager.class);
+
         boss = new Sonic2HTZBossInstance(
-                new ObjectSpawn(HTZ_BOSS_X, HTZ_BOSS_Y, Sonic2ObjectIds.HTZ_BOSS, 0, 0, false, 0),
-                levelManager
-        );
+                new ObjectSpawn(HTZ_BOSS_X, HTZ_BOSS_Y, Sonic2ObjectIds.HTZ_BOSS, 0, 0, false, 0));
 
         player = mock(AbstractPlayableSprite.class);
         when(player.getCentreX()).thenReturn((short) (HTZ_BOSS_X + 8));

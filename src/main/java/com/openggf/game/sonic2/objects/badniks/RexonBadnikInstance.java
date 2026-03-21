@@ -5,7 +5,6 @@ import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.objects.SolidContact;
@@ -62,8 +61,8 @@ public class RexonBadnikInstance extends AbstractBadnikInstance
     private boolean xFlipFlag;
     private final List<RexonHeadObjectInstance> heads = new ArrayList<>();
 
-    public RexonBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Rexon", Sonic2BadnikConfig.DESTRUCTION);
+    public RexonBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Rexon", Sonic2BadnikConfig.DESTRUCTION);
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         this.xVelocity = X_VELOCITY;
@@ -154,7 +153,6 @@ public class RexonBadnikInstance extends AbstractBadnikInstance
             int headIndex = i * 2;  // 0, 2, 4, 6, 8
             RexonHeadObjectInstance head = new RexonHeadObjectInstance(
                     spawn,
-                    levelManager,
                     this,
                     currentX,
                     currentY,
@@ -162,7 +160,7 @@ public class RexonBadnikInstance extends AbstractBadnikInstance
                     xFlipFlag
             );
             heads.add(head);
-            levelManager.getObjectManager().addDynamicObject(head);
+            services().objectManager().addDynamicObject(head);
         }
 
         // Set up head chain linking (s2.asm:73786-73795)

@@ -325,7 +325,7 @@ public class PointPokeyObjectInstance extends BoxObjectInstance
             // Spawn floating "100" points sprite at cage position
             PointsObjectInstance points = new PointsObjectInstance(
                     new ObjectSpawn(spawn.x(), spawn.y(), 0x29, 0, 0, false, 0),
-                    levelManager, 100);
+                    services(), 100);
             levelManager.getObjectManager().addDynamicObject(points);
         }
 

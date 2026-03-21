@@ -162,7 +162,7 @@ class Sonic1LZEvents extends Sonic1ZoneEvents {
                 BOSS_LZ_X + 0x30,         // boss_lz_x + $30
                 BOSS_LZ_Y + 0x500,        // boss_lz_y + $500
                 Sonic1ObjectIds.LZ_BOSS, 0, 0, false, 0);
-        Sonic1LZBossInstance boss = new Sonic1LZBossInstance(bossSpawn, lm);
+        Sonic1LZBossInstance boss = new Sonic1LZBossInstance(bossSpawn);
         if (lm.getObjectManager() != null) {
             lm.getObjectManager().addDynamicObject(boss);
         }

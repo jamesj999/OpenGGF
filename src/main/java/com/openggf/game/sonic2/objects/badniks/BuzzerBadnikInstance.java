@@ -5,7 +5,7 @@ import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -42,8 +42,8 @@ public class BuzzerBadnikInstance extends AbstractBadnikInstance {
     private int shotTimer;
     private boolean shootingDisabled;
 
-    public BuzzerBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Buzzer", Sonic2BadnikConfig.DESTRUCTION);
+    public BuzzerBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Buzzer", Sonic2BadnikConfig.DESTRUCTION);
         this.currentX = spawn.x();
         this.currentY = spawn.y();
 
@@ -157,7 +157,7 @@ public class BuzzerBadnikInstance extends AbstractBadnikInstance {
                 false, // No gravity for Buzzer stinger
                 !facingLeft);
 
-        LevelManager.getInstance().getObjectManager().addDynamicObject(projectile);
+        services().objectManager().addDynamicObject(projectile);
     }
 
     @Override

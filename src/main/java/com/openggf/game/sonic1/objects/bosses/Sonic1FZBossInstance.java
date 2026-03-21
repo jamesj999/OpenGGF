@@ -9,7 +9,6 @@ import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.level.objects.boss.BossExplosionObjectInstance;
 import com.openggf.game.sonic1.scroll.Sonic1ZoneConstants;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -120,8 +119,8 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
     private int escapeCollisionFlags;
     private boolean endingTransitionRequested;
 
-    public Sonic1FZBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "FZ Boss");
+    public Sonic1FZBossInstance(ObjectSpawn spawn) {
+        super(spawn, "FZ Boss");
     }
 
     @Override
@@ -163,27 +162,27 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
     }
 
     private void spawnChildComponents() {
-        var objectManager = levelManager.getObjectManager();
+        var objectManager = services().objectManager();
         if (objectManager == null) return;
 
         // Spawn 4 cylinders with subtypes 0, 2, 4, 6 (ROM: loc_19E3E)
         for (int i = 0; i < 4; i++) {
             int subtype = i * 2;
-            FZCylinder cylinder = new FZCylinder(this, levelManager, subtype);
+            FZCylinder cylinder = new FZCylinder(this, GameServices.level(), subtype);
             cylinders[i] = cylinder;
             childComponents.add(cylinder);
             objectManager.addDynamicObject(cylinder);
         }
 
         // Spawn plasma launcher (ROM: loc_19E20)
-        plasmaLauncher = new FZPlasmaLauncher(this, levelManager);
+        plasmaLauncher = new FZPlasmaLauncher(this, GameServices.level());
         childComponents.add(plasmaLauncher);
         objectManager.addDynamicObject(plasmaLauncher);
     }
 
     private void ensureChildComponentsSpawned() {
         if (childComponentsSpawned) return;
-        if (levelManager.getObjectManager() == null) return;
+        if (services().objectManager() == null) return;
         spawnChildComponents();
         childComponentsSpawned = true;
     }
@@ -811,8 +810,8 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
     }
 
     private void spawnDefeatExplosionAt(int sourceX, int sourceY) {
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
-        if (renderManager == null || levelManager.getObjectManager() == null) {
+        ObjectRenderManager renderManager = services().renderManager();
+        if (renderManager == null || services().objectManager() == null) {
             return;
         }
 
@@ -824,7 +823,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
                 sourceY + yOffset,
                 renderManager,
                 Sonic1Sfx.BOSS_EXPLOSION.id);
-        levelManager.getObjectManager().addDynamicObject(explosion);
+        services().objectManager().addDynamicObject(explosion);
     }
 
     private void requestEndingTransition() {
@@ -838,7 +837,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
                 : ENDING_ACT_NO_EMERALDS;
         // ROM: move.b #id_Ending,(v_gamemode).w
         // Engine parity path: transition to the dedicated ending zone/act variant.
-        levelManager.requestZoneAndAct(Sonic1ZoneConstants.ZONE_ENDING, endingAct, true);
+        GameServices.level().requestZoneAndAct(Sonic1ZoneConstants.ZONE_ENDING, endingAct, true);
     }
 
     // === SolidObjectProvider interface ===
@@ -889,7 +888,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) return;
 
         if (!escapingInShip) {

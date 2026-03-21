@@ -2,7 +2,6 @@ package com.openggf.game.sonic3k.objects.badniks;
 
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.DestructionEffects;
 import com.openggf.level.objects.DestructionEffects.DestructionConfig;
@@ -24,7 +23,6 @@ import java.util.List;
 abstract class AbstractS3kBadnikInstance extends AbstractObjectInstance
         implements TouchResponseProvider, TouchResponseAttackable {
 
-    protected final LevelManager levelManager;
     private final String rendererKey;
     private final int collisionSizeIndex;
     private final int priorityBucket;
@@ -39,10 +37,9 @@ abstract class AbstractS3kBadnikInstance extends AbstractObjectInstance
     protected boolean facingLeft;
     protected boolean destroyed;
 
-    protected AbstractS3kBadnikInstance(ObjectSpawn spawn, String name, LevelManager levelManager,
+    protected AbstractS3kBadnikInstance(ObjectSpawn spawn, String name,
             String rendererKey, int collisionSizeIndex, int priorityBucket) {
         super(spawn, name);
-        this.levelManager = levelManager;
         this.rendererKey = rendererKey;
         this.collisionSizeIndex = collisionSizeIndex;
         this.priorityBucket = priorityBucket;
@@ -83,12 +80,12 @@ abstract class AbstractS3kBadnikInstance extends AbstractObjectInstance
         setDestroyed(true);
 
         DestructionEffects.destroyBadnik(
-                getBodyAnchorX(), getBodyAnchorY(), spawn, player, levelManager,
+                getBodyAnchorX(), getBodyAnchorY(), spawn, player, services(),
                 S3K_DESTRUCTION_CONFIG);
     }
 
     protected final void spawnProjectile(S3kBadnikProjectileInstance projectile) {
-        ObjectManager objectManager = levelManager != null ? levelManager.getObjectManager() : null;
+        ObjectManager objectManager = services() != null ? services().objectManager() : null;
         if (objectManager != null) {
             objectManager.addDynamicObject(projectile);
         }
@@ -129,10 +126,10 @@ abstract class AbstractS3kBadnikInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed || levelManager == null) {
+        if (destroyed || services() == null) {
             return;
         }
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

@@ -117,8 +117,8 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
     private int flameAnimIndex;   // index into FLAME_FRAMES/FLAME_DURATIONS
     private int flameAnimTimer;
 
-    public Sonic2HTZBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "HTZ Boss");
+    public Sonic2HTZBossInstance(ObjectSpawn spawn) {
+        super(spawn, "HTZ Boss");
     }
 
     @Override
@@ -471,7 +471,7 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
      * ROM: s2.asm:63730-63752
      */
     private void spawnFlamethrower() {
-        if (levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
@@ -485,7 +485,7 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
         );
 
         childComponents.add(flamethrower);
-        levelManager.getObjectManager().addDynamicObject(flamethrower);
+        services().objectManager().addDynamicObject(flamethrower);
     }
 
     /**
@@ -493,7 +493,7 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
      * ROM: s2.asm:63900-64006
      */
     private void spawnLavaBalls() {
-        if (levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
@@ -508,7 +508,7 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
                 leftSide
         );
         childComponents.add(leftBall);
-        levelManager.getObjectManager().addDynamicObject(leftBall);
+        services().objectManager().addDynamicObject(leftBall);
 
         // Spawn right ball
         HTZBossLavaBall rightBall = new HTZBossLavaBall(
@@ -519,7 +519,7 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
                 leftSide
         );
         childComponents.add(rightBall);
-        levelManager.getObjectManager().addDynamicObject(rightBall);
+        services().objectManager().addDynamicObject(rightBall);
     }
 
     /**
@@ -527,17 +527,17 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
      * ROM: Obj52_CreateSmoke (s2.asm:64116-64135)
      */
     private void spawnDefeatSmoke() {
-        if (levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
         HTZBossSmokeParticle smoke = new HTZBossSmokeParticle(
                 state.x,
                 state.y - 0x28,
-                levelManager
+                com.openggf.game.GameServices.level()
         );
 
-        levelManager.getObjectManager().addDynamicObject(smoke);
+        services().objectManager().addDynamicObject(smoke);
     }
 
     // Note: The ROM does NOT spawn an EggPrison from the HTZ boss code.

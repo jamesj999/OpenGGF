@@ -3,7 +3,7 @@ package com.openggf.game.sonic1.objects.bosses;
 import com.openggf.audio.AudioManager;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.audio.Sonic1Music;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -60,8 +60,8 @@ public class Sonic1GHZBossInstance extends AbstractS1EggmanBossInstance {
     // Wrecking ball child
     private GHZBossWreckingBall wreckingBall;
 
-    public Sonic1GHZBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "GHZ Boss");
+    public Sonic1GHZBossInstance(ObjectSpawn spawn) {
+        super(spawn, "GHZ Boss");
     }
 
     @Override
@@ -338,10 +338,10 @@ public class Sonic1GHZBossInstance extends AbstractS1EggmanBossInstance {
         if (wreckingBall != null) {
             return; // Already spawned
         }
-        wreckingBall = new GHZBossWreckingBall(this, levelManager);
+        wreckingBall = new GHZBossWreckingBall(this, com.openggf.game.GameServices.level());
         childComponents.add(wreckingBall);
-        if (levelManager.getObjectManager() != null) {
-            levelManager.getObjectManager().addDynamicObject(wreckingBall);
+        if (services().objectManager() != null) {
+            services().objectManager().addDynamicObject(wreckingBall);
         }
     }
 

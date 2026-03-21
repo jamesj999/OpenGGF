@@ -5,7 +5,7 @@ import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.camera.Camera;
@@ -72,8 +72,8 @@ public class WhispBadnikInstance extends AbstractBadnikInstance {
     private int xVelFixed;
     private int yVelFixed;
 
-    public WhispBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Whisp", Sonic2BadnikConfig.DESTRUCTION);
+    public WhispBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Whisp", Sonic2BadnikConfig.DESTRUCTION);
         this.state = State.INIT;
         this.timer = 0;
         this.attacksRemaining = MAX_ATTACKS;

@@ -105,7 +105,7 @@ public class Sonic2CPZEvents extends Sonic2ZoneEvents {
     private void spawnCPZBoss() {
         ObjectSpawn bossSpawn = new ObjectSpawn(
                 0x2B80, 0x04B0, Sonic2ObjectIds.CPZ_BOSS, 0, 0, false, 0);
-        cpzBoss = new Sonic2CPZBossInstance(bossSpawn, LevelManager.getInstance());
+        cpzBoss = new Sonic2CPZBossInstance(bossSpawn);
         spawnObject(cpzBoss);
     }
 }

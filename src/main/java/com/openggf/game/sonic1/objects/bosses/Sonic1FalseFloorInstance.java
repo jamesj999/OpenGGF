@@ -103,7 +103,7 @@ public class Sonic1FalseFloorInstance extends AbstractObjectInstance
     private int solidOffsetX = 0;
 
     private final List<FalseFloorBlock> childBlocks = new ArrayList<>();
-    public Sonic1FalseFloorInstance(ObjectSpawn spawn, LevelManager levelManager) {
+    public Sonic1FalseFloorInstance(ObjectSpawn spawn) {
         super(spawn, "FalseFloor");
         this.currentX = MASTER_X;
         this.currentY = MASTER_Y;

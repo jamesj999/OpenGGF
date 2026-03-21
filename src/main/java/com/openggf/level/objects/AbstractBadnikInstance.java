@@ -3,7 +3,6 @@ package com.openggf.level.objects;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.debug.DebugColor;
 
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -23,8 +22,6 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
     protected int animFrame;
     protected boolean facingLeft;
 
-    protected final LevelManager levelManager;
-
     private final DestructionConfig destructionConfig;
 
     /**
@@ -32,10 +29,9 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
      * S2 badniks pass Sonic2BadnikConfig.DESTRUCTION; S1 badniks use the 3-arg
      * constructor and override getDestructionConfig().
      */
-    protected AbstractBadnikInstance(ObjectSpawn spawn, LevelManager levelManager,
+    protected AbstractBadnikInstance(ObjectSpawn spawn,
             String name, DestructionConfig destructionConfig) {
         super(spawn, name);
-        this.levelManager = levelManager;
         this.destructionConfig = destructionConfig;
         this.currentX = spawn.x();
         this.currentY = spawn.y();
@@ -50,8 +46,8 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
      * Backwards-compatible 3-arg constructor for subclasses that override
      * getDestructionConfig() (e.g. S1 badniks).
      */
-    protected AbstractBadnikInstance(ObjectSpawn spawn, LevelManager levelManager, String name) {
-        this(spawn, levelManager, name, null);
+    protected AbstractBadnikInstance(ObjectSpawn spawn, String name) {
+        this(spawn, name, null);
     }
 
     @Override
@@ -114,7 +110,7 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
      */
     protected void destroyBadnik(AbstractPlayableSprite player) {
         setDestroyed(true);
-        DestructionEffects.destroyBadnik(currentX, currentY, spawn, player, levelManager,
+        DestructionEffects.destroyBadnik(currentX, currentY, spawn, player, services(),
                 getDestructionConfig());
     }
 

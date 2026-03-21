@@ -200,8 +200,8 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
     private int rightDiggerYVel;
     private boolean diggersDetached;
 
-    public Sonic2MCZBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "MCZ Boss");
+    public Sonic2MCZBossInstance(ObjectSpawn spawn) {
+        super(spawn, "MCZ Boss");
     }
 
     @Override
@@ -661,7 +661,7 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
      * ROM: Obj57_SpawnStoneSpike (s2.asm:65632-65665)
      */
     private void spawnStoneOrSpike() {
-        if (levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
@@ -688,7 +688,7 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
 
         MCZFallingDebrisInstance debris = new MCZFallingDebrisInstance(
                 x, DEBRIS_SPAWN_Y, isSpike);
-        levelManager.getObjectManager().addDynamicObject(debris);
+        services().objectManager().addDynamicObject(debris);
     }
 
     /**
@@ -793,7 +793,7 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
     }
 
     private void spawnEggPrison() {
-        if (levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
         ObjectSpawn prisonSpawn = new ObjectSpawn(
@@ -802,7 +802,7 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
                 0, 0, false, 0
         );
         EggPrisonObjectInstance prison = new EggPrisonObjectInstance(prisonSpawn, "Egg Prison");
-        levelManager.getObjectManager().addDynamicObject(prison);
+        services().objectManager().addDynamicObject(prison);
     }
 
     @Override

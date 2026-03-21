@@ -339,7 +339,7 @@ public class Sonic1SmashBlockObjectInstance extends AbstractObjectInstance
         if (objectManager != null) {
             Sonic1PointsObjectInstance pointsObj = new Sonic1PointsObjectInstance(
                     new ObjectSpawn(spawn.x(), spawn.y(), 0x29, 0, 0, false, 0),
-                    LevelManager.getInstance(), points);
+                    services(), points);
             // ROM writes obFrame directly from d2>>1 for this path.
             pointsObj.setScoreFrameIndex(pointsFrameIndex);
             objectManager.addDynamicObject(pointsObj);

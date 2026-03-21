@@ -3,7 +3,7 @@ package com.openggf.game.sonic1.objects.badniks;
 import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
@@ -94,8 +94,8 @@ public class Sonic1CrabmeatBadnikInstance extends AbstractBadnikInstance {
     private int baseAnimIndex;     // Animation index from Crab_SetAni (0-2)
     private int renderedFrame;     // Actual mapping frame for rendering
 
-    public Sonic1CrabmeatBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Crabmeat");
+    public Sonic1CrabmeatBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Crabmeat");
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         // S1: obStatus bit 0 set = facing right (xFlip)
@@ -202,15 +202,15 @@ public class Sonic1CrabmeatBadnikInstance extends AbstractBadnikInstance {
         Sonic1CrabmeatProjectileInstance leftBall = new Sonic1CrabmeatProjectileInstance(
                 currentX - PROJECTILE_X_OFFSET, currentY,
                 -PROJECTILE_X_VEL, PROJECTILE_Y_VEL,
-                this, levelManager);
-        levelManager.getObjectManager().addDynamicObject(leftBall);
+                this, com.openggf.game.GameServices.level());
+        services().objectManager().addDynamicObject(leftBall);
 
         // Right projectile
         Sonic1CrabmeatProjectileInstance rightBall = new Sonic1CrabmeatProjectileInstance(
                 currentX + PROJECTILE_X_OFFSET, currentY,
                 PROJECTILE_X_VEL, PROJECTILE_Y_VEL,
-                this, levelManager);
-        levelManager.getObjectManager().addDynamicObject(rightBall);
+                this, com.openggf.game.GameServices.level());
+        services().objectManager().addDynamicObject(rightBall);
     }
 
     /**

@@ -6,7 +6,7 @@ import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -52,8 +52,8 @@ public class SpikerBadnikInstance extends AbstractBadnikInstance {
     private final AnimationTimer anim = new AnimationTimer(9, 2);
     private final boolean yFlipFlag;
 
-    public SpikerBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Spiker", Sonic2BadnikConfig.DESTRUCTION);
+    public SpikerBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Spiker", Sonic2BadnikConfig.DESTRUCTION);
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         this.xVelocity = X_VELOCITY;
@@ -174,7 +174,7 @@ public class SpikerBadnikInstance extends AbstractBadnikInstance {
                 currentY,
                 xFlipFlag,
                 yFlipFlag);
-        levelManager.getObjectManager().addDynamicObject(drill);
+        services().objectManager().addDynamicObject(drill);
     }
 
     @Override

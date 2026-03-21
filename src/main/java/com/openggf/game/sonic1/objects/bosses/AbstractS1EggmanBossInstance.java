@@ -2,7 +2,6 @@ package com.openggf.game.sonic1.objects.bosses;
 
 import com.openggf.camera.Camera;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -40,8 +39,8 @@ public abstract class AbstractS1EggmanBossInstance extends AbstractBossInstance 
     /** Flame animation state — set by subclass in updateFlameAnimation(). */
     protected int flameAnim;
 
-    protected AbstractS1EggmanBossInstance(ObjectSpawn spawn, LevelManager levelManager, String name) {
-        super(spawn, levelManager, name);
+    protected AbstractS1EggmanBossInstance(ObjectSpawn spawn, String name) {
+        super(spawn, name);
     }
 
     // ========================================================================
@@ -114,7 +113,10 @@ public abstract class AbstractS1EggmanBossInstance extends AbstractBossInstance 
      * should override {@link #appendRenderCommands(List)} and call this first.
      */
     protected void renderEggmanShip() {
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        if (services() == null) {
+            return;
+        }
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

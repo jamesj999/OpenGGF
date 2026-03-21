@@ -111,8 +111,8 @@ public class Sonic2ARZBossInstance extends AbstractBossInstance {
     private int hammerYVel;
     private int[] bossAnim;
 
-    public Sonic2ARZBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "ARZ Boss");
+    public Sonic2ARZBossInstance(ObjectSpawn spawn) {
+        super(spawn, "ARZ Boss");
     }
 
     @Override
@@ -345,7 +345,7 @@ public class Sonic2ARZBossInstance extends AbstractBossInstance {
             bossYVel -= 8;
         } else if (bossCountdown == 0x18) {
             bossYVel = 0;
-            int levelMusic = levelManager != null ? levelManager.getCurrentLevelMusicId() : -1;
+            int levelMusic = GameServices.level() != null ? GameServices.level().getCurrentLevelMusicId() : -1;
             if (levelMusic >= 0) {
                 AudioManager.getInstance().playMusic(levelMusic);
             }
@@ -472,7 +472,7 @@ public class Sonic2ARZBossInstance extends AbstractBossInstance {
             }
             boolean hadRings = player.getRingCount() > 0;
             if (hadRings && !player.hasShield()) {
-                levelManager.spawnLostRings(player, frameCounter);
+                services().spawnLostRings(player, frameCounter);
             }
             player.applyHurtOrDeath(hammerX, false, hadRings);
         }
@@ -560,26 +560,26 @@ public class Sonic2ARZBossInstance extends AbstractBossInstance {
     }
 
     private void spawnPillars() {
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (services() == null || services().objectManager() == null) {
             return;
         }
 
         ObjectSpawn leftSpawn = new ObjectSpawn(LEFT_PILLAR_X, PILLAR_START_Y,
                 Sonic2ObjectIds.ARZ_BOSS, 0x04, 0, false, spawn.rawYWord());
-        ARZBossPillar left = new ARZBossPillar(leftSpawn, levelManager, this);
-        levelManager.getObjectManager().addDynamicObject(left);
+        ARZBossPillar left = new ARZBossPillar(leftSpawn, com.openggf.game.GameServices.level(), this);
+        services().objectManager().addDynamicObject(left);
 
         ObjectSpawn rightSpawn = new ObjectSpawn(RIGHT_PILLAR_X, PILLAR_START_Y,
                 Sonic2ObjectIds.ARZ_BOSS, 0x04, RENDER_X_FLIP, false, spawn.rawYWord());
-        ARZBossPillar right = new ARZBossPillar(rightSpawn, levelManager, this);
-        levelManager.getObjectManager().addDynamicObject(right);
+        ARZBossPillar right = new ARZBossPillar(rightSpawn, com.openggf.game.GameServices.level(), this);
+        services().objectManager().addDynamicObject(right);
     }
 
     /**
      * Called by ARZBossPillar to spawn arrow and eyes.
      */
     public void spawnArrowAndEyes(boolean leftPillar) {
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (services() == null || services().objectManager() == null) {
             return;
         }
 
@@ -590,13 +590,13 @@ public class Sonic2ARZBossInstance extends AbstractBossInstance {
 
         ObjectSpawn eyesSpawn = new ObjectSpawn(eyesX, eyesY, Sonic2ObjectIds.ARZ_BOSS,
                 0x08, eyesFlags, false, spawn.rawYWord());
-        ARZBossEyes eyes = new ARZBossEyes(eyesSpawn, levelManager);
-        levelManager.getObjectManager().addDynamicObject(eyes);
+        ARZBossEyes eyes = new ARZBossEyes(eyesSpawn, com.openggf.game.GameServices.level());
+        services().objectManager().addDynamicObject(eyes);
 
         ObjectSpawn arrowSpawn = new ObjectSpawn(eyesX, eyesY, Sonic2ObjectIds.ARZ_BOSS,
                 0x06, eyesFlags, false, spawn.rawYWord());
-        ARZBossArrow arrow = new ARZBossArrow(arrowSpawn, levelManager, this, eyes, !leftPillar);
-        levelManager.getObjectManager().addDynamicObject(arrow);
+        ARZBossArrow arrow = new ARZBossArrow(arrowSpawn, com.openggf.game.GameServices.level(), this, eyes, !leftPillar);
+        services().objectManager().addDynamicObject(arrow);
     }
 
     // ========================================================================
@@ -644,7 +644,7 @@ public class Sonic2ARZBossInstance extends AbstractBossInstance {
             return;
         }
 
-        ObjectRenderManager renderManager = levelManager != null ? levelManager.getObjectRenderManager() : null;
+        ObjectRenderManager renderManager = services() != null ? services().renderManager() : null;
         if (renderManager == null) {
             return;
         }

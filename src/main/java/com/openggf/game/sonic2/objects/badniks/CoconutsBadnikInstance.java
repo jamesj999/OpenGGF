@@ -5,7 +5,7 @@ import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -54,8 +54,8 @@ public class CoconutsBadnikInstance extends AbstractBadnikInstance {
     private State state;
     private ThrowState throwState;
 
-    public CoconutsBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Coconuts", Sonic2BadnikConfig.DESTRUCTION);
+    public CoconutsBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Coconuts", Sonic2BadnikConfig.DESTRUCTION);
         this.currentY = spawn.y();
         this.currentX = spawn.x();
         this.timer = IDLE_TIMER_INIT;
@@ -164,7 +164,7 @@ public class CoconutsBadnikInstance extends AbstractBadnikInstance {
                 true,
                 !facingLeft);
 
-        LevelManager.getInstance().getObjectManager().addDynamicObject(projectile);
+        services().objectManager().addDynamicObject(projectile);
     }
 
     @Override

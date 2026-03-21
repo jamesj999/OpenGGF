@@ -3,7 +3,7 @@ package com.openggf.game.sonic1.objects.badniks;
 import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectArtKeys;
@@ -49,8 +49,8 @@ public class Sonic1OrbinautBadnikInstance extends AbstractBadnikInstance {
     private List<OrbSpikeObjectInstance> spikes;
     private boolean initialized;
 
-    public Sonic1OrbinautBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Orbinaut");
+    public Sonic1OrbinautBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Orbinaut");
         this.currentX = spawn.x();
         this.currentY = spawn.y();
 
@@ -141,7 +141,7 @@ public class Sonic1OrbinautBadnikInstance extends AbstractBadnikInstance {
     }
 
     private void spawnSatellites() {
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (services() == null || services().objectManager() == null) {
             return;
         }
 
@@ -153,7 +153,7 @@ public class Sonic1OrbinautBadnikInstance extends AbstractBadnikInstance {
 
         activeSpikes = spikes.size();
         for (OrbSpikeObjectInstance spike : spikes) {
-            levelManager.getObjectManager().addDynamicObject(spike);
+            services().objectManager().addDynamicObject(spike);
         }
     }
 
@@ -310,7 +310,7 @@ public class Sonic1OrbinautBadnikInstance extends AbstractBadnikInstance {
                 return;
             }
 
-            ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+            ObjectRenderManager renderManager = services() != null ? services().renderManager() : null;
             if (renderManager == null) {
                 return;
             }

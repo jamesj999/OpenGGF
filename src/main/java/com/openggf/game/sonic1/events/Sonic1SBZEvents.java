@@ -151,7 +151,7 @@ class Sonic1SBZEvents extends Sonic1ZoneEvents {
                 BOSS_SBZ2_X + 0x30, BOSS_SBZ2_Y + 0xC0,
                 Sonic1ObjectIds.FALSE_FLOOR, 0, 0, false, 0);
         lm.getObjectManager().addDynamicObject(
-                new Sonic1FalseFloorInstance(floorSpawn, lm));
+                new Sonic1FalseFloorInstance(floorSpawn));
 
         // addq.b #2,(v_dle_routine).w
         eventRoutine += 2;
@@ -173,7 +173,7 @@ class Sonic1SBZEvents extends Sonic1ZoneEvents {
                     BOSS_SBZ2_X + 0x110, BOSS_SBZ2_Y + 0x94,
                     Sonic1ObjectIds.SCRAP_EGGMAN, 0, 0, false, 0);
             lm.getObjectManager().addDynamicObject(
-                    new Sonic1ScrapEggmanInstance(eggSpawn, lm));
+                    new Sonic1ScrapEggmanInstance(eggSpawn));
 
             // addq.b #2,(v_dle_routine).w
             eventRoutine += 2;
@@ -300,7 +300,7 @@ class Sonic1SBZEvents extends Sonic1ZoneEvents {
                     BOSS_FZ_X + 0x160, BOSS_FZ_Y + 0x80,
                     Sonic1ObjectIds.FZ_BOSS, 0, 0, false, 0);
             lm.getObjectManager().addDynamicObject(
-                    new Sonic1FZBossInstance(bossSpawn, lm));
+                    new Sonic1FZBossInstance(bossSpawn));
             GameServices.gameState().setCurrentBossId(Sonic1ObjectIds.FZ_BOSS);
 
             // addq.b #2,(v_dle_routine).w

@@ -226,7 +226,7 @@ public class BreakableBlockObjectInstance extends BoxObjectInstance
         if (objectManager != null) {
             PointsObjectInstance points = new PointsObjectInstance(
                     new ObjectSpawn(spawn.x(), spawn.y(), 0x29, 0, 0, false, 0),
-                    LevelManager.getInstance(), 100);
+                    services(), 100);
             objectManager.addDynamicObject(points);
         }
 

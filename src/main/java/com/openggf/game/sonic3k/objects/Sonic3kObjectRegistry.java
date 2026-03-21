@@ -85,7 +85,7 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                     if (zoneSet != S3kZoneSet.S3KL) {
                         return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
                     }
-                    return new BloominatorBadnikInstance(spawn, LevelManager.getInstance());
+                    return new BloominatorBadnikInstance(spawn);
                 });
         factories.put(Sonic3kObjectIds.RHINOBOT,
                 (spawn, registry) -> {
@@ -93,7 +93,7 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                     if (zoneSet != S3kZoneSet.S3KL) {
                         return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
                     }
-                    return new RhinobotBadnikInstance(spawn, LevelManager.getInstance());
+                    return new RhinobotBadnikInstance(spawn);
                 });
         factories.put(Sonic3kObjectIds.MONKEY_DUDE,
                 (spawn, registry) -> {
@@ -101,7 +101,7 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                     if (zoneSet != S3kZoneSet.S3KL) {
                         return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
                     }
-                    return new MonkeyDudeBadnikInstance(spawn, LevelManager.getInstance());
+                    return new MonkeyDudeBadnikInstance(spawn);
                 });
         factories.put(Sonic3kObjectIds.CATERKILLER_JR,
                 (spawn, registry) -> {
@@ -109,7 +109,7 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                     if (zoneSet != S3kZoneSet.S3KL) {
                         return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
                     }
-                    return new CaterkillerJrHeadInstance(spawn, LevelManager.getInstance());
+                    return new CaterkillerJrHeadInstance(spawn);
                 });
         factories.put(Sonic3kObjectIds.AIZ_MINIBOSS_CUTSCENE,
                 (spawn, registry) -> {
@@ -117,7 +117,7 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                     if (zoneSet != S3kZoneSet.S3KL) {
                         return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
                     }
-                    return new AizMinibossCutsceneInstance(spawn, LevelManager.getInstance());
+                    return new AizMinibossCutsceneInstance(spawn);
                 });
         factories.put(Sonic3kObjectIds.AIZ_MINIBOSS,
                 (spawn, registry) -> {
@@ -125,7 +125,7 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                     if (zoneSet != S3kZoneSet.S3KL) {
                         return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
                     }
-                    return new AizMinibossInstance(spawn, LevelManager.getInstance());
+                    return new AizMinibossInstance(spawn);
                 });
     }
 

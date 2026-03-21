@@ -6,7 +6,7 @@ import com.openggf.game.sonic1.objects.Sonic1LavaBallObjectInstance;
 import com.openggf.game.sonic1.audio.Sonic1Music;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -78,8 +78,8 @@ public class Sonic1MZBossInstance extends AbstractS1EggmanBossInstance {
     // 0,4 = movement (loc_183CA); 2,6 = return-to-center (BossMarble_MakeLava2)
     private int combatSubtype;
 
-    public Sonic1MZBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "MZ Boss");
+    public Sonic1MZBossInstance(ObjectSpawn spawn) {
+        super(spawn, "MZ Boss");
     }
 
     @Override
@@ -315,7 +315,7 @@ public class Sonic1MZBossInstance extends AbstractS1EggmanBossInstance {
      * ROM: BossMarble_MakeLava — spawns id_LavaBall with obSubtype word $00FF.
      */
     private void spawnLavaBall() {
-        if (levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
         // ROM: Random X in range [boss_mz_x+$78, boss_mz_x+$78+$4F]
@@ -325,7 +325,7 @@ public class Sonic1MZBossInstance extends AbstractS1EggmanBossInstance {
         ObjectSpawn fireSpawn = new ObjectSpawn(
                 lavaX, LAVA_LEVEL_Y,
                 Sonic1ObjectIds.LAVA_BALL, 0xFF, 0, false, 0);
-        levelManager.getObjectManager().addDynamicObject(new Sonic1LavaBallObjectInstance(fireSpawn));
+        services().objectManager().addDynamicObject(new Sonic1LavaBallObjectInstance(fireSpawn));
     }
 
     /**
@@ -333,7 +333,7 @@ public class Sonic1MZBossInstance extends AbstractS1EggmanBossInstance {
      * ROM: BossMarble_MakeLava2 — spawns id_BossFire with subtype 1 at boss pos + $18 Y.
      */
     private void spawnBossFireAtPosition() {
-        if (levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
         int fireX = state.xFixed >> 16;
@@ -343,7 +343,7 @@ public class Sonic1MZBossInstance extends AbstractS1EggmanBossInstance {
                 fireX, fireY,
                 Sonic1ObjectIds.BOSS_FIRE, 1, 0, false, 0);
         Sonic1BossFireInstance fire = new Sonic1BossFireInstance(fireSpawn);
-        levelManager.getObjectManager().addDynamicObject(fire);
+        services().objectManager().addDynamicObject(fire);
     }
 
     // === State 4: DEFEAT_WAIT ===
@@ -471,7 +471,7 @@ public class Sonic1MZBossInstance extends AbstractS1EggmanBossInstance {
         renderEggmanShip();
 
         // Exhaust tube (Boss Items frame 4) — MZ-specific overlay
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

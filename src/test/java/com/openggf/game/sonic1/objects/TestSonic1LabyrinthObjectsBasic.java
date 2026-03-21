@@ -85,9 +85,9 @@ public class TestSonic1LabyrinthObjectsBasic {
     @Test
     public void burrobotAndOrbinautCanUpdateWithoutPlayerOrLevelManager() {
         Sonic1BurrobotBadnikInstance burrobot = new Sonic1BurrobotBadnikInstance(
-                new ObjectSpawn(256, 256, Sonic1ObjectIds.BURROBOT, 0, 0, false, 0), null);
+                new ObjectSpawn(256, 256, Sonic1ObjectIds.BURROBOT, 0, 0, false, 0));
         Sonic1OrbinautBadnikInstance orbinaut = new Sonic1OrbinautBadnikInstance(
-                new ObjectSpawn(512, 192, Sonic1ObjectIds.ORBINAUT, 0, 0, false, 0), null);
+                new ObjectSpawn(512, 192, Sonic1ObjectIds.ORBINAUT, 0, 0, false, 0));
 
         burrobot.update(1, null);
         burrobot.update(2, null);

@@ -561,7 +561,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
         // HTZ boss initial position from Obj52_Init
         ObjectSpawn bossSpawn = new ObjectSpawn(
                 0x3040, 0x0580, Sonic2ObjectIds.HTZ_BOSS, 0, 0, false, 0);
-        htzBoss = new Sonic2HTZBossInstance(bossSpawn, LevelManager.getInstance());
+        htzBoss = new Sonic2HTZBossInstance(bossSpawn);
         spawnObject(htzBoss);
     }
 }

@@ -111,7 +111,7 @@ public class Sonic2MCZEvents extends Sonic2ZoneEvents {
     private void spawnMCZBoss() {
         ObjectSpawn bossSpawn = new ObjectSpawn(
                 0x21A0, 0x0560, Sonic2ObjectIds.MCZ_BOSS, 0, 0, false, 0);
-        mczBoss = new Sonic2MCZBossInstance(bossSpawn, LevelManager.getInstance());
+        mczBoss = new Sonic2MCZBossInstance(bossSpawn);
         spawnObject(mczBoss);
     }
 }

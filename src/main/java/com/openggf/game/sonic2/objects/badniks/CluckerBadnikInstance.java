@@ -6,7 +6,7 @@ import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -107,8 +107,8 @@ public class CluckerBadnikInstance extends AbstractBadnikInstance {
     private static final int[] ANIM_FIRE = {10, 11};
     private static final int ANIM_FIRE_DURATION = 3;
 
-    public CluckerBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Clucker", Sonic2BadnikConfig.DESTRUCTION);
+    public CluckerBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Clucker", Sonic2BadnikConfig.DESTRUCTION);
         this.currentX = spawn.x();
         this.currentY = spawn.y();
 
@@ -255,7 +255,7 @@ public class CluckerBadnikInstance extends AbstractBadnikInstance {
                 false,
                 !facingLeft);
 
-        LevelManager.getInstance().getObjectManager().addDynamicObject(projectile);
+        services().objectManager().addDynamicObject(projectile);
     }
 
     /**

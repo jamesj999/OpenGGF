@@ -3,7 +3,7 @@ package com.openggf.game.sonic1.objects.badniks;
 import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
@@ -50,8 +50,8 @@ public class Sonic1BurrobotBadnikInstance extends AbstractBadnikInstance {
     private int animationId;
     private int animationTick;
 
-    public Sonic1BurrobotBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Burrobot");
+    public Sonic1BurrobotBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Burrobot");
         this.currentX = spawn.x();
         this.currentY = spawn.y();
 

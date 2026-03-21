@@ -38,12 +38,10 @@ public class TestDEZMechaSonic {
 
     @Before
     public void setUp() {
-        LevelManager levelManager = mock(LevelManager.class);
+
         boss = new Sonic2MechaSonicInstance(
                 new ObjectSpawn(MECHA_SONIC_X, MECHA_SONIC_Y,
-                        Sonic2ObjectIds.MECHA_SONIC, 0x48, 0, false, 0),
-                levelManager
-        );
+                        Sonic2ObjectIds.MECHA_SONIC, 0x48, 0, false, 0));
     }
 
     @Test
@@ -199,12 +197,10 @@ public class TestDEZMechaSonic {
         ObjectManager objectManager = new ObjectManager(
                 List.of(), new NoOpObjectRegistry(), 0, null, touchTable);
 
-        LevelManager levelManager = mock(LevelManager.class);
+
         Sonic2MechaSonicInstance testBoss = new Sonic2MechaSonicInstance(
                 new ObjectSpawn(MECHA_SONIC_X, MECHA_SONIC_Y,
-                        Sonic2ObjectIds.MECHA_SONIC, 0x48, 0, false, 0),
-                levelManager
-        );
+                        Sonic2ObjectIds.MECHA_SONIC, 0x48, 0, false, 0));
 
         assertEquals("Boss should start with 8 HP", 8, testBoss.getState().hitCount);
         assertFalse("Boss should not be defeated initially", testBoss.getState().defeated);

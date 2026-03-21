@@ -5,7 +5,7 @@ import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -60,8 +60,8 @@ public class ChopChopBadnikInstance extends AbstractBadnikInstance {
     private int ySubpixel;           // Subpixel accumulator for y movement during charge
     private final int startX;        // Initial X position for direction reference
 
-    public ChopChopBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "ChopChop", Sonic2BadnikConfig.DESTRUCTION);
+    public ChopChopBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "ChopChop", Sonic2BadnikConfig.DESTRUCTION);
         this.state = State.PATROLLING;
         this.moveTimer = MOVE_TIMER_INIT;
         this.waitTimer = 0;

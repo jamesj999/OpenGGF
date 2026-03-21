@@ -87,8 +87,8 @@ public class Sonic2EHZBossInstance extends AbstractBossInstance {
     private int defeatTimer;
     private int currentFrameCounter;
 
-    public Sonic2EHZBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "EHZ Boss");
+    public Sonic2EHZBossInstance(ObjectSpawn spawn) {
+        super(spawn, "EHZ Boss");
     }
 
     @Override
@@ -132,8 +132,8 @@ public class Sonic2EHZBossInstance extends AbstractBossInstance {
 
         for (AbstractBossChild child : spawned) {
             childComponents.add(child);
-            if (levelManager.getObjectManager() != null) {
-                levelManager.getObjectManager().addDynamicObject(child);
+            if (services().objectManager() != null) {
+                services().objectManager().addDynamicObject(child);
             }
         }
     }
@@ -329,13 +329,13 @@ public class Sonic2EHZBossInstance extends AbstractBossInstance {
         }
         EHZBossPropeller propeller = new EHZBossPropeller(this);
         childComponents.add(propeller);
-        if (levelManager.getObjectManager() != null) {
-            levelManager.getObjectManager().addDynamicObject(propeller);
+        if (services().objectManager() != null) {
+            services().objectManager().addDynamicObject(propeller);
         }
     }
 
     private void spawnEggPrison() {
-        if (levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
         ObjectSpawn prisonSpawn = new ObjectSpawn(
@@ -347,7 +347,7 @@ public class Sonic2EHZBossInstance extends AbstractBossInstance {
                 false,
                 0);
         EggPrisonObjectInstance prisonInstance = new EggPrisonObjectInstance(prisonSpawn, "Egg Prison");
-        levelManager.getObjectManager().addDynamicObject(prisonInstance);
+        services().objectManager().addDynamicObject(prisonInstance);
     }
 
     @Override
@@ -454,7 +454,7 @@ public class Sonic2EHZBossInstance extends AbstractBossInstance {
             return;
         }
 
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

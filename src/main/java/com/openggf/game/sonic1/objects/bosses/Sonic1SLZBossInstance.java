@@ -5,7 +5,7 @@ import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.audio.Sonic1Music;
 import com.openggf.game.sonic1.objects.Sonic1SeesawObjectInstance;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -83,8 +83,8 @@ public class Sonic1SLZBossInstance extends AbstractS1EggmanBossInstance {
     // Target seesaw index for ball spawn (obSubtype stores seesaw index 0-2)
     private int targetSeesawIndex;
 
-    public Sonic1SLZBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "SLZ Boss");
+    public Sonic1SLZBossInstance(ObjectSpawn spawn) {
+        super(spawn, "SLZ Boss");
     }
 
     @Override
@@ -410,11 +410,11 @@ public class Sonic1SLZBossInstance extends AbstractS1EggmanBossInstance {
         seesawsScanned = true;
         seesaws.clear();
 
-        if (levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
-        for (ObjectInstance obj : levelManager.getObjectManager().getActiveObjects()) {
+        for (ObjectInstance obj : services().objectManager().getActiveObjects()) {
             if (obj instanceof Sonic1SeesawObjectInstance seesaw) {
                 // ROM: tst.b obSubtype(a1) / beq.s .next — only seesaws with subtype != 0
                 if (seesaw.getSpawn().subtype() != 0) {
@@ -448,8 +448,8 @@ public class Sonic1SLZBossInstance extends AbstractS1EggmanBossInstance {
                 state.x,
                 state.y + 0x20);
 
-        if (levelManager.getObjectManager() != null) {
-            levelManager.getObjectManager().addDynamicObject(spikeball);
+        if (services().objectManager() != null) {
+            services().objectManager().addDynamicObject(spikeball);
         }
     }
 
@@ -473,7 +473,7 @@ public class Sonic1SLZBossInstance extends AbstractS1EggmanBossInstance {
         // Draw tube/jet pipe (Map_BossItems frame 3 = .widepipe) — SLZ-specific overlay
         // ROM: BossStarLight_TubeMain — uses Map_BossItems with ArtTile_Eggman_Weapons
         if (state.routineSecondary != STATE_ESCAPE || isBossOnScreen()) {
-            ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+            ObjectRenderManager renderManager = services().renderManager();
             if (renderManager == null) {
                 return;
             }

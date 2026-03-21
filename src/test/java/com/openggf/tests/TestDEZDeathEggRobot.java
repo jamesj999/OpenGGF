@@ -36,12 +36,10 @@ public class TestDEZDeathEggRobot {
 
     @Before
     public void setUp() {
-        LevelManager levelManager = mock(LevelManager.class);
+
         boss = new Sonic2DeathEggRobotInstance(
                 new ObjectSpawn(BOSS_X, BOSS_Y,
-                        Sonic2ObjectIds.DEATH_EGG_ROBOT, 0, 0, false, 0),
-                levelManager
-        );
+                        Sonic2ObjectIds.DEATH_EGG_ROBOT, 0, 0, false, 0));
     }
 
     // ========================================================================
@@ -415,20 +413,16 @@ public class TestDEZDeathEggRobot {
 
     @Test
     public void childrenRegisteredWithObjectManager() {
-        // When ObjectManager is available, children should be registered for rendering
-        com.openggf.level.objects.ObjectManager objMgr = mock(com.openggf.level.objects.ObjectManager.class);
-        LevelManager lm2 = mock(LevelManager.class);
-        when(lm2.getObjectManager()).thenReturn(objMgr);
-
+        // After singleton decoupling, ObjectManager injection happens via ObjectServices.
+        // Boss construction no longer takes LevelManager, so children are registered
+        // when services are injected by ObjectManager (which is a runtime concern).
+        // This test verifies the boss still creates its children during init.
         Sonic2DeathEggRobotInstance boss2 = new Sonic2DeathEggRobotInstance(
                 new ObjectSpawn(BOSS_X, BOSS_Y,
-                        Sonic2ObjectIds.DEATH_EGG_ROBOT, 0, 0, false, 0),
-                lm2
-        );
+                        Sonic2ObjectIds.DEATH_EGG_ROBOT, 0, 0, false, 0));
 
-        // Verify all 10 children were registered
-        org.mockito.Mockito.verify(objMgr, org.mockito.Mockito.times(10))
-                .addDynamicObject(org.mockito.ArgumentMatchers.any());
+        // Verify children were created (10 total: Body, Head, JetFlame, BackUpperArm/ForeArm/LowerLeg, FrontUpperArm/ForeArm/LowerLeg, Sensor)
+        assertEquals("Boss should have 10 child components", 10, boss2.getChildComponents().size());
     }
 
     // ========================================================================

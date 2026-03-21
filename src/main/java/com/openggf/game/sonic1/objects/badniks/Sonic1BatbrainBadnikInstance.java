@@ -6,7 +6,7 @@ import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
@@ -107,8 +107,8 @@ public class Sonic1BatbrainBadnikInstance extends AbstractBadnikInstance {
     private int targetY;            // objoff_36: Sonic's Y position when drop was initiated
     private final int slotSalt;     // d7 proxy: randomization value derived from spawn position
 
-    public Sonic1BatbrainBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Batbrain");
+    public Sonic1BatbrainBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Batbrain");
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         this.facingLeft = false;
@@ -385,7 +385,7 @@ public class Sonic1BatbrainBadnikInstance extends AbstractBadnikInstance {
         if (!isOnScreenX(160)) {
             setDestroyed(true);
             setDestroyed(true);
-            var objectManager = levelManager.getObjectManager();
+            var objectManager = services() != null ? services().objectManager() : null;
             if (objectManager != null) {
                 objectManager.removeFromActiveSpawns(spawn);
             }

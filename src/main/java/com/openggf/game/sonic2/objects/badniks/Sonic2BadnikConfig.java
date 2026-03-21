@@ -14,7 +14,7 @@ public final class Sonic2BadnikConfig {
             Sonic2Sfx.EXPLOSION.id,
             true,   // spawnAnimal
             false,  // useRespawnTracking
-            (spawn, lm, pts) -> new PointsObjectInstance(spawn, lm, pts)
+            (spawn, svc, pts) -> new PointsObjectInstance(spawn, svc, pts)
     );
 
     private Sonic2BadnikConfig() {

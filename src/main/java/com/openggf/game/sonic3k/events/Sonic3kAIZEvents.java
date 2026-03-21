@@ -781,7 +781,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
                 int bossY = (character == PlayerCharacter.KNUCKLES) ? 0x0420 : 0x0289;
 
                 ObjectSpawn bossSpawn = new ObjectSpawn(bossX, bossY, 0x91, 0, 0, false, bossY);
-                AizMinibossInstance boss = new AizMinibossInstance(bossSpawn, LevelManager.getInstance());
+                AizMinibossInstance boss = new AizMinibossInstance(bossSpawn);
                 var objManager = LevelManager.getInstance().getObjectManager();
                 if (objManager != null) {
                     objManager.addDynamicObject(boss);

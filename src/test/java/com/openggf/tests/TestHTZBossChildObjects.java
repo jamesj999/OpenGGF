@@ -42,12 +42,14 @@ public class TestHTZBossChildObjects {
 
     private Field levelManagerField;
     private LevelManager originalLevelManager;
+    private LevelManager mockLevelManager;
 
     @Before
     public void setUp() throws Exception {
         levelManagerField = LevelManager.class.getDeclaredField("levelManager");
         levelManagerField.setAccessible(true);
         originalLevelManager = (LevelManager) levelManagerField.get(null);
+        mockLevelManager = mock(LevelManager.class);
     }
 
     @After
@@ -57,7 +59,7 @@ public class TestHTZBossChildObjects {
 
     @Test
     public void lavaBubbleUsesSolRendererAndFireFrames() throws Exception {
-        LevelManager mockLevelManager = mock(LevelManager.class);
+
         ObjectRenderManager renderManager = mock(ObjectRenderManager.class);
         PatternSpriteRenderer renderer = mock(PatternSpriteRenderer.class);
 
@@ -84,14 +86,14 @@ public class TestHTZBossChildObjects {
 
     @Test
     public void htzSmokeSpawnSubtypeAndPriorityMatchRom() {
-        HTZBossSmokeParticle smoke = new HTZBossSmokeParticle(10, 20, mock(LevelManager.class));
+        HTZBossSmokeParticle smoke = new HTZBossSmokeParticle(10, 20, com.openggf.game.GameServices.level());
         assertEquals(0x08, smoke.getSpawn().subtype());
         assertEquals(1, smoke.getPriorityBucket());
     }
 
     @Test
     public void flamethrowerUsesHtzChildTileBaseOffset() throws Exception {
-        LevelManager mockLevelManager = mock(LevelManager.class);
+
         ObjectRenderManager renderManager = mock(ObjectRenderManager.class);
         PatternSpriteRenderer renderer = mock(PatternSpriteRenderer.class);
 
@@ -102,9 +104,7 @@ public class TestHTZBossChildObjects {
         levelManagerField.set(null, mockLevelManager);
 
         Sonic2HTZBossInstance parent = new Sonic2HTZBossInstance(
-                new ObjectSpawn(0x3040, 0x0580, Sonic2ObjectIds.HTZ_BOSS, 0, 0, false, 0),
-                mock(LevelManager.class)
-        );
+                new ObjectSpawn(0x3040, 0x0580, Sonic2ObjectIds.HTZ_BOSS, 0, 0, false, 0));
         HTZBossFlamethrower flamethrower = new HTZBossFlamethrower(parent, 0x3040, 0x0564, false);
 
         flamethrower.appendRenderCommands(new ArrayList<>());
@@ -113,7 +113,7 @@ public class TestHTZBossChildObjects {
 
     @Test
     public void lavaBallUsesHtzChildTileBaseOffsetBeforeLanding() throws Exception {
-        LevelManager mockLevelManager = mock(LevelManager.class);
+
         ObjectRenderManager renderManager = mock(ObjectRenderManager.class);
         PatternSpriteRenderer renderer = mock(PatternSpriteRenderer.class);
 
@@ -124,9 +124,7 @@ public class TestHTZBossChildObjects {
         levelManagerField.set(null, mockLevelManager);
 
         Sonic2HTZBossInstance parent = new Sonic2HTZBossInstance(
-                new ObjectSpawn(0x3040, 0x0580, Sonic2ObjectIds.HTZ_BOSS, 0, 0, false, 0),
-                mock(LevelManager.class)
-        );
+                new ObjectSpawn(0x3040, 0x0580, Sonic2ObjectIds.HTZ_BOSS, 0, 0, false, 0));
         HTZBossLavaBall lavaBall = new HTZBossLavaBall(parent, 0x3040, 0x0580, true, false);
 
         lavaBall.appendRenderCommands(new ArrayList<>());
@@ -138,15 +136,13 @@ public class TestHTZBossChildObjects {
 
     @Test
     public void lavaBallTransformsToGroundFireWhenLandingOnSurface() throws Exception {
-        LevelManager mockLevelManager = mock(LevelManager.class);
+
         ObjectManager objectManager = mock(ObjectManager.class);
         when(mockLevelManager.getObjectManager()).thenReturn(objectManager);
         levelManagerField.set(null, mockLevelManager);
 
         Sonic2HTZBossInstance parent = new Sonic2HTZBossInstance(
-                new ObjectSpawn(0x3040, 0x0580, Sonic2ObjectIds.HTZ_BOSS, 0, 0, false, 0),
-                mock(LevelManager.class)
-        );
+                new ObjectSpawn(0x3040, 0x0580, Sonic2ObjectIds.HTZ_BOSS, 0, 0, false, 0));
         HTZBossLavaBall lavaBall = new HTZBossLavaBall(parent, 0x3040, 0x0580, true, false);
         parent.getState().lastUpdatedFrame = 1;
 
@@ -164,9 +160,7 @@ public class TestHTZBossChildObjects {
     @Test
     public void htzBossHazardsAreTouchResponseProviders() {
         Sonic2HTZBossInstance parent = new Sonic2HTZBossInstance(
-                new ObjectSpawn(0x3040, 0x0580, Sonic2ObjectIds.HTZ_BOSS, 0, 0, false, 0),
-                mock(LevelManager.class)
-        );
+                new ObjectSpawn(0x3040, 0x0580, Sonic2ObjectIds.HTZ_BOSS, 0, 0, false, 0));
 
         HTZBossFlamethrower flamethrower = new HTZBossFlamethrower(parent, 0x3040, 0x0564, false);
         HTZBossLavaBall lavaBall = new HTZBossLavaBall(parent, 0x3040, 0x0580, true, false);

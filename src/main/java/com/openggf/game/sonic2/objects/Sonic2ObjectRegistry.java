@@ -231,35 +231,35 @@ public class Sonic2ObjectRegistry extends AbstractObjectRegistry {
 
         // OOZ Badniks
         registerFactory(Sonic2ObjectIds.OCTUS,
-                (spawn, registry) -> new OctusBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new OctusBadnikInstance(spawn));
         registerFactory(Sonic2ObjectIds.AQUIS,
-                (spawn, registry) -> new AquisBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new AquisBadnikInstance(spawn));
 
         // EHZ Badniks
         registerFactory(Sonic2ObjectIds.MASHER,
-                (spawn, registry) -> new MasherBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new MasherBadnikInstance(spawn));
         registerFactory(Sonic2ObjectIds.BUZZER,
-                (spawn, registry) -> new BuzzerBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new BuzzerBadnikInstance(spawn));
         registerFactory(Sonic2ObjectIds.COCONUTS,
-                (spawn, registry) -> new CoconutsBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new CoconutsBadnikInstance(spawn));
 
         // CPZ Badniks
         registerFactory(Sonic2ObjectIds.SPINY,
-                (spawn, registry) -> new SpinyBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new SpinyBadnikInstance(spawn));
         registerFactory(Sonic2ObjectIds.SPINY_ON_WALL,
-                (spawn, registry) -> new SpinyOnWallBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new SpinyOnWallBadnikInstance(spawn));
         registerFactory(Sonic2ObjectIds.GRABBER,
-                (spawn, registry) -> new GrabberBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new GrabberBadnikInstance(spawn));
 
         // ARZ Badniks
         registerFactory(Sonic2ObjectIds.CHOP_CHOP,
-                (spawn, registry) -> new ChopChopBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new ChopChopBadnikInstance(spawn));
         registerFactory(Sonic2ObjectIds.WHISP,
-                (spawn, registry) -> new WhispBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new WhispBadnikInstance(spawn));
         registerFactory(Sonic2ObjectIds.GROUNDER_IN_WALL,
-                (spawn, registry) -> new GrounderBadnikInstance(spawn, LevelManager.getInstance(), false));
+                (spawn, registry) -> new GrounderBadnikInstance(spawn, false));
         registerFactory(Sonic2ObjectIds.GROUNDER_IN_WALL2,
-                (spawn, registry) -> new GrounderBadnikInstance(spawn, LevelManager.getInstance(), true));
+                (spawn, registry) -> new GrounderBadnikInstance(spawn, true));
         // Note: GROUNDER_WALL (0x8F) and GROUNDER_ROCKS (0x90) are spawned dynamically
 
         // HTZ Fire Shooter (Obj20) - fire source that shoots paired fireballs
@@ -268,54 +268,54 @@ public class Sonic2ObjectRegistry extends AbstractObjectRegistry {
 
         // HTZ Badniks
         registerFactory(Sonic2ObjectIds.SPIKER,
-                (spawn, registry) -> new SpikerBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new SpikerBadnikInstance(spawn));
         registerFactory(Sonic2ObjectIds.SPIKER_DRILL,
                 (spawn, registry) -> new SpikerDrillObjectInstance(
                         spawn, spawn.x(), spawn.y(),
                         (spawn.renderFlags() & 0x01) != 0,
                         (spawn.renderFlags() & 0x02) != 0));
         registerFactory(Sonic2ObjectIds.SOL,
-                (spawn, registry) -> new SolBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new SolBadnikInstance(spawn));
         // Rexon (lava snake) - both 0x94 and 0x96 point to same implementation
         registerFactory(Sonic2ObjectIds.REXON,
-                (spawn, registry) -> new RexonBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new RexonBadnikInstance(spawn));
         registerFactory(Sonic2ObjectIds.REXON2,
-                (spawn, registry) -> new RexonBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new RexonBadnikInstance(spawn));
         // Note: REXON_HEAD (0x97) is spawned dynamically by RexonBadnikInstance
 
         // CNZ Badniks
         registerFactory(Sonic2ObjectIds.CRAWL,
-                (spawn, registry) -> new CrawlBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new CrawlBadnikInstance(spawn));
 
         // MTZ Badniks
         registerFactory(Sonic2ObjectIds.ASTERON,
-                (spawn, registry) -> new AsteronBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new AsteronBadnikInstance(spawn));
         registerFactory(Sonic2ObjectIds.SHELLCRACKER,
-                (spawn, registry) -> new ShellcrackerBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new ShellcrackerBadnikInstance(spawn));
         registerFactory(Sonic2ObjectIds.SLICER,
-                (spawn, registry) -> new SlicerBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new SlicerBadnikInstance(spawn));
 
         // MCZ Badniks
         registerFactory(Sonic2ObjectIds.CRAWLTON,
-                (spawn, registry) -> new CrawltonBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new CrawltonBadnikInstance(spawn));
         registerFactory(Sonic2ObjectIds.FLASHER,
-                (spawn, registry) -> new FlasherBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new FlasherBadnikInstance(spawn));
 
         // SCZ Badniks
         registerFactory(Sonic2ObjectIds.NEBULA,
-                (spawn, registry) -> new NebulaBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new NebulaBadnikInstance(spawn));
         registerFactory(Sonic2ObjectIds.TURTLOID,
-                (spawn, registry) -> new TurtloidBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new TurtloidBadnikInstance(spawn));
         // Note: TURTLOID_RIDER (0x9B) and Turtloid jet are spawned dynamically by TurtloidBadnikInstance
         registerFactory(Sonic2ObjectIds.BALKIRY,
-                (spawn, registry) -> new BalkiryBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new BalkiryBadnikInstance(spawn));
         // Note: BALKIRY_JET (0x9C) is spawned dynamically by BalkiryBadnikInstance
 
         // WFZ Badniks
         registerFactory(Sonic2ObjectIds.CLUCKER_BASE,
                 (spawn, registry) -> new CluckerBaseObjectInstance(spawn));
         registerFactory(Sonic2ObjectIds.CLUCKER,
-                (spawn, registry) -> new CluckerBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new CluckerBadnikInstance(spawn));
 
         // Level completion objects
         registerFactory(Sonic2ObjectIds.SIGNPOST,
@@ -325,31 +325,31 @@ public class Sonic2ObjectRegistry extends AbstractObjectRegistry {
 
         // CNZ Boss (Object 0x51)
         registerFactory(Sonic2ObjectIds.CNZ_BOSS,
-                (spawn, registry) -> new Sonic2CNZBossInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic2CNZBossInstance(spawn));
         // HTZ Boss (Object 0x52)
         registerFactory(Sonic2ObjectIds.HTZ_BOSS,
-                (spawn, registry) -> new Sonic2HTZBossInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic2HTZBossInstance(spawn));
         // EHZ Boss (Object 0x56)
         registerFactory(Sonic2ObjectIds.EHZ_BOSS,
-                (spawn, registry) -> new Sonic2EHZBossInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic2EHZBossInstance(spawn));
         // MCZ Boss (Object 0x57)
         registerFactory(Sonic2ObjectIds.MCZ_BOSS,
-                (spawn, registry) -> new Sonic2MCZBossInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic2MCZBossInstance(spawn));
         // CPZ Boss (Object 0x5D)
         registerFactory(Sonic2ObjectIds.CPZ_BOSS,
-                (spawn, registry) -> new Sonic2CPZBossInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic2CPZBossInstance(spawn));
         // ARZ Boss (Object 0x89)
         registerFactory(Sonic2ObjectIds.ARZ_BOSS,
-                (spawn, registry) -> new Sonic2ARZBossInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic2ARZBossInstance(spawn));
         // DEZ Mecha Sonic / Silver Sonic (Object 0xAF)
         registerFactory(Sonic2ObjectIds.MECHA_SONIC,
-                (spawn, registry) -> new Sonic2MechaSonicInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic2MechaSonicInstance(spawn));
         // WFZ Boss (Object 0xC5) - Laser Platform Boss
         registerFactory(Sonic2ObjectIds.WFZ_BOSS,
-                (spawn, registry) -> new Sonic2WFZBossInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic2WFZBossInstance(spawn));
         // DEZ Death Egg Robot (Object 0xC7) - Final Boss
         registerFactory(Sonic2ObjectIds.DEATH_EGG_ROBOT,
-                (spawn, registry) -> new Sonic2DeathEggRobotInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic2DeathEggRobotInstance(spawn));
         // Boss Explosion (Object 0x58)
         registerFactory(Sonic2ObjectIds.BOSS_EXPLOSION,
                 (spawn, registry) -> new BossExplosionObjectInstance(

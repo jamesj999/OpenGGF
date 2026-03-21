@@ -2,7 +2,6 @@ package com.openggf.level.objects;
 
 import com.openggf.camera.Camera;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -25,7 +24,6 @@ public class AnimalObjectInstance extends AbstractObjectInstance {
     }
 
     private final PatternSpriteRenderer renderer;
-    private final LevelManager levelManager;
     private int currentX;
     private int currentY;
     private int xVelocity;
@@ -39,10 +37,9 @@ public class AnimalObjectInstance extends AbstractObjectInstance {
     private State state;
     private AnimalType definition;
 
-    public AnimalObjectInstance(ObjectSpawn spawn, LevelManager levelManager) {
+    public AnimalObjectInstance(ObjectSpawn spawn, ObjectServices services) {
         super(spawn, "Animal");
-        this.levelManager = levelManager;
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services.renderManager();
         this.renderer = renderManager != null ? renderManager.getAnimalRenderer() : null;
         this.currentX = spawn.x();
         this.currentY = spawn.y();

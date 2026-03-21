@@ -6,7 +6,7 @@ import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -94,8 +94,8 @@ public class ShellcrackerBadnikInstance extends AbstractBadnikInstance {
     private int walkAnimTimer;
     private boolean clawDone; // Set by claw piece 0 when retracted (objoff_2C equivalent)
 
-    public ShellcrackerBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Shellcracker", Sonic2BadnikConfig.DESTRUCTION);
+    public ShellcrackerBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Shellcracker", Sonic2BadnikConfig.DESTRUCTION);
         this.currentX = spawn.x();
         this.currentY = spawn.y();
 
@@ -298,7 +298,7 @@ public class ShellcrackerBadnikInstance extends AbstractBadnikInstance {
      * All pieces positioned at (x + offset, y - 8).
      */
     private void spawnClawPieces() {
-        var objectManager = levelManager.getObjectManager();
+        var objectManager = services().objectManager();
         if (objectManager == null) return;
 
         for (int i = 0; i < CLAW_PIECE_COUNT; i++) {
@@ -321,7 +321,7 @@ public class ShellcrackerBadnikInstance extends AbstractBadnikInstance {
             int pieceY = currentY + CLAW_SPAWN_Y_OFFSET;
 
             ShellcrackerClawInstance claw = new ShellcrackerClawInstance(
-                    spawn, this, pieceX, pieceY, pieceIndex, !facingLeft, levelManager);
+                    spawn, this, pieceX, pieceY, pieceIndex, !facingLeft);
             objectManager.addDynamicObject(claw);
         }
     }
@@ -355,7 +355,7 @@ public class ShellcrackerBadnikInstance extends AbstractBadnikInstance {
     public void appendRenderCommands(List<GLCommand> commands) {
         if (isDestroyed()) return;
 
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) return;
 
         PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.SHELLCRACKER);

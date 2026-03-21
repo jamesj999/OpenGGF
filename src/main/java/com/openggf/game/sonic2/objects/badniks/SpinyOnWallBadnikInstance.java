@@ -5,7 +5,7 @@ import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -63,8 +63,8 @@ public class SpinyOnWallBadnikInstance extends AbstractBadnikInstance {
     private boolean hasFired;     // Whether spike has been fired this attack
     private int ySubpixel;        // Subpixel accumulator for smooth movement
 
-    public SpinyOnWallBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "SpinyOnWall", Sonic2BadnikConfig.DESTRUCTION);
+    public SpinyOnWallBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "SpinyOnWall", Sonic2BadnikConfig.DESTRUCTION);
         this.state = State.PATROLLING;
         this.moveCounter = MOVE_TIMER;
         this.attackTimer = 0;
@@ -175,7 +175,7 @@ public class SpinyOnWallBadnikInstance extends AbstractBadnikInstance {
                 false   // No initial flip
         );
 
-        LevelManager.getInstance().getObjectManager().addDynamicObject(projectile);
+        services().objectManager().addDynamicObject(projectile);
     }
 
     @Override

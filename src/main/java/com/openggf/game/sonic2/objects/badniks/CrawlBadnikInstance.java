@@ -7,7 +7,7 @@ import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -121,8 +121,8 @@ public class CrawlBadnikInstance extends AbstractBadnikInstance {
     private final AnimationTimer walkAnim = new AnimationTimer(ANIM_DELAY, 2);
     private int lastFrameCounter;    // Cached for wobble calculation in applyBounce
 
-    public CrawlBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Crawl", Sonic2BadnikConfig.DESTRUCTION);
+    public CrawlBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Crawl", Sonic2BadnikConfig.DESTRUCTION);
         this.state = State.WALKING;
         this.previousState = State.WALKING;
         this.walkTimer = WALK_DURATION;

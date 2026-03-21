@@ -34,12 +34,10 @@ public class TestWFZBoss {
 
     @Before
     public void setUp() {
-        LevelManager levelManager = mock(LevelManager.class);
+
         boss = new Sonic2WFZBossInstance(
                 new ObjectSpawn(BOSS_X, BOSS_Y,
-                        Sonic2ObjectIds.WFZ_BOSS, 0x92, 0, false, 0),
-                levelManager
-        );
+                        Sonic2ObjectIds.WFZ_BOSS, 0x92, 0, false, 0));
 
         player = mock(AbstractPlayableSprite.class);
         when(player.getCentreX()).thenReturn((short) (BOSS_X - 32));

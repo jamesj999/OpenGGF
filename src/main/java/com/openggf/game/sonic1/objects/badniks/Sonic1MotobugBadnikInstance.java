@@ -3,7 +3,7 @@ package com.openggf.game.sonic1.objects.badniks;
 import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
@@ -72,8 +72,8 @@ public class Sonic1MotobugBadnikInstance extends AbstractBadnikInstance {
     private int fallVelocity;      // obVelY during initialization
     private boolean initialized;
 
-    public Sonic1MotobugBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Motobug");
+    public Sonic1MotobugBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Motobug");
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         // S1: obStatus bit 0 set = facing right (xFlip)
@@ -193,8 +193,8 @@ public class Sonic1MotobugBadnikInstance extends AbstractBadnikInstance {
      */
     private void spawnSmoke() {
         Sonic1MotobugSmokeInstance smoke = new Sonic1MotobugSmokeInstance(
-                currentX, currentY, facingLeft, levelManager);
-        levelManager.getObjectManager().addDynamicObject(smoke);
+                currentX, currentY, facingLeft, com.openggf.game.GameServices.level());
+        services().objectManager().addDynamicObject(smoke);
     }
 
     /**

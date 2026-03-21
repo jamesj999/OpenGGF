@@ -35,8 +35,18 @@ public class TestTurtloidBadnikInstance {
         when(objectRenderManager.getPointsRenderer()).thenReturn(pointsRenderer);
 
         TurtloidBadnikInstance base = new TurtloidBadnikInstance(
-                new ObjectSpawn(0x200, 0x100, Sonic2ObjectIds.TURTLOID, 0x18, 0, false, 0),
-                levelManager);
+                new ObjectSpawn(0x200, 0x100, Sonic2ObjectIds.TURTLOID, 0x18, 0, false, 0));
+
+        // Inject services so children can be spawned
+        com.openggf.level.objects.ObjectServices services = mock(com.openggf.level.objects.ObjectServices.class);
+        when(services.objectManager()).thenReturn(objectManager);
+        when(services.renderManager()).thenReturn(objectRenderManager);
+        base.setServices(services);
+        // Re-trigger child spawning now that services are available
+        // (constructor couldn't spawn them because services was null)
+        java.lang.reflect.Method spawnChildren = TurtloidBadnikInstance.class.getDeclaredMethod("spawnChildren");
+        spawnChildren.setAccessible(true);
+        spawnChildren.invoke(base);
 
         TurtloidRiderInstance rider = (TurtloidRiderInstance) getField(base, "rider");
         assertNotNull("Turtloid should spawn a rider child", rider);

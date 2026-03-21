@@ -147,7 +147,7 @@ public class Sonic2CNZEvents extends Sonic2ZoneEvents {
         // CNZ boss initial position from Sonic2CNZBossInstance: (0x2A46, 0x654)
         ObjectSpawn bossSpawn = new ObjectSpawn(
                 0x2A46, 0x654, Sonic2ObjectIds.CNZ_BOSS, 0, 0, false, 0);
-        cnzBoss = new Sonic2CNZBossInstance(bossSpawn, LevelManager.getInstance(), this);
+        cnzBoss = new Sonic2CNZBossInstance(bossSpawn, this);
         spawnObject(cnzBoss);
     }
 

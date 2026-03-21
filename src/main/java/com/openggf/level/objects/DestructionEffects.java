@@ -1,9 +1,7 @@
 package com.openggf.level.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.GameServices;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import com.openggf.level.LevelManager;
 
 /**
  * Centralised badnik destruction sequence shared across S1, S2, and S3K.
@@ -25,7 +23,7 @@ public final class DestructionEffects {
      */
     @FunctionalInterface
     public interface PointsFactory {
-        ObjectInstance create(ObjectSpawn spawn, LevelManager levelManager, int pointsValue);
+        ObjectInstance create(ObjectSpawn spawn, ObjectServices services, int pointsValue);
     }
 
     /**
@@ -60,15 +58,15 @@ public final class DestructionEffects {
      * @param y            current Y position of the destroyed badnik
      * @param spawn        the badnik's original spawn data
      * @param player       the player who destroyed the badnik (may be null)
-     * @param levelManager the current level manager
+     * @param services     injectable services handle
      * @param config       game-specific destruction configuration
      */
     public static void destroyBadnik(int x, int y, ObjectSpawn spawn,
-            AbstractPlayableSprite player, LevelManager levelManager,
+            AbstractPlayableSprite player, ObjectServices services,
             DestructionConfig config) {
 
         // --- Respawn tracking ---
-        var objectManager = levelManager != null ? levelManager.getObjectManager() : null;
+        var objectManager = services != null ? services.objectManager() : null;
         if (objectManager != null) {
             if (config.useRespawnTracking() && spawn.respawnTracked()) {
                 objectManager.markRemembered(spawn);
@@ -78,8 +76,8 @@ public final class DestructionEffects {
         }
 
         // --- Spawn explosion ---
-        ObjectRenderManager renderManager = levelManager != null
-                ? levelManager.getObjectRenderManager() : null;
+        ObjectRenderManager renderManager = services != null
+                ? services.renderManager() : null;
         if (objectManager != null && renderManager != null) {
             ExplosionObjectInstance explosion = new ExplosionObjectInstance(
                     0x27, x, y, renderManager);
@@ -89,7 +87,7 @@ public final class DestructionEffects {
         // --- Optionally spawn animal ---
         if (config.spawnAnimal() && objectManager != null) {
             AnimalObjectInstance animal = new AnimalObjectInstance(
-                    new ObjectSpawn(x, y, 0x28, 0, 0, false, 0), levelManager);
+                    new ObjectSpawn(x, y, 0x28, 0, 0, false, 0), services);
             objectManager.addDynamicObject(animal);
         }
 
@@ -104,11 +102,13 @@ public final class DestructionEffects {
         if (config.pointsFactory() != null && objectManager != null) {
             ObjectInstance points = config.pointsFactory().create(
                     new ObjectSpawn(x, y, 0x29, 0, 0, false, 0),
-                    levelManager, pointsValue);
+                    services, pointsValue);
             objectManager.addDynamicObject((AbstractObjectInstance) points);
         }
 
         // --- Play explosion SFX ---
-        AudioManager.getInstance().playSfx(config.sfxId());
+        if (services != null) {
+            services.playSfx(config.sfxId());
+        }
     }
 }

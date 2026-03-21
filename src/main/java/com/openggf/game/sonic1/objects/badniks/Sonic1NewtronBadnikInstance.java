@@ -3,7 +3,7 @@ package com.openggf.game.sonic1.objects.badniks;
 import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
@@ -113,8 +113,8 @@ public class Sonic1NewtronBadnikInstance extends AbstractBadnikInstance {
     // Type 1 specific
     private boolean missileFired;          // objoff_32: prevents firing more than once
 
-    public Sonic1NewtronBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Newtron");
+    public Sonic1NewtronBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Newtron");
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         this.facingLeft = false;
@@ -359,7 +359,7 @@ public class Sonic1NewtronBadnikInstance extends AbstractBadnikInstance {
 
         Sonic1NewtronMissileInstance missile = new Sonic1NewtronMissileInstance(
                 missileX, missileY, missileXVel, facingLeft);
-        levelManager.getObjectManager().addDynamicObject(missile);
+        services().objectManager().addDynamicObject(missile);
     }
 
     @Override

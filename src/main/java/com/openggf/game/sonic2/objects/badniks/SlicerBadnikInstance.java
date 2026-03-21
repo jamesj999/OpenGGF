@@ -6,7 +6,7 @@ import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -84,8 +84,8 @@ public class SlicerBadnikInstance extends AbstractBadnikInstance {
     private int walkAnimTimer;
     private boolean walkAnimToggle; // Toggles between frame 0 and frame 2
 
-    public SlicerBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Slicer", Sonic2BadnikConfig.DESTRUCTION);
+    public SlicerBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Slicer", Sonic2BadnikConfig.DESTRUCTION);
         this.currentX = spawn.x();
         this.currentY = spawn.y();
 
@@ -212,7 +212,7 @@ public class SlicerBadnikInstance extends AbstractBadnikInstance {
      * Each pincer is an independent homing projectile (ObjA2).
      */
     private void spawnPincers() {
-        var objectManager = levelManager.getObjectManager();
+        var objectManager = services().objectManager();
         if (objectManager == null) return;
 
         int[][] offsets = {
@@ -258,7 +258,7 @@ public class SlicerBadnikInstance extends AbstractBadnikInstance {
     public void appendRenderCommands(List<GLCommand> commands) {
         if (isDestroyed()) return;
 
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) return;
 
         PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.SLICER);

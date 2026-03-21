@@ -21,7 +21,7 @@ public final class Sonic1DestructionConfig {
             Sonic1Sfx.BREAK_ITEM.id,
             true,   // spawnAnimal
             true,   // useRespawnTracking (S1 uses markRemembered)
-            (spawn, lm, pts) -> new Sonic1PointsObjectInstance(spawn, lm, pts)
+            (spawn, svc, pts) -> new Sonic1PointsObjectInstance(spawn, svc, pts)
     );
 
     private Sonic1DestructionConfig() {

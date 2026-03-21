@@ -86,7 +86,7 @@ class Sonic1SLZEvents extends Sonic1ZoneEvents {
         ObjectSpawn bossSpawn = new ObjectSpawn(
                 bossSpawnX, bossSpawnY,
                 Sonic1ObjectIds.SLZ_BOSS, 0, 0, false, 0);
-        Sonic1SLZBossInstance boss = new Sonic1SLZBossInstance(bossSpawn, lm);
+        Sonic1SLZBossInstance boss = new Sonic1SLZBossInstance(bossSpawn);
         if (lm.getObjectManager() != null) {
             lm.getObjectManager().addDynamicObject(boss);
         }

@@ -155,7 +155,7 @@ class Sonic1GHZEvents extends Sonic1ZoneEvents {
                 bossSpawnX, bossSpawnY,
                 Sonic1ObjectIds.GHZ_BOSS, 0, 0, false, 0);
         LevelManager lm = LevelManager.getInstance();
-        Sonic1GHZBossInstance boss = new Sonic1GHZBossInstance(bossSpawn, lm);
+        Sonic1GHZBossInstance boss = new Sonic1GHZBossInstance(bossSpawn);
         if (lm.getObjectManager() != null) {
             lm.getObjectManager().addDynamicObject(boss);
         }

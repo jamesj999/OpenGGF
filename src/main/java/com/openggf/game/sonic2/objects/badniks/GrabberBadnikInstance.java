@@ -6,7 +6,7 @@ import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.TouchResponseResult;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -70,8 +70,8 @@ public class GrabberBadnikInstance extends AbstractBadnikInstance {
     private int xSubpixel;          // X subpixel position (0-255)
     private int ySubpixel;          // Y subpixel position (0-255)
 
-    public GrabberBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Grabber", Sonic2BadnikConfig.DESTRUCTION);
+    public GrabberBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Grabber", Sonic2BadnikConfig.DESTRUCTION);
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         this.anchorY = spawn.y();
@@ -333,7 +333,7 @@ public class GrabberBadnikInstance extends AbstractBadnikInstance {
                 // Hurt the player - this is the punishment for not escaping
                 boolean hadRings = grabbedPlayer.getRingCount() > 0;
                 if (hadRings && !grabbedPlayer.hasShield()) {
-                    LevelManager.getInstance().spawnLostRings(grabbedPlayer, 0);
+                    services().spawnLostRings(grabbedPlayer, 0);
                 }
                 grabbedPlayer.applyHurtOrDeath(currentX, true, hadRings);
             }
@@ -473,7 +473,7 @@ public class GrabberBadnikInstance extends AbstractBadnikInstance {
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services() != null ? services().renderManager() : null;
         if (renderManager == null) {
             return;
         }

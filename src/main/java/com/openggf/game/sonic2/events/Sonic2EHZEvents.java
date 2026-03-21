@@ -101,7 +101,7 @@ public class Sonic2EHZEvents extends Sonic2ZoneEvents {
     private void spawnEHZBoss() {
         ObjectSpawn bossSpawn = new ObjectSpawn(
                 0x29D0, 0x0426, Sonic2ObjectIds.EHZ_BOSS, 0x81, 0, false, 0);
-        ehzBoss = new Sonic2EHZBossInstance(bossSpawn, LevelManager.getInstance());
+        ehzBoss = new Sonic2EHZBossInstance(bossSpawn);
         spawnObject(ehzBoss);
     }
 }

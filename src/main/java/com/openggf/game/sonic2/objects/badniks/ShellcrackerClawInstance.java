@@ -4,7 +4,6 @@ import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -71,8 +70,6 @@ public class ShellcrackerClawInstance extends AbstractObjectInstance {
     private final ShellcrackerBadnikInstance parent;
     private final int pieceIndex; // 0, 2, 4, 6, 8, 10, 12, 14
     private final boolean facingRight;
-    private final LevelManager levelManager;
-
     private int currentX;
     private int currentY;
     private final SubpixelMotion.State motionState = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
@@ -84,14 +81,12 @@ public class ShellcrackerClawInstance extends AbstractObjectInstance {
     private int animFrame;
 
     public ShellcrackerClawInstance(ObjectSpawn parentSpawn, ShellcrackerBadnikInstance parent,
-                                    int x, int y, int pieceIndex, boolean facingRight,
-                                    LevelManager levelManager) {
+                                    int x, int y, int pieceIndex, boolean facingRight) {
         super(new ObjectSpawn(x, y, 0xA0, 0x26, parentSpawn.renderFlags(),
                 false, parentSpawn.rawYWord()), "ShellcrackerClaw");
         this.parent = parent;
         this.pieceIndex = pieceIndex;
         this.facingRight = facingRight;
-        this.levelManager = levelManager;
         this.currentX = x;
         this.currentY = y;
 
@@ -263,7 +258,7 @@ public class ShellcrackerClawInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services() != null ? services().renderManager() : null;
         if (renderManager == null) return;
 
         PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.SHELLCRACKER);

@@ -3,7 +3,7 @@ package com.openggf.game.sonic1.objects.badniks;
 import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
@@ -66,8 +66,8 @@ public class Sonic1BuzzBomberBadnikInstance extends AbstractBadnikInstance {
     private int renderedFrame; // Actual frame index for rendering (includes wing cycle)
     private int wingTimer;     // Per-object animation timer (matches ROM's obTimeFrame)
 
-    public Sonic1BuzzBomberBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "BuzzBomber");
+    public Sonic1BuzzBomberBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "BuzzBomber");
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         // S1: obStatus bit 0 set = facing right
@@ -172,9 +172,9 @@ public class Sonic1BuzzBomberBadnikInstance extends AbstractBadnikInstance {
 
         Sonic1BuzzBomberMissileInstance missile = new Sonic1BuzzBomberMissileInstance(
                 missileX, missileY, missileXVel, MISSILE_Y_VEL,
-                facingLeft, this, levelManager);
+                facingLeft, this, com.openggf.game.GameServices.level());
 
-        levelManager.getObjectManager().addDynamicObject(missile);
+        services().objectManager().addDynamicObject(missile);
 
         // Prevent refiring: set buzzStatus = 1
         buzzStatus = STATUS_FIRED;

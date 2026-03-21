@@ -25,7 +25,7 @@ public class TestSonic1CaterkillerBodyChaining {
     public void bodySegmentUsesImmediateParentStateForMovementAndYDelta() {
         LevelManager levelManager = LevelManager.getInstance();
         Sonic1CaterkillerBadnikInstance head = new Sonic1CaterkillerBadnikInstance(
-                new ObjectSpawn(0, 0, 0x78, 0, 0, false, 0), levelManager);
+                new ObjectSpawn(0, 0, 0x78, 0, 0, false, 0));
 
         FakeParentState parentState = new FakeParentState();
         parentState.secondaryState = 1; // moving
@@ -47,7 +47,7 @@ public class TestSonic1CaterkillerBodyChaining {
     public void bodySegmentUsesHurtCollisionCategory() {
         LevelManager levelManager = LevelManager.getInstance();
         Sonic1CaterkillerBadnikInstance head = new Sonic1CaterkillerBadnikInstance(
-                new ObjectSpawn(0, 0, 0x78, 0, 0, false, 0), levelManager);
+                new ObjectSpawn(0, 0, 0x78, 0, 0, false, 0));
         FakeParentState parentState = new FakeParentState();
 
         Sonic1CaterkillerBodyInstance body = new Sonic1CaterkillerBodyInstance(
@@ -61,7 +61,7 @@ public class TestSonic1CaterkillerBodyChaining {
     public void bodyTouchTriggersFragmentBehavior() {
         LevelManager levelManager = LevelManager.getInstance();
         Sonic1CaterkillerBadnikInstance head = new Sonic1CaterkillerBadnikInstance(
-                new ObjectSpawn(0, 0, 0x78, 0, 0, false, 0), levelManager);
+                new ObjectSpawn(0, 0, 0x78, 0, 0, false, 0));
         FakeParentState parentState = new FakeParentState();
 
         Sonic1CaterkillerBodyInstance body = new Sonic1CaterkillerBodyInstance(
@@ -82,7 +82,7 @@ public class TestSonic1CaterkillerBodyChaining {
         AbstractObjectInstance.updateCameraBounds(0, 0, 320, 224, 0);
         LevelManager levelManager = LevelManager.getInstance();
         Sonic1CaterkillerBadnikInstance head = new Sonic1CaterkillerBadnikInstance(
-                new ObjectSpawn(0, 0, 0x78, 0, 0, false, 0), levelManager);
+                new ObjectSpawn(0, 0, 0x78, 0, 0, false, 0));
         FakeParentState parentState = new FakeParentState();
 
         Sonic1CaterkillerBodyInstance body = new Sonic1CaterkillerBodyInstance(
@@ -100,7 +100,7 @@ public class TestSonic1CaterkillerBodyChaining {
         AbstractObjectInstance.updateCameraBounds(0, 0, 320, 224, 0);
         LevelManager levelManager = LevelManager.getInstance();
         Sonic1CaterkillerBadnikInstance head = new Sonic1CaterkillerBadnikInstance(
-                new ObjectSpawn(0, 0, 0x78, 0, 0, false, 0), levelManager);
+                new ObjectSpawn(0, 0, 0x78, 0, 0, false, 0));
         FakeParentState parentState = new FakeParentState();
 
         Sonic1CaterkillerBodyInstance body = new Sonic1CaterkillerBodyInstance(

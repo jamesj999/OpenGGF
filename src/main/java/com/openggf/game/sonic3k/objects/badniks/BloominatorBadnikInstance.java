@@ -4,7 +4,7 @@ import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -44,8 +44,8 @@ public final class BloominatorBadnikInstance extends AbstractS3kBadnikInstance {
     private int attackStepTimer;
     private int shotToggleCounter;
 
-    public BloominatorBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, "Bloominator", levelManager,
+    public BloominatorBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Bloominator",
                 Sonic3kObjectArtKeys.BLOOMINATOR, COLLISION_SIZE_INDEX, PRIORITY_BUCKET);
         this.mappingFrame = 0;
     }

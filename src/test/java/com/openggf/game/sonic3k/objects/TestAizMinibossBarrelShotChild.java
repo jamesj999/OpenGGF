@@ -4,7 +4,7 @@ import org.junit.Before;
 import org.junit.Test;
 import com.openggf.camera.Camera;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.level.objects.boss.AbstractBossInstance;
@@ -83,7 +83,7 @@ public class TestAizMinibossBarrelShotChild {
 
     private static final class DummyBoss extends AbstractBossInstance {
         private DummyBoss() {
-            super(new ObjectSpawn(0x1200, 0x300, 0x91, 0, 0, false, 0), LevelManager.getInstance(), "DummyBoss");
+            super(new ObjectSpawn(0x1200, 0x300, 0x91, 0, 0, false, 0), "DummyBoss");
             state.x = 0x1200;
             state.y = 0x300;
             state.xFixed = state.x << 16;

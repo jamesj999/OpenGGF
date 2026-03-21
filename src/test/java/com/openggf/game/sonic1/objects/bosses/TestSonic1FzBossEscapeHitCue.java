@@ -19,8 +19,7 @@ public class TestSonic1FzBossEscapeHitCue {
     @Test
     public void escapeHitClearsCollisionFlagsAndEnablesDamagedCue() throws Exception {
         Sonic1FZBossInstance boss = new Sonic1FZBossInstance(
-                new ObjectSpawn(0, 0, Sonic1ObjectIds.FZ_BOSS, 0, 0, false, 0),
-                null);
+                new ObjectSpawn(0, 0, Sonic1ObjectIds.FZ_BOSS, 0, 0, false, 0));
 
         BossStateContext state = (BossStateContext) getFieldValue(boss, "state");
         state.routineSecondary = 14; // STATE_FINAL_FLIGHT
@@ -45,8 +44,7 @@ public class TestSonic1FzBossEscapeHitCue {
     @Test
     public void damagedCuePersistsAfterEscapeHitTimerEnds() throws Exception {
         Sonic1FZBossInstance boss = new Sonic1FZBossInstance(
-                new ObjectSpawn(0, 0, Sonic1ObjectIds.FZ_BOSS, 0, 0, false, 0),
-                null);
+                new ObjectSpawn(0, 0, Sonic1ObjectIds.FZ_BOSS, 0, 0, false, 0));
 
         BossStateContext state = (BossStateContext) getFieldValue(boss, "state");
         state.routineSecondary = 14; // STATE_FINAL_FLIGHT

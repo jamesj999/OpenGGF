@@ -6,7 +6,7 @@ import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SubpixelMotion;
@@ -64,8 +64,8 @@ public class AquisBadnikInstance extends AbstractBadnikInstance {
     private final ObjectAnimationState wingAnimationState;
     private boolean wingDestroyed;
 
-    public AquisBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Aquis", Sonic2BadnikConfig.DESTRUCTION);
+    public AquisBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Aquis", Sonic2BadnikConfig.DESTRUCTION);
         this.state = State.WAIT_FOR_SCREEN;
         this.timer = 0;
         this.shotsRemaining = INITIAL_SHOTS;
@@ -179,7 +179,7 @@ public class AquisBadnikInstance extends AbstractBadnikInstance {
     }
 
     private void fireProjectile() {
-        ObjectManager objectManager = levelManager.getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }

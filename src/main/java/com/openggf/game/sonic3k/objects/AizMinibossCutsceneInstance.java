@@ -13,7 +13,7 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Palette;
 import com.openggf.level.objects.ObjectManager;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.boss.AbstractBossChild;
@@ -79,8 +79,8 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
     private Runnable waitCallback;
     private int savedCameraMaxX;
 
-    public AizMinibossCutsceneInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "AIZMinibossCutscene");
+    public AizMinibossCutsceneInstance(ObjectSpawn spawn) {
+        super(spawn, "AIZMinibossCutscene");
     }
 
     @Override
@@ -147,7 +147,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         if (!state.invulnerable) {
             return;
         }
-        var level = levelManager.getCurrentLevel();
+        var level = services().currentLevel();
         if (level == null || level.getPaletteCount() <= 1) {
             return;
         }
@@ -202,7 +202,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         state.yVel = DESCEND_VEL;
         setWait(DESCEND_TIME, this::onDescendComplete);
 
-        var objectManager = levelManager.getObjectManager();
+        var objectManager = services().objectManager();
         spawnChild(new AizMinibossBodyChild(this), objectManager);
         spawnChild(new AizMinibossArmChild(this), objectManager);
         for (int i = 0; i < 3; i++) {
@@ -235,7 +235,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
             return;
         }
         explosionController.tick();
-        var objectManager = levelManager.getObjectManager();
+        var objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -337,7 +337,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
     }
 
     private void spawnDebris() {
-        var objectManager = levelManager.getObjectManager();
+        var objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -354,14 +354,14 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         try {
             byte[] line = GameServices.rom().getRom().readBytes(
                     Sonic3kConstants.PAL_AIZ_MINIBOSS_ADDR, 32);
-            levelManager.updatePalette(1, line);
+            com.openggf.game.GameServices.level().updatePalette(1, line);
         } catch (Exception ignored) {
             // Palette load failures should not crash gameplay.
         }
     }
 
     private boolean isAiz1() {
-        return levelManager.getCurrentZone() == 0 && levelManager.getCurrentAct() == 0;
+        return services().romZoneId() == 0 && services().currentAct() == 0;
     }
 
     private Sonic3kAIZEvents getAizEvents() {
@@ -373,7 +373,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         if (state.routine < ROUTINE_DESCEND || isDestroyed()) {
             return;
         }
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

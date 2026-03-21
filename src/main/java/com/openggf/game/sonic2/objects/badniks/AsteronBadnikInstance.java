@@ -9,7 +9,7 @@ import com.openggf.level.objects.ExplosionObjectInstance;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SubpixelMotion;
@@ -75,8 +75,8 @@ public class AsteronBadnikInstance extends AbstractBadnikInstance {
     private int moveTimer;
     private final SubpixelMotion.State motionState;
 
-    public AsteronBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Asteron", Sonic2BadnikConfig.DESTRUCTION);
+    public AsteronBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Asteron", Sonic2BadnikConfig.DESTRUCTION);
         this.state = State.IDLE;
         this.moveTimer = 0;
         this.motionState = new SubpixelMotion.State(spawn.x(), spawn.y(), 0, 0, 0, 0);
@@ -190,14 +190,14 @@ public class AsteronBadnikInstance extends AbstractBadnikInstance {
         setDestroyed(true);
         setDestroyed(true);
 
-        var objectManager = levelManager.getObjectManager();
+        var objectManager = services().objectManager();
         if (objectManager != null) {
             objectManager.removeFromActiveSpawns(spawn);
         }
 
         // Spawn explosion at current position
         var explosion = new ExplosionObjectInstance(
-                0x27, currentX, currentY, levelManager.getObjectRenderManager());
+                0x27, currentX, currentY, services().renderManager());
         objectManager.addDynamicObject(explosion);
 
         // Play explosion SFX

@@ -101,8 +101,8 @@ public class Sonic2CPZBossInstance extends AbstractBossInstance {
     private int mappingFrame;
     private ObjectAnimationState animationState;
 
-    public Sonic2CPZBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "CPZ Boss");
+    public Sonic2CPZBossInstance(ObjectSpawn spawn) {
+        super(spawn, "CPZ Boss");
     }
 
     @Override
@@ -342,51 +342,51 @@ public class Sonic2CPZBossInstance extends AbstractBossInstance {
     // ========================================================================
 
     private void spawnRobotnik() {
-        if (levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
         ObjectSpawn robotnikSpawn = new ObjectSpawn(state.x, state.y, Sonic2ObjectIds.CPZ_BOSS, 0, state.renderFlags, false, 0);
-        robotnik = new CPZBossRobotnik(robotnikSpawn, levelManager, this);
-        levelManager.getObjectManager().addDynamicObject(robotnik);
+        robotnik = new CPZBossRobotnik(robotnikSpawn, com.openggf.game.GameServices.level(), this);
+        services().objectManager().addDynamicObject(robotnik);
     }
 
     private void spawnFlame() {
         if ((spawn.subtype() & 0x80) != 0) {
             return;
         }
-        if (levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
         ObjectSpawn flameSpawn = new ObjectSpawn(state.x, state.y, Sonic2ObjectIds.CPZ_BOSS, 0, state.renderFlags, false, 0);
-        flame = new CPZBossFlame(flameSpawn, levelManager, this);
-        levelManager.getObjectManager().addDynamicObject(flame);
+        flame = new CPZBossFlame(flameSpawn, com.openggf.game.GameServices.level(), this);
+        services().objectManager().addDynamicObject(flame);
     }
 
     private void spawnPump() {
-        if (levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
         ObjectSpawn pumpSpawn = new ObjectSpawn(state.x, state.y, Sonic2ObjectIds.CPZ_BOSS, 0, state.renderFlags, false, 0);
-        pump = new CPZBossPump(pumpSpawn, levelManager, this);
-        levelManager.getObjectManager().addDynamicObject(pump);
+        pump = new CPZBossPump(pumpSpawn, com.openggf.game.GameServices.level(), this);
+        services().objectManager().addDynamicObject(pump);
     }
 
     private void spawnContainer() {
-        if (levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
         ObjectSpawn containerSpawn = new ObjectSpawn(state.x, state.y, Sonic2ObjectIds.CPZ_BOSS, 0, state.renderFlags, false, 0);
-        container = new CPZBossContainer(containerSpawn, levelManager, this);
-        levelManager.getObjectManager().addDynamicObject(container);
+        container = new CPZBossContainer(containerSpawn, com.openggf.game.GameServices.level(), this);
+        services().objectManager().addDynamicObject(container);
     }
 
     private void spawnPipe() {
-        if (levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
         ObjectSpawn pipeSpawn = new ObjectSpawn(state.x, state.y, Sonic2ObjectIds.CPZ_BOSS, 0, state.renderFlags, false, 0);
-        currentPipe = new CPZBossPipe(pipeSpawn, levelManager, this);
-        levelManager.getObjectManager().addDynamicObject(currentPipe);
+        currentPipe = new CPZBossPipe(pipeSpawn, com.openggf.game.GameServices.level(), this);
+        services().objectManager().addDynamicObject(currentPipe);
     }
 
     // ========================================================================
@@ -533,7 +533,7 @@ public class Sonic2CPZBossInstance extends AbstractBossInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = levelManager != null ? levelManager.getObjectRenderManager() : null;
+        ObjectRenderManager renderManager = services() != null ? services().renderManager() : null;
         if (renderManager == null) {
             return;
         }

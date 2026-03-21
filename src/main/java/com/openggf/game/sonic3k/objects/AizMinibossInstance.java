@@ -14,7 +14,6 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Palette;
 import com.openggf.level.objects.ObjectManager;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseResult;
@@ -89,8 +88,8 @@ public class AizMinibossInstance extends AbstractBossInstance {
     /** Stagger explosion controller for boss defeat (ROM: Child6_CreateBossExplosion subtype 0). */
     private S3kBossExplosionController defeatExplosionController;
 
-    public AizMinibossInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "AIZMiniboss");
+    public AizMinibossInstance(ObjectSpawn spawn) {
+        super(spawn, "AIZMiniboss");
     }
 
     @Override
@@ -217,7 +216,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
         if (!state.invulnerable) {
             return;
         }
-        var level = levelManager.getCurrentLevel();
+        var level = services().currentLevel();
         if (level == null || level.getPaletteCount() <= 1) {
             return;
         }
@@ -266,7 +265,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
         state.yVel = DESCEND_VEL;
         setWait(DESCEND_TIME, this::onDescendComplete);
 
-        var objectManager = levelManager.getObjectManager();
+        var objectManager = services().objectManager();
         spawnChild(new AizMinibossBodyChild(this), objectManager);
         spawnChild(new AizMinibossArmChild(this), objectManager);
         for (int i = 0; i < 3; i++) {
@@ -370,7 +369,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
         // at random offsets within ±$20 pixels. Total: 33 explosions over ~102 frames.
         if (defeatExplosionController != null && !defeatExplosionController.isFinished()) {
             defeatExplosionController.tick();
-            var objectManager = levelManager.getObjectManager();
+            var objectManager = services().objectManager();
             if (objectManager != null) {
                 for (var pending : defeatExplosionController.drainPendingExplosions()) {
                     objectManager.addDynamicObject(
@@ -402,7 +401,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
                         try {
                             byte[] palData = GameServices.rom().getRom().readBytes(
                                     Sonic3kConstants.PAL_AIZ_FIRE_ADDR, 32);
-                            levelManager.updatePalette(1, palData);
+                            com.openggf.game.GameServices.level().updatePalette(1, palData);
                         } catch (Exception ignored) {
                             // Palette restore failures should not crash gameplay.
                         }
@@ -441,7 +440,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
     }
 
     private void spawnBreathFlames() {
-        var objectManager = levelManager.getObjectManager();
+        var objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -462,7 +461,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
      * state and stop. We achieve the same by scanning active objects.
      */
     private void destroyAttackObjects() {
-        var objectManager = levelManager.getObjectManager();
+        var objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -485,7 +484,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
         try {
             byte[] line = GameServices.rom().getRom().readBytes(
                     Sonic3kConstants.PAL_AIZ_MINIBOSS_ADDR, 32);
-            levelManager.updatePalette(1, line);
+            com.openggf.game.GameServices.level().updatePalette(1, line);
         } catch (Exception ignored) {
             // Palette load failures should not crash gameplay.
         }
@@ -500,7 +499,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
         if (isDestroyed() || state.routine < ROUTINE_DESCEND || defeatRenderComplete) {
             return;
         }
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

@@ -8,7 +8,7 @@ import com.openggf.game.sonic2.objects.GrounderWallInstance;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.level.objects.PatrolMovementHelper;
@@ -100,8 +100,8 @@ public class GrounderBadnikInstance extends AbstractBadnikInstance {
      * @param levelManager  Level manager for spawning children
      * @param skipWallSetup True for 0x8E variant (skips wall/rock spawning)
      */
-    public GrounderBadnikInstance(ObjectSpawn spawn, LevelManager levelManager, boolean skipWallSetup) {
-        super(spawn, levelManager, "Grounder", Sonic2BadnikConfig.DESTRUCTION);
+    public GrounderBadnikInstance(ObjectSpawn spawn, boolean skipWallSetup) {
+        super(spawn, "Grounder", Sonic2BadnikConfig.DESTRUCTION);
         this.skipWallSetup = skipWallSetup;
         this.state = State.INIT;
         this.activated = false;
@@ -168,7 +168,7 @@ public class GrounderBadnikInstance extends AbstractBadnikInstance {
             int wallX = currentX + offset[0];
             int wallY = currentY + offset[1];
             GrounderWallInstance wall = new GrounderWallInstance(wallX, wallY, i, this);
-            levelManager.getObjectManager().addDynamicObject(wall);
+            services().objectManager().addDynamicObject(wall);
         }
     }
 
@@ -179,7 +179,7 @@ public class GrounderBadnikInstance extends AbstractBadnikInstance {
     private void spawnRocks() {
         for (int i = 0; i < 5; i++) {
             GrounderRockProjectile rock = new GrounderRockProjectile(currentX, currentY, i, this);
-            levelManager.getObjectManager().addDynamicObject(rock);
+            services().objectManager().addDynamicObject(rock);
         }
     }
 

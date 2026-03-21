@@ -4,7 +4,6 @@ import com.openggf.debug.DebugRenderContext;
 import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.DestructionEffects;
 import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectArtKeys;
@@ -148,8 +147,8 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
     // Child body segment objects
     private final List<Sonic1CaterkillerBodyInstance> bodySegments = new ArrayList<>();
 
-    public Sonic1CaterkillerBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Caterkiller");
+    public Sonic1CaterkillerBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Caterkiller");
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         // S1: obStatus bit 0 set = xFlip (facing right in screen terms)
@@ -237,7 +236,7 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
      * </pre>
      */
     private void spawnBodySegments() {
-        var objectManager = levelManager.getObjectManager();
+        var objectManager = services() != null ? services().objectManager() : null;
         if (objectManager == null) {
             return;
         }
@@ -263,7 +262,7 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
 
             Sonic1CaterkillerBodyInstance body = new Sonic1CaterkillerBodyInstance(
                     this, parentState, segX, currentY, facingLeft,
-                    isAnimated[i], i, ringBufIdx, levelManager);
+                    isAnimated[i], i, ringBufIdx, com.openggf.game.GameServices.level());
             bodySegments.add(body);
             objectManager.addDynamicObject(body);
             parentState = body;
@@ -501,7 +500,7 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
         deleting = true;
         setDestroyed(true);
         setDestroyed(true);
-        DestructionEffects.destroyBadnik(currentX, currentY, spawn, player, levelManager,
+        DestructionEffects.destroyBadnik(currentX, currentY, spawn, player, services(),
                 getDestructionConfig());
         // Normal head destruction does not use fragment mode in S1; body segments delete.
         markBodySegmentsForDeletion();

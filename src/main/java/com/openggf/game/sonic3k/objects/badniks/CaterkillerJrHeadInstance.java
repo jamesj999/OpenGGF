@@ -1,7 +1,7 @@
 package com.openggf.game.sonic3k.objects.badniks;
 
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseResult;
@@ -46,8 +46,8 @@ public final class CaterkillerJrHeadInstance extends AbstractS3kBadnikInstance {
 
     private final List<CaterkillerJrBodyInstance> bodySegments = new ArrayList<>();
 
-    public CaterkillerJrHeadInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, "CaterKillerJr", levelManager,
+    public CaterkillerJrHeadInstance(ObjectSpawn spawn) {
+        super(spawn, "CaterKillerJr",
                 Sonic3kObjectArtKeys.CATERKILLER_JR, COLLISION_SIZE_INDEX, PRIORITY_BUCKET);
         this.mappingFrame = 0;
         this.xVelocity = INITIAL_X_VEL;
@@ -56,12 +56,12 @@ public final class CaterkillerJrHeadInstance extends AbstractS3kBadnikInstance {
     }
 
     private void spawnBodySegments() {
-        ObjectManager objectManager = levelManager != null ? levelManager.getObjectManager() : null;
+        ObjectManager objectManager = services() != null ? services().objectManager() : null;
         if (objectManager == null) return;
 
         for (int i = 0; i < BODY_SEGMENT_COUNT; i++) {
             CaterkillerJrBodyInstance segment = new CaterkillerJrBodyInstance(
-                    spawn, levelManager, i, SEGMENT_WAIT_DELAYS[i]);
+                    spawn, com.openggf.game.GameServices.level(), i, SEGMENT_WAIT_DELAYS[i]);
             bodySegments.add(segment);
             objectManager.addDynamicObject(segment);
         }
