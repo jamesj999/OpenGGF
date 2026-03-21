@@ -13,6 +13,7 @@ import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TrigLookupTable;
@@ -127,8 +128,8 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
     // Y velocity for falling/rising types
     private int yVelocity;
 
-    // Sub-pixel accumulator for SpeedToPos Y
-    private int ySubpixel;
+    // 16.16 subpixel state for SpeedToPos Y position updates.
+    private final SubpixelMotion.State fallMotion = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
 
     public Sonic1LabyrinthBlockObjectInstance(ObjectSpawn spawn) {
         super(spawn, "LabyrinthBlock");
@@ -157,7 +158,6 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
         this.sinkAngle = 0;
         this.solidContactResult = 0;
         this.yVelocity = 0;
-        this.ySubpixel = 0;
 
         // andi.b #$F,d0 -> moveType = low nybble
         this.moveType = fullSubtype & 0x0F;
@@ -352,7 +352,7 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
             // addq.w #1,d1 / add.w d1,obY(a0) — adjust by (distance + 1)
             y += floor.distance() + 1;
             yVelocity = 0;
-            ySubpixel = 0;
+            fallMotion.ySub = 0;
             moveType = 0x00; // become stationary
         }
     }
@@ -385,7 +385,7 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
             // sub.w d1,obY(a0) — note: subtract because ceiling distance is negative
             y -= ceiling.distance();
             yVelocity = 0;
-            ySubpixel = 0;
+            fallMotion.ySub = 0;
             moveType = 0x00; // become stationary
         }
     }
@@ -560,15 +560,14 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
 
     /**
      * SpeedToPos for Y axis — applies yVelocity to y position using 16.16 fixed-point.
-     * Matches ROM SpeedToPos: ext.l dY / asl.l #8,dY / add.l dY,obY(a0)
+     * Delegates to {@link SubpixelMotion#speedToPosY(SubpixelMotion.State)}.
      */
     private void applySpeedToPosY() {
         if (yVelocity == 0) return;
-        int yPos32 = (y << 16) | (ySubpixel & 0xFFFF);
-        int vel32 = (int) (short) yVelocity;
-        yPos32 += vel32 << 8;
-        y = yPos32 >> 16;
-        ySubpixel = yPos32 & 0xFFFF;
+        fallMotion.y = y;
+        fallMotion.yVel = yVelocity;
+        SubpixelMotion.speedToPosY(fallMotion);
+        y = fallMotion.y;
     }
 
     /**

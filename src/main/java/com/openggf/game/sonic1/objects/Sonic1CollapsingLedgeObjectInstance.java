@@ -17,6 +17,7 @@ import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -110,10 +111,8 @@ public class Sonic1CollapsingLedgeObjectInstance extends AbstractObjectInstance
     private boolean collapseFlag;
 
     // Velocity for fragment falling (routine 6: ObjectFall)
-    private int velX;
-    private int velY;
-    private int xFrac;
-    private int yFrac;
+    // 16.16 fall state for ObjectFall. x/y are synced to/from fallMotion.
+    private final SubpixelMotion.State fallMotion = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
 
     // Whether fragments have been spawned
     private boolean fragmented;
@@ -248,27 +247,14 @@ public class Sonic1CollapsingLedgeObjectInstance extends AbstractObjectInstance
 
     /**
      * ObjectFall subroutine: updates position with velocity and applies gravity.
-     * From _incObj/sub ObjectFall.asm:
-     *   move.l obX(a0),d2 / move.l obY(a0),d3
-     *   move.w obVelX(a0),d0 / ext.l d0 / asl.l #8,d0 / add.l d0,d2
-     *   move.w obVelY(a0),d0 / addi.w #$38,obVelY(a0)
-     *   ext.l d0 / asl.l #8,d0 / add.l d0,d3
+     * Delegates to {@link SubpixelMotion#objectFallXY(SubpixelMotion.State, int)}.
      */
     private void applyObjectFall() {
-        // X position update with fractional part
-        int x32 = (x << 16) | (xFrac & 0xFFFF);
-        int vx32 = (int) (short) velX;
-        x32 += vx32 << 8;
-        x = x32 >> 16;
-        xFrac = x32 & 0xFFFF;
-
-        // Y position update with fractional part
-        int y32 = (y << 16) | (yFrac & 0xFFFF);
-        int vy32 = (int) (short) velY;
-        velY += GRAVITY; // addi.w #$38,obVelY(a0)
-        y32 += vy32 << 8;
-        y = y32 >> 16;
-        yFrac = y32 & 0xFFFF;
+        fallMotion.x = x;
+        fallMotion.y = y;
+        SubpixelMotion.objectFallXY(fallMotion, GRAVITY);
+        x = fallMotion.x;
+        y = fallMotion.y;
     }
 
     /**

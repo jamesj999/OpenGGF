@@ -14,14 +14,8 @@ import java.util.List;
  * gravity via ObjectFall / MoveSprite until it leaves the screen. Subclasses provide only
  * rendering via {@link #appendRenderCommands(List)}.
  *
- * <p>Position arithmetic uses 16.16 fixed-point storage with the ROM-standard ObjectFall
- * velocity integration:
- * <pre>
- *     move.w  obVelY(a0),d0           ; read OLD velocity
- *     addi.w  #$38,obVelY(a0)         ; apply gravity for NEXT frame
- *     ext.l   d0 / asl.l #8,d0        ; shift velocity into 16.16
- *     add.l   d0,obY(a0)              ; update position
- * </pre>
+ * <p>Position arithmetic uses {@link SubpixelMotion#objectFall(SubpixelMotion.State, int)}
+ * for ROM-accurate 16.16 fixed-point gravity integration.
  *
  * <p>This differs from {@link GravityDebrisChild} which uses {@link SubpixelMotion} (16:8
  * format) and has initial X/Y velocity. Collapsing platform fragments have zero initial
@@ -37,10 +31,8 @@ public abstract class AbstractFallingFragment extends AbstractObjectInstance {
     /** Off-screen margin for destroy check (pixels beyond camera viewport). */
     private static final int OFF_SCREEN_MARGIN = 128;
 
-    private int x;
-    private int y;
-    private int yFrac;
-    private int velY;
+    private final int x;
+    private final SubpixelMotion.State motion;
     private int delayTimer;
     private final int priority;
 
@@ -54,7 +46,7 @@ public abstract class AbstractFallingFragment extends AbstractObjectInstance {
                                       int delay, int priority) {
         super(spawn, name);
         this.x = spawn.x();
-        this.y = spawn.y();
+        this.motion = new SubpixelMotion.State(0, spawn.y(), 0, 0, 0, 0);
         this.delayTimer = delay;
         this.priority = priority;
     }
@@ -66,7 +58,7 @@ public abstract class AbstractFallingFragment extends AbstractObjectInstance {
 
     @Override
     public final int getY() {
-        return y;
+        return motion.y;
     }
 
     @Override
@@ -80,13 +72,7 @@ public abstract class AbstractFallingFragment extends AbstractObjectInstance {
             return;
         }
 
-        // ObjectFall: read old velocity, apply gravity, then update position
-        int oldVelY = (int) (short) velY;
-        velY += GRAVITY;
-        int y32 = (y << 16) | (yFrac & 0xFFFF);
-        y32 += oldVelY << 8;
-        y = y32 >> 16;
-        yFrac = y32 & 0xFFFF;
+        SubpixelMotion.objectFall(motion, GRAVITY);
 
         if (!isOnScreen(OFF_SCREEN_MARGIN)) {
             setDestroyed(true);

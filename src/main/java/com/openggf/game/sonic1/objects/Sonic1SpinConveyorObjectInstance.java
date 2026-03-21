@@ -15,6 +15,7 @@ import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -203,6 +204,9 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
     private int velY;                // Y velocity (obVelY)
     private int xFrac;               // X subpixel fractional (obX+2 low word)
     private int yFrac;               // Y subpixel fractional (obY+2 low word)
+
+    /** Reusable state for SubpixelMotion calls (avoids per-frame allocation). */
+    private final SubpixelMotion.State motion = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
     private int baseX;               // base X for out_of_range check (objoff_30)
 
     // Animation state
@@ -721,17 +725,12 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
      * </pre>
      */
     private void applySpeedToPos() {
-        // X: 32-bit position = (x << 16) | xFrac
-        long xPos32 = ((long) x << 16) | (xFrac & 0xFFFF);
-        xPos32 += (long) (short) velX << 8;
-        x = (int) (xPos32 >> 16);
-        xFrac = (int) (xPos32 & 0xFFFF);
-
-        // Y: 32-bit position = (y << 16) | yFrac
-        long yPos32 = ((long) y << 16) | (yFrac & 0xFFFF);
-        yPos32 += (long) (short) velY << 8;
-        y = (int) (yPos32 >> 16);
-        yFrac = (int) (yPos32 & 0xFFFF);
+        motion.x = x; motion.y = y;
+        motion.xSub = xFrac; motion.ySub = yFrac;
+        motion.xVel = velX; motion.yVel = velY;
+        SubpixelMotion.speedToPos(motion);
+        x = motion.x; y = motion.y;
+        xFrac = motion.xSub; yFrac = motion.ySub;
     }
 
     /**

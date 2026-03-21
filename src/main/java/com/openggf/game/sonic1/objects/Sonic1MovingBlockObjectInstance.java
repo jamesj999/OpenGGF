@@ -14,6 +14,7 @@ import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
@@ -123,8 +124,8 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
 
     // Y velocity for type 06 (falling)
     private int yVelocity;
-    // Sub-pixel accumulator for SpeedToPos Y (type 06)
-    private int ySubpixel;
+    // 16.16 subpixel state for SpeedToPos Y position updates during falling.
+    private final SubpixelMotion.State fallMotion = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
 
     // Type 0A state: timer countdown at endpoint (objoff_34)
     private int shuttleTimer;
@@ -158,7 +159,6 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
 
         this.playerStanding = false;
         this.yVelocity = 0;
-        this.ySubpixel = 0;
         this.shuttleTimer = 0;
         this.shuttleReturning = false;
 
@@ -406,7 +406,7 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
             // Hit floor — snap to surface and stop
             y += floor.distance();
             yVelocity = 0;
-            ySubpixel = 0;
+            fallMotion.ySub = 0;
             moveType = 0x00;
         }
     }
@@ -539,14 +539,14 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
 
     /**
      * SpeedToPos for Y axis — applies yVelocity to y position using 16.16 fixed-point.
+     * Delegates to {@link SubpixelMotion#speedToPosY(SubpixelMotion.State)}.
      */
     private void applySpeedToPosY() {
         if (yVelocity == 0) return;
-        int yPos32 = (y << 16) | (ySubpixel & 0xFFFF);
-        int vel32 = (int) (short) yVelocity;
-        yPos32 += vel32 << 8;
-        y = yPos32 >> 16;
-        ySubpixel = yPos32 & 0xFFFF;
+        fallMotion.y = y;
+        fallMotion.yVel = yVelocity;
+        SubpixelMotion.speedToPosY(fallMotion);
+        y = fallMotion.y;
     }
 
     /**

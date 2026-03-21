@@ -20,6 +20,7 @@ import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -121,9 +122,8 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
     // Collapse flag (cflo_collapse_flag = objoff_3A): set when player activates collapse
     private boolean collapseFlag;
 
-    // Velocity for fragment falling (routine 6: ObjectFall)
-    private int velY;
-    private int yFrac;
+    // 16.16 fall state for ObjectFall (routine 6). y is synced to/from motion.y.
+    private final SubpixelMotion.State fallMotion = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
 
     // Whether fragments have been spawned
     private boolean fragmented;
@@ -396,21 +396,12 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
 
     /**
      * ObjectFall subroutine: applies gravity to Y velocity and updates position.
-     * <p>
-     * From _incObj/sub ObjectFall.asm:
-     * <pre>
-     *     move.w obVelY(a0),d0
-     *     addi.w #$38,obVelY(a0)
-     *     ext.l  d0 / asl.l #8,d0 / add.l d0,d3
-     * </pre>
+     * Delegates to {@link SubpixelMotion#objectFall(SubpixelMotion.State, int)}.
      */
     private void applyObjectFall() {
-        int y32 = (y << 16) | (yFrac & 0xFFFF);
-        int vy32 = (int) (short) velY;
-        velY += GRAVITY;
-        y32 += vy32 << 8;
-        y = y32 >> 16;
-        yFrac = y32 & 0xFFFF;
+        fallMotion.y = y;
+        SubpixelMotion.objectFall(fallMotion, GRAVITY);
+        y = fallMotion.y;
     }
 
     /**

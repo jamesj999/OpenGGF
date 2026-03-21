@@ -15,6 +15,7 @@ import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -156,6 +157,9 @@ public class ConveyorObjectInstance extends AbstractObjectInstance
     /** Sub-pixel accumulators for 16.16 fixed point movement. */
     private int xSub;
     private int ySub;
+
+    /** Reusable state for SubpixelMotion calls (avoids per-frame allocation). */
+    private final SubpixelMotion.State motion = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
 
     /** X-flip from status byte. */
     private final boolean xFlip;
@@ -460,17 +464,13 @@ public class ConveyorObjectInstance extends AbstractObjectInstance
      * </pre>
      */
     private void applyVelocity() {
-        // Compose 32-bit position, add shifted velocity, decompose
-        // x_vel is a signed 16-bit value; shift left 8 to align with 16.16 format
-        int xPos32 = (x << 16) | (xSub & 0xFFFF);
-        xPos32 += ((short) xVel) << 8;
-        x = xPos32 >> 16;
-        xSub = xPos32 & 0xFFFF;
-
-        int yPos32 = (y << 16) | (ySub & 0xFFFF);
-        yPos32 += ((short) yVel) << 8;
-        y = yPos32 >> 16;
-        ySub = yPos32 & 0xFFFF;
+        // Delegates to SubpixelMotion.speedToPos for ROM-accurate 16.16 integration
+        motion.x = x; motion.y = y;
+        motion.xSub = xSub; motion.ySub = ySub;
+        motion.xVel = xVel; motion.yVel = yVel;
+        SubpixelMotion.speedToPos(motion);
+        x = motion.x; y = motion.y;
+        xSub = motion.xSub; ySub = motion.ySub;
     }
 
     /**
