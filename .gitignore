@@ -42,3 +42,4 @@ docs/screenshots/
 
 # Savestates
 *.gs2
+dist/
