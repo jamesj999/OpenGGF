@@ -41,6 +41,7 @@ public class ObjectManager {
     private final List<GLCommand> renderCommands = new ArrayList<>();
     private int frameCounter;
     private boolean updating;
+    private final ObjectServices objectServices = new DefaultObjectServices();
 
     // Pre-bucketed lists for O(n) rendering instead of O(n*buckets)
     @SuppressWarnings("unchecked")
@@ -403,6 +404,9 @@ public class ObjectManager {
     }
 
     public void addDynamicObject(ObjectInstance object) {
+        if (object instanceof AbstractObjectInstance aoi && aoi.services() == null) {
+            aoi.setServices(objectServices);
+        }
         if (updating) {
             pendingDynamicAdditions.add(object);
         } else {
@@ -547,6 +551,9 @@ public class ObjectManager {
                 }
                 ObjectInstance instance = registry != null ? registry.create(spawn) : null;
                 if (instance != null) {
+                    if (instance instanceof AbstractObjectInstance aoi) {
+                        aoi.setServices(objectServices);
+                    }
                     activeObjects.put(spawn, instance);
                     changed = true;
                 }

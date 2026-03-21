@@ -21,6 +21,7 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     protected final String name;
     private boolean destroyed;
     private ObjectSpawn dynamicSpawn;
+    private ObjectServices services;
 
     protected AbstractObjectInstance(ObjectSpawn spawn, String name) {
         this.spawn = spawn;
@@ -57,6 +58,21 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
 
     public String getName() {
         return name;
+    }
+
+    /**
+     * Sets the injectable services handle. Called by ObjectManager after construction.
+     */
+    public void setServices(ObjectServices services) {
+        this.services = services;
+    }
+
+    /**
+     * Returns the injectable services handle, or null if not yet injected
+     * (e.g. during construction or in legacy code paths).
+     */
+    protected ObjectServices services() {
+        return services;
     }
 
     public void setDestroyed(boolean destroyed) {
