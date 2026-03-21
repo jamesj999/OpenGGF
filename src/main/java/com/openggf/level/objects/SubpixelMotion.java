@@ -1,4 +1,4 @@
-package com.openggf.game.sonic3k.objects;
+package com.openggf.level.objects;
 
 /**
  * Utility for ROM-accurate subpixel position updates (MoveSprite / MoveSprite2).
