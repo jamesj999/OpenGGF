@@ -14,6 +14,7 @@ import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
+import com.openggf.level.objects.SpringBounceHelper;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -113,7 +114,7 @@ public class PipeExitSpringObjectInstance extends BoxObjectInstance
             player.setXSpeed((short) 0);
         }
 
-        player.setSpringing(15);
+        player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
 
         // ROM: move.b #AniIDSonAni_Spring,anim(a1) - Set Spring animation first
         player.setAnimationId(Sonic2AnimationIds.SPRING);
@@ -165,7 +166,7 @@ public class PipeExitSpringObjectInstance extends BoxObjectInstance
      * - Reduced strength: -$A80 (lower bounce)
      */
     private int getStrength() {
-        return fullStrength ? -0x1000 : -0x0A80;
+        return fullStrength ? SpringBounceHelper.STRENGTH_RED : -0x0A80;
     }
 
     /**

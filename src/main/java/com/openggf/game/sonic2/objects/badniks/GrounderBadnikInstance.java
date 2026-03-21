@@ -10,6 +10,7 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.level.objects.PatrolMovementHelper;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -269,28 +270,17 @@ public class GrounderBadnikInstance extends AbstractBadnikInstance {
      *   add.w d1,y_pos(a0)                ; Snap to floor
      */
     private void updateWalking(AbstractPlayableSprite player) {
-        // Apply velocity (ObjectMove behavior - NO gravity)
-        // Velocity is +/-0x100 which is exactly +/-1 pixel per frame in 8.8 fixed point
-        currentX += (xVelocity >> 8);
+        // Apply velocity and check floor (ObjectMove + ObjCheckFloorDist)
+        // Velocity is +/-0x100 (exactly +/-1 pixel per frame), no subpixel accumulation needed
+        var result = PatrolMovementHelper.updatePatrol(
+                currentX, 0, currentY, xVelocity, Y_RADIUS, -1, 12);
+        currentX = result.newX();
+        currentY = result.newY();
 
-        // Check floor from feet (y + y_radius)
-        TerrainCheckResult floorResult = ObjectTerrainUtils.checkFloorDist(currentX, currentY, Y_RADIUS);
-
-        // Edge detection from disassembly:
-        // - If no floor found: edge
-        // - If distance < -1: inside terrain, edge
-        // - If distance >= 12 (0xC): floor too far below, edge
-        // ROM accepts -1 to +11 as valid floor (snap to it)
-        // Note: Use foundSurface() not hasCollision() - positive distances (floor below) are valid
-        int floorDistance = floorResult.foundSurface() ? floorResult.distance() : 100;
-
-        if (floorDistance < -1 || floorDistance >= 12) {
+        if (result.reversed()) {
             // At edge - pause and reverse
             pauseTimer = PAUSE_TIME;
             state = State.ROCK_THROW;
-        } else {
-            // Valid floor - snap to it
-            currentY += floorDistance;
         }
     }
 

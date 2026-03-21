@@ -8,8 +8,7 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.physics.ObjectTerrainUtils;
-import com.openggf.physics.TerrainCheckResult;
+import com.openggf.level.objects.PatrolMovementHelper;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import com.openggf.debug.DebugColor;
@@ -89,7 +88,6 @@ public class ShellcrackerBadnikInstance extends AbstractBadnikInstance {
     private State state;
     private int timer;
     private int xSubpixel;
-    private int ySubpixel;
     private int walkAnimIndex;
     private int walkAnimTimer;
     private boolean clawDone; // Set by claw piece 0 when retracted (objoff_2C equivalent)
@@ -171,23 +169,20 @@ public class ShellcrackerBadnikInstance extends AbstractBadnikInstance {
             }
         }
 
-        // ObjectMove: apply velocity
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
-        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
-        xPos24 += xVelocity;
-        yPos24 += yVelocity;
-        currentX = xPos24 >> 8;
-        currentY = yPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
-        ySubpixel = yPos24 & 0xFF;
+        // ObjectMove + ObjCheckFloorDist via PatrolMovementHelper
+        var patrol = PatrolMovementHelper.updatePatrol(
+                currentX, xSubpixel, currentY, xVelocity, Y_RADIUS, FLOOR_MIN_DIST, FLOOR_MAX_DIST);
+        currentX = patrol.newX();
+        xSubpixel = patrol.newXSub();
+        currentY = patrol.newY();
 
-        // ObjCheckFloorDist
-        TerrainCheckResult floor = ObjectTerrainUtils.checkFloorDist(currentX, currentY, Y_RADIUS);
-
-        if (floor.foundSurface() && floor.distance() >= FLOOR_MIN_DIST && floor.distance() < FLOOR_MAX_DIST) {
-            // Snap to floor
-            currentY += floor.distance();
-
+        if (patrol.reversed()) {
+            // No valid floor → reverse velocity (no facing change - crab walks sideways)
+            // ROM: neg.w x_vel(a0) at loc_38096, then fall through to transitionToPaused
+            // Note: ROM does NOT toggle x_flip here, unlike Slicer
+            xVelocity = -xVelocity;
+            transitionToPaused();
+        } else {
             // Decrement walk timer
             timer--;
             if (timer < 0) {
@@ -197,12 +192,6 @@ public class ShellcrackerBadnikInstance extends AbstractBadnikInstance {
                 // Animate and continue (Ani_obj9F anim 0)
                 updateWalkAnimation();
             }
-        } else {
-            // No valid floor → reverse velocity (no facing change - crab walks sideways)
-            // ROM: neg.w x_vel(a0) at loc_38096, then fall through to transitionToPaused
-            // Note: ROM does NOT toggle x_flip here, unlike Slicer
-            xVelocity = -xVelocity;
-            transitionToPaused();
         }
     }
 

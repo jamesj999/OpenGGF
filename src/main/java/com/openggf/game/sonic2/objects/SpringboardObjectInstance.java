@@ -235,7 +235,7 @@ public class SpringboardObjectInstance extends BoxObjectInstance
 
         // ROM: loc_264BC - Set player to airborne state
         player.setAir(true);
-        player.setSpringing(15);
+        player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
 
         // ROM: move.b #0,spindash_flag(a1) - Clear spindash flag
         player.setSpindash(false);

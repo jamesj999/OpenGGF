@@ -164,7 +164,7 @@ public class SpringObjectInstance extends BoxObjectInstance
 
         player.setAir(true);
         player.setGSpeed((short) 0);
-        player.setSpringing(15);
+        player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
         trigger(player);
     }
 
@@ -183,7 +183,7 @@ public class SpringObjectInstance extends BoxObjectInstance
 
         player.setAir(true);
         player.setGSpeed((short) 0);
-        player.setSpringing(15);
+        player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
         trigger(player);
     }
 
@@ -235,7 +235,7 @@ public class SpringObjectInstance extends BoxObjectInstance
         // ROM: move.w #$F,move_lock(a1) — 15 frames of input lock
         // Horizontal springs use move_lock (not springing state) to prevent
         // player from braking immediately after being launched
-        player.setMoveLockTimer(15);
+        player.setMoveLockTimer(SpringBounceHelper.CONTROL_LOCK_FRAMES);
 
         trigger(player);
     }
@@ -270,7 +270,7 @@ public class SpringObjectInstance extends BoxObjectInstance
         player.setDirection(xStrength < 0 ? Direction.LEFT : Direction.RIGHT);
         player.setAir(true);
         player.setGSpeed((short) 0);
-        player.setSpringing(15);
+        player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
 
         trigger(player);
     }
@@ -347,10 +347,7 @@ public class SpringObjectInstance extends BoxObjectInstance
      * Bit 1 of subtype: 0=red(-$1000), 2=yellow(-$A00)
      */
     private int getStrength() {
-        // ROM: bit 1 of subtype: 0=red(-$1000), 1=yellow(-$A00)
-        // Visual rendering and strength must match
-        // NOTE: Inverted ternary to match visual display behavior
-        return redSpring ? -0x1000 : -0x0A00;
+        return SpringBounceHelper.strength(redSpring);
     }
 
     private int getType() {

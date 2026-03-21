@@ -16,6 +16,7 @@ import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
+import com.openggf.level.objects.SpringBounceHelper;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.Direction;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -43,7 +44,7 @@ public class SteamSpringObjectInstance extends AbstractObjectInstance
         implements SolidObjectProvider, SolidObjectListener {
 
     // ROM: move.w #-$A00,y_vel(a1) at loc_26798
-    private static final int SPRING_VELOCITY = -0xA00;
+    private static final int SPRING_VELOCITY = SpringBounceHelper.STRENGTH_YELLOW;
 
     // ROM: move.w #$3B,objoff_32(a0) - wait timer (59 frames)
     private static final int WAIT_TIMER = 0x3B;
@@ -216,7 +217,7 @@ public class SteamSpringObjectInstance extends AbstractObjectInstance
         player.setSpindash(false);
 
         player.setGSpeed((short) 0);
-        player.setSpringing(15);
+        player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
 
         // ROM: move.b subtype(a0),d0 / bpl.s + / move.w #0,x_vel(a1)
         // Subtype bit 7: if set, clear X velocity

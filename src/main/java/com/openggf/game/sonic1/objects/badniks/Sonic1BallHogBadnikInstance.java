@@ -1,16 +1,11 @@
 package com.openggf.game.sonic1.objects.badniks;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
-import com.openggf.game.GameServices;
-import com.openggf.game.sonic1.audio.Sonic1Sfx;
-import com.openggf.game.sonic1.objects.Sonic1PointsObjectInstance;
-import com.openggf.game.sonic2.objects.ExplosionObjectInstance;
-import com.openggf.game.sonic2.objects.badniks.AnimalObjectInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.DestructionEffects;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -313,46 +308,13 @@ public class Sonic1BallHogBadnikInstance extends AbstractObjectInstance
     }
 
     /**
-     * Handles badnik destruction: explosion, animal, points, score, SFX.
-     * Follows the same pattern as other S1 badniks (e.g., Crabmeat).
+     * Handles badnik destruction via the centralised DestructionEffects system.
      */
     private void destroyBadnik(AbstractPlayableSprite player) {
         destroyed = true;
         setDestroyed(true);
-
-        var objectManager = levelManager.getObjectManager();
-        if (objectManager != null) {
-            if (spawn.respawnTracked()) {
-                objectManager.markRemembered(spawn);
-            } else {
-                objectManager.removeFromActiveSpawns(spawn);
-            }
-        }
-
-        // Spawn explosion (object $27 = ExplosionItem)
-        ExplosionObjectInstance explosion = new ExplosionObjectInstance(0x27, currentX, currentY,
-                levelManager.getObjectRenderManager());
-        levelManager.getObjectManager().addDynamicObject(explosion);
-
-        // Spawn animal
-        AnimalObjectInstance animal = new AnimalObjectInstance(
-                new ObjectSpawn(currentX, currentY, 0x28, 0, 0, false, 0), levelManager);
-        levelManager.getObjectManager().addDynamicObject(animal);
-
-        // Calculate and award points based on badnik chain
-        int pointsValue = 100;
-        if (player != null) {
-            pointsValue = player.incrementBadnikChain();
-            GameServices.gameState().addScore(pointsValue);
-        }
-
-        // Spawn floating points display
-        Sonic1PointsObjectInstance points = new Sonic1PointsObjectInstance(
-                new ObjectSpawn(currentX, currentY, 0x29, 0, 0, false, 0), levelManager, pointsValue);
-        levelManager.getObjectManager().addDynamicObject(points);
-
-        // sfx_BreakItem = $C1
-        AudioManager.getInstance().playSfx(Sonic1Sfx.BREAK_ITEM.id);
+        DestructionEffects.destroyBadnik(currentX, currentY, spawn, player, levelManager,
+                Sonic1DestructionConfig.S1_DESTRUCTION_CONFIG);
     }
 
     // --- Rendering ---

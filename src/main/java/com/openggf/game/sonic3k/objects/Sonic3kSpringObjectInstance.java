@@ -5,6 +5,7 @@ import com.openggf.audio.GameSound;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.sonic2.objects.ObjectAnimationState;
 import com.openggf.game.sonic2.objects.SpringHelper;
+import com.openggf.level.objects.SpringBounceHelper;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.graphics.GLCommand;
@@ -168,7 +169,7 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
             player.setXSpeed((short) 0);
         }
 
-        player.setSpringing(15);
+        player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
         trigger(player);
     }
 
@@ -182,7 +183,7 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
         // ROM negates strength for down springs (positive = down)
         int yVel = -getStrength();
         // S3K-specific: red down spring velocity cap at $D00
-        if (yVel == 0x1000) {
+        if (yVel == -SpringBounceHelper.STRENGTH_RED) {
             yVel = 0x0D00;
         }
         player.setYSpeed((short) yVel);
@@ -195,7 +196,7 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
             player.setXSpeed((short) 0);
         }
 
-        player.setSpringing(15);
+        player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
         trigger(player);
     }
 
@@ -264,7 +265,7 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
         player.setDirection(xStrength < 0 ? Direction.LEFT : Direction.RIGHT);
         player.setAir(true);
         player.setGSpeed((short) 0);
-        player.setSpringing(15);
+        player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
 
         trigger(player);
     }
@@ -380,7 +381,7 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
      * ROM: Obj_Spring_Strengths: dc.w -$1000, -$A00
      */
     private int getStrength() {
-        return redSpring ? -0x1000 : -0x0A00;
+        return SpringBounceHelper.strength(redSpring);
     }
 
     private boolean isFlippedHorizontal() {

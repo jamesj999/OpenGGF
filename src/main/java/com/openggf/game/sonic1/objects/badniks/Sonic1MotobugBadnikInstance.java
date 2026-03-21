@@ -1,19 +1,15 @@
 package com.openggf.game.sonic1.objects.badniks;
 
-import com.openggf.audio.AudioManager;
-import com.openggf.game.sonic1.audio.Sonic1Sfx;
-import com.openggf.game.sonic1.objects.Sonic1PointsObjectInstance;
-import com.openggf.game.GameServices;
-import com.openggf.game.sonic2.objects.ExplosionObjectInstance;
 import com.openggf.game.sonic2.objects.badniks.AbstractBadnikInstance;
-import com.openggf.game.sonic2.objects.badniks.AnimalObjectInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
+import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.level.objects.PatrolMovementHelper;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -168,24 +164,17 @@ public class Sonic1MotobugBadnikInstance extends AbstractBadnikInstance {
      * If floor distance outside [-8, $C), pause.
      */
     private void updateFindFloor() {
-        // SpeedToPos: apply velocity with subpixel precision
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
-        xPos24 += xVelocity;
-        currentX = xPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
+        // SpeedToPos + ObjFloorDist via PatrolMovementHelper
+        var patrol = PatrolMovementHelper.updatePatrol(
+                currentX, xSubpixel, currentY, xVelocity, Y_RADIUS, FLOOR_MIN_DIST, FLOOR_MAX_DIST);
+        currentX = patrol.newX();
+        xSubpixel = patrol.newXSub();
+        currentY = patrol.newY();
 
-        // ObjFloorDist
-        TerrainCheckResult floorResult = ObjectTerrainUtils.checkFloorDist(currentX, currentY, Y_RADIUS);
-        int floorDist = floorResult.foundSurface() ? floorResult.distance() : 100;
-
-        // cmpi.w #-8,d1 / blt.s .pause / cmpi.w #$C,d1 / bge.s .pause
-        if (floorDist < FLOOR_MIN_DIST || floorDist >= FLOOR_MAX_DIST) {
+        if (patrol.reversed()) {
             returnToPause();
             return;
         }
-
-        // add.w d1,obY(a0) - snap to floor
-        currentY += floorDist;
 
         // Smoke trail spawning
         // subq.b #1,.smokedelay(a0) / bpl.s .nosmoke
@@ -263,39 +252,8 @@ public class Sonic1MotobugBadnikInstance extends AbstractBadnikInstance {
     }
 
     @Override
-    protected void destroyBadnik(AbstractPlayableSprite player) {
-        destroyed = true;
-        setDestroyed(true);
-
-        var objectManager = levelManager.getObjectManager();
-        if (objectManager != null) {
-            if (spawn.respawnTracked()) {
-                // S1 ROM behavior: destroyed respawn-tracked badniks set persistent respawn state.
-                objectManager.markRemembered(spawn);
-            } else {
-                objectManager.removeFromActiveSpawns(spawn);
-            }
-        }
-
-        ExplosionObjectInstance explosion = new ExplosionObjectInstance(0x27, currentX, currentY,
-                levelManager.getObjectRenderManager());
-        levelManager.getObjectManager().addDynamicObject(explosion);
-
-        AnimalObjectInstance animal = new AnimalObjectInstance(
-                new ObjectSpawn(currentX, currentY, 0x28, 0, 0, false, 0), levelManager);
-        levelManager.getObjectManager().addDynamicObject(animal);
-
-        int pointsValue = 100;
-        if (player != null) {
-            pointsValue = player.incrementBadnikChain();
-            GameServices.gameState().addScore(pointsValue);
-        }
-
-        Sonic1PointsObjectInstance points = new Sonic1PointsObjectInstance(
-                new ObjectSpawn(currentX, currentY, 0x29, 0, 0, false, 0), levelManager, pointsValue);
-        levelManager.getObjectManager().addDynamicObject(points);
-
-        AudioManager.getInstance().playSfx(Sonic1Sfx.BREAK_ITEM.id);
+    protected DestructionConfig getDestructionConfig() {
+        return Sonic1DestructionConfig.S1_DESTRUCTION_CONFIG;
     }
 
     @Override

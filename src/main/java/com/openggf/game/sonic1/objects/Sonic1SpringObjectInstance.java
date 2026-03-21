@@ -15,6 +15,7 @@ import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
+import com.openggf.level.objects.SpringBounceHelper;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.Direction;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -44,14 +45,13 @@ public class Sonic1SpringObjectInstance extends AbstractObjectInstance
     private static final int TYPE_DOWN = 2;
 
     // Spring_Powers: dc.w -$1000, -$A00
-    private static final int RED_STRENGTH = -0x1000;    // Red spring power
-    private static final int YELLOW_STRENGTH = -0x0A00;  // Yellow spring power
+    // Strength constants shared via SpringBounceHelper.STRENGTH_RED / STRENGTH_YELLOW
 
     // From disassembly: move.b #4,obPriority(a0)
     private static final int PRIORITY = 4;
 
     // From disassembly: move.w #$F,objoff_3E(a1) — horizontal control lock
-    private static final int HORIZONTAL_CONTROL_LOCK = 15;
+    // Shared via SpringBounceHelper.CONTROL_LOCK_FRAMES
 
     // Animation IDs (registered in Sonic1ObjectArtProvider)
     private static final int ANIM_IDLE = 0;
@@ -79,7 +79,7 @@ public class Sonic1SpringObjectInstance extends AbstractObjectInstance
 
         // Bit 1: yellow flag. andi.w #$F,d0 then index into Spring_Powers
         this.yellow = (subtype & 0x02) != 0;
-        this.strength = yellow ? YELLOW_STRENGTH : RED_STRENGTH;
+        this.strength = SpringBounceHelper.strength(!yellow);
 
         // Initial mapping frame: 0 = idle for both vertical and horizontal sheets
         this.mappingFrame = 0;
@@ -141,7 +141,7 @@ public class Sonic1SpringObjectInstance extends AbstractObjectInstance
         player.setYSpeed((short) strength);
         player.setAir(true);
         player.setGSpeed((short) 0);
-        player.setSpringing(HORIZONTAL_CONTROL_LOCK);
+        player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
 
         // Up spring sets Sonic's animation to Spring (id_Spring = 0x10)
         player.setAnimationId(Sonic1AnimationIds.SPRING);
@@ -165,7 +165,7 @@ public class Sonic1SpringObjectInstance extends AbstractObjectInstance
         player.setYSpeed((short) -strength);
         player.setAir(true);
         player.setGSpeed((short) 0);
-        player.setSpringing(HORIZONTAL_CONTROL_LOCK);
+        player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
 
         // Down spring does NOT change Sonic's animation
         triggerSpring();
@@ -211,7 +211,7 @@ public class Sonic1SpringObjectInstance extends AbstractObjectInstance
         player.setDirection(xVel > 0 ? Direction.RIGHT : Direction.LEFT);
 
         // ROM: move.w #$F,objoff_3E(a1) — 15 frame control lock
-        player.setSpringing(HORIZONTAL_CONTROL_LOCK);
+        player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
 
         // ROM: btst #2,obStatus(a1) / bne.s loc_DC56 — skip Walk anim if rolling
         if (!player.getRolling()) {

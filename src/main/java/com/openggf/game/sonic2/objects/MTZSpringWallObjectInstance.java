@@ -11,6 +11,7 @@ import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
+import com.openggf.level.objects.SpringBounceHelper;
 import com.openggf.physics.Direction;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -55,7 +56,8 @@ public class MTZSpringWallObjectInstance extends AbstractObjectInstance
     private static final int BOUNCE_SPEED = 0x800;
 
     // From disassembly: move.w #$F,move_lock(a1)
-    private static final int MOVE_LOCK_FRAMES = 0xF;
+    // Same lock duration as standard springs
+    private static final int MOVE_LOCK_FRAMES = SpringBounceHelper.CONTROL_LOCK_FRAMES;
 
     private final int yRadius;
     private final boolean xFlip;

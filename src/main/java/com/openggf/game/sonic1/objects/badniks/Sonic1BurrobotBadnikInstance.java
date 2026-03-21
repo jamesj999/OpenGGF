@@ -1,15 +1,10 @@
 package com.openggf.game.sonic1.objects.badniks;
 
-import com.openggf.audio.AudioManager;
-import com.openggf.game.sonic1.audio.Sonic1Sfx;
-import com.openggf.game.sonic1.objects.Sonic1PointsObjectInstance;
-import com.openggf.game.GameServices;
-import com.openggf.game.sonic2.objects.ExplosionObjectInstance;
 import com.openggf.game.sonic2.objects.badniks.AbstractBadnikInstance;
-import com.openggf.game.sonic2.objects.badniks.AnimalObjectInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
+import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -254,38 +249,8 @@ public class Sonic1BurrobotBadnikInstance extends AbstractBadnikInstance {
     }
 
     @Override
-    protected void destroyBadnik(AbstractPlayableSprite player) {
-        destroyed = true;
-        setDestroyed(true);
-
-        var objectManager = levelManager.getObjectManager();
-        if (objectManager != null) {
-            if (spawn.respawnTracked()) {
-                objectManager.markRemembered(spawn);
-            } else {
-                objectManager.removeFromActiveSpawns(spawn);
-            }
-        }
-
-        ExplosionObjectInstance explosion = new ExplosionObjectInstance(0x27, currentX, currentY,
-                levelManager.getObjectRenderManager());
-        levelManager.getObjectManager().addDynamicObject(explosion);
-
-        AnimalObjectInstance animal = new AnimalObjectInstance(
-                new ObjectSpawn(currentX, currentY, 0x28, 0, 0, false, 0), levelManager);
-        levelManager.getObjectManager().addDynamicObject(animal);
-
-        int pointsValue = 100;
-        if (player != null) {
-            pointsValue = player.incrementBadnikChain();
-            GameServices.gameState().addScore(pointsValue);
-        }
-
-        Sonic1PointsObjectInstance points = new Sonic1PointsObjectInstance(
-                new ObjectSpawn(currentX, currentY, 0x29, 0, 0, false, 0), levelManager, pointsValue);
-        levelManager.getObjectManager().addDynamicObject(points);
-
-        AudioManager.getInstance().playSfx(Sonic1Sfx.BREAK_ITEM.id);
+    protected DestructionConfig getDestructionConfig() {
+        return Sonic1DestructionConfig.S1_DESTRUCTION_CONFIG;
     }
 
     @Override
