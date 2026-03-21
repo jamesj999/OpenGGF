@@ -4,15 +4,10 @@ import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
-import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
-import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.AbstractSpikeObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
-import com.openggf.level.objects.SolidObjectListener;
-import com.openggf.level.objects.SolidObjectParams;
-import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -30,34 +25,11 @@ import java.util.List;
  *   <li>Lower nibble (bits 3-0): behavior (0=static, 1=vertical, 2=horizontal, 3=push)</li>
  * </ul>
  */
-public class Sonic3kSpikeObjectInstance extends AbstractObjectInstance
-        implements SolidObjectProvider, SolidObjectListener {
-
-    private static final int[] WIDTH_PIXELS = {
-            0x10, 0x20, 0x30, 0x40,
-            0x10, 0x10, 0x10, 0x10
-    };
-    private static final int[] Y_RADIUS = {
-            0x10, 0x10, 0x10, 0x10,
-            0x10, 0x20, 0x30, 0x40
-    };
-
-    private static final int SPIKE_RETRACT_STEP = 0x800;
-    private static final int SPIKE_RETRACT_MAX = 0x2000;
-    private static final int SPIKE_RETRACT_DELAY = 60;
+public class Sonic3kSpikeObjectInstance extends AbstractSpikeObjectInstance {
 
     // Push mode constants (ROM: sub_2438A)
     private static final int PUSH_RATE_PERIOD = 0x10;   // $3A reset value: every 17 frames
     private static final int PUSH_MAX_DISTANCE = 0x20;  // $3C init: 32 pixels total
-
-    private final int baseX;
-    private final int baseY;
-    private int currentX;
-    private int currentY;
-    private int retractOffset;
-    private int retractState;
-    private int retractTimer;
-    private ObjectSpawn dynamicSpawn;
 
     // Push mode state (ROM: $3A rate limiter, $3C distance remaining, $3E/$3F prev status)
     private boolean contactPushingActive;   // Set by onSolidContact, consumed by next update()
@@ -66,11 +38,6 @@ public class Sonic3kSpikeObjectInstance extends AbstractObjectInstance
 
     public Sonic3kSpikeObjectInstance(ObjectSpawn spawn) {
         super(spawn, "Spikes");
-        this.baseX = spawn.x();
-        this.baseY = spawn.y();
-        this.currentX = baseX;
-        this.currentY = baseY;
-        this.dynamicSpawn = spawn;
     }
 
     @Override
@@ -84,60 +51,26 @@ public class Sonic3kSpikeObjectInstance extends AbstractObjectInstance
         if (isPushMode() && contact.pushing()) {
             contactPushingActive = true;
         }
-        if (!shouldHurt(contact)) {
-            return;
+        super.onSolidContact(player, contact, frameCounter);
+    }
+
+    @Override
+    protected void moveSpikes(AbstractPlayableSprite player) {
+        int behavior = spawn.subtype() & 0xF;
+        switch (behavior) {
+            case 1 -> moveSpikesVertical();
+            case 2 -> moveSpikesHorizontal();
+            case 3 -> moveSpikesPush(player);
+            default -> {
+                currentX = baseX;
+                currentY = baseY;
+            }
         }
-        if (player.getInvulnerable()) {
-            return;
-        }
-        // ROM: Hurt_Sidekick - CPU Tails only gets knockback
-        if (player.isCpuControlled()) {
-            player.applyHurt(currentX);
-            return;
-        }
-        boolean hadRings = player.getRingCount() > 0;
-        if (hadRings && !player.hasShield()) {
-            LevelManager.getInstance().spawnLostRings(player, frameCounter);
-        }
-        player.applyHurtOrDeath(currentX, true, hadRings);
-    }
-
-    @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
-        moveSpikes(player);
-        updateDynamicSpawn();
-    }
-
-    @Override
-    public SolidObjectParams getSolidParams() {
-        int widthPixels = getEntryValue(WIDTH_PIXELS);
-        int yRadius = getEntryValue(Y_RADIUS);
-        return new SolidObjectParams(widthPixels + 0x0B, yRadius, yRadius + 1);
-    }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn;
-    }
-
-    @Override
-    public int getX() {
-        return currentX;
-    }
-
-    @Override
-    public int getY() {
-        return currentY;
-    }
-
-    @Override
-    public int getPriorityBucket() {
-        return RenderPriority.clamp(4);
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = getRenderManager();
         if (renderManager == null) {
             return;
         }
@@ -152,56 +85,20 @@ public class Sonic3kSpikeObjectInstance extends AbstractObjectInstance
         }
     }
 
-    private boolean shouldHurt(SolidContact contact) {
-        if (isSideways()) {
-            return contact.touchSide();
+    @Override
+    protected void playSpikeMoveSfx() {
+        if (!isOnScreen()) {
+            return;
         }
-        if (isUpsideDown()) {
-            return contact.touchBottom();
+        try {
+            AudioManager.getInstance().playSfx(Sonic3kSfx.SPIKE_MOVE.id);
+        } catch (Exception e) {
+            // Prevent audio failure from breaking game logic.
         }
-        return contact.standing();
     }
 
     private boolean isPushMode() {
         return (spawn.subtype() & 0xF) == 3;
-    }
-
-    private boolean isSideways() {
-        return ((spawn.subtype() >> 4) & 0xF) >= 4;
-    }
-
-    private boolean isUpsideDown() {
-        return (spawn.renderFlags() & 0x2) != 0;
-    }
-
-    private int getEntryValue(int[] table) {
-        int entry = Math.clamp((spawn.subtype() >> 4) & 0xF, 0, table.length - 1);
-        return table[entry];
-    }
-
-    private void moveSpikes(AbstractPlayableSprite player) {
-        int behavior = spawn.subtype() & 0xF;
-        switch (behavior) {
-            case 1 -> moveSpikesVertical();
-            case 2 -> moveSpikesHorizontal();
-            case 3 -> moveSpikesPush(player);
-            default -> {
-                currentX = baseX;
-                currentY = baseY;
-            }
-        }
-    }
-
-    private void moveSpikesVertical() {
-        moveSpikesDelay();
-        currentX = baseX;
-        currentY = baseY + (retractOffset >> 8);
-    }
-
-    private void moveSpikesHorizontal() {
-        moveSpikesDelay();
-        currentX = baseX + (retractOffset >> 8);
-        currentY = baseY;
     }
 
     /**
@@ -243,50 +140,5 @@ public class Sonic3kSpikeObjectInstance extends AbstractObjectInstance
         pushDistanceRemaining--;
         currentX++;
         player.setCentreX((short) (playerX + 1));
-    }
-
-    private void moveSpikesDelay() {
-        if (retractTimer > 0) {
-            retractTimer--;
-            if (retractTimer == 0) {
-                playSpikeMoveSfx();
-            }
-            return;
-        }
-
-        if (retractState != 0) {
-            retractOffset -= SPIKE_RETRACT_STEP;
-            if (retractOffset < 0) {
-                retractOffset = 0;
-                retractState = 0;
-                retractTimer = SPIKE_RETRACT_DELAY;
-            }
-            return;
-        }
-
-        retractOffset += SPIKE_RETRACT_STEP;
-        if (retractOffset >= SPIKE_RETRACT_MAX) {
-            retractOffset = SPIKE_RETRACT_MAX;
-            retractState = 1;
-            retractTimer = SPIKE_RETRACT_DELAY;
-        }
-    }
-
-    private void updateDynamicSpawn() {
-        if (dynamicSpawn.x() == currentX && dynamicSpawn.y() == currentY) {
-            return;
-        }
-        dynamicSpawn = buildSpawnAt(currentX, currentY);
-    }
-
-    private void playSpikeMoveSfx() {
-        if (!isOnScreen()) {
-            return;
-        }
-        try {
-            AudioManager.getInstance().playSfx(Sonic3kSfx.SPIKE_MOVE.id);
-        } catch (Exception e) {
-            // Prevent audio failure from breaking game logic.
-        }
     }
 }
