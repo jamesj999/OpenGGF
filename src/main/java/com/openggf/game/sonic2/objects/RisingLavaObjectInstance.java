@@ -5,7 +5,6 @@ import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.sonic2.Sonic2LevelEventManager;
 import com.openggf.game.GameServices;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.camera.Camera;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
@@ -142,7 +141,7 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
         // Get width from table (subtype is index)
         int widthIndex = Math.min(subtype, SUBTYPE_WIDTHS.length - 1);
         this.widthPixels = SUBTYPE_WIDTHS[widthIndex];
-        this.routeEnabled = isEnabledForCurrentRoute(subtype, Camera.getInstance().getY());
+        this.routeEnabled = isEnabledForCurrentRoute(subtype, GameServices.camera().getY());
 
         updateDynamicSpawn(baseX, currentY);
     }
@@ -206,7 +205,7 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
         // Check if player has rings
         boolean hadRings = player.getRingCount() > 0;
         if (hadRings && !player.hasShield()) {
-            LevelManager.getInstance().spawnLostRings(player, lastFrameCounter);
+            services().spawnLostRings(player, lastFrameCounter);
         }
         // Apply hurt - lava uses DamageCause.FIRE for fire shield immunity
         player.applyHurtOrDeath(getX(), AbstractPlayableSprite.DamageCause.FIRE, hadRings);

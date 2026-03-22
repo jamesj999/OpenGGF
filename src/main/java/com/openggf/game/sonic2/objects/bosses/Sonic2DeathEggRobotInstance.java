@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -8,7 +7,6 @@ import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseProvider;
@@ -598,7 +596,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         if (head != null && head.isEggmanBoarded()) {
             bodyRoutine = BODY_COUNTDOWN;
             actionTimer = COUNTDOWN_TIMER;
-            AudioManager.getInstance().fadeOutMusic();
+            services().fadeOutMusic();
         }
     }
 
@@ -613,7 +611,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             if (jet != null) {
                 jet.setJetRoutine(4);
             }
-            AudioManager.getInstance().playMusic(Sonic2Music.FINAL_BOSS.id);
+            services().playMusic(Sonic2Music.FINAL_BOSS.id);
         }
     }
 
@@ -632,7 +630,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             return;
         }
         // ROM: SndID_Rumbling every frame during rise
-        AudioManager.getInstance().playSfx(Sonic2Sfx.RUMBLING.id);
+        services().playSfx(Sonic2Sfx.RUMBLING.id);
         // ObjectMove (constant velocity, no gravity)
         bodyYFixed += ((long) state.yVel << 8);
         state.y = (int)(bodyYFixed >> 16);
@@ -748,7 +746,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                 }
                 // Fire sound every 32 frames
                 if ((frameCounter & 0x1F) == 0) {
-                    AudioManager.getInstance().playSfx(Sonic2Sfx.FIRE.id);
+                    services().playSfx(Sonic2Sfx.FIRE.id);
                 }
                 // ObjectMove
                 bodyYFixed += ((long) state.yVel << 8);
@@ -784,14 +782,14 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                     //       shake API. Using static offset as stub until Camera supports
                     //       duration-based shake (ROM: ObjC7 stomp sets $40 frames of
                     //       oscillating Y shake via the ripple/shake system).
-                    Camera camera = Camera.getInstance();
+                    Camera camera = GameServices.camera();
                     if (camera != null) {
                         camera.setShakeOffsets(0, 4);
                     }
                     if (jet != null) {
                         jet.setJetRoutine(6);
                     }
-                    AudioManager.getInstance().playSfx(Sonic2Sfx.SMASH.id);
+                    services().playSfx(Sonic2Sfx.SMASH.id);
                     resetGroupAnim();
                     return;
                 }
@@ -964,7 +962,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             }
         } else {
             defeatPhase = 4;
-            Camera camera = Camera.getInstance();
+            Camera camera = GameServices.camera();
             if (camera != null) {
                 camera.setMaxX((short) DEFEAT_CAMERA_MAX_X);
                 // TODO: ROM sets (Vint_Count_addr+2).w = $1000 for persistent screen rumble.
@@ -987,7 +985,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             clampPlayerToGround(player);
         }
 
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         if (camera != null && camera.getX() >= DEFEAT_CAMERA_WALK_TARGET) {
             // ROM: ObjC7_SetupEnding (s2.asm:83050-83124)
             // Advance to setup-ending phase. Do NOT trigger credits yet.
@@ -1027,7 +1025,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
         // ROM: Every 32 frames: play rumble sound, decrement follow-offset
         if ((defeatFrameCounter & 0x1F) == 0) {
-            AudioManager.getInstance().playSfx(Sonic2Sfx.RUMBLING_2.id);
+            services().playSfx(Sonic2Sfx.RUMBLING_2.id);
             if (robotFollowOffset > 0) {
                 robotFollowOffset--;
             }
@@ -1052,7 +1050,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             if (player.getCentreX() >= DEFEAT_ENDING_PLAYER_X) {
                 defeatPhase = 8;
                 fadeTimer = FADE_DURATION;
-                AudioManager.getInstance().fadeOutMusic();
+                services().fadeOutMusic();
             }
         }
     }
@@ -1065,7 +1063,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         fadeTimer--;
         if (fadeTimer < 0) {
             // ROM: move.b #id_Ending,(v_gamemode).w
-            LevelManager.getInstance().requestCreditsTransition();
+            GameServices.level().requestCreditsTransition();
             defeatPhase = 10; // Terminal state
         }
     }
@@ -1095,7 +1093,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         state.hitCount--;
         state.invulnerabilityTimer = DEZ_BOSS_INVULN_DURATION;
         state.invulnerable = true;
-        AudioManager.getInstance().playSfx(Sonic2Sfx.BOSS_HIT.id);
+        services().playSfx(Sonic2Sfx.BOSS_HIT.id);
         paletteFlasher.startFlash();
 
         if (state.hitCount <= 0) {
@@ -1149,7 +1147,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         // Skip sound markers (encoded as -1 in the sequence)
         while (groupAnimFrameIdx < sequence.length && sequence[groupAnimFrameIdx] == -1) {
             // Play hammer sound
-            AudioManager.getInstance().playSfx(Sonic2Sfx.HAMMER.id);
+            services().playSfx(Sonic2Sfx.HAMMER.id);
             groupAnimFrameIdx++;
         }
 
@@ -1186,7 +1184,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
             // Skip sound markers after advancing
             while (groupAnimFrameIdx < sequence.length && sequence[groupAnimFrameIdx] == -1) {
-                AudioManager.getInstance().playSfx(Sonic2Sfx.HAMMER.id);
+                services().playSfx(Sonic2Sfx.HAMMER.id);
                 groupAnimFrameIdx++;
             }
 
@@ -1669,7 +1667,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                         // ROM loc_3DACC: x_flip SET -> +$800, x_flip NOT SET -> -$800
                         // Punch goes AWAY from facing direction (toward the player behind)
                         punchXVel = boss.facingLeft ? FOREARM_PUNCH_SPEED : -FOREARM_PUNCH_SPEED;
-                        AudioManager.getInstance().playSfx(Sonic2Sfx.SPINDASH_RELEASE.id);
+                        services().playSfx(Sonic2Sfx.SPINDASH_RELEASE.id);
                     } else {
                         punchYVel += 0x20;
                         currentY += (punchYVel >> 8);
@@ -2056,7 +2054,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                         // ROM: subq.b #1,angle(a0) / bpl.s — fires when byte goes negative
                         beepCounter--;
                         if (beepCounter < 0) {
-                            AudioManager.getInstance().playSfx(Sonic2Sfx.BEEP.id);
+                            services().playSfx(Sonic2Sfx.BEEP.id);
                             beepCounter = beepInterval;
                             // ROM: subq.b #1,objoff_27(a0) — unconditional decrement
                             beepInterval--;
@@ -2077,7 +2075,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                     // ROM: subq.b #1,angle(a0) / bpl.s — fires when byte goes negative
                     beepCounter--;
                     if (beepCounter < 0) {
-                        AudioManager.getInstance().playSfx(Sonic2Sfx.BEEP.id);
+                        services().playSfx(Sonic2Sfx.BEEP.id);
                         beepCounter = 4;
                     }
                     // ROM: ObjC7_TargettingLock — bchg #palette_bit_0,art_tile(a0) every 4 frames
@@ -2205,7 +2203,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             detonating = true;
             detonateFrame = 0;
             detonateTimer = 7;
-            AudioManager.getInstance().playSfx(Sonic2Sfx.BOSS_EXPLOSION.id);
+            services().playSfx(Sonic2Sfx.BOSS_EXPLOSION.id);
         }
 
         @Override

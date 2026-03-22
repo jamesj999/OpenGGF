@@ -1,15 +1,14 @@
 package com.openggf.game.sonic2.objects;
+import com.openggf.game.GameServices;
 import com.openggf.level.objects.SpringHelper;
 import com.openggf.level.objects.BoxObjectInstance;
 import com.openggf.level.objects.ObjectAnimationState;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.physics.Direction;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -66,7 +65,7 @@ public class PipeExitSpringObjectInstance extends BoxObjectInstance
         this.fullStrength = (spawn.subtype() & 0x02) == 0;
         this.mappingFrame = 0;
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = GameServices.level().getObjectRenderManager();
         this.animationState = new ObjectAnimationState(
                 renderManager != null ? renderManager.getAnimations(Sonic2ObjectArtKeys.ANIM_PIPE_EXIT_SPRING) : null,
                 ANIM_IDLE,
@@ -155,8 +154,8 @@ public class PipeExitSpringObjectInstance extends BoxObjectInstance
     private void trigger() {
         animationState.setAnimId(ANIM_TRIGGERED);
         try {
-            if (AudioManager.getInstance() != null) {
-                AudioManager.getInstance().playSfx(GameSound.SPRING);
+            if (GameServices.audio() != null) {
+                GameServices.audio().playSfx(GameSound.SPRING);
             }
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic
@@ -247,7 +246,7 @@ public class PipeExitSpringObjectInstance extends BoxObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             super.appendRenderCommands(commands);
             return;

@@ -1,14 +1,13 @@
 package com.openggf.game.sonic2.objects;
+import com.openggf.game.GameServices;
 import com.openggf.level.objects.BoxObjectInstance;
 import com.openggf.level.objects.SignpostSparkleObjectInstance;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -92,10 +91,9 @@ public class SignpostObjectInstance extends BoxObjectInstance {
         // ROM: Obj0D_Init (s2.asm:34412-34418)
         // Signpost is disabled in Act 2+ except for MTZ Act 2
         // ROM sets x_pos to 0, causing MarkObjGone to delete it and clear respawn bit
-        LevelManager levelMgr = LevelManager.getInstance();
-        if (levelMgr != null) {
-            int currentAct = levelMgr.getCurrentAct();
-            int currentZone = levelMgr.getCurrentZone();
+        if (GameServices.level() != null) {
+            int currentAct = GameServices.level().getCurrentAct();
+            int currentZone = GameServices.level().getCurrentZone();
 
             // ROM check: if (Current_Act != 0 && Current_ZoneAndAct != metropolis_zone_act_2)
             // metropolis_zone_act_2 = (7 << 8) | 1 = 0x0701
@@ -104,7 +102,7 @@ public class SignpostObjectInstance extends BoxObjectInstance {
                 if (!isMTZAct2) {
                     // Mark as remembered to prevent respawning, then destroy
                     // This prevents the spawn-destroy cycle every frame
-                    ObjectManager objMgr = levelMgr.getObjectManager();
+                    ObjectManager objMgr = GameServices.level().getObjectManager();
                     if (objMgr != null) {
                         objMgr.markRemembered(spawn);
                     }
@@ -151,7 +149,7 @@ public class SignpostObjectInstance extends BoxObjectInstance {
         LOGGER.info("Signpost activated at X=" + spawn.x());
 
         try {
-            AudioManager.getInstance().playSfx(Sonic2Sfx.SIGNPOST.id);
+            services().playSfx(Sonic2Sfx.SIGNPOST.id);
         } catch (Exception e) {
             LOGGER.warning("Failed to play signpost sound: " + e.getMessage());
         }
@@ -159,7 +157,7 @@ public class SignpostObjectInstance extends BoxObjectInstance {
         lockCamera();
 
         // Freeze the level timer when passing the signpost
-        var levelGamestate = LevelManager.getInstance().getLevelGamestate();
+        var levelGamestate = services().levelGamestate();
         if (levelGamestate != null) {
             levelGamestate.pauseTimer();
         }
@@ -180,7 +178,7 @@ public class SignpostObjectInstance extends BoxObjectInstance {
      * Sonic_LevelBound still uses the original level boundary value.
      */
     private void lockCamera() {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         if (camera != null) {
             camera.setMinX(camera.getMaxX());
             LOGGER.fine("Camera locked: minX set to maxX=" + camera.getMaxX());
@@ -223,7 +221,7 @@ public class SignpostObjectInstance extends BoxObjectInstance {
             int sparkleY = spawn.y() + offset[1];
 
             SignpostSparkleObjectInstance sparkle = new SignpostSparkleObjectInstance(sparkleX, sparkleY);
-            ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+            ObjectManager objectManager = services().objectManager();
             if (objectManager != null) {
                 objectManager.addDynamicObject(sparkle);
             }
@@ -253,7 +251,7 @@ public class SignpostObjectInstance extends BoxObjectInstance {
         //      addi.w #$128,d1
         //      cmp.w  d1,d0
         //      blo.w  return
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         if (camera != null && !resultsSpawned) {
             int triggerX = camera.getMaxX() + WALK_OFF_OFFSET;
             if (player.getCentreX() >= triggerX) {
@@ -267,22 +265,20 @@ public class SignpostObjectInstance extends BoxObjectInstance {
         LOGGER.info("Player off-screen, triggering end of act sequence");
 
         try {
-            AudioManager.getInstance().playMusic(Sonic2Music.ACT_CLEAR.id);
+            services().playMusic(Sonic2Music.ACT_CLEAR.id);
         } catch (Exception e) {
             LOGGER.warning("Failed to play stage clear music: " + e.getMessage());
         }
-
-        LevelManager levelManager = LevelManager.getInstance();
-        var levelGamestate = levelManager.getLevelGamestate();
+        var levelGamestate = services().levelGamestate();
         int elapsedSeconds = levelGamestate != null ? levelGamestate.getElapsedSeconds() : 0;
         int ringCount = player.getRingCount();
-        int actNumber = levelManager.getCurrentAct() + 1; // 1-indexed for display
-        boolean allRingsCollected = levelManager != null && levelManager.areAllRingsCollected();
+        int actNumber = services().currentAct() + 1; // 1-indexed for display
+        boolean allRingsCollected = GameServices.level() != null && GameServices.level().areAllRingsCollected();
 
         // Spawn the results screen
         ResultsScreenObjectInstance resultsScreen = new ResultsScreenObjectInstance(
                 elapsedSeconds, ringCount, actNumber, allRingsCollected);
-        ObjectManager objectManager = levelManager.getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null) {
             objectManager.addDynamicObject(resultsScreen);
             LOGGER.info("Results screen spawned");
@@ -291,7 +287,7 @@ public class SignpostObjectInstance extends BoxObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             super.appendRenderCommands(commands);
             return;

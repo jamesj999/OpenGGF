@@ -1,6 +1,6 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.GameServices;
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2LevelEventManager;
@@ -12,7 +12,6 @@ import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.Level;
-import com.openggf.level.LevelManager;
 import com.openggf.level.Map;
 import com.openggf.level.ParallaxManager;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -298,7 +297,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
         moveObeyPlayer(player, mainStandingNow);
 
         // ROM: Camera_Min_X_pos = Camera_X_pos
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         int cameraX = camera.getX();
         camera.setMinX((short) cameraX);
 
@@ -312,7 +311,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
         if (cameraX >= SCZ_CAMERA_FINISH_X) {
             if (playerX >= SCZ_PLAYER_FINISH_X) {
                 if (!sczTransitionRequested) {
-                    LevelManager.getInstance().requestZoneAndAct(Sonic2ZoneConstants.ZONE_WFZ, 0, true);
+                    GameServices.level().requestZoneAndAct(Sonic2ZoneConstants.ZONE_WFZ, 0, true);
                     sczTransitionRequested = true;
                 }
             } else {
@@ -361,7 +360,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
             case 4 -> {
                 // ObjB2_Main_WFZ_Start_shot_down
                 if ((frameCounter & WFZ_SCATTER_SFX_MASK) == 0) {
-                    AudioManager.getInstance().playSfx(Sonic2Sfx.RING_SPILL.id);
+                    services().playSfx(Sonic2Sfx.RING_SPILL.id);
                 }
 
                 scriptTimer--;
@@ -569,7 +568,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
     private void wfzDockOnDez() {
         if (scriptTimer >= WFZ_START_DEZ_AT) {
             if (!dezTransitionRequested) {
-                LevelManager.getInstance().requestZoneAndAct(Sonic2ZoneConstants.ZONE_DEZ, 0, true);
+                GameServices.level().requestZoneAndAct(Sonic2ZoneConstants.ZONE_DEZ, 0, true);
                 dezTransitionRequested = true;
             }
             return;
@@ -606,7 +605,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
                 grabberTriggered = true;
                 routineSecondary = 4;
 
-                Camera.getInstance().setYPosBias((short) ((224 / 2) + 8));
+                GameServices.camera().setYPosBias((short) ((224 / 2) + 8));
 
                 player.setXSpeed((short) 0);
                 player.setYSpeed((short) 0);
@@ -695,7 +694,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
@@ -823,7 +822,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
                 // Refresh SolidContacts tracking position so the follow delta isn't
                 // double-applied as a riding delta. In the ROM, SolidObject runs inline
                 // before the horizontal follow, so it never sees this delta.
-                ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+                ObjectManager objectManager = services().objectManager();
                 if (objectManager != null) {
                     objectManager.refreshRidingTrackingPosition(this);
                 }
@@ -889,7 +888,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        int cameraY = Camera.getInstance().getY();
+        int cameraY = GameServices.camera().getY();
         if (yVel < 0) {
             int upper = cameraY + VERTICAL_LIMIT_UP_OFFSET;
             if (currentY < upper) {
@@ -954,7 +953,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
      * ((x_pos & $FF80) - Camera_X_pos_coarse) > $280 (unsigned compare).
      */
     private boolean checkMarkObjGone() {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         if (camera == null) {
             return false;
         }
@@ -1016,12 +1015,12 @@ public class TornadoObjectInstance extends AbstractObjectInstance
     }
 
     private boolean isMainPlayerStanding(AbstractPlayableSprite player) {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         return objectManager != null && objectManager.isRidingObject(player, this);
     }
 
     private void releasePlayersFromPlatform() {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -1063,7 +1062,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
     }
 
     private void spawnSmokeObject() {
-        ObjectManager manager = LevelManager.getInstance().getObjectManager();
+        ObjectManager manager = services().objectManager();
         if (manager == null) {
             return;
         }
@@ -1073,7 +1072,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
     }
 
     private TornadoObjectInstance spawnTornadoChild(int childSubtype, int x, int y) {
-        ObjectManager manager = LevelManager.getInstance().getObjectManager();
+        ObjectManager manager = services().objectManager();
         if (manager == null) {
             return null;
         }
@@ -1089,9 +1088,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
         if (levelLayoutPatched) {
             return;
         }
-
-        LevelManager levelManager = LevelManager.getInstance();
-        Level level = levelManager.getCurrentLevel();
+        Level level = services().currentLevel();
         if (level == null) {
             return;
         }
@@ -1118,7 +1115,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
         }
 
         if (wroteAny) {
-            levelManager.invalidateForegroundTilemap();
+            GameServices.level().invalidateForegroundTilemap();
         }
         if (wroteAny) {
             levelLayoutPatched = true;
@@ -1126,7 +1123,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
     }
 
     private AbstractPlayableSprite getMainPlayer() {
-        return Camera.getInstance().getFocusedSprite();
+        return GameServices.camera().getFocusedSprite();
     }
 
     private String resolveRenderArtKey() {
@@ -1221,7 +1218,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
                 return;
             }
 
-            ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+            ObjectRenderManager renderManager = services().renderManager();
             if (renderManager == null) {
                 return;
             }

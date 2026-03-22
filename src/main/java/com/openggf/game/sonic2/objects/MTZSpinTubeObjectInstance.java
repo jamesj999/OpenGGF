@@ -1,4 +1,5 @@
 package com.openggf.game.sonic2.objects;
+import com.openggf.game.GameServices;
 import com.openggf.level.objects.ObjectAnimationState;
 
 import com.openggf.audio.AudioManager;
@@ -512,7 +513,7 @@ public class MTZSpinTubeObjectInstance extends AbstractObjectInstance {
 
     private void playSound(GameSound sound) {
         try {
-            AudioManager audioManager = AudioManager.getInstance();
+            AudioManager audioManager = GameServices.audio();
             if (audioManager != null) {
                 audioManager.playSfx(sound);
             }

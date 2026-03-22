@@ -348,5 +348,4 @@ public class GrabObjectInstance extends AbstractObjectInstance {
         ctx.drawLine(x + 6, y - 6, x - 6, y + 6, grabR, grabG, 0.0f);
     }
 
-
 }

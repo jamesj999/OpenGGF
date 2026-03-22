@@ -1,11 +1,9 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -183,7 +181,7 @@ public class HtzFireShooterObjectInstance extends AbstractObjectInstance {
         spawnDynamicObject(proj2);
 
         // ROM: move.w #SndID_ArrowFiring,d0 / jsr (PlaySound).l
-        AudioManager.getInstance().playSfx(Sonic2Sfx.ARROW_FIRING.id);
+        services().playSfx(Sonic2Sfx.ARROW_FIRING.id);
     }
 
     @Override
@@ -203,7 +201,7 @@ public class HtzFireShooterObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

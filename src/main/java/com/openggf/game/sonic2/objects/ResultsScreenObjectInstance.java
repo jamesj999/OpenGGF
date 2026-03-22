@@ -1,6 +1,6 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.GameServices;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
@@ -145,10 +145,9 @@ public class ResultsScreenObjectInstance extends AbstractResultsScreen {
             setDestroyed(true);
 
             // Use existing LevelManager helper to advance to next act
-            LevelManager levelManager = LevelManager.getInstance();
-            if (levelManager != null) {
+            if (GameServices.level() != null) {
                 try {
-                    levelManager.advanceToNextLevel();
+                    GameServices.level().advanceToNextLevel();
                 } catch (java.io.IOException e) {
                     LOGGER.severe("Failed to load next level: " + e.getMessage());
                 }
@@ -162,17 +161,15 @@ public class ResultsScreenObjectInstance extends AbstractResultsScreen {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         if (camera == null) {
             return;
         }
-
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null) {
+        if (GameServices.level() == null) {
             return;
         }
 
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
@@ -338,7 +335,7 @@ public class ResultsScreenObjectInstance extends AbstractResultsScreen {
      * Fallback placeholder rendering when ROM art is not available.
      */
     private void appendPlaceholderRenderCommands(List<GLCommand> commands) {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         if (camera == null) {
             return;
         }
@@ -387,7 +384,7 @@ public class ResultsScreenObjectInstance extends AbstractResultsScreen {
     @Override
     protected void playTickSound() {
         try {
-            AudioManager.getInstance().playSfx(Sonic2Sfx.BLIP.id);
+            services().playSfx(Sonic2Sfx.BLIP.id);
         } catch (Exception e) {
             // Ignore audio errors
         }
@@ -396,7 +393,7 @@ public class ResultsScreenObjectInstance extends AbstractResultsScreen {
     @Override
     protected void playTallyEndSound() {
         try {
-            AudioManager.getInstance().playSfx(Sonic2Sfx.TALLY_END.id);
+            services().playSfx(Sonic2Sfx.TALLY_END.id);
         } catch (Exception e) {
             // Ignore audio errors
         }

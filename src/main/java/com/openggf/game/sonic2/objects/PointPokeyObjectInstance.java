@@ -10,7 +10,6 @@ import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.Sonic2ZoneFeatureProvider;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.*;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.game.sonic2.slotmachine.CNZSlotMachineManager;
@@ -115,7 +114,6 @@ public class PointPokeyObjectInstance extends BoxObjectInstance
     private boolean playerOccupied = false;
 
     // Reference to level manager (for spawning prizes)
-    private LevelManager levelManager;
 
     // Cached slot display offset (calculated once at first render)
     private int slotDisplayOffsetX = CNZSlotMachineRenderer.DEFAULT_OFFSET_X;
@@ -159,9 +157,6 @@ public class PointPokeyObjectInstance extends BoxObjectInstance
      * Based on loc_2BABE - loc_2BB10 in s2.asm.
      */
     private void capturePlayer(AbstractPlayableSprite player) {
-        // Get level manager for later use
-        levelManager = LevelManager.getInstance();
-
         // Force rolling state FIRST - this changes player height from 38 to 28.
         // Must be done before setCentreY, otherwise the center calculation uses
         // wrong height and shifts when setRolling changes it.
@@ -272,7 +267,7 @@ public class PointPokeyObjectInstance extends BoxObjectInstance
 
     private void playCasinoBonusSound() {
         try {
-            AudioManager audioManager = AudioManager.getInstance();
+            AudioManager audioManager = GameServices.audio();
             if (audioManager != null) {
                 audioManager.playSfx(GameSound.CASINO_BONUS);
             }
@@ -326,7 +321,7 @@ public class PointPokeyObjectInstance extends BoxObjectInstance
             PointsObjectInstance points = new PointsObjectInstance(
                     new ObjectSpawn(spawn.x(), spawn.y(), 0x29, 0, 0, false, 0),
                     services(), 100);
-            levelManager.getObjectManager().addDynamicObject(points);
+            services().objectManager().addDynamicObject(points);
         }
 
         // Check if countdown expired
@@ -443,11 +438,11 @@ public class PointPokeyObjectInstance extends BoxObjectInstance
      * Per disassembly, prizes spiral inward from a starting radius of 128 pixels.
      */
     private void spawnPrize(AbstractPlayableSprite player, int frameCounter) {
-        if (levelManager == null) {
+        if (GameServices.level() == null) {
             return;
         }
 
-        ObjectManager objectManager = levelManager.getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -472,14 +467,14 @@ public class PointPokeyObjectInstance extends BoxObjectInstance
             // Bombs
             BombPrizeObjectInstance bomb = new BombPrizeObjectInstance(
                     startX, startY, spawn.x(), spawn.y(),
-                    displayDelay, activePrizeCount, levelManager);
+                    displayDelay, activePrizeCount);
             objectManager.addDynamicObject(bomb);
             prizeAngle += BOMB_ANGLE_INCREMENT;
         } else {
             // Rings
             RingPrizeObjectInstance ring = new RingPrizeObjectInstance(
                     startX, startY, spawn.x(), spawn.y(),
-                    displayDelay, activePrizeCount, levelManager);
+                    displayDelay, activePrizeCount);
             objectManager.addDynamicObject(ring);
             prizeAngle += RING_ANGLE_INCREMENT;
         }
@@ -523,14 +518,12 @@ public class PointPokeyObjectInstance extends BoxObjectInstance
      */
     private void calculateSlotDisplayOffset() {
         slotDisplayOffsetCalculated = true;
-
-        LevelManager lm = LevelManager.getInstance();
-        if (lm == null) {
+        if (GameServices.level() == null) {
             return;
         }
 
         // Search for slot display patterns (tiles $0550-$057F) within 128 pixels of cage
-        int[] offset = lm.findPatternOffset(
+        int[] offset = GameServices.level().findPatternOffset(
                 spawn.x(),
                 spawn.y(),
                 CNZSlotMachineRenderer.SLOT_TILE_MIN,

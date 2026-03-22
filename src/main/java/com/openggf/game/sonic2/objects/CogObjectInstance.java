@@ -345,5 +345,4 @@ public class CogObjectInstance extends AbstractObjectInstance
         ctx.drawLine(baseX, baseY - 4, baseX, baseY + 4, 1.0f, 1.0f, 0.0f);
     }
 
-
 }

@@ -8,7 +8,6 @@ import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.PatternDesc;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -290,7 +289,7 @@ public class LargeRotPformObjectInstance extends AbstractObjectInstance
      * Uses art_tile = make_art_tile(ArtTile_ArtNem_MtzWheelIndent, 3, 0) = tile 0x3F0, palette 3.
      */
     private void renderIndent(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
@@ -329,6 +328,5 @@ public class LargeRotPformObjectInstance extends AbstractObjectInstance
         ctx.drawLine(x - 2, y, x + 2, y, 1.0f, 0.0f, 0.0f);
         ctx.drawLine(x, y - 2, x, y + 2, 1.0f, 0.0f, 0.0f);
     }
-
 
 }

@@ -1,15 +1,12 @@
 package com.openggf.game.sonic2.objects;
 import com.openggf.level.objects.BoxObjectInstance;
 
-import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.*;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.level.render.SpriteMappingFrame;
@@ -110,7 +107,7 @@ public class SmashableGroundObjectInstance extends BoxObjectInstance
         this.savedChainCounter = 0;
 
         // Check persistence: if already broken (remembered), stay destroyed
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = GameServices.level().getObjectManager();
         if (objectManager != null && objectManager.isRemembered(spawn)) {
             this.broken = true;
             setDestroyed(true);
@@ -207,13 +204,13 @@ public class SmashableGroundObjectInstance extends BoxObjectInstance
         spawnFragments();
 
         // Play slow smash sound effect (played by BreakObjectToPieces in ROM)
-        AudioManager.getInstance().playSfx(GameSound.SLOW_SMASH);
+        GameServices.audio().playSfx(GameSound.SLOW_SMASH);
 
         // Award chain bonus points
         awardChainBonus();
 
         // Mark as broken in persistence table
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null) {
             objectManager.markRemembered(spawn);
         }
@@ -225,8 +222,8 @@ public class SmashableGroundObjectInstance extends BoxObjectInstance
     }
 
     private void spawnFragments() {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectManager objectManager = services().objectManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (objectManager == null || renderManager == null) {
             return;
         }
@@ -320,7 +317,7 @@ public class SmashableGroundObjectInstance extends BoxObjectInstance
         GameServices.gameState().addScore(points);
 
         // Spawn points display popup
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null) {
             PointsObjectInstance pointsObj = new PointsObjectInstance(
                     new ObjectSpawn(spawn.x(), spawn.y(), 0x29, 0, 0, false, 0),
@@ -352,7 +349,7 @@ public class SmashableGroundObjectInstance extends BoxObjectInstance
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             super.appendRenderCommands(commands);
             return;
@@ -432,7 +429,7 @@ public class SmashableGroundObjectInstance extends BoxObjectInstance
             currentY = subY >> 8;
 
             // Check if off-screen (destroy if too far below camera)
-            int cameraY = Camera.getInstance().getY();
+            int cameraY = GameServices.camera().getY();
             int screenHeight = 224;  // Standard MD screen height
             if (currentY > cameraY + screenHeight + 64) {
                 setDestroyed(true);

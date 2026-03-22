@@ -1,5 +1,6 @@
 package com.openggf.game.sonic2.objects;
 
+import com.openggf.game.GameServices;
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -108,7 +109,7 @@ public class CloudObjectInstance extends AbstractObjectInstance {
         currentX += tornadoVelX;
 
         // Obj_DeleteBehindScreen: delete if x_pos is behind camera
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         int cameraCoarse = camera.getX() & 0xFF80;
         int objCoarse = currentX & 0xFF80;
         if ((short) (objCoarse - cameraCoarse) < 0) {

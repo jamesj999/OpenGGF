@@ -1,9 +1,7 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractSpikeObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -19,7 +17,7 @@ public class SpikeObjectInstance extends AbstractSpikeObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
@@ -40,7 +38,7 @@ public class SpikeObjectInstance extends AbstractSpikeObjectInstance {
             return;
         }
         try {
-            AudioManager.getInstance().playSfx(Sonic2Sfx.SPIKES_MOVE.id);
+            services().playSfx(Sonic2Sfx.SPIKES_MOVE.id);
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic.
         }

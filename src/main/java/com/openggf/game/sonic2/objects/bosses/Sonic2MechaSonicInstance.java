@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.Sonic2LevelEventManager;
@@ -9,7 +8,6 @@ import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.boss.AbstractBossChild;
@@ -301,7 +299,7 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
     // ========================================================================
 
     private void updateWaitCamera() {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         if (camera.getX() >= CAMERA_LOCK_X) {
             state.routine = ROUTINE_COUNTDOWN;
             actionTimer = MUSIC_COUNTDOWN;
@@ -309,7 +307,7 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
             camera.setMinX((short) CAMERA_LOCK_X);
             camera.setMaxX((short) CAMERA_LOCK_X);
             GameServices.gameState().setCurrentBossId(9);
-            AudioManager.getInstance().fadeOutMusic();
+            services().fadeOutMusic();
         }
     }
 
@@ -320,7 +318,7 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
     private void updateCountdown() {
         actionTimer--;
         if (actionTimer < 0) {
-            AudioManager.getInstance().playMusic(Sonic2Music.BOSS.id);
+            services().playMusic(Sonic2Music.BOSS.id);
             state.routine = ROUTINE_DESCEND;
             // ROM: No anim set here. anim stays 0, but AnimateSprite_Checked
             // is NOT called during descent, so mapping_frame stays as-is.
@@ -334,7 +332,7 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
 
     private void updateDescend(int frameCounter) {
         if ((frameCounter & 0x1F) == 0) {
-            AudioManager.getInstance().playSfx(Sonic2Sfx.FIRE.id);
+            services().playSfx(Sonic2Sfx.FIRE.id);
         }
 
         TerrainCheckResult floor = ObjectTerrainUtils.checkFloorDist(state.x, state.y, Y_RADIUS);
@@ -391,7 +389,7 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
         }
 
         if (actionTimer == BUZZ_THRESHOLD) {
-            AudioManager.getInstance().playSfx(Sonic2Sfx.MECHA_SONIC_BUZZ.id);
+            services().playSfx(Sonic2Sfx.MECHA_SONIC_BUZZ.id);
         }
 
         // ROM: loc_3986A — AnimateSprite_Checked during idle
@@ -406,7 +404,7 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
         ballForm = false;
         state.xVel = 0;
         // ROM: play SndID_MechaSonicBuzz on every idle transition
-        AudioManager.getInstance().playSfx(Sonic2Sfx.MECHA_SONIC_BUZZ.id);
+        services().playSfx(Sonic2Sfx.MECHA_SONIC_BUZZ.id);
         if (targetingSensor != null) {
             targetingSensor.setCollisionEnabled(true);
         }
@@ -467,7 +465,7 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                     // ROM: loc_3994E — anim=1 (crouch, frame 3), start dash, play sound
                     anim = 1;
                     startDash(DASH_SPEED);
-                    AudioManager.getInstance().playSfx(Sonic2Sfx.SPINDASH_RELEASE.id);
+                    services().playSfx(Sonic2Sfx.SPINDASH_RELEASE.id);
                     // ROM: loc_3994E — LED anim 2 (back thruster variant) on dash start
                     if (ledWindow != null) ledWindow.setAnimId(2);
                 }
@@ -533,7 +531,7 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                     actionTimer = AIM_HOLD_DURATION;
                     anim = 4; // Spin loop
                     // ROM: loc_39A2A — play laser beam sound
-                    AudioManager.getInstance().playSfx(Sonic2Sfx.LASER_BEAM.id);
+                    services().playSfx(Sonic2Sfx.LASER_BEAM.id);
                 }
             }
             case 2 -> {
@@ -594,7 +592,7 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                     attackPhase = 2;
                     actionTimer = AIM_HOLD_DURATION;
                     anim = 4;
-                    AudioManager.getInstance().playSfx(Sonic2Sfx.LASER_BEAM.id);
+                    services().playSfx(Sonic2Sfx.LASER_BEAM.id);
                 }
             }
             case 2 -> {
@@ -703,7 +701,7 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                     attackPhase = 2;
                     actionTimer = AIM_HOLD_DURATION;
                     anim = 4;
-                    AudioManager.getInstance().playSfx(Sonic2Sfx.LASER_BEAM.id);
+                    services().playSfx(Sonic2Sfx.LASER_BEAM.id);
                 }
             }
             case 2 -> {
@@ -739,7 +737,7 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
                 if (!spikeballsFired && state.yVel >= 0) {
                     spikeballsFired = true;
                     fireSpikeballs();
-                    AudioManager.getInstance().playSfx(Sonic2Sfx.SPIKE_SWITCH.id);
+                    services().playSfx(Sonic2Sfx.SPIKE_SWITCH.id);
                 }
                 TerrainCheckResult floorAJS = ObjectTerrainUtils.checkFloorDist(state.x, state.y, Y_RADIUS);
                 if (floorAJS.distance() < 0) {
@@ -846,12 +844,12 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
     private void updateDefeat(int frameCounter) {
         defeatTimer--;
         if (defeatTimer < 0) {
-            Camera camera = Camera.getInstance();
+            Camera camera = GameServices.camera();
             camera.setMaxX((short) 0x1000);
             Sonic2LevelEventManager eventManager = Sonic2LevelEventManager.getInstance();
             eventManager.setEventRoutine(eventManager.getEventRoutine() + 2);
             GameServices.gameState().setCurrentBossId(0);
-            AudioManager.getInstance().playMusic(Sonic2Music.DEATH_EGG.id);
+            services().playMusic(Sonic2Music.DEATH_EGG.id);
             // Spawn Eggman transition object (ObjC6 State2) before self-destructing
             spawnEggmanTransition();
             setDestroyed(true);
@@ -1129,7 +1127,7 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
             if (parent.isDestroyed()) return;
-            ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+            ObjectRenderManager renderManager = services().renderManager();
             if (renderManager == null) return;
             PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.DEZ_WINDOW);
             if (renderer == null || !renderer.isReady()) return;
@@ -1246,7 +1244,7 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
             // Dash Across standing/aiming phase), routine $12 = hidden (all other times).
             if (!visible) return;
             Sonic2MechaSonicInstance mechParent = (Sonic2MechaSonicInstance) parent;
-            ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+            ObjectRenderManager renderManager = services().renderManager();
             if (renderManager == null) return;
             PatternSpriteRenderer renderer = renderManager.getRenderer(
                     Sonic2ObjectArtKeys.DEZ_SILVER_SONIC);
@@ -1284,7 +1282,7 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
             currentX = xFixed >> 16;
             currentY = yFixed >> 16;
             updateDynamicSpawn();
-            Camera camera = Camera.getInstance();
+            Camera camera = GameServices.camera();
             int screenRelX = currentX - camera.getX() - 0xA0;
             if (Math.abs(screenRelX) >= SCREEN_BOUNDS_HALF_WIDTH) {
                 setDestroyed(true);
@@ -1296,7 +1294,7 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
-            ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+            ObjectRenderManager renderManager = services().renderManager();
             if (renderManager == null) return;
             PatternSpriteRenderer renderer = renderManager.getRenderer(
                     Sonic2ObjectArtKeys.DEZ_SILVER_SONIC);

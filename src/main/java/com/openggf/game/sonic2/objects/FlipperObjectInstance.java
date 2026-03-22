@@ -1,13 +1,12 @@
 package com.openggf.game.sonic2.objects;
+import com.openggf.game.GameServices;
 import com.openggf.level.objects.BoxObjectInstance;
 import com.openggf.level.objects.ObjectAnimationState;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.*;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.Direction;
@@ -79,7 +78,7 @@ public class FlipperObjectInstance extends BoxObjectInstance
         this.idleAnimId = isHorizontal() ? ANIM_HORIZONTAL_IDLE : ANIM_VERTICAL_IDLE;
         this.mappingFrame = isHorizontal() ? 4 : 0;
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = GameServices.level().getObjectRenderManager();
         this.animationState = new ObjectAnimationState(
                 renderManager != null ? renderManager.getAnimations(Sonic2ObjectArtKeys.ANIM_FLIPPER) : null,
                 idleAnimId,
@@ -212,7 +211,7 @@ public class FlipperObjectInstance extends BoxObjectInstance
         // Clear solid object riding state to prevent the object system from
         // continuing to track the player's position relative to the flipper.
         // This matches the ROM behavior of clearing status.player.on_object (loc_2B2E2).
-        var objectManager = LevelManager.getInstance().getObjectManager();
+        var objectManager = services().objectManager();
         if (objectManager != null) {
             objectManager.clearRidingObject(player);
         }
@@ -278,8 +277,8 @@ public class FlipperObjectInstance extends BoxObjectInstance
 
     private void playFlipperSound() {
         try {
-            if (AudioManager.getInstance() != null) {
-                AudioManager.getInstance().playSfx(GameSound.FLIPPER);
+            if (GameServices.audio() != null) {
+                GameServices.audio().playSfx(GameSound.FLIPPER);
             }
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic
@@ -362,7 +361,7 @@ public class FlipperObjectInstance extends BoxObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             super.appendRenderCommands(commands);
             return;

@@ -1,9 +1,9 @@
 package com.openggf.game.sonic2.objects;
 
+import com.openggf.game.GameServices;
 import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.physics.Direction;
@@ -133,8 +133,7 @@ public class LeavesGeneratorObjectInstance extends AbstractObjectInstance {
      * ROM: Obj2C_CreateLeaves at line 51629
      */
     private void spawnLeaves(AbstractPlayableSprite player) {
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (GameServices.level() == null || services().objectManager() == null) {
             return;
         }
 
@@ -169,7 +168,7 @@ public class LeavesGeneratorObjectInstance extends AbstractObjectInstance {
             LeafParticleObjectInstance leaf = new LeafParticleObjectInstance(
                     leafX, leafY, xVel, yVel, initialFrame, initialAngle);
 
-            levelManager.getObjectManager().addDynamicObject(leaf);
+            services().objectManager().addDynamicObject(leaf);
         }
 
         // Play leaves sound
@@ -178,7 +177,7 @@ public class LeavesGeneratorObjectInstance extends AbstractObjectInstance {
 
     private void playLeavesSound() {
         try {
-            AudioManager audioManager = AudioManager.getInstance();
+            AudioManager audioManager = GameServices.audio();
             if (audioManager != null) {
                 audioManager.playSfx(Sonic2Sfx.LEAVES.id);
             }

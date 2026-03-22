@@ -1,5 +1,6 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.game.GameServices;
 import com.openggf.level.objects.AbstractBadnikInstance;
 
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -116,7 +117,7 @@ public class WhispBadnikInstance extends AbstractBadnikInstance {
      * When visible, decrement attacks and start chase (matching loc_36970 flow).
      */
     private void updateWaitOnscreen() {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         int screenX = currentX - camera.getX();
         int screenY = currentY - camera.getY();
 

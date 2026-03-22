@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.debug.DebugRenderContext;
@@ -78,7 +77,7 @@ public class ArrowProjectileInstance extends AbstractObjectInstance
     public void update(int frameCounter, AbstractPlayableSprite player) {
         if (!initialized) {
             // Play arrow firing sound on first update
-            AudioManager.getInstance().playSfx(Sonic2Sfx.ARROW_FIRING.id);
+            services().playSfx(Sonic2Sfx.ARROW_FIRING.id);
             initialized = true;
         }
 

@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
@@ -258,7 +257,7 @@ public class VineSwitchObjectInstance extends AbstractObjectInstance {
 
         // Play blip sound
         // ROM: move.w #SndID_Blip,d0 / jsr (PlaySound).l
-        AudioManager.getInstance().playSfx(Sonic2Sfx.BLIP.id);
+        services().playSfx(Sonic2Sfx.BLIP.id);
 
         LOGGER.fine(() -> String.format("Player grabbed vine switch at (%d,%d), switchId=%d",
                 spawn.x(), spawn.y(), switchId));

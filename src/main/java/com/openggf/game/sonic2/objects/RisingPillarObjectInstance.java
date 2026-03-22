@@ -1,6 +1,6 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.GameServices;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic2.S2SpriteDataLoader;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
@@ -8,7 +8,6 @@ import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.PatternDesc;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
@@ -232,7 +231,7 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
         player.setAir(true);
 
         // Play slow smash sound effect
-        AudioManager.getInstance().playSfx(GameSound.SLOW_SMASH);
+        GameServices.audio().playSfx(GameSound.SLOW_SMASH);
 
         // NOTE: We do NOT call markRemembered here. The original game uses MarkObjGone
         // which CLEARS the respawn flag (bclr #7), allowing the pillar to respawn
@@ -269,7 +268,7 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
         subY = y << 8;
 
         // Spawn remaining debris pieces (1-13) as separate objects
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null) {
             int numPieces = Math.min(pieces.size(), DEBRIS_DATA.length);
             for (int i = 1; i < numPieces; i++) {
@@ -425,7 +424,6 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
         ctx.drawLine(right, bottom, left, bottom, 0.4f, 0.6f, 0.2f);
         ctx.drawLine(left, bottom, left, top, 0.4f, 0.6f, 0.2f);
     }
-
 
     /**
      * Inner class for debris fragments (pieces 1-13).

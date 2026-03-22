@@ -1,12 +1,11 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.GameServices;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -162,7 +161,7 @@ public class HTZLiftObjectInstance extends AbstractObjectInstance
         // Play click sound every 16 frames
         // ROM: andi.w #$F,d0 / bne.s + / move.w #SndID_HTZLiftClick,d0
         if ((frameCounter & 0x0F) == 0) {
-            AudioManager.getInstance().playSfx(Sonic2Sfx.HTZ_LIFT_CLICK.id);
+            services().playSfx(Sonic2Sfx.HTZ_LIFT_CLICK.id);
         }
 
         // Apply velocity (ObjectMove equivalent)
@@ -196,7 +195,7 @@ public class HTZLiftObjectInstance extends AbstractObjectInstance
         yFixed += yVel;
 
         // Check if fallen off bottom of screen
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         int screenBottom = camera.getMaxY() + 224;
         int currentY = yFixed >> 8;
 
@@ -217,7 +216,7 @@ public class HTZLiftObjectInstance extends AbstractObjectInstance
         }
         scenerySpawned = true;
 
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }

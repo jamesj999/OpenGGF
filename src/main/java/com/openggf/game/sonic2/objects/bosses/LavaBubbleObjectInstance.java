@@ -1,9 +1,9 @@
 package com.openggf.game.sonic2.objects.bosses;
 
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -34,8 +34,6 @@ public class LavaBubbleObjectInstance extends AbstractObjectInstance implements 
     // Collision constants (ROM: move.b #$98,collision_flags(a1))
     private static final int COLLISION_FLAGS = 0x98;
 
-    private final LevelManager levelManager;
-
     private int x;
     private int y;
     private int animFrame;
@@ -50,7 +48,6 @@ public class LavaBubbleObjectInstance extends AbstractObjectInstance implements 
      */
     public LavaBubbleObjectInstance(int x, int y) {
         super(new ObjectSpawn(x, y, Sonic2ObjectIds.LAVA_BUBBLE, 0, 0, false, 0), "Lava Bubble");
-        this.levelManager = LevelManager.getInstance();
         this.x = x;
         this.y = y;
         this.animFrame = 0;
@@ -100,8 +97,8 @@ public class LavaBubbleObjectInstance extends AbstractObjectInstance implements 
             return;
         }
 
-        ObjectRenderManager renderManager = levelManager != null
-                ? levelManager.getObjectRenderManager() : null;
+        ObjectRenderManager renderManager = GameServices.level() != null
+                ? services().renderManager() : null;
         if (renderManager == null) {
             return;
         }

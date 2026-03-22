@@ -1,5 +1,6 @@
 package com.openggf.game.sonic2.objects;
 
+import com.openggf.game.GameServices;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.sonic2.S2SpriteDataLoader;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -7,7 +8,6 @@ import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
-import com.openggf.level.LevelManager;
 import com.openggf.level.PatternDesc;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -89,8 +89,7 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
     public SidewaysPformObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
         this.isChild = false;
-        LevelManager lm = LevelManager.getInstance();
-        this.isMcz = lm != null && lm.getRomZoneId() == Sonic2Constants.ZONE_MYSTIC_CAVE;
+        this.isMcz = GameServices.level() != null && GameServices.level().getRomZoneId() == Sonic2Constants.ZONE_MYSTIC_CAVE;
         init();
     }
 
@@ -159,7 +158,7 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
      * art_tile = make_art_tile(ArtTile_ArtNem_CPZStairBlock, 3, 1)
      */
     private void appendRenderCpz(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         PatternSpriteRenderer renderer = null;
 
         if (renderManager != null) {
@@ -215,14 +214,12 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
             return;
         }
         mczMappingsLoadAttempted = true;
-
-        LevelManager manager = LevelManager.getInstance();
-        if (manager == null || manager.getGame() == null) {
+        if (GameServices.level() == null || GameServices.level().getGame() == null) {
             return;
         }
 
         try {
-            RomByteReader reader = RomByteReader.fromRom(manager.getGame().getRom());
+            RomByteReader reader = RomByteReader.fromRom(GameServices.level().getGame().getRom());
             mczMappings = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ15_MCZ_ADDR);
             LOGGER.fine("Loaded " + mczMappings.size() + " MCZ SidewaysPform mapping frames");
         } catch (IOException | RuntimeException e) {
@@ -298,9 +295,8 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
                 childSpawn, name + "_child", this);
 
         // Add child to object manager
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager != null && levelManager.getObjectManager() != null) {
-            levelManager.getObjectManager().addDynamicObject(child);
+        if (GameServices.level() != null && services().objectManager() != null) {
+            services().objectManager().addDynamicObject(child);
         }
     }
 

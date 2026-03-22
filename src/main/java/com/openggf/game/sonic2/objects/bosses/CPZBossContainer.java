@@ -1,10 +1,10 @@
 package com.openggf.game.sonic2.objects.bosses;
 
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -31,8 +31,6 @@ public class CPZBossContainer extends AbstractObjectInstance {
     private static final int CONTAINER_OFFSET_Y = 0x38;
     private static final int CONTAINER_INIT_XVEL = -0x10;
     private static final int[] CONTAINER_FALLOFF_X_OFFSETS = {0x18, 0x30, 0x48};
-
-    private final LevelManager levelManager;
     private final Sonic2CPZBossInstance mainBoss;
 
     private int x;
@@ -49,9 +47,8 @@ public class CPZBossContainer extends AbstractObjectInstance {
 
     private ObjectAnimationState animationState;
 
-    public CPZBossContainer(ObjectSpawn spawn, LevelManager levelManager, Sonic2CPZBossInstance mainBoss) {
+    public CPZBossContainer(ObjectSpawn spawn, Sonic2CPZBossInstance mainBoss) {
         super(spawn, "CPZ Boss Container");
-        this.levelManager = levelManager;
         this.mainBoss = mainBoss;
         this.x = spawn.x() - 0x10;
         this.y = spawn.y() - CONTAINER_OFFSET_Y;
@@ -244,50 +241,50 @@ public class CPZBossContainer extends AbstractObjectInstance {
         // Become a falling part ourselves
         int myXVel = randomPipeVelocity();
         ObjectSpawn partSpawn = new ObjectSpawn(x, y, Sonic2ObjectIds.CPZ_BOSS, 0, renderFlags, false, 0);
-        CPZBossFallingPart part = new CPZBossFallingPart(partSpawn, levelManager, 0x20, myXVel);
-        if (levelManager != null && levelManager.getObjectManager() != null) {
-            levelManager.getObjectManager().addDynamicObject(part);
+        CPZBossFallingPart part = new CPZBossFallingPart(partSpawn, 0x20, myXVel);
+        if (GameServices.level() != null && services().objectManager() != null) {
+            services().objectManager().addDynamicObject(part);
         }
         setDestroyed(true);
     }
 
     private void spawnContainerFloor() {
-        if (floorSpawned || levelManager == null || levelManager.getObjectManager() == null) {
+        if (floorSpawned || GameServices.level() == null || services().objectManager() == null) {
             return;
         }
         floorSpawned = true;
         ObjectSpawn floorSpawn = new ObjectSpawn(x, y, Sonic2ObjectIds.CPZ_BOSS, 0, renderFlags, false, 0);
-        CPZBossContainerFloor floor = new CPZBossContainerFloor(floorSpawn, levelManager, mainBoss, this, false);
-        levelManager.getObjectManager().addDynamicObject(floor);
+        CPZBossContainerFloor floor = new CPZBossContainerFloor(floorSpawn, mainBoss, this, false);
+        services().objectManager().addDynamicObject(floor);
     }
 
     private void spawnContainerExtend() {
-        if (extendSpawned || levelManager == null || levelManager.getObjectManager() == null) {
+        if (extendSpawned || GameServices.level() == null || services().objectManager() == null) {
             return;
         }
         extendSpawned = true;
         ObjectSpawn extendSpawn = new ObjectSpawn(x, y, Sonic2ObjectIds.CPZ_BOSS, 0, renderFlags, false, 0);
-        CPZBossContainerExtend extend = new CPZBossContainerExtend(extendSpawn, levelManager, mainBoss, this);
-        levelManager.getObjectManager().addDynamicObject(extend);
+        CPZBossContainerExtend extend = new CPZBossContainerExtend(extendSpawn, mainBoss, this);
+        services().objectManager().addDynamicObject(extend);
     }
 
     private void spawnContainerFloor2() {
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (GameServices.level() == null || services().objectManager() == null) {
             return;
         }
         ObjectSpawn floorSpawn = new ObjectSpawn(x, y, Sonic2ObjectIds.CPZ_BOSS, 0, renderFlags, false, 0);
-        CPZBossContainerFloor floor = new CPZBossContainerFloor(floorSpawn, levelManager, mainBoss, this, true);
-        levelManager.getObjectManager().addDynamicObject(floor);
+        CPZBossContainerFloor floor = new CPZBossContainerFloor(floorSpawn, mainBoss, this, true);
+        services().objectManager().addDynamicObject(floor);
     }
 
     private void spawnContainerPiece(int offset) {
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (GameServices.level() == null || services().objectManager() == null) {
             return;
         }
         int pieceX = x + ((renderFlags & 1) != 0 ? -offset : offset);
         ObjectSpawn pieceSpawn = new ObjectSpawn(pieceX, y + 8, Sonic2ObjectIds.CPZ_BOSS, 0, renderFlags, false, 0);
-        CPZBossFallingPart piece = new CPZBossFallingPart(pieceSpawn, levelManager, 0x21, randomPipeVelocity());
-        levelManager.getObjectManager().addDynamicObject(piece);
+        CPZBossFallingPart piece = new CPZBossFallingPart(pieceSpawn, 0x21, randomPipeVelocity());
+        services().objectManager().addDynamicObject(piece);
     }
 
     private int randomPipeVelocity() {
@@ -315,7 +312,7 @@ public class CPZBossContainer extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = levelManager != null ? levelManager.getObjectRenderManager() : null;
+        ObjectRenderManager renderManager = GameServices.level() != null ? services().renderManager() : null;
         if (renderManager == null) {
             return;
         }

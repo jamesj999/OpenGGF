@@ -1,8 +1,8 @@
 package com.openggf.game.sonic2.objects.bosses;
 
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -19,8 +19,6 @@ import java.util.List;
 public class CPZBossFlame extends AbstractObjectInstance {
 
     private static final int[] FLAME_FRAMES = {0, -1, 1};
-
-    private final LevelManager levelManager;
     private final Sonic2CPZBossInstance mainBoss;
 
     private int x;
@@ -30,9 +28,8 @@ public class CPZBossFlame extends AbstractObjectInstance {
     private int animFrameDuration;
     private int frameIndex;
 
-    public CPZBossFlame(ObjectSpawn spawn, LevelManager levelManager, Sonic2CPZBossInstance mainBoss) {
+    public CPZBossFlame(ObjectSpawn spawn, Sonic2CPZBossInstance mainBoss) {
         super(spawn, "CPZ Boss Flame");
-        this.levelManager = levelManager;
         this.mainBoss = mainBoss;
         this.x = spawn.x();
         this.y = spawn.y();
@@ -81,7 +78,7 @@ public class CPZBossFlame extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = levelManager != null ? levelManager.getObjectRenderManager() : null;
+        ObjectRenderManager renderManager = GameServices.level() != null ? services().renderManager() : null;
         if (renderManager == null) {
             return;
         }

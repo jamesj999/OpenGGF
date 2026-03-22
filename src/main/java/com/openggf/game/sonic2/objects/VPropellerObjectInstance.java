@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2AudioConstants;
@@ -115,7 +114,7 @@ public class VPropellerObjectInstance extends AbstractObjectInstance
         // ROM: move.b (Vint_runcount+3).w,d0 / andi.b #$1F,d0 / bne.s +
         //      moveq #signextendB(SndID_Helicopter),d0 / jsrto JmpTo_PlaySoundLocal
         if ((frameCounter & SOUND_INTERVAL_MASK) == 0) {
-            AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_HELICOPTER);
+            services().playSfx(Sonic2AudioConstants.SFX_HELICOPTER);
         }
 
         // 3. MarkObjGone - standard despawn handled by engine's object placement system

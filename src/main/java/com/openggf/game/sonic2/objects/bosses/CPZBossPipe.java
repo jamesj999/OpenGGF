@@ -1,10 +1,10 @@
 package com.openggf.game.sonic2.objects.bosses;
 
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -35,8 +35,6 @@ public class CPZBossPipe extends AbstractObjectInstance {
     private static final int ROUTINE_SEGMENT = 3;
 
     private static final int PIPE_SEGMENT_COUNT = 0x0C;
-
-    private final LevelManager levelManager;
     private final Sonic2CPZBossInstance mainBoss;
 
     private int x;
@@ -55,9 +53,8 @@ public class CPZBossPipe extends AbstractObjectInstance {
     private final List<CPZBossPipeSegment> segments;
     private ObjectAnimationState animationState;
 
-    public CPZBossPipe(ObjectSpawn spawn, LevelManager levelManager, Sonic2CPZBossInstance mainBoss) {
+    public CPZBossPipe(ObjectSpawn spawn, Sonic2CPZBossInstance mainBoss) {
         super(spawn, "CPZ Boss Pipe");
-        this.levelManager = levelManager;
         this.mainBoss = mainBoss;
         this.x = spawn.x();
         this.y = spawn.y();
@@ -125,7 +122,7 @@ public class CPZBossPipe extends AbstractObjectInstance {
             return;
         }
 
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (GameServices.level() == null || services().objectManager() == null) {
             updateSegment();
             return;
         }
@@ -154,7 +151,7 @@ public class CPZBossPipe extends AbstractObjectInstance {
     }
 
     private void updatePumpInit() {
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (GameServices.level() == null || services().objectManager() == null) {
             updateSegment();
             return;
         }
@@ -276,41 +273,41 @@ public class CPZBossPipe extends AbstractObjectInstance {
     }
 
     private void spawnPipeSegment(int offset) {
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (GameServices.level() == null || services().objectManager() == null) {
             return;
         }
         ObjectSpawn segSpawn = new ObjectSpawn(x, y, Sonic2ObjectIds.CPZ_BOSS, 0, renderFlags, false, 0);
-        CPZBossPipeSegment segment = new CPZBossPipeSegment(segSpawn, levelManager, mainBoss, this, offset);
-        levelManager.getObjectManager().addDynamicObject(segment);
+        CPZBossPipeSegment segment = new CPZBossPipeSegment(segSpawn, mainBoss, this, offset);
+        services().objectManager().addDynamicObject(segment);
         segments.add(segment);
     }
 
     private void spawnPumpHead() {
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (GameServices.level() == null || services().objectManager() == null) {
             return;
         }
         ObjectSpawn pumpSpawn = new ObjectSpawn(x, y, Sonic2ObjectIds.CPZ_BOSS, 0, renderFlags, false, 0);
-        CPZBossPipePump pump = new CPZBossPipePump(pumpSpawn, levelManager, mainBoss, this);
-        levelManager.getObjectManager().addDynamicObject(pump);
+        CPZBossPipePump pump = new CPZBossPipePump(pumpSpawn, mainBoss, this);
+        services().objectManager().addDynamicObject(pump);
     }
 
     private void spawnDripper() {
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (GameServices.level() == null || services().objectManager() == null) {
             return;
         }
         ObjectSpawn dripperSpawn = new ObjectSpawn(x, y, Sonic2ObjectIds.CPZ_BOSS, 0, renderFlags, false, 0);
-        CPZBossDripper dripper = new CPZBossDripper(dripperSpawn, levelManager, mainBoss, this);
-        levelManager.getObjectManager().addDynamicObject(dripper);
+        CPZBossDripper dripper = new CPZBossDripper(dripperSpawn, mainBoss, this);
+        services().objectManager().addDynamicObject(dripper);
     }
 
     private void spawnFallingPart() {
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (GameServices.level() == null || services().objectManager() == null) {
             return;
         }
         int xVel = randomPipeVelocity();
         ObjectSpawn partSpawn = new ObjectSpawn(x, y + yOffset, Sonic2ObjectIds.CPZ_BOSS, 0, renderFlags, false, 0);
-        CPZBossFallingPart part = new CPZBossFallingPart(partSpawn, levelManager, 1, xVel);
-        levelManager.getObjectManager().addDynamicObject(part);
+        CPZBossFallingPart part = new CPZBossFallingPart(partSpawn, 1, xVel);
+        services().objectManager().addDynamicObject(part);
     }
 
     private int randomPipeVelocity() {
@@ -342,7 +339,7 @@ public class CPZBossPipe extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = levelManager != null ? levelManager.getObjectRenderManager() : null;
+        ObjectRenderManager renderManager = GameServices.level() != null ? services().renderManager() : null;
         if (renderManager == null) {
             return;
         }

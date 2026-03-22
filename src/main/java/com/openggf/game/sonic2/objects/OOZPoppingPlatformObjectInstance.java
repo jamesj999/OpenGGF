@@ -1,12 +1,10 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -130,7 +128,7 @@ public class OOZPoppingPlatformObjectInstance extends AbstractObjectInstance
         ObjectSpawn flameSpawn = new ObjectSpawn(flameX, flameY, spawn.objectId(), spawn.subtype(),
                 spawn.renderFlags(), false, spawn.rawYWord());
         flameChild = new OOZBurnerFlameObjectInstance(flameSpawn, this);
-        LevelManager.getInstance().getObjectManager().addDynamicObject(flameChild);
+        services().objectManager().addDynamicObject(flameChild);
     }
 
     @Override
@@ -172,7 +170,7 @@ public class OOZPoppingPlatformObjectInstance extends AbstractObjectInstance
         timer = POP_TIMER_RESET;
         velocity = POP_VELOCITY;
         mode = Mode.POP_PHYSICS;
-        AudioManager.getInstance().playSfx(Sonic2Sfx.OOZ_LID_POP.id);
+        services().playSfx(Sonic2Sfx.OOZ_LID_POP.id);
     }
 
     // ========================================================================
@@ -214,7 +212,7 @@ public class OOZPoppingPlatformObjectInstance extends AbstractObjectInstance
     // ========================================================================
 
     private void updateWaitForPlayer(AbstractPlayableSprite player, int frameCounter) {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         var sidekicks = SpriteManager.getInstance().getSidekicks();
         AbstractPlayableSprite sidekick = sidekicks.isEmpty() ? null : sidekicks.getFirst();
 
@@ -258,7 +256,7 @@ public class OOZPoppingPlatformObjectInstance extends AbstractObjectInstance
         // Pop
         velocity = POP_VELOCITY;
         mode = Mode.RISE_AND_LAUNCH;
-        AudioManager.getInstance().playSfx(Sonic2Sfx.OOZ_LID_POP.id);
+        services().playSfx(Sonic2Sfx.OOZ_LID_POP.id);
     }
 
     /**
@@ -321,7 +319,7 @@ public class OOZPoppingPlatformObjectInstance extends AbstractObjectInstance
         // Reached apex - launch standing players
         // ROM re-checks status standing bits at launch time (andi.b #p1_standing/p2_standing)
         mode = Mode.IDLE;
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
 
         if (mainCharLocked && player != null && objectManager.isRidingObject(player, this)) {
             launchPlayer(player, frameCounter);
@@ -372,7 +370,7 @@ public class OOZPoppingPlatformObjectInstance extends AbstractObjectInstance
         // Release from object control
         player.releaseFromObjectControl(frameCounter);
         // Play spring sound
-        AudioManager.getInstance().playSfx(Sonic2Sfx.SPRING.id);
+        services().playSfx(Sonic2Sfx.SPRING.id);
     }
 
     // ========================================================================

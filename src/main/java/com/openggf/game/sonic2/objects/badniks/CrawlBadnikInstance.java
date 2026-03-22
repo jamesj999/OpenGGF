@@ -2,7 +2,6 @@ package com.openggf.game.sonic2.objects.badniks;
 
 import com.openggf.level.objects.AbstractBadnikInstance;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
@@ -336,7 +335,7 @@ public class CrawlBadnikInstance extends AbstractBadnikInstance {
         impactTimer = 16;
 
         // Play bumper sound
-        AudioManager.getInstance().playSfx(Sonic2Sfx.BUMPER.id);
+        services().playSfx(Sonic2Sfx.BUMPER.id);
     }
 
     @Override

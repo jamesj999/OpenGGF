@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.ButtonVineTriggerManager;
@@ -178,7 +177,7 @@ public class MCZDrawbridgeObjectInstance extends AbstractObjectInstance
             // Start lowering the bridge
             // ROM (line 56502-56504): tst.b objoff_36(a0) / bne.s + / move.b #1,objoff_36(a0)
             isMoving = true;
-            AudioManager.getInstance().playSfx(Sonic2Sfx.DRAWBRIDGE_MOVE.id);
+            services().playSfx(Sonic2Sfx.DRAWBRIDGE_MOVE.id);
 
             // Special case: if X-flip is set, immediately adjust X position
             // ROM (line 56508-56511): cmpi.b #status.npc.no_balancing|status.npc.x_flip,status(a0)
@@ -197,7 +196,7 @@ public class MCZDrawbridgeObjectInstance extends AbstractObjectInstance
                 // Bridge reached horizontal target
                 isMoving = false;
                 bridgeDown = true;
-                AudioManager.getInstance().playSfx(Sonic2Sfx.DRAWBRIDGE_DOWN.id);
+                services().playSfx(Sonic2Sfx.DRAWBRIDGE_DOWN.id);
 
                 // ROM: move.w objoff_32(a0),y_pos(a0) - restore Y to original
                 collisionY = originalY;

@@ -1,5 +1,6 @@
 package com.openggf.game.sonic2.objects;
 
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.S2SpriteDataLoader;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 
@@ -7,7 +8,6 @@ import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.PatternDesc;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
@@ -290,14 +290,13 @@ public class SwingingPformObjectInstance extends AbstractObjectInstance
      * Corresponds to loc_2A3EC in disassembly.
      */
     private void updateWaterLevel() {
-        LevelManager manager = LevelManager.getInstance();
-        if (manager == null || manager.getCurrentLevel() == null) {
+        if (GameServices.level() == null || services().currentLevel() == null) {
             return;
         }
 
         // Get water level from WaterSystem
-        int zoneId = manager.getCurrentLevel().getZoneIndex();
-        int actId = manager.getCurrentAct();
+        int zoneId = services().currentLevel().getZoneIndex();
+        int actId = services().currentAct();
         WaterSystem waterSystem = WaterSystem.getInstance();
 
         if (!waterSystem.hasWater(zoneId, actId)) {
@@ -352,10 +351,9 @@ public class SwingingPformObjectInstance extends AbstractObjectInstance
         }
 
         // Check if player is standing on platform
-        LevelManager manager = LevelManager.getInstance();
-        boolean standing = manager != null &&
-                manager.getObjectManager() != null &&
-                manager.getObjectManager().isAnyPlayerRiding(this);
+        boolean standing = GameServices.level() != null &&
+                services().objectManager() != null &&
+                services().objectManager().isAnyPlayerRiding(this);
         playerStanding = standing;
 
         if (standing) {
@@ -508,7 +506,6 @@ public class SwingingPformObjectInstance extends AbstractObjectInstance
         ctx.drawLine(x - 4, y, x + 4, y, 1.0f, 0.0f, 0.0f);
         ctx.drawLine(x, y - 4, x, y + 4, 1.0f, 0.0f, 0.0f);
     }
-
 
 }
 

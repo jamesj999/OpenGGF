@@ -1,5 +1,6 @@
 package com.openggf.game.sonic2.objects;
 
+import com.openggf.game.GameServices;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.OscillationManager;
 import com.openggf.game.sonic2.S2SpriteDataLoader;
@@ -8,7 +9,6 @@ import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.PatternDesc;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
@@ -168,9 +168,8 @@ public class SwingingPlatformObjectInstance extends AbstractObjectInstance
     }
 
     private ZoneConfig determineZoneConfig() {
-        LevelManager manager = LevelManager.getInstance();
-        if (manager != null && manager.getCurrentLevel() != null) {
-            int zoneId = manager.getCurrentLevel().getZoneIndex();
+        if (GameServices.level() != null && services().currentLevel() != null) {
+            int zoneId = services().currentLevel().getZoneIndex();
             if (zoneId == Sonic2ZoneConstants.ROM_ZONE_MCZ) {
                 return ZoneConfig.MCZ;
             } else if (zoneId == Sonic2ZoneConstants.ROM_ZONE_ARZ) {

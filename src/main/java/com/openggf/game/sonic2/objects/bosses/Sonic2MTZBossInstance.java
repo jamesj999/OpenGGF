@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -8,7 +7,6 @@ import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.EggPrisonObjectInstance;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.boss.AbstractBossChild;
@@ -738,7 +736,7 @@ public class Sonic2MTZBossInstance extends AbstractBossInstance {
             faceFrame = FRAME_FACE;
 
             // ROM: jsr PlayLevelMusic
-            AudioManager.getInstance().playMusic(Sonic2Music.METROPOLIS.id);
+            services().playMusic(Sonic2Music.METROPOLIS.id);
         }
 
         // Update position from boss coordinates
@@ -755,7 +753,7 @@ public class Sonic2MTZBossInstance extends AbstractBossInstance {
         state.xVel = VEL_FLEE_X;
         state.yVel = VEL_FLEE_Y;
 
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         if (camera.getMaxX() < CAMERA_MAX_X_FLEE) {
             camera.setMaxX((short) (camera.getMaxX() + 2));
         } else if (!isOnScreen()) {

@@ -195,4 +195,3 @@ public class GrounderWallInstance extends AbstractObjectInstance {
     }
 }
 
-

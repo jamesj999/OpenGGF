@@ -1,12 +1,12 @@
 package com.openggf.game.sonic2.objects;
 
+import com.openggf.game.GameServices;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -242,7 +242,7 @@ public class ConveyorObjectInstance extends AbstractObjectInstance
             return null;
         }
 
-        ObjectManager manager = LevelManager.getInstance().getObjectManager();
+        ObjectManager manager = GameServices.level().getObjectManager();
         if (manager == null) {
             return null;
         }
@@ -332,7 +332,7 @@ public class ConveyorObjectInstance extends AbstractObjectInstance
      */
     private boolean isBasePositionOnScreen() {
         Camera camera =
-                Camera.getInstance();
+                GameServices.camera();
         if (camera == null) {
             return true;
         }
@@ -350,7 +350,7 @@ public class ConveyorObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         PatternSpriteRenderer renderer = null;
 
         if (renderManager != null) {
@@ -457,7 +457,6 @@ public class ConveyorObjectInstance extends AbstractObjectInstance
         ctx.drawLine(x - 4, y, x + 4, y, 0.4f, 0.9f, 0.4f);
         ctx.drawLine(x, y - 4, x, y + 4, 0.4f, 0.9f, 0.4f);
     }
-
 
     /**
      * Sign-extend a 16-bit value stored as int to a signed int.

@@ -2,7 +2,6 @@ package com.openggf.game.sonic2.objects.badniks;
 
 import com.openggf.level.objects.AbstractBadnikInstance;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.level.objects.ExplosionObjectInstance;
@@ -201,7 +200,7 @@ public class AsteronBadnikInstance extends AbstractBadnikInstance {
         objectManager.addDynamicObject(explosion);
 
         // Play explosion SFX
-        AudioManager.getInstance().playSfx(
+        services().playSfx(
                 Sonic2Sfx.EXPLOSION.id);
 
         // Spawn 5 projectiles (from word_38A68 / Obj_CreateProjectiles)

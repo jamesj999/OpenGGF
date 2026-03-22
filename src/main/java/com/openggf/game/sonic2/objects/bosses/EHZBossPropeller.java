@@ -1,11 +1,9 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.boss.AbstractBossChild;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -87,7 +85,7 @@ public class EHZBossPropeller extends AbstractBossChild {
         } else {
             // Only play helicopter SFX when not flying off
             if ((parentFlags & FLAG_FLYING_OFF) == 0 && (frameCounter & (HELICOPTER_SOUND_INTERVAL - 1)) == 0) {
-                AudioManager.getInstance().playSfx(Sonic2Sfx.WING_FORTRESS.id);
+                services().playSfx(Sonic2Sfx.WING_FORTRESS.id);
             }
         }
 
@@ -120,7 +118,7 @@ public class EHZBossPropeller extends AbstractBossChild {
 
         // Play helicopter SFX during reload if not flying off
         if ((parentFlags & FLAG_FLYING_OFF) == 0 && (frameCounter & (HELICOPTER_SOUND_INTERVAL - 1)) == 0) {
-            AudioManager.getInstance().playSfx(Sonic2Sfx.WING_FORTRESS.id);
+            services().playSfx(Sonic2Sfx.WING_FORTRESS.id);
         }
 
         animationState.update();
@@ -132,7 +130,7 @@ public class EHZBossPropeller extends AbstractBossChild {
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

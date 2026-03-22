@@ -1,11 +1,11 @@
 package com.openggf.game.sonic2.objects.bosses;
+import com.openggf.game.GameServices;
 import com.openggf.level.objects.ExplosionObjectInstance;
 
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.level.objects.boss.BossExplosionObjectInstance;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -25,8 +25,6 @@ public class CPZBossFallingPart extends AbstractObjectInstance {
     private static final int GRAVITY = 0x38;
     private static final int FLOOR_Y = 0x580;
 
-    private final LevelManager levelManager;
-
     private int x;
     private int y;
     private int xVel;
@@ -38,9 +36,8 @@ public class CPZBossFallingPart extends AbstractObjectInstance {
     private int timer2;
     private boolean exploded;
 
-    public CPZBossFallingPart(ObjectSpawn spawn, LevelManager levelManager, int mappingFrame, int xVel) {
+    public CPZBossFallingPart(ObjectSpawn spawn, int mappingFrame, int xVel) {
         super(spawn, "CPZ Boss Part");
-        this.levelManager = levelManager;
         this.x = spawn.x();
         this.y = spawn.y();
         this.xVel = xVel;
@@ -88,15 +85,15 @@ public class CPZBossFallingPart extends AbstractObjectInstance {
     }
 
     private void spawnExplosion() {
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (GameServices.level() == null || services().objectManager() == null) {
             return;
         }
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
         BossExplosionObjectInstance explosion = new BossExplosionObjectInstance(x, y, renderManager, Sonic2Sfx.BOSS_EXPLOSION.id);
-        levelManager.getObjectManager().addDynamicObject(explosion);
+        services().objectManager().addDynamicObject(explosion);
     }
 
     private int randomFallTimer() {
@@ -106,7 +103,7 @@ public class CPZBossFallingPart extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = levelManager != null ? levelManager.getObjectRenderManager() : null;
+        ObjectRenderManager renderManager = GameServices.level() != null ? services().renderManager() : null;
         if (renderManager == null) {
             return;
         }

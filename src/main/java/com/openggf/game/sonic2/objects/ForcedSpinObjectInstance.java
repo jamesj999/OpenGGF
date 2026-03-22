@@ -306,7 +306,7 @@ public class ForcedSpinObjectInstance extends BoxObjectInstance {
      */
     private void playRollSound() {
         try {
-            AudioManager audioManager = AudioManager.getInstance();
+            AudioManager audioManager = GameServices.audio();
             if (audioManager != null) {
                 audioManager.playSfx(GameSound.ROLLING);
             }

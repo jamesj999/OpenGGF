@@ -1,6 +1,6 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.GameServices;
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -111,7 +111,7 @@ public class LaserObjectInstance extends AbstractObjectInstance {
         // cmp.w d1,d0
         // blt.w JmpTo65_DeleteObject
         // jmpto JmpTo45_DisplaySprite
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         int deleteThreshold = camera.getX() - DELETE_MARGIN;
         if ((short) currentX < (short) deleteThreshold) {
             setDestroyed(true);
@@ -140,7 +140,7 @@ public class LaserObjectInstance extends AbstractObjectInstance {
         // ROM: moveq #signextendB(SndID_LargeLaser),d0
         //      jsrto JmpTo12_PlaySound
         if (!soundPlayed) {
-            AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_LARGE_LASER);
+            services().playSfx(Sonic2AudioConstants.SFX_LARGE_LASER);
             soundPlayed = true;
         }
     }

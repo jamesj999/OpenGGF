@@ -1,6 +1,6 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.GameServices;
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
@@ -8,7 +8,6 @@ import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -210,7 +209,7 @@ public class OOZLauncherObjectInstance extends AbstractObjectInstance
 
         // Play smash sound
         try {
-            AudioManager.getInstance().playSfx(Sonic2Sfx.SLOW_SMASH.id);
+            services().playSfx(Sonic2Sfx.SLOW_SMASH.id);
         } catch (Exception e) {
             // Don't let audio failure break game logic
         }
@@ -220,8 +219,8 @@ public class OOZLauncherObjectInstance extends AbstractObjectInstance
      * Spawn 16 fragment pieces with velocities from ROM table (ROM: JmpTo2_BreakObjectToPieces).
      */
     private void spawnFragments() {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectManager objectManager = services().objectManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (objectManager == null || renderManager == null) {
             return;
         }
@@ -353,7 +352,7 @@ public class OOZLauncherObjectInstance extends AbstractObjectInstance
 
         // Play roll sound (ROM: move.w #SndID_Roll,d0; jsr PlaySound)
         try {
-            AudioManager.getInstance().playSfx(Sonic2Sfx.ROLL.id);
+            services().playSfx(Sonic2Sfx.ROLL.id);
         } catch (Exception e) {
             // Don't let audio failure break game logic
         }
@@ -392,7 +391,7 @@ public class OOZLauncherObjectInstance extends AbstractObjectInstance
     }
 
     private boolean isPlayerOnScreen(AbstractPlayableSprite player) {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         int px = player.getCentreX();
         int py = player.getCentreY();
         int cx = camera.getX();
@@ -435,7 +434,7 @@ public class OOZLauncherObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
@@ -531,7 +530,7 @@ public class OOZLauncherObjectInstance extends AbstractObjectInstance
             currentY = subY >> 8;
 
             // ROM: btst #render_flags.on_screen; beq JmpTo26_DeleteObject
-            int cameraY = Camera.getInstance().getY();
+            int cameraY = GameServices.camera().getY();
             if (currentY > cameraY + 224 + 32) {
                 setDestroyed(true);
             }

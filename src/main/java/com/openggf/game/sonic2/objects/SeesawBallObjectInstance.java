@@ -1,5 +1,6 @@
 package com.openggf.game.sonic2.objects;
 
+import com.openggf.game.GameServices;
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
@@ -392,7 +393,7 @@ public class SeesawBallObjectInstance extends AbstractObjectInstance
 
         // ROM: move.w #SndID_Spring,d0 / jmp (PlaySound).l
         try {
-            AudioManager audioManager = AudioManager.getInstance();
+            AudioManager audioManager = GameServices.audio();
             if (audioManager != null) {
                 audioManager.playSfx(GameSound.SPRING);
             }
@@ -450,8 +451,7 @@ public class SeesawBallObjectInstance extends AbstractObjectInstance
         boolean hFlip = false;
         // Get the main character from the sprites (the update() player parameter)
         // We use LevelManager to get access to it since we're in the render method
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager != null) {
+        if (GameServices.level() != null) {
             // Get main playable sprite from all sprites
             for (Sprite sprite : SpriteManager.getInstance().getAllSprites()) {
                 if (sprite instanceof AbstractPlayableSprite mainChar) {

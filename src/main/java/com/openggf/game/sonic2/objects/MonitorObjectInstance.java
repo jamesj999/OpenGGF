@@ -23,13 +23,11 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpriteMappingPiece;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.Tails;
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic2.audio.Sonic2SmpsConstants;
 
@@ -65,13 +63,13 @@ public class MonitorObjectInstance extends AbstractMonitorObjectInstance impleme
         this.type = MonitorType.fromSubtype(spawn.subtype());
 
         // Check persistence: if remembered, spawn as broken
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = GameServices.level().getObjectManager();
         boolean previouslyBroken = objectManager != null && objectManager.isRemembered(spawn);
         this.broken = this.type == MonitorType.BROKEN || previouslyBroken;
 
         int initialAnim = type.id;
         int initialFrame = broken ? BROKEN_FRAME : 0;
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = GameServices.level().getObjectRenderManager();
         this.animationState = new ObjectAnimationState(
                 renderManager != null ? renderManager.getMonitorAnimations() : null,
                 initialAnim,
@@ -169,7 +167,7 @@ public class MonitorObjectInstance extends AbstractMonitorObjectInstance impleme
         broken = true;
 
         // Mark as broken in persistence table
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null) {
             objectManager.markRemembered(spawn);
         }
@@ -179,17 +177,17 @@ public class MonitorObjectInstance extends AbstractMonitorObjectInstance impleme
         startIconRise(spawn.y(), player);
         iconPlayer = player; // Preserve player reference for rendering
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager != null) {
-            LevelManager.getInstance().getObjectManager().addDynamicObject(
+            services().objectManager().addDynamicObject(
                     new ExplosionObjectInstance(0x27, spawn.x(), spawn.y(), renderManager));
         }
-        AudioManager.getInstance().playSfx(Sonic2Sfx.EXPLOSION.id);
+        services().playSfx(Sonic2Sfx.EXPLOSION.id);
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             appendFallbackBox(commands);
             return;
@@ -257,25 +255,25 @@ public class MonitorObjectInstance extends AbstractMonitorObjectInstance impleme
         switch (type) {
             case RINGS -> {
                 player.addRings(RING_MONITOR_REWARD);
-                AudioManager.getInstance().playSfx(GameSound.RING);
+                GameServices.audio().playSfx(GameSound.RING);
             }
             case SHIELD -> {
                 player.giveShield();
-                AudioManager.getInstance().playSfx(Sonic2Sfx.SHIELD.id);
+                services().playSfx(Sonic2Sfx.SHIELD.id);
             }
             case SHOES -> {
                 player.giveSpeedShoes();
-                AudioManager.getInstance().playMusic(Sonic2SmpsConstants.CMD_SPEED_UP);
+                services().playMusic(Sonic2SmpsConstants.CMD_SPEED_UP);
             }
             case INVINCIBILITY -> {
                 // ROM: tst.b (Super_Sonic_flag).w / bne.s +++ - skip when Super Sonic
                 if (!player.isSuperSonic()) {
                     player.giveInvincibility();
-                    AudioManager.getInstance().playMusic(Sonic2Music.INVINCIBILITY.id);
+                    services().playMusic(Sonic2Music.INVINCIBILITY.id);
                 }
             }
             case SONIC, TAILS -> {
-                AudioManager.getInstance().playMusic(Sonic2Music.EXTRA_LIFE.id);
+                services().playMusic(Sonic2Music.EXTRA_LIFE.id);
                 GameServices.gameState().addLife();
             }
             case EGGMAN, STATIC -> {

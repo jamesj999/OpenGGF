@@ -1,11 +1,11 @@
 package com.openggf.game.sonic2.objects;
 
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.ButtonVineTriggerManager;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -171,7 +171,7 @@ public class MTZLongPlatformObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         PatternSpriteRenderer renderer = null;
         if (renderManager != null) {
             // Platform uses level art tiles. CPZ_STAIR_BLOCK sheet provides compatible mappings:
@@ -278,7 +278,7 @@ public class MTZLongPlatformObjectInstance extends AbstractObjectInstance
     }
 
     private void spawnChildCog() {
-        ObjectManager objManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objManager = services().objectManager();
         if (objManager == null) {
             return;
         }
@@ -501,9 +501,8 @@ public class MTZLongPlatformObjectInstance extends AbstractObjectInstance
      * Writes x_pos to MTZ_Platform_Cog_X shared variable.
      */
     private void moveConveyor() {
-        LevelManager lm = LevelManager.getInstance();
-        boolean isMtzAct3 = (lm.getCurrentZone() == Sonic2ZoneConstants.ZONE_MTZ
-                && lm.getCurrentAct() == 2);
+        boolean isMtzAct3 = (GameServices.level().getCurrentZone() == Sonic2ZoneConstants.ZONE_MTZ
+                && services().currentAct() == 2);
 
         if (!triggered) {
             // Moving right: addq.w #2,x_pos(a0)

@@ -1,12 +1,11 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -158,14 +157,13 @@ public class ArrowShooterObjectInstance extends AbstractObjectInstance {
 
     private void fireArrow() {
         // Play pre-arrow sound
-        AudioManager.getInstance().playSfx(Sonic2Sfx.PRE_ARROW_FIRING.id);
+        services().playSfx(Sonic2Sfx.PRE_ARROW_FIRING.id);
 
         // Spawn arrow projectile
-        LevelManager manager = LevelManager.getInstance();
-        if (manager == null) {
+        if (GameServices.level() == null) {
             return;
         }
-        ObjectManager objectManager = manager.getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }

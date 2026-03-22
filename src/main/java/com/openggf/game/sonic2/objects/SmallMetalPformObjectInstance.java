@@ -5,7 +5,6 @@ import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -101,7 +100,7 @@ public class SmallMetalPformObjectInstance extends AbstractObjectInstance {
      * </pre>
      */
     private void spawnChild() {
-        ObjectManager manager = LevelManager.getInstance().getObjectManager();
+        ObjectManager manager = services().objectManager();
         ObjectSpawn childSpawn = new ObjectSpawn(
                 spawn.x(), spawn.y(),
                 Sonic2ObjectIds.SMALL_METAL_PFORM,

@@ -1,5 +1,6 @@
 package com.openggf.game.sonic2.objects;
 
+import com.openggf.game.GameServices;
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -52,7 +53,6 @@ public class BombPrizeObjectInstance extends AbstractObjectInstance {
     private boolean destroyed = false;
 
     // Reference to LevelManager for rendering
-    private final LevelManager levelManager;
 
     /**
      * Creates a bomb prize object.
@@ -63,10 +63,9 @@ public class BombPrizeObjectInstance extends AbstractObjectInstance {
      * @param machineY Machine center Y (target)
      * @param displayDelay Frames before bomb becomes active
      * @param prizeCounter Reference to counter to decrement when destroyed
-     * @param levelManager Level manager for rendering
      */
     public BombPrizeObjectInstance(int x, int y, int machineX, int machineY,
-                                   int displayDelay, int[] prizeCounter, LevelManager levelManager) {
+                                   int displayDelay, int[] prizeCounter) {
         super(new ObjectSpawn(x, y, 0xD3, 0, 0, false, 0), "BombPrize");
         this.currentX = x << 16;  // Convert to 16.16 fixed point
         this.currentY = y << 16;
@@ -74,7 +73,6 @@ public class BombPrizeObjectInstance extends AbstractObjectInstance {
         this.machineY = machineY;
         this.displayDelay = displayDelay;
         this.prizeCounter = prizeCounter;
-        this.levelManager = levelManager;
     }
 
     @Override
@@ -165,7 +163,7 @@ public class BombPrizeObjectInstance extends AbstractObjectInstance {
      */
     private void playSpikeSound() {
         try {
-            AudioManager audioManager = AudioManager.getInstance();
+            AudioManager audioManager = GameServices.audio();
             if (audioManager != null) {
                 audioManager.playSfx(GameSound.HURT_SPIKE);
             }
@@ -184,7 +182,7 @@ public class BombPrizeObjectInstance extends AbstractObjectInstance {
         int screenY = currentY >> 16;
 
         // Try to use the CNZ bonus spike renderer
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager != null) {
             PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.CNZ_BONUS_SPIKE);
             if (renderer != null && renderer.isReady()) {

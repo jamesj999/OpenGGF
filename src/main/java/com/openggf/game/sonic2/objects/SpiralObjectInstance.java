@@ -1,7 +1,6 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.ObjectManager;
@@ -146,7 +145,7 @@ public class SpiralObjectInstance extends AbstractObjectInstance {
 
         // Initial range checks for "locking on"
         int vx = player.getXSpeed();
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         boolean onObject = (objectManager != null && objectManager.isRidingObject(player)) || wasOnSpiral;
 
         // Debug range

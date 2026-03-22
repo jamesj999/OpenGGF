@@ -1,14 +1,13 @@
 package com.openggf.game.sonic2.objects;
+import com.openggf.game.GameServices;
 import com.openggf.level.objects.BoxObjectInstance;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.*;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.Direction;
@@ -44,7 +43,6 @@ import java.util.Map;
 public class LauncherSpringObjectInstance extends BoxObjectInstance
         implements SolidObjectProvider, SolidObjectListener {
 
-
     // Subtype constants
     // Note: Bit 7 (0x80) indicates "slope running" mode for diagonal springs,
     // but ANY non-zero subtype is treated as diagonal (ROM: tst.b subtype(a0))
@@ -68,7 +66,6 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
     // Diagonal spring position offsets
     private static final int DIAGONAL_PLAYER_X_OFFSET = 0x13;    // 19 pixels from spring X
     private static final int DIAGONAL_PLAYER_Y_OFFSET = 0x13;    // 19 pixels above spring Y
-
 
     /**
      * Per-player state tracking.
@@ -426,14 +423,13 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
             player.setGSpeed((short) 0x800);  // ROM: move.w #$800,inertia(a1)
         }
 
-
         // ROM: bclr #status.player.on_object,status(a1) - clear "standing on object" flag
         // This is essential to prevent the solid object system from re-capturing the player
         player.setOnObject(false);
 
         // Clear solid object riding state to prevent the object system from
         // continuing to track the player's position relative to the spring.
-        var objectManager = LevelManager.getInstance().getObjectManager();
+        var objectManager = services().objectManager();
         if (objectManager != null) {
             objectManager.clearRidingObject(player);
         }
@@ -453,7 +449,6 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
         boolean preservePinball = isDiagonal() && (spawn.subtype() & SUBTYPE_SLOPE_MODE_FLAG) != 0;
         releasePlayer(player, ps, preservePinball);
     }
-
 
     /**
      * Releases player controls and resets per-player spring state.
@@ -507,8 +502,8 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
      */
     private void playLaunchSound() {
         try {
-            if (AudioManager.getInstance() != null) {
-                AudioManager.getInstance().playSfx(GameSound.CNZ_LAUNCH);
+            if (GameServices.audio() != null) {
+                GameServices.audio().playSfx(GameSound.CNZ_LAUNCH);
             }
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic
@@ -543,7 +538,7 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
 
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
 
         // ROM: move.b #0,objoff_3A(a0) - clear compression-processed flag at start of update
         // This allows ONE compression increment per frame across all players
@@ -703,7 +698,7 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             super.appendRenderCommands(commands);
             return;

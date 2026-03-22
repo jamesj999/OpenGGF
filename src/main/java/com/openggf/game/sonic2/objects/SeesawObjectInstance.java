@@ -4,7 +4,6 @@ import com.openggf.level.objects.BoxObjectInstance;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.*;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.managers.SpriteManager;
@@ -127,7 +126,7 @@ public class SeesawObjectInstance extends BoxObjectInstance
         );
 
         // Register the ball with ObjectManager
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null) {
             objectManager.addDynamicObject(ball);
         }

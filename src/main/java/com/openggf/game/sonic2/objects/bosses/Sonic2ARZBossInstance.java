@@ -1,13 +1,11 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.boss.AbstractBossInstance;
@@ -191,7 +189,7 @@ public class Sonic2ARZBossInstance extends AbstractBossInstance {
     private boolean checkInitConditions(AbstractPlayableSprite player) {
         var sidekicks = SpriteManager.getInstance().getSidekicks();
         if (!sidekicks.isEmpty()) {
-            AbstractPlayableSprite mainPlayer = Camera.getInstance().getFocusedSprite();
+            AbstractPlayableSprite mainPlayer = GameServices.camera().getFocusedSprite();
             if (mainPlayer != null) {
                 int mainX = mainPlayer.getCentreX();
                 if (mainX < PLAYER_CHECK_LEFT_X || mainX > PLAYER_CHECK_RIGHT_X) {
@@ -297,7 +295,7 @@ public class Sonic2ARZBossInstance extends AbstractBossInstance {
             state.routine = MAIN_SUB6;
             targetFlag = (state.renderFlags & RENDER_X_FLIP) != 0;
             bossCountdown = 0x1E;
-            AudioManager.getInstance().playSfx(Sonic2Sfx.HAMMER.id);
+            services().playSfx(Sonic2Sfx.HAMMER.id);
         }
         animateBoss();
     }
@@ -347,7 +345,7 @@ public class Sonic2ARZBossInstance extends AbstractBossInstance {
             bossYVel = 0;
             int levelMusic = GameServices.level() != null ? GameServices.level().getCurrentLevelMusicId() : -1;
             if (levelMusic >= 0) {
-                AudioManager.getInstance().playMusic(levelMusic);
+                services().playMusic(levelMusic);
             }
         } else if (bossCountdown >= 0x20) {
             state.routine = MAIN_SUBC;
@@ -363,7 +361,7 @@ public class Sonic2ARZBossInstance extends AbstractBossInstance {
     private void updateMainSubC(AbstractPlayableSprite player) {
         bossXVel = MAIN_ESCAPE_XVEL;
         bossYVel = MAIN_ESCAPE_YVEL;
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         if (camera.getMaxX() < CAMERA_ESCAPE_MAX_X) {
             camera.setMaxX((short) (camera.getMaxX() + 2));
         } else if (!isOnScreen()) {
@@ -566,12 +564,12 @@ public class Sonic2ARZBossInstance extends AbstractBossInstance {
 
         ObjectSpawn leftSpawn = new ObjectSpawn(LEFT_PILLAR_X, PILLAR_START_Y,
                 Sonic2ObjectIds.ARZ_BOSS, 0x04, 0, false, spawn.rawYWord());
-        ARZBossPillar left = new ARZBossPillar(leftSpawn, com.openggf.game.GameServices.level(), this);
+        ARZBossPillar left = new ARZBossPillar(leftSpawn, this);
         services().objectManager().addDynamicObject(left);
 
         ObjectSpawn rightSpawn = new ObjectSpawn(RIGHT_PILLAR_X, PILLAR_START_Y,
                 Sonic2ObjectIds.ARZ_BOSS, 0x04, RENDER_X_FLIP, false, spawn.rawYWord());
-        ARZBossPillar right = new ARZBossPillar(rightSpawn, com.openggf.game.GameServices.level(), this);
+        ARZBossPillar right = new ARZBossPillar(rightSpawn, this);
         services().objectManager().addDynamicObject(right);
     }
 
@@ -590,12 +588,12 @@ public class Sonic2ARZBossInstance extends AbstractBossInstance {
 
         ObjectSpawn eyesSpawn = new ObjectSpawn(eyesX, eyesY, Sonic2ObjectIds.ARZ_BOSS,
                 0x08, eyesFlags, false, spawn.rawYWord());
-        ARZBossEyes eyes = new ARZBossEyes(eyesSpawn, com.openggf.game.GameServices.level());
+        ARZBossEyes eyes = new ARZBossEyes(eyesSpawn);
         services().objectManager().addDynamicObject(eyes);
 
         ObjectSpawn arrowSpawn = new ObjectSpawn(eyesX, eyesY, Sonic2ObjectIds.ARZ_BOSS,
                 0x06, eyesFlags, false, spawn.rawYWord());
-        ARZBossArrow arrow = new ARZBossArrow(arrowSpawn, com.openggf.game.GameServices.level(), this, eyes, !leftPillar);
+        ARZBossArrow arrow = new ARZBossArrow(arrowSpawn, this, eyes, !leftPillar);
         services().objectManager().addDynamicObject(arrow);
     }
 
@@ -668,7 +666,7 @@ public class Sonic2ARZBossInstance extends AbstractBossInstance {
 
     @Override
     protected boolean isOnScreen() {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         int screenX = state.x - camera.getX();
         int screenY = state.y - camera.getY();
         return screenX >= -64 && screenX <= camera.getWidth() + 64

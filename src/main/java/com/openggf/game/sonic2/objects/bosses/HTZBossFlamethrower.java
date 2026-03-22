@@ -1,9 +1,9 @@
 package com.openggf.game.sonic2.objects.bosses;
 
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.objects.boss.AbstractBossChild;
@@ -121,10 +121,8 @@ public class HTZBossFlamethrower extends AbstractBossChild implements TouchRespo
         if (isDestroyed()) {
             return;
         }
-
-        LevelManager levelMgr = LevelManager.getInstance();
         ObjectRenderManager renderManager =
-                levelMgr != null ? levelMgr.getObjectRenderManager() : null;
+                GameServices.level() != null ? services().renderManager() : null;
         if (renderManager == null) {
             return;
         }

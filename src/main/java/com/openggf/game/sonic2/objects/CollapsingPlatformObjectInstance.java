@@ -1,6 +1,6 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -8,7 +8,6 @@ import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.PatternDesc;
 import com.openggf.level.objects.*;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -218,9 +217,8 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
                     collapsed = true;
                     parentY = spawn.y();
                     if (player != null) {
-                        LevelManager manager = LevelManager.getInstance();
-                        if (manager != null && manager.getObjectManager() != null) {
-                            manager.getObjectManager().clearRidingObject(player);
+                        if (GameServices.level() != null && services().objectManager() != null) {
+                            services().objectManager().clearRidingObject(player);
                         }
                         player.setAir(true);
                         player.setOnObject(false);
@@ -252,7 +250,7 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
             return; // ROM: parent is invisible during fragment-fall; fragments handle rendering
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null || config == null) {
             return;
         }
@@ -312,9 +310,8 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
     }
 
     private void initZoneConfig() {
-        LevelManager manager = LevelManager.getInstance();
-        final int zoneIndex = (manager != null && manager.getCurrentLevel() != null)
-                ? manager.getCurrentLevel().getZoneIndex()
+        final int zoneIndex = (GameServices.level() != null && services().currentLevel() != null)
+                ? services().currentLevel().getZoneIndex()
                 : -1;
 
         config = switch (zoneIndex) {
@@ -332,11 +329,10 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
     }
 
     private boolean isPlayerStanding() {
-        LevelManager manager = LevelManager.getInstance();
-        if (manager == null || manager.getObjectManager() == null) {
+        if (GameServices.level() == null || services().objectManager() == null) {
             return false;
         }
-        return manager.getObjectManager().isAnyPlayerRiding(this);
+        return services().objectManager().isAnyPlayerRiding(this);
     }
 
     private void collapse() {
@@ -352,15 +348,14 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
         mappingFrame = 1;  // Show collapsed appearance
 
         // Play collapse sound
-        AudioManager.getInstance().playSfx(Sonic2Sfx.SMASH.id);
+        services().playSfx(Sonic2Sfx.SMASH.id);
 
         // Spawn visual-only fragments (they do NOT provide collision)
         spawnFragments();
 
         // Mark as remembered to prevent respawn (ROM-accurate behavior)
-        LevelManager manager = LevelManager.getInstance();
-        if (manager != null && manager.getObjectManager() != null) {
-            manager.getObjectManager().markRemembered(spawn);
+        if (GameServices.level() != null && services().objectManager() != null) {
+            services().objectManager().markRemembered(spawn);
         }
 
         LOGGER.fine(() -> String.format("CollapsingPlatform at (%d,%d) collapsed, spawning %d fragments",
@@ -368,8 +363,8 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
     }
 
     private void spawnFragments() {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectManager objectManager = services().objectManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (objectManager == null) {
             return;
         }

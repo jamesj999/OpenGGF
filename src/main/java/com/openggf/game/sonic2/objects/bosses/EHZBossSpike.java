@@ -1,10 +1,10 @@
 package com.openggf.game.sonic2.objects.bosses;
 
+import com.openggf.game.GameServices;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.objects.boss.AbstractBossChild;
@@ -66,7 +66,7 @@ public class EHZBossSpike extends AbstractBossChild implements TouchResponseProv
     }
 
     private void updateApproach() {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         if (camera != null && camera.getMinX() < CAMERA_GATE_X) {
             return;
         }
@@ -201,7 +201,7 @@ public class EHZBossSpike extends AbstractBossChild implements TouchResponseProv
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

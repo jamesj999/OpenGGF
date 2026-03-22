@@ -5,7 +5,6 @@ import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -92,7 +91,7 @@ public class SpikyBlockObjectInstance extends AbstractObjectInstance
         SpikyBlockSpikeInstance spike = new SpikyBlockSpikeInstance(
                 childSpawn, "SpikyBlock-Spike", initialDirection, initialPosition);
 
-        LevelManager.getInstance().getObjectManager().addDynamicObject(spike);
+        services().objectManager().addDynamicObject(spike);
     }
 
     @Override
@@ -124,7 +123,7 @@ public class SpikyBlockObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

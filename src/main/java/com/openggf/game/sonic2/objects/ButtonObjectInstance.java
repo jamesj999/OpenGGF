@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.ButtonVineTriggerManager;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -115,7 +114,7 @@ public class ButtonObjectInstance extends AbstractObjectInstance
             // ROM: tst.b (a3) / bne.s + / move.w #SndID_Blip,d0 / jsr (PlaySound).l
             // Sound plays only when entire trigger byte is zero (no bits set by any source)
             if (!ButtonVineTriggerManager.testAny(switchId)) {
-                AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_BLIP);
+                services().playSfx(Sonic2AudioConstants.SFX_BLIP);
             }
 
             // ROM: bset d3,(a3) - set the trigger bit

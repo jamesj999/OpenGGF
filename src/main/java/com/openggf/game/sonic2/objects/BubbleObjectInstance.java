@@ -1,10 +1,9 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
@@ -142,11 +141,10 @@ public class BubbleObjectInstance extends AbstractObjectInstance {
         // Check if reached water surface (bubble pops)
         // Use getFeatureZoneId/ActId to match the keys WaterSystem stores configs
         // under (important for S1 SBZ3 which remaps from LZ).
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager != null && levelManager.getCurrentLevel() != null) {
+        if (GameServices.level() != null && services().currentLevel() != null) {
             WaterSystem waterSystem = WaterSystem.getInstance();
-            int zoneId = levelManager.getFeatureZoneId();
-            int actId = levelManager.getFeatureActId();
+            int zoneId = GameServices.level().getFeatureZoneId();
+            int actId = GameServices.level().getFeatureActId();
 
             if (waterSystem.hasWater(zoneId, actId)) {
                 int waterY = waterSystem.getWaterLevelY(zoneId, actId);
@@ -220,7 +218,7 @@ public class BubbleObjectInstance extends AbstractObjectInstance {
 
             // Play inhaling sound
             try {
-                AudioManager.getInstance().playSfx(Sonic2Sfx.INHALING_BUBBLE.id);
+                services().playSfx(Sonic2Sfx.INHALING_BUBBLE.id);
             } catch (Exception e) {
                 // Don't let audio failure break game logic
             }

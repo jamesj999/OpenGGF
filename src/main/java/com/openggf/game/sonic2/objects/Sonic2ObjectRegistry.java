@@ -1,4 +1,5 @@
 package com.openggf.game.sonic2.objects;
+import com.openggf.game.GameServices;
 import com.openggf.level.objects.ExplosionObjectInstance;
 
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
@@ -8,7 +9,6 @@ import com.openggf.game.sonic2.objects.bosses.Sonic2MCZBossInstance;
 import com.openggf.level.objects.AbstractObjectRegistry;
 import com.openggf.level.objects.ObjectFactory;
 import com.openggf.level.objects.ObjectInstance;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.game.sonic2.objects.badniks.AsteronBadnikInstance;
 import com.openggf.game.sonic2.objects.badniks.AquisBadnikInstance;
@@ -355,7 +355,7 @@ public class Sonic2ObjectRegistry extends AbstractObjectRegistry {
                 (spawn, registry) -> new BossExplosionObjectInstance(
                         spawn.x(),
                         spawn.y(),
-                        LevelManager.getInstance().getObjectRenderManager(),
+                        GameServices.level().getObjectRenderManager(),
                         Sonic2Sfx.BOSS_EXPLOSION.id));
 
         // SwingingPlatform (Object 0x15) - chain-suspended platform in OOZ, ARZ, MCZ

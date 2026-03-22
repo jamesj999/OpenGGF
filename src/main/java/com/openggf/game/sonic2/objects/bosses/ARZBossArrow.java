@@ -1,10 +1,9 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -48,8 +47,6 @@ public class ARZBossArrow extends AbstractObjectInstance
             { 0x0F, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
                     4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 0xF9 }
     };
-
-    private final LevelManager levelManager;
     private final Sonic2ARZBossInstance mainBoss;
     private final ARZBossEyes eyes;
     private final boolean fromRightPillar;
@@ -70,9 +67,8 @@ public class ARZBossArrow extends AbstractObjectInstance
     private int arrowAnimFrame;
     private int arrowAnimTimer;
 
-    public ARZBossArrow(ObjectSpawn spawn, LevelManager levelManager, Sonic2ARZBossInstance mainBoss, ARZBossEyes eyes, boolean fromRightPillar) {
+    public ARZBossArrow(ObjectSpawn spawn, Sonic2ARZBossInstance mainBoss, ARZBossEyes eyes, boolean fromRightPillar) {
         super(spawn, "ARZ Boss Arrow");
-        this.levelManager = levelManager;
         this.mainBoss = mainBoss;
         this.eyes = eyes;
         this.fromRightPillar = fromRightPillar;
@@ -131,7 +127,7 @@ public class ARZBossArrow extends AbstractObjectInstance
             if (nextX <= LEFT_ARROW_STOP_X) {
                 x = LEFT_ARROW_STOP_X;
                 routineState = ARROW_SUB_STUCK;
-                AudioManager.getInstance().playSfx(Sonic2Sfx.ARROW_STICK.id);
+                services().playSfx(Sonic2Sfx.ARROW_STICK.id);
             } else {
                 x = nextX;
             }
@@ -139,7 +135,7 @@ public class ARZBossArrow extends AbstractObjectInstance
             if (nextX >= RIGHT_ARROW_STOP_X) {
                 x = RIGHT_ARROW_STOP_X;
                 routineState = ARROW_SUB_STUCK;
-                AudioManager.getInstance().playSfx(Sonic2Sfx.ARROW_STICK.id);
+                services().playSfx(Sonic2Sfx.ARROW_STICK.id);
             } else {
                 x = nextX;
             }
@@ -176,13 +172,13 @@ public class ARZBossArrow extends AbstractObjectInstance
     }
 
     private void dropPlayers(AbstractPlayableSprite player) {
-        if (player == null || levelManager == null || levelManager.getObjectManager() == null) {
+        if (player == null || GameServices.level() == null || services().objectManager() == null) {
             return;
         }
-        if (!levelManager.getObjectManager().isRidingObject(player, this)) {
+        if (!services().objectManager().isRidingObject(player, this)) {
             return;
         }
-        levelManager.getObjectManager().clearRidingObject(player);
+        services().objectManager().clearRidingObject(player);
         player.setOnObject(false);
         player.setAir(true);
     }
@@ -229,7 +225,7 @@ public class ARZBossArrow extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = levelManager != null ? levelManager.getObjectRenderManager() : null;
+        ObjectRenderManager renderManager = GameServices.level() != null ? services().renderManager() : null;
         if (renderManager == null) {
             return;
         }

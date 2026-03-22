@@ -9,7 +9,6 @@ import com.openggf.game.GameServices;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.PatternDesc;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
@@ -185,7 +184,7 @@ public class SlidingSpikesObjectInstance extends AbstractObjectInstance
         }
         boolean hadRings = player.getRingCount() > 0;
         if (hadRings && !player.hasShield()) {
-            LevelManager.getInstance().spawnLostRings(player, frameCounter);
+            services().spawnLostRings(player, frameCounter);
         }
         player.applyHurtOrDeath(currentX, true, hadRings);
     }
@@ -320,7 +319,7 @@ public class SlidingSpikesObjectInstance extends AbstractObjectInstance
         }
 
         // End caps from SPIKE_SIDE sheet (HorizSpike art loaded via MCZ PLC2)
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager != null) {
             PatternSpriteRenderer spikeRenderer = renderManager.getSpikeRenderer(true);
             if (spikeRenderer != null && spikeRenderer.isReady()) {
@@ -391,7 +390,7 @@ public class SlidingSpikesObjectInstance extends AbstractObjectInstance
         // Use the camera bounds from parent class
         // This mirrors isOnScreen(margin) but with explicit coordinates
         Camera camera =
-                Camera.getInstance();
+                GameServices.camera();
         if (camera == null) {
             return true;  // Assume on-screen if no camera
         }

@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.ButtonVineTriggerManager;
@@ -115,7 +114,7 @@ public class MCZBridgeObjectInstance extends AbstractObjectInstance
 
                 // Play door slam sound if on screen
                 if (isOnScreen(WIDTH_PIXELS)) {
-                    AudioManager.getInstance().playSfx(Sonic2Sfx.DOOR_SLAM.id);
+                    services().playSfx(Sonic2Sfx.DOOR_SLAM.id);
                 }
             }
         }

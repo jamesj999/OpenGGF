@@ -1,11 +1,9 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
-import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2AudioConstants;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -177,13 +175,12 @@ public class TiltingPlatformObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null) {
+        if (GameServices.level() == null) {
             appendDebugBox(commands);
             return;
         }
-        PatternSpriteRenderer renderer = levelManager.getObjectRenderManager() != null
-                ? levelManager.getObjectRenderManager().getRenderer(Sonic2ObjectArtKeys.WFZ_TILT_PLATFORM)
+        PatternSpriteRenderer renderer = services().renderManager() != null
+                ? services().renderManager().getRenderer(Sonic2ObjectArtKeys.WFZ_TILT_PLATFORM)
                 : null;
         if (renderer == null || !renderer.isReady()) {
             appendDebugBox(commands);
@@ -275,7 +272,7 @@ public class TiltingPlatformObjectInstance extends AbstractObjectInstance
                     // loc_3B7F8: spawn VerticalLaser child (ObjB7)
                     spawnVerticalLaser();
                     // moveq #signextendB(SndID_Fire),d0 / jmpto JmpTo12_PlaySound
-                    AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_FIRE);
+                    services().playSfx(Sonic2AudioConstants.SFX_FIRE);
                 }
             }
             case 4 -> {
@@ -585,14 +582,13 @@ public class TiltingPlatformObjectInstance extends AbstractObjectInstance
      * ROM: bclr p1_standing_bit/p2_standing_bit, then bclr on_object + bset in_air.
      */
     private void dropRidingPlayers() {
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (GameServices.level() == null || services().objectManager() == null) {
             return;
         }
-        ObjectManager objectManager = levelManager.getObjectManager();
+        ObjectManager objectManager = services().objectManager();
 
         // Get main character (ROM: MainCharacter)
-        AbstractPlayableSprite main = Camera.getInstance().getFocusedSprite();
+        AbstractPlayableSprite main = GameServices.camera().getFocusedSprite();
         if (main != null && objectManager.isRidingObject(main, this)) {
             objectManager.clearRidingObject(main);
         }
@@ -617,14 +613,13 @@ public class TiltingPlatformObjectInstance extends AbstractObjectInstance
      *   render_flags=level_fg, priority=4, width_pixels=$18, collision_flags=$A9.
      */
     private void spawnVerticalLaser() {
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (GameServices.level() == null || services().objectManager() == null) {
             return;
         }
 
         VerticalLaserObjectInstance laser = new VerticalLaserObjectInstance(
                 spawn, spawn.x(), spawn.y());
-        levelManager.getObjectManager().addDynamicObject(laser);
+        services().objectManager().addDynamicObject(laser);
     }
 
     /**
@@ -645,7 +640,7 @@ public class TiltingPlatformObjectInstance extends AbstractObjectInstance
      * -> x_flip is SET when d0 == 0 (player to the LEFT)
      */
     private boolean isPlayerToLeft(AbstractPlayableSprite player) {
-        AbstractPlayableSprite main = Camera.getInstance().getFocusedSprite();
+        AbstractPlayableSprite main = GameServices.camera().getFocusedSprite();
 
         // Determine the closest player by absolute horizontal distance
         AbstractPlayableSprite closest = null;
@@ -682,11 +677,10 @@ public class TiltingPlatformObjectInstance extends AbstractObjectInstance
     }
 
     private boolean isAnyPlayerRiding() {
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (GameServices.level() == null || services().objectManager() == null) {
             return false;
         }
-        return levelManager.getObjectManager().isAnyPlayerRiding(this);
+        return services().objectManager().isAnyPlayerRiding(this);
     }
 
     /**

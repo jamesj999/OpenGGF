@@ -1,6 +1,6 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
@@ -8,7 +8,6 @@ import com.openggf.game.sonic2.objects.HtzGroundFireObjectInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.objects.boss.AbstractBossChild;
 import com.openggf.physics.ObjectTerrainUtils;
@@ -116,7 +115,7 @@ public class HTZBossLavaBall extends AbstractBossChild implements TouchResponseP
             // Hit the floor - transform to fire trail spawner (Obj20 routine $A)
             // ROM: s2.asm:64016-64060 - transforms to Obj20 with routine=$A,
             // objoff_32=9, objoff_36=3, spawning fire trail along ground
-            AudioManager.getInstance().playSfx(Sonic2Sfx.FIRE_BURN.id);
+            services().playSfx(Sonic2Sfx.FIRE_BURN.id);
 
             int floorY = currentY + floor.distance();
             // Spread direction matches lava ball X velocity
@@ -127,7 +126,7 @@ public class HTZBossLavaBall extends AbstractBossChild implements TouchResponseP
             // ROM: objoff_36(a0) = 3
             HtzGroundFireObjectInstance groundFire = new HtzGroundFireObjectInstance(
                     currentX, floorY, spreadDir, 3);
-            LevelManager.getInstance().getObjectManager().addDynamicObject(groundFire);
+            services().objectManager().addDynamicObject(groundFire);
 
             setDestroyed(true);
             return;
@@ -169,10 +168,8 @@ public class HTZBossLavaBall extends AbstractBossChild implements TouchResponseP
         if (isDestroyed()) {
             return;
         }
-
-        LevelManager levelMgr = LevelManager.getInstance();
         ObjectRenderManager renderManager =
-                levelMgr != null ? levelMgr.getObjectRenderManager() : null;
+                GameServices.level() != null ? services().renderManager() : null;
         if (renderManager == null) {
             return;
         }

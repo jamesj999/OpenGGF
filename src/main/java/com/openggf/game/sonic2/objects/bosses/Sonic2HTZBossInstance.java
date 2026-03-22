@@ -1,13 +1,11 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.GameServices;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.boss.AbstractBossInstance;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -305,7 +303,7 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
             if (getCustomFlag(OBJOFF_LAVA_SPAWNED) == 0) {
                 setCustomFlag(OBJOFF_LAVA_SPAWNED, 1);
                 spawnLavaBalls();
-                AudioManager.getInstance().playSfx(Sonic2Sfx.ARROW_FIRING.id);
+                services().playSfx(Sonic2Sfx.ARROW_FIRING.id);
             }
         }
 
@@ -363,14 +361,14 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
             if (!defeatFleeStarted) {
                 defeatFleeStarted = true;
                 GameServices.gameState().setCurrentBossId(0);
-                AudioManager.getInstance().playMusic(Sonic2Music.HILL_TOP.id);
+                services().playMusic(Sonic2Music.HILL_TOP.id);
             }
 
             // Flee - sink into lava
             state.y += 2;
             state.yFixed = state.y << 16;
 
-            Camera camera = Camera.getInstance();
+            Camera camera = GameServices.camera();
             if (camera.getMaxX() < 0x3160) {
                 camera.setMaxX((short) (camera.getMaxX() + 2));
                 return;
@@ -533,8 +531,7 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
 
         HTZBossSmokeParticle smoke = new HTZBossSmokeParticle(
                 state.x,
-                state.y - 0x28,
-                com.openggf.game.GameServices.level()
+                state.y - 0x28
         );
 
         services().objectManager().addDynamicObject(smoke);

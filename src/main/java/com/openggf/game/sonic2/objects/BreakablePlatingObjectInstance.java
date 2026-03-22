@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.debug.DebugRenderContext;
@@ -9,7 +8,6 @@ import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
 import com.openggf.game.sonic2.constants.Sonic2AudioConstants;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -366,7 +364,7 @@ public class BreakablePlatingObjectInstance extends AbstractObjectInstance
      * In our engine, we spawn all 4 as dynamic objects and mark this parent as destroyed.
      */
     private void startBreakup() {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -387,7 +385,7 @@ public class BreakablePlatingObjectInstance extends AbstractObjectInstance
         }
 
         // ROM: move.w #SndID_SlowSmash,d0 / jmp (PlaySound).l
-        AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_SLOW_SMASH);
+        services().playSfx(Sonic2AudioConstants.SFX_SLOW_SMASH);
 
         // Mark parent as destroyed (fragments handle their own lifecycle)
         routine = Routine.BREAKUP;
@@ -553,7 +551,7 @@ public class BreakablePlatingObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

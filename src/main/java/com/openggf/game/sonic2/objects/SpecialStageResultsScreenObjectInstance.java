@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.level.objects.AbstractResultsScreen;
@@ -450,7 +449,6 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
 
         LOGGER.fine("Extracted " + copiedLetters + " letters from TitleCard2");
     }
-
 
     private void ensureArtCached() {
         if (artCached) {
@@ -1166,7 +1164,7 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
     @Override
     protected void playTickSound() {
         try {
-            AudioManager.getInstance().playSfx(Sonic2Sfx.BLIP.id);
+            services().playSfx(Sonic2Sfx.BLIP.id);
         } catch (Exception e) {
             // Ignore audio errors
         }
@@ -1175,7 +1173,7 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
     @Override
     protected void playTallyEndSound() {
         try {
-            AudioManager.getInstance().playSfx(Sonic2Sfx.TALLY_END.id);
+            services().playSfx(Sonic2Sfx.TALLY_END.id);
         } catch (Exception e) {
             // Ignore audio errors
         }

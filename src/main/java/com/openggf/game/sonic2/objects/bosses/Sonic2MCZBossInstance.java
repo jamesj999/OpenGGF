@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.GameServices;
@@ -8,7 +7,6 @@ import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.EggPrisonObjectInstance;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.boss.AbstractBossInstance;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -547,7 +545,7 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
         } else if (countdown == 0x18) {
             // Play level music and load animal PLCs
             state.yVel = 0;
-            AudioManager.getInstance().playMusic(Sonic2Music.MYSTIC_CAVE.id);
+            services().playMusic(Sonic2Music.MYSTIC_CAVE.id);
         } else if (countdown >= 0x20) {
             // ROM writes to Boss_AnimationArray bytes here, but AnimateBoss is NEVER
             // called in SubA or SubC - those writes are inert. The actual mapframes
@@ -569,7 +567,7 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
         state.xVel = ESCAPE_X_VEL;
         state.yVel = ESCAPE_Y_VEL;
 
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         // ROM: cmpi.w #$2240,(Camera_Max_X_pos).w
         if (camera.getMaxX() < 0x2240) {
             camera.setMaxX((short) (camera.getMaxX() + 2));

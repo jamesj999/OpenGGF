@@ -1,6 +1,6 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.game.OscillationManager;
 import com.openggf.game.sonic2.S2SpriteDataLoader;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
@@ -8,7 +8,6 @@ import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.PatternDesc;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.PlatformBobHelper;
@@ -300,7 +299,7 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
         baseYFixed += yVel;
         yVel += FALL_GRAVITY;
 
-        int cameraMaxY = Camera.getInstance().getMaxY();
+        int cameraMaxY = GameServices.camera().getMaxY();
         if ((baseYFixed >> 8) > cameraMaxY + OFFSCREEN_Y_MARGIN) {
             setDestroyed(true);
         }
@@ -342,8 +341,7 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
     }
 
     private boolean isAquaticRuin() {
-        LevelManager manager = LevelManager.getInstance();
-        return manager != null && manager.getCurrentZone() == Sonic2Constants.ZONE_AQUATIC_RUIN;
+        return GameServices.level() != null && GameServices.level().getCurrentZone() == Sonic2Constants.ZONE_AQUATIC_RUIN;
     }
 
     private List<SpriteMappingFrame> resolveMappings() {

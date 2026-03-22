@@ -2,12 +2,10 @@ package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.GameServices;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.TrigLookupTable;
@@ -224,7 +222,7 @@ public class BumperObjectInstance extends AbstractObjectInstance {
         bounceCooldown = BOUNCE_COOLDOWN;
 
         // Play sound
-        AudioManager.getInstance().playSfx(GameSound.BUMPER);
+        GameServices.audio().playSfx(GameSound.BUMPER);
 
         // Award 10 points and spawn points display (ROM: lines 44675-44683)
         GameServices.gameState().addScore(10);

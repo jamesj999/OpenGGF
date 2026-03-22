@@ -1,6 +1,6 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.GameServices;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
@@ -9,7 +9,6 @@ import com.openggf.game.sonic2.ButtonVineTriggerManager;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -174,9 +173,8 @@ public class MovingVineObjectInstance extends AbstractObjectInstance {
      * ROM: cmpi.b #wing_fortress_zone,(Current_Zone).w
      */
     private ZoneVariant determineZoneVariant() {
-        LevelManager manager = LevelManager.getInstance();
-        if (manager != null && manager.getCurrentLevel() != null) {
-            int zoneId = manager.getCurrentLevel().getZoneIndex();
+        if (GameServices.level() != null && services().currentLevel() != null) {
+            int zoneId = services().currentLevel().getZoneIndex();
             if (zoneId == Sonic2ZoneConstants.ROM_ZONE_WFZ) {
                 return ZoneVariant.WFZ;
             }
@@ -466,7 +464,7 @@ public class MovingVineObjectInstance extends AbstractObjectInstance {
 
             // Play blip sound
             // ROM: move.w #SndID_Blip,d0 / jsr (PlaySound).l
-            AudioManager.getInstance().playSfx(Sonic2Sfx.BLIP.id);
+            services().playSfx(Sonic2Sfx.BLIP.id);
         }
 
         LOGGER.fine(() -> String.format("Player grabbed vine at (%d,%d), switchId=%d",

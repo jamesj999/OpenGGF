@@ -1,14 +1,13 @@
 package com.openggf.game.sonic2.objects;
+import com.openggf.game.GameServices;
 import com.openggf.level.objects.SpringHelper;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -146,11 +145,10 @@ public class SteamSpringObjectInstance extends AbstractObjectInstance
      * First puff at x+0x28, second at x-0x28 (with x_flip).
      */
     private void spawnSteamPuffs() {
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null) {
+        if (GameServices.level() == null) {
             return;
         }
-        ObjectManager objectManager = levelManager.getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -253,8 +251,8 @@ public class SteamSpringObjectInstance extends AbstractObjectInstance
 
         // ROM: move.w #SndID_Spring,d0 / jmp (PlaySound).l
         try {
-            if (AudioManager.getInstance() != null) {
-                AudioManager.getInstance().playSfx(GameSound.SPRING);
+            if (GameServices.audio() != null) {
+                GameServices.audio().playSfx(GameSound.SPRING);
             }
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic
@@ -277,7 +275,7 @@ public class SteamSpringObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager != null) {
             PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.MTZ_STEAM_PISTON);
             if (renderer != null && renderer.isReady()) {

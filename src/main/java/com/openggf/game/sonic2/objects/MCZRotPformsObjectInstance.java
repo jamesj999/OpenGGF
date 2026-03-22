@@ -3,7 +3,6 @@ package com.openggf.game.sonic2.objects;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -315,7 +314,7 @@ public class MCZRotPformsObjectInstance extends AbstractObjectInstance
         // Check if player is riding this object
         // In the original, this is done via status bit flags
         // We check if we're the player's riding object
-        ObjectManager manager = LevelManager.getInstance().getObjectManager();
+        ObjectManager manager = services().objectManager();
         if (manager != null) {
             return manager.isAnyPlayerRiding(this);
         }
@@ -328,7 +327,7 @@ public class MCZRotPformsObjectInstance extends AbstractObjectInstance
      * Disassembly lines 53685-53705
      */
     private void spawnChildren() {
-        ObjectManager manager = LevelManager.getInstance().getObjectManager();
+        ObjectManager manager = services().objectManager();
         if (manager == null) {
             return;
         }
@@ -384,7 +383,7 @@ public class MCZRotPformsObjectInstance extends AbstractObjectInstance
         }
 
         // Try to render using loaded art
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         PatternSpriteRenderer renderer = null;
 
         if (renderManager != null) {

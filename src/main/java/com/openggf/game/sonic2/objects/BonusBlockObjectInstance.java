@@ -2,11 +2,9 @@ package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.GameServices;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -292,7 +290,7 @@ public class BonusBlockObjectInstance extends AbstractObjectInstance {
         applyBounce(player);
 
         // Play sound on every hit (ROM: line 59667)
-        AudioManager.getInstance().playSfx(GameSound.BONUS_BUMPER);
+        GameServices.audio().playSfx(GameSound.BONUS_BUMPER);
 
         int points = 10;  // Default for all hits
 
@@ -312,7 +310,7 @@ public class BonusBlockObjectInstance extends AbstractObjectInstance {
             hitCount++;
 
             // Mark as destroyed in persistence table to prevent respawning
-            ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+            ObjectManager objectManager = services().objectManager();
             if (objectManager != null) {
                 objectManager.markRemembered(spawn);
             }

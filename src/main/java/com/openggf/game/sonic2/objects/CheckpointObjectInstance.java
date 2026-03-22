@@ -9,10 +9,8 @@ import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -70,7 +68,7 @@ public class CheckpointObjectInstance extends BoxObjectInstance {
         this.cameraLockFlag = (spawn.subtype() & 0x80) != 0;
 
         // Check if already activated (respawn persistence)
-        var checkpointState = LevelManager.getInstance().getCheckpointState();
+        var checkpointState = GameServices.level().getCheckpointState();
         if (checkpointState != null && checkpointState.getLastCheckpointIndex() >= this.checkpointIndex) {
             this.activated = true;
             this.animId = ANIM_BLINKING;
@@ -121,7 +119,7 @@ public class CheckpointObjectInstance extends BoxObjectInstance {
 
     private void checkActivation(AbstractPlayableSprite player) {
         // Guard: don't activate if a higher/equal checkpoint was already hit
-        var checkpointState = LevelManager.getInstance().getCheckpointState();
+        var checkpointState = services().checkpointState();
         if (checkpointState == null) {
             return;
         }
@@ -166,7 +164,7 @@ public class CheckpointObjectInstance extends BoxObjectInstance {
 
         // Play checkpoint sound
         try {
-            AudioManager.getInstance().playSfx(Sonic2Sfx.CHECKPOINT.id);
+            services().playSfx(Sonic2Sfx.CHECKPOINT.id);
         } catch (Exception e) {
             // Don't let audio failure break game logic
         }
@@ -187,7 +185,7 @@ public class CheckpointObjectInstance extends BoxObjectInstance {
     }
 
     private void spawnDongle() {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null) {
             objectManager.addDynamicObject(new CheckpointDongleInstance(this));
         }
@@ -195,7 +193,7 @@ public class CheckpointObjectInstance extends BoxObjectInstance {
 
     private boolean shouldSpawnStars(AbstractPlayableSprite player) {
         // ROM: not 2P, emeralds < 7, rings >= 50, AND not already used for SS entry
-        var checkpointState = LevelManager.getInstance().getCheckpointState();
+        var checkpointState = services().checkpointState();
         if (checkpointState instanceof CheckpointState cs && cs.isUsedForSpecialStage()) {
             return false;
         }
@@ -213,7 +211,7 @@ public class CheckpointObjectInstance extends BoxObjectInstance {
      * Prevents stars from respawning when returning from special stage.
      */
     public void markUsedForSpecialStage() {
-        var checkpointState = LevelManager.getInstance().getCheckpointState();
+        var checkpointState = services().checkpointState();
         if (checkpointState instanceof CheckpointState cs) {
             cs.markUsedForSpecialStage();
         }
@@ -221,7 +219,7 @@ public class CheckpointObjectInstance extends BoxObjectInstance {
     }
 
     private void spawnStars() {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -245,7 +243,7 @@ public class CheckpointObjectInstance extends BoxObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             super.appendRenderCommands(commands);
             return;

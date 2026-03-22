@@ -1,13 +1,11 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.EggPrisonObjectInstance;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.boss.AbstractBossChild;
@@ -275,7 +273,7 @@ public class Sonic2EHZBossInstance extends AbstractBossInstance {
                 waitTimer = 0x32;
                 // Clear boss fight active flag so right boundary expands
                 GameServices.gameState().setCurrentBossId(0);
-                AudioManager.getInstance().playMusic(Sonic2Music.EMERALD_HILL.id);
+                services().playMusic(Sonic2Music.EMERALD_HILL.id);
             }
             case 2 -> {
                 // ROM: s2.asm:63060-63068 (loc_2F424 - SubA_2: Waiting)
@@ -300,7 +298,7 @@ public class Sonic2EHZBossInstance extends AbstractBossInstance {
                 }
                 syncFixedFromPosition();
 
-                Camera camera = Camera.getInstance();
+                Camera camera = GameServices.camera();
                 if (camera.getMaxX() < CAMERA_MAX_X_TARGET) {
                     camera.setMaxXTarget((short) (camera.getMaxX() + 2));
                 } else if (!isOnScreen()) {

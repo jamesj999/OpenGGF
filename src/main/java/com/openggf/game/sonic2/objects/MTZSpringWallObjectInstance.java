@@ -1,7 +1,7 @@
 package com.openggf.game.sonic2.objects;
+import com.openggf.game.GameServices;
 import com.openggf.level.objects.SpringHelper;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
@@ -224,8 +224,8 @@ public class MTZSpringWallObjectInstance extends AbstractObjectInstance
 
         // From disassembly: move.w #SndID_Spring,d0 / jmp (PlaySound).l
         try {
-            if (AudioManager.getInstance() != null) {
-                AudioManager.getInstance().playSfx(GameSound.SPRING);
+            if (GameServices.audio() != null) {
+                GameServices.audio().playSfx(GameSound.SPRING);
             }
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic
