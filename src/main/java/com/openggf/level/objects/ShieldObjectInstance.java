@@ -10,10 +10,11 @@ import com.openggf.graphics.RenderPriority;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.PowerUpObject;
 
 import java.util.List;
 
-public class ShieldObjectInstance extends AbstractObjectInstance {
+public class ShieldObjectInstance extends AbstractObjectInstance implements PowerUpObject {
     private final PlayableEntity player;
     private final PatternSpriteRenderer renderer;
 

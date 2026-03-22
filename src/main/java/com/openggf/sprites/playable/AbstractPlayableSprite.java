@@ -1,17 +1,18 @@
 package com.openggf.sprites.playable;
 
 import com.openggf.camera.Camera;
-import com.openggf.game.sonic1.objects.Sonic1SplashObjectInstance;
 import com.openggf.game.AnimationId;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
-import com.openggf.level.objects.SplashObjectInstance;
 import com.openggf.game.CrossGameFeatureProvider;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
+import com.openggf.game.InstaShieldHandle;
 import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.game.PhysicsModifiers;
 import com.openggf.game.PhysicsProfile;
 import com.openggf.game.PhysicsProvider;
+import com.openggf.game.PowerUpObject;
+import com.openggf.game.PowerUpSpawner;
 import com.openggf.game.GroundMode;
 import com.openggf.game.ShieldType;
 import com.openggf.game.DamageCause;
@@ -23,13 +24,6 @@ import java.util.logging.Logger;
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.level.LevelManager;
-import com.openggf.level.objects.InvincibilityStarsObjectInstance;
-import com.openggf.level.objects.ShieldObjectInstance;
-import com.openggf.game.sonic3k.objects.FireShieldObjectInstance;
-import com.openggf.game.sonic3k.objects.LightningShieldObjectInstance;
-import com.openggf.game.sonic3k.objects.BubbleShieldObjectInstance;
-import com.openggf.game.sonic3k.objects.InstaShieldObjectInstance;
-import com.openggf.level.WaterSystem;
 import com.openggf.physics.Direction;
 import com.openggf.physics.Sensor;
 import com.openggf.physics.TrigLookupTable;
@@ -329,10 +323,11 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
 
         protected boolean shield = false;
         private ShieldType shieldType = null;
-        private ShieldObjectInstance shieldObject;
-        private InstaShieldObjectInstance instaShieldObject;
+        private PowerUpObject shieldObject;
+        private InstaShieldHandle instaShieldObject;
         private boolean instaShieldRegistered = false;
-        private InvincibilityStarsObjectInstance invincibilityObject;
+        private PowerUpObject invincibilityObject;
+        private PowerUpSpawner powerUpSpawner;
         protected boolean speedShoes = false;
         /**
          * Super Sonic state flag.
@@ -455,6 +450,22 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         /**
          * Manages drowning mechanics while underwater (air countdown, bubbles, etc.).
          */
+
+        /**
+         * Sets the power-up spawner used to create shield, invincibility, splash
+         * and insta-shield objects. Injected by {@code LevelManager} during player
+         * initialization so the sprite does not need to know the concrete object types.
+         */
+        public void setPowerUpSpawner(PowerUpSpawner spawner) {
+                this.powerUpSpawner = spawner;
+        }
+
+        /**
+         * Returns the current power-up spawner, or {@code null} if not yet injected.
+         */
+        public PowerUpSpawner getPowerUpSpawner() {
+                return powerUpSpawner;
+        }
 
         /**
          * Clears all active power-ups (shield, invincibility, speed shoes).
@@ -599,17 +610,12 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                         controller.getDrowning().replenishAir();
                 }
                 try {
-                        this.shieldObject = switch (type) {
-                                case FIRE -> new FireShieldObjectInstance(this);
-                                case LIGHTNING -> new LightningShieldObjectInstance(this);
-                                case BUBBLE -> new BubbleShieldObjectInstance(this);
-                                default -> new ShieldObjectInstance(this);
-                        };
+                        this.shieldObject = powerUpSpawner != null
+                                ? powerUpSpawner.spawnShield(this, type)
+                                : null;
                         LOGGER.fine("DEBUG: ShieldObjectInstance created successfully: " + shieldObject);
-                        LevelManager.getInstance().getObjectManager().addDynamicObject(shieldObject);
-                        LOGGER.fine("DEBUG: ShieldObjectInstance added to ObjectManager.");
                         // If picked up while invincible, hide shield until invincibility ends
-                        if (invincibleFrames > 0) {
+                        if (shieldObject != null && invincibleFrames > 0) {
                                 shieldObject.setVisible(false);
                         }
                 } catch (Exception e) {
@@ -623,15 +629,15 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 return shieldType;
         }
 
-        public ShieldObjectInstance getShieldObject() {
+        public PowerUpObject getShieldObject() {
                 return shieldObject;
         }
 
-        public InstaShieldObjectInstance getInstaShieldObject() {
+        public InstaShieldHandle getInstaShieldObject() {
                 return instaShieldObject;
         }
 
-        public void setInstaShieldObject(InstaShieldObjectInstance obj) {
+        public void setInstaShieldObject(InstaShieldHandle obj) {
                 this.instaShieldObject = obj;
         }
 
@@ -644,7 +650,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 this.instaShieldRegistered = false;
         }
 
-        public InvincibilityStarsObjectInstance getInvincibilityObject() {
+        public PowerUpObject getInvincibilityObject() {
                 return invincibilityObject;
         }
 
@@ -674,9 +680,8 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 if (shieldObject != null) {
                         shieldObject.setVisible(false);
                 }
-                if (invincibilityObject == null) {
-                        invincibilityObject = new InvincibilityStarsObjectInstance(this);
-                        LevelManager.getInstance().getObjectManager().addDynamicObject(invincibilityObject);
+                if (invincibilityObject == null && powerUpSpawner != null) {
+                        invincibilityObject = powerUpSpawner.spawnInvincibilityStars(this);
                 }
         }
 
@@ -1253,9 +1258,8 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 // Lazy-register insta-shield with ObjectManager if not yet done (e.g. created before level load).
                 // When registered, ObjectManager drives update(); explicit call only needed for headless tests.
                 if (instaShieldObject != null && !instaShieldRegistered) {
-                        LevelManager lm = LevelManager.getInstance();
-                        if (lm != null && lm.getObjectManager() != null) {
-                                lm.getObjectManager().addDynamicObject(instaShieldObject);
+                        if (powerUpSpawner != null) {
+                                powerUpSpawner.registerObject(instaShieldObject);
                                 instaShieldRegistered = true;
                         } else {
                                 instaShieldObject.update(0, this);
@@ -1961,8 +1965,8 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 // ROM (sonic3k.asm:20614-20615): character_id == 0 check — Sonic only, not Tails/Knuckles
                 if (physicsFeatureSet != null && physicsFeatureSet.instaShieldEnabled()
                         && getSecondaryAbility() == SecondaryAbility.INSTA_SHIELD) {
-                        if (instaShieldObject == null) {
-                                instaShieldObject = new InstaShieldObjectInstance(this);
+                        if (instaShieldObject == null && powerUpSpawner != null) {
+                                instaShieldObject = powerUpSpawner.createInstaShield(this);
                         }
                         // Registration deferred to tickStatus() to avoid double-add
                         // when resolvePhysicsProfile() and tickStatus() both run on the same frame
@@ -2827,35 +2831,9 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          * The splash appears at the player's X position at the water level Y.
          */
         private void spawnSplash() {
-                LevelManager levelManager = LevelManager.getInstance();
-                if (levelManager == null || levelManager.getObjectManager() == null) {
-                        return;
+                if (powerUpSpawner != null) {
+                        powerUpSpawner.spawnSplash(this);
                 }
-
-                var level = levelManager.getCurrentLevel();
-                if (level == null) {
-                        return;
-                }
-
-                // Get water level from WaterSystem
-                // Use getVisualWaterLevelY so splash appears at the oscillating water surface (CPZ2)
-                var waterSystem = WaterSystem.getInstance();
-                int waterY = waterSystem.getVisualWaterLevelY(level.getZoneIndex(), levelManager.getCurrentAct());
-
-                // S2/S3K: use dust/splash renderer from SpindashDustController
-                SpindashDustController dustController = getSpindashDustController();
-                if (dustController != null && dustController.getRenderer() != null) {
-                        var splash = new SplashObjectInstance(
-                                        getCentreX(), waterY, dustController.getRenderer(),
-                                        direction == Direction.LEFT);
-                        levelManager.getObjectManager().addDynamicObject(splash);
-                        return;
-                }
-
-                // S1: use LZ splash art from ObjectRenderManager (Object 0x08)
-                var s1Splash = new Sonic1SplashObjectInstance(
-                                getCentreX(), waterY);
-                levelManager.getObjectManager().addDynamicObject(s1Splash);
         }
 
         /**

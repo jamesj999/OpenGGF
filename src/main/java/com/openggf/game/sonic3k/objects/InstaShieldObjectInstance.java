@@ -1,6 +1,7 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.CrossGameFeatureProvider;
+import com.openggf.game.InstaShieldHandle;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.GameModule;
 import com.openggf.game.GameModuleRegistry;
@@ -24,7 +25,7 @@ import java.util.List;
  * Idles on animation 0 (invisible) and plays the attack animation (1) on ability use.
  * Transitions doubleJumpFlag from 1 to 2 at mapping frame 7 (end of attack animation).
  */
-public class InstaShieldObjectInstance extends ShieldObjectInstance {
+public class InstaShieldObjectInstance extends ShieldObjectInstance implements InstaShieldHandle {
 
     private static final int IDLE_ANIM = 0;
     private static final int ATTACK_ANIM = 1;

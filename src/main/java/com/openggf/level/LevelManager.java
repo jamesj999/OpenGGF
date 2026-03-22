@@ -51,8 +51,8 @@ import com.openggf.physics.Direction;
 import com.openggf.sprites.Sprite;
 import com.openggf.sprites.art.SpriteArtSet;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
-import com.openggf.level.objects.InvincibilityStarsObjectInstance;
-import com.openggf.level.objects.ShieldObjectInstance;
+import com.openggf.game.PowerUpObject;
+import com.openggf.level.objects.DefaultPowerUpSpawner;
 import com.openggf.game.sonic3k.Sonic3kPlayerArt;
 import com.openggf.sprites.managers.SpindashDustController;
 import com.openggf.sprites.managers.SpriteManager;
@@ -643,6 +643,25 @@ public class LevelManager {
                 touchResponseTable);
         // Wire up CollisionSystem with ObjectManager for unified collision pipeline
         CollisionSystem.getInstance().setObjectManager(objectManager);
+
+        // Inject PowerUpSpawner into all playable sprites
+        injectPowerUpSpawner();
+    }
+
+    /**
+     * Injects a {@link DefaultPowerUpSpawner} backed by the current
+     * {@link ObjectManager} into the main player and all sidekicks.
+     */
+    private void injectPowerUpSpawner() {
+        DefaultPowerUpSpawner spawner = new DefaultPowerUpSpawner(objectManager);
+        Sprite player = spriteManager.getSprite(
+                configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+        if (player instanceof AbstractPlayableSprite playable) {
+            playable.setPowerUpSpawner(spawner);
+        }
+        for (AbstractPlayableSprite sidekick : spriteManager.getSidekicks()) {
+            sidekick.setPowerUpSpawner(spawner);
+        }
     }
 
     /**
@@ -3191,13 +3210,15 @@ public class LevelManager {
         if (!(sprite instanceof AbstractPlayableSprite playable)) {
             return;
         }
-        ShieldObjectInstance shield = playable.getShieldObject();
+        // Re-inject spawner since ObjectManager was rebuilt
+        playable.setPowerUpSpawner(new DefaultPowerUpSpawner(objectManager));
+        PowerUpObject shield = playable.getShieldObject();
         if (shield != null && !shield.isDestroyed()) {
-            objectManager.addDynamicObject(shield);
+            playable.getPowerUpSpawner().registerObject(shield);
         }
-        InvincibilityStarsObjectInstance invincibility = playable.getInvincibilityObject();
+        PowerUpObject invincibility = playable.getInvincibilityObject();
         if (invincibility != null && !invincibility.isDestroyed()) {
-            objectManager.addDynamicObject(invincibility);
+            playable.getPowerUpSpawner().registerObject(invincibility);
         }
     }
 

@@ -24,11 +24,9 @@ import com.openggf.sprites.playable.SecondaryAbility;
 import com.openggf.sprites.animation.ScriptedVelocityAnimationProfile;
 import com.openggf.sprites.animation.SpriteAnimationProfile;
 import com.openggf.game.GroundMode;
-import com.openggf.level.objects.ShieldObjectInstance;
 import com.openggf.game.sonic3k.objects.FireShieldObjectInstance;
 import com.openggf.game.sonic3k.objects.LightningShieldObjectInstance;
 import com.openggf.game.sonic3k.objects.BubbleShieldObjectInstance;
-import com.openggf.game.sonic3k.objects.InstaShieldObjectInstance;
 
 /**
  * ROM-accurate movement handler for playable sprites.
@@ -569,7 +567,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	/** ROM: Sonic_InstaShield (sonic3k.asm:23473-23479) */
 	private void activateInstaShield() {
 		sprite.setDoubleJumpFlag(1);
-		InstaShieldObjectInstance instaShield = sprite.getInstaShieldObject();
+		var instaShield = sprite.getInstaShieldObject();
 		if (instaShield != null) {
 			instaShield.triggerAttack();
 		}
@@ -588,7 +586,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			camera.setHorizScrollDelay(32);
 		}
 		audioManager.playSfx(GameSound.FIRE_ATTACK);
-		ShieldObjectInstance shield = sprite.getShieldObject();
+		var shield = sprite.getShieldObject();
 		if (shield instanceof FireShieldObjectInstance fire) fire.setAnimation(1);
 	}
 
@@ -596,7 +594,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	private void lightningShieldJump() {
 		sprite.setYSpeed((short) -0x580);
 		audioManager.playSfx(GameSound.LIGHTNING_ATTACK);
-		ShieldObjectInstance shield = sprite.getShieldObject();
+		var shield = sprite.getShieldObject();
 		if (shield instanceof LightningShieldObjectInstance lightning) lightning.triggerSparks();
 	}
 
@@ -606,7 +604,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		sprite.setGSpeed((short) 0);
 		sprite.setYSpeed((short) 0x800);
 		audioManager.playSfx(GameSound.BUBBLE_ATTACK);
-		ShieldObjectInstance shield = sprite.getShieldObject();
+		var shield = sprite.getShieldObject();
 		if (shield instanceof BubbleShieldObjectInstance bubble) bubble.setAnimation(1);
 	}
 
@@ -1495,7 +1493,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			sprite.setY((short) (sprite.getY() + sprite.getRollHeightAdjustment()));
 		}
 		audioManager.playSfx(GameSound.BUBBLE_ATTACK);
-		ShieldObjectInstance shield = sprite.getShieldObject();
+		var shield = sprite.getShieldObject();
 		if (shield instanceof BubbleShieldObjectInstance bubble) bubble.setAnimation(2);
 	}
 

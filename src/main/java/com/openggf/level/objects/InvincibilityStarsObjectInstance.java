@@ -9,18 +9,19 @@ import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.Direction;
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.PowerUpObject;
 
 import java.util.List;
 
 /**
  * Invincibility Stars - 4 stars that orbit around Sonic.
  * Based on Obj35 from Sonic 2 disassembly.
- * 
+ *
  * byte_1DB42 from s2.asm: dc.w values
  * Each word: high byte = X offset, low byte = Y offset (signed bytes)
  * Table index incremented by 2 each step (d6), masked by 0x3E (0-30 even).
  */
-public class InvincibilityStarsObjectInstance extends AbstractObjectInstance {
+public class InvincibilityStarsObjectInstance extends AbstractObjectInstance implements PowerUpObject {
     private final PlayableEntity player;
     private final PatternSpriteRenderer renderer;
     private final boolean sonic1TrailMode;
@@ -202,5 +203,10 @@ public class InvincibilityStarsObjectInstance extends AbstractObjectInstance {
 
     public void destroy() {
         setDestroyed(true);
+    }
+
+    @Override
+    public void setVisible(boolean visible) {
+        // Invincibility stars are always visible while alive; no-op.
     }
 }
