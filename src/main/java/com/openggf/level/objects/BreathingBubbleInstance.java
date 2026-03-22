@@ -1,9 +1,7 @@
 package com.openggf.level.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.camera.Camera;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
@@ -125,11 +123,10 @@ public class BreathingBubbleInstance extends AbstractObjectInstance {
         // ROM: Bub_ChkWater compares against v_waterpos1 (gameplay water level),
         // NOT the visual level with oscillation. Use getFeatureZoneId/ActId to
         // match the keys WaterSystem stores configs under (important for SBZ3).
-        LevelManager levelManager = GameServices.level();
-        if (levelManager != null && levelManager.getCurrentLevel() != null) {
+        if (services().currentLevel() != null) {
             WaterSystem waterSystem = WaterSystem.getInstance();
-            int zoneId = levelManager.getFeatureZoneId();
-            int actId = levelManager.getFeatureActId();
+            int zoneId = services().featureZoneId();
+            int actId = services().featureActId();
 
             if (waterSystem.hasWater(zoneId, actId)) {
                 int waterY = waterSystem.getWaterLevelY(zoneId, actId);
