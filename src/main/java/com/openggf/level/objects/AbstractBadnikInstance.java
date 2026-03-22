@@ -57,6 +57,7 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
         }
         updateMovement(frameCounter, player);
         updateAnimation(frameCounter);
+        updateDynamicSpawn(currentX, currentY);
     }
 
     /**
@@ -112,22 +113,6 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
         setDestroyed(true);
         DestructionEffects.destroyBadnik(currentX, currentY, spawn, player, services(),
                 getDestructionConfig());
-    }
-
-    /**
-     * Returns a dynamic spawn with the current position for collision detection.
-     * This is critical because ObjectManager touch responses use getSpawn() position.
-     */
-    @Override
-    public ObjectSpawn getSpawn() {
-        return new ObjectSpawn(
-                currentX,
-                currentY,
-                spawn.objectId(),
-                spawn.subtype(),
-                spawn.renderFlags(),
-                spawn.respawnTracked(),
-                spawn.rawYWord());
     }
 
     @Override
