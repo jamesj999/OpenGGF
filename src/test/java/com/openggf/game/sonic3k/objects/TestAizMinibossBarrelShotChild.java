@@ -132,5 +132,15 @@ public class TestAizMinibossBarrelShotChild {
         public void onPlayerAttack(PlayableEntity player, TouchResponseResult result) {
             // No-op test stub.
         }
+
+        @Override
+        protected int getBossHitSfxId() {
+            return 0;
+        }
+
+        @Override
+        protected int getBossExplosionSfxId() {
+            return 0;
+        }
     }
 }

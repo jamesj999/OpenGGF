@@ -2,6 +2,7 @@ package com.openggf.game.sonic1.objects;
 
 import org.junit.Test;
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
+import com.openggf.level.objects.DefaultObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchCategory;
 import com.openggf.level.objects.TouchResponseResult;
@@ -154,8 +155,10 @@ public class TestSonic1PoleThatBreaksObjectInstance {
     }
 
     private static Sonic1PoleThatBreaksObjectInstance createPole(int x, int y, int subtype) {
-        return new Sonic1PoleThatBreaksObjectInstance(
+        Sonic1PoleThatBreaksObjectInstance pole = new Sonic1PoleThatBreaksObjectInstance(
                 new ObjectSpawn(x, y, 0x0B, subtype, 0, false, 0));
+        pole.setServices(new DefaultObjectServices());
+        return pole;
     }
 
     private static int getPrivateInt(Object target, String fieldName) throws Exception {

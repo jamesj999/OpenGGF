@@ -29,6 +29,7 @@ public class TestSonic1LabyrinthObjectsBasic {
     public void flappingDoorSolidityDependsOnPlayerSideWhenClosed() throws Exception {
         Sonic1FlappingDoorObjectInstance door = new Sonic1FlappingDoorObjectInstance(
                 new ObjectSpawn(200, 128, Sonic1ObjectIds.FLAPPING_DOOR, 1, 0, false, 0));
+        door.setServices(new DefaultObjectServices());
         TestPlayableSprite player = new TestPlayableSprite();
 
         setPrivateInt(door, "flapWait", 999);
@@ -48,6 +49,7 @@ public class TestSonic1LabyrinthObjectsBasic {
     public void flappingDoorClosingAnimationHoldsFullyClosedFrame() throws Exception {
         Sonic1FlappingDoorObjectInstance door = new Sonic1FlappingDoorObjectInstance(
                 new ObjectSpawn(200, 128, Sonic1ObjectIds.FLAPPING_DOOR, 1, 0, false, 0));
+        door.setServices(new DefaultObjectServices());
 
         // Keep flap toggle inactive so we only validate animation script looping.
         setPrivateInt(door, "flapWait", 999);
