@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.scroll;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.level.scroll.AbstractZoneScrollHandler;
 import com.openggf.level.scroll.M68KMath;
 
@@ -59,7 +60,7 @@ public class SwScrlScz extends AbstractZoneScrollHandler {
                        int actId) {
         resetScrollTracking();
 
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
 
         // ==================== Level Events ====================
         // ROM: LevEvents_SCZ (s2.asm lines 21793-21847)
