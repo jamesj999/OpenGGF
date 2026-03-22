@@ -300,6 +300,10 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
         return ctrl;
     }
 
+    public void resetState() {
+        close();
+    }
+
     public void close() {
         donorReader = null;
         s2PlayerArt = null;
@@ -315,6 +319,8 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
         active = false;
     }
 
+    /** @deprecated Use {@link #resetState()} for test teardown. */
+    @Deprecated
     public static synchronized void resetInstance() {
         if (instance != null) {
             instance.close();
