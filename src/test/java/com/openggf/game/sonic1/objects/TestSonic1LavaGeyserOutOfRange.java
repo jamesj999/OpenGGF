@@ -38,7 +38,7 @@ public class TestSonic1LavaGeyserOutOfRange {
 
     @Before
     public void setUp() {
-        Camera.resetInstance();
+        Camera.getInstance().resetState();
         Camera camera = Camera.getInstance();
         camera.setX((short) 0);
         camera.setY((short) 0);

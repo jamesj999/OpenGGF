@@ -17,7 +17,7 @@ public class TestSonic1FloatingBlockObjectInstance {
 
     @Before
     public void resetSwitchState() {
-        Sonic1SwitchManager.resetInstance();
+        Sonic1SwitchManager.getInstance().resetState();
     }
 
     @Test

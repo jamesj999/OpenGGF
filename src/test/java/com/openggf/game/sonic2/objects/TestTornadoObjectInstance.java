@@ -25,7 +25,7 @@ public class TestTornadoObjectInstance {
 
     @Before
     public void setUp() {
-        Camera.resetInstance();
+        Camera.getInstance().resetState();
         SpriteManager.getInstance().resetState();
         LevelManager.getInstance().resetState();
         AizPlaneIntroInstance.resetIntroPhaseState();

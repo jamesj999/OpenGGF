@@ -39,7 +39,7 @@ public class TestTodo11_SCZEventSpecs {
 
     @Before
     public void setUp() {
-        Camera.resetInstance();
+        Camera.getInstance().resetState();
         cam = Camera.getInstance();
         scrollHandler = new SwScrlScz();
         scrollHandler.init();

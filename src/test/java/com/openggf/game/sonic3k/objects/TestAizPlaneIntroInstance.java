@@ -14,7 +14,7 @@ public class TestAizPlaneIntroInstance {
 
     @Before
     public void setUp() {
-        Camera.resetInstance();
+        Camera.getInstance().resetState();
         intro = new AizPlaneIntroInstance(
                 new ObjectSpawn(0x60, 0x30, 0, 0, 0, false, 0));
     }

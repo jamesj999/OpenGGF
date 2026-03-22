@@ -15,7 +15,7 @@ public class TestFadeManager {
 
     @Test
     public void testFadeToWhiteCompletes() {
-        FadeManager.resetInstance();
+        FadeManager.getInstance().resetState();
         FadeManager fadeManager = FadeManager.getInstance();
 
         fadeManager.startFadeToWhite(null);
@@ -31,7 +31,7 @@ public class TestFadeManager {
 
     @Test
     public void testFadeToBlackWithHoldCompletes() {
-        FadeManager.resetInstance();
+        FadeManager.getInstance().resetState();
         FadeManager fadeManager = FadeManager.getInstance();
 
         fadeManager.startFadeToBlack(null, 5);

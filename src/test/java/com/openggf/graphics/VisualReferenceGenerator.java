@@ -263,6 +263,6 @@ public class VisualReferenceGenerator {
         glfwTerminate();
 
         // Reset graphics singleton for clean state
-        GraphicsManager.resetInstance();
+        GraphicsManager.getInstance().resetState();
     }
 }

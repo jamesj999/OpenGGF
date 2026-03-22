@@ -18,7 +18,7 @@ public class TestSonic1CaterkillerBodyChaining {
     @Before
     public void setUp() {
         // Ensure Camera singleton exists with clean state (matches TestBuzzBomberLifecycle pattern)
-        Camera.resetInstance();
+        Camera.getInstance().resetState();
     }
 
     @Test

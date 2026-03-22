@@ -125,7 +125,7 @@ public class TestBuzzBomberLifecycle {
     @Before
     public void setUp() {
         // Ensure Camera singleton exists with clean state (screen 320×224 from config)
-        Camera.resetInstance();
+        Camera.getInstance().resetState();
     }
 
     /**

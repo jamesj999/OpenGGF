@@ -40,7 +40,7 @@ public class TestTodo12_WFZEventSpecs {
 
     @Before
     public void setUp() {
-        Camera.resetInstance();
+        Camera.getInstance().resetState();
         cam = Camera.getInstance();
         events = new Sonic2WFZEvents();
         events.init(0);

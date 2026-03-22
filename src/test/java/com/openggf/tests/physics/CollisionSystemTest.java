@@ -20,7 +20,7 @@ public class CollisionSystemTest {
 
     @Before
     public void setUp() {
-        CollisionSystem.resetInstance();
+        CollisionSystem.getInstance().resetState();
         collisionSystem = CollisionSystem.getInstance();
         trace = new RecordingCollisionTrace();
         collisionSystem.setTrace(trace);
@@ -36,7 +36,7 @@ public class CollisionSystemTest {
 
     @Test
     public void testNoOpTraceIsDefault() {
-        CollisionSystem.resetInstance();
+        CollisionSystem.getInstance().resetState();
         CollisionSystem fresh = CollisionSystem.getInstance();
 
         assertNotNull(fresh.getTrace());

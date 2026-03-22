@@ -22,7 +22,7 @@ public class TestPostLoadAssemblyBehavior {
 
     @Before
     public void resetCamera() {
-        Camera.resetInstance();
+        Camera.getInstance().resetState();
     }
 
     // ========== Checkpoint Resume: Context Snapshot Round-Trip ==========

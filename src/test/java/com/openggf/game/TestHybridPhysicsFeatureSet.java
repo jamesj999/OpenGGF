@@ -18,12 +18,12 @@ public class TestHybridPhysicsFeatureSet {
     @Before
     public void setUp() {
         GameModuleRegistry.setCurrent(new Sonic1GameModule());
-        CrossGameFeatureProvider.resetInstance();
+        CrossGameFeatureProvider.getInstance().resetState();
     }
 
     @After
     public void tearDown() {
-        CrossGameFeatureProvider.resetInstance();
+        CrossGameFeatureProvider.getInstance().resetState();
         GameModuleRegistry.reset();
     }
 
@@ -113,7 +113,7 @@ public class TestHybridPhysicsFeatureSet {
     @Test
     public void testResetClearsActiveState() {
         // Even without full initialization, verify reset clears state
-        CrossGameFeatureProvider.resetInstance();
+        CrossGameFeatureProvider.getInstance().resetState();
         assertFalse("After reset, should not be active",
                 CrossGameFeatureProvider.isActive());
     }

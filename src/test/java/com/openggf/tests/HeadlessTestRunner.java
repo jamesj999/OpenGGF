@@ -20,7 +20,7 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
  *
  * <p>Important setup requirements for tests using this class:
  * <ul>
- *   <li>Reset singletons: GraphicsManager.resetInstance(), Camera.resetInstance()</li>
+ *   <li>Reset singletons: GraphicsManager.getInstance().resetState(), Camera.getInstance().resetState()</li>
  *   <li>Initialize headless graphics: GraphicsManager.getInstance().initHeadless()</li>
  *   <li>Load level: LevelManager.getInstance().loadZoneAndAct(zone, act)</li>
  *   <li>Fix GroundSensor: GroundSensor.setLevelManager(LevelManager.getInstance())</li>

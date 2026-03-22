@@ -41,7 +41,7 @@ public class ParallaxMczTest {
 
     @Before
     public void setUp() {
-        Camera.resetInstance();
+        Camera.getInstance().resetState();
         parallaxManager = new ParallaxManager();
         mockRom = new MockRom();
         parallaxManager.load(mockRom);

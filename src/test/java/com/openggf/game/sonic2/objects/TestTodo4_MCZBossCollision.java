@@ -41,7 +41,7 @@ public class TestTodo4_MCZBossCollision {
 
     @Before
     public void setUp() {
-        Camera.resetInstance();
+        Camera.getInstance().resetState();
         cam = Camera.getInstance();
         events = new Sonic2MCZEvents();
         events.init(1); // MCZ Act 2

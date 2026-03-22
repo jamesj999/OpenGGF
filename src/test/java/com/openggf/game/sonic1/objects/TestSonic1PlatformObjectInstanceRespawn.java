@@ -38,7 +38,7 @@ public class TestSonic1PlatformObjectInstanceRespawn {
 
     @Before
     public void setUp() {
-        Camera.resetInstance();
+        Camera.getInstance().resetState();
     }
 
     @Test

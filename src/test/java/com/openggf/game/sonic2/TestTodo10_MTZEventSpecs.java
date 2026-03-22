@@ -36,7 +36,7 @@ public class TestTodo10_MTZEventSpecs {
 
     @Before
     public void setUp() {
-        Camera.resetInstance();
+        Camera.getInstance().resetState();
         cam = Camera.getInstance();
         events = new Sonic2MTZEvents();
         events.init(0);

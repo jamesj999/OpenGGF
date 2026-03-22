@@ -82,9 +82,12 @@ public class TestAizFireCurtainGpuDiag {
             glfwMakeContextCurrent(window);
             GL.createCapabilities();
 
-            // Reset stale singleton state from prior tests (e.g. headless mode)
-            GraphicsManager.resetInstance();
-            Camera.resetInstance();
+            // Full GL teardown required here: prior tests may leave the singleton in headless mode
+            // with a different GL context. resetState() only clears per-level resources and does not
+            // reinitialize shaders or the tilemap renderer; this GPU test needs a completely fresh
+            // GraphicsManager to ensure fire tiles are rendered correctly.
+            GraphicsManager.resetInstance(); // intentional: full GL teardown needed, not resetState()
+            Camera.getInstance().resetState();
             SpriteManager.getInstance().resetState();
 
             GraphicsManager gm = GraphicsManager.getInstance();
@@ -152,8 +155,8 @@ public class TestAizFireCurtainGpuDiag {
             glfwDestroyWindow(window);
         }
         glfwTerminate();
-        GraphicsManager.resetInstance();
-        Camera.resetInstance();
+        GraphicsManager.getInstance().resetState();
+        Camera.getInstance().resetState();
     }
 
     @Test

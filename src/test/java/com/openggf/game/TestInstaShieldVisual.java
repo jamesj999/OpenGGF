@@ -83,8 +83,8 @@ public class TestInstaShieldVisual {
             GL.createCapabilities();
 
             // Reset stale singleton state from prior tests
-            GraphicsManager.resetInstance();
-            Camera.resetInstance();
+            GraphicsManager.getInstance().resetState();
+            Camera.getInstance().resetState();
             SpriteManager.getInstance().resetState();
 
             GraphicsManager gm = GraphicsManager.getInstance();
@@ -162,8 +162,8 @@ public class TestInstaShieldVisual {
             try { glfwDestroyWindow(window); } catch (Exception e) { /* ignore */ }
         }
         glfwTerminate();
-        GraphicsManager.resetInstance();
-        Camera.resetInstance();
+        GraphicsManager.getInstance().resetState();
+        Camera.getInstance().resetState();
     }
 
     @Test

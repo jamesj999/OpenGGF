@@ -76,7 +76,7 @@ public class TestS3kBpzPaletteCycling {
 
     @Before
     public void setUp() {
-        GraphicsManager.resetInstance();
+        GraphicsManager.getInstance().resetState();
         level = new StubLevel(4);
 
         // Build a minimal ROM buffer containing BPZ data at the expected addresses

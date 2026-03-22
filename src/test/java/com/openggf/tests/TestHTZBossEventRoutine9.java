@@ -21,7 +21,7 @@ public class TestHTZBossEventRoutine9 {
     @Before
     public void setUp() throws Exception {
         resetSonic2LevelEventManagerSingleton();
-        Camera.resetInstance();
+        Camera.getInstance().resetState();
         GameServices.gameState().resetSession();
 
         camera = Camera.getInstance();

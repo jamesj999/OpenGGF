@@ -31,7 +31,7 @@ public class TestTodo9_DEZEventSpecs {
 
     @Before
     public void setUp() {
-        Camera.resetInstance();
+        Camera.getInstance().resetState();
         cam = Camera.getInstance();
         events = new Sonic2DEZEvents();
         events.init(0);

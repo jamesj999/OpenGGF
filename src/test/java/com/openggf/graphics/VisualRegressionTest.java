@@ -181,7 +181,7 @@ public class VisualRegressionTest {
             }
         }
         glfwTerminate();
-        GraphicsManager.resetInstance();
+        GraphicsManager.getInstance().resetState();
     }
 
     @Test

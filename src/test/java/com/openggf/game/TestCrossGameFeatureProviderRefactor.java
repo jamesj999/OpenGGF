@@ -8,7 +8,7 @@ class TestCrossGameFeatureProviderRefactor {
 
     @AfterEach
     void cleanup() {
-        CrossGameFeatureProvider.resetInstance();
+        CrossGameFeatureProvider.getInstance().resetState();
         GameModuleRegistry.reset();
     }
 

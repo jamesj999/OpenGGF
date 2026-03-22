@@ -86,9 +86,11 @@ public class TestS3kSpecialStageResultsVisual {
             glfwMakeContextCurrent(window);
             GL.createCapabilities();
 
-            // Reset stale singleton state from prior tests (e.g. headless mode)
-            GraphicsManager.resetInstance();
-            Camera.resetInstance();
+            // Full GL teardown required here: prior tests (e.g. headless mode) leave the singleton
+            // in an incompatible state. resetState() only clears per-level resources; this GPU test
+            // needs shaders and the tilemap renderer fully re-initialized for correct pixel rendering.
+            GraphicsManager.resetInstance(); // intentional: full GL teardown needed, not resetState()
+            Camera.getInstance().resetState();
 
             GraphicsManager gm = GraphicsManager.getInstance();
             gm.init(Engine.RESOURCES_SHADERS_PIXEL_SHADER_GLSL);
@@ -138,8 +140,8 @@ public class TestS3kSpecialStageResultsVisual {
             try { glfwDestroyWindow(window); } catch (Exception e) { /* ignore */ }
         }
         glfwTerminate();
-        GraphicsManager.resetInstance();
-        Camera.resetInstance();
+        GraphicsManager.getInstance().resetState();
+        Camera.getInstance().resetState();
     }
 
     /**

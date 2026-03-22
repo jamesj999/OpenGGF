@@ -901,7 +901,7 @@ public class Engine {
 
 	private void cleanup() {
 		AudioManager.getInstance().clearDonorAudio();
-		CrossGameFeatureProvider.resetInstance();
+		CrossGameFeatureProvider.getInstance().resetState();
 		RenderContext.reset();
 		if (masterTitleScreen != null) {
 			masterTitleScreen.cleanup();

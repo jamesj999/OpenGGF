@@ -24,7 +24,7 @@ public class FadeManagerTest {
 
     @Before
     public void setUp() {
-        FadeManager.resetInstance();
+        FadeManager.getInstance().resetState();
         fadeManager = FadeManager.getInstance();
     }
 

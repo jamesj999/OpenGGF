@@ -56,8 +56,8 @@ public class TestSonic1SbzFinalZoneRouting {
 
     @After
     public void tearDown() {
-        GraphicsManager.resetInstance();
-        Camera.resetInstance();
+        GraphicsManager.getInstance().resetState();
+        Camera.getInstance().resetState();
         SpriteManager.getInstance().resetState();
     }
 
