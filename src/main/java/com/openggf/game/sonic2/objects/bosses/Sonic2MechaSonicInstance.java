@@ -963,6 +963,16 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
     public boolean isDashDirectionToggle() { return dashDirectionToggle; }
     public int getAttackSubRoutine() { return attackSubRoutine; }
 
+    @Override
+    protected int getBossHitSfxId() {
+        return Sonic2Sfx.BOSS_HIT.id;
+    }
+
+    @Override
+    protected int getBossExplosionSfxId() {
+        return Sonic2Sfx.BOSS_EXPLOSION.id;
+    }
+
     // ========================================================================
     // Child Objects
     // ========================================================================

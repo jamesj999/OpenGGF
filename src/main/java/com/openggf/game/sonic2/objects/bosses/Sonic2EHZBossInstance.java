@@ -2,7 +2,9 @@ package com.openggf.game.sonic2.objects.bosses;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.audio.Sonic2Music;
+import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.EggPrisonObjectInstance;
 import com.openggf.graphics.GLCommand;
@@ -458,7 +460,7 @@ public class Sonic2EHZBossInstance extends AbstractBossInstance {
             return;
         }
 
-        PatternSpriteRenderer renderer = renderManager.getEHZBossRenderer();
+        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.EHZ_BOSS);
         if (renderer == null || !renderer.isReady()) {
             return;
         }
@@ -466,5 +468,15 @@ public class Sonic2EHZBossInstance extends AbstractBossInstance {
         // Render main flying vehicle bottom (frame 15)
         boolean flipped = (state.renderFlags & 1) != 0;
         renderer.drawFrameIndex(15, state.x, state.y, flipped, false);
+    }
+
+    @Override
+    protected int getBossHitSfxId() {
+        return Sonic2Sfx.BOSS_HIT.id;
+    }
+
+    @Override
+    protected int getBossExplosionSfxId() {
+        return Sonic2Sfx.BOSS_EXPLOSION.id;
     }
 }

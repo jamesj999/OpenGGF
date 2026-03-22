@@ -2,6 +2,7 @@ package com.openggf.game.sonic2.objects.bosses;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.audio.Sonic2Music;
+import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.level.objects.ObjectAnimationState;
@@ -562,5 +563,15 @@ public class Sonic2CPZBossInstance extends AbstractBossInstance {
         int screenY = state.y - camera.getY();
         return screenX >= -64 && screenX <= camera.getWidth() + 64
                 && screenY >= -64 && screenY <= camera.getHeight() + 64;
+    }
+
+    @Override
+    protected int getBossHitSfxId() {
+        return Sonic2Sfx.BOSS_HIT.id;
+    }
+
+    @Override
+    protected int getBossExplosionSfxId() {
+        return Sonic2Sfx.BOSS_EXPLOSION.id;
     }
 }

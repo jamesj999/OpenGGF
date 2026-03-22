@@ -941,4 +941,14 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
         }
     }
 
+    @Override
+    protected int getBossHitSfxId() {
+        return Sonic1Sfx.HIT_BOSS.id;
+    }
+
+    @Override
+    protected int getBossExplosionSfxId() {
+        return Sonic1Sfx.BOSS_EXPLOSION.id;
+    }
+
 }

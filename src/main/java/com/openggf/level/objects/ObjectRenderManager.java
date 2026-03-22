@@ -1,7 +1,6 @@
 package com.openggf.level.objects;
 
 import com.openggf.game.ObjectArtProvider;
-import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Pattern;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -227,14 +226,6 @@ public class ObjectRenderManager {
 
     public ObjectSpriteSheet getEggPrisonSheet() {
         return provider.getSheet(ObjectArtKeys.EGG_PRISON);
-    }
-
-    public PatternSpriteRenderer getEHZBossRenderer() {
-        return provider.getRenderer(Sonic2ObjectArtKeys.EHZ_BOSS);
-    }
-
-    public ObjectSpriteSheet getEHZBossSheet() {
-        return provider.getSheet(Sonic2ObjectArtKeys.EHZ_BOSS);
     }
 
     public PatternSpriteRenderer getResultsRenderer() {

@@ -1498,6 +1498,16 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         renderer.drawFrameIndex(currentFrame, state.x, state.y, facingLeft, false);
     }
 
+    @Override
+    protected int getBossHitSfxId() {
+        return Sonic2Sfx.BOSS_HIT.id;
+    }
+
+    @Override
+    protected int getBossExplosionSfxId() {
+        return Sonic2Sfx.BOSS_EXPLOSION.id;
+    }
+
     // ========================================================================
     // INNER CLASS: ArticulatedChild - Body part with subpixel position tracking
     // ========================================================================

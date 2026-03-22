@@ -678,4 +678,14 @@ public class Sonic2ARZBossInstance extends AbstractBossInstance {
     private interface FrameSetter {
         void set(int frame);
     }
+
+    @Override
+    protected int getBossHitSfxId() {
+        return Sonic2Sfx.BOSS_HIT.id;
+    }
+
+    @Override
+    protected int getBossExplosionSfxId() {
+        return Sonic2Sfx.BOSS_EXPLOSION.id;
+    }
 }

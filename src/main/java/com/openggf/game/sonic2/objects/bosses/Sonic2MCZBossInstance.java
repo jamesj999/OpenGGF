@@ -2,6 +2,7 @@ package com.openggf.game.sonic2.objects.bosses;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.audio.Sonic2Music;
+import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
@@ -902,5 +903,15 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
 
         // 5. Hover thingies (mainspr) - FRONT
         renderer.drawFrameIndex(hoverFrame, bx, by, flipped, false);
+    }
+
+    @Override
+    protected int getBossHitSfxId() {
+        return Sonic2Sfx.BOSS_HIT.id;
+    }
+
+    @Override
+    protected int getBossExplosionSfxId() {
+        return Sonic2Sfx.BOSS_EXPLOSION.id;
     }
 }

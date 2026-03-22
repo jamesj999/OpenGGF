@@ -845,4 +845,14 @@ public class Sonic2CNZBossInstance extends AbstractBossInstance {
         return screenX >= -64 && screenX <= camera.getWidth() + 64
                 && screenY >= -64 && screenY <= camera.getHeight() + 64;
     }
+
+    @Override
+    protected int getBossHitSfxId() {
+        return Sonic2Sfx.BOSS_HIT.id;
+    }
+
+    @Override
+    protected int getBossExplosionSfxId() {
+        return Sonic2Sfx.BOSS_EXPLOSION.id;
+    }
 }

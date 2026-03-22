@@ -5,6 +5,7 @@ import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.audio.Sonic2Music;
+import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.EggPrisonObjectInstance;
 import com.openggf.graphics.GLCommand;
@@ -929,6 +930,16 @@ public class Sonic2MTZBossInstance extends AbstractBossInstance {
 
     public int getFlags2B() {
         return flags2B;
+    }
+
+    @Override
+    protected int getBossHitSfxId() {
+        return Sonic2Sfx.BOSS_HIT.id;
+    }
+
+    @Override
+    protected int getBossExplosionSfxId() {
+        return Sonic2Sfx.BOSS_EXPLOSION.id;
     }
 
     // =========================================================================

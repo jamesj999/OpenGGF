@@ -731,6 +731,16 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         return spawnX;
     }
 
+    @Override
+    protected int getBossHitSfxId() {
+        return Sonic2Sfx.BOSS_HIT.id;
+    }
+
+    @Override
+    protected int getBossExplosionSfxId() {
+        return Sonic2Sfx.BOSS_EXPLOSION.id;
+    }
+
     // ========================================================================
     // Child Objects
     // ========================================================================

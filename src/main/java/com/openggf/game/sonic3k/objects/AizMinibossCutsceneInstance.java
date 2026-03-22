@@ -123,6 +123,11 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
     }
 
     @Override
+    protected int getBossExplosionSfxId() {
+        return Sonic3kSfx.EXPLODE.id;
+    }
+
+    @Override
     protected void updateBossLogic(int frameCounter, PlayableEntity playerEntity) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state.routine) {

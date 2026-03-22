@@ -523,4 +523,14 @@ public class AizMinibossInstance extends AbstractBossInstance {
         // ROM: ObjDat_AIZMiniboss priority $0200 → $200/$80 = bucket 4
         return 4;
     }
+
+    @Override
+    protected int getBossHitSfxId() {
+        return Sonic3kSfx.BOSS_HIT.id;
+    }
+
+    @Override
+    protected int getBossExplosionSfxId() {
+        return Sonic3kSfx.EXPLODE.id;
+    }
 }

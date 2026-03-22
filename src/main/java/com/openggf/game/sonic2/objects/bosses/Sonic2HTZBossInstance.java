@@ -620,4 +620,14 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
             }
         }
     }
+
+    @Override
+    protected int getBossHitSfxId() {
+        return Sonic2Sfx.BOSS_HIT.id;
+    }
+
+    @Override
+    protected int getBossExplosionSfxId() {
+        return Sonic2Sfx.BOSS_EXPLOSION.id;
+    }
 }

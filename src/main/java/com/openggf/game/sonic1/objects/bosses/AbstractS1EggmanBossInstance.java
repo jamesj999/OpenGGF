@@ -1,6 +1,7 @@
 package com.openggf.game.sonic1.objects.bosses;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -199,5 +200,15 @@ public abstract class AbstractS1EggmanBossInstance extends AbstractBossInstance 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
         renderEggmanShip();
+    }
+
+    @Override
+    protected int getBossHitSfxId() {
+        return Sonic1Sfx.HIT_BOSS.id;
+    }
+
+    @Override
+    protected int getBossExplosionSfxId() {
+        return Sonic1Sfx.BOSS_EXPLOSION.id;
     }
 }

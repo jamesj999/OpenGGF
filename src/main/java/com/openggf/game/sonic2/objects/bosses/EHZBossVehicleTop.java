@@ -1,5 +1,6 @@
 package com.openggf.game.sonic2.objects.bosses;
 
+import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.ObjectAnimationState;
@@ -85,12 +86,12 @@ public class EHZBossVehicleTop extends AbstractBossChild {
         if (renderManager == null) {
             return;
         }
-        if (renderManager.getEHZBossRenderer() == null || !renderManager.getEHZBossRenderer().isReady()) {
+        if (renderManager.getRenderer(Sonic2ObjectArtKeys.EHZ_BOSS) == null || !renderManager.getRenderer(Sonic2ObjectArtKeys.EHZ_BOSS).isReady()) {
             return;
         }
 
         int frameIndex = TOP_FRAME_OFFSET + animationState.getMappingFrame();
         boolean flipped = (renderFlags & 1) != 0;
-        renderManager.getEHZBossRenderer().drawFrameIndex(frameIndex, currentX, currentY, flipped, false, 0);
+        renderManager.getRenderer(Sonic2ObjectArtKeys.EHZ_BOSS).drawFrameIndex(frameIndex, currentX, currentY, flipped, false, 0);
     }
 }

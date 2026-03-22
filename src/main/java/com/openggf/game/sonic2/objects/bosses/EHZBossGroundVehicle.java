@@ -2,6 +2,7 @@ package com.openggf.game.sonic2.objects.bosses;
 
 import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
+import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -99,12 +100,12 @@ public class EHZBossGroundVehicle extends AbstractBossChild {
         if (renderManager == null) {
             return;
         }
-        if (renderManager.getEHZBossRenderer() == null || !renderManager.getEHZBossRenderer().isReady()) {
+        if (renderManager.getRenderer(Sonic2ObjectArtKeys.EHZ_BOSS) == null || !renderManager.getRenderer(Sonic2ObjectArtKeys.EHZ_BOSS).isReady()) {
             return;
         }
 
         boolean flipped = (renderFlags & 1) != 0;
-        renderManager.getEHZBossRenderer()
+        renderManager.getRenderer(Sonic2ObjectArtKeys.EHZ_BOSS)
                 .drawFrameIndex(VEHICLE_FRAME_OFFSET, currentX, currentY, flipped, false, 0);
     }
 }

@@ -1,7 +1,6 @@
 package com.openggf.level.objects.boss;
 
 import com.openggf.debug.DebugRenderContext;
-import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Palette;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -170,19 +169,13 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
 
     /**
      * SFX played when the boss takes damage.
-     * Defaults to Sonic 2 behavior; game-specific bosses can override.
      */
-    protected int getBossHitSfxId() {
-        return Sonic2Sfx.BOSS_HIT.id;
-    }
+    protected abstract int getBossHitSfxId();
 
     /**
      * SFX played by boss defeat explosions.
-     * Defaults to Sonic 2 behavior; game-specific bosses can override.
      */
-    protected int getBossExplosionSfxId() {
-        return Sonic2Sfx.BOSS_EXPLOSION.id;
-    }
+    protected abstract int getBossExplosionSfxId();
 
     // ========================================================================
     // HELPER METHODS - Common functionality for all bosses

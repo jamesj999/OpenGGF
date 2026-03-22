@@ -23,9 +23,11 @@ import java.util.logging.Logger;
  * Default implementation of {@link PowerUpSpawner} that creates concrete
  * power-up objects and registers them with the {@link ObjectManager}.
  * <p>
- * This class lives in {@code level.objects} because it needs to know the
- * concrete object types ({@code ShieldObjectInstance}, etc.) and the
- * {@code ObjectManager} API.
+ * <b>Intentional bridge class:</b> This class imports game-specific types
+ * (S1 splash, S3K elemental shields) from the game-agnostic layer. This is
+ * an accepted layering violation because extracting a per-game shield factory
+ * would add indirection with no practical benefit — the shield types are
+ * stable and the spawner logic is shared across all games.
  */
 public class DefaultPowerUpSpawner implements PowerUpSpawner {
 

@@ -2,6 +2,7 @@ package com.openggf.game.sonic2.objects.bosses;
 
 import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
+import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.graphics.GLCommand;
@@ -211,13 +212,13 @@ public class EHZBossWheel extends AbstractBossChild {
         if (renderManager == null) {
             return;
         }
-        if (renderManager.getEHZBossRenderer() == null || !renderManager.getEHZBossRenderer().isReady()) {
+        if (renderManager.getRenderer(Sonic2ObjectArtKeys.EHZ_BOSS) == null || !renderManager.getRenderer(Sonic2ObjectArtKeys.EHZ_BOSS).isReady()) {
             return;
         }
 
         // Wheel rotation uses V-flip (frames 5/7), vehicle direction uses H-flip
         boolean flipped = (renderFlags & 1) != 0;
         int frameIndex = VEHICLE_FRAME_OFFSET + animationState.getMappingFrame();
-        renderManager.getEHZBossRenderer().drawFrameIndex(frameIndex, currentX, currentY, flipped, false);
+        renderManager.getRenderer(Sonic2ObjectArtKeys.EHZ_BOSS).drawFrameIndex(frameIndex, currentX, currentY, flipped, false);
     }
 }
