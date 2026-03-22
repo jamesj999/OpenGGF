@@ -5,6 +5,7 @@ import org.junit.Test;
 import com.openggf.camera.Camera;
 import com.openggf.graphics.GLCommand;
 
+import com.openggf.level.objects.DefaultObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.level.objects.boss.AbstractBossInstance;
@@ -32,6 +33,7 @@ public class TestAizMinibossBarrelShotChild {
     public void simpleModeNeverBecomesHazardousAndSelfDeletes() {
         AizMinibossBarrelShotChild shot = new AizMinibossBarrelShotChild(
                 parent, 0, 100, 100, AizMinibossBarrelShotChild.Mode.SIMPLE);
+        shot.setServices(new DefaultObjectServices());
 
         for (int i = 0; i < 250 && !shot.isDestroyed(); i++) {
             shot.update(i, null);
@@ -45,6 +47,7 @@ public class TestAizMinibossBarrelShotChild {
     public void advancedNonCollidingModeNeverSetsCollisionFlags() {
         AizMinibossBarrelShotChild shot = new AizMinibossBarrelShotChild(
                 parent, 0, 100, 100, AizMinibossBarrelShotChild.Mode.ADVANCED_NON_COLLIDING);
+        shot.setServices(new DefaultObjectServices());
 
         for (int i = 0; i < 220 && !shot.isDestroyed(); i++) {
             shot.update(i, null);
@@ -56,6 +59,7 @@ public class TestAizMinibossBarrelShotChild {
     public void advancedCollidingModeEventuallyEntersHazardPhase() {
         AizMinibossBarrelShotChild shot = new AizMinibossBarrelShotChild(
                 parent, 0, 100, 100, AizMinibossBarrelShotChild.Mode.ADVANCED_COLLIDING);
+        shot.setServices(new DefaultObjectServices());
 
         boolean sawCollision = false;
         for (int i = 0; i < 260 && !shot.isDestroyed(); i++) {
@@ -72,6 +76,7 @@ public class TestAizMinibossBarrelShotChild {
     @Test
     public void flameChildTracksParentOffsetsAndFlip() {
         AizMinibossFlameChild flame = new AizMinibossFlameChild(parent, -0x64, 4, 0);
+        flame.setServices(new DefaultObjectServices());
 
         flame.update(0, null);
         assertEquals(parent.getX() - 0x64, flame.getX());
@@ -84,6 +89,7 @@ public class TestAizMinibossBarrelShotChild {
     private static final class DummyBoss extends AbstractBossInstance {
         private DummyBoss() {
             super(new ObjectSpawn(0x1200, 0x300, 0x91, 0, 0, false, 0), "DummyBoss");
+            setServices(new DefaultObjectServices());
             state.x = 0x1200;
             state.y = 0x300;
             state.xFixed = state.x << 16;

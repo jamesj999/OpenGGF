@@ -12,6 +12,7 @@ import com.openggf.game.sonic2.objects.bosses.HTZBossSmokeParticle;
 import com.openggf.game.sonic2.objects.bosses.LavaBubbleObjectInstance;
 import com.openggf.game.sonic2.objects.bosses.Sonic2HTZBossInstance;
 import com.openggf.level.LevelManager;
+import com.openggf.level.objects.DefaultObjectServices;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -70,6 +71,7 @@ public class TestHTZBossChildObjects {
         levelManagerField.set(null, mockLevelManager);
 
         LavaBubbleObjectInstance bubble = new LavaBubbleObjectInstance(100, 200);
+        bubble.setServices(new DefaultObjectServices());
         assertEquals(Sonic2ObjectIds.LAVA_BUBBLE, bubble.getSpawn().objectId());
 
         bubble.appendRenderCommands(new ArrayList<>());
@@ -105,7 +107,9 @@ public class TestHTZBossChildObjects {
 
         Sonic2HTZBossInstance parent = new Sonic2HTZBossInstance(
                 new ObjectSpawn(0x3040, 0x0580, Sonic2ObjectIds.HTZ_BOSS, 0, 0, false, 0));
+        parent.setServices(new DefaultObjectServices());
         HTZBossFlamethrower flamethrower = new HTZBossFlamethrower(parent, 0x3040, 0x0564, false);
+        flamethrower.setServices(new DefaultObjectServices());
 
         flamethrower.appendRenderCommands(new ArrayList<>());
         verify(renderer).drawPatternIndex(eq(0xC1), eq(0x2FCC), eq(0x0560), eq(0));
@@ -125,7 +129,9 @@ public class TestHTZBossChildObjects {
 
         Sonic2HTZBossInstance parent = new Sonic2HTZBossInstance(
                 new ObjectSpawn(0x3040, 0x0580, Sonic2ObjectIds.HTZ_BOSS, 0, 0, false, 0));
+        parent.setServices(new DefaultObjectServices());
         HTZBossLavaBall lavaBall = new HTZBossLavaBall(parent, 0x3040, 0x0580, true, false);
+        lavaBall.setServices(new DefaultObjectServices());
 
         lavaBall.appendRenderCommands(new ArrayList<>());
         verify(renderer).drawPatternIndex(eq(0xC3), eq(0x3038), eq(0x0578), eq(0));
@@ -143,7 +149,9 @@ public class TestHTZBossChildObjects {
 
         Sonic2HTZBossInstance parent = new Sonic2HTZBossInstance(
                 new ObjectSpawn(0x3040, 0x0580, Sonic2ObjectIds.HTZ_BOSS, 0, 0, false, 0));
+        parent.setServices(new DefaultObjectServices());
         HTZBossLavaBall lavaBall = new HTZBossLavaBall(parent, 0x3040, 0x0580, true, false);
+        lavaBall.setServices(new DefaultObjectServices());
         parent.getState().lastUpdatedFrame = 1;
 
         try (MockedStatic<ObjectTerrainUtils> terrain = mockStatic(ObjectTerrainUtils.class)) {
@@ -161,10 +169,14 @@ public class TestHTZBossChildObjects {
     public void htzBossHazardsAreTouchResponseProviders() {
         Sonic2HTZBossInstance parent = new Sonic2HTZBossInstance(
                 new ObjectSpawn(0x3040, 0x0580, Sonic2ObjectIds.HTZ_BOSS, 0, 0, false, 0));
+        parent.setServices(new DefaultObjectServices());
 
         HTZBossFlamethrower flamethrower = new HTZBossFlamethrower(parent, 0x3040, 0x0564, false);
+        flamethrower.setServices(new DefaultObjectServices());
         HTZBossLavaBall lavaBall = new HTZBossLavaBall(parent, 0x3040, 0x0580, true, false);
+        lavaBall.setServices(new DefaultObjectServices());
         LavaBubbleObjectInstance bubble = new LavaBubbleObjectInstance(0x3040, 0x0580);
+        bubble.setServices(new DefaultObjectServices());
 
         assertTrue(flamethrower instanceof TouchResponseProvider);
         assertTrue(lavaBall instanceof TouchResponseProvider);

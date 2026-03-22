@@ -5,6 +5,7 @@ import com.openggf.game.sonic1.objects.badniks.Sonic1OrbinautBadnikInstance;
 import org.junit.Assert;
 import org.junit.Test;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
+import com.openggf.level.objects.DefaultObjectServices;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.ObjectSpawn;
 import java.lang.reflect.Field;
@@ -86,8 +87,10 @@ public class TestSonic1LabyrinthObjectsBasic {
     public void burrobotAndOrbinautCanUpdateWithoutPlayerOrLevelManager() {
         Sonic1BurrobotBadnikInstance burrobot = new Sonic1BurrobotBadnikInstance(
                 new ObjectSpawn(256, 256, Sonic1ObjectIds.BURROBOT, 0, 0, false, 0));
+        burrobot.setServices(new DefaultObjectServices());
         Sonic1OrbinautBadnikInstance orbinaut = new Sonic1OrbinautBadnikInstance(
                 new ObjectSpawn(512, 192, Sonic1ObjectIds.ORBINAUT, 0, 0, false, 0));
+        orbinaut.setServices(new DefaultObjectServices());
 
         burrobot.update(1, null);
         burrobot.update(2, null);

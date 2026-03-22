@@ -34,19 +34,20 @@ public class TestTurtloidBadnikInstance {
         when(levelManager.getObjectRenderManager()).thenReturn(objectRenderManager);
         when(objectRenderManager.getPointsRenderer()).thenReturn(pointsRenderer);
 
-        TurtloidBadnikInstance base = new TurtloidBadnikInstance(
-                new ObjectSpawn(0x200, 0x100, Sonic2ObjectIds.TURTLOID, 0x18, 0, false, 0));
+        // Set up LevelManager singleton so constructor-time spawnChildren() works
+        Field lmField = LevelManager.class.getDeclaredField("levelManager");
+        lmField.setAccessible(true);
+        Object originalLm = lmField.get(null);
+        lmField.set(null, levelManager);
 
-        // Inject services so children can be spawned
-        com.openggf.level.objects.ObjectServices services = mock(com.openggf.level.objects.ObjectServices.class);
-        when(services.objectManager()).thenReturn(objectManager);
-        when(services.renderManager()).thenReturn(objectRenderManager);
-        base.setServices(services);
-        // Re-trigger child spawning now that services are available
-        // (constructor couldn't spawn them because services was null)
-        java.lang.reflect.Method spawnChildren = TurtloidBadnikInstance.class.getDeclaredMethod("spawnChildren");
-        spawnChildren.setAccessible(true);
-        spawnChildren.invoke(base);
+        try {
+            TurtloidBadnikInstance base = new TurtloidBadnikInstance(
+                    new ObjectSpawn(0x200, 0x100, Sonic2ObjectIds.TURTLOID, 0x18, 0, false, 0));
+
+            com.openggf.level.objects.ObjectServices services = mock(com.openggf.level.objects.ObjectServices.class);
+            when(services.objectManager()).thenReturn(objectManager);
+            when(services.renderManager()).thenReturn(objectRenderManager);
+            base.setServices(services);
 
         TurtloidRiderInstance rider = (TurtloidRiderInstance) getField(base, "rider");
         assertNotNull("Turtloid should spawn a rider child", rider);
@@ -63,6 +64,9 @@ public class TestTurtloidBadnikInstance {
         assertEquals("Base should resume default movement speed", -0x80, getIntField(base, "xVelocity"));
         assertEquals("Base should transition to DONE movement state", "DONE", getField(base, "state").toString());
         verify(objectManager, times(3)).addDynamicObject(any());
+        } finally {
+            lmField.set(null, originalLm);
+        }
     }
 
     private static Object getField(Object target, String fieldName) throws Exception {

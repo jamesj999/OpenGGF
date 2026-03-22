@@ -8,6 +8,7 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRegistry;
+import com.openggf.level.objects.DefaultObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseTable;
 
@@ -42,6 +43,7 @@ public class TestDEZMechaSonic {
         boss = new Sonic2MechaSonicInstance(
                 new ObjectSpawn(MECHA_SONIC_X, MECHA_SONIC_Y,
                         Sonic2ObjectIds.MECHA_SONIC, 0x48, 0, false, 0));
+        boss.setServices(new DefaultObjectServices());
     }
 
     @Test
@@ -201,6 +203,7 @@ public class TestDEZMechaSonic {
         Sonic2MechaSonicInstance testBoss = new Sonic2MechaSonicInstance(
                 new ObjectSpawn(MECHA_SONIC_X, MECHA_SONIC_Y,
                         Sonic2ObjectIds.MECHA_SONIC, 0x48, 0, false, 0));
+        testBoss.setServices(new DefaultObjectServices());
 
         assertEquals("Boss should start with 8 HP", 8, testBoss.getState().hitCount);
         assertFalse("Boss should not be defeated initially", testBoss.getState().defeated);

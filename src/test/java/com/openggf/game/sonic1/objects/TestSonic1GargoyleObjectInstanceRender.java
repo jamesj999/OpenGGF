@@ -5,6 +5,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
+import com.openggf.level.objects.DefaultObjectServices;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.LevelManager;
 import com.openggf.level.Pattern;
@@ -69,6 +70,7 @@ public class TestSonic1GargoyleObjectInstanceRender {
 
         Sonic1GargoyleObjectInstance.Fireball fireball =
                 new Sonic1GargoyleObjectInstance.Fireball(100, 100, true);
+        fireball.setServices(new DefaultObjectServices());
         fireball.appendRenderCommands(new ArrayList<>());
 
         assertEquals(1, renderer.drawCount);

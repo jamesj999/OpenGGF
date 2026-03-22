@@ -8,6 +8,7 @@ import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.level.LevelManager;
+import com.openggf.level.objects.DefaultObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.physics.Sensor;
 import com.openggf.sprites.managers.SpriteManager;
@@ -128,7 +129,9 @@ public class TestTornadoObjectInstance {
 
     private static TornadoObjectInstance createTornado(int x, int y, int subtype) {
         ObjectSpawn spawn = new ObjectSpawn(x, y, Sonic2ObjectIds.TORNADO, subtype, 0, false, 0);
-        return new TornadoObjectInstance(spawn);
+        TornadoObjectInstance t = new TornadoObjectInstance(spawn);
+        t.setServices(new DefaultObjectServices());
+        return t;
     }
 
     private static Object invokePrivate(Object target, String methodName, Class<?>[] argTypes, Object... args)

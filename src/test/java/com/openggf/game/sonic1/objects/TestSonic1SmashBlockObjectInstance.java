@@ -3,6 +3,7 @@ package com.openggf.game.sonic1.objects;
 import org.junit.Test;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
+import com.openggf.level.objects.DefaultObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import static org.junit.Assert.assertEquals;
@@ -16,6 +17,7 @@ public class TestSonic1SmashBlockObjectInstance {
         GameServices.gameState().resetSession();
         Sonic1SmashBlockObjectInstance block = new Sonic1SmashBlockObjectInstance(
                 new ObjectSpawn(160, 112, 0x51, 0x00, 0, false, 0));
+        block.setServices(new DefaultObjectServices());
         TestPlayableSprite player = new TestPlayableSprite(28, 38);
 
         // Pre-collision state this frame: Sonic is airborne in roll animation.
@@ -39,6 +41,7 @@ public class TestSonic1SmashBlockObjectInstance {
         GameServices.gameState().resetSession();
         Sonic1SmashBlockObjectInstance block = new Sonic1SmashBlockObjectInstance(
                 new ObjectSpawn(160, 112, 0x51, 0x00, 0, false, 0));
+        block.setServices(new DefaultObjectServices());
         TestPlayableSprite player = new TestPlayableSprite(28, 38);
 
         player.setAnimationId(Sonic1AnimationIds.WALK);
@@ -61,6 +64,7 @@ public class TestSonic1SmashBlockObjectInstance {
 
         Sonic1SmashBlockObjectInstance first = new Sonic1SmashBlockObjectInstance(
                 new ObjectSpawn(160, 112, 0x51, 0x00, 0, false, 0));
+        first.setServices(new DefaultObjectServices());
         first.update(1, player);
         player.setRolling(false);
         player.setAir(false);
@@ -74,6 +78,7 @@ public class TestSonic1SmashBlockObjectInstance {
         player.setAir(true);
         Sonic1SmashBlockObjectInstance second = new Sonic1SmashBlockObjectInstance(
                 new ObjectSpawn(192, 112, 0x51, 0x00, 0, false, 0));
+        second.setServices(new DefaultObjectServices());
         second.update(2, player);
         player.setRolling(false);
         player.setAir(false);
@@ -91,6 +96,7 @@ public class TestSonic1SmashBlockObjectInstance {
 
         Sonic1SmashBlockObjectInstance block = new Sonic1SmashBlockObjectInstance(
                 new ObjectSpawn(160, 112, 0x51, 0x00, 0, false, 0));
+        block.setServices(new DefaultObjectServices());
         TestPlayableSprite player = new TestPlayableSprite(28, 38);
         player.setAnimationId(Sonic1AnimationIds.ROLL);
         player.setRolling(true);
