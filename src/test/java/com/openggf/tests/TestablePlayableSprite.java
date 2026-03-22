@@ -2,7 +2,7 @@ package com.openggf.tests;
 
 import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import com.openggf.sprites.playable.ShieldType;
+import com.openggf.game.ShieldType;
 
 /**
  * Shared test subclass of AbstractPlayableSprite for unit tests that need

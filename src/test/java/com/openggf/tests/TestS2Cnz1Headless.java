@@ -8,7 +8,7 @@ import org.junit.Test;
 import com.openggf.camera.Camera;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectInstance;
-import com.openggf.sprites.playable.GroundMode;
+import com.openggf.game.GroundMode;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.RequiresRomRule;

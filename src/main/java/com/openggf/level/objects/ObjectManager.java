@@ -15,7 +15,8 @@ import com.openggf.level.spawn.AbstractPlacementManager;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import com.openggf.sprites.playable.GroundMode;
+import com.openggf.game.DamageCause;
+import com.openggf.game.GroundMode;
 
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -1548,10 +1549,10 @@ public class ObjectManager {
             boolean fireHit = !spikeHit && instance instanceof TouchResponseProvider trp
                     && (trp.getShieldReactionFlags() & 0x10) != 0;
 
-            AbstractPlayableSprite.DamageCause cause = spikeHit
-                    ? AbstractPlayableSprite.DamageCause.SPIKE
-                    : fireHit ? AbstractPlayableSprite.DamageCause.FIRE
-                    : AbstractPlayableSprite.DamageCause.NORMAL;
+            DamageCause cause = spikeHit
+                    ? DamageCause.SPIKE
+                    : fireHit ? DamageCause.FIRE
+                    : DamageCause.NORMAL;
 
             boolean hadRings = player.getRingCount() > 0;
             if (hadRings && !player.hasShield()) {

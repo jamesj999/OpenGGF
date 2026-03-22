@@ -22,7 +22,7 @@ import com.openggf.physics.Direction;
 import com.openggf.physics.Sensor;
 import com.openggf.physics.SensorResult;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import com.openggf.sprites.playable.GroundMode;
+import com.openggf.game.GroundMode;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.RequiresRomRule;

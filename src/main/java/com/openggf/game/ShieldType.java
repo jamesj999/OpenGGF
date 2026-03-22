@@ -1,4 +1,4 @@
-package com.openggf.sprites.playable;
+package com.openggf.game;
 
 /**
  * Shield types available across all games.

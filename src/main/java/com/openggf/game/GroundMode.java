@@ -1,4 +1,4 @@
-package com.openggf.sprites.playable;
+package com.openggf.game;
 
 public enum GroundMode {
 	GROUND,

@@ -15,7 +15,7 @@ import com.openggf.physics.GroundSensor;
 import com.openggf.physics.Sensor;
 import com.openggf.physics.SensorResult;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import com.openggf.sprites.playable.GroundMode;
+import com.openggf.game.GroundMode;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;

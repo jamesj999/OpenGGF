@@ -19,7 +19,7 @@ import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import com.openggf.sprites.playable.ShieldType;
+import com.openggf.game.ShieldType;
 
 import java.util.List;
 import java.util.logging.Logger;

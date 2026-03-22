@@ -10,7 +10,7 @@ import com.openggf.level.spawn.AbstractPlacementManager;
 import com.openggf.level.ChunkDesc;
 import com.openggf.level.objects.TouchResponseTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import com.openggf.sprites.playable.ShieldType;
+import com.openggf.game.ShieldType;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameStateManager;

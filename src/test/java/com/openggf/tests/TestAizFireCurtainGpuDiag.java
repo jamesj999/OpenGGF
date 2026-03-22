@@ -17,7 +17,7 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.ParallaxManager;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import com.openggf.sprites.playable.GroundMode;
+import com.openggf.game.GroundMode;
 import com.openggf.sprites.playable.Sonic;
 import org.joml.Matrix4f;
 import org.junit.AfterClass;

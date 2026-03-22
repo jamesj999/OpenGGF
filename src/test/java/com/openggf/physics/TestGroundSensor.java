@@ -7,7 +7,7 @@ import com.openggf.level.CollisionMode;
 import com.openggf.level.LevelManager;
 import com.openggf.level.SolidTile;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import com.openggf.sprites.playable.GroundMode;
+import com.openggf.game.GroundMode;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;

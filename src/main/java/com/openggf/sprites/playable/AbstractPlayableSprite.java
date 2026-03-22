@@ -12,6 +12,9 @@ import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.game.PhysicsModifiers;
 import com.openggf.game.PhysicsProfile;
 import com.openggf.game.PhysicsProvider;
+import com.openggf.game.GroundMode;
+import com.openggf.game.ShieldType;
+import com.openggf.game.DamageCause;
 
 import com.openggf.audio.GameAudioProfile;
 
@@ -262,16 +265,6 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
          * When it reaches 0, triggers level reload.
          */
         protected int deathCountdown = 0;
-
-        public enum DamageCause {
-                NORMAL,
-                SPIKE,
-                CRUSH,
-                DROWN,
-                TIME_OVER,
-                PIT,
-                FIRE
-        }
 
         /**
          * Whether or not this sprite is preparing for a spindash.

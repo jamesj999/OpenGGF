@@ -15,7 +15,7 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.Map;
 import com.openggf.game.sonic3k.objects.AizHollowTreeObjectInstance;
 import com.openggf.physics.GroundSensor;
-import com.openggf.sprites.playable.GroundMode;
+import com.openggf.game.GroundMode;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.RequiresRomRule;

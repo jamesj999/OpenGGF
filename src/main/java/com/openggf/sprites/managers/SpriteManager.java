@@ -21,7 +21,7 @@ import com.openggf.physics.Direction;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.SensorConfiguration;
 import com.openggf.sprites.Sprite;
-import com.openggf.sprites.playable.GroundMode;
+import com.openggf.game.GroundMode;
 
 import java.util.ArrayList;
 import java.util.Collection;

@@ -23,7 +23,7 @@ import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.physics.Direction;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import com.openggf.sprites.playable.ShieldType;
+import com.openggf.game.ShieldType;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 
 import java.util.List;
