@@ -25,6 +25,9 @@ import com.openggf.timer.TimerManager;
  */
 public final class GameContext {
 
+    private static int generation = 0;
+
+    private final int capturedGeneration;
     private final Camera camera;
     private final LevelManager levelManager;
     private final SpriteManager spriteManager;
@@ -37,6 +40,7 @@ public final class GameContext {
                         SpriteManager spriteManager, CollisionSystem collisionSystem,
                         GraphicsManager graphicsManager, TimerManager timerManager,
                         WaterSystem waterSystem) {
+        this.capturedGeneration = generation;
         this.camera = camera;
         this.levelManager = levelManager;
         this.spriteManager = spriteManager;
@@ -44,6 +48,15 @@ public final class GameContext {
         this.graphicsManager = graphicsManager;
         this.timerManager = timerManager;
         this.waterSystem = waterSystem;
+    }
+
+    private void checkFresh() {
+        if (capturedGeneration != generation) {
+            throw new IllegalStateException(
+                    "Stale GameContext: captured generation " + capturedGeneration
+                    + " but current generation is " + generation
+                    + ". Do not hold GameContext references across forTesting() calls.");
+        }
     }
 
     /**
@@ -76,6 +89,9 @@ public final class GameContext {
      * so any previously captured references become stale.
      */
     public static GameContext forTesting() {
+        // Invalidate any previously issued GameContext instances.
+        generation++;
+
         // CRITICAL: Capture the current game's profile BEFORE resetting the module.
         // After reset(), the module reverts to Sonic2GameModule (the default).
         // We need the PREVIOUS game's teardown to clean up its own state.
@@ -97,11 +113,11 @@ public final class GameContext {
         return production();
     }
 
-    public Camera camera() { return camera; }
-    public LevelManager levelManager() { return levelManager; }
-    public SpriteManager spriteManager() { return spriteManager; }
-    public CollisionSystem collisionSystem() { return collisionSystem; }
-    public GraphicsManager graphicsManager() { return graphicsManager; }
-    public TimerManager timerManager() { return timerManager; }
-    public WaterSystem waterSystem() { return waterSystem; }
+    public Camera camera() { checkFresh(); return camera; }
+    public LevelManager levelManager() { checkFresh(); return levelManager; }
+    public SpriteManager spriteManager() { checkFresh(); return spriteManager; }
+    public CollisionSystem collisionSystem() { checkFresh(); return collisionSystem; }
+    public GraphicsManager graphicsManager() { checkFresh(); return graphicsManager; }
+    public TimerManager timerManager() { checkFresh(); return timerManager; }
+    public WaterSystem waterSystem() { checkFresh(); return waterSystem; }
 }
