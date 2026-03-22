@@ -397,11 +397,12 @@ public interface PlayableEntity {
     boolean getPinballMode();
     boolean isCpuControlled();
 
-    // Collision path (4 methods)
+    // Collision path (5 methods)
     void setTopSolidBit(int bit);
     void setLrbSolidBit(int bit);
     void setLayer(byte layer);
     boolean isHighPriority();
+    void setHighPriority(boolean highPriority);
 
     // Vulnerability (8 methods)
     boolean getDead();
@@ -413,27 +414,27 @@ public interface PlayableEntity {
     int getDoubleJumpFlag();
     boolean isSuperSonic();
 
-    // Damage/hitbox (5 methods)
+    // Damage/hitbox (6 methods)
     boolean getCrouching();
     int getRingCount();
     Direction getDirection();
-    void applyHurt(int sourceX);
-    void applyHurtOrDeath(int sourceX, DamageCause cause, boolean hadRings);
-    void applyCrushDeath();
+    boolean applyHurt(int sourceX);
+    boolean applyHurtOrDeath(int sourceX, DamageCause cause, boolean hadRings);
+    boolean applyCrushDeath();
 
     // Scoring (1 method)
-    void incrementBadnikChain();
+    int incrementBadnikChain();
 
     // Feature set (1 method)
     PhysicsFeatureSet getPhysicsFeatureSet();
 }
 ```
 
-**~51 methods** — covers the full ObjectManager.SolidContacts and TouchResponses coupling surface (46+ methods verified by code review). The interface is large because the collision resolution and touch response systems legitimately need broad access to player state — this is ROM-accurate interaction logic.
+**~53 methods** — covers the full ObjectManager.SolidContacts and TouchResponses coupling surface (verified by code review). Return types match actual signatures (e.g., `applyHurt` returns `boolean`, `incrementBadnikChain` returns `int`). The interface is large because the collision resolution and touch response systems legitimately need broad access to player state — this is ROM-accurate interaction logic.
 
 `AbstractPlayableSprite implements PlayableEntity`. The existing `Sprite` interface (basic position/dimension) remains separate — `PlayableEntity` does not extend `Sprite` because `Sprite` includes rendering methods (`draw()`) that the object system doesn't need.
 
-**Note:** The exact method list will be finalized during implementation by grepping all `AbstractPlayableSprite` method calls within `level/objects/`. Methods may be added or removed as the actual usage is reconciled.
+**Note:** The exact method list will be finalized during implementation by grepping all `AbstractPlayableSprite` method calls within `level/objects/`. Methods may be added or removed as the actual usage is reconciled. Known gap: `AbstractSpikeObjectInstance` uses a `boolean spikeHit` overload of `applyHurtOrDeath` — either add that overload to the interface or migrate the call site to use `DamageCause.SPIKE`.
 
 ### 3.2 Migrate level/objects/ to PlayableEntity
 
@@ -483,11 +484,26 @@ sprite.setPowerUpSpawner(new DefaultPowerUpSpawner(objectManager));
 - Replace `new ShieldObjectInstance(...)` with `powerUpSpawner.spawnShield(this, ShieldType.NORMAL)`
 - Replace `LevelManager.getInstance().getObjectManager().addDynamicObject(...)` with spawner calls
 
-### 3.4 GroundMode and ShieldType Placement
+### 3.4 Enum and Type Extraction
 
-`GroundMode` is currently in `sprites.playable` — it needs to move to `com.openggf.game` so that `PlayableEntity` can reference it without creating a new dependency on `sprites`. Same for `ShieldType` if it's currently in a sprites or level package.
+Three types referenced by `PlayableEntity` are currently nested or located in `sprites.playable` and must move to `com.openggf.game`:
 
-Check before implementation: if these enums are already in `game`, no move needed.
+| Type | Current Location | Move To |
+|------|-----------------|---------|
+| `GroundMode` | `sprites.playable.GroundMode` | `game.GroundMode` |
+| `ShieldType` | `sprites.playable.ShieldType` | `game.ShieldType` |
+| `DamageCause` | **Nested enum inside `AbstractPlayableSprite`** | `game.DamageCause` (extract to top-level) |
+
+`DamageCause` is critical — leaving it as an inner enum of `AbstractPlayableSprite` would create a `game → sprites.playable` dependency on the `PlayableEntity` interface, defeating the purpose.
+
+**Decision point: `getSpindashDustController()`**
+
+Two files in `level/objects/` (`SkidDustObjectInstance`, `SplashObjectInstance`) call `player.getSpindashDustController()`, returning a `SpindashDustController` from `sprites.managers`. Adding this to `PlayableEntity` would introduce a `game → sprites.managers` dependency. Options during implementation:
+1. Accept the dependency (pragmatic — `sprites.managers` is a utility package)
+2. Extract a `DustController` interface in `game`
+3. Restructure the two callers to receive the controller via injection instead
+
+The implementer should choose based on what the two call sites actually need from the controller.
 
 ### 3.5 Dependency Flow After Phase 3
 
