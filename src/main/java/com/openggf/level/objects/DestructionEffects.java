@@ -1,6 +1,5 @@
 package com.openggf.level.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 
 /**
@@ -95,7 +94,9 @@ public final class DestructionEffects {
         int pointsValue = 100;
         if (player != null) {
             pointsValue = player.incrementBadnikChain();
-            GameServices.gameState().addScore(pointsValue);
+            if (services != null) {
+                services.gameState().addScore(pointsValue);
+            }
         }
 
         // --- Optionally spawn points popup ---

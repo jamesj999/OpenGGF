@@ -257,7 +257,7 @@ public class EggPrisonAnimalInstance extends AbstractObjectInstance {
 
     @Override
     protected boolean isOnScreen(int margin) {
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         if (camera == null) {
             return true;
         }

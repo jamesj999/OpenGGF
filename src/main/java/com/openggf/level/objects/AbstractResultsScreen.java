@@ -1,7 +1,6 @@
 package com.openggf.level.objects;
 
 import com.openggf.camera.Camera;
-import com.openggf.game.GameServices;
 
 import com.openggf.game.ResultsScreen;
 import com.openggf.graphics.GLCommand;
@@ -124,7 +123,7 @@ public abstract class AbstractResultsScreen extends AbstractObjectInstance imple
         TallyResult result = performTallyStep();
 
         if (result.totalIncrement > 0) {
-            GameServices.gameState().addScore(result.totalIncrement);
+            services().gameState().addScore(result.totalIncrement);
         }
 
         // Play tick sound every N frames while tallying
@@ -235,13 +234,13 @@ public abstract class AbstractResultsScreen extends AbstractObjectInstance imple
 
     @Override
     public int getX() {
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         return camera != null ? camera.getX() + SCREEN_CENTER_X : SCREEN_CENTER_X;
     }
 
     @Override
     public int getY() {
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         return camera != null ? camera.getY() + SCREEN_HEIGHT / 2 : SCREEN_HEIGHT / 2;
     }
 

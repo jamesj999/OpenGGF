@@ -1,6 +1,5 @@
 package com.openggf.level.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.camera.Camera;
 import com.openggf.graphics.GLCommand;
 import com.openggf.physics.ObjectTerrainUtils;
@@ -157,7 +156,7 @@ public class AnimalObjectInstance extends AbstractObjectInstance {
     }
 
     private boolean onScreen(int margin) {
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         int cameraX = camera.getX();
         int cameraY = camera.getY();
         int screenWidth = 320;

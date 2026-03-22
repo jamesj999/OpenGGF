@@ -149,7 +149,7 @@ public class BreathingBubbleInstance extends AbstractObjectInstance {
             int formFrame = COUNTDOWN_BUBBLE_FRAMES * COUNTDOWN_FRAME_DELAY;
             if (countdownFrame >= formFrame - 1 && !numberFormed) {
                 // Lock position relative to camera
-                Camera camera = GameServices.camera();
+                Camera camera = services().camera();
                 lockedScreenX = (int) currentX - camera.getX();
                 lockedScreenY = currentY - camera.getY();
                 numberFormed = true;
@@ -166,7 +166,7 @@ public class BreathingBubbleInstance extends AbstractObjectInstance {
         // Movement logic
         if (numberFormed) {
             // Position locked relative to camera
-            Camera camera = GameServices.camera();
+            Camera camera = services().camera();
             currentX = camera.getX() + lockedScreenX;
             currentY = camera.getY() + lockedScreenY;
         } else {
@@ -200,7 +200,7 @@ public class BreathingBubbleInstance extends AbstractObjectInstance {
             return;
         }
 
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         int screenX = (int) currentX - camera.getX();
         int screenY = currentY - camera.getY();
 

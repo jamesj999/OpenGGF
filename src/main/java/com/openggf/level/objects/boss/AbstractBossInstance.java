@@ -1,7 +1,6 @@
 package com.openggf.level.objects.boss;
 
 import com.openggf.debug.DebugRenderContext;
-import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Palette;
@@ -290,7 +289,7 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
             if (usesDefeatSequencer()) {
                 defeatSequencer.startDefeat();
             } else {
-                GameServices.gameState().addScore(1000);
+                services().gameState().addScore(1000);
                 onDefeatStarted();
             }
         }
@@ -419,7 +418,7 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
             defeatState = DefeatState.EXPLODING;
             defeatTimer = EXPLOSION_DURATION;
             // ROM: s2.asm:63150-63151 - moveq #100,d0 / jsrto JmpTo3_AddPoints (100 = 1000 points)
-            GameServices.gameState().addScore(1000);
+            services().gameState().addScore(1000);
             onDefeatStarted();
         }
 
