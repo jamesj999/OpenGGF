@@ -14,7 +14,6 @@ import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -215,8 +214,8 @@ public class OOZPoppingPlatformObjectInstance extends AbstractObjectInstance
 
     private void updateWaitForPlayer(AbstractPlayableSprite player, int frameCounter) {
         ObjectManager objectManager = services().objectManager();
-        var sidekicks = SpriteManager.getInstance().getSidekicks();
-        AbstractPlayableSprite sidekick = sidekicks.isEmpty() ? null : sidekicks.getFirst();
+        var sidekicks = services().sidekicks();
+        AbstractPlayableSprite sidekick = sidekicks.isEmpty() ? null : (AbstractPlayableSprite) sidekicks.getFirst();
 
         // ROM: Check standing bits first, then X range
         boolean mainStanding = isPlayerStandingOnThis(player, objectManager);
@@ -328,8 +327,8 @@ public class OOZPoppingPlatformObjectInstance extends AbstractObjectInstance
         }
         mainCharLocked = false;
 
-        var sidekicks = SpriteManager.getInstance().getSidekicks();
-        AbstractPlayableSprite sidekick = sidekicks.isEmpty() ? null : sidekicks.getFirst();
+        var sidekicks = services().sidekicks();
+        AbstractPlayableSprite sidekick = sidekicks.isEmpty() ? null : (AbstractPlayableSprite) sidekicks.getFirst();
         if (sidekickLocked && sidekick != null && objectManager.isRidingObject(sidekick, this)) {
             launchPlayer(sidekick, frameCounter);
         }
@@ -344,8 +343,8 @@ public class OOZPoppingPlatformObjectInstance extends AbstractObjectInstance
             mainChar.setCentreX((short) x);
             mainChar.setCentreY((short) (currentY - SOLID_HALF_HEIGHT_AIR));
         }
-        var sidekicks2 = SpriteManager.getInstance().getSidekicks();
-        AbstractPlayableSprite sidekick = sidekicks2.isEmpty() ? null : sidekicks2.getFirst();
+        var sidekicks2 = services().sidekicks();
+        AbstractPlayableSprite sidekick = sidekicks2.isEmpty() ? null : (AbstractPlayableSprite) sidekicks2.getFirst();
         if (sidekickLocked && sidekick != null) {
             sidekick.setCentreX((short) x);
             sidekick.setCentreY((short) (currentY - SOLID_HALF_HEIGHT_AIR));

@@ -10,7 +10,6 @@ import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -96,11 +95,11 @@ public class FanObjectInstance extends AbstractObjectInstance {
                 }
             }
 
-            for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+            for (PlayableEntity sidekick : services().sidekicks()) {
                 if (isVertical) {
-                    applyVerticalPush(sidekick);
+                    applyVerticalPush((AbstractPlayableSprite) sidekick);
                 } else {
-                    applyHorizontalPush(sidekick);
+                    applyHorizontalPush((AbstractPlayableSprite) sidekick);
                 }
             }
             updateBlowingAnimation();

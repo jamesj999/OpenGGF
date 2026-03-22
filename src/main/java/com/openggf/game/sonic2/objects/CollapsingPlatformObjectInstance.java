@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
@@ -219,7 +218,7 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
                     collapsed = true;
                     parentY = spawn.y();
                     if (player != null) {
-                        if (GameServices.level() != null && services().objectManager() != null) {
+                        if (services().objectManager() != null) {
                             services().objectManager().clearRidingObject(player);
                         }
                         player.setAir(true);
@@ -314,7 +313,7 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
     }
 
     private void initZoneConfig() {
-        final int zoneIndex = (GameServices.level() != null && services().currentLevel() != null)
+        final int zoneIndex = (services().currentLevel() != null)
                 ? services().currentLevel().getZoneIndex()
                 : -1;
 
@@ -333,7 +332,7 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
     }
 
     private boolean isPlayerStanding() {
-        if (GameServices.level() == null || services().objectManager() == null) {
+        if (services().objectManager() == null) {
             return false;
         }
         return services().objectManager().isAnyPlayerRiding(this);
@@ -358,7 +357,7 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
         spawnFragments();
 
         // Mark as remembered to prevent respawn (ROM-accurate behavior)
-        if (GameServices.level() != null && services().objectManager() != null) {
+        if (services().objectManager() != null) {
             services().objectManager().markRemembered(spawn);
         }
 

@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 
 import com.openggf.audio.GameSound;
@@ -292,7 +291,7 @@ public class BonusBlockObjectInstance extends AbstractObjectInstance {
         applyBounce(player);
 
         // Play sound on every hit (ROM: line 59667)
-        GameServices.audio().playSfx(GameSound.BONUS_BUMPER);
+        services().playSfx(GameSound.BONUS_BUMPER);
 
         int points = 10;  // Default for all hits
 
@@ -329,7 +328,7 @@ public class BonusBlockObjectInstance extends AbstractObjectInstance {
         }
 
         // Award points and spawn points display (ROM: lines 59687-59694)
-        GameServices.gameState().addScore(points);
+        services().gameState().addScore(points);
 
         // Spawn floating points display
         PointsObjectInstance pointsObj = new PointsObjectInstance(

@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.OscillationManager;
@@ -169,7 +168,7 @@ public class SwingingPlatformObjectInstance extends AbstractObjectInstance
     }
 
     private ZoneConfig determineZoneConfig() {
-        if (GameServices.level() != null && services().currentLevel() != null) {
+        if (services().currentLevel() != null) {
             int zoneId = services().currentLevel().getZoneIndex();
             if (zoneId == Sonic2ZoneConstants.ROM_ZONE_MCZ) {
                 return ZoneConfig.MCZ;

@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2AudioConstants;
@@ -13,7 +12,6 @@ import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -177,10 +175,6 @@ public class TiltingPlatformObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (GameServices.level() == null) {
-            appendDebugBox(commands);
-            return;
-        }
         PatternSpriteRenderer renderer = services().renderManager() != null
                 ? services().renderManager().getRenderer(Sonic2ObjectArtKeys.WFZ_TILT_PLATFORM)
                 : null;
@@ -586,19 +580,19 @@ public class TiltingPlatformObjectInstance extends AbstractObjectInstance
      * ROM: bclr p1_standing_bit/p2_standing_bit, then bclr on_object + bset in_air.
      */
     private void dropRidingPlayers() {
-        if (GameServices.level() == null || services().objectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
         ObjectManager objectManager = services().objectManager();
 
         // Get main character (ROM: MainCharacter)
-        AbstractPlayableSprite main = GameServices.camera().getFocusedSprite();
+        AbstractPlayableSprite main = services().camera().getFocusedSprite();
         if (main != null && objectManager.isRidingObject(main, this)) {
             objectManager.clearRidingObject(main);
         }
 
         // Get sidekick(s) (ROM: Sidekick)
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+        for (PlayableEntity sidekick : services().sidekicks()) {
             if (objectManager.isRidingObject(sidekick, this)) {
                 objectManager.clearRidingObject(sidekick);
             }
@@ -617,7 +611,7 @@ public class TiltingPlatformObjectInstance extends AbstractObjectInstance
      *   render_flags=level_fg, priority=4, width_pixels=$18, collision_flags=$A9.
      */
     private void spawnVerticalLaser() {
-        if (GameServices.level() == null || services().objectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
@@ -644,7 +638,7 @@ public class TiltingPlatformObjectInstance extends AbstractObjectInstance
      * -> x_flip is SET when d0 == 0 (player to the LEFT)
      */
     private boolean isPlayerToLeft(AbstractPlayableSprite player) {
-        AbstractPlayableSprite main = GameServices.camera().getFocusedSprite();
+        AbstractPlayableSprite main = services().camera().getFocusedSprite();
 
         // Determine the closest player by absolute horizontal distance
         AbstractPlayableSprite closest = null;
@@ -659,12 +653,12 @@ public class TiltingPlatformObjectInstance extends AbstractObjectInstance
             }
         }
 
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+        for (PlayableEntity sidekick : services().sidekicks()) {
             int diff = spawn.x() - sidekick.getCentreX();
             int absDiff = Math.abs(diff);
             if (absDiff < closestAbsDist) {
                 closestAbsDist = absDiff;
-                closest = sidekick;
+                closest = (AbstractPlayableSprite) sidekick;
             }
         }
 
@@ -681,7 +675,7 @@ public class TiltingPlatformObjectInstance extends AbstractObjectInstance
     }
 
     private boolean isAnyPlayerRiding() {
-        if (GameServices.level() == null || services().objectManager() == null) {
+        if (services().objectManager() == null) {
             return false;
         }
         return services().objectManager().isAnyPlayerRiding(this);

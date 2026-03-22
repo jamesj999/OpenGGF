@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
@@ -21,7 +20,6 @@ import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpriteMappingPiece;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -151,7 +149,7 @@ public class OOZLauncherObjectInstance extends AbstractObjectInstance
         savedSonicAnim = player.getAnimationId();
         savedSonicYVel = player.getYSpeed();
 
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+        for (PlayableEntity sidekick : services().sidekicks()) {
             savedTailsAnim = sidekick.getAnimationId();
             savedTailsYVel = sidekick.getYSpeed();
         }
@@ -168,7 +166,7 @@ public class OOZLauncherObjectInstance extends AbstractObjectInstance
         }
 
         // Determine which player is contacting
-        boolean isSidekick = SpriteManager.getInstance().getSidekicks().contains(player);
+        boolean isSidekick = services().sidekicks().contains(player);
 
         // Check if standing player is rolling (ROM: cmpi.b #AniIDSonAni_Roll,objoff_32)
         int savedAnim = isSidekick ? savedTailsAnim : savedSonicAnim;
@@ -271,8 +269,8 @@ public class OOZLauncherObjectInstance extends AbstractObjectInstance
         sonicLauncherState = processLauncherState(player, sonicLauncherState);
 
         // Process Tails
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
-            tailsLauncherState = processLauncherState(sidekick, tailsLauncherState);
+        for (PlayableEntity sidekick : services().sidekicks()) {
+            tailsLauncherState = processLauncherState((AbstractPlayableSprite) sidekick, tailsLauncherState);
         }
 
         // Delete when both states are 0 (ROM: beq.w JmpTo3_MarkObjGone3)
@@ -318,7 +316,7 @@ public class OOZLauncherObjectInstance extends AbstractObjectInstance
         // ROM: Skip Tails if flying (CPU routine 4)
         // The engine doesn't expose Tails CPU routine directly, but this check
         // prevents capturing Tails while they're in flight mode
-        if (SpriteManager.getInstance().getSidekicks().contains(player)
+        if (services().sidekicks().contains(player)
                 && player.getAir() && !player.getRolling()) {
             return 0;
         }
@@ -394,7 +392,7 @@ public class OOZLauncherObjectInstance extends AbstractObjectInstance
     }
 
     private boolean isPlayerOnScreen(AbstractPlayableSprite player) {
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         int px = player.getCentreX();
         int py = player.getCentreY();
         int cx = camera.getX();
@@ -535,7 +533,7 @@ public class OOZLauncherObjectInstance extends AbstractObjectInstance
             currentY = subY >> 8;
 
             // ROM: btst #render_flags.on_screen; beq JmpTo26_DeleteObject
-            int cameraY = GameServices.camera().getY();
+            int cameraY = services().camera().getY();
             if (currentY > cameraY + 224 + 32) {
                 setDestroyed(true);
             }

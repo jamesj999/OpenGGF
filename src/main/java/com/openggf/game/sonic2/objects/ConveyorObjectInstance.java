@@ -243,7 +243,7 @@ public class ConveyorObjectInstance extends AbstractObjectInstance
             return null;
         }
 
-        ObjectManager manager = GameServices.level().getObjectManager();
+        ObjectManager manager = GameServices.level() != null ? GameServices.level().getObjectManager() : null;
         if (manager == null) {
             return null;
         }
@@ -336,7 +336,7 @@ public class ConveyorObjectInstance extends AbstractObjectInstance
      */
     private boolean isBasePositionOnScreen() {
         Camera camera =
-                GameServices.camera();
+                services().camera();
         if (camera == null) {
             return true;
         }

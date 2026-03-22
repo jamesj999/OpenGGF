@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
@@ -113,7 +112,7 @@ public class LaserObjectInstance extends AbstractObjectInstance {
         // cmp.w d1,d0
         // blt.w JmpTo65_DeleteObject
         // jmpto JmpTo45_DisplaySprite
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         int deleteThreshold = camera.getX() - DELETE_MARGIN;
         if ((short) currentX < (short) deleteThreshold) {
             setDestroyed(true);

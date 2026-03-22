@@ -1,8 +1,6 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
 import com.openggf.graphics.GLCommand;
@@ -881,10 +879,7 @@ public class CPZSpinTubeObjectInstance extends AbstractObjectInstance {
 
     private void playSound(GameSound sound) {
         try {
-            AudioManager audioManager = GameServices.audio();
-            if (audioManager != null) {
-                audioManager.playSfx(sound);
-            }
+            services().playSfx(sound);
         } catch (Exception e) {
             // Don't let audio failure break game logic
         }

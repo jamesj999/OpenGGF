@@ -1,10 +1,8 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -206,7 +204,7 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
         // solid dimensions: half-width=$13, half-height=$20/$20.
         // This blocks the player from running past Eggman.
         barrierWall = new BarrierWall(WALL_X, WALL_Y);
-        if (GameServices.level() != null && services().objectManager() != null) {
+        if (services().objectManager() != null) {
             services().objectManager().addDynamicObject(barrierWall);
         }
 
@@ -365,7 +363,7 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
             return;
         }
         // Fallback: search active objects for the Death Egg Robot
-        if (GameServices.level() != null && services().objectManager() != null) {
+        if (services().objectManager() != null) {
             for (var obj : services().objectManager().getActiveObjects()) {
                 if (obj instanceof Sonic2DeathEggRobotInstance robot) {
                     robot.setEggmanBoarded();
@@ -382,14 +380,6 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
         if (isDestroyed()) return;
-
-        LevelManager lm;
-        try {
-            lm = GameServices.level();
-        } catch (Exception e) {
-            return;
-        }
-        if (GameServices.level() == null) return;
 
         ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) return;
@@ -521,14 +511,6 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
             if (isDestroyed() || wallState == WALL_STATE_DELETE) return;
-
-            LevelManager lm;
-            try {
-                lm = GameServices.level();
-            } catch (Exception e) {
-                return;
-            }
-            if (GameServices.level() == null) return;
 
             ObjectRenderManager renderManager = services().renderManager();
             if (renderManager == null) return;

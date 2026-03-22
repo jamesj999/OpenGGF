@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
@@ -85,7 +84,7 @@ public class EHZBossWheel extends AbstractBossChild {
     }
 
     private void updateApproach() {
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         if (camera != null && camera.getMinX() < CAMERA_GATE_X) {
             return;
         }

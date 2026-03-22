@@ -1,5 +1,4 @@
 package com.openggf.game.sonic2.objects;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.SpringHelper;
 
@@ -227,9 +226,7 @@ public class MTZSpringWallObjectInstance extends AbstractObjectInstance
 
         // From disassembly: move.w #SndID_Spring,d0 / jmp (PlaySound).l
         try {
-            if (GameServices.audio() != null) {
-                GameServices.audio().playSfx(GameSound.SPRING);
-            }
+            services().playSfx(GameSound.SPRING);
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic
         }

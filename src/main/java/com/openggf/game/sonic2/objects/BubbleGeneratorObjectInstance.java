@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.WaterSystem;
@@ -100,7 +99,7 @@ public class BubbleGeneratorObjectInstance extends AbstractObjectInstance {
     public void update(int frameCounter, PlayableEntity playerEntity) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: Check if generator is above water (only spawn when underwater)
-        if (GameServices.level() != null && services().currentLevel() != null) {
+        if (services().currentLevel() != null) {
             WaterSystem waterSystem = WaterSystem.getInstance();
             int zoneId = services().currentLevel().getZoneIndex();
             int actId = services().currentAct();
@@ -180,7 +179,7 @@ public class BubbleGeneratorObjectInstance extends AbstractObjectInstance {
      * ROM: loc_1FA2A (lines 44870-44919)
      */
     private void spawnNextBubble() {
-        if (GameServices.level() == null || services().objectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
 

@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
@@ -197,7 +196,7 @@ public class HTZLiftObjectInstance extends AbstractObjectInstance
         yFixed += yVel;
 
         // Check if fallen off bottom of screen
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         int screenBottom = camera.getMaxY() + 224;
         int currentY = yFixed >> 8;
 

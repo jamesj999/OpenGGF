@@ -303,7 +303,7 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
         baseYFixed += yVel;
         yVel += FALL_GRAVITY;
 
-        int cameraMaxY = GameServices.camera().getMaxY();
+        int cameraMaxY = services().camera().getMaxY();
         if ((baseYFixed >> 8) > cameraMaxY + OFFSCREEN_Y_MARGIN) {
             setDestroyed(true);
         }

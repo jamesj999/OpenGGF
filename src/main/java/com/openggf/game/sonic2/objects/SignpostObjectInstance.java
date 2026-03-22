@@ -180,7 +180,7 @@ public class SignpostObjectInstance extends BoxObjectInstance {
      * Sonic_LevelBound still uses the original level boundary value.
      */
     private void lockCamera() {
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         if (camera != null) {
             camera.setMinX(camera.getMaxX());
             LOGGER.fine("Camera locked: minX set to maxX=" + camera.getMaxX());
@@ -253,7 +253,7 @@ public class SignpostObjectInstance extends BoxObjectInstance {
         //      addi.w #$128,d1
         //      cmp.w  d1,d0
         //      blo.w  return
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         if (camera != null && !resultsSpawned) {
             int triggerX = camera.getMaxX() + WALK_OFF_OFFSET;
             if (player.getCentreX() >= triggerX) {

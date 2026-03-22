@@ -1,10 +1,10 @@
 package com.openggf.game.sonic2.objects;
+import com.openggf.game.GameServices;
 import com.openggf.level.objects.BoxObjectInstance;
 
 import com.openggf.game.CheckpointState;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
-import com.openggf.game.GameServices;
 
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -69,7 +69,7 @@ public class CheckpointObjectInstance extends BoxObjectInstance {
         this.cameraLockFlag = (spawn.subtype() & 0x80) != 0;
 
         // Check if already activated (respawn persistence)
-        var checkpointState = GameServices.level().getCheckpointState();
+        var checkpointState = GameServices.level() != null ? GameServices.level().getCheckpointState() : null;
         if (checkpointState != null && checkpointState.getLastCheckpointIndex() >= this.checkpointIndex) {
             this.activated = true;
             this.animId = ANIM_BLINKING;
@@ -199,7 +199,7 @@ public class CheckpointObjectInstance extends BoxObjectInstance {
         if (checkpointState instanceof CheckpointState cs && cs.isUsedForSpecialStage()) {
             return false;
         }
-        int emeralds = GameServices.gameState().getEmeraldCount();
+        int emeralds = services().gameState().getEmeraldCount();
         if (emeralds >= 7) {
             return false;
         }

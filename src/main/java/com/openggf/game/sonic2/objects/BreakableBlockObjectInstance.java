@@ -1,9 +1,9 @@
 package com.openggf.game.sonic2.objects;
 import com.openggf.level.objects.BoxObjectInstance;
 
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.GameServices;
 
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -81,7 +81,7 @@ public class BreakableBlockObjectInstance extends BoxObjectInstance
         this.broken = false;
 
         // Check persistence: if already broken, stay broken
-        ObjectManager objectManager = GameServices.level().getObjectManager();
+        ObjectManager objectManager = GameServices.level() != null ? GameServices.level().getObjectManager() : null;
         if (objectManager != null && objectManager.isRemembered(spawn)) {
             this.broken = true;
             setDestroyed(true);
@@ -218,10 +218,10 @@ public class BreakableBlockObjectInstance extends BoxObjectInstance
         spawnFragments();
 
         // Play slow smash sound effect
-        GameServices.audio().playSfx(GameSound.SLOW_SMASH);
+        services().playSfx(GameSound.SLOW_SMASH);
 
         // Award 100 points
-        GameServices.gameState().addScore(100);
+        services().gameState().addScore(100);
 
         // Spawn points display popup
         if (objectManager != null) {
@@ -409,7 +409,7 @@ public class BreakableBlockObjectInstance extends BoxObjectInstance
             currentY = subY >> 8;
 
             // Check if off-screen (destroy if too far below camera)
-            int cameraY = GameServices.camera().getY();
+            int cameraY = services().camera().getY();
             int screenHeight = 224;  // Standard MD screen height
             if (currentY > cameraY + screenHeight + 32) {
                 setDestroyed(true);

@@ -1,8 +1,6 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
@@ -165,10 +163,7 @@ public class BombPrizeObjectInstance extends AbstractObjectInstance {
      */
     private void playSpikeSound() {
         try {
-            AudioManager audioManager = GameServices.audio();
-            if (audioManager != null) {
-                audioManager.playSfx(GameSound.HURT_SPIKE);
-            }
+            services().playSfx(GameSound.HURT_SPIKE);
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic
         }

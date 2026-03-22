@@ -13,7 +13,6 @@ import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.Direction;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -237,8 +236,8 @@ public class SpeedLauncherObjectInstance extends AbstractObjectInstance
         // moved players to our surface.
         launchPlayerIfStanding(player);
 
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
-            launchPlayerIfStanding(sidekick);
+        for (PlayableEntity sidekick : services().sidekicks()) {
+            launchPlayerIfStanding((AbstractPlayableSprite) sidekick);
         }
     }
 
@@ -393,9 +392,9 @@ public class SpeedLauncherObjectInstance extends AbstractObjectInstance
         // ROM: Sync both standing players (loc_3BFB4)
         syncPlayer(player);
 
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+        for (PlayableEntity sidekick : services().sidekicks()) {
             if (sidekick.isOnObject()) {
-                syncPlayer(sidekick);
+                syncPlayer((AbstractPlayableSprite) sidekick);
             }
         }
     }

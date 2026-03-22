@@ -231,7 +231,7 @@ public class Sonic2MTZBossInstance extends AbstractBossInstance {
         // Spawn laser shooter child
         laserShooter = new MTZLaserShooter(this);
         childComponents.add(laserShooter);
-        var objectManager = GameServices.level().getObjectManager();
+        var objectManager = GameServices.level() != null ? GameServices.level().getObjectManager() : null;
         if (objectManager != null) {
             objectManager.addDynamicObject(laserShooter);
         }
@@ -247,7 +247,7 @@ public class Sonic2MTZBossInstance extends AbstractBossInstance {
         // byte_329D3: 0, 1, 1, 0, 1, 1, 0
         int[] tiltFlags = {0, 1, 1, 0, 1, 1, 0};
 
-        var objectManager = GameServices.level().getObjectManager();
+        var objectManager = GameServices.level() != null ? GameServices.level().getObjectManager() : null;
         for (int i = 0; i < 7; i++) {
             MTZBossOrb orb = new MTZBossOrb(this, i, phaseOffsets[i], tiltFlags[i]);
             childComponents.add(orb);
@@ -757,7 +757,7 @@ public class Sonic2MTZBossInstance extends AbstractBossInstance {
         state.xVel = VEL_FLEE_X;
         state.yVel = VEL_FLEE_Y;
 
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         if (camera.getMaxX() < CAMERA_MAX_X_FLEE) {
             camera.setMaxX((short) (camera.getMaxX() + 2));
         } else if (!isOnScreen()) {

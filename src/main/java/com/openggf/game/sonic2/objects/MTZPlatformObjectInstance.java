@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.game.OscillationManager;
@@ -264,7 +263,7 @@ public class MTZPlatformObjectInstance extends AbstractObjectInstance
         yVel += 8;
         x = baseX;
 
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         int maxY = camera != null ? camera.getMaxY() + 224 : baseY + 500;
 
         if (y > maxY) {

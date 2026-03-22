@@ -1,5 +1,4 @@
 package com.openggf.game.sonic2.objects;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.SpringHelper;
 
@@ -147,9 +146,6 @@ public class SteamSpringObjectInstance extends AbstractObjectInstance
      * First puff at x+0x28, second at x-0x28 (with x_flip).
      */
     private void spawnSteamPuffs() {
-        if (GameServices.level() == null) {
-            return;
-        }
         ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
@@ -254,9 +250,7 @@ public class SteamSpringObjectInstance extends AbstractObjectInstance
 
         // ROM: move.w #SndID_Spring,d0 / jmp (PlaySound).l
         try {
-            if (GameServices.audio() != null) {
-                GameServices.audio().playSfx(GameSound.SPRING);
-            }
+            services().playSfx(GameSound.SPRING);
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic
         }

@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
@@ -174,7 +173,7 @@ public class MovingVineObjectInstance extends AbstractObjectInstance {
      * ROM: cmpi.b #wing_fortress_zone,(Current_Zone).w
      */
     private ZoneVariant determineZoneVariant() {
-        if (GameServices.level() != null && services().currentLevel() != null) {
+        if (services().currentLevel() != null) {
             int zoneId = services().currentLevel().getZoneIndex();
             if (zoneId == Sonic2ZoneConstants.ROM_ZONE_WFZ) {
                 return ZoneVariant.WFZ;

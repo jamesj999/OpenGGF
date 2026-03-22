@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -54,7 +53,7 @@ public class CPZPylonObjectInstance extends AbstractObjectInstance {
     @Override
     public int getX() {
         // X position uses parallax: -3 * (cameraX & 0x3FF) / 4
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         int cameraX = camera.getX();
         int masked = cameraX & CAMERA_X_MASK;
         // Original: asr.w #1,d1 -> d1/2; move.w d1,d0; asr.w #1,d1 -> d1/4; add.w d1,d0 -> 3/4; neg.w d0
@@ -65,7 +64,7 @@ public class CPZPylonObjectInstance extends AbstractObjectInstance {
     @Override
     public int getY() {
         // Y position: 0x100 - ((cameraY / 2) & 0x3F)
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         int cameraY = camera.getY();
         int yOffset = (cameraY >> 1) & CAMERA_Y_MASK;
         return BASE_Y - yOffset;
@@ -88,7 +87,7 @@ public class CPZPylonObjectInstance extends AbstractObjectInstance {
      * Checks if the pylon should be visible based on camera position.
      */
     private boolean isVisible() {
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         int cameraX = camera.getX();
         return (cameraX & CAMERA_X_MASK) < VISIBILITY_THRESHOLD;
     }
@@ -108,7 +107,7 @@ public class CPZPylonObjectInstance extends AbstractObjectInstance {
         PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.CPZ_PYLON);
         if (renderer == null) return;
 
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         int cameraX = camera.getX();
         int cameraY = camera.getY();
 

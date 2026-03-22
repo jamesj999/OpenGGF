@@ -1,8 +1,6 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
@@ -141,10 +139,7 @@ public class SpeedBoosterObjectInstance extends AbstractObjectInstance {
     private void playBoostSound() {
         // ROM: move.w #SndID_Spring,d0 / jmp (PlaySound).l
         try {
-            AudioManager audioManager = GameServices.audio();
-            if (audioManager != null) {
-                audioManager.playSfx(GameSound.SPRING);
-            }
+            services().playSfx(GameSound.SPRING);
         } catch (Exception e) {
             // Don't let audio failure break game logic
         }

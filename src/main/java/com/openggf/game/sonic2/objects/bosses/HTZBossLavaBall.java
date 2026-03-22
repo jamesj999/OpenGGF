@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
@@ -171,7 +170,7 @@ public class HTZBossLavaBall extends AbstractBossChild implements TouchResponseP
             return;
         }
         ObjectRenderManager renderManager =
-                GameServices.level() != null ? services().renderManager() : null;
+                services().renderManager();
         if (renderManager == null) {
             return;
         }

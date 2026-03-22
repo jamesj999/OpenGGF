@@ -3,7 +3,6 @@ package com.openggf.game.sonic2.objects.bosses;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.EggPrisonObjectInstance;
@@ -569,7 +568,7 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
         state.xVel = ESCAPE_X_VEL;
         state.yVel = ESCAPE_Y_VEL;
 
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         // ROM: cmpi.w #$2240,(Camera_Max_X_pos).w
         if (camera.getMaxX() < 0x2240) {
             camera.setMaxX((short) (camera.getMaxX() + 2));
@@ -784,7 +783,7 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
 
     private void setScreenShaking(boolean shaking) {
         this.screenShaking = shaking;
-        GameServices.gameState().setScreenShakeActive(shaking);
+        services().gameState().setScreenShakeActive(shaking);
     }
 
     /** Returns true when Screen_Shaking_Flag is active (descent phases). */

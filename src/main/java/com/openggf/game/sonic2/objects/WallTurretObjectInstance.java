@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
@@ -228,9 +227,6 @@ public class WallTurretObjectInstance extends AbstractObjectInstance {
      *   move.b  (a2)+,y_vel(a1)       ; high byte of y velocity
      */
     private void fireProjectile() {
-        if (GameServices.level() == null) {
-            return;
-        }
         ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;

@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -307,7 +306,7 @@ public class BlueBallsObjectInstance extends AbstractObjectInstance implements T
      * @return true if the object should be destroyed
      */
     private boolean checkMarkObjGone() {
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         int cameraXCoarse = camera.getX() & 0xFF80;
         int objectXCoarse = (currentX >> 8) & 0xFF80;
 
@@ -465,7 +464,7 @@ public class BlueBallsObjectInstance extends AbstractObjectInstance implements T
      * When objects are unloaded (scrolled off-screen) and reloaded, they start fresh.
      */
     private void spawnSiblings() {
-        if (GameServices.level() == null || services().objectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
 

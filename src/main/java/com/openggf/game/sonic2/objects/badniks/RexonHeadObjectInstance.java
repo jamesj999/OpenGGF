@@ -14,7 +14,6 @@ import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import com.openggf.game.GameServices;
 import com.openggf.level.objects.ExplosionObjectInstance;
 import com.openggf.game.sonic2.objects.PointsObjectInstance;
 
@@ -483,7 +482,7 @@ public class RexonHeadObjectInstance extends AbstractObjectInstance
         int pointsValue = 100;
         if (player != null) {
             pointsValue = player.incrementBadnikChain();
-            GameServices.gameState().addScore(pointsValue);
+            services().gameState().addScore(pointsValue);
         }
 
         // Spawn points display

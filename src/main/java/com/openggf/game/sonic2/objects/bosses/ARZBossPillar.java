@@ -2,7 +2,6 @@ package com.openggf.game.sonic2.objects.bosses;
 
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -92,7 +91,7 @@ public class ARZBossPillar extends AbstractObjectInstance
             y = PILLAR_TARGET_Y;
             routineSecondary = PILLAR_SUB_IDLE;
             // ROM: move.b #0,(Screen_Shaking_Flag).w - stop screen shaking
-            GameServices.gameState().setScreenShakeActive(false);
+            services().gameState().setScreenShakeActive(false);
         }
         mappingFrame = 0;
     }
@@ -121,11 +120,11 @@ public class ARZBossPillar extends AbstractObjectInstance
      * ROM: Obj89_Pillar_Sub4 (lines 64963-65001)
      */
     private void updatePillarLower(AbstractPlayableSprite player) {
-        GameServices.gameState().setScreenShakeActive(true);
+        services().gameState().setScreenShakeActive(true);
 
         y += 1;
         if (y >= PILLAR_START_Y) {
-            GameServices.gameState().setScreenShakeActive(false);
+            services().gameState().setScreenShakeActive(false);
             dropStandingPlayers(player);
             setDestroyed(true);
             return;
@@ -134,7 +133,7 @@ public class ARZBossPillar extends AbstractObjectInstance
     }
 
     private void dropStandingPlayers(AbstractPlayableSprite player) {
-        if (player == null || GameServices.level() == null || services().objectManager() == null) {
+        if (player == null || services().objectManager() == null) {
             return;
         }
         if (services().objectManager().isRidingObject(player, this)) {
@@ -175,7 +174,7 @@ public class ARZBossPillar extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = GameServices.level() != null ? services().renderManager() : null;
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

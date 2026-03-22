@@ -4,7 +4,6 @@ import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.sonic2.Sonic2LevelEventManager;
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.GameServices;
 import com.openggf.graphics.GLCommand;
 import com.openggf.camera.Camera;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -143,7 +142,8 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
         // Get width from table (subtype is index)
         int widthIndex = Math.min(subtype, SUBTYPE_WIDTHS.length - 1);
         this.widthPixels = SUBTYPE_WIDTHS[widthIndex];
-        this.routeEnabled = isEnabledForCurrentRoute(subtype, GameServices.camera().getY());
+        Camera cameraInst = Camera.getInstance();
+        this.routeEnabled = isEnabledForCurrentRoute(subtype, cameraInst != null ? cameraInst.getY() : 0);
 
         updateDynamicSpawn(baseX, currentY);
     }
@@ -287,7 +287,7 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
         // Only solid when HTZ earthquake sequence is active.
         // Uses the HTZ-specific flag which stays on during delay periods,
         // unlike the general Screen_Shaking_Flag which gets cleared.
-        return GameServices.gameState().isHtzScreenShakeActive();
+        return services().gameState().isHtzScreenShakeActive();
     }
 
     @Override
@@ -352,7 +352,7 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
         }
 
         // Only render when HTZ earthquake is active
-        if (!GameServices.gameState().isHtzScreenShakeActive()) {
+        if (!services().gameState().isHtzScreenShakeActive()) {
             return;
         }
 

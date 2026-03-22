@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -318,7 +317,7 @@ public class HexBumperObjectInstance extends AbstractObjectInstance {
         bounceCooldown = BOUNCE_COOLDOWN;
 
         // Play sound
-        GameServices.audio().playSfx(GameSound.BUMPER);
+        services().playSfx(GameSound.BUMPER);
     }
 
     @Override

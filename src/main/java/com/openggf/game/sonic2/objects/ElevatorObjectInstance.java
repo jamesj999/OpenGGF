@@ -1,9 +1,7 @@
 package com.openggf.game.sonic2.objects;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.BoxObjectInstance;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
@@ -284,10 +282,7 @@ public class ElevatorObjectInstance extends BoxObjectInstance
 
     private void playElevatorSound() {
         try {
-            AudioManager audioManager = GameServices.audio();
-            if (audioManager != null) {
-                audioManager.playSfx(GameSound.CNZ_ELEVATOR);
-            }
+            services().playSfx(GameSound.CNZ_ELEVATOR);
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic
         }

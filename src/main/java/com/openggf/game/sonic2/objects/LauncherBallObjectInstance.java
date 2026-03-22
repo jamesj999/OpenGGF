@@ -1,8 +1,6 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
@@ -10,7 +8,6 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.ArrayList;
@@ -137,8 +134,8 @@ public class LauncherBallObjectInstance extends AbstractObjectInstance {
         processPlayer(player, frameCounter);
 
         // Process sidekick(s)
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
-            processPlayer(sidekick, frameCounter);
+        for (PlayableEntity sidekick : services().sidekicks()) {
+            processPlayer((AbstractPlayableSprite) sidekick, frameCounter);
         }
     }
 
@@ -214,10 +211,7 @@ public class LauncherBallObjectInstance extends AbstractObjectInstance {
 
         // Play rolling sound
         try {
-            AudioManager audioManager = GameServices.audio();
-            if (audioManager != null) {
-                audioManager.playSfx(GameSound.ROLLING);
-            }
+            services().playSfx(GameSound.ROLLING);
         } catch (Exception e) {
             // Don't let audio failure break game logic
         }

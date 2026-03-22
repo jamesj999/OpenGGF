@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -99,8 +98,7 @@ public class LavaBubbleObjectInstance extends AbstractObjectInstance implements 
             return;
         }
 
-        ObjectRenderManager renderManager = GameServices.level() != null
-                ? services().renderManager() : null;
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

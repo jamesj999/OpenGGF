@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.level.objects.ObjectAnimationState;
@@ -244,14 +243,14 @@ public class CPZBossContainer extends AbstractObjectInstance {
         int myXVel = randomPipeVelocity();
         ObjectSpawn partSpawn = new ObjectSpawn(x, y, Sonic2ObjectIds.CPZ_BOSS, 0, renderFlags, false, 0);
         CPZBossFallingPart part = new CPZBossFallingPart(partSpawn, 0x20, myXVel);
-        if (GameServices.level() != null && services().objectManager() != null) {
+        if (services().objectManager() != null) {
             services().objectManager().addDynamicObject(part);
         }
         setDestroyed(true);
     }
 
     private void spawnContainerFloor() {
-        if (floorSpawned || GameServices.level() == null || services().objectManager() == null) {
+        if (floorSpawned || services().objectManager() == null) {
             return;
         }
         floorSpawned = true;
@@ -261,7 +260,7 @@ public class CPZBossContainer extends AbstractObjectInstance {
     }
 
     private void spawnContainerExtend() {
-        if (extendSpawned || GameServices.level() == null || services().objectManager() == null) {
+        if (extendSpawned || services().objectManager() == null) {
             return;
         }
         extendSpawned = true;
@@ -271,7 +270,7 @@ public class CPZBossContainer extends AbstractObjectInstance {
     }
 
     private void spawnContainerFloor2() {
-        if (GameServices.level() == null || services().objectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
         ObjectSpawn floorSpawn = new ObjectSpawn(x, y, Sonic2ObjectIds.CPZ_BOSS, 0, renderFlags, false, 0);
@@ -280,7 +279,7 @@ public class CPZBossContainer extends AbstractObjectInstance {
     }
 
     private void spawnContainerPiece(int offset) {
-        if (GameServices.level() == null || services().objectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
         int pieceX = x + ((renderFlags & 1) != 0 ? -offset : offset);
@@ -314,7 +313,7 @@ public class CPZBossContainer extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = GameServices.level() != null ? services().renderManager() : null;
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

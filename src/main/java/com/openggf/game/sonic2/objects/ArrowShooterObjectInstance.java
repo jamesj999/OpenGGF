@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -162,9 +161,6 @@ public class ArrowShooterObjectInstance extends AbstractObjectInstance {
         services().playSfx(Sonic2Sfx.PRE_ARROW_FIRING.id);
 
         // Spawn arrow projectile
-        if (GameServices.level() == null) {
-            return;
-        }
         ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;

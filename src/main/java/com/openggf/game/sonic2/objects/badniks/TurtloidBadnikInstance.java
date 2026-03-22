@@ -4,9 +4,9 @@ import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.level.objects.AnimalObjectInstance;
 
 import com.openggf.debug.DebugRenderContext;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.level.objects.ExplosionObjectInstance;
 import com.openggf.game.sonic2.objects.PointsObjectInstance;
@@ -105,7 +105,7 @@ public class TurtloidBadnikInstance extends AbstractBadnikInstance
     }
 
     private void spawnChildren() {
-        ObjectManager objectManager = GameServices.level().getObjectManager();
+        ObjectManager objectManager = GameServices.level() != null ? GameServices.level().getObjectManager() : null;
         if (objectManager == null) {
             return;
         }
@@ -265,7 +265,7 @@ public class TurtloidBadnikInstance extends AbstractBadnikInstance
         int pointsValue = 100;
         if (player != null) {
             pointsValue = player.incrementBadnikChain();
-            GameServices.gameState().addScore(pointsValue);
+            services().gameState().addScore(pointsValue);
         }
 
         PointsObjectInstance points = new PointsObjectInstance(

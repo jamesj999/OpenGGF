@@ -6,7 +6,6 @@ import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.events.Sonic2CNZEvents;
-import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -569,12 +568,12 @@ public class Sonic2CNZBossInstance extends AbstractBossInstance {
         state.xVel = VELOCITY_FLEE_X;
         state.yVel = VELOCITY_FLEE_Y;
 
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         if (camera.getMaxX() < CAMERA_MAX_X_TARGET) {
             camera.setMaxXTarget((short) (camera.getMaxX() + 2));
         } else if (!isOnScreen()) {
             // Clear boss ID so palette cycling stops
-            GameServices.gameState().setCurrentBossId(0);
+            services().gameState().setCurrentBossId(0);
             setDestroyed(true);
         }
 
@@ -840,7 +839,7 @@ public class Sonic2CNZBossInstance extends AbstractBossInstance {
 
     @Override
     protected boolean isOnScreen() {
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         int screenX = state.x - camera.getX();
         int screenY = state.y - camera.getY();
         return screenX >= -64 && screenX <= camera.getWidth() + 64

@@ -497,7 +497,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         childComponents.add(backThigh);
 
         // Register children with ObjectManager for rendering (matches Silver Sonic pattern)
-        var objectManager = GameServices.level().getObjectManager();
+        var objectManager = GameServices.level() != null ? GameServices.level().getObjectManager() : null;
         if (objectManager != null) {
             for (var child : childComponents) {
                 if (child instanceof com.openggf.level.objects.boss.AbstractBossChild bossChild) {
@@ -786,7 +786,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                     //       shake API. Using static offset as stub until Camera supports
                     //       duration-based shake (ROM: ObjC7 stomp sets $40 frames of
                     //       oscillating Y shake via the ripple/shake system).
-                    Camera camera = GameServices.camera();
+                    Camera camera = services().camera();
                     if (camera != null) {
                         camera.setShakeOffsets(0, 4);
                     }
@@ -966,7 +966,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             }
         } else {
             defeatPhase = 4;
-            Camera camera = GameServices.camera();
+            Camera camera = services().camera();
             if (camera != null) {
                 camera.setMaxX((short) DEFEAT_CAMERA_MAX_X);
                 // TODO: ROM sets (Vint_Count_addr+2).w = $1000 for persistent screen rumble.
@@ -989,7 +989,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             clampPlayerToGround(player);
         }
 
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         if (camera != null && camera.getX() >= DEFEAT_CAMERA_WALK_TARGET) {
             // ROM: ObjC7_SetupEnding (s2.asm:83050-83124)
             // Advance to setup-ending phase. Do NOT trigger credits yet.
@@ -1108,7 +1108,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     private void triggerDefeatSequence() {
         if (state.defeated) return;
         state.defeated = true;
-        GameServices.gameState().addScore(1000);
+        services().gameState().addScore(1000);
         bodyRoutine = BODY_DEFEAT;
         defeatPhase = 0;
         state.xVel = 0;

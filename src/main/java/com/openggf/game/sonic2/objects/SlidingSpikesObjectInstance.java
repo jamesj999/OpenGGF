@@ -23,7 +23,6 @@ import com.openggf.level.render.PatternSpriteRenderer;
 
 import com.openggf.level.render.SpriteMappingPiece;
 import com.openggf.level.render.SpritePieceRenderer;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -211,8 +210,8 @@ public class SlidingSpikesObjectInstance extends AbstractObjectInstance
         checkSinglePlayer(player);
 
         // Check sidekick(s) if present - matches disassembly behavior
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
-            checkSinglePlayer(sidekick);
+        for (PlayableEntity sidekick : services().sidekicks()) {
+            checkSinglePlayer((AbstractPlayableSprite) sidekick);
         }
     }
 
@@ -393,7 +392,7 @@ public class SlidingSpikesObjectInstance extends AbstractObjectInstance
         // Use the camera bounds from parent class
         // This mirrors isOnScreen(margin) but with explicit coordinates
         Camera camera =
-                GameServices.camera();
+                services().camera();
         if (camera == null) {
             return true;  // Assume on-screen if no camera
         }

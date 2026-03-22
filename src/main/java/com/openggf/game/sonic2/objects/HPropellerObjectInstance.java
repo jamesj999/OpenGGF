@@ -10,7 +10,6 @@ import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import com.openggf.debug.DebugColor;
@@ -282,8 +281,8 @@ public class HPropellerObjectInstance extends AbstractObjectInstance {
         }
 
         // Check sidekick(s)
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
-            checkAndPushPlayer(sidekick);
+        for (PlayableEntity sidekick : services().sidekicks()) {
+            checkAndPushPlayer((AbstractPlayableSprite) sidekick);
         }
     }
 

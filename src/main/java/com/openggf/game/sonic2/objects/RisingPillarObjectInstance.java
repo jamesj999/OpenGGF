@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic2.S2SpriteDataLoader;
@@ -233,7 +232,7 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
         player.setAir(true);
 
         // Play slow smash sound effect
-        GameServices.audio().playSfx(GameSound.SLOW_SMASH);
+        services().playSfx(GameSound.SLOW_SMASH);
 
         // NOTE: We do NOT call markRemembered here. The original game uses MarkObjGone
         // which CLEARS the respawn flag (bclr #7), allowing the pillar to respawn

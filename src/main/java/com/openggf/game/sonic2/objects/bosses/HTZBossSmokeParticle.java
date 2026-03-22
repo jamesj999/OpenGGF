@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
@@ -100,8 +99,7 @@ public class HTZBossSmokeParticle extends AbstractObjectInstance {
             return;
         }
 
-        ObjectRenderManager renderManager = GameServices.level() != null
-                ? services().renderManager() : null;
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

@@ -26,7 +26,6 @@ import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.Direction;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import com.openggf.debug.DebugColor;
@@ -299,7 +298,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
         moveObeyPlayer(player, mainStandingNow);
 
         // ROM: Camera_Min_X_pos = Camera_X_pos
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         int cameraX = camera.getX();
         camera.setMinX((short) cameraX);
 
@@ -607,7 +606,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
                 grabberTriggered = true;
                 routineSecondary = 4;
 
-                GameServices.camera().setYPosBias((short) ((224 / 2) + 8));
+                services().camera().setYPosBias((short) ((224 / 2) + 8));
 
                 player.setXSpeed((short) 0);
                 player.setYSpeed((short) 0);
@@ -892,7 +891,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        int cameraY = GameServices.camera().getY();
+        int cameraY = services().camera().getY();
         if (yVel < 0) {
             int upper = cameraY + VERTICAL_LIMIT_UP_OFFSET;
             if (currentY < upper) {
@@ -957,7 +956,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
      * ((x_pos & $FF80) - Camera_X_pos_coarse) > $280 (unsigned compare).
      */
     private boolean checkMarkObjGone() {
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         if (camera == null) {
             return false;
         }
@@ -1036,7 +1035,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
             main.setAir(true);
         }
 
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+        for (PlayableEntity sidekick : services().sidekicks()) {
             if (objectManager.isRidingObject(sidekick, this)) {
                 objectManager.clearRidingObject(sidekick);
                 sidekick.setOnObject(false);
@@ -1052,12 +1051,12 @@ public class TornadoObjectInstance extends AbstractObjectInstance
 
         // ROM: Obj_GetOrientationToPlayer always considers both players,
         // returning the closest one. No zone-specific filtering.
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+        for (PlayableEntity sidekick : services().sidekicks()) {
             if (!sidekick.getDead()) {
                 int signedSidekick = currentX - sidekick.getCentreX();
                 int absSidekick = Math.abs(signedSidekick);
                 if (absSidekick < absMain) {
-                    return new Orientation(sidekick, signedSidekick);
+                    return new Orientation((AbstractPlayableSprite) sidekick, signedSidekick);
                 }
             }
         }
@@ -1127,7 +1126,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
     }
 
     private AbstractPlayableSprite getMainPlayer() {
-        return GameServices.camera().getFocusedSprite();
+        return services().camera().getFocusedSprite();
     }
 
     private String resolveRenderArtKey() {

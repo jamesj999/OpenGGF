@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
@@ -227,7 +226,7 @@ public class CPZBossGunk extends AbstractObjectInstance implements TouchResponse
     }
 
     private void spawnDroplet() {
-        if (GameServices.level() == null || services().objectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
         int random = ThreadLocalRandom.current().nextInt(0x10000);
@@ -269,7 +268,7 @@ public class CPZBossGunk extends AbstractObjectInstance implements TouchResponse
 
     @Override
     protected boolean isOnScreen(int margin) {
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         int screenX = x - camera.getX();
         int screenY = y - camera.getY();
         return screenX >= -margin && screenX <= camera.getWidth() + margin
@@ -278,7 +277,7 @@ public class CPZBossGunk extends AbstractObjectInstance implements TouchResponse
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = GameServices.level() != null ? services().renderManager() : null;
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

@@ -1058,7 +1058,7 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
         };
 
         for (int i = 0; i < 7; i++) {
-            boolean hasThisEmerald = GameServices.gameState().hasEmerald(i);
+            boolean hasThisEmerald = services().gameState().hasEmerald(i);
 
             if (hasThisEmerald) {
                 // ROM-accurate flash: display on odd frames only (btst #0)
@@ -1090,7 +1090,7 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
         };
 
         for (int i = 0; i < 7; i++) {
-            boolean hasThisEmerald = GameServices.gameState().hasEmerald(i);
+            boolean hasThisEmerald = services().gameState().hasEmerald(i);
 
             if (hasThisEmerald) {
                 // ROM-accurate flash: display on odd frames only (btst #0)

@@ -1,5 +1,4 @@
 package com.openggf.game.sonic2.objects;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.BoxObjectInstance;
 
@@ -12,7 +11,6 @@ import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.*;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.Direction;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.HashMap;
@@ -504,9 +502,7 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
      */
     private void playLaunchSound() {
         try {
-            if (GameServices.audio() != null) {
-                GameServices.audio().playSfx(GameSound.CNZ_LAUNCH);
-            }
+            services().playSfx(GameSound.CNZ_LAUNCH);
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic
         }
@@ -542,7 +538,7 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
 
         // ROM: move.b #0,objoff_3A(a0) - clear compression-processed flag at start of update
         // This allows ONE compression increment per frame across all players
@@ -553,9 +549,9 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
         processPlayer(player, camera);
 
         // Also process sidekick(s) if present (two-player support)
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+        for (PlayableEntity sidekick : services().sidekicks()) {
             if (sidekick != player) {
-                processPlayer(sidekick, camera);
+                processPlayer((AbstractPlayableSprite) sidekick, camera);
             }
         }
 

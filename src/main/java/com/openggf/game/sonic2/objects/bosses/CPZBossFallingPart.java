@@ -1,5 +1,4 @@
 package com.openggf.game.sonic2.objects.bosses;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.ExplosionObjectInstance;
 
@@ -87,7 +86,7 @@ public class CPZBossFallingPart extends AbstractObjectInstance {
     }
 
     private void spawnExplosion() {
-        if (GameServices.level() == null || services().objectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
         ObjectRenderManager renderManager = services().renderManager();
@@ -105,7 +104,7 @@ public class CPZBossFallingPart extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = GameServices.level() != null ? services().renderManager() : null;
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

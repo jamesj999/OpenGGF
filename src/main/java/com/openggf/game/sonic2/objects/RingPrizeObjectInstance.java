@@ -212,7 +212,7 @@ public class RingPrizeObjectInstance extends AbstractObjectInstance {
         }
 
         // Play ring sound
-        GameServices.audio().playSfx(GameSound.RING);
+        services().playSfx(GameSound.RING);
     }
 
     @Override

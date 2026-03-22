@@ -1,7 +1,6 @@
 package com.openggf.game.sonic2.objects.bosses;
 
 import com.openggf.camera.Camera;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.audio.Sonic2Music;
@@ -188,8 +187,10 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         childrenSpawned = false;
 
         // ROM: Camera max Y = $442
-        Camera camera = GameServices.camera();
-        camera.setMaxY((short) CAMERA_MAX_Y_BOSS);
+        Camera camera = Camera.getInstance();
+        if (camera != null) {
+            camera.setMaxY((short) CAMERA_MAX_Y_BOSS);
+        }
 
         // Advance to wait-for-player
         state.routine = ROUTINE_WAIT_PLAYER;
@@ -579,9 +580,9 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
             // ROM: ObjC5_End - play WFZ music, camera max Y=$720, delete.
             // Issue 16: ROM does NOT advance Dynamic_Resize_Routine here.
             services().playMusic(Sonic2Music.WING_FORTRESS.id);
-            Camera camera = GameServices.camera();
+            Camera camera = services().camera();
             camera.setMaxY((short) CAMERA_MAX_Y_DEFEAT);
-            GameServices.gameState().setCurrentBossId(0);
+            services().gameState().setCurrentBossId(0);
             setDestroyed(true);
             return;
         }

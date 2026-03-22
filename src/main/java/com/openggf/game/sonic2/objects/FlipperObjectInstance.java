@@ -79,7 +79,7 @@ public class FlipperObjectInstance extends BoxObjectInstance
         this.idleAnimId = isHorizontal() ? ANIM_HORIZONTAL_IDLE : ANIM_VERTICAL_IDLE;
         this.mappingFrame = isHorizontal() ? 4 : 0;
 
-        ObjectRenderManager renderManager = GameServices.level().getObjectRenderManager();
+        ObjectRenderManager renderManager = GameServices.level() != null ? GameServices.level().getObjectRenderManager() : null;
         this.animationState = new ObjectAnimationState(
                 renderManager != null ? renderManager.getAnimations(Sonic2ObjectArtKeys.ANIM_FLIPPER) : null,
                 idleAnimId,
@@ -279,9 +279,7 @@ public class FlipperObjectInstance extends BoxObjectInstance
 
     private void playFlipperSound() {
         try {
-            if (GameServices.audio() != null) {
-                GameServices.audio().playSfx(GameSound.FLIPPER);
-            }
+            services().playSfx(GameSound.FLIPPER);
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic
         }

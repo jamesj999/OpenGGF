@@ -10,7 +10,6 @@ import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -121,8 +120,8 @@ public class BarrierObjectInstance extends AbstractObjectInstance implements Sol
         checkCharacter(player, detectLeft, detectRight, detectTop, detectBottom);
 
         // Check sidekick(s) if present
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
-            checkCharacter(sidekick, detectLeft, detectRight, detectTop, detectBottom);
+        for (PlayableEntity sidekick : services().sidekicks()) {
+            checkCharacter((AbstractPlayableSprite) sidekick, detectLeft, detectRight, detectTop, detectBottom);
         }
 
         // Update position based on movement state

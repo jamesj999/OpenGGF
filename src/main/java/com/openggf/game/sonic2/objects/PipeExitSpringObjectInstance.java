@@ -66,7 +66,7 @@ public class PipeExitSpringObjectInstance extends BoxObjectInstance
         this.fullStrength = (spawn.subtype() & 0x02) == 0;
         this.mappingFrame = 0;
 
-        ObjectRenderManager renderManager = GameServices.level().getObjectRenderManager();
+        ObjectRenderManager renderManager = GameServices.level() != null ? GameServices.level().getObjectRenderManager() : null;
         this.animationState = new ObjectAnimationState(
                 renderManager != null ? renderManager.getAnimations(Sonic2ObjectArtKeys.ANIM_PIPE_EXIT_SPRING) : null,
                 ANIM_IDLE,
@@ -156,9 +156,7 @@ public class PipeExitSpringObjectInstance extends BoxObjectInstance
     private void trigger() {
         animationState.setAnimId(ANIM_TRIGGERED);
         try {
-            if (GameServices.audio() != null) {
-                GameServices.audio().playSfx(GameSound.SPRING);
-            }
+            services().playSfx(GameSound.SPRING);
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic
         }

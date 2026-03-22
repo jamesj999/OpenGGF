@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.S2SpriteDataLoader;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
@@ -144,9 +143,6 @@ public class FallingPillarObjectInstance extends AbstractObjectInstance
     }
 
     private void spawnChild() {
-        if (GameServices.level() == null) {
-            return;
-        }
         ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
@@ -207,7 +203,7 @@ public class FallingPillarObjectInstance extends AbstractObjectInstance
         }
 
         // Off-screen cleanup
-        int cameraMaxY = GameServices.camera().getMaxY();
+        int cameraMaxY = services().camera().getMaxY();
         if (y > cameraMaxY + OFFSCREEN_Y_MARGIN) {
             setDestroyed(true);
         }

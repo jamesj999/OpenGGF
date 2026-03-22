@@ -1,7 +1,7 @@
 package com.openggf.game.sonic2.objects;
+import com.openggf.game.GameServices;
 import com.openggf.level.objects.BoxObjectInstance;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 
 import com.openggf.audio.GameSound;
@@ -108,7 +108,7 @@ public class SmashableGroundObjectInstance extends BoxObjectInstance
         this.savedChainCounter = 0;
 
         // Check persistence: if already broken (remembered), stay destroyed
-        ObjectManager objectManager = GameServices.level().getObjectManager();
+        ObjectManager objectManager = GameServices.level() != null ? GameServices.level().getObjectManager() : null;
         if (objectManager != null && objectManager.isRemembered(spawn)) {
             this.broken = true;
             setDestroyed(true);
@@ -208,7 +208,7 @@ public class SmashableGroundObjectInstance extends BoxObjectInstance
         spawnFragments();
 
         // Play slow smash sound effect (played by BreakObjectToPieces in ROM)
-        GameServices.audio().playSfx(GameSound.SLOW_SMASH);
+        services().playSfx(GameSound.SLOW_SMASH);
 
         // Award chain bonus points
         awardChainBonus();
@@ -318,7 +318,7 @@ public class SmashableGroundObjectInstance extends BoxObjectInstance
         }
 
         // Add score
-        GameServices.gameState().addScore(points);
+        services().gameState().addScore(points);
 
         // Spawn points display popup
         ObjectManager objectManager = services().objectManager();
@@ -434,7 +434,7 @@ public class SmashableGroundObjectInstance extends BoxObjectInstance
             currentY = subY >> 8;
 
             // Check if off-screen (destroy if too far below camera)
-            int cameraY = GameServices.camera().getY();
+            int cameraY = services().camera().getY();
             int screenHeight = 224;  // Standard MD screen height
             if (currentY > cameraY + screenHeight + 64) {
                 setDestroyed(true);

@@ -114,7 +114,7 @@ public class SpringboardObjectInstance extends BoxObjectInstance
     public SpringboardObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name, COLLISION_HALF_WIDTH, COLLISION_HEIGHT, 1.0f, 0.85f, 0.1f, false);
 
-        ObjectRenderManager renderManager = GameServices.level().getObjectRenderManager();
+        ObjectRenderManager renderManager = GameServices.level() != null ? GameServices.level().getObjectRenderManager() : null;
         this.animationState = new ObjectAnimationState(
                 renderManager != null ? renderManager.getAnimations(Sonic2ObjectArtKeys.ANIM_SPRINGBOARD) : null,
                 ANIM_IDLE,
@@ -280,9 +280,7 @@ public class SpringboardObjectInstance extends BoxObjectInstance
 
         // ROM: loc_26546 - Play spring sound
         try {
-            if (GameServices.audio() != null) {
-                GameServices.audio().playSfx(GameSound.SPRING);
-            }
+            services().playSfx(GameSound.SPRING);
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic
         }

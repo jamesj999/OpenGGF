@@ -1,8 +1,6 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -135,7 +133,7 @@ public class LeavesGeneratorObjectInstance extends AbstractObjectInstance {
      * ROM: Obj2C_CreateLeaves at line 51629
      */
     private void spawnLeaves(AbstractPlayableSprite player) {
-        if (GameServices.level() == null || services().objectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
@@ -179,10 +177,7 @@ public class LeavesGeneratorObjectInstance extends AbstractObjectInstance {
 
     private void playLeavesSound() {
         try {
-            AudioManager audioManager = GameServices.audio();
-            if (audioManager != null) {
-                audioManager.playSfx(Sonic2Sfx.LEAVES.id);
-            }
+            services().playSfx(Sonic2Sfx.LEAVES.id);
         } catch (Exception e) {
             // Don't let audio failure break game logic
         }

@@ -5,7 +5,6 @@ import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.level.objects.ObjectAnimationState;
-import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -284,7 +283,7 @@ public class Sonic2CPZBossInstance extends AbstractBossInstance {
         status2 |= STATUS2_RETREAT;
         state.xVel = MAIN_RETREAT_XVEL;
         state.yVel = MAIN_RETREAT_YVEL;
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         if (camera != null) {
             if (camera.getMaxX() < MAIN_RETREAT_CAMERA_MAX_X) {
                 camera.setMaxX((short) (camera.getMaxX() + 2));
@@ -327,7 +326,7 @@ public class Sonic2CPZBossInstance extends AbstractBossInstance {
         if (robotnik != null) {
             robotnik.setDestroyed(true);
         }
-        GameServices.gameState().setCurrentBossId(0);
+        services().gameState().setCurrentBossId(0);
         setDestroyed(true);
     }
 
@@ -558,7 +557,7 @@ public class Sonic2CPZBossInstance extends AbstractBossInstance {
 
     @Override
     protected boolean isOnScreen() {
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         int screenX = state.x - camera.getX();
         int screenY = state.y - camera.getY();
         return screenX >= -64 && screenX <= camera.getWidth() + 64

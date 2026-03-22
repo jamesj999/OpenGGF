@@ -209,7 +209,7 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
     }
 
     private void spawnChildObjects() {
-        var objectManager = GameServices.level().getObjectManager();
+        var objectManager = GameServices.level() != null ? GameServices.level().getObjectManager() : null;
         if (objectManager == null) {
             return;
         }
@@ -302,14 +302,14 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
     // ========================================================================
 
     private void updateWaitCamera() {
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         if (camera.getX() >= CAMERA_LOCK_X) {
             state.routine = ROUTINE_COUNTDOWN;
             actionTimer = MUSIC_COUNTDOWN;
             state.yVel = DESCENT_SPEED;
             camera.setMinX((short) CAMERA_LOCK_X);
             camera.setMaxX((short) CAMERA_LOCK_X);
-            GameServices.gameState().setCurrentBossId(9);
+            services().gameState().setCurrentBossId(9);
             services().fadeOutMusic();
         }
     }
@@ -847,11 +847,11 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
     private void updateDefeat(int frameCounter) {
         defeatTimer--;
         if (defeatTimer < 0) {
-            Camera camera = GameServices.camera();
+            Camera camera = services().camera();
             camera.setMaxX((short) 0x1000);
             Sonic2LevelEventManager eventManager = Sonic2LevelEventManager.getInstance();
             eventManager.setEventRoutine(eventManager.getEventRoutine() + 2);
-            GameServices.gameState().setCurrentBossId(0);
+            services().gameState().setCurrentBossId(0);
             services().playMusic(Sonic2Music.DEATH_EGG.id);
             // Spawn Eggman transition object (ObjC6 State2) before self-destructing
             spawnEggmanTransition();
@@ -1289,7 +1289,7 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
             currentX = xFixed >> 16;
             currentY = yFixed >> 16;
             updateDynamicSpawn();
-            Camera camera = GameServices.camera();
+            Camera camera = services().camera();
             int screenRelX = currentX - camera.getX() - 0xA0;
             if (Math.abs(screenRelX) >= SCREEN_BOUNDS_HALF_WIDTH) {
                 setDestroyed(true);

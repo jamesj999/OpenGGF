@@ -63,7 +63,7 @@ public class TippingFloorObjectInstance extends AbstractObjectInstance
         this.durationInitial = durationValue - 1;  // ROM subtracts 1 before storing
         this.durationCurrent = durationValue - 1;
 
-        ObjectRenderManager renderManager = GameServices.level().getObjectRenderManager();
+        ObjectRenderManager renderManager = GameServices.level() != null ? GameServices.level().getObjectRenderManager() : null;
         this.animationState = new ObjectAnimationState(
                 renderManager != null ? renderManager.getAnimations(Sonic2ObjectArtKeys.ANIM_TIPPING_FLOOR) : null,
                 ANIM_FORWARD,

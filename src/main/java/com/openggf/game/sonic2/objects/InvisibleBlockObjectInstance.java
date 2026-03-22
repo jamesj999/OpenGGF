@@ -13,7 +13,6 @@ import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
-import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
 

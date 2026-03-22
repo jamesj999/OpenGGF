@@ -299,7 +299,7 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
                 childSpawn, name + "_child", this);
 
         // Add child to object manager
-        if (GameServices.level() != null && services().objectManager() != null) {
+        if (services().objectManager() != null) {
             services().objectManager().addDynamicObject(child);
         }
     }

@@ -7,7 +7,6 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.*;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -182,7 +181,7 @@ public class SeesawObjectInstance extends BoxObjectInstance
      */
     private boolean isMainCharacter(AbstractPlayableSprite player) {
         // If player is not any sidekick, they're the main character
-        return !SpriteManager.getInstance().getSidekicks().contains(player);
+        return !services().sidekicks().contains(player);
     }
 
     /**
@@ -280,7 +279,7 @@ public class SeesawObjectInstance extends BoxObjectInstance
             // player parameter is always the main character
             int p1Vel = (player != null) ? player.getYSpeed() : 0;
             int p2Vel = 0;
-            for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+            for (PlayableEntity sidekick : services().sidekicks()) {
                 p2Vel = Math.max(p2Vel, sidekick.getYSpeed());
             }
 

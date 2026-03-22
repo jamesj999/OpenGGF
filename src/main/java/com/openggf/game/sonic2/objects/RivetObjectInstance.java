@@ -183,7 +183,7 @@ public class RivetObjectInstance extends AbstractObjectInstance
         busted = true;
 
         // ROM: move.w #$2880,(Camera_Min_X_pos).w (s2.asm line 80603)
-        GameServices.camera().setMinX((short) BUST_CAMERA_MIN_X);
+        services().camera().setMinX((short) BUST_CAMERA_MIN_X);
 
         // ROM: bclr #p1_standing_bit,status(a0) (s2.asm line 80604)
         // (Handled by engine when we destroy the object)

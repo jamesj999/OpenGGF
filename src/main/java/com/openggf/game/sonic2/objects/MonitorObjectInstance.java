@@ -2,10 +2,10 @@ package com.openggf.game.sonic2.objects;
 import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.level.objects.ExplosionObjectInstance;
 
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
-import com.openggf.game.GameServices;
 
 import com.openggf.level.objects.AbstractMonitorObjectInstance;
 import com.openggf.level.objects.ObjectManager;
@@ -64,13 +64,13 @@ public class MonitorObjectInstance extends AbstractMonitorObjectInstance impleme
         this.type = MonitorType.fromSubtype(spawn.subtype());
 
         // Check persistence: if remembered, spawn as broken
-        ObjectManager objectManager = GameServices.level().getObjectManager();
+        ObjectManager objectManager = GameServices.level() != null ? GameServices.level().getObjectManager() : null;
         boolean previouslyBroken = objectManager != null && objectManager.isRemembered(spawn);
         this.broken = this.type == MonitorType.BROKEN || previouslyBroken;
 
         int initialAnim = type.id;
         int initialFrame = broken ? BROKEN_FRAME : 0;
-        ObjectRenderManager renderManager = GameServices.level().getObjectRenderManager();
+        ObjectRenderManager renderManager = GameServices.level() != null ? GameServices.level().getObjectRenderManager() : null;
         this.animationState = new ObjectAnimationState(
                 renderManager != null ? renderManager.getMonitorAnimations() : null,
                 initialAnim,
@@ -261,7 +261,7 @@ public class MonitorObjectInstance extends AbstractMonitorObjectInstance impleme
         switch (type) {
             case RINGS -> {
                 player.addRings(RING_MONITOR_REWARD);
-                GameServices.audio().playSfx(GameSound.RING);
+                services().playSfx(GameSound.RING);
             }
             case SHIELD -> {
                 player.giveShield();
@@ -280,7 +280,7 @@ public class MonitorObjectInstance extends AbstractMonitorObjectInstance impleme
             }
             case SONIC, TAILS -> {
                 services().playMusic(Sonic2Music.EXTRA_LIFE.id);
-                GameServices.gameState().addLife();
+                services().gameState().addLife();
             }
             case EGGMAN, STATIC -> {
                 // ROM: robotnik_monitor (s2.asm:25656-25658)

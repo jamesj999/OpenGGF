@@ -161,14 +161,10 @@ public class ResultsScreenObjectInstance extends AbstractResultsScreen {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         if (camera == null) {
             return;
         }
-        if (GameServices.level() == null) {
-            return;
-        }
-
         ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
@@ -335,7 +331,7 @@ public class ResultsScreenObjectInstance extends AbstractResultsScreen {
      * Fallback placeholder rendering when ROM art is not available.
      */
     private void appendPlaceholderRenderCommands(List<GLCommand> commands) {
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         if (camera == null) {
             return;
         }

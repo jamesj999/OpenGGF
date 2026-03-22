@@ -16,7 +16,6 @@ import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import com.openggf.debug.DebugColor;
@@ -252,7 +251,7 @@ public class LateralCannonObjectInstance extends AbstractObjectInstance
         }
 
         // bclr #p2_standing_bit,status(a0) - same for sidekick
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+        for (PlayableEntity sidekick : services().sidekicks()) {
             if (objectManager.isRidingObject(sidekick, this)) {
                 objectManager.clearRidingObject(sidekick);
                 sidekick.setOnObject(false);

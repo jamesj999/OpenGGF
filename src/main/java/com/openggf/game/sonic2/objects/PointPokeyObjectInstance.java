@@ -1,7 +1,6 @@
 package com.openggf.game.sonic2.objects;
 import com.openggf.level.objects.BoxObjectInstance;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.PlayableEntity;
@@ -270,10 +269,7 @@ public class PointPokeyObjectInstance extends BoxObjectInstance
 
     private void playCasinoBonusSound() {
         try {
-            AudioManager audioManager = GameServices.audio();
-            if (audioManager != null) {
-                audioManager.playSfx(GameSound.CASINO_BONUS);
-            }
+            services().playSfx(GameSound.CASINO_BONUS);
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic
         }
@@ -319,7 +315,7 @@ public class PointPokeyObjectInstance extends BoxObjectInstance
             playCasinoBonusSound();
 
             // Award 100 points (per ROM: d0=10 → AddPoints2 adds d0*10 = 100)
-            GameServices.gameState().addScore(100);
+            services().gameState().addScore(100);
 
             // Spawn floating "100" points sprite at cage position
             PointsObjectInstance points = new PointsObjectInstance(
@@ -442,10 +438,6 @@ public class PointPokeyObjectInstance extends BoxObjectInstance
      * Per disassembly, prizes spiral inward from a starting radius of 128 pixels.
      */
     private void spawnPrize(AbstractPlayableSprite player, int frameCounter) {
-        if (GameServices.level() == null) {
-            return;
-        }
-
         ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;

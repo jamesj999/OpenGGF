@@ -5,7 +5,6 @@ import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
-import com.openggf.game.GameServices;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.boss.AbstractBossInstance;
@@ -362,7 +361,7 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
             // ROM: Boss_defeated_flag is set once when flee starts.
             if (!defeatFleeStarted) {
                 defeatFleeStarted = true;
-                GameServices.gameState().setCurrentBossId(0);
+                services().gameState().setCurrentBossId(0);
                 services().playMusic(Sonic2Music.HILL_TOP.id);
             }
 
@@ -370,7 +369,7 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
             state.y += 2;
             state.yFixed = state.y << 16;
 
-            Camera camera = GameServices.camera();
+            Camera camera = services().camera();
             if (camera.getMaxX() < 0x3160) {
                 camera.setMaxX((short) (camera.getMaxX() + 2));
                 return;

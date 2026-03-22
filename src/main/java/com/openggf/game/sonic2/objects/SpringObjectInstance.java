@@ -64,7 +64,7 @@ public class SpringObjectInstance extends BoxObjectInstance
         this.triggeredAnimId = resolveTriggeredAnimId();
         this.mappingFrame = resolveIdleMappingFrame();
 
-        ObjectRenderManager renderManager = GameServices.level().getObjectRenderManager();
+        ObjectRenderManager renderManager = GameServices.level() != null ? GameServices.level().getObjectRenderManager() : null;
         this.animationState = new ObjectAnimationState(
                 renderManager != null ? renderManager.getSpringAnimations() : null,
                 idleAnimId,
@@ -337,9 +337,7 @@ public class SpringObjectInstance extends BoxObjectInstance
         SpringHelper.applyCollisionLayerBits(player, subtype);
 
         try {
-            if (GameServices.audio() != null) {
-                GameServices.audio().playSfx(GameSound.SPRING);
-            }
+            services().playSfx(GameSound.SPRING);
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic
         }
