@@ -11,5 +11,7 @@ public record LevelDebugContext(
     Level level,
     int blockPixelSize,
     DebugOverlayManager overlayManager,
-    GraphicsManager graphicsManager
+    GraphicsManager graphicsManager,
+    int screenWidth,
+    int screenHeight
 ) {}
