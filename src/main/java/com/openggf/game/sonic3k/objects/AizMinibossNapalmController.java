@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.boss.AbstractBossChild;
@@ -89,7 +88,7 @@ public class AizMinibossNapalmController extends AbstractBossChild {
         AizMinibossNapalmProjectile projectile = new AizMinibossNapalmProjectile(
                 currentX, currentY);
         spawnDynamicObject(projectile);
-        AudioManager.getInstance().playSfx(Sonic3kSfx.PROJECTILE.id);
+        services().playSfx(Sonic3kSfx.PROJECTILE.id);
         state = State.IDLE;
     }
 

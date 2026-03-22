@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.GameServices;
 import com.openggf.camera.Camera;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -77,7 +78,7 @@ public class AizIntroEmeraldGlowChild extends AbstractObjectInstance {
         int renderX = getX();
         int renderY = getY();
         try {
-            Camera camera = Camera.getInstance();
+            Camera camera = GameServices.camera();
             renderX += camera.getX() - 128;
             renderY += camera.getY() - 128;
         } catch (Exception ignored) {}

@@ -1,5 +1,6 @@
 package com.openggf.level.objects;
 
+import com.openggf.game.GameServices;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -99,7 +100,7 @@ public class SkidDustObjectInstance extends AbstractObjectInstance {
      * @return A new skid dust object, or null if renderer is not available
      */
     public static SkidDustObjectInstance create(AbstractPlayableSprite player) {
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         if (levelManager == null || levelManager.getObjectManager() == null) {
             return null;
         }
@@ -133,7 +134,7 @@ public class SkidDustObjectInstance extends AbstractObjectInstance {
     public static void spawn(AbstractPlayableSprite player) {
         SkidDustObjectInstance dust = create(player);
         if (dust != null) {
-            LevelManager.getInstance().getObjectManager().addDynamicObject(dust);
+            GameServices.level().getObjectManager().addDynamicObject(dust);
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.LevelManager;
@@ -197,7 +198,7 @@ public class AizMinibossFlameBarrelChild extends AbstractBossChild {
     }
 
     private void spawnShot(AizMinibossBarrelShotChild.Mode mode) {
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         if (levelManager == null || levelManager.getObjectManager() == null) {
             return;
         }
@@ -234,7 +235,7 @@ public class AizMinibossFlameBarrelChild extends AbstractBossChild {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager rm = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager rm = services().renderManager();
         if (rm == null) {
             return;
         }

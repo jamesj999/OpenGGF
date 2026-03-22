@@ -1,6 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.GameServices;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
@@ -335,7 +335,7 @@ public class BreakableWallObjectInstance extends AbstractObjectInstance
         // Play collapse SFX (ROM: sfx_Collapse = $59)
         if (isOnScreen()) {
             try {
-                AudioManager.getInstance().playSfx(Sonic3kSfx.COLLAPSE.id);
+                services().playSfx(Sonic3kSfx.COLLAPSE.id);
             } catch (Exception e) {
                 // Prevent audio failure from breaking game logic
             }
@@ -446,7 +446,7 @@ public class BreakableWallObjectInstance extends AbstractObjectInstance
 
     private static ObjectManager getObjectManager() {
         try {
-            LevelManager lm = LevelManager.getInstance();
+            LevelManager lm = GameServices.level();
             return lm != null ? lm.getObjectManager() : null;
         } catch (Exception e) {
             return null;
@@ -468,7 +468,7 @@ public class BreakableWallObjectInstance extends AbstractObjectInstance
      */
     private static ZoneConfig resolveConfig(int subtype, int frame) {
         try {
-            LevelManager lm = LevelManager.getInstance();
+            LevelManager lm = GameServices.level();
             if (lm != null) {
                 int zone = lm.getCurrentZone();
                 return resolveForZone(zone, subtype, frame);

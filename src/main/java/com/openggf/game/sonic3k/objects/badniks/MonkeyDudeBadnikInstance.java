@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects.badniks;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
@@ -230,7 +229,7 @@ public final class MonkeyDudeBadnikInstance extends AbstractS3kBadnikInstance {
     }
 
     private void throwCoconut() {
-        AudioManager.getInstance().playSfx(Sonic3kSfx.MISSILE_THROW.id);
+        services().playSfx(Sonic3kSfx.MISSILE_THROW.id);
 
         int xVel = facingLeft ? -PROJECTILE_X_VEL : PROJECTILE_X_VEL;
         int tipX = armSegmentX[ARM_SEGMENT_COUNT - 1];

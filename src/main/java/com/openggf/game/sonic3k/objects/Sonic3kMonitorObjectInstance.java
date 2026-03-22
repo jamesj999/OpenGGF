@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameAudioProfile;
 import com.openggf.audio.GameSound;
 import com.openggf.game.GameServices;
@@ -10,7 +9,6 @@ import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractMonitorObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -91,14 +89,14 @@ public class Sonic3kMonitorObjectInstance extends AbstractMonitorObjectInstance
         this.motion = new SubpixelMotion.State(spawn.x(), spawn.y(), 0, 0, 0, 0);
 
         // Check persistence: if previously broken, spawn as broken shell
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = GameServices.level().getObjectManager();
         boolean previouslyBroken = objectManager != null && objectManager.isRemembered(spawn);
         this.broken = previouslyBroken;
 
         // Initialize animation: animId = subtype
         int initialAnim = type.animId;
         int initialFrame = broken ? BROKEN_FRAME : 0;
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = GameServices.level().getObjectRenderManager();
         this.animationState = new ObjectAnimationState(
                 renderManager != null ? renderManager.getMonitorAnimations() : null,
                 initialAnim,
@@ -224,7 +222,7 @@ public class Sonic3kMonitorObjectInstance extends AbstractMonitorObjectInstance
         broken = true;
 
         // Mark as broken in persistence table
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null) {
             objectManager.markRemembered(spawn);
         }
@@ -235,14 +233,14 @@ public class Sonic3kMonitorObjectInstance extends AbstractMonitorObjectInstance
         startIconRise(posY(), player);
 
         // Spawn explosion
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager != null && objectManager != null
                 && renderManager.getExplosionRenderer() != null) {
             objectManager.addDynamicObject(
                     new ExplosionObjectInstance(0x27, posX(), posY(), renderManager));
         }
         // ROM: Obj_Explosion loc_1E61A plays sfx_Break ($3D)
-        AudioManager.getInstance().playSfx(Sonic3kSfx.BREAK.id);
+        services().playSfx(Sonic3kSfx.BREAK.id);
     }
 
     /**
@@ -261,36 +259,36 @@ public class Sonic3kMonitorObjectInstance extends AbstractMonitorObjectInstance
             }
             case ONE_UP -> {
                 GameServices.gameState().addLife();
-                AudioManager.getInstance().playMusic(Sonic3kMusic.EXTRA_LIFE.id);
+                services().playMusic(Sonic3kMusic.EXTRA_LIFE.id);
             }
             case RINGS -> {
                 player.addRings(RING_MONITOR_REWARD);
-                AudioManager.getInstance().playSfx(GameSound.RING);
+                GameServices.audio().playSfx(GameSound.RING);
             }
             case SPEED_SHOES -> {
                 player.giveSpeedShoes();
-                GameAudioProfile audioProfile = AudioManager.getInstance().getAudioProfile();
+                GameAudioProfile audioProfile = GameServices.audio().getAudioProfile();
                 if (audioProfile != null) {
-                    AudioManager.getInstance().playMusic(audioProfile.getSpeedShoesOnCommandId());
+                    services().playMusic(audioProfile.getSpeedShoesOnCommandId());
                 }
             }
             case FIRE_SHIELD -> {
                 player.giveShield(ShieldType.FIRE);
-                AudioManager.getInstance().playSfx(GameSound.FIRE_SHIELD);
+                GameServices.audio().playSfx(GameSound.FIRE_SHIELD);
             }
             case LIGHTNING_SHIELD -> {
                 player.giveShield(ShieldType.LIGHTNING);
-                AudioManager.getInstance().playSfx(GameSound.LIGHTNING_SHIELD);
+                GameServices.audio().playSfx(GameSound.LIGHTNING_SHIELD);
             }
             case BUBBLE_SHIELD -> {
                 player.giveShield(ShieldType.BUBBLE);
-                AudioManager.getInstance().playSfx(GameSound.BUBBLE_SHIELD);
+                GameServices.audio().playSfx(GameSound.BUBBLE_SHIELD);
             }
             case INVINCIBILITY -> {
                 // Skip invincibility if player is already Super Sonic
                 if (!player.isSuperSonic()) {
                     player.giveInvincibility();
-                    AudioManager.getInstance().playMusic(Sonic3kMusic.INVINCIBILITY.id);
+                    services().playMusic(Sonic3kMusic.INVINCIBILITY.id);
                 }
             }
             case SUPER -> {
@@ -303,7 +301,7 @@ public class Sonic3kMonitorObjectInstance extends AbstractMonitorObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         PatternSpriteRenderer renderer = renderManager != null ? renderManager.getMonitorRenderer() : null;
         boolean hasRenderer = renderer != null && renderer.isReady();
 

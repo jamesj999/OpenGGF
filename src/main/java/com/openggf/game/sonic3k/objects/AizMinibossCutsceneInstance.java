@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
@@ -166,7 +165,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
     }
 
     private void updateInit() {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         savedCameraMaxX = camera.getMaxX();
 
         Sonic3kAIZEvents events = getAizEvents();
@@ -180,7 +179,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
     }
 
     private void updateWaitTrigger() {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         if (camera.getX() < TRIGGER_X) {
             return;
         }
@@ -191,7 +190,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         camera.setMinX((short) TRIGGER_X);
         camera.setMaxX((short) TRIGGER_X);
         GameServices.gameState().setCurrentBossId(CUTSCENE_BOSS_ID);
-        AudioManager.getInstance().fadeOutMusic();
+        services().fadeOutMusic();
 
         state.routine = ROUTINE_WAIT;
         setWait(WAIT_AFTER_TRIGGER, this::onInitialDelayComplete);
@@ -209,7 +208,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
             spawnChild(new AizMinibossFlameBarrelChild(this, i, true), objectManager);
         }
 
-        AudioManager.getInstance().playMusic(Sonic3kMusic.MINIBOSS.id);
+        services().playMusic(Sonic3kMusic.MINIBOSS.id);
     }
 
     private void onDescendComplete() {
@@ -225,7 +224,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         // ROM: loc_6862E — directly after swing, spawn explosion and set pre-exit wait
         setWait(PRE_EXIT_TIME, this::onPreExitComplete);
         // ROM: Obj_BossExplosionSpecial positions at screen center (overrides child offset)
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         explosionController = new S3kBossExplosionController(
                 camera.getX() + 160, camera.getY() + 112, 2);
     }
@@ -242,7 +241,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         for (var pending : explosionController.drainPendingExplosions()) {
             // ROM: sub_52850 plays sfx_Explode when spawning each child
             if (pending.playSfx()) {
-                AudioManager.getInstance().playSfx(Sonic3kSfx.EXPLODE.id);
+                services().playSfx(Sonic3kSfx.EXPLODE.id);
             }
             objectManager.addDynamicObject(new S3kBossExplosionChild(pending.x(), pending.y()));
         }
@@ -254,7 +253,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         state.yVel = 0;
 
         loadBossPalette();
-        AudioManager.getInstance().fadeOutMusic();
+        services().fadeOutMusic();
 
         int exitFrames = isAiz1() ? EXIT_TIME_AIZ1 : EXIT_TIME_OTHER;
         setWait(exitFrames, this::onExitComplete);
@@ -298,8 +297,8 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         // During the unwinnable AIZ1 cutscene transition, BG events own camera/music flow.
         // Only restore defaults when no transition handoff is active.
         if (!transitionInProgress) {
-            AudioManager.getInstance().getBackend().restoreMusic();
-            Camera camera = Camera.getInstance();
+            GameServices.audio().getBackend().restoreMusic();
+            Camera camera = GameServices.camera();
             camera.setMinX((short) 0);
             camera.setMaxX((short) savedCameraMaxX);
             GameServices.gameState().setCurrentBossId(0);
@@ -341,7 +340,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         if (objectManager == null) {
             return;
         }
-        int cameraX = Camera.getInstance().getX();
+        int cameraX = GameServices.camera().getX();
         for (int i = 0; i < DEBRIS_X_OFFSETS.length; i++) {
             int x = cameraX + DEBRIS_X_OFFSETS[i];
             int y = DEBRIS_Y_POSITIONS[i];

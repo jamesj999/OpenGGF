@@ -1,9 +1,9 @@
 package com.openggf.level.objects;
 
+import com.openggf.game.GameServices;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -95,8 +95,8 @@ public class InvincibilityStarsObjectInstance extends AbstractObjectInstance {
         this.player = player;
 
         ObjectRenderManager renderManager = null;
-        if (LevelManager.getInstance() != null) {
-            renderManager = LevelManager.getInstance().getObjectRenderManager();
+        if (GameServices.level() != null) {
+            renderManager = GameServices.level().getObjectRenderManager();
         }
         if (renderManager != null) {
             this.renderer = renderManager.getInvincibilityStarsRenderer();

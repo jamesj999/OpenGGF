@@ -1,5 +1,6 @@
 package com.openggf.level.objects;
-import com.openggf.audio.AudioManager;
+
+import com.openggf.game.GameServices;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -34,7 +35,7 @@ public class ExplosionObjectInstance extends AbstractObjectInstance {
         this.renderManager = renderManager;
         if (sfxId >= 0) {
             try {
-                AudioManager.getInstance().playSfx(sfxId);
+                GameServices.audio().playSfx(sfxId);
             } catch (Exception e) {
                 LOGGER.warning("Failed to play explosion sound: " + e.getMessage());
             }

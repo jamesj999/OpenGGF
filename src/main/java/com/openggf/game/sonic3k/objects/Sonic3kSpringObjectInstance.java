@@ -1,6 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.GameServices;
 import com.openggf.audio.GameSound;
 import com.openggf.game.GameStateManager;
 import com.openggf.level.objects.ObjectAnimationState;
@@ -10,7 +10,6 @@ import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -314,8 +313,8 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
         SpringHelper.applyCollisionLayerBits(player, subtype);
 
         try {
-            if (AudioManager.getInstance() != null) {
-                AudioManager.getInstance().playSfx(GameSound.SPRING);
+            if (GameServices.audio() != null) {
+                GameServices.audio().playSfx(GameSound.SPRING);
             }
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic
@@ -433,7 +432,7 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

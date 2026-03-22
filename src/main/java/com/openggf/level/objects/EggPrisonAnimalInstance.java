@@ -1,8 +1,8 @@
 package com.openggf.level.objects;
 
+import com.openggf.game.GameServices;
 import com.openggf.camera.Camera;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -65,7 +65,7 @@ public class EggPrisonAnimalInstance extends AbstractObjectInstance {
 
     public EggPrisonAnimalInstance(ObjectSpawn spawn, int delay) {
         super(spawn, "Animal");
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = GameServices.level().getObjectRenderManager();
         this.renderer = renderManager != null ? renderManager.getAnimalRenderer() : null;
         this.currentX = spawn.x();
         this.currentY = spawn.y();
@@ -257,7 +257,7 @@ public class EggPrisonAnimalInstance extends AbstractObjectInstance {
 
     @Override
     protected boolean isOnScreen(int margin) {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         if (camera == null) {
             return true;
         }

@@ -5,7 +5,6 @@ import com.openggf.data.RomByteReader;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.graphics.GraphicsManager;
-import com.openggf.level.LevelManager;
 import com.openggf.level.Palette;
 import com.openggf.level.Pattern;
 import com.openggf.level.objects.ObjectSpriteSheet;
@@ -265,7 +264,7 @@ public class AizIntroArtLoader {
             // Cork floor tiles come from the LEVEL's pattern data, not Nemesis sprite art.
             // art_tile = make_art_tile($001,2,0) adds +1 to mapping tile indices.
             // Mapping tiles $1C-$37 → VRAM tiles $1D-$38 → level pattern indices 0x1D-0x38.
-            var lm = LevelManager.getInstance();
+            var lm = GameServices.level();
             var level = (lm != null) ? lm.getCurrentLevel() : null;
             if (level == null || level.getPatternCount() < 0x39) {
                 LOG.warning("Level patterns not available for cork floor (count="

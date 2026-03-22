@@ -2,7 +2,6 @@ package com.openggf.game.sonic3k.objects.badniks;
 
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -44,7 +43,6 @@ final class CaterkillerJrBodyInstance extends AbstractObjectInstance
     private static final int[] PROJ_ANIM_FRAMES = {2, 2, 3, 4};
     private static final int PROJ_FIRE_COOLDOWN = 0x1A;
 
-    private final LevelManager levelManager;
     private final int segmentIndex;
     private final String rendererKey;
     private final int mappingFrame;
@@ -74,10 +72,9 @@ final class CaterkillerJrBodyInstance extends AbstractObjectInstance
     private int projAnimStep = -1;
     private int projAnimTimer;
 
-    CaterkillerJrBodyInstance(ObjectSpawn headSpawn, LevelManager levelManager,
+    CaterkillerJrBodyInstance(ObjectSpawn headSpawn,
                               int segmentIndex, int waitDelay) {
         super(headSpawn, "CaterKillerJrBody");
-        this.levelManager = levelManager;
         this.segmentIndex = segmentIndex;
         this.currentX = headSpawn.x();
         this.currentY = headSpawn.y();
@@ -255,9 +252,9 @@ final class CaterkillerJrBodyInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed || levelManager == null) return;
+        if (destroyed || services() == null) return;
 
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) return;
 
         PatternSpriteRenderer renderer = renderManager.getRenderer(rendererKey);

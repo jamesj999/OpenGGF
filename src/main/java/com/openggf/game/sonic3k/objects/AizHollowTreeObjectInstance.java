@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.GameServices;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.graphics.GLCommand;
@@ -179,7 +180,7 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
         player.setAnimationId(Sonic3kAnimationIds.WALK);
 
         if (mainPlayer) {
-            Camera camera = Camera.getInstance();
+            Camera camera = GameServices.camera();
             camera.setMinX((short) CAMERA_LOCK_X);
             camera.setMaxX((short) CAMERA_LOCK_X);
             cameraLockTimer = CAMERA_LOCK_TIMER;
@@ -204,7 +205,7 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
 
         int progressWord = progressWord(progressValue);
         if (progressWord >= 0x400) {
-            Camera camera = Camera.getInstance();
+            Camera camera = GameServices.camera();
             camera.setMinX((short) CAMERA_RELEASE_MIN_X);
             camera.setMaxX((short) CAMERA_RELEASE_MAX_X);
         }
@@ -289,7 +290,7 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
             return;
         }
 
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         cameraLockTimer--;
         if (cameraLockTimer == 0) {
             camera.setMinX((short) CAMERA_RELEASE_MIN_X);

@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.GameServices;
 import com.openggf.game.OscillationManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
@@ -502,7 +503,7 @@ public class FloatingPlatformObjectInstance extends AbstractObjectInstance
 
     private static ZoneConfig resolveConfig() {
         try {
-            LevelManager lm = LevelManager.getInstance();
+            LevelManager lm = GameServices.level();
             if (lm != null) {
                 int zone = lm.getCurrentZone();
                 int act = lm.getCurrentAct();

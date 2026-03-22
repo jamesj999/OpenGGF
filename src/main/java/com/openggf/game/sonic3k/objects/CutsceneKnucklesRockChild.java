@@ -1,6 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.LevelManager;
@@ -76,7 +76,7 @@ public class CutsceneKnucklesRockChild extends AbstractObjectInstance {
 
             // ROM: BreakObjectToPieces plays sfx_Collapse (0x59) as its first action
             try {
-                AudioManager.getInstance().playSfx(Sonic3kSfx.COLLAPSE.id);
+                services().playSfx(Sonic3kSfx.COLLAPSE.id);
             } catch (Exception ignored) {}
 
             // BreakObjectToPieces: spawn fragments with scattered velocities
@@ -95,7 +95,7 @@ public class CutsceneKnucklesRockChild extends AbstractObjectInstance {
      */
     private void spawnFragments() {
         try {
-            LevelManager lm = LevelManager.getInstance();
+            LevelManager lm = GameServices.level();
             if (lm == null || lm.getObjectManager() == null) return;
 
             int[][] velocities = AizRockFragmentChild.FRAGMENT_VELOCITIES;

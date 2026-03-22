@@ -1,7 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.audio.AudioManager;
-import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
@@ -100,7 +99,7 @@ public class AizMinibossBarrelShotChild extends AbstractObjectInstance implement
         this.state = State.PRELAUNCH;
         this.vFlip = false;
 
-        AudioManager.getInstance().playSfx(Sonic3kSfx.PROJECTILE.id);
+        GameServices.audio().playSfx(Sonic3kSfx.PROJECTILE.id);
     }
 
     @Override
@@ -175,7 +174,7 @@ public class AizMinibossBarrelShotChild extends AbstractObjectInstance implement
         // ROM loc_68D70: ObjHitFloor_DoRoutine with y_radius=8
         TerrainCheckResult floor = ObjectTerrainUtils.checkFloorDist(currentX, currentY, Y_RADIUS);
         if (floor.hasCollision()) {
-            AudioManager.getInstance().playSfx(Sonic3kSfx.MISSILE_EXPLODE.id);
+            services().playSfx(Sonic3kSfx.MISSILE_EXPLODE.id);
             spawnImpactFlames();
             setDestroyed(true);
         }
@@ -190,8 +189,8 @@ public class AizMinibossBarrelShotChild extends AbstractObjectInstance implement
         int selector = hFlip ? SELECT_TABLE_FLIPPED[index] : SELECT_TABLE_NORMAL[index];
         int xOffset = hFlip ? X_COLUMNS_FLIPPED[selector] : X_COLUMNS_NORMAL[selector];
 
-        currentX = Camera.getInstance().getX() + xOffset;
-        currentY = Camera.getInstance().getY() - 0x20;
+        currentX = GameServices.camera().getX() + xOffset;
+        currentY = GameServices.camera().getY() - 0x20;
         xFixed = currentX << 16;
         yFixed = currentY << 16;
 
@@ -199,7 +198,7 @@ public class AizMinibossBarrelShotChild extends AbstractObjectInstance implement
         xVel = 0;
         animTimer = 2;
         vFlip = true; // bset #1, render_flags in loc_688B0 / loc_68D1C
-        AudioManager.getInstance().playSfx(Sonic3kSfx.MISSILE_THROW.id);
+        services().playSfx(Sonic3kSfx.MISSILE_THROW.id);
     }
 
     private int getTopDropStaggerDelay() {
@@ -211,7 +210,7 @@ public class AizMinibossBarrelShotChild extends AbstractObjectInstance implement
     }
 
     private void spawnImpactFlames() {
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         if (levelManager == null || levelManager.getObjectManager() == null) {
             return;
         }
@@ -282,7 +281,7 @@ public class AizMinibossBarrelShotChild extends AbstractObjectInstance implement
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager rm = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager rm = services().renderManager();
         if (rm == null) {
             return;
         }

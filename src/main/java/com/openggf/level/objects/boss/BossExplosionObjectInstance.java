@@ -1,6 +1,5 @@
 package com.openggf.level.objects.boss;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -35,7 +34,7 @@ public class BossExplosionObjectInstance extends AbstractObjectInstance {
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
         if (!initialized) {
-            AudioManager.getInstance().playSfx(sfxId);
+            services().playSfx(sfxId);
             initialized = true;
         }
         frameTimer--;

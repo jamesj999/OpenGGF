@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects.badniks;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.RenderPriority;
@@ -101,7 +100,7 @@ public final class BloominatorBadnikInstance extends AbstractS3kBadnikInstance {
     }
 
     private void fireProjectile() {
-        AudioManager.getInstance().playSfx(Sonic3kSfx.PROJECTILE.id);
+        services().playSfx(Sonic3kSfx.PROJECTILE.id);
 
         int xVel = PROJECTILE_X_VEL;
         shotToggleCounter++;

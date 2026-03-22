@@ -42,7 +42,7 @@ public class HudRenderManager {
     // Let's assume we can draw direct patterns to screen coordinates.
 
     private final GraphicsManager graphicsManager;
-    private final Camera camera = Camera.getInstance();
+    private final Camera camera = GameServices.camera();
     private int digitPatternIndex;
     private int textPatternIndex;
 

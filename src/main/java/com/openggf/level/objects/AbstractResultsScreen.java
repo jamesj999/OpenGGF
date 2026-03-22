@@ -235,13 +235,13 @@ public abstract class AbstractResultsScreen extends AbstractObjectInstance imple
 
     @Override
     public int getX() {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         return camera != null ? camera.getX() + SCREEN_CENTER_X : SCREEN_CENTER_X;
     }
 
     @Override
     public int getY() {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         return camera != null ? camera.getY() + SCREEN_HEIGHT / 2 : SCREEN_HEIGHT / 2;
     }
 

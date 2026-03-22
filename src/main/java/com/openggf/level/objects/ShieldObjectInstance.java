@@ -1,4 +1,6 @@
 package com.openggf.level.objects;
+
+import com.openggf.game.GameServices;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -6,7 +8,6 @@ import com.openggf.level.objects.ObjectSpriteSheet;
 import com.openggf.graphics.RenderPriority;
 
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -38,8 +39,8 @@ public class ShieldObjectInstance extends AbstractObjectInstance {
         super(null, "Shield");
         this.player = player;
         ObjectRenderManager renderManager = null;
-        if (LevelManager.getInstance() != null) {
-            renderManager = LevelManager.getInstance().getObjectRenderManager();
+        if (GameServices.level() != null) {
+            renderManager = GameServices.level().getObjectRenderManager();
         }
         if (renderManager != null) {
             this.renderer = renderManager.getShieldRenderer();

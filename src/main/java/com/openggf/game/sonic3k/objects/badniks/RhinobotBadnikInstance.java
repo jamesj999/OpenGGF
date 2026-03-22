@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects.badniks;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 
@@ -108,7 +107,7 @@ public final class RhinobotBadnikInstance extends AbstractS3kBadnikInstance {
         stateTimer = CHARGE_PREP_FRAMES;
         mappingFrame = FRAME_SLOW;
         statusFlags |= FLAG_CHARGE_EFFECT;
-        AudioManager.getInstance().playSfx(Sonic3kSfx.BLAST.id);
+        services().playSfx(Sonic3kSfx.BLAST.id);
     }
 
     private void updateChargePrep() {
@@ -249,7 +248,7 @@ public final class RhinobotBadnikInstance extends AbstractS3kBadnikInstance {
             return;
         }
         statusFlags |= FLAG_CHARGE_EFFECT;
-        AudioManager.getInstance().playSfx(Sonic3kSfx.BLAST.id);
+        services().playSfx(Sonic3kSfx.BLAST.id);
     }
 
     private void reverseDirection() {

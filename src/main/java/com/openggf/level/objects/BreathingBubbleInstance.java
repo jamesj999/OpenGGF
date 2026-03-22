@@ -1,5 +1,6 @@
 package com.openggf.level.objects;
 
+import com.openggf.game.GameServices;
 import com.openggf.camera.Camera;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.LevelManager;
@@ -124,7 +125,7 @@ public class BreathingBubbleInstance extends AbstractObjectInstance {
         // ROM: Bub_ChkWater compares against v_waterpos1 (gameplay water level),
         // NOT the visual level with oscillation. Use getFeatureZoneId/ActId to
         // match the keys WaterSystem stores configs under (important for SBZ3).
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         if (levelManager != null && levelManager.getCurrentLevel() != null) {
             WaterSystem waterSystem = WaterSystem.getInstance();
             int zoneId = levelManager.getFeatureZoneId();
@@ -148,7 +149,7 @@ public class BreathingBubbleInstance extends AbstractObjectInstance {
             int formFrame = COUNTDOWN_BUBBLE_FRAMES * COUNTDOWN_FRAME_DELAY;
             if (countdownFrame >= formFrame - 1 && !numberFormed) {
                 // Lock position relative to camera
-                Camera camera = Camera.getInstance();
+                Camera camera = GameServices.camera();
                 lockedScreenX = (int) currentX - camera.getX();
                 lockedScreenY = currentY - camera.getY();
                 numberFormed = true;
@@ -165,7 +166,7 @@ public class BreathingBubbleInstance extends AbstractObjectInstance {
         // Movement logic
         if (numberFormed) {
             // Position locked relative to camera
-            Camera camera = Camera.getInstance();
+            Camera camera = GameServices.camera();
             currentX = camera.getX() + lockedScreenX;
             currentY = camera.getY() + lockedScreenY;
         } else {
@@ -199,7 +200,7 @@ public class BreathingBubbleInstance extends AbstractObjectInstance {
             return;
         }
 
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         int screenX = (int) currentX - camera.getX();
         int screenY = currentY - camera.getY();
 

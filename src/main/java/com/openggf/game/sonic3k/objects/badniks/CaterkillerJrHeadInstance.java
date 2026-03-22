@@ -61,7 +61,7 @@ public final class CaterkillerJrHeadInstance extends AbstractS3kBadnikInstance {
 
         for (int i = 0; i < BODY_SEGMENT_COUNT; i++) {
             CaterkillerJrBodyInstance segment = new CaterkillerJrBodyInstance(
-                    spawn, com.openggf.game.GameServices.level(), i, SEGMENT_WAIT_DELAYS[i]);
+                    spawn, i, SEGMENT_WAIT_DELAYS[i]);
             bodySegments.add(segment);
             objectManager.addDynamicObject(segment);
         }

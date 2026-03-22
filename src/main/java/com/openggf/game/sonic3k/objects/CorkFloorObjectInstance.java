@@ -1,6 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
@@ -380,7 +380,7 @@ public class CorkFloorObjectInstance extends AbstractObjectInstance
         // ROM: move.w #sfx_Collapse,d0 / jsr (PlaySfx).l
         if (isOnScreen()) {
             try {
-                AudioManager.getInstance().playSfx(Sonic3kSfx.COLLAPSE.id);
+                services().playSfx(Sonic3kSfx.COLLAPSE.id);
             } catch (Exception e) {
                 // Prevent audio failure from breaking game logic
             }
@@ -488,7 +488,7 @@ public class CorkFloorObjectInstance extends AbstractObjectInstance
 
     private static ObjectManager getObjectManager() {
         try {
-            LevelManager lm = LevelManager.getInstance();
+            LevelManager lm = GameServices.level();
             return lm != null ? lm.getObjectManager() : null;
         } catch (Exception e) {
             return null;
@@ -501,7 +501,7 @@ public class CorkFloorObjectInstance extends AbstractObjectInstance
      */
     private static ZoneConfig resolveConfig(int subtype) {
         try {
-            LevelManager lm = LevelManager.getInstance();
+            LevelManager lm = GameServices.level();
             if (lm != null) {
                 int zone = lm.getCurrentZone();
                 int act = lm.getCurrentAct();

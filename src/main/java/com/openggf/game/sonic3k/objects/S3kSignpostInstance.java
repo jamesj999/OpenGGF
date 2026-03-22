@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.game.PlayerCharacter;
@@ -165,7 +164,7 @@ public class S3kSignpostInstance extends AbstractObjectInstance {
     private void updateInit(AbstractPlayableSprite player) {
         activeSignpost = this;
 
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         worldY = camera.getY() - 0x20;
 
         // Select animation based on player character
@@ -177,7 +176,7 @@ public class S3kSignpostInstance extends AbstractObjectInstance {
         sparkleCounter = 0;
 
         try {
-            AudioManager.getInstance().playSfx(Sonic3kSfx.SIGNPOST.id);
+            services().playSfx(Sonic3kSfx.SIGNPOST.id);
         } catch (Exception e) {
             LOG.fine("Could not play signpost SFX: " + e.getMessage());
         }
@@ -222,7 +221,7 @@ public class S3kSignpostInstance extends AbstractObjectInstance {
         checkBumpFromBelow(player);
 
         // Wall bounce
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         int camX = camera.getX();
         if (worldX > camX + WALL_RIGHT_MARGIN) {
             xVel = -Math.abs(xVel);
@@ -289,7 +288,7 @@ public class S3kSignpostInstance extends AbstractObjectInstance {
         yVel = -0x200;
 
         try {
-            AudioManager.getInstance().playSfx(Sonic3kSfx.SIGNPOST.id);
+            services().playSfx(Sonic3kSfx.SIGNPOST.id);
         } catch (Exception e) {
             LOG.fine("Could not play signpost bump SFX: " + e.getMessage());
         }
@@ -415,7 +414,7 @@ public class S3kSignpostInstance extends AbstractObjectInstance {
 
     private PatternSpriteRenderer getEndSignRenderer() {
         try {
-            LevelManager lm = LevelManager.getInstance();
+            LevelManager lm = GameServices.level();
             if (lm != null) {
                 ObjectRenderManager orm = lm.getObjectRenderManager();
                 if (orm != null) {

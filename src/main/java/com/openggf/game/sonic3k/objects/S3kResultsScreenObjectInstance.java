@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
@@ -17,7 +16,6 @@ import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.tools.NemesisReader;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
-import com.openggf.level.LevelManager;
 import com.openggf.level.Pattern;
 import com.openggf.level.objects.ObjectSpriteSheet;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -237,7 +235,7 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
     // ---- Bonus calculation ----
 
     private void calculateBonuses() {
-        var levelGamestate = LevelManager.getInstance().getLevelGamestate();
+        var levelGamestate = services().levelGamestate();
         int elapsedSeconds = (levelGamestate != null) ? levelGamestate.getElapsedSeconds() : 0;
 
         // Pause the timer (ROM line 62550)
@@ -362,7 +360,7 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
         if (!musicPlayed && stateTimer == MUSIC_TRIGGER_FRAME) {
             musicPlayed = true;
             try {
-                AudioManager.getInstance().playMusic(Sonic3kMusic.ACT_CLEAR.id);
+                services().playMusic(Sonic3kMusic.ACT_CLEAR.id);
             } catch (Exception e) {
                 // Ignore audio errors
             }
@@ -423,7 +421,7 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
     @Override
     protected void playTickSound() {
         try {
-            AudioManager.getInstance().playSfx(Sonic3kSfx.SWITCH.id);
+            services().playSfx(Sonic3kSfx.SWITCH.id);
         } catch (Exception e) {
             // Ignore audio errors
         }
@@ -432,7 +430,7 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
     @Override
     protected void playTallyEndSound() {
         try {
-            AudioManager.getInstance().playSfx(Sonic3kSfx.REGISTER.id);
+            services().playSfx(Sonic3kSfx.REGISTER.id);
         } catch (Exception e) {
             // Ignore audio errors
         }
@@ -440,7 +438,7 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
 
     private void fadeOutMusic() {
         try {
-            AudioManager.getInstance().fadeOutMusic();
+            services().fadeOutMusic();
         } catch (Exception e) {
             // Ignore audio errors
         }
@@ -461,9 +459,9 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
             sidekick.setObjectControlled(false);
         }
         // Restore camera bounds from level data (boss arena locked the boundaries)
-        Camera cam = Camera.getInstance();
+        Camera cam = GameServices.camera();
         cam.setFrozen(false);
-        var level = LevelManager.getInstance().getCurrentLevel();
+        var level = services().currentLevel();
         if (level != null) {
             cam.setMinX((short) level.getMinX());
             cam.setMaxX((short) level.getMaxX());
@@ -471,7 +469,7 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
             cam.setMaxY((short) level.getMaxY());
         }
 
-        int zone = LevelManager.getInstance().getRomZoneId();
+        int zone = services().romZoneId();
 
         // Act 2, Sky Sanctuary ($A), or LRZ boss ($16): set End_of_level_flag
         // ROM lines 62694-62705
@@ -492,7 +490,7 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
             var zoneRegistry = GameModuleRegistry.getCurrent().getZoneRegistry();
             int act2MusicId = zoneRegistry.getMusicId(zone, 1);
             if (act2MusicId >= 0) {
-                try { AudioManager.getInstance().playMusic(act2MusicId); } catch (Exception e) { /* ignore */ }
+                try { services().playMusic(act2MusicId); } catch (Exception e) { /* ignore */ }
             }
 
             // Show act 2 title card (except SOZ zone $8 and DEZ zone $B)
@@ -555,7 +553,6 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
         }
     }
 
-
     /**
      * Loads HUD text tiles from ArtNem_RingHUDText and places them at the correct
      * VRAM offsets in the combined pattern array.
@@ -608,7 +605,7 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
         ensureArtCached();
         if (!renderer.isReady()) return;
 
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         if (camera == null) return;
 
         int baseX = camera.getX();

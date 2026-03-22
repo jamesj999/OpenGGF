@@ -1,6 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.GameServices;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
@@ -203,7 +203,7 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
         // ROM: objects save player velocity/anim BEFORE SolidObjectFull.
         // Our resolveContact has already zeroed velocity and cleared rolling by this point.
         // Read the pre-contact snapshot captured at the start of SolidContacts.update().
-        ObjectManager om = LevelManager.getInstance().getObjectManager();
+        ObjectManager om = services().objectManager();
         if (om != null) {
             savedPreContactRolling = om.getPreContactRolling();
             savedPreContactXSpeed = om.getPreContactXSpeed();
@@ -396,7 +396,7 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
@@ -419,7 +419,7 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
         // Play collapse SFX
         if (isOnScreen()) {
             try {
-                AudioManager.getInstance().playSfx(Sonic3kSfx.COLLAPSE.id);
+                services().playSfx(Sonic3kSfx.COLLAPSE.id);
             } catch (Exception e) {
                 // Prevent audio failure from breaking game logic.
             }
@@ -543,7 +543,7 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
      */
     private static ZoneVariant resolveVariant() {
         try {
-            LevelManager lm = LevelManager.getInstance();
+            LevelManager lm = GameServices.level();
             if (lm == null) {
                 return ZoneVariant.UNKNOWN;
             }

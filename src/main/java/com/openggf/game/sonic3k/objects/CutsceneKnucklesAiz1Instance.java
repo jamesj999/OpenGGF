@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.camera.Camera;
 import com.openggf.data.Rom;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
@@ -597,8 +596,8 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
 
             // ROM: Level_started_flag = 0x91 — re-enable camera tracking
             // ROM does NOT change level boundaries here — intro bounds stay in effect
-            Camera.getInstance().setLevelStarted(true);
-            Camera.getInstance().updatePosition(true);
+            GameServices.camera().setLevelStarted(true);
+            GameServices.camera().updatePosition(true);
 
             // ROM: AllocateObject + move.l #Obj_TitleCard,(a1)
             Sonic3kTitleCardManager.getInstance().initializeInLevel(0, 0);
@@ -626,7 +625,7 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
      */
     private void unlockPlayerControls() {
         try {
-            var sprite = Camera.getInstance().getFocusedSprite();
+            var sprite = GameServices.camera().getFocusedSprite();
             if (sprite instanceof AbstractPlayableSprite ps) {
                 ps.setControlLocked(false);
                 ps.setObjectControlled(false);

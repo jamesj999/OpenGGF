@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.game.PlayerCharacter;
@@ -142,7 +141,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
         state.invulnerabilityTimer = INVULN_TIME;
         state.invulnerable = true;
         paletteFlasher.startFlash();
-        AudioManager.getInstance().playSfx(Sonic3kSfx.BOSS_HIT.id);
+        services().playSfx(Sonic3kSfx.BOSS_HIT.id);
         onHitTaken(state.hitCount);
 
         if (state.hitCount <= 0) {
@@ -170,9 +169,9 @@ public class AizMinibossInstance extends AbstractBossInstance {
         // CreateBossExp00: timer=$20 (33 explosions), xRange=$20, yRange=$20.
         // Plays sfx_Explode (0xB4) once at creation, then staggers explosions 3 frames apart.
         defeatExplosionController = new S3kBossExplosionController(state.x, state.y, 0);
-        AudioManager.getInstance().playSfx(Sonic3kSfx.EXPLODE.id);
+        services().playSfx(Sonic3kSfx.EXPLODE.id);
 
-        AudioManager.getInstance().fadeOutMusic();
+        services().fadeOutMusic();
 
         // Clean up all visible children — barrels, body, arm, napalm controller.
         for (var child : childComponents) {
@@ -245,7 +244,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
     }
 
     private void updateWaitTrigger() {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         PlayerCharacter character = Sonic3kLevelEventManager.getInstance().getPlayerCharacter();
         int triggerX = (character == PlayerCharacter.KNUCKLES) ? TRIGGER_X_KNUCKLES : TRIGGER_X;
         if (camera.getX() < triggerX) {
@@ -254,7 +253,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
 
         camera.setMinX((short) triggerX);
         camera.setMaxX((short) triggerX);
-        AudioManager.getInstance().fadeOutMusic();
+        services().fadeOutMusic();
 
         state.routine = ROUTINE_WAIT;
         setWait(WAIT_AFTER_TRIGGER, this::onInitialDelayComplete);
@@ -274,7 +273,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
         // Napalm controller (stays idle for Sonic, activates for Knuckles)
         spawnChild(new AizMinibossNapalmController(this, 0), objectManager);
 
-        AudioManager.getInstance().playMusic(Sonic3kMusic.MINIBOSS.id);
+        services().playMusic(Sonic3kMusic.MINIBOSS.id);
     }
 
     private void onDescendComplete() {
@@ -293,7 +292,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
     private void onFlamePrepComplete() {
         state.routine = ROUTINE_BREATH;
         setCustomFlag(FLAG_PARENT_COUNTER, 8);
-        AudioManager.getInstance().playSfx(Sonic3kSfx.FLAMETHROWER_QUIET.id);
+        services().playSfx(Sonic3kSfx.FLAMETHROWER_QUIET.id);
         spawnBreathFlames();
         setWait(BREATH_SWING_TIME, this::onBreathCycleComplete);
     }
@@ -453,7 +452,6 @@ public class AizMinibossInstance extends AbstractBossInstance {
                     i * 2));
         }
     }
-
 
     /**
      * Destroy all in-flight attack objects spawned by this boss.

@@ -1,6 +1,5 @@
 package com.openggf.level.objects.boss;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
@@ -279,7 +278,7 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
             state.invulnerable = true;
 
             // ROM: s2.asm:63129 - move.w #SndID_BossHit,d0
-            AudioManager.getInstance().playSfx(getBossHitSfxId());
+            services().playSfx(getBossHitSfxId());
             paletteFlasher.startFlash();
             onHitTaken(state.hitCount);
 

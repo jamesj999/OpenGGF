@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
@@ -8,7 +7,6 @@ import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -211,7 +209,7 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
         GameStateManager gameState = GameServices.gameState();
 
         // Play sfx_BigRing ($B3) — always plays on touch
-        AudioManager.getInstance().playSfx(Sonic3kSfx.BIG_RING.id);
+        services().playSfx(Sonic3kSfx.BIG_RING.id);
 
         // TODO: Hidden Palace route — subtype bit 7, or S3 completed + 7 chaos + 7 super
         // When implemented: check (bitIndex & 0x80) != 0 or SSEntry_CheckLevel + emerald state
@@ -246,8 +244,8 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
 
         // ROM: Save_Level_Data2 — save player position at ring for return from SS.
         // This is separate from checkpoint state (ROM: Saved_ vs Saved2_).
-        Camera camera = Camera.getInstance();
-        LevelManager.getInstance().saveBigRingReturnPosition(
+        Camera camera = GameServices.camera();
+        GameServices.level().saveBigRingReturnPosition(
                 player.getCentreX(), player.getCentreY(),
                 camera.getX(), camera.getY());
 
@@ -284,7 +282,7 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager != null) {
             PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic3kObjectArtKeys.SS_ENTRY_RING);
             if (renderer != null && renderer.isReady()) {

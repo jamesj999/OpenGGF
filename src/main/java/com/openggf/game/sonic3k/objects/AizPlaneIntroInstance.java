@@ -343,7 +343,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
      */
     private AbstractPlayableSprite resolveTrackedPlayer(AbstractPlayableSprite candidate) {
         try {
-            AbstractPlayableSprite focused = Camera.getInstance().getFocusedSprite();
+            AbstractPlayableSprite focused = GameServices.camera().getFocusedSprite();
             if (focused != null) {
                 return focused;
             }
@@ -366,7 +366,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         int renderX = currentX;
         int renderY = currentY;
         try {
-            Camera camera = Camera.getInstance();
+            Camera camera = GameServices.camera();
             renderX += camera.getX() - 128;
             renderY += camera.getY() - 128;
         } catch (Exception ignored) {}
@@ -378,7 +378,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         // Safety net: release player control if we still own it.
         if (ownsPlayerControl) {
             try {
-                var focusedSprite = Camera.getInstance().getFocusedSprite();
+                var focusedSprite = GameServices.camera().getFocusedSprite();
                 if (focusedSprite instanceof AbstractPlayableSprite ps) {
                     ps.setControlLocked(false);
                     ps.setObjectControlled(false);
@@ -634,7 +634,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         // This gates intro/HUD/start-state flow; camera scrolling still runs.
         // CutsceneKnucklesAiz1Instance sets the flag back to $91 on exit.
         try {
-            Camera.getInstance().setLevelStarted(false);
+            GameServices.camera().setLevelStarted(false);
         } catch (Exception ignored) {}
 
         // Do NOT spawn plane child here — that happens after the wait in routine 2.

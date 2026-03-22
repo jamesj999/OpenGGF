@@ -1,7 +1,6 @@
 package com.openggf.level.objects;
 
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 /**
@@ -76,7 +75,7 @@ public abstract class AbstractSpikeObjectInstance extends AbstractObjectInstance
         }
         boolean hadRings = player.getRingCount() > 0;
         if (hadRings && !player.hasShield()) {
-            LevelManager.getInstance().spawnLostRings(player, frameCounter);
+            services().spawnLostRings(player, frameCounter);
         }
         player.applyHurtOrDeath(currentX, true, hadRings);
     }

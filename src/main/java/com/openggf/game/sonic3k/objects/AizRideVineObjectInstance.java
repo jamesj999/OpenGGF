@@ -1,11 +1,10 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -128,7 +127,7 @@ public class AizRideVineObjectInstance extends AbstractObjectInstance {
         updateDynamicSpawn(currentX, currentY);
 
         // ROM cull path in loc_21F38/loc_21F52.
-        int coarse = (currentX & 0xFF80) - Camera.getInstance().getX();
+        int coarse = (currentX & 0xFF80) - GameServices.camera().getX();
         if ((coarse < 0 || coarse > 0x280) && !AizVineHandleLogic.anyGrabbed(handle)) {
             setDestroyed(true);
         }
@@ -345,7 +344,7 @@ public class AizRideVineObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

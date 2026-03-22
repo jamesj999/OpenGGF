@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
@@ -91,7 +90,7 @@ public class Sonic3kSpikeObjectInstance extends AbstractSpikeObjectInstance {
             return;
         }
         try {
-            AudioManager.getInstance().playSfx(Sonic3kSfx.SPIKE_MOVE.id);
+            services().playSfx(Sonic3kSfx.SPIKE_MOVE.id);
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic.
         }

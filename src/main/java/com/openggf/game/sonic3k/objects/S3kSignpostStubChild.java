@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -75,7 +76,7 @@ public class S3kSignpostStubChild extends AbstractObjectInstance {
 
     private PatternSpriteRenderer getStubRenderer() {
         try {
-            LevelManager lm = LevelManager.getInstance();
+            LevelManager lm = GameServices.level();
             if (lm != null) {
                 ObjectRenderManager orm = lm.getObjectRenderManager();
                 if (orm != null) {

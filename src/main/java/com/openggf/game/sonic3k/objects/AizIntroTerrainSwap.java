@@ -64,7 +64,7 @@ public final class AizIntroTerrainSwap {
             return;
         }
 
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         Level level = levelManager.getCurrentLevel();
         if (!(level instanceof Sonic3kLevel sonic3kLevel)) {
             return;
@@ -86,7 +86,7 @@ public final class AizIntroTerrainSwap {
     }
 
     static synchronized boolean applyMainLevelOverlays() {
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         Level level = levelManager.getCurrentLevel();
         if (!(level instanceof Sonic3kLevel sonic3kLevel)) {
             return false;

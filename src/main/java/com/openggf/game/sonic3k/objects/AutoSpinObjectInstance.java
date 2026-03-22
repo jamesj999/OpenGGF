@@ -328,7 +328,7 @@ public class AutoSpinObjectInstance extends BoxObjectInstance {
         }
 
         try {
-            AudioManager audioManager = AudioManager.getInstance();
+            AudioManager audioManager = GameServices.audio();
             if (audioManager != null) {
                 audioManager.playSfx(GameSound.ROLLING);
             }

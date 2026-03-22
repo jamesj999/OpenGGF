@@ -1,6 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
@@ -85,7 +85,7 @@ public class AizFallingLogObjectInstance extends AbstractObjectInstance {
         // Act 2: ArtTile_AIZMisc2, palette 2 for log, palette 3 for splash
         int act = 0;
         try {
-            LevelManager lm = LevelManager.getInstance();
+            LevelManager lm = GameServices.level();
             if (lm != null) act = lm.getCurrentAct();
         } catch (Exception ignored) {
         }
@@ -111,7 +111,7 @@ public class AizFallingLogObjectInstance extends AbstractObjectInstance {
         try {
             Sonic3kLevelEventManager lem = Sonic3kLevelEventManager.getInstance();
             if (lem != null) {
-                LevelManager lm = LevelManager.getInstance();
+                LevelManager lm = GameServices.level();
                 if (lm != null && lm.getCurrentZone() == Sonic3kZoneIds.ZONE_AIZ) {
                     return lem.getEventRoutineFg() >= EVENT_TRIGGER_ROUTINE_THRESHOLD;
                 }
@@ -258,7 +258,7 @@ public class AizFallingLogObjectInstance extends AbstractObjectInstance {
 
             // ROM coarse range check (loc_2B6D8, sonic3k.asm lines 59994-59998):
             // andi.w #$FF80,d0 / sub.w (Camera_X_pos_coarse_back).w,d0 / cmpi.w #$280,d0
-            int coarse = (x & 0xFF80) - Camera.getInstance().getX();
+            int coarse = (x & 0xFF80) - GameServices.camera().getX();
             if (coarse < 0 || coarse > COARSE_RANGE_THRESHOLD) {
                 destroyWithSplash();
                 return;
@@ -319,7 +319,7 @@ public class AizFallingLogObjectInstance extends AbstractObjectInstance {
 
         private int getWaterLevel() {
             try {
-                LevelManager lm = LevelManager.getInstance();
+                LevelManager lm = GameServices.level();
                 if (lm != null) {
                     WaterSystem ws = WaterSystem.getInstance();
                     if (ws != null) {
