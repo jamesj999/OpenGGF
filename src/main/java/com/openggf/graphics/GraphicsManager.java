@@ -1059,8 +1059,11 @@ public class GraphicsManager {
 	}
 
 	/**
-	 * Reset the singleton instance. Used for testing.
+	 * @deprecated Use {@link #resetState()} for test teardown.
+	 * This method destroys the singleton; resetState() clears
+	 * state in-place, avoiding stale reference issues.
 	 */
+	@Deprecated
 	public static synchronized void resetInstance() {
 		if (graphicsManager != null) {
 			graphicsManager.cleanup();
