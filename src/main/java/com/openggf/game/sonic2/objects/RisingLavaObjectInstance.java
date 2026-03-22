@@ -13,6 +13,7 @@ import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.objects.SlopedSolidProvider;
+import com.openggf.game.DamageCause;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -199,7 +200,7 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
 
         // ROM: Hurt_Sidekick - CPU Tails only gets knockback, no ring scatter or death
         if (player.isCpuControlled()) {
-            player.applyHurt(getX(), AbstractPlayableSprite.DamageCause.FIRE);
+            player.applyHurt(getX(), DamageCause.FIRE);
             return;
         }
         // Check if player has rings
@@ -208,7 +209,7 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
             services().spawnLostRings(player, lastFrameCounter);
         }
         // Apply hurt - lava uses DamageCause.FIRE for fire shield immunity
-        player.applyHurtOrDeath(getX(), AbstractPlayableSprite.DamageCause.FIRE, hadRings);
+        player.applyHurtOrDeath(getX(), DamageCause.FIRE, hadRings);
     }
 
     // ========================================================================

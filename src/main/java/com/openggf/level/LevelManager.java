@@ -890,7 +890,7 @@ public class LevelManager {
                 levelGamestate.update();
             }
             if (levelGamestate.isTimeOver() && playable != null && !playable.getDead()) {
-                playable.applyHurtOrDeath(0, AbstractPlayableSprite.DamageCause.TIME_OVER, false);
+                playable.applyHurtOrDeath(0, DamageCause.TIME_OVER, false);
             }
         }
 

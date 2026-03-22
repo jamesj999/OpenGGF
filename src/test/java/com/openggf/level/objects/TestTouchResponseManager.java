@@ -4,6 +4,7 @@ import org.junit.Before;
 import org.junit.Test;
 import com.openggf.graphics.GLCommand;
 import org.mockito.Mockito;
+import com.openggf.game.DamageCause;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -259,7 +260,7 @@ public class TestTouchResponseManager {
 
         // Verify applyHurtOrDeath was called (DamageCause overload)
         verify(player).applyHurtOrDeath(anyInt(),
-                any(AbstractPlayableSprite.DamageCause.class), anyBoolean());
+                any(DamageCause.class), anyBoolean());
     }
 
     @Test
@@ -274,7 +275,7 @@ public class TestTouchResponseManager {
 
         // Verify applyHurtOrDeath was NOT called (DamageCause overload)
         verify(player, never()).applyHurtOrDeath(anyInt(),
-                any(AbstractPlayableSprite.DamageCause.class), anyBoolean());
+                any(DamageCause.class), anyBoolean());
     }
 
     // ==================== Overlap Persistence Tests ====================
