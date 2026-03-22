@@ -34,7 +34,7 @@ Phases are independently shippable. Phase 1 delivers immediate test reliability 
 ### Context
 
 The codebase has mature reset infrastructure:
-- `LevelInitProfile` defines ordered teardown (12 steps) and per-test reset (8 steps) sequences
+- `LevelInitProfile` defines ordered teardown (12 steps) and per-test reset (9 steps) sequences
 - `AbstractLevelInitProfile` implements the canonical teardown order matching ROM init phase inverses
 - `GameContext.forTesting()` orchestrates full resets via the profile steps
 - `TestEnvironment` provides `resetAll()` and `resetPerTest()` entry points
@@ -45,7 +45,7 @@ The pattern is migrating from `resetInstance()` (destroy-and-recreate) to `reset
 - 35 of 43 singletons lack `resetInstance()`, but many already have `resetState()` — the real gap is coverage verification
 - AudioManager `resetState()` may not clear donor loaders and secondary state
 - TerrainCollisionManager has no reset mechanism at all
-- HeadlessTestRunner still calls deprecated `resetInstance()` directly
+- 26+ test setup methods across individual test files call deprecated `resetInstance()` directly
 - No automated enforcement of per-test reset
 
 ### 1.1 Fill resetState() Gaps
@@ -69,9 +69,9 @@ Add `@Deprecated` annotation to `resetInstance()` on these 6 classes, with Javad
 | Sonic1SwitchManager | Nulls static field (unsynchronized) | Deprecate; add `resetState()` that clears `switchState[]` |
 | CrossGameFeatureProvider | Nulls static field | Deprecate; add `resetState()` that clears ROM readers and cached providers |
 
-### 1.3 Migrate HeadlessTestRunner
+### 1.3 Migrate Test Setup Code
 
-Replace direct `resetInstance()` calls in `HeadlessTestRunner` setup:
+26+ test files call `GraphicsManager.resetInstance()` and/or `Camera.resetInstance()` directly in their `@Before`/`@BeforeEach` setup methods. Migrate all of these to `resetState()`:
 
 ```java
 // Before:
@@ -83,7 +83,9 @@ GraphicsManager.getInstance().resetState();
 Camera.getInstance().resetState();
 ```
 
-This aligns HeadlessTestRunner with the profile-based teardown pattern.
+Also update `HeadlessTestRunner` Javadoc to remove any advice referencing the deprecated `resetInstance()` pattern.
+
+This aligns all test setup code with the profile-based teardown pattern.
 
 ### 1.4 Stale Reference Guard
 
@@ -150,17 +152,22 @@ Adoption is incremental — no existing tests break. New tests use the extension
 
 ### 1.6 Remove Defensive services() Null Checks
 
-The 13 `if (services() == null)` checks are remnants from the migration. Since `services()` now throws `IllegalStateException` if called before injection, these null checks are dead code. Remove them.
+3 remaining `if (services() == null)` checks are remnants from the migration:
+- `AbstractBossInstance.java`
+- `TurtloidBadnikInstance.java`
+- `AbstractS1EggmanBossInstance.java`
+
+Since `services()` now throws `IllegalStateException` if called before injection, these null checks are dead code. Remove them.
 
 ### 1.7 Migrate Remaining Scroll Handlers
 
-`SwScrlScz` and `SwScrlHtz` still use `Camera.getInstance()` instead of the services pattern. Migrate to `GameServices.camera()` for consistency with the rest of the codebase.
+`SwScrlScz` still uses `Camera.getInstance()` instead of the services pattern. Migrate to `GameServices.camera()` for consistency with the rest of the codebase. (`SwScrlHtz` already uses `BackgroundCamera` injection and needs no change.)
 
 ### Phase 1 Verification
 
 - All existing tests pass (no behavior change)
 - `GameContext.forTesting()` teardown sequence covers every singleton with mutable state
-- HeadlessTestRunner uses `resetState()` not `resetInstance()`
+- All test setup code uses `resetState()` not `resetInstance()`
 - No `services() == null` checks remain in production code
 - Stale GameContext detection triggers on synthetic test
 
@@ -231,6 +238,8 @@ Extract 3 classes based on field-group isolation — fields in each group are ac
 
 **Dependencies:** Pure state machine — no singleton references. `executeActTransition()` is the exception; it stays in LevelManager since it orchestrates level loading, camera, and manager re-init.
 
+**Note:** `forceHudSuppressed` and `suppressNextMusicChange` currently lack getter methods — only setters exist. The fields are read directly within LevelManager's rendering path. During extraction, create the corresponding getters (`isForceHudSuppressed()`, `isSuppressNextMusicChange()`) on the coordinator, and update LevelManager's rendering method to call `getTransitions().isForceHudSuppressed()`.
+
 **Created by:** LevelManager constructor. Exposed via `getTransitions()` getter for GameLoop consumption.
 
 ### 2.3 LevelDebugRenderer
@@ -252,7 +261,15 @@ Extract 3 classes based on field-group isolation — fields in each group are ac
 - `collisionCommands`, `priorityDebugCommands`, `sensorCommands`, `cameraBoundsCommands`
 - `reusableDebugCtx`
 
-**Dependencies:** Takes level, camera, object positions as parameters (already the case — these methods receive `List<GLCommand>` and `Camera` params). No field coupling to LevelManager.
+**Dependencies:** Requires read access to `level`, `blockPixelSize`, and `overlayManager`. These are passed via a `LevelDebugContext` record (similar to `LevelGeometry`):
+
+```java
+record LevelDebugContext(Level level, int blockPixelSize,
+                         DebugOverlayManager overlayManager,
+                         GraphicsManager graphicsManager) {}
+```
+
+Debug methods also use utility helpers (`appendBox()`, `appendLine()`, `appendCross()`) which move with the class. The `getBlockAtPosition()` call is accessed via the `Level` reference in the context.
 
 **Created by:** LevelManager constructor. Called from `drawWithSpritePriority()` when debug mode is active.
 
@@ -302,6 +319,8 @@ Each extraction is a single commit:
 
 Order: LevelDebugRenderer first (least coupled), then LevelTransitionCoordinator, then LevelTilemapManager.
 
+**resetState() delegation:** After extraction, `LevelManager.resetState()` must delegate to the extracted classes. Currently it clears tilemap fields (lines 4618-4630) and transition fields (lines 4633-4652) directly. Post-decomposition, add `tilemapManager.resetState()` and `transitions.resetState()` calls.
+
 ### Phase 2 Verification
 
 - All existing tests pass after each extraction commit
@@ -320,17 +339,23 @@ Three confirmed circular dependency cycles:
 - `physics ↔ sprites` — natural coupling, not addressed (see Non-Goals)
 - `game ↔ level` — partially addressed by LevelManager decomposition
 
-The coupling surface: ObjectManager.SolidContacts and TouchResponses call ~40 distinct methods on `AbstractPlayableSprite`. The reverse: `AbstractPlayableSprite` imports `LevelManager`, `WaterSystem`, and instantiates shield/invincibility/splash objects.
+The coupling surface has two tiers:
+- **`level/objects/` (34 files):** ObjectManager.SolidContacts and TouchResponses call ~46 distinct methods on `AbstractPlayableSprite`
+- **`game/*/objects/` (363 files):** Game-specific object instances call 100+ distinct methods including animation state, control locks, rendering, and deep sprite interaction
+
+The reverse direction: `AbstractPlayableSprite` imports `LevelManager`, `WaterSystem`, and instantiates shield/invincibility/splash objects.
+
+**Scoping decision:** Phase 3 targets only the `level/objects/` tier (34 files). The `game/*/objects/` tier uses a far wider API surface that would require an impractically large interface or continued use of the concrete type. Migrating `game/*/objects/` is deferred to a future phase.
 
 ### 3.1 PlayableEntity Interface
 
 **Package:** `com.openggf.game`
 
-**Purpose:** Break `level.objects → sprites.playable` by providing an interface that ObjectManager and all object instances can depend on instead of the concrete `AbstractPlayableSprite`.
+**Purpose:** Break `level/objects/ → sprites.playable` by providing an interface that ObjectManager's inner classes can depend on instead of the concrete `AbstractPlayableSprite`.
 
 ```java
 public interface PlayableEntity {
-    // Position (7 methods)
+    // Position (8 methods)
     short getCentreX();
     short getCentreY();
     void setCentreX(short x);
@@ -338,11 +363,13 @@ public interface PlayableEntity {
     short getY();
     void setY(short y);
     void shiftX(int deltaX);
+    void move(short xSpeed, short ySpeed);
 
-    // Dimensions (3 methods)
+    // Dimensions (4 methods)
     int getHeight();
     int getYRadius();
     int getXRadius();
+    int getRollHeightAdjustment();
 
     // Physics (10 methods)
     short getXSpeed();
@@ -356,16 +383,25 @@ public interface PlayableEntity {
     byte getAngle();
     void setAngle(byte angle);
 
-    // Ground mode (4 methods)
+    // Ground mode (5 methods)
     boolean getRolling();
+    void setRolling(boolean rolling);
     boolean getSpindash();
     GroundMode getGroundMode();
     void setGroundMode(GroundMode mode);
 
-    // Object interaction (3 methods)
+    // Object interaction (5 methods)
     boolean isObjectControlled();
     void setOnObject(boolean onObject);
     void setPushing(boolean pushing);
+    boolean getPinballMode();
+    boolean isCpuControlled();
+
+    // Collision path (4 methods)
+    void setTopSolidBit(int bit);
+    void setLrbSolidBit(int bit);
+    void setLayer(byte layer);
+    boolean isHighPriority();
 
     // Vulnerability (8 methods)
     boolean getDead();
@@ -377,18 +413,31 @@ public interface PlayableEntity {
     int getDoubleJumpFlag();
     boolean isSuperSonic();
 
-    // Damage/hitbox (3 methods)
+    // Damage/hitbox (5 methods)
     boolean getCrouching();
     int getRingCount();
+    Direction getDirection();
     void applyHurt(int sourceX);
+    void applyHurtOrDeath(int sourceX, DamageCause cause, boolean hadRings);
+    void applyCrushDeath();
+
+    // Scoring (1 method)
+    void incrementBadnikChain();
+
+    // Feature set (1 method)
+    PhysicsFeatureSet getPhysicsFeatureSet();
 }
 ```
 
-**39 methods** — matches the actual coupling surface discovered during analysis. Every method is called by `SolidContacts` or `TouchResponses`.
+**~51 methods** — covers the full ObjectManager.SolidContacts and TouchResponses coupling surface (46+ methods verified by code review). The interface is large because the collision resolution and touch response systems legitimately need broad access to player state — this is ROM-accurate interaction logic.
 
-`AbstractPlayableSprite implements PlayableEntity`. The existing `Sprite` interface (basic position/dimension) remains separate — `PlayableEntity` does not extend `Sprite` because `Sprite` includes rendering methods (`draw()`, `setLayer()`) that the object system doesn't need.
+`AbstractPlayableSprite implements PlayableEntity`. The existing `Sprite` interface (basic position/dimension) remains separate — `PlayableEntity` does not extend `Sprite` because `Sprite` includes rendering methods (`draw()`) that the object system doesn't need.
 
-### 3.2 Migrate level.objects to PlayableEntity
+**Note:** The exact method list will be finalized during implementation by grepping all `AbstractPlayableSprite` method calls within `level/objects/`. Methods may be added or removed as the actual usage is reconciled.
+
+### 3.2 Migrate level/objects/ to PlayableEntity
+
+**Scope:** Only files in `level/objects/` (34 files). Game-specific objects in `game/*/objects/` (363 files) continue using `AbstractPlayableSprite` — their coupling surface is too wide for a single interface. This is a future phase.
 
 **ObjectManager changes:**
 - `SolidContacts`: All public methods change `AbstractPlayableSprite player` → `PlayableEntity player`
@@ -397,11 +446,11 @@ public interface PlayableEntity {
 
 **AbstractObjectInstance changes:**
 - Any method accepting `AbstractPlayableSprite` changes to `PlayableEntity`
-- Most object instances receive player via `update(int frameCounter, PlayableEntity player)` or similar
+- `update(int frameCounter, PlayableEntity player)` parameter type change
 
-**Scope:** All files in `level/objects/` and `game/*/objects/` that import `AbstractPlayableSprite` are candidates. The migration is mechanical — change parameter types and imports.
-
-**What stays concrete:** `LevelManager` itself still imports `AbstractPlayableSprite` for player init, art loading, sidekick management, and sensor configuration. This is acceptable — LevelManager is the orchestrator that *creates* the player. The goal is breaking the `level.objects → sprites` direction, not eliminating all knowledge of sprites from the `level` package.
+**What stays concrete:**
+- `LevelManager` itself still imports `AbstractPlayableSprite` for player init, art loading, sidekick management, and sensor configuration. This is the orchestrator's job.
+- All `game/sonic1/objects/`, `game/sonic2/objects/`, `game/sonic3k/objects/` continue using `AbstractPlayableSprite` directly. These game-specific objects use animation state, control locks, forced inputs, and other deep sprite APIs that go far beyond the `PlayableEntity` surface.
 
 ### 3.3 PowerUpSpawner Interface
 
@@ -463,6 +512,10 @@ The `game` package becomes the interface hub — consistent with its existing ro
 
 **LevelManager → sprites imports:** LevelManager still imports `AbstractPlayableSprite` for player creation, art loading, and sensor configuration. This is the orchestrator's job — it creates and configures the player. Only the `level.objects` → `sprites` direction is broken.
 
+**game/*/objects/ → sprites coupling:** Game-specific objects (363 files across S1/S2/S3K) continue importing `AbstractPlayableSprite` directly. These use 100+ methods including animation, control locks, and deep sprite APIs. Migrating them would require a much larger interface or a different abstraction strategy. Deferred to a future phase.
+
+**game ↔ level cycle:** Phase 2's extraction of `LevelTransitionCoordinator` partially reduces this — GameLoop can depend on the coordinator without importing the full LevelManager graph. Full resolution of this cycle is not a goal of this spec.
+
 ### Phase 3 Verification
 
 - All existing tests pass
@@ -470,6 +523,7 @@ The `game` package becomes the interface hub — consistent with its existing ro
 - `AbstractPlayableSprite` has no imports from `level.objects`
 - `PlayableEntity` interface in `game` package has no imports from `sprites` or `level`
 - PowerUpSpawner injection tested via existing shield/invincibility integration tests
+- Files in `game/*/objects/` may still import `sprites.playable` — this is expected and explicitly scoped out
 
 ---
 
@@ -502,8 +556,9 @@ The `game` package becomes the interface hub — consistent with its existing ro
 | Phase 1: Stale reference guard too noisy | Only applies to GameContext accessors (not used in production game loop) |
 | Phase 2: Extracted class needs LevelManager field | Use LevelGeometry record; if more needed, pass as constructor param |
 | Phase 2: Pre-allocated GL commands can't be separated | Leave in LevelManager — accepted trade-off for rendering performance |
-| Phase 3: PlayableEntity interface too large (39 methods) | Matches actual coupling surface; splitting would be artificial |
-| Phase 3: Missing method on PlayableEntity discovered during migration | Add to interface — it's a projection of existing usage, easily extended |
+| Phase 3: PlayableEntity interface too large (~51 methods) | Matches actual ObjectManager coupling surface; splitting would be artificial |
+| Phase 3: Missing method on PlayableEntity discovered during migration | Add to interface — final method list determined by grepping actual usage |
+| Phase 3: game/*/objects/ still coupled to AbstractPlayableSprite | Explicitly scoped out — separate future phase with its own interface design |
 | Phase 3: GroundMode/ShieldType package move breaks imports | Mechanical find-replace; IDE refactoring handles this |
 
 ## Implementation Order
@@ -513,8 +568,9 @@ The `game` package becomes the interface hub — consistent with its existing ro
    - 2a: LevelDebugRenderer extraction
    - 2b: LevelTransitionCoordinator extraction
    - 2c: LevelTilemapManager extraction
-3. Phase 3: Cycle breaking (estimated 2-3 days)
-   - 3a: PlayableEntity interface + AbstractPlayableSprite implements
-   - 3b: Migrate level.objects to PlayableEntity
-   - 3c: PowerUpSpawner interface + DefaultPowerUpSpawner
-   - 3d: Migrate AbstractPlayableSprite to PowerUpSpawner
+3. Phase 3: Cycle breaking — level/objects/ only (estimated 2-3 days)
+   - 3a: Move GroundMode, ShieldType to `game` package
+   - 3b: PlayableEntity interface + AbstractPlayableSprite implements
+   - 3c: Migrate level/objects/ (34 files) to PlayableEntity
+   - 3d: PowerUpSpawner interface + DefaultPowerUpSpawner
+   - 3e: Migrate AbstractPlayableSprite to PowerUpSpawner
