@@ -246,9 +246,6 @@ public class TurtloidBadnikInstance extends AbstractBadnikInstance
             animFrame = 0;
         }
 
-        if (services() == null) {
-            return;
-        }
         ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;

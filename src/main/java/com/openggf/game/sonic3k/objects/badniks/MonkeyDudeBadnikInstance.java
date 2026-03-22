@@ -294,7 +294,7 @@ public final class MonkeyDudeBadnikInstance extends AbstractS3kBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed || services() == null) {
+        if (destroyed) {
             return;
         }
         ObjectRenderManager renderManager = services().renderManager();

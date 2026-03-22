@@ -206,9 +206,6 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
      * Uses standard random offset calculation: (random >> 2) - 0x20.
      */
     protected void spawnDefeatExplosion() {
-        if (services() == null) {
-            return;
-        }
         ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null || services().objectManager() == null) {
             return;
@@ -376,7 +373,7 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
         }
 
         private Palette getPaletteForFlash() {
-            if (services() == null || services().currentLevel() == null) {
+            if (services().currentLevel() == null) {
                 return null;
             }
             int paletteIndex = getPaletteLineForFlash();

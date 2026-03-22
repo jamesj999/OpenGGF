@@ -252,7 +252,7 @@ final class CaterkillerJrBodyInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed || services() == null) return;
+        if (destroyed) return;
 
         ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) return;

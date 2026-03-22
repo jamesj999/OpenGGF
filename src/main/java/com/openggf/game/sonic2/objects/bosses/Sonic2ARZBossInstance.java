@@ -558,7 +558,7 @@ public class Sonic2ARZBossInstance extends AbstractBossInstance {
     }
 
     private void spawnPillars() {
-        if (services() == null || services().objectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
@@ -577,7 +577,7 @@ public class Sonic2ARZBossInstance extends AbstractBossInstance {
      * Called by ARZBossPillar to spawn arrow and eyes.
      */
     public void spawnArrowAndEyes(boolean leftPillar) {
-        if (services() == null || services().objectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
 

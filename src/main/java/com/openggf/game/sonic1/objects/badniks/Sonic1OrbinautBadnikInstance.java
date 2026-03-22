@@ -141,7 +141,7 @@ public class Sonic1OrbinautBadnikInstance extends AbstractBadnikInstance {
     }
 
     private void spawnSatellites() {
-        if (services() == null || services().objectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
 

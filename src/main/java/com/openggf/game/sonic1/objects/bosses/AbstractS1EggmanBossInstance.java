@@ -114,9 +114,6 @@ public abstract class AbstractS1EggmanBossInstance extends AbstractBossInstance 
      * should override {@link #appendRenderCommands(List)} and call this first.
      */
     protected void renderEggmanShip() {
-        if (services() == null) {
-            return;
-        }
         ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
