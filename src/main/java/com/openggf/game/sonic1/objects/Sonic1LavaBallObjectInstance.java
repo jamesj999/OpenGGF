@@ -2,6 +2,7 @@ package com.openggf.game.sonic1.objects;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.graphics.GLCommand;
@@ -244,12 +245,12 @@ public class Sonic1LavaBallObjectInstance extends AbstractObjectInstance
 
         // Determine art key based on current zone
         // ROM: cmpi.b #id_SLZ,(v_zone).w / bne.s .notSLZ
-        int zoneIndex = services().romZoneId();
+        int zoneIndex = GameServices.level().getRomZoneId();
         this.artKey = (zoneIndex == Sonic1Constants.ZONE_SLZ)
                 ? ObjectArtKeys.SLZ_FIREBALL : ObjectArtKeys.MZ_FIREBALL;
 
         // Play fireball sound: move.w #sfx_Fireball,d0 / jsr (QueueSound2).l
-        services().playSfx(SFX_FIREBALL);
+        GameServices.audio().playSfx(SFX_FIREBALL);
     }
 
     // ========================================================================

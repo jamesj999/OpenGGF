@@ -110,7 +110,7 @@ public class SolBadnikInstance extends AbstractBadnikInstance {
     }
 
     private void spawnFireballs() {
-        ObjectManager objectManager = services() != null ? services().objectManager() : null;
+        ObjectManager objectManager = com.openggf.game.GameServices.level().getObjectManager();
         if (objectManager == null) {
             return;
         }

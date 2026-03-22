@@ -68,10 +68,16 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     }
 
     /**
-     * Returns the injectable services handle, or null if not yet injected
-     * (e.g. during construction or in legacy code paths).
+     * Returns the injectable services handle.
+     * Throws if called before ObjectManager has injected services
+     * (e.g. during construction — use {@link GameServices} instead).
      */
     protected ObjectServices services() {
+        if (services == null) {
+            throw new IllegalStateException(
+                    getClass().getSimpleName() + ": services not injected — "
+                    + "use GameServices for constructor-time access");
+        }
         return services;
     }
 

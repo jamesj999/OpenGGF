@@ -404,7 +404,7 @@ public class ObjectManager {
     }
 
     public void addDynamicObject(ObjectInstance object) {
-        if (object instanceof AbstractObjectInstance aoi && aoi.services() == null) {
+        if (object instanceof AbstractObjectInstance aoi) {
             aoi.setServices(objectServices);
         }
         if (updating) {

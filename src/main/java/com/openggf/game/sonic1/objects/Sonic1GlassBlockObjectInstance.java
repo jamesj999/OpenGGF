@@ -427,7 +427,7 @@ public class Sonic1GlassBlockObjectInstance extends AbstractObjectInstance
      * Subtype gets addq.b #8 then andi.b #$F.
      */
     private void spawnReflection() {
-        var objectManager = services().objectManager();
+        var objectManager = GameServices.level().getObjectManager();
         if (objectManager == null) {
             return;
         }

@@ -231,6 +231,7 @@ public class TestS2Ehz1Headless {
             this.y = y;
             this.params = params;
             this.topSolidOnly = topSolidOnly;
+            setServices(new com.openggf.level.objects.DefaultObjectServices());
         }
 
         @Override

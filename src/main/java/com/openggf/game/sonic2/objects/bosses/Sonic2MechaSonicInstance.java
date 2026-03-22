@@ -208,20 +208,21 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
     }
 
     private void spawnChildObjects() {
-        if (services() == null || services().objectManager() == null) {
+        var objectManager = GameServices.level().getObjectManager();
+        if (objectManager == null) {
             return;
         }
         ledWindow = new MechaSonicLEDWindow(this);
         childComponents.add(ledWindow);
-        services().objectManager().addDynamicObject(ledWindow);
+        objectManager.addDynamicObject(ledWindow);
 
         targetingSensor = new MechaSonicTargetingSensor(this);
         childComponents.add(targetingSensor);
-        services().objectManager().addDynamicObject(targetingSensor);
+        objectManager.addDynamicObject(targetingSensor);
 
         dezWindow = new MechaSonicDEZWindow(this);
         childComponents.add(dezWindow);
-        services().objectManager().addDynamicObject(dezWindow);
+        objectManager.addDynamicObject(dezWindow);
     }
 
     @Override

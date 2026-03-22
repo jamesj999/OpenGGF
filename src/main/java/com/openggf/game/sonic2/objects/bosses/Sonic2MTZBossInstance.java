@@ -230,8 +230,9 @@ public class Sonic2MTZBossInstance extends AbstractBossInstance {
         // Spawn laser shooter child
         laserShooter = new MTZLaserShooter(this);
         childComponents.add(laserShooter);
-        if (services() != null && services().objectManager() != null) {
-            services().objectManager().addDynamicObject(laserShooter);
+        var objectManager = GameServices.level().getObjectManager();
+        if (objectManager != null) {
+            objectManager.addDynamicObject(laserShooter);
         }
 
         // Spawn 7 orbiting shield orbs (Obj53)
@@ -245,11 +246,12 @@ public class Sonic2MTZBossInstance extends AbstractBossInstance {
         // byte_329D3: 0, 1, 1, 0, 1, 1, 0
         int[] tiltFlags = {0, 1, 1, 0, 1, 1, 0};
 
+        var objectManager = GameServices.level().getObjectManager();
         for (int i = 0; i < 7; i++) {
             MTZBossOrb orb = new MTZBossOrb(this, i, phaseOffsets[i], tiltFlags[i]);
             childComponents.add(orb);
-            if (services() != null && services().objectManager() != null) {
-                services().objectManager().addDynamicObject(orb);
+            if (objectManager != null) {
+                objectManager.addDynamicObject(orb);
             }
         }
     }

@@ -103,7 +103,7 @@ public class TurtloidBadnikInstance extends AbstractBadnikInstance
     }
 
     private void spawnChildren() {
-        ObjectManager objectManager = services() != null ? services().objectManager() : null;
+        ObjectManager objectManager = GameServices.level().getObjectManager();
         if (objectManager == null) {
             return;
         }

@@ -96,7 +96,7 @@ public class Sonic1BreakableWallObjectInstance extends AbstractObjectInstance
         this.frameIndex = spawn.subtype() & 0xFF;
 
         // RememberState: check if already broken
-        ObjectManager objectManager = services().objectManager();
+        ObjectManager objectManager = GameServices.level().getObjectManager();
         if (objectManager != null && objectManager.isRemembered(spawn)) {
             this.broken = true;
             setDestroyed(true);

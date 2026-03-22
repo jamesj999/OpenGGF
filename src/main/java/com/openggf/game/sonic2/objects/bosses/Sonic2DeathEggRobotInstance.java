@@ -496,10 +496,11 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         childComponents.add(backThigh);
 
         // Register children with ObjectManager for rendering (matches Silver Sonic pattern)
-        if (services() != null && services().objectManager() != null) {
+        var objectManager = GameServices.level().getObjectManager();
+        if (objectManager != null) {
             for (var child : childComponents) {
                 if (child instanceof com.openggf.level.objects.boss.AbstractBossChild bossChild) {
-                    services().objectManager().addDynamicObject(bossChild);
+                    objectManager.addDynamicObject(bossChild);
                 }
             }
         }
