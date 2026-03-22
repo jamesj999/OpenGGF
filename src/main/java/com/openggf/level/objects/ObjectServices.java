@@ -1,9 +1,12 @@
 package com.openggf.level.objects;
 
+import com.openggf.camera.Camera;
+import com.openggf.game.GameStateManager;
 import com.openggf.game.LevelState;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.RespawnState;
 import com.openggf.level.Level;
-import com.openggf.game.PlayableEntity;
+import java.util.List;
 
 /**
  * Injectable service handle for game objects. Provides access to level sub-managers
@@ -31,4 +34,11 @@ public interface ObjectServices {
 
     // Gameplay
     void spawnLostRings(PlayableEntity player, int frameCounter);
+
+    // Context-specific managers
+    Camera camera();
+    GameStateManager gameState();
+
+    // Player/sidekick access
+    List<PlayableEntity> sidekicks();
 }

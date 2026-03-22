@@ -1,11 +1,15 @@
 package com.openggf.level.objects;
 
 import com.openggf.audio.AudioManager;
+import com.openggf.camera.Camera;
+import com.openggf.game.GameStateManager;
 import com.openggf.game.LevelState;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.RespawnState;
 import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
-import com.openggf.game.PlayableEntity;
+import com.openggf.sprites.managers.SpriteManager;
+import java.util.List;
 
 /**
  * Production implementation of {@link ObjectServices} backed by existing singletons.
@@ -69,5 +73,20 @@ public class DefaultObjectServices implements ObjectServices {
         if (player instanceof com.openggf.sprites.playable.AbstractPlayableSprite aps) {
             LevelManager.getInstance().spawnLostRings(aps, frameCounter);
         }
+    }
+
+    @Override
+    public Camera camera() {
+        return Camera.getInstance();
+    }
+
+    @Override
+    public GameStateManager gameState() {
+        return GameStateManager.getInstance();
+    }
+
+    @Override
+    public List<PlayableEntity> sidekicks() {
+        return List.copyOf(SpriteManager.getInstance().getSidekicks());
     }
 }
