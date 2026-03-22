@@ -22,6 +22,7 @@ The two-tier service architecture refactor migrated 308 object files from `GameS
 - Constructor/factory/static context calls (cannot use `services()`)
 - `GameServices.rom()` calls (ROM is global, not context-specific)
 - Level-transition methods (`requestZoneAndAct`, `requestCreditsTransition`, `invalidateForegroundTilemap`, `advanceZoneActOnly`) — these are global operations
+- `GameServices.level().getCurrentLevelMusicId()` — single call in `Sonic2ARZBossInstance`, used during boss defeat to restore zone music; this is a level-transition-adjacent operation
 - Non-ObjectInstance classes (HudRenderManager, etc.)
 
 ## Design
@@ -30,27 +31,52 @@ The two-tier service architecture refactor migrated 308 object files from `GameS
 
 #### AbstractBossInstance: Remove Sonic2Sfx Import
 
+**File:** `level/objects/boss/AbstractBossInstance.java`
+
 `AbstractBossInstance` imports `com.openggf.game.sonic2.audio.Sonic2Sfx` to provide default SFX IDs for `getBossHitSfxId()` and `getBossExplosionSfxId()`.
 
-**Fix:** Make both methods abstract. Each game's boss subclasses already have access to their game's audio constants and must supply their own IDs. This removes the S2-specific import from the game-agnostic base class.
+**Fix:** Make both methods abstract. This removes the S2-specific import from the game-agnostic base class.
 
 ```java
-// Before (AbstractBossInstance.java)
+// Before (level/objects/boss/AbstractBossInstance.java)
 protected int getBossHitSfxId() {
-    return Sonic2Sfx.BOSS_HIT.id;
+    return Sonic2Sfx.BOSS_HIT.id;      // 0xAC
+}
+protected int getBossExplosionSfxId() {
+    return Sonic2Sfx.BOSS_EXPLOSION.id; // 0xC4
 }
 
 // After
 protected abstract int getBossHitSfxId();
+protected abstract int getBossExplosionSfxId();
 ```
 
-All existing boss subclasses must implement these two methods. S2 bosses return `Sonic2Sfx.BOSS_HIT.id` / `Sonic2Sfx.BOSS_EXPLOSION.id`, S1 bosses return `Sonic1Sfx` equivalents, S3K bosses return `Sonic3kSfx` equivalents.
+**Affected concrete subclasses** (must add overrides):
+
+| Class | Hierarchy | Returns |
+|-------|-----------|---------|
+| `AbstractS1EggmanBossInstance` | abstract, extends AbstractBossInstance | `Sonic1Sfx` equivalents |
+| `Sonic1FZBossInstance` | extends AbstractBossInstance directly | `Sonic1Sfx` equivalents |
+| `Sonic2EHZBossInstance` | extends AbstractBossInstance | `Sonic2Sfx.BOSS_HIT.id` / `Sonic2Sfx.BOSS_EXPLOSION.id` |
+| `Sonic2CPZBossInstance` | extends AbstractBossInstance | same |
+| `Sonic2HTZBossInstance` | extends AbstractBossInstance | same |
+| `Sonic2ARZBossInstance` | extends AbstractBossInstance | same |
+| `Sonic2CNZBossInstance` | extends AbstractBossInstance | same |
+| `Sonic2MCZBossInstance` | extends AbstractBossInstance | same |
+| `Sonic2MTZBossInstance` | extends AbstractBossInstance | same |
+| `Sonic2WFZBossInstance` | extends AbstractBossInstance | same |
+| `Sonic2MechaSonicInstance` | extends AbstractBossInstance | same |
+| `Sonic2DeathEggRobotInstance` | extends AbstractBossInstance | same |
+| `AizMinibossInstance` | extends AbstractBossInstance | `Sonic3kSfx` equivalents |
+| `AizMinibossCutsceneInstance` | extends AbstractBossInstance | already overrides `getBossHitSfxId()` |
+
+S1 zone bosses (GHZ, MZ, SYZ, SLZ, LZ) extend `AbstractS1EggmanBossInstance`, so implementing the methods there covers all 5.
 
 #### ObjectRenderManager: Remove Sonic2ObjectArtKeys Import
 
-`ObjectRenderManager` imports `Sonic2ObjectArtKeys.EHZ_BOSS` for two convenience methods: `getEHZBossRenderer()` and `getEHZBossSheet()`.
+**File:** `level/objects/ObjectRenderManager.java`
 
-**Fix:** Remove both convenience methods. Callers are in S2-specific code and should use `provider.getRenderer(Sonic2ObjectArtKeys.EHZ_BOSS)` directly.
+Remove convenience methods `getEHZBossRenderer()` and `getEHZBossSheet()`. The 6 callers (all in `game/sonic2/objects/bosses/`) should use `services().renderManager().getRenderer(Sonic2ObjectArtKeys.EHZ_BOSS)` and `services().renderManager().getSheet(Sonic2ObjectArtKeys.EHZ_BOSS)` instead, using the existing key-based `getRenderer(String)` / `getSheet(String)` methods on `ObjectRenderManager`.
 
 #### DefaultPowerUpSpawner: Document Bridge Role
 
@@ -61,12 +87,14 @@ Add a class-level comment documenting the intentional bridge role and why the ga
 Add 3 methods to `ObjectServices` and `DefaultObjectServices`:
 
 ```java
-// In ObjectServices interface
+// In ObjectServices interface (level/objects/ObjectServices.java)
+// New import: com.openggf.game.ZoneFeatureProvider (consistent with existing game package imports)
 int featureZoneId();
 int featureActId();
 ZoneFeatureProvider zoneFeatureProvider();
 
-// In DefaultObjectServices
+// In DefaultObjectServices (level/objects/DefaultObjectServices.java)
+// New import: com.openggf.game.ZoneFeatureProvider
 @Override
 public int featureZoneId() {
     return LevelManager.getInstance().getFeatureZoneId();
@@ -83,7 +111,7 @@ public ZoneFeatureProvider zoneFeatureProvider() {
 }
 ```
 
-These are context-specific values that would differ in a level editor context.
+These are context-specific values that would differ in a level editor context. The `level.objects` -> `game` import direction is consistent with existing imports (`GameStateManager`, `LevelState`, `RespawnState`, `PlayableEntity`).
 
 ### 3. Mechanical Migration
 
@@ -118,11 +146,13 @@ Migrate remaining `GameServices.*` calls in object instance methods to `services
 Matches the existing branch commit pattern:
 
 1. `refactor: fix layering violations in level/objects base classes`
-   - AbstractBossInstance: abstract SFX methods, remove Sonic2Sfx import
-   - ObjectRenderManager: remove EHZ convenience methods, remove Sonic2ObjectArtKeys import
-   - DefaultPowerUpSpawner: add bridge documentation
+   - `level/objects/boss/AbstractBossInstance.java`: abstract SFX methods, remove Sonic2Sfx import
+   - `level/objects/ObjectRenderManager.java`: remove EHZ convenience methods, remove Sonic2ObjectArtKeys import
+   - `level/objects/DefaultPowerUpSpawner.java`: add bridge documentation
+   - All boss subclasses: add `getBossHitSfxId()` / `getBossExplosionSfxId()` overrides
+   - EHZ boss child objects: replace `renderManager.getEHZBossRenderer()` with `services().renderManager().getRenderer(Sonic2ObjectArtKeys.EHZ_BOSS)`
 2. `feat: expand ObjectServices with zone feature methods`
-   - Add featureZoneId(), featureActId(), zoneFeatureProvider() to interface + default impl
+   - Add `featureZoneId()`, `featureActId()`, `zoneFeatureProvider()` to interface + default impl
 3. `refactor: migrate remaining level/objects GameServices calls to services()`
 4. `refactor: migrate remaining S1 object GameServices calls to services()`
 5. `refactor: migrate remaining S2 object GameServices calls to services()`
