@@ -367,4 +367,17 @@ public interface GameModule {
             default -> throw new IllegalStateException("Unknown module: " + getIdentifier());
         };
     }
+
+    /**
+     * Resolves a canonical animation to this game's native animation ID.
+     * Used by game-agnostic code (sidekick controller) to avoid hardcoding
+     * game-specific animation IDs.
+     *
+     * @param canonical the cross-game animation identifier
+     * @return the native animation ID, or -1 if not supported
+     */
+    default int resolveAnimationId(CanonicalAnimation canonical) {
+        DonorCapabilities donor = getDonorCapabilities();
+        return donor != null ? donor.resolveNativeId(canonical) : -1;
+    }
 }

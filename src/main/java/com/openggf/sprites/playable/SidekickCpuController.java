@@ -1,7 +1,8 @@
 package com.openggf.sprites.playable;
 
 import com.openggf.camera.Camera;
-import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
+import com.openggf.game.CanonicalAnimation;
+import com.openggf.game.GameModuleRegistry;
 import com.openggf.level.LevelManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.ObjectInstance;
@@ -18,7 +19,8 @@ public class SidekickCpuController {
     private static final int JUMP_HEIGHT_THRESHOLD = 32;
     private static final int DESPAWN_TIMEOUT = 300;
     private static final int MANUAL_CONTROL_FRAMES = 600;
-    private static final int FLY_ANIM_ID = Sonic2AnimationIds.FLY.id();
+    private final int flyAnimId;
+    private final int duckAnimId;
     private static final int INPUT_START = 0x20;
     private static final int MANUAL_HELD_MASK = AbstractPlayableSprite.INPUT_UP
             | AbstractPlayableSprite.INPUT_DOWN
@@ -68,6 +70,8 @@ public class SidekickCpuController {
         this.sidekick = sidekick;
         this.leader = leader;
         this.respawnStrategy = new TailsRespawnStrategy(this);
+        this.flyAnimId = GameModuleRegistry.getCurrent().resolveAnimationId(CanonicalAnimation.FLY);
+        this.duckAnimId = GameModuleRegistry.getCurrent().resolveAnimationId(CanonicalAnimation.DUCK);
     }
 
     public void update(int frameCount) {
@@ -251,7 +255,7 @@ public class SidekickCpuController {
             if (passesDistanceGate
                     && dy <= -JUMP_HEIGHT_THRESHOLD
                     && (frameCounter & 0x3F) == 0
-                    && sidekick.getAnimationId() != Sonic2AnimationIds.DUCK.id()) {
+                    && sidekick.getAnimationId() != duckAnimId) {
                 inputJump = true;
                 jumpingFlag = true;
             }
@@ -284,7 +288,7 @@ public class SidekickCpuController {
                 normalFrameCount = 0;
                 return;
             }
-            if (sidekick.getAnimationId() == Sonic2AnimationIds.DUCK.id()) {
+            if (sidekick.getAnimationId() == duckAnimId) {
                 inputJump = true;
             }
             return;
@@ -394,7 +398,7 @@ public class SidekickCpuController {
         sidekick.setDeathCountdown(0);
         sidekick.setSpindash(false);
         sidekick.setSpindashCounter((short) 0);
-        sidekick.setForcedAnimationId(FLY_ANIM_ID);
+        sidekick.setForcedAnimationId(flyAnimId);
         sidekick.setControlLocked(true);
         sidekick.setObjectControlled(true);
         lastRidingObject = null;
