@@ -291,7 +291,7 @@ public class Sonic3kStarPostObjectInstance extends AbstractObjectInstance {
         if (checkpointState instanceof CheckpointState cs && cs.isUsedForSpecialStage()) {
             return false;
         }
-        int emeralds = GameServices.gameState().getEmeraldCount();
+        int emeralds = services().gameState().getEmeraldCount();
         if (emeralds >= 7) {
             return false;
         }

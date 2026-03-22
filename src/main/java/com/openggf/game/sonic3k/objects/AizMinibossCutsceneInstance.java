@@ -167,7 +167,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
     }
 
     private void updateInit() {
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         savedCameraMaxX = camera.getMaxX();
 
         Sonic3kAIZEvents events = getAizEvents();
@@ -181,7 +181,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
     }
 
     private void updateWaitTrigger() {
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         if (camera.getX() < TRIGGER_X) {
             return;
         }
@@ -191,7 +191,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
 
         camera.setMinX((short) TRIGGER_X);
         camera.setMaxX((short) TRIGGER_X);
-        GameServices.gameState().setCurrentBossId(CUTSCENE_BOSS_ID);
+        services().gameState().setCurrentBossId(CUTSCENE_BOSS_ID);
         services().fadeOutMusic();
 
         state.routine = ROUTINE_WAIT;
@@ -226,7 +226,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         // ROM: loc_6862E — directly after swing, spawn explosion and set pre-exit wait
         setWait(PRE_EXIT_TIME, this::onPreExitComplete);
         // ROM: Obj_BossExplosionSpecial positions at screen center (overrides child offset)
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         explosionController = new S3kBossExplosionController(
                 camera.getX() + 160, camera.getY() + 112, 2);
     }
@@ -300,10 +300,10 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         // Only restore defaults when no transition handoff is active.
         if (!transitionInProgress) {
             GameServices.audio().getBackend().restoreMusic();
-            Camera camera = GameServices.camera();
+            Camera camera = services().camera();
             camera.setMinX((short) 0);
             camera.setMaxX((short) savedCameraMaxX);
-            GameServices.gameState().setCurrentBossId(0);
+            services().gameState().setCurrentBossId(0);
         }
 
         setDestroyed(true);
@@ -342,7 +342,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         if (objectManager == null) {
             return;
         }
-        int cameraX = GameServices.camera().getX();
+        int cameraX = services().camera().getX();
         for (int i = 0; i < DEBRIS_X_OFFSETS.length; i++) {
             int x = cameraX + DEBRIS_X_OFFSETS[i];
             int y = DEBRIS_Y_POSITIONS[i];

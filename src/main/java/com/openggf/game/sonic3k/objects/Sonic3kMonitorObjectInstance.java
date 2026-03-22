@@ -262,12 +262,12 @@ public class Sonic3kMonitorObjectInstance extends AbstractMonitorObjectInstance
                 }
             }
             case ONE_UP -> {
-                GameServices.gameState().addLife();
+                services().gameState().addLife();
                 services().playMusic(Sonic3kMusic.EXTRA_LIFE.id);
             }
             case RINGS -> {
                 player.addRings(RING_MONITOR_REWARD);
-                GameServices.audio().playSfx(GameSound.RING);
+                services().playSfx(GameSound.RING);
             }
             case SPEED_SHOES -> {
                 player.giveSpeedShoes();
@@ -278,15 +278,15 @@ public class Sonic3kMonitorObjectInstance extends AbstractMonitorObjectInstance
             }
             case FIRE_SHIELD -> {
                 player.giveShield(ShieldType.FIRE);
-                GameServices.audio().playSfx(GameSound.FIRE_SHIELD);
+                services().playSfx(GameSound.FIRE_SHIELD);
             }
             case LIGHTNING_SHIELD -> {
                 player.giveShield(ShieldType.LIGHTNING);
-                GameServices.audio().playSfx(GameSound.LIGHTNING_SHIELD);
+                services().playSfx(GameSound.LIGHTNING_SHIELD);
             }
             case BUBBLE_SHIELD -> {
                 player.giveShield(ShieldType.BUBBLE);
-                GameServices.audio().playSfx(GameSound.BUBBLE_SHIELD);
+                services().playSfx(GameSound.BUBBLE_SHIELD);
             }
             case INVINCIBILITY -> {
                 // Skip invincibility if player is already Super Sonic

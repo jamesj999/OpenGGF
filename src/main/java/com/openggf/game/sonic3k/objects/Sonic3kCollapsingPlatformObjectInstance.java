@@ -331,9 +331,9 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
 
     private void markRemembered() {
         try {
-            LevelManager lm = GameServices.level();
-            if (lm != null && lm.getObjectManager() != null) {
-                lm.getObjectManager().markRemembered(spawn);
+            var objectManager = services().objectManager();
+            if (objectManager != null) {
+                objectManager.markRemembered(spawn);
             }
         } catch (Exception e) {
             // Safe fallback for test environments

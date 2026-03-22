@@ -262,7 +262,7 @@ public class AizFallingLogObjectInstance extends AbstractObjectInstance {
 
             // ROM coarse range check (loc_2B6D8, sonic3k.asm lines 59994-59998):
             // andi.w #$FF80,d0 / sub.w (Camera_X_pos_coarse_back).w,d0 / cmpi.w #$280,d0
-            int coarse = (x & 0xFF80) - GameServices.camera().getX();
+            int coarse = (x & 0xFF80) - services().camera().getX();
             if (coarse < 0 || coarse > COARSE_RANGE_THRESHOLD) {
                 destroyWithSplash();
                 return;

@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
@@ -13,7 +12,6 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.sprites.animation.ScriptedVelocityAnimationProfile;
 import com.openggf.sprites.animation.SpriteAnimationProfile;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -109,8 +107,8 @@ public class AutoSpinObjectInstance extends BoxObjectInstance {
 
         checkPlayerCrossing(player, true);
 
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
-            checkPlayerCrossing(sidekick, false);
+        for (PlayableEntity sidekickEntity : services().sidekicks()) {
+            checkPlayerCrossing((AbstractPlayableSprite) sidekickEntity, false);
         }
     }
 
@@ -128,7 +126,8 @@ public class AutoSpinObjectInstance extends BoxObjectInstance {
             sonicPastTrigger = player.getCentreX() > objX;
         }
 
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+        for (PlayableEntity sidekickEntity : services().sidekicks()) {
+            AbstractPlayableSprite sidekick = (AbstractPlayableSprite) sidekickEntity;
             if (verticalMode) {
                 sidekickPastTrigger = sidekick.getCentreY() > objY;
             } else {
@@ -330,10 +329,7 @@ public class AutoSpinObjectInstance extends BoxObjectInstance {
         }
 
         try {
-            AudioManager audioManager = GameServices.audio();
-            if (audioManager != null) {
-                audioManager.playSfx(GameSound.ROLLING);
-            }
+            services().playSfx(GameSound.ROLLING);
         } catch (Exception ignored) {
         }
     }

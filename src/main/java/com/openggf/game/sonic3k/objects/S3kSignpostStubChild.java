@@ -1,13 +1,10 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -78,12 +75,9 @@ public class S3kSignpostStubChild extends AbstractObjectInstance {
 
     private PatternSpriteRenderer getStubRenderer() {
         try {
-            LevelManager lm = GameServices.level();
-            if (lm != null) {
-                ObjectRenderManager orm = lm.getObjectRenderManager();
-                if (orm != null) {
-                    return orm.getRenderer(Sonic3kObjectArtKeys.SIGNPOST_STUB);
-                }
+            var renderManager = services().renderManager();
+            if (renderManager != null) {
+                return renderManager.getRenderer(Sonic3kObjectArtKeys.SIGNPOST_STUB);
             }
         } catch (Exception ignored) {
             // Render manager unavailable (e.g. headless test)

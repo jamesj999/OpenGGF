@@ -598,8 +598,8 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
 
             // ROM: Level_started_flag = 0x91 — re-enable camera tracking
             // ROM does NOT change level boundaries here — intro bounds stay in effect
-            GameServices.camera().setLevelStarted(true);
-            GameServices.camera().updatePosition(true);
+            services().camera().setLevelStarted(true);
+            services().camera().updatePosition(true);
 
             // ROM: AllocateObject + move.l #Obj_TitleCard,(a1)
             Sonic3kTitleCardManager.getInstance().initializeInLevel(0, 0);

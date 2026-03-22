@@ -13,7 +13,6 @@ import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.titlecard.Sonic3kTitleCardManager;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.tools.NemesisReader;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
@@ -399,7 +398,7 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
         TallyResult result = performTallyStep();
 
         if (result.totalIncrement() > 0) {
-            GameServices.gameState().addScore(result.totalIncrement());
+            services().gameState().addScore(result.totalIncrement());
         }
 
         // ROM uses global frame counter for tick timing (line 62652-62654)
@@ -456,12 +455,13 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
             playerRef.setObjectControlled(false);
         }
         // Unlock sidekick(s) — ROM: Ctrl_2_locked cleared at level transition
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+        for (PlayableEntity sidekickEntity : services().sidekicks()) {
+            AbstractPlayableSprite sidekick = (AbstractPlayableSprite) sidekickEntity;
             sidekick.setControlLocked(false);
             sidekick.setObjectControlled(false);
         }
         // Restore camera bounds from level data (boss arena locked the boundaries)
-        Camera cam = GameServices.camera();
+        Camera cam = services().camera();
         cam.setFrozen(false);
         var level = services().currentLevel();
         if (level != null) {
@@ -477,11 +477,11 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
         // ROM lines 62694-62705
         boolean isAct2OrSpecial = (act != 0) || (zone == 0x0A) || (zone == 0x16);
 
-        GameServices.gameState().setEndOfLevelActive(false);
+        services().gameState().setEndOfLevelActive(false);
 
         // Always set endOfLevelFlag so S3kBossDefeatSignpostFlow can self-destruct
         // and release camera boundaries. For act 2 this also triggers the zone transition.
-        GameServices.gameState().setEndOfLevelFlag(true);
+        services().gameState().setEndOfLevelFlag(true);
 
         if (!isAct2OrSpecial) {
             // Act 1: transition to act 2 (ROM lines 62708-62720)
@@ -607,7 +607,7 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
         ensureArtCached();
         if (!renderer.isReady()) return;
 
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         if (camera == null) return;
 
         int baseX = camera.getX();

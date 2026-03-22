@@ -121,7 +121,7 @@ public class S3kBossDefeatSignpostFlow extends AbstractObjectInstance {
         } catch (Exception e) {
             LOG.fine("Could not clear boss flag: " + e.getMessage());
         }
-        GameServices.gameState().setCurrentBossId(0);
+        services().gameState().setCurrentBossId(0);
 
         // Spawn signpost above camera
         S3kSignpostInstance signpost = new S3kSignpostInstance(signpostX, apparentAct);
@@ -146,7 +146,7 @@ public class S3kBossDefeatSignpostFlow extends AbstractObjectInstance {
     // =========================================================================
 
     private void updateAwaitResults() {
-        if (!GameServices.gameState().isEndOfLevelActive()) {
+        if (!services().gameState().isEndOfLevelActive()) {
             phase = Phase.AWAIT_ACT_TRANSITION;
             LOG.fine("S3K defeat flow AWAIT_RESULTS -> AWAIT_ACT_TRANSITION");
         }
@@ -157,7 +157,7 @@ public class S3kBossDefeatSignpostFlow extends AbstractObjectInstance {
     // =========================================================================
 
     private void updateAwaitActTransition() {
-        if (GameServices.gameState().isEndOfLevelFlag()) {
+        if (services().gameState().isEndOfLevelFlag()) {
             setDestroyed(true);
             LOG.fine("S3K defeat flow complete — destroyed");
         }

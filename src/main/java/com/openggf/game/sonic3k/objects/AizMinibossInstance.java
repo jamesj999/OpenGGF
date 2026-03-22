@@ -149,7 +149,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
         if (state.hitCount <= 0) {
             state.hitCount = 0;
             state.defeated = true;
-            GameServices.gameState().addScore(1000);
+            services().gameState().addScore(1000);
             onDefeatStarted();
         }
     }
@@ -241,13 +241,13 @@ public class AizMinibossInstance extends AbstractBossInstance {
         if (events != null) {
             events.setBossFlag(true);
         }
-        GameServices.gameState().setCurrentBossId(0x91);
+        services().gameState().setCurrentBossId(0x91);
         loadBossPalette();
         state.routine = ROUTINE_WAIT_TRIGGER;
     }
 
     private void updateWaitTrigger() {
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         PlayerCharacter character = Sonic3kLevelEventManager.getInstance().getPlayerCharacter();
         int triggerX = (character == PlayerCharacter.KNUCKLES) ? TRIGGER_X_KNUCKLES : TRIGGER_X;
         if (camera.getX() < triggerX) {

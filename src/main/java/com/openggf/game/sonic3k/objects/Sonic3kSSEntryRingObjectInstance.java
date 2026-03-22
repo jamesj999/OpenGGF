@@ -208,7 +208,7 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
      * </ul>
      */
     private void onTouched(AbstractPlayableSprite player) {
-        GameStateManager gameState = GameServices.gameState();
+        GameStateManager gameState = services().gameState();
 
         // Play sfx_BigRing ($B3) — always plays on touch
         services().playSfx(Sonic3kSfx.BIG_RING.id);
@@ -246,7 +246,7 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
 
         // ROM: Save_Level_Data2 — save player position at ring for return from SS.
         // This is separate from checkpoint state (ROM: Saved_ vs Saved2_).
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         GameServices.level().saveBigRingReturnPosition(
                 player.getCentreX(), player.getCentreY(),
                 camera.getX(), camera.getY());
@@ -274,7 +274,7 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
      */
     public void markForDeletion() {
         state = State.MARKED_DELETE;
-        GameServices.gameState().markSpecialRingCollected(bitIndex);
+        services().gameState().markSpecialRingCollected(bitIndex);
         LOGGER.fine("SSEntryRing #" + bitIndex + " marked for deletion by flash");
     }
 

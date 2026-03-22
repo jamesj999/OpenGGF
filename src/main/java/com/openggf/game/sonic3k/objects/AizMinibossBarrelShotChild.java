@@ -5,7 +5,6 @@ import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -191,8 +190,8 @@ public class AizMinibossBarrelShotChild extends AbstractObjectInstance implement
         int selector = hFlip ? SELECT_TABLE_FLIPPED[index] : SELECT_TABLE_NORMAL[index];
         int xOffset = hFlip ? X_COLUMNS_FLIPPED[selector] : X_COLUMNS_NORMAL[selector];
 
-        currentX = GameServices.camera().getX() + xOffset;
-        currentY = GameServices.camera().getY() - 0x20;
+        currentX = services().camera().getX() + xOffset;
+        currentY = services().camera().getY() - 0x20;
         xFixed = currentX << 16;
         yFixed = currentY << 16;
 
@@ -212,8 +211,8 @@ public class AizMinibossBarrelShotChild extends AbstractObjectInstance implement
     }
 
     private void spawnImpactFlames() {
-        LevelManager levelManager = GameServices.level();
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        var objectManager = services().objectManager();
+        if (objectManager == null) {
             return;
         }
         boolean hazardous = mode == Mode.ADVANCED_COLLIDING;
@@ -221,7 +220,7 @@ public class AizMinibossBarrelShotChild extends AbstractObjectInstance implement
             int x = currentX + IMPACT_X_OFFSETS[i];
             int y = currentY + IMPACT_Y_OFFSETS[i];
             int subtype = i * 2; // loc_68D9C -> sub_68928 delay source
-            levelManager.getObjectManager().addDynamicObject(
+            objectManager.addDynamicObject(
                     new AizMinibossImpactFlameChild(x, y, subtype, hazardous));
         }
     }

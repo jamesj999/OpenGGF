@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
@@ -81,14 +80,14 @@ public class AizMinibossNapalmProjectile extends AbstractObjectInstance {
         // Move upward (fixed-point: shift right 8 to get pixel delta)
         worldY += yVel >> 8;
 
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         if (worldY <= camera.getY() - OFFSCREEN_MARGIN) {
             state = State.REPOSITION;
         }
     }
 
     private void updateReposition() {
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         worldY = camera.getY() - OFFSCREEN_MARGIN;
         yVel = DROP_VEL;
         services().playSfx(Sonic3kSfx.MISSILE_THROW.id);
@@ -99,7 +98,7 @@ public class AizMinibossNapalmProjectile extends AbstractObjectInstance {
         worldY += yVel >> 8;
         smokeTimer++;
 
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         if (worldY >= camera.getY() + FLOOR_OFFSET) {
             services().playSfx(Sonic3kSfx.MISSILE_EXPLODE.id);
             explodeTimer = EXPLODE_TIME;
