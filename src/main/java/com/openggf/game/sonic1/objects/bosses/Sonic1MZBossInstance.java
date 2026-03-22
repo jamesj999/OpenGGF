@@ -1,7 +1,5 @@
 package com.openggf.game.sonic1.objects.bosses;
 
-import com.openggf.audio.AudioManager;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.objects.Sonic1LavaBallObjectInstance;
 import com.openggf.game.sonic1.audio.Sonic1Music;
@@ -360,7 +358,7 @@ public class Sonic1MZBossInstance extends AbstractS1EggmanBossInstance {
             state.routineSecondary = STATE_ASCENT;
             timer = -0x26; // Start ascent counter at -$26
             // ROM: v_bossstatus = 1
-            GameServices.gameState().setCurrentBossId(0);
+            services().gameState().setCurrentBossId(0);
             state.yVel = 0;
         } else {
             // BossDefeated: Spawn explosions every 8 frames

@@ -1,12 +1,9 @@
 package com.openggf.game.sonic1.objects;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 
-import com.openggf.camera.Camera;
 import com.openggf.game.OscillationManager;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
@@ -486,7 +483,7 @@ public class Sonic1LargeGrassyPlatformObjectInstance extends AbstractObjectInsta
      * Check if the object is within out-of-range distance from camera using spawn X.
      */
     private boolean isOnScreenX(int objectX, int range) {
-        var camera = GameServices.camera();
+        var camera = services().camera();
         if (camera == null) {
             return true;
         }

@@ -2,7 +2,6 @@ package com.openggf.game.sonic1.objects;
 import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.game.RespawnState;
 import com.openggf.game.CheckpointState;
@@ -10,7 +9,6 @@ import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.game.sonic1.Sonic1ZoneFeatureProvider;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
@@ -138,7 +136,7 @@ public class Sonic1LamppostObjectInstance extends AbstractObjectInstance {
 
         // Play lamppost sound: move.w #sfx_Lamppost,d0; jsr (QueueSound2).l
         try {
-            GameServices.audio().playSfx(GameSound.CHECKPOINT);
+            services().playSfx(GameSound.CHECKPOINT);
         } catch (Exception e) {
             // Don't let audio failure break game logic
         }

@@ -1,15 +1,11 @@
 package com.openggf.game.sonic1.objects.badniks;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 
-import com.openggf.audio.AudioManager;
-import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.level.objects.ExplosionObjectInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -219,7 +215,7 @@ public class Sonic1CannonballInstance extends AbstractObjectInstance
         }
 
         // Cbal_Display: check if below level bottom
-        int levelBottom = GameServices.camera().getMaxY() & 0xFFFF;
+        int levelBottom = services().camera().getMaxY() & 0xFFFF;
         int deleteThreshold = levelBottom + OFFSCREEN_Y_MARGIN;
         if (currentY > deleteThreshold) {
             // DeleteObject: gone below level

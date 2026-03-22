@@ -1,13 +1,10 @@
 package com.openggf.game.sonic1.objects;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 
-import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectInstance;
@@ -494,7 +491,7 @@ public class Sonic1ElevatorObjectInstance extends AbstractObjectInstance
      * out_of_range.w macro applied to elev_origX.
      */
     private boolean isOrigXOnScreen() {
-        var camera = GameServices.camera();
+        var camera = services().camera();
         if (camera == null) {
             return true;
         }

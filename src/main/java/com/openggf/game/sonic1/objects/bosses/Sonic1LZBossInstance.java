@@ -1,8 +1,6 @@
 package com.openggf.game.sonic1.objects.bosses;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.audio.Sonic1Music;
 
@@ -151,7 +149,7 @@ public class Sonic1LZBossInstance extends AbstractS1EggmanBossInstance {
         // ROM: v_bossstatus = 1 — clear boss fight active flag
         // (matches GHZ/MZ/SYZ pattern; without this, doLevelBoundary restricts
         // Sonic's rightward movement and he can't run off-screen at act end)
-        GameServices.gameState().setCurrentBossId(0);
+        services().gameState().setCurrentBossId(0);
     }
 
     @Override
@@ -441,7 +439,7 @@ public class Sonic1LZBossInstance extends AbstractS1EggmanBossInstance {
 
         // ROM (Revision != 0): clr.b (f_lockscreen).w — unlock horizontal scrolling
         // Clear the left boundary lock set at boss spawn, allowing free camera movement
-        GameServices.camera().setMinX((short) 0);
+        services().camera().setMinX((short) 0);
 
         // ROM: bset #0,obStatus(a0) — face right
         state.renderFlags |= 1;
@@ -523,7 +521,7 @@ public class Sonic1LZBossInstance extends AbstractS1EggmanBossInstance {
         // Check if status bit 7 is set (marked for defeat by collision system)
         if ((state.renderFlags & 0x80) != 0) {
             // ROM: loc_17F92 — award points and set defeated flag
-            GameServices.gameState().addScore(1000);
+            services().gameState().addScore(1000);
             bossDefeatedFlag = true;
             state.defeated = true;
             return;

@@ -5,7 +5,6 @@ import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.Level;
-import com.openggf.level.LevelManager;
 import com.openggf.level.Map;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
@@ -130,7 +129,7 @@ public class Sonic1EndingSonicObjectInstance extends AbstractObjectInstance {
 
     /** Routine 0x00: Check emerald count and branch. */
     private void updateMain() {
-        int emeraldCount = GameServices.gameState().getEmeraldCount();
+        int emeraldCount = services().gameState().getEmeraldCount();
         if (emeraldCount >= EMERALD_COUNT_FULL) {
             // Full emerald sequence
             routine = 0x02;

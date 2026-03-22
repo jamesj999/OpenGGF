@@ -1,6 +1,5 @@
 package com.openggf.game.sonic1.objects.bosses;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
@@ -610,7 +609,7 @@ public class Sonic1SLZBossSpikeball extends AbstractObjectInstance
 
     @Override
     protected boolean isOnScreen() {
-        var camera = GameServices.camera();
+        var camera = services().camera();
         if (camera == null) {
             return true;
         }

@@ -6,7 +6,6 @@ import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
@@ -594,7 +593,7 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
      * Matches ROM's out_of_range.w macro.
      */
     private boolean isInRange(int objectX) {
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         if (camera == null) {
             return true;
         }

@@ -1,15 +1,12 @@
 package com.openggf.game.sonic1.objects;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 
-import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.Sonic1ConveyorState;
 import com.openggf.game.sonic1.Sonic1SwitchManager;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
@@ -656,7 +653,7 @@ public class Sonic1LZConveyorObjectInstance extends AbstractObjectInstance
      * Matches the S1 out_of_range.s macro with objoff_30 as the reference X.
      */
     private boolean isOnScreenX(int objectX, int range) {
-        var camera = GameServices.camera();
+        var camera = services().camera();
         if (camera == null) {
             return true;
         }

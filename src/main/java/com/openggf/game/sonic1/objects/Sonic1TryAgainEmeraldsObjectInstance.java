@@ -1,7 +1,6 @@
 package com.openggf.game.sonic1.objects;
 
 import com.openggf.camera.Camera;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.GameStateManager;
 import com.openggf.graphics.GLCommand;
@@ -71,7 +70,7 @@ public class Sonic1TryAgainEmeraldsObjectInstance extends AbstractObjectInstance
         super(null, "TryChaos");
         this.renderer = renderManager != null ? renderManager.getRenderer(ObjectArtKeys.END_EMERALDS) : null;
 
-        GameStateManager gsm = GameServices.gameState();
+        GameStateManager gsm = services().gameState();
         int emeraldCount = gsm.getEmeraldCount();
         int uncollected = TOTAL_EMERALDS - emeraldCount;
         if (uncollected < 0) uncollected = 0;
@@ -198,7 +197,7 @@ public class Sonic1TryAgainEmeraldsObjectInstance extends AbstractObjectInstance
         if (isDestroyed() || renderer == null || !renderer.isReady()) {
             return;
         }
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         int camX = camera.getX();
         int camY = camera.getY();
         for (int i = 0; i < count; i++) {

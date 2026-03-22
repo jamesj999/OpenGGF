@@ -1,6 +1,5 @@
 package com.openggf.game.sonic1.objects.bosses;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
@@ -261,7 +260,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
     // === State 0: WAIT (loc_19E90) ===
     // Wait for camera to reach boss_fz_x
     private void updateWait() {
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         int camX = camera.getX() & 0xFFFF;
 
         if (camX >= BOSS_FZ_X) {
@@ -283,9 +282,9 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
             // Cylinders done, check hit count
             if (state.hitCount <= 0) {
                 // ROM: loc_19FBC — defeated
-                GameServices.gameState().addScore(1000);
+                services().gameState().addScore(1000);
                 // ROM: v_bossstatus = 0 cleared on defeat (matches other S1 bosses)
-                GameServices.gameState().setCurrentBossId(0);
+                services().gameState().setCurrentBossId(0);
                 state.routineSecondary = STATE_DEFEAT_FALL;
                 state.x = BOSS_FZ_X + 0x170;
                 state.y = BOSS_FZ_Y + 0x2C;
@@ -711,7 +710,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
      * ROM: loc_1A166 — addq.w #2,(v_limitright2).w
      */
     private void expandCameraBoundary() {
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         int rightBoundary = camera.getMaxX() & 0xFFFF;
         if (rightBoundary < BOSS_FZ_END) {
             camera.setMaxX((short) (rightBoundary + 2));
@@ -836,7 +835,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
         }
         endingTransitionRequested = true;
 
-        int endingAct = GameServices.gameState().hasAllEmeralds()
+        int endingAct = services().gameState().hasAllEmeralds()
                 ? ENDING_ACT_FLOWERS
                 : ENDING_ACT_NO_EMERALDS;
         // ROM: move.b #id_Ending,(v_gamemode).w
@@ -882,7 +881,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
     // === Rendering ===
 
     private boolean isBossOnScreen() {
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         int screenX = state.x - camera.getX();
         return screenX >= -64 && screenX <= 384;
     }

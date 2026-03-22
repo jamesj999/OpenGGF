@@ -1,5 +1,4 @@
 package com.openggf.game.sonic1.objects;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 
 import com.openggf.camera.Camera;
@@ -371,7 +370,7 @@ public class Sonic1RunningDiscObjectInstance extends AbstractObjectInstance {
      * {@code out_of_range.s} macro applied to disc_origX.
      */
     private boolean isOrigXOnScreen() {
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         if (camera == null) {
             return true;
         }

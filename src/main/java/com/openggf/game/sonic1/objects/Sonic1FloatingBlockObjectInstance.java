@@ -1,8 +1,6 @@
 package com.openggf.game.sonic1.objects;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 
-import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.Sonic1SwitchManager;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
@@ -671,7 +669,7 @@ public class Sonic1FloatingBlockObjectInstance extends AbstractObjectInstance
      * Check if the object is within out-of-range distance from camera.
      */
     private boolean isInRange(int objectX) {
-        var camera = GameServices.camera();
+        var camera = services().camera();
         if (camera == null) {
             return true;
         }

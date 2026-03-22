@@ -2,13 +2,11 @@ package com.openggf.game.sonic1.objects;
 import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic1.audio.Sonic1Music;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -185,7 +183,7 @@ public class Sonic1SignpostObjectInstance extends AbstractObjectInstance {
         // S1 uses target boundaries (v_limitleft2/v_limitright2), not current ones.
         // v_limitleft1 eases toward v_limitleft2 at 2px/frame — the camera does NOT
         // snap immediately. Use setMinXTarget() to match this easing behavior.
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         if (camera != null) {
             camera.setMinXTarget(camera.getMaxX());
             LOGGER.fine("Camera lock target: minXTarget set to maxX=" + camera.getMaxX());
@@ -322,7 +320,7 @@ public class Sonic1SignpostObjectInstance extends AbstractObjectInstance {
         // Check if player has walked far enough off-screen
         // ROM: move.w (v_limitright2).w,d1; addi.w #$128,d1
         // v_limitright2 = camera maxX (level boundary, unchanged by lock)
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         if (camera != null && !resultsSpawned) {
             int rightLimit = camera.getMaxX() + WALK_OFF_OFFSET;
             if (player.getCentreX() >= rightLimit) {

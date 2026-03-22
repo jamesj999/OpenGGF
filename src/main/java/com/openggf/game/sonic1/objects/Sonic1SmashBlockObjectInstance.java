@@ -1,6 +1,5 @@
 package com.openggf.game.sonic1.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
@@ -10,7 +9,6 @@ import com.openggf.game.GameStateManager;
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectManager;
@@ -139,7 +137,7 @@ public class Sonic1SmashBlockObjectInstance extends AbstractObjectInstance
         // move.w (v_itembonus).w,objoff_34(a0)
         // move.b (v_player+obAnim).w,sonicAniFrame(a0)
         // Cache the current item bonus counter
-        cachedItemBonus = GameServices.gameState().getItemBonus();
+        cachedItemBonus = services().gameState().getItemBonus();
         cachedSonicAnimationId = player.getAnimationId();
     }
 
@@ -201,7 +199,7 @@ public class Sonic1SmashBlockObjectInstance extends AbstractObjectInstance
 
         // Restore cached item bonus before incrementing
         // From disassembly: move.w .count(a0),(v_itembonus).w
-        GameStateManager gameState = GameServices.gameState();
+        GameStateManager gameState = services().gameState();
         gameState.setItemBonus(cachedItemBonus);
 
         // From disassembly:
@@ -279,7 +277,7 @@ public class Sonic1SmashBlockObjectInstance extends AbstractObjectInstance
 
         // From disassembly SmashObject .playsnd:
         //   move.w #sfx_WallSmash,d0 / jmp (QueueSound2).l
-        GameServices.audio().playSfx(GameSound.WALL_SMASH);
+        services().playSfx(GameSound.WALL_SMASH);
     }
 
     /**
@@ -306,7 +304,7 @@ public class Sonic1SmashBlockObjectInstance extends AbstractObjectInstance
      * </pre>
      */
     private void awardChainPoints(ObjectManager objectManager) {
-        GameStateManager gameState = GameServices.gameState();
+        GameStateManager gameState = services().gameState();
 
         // move.w (v_itembonus).w,d2
         int d2 = gameState.getItemBonus();
@@ -437,7 +435,7 @@ public class Sonic1SmashBlockObjectInstance extends AbstractObjectInstance
 
             // From disassembly: tst.b obRender(a0) / bpl.w DeleteObject
             // Delete when off-screen (render flag bit 7 indicates on-screen)
-            Camera cam = GameServices.camera();
+            Camera cam = services().camera();
             int cameraX = cam.getX();
             int cameraY = cam.getY();
             if (posX < cameraX - 64 || posX > cameraX + 320 + 64

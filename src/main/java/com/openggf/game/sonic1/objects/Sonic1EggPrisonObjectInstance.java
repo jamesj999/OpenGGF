@@ -1,17 +1,14 @@
 package com.openggf.game.sonic1.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.audio.Sonic1Music;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
-import com.openggf.game.GameServices;
 import com.openggf.level.objects.EggPrisonAnimalInstance;
 import com.openggf.level.objects.ExplosionObjectInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -146,7 +143,7 @@ public class Sonic1EggPrisonObjectInstance extends AbstractObjectInstance
         // while Sonic runs off the right side of the screen.
         // ROM: clr.b (f_lockscreen).w — in the ROM this clears the scroll lock,
         // but the camera stays put because v_limitleft2 = v_limitright2.
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         if (camera != null) {
             if (camera.getFrozen()) {
                 camera.setFrozen(false);
@@ -160,7 +157,7 @@ public class Sonic1EggPrisonObjectInstance extends AbstractObjectInstance
         // the right screen edge (+64 extra when boss fight is not active).
         // This is needed even if the boss was never "defeated" (e.g. LZ boss
         // just escapes without being hit 8 times).
-        GameServices.gameState().setCurrentBossId(0);
+        services().gameState().setCurrentBossId(0);
 
         // ROM: move.b #1,(f_lockctrl).w — lock player controls
         // ROM: move.w #(btnR<<8),(v_jpadhold2).w — force right input

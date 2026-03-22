@@ -1,13 +1,10 @@
 package com.openggf.game.sonic1.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.GameServices;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectManager;
@@ -240,7 +237,7 @@ public class Sonic1BumperObjectInstance extends AbstractObjectInstance {
         hitCount++;
 
         // ROM: moveq #1,d0 / jsr (AddPoints).l — adds 10 points
-        GameServices.gameState().addScore(POINTS_PER_HIT);
+        services().gameState().addScore(POINTS_PER_HIT);
 
         // Spawn points popup (id_Points = 0x29)
         ObjectManager objectManager = services() != null ? services().objectManager() : null;

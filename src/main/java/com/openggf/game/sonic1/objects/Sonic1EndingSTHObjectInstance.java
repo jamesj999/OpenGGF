@@ -5,7 +5,6 @@ import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.graphics.GLCommand;
 
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -131,7 +130,7 @@ public class Sonic1EndingSTHObjectInstance extends AbstractObjectInstance {
         }
         // ROM: obRender = 0 → screen-space coordinates.
         // Convert screen coords to world coords by adding camera position.
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         int worldX = screenX + camera.getX();
         int worldY = SCREEN_Y + camera.getY();
         renderer.drawFrameIndex(0, worldX, worldY, false, false);

@@ -1,6 +1,5 @@
 package com.openggf.game.sonic1.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameAudioProfile;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic1.audio.Sonic1Music;
@@ -11,7 +10,6 @@ import com.openggf.level.objects.ExplosionObjectInstance;
 import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractMonitorObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -226,7 +224,7 @@ public class Sonic1MonitorObjectInstance extends AbstractMonitorObjectInstance
             // Pow_ChkRings: v_rings += 10, play sfx_Ring
             case RINGS -> {
                 player.addRings(RING_MONITOR_REWARD);
-                GameServices.audio().playSfx(GameSound.RING);
+                services().playSfx(GameSound.RING);
             }
             // Pow_ChkShield: v_shield = 1, play sfx_Shield
             case SHIELD -> {
@@ -249,7 +247,7 @@ public class Sonic1MonitorObjectInstance extends AbstractMonitorObjectInstance
             // Pow_ChkSonic: v_lives++, play bgm_ExtraLife
             case SONIC -> {
                 services().playMusic(Sonic1Music.EXTRA_LIFE.id);
-                GameServices.gameState().addLife();
+                services().gameState().addLife();
             }
             // Pow_ChkEggman, Pow_ChkS, Pow_ChkGoggles: no effect
             default -> { }

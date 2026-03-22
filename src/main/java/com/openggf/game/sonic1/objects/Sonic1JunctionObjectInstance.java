@@ -12,7 +12,6 @@ import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
 import com.openggf.game.GameServices;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -553,7 +552,7 @@ public class Sonic1JunctionObjectInstance extends AbstractObjectInstance
     }
 
     private AbstractPlayableSprite getPlayer() {
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         if (camera != null) {
             return (AbstractPlayableSprite) camera.getFocusedSprite();
         }

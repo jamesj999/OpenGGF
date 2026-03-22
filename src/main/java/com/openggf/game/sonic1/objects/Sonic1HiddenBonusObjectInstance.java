@@ -1,8 +1,6 @@
 package com.openggf.game.sonic1.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.graphics.GLCommand;
@@ -106,7 +104,7 @@ public class Sonic1HiddenBonusObjectInstance extends AbstractObjectInstance {
         }
 
         // ROM: tst.b (f_bigring).w / bne.s .chkdel
-        if (GameServices.gameState().isBigRingCollected()) {
+        if (services().gameState().isBigRingCollected()) {
             checkOutOfRange();
             return;
         }
@@ -157,7 +155,7 @@ public class Sonic1HiddenBonusObjectInstance extends AbstractObjectInstance {
         if (subtype >= 0 && subtype < BONUS_POINTS.length) {
             int points = BONUS_POINTS[subtype];
             if (points > 0) {
-                GameServices.gameState().addScore(points);
+                services().gameState().addScore(points);
             }
         }
     }

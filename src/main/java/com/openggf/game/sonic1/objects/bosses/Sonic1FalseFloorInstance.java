@@ -1,12 +1,10 @@
 package com.openggf.game.sonic1.objects.bosses;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectManager;
@@ -17,7 +15,6 @@ import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.ArrayList;
@@ -224,7 +221,7 @@ public class Sonic1FalseFloorInstance extends AbstractObjectInstance
         if (objectManager != null) {
             objectManager.clearRidingObject(player);
 
-            for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+            for (PlayableEntity sidekick : services().sidekicks()) {
                 objectManager.clearRidingObject(sidekick);
             }
         }

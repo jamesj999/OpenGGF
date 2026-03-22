@@ -1,5 +1,4 @@
 package com.openggf.game.sonic1.objects;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 
 import com.openggf.camera.Camera;
@@ -300,7 +299,7 @@ public class Sonic1GirderBlockObjectInstance extends AbstractObjectInstance
      * Matches the S1 out_of_range macro behavior.
      */
     private boolean isInRange(int objectX) {
-        Camera camera = GameServices.camera();
+        Camera camera = services().camera();
         if (camera == null) {
             return true;
         }

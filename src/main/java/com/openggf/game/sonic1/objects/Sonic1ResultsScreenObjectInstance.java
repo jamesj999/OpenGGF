@@ -449,7 +449,7 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
 
             // ROM: clr.b (f_lockctrl).w — unlock player controls and clear
             // the forced-right input injected by the signpost walkoff sequence.
-            var camera = GameServices.camera();
+            var camera = services().camera();
             if (camera != null && camera.getFocusedSprite() != null) {
                 camera.getFocusedSprite().setControlLocked(false);
                 camera.getFocusedSprite().clearForcedInputMask();
@@ -473,7 +473,7 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
      * ROM: addq.w #2,(v_limitright2).w / cmpi.w #$2100,(v_limitright2).w
      */
     private void updateSbz2Scroll() {
-        var camera = GameServices.camera();
+        var camera = services().camera();
         if (camera == null) {
             setDestroyed(true);
             return;
@@ -496,7 +496,7 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        var camera = GameServices.camera();
+        var camera = services().camera();
         if (camera == null) {
             return;
         }
@@ -609,7 +609,7 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
             return;
         }
 
-        int scoreValue = Math.max(0, GameServices.gameState().getScore());
+        int scoreValue = Math.max(0, services().gameState().getScore());
 
         // Skip update if nothing has changed
         if (timeBonus == lastTimeBonus && ringBonus == lastRingBonus && scoreValue == lastScoreValue) {

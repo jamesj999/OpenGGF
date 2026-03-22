@@ -1,8 +1,6 @@
 package com.openggf.game.sonic1.objects;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 
-import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.graphics.GLCommand;
@@ -287,7 +285,7 @@ public class Sonic1SpikedBallChainObjectInstance extends AbstractObjectInstance
     }
 
     private boolean isOrigXOnScreen() {
-        var camera = GameServices.camera();
+        var camera = services().camera();
         if (camera == null) {
             return true;
         }

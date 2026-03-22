@@ -1,7 +1,5 @@
 package com.openggf.game.sonic1.objects.bosses;
 
-import com.openggf.audio.AudioManager;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.audio.Sonic1Music;
 import com.openggf.game.sonic1.objects.Sonic1SeesawObjectInstance;
@@ -129,7 +127,7 @@ public class Sonic1SLZBossInstance extends AbstractS1EggmanBossInstance {
     @Override
     protected void onDefeatStarted() {
         // ROM: AddPoints 100, then transition to post-defeat pause
-        GameServices.gameState().addScore(100);
+        services().gameState().addScore(100);
         state.routineSecondary = STATE_DEFEAT_WAIT;
         state.xVel = 0;
         timer = DEFEAT_TIMER; // $78 = 120 frames
@@ -283,7 +281,7 @@ public class Sonic1SLZBossInstance extends AbstractS1EggmanBossInstance {
             timer = -0x18; // Start exit jump counter at -$18
 
             // ROM: v_bossstatus = 1 (boss defeated flag)
-            GameServices.gameState().setCurrentBossId(0);
+            services().gameState().setCurrentBossId(0);
         } else {
             // Spawn explosions every 8 frames (BossDefeated)
             if ((frameCounter & 7) == 0) {

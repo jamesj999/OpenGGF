@@ -1,7 +1,5 @@
 package com.openggf.game.sonic1.objects.bosses;
 
-import com.openggf.audio.AudioManager;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.audio.Sonic1Music;
 
@@ -426,7 +424,7 @@ public class Sonic1SYZBossInstance extends AbstractS1EggmanBossInstance {
             state.xVel = 0;
             timer = -1;
 
-            GameServices.gameState().setCurrentBossId(0);
+            services().gameState().setCurrentBossId(0);
         } else {
             // ROM: BossDefeated — spawn explosions every 8 frames
             if ((frameCounter & 7) == 0) {

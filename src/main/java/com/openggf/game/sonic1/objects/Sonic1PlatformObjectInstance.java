@@ -2,13 +2,11 @@ package com.openggf.game.sonic1.objects;
 import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 
-import com.openggf.camera.Camera;
 import com.openggf.game.sonic1.Sonic1SwitchManager;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.game.OscillationManager;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
@@ -463,7 +461,7 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
      * Get the level's bottom boundary (v_limitbtm2 equivalent).
      */
     private int getBottomBoundary() {
-        var camera = GameServices.camera();
+        var camera = services().camera();
         return camera != null ? camera.getMaxY() : 0x700;
     }
 
@@ -473,7 +471,7 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
      * against 128+320+192 = 640.
      */
     private boolean isOnScreenX(int objectX, int range) {
-        var camera = GameServices.camera();
+        var camera = services().camera();
         if (camera == null) {
             return true;
         }
