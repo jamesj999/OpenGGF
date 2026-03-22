@@ -339,6 +339,18 @@ public interface GameModule {
         return false;
     }
 
+    /**
+     * Returns whether sidekick characters should be suppressed in the given zone.
+     * Some zones (e.g., S2 Sky Chase, Wing Fortress, Death Egg) have no sidekick
+     * during gameplay.
+     *
+     * @param zoneId the current zone index
+     * @return true if sidekicks should be hidden and inactive
+     */
+    default boolean isSidekickSuppressedForZone(int zoneId) {
+        return false;
+    }
+
     /** Returns the ROM-derived level initialization profile for this game. */
     default LevelInitProfile getLevelInitProfile() {
         return AbstractLevelInitProfile.EMPTY;

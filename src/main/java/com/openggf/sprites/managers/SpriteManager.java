@@ -15,7 +15,7 @@ import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.camera.Camera;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
+import com.openggf.game.GameModuleRegistry;
 import com.openggf.level.LevelManager;
 import com.openggf.physics.Direction;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -637,9 +637,7 @@ public class SpriteManager {
 	private boolean isCpuSidekickSuppressed() {
 		LevelManager lm = getLevelManager();
 		if (lm == null) return false;
-		if (lm.getCurrentZone() == Sonic2ZoneConstants.ZONE_SCZ
-				|| lm.getCurrentZone() == Sonic2ZoneConstants.ZONE_WFZ
-				|| lm.getCurrentZone() == Sonic2ZoneConstants.ZONE_DEZ) return true;
+		if (GameModuleRegistry.getCurrent().isSidekickSuppressedForZone(lm.getCurrentZone())) return true;
 		if (AizPlaneIntroInstance.isSidekickSuppressed()) return true;
 		return false;
 	}

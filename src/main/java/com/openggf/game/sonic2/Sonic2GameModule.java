@@ -17,6 +17,7 @@ import com.openggf.game.sonic2.objects.MTZLongPlatformObjectInstance;
 import com.openggf.game.sonic2.objects.SmashableGroundObjectInstance;
 import com.openggf.game.sonic2.objects.Sonic2ObjectRegistry;
 import com.openggf.game.sonic2.scroll.Sonic2ScrollHandlerProvider;
+import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
 import com.openggf.game.sonic2.titlecard.TitleCardManager;
 import com.openggf.game.sonic2.titlescreen.TitleScreenManager;
 import com.openggf.game.CanonicalAnimation;
@@ -255,6 +256,13 @@ public class Sonic2GameModule implements GameModule {
     @Override
     public boolean supportsSidekick() {
         return true;
+    }
+
+    @Override
+    public boolean isSidekickSuppressedForZone(int zoneId) {
+        return zoneId == Sonic2ZoneConstants.ZONE_SCZ
+            || zoneId == Sonic2ZoneConstants.ZONE_WFZ
+            || zoneId == Sonic2ZoneConstants.ZONE_DEZ;
     }
 
     @Override
