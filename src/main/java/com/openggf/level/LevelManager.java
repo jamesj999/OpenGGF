@@ -36,7 +36,6 @@ import com.openggf.graphics.TilePriorityFBO;
 import com.openggf.graphics.WaterShaderProgram;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.graphics.PatternRenderCommand;
-import com.openggf.graphics.PatternAtlas;
 import com.openggf.graphics.RenderContext;
 import com.openggf.level.render.BackgroundRenderer;
 import com.openggf.level.objects.ObjectManager;
@@ -106,6 +105,11 @@ public class LevelManager {
         return gameModule;
     }
 
+    /** Returns the tilemap lifecycle delegate. */
+    public LevelTilemapManager getTilemapManager() {
+        return tilemapManager;
+    }
+
     private final GraphicsManager graphicsManager = GraphicsManager.getInstance();
     private final SpriteManager spriteManager = SpriteManager.getInstance();
     private final SonicConfigurationService configService = SonicConfigurationService.getInstance();
@@ -128,33 +132,8 @@ public class LevelManager {
     private RespawnState checkpointState;
     private LevelState levelGamestate;
 
-    // GPU tilemap data (Track B)
-    private byte[] backgroundTilemapData;
-    private int backgroundTilemapWidthTiles;
-    private int backgroundTilemapHeightTiles;
-    private boolean backgroundTilemapDirty = true;
-    private int backgroundVdpWrapHeightTiles = 0; // 0 = disabled
-    // X offset (in pixels, 512-aligned) for BG tilemap building.
-    // Wide BG maps (> 512px) need tiles from the correct region, not always from position 0.
-    private int bgTilemapBaseX = 0;
-    private int currentBgPeriodWidth = VDP_BG_PLANE_WIDTH_PX;
-    private byte[] foregroundTilemapData;
-    private int foregroundTilemapWidthTiles;
-    private int foregroundTilemapHeightTiles;
-    private boolean foregroundTilemapDirty = true;
-
-    private byte[] patternLookupData;
-    private int patternLookupSize;
-    private boolean patternLookupDirty = true;
-    private boolean multiAtlasWarningLogged = false;
-
-    // Pre-built tilemap data for stutter-free terrain transitions (AIZ intro)
-    private byte[] prebuiltFgTilemap;
-    private int prebuiltFgWidth;
-    private int prebuiltFgHeight;
-    private byte[] prebuiltBgTilemap;
-    private int prebuiltBgWidth;
-    private int prebuiltBgHeight;
+    // GPU tilemap lifecycle delegate (build/cache/upload/invalidate)
+    private LevelTilemapManager tilemapManager;
 
     // All transition request/consume state lives in the coordinator
     private final LevelTransitionCoordinator transitions = new LevelTransitionCoordinator();
@@ -166,9 +145,6 @@ public class LevelManager {
     private final ParallaxManager parallaxManager = ParallaxManager.getInstance();
     private boolean useShaderBackground = true; // Feature flag for shader background
 
-
-    // Reusable PatternDesc to avoid per-iteration allocations in tight loops
-    private final PatternDesc reusablePatternDesc = new PatternDesc();
 
     // Cached screen dimensions (avoids repeated config service lookups)
     private final int cachedScreenWidth = configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS);
@@ -641,17 +617,7 @@ public class LevelManager {
                 level, blockPixelSize, overlayManager, graphicsManager,
                 cachedScreenWidth, cachedScreenHeight));
         cacheLevelDimensions();
-        backgroundTilemapDirty = true;
-        bgTilemapBaseX = 0;
-        currentBgPeriodWidth = VDP_BG_PLANE_WIDTH_PX;
-        foregroundTilemapDirty = true;
-        patternLookupDirty = true;
-        multiAtlasWarningLogged = false;
-        backgroundTilemapData = null;
-        foregroundTilemapData = null;
-        patternLookupData = null;
-        prebuiltFgTilemap = null;
-        prebuiltBgTilemap = null;
+        tilemapManager = new LevelTilemapManager(buildGeometry(), graphicsManager);
         return loaded;
     }
 
@@ -812,7 +778,7 @@ public class LevelManager {
                 // S1/S2 use VDP-width (512px) background periods.
                 // Pre-allocating to full level width can exceed GPU max texture size
                 // (S2: 128 blocks * 128px = 16384, right at GPU limit).
-                maxBgWidth = Math.max(cachedScreenWidth, VDP_BG_PLANE_WIDTH_PX);
+                maxBgWidth = Math.max(cachedScreenWidth, LevelTilemapManager.VDP_BG_PLANE_WIDTH_PX);
             }
             int fboHeight = 256 + LevelConstants.CHUNK_HEIGHT;
             graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM,
@@ -1618,31 +1584,31 @@ public class LevelManager {
             // 16px-aligned base offset. The tilemap is 512px wide, viewport is 320px.
             // This leaves 192px of headroom for the viewport within the tilemap.
             int newBase = Math.floorDiv(bgCameraX, 16) * 16;
-            if (newBase != bgTilemapBaseX) {
-                bgTilemapBaseX = newBase;
-                backgroundTilemapDirty = true;
+            if (newBase != tilemapManager.getBgTilemapBaseX()) {
+                tilemapManager.setBgTilemapBaseX(newBase);
+                tilemapManager.setBackgroundTilemapDirty(true);
             }
-        } else if (bgTilemapBaseX != 0) {
+        } else if (tilemapManager.getBgTilemapBaseX() != 0) {
             // Zone doesn't need offset - reset to 0 if previously set
-            bgTilemapBaseX = 0;
-            backgroundTilemapDirty = true;
+            tilemapManager.setBgTilemapBaseX(0);
+            tilemapManager.setBackgroundTilemapDirty(true);
         }
 
         // Track BG period width changes (e.g., GHZ parallax spread grows with cameraX).
         // When the period widens, the tilemap must be rebuilt at the larger size.
         int newBgPeriodWidth = parallaxManager.getBgPeriodWidth();
-        if (newBgPeriodWidth != currentBgPeriodWidth) {
-            currentBgPeriodWidth = newBgPeriodWidth;
-            backgroundTilemapDirty = true;
+        if (newBgPeriodWidth != tilemapManager.getCurrentBgPeriodWidth()) {
+            tilemapManager.setCurrentBgPeriodWidth(newBgPeriodWidth);
+            tilemapManager.setBackgroundTilemapDirty(true);
         }
 
         ensureBackgroundTilemapData();
 
-        int bgPeriodWidthPixels = backgroundTilemapWidthTiles * Pattern.PATTERN_WIDTH;
+        int bgPeriodWidthPixels = tilemapManager.getBackgroundTilemapWidthTiles() * Pattern.PATTERN_WIDTH;
         // Pass bgTilemapBaseX to the shader so it offsets worldX before wrapping.
         // Shader: fboWorldOffsetX = -ScrollMidpoint - ExtraBuffer
         // We want fboWorldOffsetX = bgTilemapBaseX, so ScrollMidpoint = -bgTilemapBaseX.
-        int shaderScrollMidpoint = -bgTilemapBaseX;
+        int shaderScrollMidpoint = -tilemapManager.getBgTilemapBaseX();
         int shaderExtraBuffer = 0;
         float bgTilemapWorldOffsetX = 0.0f;
         boolean perLineScrollActive = false;
@@ -1664,7 +1630,7 @@ public class LevelManager {
             // Camera tracking: overflow gradually increases, revealing beach tiles.
             vdpWrapWidthTiles = 64.0f;
             nametableBaseTile = zoneFeatureProvider.getVdpNametableBase(
-                    currentZone, currentAct, camera.getX(), backgroundTilemapWidthTiles);
+                    currentZone, currentAct, camera.getX(), tilemapManager.getBackgroundTilemapWidthTiles());
         }
         // Cap BG period at the scroll handler's required width.
         // Zones with a single BG scroll speed cap at VDP nametable width (512px).
@@ -1850,7 +1816,9 @@ public class LevelManager {
         // FBO bakes palette colors at render time, so it must be rebuilt each frame
         // to reflect the evolving palette state. Without this, the DEZ star field
         // appears at full color instantly instead of fading in with the palette.
-        backgroundTilemapDirty = true;
+        if (tilemapManager != null) {
+            tilemapManager.setBackgroundTilemapDirty(true);
+        }
 
         // Render using the existing shader pipeline
         List<GLCommand> endingCollisionCommands = debugRenderer != null
@@ -2039,296 +2007,17 @@ public class LevelManager {
     }
 
     private void ensureBackgroundTilemapData() {
-        if (!backgroundTilemapDirty && backgroundTilemapData != null && patternLookupData != null) {
-            // Tilemap data already up to date — but still push VDP wrap height
-            // to the renderer in case it was null during the initial build.
-            TilemapGpuRenderer renderer = graphicsManager.getTilemapGpuRenderer();
-            if (renderer != null && backgroundVdpWrapHeightTiles > 0) {
-                renderer.setBgVdpWrapHeight(backgroundVdpWrapHeightTiles);
-            }
-            return;
-        }
-        if (level == null || level.getMap() == null) {
-            return;
-        }
-
-        buildBackgroundTilemapData();
-        backgroundTilemapDirty = false;
-
-        ensurePatternLookupData();
-        TilemapGpuRenderer renderer = graphicsManager.getTilemapGpuRenderer();
-        if (renderer != null) {
-            renderer.setTilemapData(TilemapGpuRenderer.Layer.BACKGROUND, backgroundTilemapData,
-                    backgroundTilemapWidthTiles, backgroundTilemapHeightTiles);
-            renderer.setBgVdpWrapHeight(backgroundVdpWrapHeightTiles);
-            renderer.setPatternLookupData(patternLookupData, patternLookupSize);
+        if (tilemapManager != null) {
+            tilemapManager.ensureBackgroundTilemapData(this::getBlockAtPosition,
+                    zoneFeatureProvider, currentZone, parallaxManager, verticalWrapEnabled);
         }
     }
 
     private void ensureForegroundTilemapData() {
-        if (!foregroundTilemapDirty && foregroundTilemapData != null && patternLookupData != null) {
-            return;
+        if (tilemapManager != null) {
+            tilemapManager.ensureForegroundTilemapData(this::getBlockAtPosition,
+                    zoneFeatureProvider, currentZone, parallaxManager, verticalWrapEnabled);
         }
-        if (level == null || level.getMap() == null) {
-            return;
-        }
-        buildForegroundTilemapData();
-        foregroundTilemapDirty = false;
-        ensurePatternLookupData();
-        TilemapGpuRenderer renderer = graphicsManager.getTilemapGpuRenderer();
-        if (renderer != null) {
-            renderer.setTilemapData(TilemapGpuRenderer.Layer.FOREGROUND, foregroundTilemapData,
-                    foregroundTilemapWidthTiles, foregroundTilemapHeightTiles);
-            renderer.setPatternLookupData(patternLookupData, patternLookupSize);
-        }
-    }
-
-    private void ensurePatternLookupData() {
-        if (!patternLookupDirty && patternLookupData != null) {
-            return;
-        }
-        if (level == null) {
-            return;
-        }
-        int patternCount = level.getPatternCount();
-        patternLookupSize = Math.max(1, patternCount);
-        patternLookupData = new byte[patternLookupSize * 4];
-        for (int i = 0; i < patternCount; i++) {
-            PatternAtlas.Entry entry = graphicsManager.getPatternAtlasEntry(i);
-            int offset = i * 4;
-            if (entry != null) {
-                patternLookupData[offset] = (byte) entry.tileX();
-                patternLookupData[offset + 1] = (byte) entry.tileY();
-                patternLookupData[offset + 2] = (byte) entry.atlasIndex();
-                patternLookupData[offset + 3] = (byte) 255;
-            } else {
-                patternLookupData[offset] = 0;
-                patternLookupData[offset + 1] = 0;
-                patternLookupData[offset + 2] = 0;
-                patternLookupData[offset + 3] = 0;
-            }
-        }
-        PatternAtlas atlas = graphicsManager.getPatternAtlas();
-        if (!multiAtlasWarningLogged && atlas != null && atlas.getAtlasCount() > 1) {
-            LOGGER.warning("Pattern atlas overflow: using multiple atlases (count="
-                    + atlas.getAtlasCount()
-                    + ", slotsPerAtlas=" + atlas.getMaxSlotsPerAtlas()
-                    + ", atlasSize=" + atlas.getAtlasWidth() + "x" + atlas.getAtlasHeight()
-                    + ") for this level.");
-            multiAtlasWarningLogged = true;
-        }
-        patternLookupDirty = false;
-    }
-
-    private void buildBackgroundTilemapData() {
-        TilemapData data = buildTilemapData((byte) 1);
-        backgroundTilemapData = data.data;
-        backgroundTilemapWidthTiles = data.widthTiles;
-        backgroundTilemapHeightTiles = data.heightTiles;
-
-        // For VDP wrap height detection, only scan the contiguous BG data region (columns 0-N).
-        // HTZ has earthquake cave data at distant columns (54+, rows 48+) that must not
-        // inflate the data height beyond 32 — the normal sky BG wraps at 32 rows.
-        int scanWidthTiles = Math.min(backgroundTilemapWidthTiles,
-                cachedBgContiguousWidthPx / Pattern.PATTERN_WIDTH);
-        int actualHeightTiles = findActualBgTilemapDataHeight(backgroundTilemapData,
-                backgroundTilemapWidthTiles, backgroundTilemapHeightTiles, scanWidthTiles);
-        backgroundVdpWrapHeightTiles = (actualHeightTiles > 0
-                && actualHeightTiles <= VDP_BG_PLANE_HEIGHT_TILES)
-                ? VDP_BG_PLANE_HEIGHT_TILES : 0;
-        LOGGER.fine("BG tilemap " + backgroundTilemapWidthTiles + "x" + backgroundTilemapHeightTiles
-                + " actualDataHeight=" + actualHeightTiles
-                + " VDPWrapHeight=" + backgroundVdpWrapHeightTiles);
-    }
-
-    /**
-     * Scan the BG tilemap data bottom-up to find the last row containing
-     * actual art (pattern index >= 2).  Pattern 0 is VDP-transparent and
-     * pattern 1 is the default fill tile produced by block 0, so both are
-     * excluded.  Real level art starts at pattern index 2+.
-     * <p>
-     * Only scans the first {@code scanWidthTiles} columns.  This excludes
-     * distant earthquake columns (e.g., HTZ BG column 54+) from inflating
-     * the detected height beyond the VDP plane size.
-     * <p>
-     * This lets us distinguish HTZ (real art in rows 0-31 only, fill beyond)
-     * from MCZ (real art extending to row 85+).
-     */
-    private int findActualBgTilemapDataHeight(byte[] data, int widthTiles, int heightTiles,
-            int scanWidthTiles) {
-        int scanW = Math.min(scanWidthTiles, widthTiles);
-        for (int y = heightTiles - 1; y >= 0; y--) {
-            for (int x = 0; x < scanW; x++) {
-                int offset = (y * widthTiles + x) * 4;
-                int r = data[offset] & 0xFF;
-                int g = data[offset + 1] & 0xFF;
-                int patternIndex = r + ((g & 0x07) << 8);
-                if (patternIndex >= 2) {
-                    return y + 1;
-                }
-            }
-        }
-        return 0;
-    }
-
-    private void buildForegroundTilemapData() {
-        TilemapData data = buildTilemapData((byte) 0);
-        foregroundTilemapData = data.data;
-        foregroundTilemapWidthTiles = data.widthTiles;
-        foregroundTilemapHeightTiles = data.heightTiles;
-    }
-
-    // VDP plane size for Sonic 2 normal levels: 64x32 cells = 512x256 pixels.
-    // The background tilemap wraps at this width for Sonic 2's redraw-style pipeline.
-    private static final int VDP_BG_PLANE_WIDTH_PX = 512;
-    private static final int VDP_BG_PLANE_HEIGHT_TILES = 32; // VDP 64x32 nametable
-
-    private TilemapData buildTilemapData(byte layerIndex) {
-        int layerLevelWidth = getLayerLevelWidthPx(layerIndex);
-        int levelHeight = getLayerLevelHeightPx(layerIndex);
-
-        // Keep Sonic 2's 512px BG wrap behavior (VDP plane redraw model).
-        // S3K uses a different background data flow in AIZ intro and needs full-width BG data.
-        // HTZ earthquake needs full-width BG data because high-priority BG tiles (cave ceiling)
-        // are rendered as a direct overlay between FG-low and FG-high passes, and they span the
-        // full BG map. The FBO/parallax path still caps its period at 512px.
-        boolean bgWrap = layerIndex == 1
-                && zoneFeatureProvider != null
-                && zoneFeatureProvider.bgWrapsHorizontally()
-                && currentZone != ParallaxManager.ZONE_HTZ;
-        // Use the scroll handler's required period width (may be wider than 512px
-        // for zones with multi-speed parallax like GHZ).
-        int bgPeriodWidth = parallaxManager != null ? parallaxManager.getBgPeriodWidth()
-                : VDP_BG_PLANE_WIDTH_PX;
-        int levelWidth = bgWrap ? bgPeriodWidth : layerLevelWidth;
-
-        // For BG layers wider than 512px (e.g., SBZ 15360px), the 64-tile tilemap
-        // must contain tiles from the correct BG map region, not always from position 0.
-        // bgTilemapBaseX is the 16px-aligned offset into the BG map (matching the
-        // BG camera X from the scroll handler). The shader uses this same offset
-        // (via ScrollMidpoint → fboWorldOffsetX) to index into the tilemap correctly.
-        // When using the 512px window, wrap the base offset at the contiguous BG data extent
-        // so that large camera X positions map back to valid BG columns (not empty map regions).
-        int bgXQueryOffset = 0;
-        if (layerIndex == 1 && bgWrap && cachedBgContiguousWidthPx > 0) {
-            bgXQueryOffset = ((bgTilemapBaseX % cachedBgContiguousWidthPx) + cachedBgContiguousWidthPx)
-                    % cachedBgContiguousWidthPx;
-        }
-
-        int widthTiles = levelWidth / Pattern.PATTERN_WIDTH;
-        int heightTiles = levelHeight / Pattern.PATTERN_HEIGHT;
-        byte[] data = new byte[widthTiles * heightTiles * 4];
-
-        int chunkWidth = LevelConstants.CHUNK_WIDTH;
-        int chunkHeight = LevelConstants.CHUNK_HEIGHT;
-
-        for (int y = 0; y < levelHeight; y += chunkHeight) {
-            int chunkY = y / chunkHeight;
-            for (int x = 0; x < levelWidth; x += chunkWidth) {
-                int chunkX = x / chunkWidth;
-
-                // Query the BG map at the offset position (wrapping handled by getBlockAtPosition)
-                int queryX = x + bgXQueryOffset;
-                Block block = getBlockAtPosition(layerIndex, queryX, y);
-                if (block == null) {
-                    writeEmptyChunk(data, widthTiles, heightTiles, chunkX, chunkY);
-                    continue;
-                }
-
-                // xBlockBit uses the query position to select the correct chunk within the block.
-                int xBlockBit = (queryX % blockPixelSize) / chunkWidth;
-                int yBlockBit = (y % blockPixelSize) / chunkHeight;
-                ChunkDesc chunkDesc = block.getChunkDesc(xBlockBit, yBlockBit);
-                int chunkIndex = chunkDesc.getChunkIndex();
-
-                if (chunkIndex < 0 || chunkIndex >= level.getChunkCount()) {
-                    writeEmptyChunk(data, widthTiles, heightTiles, chunkX, chunkY);
-                    continue;
-                }
-
-                Chunk chunk = level.getChunk(chunkIndex);
-                if (chunk == null) {
-                    writeEmptyChunk(data, widthTiles, heightTiles, chunkX, chunkY);
-                    continue;
-                }
-
-                boolean chunkHFlip = chunkDesc.getHFlip();
-                boolean chunkVFlip = chunkDesc.getVFlip();
-
-                for (int cY = 0; cY < 2; cY++) {
-                    for (int cX = 0; cX < 2; cX++) {
-                        int logicalX = chunkHFlip ? 1 - cX : cX;
-                        int logicalY = chunkVFlip ? 1 - cY : cY;
-
-                        PatternDesc patternDesc = chunk.getPatternDesc(logicalX, logicalY);
-                        int newIndex = patternDesc.get();
-                        if (chunkHFlip) {
-                            newIndex ^= 0x800;
-                        }
-                        if (chunkVFlip) {
-                            newIndex ^= 0x1000;
-                        }
-                        reusablePatternDesc.set(newIndex);
-
-                        int tileX = chunkX * 2 + cX;
-                        int tileY = chunkY * 2 + cY;
-                        writeTileDescriptor(data, widthTiles, heightTiles, tileX, tileY, reusablePatternDesc);
-                    }
-                }
-            }
-        }
-
-        return new TilemapData(data, widthTiles, heightTiles);
-    }
-
-    private void writeEmptyChunk(byte[] data, int widthTiles, int heightTiles, int chunkX, int chunkY) {
-        for (int cY = 0; cY < 2; cY++) {
-            for (int cX = 0; cX < 2; cX++) {
-                int tileX = chunkX * 2 + cX;
-                int tileY = chunkY * 2 + cY;
-                writeEmptyTile(data, widthTiles, heightTiles, tileX, tileY);
-            }
-        }
-    }
-
-    private void writeEmptyTile(byte[] data, int widthTiles, int heightTiles, int tileX, int tileY) {
-        if (tileX < 0 || tileY < 0 || tileX >= widthTiles
-                || tileY >= heightTiles) {
-            return;
-        }
-        int offset = (tileY * widthTiles + tileX) * 4;
-        data[offset] = 0;
-        data[offset + 1] = 0;
-        data[offset + 2] = 0;
-        data[offset + 3] = 0;
-    }
-
-    private void writeTileDescriptor(byte[] data, int widthTiles, int heightTiles, int tileX, int tileY,
-            PatternDesc desc) {
-        if (tileX < 0 || tileY < 0 || tileX >= widthTiles || tileY >= heightTiles) {
-            return;
-        }
-        int offset = (tileY * widthTiles + tileX) * 4;
-        int patternIndex = desc.getPatternIndex();
-        int paletteIndex = desc.getPaletteIndex();
-        boolean hFlip = desc.getHFlip();
-        boolean vFlip = desc.getVFlip();
-        boolean priority = desc.getPriority();
-
-        int r = patternIndex & 0xFF;
-        int g = ((patternIndex >> 8) & 0x7)
-                | ((paletteIndex & 0x3) << 3)
-                | (hFlip ? 0x20 : 0)
-                | (vFlip ? 0x40 : 0)
-                | (priority ? 0x80 : 0);
-
-        data[offset] = (byte) r;
-        data[offset + 1] = (byte) g;
-        data[offset + 2] = 0;
-        data[offset + 3] = (byte) 255;
-    }
-
-    private record TilemapData(byte[] data, int widthTiles, int heightTiles) {
     }
 
     /**
@@ -2371,6 +2060,15 @@ public class LevelManager {
             cachedBgContiguousWidthPx = blockPixelSize;
             cachedBgHeightPx = blockPixelSize;
         }
+    }
+
+    /**
+     * Builds a LevelGeometry snapshot from the current cached dimensions.
+     */
+    private LevelGeometry buildGeometry() {
+        return new LevelGeometry(level, cachedFgWidthPx, cachedFgHeightPx,
+                cachedBgWidthPx, cachedBgContiguousWidthPx, cachedBgHeightPx,
+                blockPixelSize, chunksPerBlockSide);
     }
 
     /**
@@ -2750,7 +2448,9 @@ public class LevelManager {
      * This is equivalent to setting Screen_redraw_flag in the original ROM.
      */
     public void invalidateForegroundTilemap() {
-        foregroundTilemapDirty = true;
+        if (tilemapManager != null) {
+            tilemapManager.invalidateForegroundTilemap();
+        }
     }
 
     /**
@@ -2836,60 +2536,12 @@ public class LevelManager {
      * @return true if tilemap bytes changed
      */
     public boolean setForegroundTileDescriptorAtWorld(int worldX, int worldY, int descriptor) {
-        if (level == null || level.getMap() == null) {
+        if (tilemapManager == null) {
             return false;
         }
-
-        ensureForegroundTilemapData();
-        if (foregroundTilemapData == null) {
-            return false;
-        }
-
-        int levelWidth = getLayerLevelWidthPx((byte) 0);
-        int levelHeight = getLayerLevelHeightPx((byte) 0);
-        if (levelWidth <= 0 || levelHeight <= 0) {
-            return false;
-        }
-
-        int wrappedX = Math.floorMod(worldX, levelWidth);
-        int wrappedY = worldY;
-        if (verticalWrapEnabled) {
-            wrappedY = Math.floorMod(worldY, levelHeight);
-        } else if (wrappedY < 0 || wrappedY >= levelHeight) {
-            return false;
-        }
-
-        int tileX = wrappedX / Pattern.PATTERN_WIDTH;
-        int tileY = wrappedY / Pattern.PATTERN_HEIGHT;
-        if (tileX < 0 || tileY < 0
-                || tileX >= foregroundTilemapWidthTiles
-                || tileY >= foregroundTilemapHeightTiles) {
-            return false;
-        }
-
-        int offset = (tileY * foregroundTilemapWidthTiles + tileX) * 4;
-        int patternIndex = descriptor & 0x7FF;
-        int paletteIndex = (descriptor >> 13) & 0x3;
-        int g = ((patternIndex >> 8) & 0x7)
-                | ((paletteIndex & 0x3) << 3)
-                | ((descriptor & 0x800) != 0 ? 0x20 : 0)
-                | ((descriptor & 0x1000) != 0 ? 0x40 : 0)
-                | ((descriptor & 0x8000) != 0 ? 0x80 : 0);
-        byte rByte = (byte) (patternIndex & 0xFF);
-        byte gByte = (byte) g;
-
-        if (foregroundTilemapData[offset] == rByte
-                && foregroundTilemapData[offset + 1] == gByte
-                && foregroundTilemapData[offset + 2] == 0
-                && foregroundTilemapData[offset + 3] == (byte) 0xFF) {
-            return false;
-        }
-
-        foregroundTilemapData[offset] = rByte;
-        foregroundTilemapData[offset + 1] = gByte;
-        foregroundTilemapData[offset + 2] = 0;
-        foregroundTilemapData[offset + 3] = (byte) 0xFF;
-        return true;
+        return tilemapManager.setForegroundTileDescriptorAtWorld(worldX, worldY, descriptor,
+                this::getBlockAtPosition, zoneFeatureProvider, currentZone,
+                parallaxManager, verticalWrapEnabled);
     }
 
     /**
@@ -2898,54 +2550,12 @@ public class LevelManager {
      * descriptor after runtime tilemap writes.
      */
     public int getForegroundTileDescriptorFromTilemapAtWorld(int worldX, int worldY) {
-        if (level == null || level.getMap() == null) {
+        if (tilemapManager == null) {
             return 0;
         }
-
-        ensureForegroundTilemapData();
-        if (foregroundTilemapData == null) {
-            return 0;
-        }
-
-        int levelWidth = getLayerLevelWidthPx((byte) 0);
-        int levelHeight = getLayerLevelHeightPx((byte) 0);
-        if (levelWidth <= 0 || levelHeight <= 0) {
-            return 0;
-        }
-
-        int wrappedX = Math.floorMod(worldX, levelWidth);
-        int wrappedY = worldY;
-        if (verticalWrapEnabled) {
-            wrappedY = Math.floorMod(worldY, levelHeight);
-        } else if (wrappedY < 0 || wrappedY >= levelHeight) {
-            return 0;
-        }
-
-        int tileX = wrappedX / Pattern.PATTERN_WIDTH;
-        int tileY = wrappedY / Pattern.PATTERN_HEIGHT;
-        if (tileX < 0 || tileY < 0
-                || tileX >= foregroundTilemapWidthTiles
-                || tileY >= foregroundTilemapHeightTiles) {
-            return 0;
-        }
-
-        int offset = (tileY * foregroundTilemapWidthTiles + tileX) * 4;
-        int r = foregroundTilemapData[offset] & 0xFF;
-        int g = foregroundTilemapData[offset + 1] & 0xFF;
-        int patternIndex = r | ((g & 0x7) << 8);
-        int paletteIndex = (g >> 3) & 0x3;
-
-        int descriptor = patternIndex | (paletteIndex << 13);
-        if ((g & 0x20) != 0) {
-            descriptor |= 0x800;
-        }
-        if ((g & 0x40) != 0) {
-            descriptor |= 0x1000;
-        }
-        if ((g & 0x80) != 0) {
-            descriptor |= 0x8000;
-        }
-        return descriptor & 0xFFFF;
+        return tilemapManager.getForegroundTileDescriptorFromTilemapAtWorld(worldX, worldY,
+                this::getBlockAtPosition, zoneFeatureProvider, currentZone,
+                parallaxManager, verticalWrapEnabled);
     }
 
     /**
@@ -2953,17 +2563,9 @@ public class LevelManager {
      * No-op in headless mode.
      */
     public void uploadForegroundTilemap() {
-        if (foregroundTilemapData == null) {
-            return;
+        if (tilemapManager != null) {
+            tilemapManager.uploadForegroundTilemap();
         }
-        TilemapGpuRenderer renderer = graphicsManager.getTilemapGpuRenderer();
-        if (renderer == null) {
-            return;
-        }
-        ensurePatternLookupData();
-        renderer.setTilemapData(TilemapGpuRenderer.Layer.FOREGROUND, foregroundTilemapData,
-                foregroundTilemapWidthTiles, foregroundTilemapHeightTiles);
-        renderer.setPatternLookupData(patternLookupData, patternLookupSize);
     }
 
     /**
@@ -2972,9 +2574,9 @@ public class LevelManager {
      * data is rebuilt on the next render.
      */
     public void invalidateAllTilemaps() {
-        backgroundTilemapDirty = true;
-        foregroundTilemapDirty = true;
-        patternLookupDirty = true;
+        if (tilemapManager != null) {
+            tilemapManager.invalidateAllTilemaps();
+        }
     }
 
     /**
@@ -2983,18 +2585,10 @@ public class LevelManager {
      * to avoid the expensive full-level tilemap rebuild on the transition frame.
      */
     public void prebuildTransitionTilemaps() {
-        if (level == null || level.getMap() == null) {
-            return;
+        if (tilemapManager != null) {
+            tilemapManager.prebuildTransitionTilemaps(this::getBlockAtPosition,
+                    zoneFeatureProvider, currentZone, parallaxManager, verticalWrapEnabled);
         }
-        TilemapData fg = buildTilemapData((byte) 0);
-        prebuiltFgTilemap = fg.data.clone();
-        prebuiltFgWidth = fg.widthTiles;
-        prebuiltFgHeight = fg.heightTiles;
-
-        TilemapData bg = buildTilemapData((byte) 1);
-        prebuiltBgTilemap = bg.data.clone();
-        prebuiltBgWidth = bg.widthTiles;
-        prebuiltBgHeight = bg.heightTiles;
     }
 
     /**
@@ -3005,43 +2599,17 @@ public class LevelManager {
      * @return true if pre-built data was available and swapped in
      */
     public boolean swapToPrebuiltTilemaps() {
-        if (prebuiltFgTilemap == null || prebuiltBgTilemap == null) {
+        if (tilemapManager == null) {
             return false;
         }
-
-        foregroundTilemapData = prebuiltFgTilemap;
-        foregroundTilemapWidthTiles = prebuiltFgWidth;
-        foregroundTilemapHeightTiles = prebuiltFgHeight;
-        foregroundTilemapDirty = false;
-
-        backgroundTilemapData = prebuiltBgTilemap;
-        backgroundTilemapWidthTiles = prebuiltBgWidth;
-        backgroundTilemapHeightTiles = prebuiltBgHeight;
-        backgroundTilemapDirty = false;
-
-        patternLookupDirty = true;
-
-        TilemapGpuRenderer renderer = graphicsManager.getTilemapGpuRenderer();
-        if (renderer != null) {
-            ensurePatternLookupData();
-            renderer.setTilemapData(TilemapGpuRenderer.Layer.FOREGROUND,
-                    foregroundTilemapData, foregroundTilemapWidthTiles, foregroundTilemapHeightTiles);
-            renderer.setTilemapData(TilemapGpuRenderer.Layer.BACKGROUND,
-                    backgroundTilemapData, backgroundTilemapWidthTiles, backgroundTilemapHeightTiles);
-            renderer.setPatternLookupData(patternLookupData, patternLookupSize);
-        }
-
-        // Release pre-built data (one-shot use)
-        prebuiltFgTilemap = null;
-        prebuiltBgTilemap = null;
-        return true;
+        return tilemapManager.swapToPrebuiltTilemaps();
     }
 
     /**
      * Returns whether pre-built transition tilemap data is available.
      */
     public boolean hasPrebuiltTilemaps() {
-        return prebuiltFgTilemap != null && prebuiltBgTilemap != null;
+        return tilemapManager != null && tilemapManager.hasPrebuiltTilemaps();
     }
 
     /**
@@ -3755,19 +3323,13 @@ public class LevelManager {
         animatedPaletteManager = null;
         checkpointState = null;
         levelGamestate = null;
-        backgroundTilemapData = null;
-        foregroundTilemapData = null;
-        patternLookupData = null;
-        prebuiltFgTilemap = null;
-        prebuiltBgTilemap = null;
+        if (tilemapManager != null) {
+            tilemapManager.resetState();
+        }
+        tilemapManager = null;
         currentZone = 0;
         currentAct = 0;
         frameCounter = 0;
-        backgroundTilemapDirty = true;
-        bgTilemapBaseX = 0;
-        currentBgPeriodWidth = VDP_BG_PLANE_WIDTH_PX;
-        foregroundTilemapDirty = true;
-        patternLookupDirty = true;
         transitions.resetState();
         verticalWrapEnabled = false;
         cacheLevelDimensions();

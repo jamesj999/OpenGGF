@@ -20,6 +20,8 @@ import org.junit.Test;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
+import com.openggf.level.LevelTilemapManager;
+
 import static org.junit.Assert.*;
 
 /**
@@ -36,6 +38,21 @@ public class TestHtzBgTilemapDiagnostic {
     private static final int HTZ_ACT = 0;
 
     private LevelManager levelManager;
+    private LevelTilemapManager tilemapManager;
+
+    /**
+     * Triggers the BG tilemap build via LevelManager's private ensureBackgroundTilemapData(),
+     * then returns the built data from the public getters on LevelTilemapManager.
+     */
+    private byte[] forceBuildBgTilemap() throws Exception {
+        // Force dirty so the build actually runs
+        tilemapManager.setBackgroundTilemapDirty(true);
+        tilemapManager.setPatternLookupDirty(true);
+        Method ensureBg = LevelManager.class.getDeclaredMethod("ensureBackgroundTilemapData");
+        ensureBg.setAccessible(true);
+        ensureBg.invoke(levelManager);
+        return tilemapManager.getBackgroundTilemapData();
+    }
 
     @Before
     public void setUp() throws Exception {
@@ -55,33 +72,17 @@ public class TestHtzBgTilemapDiagnostic {
         levelManager.loadZoneAndAct(HTZ_ZONE, HTZ_ACT);
         GroundSensor.setLevelManager(levelManager);
         camera.updatePosition(true);
+        tilemapManager = levelManager.getTilemapManager();
+        assertNotNull("TilemapManager must be initialized after level load", tilemapManager);
     }
 
     @Test
     public void vdpWrapHeightDetection() throws Exception {
         // Force the tilemap build that normally happens during rendering
-        Method buildBgMethod = LevelManager.class.getDeclaredMethod("buildBackgroundTilemapData");
-        buildBgMethod.setAccessible(true);
-        buildBgMethod.invoke(levelManager);
-
-        // Check via reflection what LevelManager computed
-        Field wrapField = LevelManager.class.getDeclaredField("backgroundVdpWrapHeightTiles");
-        wrapField.setAccessible(true);
-        int wrapValue = wrapField.getInt(levelManager);
-
-        // Also get the tilemap data for diagnostics
-        Method buildMethod = LevelManager.class.getDeclaredMethod("buildTilemapData", byte.class);
-        buildMethod.setAccessible(true);
-        Object tilemapData = buildMethod.invoke(levelManager, (byte) 1);
-        Field dataField = tilemapData.getClass().getDeclaredField("data");
-        dataField.setAccessible(true);
-        byte[] data = (byte[]) dataField.get(tilemapData);
-        Field widthField = tilemapData.getClass().getDeclaredField("widthTiles");
-        widthField.setAccessible(true);
-        int widthTiles = widthField.getInt(tilemapData);
-        Field heightField = tilemapData.getClass().getDeclaredField("heightTiles");
-        heightField.setAccessible(true);
-        int heightTiles = heightField.getInt(tilemapData);
+        byte[] data = forceBuildBgTilemap();
+        int wrapValue = tilemapManager.getBackgroundVdpWrapHeightTiles();
+        int widthTiles = tilemapManager.getBackgroundTilemapWidthTiles();
+        int heightTiles = tilemapManager.getBackgroundTilemapHeightTiles();
 
         System.out.println("=== VDP Wrap Height Detection Diagnostic ===");
         System.out.println("Tilemap: " + widthTiles + "x" + heightTiles + " tiles");
@@ -181,25 +182,10 @@ public class TestHtzBgTilemapDiagnostic {
     @Test
     public void bgTilemapDataContainsValidTilesAtEarthquakeY() throws Exception {
         // Force build of BG tilemap data
-        Method buildMethod = LevelManager.class.getDeclaredMethod("buildTilemapData", byte.class);
-        buildMethod.setAccessible(true);
-
-        // Get TilemapData (record with data, widthTiles, heightTiles)
-        Object tilemapData = buildMethod.invoke(levelManager, (byte) 1);
-        assertNotNull("BG tilemap data must be built", tilemapData);
-
-        // Extract fields from the TilemapData record
-        Field dataField = tilemapData.getClass().getDeclaredField("data");
-        dataField.setAccessible(true);
-        byte[] data = (byte[]) dataField.get(tilemapData);
-
-        Field widthField = tilemapData.getClass().getDeclaredField("widthTiles");
-        widthField.setAccessible(true);
-        int widthTiles = widthField.getInt(tilemapData);
-
-        Field heightField = tilemapData.getClass().getDeclaredField("heightTiles");
-        heightField.setAccessible(true);
-        int heightTiles = heightField.getInt(tilemapData);
+        byte[] data = forceBuildBgTilemap();
+        assertNotNull("BG tilemap data must be built", data);
+        int widthTiles = tilemapManager.getBackgroundTilemapWidthTiles();
+        int heightTiles = tilemapManager.getBackgroundTilemapHeightTiles();
 
         System.out.println("=== BG Tilemap Data Diagnostic ===");
         System.out.println("Tilemap dimensions: " + widthTiles + "x" + heightTiles + " tiles");
@@ -292,19 +278,9 @@ public class TestHtzBgTilemapDiagnostic {
     @Test
     public void bgTilemapMountainTilePresence() throws Exception {
         // Check whether the BG tilemap contains HTZ dynamic mountain tile indices ($0500-$051F)
-        Method buildMethod = LevelManager.class.getDeclaredMethod("buildTilemapData", byte.class);
-        buildMethod.setAccessible(true);
-        Object tilemapData = buildMethod.invoke(levelManager, (byte) 1);
-
-        Field dataField = tilemapData.getClass().getDeclaredField("data");
-        dataField.setAccessible(true);
-        byte[] data = (byte[]) dataField.get(tilemapData);
-        Field widthField = tilemapData.getClass().getDeclaredField("widthTiles");
-        widthField.setAccessible(true);
-        int widthTiles = widthField.getInt(tilemapData);
-        Field heightField = tilemapData.getClass().getDeclaredField("heightTiles");
-        heightField.setAccessible(true);
-        int heightTiles = heightField.getInt(tilemapData);
+        byte[] data = forceBuildBgTilemap();
+        int widthTiles = tilemapManager.getBackgroundTilemapWidthTiles();
+        int heightTiles = tilemapManager.getBackgroundTilemapHeightTiles();
 
         Level level = levelManager.getCurrentLevel();
         int patternCount = level.getPatternCount();
@@ -510,19 +486,9 @@ public class TestHtzBgTilemapDiagnostic {
                 + " Y=" + Camera.getInstance().getY());
 
         // Build BG tilemap
-        Method buildMethod = LevelManager.class.getDeclaredMethod("buildTilemapData", byte.class);
-        buildMethod.setAccessible(true);
-        Object tilemapData = buildMethod.invoke(levelManager, (byte) 1);
-
-        Field dataField = tilemapData.getClass().getDeclaredField("data");
-        dataField.setAccessible(true);
-        byte[] data = (byte[]) dataField.get(tilemapData);
-        Field widthField = tilemapData.getClass().getDeclaredField("widthTiles");
-        widthField.setAccessible(true);
-        int widthTiles = widthField.getInt(tilemapData);
-        Field heightField = tilemapData.getClass().getDeclaredField("heightTiles");
-        heightField.setAccessible(true);
-        int heightTiles = heightField.getInt(tilemapData);
+        byte[] data = forceBuildBgTilemap();
+        int widthTiles = tilemapManager.getBackgroundTilemapWidthTiles();
+        int heightTiles = tilemapManager.getBackgroundTilemapHeightTiles();
 
         System.out.println("BG tilemap: " + widthTiles + "x" + heightTiles + " tiles");
         System.out.println("BG tilemap data size: " + data.length + " bytes");
@@ -586,14 +552,7 @@ public class TestHtzBgTilemapDiagnostic {
         }
 
         // Check VDPWrapHeight
-        try {
-            Field wrapField = LevelManager.class.getDeclaredField("backgroundVdpWrapHeightTiles");
-            wrapField.setAccessible(true);
-            int wrapValue = wrapField.getInt(levelManager);
-            System.out.println("\nbackgroundVdpWrapHeightTiles: " + wrapValue);
-        } catch (NoSuchFieldException e) {
-            System.out.println("\nbackgroundVdpWrapHeightTiles: FIELD NOT FOUND");
-        }
+        System.out.println("\nbackgroundVdpWrapHeightTiles: " + tilemapManager.getBackgroundVdpWrapHeightTiles());
 
         // Check cachedBgWidthPx
         try {
@@ -606,14 +565,7 @@ public class TestHtzBgTilemapDiagnostic {
         }
 
         // Check bgTilemapBaseX
-        try {
-            Field baseXField = LevelManager.class.getDeclaredField("bgTilemapBaseX");
-            baseXField.setAccessible(true);
-            int baseX = baseXField.getInt(levelManager);
-            System.out.println("bgTilemapBaseX: " + baseX);
-        } catch (NoSuchFieldException e) {
-            System.out.println("bgTilemapBaseX: FIELD NOT FOUND");
-        }
+        System.out.println("bgTilemapBaseX: " + tilemapManager.getBgTilemapBaseX());
 
         Map map = level.getMap();
         System.out.println("\nMap dimensions: " + map.getWidth() + "x" + map.getHeight() + " blocks");
@@ -807,19 +759,9 @@ public class TestHtzBgTilemapDiagnostic {
 
         // --- Part 3: Check the built BG tilemap data for priority bit in byte[1] ---
         System.out.println("--- Part 3: Built tilemap data priority scan ---");
-        Method buildMethod = LevelManager.class.getDeclaredMethod("buildTilemapData", byte.class);
-        buildMethod.setAccessible(true);
-        Object tilemapData = buildMethod.invoke(levelManager, (byte) 1);
-
-        Field dataField = tilemapData.getClass().getDeclaredField("data");
-        dataField.setAccessible(true);
-        byte[] data = (byte[]) dataField.get(tilemapData);
-        Field widthField = tilemapData.getClass().getDeclaredField("widthTiles");
-        widthField.setAccessible(true);
-        int widthTiles = widthField.getInt(tilemapData);
-        Field heightField = tilemapData.getClass().getDeclaredField("heightTiles");
-        heightField.setAccessible(true);
-        int heightTiles = heightField.getInt(tilemapData);
+        byte[] data = forceBuildBgTilemap();
+        int widthTiles = tilemapManager.getBackgroundTilemapWidthTiles();
+        int heightTiles = tilemapManager.getBackgroundTilemapHeightTiles();
 
         int tilemapPriorityCount = 0;
         int tilemapNonPriorityCount = 0;
@@ -868,24 +810,12 @@ public class TestHtzBgTilemapDiagnostic {
 
         // --- Part 4: Also check the already-built backgroundTilemapData field ---
         System.out.println();
-        System.out.println("--- Part 4: backgroundTilemapData field (from buildBackgroundTilemapData) ---");
-        try {
+        System.out.println("--- Part 4: backgroundTilemapData field (from ensureBackgroundTilemapData) ---");
+        {
             // Force build
-            Method buildBgMethod = LevelManager.class.getDeclaredMethod("buildBackgroundTilemapData");
-            buildBgMethod.setAccessible(true);
-            buildBgMethod.invoke(levelManager);
-
-            Field bgDataField = LevelManager.class.getDeclaredField("backgroundTilemapData");
-            bgDataField.setAccessible(true);
-            byte[] bgData = (byte[]) bgDataField.get(levelManager);
-
-            Field bgWidthField = LevelManager.class.getDeclaredField("backgroundTilemapWidthTiles");
-            bgWidthField.setAccessible(true);
-            int bgWidth = bgWidthField.getInt(levelManager);
-
-            Field bgHeightField = LevelManager.class.getDeclaredField("backgroundTilemapHeightTiles");
-            bgHeightField.setAccessible(true);
-            int bgHeight = bgHeightField.getInt(levelManager);
+            byte[] bgData = forceBuildBgTilemap();
+            int bgWidth = tilemapManager.getBackgroundTilemapWidthTiles();
+            int bgHeight = tilemapManager.getBackgroundTilemapHeightTiles();
 
             int bgPriCount = 0;
             for (int i = 0; i < bgData.length / 4; i++) {
@@ -899,8 +829,6 @@ public class TestHtzBgTilemapDiagnostic {
             }
             System.out.println("backgroundTilemapData dimensions: " + bgWidth + "x" + bgHeight);
             System.out.println("backgroundTilemapData priority tile count: " + bgPriCount);
-        } catch (NoSuchFieldException | NoSuchMethodException e) {
-            System.out.println("Could not access backgroundTilemapData: " + e.getMessage());
         }
 
         System.out.println();
