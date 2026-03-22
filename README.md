@@ -143,14 +143,14 @@ binaries.
 ### Did you use AI to write this? / This is AI slop!
 
 Various agents (Claude, Codex, and Gemini, in various models, versions and forms) have all been used at various points in the project's history, and
-the commit history doesn't hide it — you'll see `Co-Authored-By` tags throughout. But the project
+the commit history doesn't hide it; you'll see `Co-Authored-By` tags throughout. But the project
 has been in development since 2013, long before AI coding assistants existed.
 
 The core engine framework, architecture, rendering pipeline, physics engine, and collision system
 were designed and coded by hand. The multi-game provider architecture, the GPU shader pipeline, the
 SMPS audio driver, and the original physics rewrite are all human-authored. AI was brought in
 for bulk analysis and research, to accelerate bulk object and boss implementation, debugging, validation, and
-unit tests — all under direct architectural oversight, with accuracy verified against the original
+unit tests; all under direct architectural oversight, with accuracy verified against the original
 ROM disassemblies. Every commit is reviewed, tested, and corrected where needed.
 
 You can't prompt your way to ROM accuracy (yet!). But we certainly prompted our way through object
