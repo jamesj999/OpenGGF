@@ -61,7 +61,6 @@ public class Sonic1BuzzBomberMissileInstance extends AbstractObjectInstance
     private final SubpixelMotion.State motionState;
     private final boolean facingLeft;
     private final Sonic1BuzzBomberBadnikInstance parent;
-    private final LevelManager levelManager;
 
     private Phase phase;
     private int flareTimer;
@@ -82,8 +81,7 @@ public class Sonic1BuzzBomberMissileInstance extends AbstractObjectInstance
      * @param levelManager Level manager reference
      */
     public Sonic1BuzzBomberMissileInstance(int x, int y, int xVel, int yVel,
-            boolean facingLeft, Sonic1BuzzBomberBadnikInstance parent,
-            LevelManager levelManager) {
+            boolean facingLeft, Sonic1BuzzBomberBadnikInstance parent) {
         super(new ObjectSpawn(x, y, 0x23, 0, 0, false, 0), "BuzzBomberMissile");
         this.currentX = x;
         this.currentY = y;
@@ -92,7 +90,7 @@ public class Sonic1BuzzBomberMissileInstance extends AbstractObjectInstance
         this.motionState = new SubpixelMotion.State(x, y, 0, 0, xVel, yVel);
         this.facingLeft = facingLeft;
         this.parent = parent;
-        this.levelManager = levelManager;
+        
         this.phase = Phase.FLARE_COUNTDOWN;
         this.flareTimer = FLARE_COUNTDOWN;
         this.animTimer = 0;

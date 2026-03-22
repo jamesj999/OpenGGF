@@ -277,7 +277,7 @@ public class Sonic1BatbrainBadnikInstance extends AbstractBadnikInstance {
     private void updateFlapSound(int frameCounter, AbstractPlayableSprite player) {
         // Play flapping sound every 16 frames
         if ((frameCounter & FLAP_SOUND_MASK) == 0) {
-            AudioManager.getInstance().playSfx(Sonic1Sfx.BASARAN_FLAP.id);
+            services().playSfx(Sonic1Sfx.BASARAN_FLAP.id);
         }
 
         // SpeedToPos: apply velocity

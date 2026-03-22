@@ -213,7 +213,7 @@ public class Sonic1FlamethrowerObjectInstance extends AbstractObjectInstance
                 timer = flamingDuration;
                 // move.w #sfx_Flamethrower,d0 / jsr (QueueSound2).l
                 if (isOnScreen()) {
-                    AudioManager.getInstance().playSfx(Sonic1Sfx.FLAMETHROWER.id);
+                    services().playSfx(Sonic1Sfx.FLAMETHROWER.id);
                 }
             }
             // else: old bit 0 was 0 → switched from flaming to retract.

@@ -1,4 +1,5 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.GameServices;
 
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
@@ -397,7 +398,7 @@ public class Sonic1StaircaseObjectInstance extends AbstractObjectInstance
         if (isDestroyed()) {
             return false;
         }
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         if (camera == null) {
             return true;
         }

@@ -1,4 +1,5 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.GameServices;
 
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
@@ -248,13 +249,12 @@ public class Sonic1LavaWallObjectInstance extends AbstractObjectInstance
     private void updateInit() {
         if (!childSpawned) {
             childSpawned = true;
-            LevelManager levelManager = LevelManager.getInstance();
-            if (levelManager != null && levelManager.getObjectManager() != null) {
+            if (services().objectManager() != null) {
                 ObjectSpawn trailSpawn = new ObjectSpawn(
                         currentX - TRAIL_X_OFFSET, currentY,
                         0x4E, spawn.subtype(), 0, false, 0);
                 Sonic1LavaWallObjectInstance trail = new Sonic1LavaWallObjectInstance(trailSpawn, this);
-                levelManager.getObjectManager().addDynamicObject(trail);
+                services().objectManager().addDynamicObject(trail);
             }
         }
         // addq.b #4,obRoutine(a0) -> routine 0 + 4 = 4
@@ -418,7 +418,7 @@ public class Sonic1LavaWallObjectInstance extends AbstractObjectInstance
      * and compare distance against 128+320+192.
      */
     private boolean isWithinOutOfRangeWindow(int objectX) {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         if (camera == null) {
             return true;
         }

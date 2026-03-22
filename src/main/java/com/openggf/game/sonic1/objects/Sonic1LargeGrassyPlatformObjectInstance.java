@@ -1,4 +1,5 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.GameServices;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.OscillationManager;
@@ -170,7 +171,7 @@ public class Sonic1LargeGrassyPlatformObjectInstance extends AbstractObjectInsta
     // Type 5 state: the initial walker fire (subtype 0) for cleanup tracking
     private Sonic1GrassFireObjectInstance walkerFire;
 
-    public Sonic1LargeGrassyPlatformObjectInstance(ObjectSpawn spawn, LevelManager levelManager) {
+    public Sonic1LargeGrassyPlatformObjectInstance(ObjectSpawn spawn) {
         super(spawn, "MzLargeGrassyPlatform");
 
         this.baseX = spawn.x();
@@ -430,8 +431,7 @@ public class Sonic1LargeGrassyPlatformObjectInstance extends AbstractObjectInsta
      * @param sinkOffset current vertical sink offset (CalcSine >> 4)
      */
     private void spawnGrassFire(int sinkOffset) {
-        var levelManager = LevelManager.getInstance();
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
@@ -442,7 +442,7 @@ public class Sonic1LargeGrassyPlatformObjectInstance extends AbstractObjectInsta
 
         walkerFire = new Sonic1GrassFireObjectInstance(
                 fireStartX, fireBaseY, sinkOffset, slopeData, this, true);
-        levelManager.getObjectManager().addDynamicObject(walkerFire);
+        services().objectManager().addDynamicObject(walkerFire);
 
         // Register walker itself in children list for sink offset updates
         fireChildren.add(walkerFire);
@@ -482,7 +482,7 @@ public class Sonic1LargeGrassyPlatformObjectInstance extends AbstractObjectInsta
      * Check if the object is within out-of-range distance from camera using spawn X.
      */
     private boolean isOnScreenX(int objectX, int range) {
-        var camera = Camera.getInstance();
+        var camera = GameServices.camera();
         if (camera == null) {
             return true;
         }

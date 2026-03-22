@@ -191,7 +191,7 @@ public class Sonic1TryAgainEggmanObjectInstance extends AbstractObjectInstance {
             return;
         }
         // Screen-space rendering: convert to world coords by adding camera position
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         int worldX = SCREEN_X + camera.getX();
         int worldY = SCREEN_Y + camera.getY();
         renderer.drawFrameIndex(frameId, worldX, worldY, false, false);

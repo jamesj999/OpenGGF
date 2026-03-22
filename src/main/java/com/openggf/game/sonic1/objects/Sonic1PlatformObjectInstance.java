@@ -1,4 +1,5 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.GameServices;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic1.Sonic1SwitchManager;
@@ -82,7 +83,6 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
     // v_oscillate+$E -> data offset 0x0C (oscillator 3: freq=2, amp=0x30)
     private static final int OSC_GLOBAL = 0x0C;
 
-    private final LevelManager levelManager;
     private final int zoneIndex;
 
     // Dynamic position
@@ -123,10 +123,10 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
     // This happens after type 04 timer expires and detaches the player.
     private boolean inFallingRoutine;
 
-    public Sonic1PlatformObjectInstance(ObjectSpawn spawn, LevelManager levelManager) {
+    public Sonic1PlatformObjectInstance(ObjectSpawn spawn) {
         super(spawn, "Platform");
-        this.levelManager = levelManager;
-        this.zoneIndex = levelManager.getRomZoneId();
+        
+        this.zoneIndex = GameServices.level().getRomZoneId();
 
         this.baseX = spawn.x();
         this.baseY = spawn.y();
@@ -365,7 +365,7 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
                     player.setAir(true);
                     // bclr #3,obStatus(a1) - clear player standing-on-object
                     // bclr #3,obStatus(a0) - clear object standing flag
-                    var objectManager = levelManager.getObjectManager();
+                    var objectManager = services().objectManager();
                     if (objectManager != null) {
                         objectManager.clearRidingObject(player);
                     }
@@ -446,8 +446,8 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
      * ROM-style "don't instantly respawn in place" behavior.
      */
     private void destroyWithWindowGatedRespawn() {
-        if (!isDestroyed() && levelManager != null) {
-            var objectManager = levelManager.getObjectManager();
+        if (!isDestroyed() ) {
+            var objectManager = services().objectManager();
             if (objectManager != null) {
                 objectManager.removeFromActiveSpawns(spawn);
             }
@@ -459,7 +459,7 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
      * Get the level's bottom boundary (v_limitbtm2 equivalent).
      */
     private int getBottomBoundary() {
-        var camera = Camera.getInstance();
+        var camera = GameServices.camera();
         return camera != null ? camera.getMaxY() : 0x700;
     }
 
@@ -469,7 +469,7 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
      * against 128+320+192 = 640.
      */
     private boolean isOnScreenX(int objectX, int range) {
-        var camera = Camera.getInstance();
+        var camera = GameServices.camera();
         if (camera == null) {
             return true;
         }

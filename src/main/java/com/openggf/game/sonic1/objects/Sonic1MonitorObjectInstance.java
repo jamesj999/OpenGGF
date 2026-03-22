@@ -84,14 +84,14 @@ public class Sonic1MonitorObjectInstance extends AbstractMonitorObjectInstance
         this.type = MonitorType.fromSubtype(spawn.subtype());
 
         // Check persistence: if previously broken, spawn as broken shell
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = GameServices.level().getObjectManager();
         boolean previouslyBroken = objectManager != null && objectManager.isRemembered(spawn);
         this.broken = this.type == MonitorType.BROKEN || previouslyBroken;
 
         // Initialize animation: obAnim = obSubtype (from Mon_Main)
         int initialAnim = type.id;
         int initialFrame = broken ? BROKEN_FRAME : 0;
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = GameServices.level().getObjectRenderManager();
         this.animationState = new ObjectAnimationState(
                 renderManager != null ? renderManager.getMonitorAnimations() : null,
                 initialAnim,
@@ -183,7 +183,7 @@ public class Sonic1MonitorObjectInstance extends AbstractMonitorObjectInstance
         broken = true;
 
         // Mark as broken in persistence table
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null) {
             objectManager.markRemembered(spawn);
         }
@@ -198,13 +198,13 @@ public class Sonic1MonitorObjectInstance extends AbstractMonitorObjectInstance
         iconPlayer = player;
 
         // Spawn explosion (id_ExplosionItem = $27) - only if explosion art is loaded
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager != null && objectManager != null
                 && renderManager.getExplosionRenderer() != null) {
             objectManager.addDynamicObject(
                     new ExplosionObjectInstance(0x27, spawn.x(), currentY, renderManager));
         }
-        AudioManager.getInstance().playSfx(Sonic1Sfx.BREAK_ITEM.id);
+        services().playSfx(Sonic1Sfx.BREAK_ITEM.id);
     }
 
     @Override
@@ -222,29 +222,29 @@ public class Sonic1MonitorObjectInstance extends AbstractMonitorObjectInstance
             // Pow_ChkRings: v_rings += 10, play sfx_Ring
             case RINGS -> {
                 player.addRings(RING_MONITOR_REWARD);
-                AudioManager.getInstance().playSfx(GameSound.RING);
+                GameServices.audio().playSfx(GameSound.RING);
             }
             // Pow_ChkShield: v_shield = 1, play sfx_Shield
             case SHIELD -> {
                 player.giveShield();
-                AudioManager.getInstance().playSfx(Sonic1Sfx.SHIELD.id);
+                services().playSfx(Sonic1Sfx.SHIELD.id);
             }
             // Pow_ChkShoes: speed shoes on, play bgm_Speedup (CMD_SPEED_UP = $E2)
             case SHOES -> {
                 player.giveSpeedShoes();
-                GameAudioProfile audioProfile = AudioManager.getInstance().getAudioProfile();
+                GameAudioProfile audioProfile = GameServices.audio().getAudioProfile();
                 if (audioProfile != null) {
-                    AudioManager.getInstance().playMusic(audioProfile.getSpeedShoesOnCommandId());
+                    services().playMusic(audioProfile.getSpeedShoesOnCommandId());
                 }
             }
             // Pow_ChkInvinc: invincibility on, play bgm_Invincible
             case INVINCIBILITY -> {
                 player.giveInvincibility();
-                AudioManager.getInstance().playMusic(Sonic1Music.INVINCIBILITY.id);
+                services().playMusic(Sonic1Music.INVINCIBILITY.id);
             }
             // Pow_ChkSonic: v_lives++, play bgm_ExtraLife
             case SONIC -> {
-                AudioManager.getInstance().playMusic(Sonic1Music.EXTRA_LIFE.id);
+                services().playMusic(Sonic1Music.EXTRA_LIFE.id);
                 GameServices.gameState().addLife();
             }
             // Pow_ChkEggman, Pow_ChkS, Pow_ChkGoggles: no effect
@@ -254,7 +254,7 @@ public class Sonic1MonitorObjectInstance extends AbstractMonitorObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             appendFallbackBox(commands);
             return;

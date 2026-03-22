@@ -165,8 +165,7 @@ public class Sonic1BridgeObjectInstance extends AbstractObjectInstance
 
     @Override
     public void update(int frameCounter, AbstractPlayableSprite player) {
-        LevelManager levelManager = LevelManager.getInstance();
-        ObjectManager objectManager = levelManager != null ? levelManager.getObjectManager() : null;
+        ObjectManager objectManager = services().objectManager();
 
         playerOnBridge = false;
 
@@ -302,7 +301,7 @@ public class Sonic1BridgeObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

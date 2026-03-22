@@ -53,7 +53,7 @@ public class TestSonic1PlatformObjectInstanceRespawn {
         ObjectRegistry registry = new ObjectRegistry() {
             @Override
             public ObjectInstance create(ObjectSpawn objectSpawn) {
-                return new Sonic1PlatformObjectInstance(objectSpawn, levelManager);
+                return new Sonic1PlatformObjectInstance(objectSpawn);
             }
 
             @Override

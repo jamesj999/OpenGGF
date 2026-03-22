@@ -1,4 +1,5 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.GameServices;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
@@ -436,8 +437,7 @@ public class Sonic1BubblesObjectInstance extends AbstractObjectInstance {
      * From Bub_BblMaker spawn section (lines 165-196 of disassembly).
      */
     private void spawnBubble() {
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
@@ -482,7 +482,7 @@ public class Sonic1BubblesObjectInstance extends AbstractObjectInstance {
                 bubbleSubtype,
                 0, false, 0);
         Sonic1BubblesObjectInstance child = new Sonic1BubblesObjectInstance(childSpawn);
-        levelManager.getObjectManager().addDynamicObject(child);
+        services().objectManager().addDynamicObject(child);
     }
 
     /**
@@ -542,7 +542,7 @@ public class Sonic1BubblesObjectInstance extends AbstractObjectInstance {
         // bsr.w ResumeMusic ; cancel countdown music
         // move.w #sfx_Bubble,d0 / jsr (QueueSound2).l
         try {
-            AudioManager.getInstance().playSfx(Sonic1Sfx.BUBBLE.id);
+            services().playSfx(Sonic1Sfx.BUBBLE.id);
         } catch (Exception e) {
             // Don't let audio failure break game logic
         }
@@ -669,16 +669,15 @@ public class Sonic1BubblesObjectInstance extends AbstractObjectInstance {
      * Returns Integer.MAX_VALUE if no water (bubble should always be "underwater").
      */
     private int getWaterLevel() {
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null || levelManager.getCurrentLevel() == null) {
+        if (services().currentLevel() == null) {
             return Integer.MAX_VALUE;
         }
 
         WaterSystem waterSystem = WaterSystem.getInstance();
         // Use feature zone/act so SBZ3 (ROM zone LZ act 3) resolves to the
         // water config stored under ZONE_SBZ act 2.
-        int zoneId = levelManager.getFeatureZoneId();
-        int actId = levelManager.getFeatureActId();
+        int zoneId = GameServices.level().getFeatureZoneId();
+        int actId = GameServices.level().getFeatureActId();
 
         if (waterSystem.hasWater(zoneId, actId)) {
             return waterSystem.getWaterLevelY(zoneId, actId);

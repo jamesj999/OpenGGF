@@ -146,7 +146,7 @@ public class Sonic1HiddenBonusObjectInstance extends AbstractObjectInstance {
 
         // Play bonus sound: sfx_Bonus = 0xC9
         try {
-            AudioManager.getInstance().playSfx(Sonic1Sfx.HIDDEN_BONUS.id);
+            services().playSfx(Sonic1Sfx.HIDDEN_BONUS.id);
         } catch (Exception e) {
             // Don't let audio failure break game logic
         }

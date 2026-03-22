@@ -511,7 +511,7 @@ public class Sonic1StomperDoorObjectInstance extends AbstractObjectInstance
                     // bset #0,2(a2,d0.w) — set respawn flag so this door won't
                     // reappear at its original position if the player leaves and
                     // returns. Equivalent to ROM v_objstate respawn bit.
-                    ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+                    ObjectManager objectManager = services().objectManager();
                     if (objectManager != null) {
                         objectManager.markRemembered(getSpawn());
                     }
@@ -580,7 +580,7 @@ public class Sonic1StomperDoorObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

@@ -1,4 +1,5 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.GameServices;
 
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
@@ -92,7 +93,6 @@ public class Sonic1GlassBlockObjectInstance extends AbstractObjectInstance
     private static final int TYPE4_LOWER_SPEED = 2;
 
     // --- Object state ---
-    private final LevelManager levelManager;
 
     // Whether this is the tall variant (subtypes 0-2) or short (subtypes 3-4)
     private final boolean isTall;
@@ -134,9 +134,9 @@ public class Sonic1GlassBlockObjectInstance extends AbstractObjectInstance
     // The spawned reflection child (for cleanup)
     private Sonic1GlassReflectionInstance reflectionChild;
 
-    public Sonic1GlassBlockObjectInstance(ObjectSpawn spawn, LevelManager levelManager) {
+    public Sonic1GlassBlockObjectInstance(ObjectSpawn spawn) {
         super(spawn, "MzGlassBlock");
-        this.levelManager = levelManager;
+        
 
         int subtype = spawn.subtype() & 0xFF;
         this.fullSubtype = subtype;
@@ -427,7 +427,7 @@ public class Sonic1GlassBlockObjectInstance extends AbstractObjectInstance
      * Subtype gets addq.b #8 then andi.b #$F.
      */
     private void spawnReflection() {
-        var objectManager = levelManager.getObjectManager();
+        var objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -445,7 +445,7 @@ public class Sonic1GlassBlockObjectInstance extends AbstractObjectInstance
      * Matches the S1 out_of_range macro.
      */
     private boolean isOnScreenX(int objectX, int range) {
-        var camera = Camera.getInstance();
+        var camera = GameServices.camera();
         if (camera == null) {
             return true;
         }

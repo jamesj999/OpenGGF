@@ -94,7 +94,6 @@ public class Sonic1ScrapEggmanInstance extends AbstractObjectInstance implements
     private static final int PHASE_LAUGH_POST = 6;
 
     // ---- Instance state ----
-    private final LevelManager levelManager;
 
     private int currentX;
     private int currentY;
@@ -134,8 +133,6 @@ public class Sonic1ScrapEggmanInstance extends AbstractObjectInstance implements
 
     public Sonic1ScrapEggmanInstance(ObjectSpawn spawn) {
         super(spawn, "ScrapEggman");
-        this.levelManager = LevelManager.getInstance();
-
         // Initialise Eggman position
         this.currentX = EGGMAN_INIT_X;
         this.currentY = EGGMAN_INIT_Y;
@@ -158,8 +155,8 @@ public class Sonic1ScrapEggmanInstance extends AbstractObjectInstance implements
         this.button = new ScrapEggmanButton(buttonSpawn, this);
 
         // Add button as dynamic object
-        if (levelManager.getObjectManager() != null) {
-            levelManager.getObjectManager().addDynamicObject(button);
+        if (services().objectManager() != null) {
+            services().objectManager().addDynamicObject(button);
         }
     }
 
@@ -313,12 +310,12 @@ public class Sonic1ScrapEggmanInstance extends AbstractObjectInstance implements
      * begin disintegrating.
      */
     private void signalFalseFloor() {
-        if (levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
         // getActiveObjects() includes both placement-managed and dynamic objects
-        Collection<ObjectInstance> activeObjects = levelManager.getObjectManager().getActiveObjects();
+        Collection<ObjectInstance> activeObjects = services().objectManager().getActiveObjects();
         for (ObjectInstance obj : activeObjects) {
             if (obj instanceof Disintegratable target) {
                 target.signalDisintegrate();
@@ -395,7 +392,7 @@ public class Sonic1ScrapEggmanInstance extends AbstractObjectInstance implements
             return;
         }
 
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
@@ -490,7 +487,7 @@ public class Sonic1ScrapEggmanInstance extends AbstractObjectInstance implements
                 return;
             }
 
-            ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+            ObjectRenderManager renderManager = services().renderManager();
             if (renderManager == null) {
                 return;
             }

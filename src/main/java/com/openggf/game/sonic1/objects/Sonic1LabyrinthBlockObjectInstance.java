@@ -1,4 +1,5 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.GameServices;
 
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
@@ -575,13 +576,12 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
      * Equivalent to ROM's move.w (v_waterpos1).w,d0.
      */
     private int getWaterLevel() {
-        LevelManager lm = LevelManager.getInstance();
-        if (lm == null || lm.getCurrentLevel() == null) {
+        if (services().currentLevel() == null) {
             return 0;
         }
         WaterSystem waterSystem = WaterSystem.getInstance();
-        int zoneId = lm.getFeatureZoneId();
-        int actId = lm.getFeatureActId();
+        int zoneId = GameServices.level().getFeatureZoneId();
+        int actId = GameServices.level().getFeatureActId();
         return waterSystem.getVisualWaterLevelY(zoneId, actId);
     }
 
@@ -590,7 +590,7 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
      * Matches ROM's out_of_range.w macro.
      */
     private boolean isInRange(int objectX) {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         if (camera == null) {
             return true;
         }

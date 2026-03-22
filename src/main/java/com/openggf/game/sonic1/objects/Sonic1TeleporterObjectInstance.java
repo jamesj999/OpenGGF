@@ -290,7 +290,7 @@ public class Sonic1TeleporterObjectInstance extends AbstractObjectInstance {
         controlledPlayer = player;
 
         // move.w #sfx_Roll,d0 / jsr (QueueSound2).l
-        AudioManager.getInstance().playSfx(Sonic1Sfx.ROLL.id);
+        services().playSfx(Sonic1Sfx.ROLL.id);
     }
 
     // ---- Routine 4: Rise phase (sine oscillation upward) ----
@@ -325,7 +325,7 @@ public class Sonic1TeleporterObjectInstance extends AbstractObjectInstance {
         routine = Routine.TRAVEL;
 
         // move.w #sfx_Teleport,d0 / jsr (QueueSound2).l
-        AudioManager.getInstance().playSfx(Sonic1Sfx.TELEPORT.id);
+        services().playSfx(Sonic1Sfx.TELEPORT.id);
     }
 
     // ---- Routine 6: Travel phase (move through waypoints) ----

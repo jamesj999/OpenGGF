@@ -245,7 +245,7 @@ public class Sonic1GHZBossInstance extends AbstractS1EggmanBossInstance {
         } else if (timer == 0x30) {
             // Timer = $30 — stop and play zone music
             state.yVel = 0;
-            AudioManager.getInstance().playMusic(Sonic1Music.GHZ.id);
+            services().playMusic(Sonic1Music.GHZ.id);
         } else if (timer >= 0x38) {
             // Timer >= $38 — advance to escape
             state.routineSecondary = STATE_ESCAPE;
@@ -338,7 +338,7 @@ public class Sonic1GHZBossInstance extends AbstractS1EggmanBossInstance {
         if (wreckingBall != null) {
             return; // Already spawned
         }
-        wreckingBall = new GHZBossWreckingBall(this, com.openggf.game.GameServices.level());
+        wreckingBall = new GHZBossWreckingBall(this);
         childComponents.add(wreckingBall);
         if (services().objectManager() != null) {
             services().objectManager().addDynamicObject(wreckingBall);

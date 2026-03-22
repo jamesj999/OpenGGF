@@ -1,4 +1,5 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.GameServices;
 
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
@@ -393,8 +394,7 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
         }
         int[][] positionData = ALL_SPAWN_DATA[spawnerSlotIndex];
 
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             setDestroyed(true);
             return;
         }
@@ -413,7 +413,7 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
 
             Sonic1SpinConveyorObjectInstance child =
                     new Sonic1SpinConveyorObjectInstance(childX, childY, childSubtype);
-            levelManager.getObjectManager().addDynamicObject(child);
+            services().objectManager().addDynamicObject(child);
         }
 
         // Spawner itself is consumed after spawning
@@ -648,7 +648,7 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
      * </pre>
      */
     private void detachRidingPlayer(AbstractPlayableSprite player) {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null && objectManager.isAnyPlayerRiding(this)) {
             objectManager.clearRidingObject(player);
         }
@@ -743,7 +743,7 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
      * Matches the S1 out_of_range.s macro with objoff_30 as the reference X.
      */
     private boolean isBaseXOnScreen(int objectX) {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         if (camera == null) {
             return true;
         }

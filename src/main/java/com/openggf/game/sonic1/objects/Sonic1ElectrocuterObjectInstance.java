@@ -94,7 +94,7 @@ public class Sonic1ElectrocuterObjectInstance extends AbstractObjectInstance
                 animTimer = 0;
             }
             if (isOnScreen()) {
-                AudioManager.getInstance().playSfx(Sonic1Sfx.ELECTRIC.id);
+                services().playSfx(Sonic1Sfx.ELECTRIC.id);
             }
         }
 

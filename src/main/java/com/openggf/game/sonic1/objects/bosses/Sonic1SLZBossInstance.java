@@ -308,7 +308,7 @@ public class Sonic1SLZBossInstance extends AbstractS1EggmanBossInstance {
         } else if (timer == 0x20) {
             // loc_18BB4: stop and play zone music
             state.yVel = 0;
-            AudioManager.getInstance().playMusic(Sonic1Music.SLZ.id);
+            services().playMusic(Sonic1Music.SLZ.id);
         } else if (timer >= 0x2A) {
             // Advance to escape
             state.routineSecondary = STATE_ESCAPE;

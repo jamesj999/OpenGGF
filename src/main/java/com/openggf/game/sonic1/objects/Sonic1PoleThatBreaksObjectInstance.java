@@ -1,4 +1,5 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.GameServices;
 
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
@@ -256,7 +257,7 @@ public class Sonic1PoleThatBreaksObjectInstance extends AbstractObjectInstance
     }
 
     private void setWindTunnelDisabled(boolean disabled) {
-        ZoneFeatureProvider provider = LevelManager.getInstance().getZoneFeatureProvider();
+        ZoneFeatureProvider provider = GameServices.level().getZoneFeatureProvider();
         if (provider instanceof Sonic1ZoneFeatureProvider sonic1Provider) {
             sonic1Provider.setWindTunnelDisabled(disabled);
         }

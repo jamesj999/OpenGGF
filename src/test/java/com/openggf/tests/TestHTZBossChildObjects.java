@@ -86,7 +86,7 @@ public class TestHTZBossChildObjects {
 
     @Test
     public void htzSmokeSpawnSubtypeAndPriorityMatchRom() {
-        HTZBossSmokeParticle smoke = new HTZBossSmokeParticle(10, 20, com.openggf.game.GameServices.level());
+        HTZBossSmokeParticle smoke = new HTZBossSmokeParticle(10, 20);
         assertEquals(0x08, smoke.getSpawn().subtype());
         assertEquals(1, smoke.getPriorityBucket());
     }

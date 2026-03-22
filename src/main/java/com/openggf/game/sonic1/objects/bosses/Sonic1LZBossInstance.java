@@ -435,11 +435,11 @@ public class Sonic1LZBossInstance extends AbstractS1EggmanBossInstance {
         }
 
         // ROM: loc_18112 — play LZ music and advance
-        AudioManager.getInstance().playMusic(Sonic1Music.LZ.id);
+        services().playMusic(Sonic1Music.LZ.id);
 
         // ROM (Revision != 0): clr.b (f_lockscreen).w — unlock horizontal scrolling
         // Clear the left boundary lock set at boss spawn, allowing free camera movement
-        Camera.getInstance().setMinX((short) 0);
+        GameServices.camera().setMinX((short) 0);
 
         // ROM: bset #0,obStatus(a0) — face right
         state.renderFlags |= 1;

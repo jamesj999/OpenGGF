@@ -1,4 +1,5 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.GameServices;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
@@ -212,7 +213,7 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
 
         // Subtype bit 7: X-flip to face the player
         if ((subtype & 0x80) != 0 && player != null) {
-            ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+            ObjectManager objectManager = services().objectManager();
             if (objectManager != null && objectManager.isAnyPlayerRiding(this)) {
                 // bclr #0,obRender(a0) - default to no flip
                 hFlip = false;
@@ -295,7 +296,7 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
             // loc_8402: WalkOff with collapse flag set
             collapseDelay--;
 
-            ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+            ObjectManager objectManager = services().objectManager();
             boolean playerRiding = objectManager != null && player != null
                     && objectManager.isAnyPlayerRiding(this);
 
@@ -358,12 +359,12 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
         // This causes routine 6 (CFlo_Display) to run the WalkOff path (loc_8402)
         // which keeps the player supported on the first fragment until delay expires.
 
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
@@ -391,7 +392,7 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
         }
 
         // Play collapse sound: move.w #sfx_Collapse,d0 / jmp (QueueSound2).l
-        AudioManager.getInstance().playSfx(Sonic1Sfx.COLLAPSE.id);
+        services().playSfx(Sonic1Sfx.COLLAPSE.id);
     }
 
     /**
@@ -410,7 +411,7 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
      */
     private void destroyWithWindowGatedRespawn() {
         if (!isDestroyed()) {
-            ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+            ObjectManager objectManager = services().objectManager();
             if (objectManager != null) {
                 objectManager.removeFromActiveSpawns(spawn);
             }
@@ -420,7 +421,7 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
@@ -498,7 +499,7 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
     }
 
     private boolean isOnScreenX(int objectX, int range) {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         if (camera == null) {
             return true;
         }

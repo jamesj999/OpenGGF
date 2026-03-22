@@ -185,7 +185,7 @@ public class Sonic1GiantRingObjectInstance extends AbstractObjectInstance
         collisionFlags = 0;
 
         // Mark spawn as remembered to prevent respawning
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null) {
             objectManager.markRemembered(spawn);
         }
@@ -205,7 +205,7 @@ public class Sonic1GiantRingObjectInstance extends AbstractObjectInstance
 
         // Play sound: move.w #sfx_GiantRing,d0 / jsr (QueueSound2).l
         try {
-            AudioManager.getInstance().playSfx(SFX_GIANT_RING);
+            services().playSfx(SFX_GIANT_RING);
         } catch (Exception e) {
             // Don't let audio failure break game logic
         }

@@ -120,7 +120,7 @@ public class Sonic1SmashBlockObjectInstance extends AbstractObjectInstance
         this.frameIndex = spawn.subtype() & 0xFF;
 
         // RememberState: check if already broken
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = GameServices.level().getObjectManager();
         if (objectManager != null && objectManager.isRemembered(spawn)) {
             this.broken = true;
             setDestroyed(true);
@@ -190,7 +190,7 @@ public class Sonic1SmashBlockObjectInstance extends AbstractObjectInstance
         broken = true;
 
         // Mark as remembered (RememberState) so it stays broken on revisit
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null) {
             objectManager.markRemembered(spawn);
         }
@@ -239,8 +239,8 @@ public class Sonic1SmashBlockObjectInstance extends AbstractObjectInstance
      * velocity from Smab_Speeds.
      */
     private void spawnFragments() {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectManager objectManager = services().objectManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (objectManager == null || renderManager == null) {
             return;
         }
@@ -275,7 +275,7 @@ public class Sonic1SmashBlockObjectInstance extends AbstractObjectInstance
 
         // From disassembly SmashObject .playsnd:
         //   move.w #sfx_WallSmash,d0 / jmp (QueueSound2).l
-        AudioManager.getInstance().playSfx(GameSound.WALL_SMASH);
+        GameServices.audio().playSfx(GameSound.WALL_SMASH);
     }
 
     /**
@@ -352,7 +352,7 @@ public class Sonic1SmashBlockObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
@@ -432,7 +432,7 @@ public class Sonic1SmashBlockObjectInstance extends AbstractObjectInstance
 
             // From disassembly: tst.b obRender(a0) / bpl.w DeleteObject
             // Delete when off-screen (render flag bit 7 indicates on-screen)
-            Camera cam = Camera.getInstance();
+            Camera cam = GameServices.camera();
             int cameraX = cam.getX();
             int cameraY = cam.getY();
             if (posX < cameraX - 64 || posX > cameraX + 320 + 64

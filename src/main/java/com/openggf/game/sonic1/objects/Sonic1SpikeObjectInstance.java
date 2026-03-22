@@ -120,7 +120,7 @@ public class Sonic1SpikeObjectInstance extends AbstractObjectInstance
         }
         boolean hadRings = player.getRingCount() > 0;
         if (hadRings && !player.hasShield()) {
-            LevelManager.getInstance().spawnLostRings(player, frameCounter);
+            services().spawnLostRings(player, frameCounter);
         }
         // spikeHit=true triggers DamageCause.SPIKE → GameSound.HURT_SPIKE (SFX 0xA6)
         player.applyHurtOrDeathIgnoringIFrames(currentX, true, hadRings);
@@ -249,7 +249,7 @@ public class Sonic1SpikeObjectInstance extends AbstractObjectInstance
             if (delayTimer == 0 && isOnScreen()) {
                 // From disassembly: move.w #sfx_SpikesMove,d0 / jsr (QueueSound2).l
                 try {
-                    AudioManager.getInstance().playSfx(Sonic1Sfx.SPIKES_MOVE.id);
+                    services().playSfx(Sonic1Sfx.SPIKES_MOVE.id);
                 } catch (Exception e) {
                     // Prevent audio failure from breaking game logic
                 }

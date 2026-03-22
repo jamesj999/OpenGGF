@@ -394,7 +394,7 @@ public class Sonic1MZBossInstance extends AbstractS1EggmanBossInstance {
         } else if (timer == 0x30) {
             // loc_1856C: Timer = $30 — stop, play zone music
             state.yVel = 0;
-            AudioManager.getInstance().playMusic(Sonic1Music.MZ.id);
+            services().playMusic(Sonic1Music.MZ.id);
         } else if (timer >= 0x38) {
             // Timer >= $38 — advance to escape
             state.routineSecondary = STATE_ESCAPE;

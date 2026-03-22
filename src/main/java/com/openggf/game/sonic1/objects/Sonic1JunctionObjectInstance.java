@@ -194,7 +194,7 @@ public class Sonic1JunctionObjectInstance extends AbstractObjectInstance
         // Lazily create child display object on first update
         if (childInstance == null) {
             childInstance = new Sonic1JunctionChildInstance(spawn);
-            LevelManager.getInstance().getObjectManager().addDynamicObject(childInstance);
+            services().objectManager().addDynamicObject(childInstance);
         }
 
         switch (routine) {
@@ -549,7 +549,7 @@ public class Sonic1JunctionObjectInstance extends AbstractObjectInstance
     }
 
     private AbstractPlayableSprite getPlayer() {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         if (camera != null) {
             return (AbstractPlayableSprite) camera.getFocusedSprite();
         }
@@ -607,7 +607,7 @@ public class Sonic1JunctionObjectInstance extends AbstractObjectInstance
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
-            ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+            ObjectRenderManager renderManager = services().renderManager();
             if (renderManager == null) {
                 return;
             }

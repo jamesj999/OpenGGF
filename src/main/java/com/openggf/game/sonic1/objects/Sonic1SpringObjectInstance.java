@@ -84,7 +84,7 @@ public class Sonic1SpringObjectInstance extends AbstractObjectInstance
         // Initial mapping frame: 0 = idle for both vertical and horizontal sheets
         this.mappingFrame = 0;
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         this.animationState = new ObjectAnimationState(
                 renderManager != null ? renderManager.getSpringAnimations() : null,
                 ANIM_IDLE,
@@ -228,7 +228,7 @@ public class Sonic1SpringObjectInstance extends AbstractObjectInstance
         animationState.setAnimId(ANIM_TRIGGERED);
 
         try {
-            AudioManager.getInstance().playSfx(Sonic1Sfx.SPRING.id);
+            services().playSfx(Sonic1Sfx.SPRING.id);
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic
         }
@@ -257,7 +257,7 @@ public class Sonic1SpringObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

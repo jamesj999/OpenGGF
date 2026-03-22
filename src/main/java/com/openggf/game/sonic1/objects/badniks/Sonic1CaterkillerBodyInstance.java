@@ -102,7 +102,6 @@ public class Sonic1CaterkillerBodyInstance extends AbstractObjectInstance
     // Per-segment ring buffer (objoff_2C+0..15). Child segments read from this.
     private final byte[] ringBuffer = new byte[16];
 
-    private final LevelManager levelManager;
 
     /**
      * Creates a Caterkiller body segment.
@@ -121,8 +120,7 @@ public class Sonic1CaterkillerBodyInstance extends AbstractObjectInstance
             CaterkillerParentState parentState,
             int x, int y, boolean facingLeft,
             boolean isAnimated, int segmentIndex,
-            int ringBufferStart,
-            LevelManager levelManager) {
+            int ringBufferStart) {
         super(new ObjectSpawn(x, y, 0x78, 0, 0, false, 0), "CaterkillerBody");
         this.head = head;
         this.parentState = parentState;
@@ -131,7 +129,7 @@ public class Sonic1CaterkillerBodyInstance extends AbstractObjectInstance
         this.facingLeft = facingLeft;
         this.isAnimatedSegment = isAnimated;
         this.ringBufferIndex = ringBufferStart;
-        this.levelManager = levelManager;
+        
         this.destroyed = false;
         this.fragmenting = false;
         this.xSubpixel = 0;

@@ -58,8 +58,7 @@ public class Sonic1CrabmeatProjectileInstance extends AbstractProjectileInstance
      * @param levelManager Level manager reference (unused, kept for spawn-site compatibility)
      */
     public Sonic1CrabmeatProjectileInstance(int x, int y, int xVel, int yVel,
-            Sonic1CrabmeatBadnikInstance parent,
-            com.openggf.level.LevelManager levelManager) {
+            Sonic1CrabmeatBadnikInstance parent) {
         super(new ObjectSpawn(x, y, 0x1F, 0, 0, false, 0), "CrabmeatBall",
                 xVel, yVel, GRAVITY, COLLISION_SIZE_INDEX, BOTTOM_MARGIN);
         this.animTimer = 0;

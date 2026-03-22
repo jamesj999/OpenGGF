@@ -1,7 +1,6 @@
 package com.openggf.game.sonic1.objects.bosses;
 
-import com.openggf.audio.AudioManager;
-import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
@@ -9,7 +8,6 @@ import com.openggf.game.sonic1.objects.Sonic1SeesawObjectInstance;
 import com.openggf.level.objects.ExplosionObjectInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -395,13 +393,14 @@ public class Sonic1SLZBossSpikeball extends AbstractObjectInstance
 
         // ROM: move.b #id_ExplosionBomb,obID(a0) — replace self with bomb explosion (0x3F)
         // Same explosion type as bomb badnik, uses Map_ExplodeBomb + ArtTile_Explosion
-        LevelManager lm = LevelManager.getInstance();
-        if (lm.getObjectManager() != null && lm.getObjectRenderManager() != null) {
+        var objectManager = services().objectManager();
+        var renderManager = services().renderManager();
+        if (objectManager != null && renderManager != null) {
             ExplosionObjectInstance explosion = new ExplosionObjectInstance(
-                    0x3F, bx, by, lm.getObjectRenderManager());
-            lm.getObjectManager().addDynamicObject(explosion);
+                    0x3F, bx, by, renderManager);
+            objectManager.addDynamicObject(explosion);
             // ROM: sfx_Bomb ($C4)
-            AudioManager.getInstance().playSfx(Sonic1Sfx.BOSS_EXPLOSION.id);
+            services().playSfx(Sonic1Sfx.BOSS_EXPLOSION.id);
         }
 
         // ROM: cmpi.w #$20,obSubtype(a0) / beq.s BossSpikeball_MakeFrag
@@ -566,10 +565,7 @@ public class Sonic1SLZBossSpikeball extends AbstractObjectInstance
         seesaw.clearPlayerStanding();
 
         try {
-            AudioManager audioManager = AudioManager.getInstance();
-            if (audioManager != null) {
-                audioManager.playSfx(Sonic1Sfx.SPRING.id);
-            }
+            services().playSfx(Sonic1Sfx.SPRING.id);
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic
         }
@@ -592,7 +588,7 @@ public class Sonic1SLZBossSpikeball extends AbstractObjectInstance
      * ROM: BossSpikeball_MakeFrag with BossSpikeball_FragSpeed velocities.
      */
     private void spawnFragments(int x, int y) {
-        var objectManager = LevelManager.getInstance().getObjectManager();
+        var objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -612,7 +608,7 @@ public class Sonic1SLZBossSpikeball extends AbstractObjectInstance
 
     @Override
     protected boolean isOnScreen() {
-        var camera = Camera.getInstance();
+        var camera = GameServices.camera();
         if (camera == null) {
             return true;
         }
@@ -658,7 +654,7 @@ public class Sonic1SLZBossSpikeball extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

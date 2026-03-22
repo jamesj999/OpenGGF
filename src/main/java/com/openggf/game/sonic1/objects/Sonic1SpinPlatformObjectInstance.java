@@ -177,7 +177,7 @@ public class Sonic1SpinPlatformObjectInstance extends AbstractObjectInstance
             // tst.b obRender(a0) / bpl.s .animate - play sound only if on-screen
             if (isOnScreen()) {
                 // move.w #sfx_Door,d0 / jsr (QueueSound2).l
-                AudioManager.getInstance().playSfx(Sonic1Sfx.DOOR.id);
+                services().playSfx(Sonic1Sfx.DOOR.id);
             }
         }
 
@@ -298,7 +298,7 @@ public class Sonic1SpinPlatformObjectInstance extends AbstractObjectInstance
      * but explicit detach ensures immediate single-frame accuracy.
      */
     private void detachRidingPlayer(AbstractPlayableSprite player) {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null && objectManager.isAnyPlayerRiding(this)) {
             objectManager.clearRidingObject(player);
         }
@@ -310,7 +310,7 @@ public class Sonic1SpinPlatformObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

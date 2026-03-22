@@ -113,8 +113,7 @@ public class Sonic1LavaBallMakerObjectInstance extends AbstractObjectInstance {
 
         // bsr.w FindFreeObj
         // bne.s LavaM_Wait
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
@@ -128,7 +127,7 @@ public class Sonic1LavaBallMakerObjectInstance extends AbstractObjectInstance {
                 ballSubtype,
                 0, false, 0);
         Sonic1LavaBallObjectInstance lavaBall = new Sonic1LavaBallObjectInstance(ballSpawn);
-        levelManager.getObjectManager().addDynamicObject(lavaBall);
+        services().objectManager().addDynamicObject(lavaBall);
     }
 
     // ========================================================================

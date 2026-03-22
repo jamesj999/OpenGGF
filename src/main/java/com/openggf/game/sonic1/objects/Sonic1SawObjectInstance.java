@@ -216,7 +216,7 @@ public class Sonic1SawObjectInstance extends AbstractObjectInstance
         // tst.b obRender(a0) / bpl.s .nosound01
         // move.w (v_framecount).w,d0 / andi.w #$F,d0 / bne.s .nosound01
         if (isOnScreen() && (frameCounter & TYPE01_SOUND_MASK) == 0) {
-            AudioManager.getInstance().playSfx(Sonic1Sfx.SAW.id);
+            services().playSfx(Sonic1Sfx.SAW.id);
         }
     }
 
@@ -260,7 +260,7 @@ public class Sonic1SawObjectInstance extends AbstractObjectInstance
         if (isOnScreen()) {
             int oscCheck = OscillationManager.getByte(OSC_TYPE02_OFFSET) & 0xFF;
             if (oscCheck == TYPE02_SOUND_TRIGGER) {
-                AudioManager.getInstance().playSfx(Sonic1Sfx.SAW.id);
+                services().playSfx(Sonic1Sfx.SAW.id);
             }
         }
     }
@@ -327,7 +327,7 @@ public class Sonic1SawObjectInstance extends AbstractObjectInstance
             collisionActive = true;
             mappingFrame = 2; // move.b #2,obFrame(a0) -> ground saw frame
 
-            AudioManager.getInstance().playSfx(Sonic1Sfx.SAW.id);
+            services().playSfx(Sonic1Sfx.SAW.id);
         } else {
             // .here03: Apply velocity and animate
             applyVelocity();
@@ -389,7 +389,7 @@ public class Sonic1SawObjectInstance extends AbstractObjectInstance
             collisionActive = true;
             mappingFrame = 2;
 
-            AudioManager.getInstance().playSfx(Sonic1Sfx.SAW.id);
+            services().playSfx(Sonic1Sfx.SAW.id);
         } else {
             // .here04: Apply velocity and animate
             applyVelocity();

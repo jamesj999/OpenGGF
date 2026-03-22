@@ -1,4 +1,5 @@
 package com.openggf.game.sonic1.objects.badniks;
+import com.openggf.game.GameServices;
 
 import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.graphics.GLCommand;
@@ -172,7 +173,7 @@ public class Sonic1BuzzBomberBadnikInstance extends AbstractBadnikInstance {
 
         Sonic1BuzzBomberMissileInstance missile = new Sonic1BuzzBomberMissileInstance(
                 missileX, missileY, missileXVel, MISSILE_Y_VEL,
-                facingLeft, this, com.openggf.game.GameServices.level());
+                facingLeft, this);
 
         services().objectManager().addDynamicObject(missile);
 

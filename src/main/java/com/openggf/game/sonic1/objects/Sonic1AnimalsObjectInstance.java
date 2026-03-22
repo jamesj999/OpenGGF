@@ -116,7 +116,7 @@ public class Sonic1AnimalsObjectInstance extends AbstractObjectInstance {
 
     public Sonic1AnimalsObjectInstance(ObjectSpawn spawn) {
         super(spawn, "Animals");
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         this.zoneAnimalRenderer = renderManager != null ? renderManager.getAnimalRenderer() : null;
         this.endingAnimalRenderer = renderManager != null ? renderManager.getRenderer(ObjectArtKeys.ANIMAL_ENDING) : null;
         this.currentX = spawn.x();
@@ -147,7 +147,7 @@ public class Sonic1AnimalsObjectInstance extends AbstractObjectInstance {
 
     private void initialiseFromEnemy() {
         // ROM: Anml_FromEnemy random zone pair selection.
-        int zoneId = LevelManager.getInstance().getRomZoneId();
+        int zoneId = services().romZoneId();
         int[] zoneVariants = resolveZoneVariants(zoneId);
         this.fromEnemyVariantIndex = zoneVariants[ThreadLocalRandom.current().nextInt(2)];
         AnimalType animalType = VARIABLE_ANIMALS[fromEnemyVariantIndex];

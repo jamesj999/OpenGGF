@@ -1,4 +1,5 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.GameServices;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
@@ -89,7 +90,6 @@ public class Sonic1CollapsingLedgeObjectInstance extends AbstractObjectInstance
             0x0C, 0x00
     };
 
-    private final LevelManager levelManager;
 
     // Routine state: 0=init, 2=touch, 4=collapse, 6=display(fragment), 8=delete, A=walkoff
     private int routine;
@@ -117,9 +117,9 @@ public class Sonic1CollapsingLedgeObjectInstance extends AbstractObjectInstance
     // Whether fragments have been spawned
     private boolean fragmented;
 
-    public Sonic1CollapsingLedgeObjectInstance(ObjectSpawn spawn, LevelManager levelManager) {
+    public Sonic1CollapsingLedgeObjectInstance(ObjectSpawn spawn) {
         super(spawn, "CollapsingLedge");
-        this.levelManager = levelManager;
+        
         this.subtype = spawn.subtype() & 0xFF;
         this.mappingFrame = subtype; // obSubtype -> obFrame: 0=left, 1=right
         this.x = spawn.x();
@@ -198,7 +198,7 @@ public class Sonic1CollapsingLedgeObjectInstance extends AbstractObjectInstance
             if (collapseFlag) {
                 // loc_82D0: WalkOff behavior while collapsing
                 collapseDelay--;
-                var objectManager = levelManager.getObjectManager();
+                var objectManager = services().objectManager();
                 boolean playerRiding = objectManager != null && player != null
                         && objectManager.isAnyPlayerRiding(this);
 
@@ -236,8 +236,8 @@ public class Sonic1CollapsingLedgeObjectInstance extends AbstractObjectInstance
      * recreate immediately while still near the camera.
      */
     private void destroyWithWindowGatedRespawn() {
-        if (!isDestroyed() && levelManager != null) {
-            var objectManager = levelManager.getObjectManager();
+        if (!isDestroyed() ) {
+            var objectManager = services().objectManager();
             if (objectManager != null) {
                 objectManager.removeFromActiveSpawns(spawn);
             }
@@ -283,7 +283,7 @@ public class Sonic1CollapsingLedgeObjectInstance extends AbstractObjectInstance
             collapseFlag = false;
         }
 
-        var objectManager = levelManager.getObjectManager();
+        var objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -291,7 +291,7 @@ public class Sonic1CollapsingLedgeObjectInstance extends AbstractObjectInstance
         // Get the smash frame pieces for this subtype
         // Frame 2 = leftsmash, Frame 3 = rightsmash
         int smashFrameIndex = mappingFrame + 2;
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
@@ -335,12 +335,12 @@ public class Sonic1CollapsingLedgeObjectInstance extends AbstractObjectInstance
         }
 
         // Play collapse sound: move.w #sfx_Collapse,d0 / jmp (QueueSound2).l
-        AudioManager.getInstance().playSfx(Sonic1Sfx.COLLAPSE.id);
+        services().playSfx(Sonic1Sfx.COLLAPSE.id);
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
@@ -426,7 +426,7 @@ public class Sonic1CollapsingLedgeObjectInstance extends AbstractObjectInstance
     }
 
     private boolean isOnScreenX(int objectX, int range) {
-        var camera = Camera.getInstance();
+        var camera = GameServices.camera();
         if (camera == null) {
             return true;
         }

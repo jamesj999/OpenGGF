@@ -1,4 +1,5 @@
 package com.openggf.game.sonic1.objects.bosses;
+import com.openggf.game.GameServices;
 
 import com.openggf.camera.Camera;
 import com.openggf.graphics.GLCommand;
@@ -66,7 +67,7 @@ public abstract class AbstractS1EggmanBossInstance extends AbstractBossInstance 
      * We approximate with a generous horizontal range of [-64, 384].
      */
     protected boolean isBossOnScreen() {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         int screenX = state.x - camera.getX();
         return screenX >= -64 && screenX <= 384;
     }
@@ -172,7 +173,7 @@ public abstract class AbstractS1EggmanBossInstance extends AbstractBossInstance 
      * @return true if the boss was destroyed (off-screen), false otherwise
      */
     protected boolean runCameraExpandEscape(int endBoundary) {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
 
         // Unfreeze camera during escape
         if (camera.getFrozen()) {

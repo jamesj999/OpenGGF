@@ -54,7 +54,7 @@ public class TestSolidObjectManager {
     @Test
     public void testCollapsingLedgeUsesSlopedSurfaceProfile() {
         ObjectSpawn spawn = new ObjectSpawn(100, 100, 0x1A, 0, 0, false, 0);
-        Sonic1CollapsingLedgeObjectInstance ledge = new Sonic1CollapsingLedgeObjectInstance(spawn, null);
+        Sonic1CollapsingLedgeObjectInstance ledge = new Sonic1CollapsingLedgeObjectInstance(spawn);
         ObjectManager manager = buildManager(ledge);
 
         TestPlayableSprite player = new TestPlayableSprite((short) 0, (short) 0);
@@ -91,7 +91,7 @@ public class TestSolidObjectManager {
     @Test
     public void testCollapsingLedgeFragmentWalkOffWindowRemainsSolid() throws Exception {
         ObjectSpawn spawn = new ObjectSpawn(100, 100, 0x1A, 0, 0, false, 0);
-        Sonic1CollapsingLedgeObjectInstance ledge = new Sonic1CollapsingLedgeObjectInstance(spawn, null);
+        Sonic1CollapsingLedgeObjectInstance ledge = new Sonic1CollapsingLedgeObjectInstance(spawn);
 
         setPrivateInt(ledge, "routine", 6);
         setPrivateBoolean(ledge, "collapseFlag", true);

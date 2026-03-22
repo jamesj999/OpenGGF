@@ -87,7 +87,7 @@ public class Sonic1EggPrisonButtonObjectInstance extends AbstractObjectInstance
      */
     private void resolveParent() {
         parentResolved = true;
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -130,7 +130,7 @@ public class Sonic1EggPrisonButtonObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         PatternSpriteRenderer renderer = renderManager != null
                 ? renderManager.getEggPrisonRenderer()
                 : null;

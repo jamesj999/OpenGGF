@@ -1,4 +1,5 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.GameServices;
 
 import com.openggf.camera.Camera;
 import com.openggf.graphics.GLCommand;
@@ -66,7 +67,7 @@ public class Sonic1EndingSTHObjectInstance extends AbstractObjectInstance {
 
     public Sonic1EndingSTHObjectInstance() {
         super(null, "EndSTH");
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         this.renderer = renderManager != null ? renderManager.getRenderer(ObjectArtKeys.END_STH) : null;
 
         // Routine 0: ESth_Main — initialize
@@ -107,7 +108,7 @@ public class Sonic1EndingSTHObjectInstance extends AbstractObjectInstance {
         if (timer < 0) {
             // ROM: move.b #id_Credits,(v_gamemode).w
             // Signal GameLoop to begin the credits sequence via fade-to-black.
-            LevelManager.getInstance().requestCreditsTransition();
+            GameServices.level().requestCreditsTransition();
             setDestroyed(true);
         }
     }
@@ -128,7 +129,7 @@ public class Sonic1EndingSTHObjectInstance extends AbstractObjectInstance {
         }
         // ROM: obRender = 0 → screen-space coordinates.
         // Convert screen coords to world coords by adding camera position.
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         int worldX = screenX + camera.getX();
         int worldY = SCREEN_Y + camera.getY();
         renderer.drawFrameIndex(0, worldX, worldY, false, false);

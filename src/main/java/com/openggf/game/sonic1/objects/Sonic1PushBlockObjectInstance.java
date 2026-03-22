@@ -1,6 +1,7 @@
 package com.openggf.game.sonic1.objects;
 
 import com.openggf.audio.AudioManager;
+import com.openggf.game.GameServices;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
@@ -172,9 +173,8 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
         this.x = spawn.x();
         this.y = spawn.y();
 
-        LevelManager lm = LevelManager.getInstance();
-        this.zoneIndex = lm != null ? lm.getRomZoneId() : 0;
-        this.actIndex = lm != null ? lm.getCurrentAct() : 0;
+        this.zoneIndex = GameServices.level().getRomZoneId();
+        this.actIndex = GameServices.level().getCurrentAct();
         this.isLZ = (zoneIndex == Sonic1Constants.ZONE_LZ);
         this.isMZ = (zoneIndex == Sonic1Constants.ZONE_MZ);
 
@@ -481,12 +481,11 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
 
         // Find the chained stomper instance and read its Y position
         // ROM uses v_obj31ypos which is written by the stomper every frame
-        LevelManager lm = LevelManager.getInstance();
-        if (lm == null || lm.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
-        Collection<ObjectInstance> activeObjects = lm.getObjectManager().getActiveObjects();
+        Collection<ObjectInstance> activeObjects = services().objectManager().getActiveObjects();
         for (ObjectInstance obj : activeObjects) {
             ObjectSpawn objSpawn = obj.getSpawn();
             if (objSpawn != null && objSpawn.objectId() == Sonic1ObjectIds.CHAINED_STOMPER) {
@@ -666,7 +665,7 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
         // naturally when the player continues pushing.
         if (frameCounter - lastPushSoundFrame >= PUSH_SOUND_DURATION) {
             try {
-                AudioManager.getInstance().playSfx(Sonic1Sfx.PUSH.id);
+                services().playSfx(Sonic1Sfx.PUSH.id);
             } catch (Exception e) {
                 // Prevent audio failure from breaking game logic
             }
@@ -753,8 +752,7 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
 
         // PushB_LoadLava: spawn GeyserMaker object
         // _move.b #id_GeyserMaker,obID(a1)
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
         // move.w obX(a0),obX(a1) / add.w d2,obX(a1)
@@ -762,7 +760,7 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
         // move.l a0,objoff_3C(a1)
         Sonic1LavaGeyserMakerObjectInstance maker = new Sonic1LavaGeyserMakerObjectInstance(
                 x + xOffset, y + 0x10, 0, this);
-        levelManager.getObjectManager().addDynamicObject(maker);
+        services().objectManager().addDynamicObject(maker);
     }
 
     /**

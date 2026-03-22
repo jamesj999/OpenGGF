@@ -136,7 +136,7 @@ public class Sonic1EggPrisonObjectInstance extends AbstractObjectInstance
         LOGGER.info("S1 EggPrison triggered at X=" + spawn.x());
 
         // ROM: clr.b (f_timecount).w — stop time counter
-        var levelGamestate = LevelManager.getInstance().getLevelGamestate();
+        var levelGamestate = services().levelGamestate();
         if (levelGamestate != null) {
             levelGamestate.pauseTimer();
         }
@@ -145,7 +145,7 @@ public class Sonic1EggPrisonObjectInstance extends AbstractObjectInstance
         // while Sonic runs off the right side of the screen.
         // ROM: clr.b (f_lockscreen).w — in the ROM this clears the scroll lock,
         // but the camera stays put because v_limitleft2 = v_limitright2.
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         if (camera != null) {
             if (camera.getFrozen()) {
                 camera.setFrozen(false);
@@ -266,8 +266,8 @@ public class Sonic1EggPrisonObjectInstance extends AbstractObjectInstance
      * ROM: Pri_Explosion random offset logic.
      */
     private void spawnExplosion() {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectManager objectManager = services().objectManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (objectManager == null || renderManager == null) {
             return;
         }
@@ -291,7 +291,7 @@ public class Sonic1EggPrisonObjectInstance extends AbstractObjectInstance
      * ROM: Pri_Explosion .makeanimal loop — d6=7, d5=$9A, d4=-$1C
      */
     private void spawnInitialAnimals() {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -318,7 +318,7 @@ public class Sonic1EggPrisonObjectInstance extends AbstractObjectInstance
      * ROM: Pri_Animals random spawn — andi.w #$1F,d0 / subq.w #6,d0
      */
     private void spawnRandomAnimal() {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -345,7 +345,7 @@ public class Sonic1EggPrisonObjectInstance extends AbstractObjectInstance
      * ROM: Pri_EndAct loop through object RAM for id_Animals.
      */
     private boolean areAnimalsPresent() {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return false;
         }
@@ -376,21 +376,20 @@ public class Sonic1EggPrisonObjectInstance extends AbstractObjectInstance
 
         // ROM: move.w #bgm_GotThrough,d0; jsr (QueueSound2).l
         try {
-            AudioManager.getInstance().playMusic(Sonic1Music.GOT_THROUGH.id);
+            services().playMusic(Sonic1Music.GOT_THROUGH.id);
         } catch (Exception e) {
             LOGGER.warning("Failed to play stage clear music: " + e.getMessage());
         }
 
         // Spawn results screen
-        LevelManager levelManager = LevelManager.getInstance();
-        var levelGamestate = levelManager.getLevelGamestate();
+        var levelGamestate = services().levelGamestate();
         int elapsedSeconds = levelGamestate != null ? levelGamestate.getElapsedSeconds() : 0;
         int ringCount = player.getRingCount();
-        int actNumber = levelManager.getCurrentAct() + 1;
+        int actNumber = services().currentAct() + 1;
 
         Sonic1ResultsScreenObjectInstance resultsScreen = new Sonic1ResultsScreenObjectInstance(
                 elapsedSeconds, ringCount, actNumber);
-        ObjectManager objectManager = levelManager.getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null) {
             objectManager.addDynamicObject(resultsScreen);
         }
@@ -422,7 +421,7 @@ public class Sonic1EggPrisonObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         PatternSpriteRenderer renderer = renderManager != null
                 ? renderManager.getEggPrisonRenderer()
                 : null;

@@ -1,6 +1,5 @@
 package com.openggf.game.sonic1.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
 import com.openggf.graphics.GLCommand;
@@ -399,10 +398,7 @@ public class Sonic1SeesawBallObjectInstance extends AbstractObjectInstance
 
         // move.w #sfx_Spring,d0 / jsr (QueueSound2).l
         try {
-            AudioManager audioManager = AudioManager.getInstance();
-            if (audioManager != null) {
-                audioManager.playSfx(Sonic1Sfx.SPRING.id);
-            }
+            services().playSfx(Sonic1Sfx.SPRING.id);
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic
         }

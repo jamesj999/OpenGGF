@@ -1,4 +1,5 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.GameServices;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic1.Sonic1ZoneFeatureProvider;
@@ -67,7 +68,7 @@ public class Sonic1FlappingDoorObjectInstance extends AbstractObjectInstance
             animationId ^= 1;
             resetAnimation();
             if (isOnScreen()) {
-                AudioManager.getInstance().playSfx(Sonic1Sfx.DOOR.id);
+                services().playSfx(Sonic1Sfx.DOOR.id);
             }
         }
 
@@ -141,7 +142,7 @@ public class Sonic1FlappingDoorObjectInstance extends AbstractObjectInstance
     }
 
     private void setWindTunnelDisabled(boolean disabled) {
-        ZoneFeatureProvider provider = LevelManager.getInstance().getZoneFeatureProvider();
+        ZoneFeatureProvider provider = GameServices.level().getZoneFeatureProvider();
         if (provider instanceof Sonic1ZoneFeatureProvider sonic1) {
             sonic1.setWindTunnelDisabled(disabled);
         }

@@ -1,4 +1,5 @@
 package com.openggf.game.sonic1.objects.badniks;
+import com.openggf.game.GameServices;
 
 import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.graphics.GLCommand;
@@ -193,7 +194,7 @@ public class Sonic1MotobugBadnikInstance extends AbstractBadnikInstance {
      */
     private void spawnSmoke() {
         Sonic1MotobugSmokeInstance smoke = new Sonic1MotobugSmokeInstance(
-                currentX, currentY, facingLeft, com.openggf.game.GameServices.level());
+                currentX, currentY, facingLeft);
         services().objectManager().addDynamicObject(smoke);
     }
 

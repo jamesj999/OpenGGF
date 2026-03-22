@@ -178,7 +178,7 @@ public class Sonic1GrassFireObjectInstance extends AbstractObjectInstance
         // Play burning sound on first frame (GFire_Main: jsr QueueSound2)
         if (!soundPlayed) {
             soundPlayed = true;
-            AudioManager.getInstance().playSfx(Sonic1Sfx.BURNING.id);
+            services().playSfx(Sonic1Sfx.BURNING.id);
         }
 
         if (isWalker) {
@@ -250,8 +250,7 @@ public class Sonic1GrassFireObjectInstance extends AbstractObjectInstance
      * From loc_B238: FindNextFreeObj / _move.b #id_GrassFire,obID(a1) / ...
      */
     private void spawnChildFire() {
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
@@ -268,7 +267,7 @@ public class Sonic1GrassFireObjectInstance extends AbstractObjectInstance
 
         Sonic1GrassFireObjectInstance child = new Sonic1GrassFireObjectInstance(
                 currentX, childBaseY, sinkOffset, slopeData, parentPlatform, false);
-        levelManager.getObjectManager().addDynamicObject(child);
+        services().objectManager().addDynamicObject(child);
         children.add(child);
 
         // Register child with parent platform for sink offset updates

@@ -1,4 +1,5 @@
 package com.openggf.game.sonic1.objects.badniks;
+import com.openggf.game.GameServices;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
@@ -73,7 +74,6 @@ public class Sonic1CannonballInstance extends AbstractObjectInstance
     private static final int OFFSCREEN_Y_MARGIN = 0xE0;
 
     // --- Instance state ---
-    private final LevelManager levelManager;
     private int currentX;
     private int currentY;
     private int xVelocity;
@@ -94,10 +94,9 @@ public class Sonic1CannonballInstance extends AbstractObjectInstance
      * @param subtype     Ball Hog's subtype (explosion timer = subtype * 60)
      * @param levelManager Level manager reference
      */
-    public Sonic1CannonballInstance(int x, int y, int xVel, int subtype,
-                                    LevelManager levelManager) {
+    public Sonic1CannonballInstance(int x, int y, int xVel, int subtype) {
         super(new ObjectSpawn(x, y, 0x20, subtype, 0, false, 0), "Cannonball");
-        this.levelManager = levelManager;
+        
         this.currentX = x;
         this.currentY = y;
         this.xVelocity = xVel;
@@ -218,7 +217,7 @@ public class Sonic1CannonballInstance extends AbstractObjectInstance
         }
 
         // Cbal_Display: check if below level bottom
-        int levelBottom = Camera.getInstance().getMaxY() & 0xFFFF;
+        int levelBottom = GameServices.camera().getMaxY() & 0xFFFF;
         int deleteThreshold = levelBottom + OFFSCREEN_Y_MARGIN;
         if (currentY > deleteThreshold) {
             // DeleteObject: gone below level
@@ -248,7 +247,7 @@ public class Sonic1CannonballInstance extends AbstractObjectInstance
         destroyed = true;
         setDestroyed(true);
 
-        var objectManager = levelManager.getObjectManager();
+        var objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -256,11 +255,11 @@ public class Sonic1CannonballInstance extends AbstractObjectInstance
         // Spawn bomb explosion (object $3F)
         ExplosionObjectInstance explosion = new ExplosionObjectInstance(
                 0x3F, currentX, currentY,
-                levelManager.getObjectRenderManager());
+                services().renderManager());
         objectManager.addDynamicObject(explosion);
 
         // sfx_Bomb = $C4 = BOSS_EXPLOSION
-        AudioManager.getInstance().playSfx(Sonic1Sfx.BOSS_EXPLOSION.id);
+        services().playSfx(Sonic1Sfx.BOSS_EXPLOSION.id);
     }
 
     // --- TouchResponseProvider ---
@@ -299,7 +298,7 @@ public class Sonic1CannonballInstance extends AbstractObjectInstance
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

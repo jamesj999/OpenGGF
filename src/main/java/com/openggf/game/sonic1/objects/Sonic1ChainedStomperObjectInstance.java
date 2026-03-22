@@ -417,7 +417,7 @@ public class Sonic1ChainedStomperObjectInstance extends AbstractObjectInstance
             yVelocity = 0;
             // Play stomp sound when on-screen
             if (isOnScreen(128)) {
-                AudioManager.getInstance().playSfx(Sonic1Sfx.CHAIN_STOMP.id);
+                services().playSfx(Sonic1Sfx.CHAIN_STOMP.id);
             }
         }
     }
@@ -438,7 +438,7 @@ public class Sonic1ChainedStomperObjectInstance extends AbstractObjectInstance
         }
         // Play rise sound every 16 frames when on-screen
         if ((frameCounter & SOUND_INTERVAL_MASK) == 0 && isOnScreen(128)) {
-            AudioManager.getInstance().playSfx(Sonic1Sfx.CHAIN_RISE.id);
+            services().playSfx(Sonic1Sfx.CHAIN_RISE.id);
         }
         yOffset -= RISE_SPEED;
         if (yOffset < 0) {
@@ -465,7 +465,7 @@ public class Sonic1ChainedStomperObjectInstance extends AbstractObjectInstance
             waitTimer = WAIT_TIMER;
             // Play stomp sound when on-screen
             if (isOnScreen(128)) {
-                AudioManager.getInstance().playSfx(Sonic1Sfx.CHAIN_STOMP.id);
+                services().playSfx(Sonic1Sfx.CHAIN_STOMP.id);
             }
         }
     }
@@ -483,7 +483,7 @@ public class Sonic1ChainedStomperObjectInstance extends AbstractObjectInstance
     private void riseBlockType01(int frameCounter) {
         // Play rise sound every 16 frames when on-screen
         if ((frameCounter & SOUND_INTERVAL_MASK) == 0 && isOnScreen(128)) {
-            AudioManager.getInstance().playSfx(Sonic1Sfx.CHAIN_RISE.id);
+            services().playSfx(Sonic1Sfx.CHAIN_RISE.id);
         }
         yOffset -= RISE_SPEED;
         if (yOffset < 0) {

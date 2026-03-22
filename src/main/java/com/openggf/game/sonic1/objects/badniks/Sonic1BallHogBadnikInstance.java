@@ -1,4 +1,5 @@
 package com.openggf.game.sonic1.objects.badniks;
+import com.openggf.game.GameServices;
 
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
@@ -268,7 +269,7 @@ public class Sonic1BallHogBadnikInstance extends AbstractObjectInstance
         int subtype = spawn.subtype();
 
         Sonic1CannonballInstance cannonball = new Sonic1CannonballInstance(
-                ballX, ballY, ballXVel, subtype, com.openggf.game.GameServices.level());
+                ballX, ballY, ballXVel, subtype);
         objectManager.addDynamicObject(cannonball);
     }
 

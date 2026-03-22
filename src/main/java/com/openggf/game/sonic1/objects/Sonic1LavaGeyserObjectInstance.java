@@ -1,4 +1,5 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.GameServices;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
@@ -225,8 +226,7 @@ public class Sonic1LavaGeyserObjectInstance extends AbstractObjectInstance
         this.animTimer = 0;
 
         // .activate: create body child at Y+0x60
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager != null && levelManager.getObjectManager() != null) {
+        if (services().objectManager() != null) {
             // Create body piece (routine 4 = loc_EFFC)
             ObjectSpawn bodySpawn = new ObjectSpawn(
                     currentX, currentY + BODY_Y_OFFSET,
@@ -236,7 +236,7 @@ public class Sonic1LavaGeyserObjectInstance extends AbstractObjectInstance
             body.originY = this.originY + BODY_Y_OFFSET;
             body.columnAnimTimer = 7; // start with timer at 7 for immediate frame select
             body.columnAnimFrame = 0;
-            levelManager.getObjectManager().addDynamicObject(body);
+            services().objectManager().addDynamicObject(body);
 
             // Lavafall: create third piece as independent HEAD at Y+0x100
             // ROM: moveq #0,d1 / bsr.w .loop (creates one piece via .makelava)
@@ -253,7 +253,7 @@ public class Sonic1LavaGeyserObjectInstance extends AbstractObjectInstance
                 third.headAnimId = 2; // .end animation (set by .makelava since subtype=1)
                 third.velY = 0; // starts stationary, falls under gravity
                 // Don't call initialize() - manually configured, no child hierarchy
-                levelManager.getObjectManager().addDynamicObject(third);
+                services().objectManager().addDynamicObject(third);
 
                 // move.b #0,obSubtype(a0) — clear head's subtype to 0
                 // Head now uses Type00 (signals maker anim 3/afRoutine when done)
@@ -262,7 +262,7 @@ public class Sonic1LavaGeyserObjectInstance extends AbstractObjectInstance
         }
 
         // .sound: move.w #sfx_Burning,d0 / jsr (QueueSound2).l
-        AudioManager.getInstance().playSfx(Sonic1Sfx.BURNING.id);
+        services().playSfx(Sonic1Sfx.BURNING.id);
     }
 
     // ========================================================================
@@ -485,7 +485,7 @@ public class Sonic1LavaGeyserObjectInstance extends AbstractObjectInstance
      * round both X positions to $80 and compare against 128+320+192.
      */
     private boolean isWithinOutOfRangeWindow(int objectX) {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         if (camera == null) {
             return true;
         }

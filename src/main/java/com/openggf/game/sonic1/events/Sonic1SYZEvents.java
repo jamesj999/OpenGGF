@@ -86,10 +86,7 @@ class Sonic1SYZEvents extends Sonic1ZoneEvents {
         }
 
         // ROM: Spawn boss block object which self-replicates into 10 blocks
-        LevelManager lm = GameServices.level();
-        if (lm != null) {
-            Sonic1BossBlockInstance.spawnAllBlocks(lm);
-        }
+        Sonic1BossBlockInstance.spawnAllBlocks();
 
         eventRoutine += 2; // advance to DLE_SYZ3boss
     }

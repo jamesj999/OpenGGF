@@ -34,7 +34,7 @@ public class TestSonic1CaterkillerBodyChaining {
         parentState.ringBuffer[4] = 2; // apply +2 Y delta
 
         Sonic1CaterkillerBodyInstance body = new Sonic1CaterkillerBodyInstance(
-                head, parentState, 100, 50, true, false, 0, 4, levelManager);
+                head, parentState, 100, 50, true, false, 0, 4);
 
         body.update(0, null);
 
@@ -51,7 +51,7 @@ public class TestSonic1CaterkillerBodyChaining {
         FakeParentState parentState = new FakeParentState();
 
         Sonic1CaterkillerBodyInstance body = new Sonic1CaterkillerBodyInstance(
-                head, parentState, 0, 0, true, false, 0, 4, levelManager);
+                head, parentState, 0, 0, true, false, 0, 4);
 
         assertEquals("Body touch should route through HURT category with size index 0x0B",
                 0x8B, body.getCollisionFlags());
@@ -65,7 +65,7 @@ public class TestSonic1CaterkillerBodyChaining {
         FakeParentState parentState = new FakeParentState();
 
         Sonic1CaterkillerBodyInstance body = new Sonic1CaterkillerBodyInstance(
-                head, parentState, 0, 0, true, false, 0, 4, levelManager);
+                head, parentState, 0, 0, true, false, 0, 4);
 
         assertFalse("Head should not start in fragment mode", head.isFragmenting());
         assertFalse("Body should not start in fragment mode", body.isFragmenting());
@@ -86,7 +86,7 @@ public class TestSonic1CaterkillerBodyChaining {
         FakeParentState parentState = new FakeParentState();
 
         Sonic1CaterkillerBodyInstance body = new Sonic1CaterkillerBodyInstance(
-                head, parentState, 32, 32, true, false, 0, 4, levelManager);
+                head, parentState, 32, 32, true, false, 0, 4);
 
         head.onUnload();
         body.update(0, null);
@@ -104,7 +104,7 @@ public class TestSonic1CaterkillerBodyChaining {
         FakeParentState parentState = new FakeParentState();
 
         Sonic1CaterkillerBodyInstance body = new Sonic1CaterkillerBodyInstance(
-                head, parentState, 1000, 0, true, false, 0, 4, levelManager);
+                head, parentState, 1000, 0, true, false, 0, 4);
 
         head.triggerFragmentFromBodyHit();
         body.update(0, null); // enters fragment mode

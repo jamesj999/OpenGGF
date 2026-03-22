@@ -196,7 +196,7 @@ public class Sonic1TryAgainEmeraldsObjectInstance extends AbstractObjectInstance
         if (isDestroyed() || renderer == null || !renderer.isReady()) {
             return;
         }
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         int camX = camera.getX();
         int camY = camera.getY();
         for (int i = 0; i < count; i++) {

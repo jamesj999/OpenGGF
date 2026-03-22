@@ -154,7 +154,7 @@ public class Sonic1FalseFloorInstance extends AbstractObjectInstance
         currentY = MASTER_Y;
         updateDynamicSpawn(currentX, currentY);
 
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -218,7 +218,7 @@ public class Sonic1FalseFloorInstance extends AbstractObjectInstance
     // ---- Routine 6: Cleanup ----
     // ROM: bclr #3,obStatus(a0); bclr #3,(v_player+obStatus).w; bra DeleteObject
     private void updateCleanup(AbstractPlayableSprite player) {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null) {
             objectManager.clearRidingObject(player);
 
@@ -367,7 +367,7 @@ public class Sonic1FalseFloorInstance extends AbstractObjectInstance
         private void breakApart() {
             broken = true;
 
-            ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+            ObjectManager objectManager = services().objectManager();
             if (objectManager == null) {
                 setDestroyed(true);
                 return;
@@ -387,7 +387,7 @@ public class Sonic1FalseFloorInstance extends AbstractObjectInstance
             }
 
             // ROM: move.w #sfx_WallSmash,d0; jsr (QueueSound2).l
-            AudioManager.getInstance().playSfx(Sonic1Sfx.WALL_SMASH.id);
+            services().playSfx(Sonic1Sfx.WALL_SMASH.id);
 
             setDestroyed(true);
         }
@@ -398,7 +398,7 @@ public class Sonic1FalseFloorInstance extends AbstractObjectInstance
                 return;
             }
 
-            ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+            ObjectRenderManager renderManager = services().renderManager();
             if (renderManager != null) {
                 PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.SBZ2_FALSE_FLOOR);
                 if (renderer != null && renderer.isReady()) {
@@ -483,7 +483,7 @@ public class Sonic1FalseFloorInstance extends AbstractObjectInstance
                 return;
             }
 
-            ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+            ObjectRenderManager renderManager = services().renderManager();
             if (renderManager != null) {
                 PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.SBZ2_FALSE_FLOOR);
                 if (renderer != null && renderer.isReady()) {

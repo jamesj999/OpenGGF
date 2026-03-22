@@ -1,4 +1,5 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.GameServices;
 
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
@@ -89,10 +90,10 @@ public class Sonic1SwingingPlatformObjectInstance extends AbstractObjectInstance
     // obColType for touch collision (SBZ=$86, Giant Ball=$81, 0=no touch collision)
     private final int collisionType;
 
-    public Sonic1SwingingPlatformObjectInstance(ObjectSpawn spawn, LevelManager levelManager) {
+    public Sonic1SwingingPlatformObjectInstance(ObjectSpawn spawn) {
         super(spawn, "SwingingPlatform");
 
-        int zoneIndex = levelManager.getRomZoneId();
+        int zoneIndex = GameServices.level().getRomZoneId();
         int subtype = spawn.subtype() & 0xFF;
         this.chainCount = subtype & 0x0F;
         boolean isGiantBall = (subtype & 0x10) != 0;
@@ -369,7 +370,7 @@ public class Sonic1SwingingPlatformObjectInstance extends AbstractObjectInstance
 
     private boolean isBaseXOnScreen() {
         int objectX = baseX;
-        var camera = Camera.getInstance();
+        var camera = GameServices.camera();
         if (camera == null) {
             return true;
         }

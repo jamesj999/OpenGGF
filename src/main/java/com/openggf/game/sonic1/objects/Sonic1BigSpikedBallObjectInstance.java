@@ -1,4 +1,5 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.GameServices;
 
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
@@ -276,7 +277,7 @@ public class Sonic1BigSpikedBallObjectInstance extends AbstractObjectInstance
     }
 
     private boolean isOrigXOnScreen() {
-        var camera = Camera.getInstance();
+        var camera = GameServices.camera();
         if (camera == null) {
             return true;
         }

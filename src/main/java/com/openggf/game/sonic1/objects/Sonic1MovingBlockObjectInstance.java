@@ -1,4 +1,5 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.GameServices;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic1.Sonic1SwitchManager;
@@ -135,9 +136,9 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
     // Which art key to use for this zone
     private final String artKey;
 
-    public Sonic1MovingBlockObjectInstance(ObjectSpawn spawn, LevelManager levelManager) {
+    public Sonic1MovingBlockObjectInstance(ObjectSpawn spawn) {
         super(spawn, "MovingBlock");
-        this.zoneIndex = levelManager.getRomZoneId();
+        this.zoneIndex = GameServices.level().getRomZoneId();
 
         int fullSubtype = spawn.subtype() & 0xFF;
 
@@ -554,7 +555,7 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
      * Matches the S1 out_of_range macro behavior.
      */
     private boolean isInRange(int objectX) {
-        var camera = Camera.getInstance();
+        var camera = GameServices.camera();
         if (camera == null) {
             return true;
         }

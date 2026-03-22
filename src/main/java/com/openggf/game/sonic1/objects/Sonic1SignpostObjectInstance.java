@@ -1,4 +1,5 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.GameServices;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
@@ -122,16 +123,13 @@ public class Sonic1SignpostObjectInstance extends AbstractObjectInstance {
 
         // Signpost is disabled in act 3 (boss acts)
         // S1 only has signposts in acts 1 and 2 (indices 0 and 1)
-        LevelManager levelMgr = LevelManager.getInstance();
-        if (levelMgr != null) {
-            int currentAct = levelMgr.getCurrentAct();
-            if (currentAct >= BOSS_ACT_INDEX) {
-                ObjectManager objMgr = levelMgr.getObjectManager();
-                if (objMgr != null) {
-                    objMgr.markRemembered(spawn);
-                }
-                setDestroyed(true);
+        int currentAct = GameServices.level().getCurrentAct();
+        if (currentAct >= BOSS_ACT_INDEX) {
+            ObjectManager objMgr = GameServices.level().getObjectManager();
+            if (objMgr != null) {
+                objMgr.markRemembered(spawn);
             }
+            setDestroyed(true);
         }
     }
 
@@ -170,13 +168,13 @@ public class Sonic1SignpostObjectInstance extends AbstractObjectInstance {
 
         // ROM: move.w #sfx_Signpost,d0; jsr (QueueSound1).l
         try {
-            AudioManager.getInstance().playSfx(Sonic1Sfx.SIGNPOST.id);
+            services().playSfx(Sonic1Sfx.SIGNPOST.id);
         } catch (Exception e) {
             LOGGER.warning("Failed to play signpost sound: " + e.getMessage());
         }
 
         // ROM: clr.b (f_timecount).w - stop time counter
-        var levelGamestate = LevelManager.getInstance().getLevelGamestate();
+        var levelGamestate = services().levelGamestate();
         if (levelGamestate != null) {
             levelGamestate.pauseTimer();
         }
@@ -185,7 +183,7 @@ public class Sonic1SignpostObjectInstance extends AbstractObjectInstance {
         // S1 uses target boundaries (v_limitleft2/v_limitright2), not current ones.
         // v_limitleft1 eases toward v_limitleft2 at 2px/frame — the camera does NOT
         // snap immediately. Use setMinXTarget() to match this easing behavior.
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         if (camera != null) {
             camera.setMinXTarget(camera.getMaxX());
             LOGGER.fine("Camera lock target: minXTarget set to maxX=" + camera.getMaxX());
@@ -283,7 +281,7 @@ public class Sonic1SignpostObjectInstance extends AbstractObjectInstance {
             int sparkleY = spawn.y() + offset[1];
 
             SignpostSparkleObjectInstance sparkle = new SignpostSparkleObjectInstance(sparkleX, sparkleY);
-            ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+            ObjectManager objectManager = services().objectManager();
             if (objectManager != null) {
                 objectManager.addDynamicObject(sparkle);
             }
@@ -322,7 +320,7 @@ public class Sonic1SignpostObjectInstance extends AbstractObjectInstance {
         // Check if player has walked far enough off-screen
         // ROM: move.w (v_limitright2).w,d1; addi.w #$128,d1
         // v_limitright2 = camera maxX (level boundary, unchanged by lock)
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         if (camera != null && !resultsSpawned) {
             int rightLimit = camera.getMaxX() + WALK_OFF_OFFSET;
             if (player.getCentreX() >= rightLimit) {
@@ -347,20 +345,19 @@ public class Sonic1SignpostObjectInstance extends AbstractObjectInstance {
 
         // ROM: move.w #bgm_GotThrough,d0; jsr (QueueSound2).l
         try {
-            AudioManager.getInstance().playMusic(Sonic1Music.GOT_THROUGH.id);
+            services().playMusic(Sonic1Music.GOT_THROUGH.id);
         } catch (Exception e) {
             LOGGER.warning("Failed to play stage clear music: " + e.getMessage());
         }
 
-        LevelManager levelManager = LevelManager.getInstance();
-        var levelGamestate = levelManager.getLevelGamestate();
+        var levelGamestate = services().levelGamestate();
         int elapsedSeconds = levelGamestate != null ? levelGamestate.getElapsedSeconds() : 0;
         int ringCount = player.getRingCount();
-        int actNumber = levelManager.getCurrentAct() + 1; // 1-indexed for display
+        int actNumber = services().currentAct() + 1; // 1-indexed for display
 
         Sonic1ResultsScreenObjectInstance resultsScreen = new Sonic1ResultsScreenObjectInstance(
                 elapsedSeconds, ringCount, actNumber);
-        ObjectManager objectManager = levelManager.getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null) {
             objectManager.addDynamicObject(resultsScreen);
             LOGGER.info("S1 Results screen spawned");
@@ -369,7 +366,7 @@ public class Sonic1SignpostObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

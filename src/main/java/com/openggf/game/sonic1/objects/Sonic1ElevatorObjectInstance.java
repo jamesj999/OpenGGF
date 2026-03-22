@@ -1,4 +1,5 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.GameServices;
 
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
@@ -342,7 +343,7 @@ public class Sonic1ElevatorObjectInstance extends AbstractObjectInstance
                 // bclr #3,obStatus(a1) — clear standing-on-object
                 // move.b #2,obRoutine(a1) — reset player routine
                 player.setAir(true);
-                var objectManager = LevelManager.getInstance().getObjectManager();
+                var objectManager = services().objectManager();
                 if (objectManager != null) {
                     objectManager.clearRidingObject(player);
                 }
@@ -422,7 +423,7 @@ public class Sonic1ElevatorObjectInstance extends AbstractObjectInstance
             // move.w obX(a0),obX(a1)
             // move.w obY(a0),obY(a1)
             // move.b #$E,obSubtype(a1)
-            var objectManager = LevelManager.getInstance().getObjectManager();
+            var objectManager = services().objectManager();
             if (objectManager != null) {
                 ObjectInstance child = new Sonic1ElevatorObjectInstance(origX, origY);
                 objectManager.addDynamicObject(child);
@@ -489,7 +490,7 @@ public class Sonic1ElevatorObjectInstance extends AbstractObjectInstance
      * out_of_range.w macro applied to elev_origX.
      */
     private boolean isOrigXOnScreen() {
-        var camera = Camera.getInstance();
+        var camera = GameServices.camera();
         if (camera == null) {
             return true;
         }

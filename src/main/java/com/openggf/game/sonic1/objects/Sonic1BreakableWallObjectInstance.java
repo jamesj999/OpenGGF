@@ -1,4 +1,5 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.GameServices;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
@@ -95,7 +96,7 @@ public class Sonic1BreakableWallObjectInstance extends AbstractObjectInstance
         this.frameIndex = spawn.subtype() & 0xFF;
 
         // RememberState: check if already broken
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null && objectManager.isRemembered(spawn)) {
             this.broken = true;
             setDestroyed(true);
@@ -156,7 +157,7 @@ public class Sonic1BreakableWallObjectInstance extends AbstractObjectInstance
         broken = true;
 
         // Mark as remembered (RememberState) so it stays broken
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null) {
             objectManager.markRemembered(spawn);
         }
@@ -202,8 +203,8 @@ public class Sonic1BreakableWallObjectInstance extends AbstractObjectInstance
     }
 
     private void spawnFragments(int[][] fragSpeeds) {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectManager objectManager = services().objectManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (objectManager == null || renderManager == null) {
             return;
         }
@@ -239,7 +240,7 @@ public class Sonic1BreakableWallObjectInstance extends AbstractObjectInstance
         }
 
         // From disassembly: move.w #sfx_WallSmash,d0 / jmp (QueueSound2).l
-        AudioManager.getInstance().playSfx(GameSound.WALL_SMASH);
+        GameServices.audio().playSfx(GameSound.WALL_SMASH);
     }
 
     @Override
@@ -248,7 +249,7 @@ public class Sonic1BreakableWallObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
@@ -327,7 +328,7 @@ public class Sonic1BreakableWallObjectInstance extends AbstractObjectInstance
 
             // From disassembly: tst.b obRender(a0) / bpl.w DeleteObject
             // Delete when off-screen (render flag bit 7 indicates on-screen)
-            var cam = Camera.getInstance();
+            var cam = GameServices.camera();
             int cameraX = cam.getX();
             int cameraY = cam.getY();
             if (posX < cameraX - 64 || posX > cameraX + 320 + 64

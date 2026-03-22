@@ -1,4 +1,5 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.GameServices;
 
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
@@ -248,8 +249,7 @@ public class Sonic1LavaGeyserMakerObjectInstance extends AbstractObjectInstance 
         routine = 8;
 
         // Spawn LavaGeyser (0x4D)
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager != null && levelManager.getObjectManager() != null) {
+        if (services().objectManager() != null) {
             ObjectSpawn geyserSpawn = new ObjectSpawn(
                     spawn.x(), spawn.y(),
                     0x4D, subtype, 0, false, 0);
@@ -257,7 +257,7 @@ public class Sonic1LavaGeyserMakerObjectInstance extends AbstractObjectInstance 
                     geyserSpawn, Sonic1LavaGeyserObjectInstance.Role.HEAD,
                     null, this, false);
             geyser.initialize();
-            levelManager.getObjectManager().addDynamicObject(geyser);
+            services().objectManager().addDynamicObject(geyser);
         }
 
         // Set maker animation
@@ -346,7 +346,7 @@ public class Sonic1LavaGeyserMakerObjectInstance extends AbstractObjectInstance 
      * round both X positions to $80 and compare against 128+320+192.
      */
     private boolean isWithinOutOfRangeWindow(int objectX) {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         if (camera == null) {
             return true;
         }

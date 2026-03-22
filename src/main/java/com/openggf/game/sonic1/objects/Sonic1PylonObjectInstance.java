@@ -1,4 +1,5 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.GameServices;
 
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
@@ -70,7 +71,7 @@ public class Sonic1PylonObjectInstance extends AbstractObjectInstance {
      * which includes subpixel carry for smooth scrolling.
      */
     private int getScreenX() {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         int cameraX = camera.getX();
         // Screen X = -(3 * cameraX)
         // Wraps at 16-bit boundary as in original hardware
@@ -85,7 +86,7 @@ public class Sonic1PylonObjectInstance extends AbstractObjectInstance {
      * that repeats as the camera scrolls vertically.
      */
     private int getScreenY() {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         int cameraY = camera.getY();
         // (2 * cameraY) masked to 6 bits, negated, offset by 0x100
         int yOffset = (2 * cameraY) & CAMERA_Y_MASK;
@@ -116,7 +117,7 @@ public class Sonic1PylonObjectInstance extends AbstractObjectInstance {
         PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.SLZ_PYLON);
         if (renderer == null) return;
 
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         int cameraX = camera.getX();
         int cameraY = camera.getY();
 
@@ -134,7 +135,7 @@ public class Sonic1PylonObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void appendDebugRenderCommands(DebugRenderContext ctx) {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         int cameraX = camera.getX();
         int cameraY = camera.getY();
 

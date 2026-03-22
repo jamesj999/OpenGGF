@@ -100,11 +100,10 @@ public class Sonic1VanishingPlatformObjectInstance extends AbstractObjectInstanc
     // Whether player is currently standing on this platform
     private boolean playerStanding;
 
-    private final LevelManager levelManager;
 
-    public Sonic1VanishingPlatformObjectInstance(ObjectSpawn spawn, LevelManager levelManager) {
+    public Sonic1VanishingPlatformObjectInstance(ObjectSpawn spawn) {
         super(spawn, "VanishingPlatform");
-        this.levelManager = levelManager;
+        
 
         // VanP_Main: decode subtype
         int subtype = spawn.subtype() & 0xFF;
@@ -215,7 +214,7 @@ public class Sonic1VanishingPlatformObjectInstance extends AbstractObjectInstanc
         if (vanished) {
             // .notsolid: if player is standing, detach them
             if (playerStanding) {
-                var objectManager = levelManager.getObjectManager();
+                var objectManager = services().objectManager();
                 if (objectManager != null && player != null) {
                     // bclr #3,obStatus(a1) - clear player standing-on-object
                     // bclr #3,obStatus(a0) - clear object standing flag

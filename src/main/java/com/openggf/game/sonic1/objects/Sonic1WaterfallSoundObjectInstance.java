@@ -38,7 +38,7 @@ public class Sonic1WaterfallSoundObjectInstance extends AbstractObjectInstance {
     public void update(int frameCounter, AbstractPlayableSprite player) {
         // WSnd_PlaySnd: play waterfall SFX every 64 frames
         if ((frameCounter & PLAY_INTERVAL_MASK) == 0) {
-            AudioManager.getInstance().playSfx(Sonic1Sfx.WATERFALL.id);
+            services().playSfx(Sonic1Sfx.WATERFALL.id);
         }
     }
 

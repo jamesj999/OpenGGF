@@ -125,7 +125,7 @@ public class Sonic1ButtonObjectInstance extends AbstractObjectInstance
                 // First press: play switch sound
                 // move.w #sfx_Switch,d0 / jsr (QueueSound2).l
                 try {
-                    AudioManager.getInstance().playSfx(Sonic1Sfx.SWITCH.id);
+                    services().playSfx(Sonic1Sfx.SWITCH.id);
                 } catch (Exception e) {
                     // Prevent audio failure from breaking game logic
                 }
@@ -170,8 +170,7 @@ public class Sonic1ButtonObjectInstance extends AbstractObjectInstance
      * rectangle centered around the button (offset by -16x, -8y).
      */
     private boolean checkMZBlockContact() {
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return false;
         }
 
@@ -193,7 +192,7 @@ public class Sonic1ButtonObjectInstance extends AbstractObjectInstance
         int blockHalfWidth = 0x10;
         int blockHalfHeight = 0x10;
 
-        Collection<ObjectInstance> activeObjects = levelManager.getObjectManager().getActiveObjects();
+        Collection<ObjectInstance> activeObjects = services().objectManager().getActiveObjects();
         for (ObjectInstance obj : activeObjects) {
             ObjectSpawn objSpawn = obj.getSpawn();
             if (objSpawn == null || objSpawn.objectId() != ID_PUSH_BLOCK) {

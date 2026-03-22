@@ -34,17 +34,16 @@ public class Sonic1MotobugSmokeInstance extends AbstractObjectInstance {
     private final int posX;
     private final int posY;
     private final boolean facingLeft;
-    private final LevelManager levelManager;
     private int animTimer;
     private int animStep;
     private boolean finished;
 
-    public Sonic1MotobugSmokeInstance(int x, int y, boolean facingLeft, LevelManager levelManager) {
+    public Sonic1MotobugSmokeInstance(int x, int y, boolean facingLeft) {
         super(new ObjectSpawn(x, y, 0x40, 0, 0, false, 0), "MotobugSmoke");
         this.posX = x;
         this.posY = y;
         this.facingLeft = facingLeft;
-        this.levelManager = levelManager;
+        
         this.animTimer = 0;
         this.animStep = 0;
         this.finished = false;

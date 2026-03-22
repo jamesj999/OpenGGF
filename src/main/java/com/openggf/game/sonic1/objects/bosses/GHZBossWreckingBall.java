@@ -49,7 +49,6 @@ public class GHZBossWreckingBall extends AbstractBossChild
     // Collision: obColType = $81 (enemy category $80, size index 1)
     private static final int BALL_COLLISION_FLAGS = 0x81;
 
-    private final LevelManager levelManager;
 
     // Swing state
     private int angle;          // obAngle — swing angle (byte)
@@ -76,9 +75,9 @@ public class GHZBossWreckingBall extends AbstractBossChild
 
     private boolean parentDefeated;
 
-    public GHZBossWreckingBall(AbstractBossInstance parent, LevelManager levelManager) {
+    public GHZBossWreckingBall(AbstractBossInstance parent) {
         super(parent, "GHZBall", 5, Sonic1ObjectIds.BOSS_BALL);
-        this.levelManager = levelManager;
+        
 
         // Initialize swing
         this.angle = INITIAL_ANGLE;
@@ -222,7 +221,7 @@ public class GHZBossWreckingBall extends AbstractBossChild
             return;
         }
 
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

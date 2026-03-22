@@ -454,7 +454,7 @@ public class Sonic1SYZBossInstance extends AbstractS1EggmanBossInstance {
         } else if (timer == 0x20) {
             // ROM: loc_194E0 — Stop and play zone music
             state.yVel = 0;
-            AudioManager.getInstance().playMusic(Sonic1Music.SYZ.id);
+            services().playMusic(Sonic1Music.SYZ.id);
         } else if (timer >= 0x2A) {
             // ROM: Advance to escape
             state.routineSecondary = STATE_ESCAPE;
@@ -545,7 +545,7 @@ public class Sonic1SYZBossInstance extends AbstractS1EggmanBossInstance {
      * Spawn the spike child component.
      */
     private void spawnSpikeChild() {
-        spikeChild = new SYZBossSpike(this, com.openggf.game.GameServices.level());
+        spikeChild = new SYZBossSpike(this);
         childComponents.add(spikeChild);
         if (services().objectManager() != null) {
             services().objectManager().addDynamicObject(spikeChild);

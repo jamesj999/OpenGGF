@@ -1,4 +1,5 @@
 package com.openggf.game.sonic1.objects.badniks;
+import com.openggf.game.GameServices;
 
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.level.objects.AbstractBadnikInstance;
@@ -262,7 +263,7 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
 
             Sonic1CaterkillerBodyInstance body = new Sonic1CaterkillerBodyInstance(
                     this, parentState, segX, currentY, facingLeft,
-                    isAnimated[i], i, ringBufIdx, com.openggf.game.GameServices.level());
+                    isAnimated[i], i, ringBufIdx);
             bodySegments.add(body);
             objectManager.addDynamicObject(body);
             parentState = body;

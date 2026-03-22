@@ -36,7 +36,6 @@ public class Sonic1BombFuseInstance extends AbstractObjectInstance {
     // From disassembly: move.b #3,obPriority(a0)
     private static final int RENDER_PRIORITY = 3;
 
-    private final LevelManager levelManager;
     private final Sonic1BombBadnikInstance parent;
     private int currentX;
     private int currentY;
@@ -63,10 +62,9 @@ public class Sonic1BombFuseInstance extends AbstractObjectInstance {
      */
     public Sonic1BombFuseInstance(int x, int y, boolean facingLeft, boolean ceilingBomb,
                                   int fuseTime, int fuseYSpeed,
-                                  Sonic1BombBadnikInstance parent,
-                                  LevelManager levelManager) {
+                                  Sonic1BombBadnikInstance parent) {
         super(new ObjectSpawn(x, y, 0x5F, 4, 0, false, 0), "BombFuse");
-        this.levelManager = levelManager;
+        
         this.parent = parent;
         this.currentX = x;
         this.currentY = y;

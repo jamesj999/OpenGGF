@@ -1,4 +1,5 @@
 package com.openggf.game.sonic1.objects.badniks;
+import com.openggf.game.GameServices;
 
 import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.graphics.GLCommand;
@@ -202,14 +203,14 @@ public class Sonic1CrabmeatBadnikInstance extends AbstractBadnikInstance {
         Sonic1CrabmeatProjectileInstance leftBall = new Sonic1CrabmeatProjectileInstance(
                 currentX - PROJECTILE_X_OFFSET, currentY,
                 -PROJECTILE_X_VEL, PROJECTILE_Y_VEL,
-                this, com.openggf.game.GameServices.level());
+                this);
         services().objectManager().addDynamicObject(leftBall);
 
         // Right projectile
         Sonic1CrabmeatProjectileInstance rightBall = new Sonic1CrabmeatProjectileInstance(
                 currentX + PROJECTILE_X_OFFSET, currentY,
                 PROJECTILE_X_VEL, PROJECTILE_Y_VEL,
-                this, com.openggf.game.GameServices.level());
+                this);
         services().objectManager().addDynamicObject(rightBall);
     }
 

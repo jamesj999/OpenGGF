@@ -49,7 +49,6 @@ public class Sonic1BombShrapnelInstance extends AbstractObjectInstance
     // inherited from the bomb body's priority of 3.
     private static final int RENDER_PRIORITY = 3;
 
-    private final LevelManager levelManager;
     private int currentX;
     private int currentY;
     private int xVelocity;
@@ -67,10 +66,9 @@ public class Sonic1BombShrapnelInstance extends AbstractObjectInstance
      * @param yVel       Initial Y velocity (from Bom_ShrSpeed)
      * @param levelManager Level manager reference
      */
-    public Sonic1BombShrapnelInstance(int x, int y, int xVel, int yVel,
-                                      LevelManager levelManager) {
+    public Sonic1BombShrapnelInstance(int x, int y, int xVel, int yVel) {
         super(new ObjectSpawn(x, y, 0x5F, 6, 0, false, 0), "BombShrapnel");
-        this.levelManager = levelManager;
+        
         this.currentX = x;
         this.currentY = y;
         this.xVelocity = xVel;

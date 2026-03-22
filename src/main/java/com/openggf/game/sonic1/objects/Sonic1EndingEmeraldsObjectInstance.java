@@ -90,7 +90,7 @@ public class Sonic1EndingEmeraldsObjectInstance extends AbstractObjectInstance {
         this.currentX = centerX;
         this.currentY = centerY;
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         this.renderer = renderManager != null ? renderManager.getRenderer(ObjectArtKeys.END_EMERALDS) : null;
 
         synchronized (ALL_EMERALDS) {

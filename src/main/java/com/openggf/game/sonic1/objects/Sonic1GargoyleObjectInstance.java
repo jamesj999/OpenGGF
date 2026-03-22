@@ -121,8 +121,7 @@ public class Sonic1GargoyleObjectInstance extends AbstractObjectInstance {
         }
 
         // bsr.w FindFreeObj / bne.s .nofire
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
@@ -134,7 +133,7 @@ public class Sonic1GargoyleObjectInstance extends AbstractObjectInstance {
         //      move.b obRender(a0),obRender(a1)
         //      move.b obStatus(a0),obStatus(a1)
         Fireball fireball = new Fireball(spawn.x(), spawn.y(), facingRight);
-        levelManager.getObjectManager().addDynamicObject(fireball);
+        services().objectManager().addDynamicObject(fireball);
     }
 
     // ========================================================================
@@ -286,7 +285,7 @@ public class Sonic1GargoyleObjectInstance extends AbstractObjectInstance {
 
             // Play fireball sound
             // move.w #sfx_Fireball,d0 / jsr (QueueSound2).l
-            AudioManager.getInstance().playSfx(SFX_FIREBALL);
+            services().playSfx(SFX_FIREBALL);
         }
 
         @Override
@@ -339,7 +338,7 @@ public class Sonic1GargoyleObjectInstance extends AbstractObjectInstance {
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
-            ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+            ObjectRenderManager renderManager = services().renderManager();
             if (renderManager == null) {
                 return;
             }

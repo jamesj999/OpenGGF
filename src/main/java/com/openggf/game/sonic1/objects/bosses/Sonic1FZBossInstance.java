@@ -168,14 +168,14 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
         // Spawn 4 cylinders with subtypes 0, 2, 4, 6 (ROM: loc_19E3E)
         for (int i = 0; i < 4; i++) {
             int subtype = i * 2;
-            FZCylinder cylinder = new FZCylinder(this, GameServices.level(), subtype);
+            FZCylinder cylinder = new FZCylinder(this, subtype);
             cylinders[i] = cylinder;
             childComponents.add(cylinder);
             objectManager.addDynamicObject(cylinder);
         }
 
         // Spawn plasma launcher (ROM: loc_19E20)
-        plasmaLauncher = new FZPlasmaLauncher(this, GameServices.level());
+        plasmaLauncher = new FZPlasmaLauncher(this);
         childComponents.add(plasmaLauncher);
         objectManager.addDynamicObject(plasmaLauncher);
     }
@@ -224,7 +224,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
         escapeHitTimer = 0x1E;
         escapeHittable = false;
         showDamaged = true;
-        AudioManager.getInstance().playSfx(Sonic1Sfx.HIT_BOSS.id);
+        services().playSfx(Sonic1Sfx.HIT_BOSS.id);
     }
 
     @Override
@@ -258,7 +258,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
     // === State 0: WAIT (loc_19E90) ===
     // Wait for camera to reach boss_fz_x
     private void updateWait() {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         int camX = camera.getX() & 0xFFFF;
 
         if (camX >= BOSS_FZ_X) {
@@ -330,7 +330,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
         damageCooldown = 0;
 
         // ROM: sfx_Rumbling
-        AudioManager.getInstance().playSfx(Sonic1Sfx.RUMBLING.id);
+        services().playSfx(Sonic1Sfx.RUMBLING.id);
     }
 
     private void handleCombatCollision(AbstractPlayableSprite player) {
@@ -378,7 +378,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
 
         // ROM: play electricity sound every 16 frames
         if ((frameCounter & 0xF) == 0) {
-            AudioManager.getInstance().playSfx(Sonic1Sfx.ELECTRIC.id);
+            services().playSfx(Sonic1Sfx.ELECTRIC.id);
         }
 
         // ROM: tst.w objoff_32 — check if plasma launcher signaled completion
@@ -708,7 +708,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
      * ROM: loc_1A166 — addq.w #2,(v_limitright2).w
      */
     private void expandCameraBoundary() {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         int rightBoundary = camera.getMaxX() & 0xFFFF;
         if (rightBoundary < BOSS_FZ_END) {
             camera.setMaxX((short) (rightBoundary + 2));
@@ -753,7 +753,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
         damageCooldown = 0x64; // ROM: move.b #$64,objoff_35
 
         // ROM: sfx_HitBoss
-        AudioManager.getInstance().playSfx(Sonic1Sfx.HIT_BOSS.id);
+        services().playSfx(Sonic1Sfx.HIT_BOSS.id);
     }
 
     /**
@@ -876,7 +876,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
     // === Rendering ===
 
     private boolean isBossOnScreen() {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         int screenX = state.x - camera.getX();
         return screenX >= -64 && screenX <= 384;
     }

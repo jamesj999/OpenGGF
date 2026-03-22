@@ -206,7 +206,7 @@ public class Sonic1BumperObjectInstance extends AbstractObjectInstance {
 
         // ROM: move.w #sfx_Bumper,d0 / jsr (QueueSound2).l
         try {
-            AudioManager.getInstance().playSfx(Sonic1Sfx.BUMPER.id);
+            services().playSfx(Sonic1Sfx.BUMPER.id);
         } catch (Exception e) {
             // Don't let audio failure break game logic
         }
