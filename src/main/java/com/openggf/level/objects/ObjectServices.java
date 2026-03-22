@@ -1,10 +1,12 @@
 package com.openggf.level.objects;
 
+import com.openggf.audio.GameSound;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.LevelState;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.RespawnState;
+import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.level.Level;
 import java.util.List;
 
@@ -26,9 +28,13 @@ public interface ObjectServices {
     Level currentLevel();
     int romZoneId();
     int currentAct();
+    int featureZoneId();
+    int featureActId();
+    ZoneFeatureProvider zoneFeatureProvider();
 
     // Audio
     void playSfx(int soundId);
+    void playSfx(GameSound sound);
     void playMusic(int musicId);
     void fadeOutMusic();
 
