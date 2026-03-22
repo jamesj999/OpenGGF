@@ -1,6 +1,7 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
@@ -60,7 +61,8 @@ public class AizMinibossNapalmProjectile extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         lifetime--;
         if (lifetime <= 0) {
             setDestroyed(true);

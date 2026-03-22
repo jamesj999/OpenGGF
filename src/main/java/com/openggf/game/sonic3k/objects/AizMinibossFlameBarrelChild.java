@@ -1,6 +1,7 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.LevelManager;
@@ -81,7 +82,8 @@ public class AizMinibossFlameBarrelChild extends AbstractBossChild {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (!shouldUpdate(frameCounter)) {
             return;
         }

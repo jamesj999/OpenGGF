@@ -2,6 +2,7 @@ package com.openggf.game.sonic2.objects;
 import com.openggf.level.objects.BoxObjectInstance;
 
 import com.openggf.game.CheckpointState;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.GameServices;
 
@@ -83,7 +84,8 @@ public class CheckpointObjectInstance extends BoxObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (!activated && player != null) {
             checkActivation(player);
         }

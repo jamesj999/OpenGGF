@@ -4,6 +4,7 @@ import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -135,7 +136,8 @@ public class LateralCannonObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (routine) {
             case WAIT_FOR_PHASE -> updateWaitForPhase(frameCounter);
             case EXTEND_ANIM -> updateAnimation(EXTEND_FRAMES, Routine.EXTENDED_HOLD);
@@ -308,7 +310,8 @@ public class LateralCannonObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Only solid when fully extended (mapping frames 3 or 4)
         return mappingFrame == 3 || mappingFrame == 4;
     }
@@ -320,7 +323,8 @@ public class LateralCannonObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Solid collision handled by ObjectManager
     }
 

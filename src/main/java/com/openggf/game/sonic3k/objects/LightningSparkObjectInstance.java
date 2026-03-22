@@ -9,6 +9,7 @@ import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.sprites.animation.SpriteAnimationScript;
 import com.openggf.sprites.animation.SpriteAnimationSet;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import java.util.List;
 
@@ -90,7 +91,8 @@ public class LightningSparkObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         life++;
         if (life >= MAX_LIFE) {
             setDestroyed(true);

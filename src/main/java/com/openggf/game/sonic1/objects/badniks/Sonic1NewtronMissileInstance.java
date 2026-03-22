@@ -10,6 +10,7 @@ import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import java.util.List;
 
@@ -68,7 +69,8 @@ public class Sonic1NewtronMissileInstance extends AbstractProjectileInstance {
     }
 
     @Override
-    protected void updateExtra(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateExtra(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Animate: alternate frames 2-3 (Ball1/Ball2) at speed 1
         animTimer++;
         if (animTimer >= ACTIVE_ANIM_SPEED) {

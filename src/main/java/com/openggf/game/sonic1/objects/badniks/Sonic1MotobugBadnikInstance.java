@@ -1,5 +1,6 @@
 package com.openggf.game.sonic1.objects.badniks;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.graphics.GLCommand;
@@ -90,7 +91,8 @@ public class Sonic1MotobugBadnikInstance extends AbstractBadnikInstance {
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (!initialized) {
             initialize();
             return;

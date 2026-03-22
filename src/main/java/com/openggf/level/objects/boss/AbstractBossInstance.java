@@ -12,7 +12,7 @@ import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseAttackable;
 import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.physics.TrigLookupTable;
-import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.debug.DebugColor;
 import java.util.ArrayList;
@@ -68,7 +68,7 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
     /**
      * Update boss-specific logic.
      */
-    protected abstract void updateBossLogic(int frameCounter, AbstractPlayableSprite player);
+    protected abstract void updateBossLogic(int frameCounter, PlayableEntity player);
 
     /**
      * Get initial hit count (typically 8 for Sonic 2 bosses).
@@ -86,7 +86,7 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
     protected abstract int getCollisionSizeIndex();
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity player) {
         if (!state.defeated) {
             hitHandler.update();
             // Note: paletteFlasher.update() is now called inside hitHandler.update()
@@ -106,7 +106,7 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
         updateDynamicSpawn();
     }
 
-    private void updateChildren(int frameCounter, AbstractPlayableSprite player) {
+    private void updateChildren(int frameCounter, PlayableEntity player) {
         childComponents.removeIf(BossChildComponent::isDestroyed);
         for (BossChildComponent child : childComponents) {
             child.update(frameCounter, player);
@@ -124,7 +124,7 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
         return state.hitCount; // Return hit count for ROM accuracy
     }
 
-    public void onPlayerAttack(AbstractPlayableSprite player, TouchResponseResult result) {
+    public void onPlayerAttack(PlayableEntity player, TouchResponseResult result) {
         hitHandler.processHit(player);
     }
 
@@ -262,7 +262,7 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
             }
         }
 
-        public void processHit(AbstractPlayableSprite player) {
+        public void processHit(PlayableEntity player) {
             // ROM: s2.asm:63124 - tst.b collision_flags(a0)
             if (state.invulnerable || state.defeated) {
                 return;

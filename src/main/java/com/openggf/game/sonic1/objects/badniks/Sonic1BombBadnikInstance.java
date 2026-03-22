@@ -3,6 +3,7 @@ package com.openggf.game.sonic1.objects.badniks;
 import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
+import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.ExplosionObjectInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -178,7 +179,8 @@ public class Sonic1BombBadnikInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (destroyed) {
             return;
         }
@@ -190,7 +192,8 @@ public class Sonic1BombBadnikInstance extends AbstractObjectInstance
      * Bom_Action: Main update dispatches to state-specific handler, then
      * AnimateSprite + RememberState.
      */
-    private void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    private void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
             case STATE_WALK -> updateWalk(frameCounter, player);
             case STATE_WAIT -> updateWait(frameCounter, player);
@@ -521,7 +524,8 @@ public class Sonic1BombBadnikInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onPlayerAttack(AbstractPlayableSprite player, TouchResponseResult result) {
+    public void onPlayerAttack(PlayableEntity playerEntity, TouchResponseResult result) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // The bomb has HURT category ($80), so this should not normally be called.
         // However if the player is invincible, the bomb could be destroyed.
         // In ROM, React_ChkHurt returns without destroying the object when invincible.

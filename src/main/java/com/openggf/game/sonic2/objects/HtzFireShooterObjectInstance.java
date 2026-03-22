@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -86,7 +87,8 @@ public class HtzFireShooterObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
             case ANIMATING -> updateAnimating();
             case FIRING -> updateFiring();

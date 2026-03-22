@@ -2,6 +2,7 @@ package com.openggf.game.sonic2.objects;
 
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -74,7 +75,8 @@ public class SmallMetalPformObjectInstance extends AbstractObjectInstance {
     private int spawnTimer;
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: loc_3BC3C (routine 2)
         // subq.w #1,objoff_2A(a0)
         spawnTimer--;
@@ -257,7 +259,8 @@ public class SmallMetalPformObjectInstance extends AbstractObjectInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             switch (state) {
                 case UNFOLD -> updateUnfold();
                 case MOVE -> updateMove(frameCounter);
@@ -372,13 +375,15 @@ public class SmallMetalPformObjectInstance extends AbstractObjectInstance {
         }
 
         @Override
-        public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+        public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             // Solid collision handled by ObjectManager
         }
 
         // Only provide solid collision during the MOVE state
         @Override
-        public boolean isSolidFor(AbstractPlayableSprite player) {
+        public boolean isSolidFor(PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             return state == ChildState.MOVE;
         }
 

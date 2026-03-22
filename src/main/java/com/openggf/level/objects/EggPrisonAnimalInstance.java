@@ -6,7 +6,7 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
@@ -94,7 +94,7 @@ public class EggPrisonAnimalInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity player) {
         switch (state) {
             case PRISON_WAIT -> updatePrisonWait(frameCounter);
             case MAIN -> updateMain();

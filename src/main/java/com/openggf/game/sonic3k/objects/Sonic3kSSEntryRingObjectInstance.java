@@ -2,6 +2,7 @@ package com.openggf.game.sonic3k.objects;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
@@ -121,7 +122,8 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
             case FORMING -> updateFormation(player);
             case IDLE -> updateIdle(player);

@@ -9,6 +9,7 @@ import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import java.util.List;
 
@@ -54,7 +55,8 @@ public class DestroyedEggPrisonObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // No updates - static visual only
     }
 
@@ -102,7 +104,8 @@ public class DestroyedEggPrisonObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return true; // Always solid
     }
 

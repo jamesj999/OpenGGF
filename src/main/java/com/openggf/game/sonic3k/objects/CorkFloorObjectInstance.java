@@ -1,6 +1,7 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
@@ -253,14 +254,16 @@ public class CorkFloorObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !broken; // Only solid while intact
     }
 
     // ===== SolidObjectListener =====
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (player == null || broken) {
             return;
         }
@@ -295,7 +298,8 @@ public class CorkFloorObjectInstance extends AbstractObjectInstance
     // ===== Update =====
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (broken) {
             return; // Already broken, nothing to do
         }
@@ -576,7 +580,8 @@ public class CorkFloorObjectInstance extends AbstractObjectInstance
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             // Apply velocity with gravity using SubpixelMotion
             motionState.x = currentX;
             motionState.y = currentY;

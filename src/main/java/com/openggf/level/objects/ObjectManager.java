@@ -14,8 +14,9 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.spawn.AbstractPlacementManager;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
-import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.DamageCause;
+import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.game.GroundMode;
 
 import java.util.ArrayList;
@@ -105,11 +106,11 @@ public class ObjectManager {
         }
     }
 
-    public void update(int cameraX, AbstractPlayableSprite player, List<AbstractPlayableSprite> sidekicks, int touchFrameCounter) {
+    public void update(int cameraX, PlayableEntity player, List<? extends PlayableEntity> sidekicks, int touchFrameCounter) {
         update(cameraX, player, sidekicks, touchFrameCounter, true);
     }
 
-    public void update(int cameraX, AbstractPlayableSprite player, List<AbstractPlayableSprite> sidekicks,
+    public void update(int cameraX, PlayableEntity player, List<? extends PlayableEntity> sidekicks,
             int touchFrameCounter, boolean enableTouchResponses) {
         frameCounter++;
         // ROM parity: object execution uses the previously streamed set, and object placement
@@ -175,7 +176,7 @@ public class ObjectManager {
             touchResponses.update(player, touchFrameCounter);
             // ROM: Both players participate in touch responses.
             // Each sidekick uses separate overlap tracking and special hurt handling.
-            for (AbstractPlayableSprite sk : sidekicks) {
+            for (PlayableEntity sk : sidekicks) {
                 touchResponses.updateSidekick(sk, touchFrameCounter);
             }
         }
@@ -184,7 +185,7 @@ public class ObjectManager {
         placement.update(cameraX);
     }
 
-    public void applyPlaneSwitchers(AbstractPlayableSprite player) {
+    public void applyPlaneSwitchers(PlayableEntity player) {
         // ROM: CPU Tails does not interact with plane switchers in 1P mode.
         // Only the main player triggers layer/priority changes.
         if (planeSwitchers != null && !player.isCpuControlled()) {
@@ -456,12 +457,12 @@ public class ObjectManager {
     }
 
     /** Is this player riding any object? */
-    public boolean isRidingObject(AbstractPlayableSprite player) {
+    public boolean isRidingObject(PlayableEntity player) {
         return solidContacts.isRidingObject(player);
     }
 
     /** Is this specific player riding this specific object? */
-    public boolean isRidingObject(AbstractPlayableSprite player, ObjectInstance instance) {
+    public boolean isRidingObject(PlayableEntity player, ObjectInstance instance) {
         return solidContacts.isPlayerRiding(player, instance);
     }
 
@@ -476,7 +477,7 @@ public class ObjectManager {
     }
 
     /** Clear this player's riding state. */
-    public void clearRidingObject(AbstractPlayableSprite player) {
+    public void clearRidingObject(PlayableEntity player) {
         solidContacts.clearRidingObject(player);
     }
 
@@ -487,7 +488,7 @@ public class ObjectManager {
      * @param player The player to check
      * @return The object being ridden, or null if not standing on any object
      */
-    public ObjectInstance getRidingObject(AbstractPlayableSprite player) {
+    public ObjectInstance getRidingObject(PlayableEntity player) {
         return solidContacts.getRidingObject(player);
     }
 
@@ -495,15 +496,15 @@ public class ObjectManager {
      * Get the piece index this player is riding on a multi-piece object, or -1.
      * Used for balance detection at piece edges (e.g., CPZ Staircase).
      */
-    public int getRidingPieceIndex(AbstractPlayableSprite player) {
+    public int getRidingPieceIndex(PlayableEntity player) {
         return solidContacts.getRidingPieceIndex(player);
     }
 
-    public boolean hasStandingContact(AbstractPlayableSprite player) {
+    public boolean hasStandingContact(PlayableEntity player) {
         return solidContacts.hasStandingContact(player);
     }
 
-    public int getHeadroomDistance(AbstractPlayableSprite player, int hexAngle) {
+    public int getHeadroomDistance(PlayableEntity player, int hexAngle) {
         return solidContacts.getHeadroomDistance(player, hexAngle);
     }
 
@@ -511,7 +512,7 @@ public class ObjectManager {
      * Run solid contacts resolution for a player sprite.
      * This is called by the CollisionSystem as part of the unified collision pipeline.
      */
-    public void updateSolidContacts(AbstractPlayableSprite player) {
+    public void updateSolidContacts(PlayableEntity player) {
         solidContacts.update(player);
     }
 
@@ -846,7 +847,7 @@ public class ObjectManager {
             states.clear();
         }
 
-        void update(AbstractPlayableSprite player) {
+        void update(PlayableEntity player) {
             if (placement == null || player == null || config == null) {
                 return;
             }
@@ -992,14 +993,14 @@ public class ObjectManager {
             }
         }
 
-        private final Map<AbstractPlayableSprite, OverlapBufferPair> sidekickOverlaps = new IdentityHashMap<>();
+        private final Map<PlayableEntity, OverlapBufferPair> sidekickOverlaps = new IdentityHashMap<>();
         private final TouchResponseDebugState debugState = new TouchResponseDebugState();
         private static final int SHIELD_TOUCH_HALF_SIZE = 0x18;
         private static final int SHIELD_TOUCH_SIZE = SHIELD_TOUCH_HALF_SIZE * 2;
         private static final int SHIELD_REACTION_BOUNCE_BIT = 1 << 3;
         private int currentFrameCounter;
         private boolean instaShieldActive;
-        private AbstractPlayableSprite currentPlayer;
+        private PlayableEntity currentPlayer;
 
         TouchResponses(ObjectManager objectManager, TouchResponseTable table) {
             this.objectManager = objectManager;
@@ -1015,7 +1016,7 @@ public class ObjectManager {
             currentFrameCounter = 0;
         }
 
-        void update(AbstractPlayableSprite player, int frameCounter) {
+        void update(PlayableEntity player, int frameCounter) {
             currentFrameCounter = frameCounter;
             if (player == null || objectManager == null || player.getDead() || table == null) {
                 overlapping.clear();
@@ -1130,7 +1131,7 @@ public class ObjectManager {
          * ROM: In 1P mode, CPU Tails interacts with objects but doesn't scatter
          * rings when hurt and can never die from enemy contact.
          */
-        void updateSidekick(AbstractPlayableSprite sidekick, int frameCounter) {
+        void updateSidekick(PlayableEntity sidekick, int frameCounter) {
             currentPlayer = null; // Sidekick doesn't get insta-shield
             currentFrameCounter = frameCounter;
             OverlapBufferPair buffers = sidekickOverlaps.computeIfAbsent(sidekick, k -> new OverlapBufferPair());
@@ -1201,7 +1202,7 @@ public class ObjectManager {
             buffers.swap();
         }
 
-        private boolean tryShieldDeflect(AbstractPlayableSprite player, ObjectInstance instance,
+        private boolean tryShieldDeflect(PlayableEntity player, ObjectInstance instance,
                 TouchResponseProvider provider, int objectWidth, int objectHeight) {
             if (player == null || !player.hasShield()) {
                 return false;
@@ -1226,7 +1227,7 @@ public class ObjectManager {
          * - Gets knocked back when hurt but does NOT scatter rings or die
          * - Special category objects still interact normally
          */
-        private void handleTouchResponseSidekick(AbstractPlayableSprite sidekick, ObjectInstance instance,
+        private void handleTouchResponseSidekick(PlayableEntity sidekick, ObjectInstance instance,
                 TouchResponseListener listener, TouchResponseResult result) {
             if (sidekick == null) {
                 return;
@@ -1280,7 +1281,7 @@ public class ObjectManager {
          * From s2.asm HurtCharacter: in 1P mode, branches directly to Hurt_Sidekick
          * which applies hurt animation without checking rings.
          */
-        private void applySidekickHurt(AbstractPlayableSprite sidekick, ObjectInstance instance) {
+        private void applySidekickHurt(PlayableEntity sidekick, ObjectInstance instance) {
             if (sidekick.getInvulnerable()) {
                 return;
             }
@@ -1362,7 +1363,7 @@ public class ObjectManager {
          * Each region is checked separately; if any overlaps, the object is treated as
          * overlapping with the first matching region's collision flags applied.
          */
-        private void checkMultiRegionTouch(AbstractPlayableSprite player,
+        private void checkMultiRegionTouch(PlayableEntity player,
                 int playerX, int playerY, int playerHeight,
                 ObjectInstance instance, TouchResponseProvider provider,
                 TouchResponseProvider.TouchRegion[] regions, int playerWidth) {
@@ -1398,7 +1399,7 @@ public class ObjectManager {
         /**
          * Multi-region touch check for CPU sidekick.
          */
-        private void checkMultiRegionTouchSidekick(AbstractPlayableSprite sidekick,
+        private void checkMultiRegionTouchSidekick(PlayableEntity sidekick,
                 int playerX, int playerY, int playerHeight,
                 ObjectInstance instance, TouchResponseProvider provider,
                 TouchResponseProvider.TouchRegion[] regions, OverlapBufferPair buffers) {
@@ -1441,7 +1442,7 @@ public class ObjectManager {
             };
         }
 
-        private void handleTouchResponse(AbstractPlayableSprite player, ObjectInstance instance,
+        private void handleTouchResponse(PlayableEntity player, ObjectInstance instance,
                 TouchResponseListener listener, TouchResponseResult result) {
             if (player == null) {
                 return;
@@ -1492,7 +1493,7 @@ public class ObjectManager {
             }
         }
 
-        private boolean isPlayerAttacking(AbstractPlayableSprite player) {
+        private boolean isPlayerAttacking(PlayableEntity player) {
             return player.isSuperSonic()
                     || player.getInvincibleFrames() > 0
                     || player.getRolling()
@@ -1500,7 +1501,7 @@ public class ObjectManager {
                     || (instaShieldActive && player == currentPlayer);
         }
 
-        private void applyEnemyBounce(AbstractPlayableSprite player, ObjectInstance instance) {
+        private void applyEnemyBounce(PlayableEntity player, ObjectInstance instance) {
             // ROM-accurate: React_Enemy (s1.asm) only modifies obVelY, it does NOT
             // set the air flag. Letting the collision system handle air state naturally
             // preserves rolling through enemy bounces (ground roll into badnik).
@@ -1525,12 +1526,12 @@ public class ObjectManager {
          * From s2.asm Touch_Enemy_Part2 lines 84806-84807.
          * Does not set air flag - ROM only modifies velocities here.
          */
-        private void applyBossBounce(AbstractPlayableSprite player) {
+        private void applyBossBounce(PlayableEntity player) {
             player.setXSpeed((short) -player.getXSpeed());
             player.setYSpeed((short) -player.getYSpeed());
         }
 
-        private void applyHurt(AbstractPlayableSprite player, ObjectInstance instance) {
+        private void applyHurt(PlayableEntity player, ObjectInstance instance) {
             if (player.getInvulnerable()) {
                 return;
             }
@@ -1556,7 +1557,10 @@ public class ObjectManager {
 
             boolean hadRings = player.getRingCount() > 0;
             if (hadRings && !player.hasShield()) {
-                LevelManager.getInstance().spawnLostRings(player, currentFrameCounter);
+                // Escape hatch: LevelManager.spawnLostRings needs concrete type for RingManager
+                if (player instanceof AbstractPlayableSprite aps) {
+                    LevelManager.getInstance().spawnLostRings(aps, currentFrameCounter);
+                }
             }
             player.applyHurtOrDeath(sourceX, cause, hadRings);
         }
@@ -1574,8 +1578,8 @@ public class ObjectManager {
 
         // Per-player riding state (ROM: each player object has its own SST interact field $3E)
         private record RidingState(ObjectInstance object, int x, int y, int pieceIndex) {}
-        private final Map<AbstractPlayableSprite, RidingState> ridingStates = new IdentityHashMap<>(2);
-        private AbstractPlayableSprite currentPlayer; // set during update() for internal use
+        private final Map<PlayableEntity, RidingState> ridingStates = new IdentityHashMap<>(2);
+        private PlayableEntity currentPlayer; // set during update() for internal use
 
         // ROM: objects like Obj_AIZLRZEMZRock save player velocity/anim BEFORE calling
         // SolidObjectFull, then check the saved values after. Our engine runs contact
@@ -1594,7 +1598,7 @@ public class ObjectManager {
             ridingStates.clear();
         }
 
-        boolean isRidingObject(AbstractPlayableSprite player) {
+        boolean isRidingObject(PlayableEntity player) {
             if (player == null) return false;
             RidingState state = ridingStates.get(player);
             return state != null && state.object != null;
@@ -1607,7 +1611,7 @@ public class ObjectManager {
             return false;
         }
 
-        boolean isPlayerRiding(AbstractPlayableSprite player, ObjectInstance instance) {
+        boolean isPlayerRiding(PlayableEntity player, ObjectInstance instance) {
             if (player == null) return false;
             RidingState state = ridingStates.get(player);
             return state != null && state.object == instance;
@@ -1620,7 +1624,7 @@ public class ObjectManager {
             return false;
         }
 
-        void clearRidingObject(AbstractPlayableSprite player) {
+        void clearRidingObject(PlayableEntity player) {
             if (player != null) {
                 ridingStates.remove(player);
             }
@@ -1645,14 +1649,14 @@ public class ObjectManager {
             }
         }
 
-        ObjectInstance getRidingObject(AbstractPlayableSprite player) {
+        ObjectInstance getRidingObject(PlayableEntity player) {
             if (player == null) return null;
             RidingState state = ridingStates.get(player);
             return state != null ? state.object : null;
         }
 
         /** Get the piece index this player is riding, or -1 if not riding a multi-piece object. */
-        int getRidingPieceIndex(AbstractPlayableSprite player) {
+        int getRidingPieceIndex(PlayableEntity player) {
             if (player == null) return -1;
             RidingState state = ridingStates.get(player);
             return state != null ? state.pieceIndex : -1;
@@ -1679,7 +1683,7 @@ public class ObjectManager {
         /** Player rolling state captured before any solid contact resolution modified it. */
         boolean getPreContactRolling() { return preContactRolling; }
 
-        boolean hasStandingContact(AbstractPlayableSprite player) {
+        boolean hasStandingContact(PlayableEntity player) {
             if (player == null || objectManager == null || player.getDead()) {
                 return false;
             }
@@ -1689,7 +1693,7 @@ public class ObjectManager {
             if (player.getYSpeed() < 0) {
                 return false;
             }
-            AbstractPlayableSprite savedPlayer = currentPlayer;
+            PlayableEntity savedPlayer = currentPlayer;
             currentPlayer = player;
             try {
                 Collection<ObjectInstance> activeObjects = objectManager.getActiveObjects();
@@ -1740,7 +1744,7 @@ public class ObjectManager {
             }
         }
 
-        private boolean hasStandingContactMultiPiece(AbstractPlayableSprite player,
+        private boolean hasStandingContactMultiPiece(PlayableEntity player,
                 MultiPieceSolidProvider multiPiece, ObjectInstance instance) {
             int pieceCount = multiPiece.getPieceCount();
             for (int i = 0; i < pieceCount; i++) {
@@ -1760,7 +1764,7 @@ public class ObjectManager {
             return false;
         }
 
-        int getHeadroomDistance(AbstractPlayableSprite player, int hexAngle) {
+        int getHeadroomDistance(PlayableEntity player, int hexAngle) {
             if (player == null || objectManager == null || player.getDead()) {
                 return Integer.MAX_VALUE;
             }
@@ -1867,7 +1871,7 @@ public class ObjectManager {
         // within the same frame. The sticky buffer and subpixel workarounds partially
         // compensate for this, but a full fix would require per-object inline resolution
         // integrated into the object update loop.
-        void update(AbstractPlayableSprite player) {
+        void update(PlayableEntity player) {
             frameCounter++;
             if (player == null || objectManager == null || player.getDead()) {
                 if (player != null) ridingStates.remove(player);
@@ -2087,7 +2091,7 @@ public class ObjectManager {
 
         private record MultiPieceContactResult(boolean standing, boolean pushing, int ridingX, int ridingY, int pieceIndex) {}
 
-        private MultiPieceContactResult processMultiPieceCollision(AbstractPlayableSprite player,
+        private MultiPieceContactResult processMultiPieceCollision(PlayableEntity player,
                 MultiPieceSolidProvider multiPiece, ObjectInstance instance, int frameCounter,
                 boolean useStickyBuffer) {
             int pieceCount = multiPiece.getPieceCount();
@@ -2157,7 +2161,7 @@ public class ObjectManager {
         /**
          * Resolve contact for single-piece objects (backwards compatibility).
          */
-        private SolidContact resolveContact(AbstractPlayableSprite player,
+        private SolidContact resolveContact(PlayableEntity player,
                 int anchorX, int anchorY, int halfWidth, int halfHeight, boolean topSolidOnly,
                 boolean monitorSolidity, boolean useStickyBuffer, ObjectInstance instance, boolean apply) {
             return resolveContact(player, anchorX, anchorY, halfWidth, halfHeight, topSolidOnly,
@@ -2168,7 +2172,7 @@ public class ObjectManager {
          * Resolve contact with piece index support for multi-piece objects.
          * @param pieceIndex The piece index being checked, or -1 for single-piece objects
          */
-        private SolidContact resolveContact(AbstractPlayableSprite player,
+        private SolidContact resolveContact(PlayableEntity player,
                 int anchorX, int anchorY, int halfWidth, int halfHeight, boolean topSolidOnly,
                 boolean monitorSolidity, boolean useStickyBuffer, ObjectInstance instance, int pieceIndex, boolean apply) {
             int playerCenterX = player.getCentreX();
@@ -2227,7 +2231,7 @@ public class ObjectManager {
          * - Landing only if playerY - topCombinedBox < 16 AND within monitor X ± (halfWidth + 4)
          * - Never pushes player downward, only to sides
          */
-        private SolidContact resolveMonitorContact(AbstractPlayableSprite player, int relX, int relY,
+        private SolidContact resolveMonitorContact(PlayableEntity player, int relX, int relY,
                 int halfWidth, int maxTop, int playerCenterX, int playerCenterY, int anchorX,
                 boolean sticky, boolean apply) {
             // ROM: Mon_Solid / SolidObject_Monitor_Sonic — rolling check runs AFTER
@@ -2316,7 +2320,7 @@ public class ObjectManager {
             return pushing ? SolidContact.SIDE_PUSH : SolidContact.SIDE_NO_PUSH;
         }
 
-        private SolidContact resolveSlopedContact(AbstractPlayableSprite player, int anchorX, int anchorY, int halfWidth,
+        private SolidContact resolveSlopedContact(PlayableEntity player, int anchorX, int anchorY, int halfWidth,
                 int halfHeight, byte[] slopeData, boolean xFlip, boolean topSolidOnly, boolean useStickyBuffer,
                 ObjectInstance instance, boolean apply, SlopedSolidProvider slopedProvider) {
             if (slopeData == null || slopeData.length == 0) {
@@ -2360,7 +2364,7 @@ public class ObjectManager {
                     topSolidOnly, riding, apply, instance);
         }
 
-        private SolidContact resolveContactInternal(AbstractPlayableSprite player, int relX, int relY, int halfWidth,
+        private SolidContact resolveContactInternal(PlayableEntity player, int relX, int relY, int halfWidth,
                 int maxTop, int playerCenterX, int playerCenterY, boolean topSolidOnly, boolean sticky, boolean apply,
                 ObjectInstance instance) {
             int distX;
@@ -2665,7 +2669,7 @@ public class ObjectManager {
             return SolidContact.CEILING;
         }
 
-        private boolean isWithinTopLandingWidth(ObjectInstance instance, AbstractPlayableSprite player, int relX,
+        private boolean isWithinTopLandingWidth(ObjectInstance instance, PlayableEntity player, int relX,
                 int collisionHalfWidth) {
             if (!(instance instanceof SolidObjectProvider provider)) {
                 return true;
@@ -2689,7 +2693,7 @@ public class ObjectManager {
             return Math.abs(xFromCenter) <= allowedHalfWidth;
         }
 
-        private boolean usesUnifiedCollisionModel(AbstractPlayableSprite player) {
+        private boolean usesUnifiedCollisionModel(PlayableEntity player) {
             if (player == null) {
                 return false;
             }
@@ -2717,7 +2721,7 @@ public class ObjectManager {
          * (not.w + add.w halfWidth). This differs from SlopeObject (landing) which
          * flips the full relX before shifting.
          */
-        private int sampleSlopeY(AbstractPlayableSprite player, int objectX,
+        private int sampleSlopeY(PlayableEntity player, int objectX,
                 int halfWidth, SlopedSolidProvider sloped) {
             byte[] slopeData = sloped.getSlopeData();
             if (slopeData == null || slopeData.length == 0) {
@@ -2751,7 +2755,7 @@ public class ObjectManager {
             return (byte) slopeData[sampleX];
         }
 
-        private void clearRollingOnLanding(AbstractPlayableSprite player) {
+        private void clearRollingOnLanding(PlayableEntity player) {
             if (player == null || player.getPinballMode() || !player.getRolling()) {
                 return;
             }

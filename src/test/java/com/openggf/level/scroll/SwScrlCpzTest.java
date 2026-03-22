@@ -6,6 +6,8 @@ import org.junit.Test;
 import java.io.IOException;
 
 import com.openggf.data.Rom;
+import com.openggf.game.sonic2.scroll.ParallaxTables;
+import com.openggf.game.sonic2.scroll.SwScrlCpz;
 
 import static org.junit.Assert.*;
 import static com.openggf.level.scroll.M68KMath.*;

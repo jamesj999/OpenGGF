@@ -1,5 +1,6 @@
 package com.openggf.game.sonic1.objects;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
@@ -340,7 +341,8 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
         return y;
     }
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (mode) {
             case SPAWNER -> updateSpawner();
             case PLATFORM -> updatePlatform(frameCounter, player);
@@ -705,12 +707,14 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return mode == Mode.PLATFORM && solidActive;
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Standard SolidObject handling via the engine's SolidContacts system.
         // The disassembly uses SolidObject (not PlatformObject), which provides
         // top, left, right, and bottom collision. The engine handles this automatically.

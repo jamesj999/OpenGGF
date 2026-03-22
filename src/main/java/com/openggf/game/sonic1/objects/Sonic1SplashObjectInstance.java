@@ -1,6 +1,7 @@
 package com.openggf.game.sonic1.objects;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -47,7 +48,8 @@ public class Sonic1SplashObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM (Spla_Display): move.w (v_waterpos1).w,obY(a0)
         // Track water surface Y each frame
         var lm = GameServices.level();

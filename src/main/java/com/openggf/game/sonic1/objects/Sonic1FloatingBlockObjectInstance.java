@@ -1,5 +1,6 @@
 package com.openggf.game.sonic1.objects;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
@@ -249,7 +250,8 @@ public class Sonic1FloatingBlockObjectInstance extends AbstractObjectInstance
         return y;
     }
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         applyMovement();
         updateDynamicSpawn(x, y);
     }
@@ -278,12 +280,14 @@ public class Sonic1FloatingBlockObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Solid contact handled by engine's SolidContacts system
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed();
     }
 

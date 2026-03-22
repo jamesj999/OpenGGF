@@ -1,5 +1,6 @@
 package com.openggf.game.sonic2.objects;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.SpringHelper;
 import com.openggf.level.objects.BoxObjectInstance;
 import com.openggf.level.objects.ObjectAnimationState;
@@ -73,7 +74,8 @@ public class PipeExitSpringObjectInstance extends BoxObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (player == null) {
             return;
         }
@@ -177,7 +179,8 @@ public class PipeExitSpringObjectInstance extends BoxObjectInstance
      * and allows Sonic to pass through when the spring is raised out of the way.
      */
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: cmpi.b #1,mapping_frame(a0) / beq.s loc_29648
         // Skip collision when spring is in raised position (frames 1 and 2)
         // Both frames have Y offset -32 (raised 16 pixels higher than normal)
@@ -204,7 +207,8 @@ public class PipeExitSpringObjectInstance extends BoxObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: loc_29648 - Check if player is in the tube below the spring
         // If so, play the raised animation to move the spring out of the way
         if (player != null && isPlayerInTubeBelow(player)) {

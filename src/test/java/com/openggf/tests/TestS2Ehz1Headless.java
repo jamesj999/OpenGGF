@@ -16,6 +16,7 @@ import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.sprites.playable.Tails;
 import com.openggf.sprites.playable.SidekickCpuController;
@@ -260,7 +261,7 @@ public class TestS2Ehz1Headless {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity player) {
             // Static object.
         }
     }

@@ -4,6 +4,7 @@ import com.openggf.debug.DebugRenderContext;
 import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectArtKeys;
@@ -111,7 +112,8 @@ public class Sonic1YadrinBadnikInstance extends AbstractBadnikInstance implement
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (!initialized) {
             initialize();
             return;
@@ -297,7 +299,8 @@ public class Sonic1YadrinBadnikInstance extends AbstractBadnikInstance implement
     }
 
     @Override
-    public void onTouchResponse(AbstractPlayableSprite player, TouchResponseResult result, int frameCounter) {
+    public void onTouchResponse(PlayableEntity playerEntity, TouchResponseResult result, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // React_Special Yadrin check (s1disasm: sub ReactToItem.asm:393-420):
         // Compute vertical overlap between player center and Yadrin center.
         // If overlap < 8 pixels, Sonic is on the spiky top -> hurt.

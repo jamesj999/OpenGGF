@@ -1,5 +1,6 @@
 package com.openggf.game.sonic1.objects;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
@@ -181,7 +182,8 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
         return y;
     }
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // LBlk_Action: save X on stack, dispatch movement, then SolidObject + sink effect
         int prevX = x;
 
@@ -220,7 +222,8 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Store the contact result for type 05 checking
         // ROM: move.b d4,objoff_3F(a0)
         // d4 from SolidObject: 1 = side contact (pushing), -1 = top (standing), 0 = none
@@ -234,7 +237,8 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed();
     }
 

@@ -3,6 +3,7 @@ package com.openggf.game.sonic1.objects.bosses;
 import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
@@ -215,7 +216,8 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
     }
 
     @Override
-    public void onPlayerAttack(AbstractPlayableSprite player, TouchResponseResult result) {
+    public void onPlayerAttack(PlayableEntity playerEntity, TouchResponseResult result) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: In state 14, a successful player hit clears obColType, starting objoff_30 timer.
         if (state.routineSecondary != STATE_FINAL_FLIGHT || !escapeHittable || escapeCollisionFlags == 0) {
             return;
@@ -238,7 +240,8 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
     }
 
     @Override
-    protected void updateBossLogic(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateBossLogic(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Spawn children after the parent is already inserted in ObjectManager.
         // This preserves parent-before-child collision order for FZ boss solids.
         ensureChildComponentsSpawned();
@@ -726,7 +729,8 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
      * ROM: loc_19F50 — check d4 > 0 (side contact) AND obAnim == id_Roll
      */
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Only process during cylinder attack phase
         if (state.routineSecondary != STATE_CYLINDER_ATTACK) return;
 
@@ -858,7 +862,8 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: Solid during cylinder attack and escape phases 6-10
         return state.routineSecondary == STATE_CYLINDER_ATTACK ||
                 (state.routineSecondary >= STATE_DEFEAT_FALL &&
@@ -866,7 +871,8 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
     }
 
     @Override
-    public int getTopLandingHalfWidth(AbstractPlayableSprite player, int collisionHalfWidth) {
+    public int getTopLandingHalfWidth(PlayableEntity playerEntity, int collisionHalfWidth) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (state.routineSecondary == STATE_CYLINDER_ATTACK) {
             return COMBAT_TOP_LANDING_HALF_WIDTH;
         }

@@ -4,6 +4,7 @@ import com.openggf.debug.DebugRenderContext;
 import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectArtKeys;
@@ -92,7 +93,8 @@ public class Sonic1JawsBadnikInstance extends AbstractBadnikInstance {
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Jaws_Turn (Routine 2):
 
         // subq.w #1,jaws_timecount(a0)

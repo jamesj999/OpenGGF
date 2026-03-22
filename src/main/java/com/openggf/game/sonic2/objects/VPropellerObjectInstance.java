@@ -2,6 +2,7 @@ package com.openggf.game.sonic2.objects;
 
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.constants.Sonic2AudioConstants;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -105,7 +106,8 @@ public class VPropellerObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: ObjB4_Main
         // 1. Animate sprite (Ani_objB4: duration=1, frames 0,1,2, loop)
         updateAnimation();

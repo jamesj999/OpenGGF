@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects.bosses;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
@@ -105,7 +106,8 @@ public class CNZBossElectricBall extends AbstractObjectInstance implements Touch
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }

@@ -6,6 +6,7 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.physics.Direction;
+import com.openggf.game.PlayableEntity;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.render.PlayerSpriteRenderer;
 
@@ -58,7 +59,7 @@ public class SkidDustObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity player) {
         // Decrement animation timer
         animTimer--;
         if (animTimer < 0) {
@@ -99,14 +100,19 @@ public class SkidDustObjectInstance extends AbstractObjectInstance {
      * @param player The player sprite
      * @return A new skid dust object, or null if renderer is not available
      */
-    public static SkidDustObjectInstance create(AbstractPlayableSprite player) {
+    public static SkidDustObjectInstance create(PlayableEntity player) {
         LevelManager levelManager = GameServices.level();
         if (levelManager == null || levelManager.getObjectManager() == null) {
             return null;
         }
 
         // Get the dust/splash renderer from the player's dust manager
-        var dustManager = player.getSpindashDustController();
+        // Escape hatch: getSpindashDustController() returns sprites.managers type,
+        // not exposed on PlayableEntity to avoid game -> sprites.managers dependency.
+        if (!(player instanceof AbstractPlayableSprite aps)) {
+            return null;
+        }
+        var dustManager = aps.getSpindashDustController();
         if (dustManager == null) {
             return null;
         }
@@ -131,7 +137,7 @@ public class SkidDustObjectInstance extends AbstractObjectInstance {
      *
      * @param player The player sprite that started skidding
      */
-    public static void spawn(AbstractPlayableSprite player) {
+    public static void spawn(PlayableEntity player) {
         SkidDustObjectInstance dust = create(player);
         if (dust != null) {
             GameServices.level().getObjectManager().addDynamicObject(dust);

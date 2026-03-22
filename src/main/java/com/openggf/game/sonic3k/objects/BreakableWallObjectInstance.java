@@ -1,6 +1,7 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
@@ -209,14 +210,16 @@ public class BreakableWallObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !broken;
     }
 
     // ===== SolidObjectListener =====
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (player == null || broken) return;
 
         // Capture pre-contact X velocity (ROM saves before SolidObjectFull)
@@ -353,7 +356,8 @@ public class BreakableWallObjectInstance extends AbstractObjectInstance
     // ===== Update =====
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (broken) return;
 
         // Trigger-controlled deletion (ROM: tst.b subtype(a0) / bpl.s)
@@ -597,7 +601,8 @@ public class BreakableWallObjectInstance extends AbstractObjectInstance
         public int getY() { return currentY; }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             // ROM: jsr (MoveSprite2).l / addi.w #$70,y_vel(a0)
             motionState.x = currentX;
             motionState.y = currentY;

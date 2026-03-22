@@ -1,5 +1,6 @@
 package com.openggf.game.sonic1.objects;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
@@ -270,7 +271,8 @@ public class Sonic1LavaGeyserObjectInstance extends AbstractObjectInstance
     // ========================================================================
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (pendingDelete) {
             setDestroyed(true);
             return;

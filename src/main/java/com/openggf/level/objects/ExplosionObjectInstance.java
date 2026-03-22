@@ -6,7 +6,7 @@ import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 
 import com.openggf.graphics.GLCommand;
-import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import java.util.List;
 import java.util.logging.Logger;
@@ -43,7 +43,7 @@ public class ExplosionObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity player) {
         // Animation
         animTimer++;
         if (animTimer >= ANIM_DELAY) {

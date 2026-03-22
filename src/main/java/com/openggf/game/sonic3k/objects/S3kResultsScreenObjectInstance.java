@@ -4,6 +4,7 @@ import com.openggf.camera.Camera;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.GameServices;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.level.objects.AbstractResultsScreen;
@@ -286,7 +287,8 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
      * queue each frame until all children are off-screen, THEN transitions.
      */
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         this.playerRef = player;
         this.frameCounter = frameCounter;
         stateTimer++;

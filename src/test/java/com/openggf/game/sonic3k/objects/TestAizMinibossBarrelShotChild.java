@@ -10,6 +10,7 @@ import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.level.objects.boss.AbstractBossInstance;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import java.util.List;
 
@@ -103,7 +104,7 @@ public class TestAizMinibossBarrelShotChild {
         }
 
         @Override
-        protected void updateBossLogic(int frameCounter, AbstractPlayableSprite player) {
+        protected void updateBossLogic(int frameCounter, PlayableEntity player) {
             // No-op test stub.
         }
 
@@ -128,7 +129,7 @@ public class TestAizMinibossBarrelShotChild {
         }
 
         @Override
-        public void onPlayerAttack(AbstractPlayableSprite player, TouchResponseResult result) {
+        public void onPlayerAttack(PlayableEntity player, TouchResponseResult result) {
             // No-op test stub.
         }
     }

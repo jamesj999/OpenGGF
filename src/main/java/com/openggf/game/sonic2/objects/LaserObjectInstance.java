@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -97,7 +98,8 @@ public class LaserObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (routine) {
             case 2 -> updateWaitForOnScreen();
             case 4 -> updateFiring();

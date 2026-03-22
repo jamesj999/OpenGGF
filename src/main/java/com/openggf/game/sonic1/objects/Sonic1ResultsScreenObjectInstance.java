@@ -2,6 +2,7 @@ package com.openggf.game.sonic1.objects;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic1.audio.Sonic1Music;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
@@ -202,7 +203,8 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
     // -----------------------------------------------------------------------
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Handle SBZ2 special states outside the base class state machine
         if (state == STATE_SBZ2_SLIDE_OUT || state == STATE_SBZ2_SCROLL) {
             this.frameCounter = frameCounter;

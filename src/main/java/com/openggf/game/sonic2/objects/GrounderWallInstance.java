@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.sonic2.objects.badniks.GrounderBadnikInstance;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
@@ -117,7 +118,8 @@ public class GrounderWallInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Wait for parent's activation flag
         if (!activated) {
             if (parent == null || parent.isActivated()) {

@@ -3,6 +3,7 @@ package com.openggf.game.sonic2.objects.badniks;
 import com.openggf.level.objects.AbstractBadnikInstance;
 
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.objects.GrounderRockProjectile;
 import com.openggf.game.sonic2.objects.GrounderWallInstance;
 import com.openggf.debug.DebugRenderContext;
@@ -121,7 +122,8 @@ public class GrounderBadnikInstance extends AbstractBadnikInstance {
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
             case INIT -> updateInit();
             case DETECTION -> updateDetection(player);

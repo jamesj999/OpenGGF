@@ -1,5 +1,6 @@
 package com.openggf.game.sonic2.objects;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.SpringHelper;
 
 import com.openggf.audio.GameSound;
@@ -83,12 +84,14 @@ public class MTZSpringWallObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return true;
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (player == null) {
             return;
         }

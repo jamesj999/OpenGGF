@@ -3,6 +3,7 @@ package com.openggf.game.sonic3k.objects;
 import com.openggf.audio.GameAudioProfile;
 import com.openggf.audio.GameSound;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.ExplosionObjectInstance;
 import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
@@ -148,7 +149,8 @@ public class Sonic3kMonitorObjectInstance extends AbstractMonitorObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (revealed && !broken) {
             updateRevealed();
         }
@@ -187,7 +189,8 @@ public class Sonic3kMonitorObjectInstance extends AbstractMonitorObjectInstance
      * ROM: Touch_Monitor (sonic3k.asm ~line 20800)
      */
     @Override
-    public void onTouchResponse(AbstractPlayableSprite player, TouchResponseResult result, int frameCounter) {
+    public void onTouchResponse(PlayableEntity playerEntity, TouchResponseResult result, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (broken || player == null) {
             return;
         }
@@ -248,7 +251,8 @@ public class Sonic3kMonitorObjectInstance extends AbstractMonitorObjectInstance
      * ROM: Pow_ChkX branch table (sonic3k.asm ~line 40780)
      */
     @Override
-    protected void applyPowerup(AbstractPlayableSprite player) {
+    protected void applyPowerup(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (type) {
             case EGGMAN, EGGMAN_2 -> {
                 // Eggman monitor hurts the player
@@ -396,7 +400,8 @@ public class Sonic3kMonitorObjectInstance extends AbstractMonitorObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (broken) {
             return false;
         }
@@ -413,7 +418,8 @@ public class Sonic3kMonitorObjectInstance extends AbstractMonitorObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Solid contact for standing/edge checks; no additional behavior needed.
     }
 

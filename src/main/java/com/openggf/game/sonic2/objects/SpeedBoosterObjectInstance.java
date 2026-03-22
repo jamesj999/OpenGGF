@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -44,7 +45,8 @@ public class SpeedBoosterObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Animation: Toggle between frame 0 (visible) and frame 2 (empty)
         // ROM: move.b (Level_frame_counter+1).w,d0 / andi.b #2,d0 / move.b d0,mapping_frame(a0)
         // This masks bit 1 directly, producing 0 or 2

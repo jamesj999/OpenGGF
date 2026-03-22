@@ -5,6 +5,7 @@ import com.openggf.audio.GameSound;
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
 import com.openggf.graphics.GLCommand;
@@ -128,7 +129,8 @@ public class Sonic1SmashBlockObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (broken || player == null) {
             return;
         }
@@ -151,12 +153,14 @@ public class Sonic1SmashBlockObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !broken;
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (broken || player == null) {
             return;
         }
@@ -416,7 +420,8 @@ public class Sonic1SmashBlockObjectInstance extends AbstractObjectInstance
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (isDestroyed()) {
                 return;
             }

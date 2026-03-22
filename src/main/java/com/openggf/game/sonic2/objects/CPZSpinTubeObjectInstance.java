@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
@@ -208,7 +209,8 @@ public class CPZSpinTubeObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Store frame counter for use in sub-methods
         this.currentFrameCounter = frameCounter;
         // Update timer second (used for path variant selection)

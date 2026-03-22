@@ -1,6 +1,7 @@
 package com.openggf.game.sonic3k.objects.badniks;
 
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -68,7 +69,8 @@ public final class CaterkillerJrHeadInstance extends AbstractS3kBadnikInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (destroyed) return;
 
         boolean shouldMove = switch (phase) {
@@ -136,7 +138,8 @@ public final class CaterkillerJrHeadInstance extends AbstractS3kBadnikInstance {
     }
 
     @Override
-    public void onPlayerAttack(AbstractPlayableSprite player, TouchResponseResult result) {
+    public void onPlayerAttack(PlayableEntity playerEntity, TouchResponseResult result) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         super.onPlayerAttack(player, result);
         for (CaterkillerJrBodyInstance segment : bodySegments) {
             segment.onHeadDestroyed();

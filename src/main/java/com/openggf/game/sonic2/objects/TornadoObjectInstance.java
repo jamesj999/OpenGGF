@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2LevelEventManager;
@@ -253,7 +254,8 @@ public class TornadoObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         renderThisFrame = false;
         solidActive = false;
         highPriority = false;
@@ -729,12 +731,14 @@ public class TornadoObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return solidActive;
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM uses direct SolidObject calls from ObjB2 routines. The unified pipeline
         // handles contact resolution; this callback is intentionally no-op.
     }
@@ -1194,7 +1198,8 @@ public class TornadoObjectInstance extends AbstractObjectInstance
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             xPosFixed8 += xVel;
             yPosFixed8 += yVel;
             currentX = xPosFixed8 >> 8;

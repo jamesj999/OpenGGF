@@ -8,6 +8,7 @@ import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import java.util.List;
 
@@ -59,7 +60,8 @@ final class S3kBadnikProjectileInstance extends AbstractObjectInstance implement
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // MoveSprite / MoveSprite_LightGravity order:
         // use old y_vel for movement this frame, then apply gravity.
         int oldYVel = yVelocity;
@@ -119,7 +121,8 @@ final class S3kBadnikProjectileInstance extends AbstractObjectInstance implement
     }
 
     @Override
-    public boolean onShieldDeflect(AbstractPlayableSprite player) {
+    public boolean onShieldDeflect(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (player == null) {
             return false;
         }

@@ -1,5 +1,6 @@
 package com.openggf.game.sonic1.objects;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.camera.Camera;
 import com.openggf.graphics.GLCommand;
@@ -76,7 +77,8 @@ public class Sonic1EndingSTHObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }

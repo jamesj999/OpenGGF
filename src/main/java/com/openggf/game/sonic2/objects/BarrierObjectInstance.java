@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
@@ -89,7 +90,8 @@ public class BarrierObjectInstance extends AbstractObjectInstance implements Sol
         return y;
     }
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Calculate detection boundaries using PREVIOUS frame's movingUp state
         // ROM behavior: detection boundaries are calculated using routine_secondary from the previous frame,
         // then routine_secondary is cleared to 0, then character detection is performed.
@@ -211,12 +213,14 @@ public class BarrierObjectInstance extends AbstractObjectInstance implements Sol
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Solid collision is handled by ObjectManager
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed();
     }
 

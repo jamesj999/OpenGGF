@@ -8,7 +8,7 @@ import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.Direction;
-import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import java.util.List;
 
@@ -21,7 +21,7 @@ import java.util.List;
  * Table index incremented by 2 each step (d6), masked by 0x3E (0-30 even).
  */
 public class InvincibilityStarsObjectInstance extends AbstractObjectInstance {
-    private final AbstractPlayableSprite player;
+    private final PlayableEntity player;
     private final PatternSpriteRenderer renderer;
     private final boolean sonic1TrailMode;
 
@@ -90,7 +90,7 @@ public class InvincibilityStarsObjectInstance extends AbstractObjectInstance {
     private final int[] s1AnimationIndices = new int[STAR_COUNT];
     private final int[] s1AnimationTimers = new int[STAR_COUNT];
 
-    public InvincibilityStarsObjectInstance(AbstractPlayableSprite player) {
+    public InvincibilityStarsObjectInstance(PlayableEntity player) {
         super(null, "InvincibilityStars");
         this.player = player;
 
@@ -107,7 +107,7 @@ public class InvincibilityStarsObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity player) {
         if (sonic1TrailMode) {
             s1TrailPhase = (s1TrailPhase + 1) % S1_TRAIL_PHASE_COUNT;
             for (int i = 0; i < STAR_COUNT; i++) {

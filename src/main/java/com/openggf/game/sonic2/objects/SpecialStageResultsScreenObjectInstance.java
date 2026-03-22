@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.level.objects.AbstractResultsScreen;
 import com.openggf.game.sonic2.specialstage.Sonic2SpecialStageConstants;
@@ -686,7 +687,8 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         this.frameCounter = frameCounter;
         stateTimer++;
         totalFrames++;

@@ -1,6 +1,7 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.CheckpointState;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.objects.Sonic3kStarPostObjectInstance.BonusStarVariant;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -91,7 +92,8 @@ public class Sonic3kStarPostBonusStarChild extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Check if checkpoint was used for special stage entry already
         var checkpointState = services().checkpointState();
         if (checkpointState instanceof CheckpointState cs && cs.isUsedForSpecialStage()) {

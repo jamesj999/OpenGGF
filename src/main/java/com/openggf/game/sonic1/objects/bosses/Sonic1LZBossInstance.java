@@ -3,6 +3,7 @@ package com.openggf.game.sonic1.objects.bosses;
 import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.audio.Sonic1Music;
 
 import com.openggf.level.objects.ObjectSpawn;
@@ -154,7 +155,8 @@ public class Sonic1LZBossInstance extends AbstractS1EggmanBossInstance {
     }
 
     @Override
-    protected void updateBossLogic(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateBossLogic(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state.routineSecondary) {
             case STATE_ENTRY -> updateEntry(player);
             case STATE_WAYPOINT_1 -> updateWaypoint1();

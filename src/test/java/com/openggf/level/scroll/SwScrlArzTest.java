@@ -1,4 +1,5 @@
 package com.openggf.level.scroll;
+import com.openggf.game.sonic2.scroll.SwScrlArz;
 
 import org.junit.Before;
 import org.junit.Test;

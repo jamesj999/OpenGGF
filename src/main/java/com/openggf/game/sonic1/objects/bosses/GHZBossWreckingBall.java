@@ -1,6 +1,7 @@
 package com.openggf.game.sonic1.objects.bosses;
 
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectArtKeys;
@@ -98,7 +99,8 @@ public class GHZBossWreckingBall extends AbstractBossChild
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (!shouldUpdate(frameCounter)) {
             return;
         }

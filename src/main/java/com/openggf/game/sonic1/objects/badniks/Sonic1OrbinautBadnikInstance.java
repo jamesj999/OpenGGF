@@ -3,6 +3,7 @@ package com.openggf.game.sonic1.objects.badniks;
 import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.DestructionEffects.DestructionConfig;
@@ -70,7 +71,8 @@ public class Sonic1OrbinautBadnikInstance extends AbstractBadnikInstance {
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (!initialized) {
             spawnSatellites();
             initialized = true;
@@ -186,7 +188,8 @@ public class Sonic1OrbinautBadnikInstance extends AbstractBadnikInstance {
     }
 
     @Override
-    protected void destroyBadnik(AbstractPlayableSprite player) {
+    protected void destroyBadnik(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         destroySpikes();
         super.destroyBadnik(player);
     }
@@ -267,7 +270,8 @@ public class Sonic1OrbinautBadnikInstance extends AbstractBadnikInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (isDestroyed()) {
                 return;
             }

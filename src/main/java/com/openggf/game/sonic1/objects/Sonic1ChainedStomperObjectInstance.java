@@ -3,6 +3,7 @@ package com.openggf.game.sonic1.objects;
 import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.Sonic1SwitchManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -289,7 +290,8 @@ public class Sonic1ChainedStomperObjectInstance extends AbstractObjectInstance
         return y;
     }
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Main block behavior: loc_B798 (routine 2)
         // bsr.w CStom_Types
         updateBehavior(frameCounter, player);
@@ -588,7 +590,8 @@ public class Sonic1ChainedStomperObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Crush check from disassembly:
         // btst #3,obStatus(a0) -> check if player is standing on the block
         // beq.s CStom_Display  -> if not standing, skip crush

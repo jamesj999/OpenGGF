@@ -1,5 +1,6 @@
 package com.openggf.game.sonic2.objects;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.ExplosionObjectInstance;
 
 import com.openggf.camera.Camera;
@@ -193,7 +194,8 @@ public class EggPrisonObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (player == null) {
             return;
         }
@@ -393,7 +395,8 @@ public class EggPrisonObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Always solid, even after breaking
         return true;
     }

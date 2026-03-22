@@ -5,6 +5,7 @@ import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.debug.DebugOverlayManager;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
@@ -100,7 +101,8 @@ public class StomperObjectInstance extends AbstractObjectInstance
         return currentY;
     }
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -185,7 +187,8 @@ public class StomperObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed();
     }
 

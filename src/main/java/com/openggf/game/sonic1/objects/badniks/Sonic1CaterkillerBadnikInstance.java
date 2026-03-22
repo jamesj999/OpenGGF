@@ -1,5 +1,6 @@
 package com.openggf.game.sonic1.objects.badniks;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.level.objects.AbstractBadnikInstance;
@@ -171,7 +172,8 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (fragmenting) {
             updateFragment();
             return;
@@ -497,7 +499,8 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
     }
 
     @Override
-    protected void destroyBadnik(AbstractPlayableSprite player) {
+    protected void destroyBadnik(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         deleting = true;
         setDestroyed(true);
         setDestroyed(true);

@@ -5,6 +5,7 @@ import com.openggf.level.objects.AnimalObjectInstance;
 
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.level.objects.ExplosionObjectInstance;
@@ -38,7 +39,8 @@ public class TurtloidBadnikInstance extends AbstractBadnikInstance
         implements SolidObjectProvider, SolidObjectListener {
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Platform-only object - no special solid contact behavior needed
     }
 
@@ -124,7 +126,8 @@ public class TurtloidBadnikInstance extends AbstractBadnikInstance
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
             case MOVING -> updateMoving(player);
             case PAUSE_BEFORE -> updatePauseBefore();

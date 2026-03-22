@@ -1,6 +1,7 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractSpikeObjectInstance;
@@ -40,7 +41,8 @@ public class Sonic3kSpikeObjectInstance extends AbstractSpikeObjectInstance {
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (player == null) {
             return;
         }
@@ -54,7 +56,8 @@ public class Sonic3kSpikeObjectInstance extends AbstractSpikeObjectInstance {
     }
 
     @Override
-    protected void moveSpikes(AbstractPlayableSprite player) {
+    protected void moveSpikes(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         int behavior = spawn.subtype() & 0xF;
         switch (behavior) {
             case 1 -> moveSpikesVertical();

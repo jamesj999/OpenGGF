@@ -1,5 +1,6 @@
 package com.openggf.game.sonic2.objects;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.SpringHelper;
 import com.openggf.level.objects.BoxObjectInstance;
 import com.openggf.level.objects.ObjectAnimationState;
@@ -130,7 +131,8 @@ public class SpringboardObjectInstance extends BoxObjectInstance
      * ROM: loc_2641E is called when p1_standing_bit is set in object's status.
      */
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (player == null || !contact.standing()) {
             return;
         }
@@ -309,7 +311,8 @@ public class SpringboardObjectInstance extends BoxObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: Obj40_Main calls AnimateSprite before collision check
         animationState.update();
         mappingFrame = animationState.getMappingFrame();

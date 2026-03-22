@@ -1,6 +1,7 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.TouchResponseProvider;
@@ -51,7 +52,8 @@ public class AizMinibossBodyChild extends AbstractBossChild implements TouchResp
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (!shouldUpdate(frameCounter)) {
             return;
         }

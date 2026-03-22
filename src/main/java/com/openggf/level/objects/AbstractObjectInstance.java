@@ -3,7 +3,7 @@ package com.openggf.level.objects;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.LevelManager;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import java.util.List;
 import java.util.logging.Logger;
@@ -96,7 +96,7 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity player) {
         // Default no-op.
     }
 

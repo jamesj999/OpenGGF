@@ -2,6 +2,7 @@ package com.openggf.game.sonic1.objects.bosses;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.audio.Sonic1Music;
 
 import com.openggf.level.objects.ObjectInstance;
@@ -160,7 +161,8 @@ public class Sonic1SYZBossInstance extends AbstractS1EggmanBossInstance {
     }
 
     @Override
-    protected void updateBossLogic(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateBossLogic(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state.routineSecondary) {
             case STATE_APPROACH -> updateApproach();
             case STATE_PATROL -> updatePatrol(player);

@@ -1,6 +1,6 @@
 package com.openggf.level.objects;
 
-import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 /**
  * Shared utility methods for spring objects (Obj40, Obj41, Obj7B).
@@ -26,7 +26,7 @@ public final class SpringHelper {
      * @param player  the player sprite to modify
      * @param subtype the spring's subtype byte
      */
-    public static void applyCollisionLayerBits(AbstractPlayableSprite player, int subtype) {
+    public static void applyCollisionLayerBits(PlayableEntity player, int subtype) {
         int layerBits = subtype & 0x0C;
         if (layerBits == 0x04) {
             // Primary collision layer

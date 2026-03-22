@@ -1,6 +1,7 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
@@ -103,7 +104,8 @@ public class AizMinibossBarrelShotChild extends AbstractObjectInstance implement
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (parent == null || parent.isDestroyed() || parent.getState().defeated) {
             setDestroyed(true);
             return;
@@ -259,7 +261,8 @@ public class AizMinibossBarrelShotChild extends AbstractObjectInstance implement
     }
 
     @Override
-    public boolean onShieldDeflect(AbstractPlayableSprite player) {
+    public boolean onShieldDeflect(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         setDestroyed(true);
         return true;
     }

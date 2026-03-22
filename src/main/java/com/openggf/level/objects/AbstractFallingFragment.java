@@ -2,7 +2,7 @@ package com.openggf.level.objects;
 
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import java.util.List;
 
@@ -62,7 +62,7 @@ public abstract class AbstractFallingFragment extends AbstractObjectInstance {
     }
 
     @Override
-    public final void update(int frameCounter, AbstractPlayableSprite player) {
+    public final void update(int frameCounter, PlayableEntity player) {
         if (isDestroyed()) {
             return;
         }

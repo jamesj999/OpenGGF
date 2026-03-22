@@ -13,6 +13,7 @@ import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.debug.DebugColor;
 import java.util.List;
@@ -147,7 +148,8 @@ public class Sonic1CaterkillerBodyInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (destroyed) {
             return;
         }
@@ -385,7 +387,8 @@ public class Sonic1CaterkillerBodyInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onTouchResponse(AbstractPlayableSprite player, TouchResponseResult result, int frameCounter) {
+    public void onTouchResponse(PlayableEntity playerEntity, TouchResponseResult result, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (destroyed || fragmenting) {
             return;
         }

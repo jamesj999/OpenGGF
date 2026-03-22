@@ -3,7 +3,7 @@ package com.openggf.level.objects;
 import com.openggf.game.LevelState;
 import com.openggf.game.RespawnState;
 import com.openggf.level.Level;
-import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 /**
  * Injectable service handle for game objects. Provides access to level sub-managers
@@ -30,5 +30,5 @@ public interface ObjectServices {
     void fadeOutMusic();
 
     // Gameplay
-    void spawnLostRings(AbstractPlayableSprite player, int frameCounter);
+    void spawnLostRings(PlayableEntity player, int frameCounter);
 }

@@ -13,6 +13,7 @@ import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.debug.DebugColor;
 import java.util.List;
@@ -140,7 +141,8 @@ public class Sonic1VanishingPlatformObjectInstance extends AbstractObjectInstanc
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -276,7 +278,8 @@ public class Sonic1VanishingPlatformObjectInstance extends AbstractObjectInstanc
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Platform is only solid when visible (frame bit 1 clear = frames 0 and 1)
         if (isDestroyed()) {
             return false;
@@ -285,7 +288,8 @@ public class Sonic1VanishingPlatformObjectInstance extends AbstractObjectInstanc
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Standing state is managed via isPlayerRiding() check in update()
     }
 

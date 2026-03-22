@@ -1,6 +1,7 @@
 package com.openggf.game.sonic1.objects;
 
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -128,7 +129,8 @@ public class Sonic1SeesawBallObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
             case RESTING -> updateResting();
             case FLYING -> updateFlying();

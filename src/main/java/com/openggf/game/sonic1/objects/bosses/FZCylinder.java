@@ -1,6 +1,7 @@
 package com.openggf.game.sonic1.objects.bosses;
 
 import com.openggf.game.sonic1.constants.Sonic1Constants;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.LevelManager;
@@ -94,7 +95,8 @@ public class FZCylinder extends AbstractBossChild implements SolidObjectProvider
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (!beginUpdate(frameCounter)) return;
 
         if (!active) {
@@ -252,7 +254,8 @@ public class FZCylinder extends AbstractBossChild implements SolidObjectProvider
     }
 
     @Override
-    public int getTopLandingHalfWidth(AbstractPlayableSprite player, int collisionHalfWidth) {
+    public int getTopLandingHalfWidth(PlayableEntity playerEntity, int collisionHalfWidth) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return TOP_LANDING_HALF_WIDTH;
     }
 

@@ -2,6 +2,7 @@ package com.openggf.game.sonic2.objects.bosses;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -163,7 +164,8 @@ public class Sonic2ARZBossInstance extends AbstractBossInstance {
     }
 
     @Override
-    protected void updateBossLogic(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateBossLogic(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (!initialized) {
             if (!checkInitConditions(player)) {
                 return;

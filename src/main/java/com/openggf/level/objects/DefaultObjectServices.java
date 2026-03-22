@@ -5,7 +5,7 @@ import com.openggf.game.LevelState;
 import com.openggf.game.RespawnState;
 import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
-import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 /**
  * Production implementation of {@link ObjectServices} backed by existing singletons.
@@ -64,7 +64,10 @@ public class DefaultObjectServices implements ObjectServices {
     }
 
     @Override
-    public void spawnLostRings(AbstractPlayableSprite player, int frameCounter) {
-        LevelManager.getInstance().spawnLostRings(player, frameCounter);
+    public void spawnLostRings(PlayableEntity player, int frameCounter) {
+        // Escape hatch: LevelManager.spawnLostRings needs concrete type for RingManager
+        if (player instanceof com.openggf.sprites.playable.AbstractPlayableSprite aps) {
+            LevelManager.getInstance().spawnLostRings(aps, frameCounter);
+        }
     }
 }

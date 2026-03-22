@@ -1,5 +1,6 @@
 package com.openggf.game.sonic2.objects;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.SpringHelper;
 
 import com.openggf.audio.GameSound;
@@ -86,7 +87,8 @@ public class SteamSpringObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
             case STATE_WAIT_BEFORE_RISE -> updateWaitBeforeRise();
             case STATE_RISING -> updateRising();
@@ -176,7 +178,8 @@ public class SteamSpringObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (player == null || !contact.standing()) {
             return;
         }

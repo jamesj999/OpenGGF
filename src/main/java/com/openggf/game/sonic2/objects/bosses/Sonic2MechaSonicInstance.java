@@ -2,6 +2,7 @@ package com.openggf.game.sonic2.objects.bosses;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2LevelEventManager;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.audio.Sonic2Music;
@@ -226,7 +227,8 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
     }
 
     @Override
-    protected void updateBossLogic(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateBossLogic(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: AnimateSprite_Checked is NOT called globally. Each routine/phase
         // calls it explicitly only when needed.
         switch (state.routine) {
@@ -1037,7 +1039,8 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (!beginUpdate(frameCounter)) return;
             // ROM: routine $1C — wait for parent's y_flip flag before animating
             if (waitingForLanding) {
@@ -1151,7 +1154,8 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
         public int getCollisionFlags() { return collisionEnabled ? 0x98 : 0x00; }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (!beginUpdate(frameCounter)) return;
             syncPositionWithParent();
             updateDynamicSpawn();
@@ -1212,7 +1216,8 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (!beginUpdate(frameCounter)) return;
             syncPositionWithParent();
             // ROM: AnimateSprite_Checked — animate with whatever anim was set by parent.
@@ -1276,7 +1281,8 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (!beginUpdate(frameCounter)) return;
             xFixed += (xVel << 8);
             yFixed += (yVel << 8);

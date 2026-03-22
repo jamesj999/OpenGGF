@@ -1,6 +1,6 @@
 package com.openggf.level.objects;
 
-import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 /**
  * Base class for simple projectile objects (missiles, energy balls, shrapnel).
@@ -15,7 +15,7 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
  * <p>
  * Subclasses must implement {@link #appendRenderCommands} and may override
  * {@link #updateMotion()} for custom motion patterns (e.g., X-only movement,
- * gravity-before-move ordering) or {@link #updateExtra(int, AbstractPlayableSprite)}
+ * gravity-before-move ordering) or {@link #updateExtra(int, PlayableEntity)}
  * for additional per-frame logic (animation, parent tracking).
  */
 public abstract class AbstractProjectileInstance extends AbstractObjectInstance
@@ -60,7 +60,7 @@ public abstract class AbstractProjectileInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity player) {
         updateMotion();
         currentX = motionState.x;
         currentY = motionState.y;
@@ -98,7 +98,7 @@ public abstract class AbstractProjectileInstance extends AbstractObjectInstance
      * Hook for subclass-specific per-frame logic (animation, parent tracking, etc.).
      * Called after motion update and off-screen check. Default is no-op.
      */
-    protected void updateExtra(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateExtra(int frameCounter, PlayableEntity player) {
         // Default no-op
     }
 

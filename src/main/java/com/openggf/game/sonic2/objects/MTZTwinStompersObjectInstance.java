@@ -5,6 +5,7 @@ import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.debug.DebugOverlayManager;
 import com.openggf.debug.DebugOverlayToggle;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
@@ -180,7 +181,8 @@ public class MTZTwinStompersObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Crush detection is handled automatically by the engine's SolidContacts collision
         // resolution, matching the ROM's SolidObject routine (s2.asm:35336-35361).
         // When the player is standing on the ground (ySpeed==0, not airborne) and overlaps
@@ -194,7 +196,8 @@ public class MTZTwinStompersObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) return;
 
         // Despawn check: s2.asm:52269-52273

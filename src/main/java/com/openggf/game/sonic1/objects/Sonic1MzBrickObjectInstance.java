@@ -2,6 +2,7 @@ package com.openggf.game.sonic1.objects;
 
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.OscillationManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -119,7 +120,8 @@ public class Sonic1MzBrickObjectInstance extends AbstractObjectInstance
         return y;
     }
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // From disassembly: tst.b obRender(a0) / bpl.s .chkdel
         // Only process behavior when on-screen (render flag bit 7 set)
         if (!isOnScreen(128)) {
@@ -301,14 +303,16 @@ public class Sonic1MzBrickObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public int getTopLandingHalfWidth(AbstractPlayableSprite player, int collisionHalfWidth) {
+    public int getTopLandingHalfWidth(PlayableEntity playerEntity, int collisionHalfWidth) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM uses obActWid ($10) for Solid_Landed / SolidObject_InsideTop,
         // not the collision halfWidth ($1B).
         return ACTIVE_WIDTH;
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Standard solid collision handled by ObjectManager
     }
 

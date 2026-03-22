@@ -4,6 +4,7 @@ import com.openggf.level.objects.AbstractBadnikInstance;
 
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
+import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.ExplosionObjectInstance;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
@@ -82,7 +83,8 @@ public class AsteronBadnikInstance extends AbstractBadnikInstance {
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
             case IDLE -> updateIdle(player);
             case ARMED -> updateArmed(player);

@@ -11,6 +11,7 @@ import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.debug.DebugColor;
 import java.util.List;
@@ -79,7 +80,8 @@ public class Sonic1BombShrapnelInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (destroyed) {
             return;
         }

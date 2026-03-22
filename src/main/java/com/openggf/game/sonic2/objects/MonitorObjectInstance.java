@@ -3,6 +3,7 @@ import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.level.objects.ExplosionObjectInstance;
 
 import com.openggf.game.sonic2.audio.Sonic2Music;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.GameServices;
 
@@ -92,7 +93,8 @@ public class MonitorObjectInstance extends AbstractMonitorObjectInstance impleme
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Handle falling state first (ROM: Obj26_Main routine_secondary check)
         if (falling) {
             updateFalling();
@@ -128,7 +130,8 @@ public class MonitorObjectInstance extends AbstractMonitorObjectInstance impleme
     }
 
     @Override
-    public void onTouchResponse(AbstractPlayableSprite player, TouchResponseResult result, int frameCounter) {
+    public void onTouchResponse(PlayableEntity playerEntity, TouchResponseResult result, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (broken || player == null || player.isCpuControlled()) {
             return;
         }
@@ -230,7 +233,8 @@ public class MonitorObjectInstance extends AbstractMonitorObjectInstance impleme
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (broken) {
             return false;
         }
@@ -246,12 +250,14 @@ public class MonitorObjectInstance extends AbstractMonitorObjectInstance impleme
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Solid contact used for standing/edge checks in ROM; no behavior yet.
     }
 
     @Override
-    protected void applyPowerup(AbstractPlayableSprite player) {
+    protected void applyPowerup(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (type) {
             case RINGS -> {
                 player.addRings(RING_MONITOR_REWARD);

@@ -3,6 +3,7 @@ package com.openggf.game.sonic1.objects;
 import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -104,7 +105,8 @@ public class Sonic1GargoyleObjectInstance extends AbstractObjectInstance {
     // ========================================================================
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: Gar_MakeFire (Routine 2)
         // subq.b #1,obTimeFrame(a0)
         timer--;
@@ -290,7 +292,8 @@ public class Sonic1GargoyleObjectInstance extends AbstractObjectInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             // ROM: Gar_AniFire (Routine 6)
 
             // Animation: toggle frame every 8 game frames

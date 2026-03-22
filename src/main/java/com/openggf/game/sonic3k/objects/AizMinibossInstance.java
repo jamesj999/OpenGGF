@@ -2,6 +2,7 @@ package com.openggf.game.sonic3k.objects;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
@@ -132,7 +133,8 @@ public class AizMinibossInstance extends AbstractBossInstance {
     }
 
     @Override
-    public void onPlayerAttack(AbstractPlayableSprite player, TouchResponseResult result) {
+    public void onPlayerAttack(PlayableEntity playerEntity, TouchResponseResult result) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (state.invulnerable || state.defeated) {
             return;
         }
@@ -186,7 +188,8 @@ public class AizMinibossInstance extends AbstractBossInstance {
     }
 
     @Override
-    protected void updateBossLogic(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateBossLogic(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state.routine) {
             case ROUTINE_INIT -> updateInit();
             case ROUTINE_WAIT_TRIGGER -> updateWaitTrigger();

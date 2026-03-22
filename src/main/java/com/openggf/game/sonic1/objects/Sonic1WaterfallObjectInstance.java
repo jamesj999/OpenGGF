@@ -1,6 +1,7 @@
 package com.openggf.game.sonic1.objects;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.Level;
@@ -99,7 +100,8 @@ public class Sonic1WaterfallObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (routine) {
             case ROUTINE_ON_WATER -> {
                 y = getWaterLevel() - 0x10;

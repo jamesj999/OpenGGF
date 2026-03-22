@@ -1,5 +1,6 @@
 package com.openggf.game.sonic2.objects;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.BoxObjectInstance;
 
 import com.openggf.audio.AudioManager;
@@ -136,7 +137,8 @@ public class ElevatorObjectInstance extends BoxObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM (s2.asm lines 58412-58417): Platform collision only runs in states 0, 2, 4.
         // State 6 (return) has NO collision - player cannot stand on returning elevator.
         if (state == STATE_RETURN) {
@@ -146,14 +148,16 @@ public class ElevatorObjectInstance extends BoxObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (contact.standing() || contact.touchTop()) {
             lastContactFrame = frameCounter;
         }
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Apply velocity FIRST (matches ROM ObjectMove timing)
         applyVelocity();
 

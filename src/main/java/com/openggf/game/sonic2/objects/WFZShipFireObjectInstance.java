@@ -2,6 +2,7 @@ package com.openggf.game.sonic2.objects;
 
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.ParallaxManager;
@@ -87,7 +88,8 @@ public class WFZShipFireObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: ObjBC_Main (s2.asm line 79915)
         // move.w objoff_2C(a0),d0          ; d0 = initial X
         // move.w (Camera_BG_X_offset).w,d1 ; d1 = BG scroll offset

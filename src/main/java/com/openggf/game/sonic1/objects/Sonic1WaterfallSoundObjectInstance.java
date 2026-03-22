@@ -2,6 +2,7 @@ package com.openggf.game.sonic1.objects;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
@@ -35,7 +36,8 @@ public class Sonic1WaterfallSoundObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // WSnd_PlaySnd: play waterfall SFX every 64 frames
         if ((frameCounter & PLAY_INTERVAL_MASK) == 0) {
             services().playSfx(Sonic1Sfx.WATERFALL.id);

@@ -1,5 +1,6 @@
 package com.openggf.game.sonic1.objects;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
@@ -174,12 +175,13 @@ public class Sonic1StaircaseObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed();
     }
 
     @Override
-    public void onPieceContact(int pieceIndex, AbstractPlayableSprite player,
+    public void onPieceContact(int pieceIndex, PlayableEntity playerEntity,
                                SolidContact contact, int frameCounter) {
         if (contact.standing() || contact.touchTop()) {
             lastTopContactFrame = frameCounter;
@@ -190,7 +192,7 @@ public class Sonic1StaircaseObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact,
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact,
                                int frameCounter) {
         if (contact.standing() || contact.touchTop()) {
             lastTopContactFrame = frameCounter;
@@ -201,7 +203,8 @@ public class Sonic1StaircaseObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Decode contact from the previous frame
         boolean touchTop = (frameCounter - lastTopContactFrame) <= 1;
         boolean touchBottom = (frameCounter - lastBottomContactFrame) <= 1;

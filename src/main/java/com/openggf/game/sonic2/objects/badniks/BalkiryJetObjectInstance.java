@@ -2,6 +2,7 @@ package com.openggf.game.sonic2.objects.badniks;
 
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -48,7 +49,8 @@ public class BalkiryJetObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: cmp.b id(a1),d0 / bne.w JmpTo65_DeleteObject
         if (parent.isDestroyed()) {
             setDestroyed(true);

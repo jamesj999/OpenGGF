@@ -3,6 +3,7 @@ package com.openggf.game.sonic1.objects;
 import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -152,7 +153,8 @@ public class Sonic1SpinPlatformObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isSpinner) {
             updateSpinner(frameCounter, player);
         } else {
@@ -381,12 +383,14 @@ public class Sonic1SpinPlatformObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return solidActive;
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // No extra per-contact behavior needed.
         // The SolidObject call in the disassembly handles standard push/stand/ceiling;
         // the engine's SolidContacts system replicates this automatically.

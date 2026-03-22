@@ -1,6 +1,6 @@
 package com.openggf.level.objects;
 
-import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 /**
  * Shared base class for monitor (item box) objects across all games.
@@ -31,7 +31,7 @@ public abstract class AbstractMonitorObjectInstance extends AbstractObjectInstan
     protected int iconVelY;
     protected int iconWaitFrames;
     protected boolean effectApplied;
-    protected AbstractPlayableSprite effectTarget;
+    protected PlayableEntity effectTarget;
 
     protected AbstractMonitorObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
@@ -44,7 +44,7 @@ public abstract class AbstractMonitorObjectInstance extends AbstractObjectInstan
      * @param originY the Y position (pixels) from which the icon rises
      * @param player  the player who broke the monitor (receives the power-up)
      */
-    protected void startIconRise(int originY, AbstractPlayableSprite player) {
+    protected void startIconRise(int originY, PlayableEntity player) {
         iconActive = true;
         iconSubY = originY << 8;
         iconVelY = ICON_INITIAL_VELOCITY;
@@ -95,7 +95,7 @@ public abstract class AbstractMonitorObjectInstance extends AbstractObjectInstan
      *
      * @param player the player who broke the monitor
      */
-    protected abstract void applyPowerup(AbstractPlayableSprite player);
+    protected abstract void applyPowerup(PlayableEntity player);
 
     /**
      * Hook called when the icon finishes its wait timer and deactivates.

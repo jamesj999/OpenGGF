@@ -1,6 +1,7 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.graphics.GLCommand;
@@ -75,7 +76,8 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         updatePlayer(player, PLAYER_SLOT_MAIN, true);
         var sidekicks = SpriteManager.getInstance().getSidekicks();
         if (!sidekicks.isEmpty()) {
@@ -328,7 +330,8 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (timer2EWord != 0 && eventsFg4 == 0) {
                 setDestroyed(true);
                 return;

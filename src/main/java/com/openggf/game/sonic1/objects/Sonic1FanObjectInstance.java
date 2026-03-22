@@ -8,6 +8,7 @@ import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.debug.DebugColor;
 import java.util.List;
@@ -114,7 +115,8 @@ public class Sonic1FanObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Fan_Delay: handle cyclic on/off (unless always-on subtype)
         if (!alwaysOn) {
             // subq.w #1,fan_time(a0) — subtract 1 from time delay

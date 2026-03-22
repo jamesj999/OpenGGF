@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects.badniks;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.AbstractBadnikInstance;
 
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -91,7 +92,8 @@ public class WhispBadnikInstance extends AbstractBadnikInstance {
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
             case INIT -> updateInit();
             case WAIT_ONSCREEN -> updateWaitOnscreen();

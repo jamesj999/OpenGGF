@@ -1,6 +1,7 @@
 package com.openggf.game.sonic3k.objects.badniks;
 
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.DestructionEffects;
@@ -60,7 +61,8 @@ abstract class AbstractS3kBadnikInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onPlayerAttack(AbstractPlayableSprite player, TouchResponseResult result) {
+    public void onPlayerAttack(PlayableEntity playerEntity, TouchResponseResult result) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         defeat(player);
     }
 

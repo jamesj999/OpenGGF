@@ -6,7 +6,7 @@ import com.openggf.game.GameServices;
 import com.openggf.game.ResultsScreen;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import java.util.List;
 import java.util.logging.Logger;
@@ -67,7 +67,7 @@ public abstract class AbstractResultsScreen extends AbstractObjectInstance imple
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity player) {
         this.frameCounter = frameCounter;
         stateTimer++;
         totalFrames++;
@@ -172,7 +172,7 @@ public abstract class AbstractResultsScreen extends AbstractObjectInstance imple
      */
     @Override
     public void update(int frameCounter, Object context) {
-        AbstractPlayableSprite player = (context instanceof AbstractPlayableSprite) ? (AbstractPlayableSprite) context
+        PlayableEntity player = (context instanceof PlayableEntity) ? (PlayableEntity) context
                 : null;
         update(frameCounter, player);
     }

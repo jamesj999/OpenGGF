@@ -1,14 +1,14 @@
 package com.openggf.level.objects;
 
 import com.openggf.graphics.RenderPriority;
-import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 /**
  * Shared base class for S2 and S3K spike objects.
  * <p>
  * Extracts identical retract constants, dimension tables, hurt/solid logic,
  * and oscillation movement. Game-specific subclasses override
- * {@link #moveSpikes(AbstractPlayableSprite)} to add behaviors (e.g. S3K push mode)
+ * {@link #moveSpikes(PlayableEntity)} to add behaviors (e.g. S3K push mode)
  * and {@link #playSpikeMoveSfx()} for game-specific audio.
  * <p>
  * Subtype encoding (shared across S2/S3K):
@@ -58,7 +58,7 @@ public abstract class AbstractSpikeObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity player, SolidContact contact, int frameCounter) {
         if (player == null) {
             return;
         }
@@ -83,7 +83,7 @@ public abstract class AbstractSpikeObjectInstance extends AbstractObjectInstance
     // ---- Lifecycle ----
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity player) {
         moveSpikes(player);
         updateDynamicSpawn(currentX, currentY);
     }
@@ -108,7 +108,7 @@ public abstract class AbstractSpikeObjectInstance extends AbstractObjectInstance
      * Template method: dispatch spike movement by subtype behavior nibble.
      * S2 handles behaviors 0-2; S3K adds behavior 3 (push mode).
      */
-    protected void moveSpikes(AbstractPlayableSprite player) {
+    protected void moveSpikes(PlayableEntity player) {
         int behavior = spawn.subtype() & 0xF;
         switch (behavior) {
             case 1 -> moveSpikesVertical();

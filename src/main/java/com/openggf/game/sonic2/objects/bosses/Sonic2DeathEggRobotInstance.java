@@ -2,6 +2,7 @@ package com.openggf.game.sonic2.objects.bosses;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
@@ -567,7 +568,8 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
      * calling triggerDefeatSequence(), leaving state.invulnerable=true permanently).
      */
     @Override
-    public void onPlayerAttack(AbstractPlayableSprite player, TouchResponseResult result) {
+    public void onPlayerAttack(PlayableEntity playerEntity, TouchResponseResult result) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         onHeadHit();
     }
 
@@ -576,7 +578,8 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     // ========================================================================
 
     @Override
-    protected void updateBossLogic(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateBossLogic(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (bodyRoutine) {
             case BODY_WAIT_EGGMAN -> updateWaitEggman();
             case BODY_COUNTDOWN -> updateCountdown();
@@ -1529,7 +1532,8 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (!beginUpdate(frameCounter)) return;
             if (falling) {
                 fallTimer--;
@@ -1612,7 +1616,8 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (!beginUpdate(frameCounter)) return;
 
             if (falling) {
@@ -1758,7 +1763,8 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (!beginUpdate(frameCounter)) return;
 
             switch (headRoutine) {
@@ -1832,7 +1838,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void onPlayerAttack(AbstractPlayableSprite player,
+        public void onPlayerAttack(PlayableEntity playerEntity,
                                    com.openggf.level.objects.TouchResponseResult result) {
             ((Sonic2DeathEggRobotInstance) parent).onHeadHit();
         }
@@ -1896,7 +1902,8 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (!beginUpdate(frameCounter)) return;
 
             Sonic2DeathEggRobotInstance boss = (Sonic2DeathEggRobotInstance) parent;
@@ -1992,7 +1999,8 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (!beginUpdate(frameCounter)) return;
 
             Sonic2DeathEggRobotInstance boss = (Sonic2DeathEggRobotInstance) parent;
@@ -2157,7 +2165,8 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (!beginUpdate(frameCounter)) return;
 
             Sonic2DeathEggRobotInstance boss = (Sonic2DeathEggRobotInstance) parent;

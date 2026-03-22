@@ -3,6 +3,7 @@ package com.openggf.game.sonic1.objects.badniks;
 import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectArtKeys;
@@ -80,7 +81,8 @@ public class Sonic1ChopperBadnikInstance extends AbstractBadnikInstance {
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Chop_ChgSpeed: SpeedToPos - apply velocity to Y position
         int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
         yPos24 += yVelocity;

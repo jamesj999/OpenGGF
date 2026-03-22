@@ -2,6 +2,7 @@ package com.openggf.game.sonic1.objects;
 
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.Sonic1SwitchManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.LevelManager;
@@ -271,7 +272,8 @@ public class Sonic1StomperDoorObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Save X before movement for SolidObject platform delta
         int prevX = x;
 
@@ -615,7 +617,8 @@ public class Sonic1StomperDoorObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // The object is always solid when visible/active
         return true;
     }
@@ -623,7 +626,8 @@ public class Sonic1StomperDoorObjectInstance extends AbstractObjectInstance
     // ---- SolidObjectListener ----
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // SolidObject handles the collision response; no extra per-contact behavior needed.
     }
 

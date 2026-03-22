@@ -6,6 +6,7 @@ import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.debug.DebugOverlayManager;
 import com.openggf.debug.DebugOverlayToggle;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
@@ -54,7 +55,7 @@ public class InvisibleBlockObjectInstance extends BoxObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player,
+    public void onSolidContact(PlayableEntity playerEntity,
                                SolidContact contact, int frameCounter) {
         // No special behavior - standard collision handled by ObjectManager
     }

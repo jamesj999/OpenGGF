@@ -1,6 +1,7 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -49,7 +50,8 @@ public class AizIntroBoosterChild {
         this.animIndex = 0;
     }
 
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Follow parent plane position with fixed offset
         currentX = parent.getX() + xOffset;
         currentY = parent.getY() + yOffset;

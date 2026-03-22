@@ -2,6 +2,7 @@ package com.openggf.game.sonic2.objects;
 import com.openggf.level.objects.BoxObjectInstance;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -115,7 +116,8 @@ public class SmashableGroundObjectInstance extends BoxObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (broken) {
             return;
         }
@@ -137,13 +139,15 @@ public class SmashableGroundObjectInstance extends BoxObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Block is not solid once broken
         return !broken;
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (broken || player == null) {
             return;
         }
@@ -414,7 +418,8 @@ public class SmashableGroundObjectInstance extends BoxObjectInstance
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (isDestroyed()) {
                 return;
             }

@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -157,12 +158,13 @@ public class CPZStaircaseObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed();
     }
 
     @Override
-    public void onPieceContact(int pieceIndex, AbstractPlayableSprite player,
+    public void onPieceContact(int pieceIndex, PlayableEntity playerEntity,
                                SolidContact contact, int frameCounter) {
         // Track contact from any piece by recording the frame number.
         // Since solidObjectManager.update() runs AFTER objectManager.update(),
@@ -177,7 +179,8 @@ public class CPZStaircaseObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Aggregate contact callback - also tracked via onPieceContact
         if (contact.standing() || contact.touchTop()) {
             lastTopContactFrame = frameCounter;
@@ -188,7 +191,8 @@ public class CPZStaircaseObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Check contact from the PREVIOUS frame, since solidObjectManager.update()
         // runs AFTER objectManager.update() in the game loop.
         boolean touchTop = (frameCounter - lastTopContactFrame) <= 1;

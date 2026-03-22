@@ -1,5 +1,6 @@
 package com.openggf.game.sonic1.objects;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
@@ -258,7 +259,8 @@ public class Sonic1BubblesObjectInstance extends AbstractObjectInstance {
     // ========================================================================
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (routine) {
             case ROUTINE_ANIMATE -> updateAnimate(player);
             case ROUTINE_CHKWATER -> updateChkWater(player);

@@ -11,6 +11,7 @@ import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import java.util.List;
 
@@ -58,7 +59,8 @@ public class EggPrisonButtonObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Button is purely reactive - no autonomous updates
         // Collision system handles player landing detection via SolidObjectProvider
     }
@@ -79,7 +81,7 @@ public class EggPrisonButtonObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite sprite) {
+    public boolean isSolidFor(PlayableEntity sprite) {
         return true; // Solid for all players
     }
 
@@ -88,7 +90,8 @@ public class EggPrisonButtonObjectInstance extends AbstractObjectInstance
     // ========================================================================================
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (!triggered && contact.standing() && player.getYSpeed() >= 0) {
             // Button triggered - depress and notify parent
             triggered = true;

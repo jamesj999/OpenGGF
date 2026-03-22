@@ -2,6 +2,7 @@ package com.openggf.game.sonic2.objects;
 
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.ButtonVineTriggerManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2AudioConstants;
 import com.openggf.graphics.GLCommand;
@@ -96,7 +97,8 @@ public class ButtonObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: move.b #0,mapping_frame(a0) - reset to unpressed each frame
         mappingFrame = FRAME_UNPRESSED;
 
@@ -149,7 +151,8 @@ public class ButtonObjectInstance extends AbstractObjectInstance
     // ========================================================================================
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (contact.standing()) {
             lastStandingFrame = frameCounter;
         }

@@ -6,6 +6,7 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.debug.DebugColor;
 import java.util.List;
@@ -94,7 +95,8 @@ public class Sonic1LavaBallMakerObjectInstance extends AbstractObjectInstance {
     // ========================================================================
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: LavaM_MakeLava (Routine 2)
         // subq.b #1,obTimeFrame(a0) ; subtract 1 from time delay
         timer--;

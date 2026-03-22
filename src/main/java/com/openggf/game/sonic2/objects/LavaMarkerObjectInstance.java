@@ -7,6 +7,7 @@ import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import java.util.List;
 
@@ -113,7 +114,8 @@ public class LavaMarkerObjectInstance extends AbstractObjectInstance implements 
     // ========================================================================
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM Obj31_Main (line 46058) only does off-screen culling via MarkObjGone.
         // The ObjectManager.Placement system handles this automatically,
         // so no explicit logic is needed here.

@@ -3,6 +3,7 @@ package com.openggf.game.sonic3k.objects;
 import com.openggf.camera.Camera;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kPlayerArt;
 import com.openggf.game.sonic3k.Sonic3kSuperStateController;
 import com.openggf.graphics.GLCommand;
@@ -297,7 +298,8 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         lastFrameCounter = frameCounter;
         AbstractPlayableSprite trackedPlayer = resolveTrackedPlayer(player);
 

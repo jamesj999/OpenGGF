@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -96,7 +97,8 @@ public class BubbleGeneratorObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: Check if generator is above water (only spawn when underwater)
         if (GameServices.level() != null && services().currentLevel() != null) {
             WaterSystem waterSystem = WaterSystem.getInstance();

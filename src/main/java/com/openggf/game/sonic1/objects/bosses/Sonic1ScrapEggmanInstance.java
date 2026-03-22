@@ -1,6 +1,7 @@
 package com.openggf.game.sonic1.objects.bosses;
 
 import com.openggf.game.sonic1.constants.Sonic1Constants;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -176,7 +177,8 @@ public class Sonic1ScrapEggmanInstance extends AbstractObjectInstance implements
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -463,7 +465,8 @@ public class Sonic1ScrapEggmanInstance extends AbstractObjectInstance implements
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (isDestroyed()) {
                 return;
             }

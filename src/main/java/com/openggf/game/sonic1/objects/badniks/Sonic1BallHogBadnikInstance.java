@@ -1,5 +1,6 @@
 package com.openggf.game.sonic1.objects.badniks;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
@@ -118,7 +119,8 @@ public class Sonic1BallHogBadnikInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (destroyed) {
             return;
         }
@@ -297,7 +299,8 @@ public class Sonic1BallHogBadnikInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onPlayerAttack(AbstractPlayableSprite player, TouchResponseResult result) {
+    public void onPlayerAttack(PlayableEntity playerEntity, TouchResponseResult result) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (destroyed) {
             return;
         }
@@ -307,7 +310,8 @@ public class Sonic1BallHogBadnikInstance extends AbstractObjectInstance
     /**
      * Handles badnik destruction via the centralised DestructionEffects system.
      */
-    private void destroyBadnik(AbstractPlayableSprite player) {
+    private void destroyBadnik(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         destroyed = true;
         setDestroyed(true);
         DestructionEffects.destroyBadnik(currentX, currentY, spawn, player, services(),

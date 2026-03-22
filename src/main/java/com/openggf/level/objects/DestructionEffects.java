@@ -1,7 +1,7 @@
 package com.openggf.level.objects;
 
 import com.openggf.game.GameServices;
-import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 /**
  * Centralised badnik destruction sequence shared across S1, S2, and S3K.
@@ -62,7 +62,7 @@ public final class DestructionEffects {
      * @param config       game-specific destruction configuration
      */
     public static void destroyBadnik(int x, int y, ObjectSpawn spawn,
-            AbstractPlayableSprite player, ObjectServices services,
+            PlayableEntity player, ObjectServices services,
             DestructionConfig config) {
 
         // --- Respawn tracking ---

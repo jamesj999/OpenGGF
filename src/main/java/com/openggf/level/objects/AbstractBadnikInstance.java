@@ -4,7 +4,7 @@ import com.openggf.debug.DebugRenderContext;
 import com.openggf.debug.DebugColor;
 
 import com.openggf.level.objects.DestructionEffects.DestructionConfig;
-import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 /**
  * Abstract base class for all Badnik enemies.
@@ -51,7 +51,7 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
     }
 
     @Override
-    public final void update(int frameCounter, AbstractPlayableSprite player) {
+    public final void update(int frameCounter, PlayableEntity player) {
         if (isDestroyed()) {
             return;
         }
@@ -62,7 +62,7 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
     /**
      * Subclasses implement their specific movement and AI logic.
      */
-    protected abstract void updateMovement(int frameCounter, AbstractPlayableSprite player);
+    protected abstract void updateMovement(int frameCounter, PlayableEntity player);
 
     /**
      * Subclasses can override to implement custom animation logic.
@@ -89,7 +89,7 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onPlayerAttack(AbstractPlayableSprite player, TouchResponseResult result) {
+    public void onPlayerAttack(PlayableEntity player, TouchResponseResult result) {
         if (isDestroyed()) {
             return;
         }
@@ -108,7 +108,7 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
     /**
      * Handles Badnik destruction: spawn explosion, animal, points, award score.
      */
-    protected void destroyBadnik(AbstractPlayableSprite player) {
+    protected void destroyBadnik(PlayableEntity player) {
         setDestroyed(true);
         DestructionEffects.destroyBadnik(currentX, currentY, spawn, player, services(),
                 getDestructionConfig());
@@ -174,7 +174,7 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
     /**
      * Helper: Check if player is to the left of this Badnik.
      */
-    protected boolean isPlayerLeft(AbstractPlayableSprite player) {
+    protected boolean isPlayerLeft(PlayableEntity player) {
         if (player == null) {
             return facingLeft;
         }

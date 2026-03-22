@@ -3,6 +3,7 @@ package com.openggf.game.sonic2.objects;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.sonic2.Sonic2LevelEventManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.GameServices;
 import com.openggf.graphics.GLCommand;
 import com.openggf.camera.Camera;
@@ -168,7 +169,8 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
     // ========================================================================
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (!routeEnabled) {
             return;
         }
@@ -275,7 +277,8 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (!routeEnabled) {
             return false;
         }
@@ -314,7 +317,8 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
     // ========================================================================
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: Subtypes 4 and 6 fall through to Obj30_HurtSupportedPlayers (s2.asm:49151).
         // Subtype 4 uses jsrto (JSR) for DropOnFloor at line 49149, so execution returns
         // and falls directly into the hurt routine. Subtype 6 has an explicit bra.s to it.

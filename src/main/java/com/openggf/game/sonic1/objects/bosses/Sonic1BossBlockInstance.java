@@ -1,6 +1,7 @@
 package com.openggf.game.sonic1.objects.bosses;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.graphics.GLCommand;
@@ -193,7 +194,8 @@ public class Sonic1BossBlockInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return blockState == STATE_SOLID;
     }
 
@@ -202,7 +204,8 @@ public class Sonic1BossBlockInstance extends AbstractObjectInstance
     // ========================================================================
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (blockState) {
             case STATE_SOLID -> { /* Solid collision handled by engine */ }
             case STATE_GRABBED -> updateGrabbed();

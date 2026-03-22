@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
@@ -265,7 +266,8 @@ public class BlueBallsObjectInstance extends AbstractObjectInstance implements T
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // MarkObjGone check: destroy if too far from camera
         // ROM: s2.asm lines 29993-30011
         // This ensures dynamic siblings are unloaded like ROM behavior

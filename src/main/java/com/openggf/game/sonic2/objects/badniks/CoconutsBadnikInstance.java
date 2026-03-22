@@ -3,6 +3,7 @@ package com.openggf.game.sonic2.objects.badniks;
 import com.openggf.level.objects.AbstractBadnikInstance;
 
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 
@@ -67,7 +68,8 @@ public class CoconutsBadnikInstance extends AbstractBadnikInstance {
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         currentX = spawn.x();
         switch (state) {
             case IDLE -> updateIdle(player);

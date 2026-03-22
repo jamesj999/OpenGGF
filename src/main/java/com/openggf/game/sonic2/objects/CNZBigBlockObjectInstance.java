@@ -2,6 +2,7 @@ package com.openggf.game.sonic2.objects;
 import com.openggf.level.objects.BoxObjectInstance;
 
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.*;
@@ -99,7 +100,8 @@ public class CNZBigBlockObjectInstance extends BoxObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Apply movement based on type
         if (moveType == MOVE_HORIZONTAL) {
             updateHorizontalMovement();
@@ -156,13 +158,15 @@ public class CNZBigBlockObjectInstance extends BoxObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Platform carrying is handled by the solid object system
         // This callback is for any special behavior when player contacts the platform
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return true;
     }
 

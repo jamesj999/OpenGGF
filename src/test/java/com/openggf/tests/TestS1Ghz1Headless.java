@@ -22,6 +22,7 @@ import com.openggf.physics.Direction;
 import com.openggf.physics.Sensor;
 import com.openggf.physics.SensorResult;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.GroundMode;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.rules.RequiresRom;
@@ -830,7 +831,7 @@ public class TestS1Ghz1Headless {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity player) {
             // Static object.
         }
     }
@@ -1107,7 +1108,7 @@ public class TestS1Ghz1Headless {
         @Override public SolidObjectParams getSolidParams() { return params; }
         @Override public boolean isTopSolidOnly() { return topSolidOnly; }
         @Override public void appendRenderCommands(List<GLCommand> commands) {}
-        @Override public void update(int frameCounter, AbstractPlayableSprite player) {}
+        @Override public void update(int frameCounter, PlayableEntity player) {}
     }
 
     // ========================================================================
@@ -1413,7 +1414,7 @@ public class TestS1Ghz1Headless {
         }
 
         @Override
-        public int getTopLandingHalfWidth(AbstractPlayableSprite player, int collisionHalfWidth) {
+        public int getTopLandingHalfWidth(PlayableEntity player, int collisionHalfWidth) {
             return landingHalfWidth;
         }
 
@@ -1423,7 +1424,7 @@ public class TestS1Ghz1Headless {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity player) {
             // Static object.
         }
     }

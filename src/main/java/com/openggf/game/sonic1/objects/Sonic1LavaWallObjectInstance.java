@@ -1,5 +1,6 @@
 package com.openggf.game.sonic1.objects;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
@@ -230,7 +231,8 @@ public class Sonic1LavaWallObjectInstance extends AbstractObjectInstance
     // ========================================================================
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (routine) {
             case 0 -> updateInit();
             case 4 -> updateProximityCheck(player);
@@ -444,13 +446,15 @@ public class Sonic1LavaWallObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Solid in routines 2 (active) and 4 (proximity check)
         return role == Role.MAIN && (routine == 2 || routine == 4);
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // The ROM saves/restores obRoutine around SolidObject to prevent routine changes.
         // Our SolidContacts system doesn't modify routine, so no special handling needed.
         // The solid collision itself (pushing player, blocking) is handled by the engine.

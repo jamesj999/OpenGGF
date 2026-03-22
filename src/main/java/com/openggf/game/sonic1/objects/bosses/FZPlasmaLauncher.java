@@ -1,6 +1,7 @@
 package com.openggf.game.sonic1.objects.bosses;
 
 import com.openggf.game.sonic1.constants.Sonic1Constants;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.LevelManager;
@@ -76,7 +77,8 @@ public class FZPlasmaLauncher extends AbstractBossChild implements SolidObjectPr
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (!beginUpdate(frameCounter)) return;
 
         Sonic1FZBossInstance fzParent = (Sonic1FZBossInstance) parent;

@@ -7,6 +7,7 @@ import com.openggf.debug.DebugOverlayManager;
 import com.openggf.debug.DebugOverlayToggle;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.Sonic1SwitchManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
 import com.openggf.game.GameServices;
 import com.openggf.graphics.GLCommand;
@@ -186,7 +187,8 @@ public class Sonic1JunctionObjectInstance extends AbstractObjectInstance
     // ========================================================================
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -485,7 +487,8 @@ public class Sonic1JunctionObjectInstance extends AbstractObjectInstance
      * rotations.
      */
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return routine != Routine.RELEASE;
     }
 
@@ -494,7 +497,8 @@ public class Sonic1JunctionObjectInstance extends AbstractObjectInstance
     // ========================================================================
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Track whether the player is pushing against the disc.
         // In the ROM: btst #5,obStatus(a0) checks if player is pushing.
         // The SolidObject routine sets this bit, and our engine reports it via contact.pushing().
@@ -600,7 +604,8 @@ public class Sonic1JunctionObjectInstance extends AbstractObjectInstance
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             // Jun_Display (Routine 4): bra.w RememberState
             // No logic, just display. RememberState is handled by the engine persistence system.
         }

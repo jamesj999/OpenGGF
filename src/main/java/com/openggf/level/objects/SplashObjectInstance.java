@@ -6,6 +6,7 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.physics.Direction;
+import com.openggf.game.PlayableEntity;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.render.PlayerSpriteRenderer;
 
@@ -53,7 +54,7 @@ public class SplashObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity player) {
         // Decrement animation timer
         animTimer--;
         if (animTimer < 0) {
@@ -87,14 +88,19 @@ public class SplashObjectInstance extends AbstractObjectInstance {
      * @param waterY The water surface Y coordinate
      * @return A new splash object, or null if renderer is not available
      */
-    public static SplashObjectInstance create(AbstractPlayableSprite player, int waterY) {
+    public static SplashObjectInstance create(PlayableEntity player, int waterY) {
         LevelManager levelManager = GameServices.level();
         if (levelManager == null) {
             return null;
         }
 
         // Get the dust/splash renderer from the player's dust manager
-        var dustManager = player.getSpindashDustController();
+        // Escape hatch: getSpindashDustController() returns sprites.managers type,
+        // not exposed on PlayableEntity to avoid game -> sprites.managers dependency.
+        if (!(player instanceof AbstractPlayableSprite aps)) {
+            return null;
+        }
+        var dustManager = aps.getSpindashDustController();
         if (dustManager == null) {
             return null;
         }

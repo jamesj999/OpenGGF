@@ -1,6 +1,7 @@
 package com.openggf.game.sonic1.objects.bosses;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
@@ -202,7 +203,8 @@ public class Sonic1SLZBossSpikeball extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }

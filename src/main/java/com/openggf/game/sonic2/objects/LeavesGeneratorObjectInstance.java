@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.graphics.GLCommand;
@@ -72,7 +73,8 @@ public class LeavesGeneratorObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Decrement cooldown timer
         if (cooldownTimer > 0) {
             cooldownTimer--;

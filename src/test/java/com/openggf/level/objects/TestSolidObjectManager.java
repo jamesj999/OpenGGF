@@ -8,6 +8,7 @@ import com.openggf.game.sonic1.objects.Sonic1CollapsingLedgeObjectInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.physics.Sensor;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import java.lang.reflect.Field;
 import java.util.List;
@@ -345,7 +346,7 @@ public class TestSolidObjectManager {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity player) {
             // No-op for tests.
         }
 
@@ -375,7 +376,7 @@ public class TestSolidObjectManager {
         }
 
         @Override
-        public int getTopLandingHalfWidth(AbstractPlayableSprite player, int collisionHalfWidth) {
+        public int getTopLandingHalfWidth(PlayableEntity player, int collisionHalfWidth) {
             return topLandingHalfWidth != null ? topLandingHalfWidth : collisionHalfWidth;
         }
     }

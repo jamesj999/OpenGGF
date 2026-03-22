@@ -1,6 +1,6 @@
 package com.openggf.level.objects;
 
-import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 /**
  * Base class for lightweight gravity-affected debris/fragment children.
@@ -33,7 +33,7 @@ public abstract class GravityDebrisChild extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity player) {
         SubpixelMotion.moveSprite(motionState, gravity);
         if (!isOnScreen()) {
             setDestroyed(true);

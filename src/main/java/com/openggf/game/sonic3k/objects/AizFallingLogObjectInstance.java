@@ -1,6 +1,7 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
@@ -122,7 +123,8 @@ public class AizFallingLogObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) return;
 
         // Intro deletion check (first-frame only via lazy check)
@@ -223,12 +225,13 @@ public class AizFallingLogObjectInstance extends AbstractObjectInstance {
         }
 
         @Override
-        public boolean isSolidFor(AbstractPlayableSprite player) {
+        public boolean isSolidFor(PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             return !isDestroyed();
         }
 
         @Override
-        public void onSolidContact(AbstractPlayableSprite player, SolidContact contact,
+        public void onSolidContact(PlayableEntity playerEntity, SolidContact contact,
                 int frameCounter) {
         }
 
@@ -248,7 +251,8 @@ public class AizFallingLogObjectInstance extends AbstractObjectInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (isDestroyed()) return;
 
             switch (state) {
@@ -378,7 +382,8 @@ public class AizFallingLogObjectInstance extends AbstractObjectInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (isDestroyed()) return;
 
             // If parent log is destroyed, self-destruct

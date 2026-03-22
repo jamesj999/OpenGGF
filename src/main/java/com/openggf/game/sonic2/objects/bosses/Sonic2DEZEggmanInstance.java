@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects.bosses;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.LevelManager;
@@ -182,7 +183,8 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
     // ========================================================================
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) return;
 
         switch (routineSecondary) {
@@ -470,7 +472,8 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (isDestroyed()) return;
 
             switch (wallState) {
@@ -510,7 +513,8 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
         }
 
         @Override
-        public boolean isSolidFor(AbstractPlayableSprite player) {
+        public boolean isSolidFor(PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             return !isDestroyed() && wallState != WALL_STATE_DELETE;
         }
 

@@ -3,6 +3,7 @@ package com.openggf.game.sonic1.objects;
 import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.Sonic1SwitchManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -98,7 +99,8 @@ public class Sonic1ButtonObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         Sonic1SwitchManager switches = Sonic1SwitchManager.getInstance();
 
         // Default to unpressed frame
@@ -156,7 +158,8 @@ public class Sonic1ButtonObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Track whether player is standing on button
         // The SolidObject subroutine sets obSolid when player stands on top
         playerStanding = contact.standing();
@@ -231,7 +234,8 @@ public class Sonic1ButtonObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return true;
     }
 
@@ -246,7 +250,8 @@ public class Sonic1ButtonObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public int getTopLandingHalfWidth(AbstractPlayableSprite player, int collisionHalfWidth) {
+    public int getTopLandingHalfWidth(PlayableEntity playerEntity, int collisionHalfWidth) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM uses obActWid ($10) for Solid_Landed / SolidObject_InsideTop,
         // not the collision halfWidth ($1B).
         return ACTIVE_WIDTH;

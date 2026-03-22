@@ -2,6 +2,7 @@ package com.openggf.game.sonic1.objects;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
@@ -216,7 +217,8 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
         return y;
     }
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (routine) {
             case 2 -> updateActive(frameCounter, player);
             case 4 -> updateOffscreen();
@@ -550,7 +552,8 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // loc_C218: Push only handled in state 0, when NOT in motion (objoff_32).
         // tst.b objoff_32(a0) / beq.s loc_C230 / bra.w locret_C2E4
         if (solidState != 0 || inMotion || player == null) {
@@ -828,7 +831,8 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Solid in states 0 (idle/pushable) and 2 (player riding on top).
         // NOT solid in states 4 (falling) and 6 (sliding to alignment) — the
         // ROM's loc_C186 doesn't call Solid_ChkEnter during those states.

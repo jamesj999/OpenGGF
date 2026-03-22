@@ -2,7 +2,7 @@ package com.openggf.level.objects;
 
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import java.util.List;
 
@@ -53,7 +53,7 @@ public abstract class AbstractPointsObjectInstance extends AbstractObjectInstanc
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity player) {
         // ROM: tst.w y_vel(a0) / bpl.w DeleteObject
         if (yVel >= 0) {
             setDestroyed(true);

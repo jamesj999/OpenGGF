@@ -3,6 +3,7 @@ package com.openggf.game.sonic2.objects.badniks;
 import com.openggf.level.objects.AbstractBadnikInstance;
 
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.TouchResponseResult;
@@ -100,7 +101,8 @@ public class GrabberBadnikInstance extends AbstractBadnikInstance {
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
             case PATROL -> updatePatrol(player);
             case DELAY -> updateDelay();
@@ -436,7 +438,8 @@ public class GrabberBadnikInstance extends AbstractBadnikInstance {
     }
 
     @Override
-    public void onPlayerAttack(AbstractPlayableSprite player, TouchResponseResult result) {
+    public void onPlayerAttack(PlayableEntity playerEntity, TouchResponseResult result) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }

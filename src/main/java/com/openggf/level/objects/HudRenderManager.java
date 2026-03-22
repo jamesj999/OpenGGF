@@ -6,7 +6,7 @@ import com.openggf.game.LevelState;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.PatternDesc;
 import com.openggf.camera.Camera;
-import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 public class HudRenderManager {
 
@@ -163,7 +163,7 @@ public class HudRenderManager {
         draw(levelGamestate, null);
     }
 
-    public void draw(LevelState levelGamestate, AbstractPlayableSprite player) {
+    public void draw(LevelState levelGamestate, PlayableEntity player) {
         if (levelGamestate == null)
             return;
 

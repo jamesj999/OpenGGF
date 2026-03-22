@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.sonic2.objects.badniks.GrounderBadnikInstance;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
@@ -95,7 +96,8 @@ public class GrounderRockProjectile extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Wait for parent's activation flag
         if (!activated) {
             if (parent == null || parent.isActivated()) {

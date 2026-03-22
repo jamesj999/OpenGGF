@@ -4,6 +4,7 @@ import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameAudioProfile;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic1.audio.Sonic1Music;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.GameServices;
 import com.openggf.level.objects.ExplosionObjectInstance;
@@ -111,7 +112,8 @@ public class Sonic1MonitorObjectInstance extends AbstractMonitorObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (falling) {
             updateFalling();
         }
@@ -143,7 +145,8 @@ public class Sonic1MonitorObjectInstance extends AbstractMonitorObjectInstance
     }
 
     @Override
-    public void onTouchResponse(AbstractPlayableSprite player, TouchResponseResult result, int frameCounter) {
+    public void onTouchResponse(PlayableEntity playerEntity, TouchResponseResult result, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (broken || player == null) {
             return;
         }
@@ -217,7 +220,8 @@ public class Sonic1MonitorObjectInstance extends AbstractMonitorObjectInstance
      * ROM: Pow_ChkX branch table
      */
     @Override
-    protected void applyPowerup(AbstractPlayableSprite player) {
+    protected void applyPowerup(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (type) {
             // Pow_ChkRings: v_rings += 10, play sfx_Ring
             case RINGS -> {
@@ -336,7 +340,8 @@ public class Sonic1MonitorObjectInstance extends AbstractMonitorObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: Mon_SolidSides always runs when the monitor is intact.
         // The rolling/velY check happens INSIDE Mon_Solid (after geometry
         // detection), not as an external solid gate. This is implemented
@@ -351,7 +356,8 @@ public class Sonic1MonitorObjectInstance extends AbstractMonitorObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Solid contact used for standing/edge checks; no additional behavior needed.
     }
 

@@ -3,6 +3,7 @@ package com.openggf.game.sonic1.objects;
 import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.graphics.GLCommand;
@@ -258,7 +259,8 @@ public class Sonic1LavaBallObjectInstance extends AbstractObjectInstance
     // ========================================================================
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (inCollisionAnim) {
             // Collision animation plays one frame then afRoutine increments obRoutine -> delete.
             // ROM: afRoutine adds 2 to obRoutine, making it 4 = LBall_Delete -> bra.w DeleteObject

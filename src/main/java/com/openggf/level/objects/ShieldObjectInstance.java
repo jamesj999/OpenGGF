@@ -9,12 +9,12 @@ import com.openggf.graphics.RenderPriority;
 
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import java.util.List;
 
 public class ShieldObjectInstance extends AbstractObjectInstance {
-    private final AbstractPlayableSprite player;
+    private final PlayableEntity player;
     private final PatternSpriteRenderer renderer;
 
     // S2 animation from disassembly (Ani_obj38): 5, 0, 5, 1, 5, 2, 5, 3, 5, 4
@@ -35,7 +35,7 @@ public class ShieldObjectInstance extends AbstractObjectInstance {
     private boolean destroyed = false;
     private boolean visible = true;
 
-    public ShieldObjectInstance(AbstractPlayableSprite player) {
+    public ShieldObjectInstance(PlayableEntity player) {
         super(null, "Shield");
         this.player = player;
         ObjectRenderManager renderManager = null;
@@ -65,7 +65,7 @@ public class ShieldObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity player) {
         if (destroyed) {
             return;
         }
@@ -102,7 +102,7 @@ public class ShieldObjectInstance extends AbstractObjectInstance {
         setDestroyed(true);
     }
 
-    protected AbstractPlayableSprite getPlayer() {
+    protected PlayableEntity getPlayer() {
         return player;
     }
 

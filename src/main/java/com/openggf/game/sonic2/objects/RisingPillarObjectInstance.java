@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic2.S2SpriteDataLoader;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
@@ -127,7 +128,8 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
         return y;
     }
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (routine == 2) {
             updateMain(player);
         } else if (routine == 4) {
@@ -391,7 +393,8 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Only handle solid contact in main routine
         if (routine != 2) {
             return;
@@ -405,7 +408,8 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Only solid in main routine (not when debris)
         return routine == 2 && !isDestroyed();
     }
@@ -465,7 +469,8 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (isDestroyed()) {
                 return;
             }

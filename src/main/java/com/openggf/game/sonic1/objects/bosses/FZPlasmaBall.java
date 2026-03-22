@@ -1,6 +1,7 @@
 package com.openggf.game.sonic1.objects.bosses;
 
 import com.openggf.game.sonic1.constants.Sonic1Constants;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.LevelManager;
@@ -82,7 +83,8 @@ public class FZPlasmaBall extends AbstractObjectInstance implements TouchRespons
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (phase) {
             case 0 -> updateLaunch();
             case 2 -> updateTravel(player);

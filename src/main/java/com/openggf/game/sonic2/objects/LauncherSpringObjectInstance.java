@@ -1,5 +1,6 @@
 package com.openggf.game.sonic2.objects;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.BoxObjectInstance;
 
 import com.openggf.audio.GameSound;
@@ -141,7 +142,8 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (player == null) {
             return;
         }
@@ -511,7 +513,8 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Don't be solid for players already captured on this spring.
         // This prevents SolidContacts from re-detecting us and fighting
         // with our manual positioning during compression.
@@ -537,7 +540,8 @@ public class LauncherSpringObjectInstance extends BoxObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         Camera camera = GameServices.camera();
 
         // ROM: move.b #0,objoff_3A(a0) - clear compression-processed flag at start of update

@@ -1,5 +1,6 @@
 package com.openggf.game.sonic1.objects;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
@@ -141,7 +142,8 @@ public class Sonic1CollapsingLedgeObjectInstance extends AbstractObjectInstance
         return y;
     }
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (routine) {
             case 2 -> updateTouch(player);
             case 4 -> updateCollapse(player);
@@ -393,7 +395,8 @@ public class Sonic1CollapsingLedgeObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (routine == 2 && contact.standing()) {
             // Player stepped on ledge: transition to routine 4 (Ledge_Collapse)
             // From disassembly: addq.b #2,obRoutine(a0) in PlatformObject
@@ -402,7 +405,8 @@ public class Sonic1CollapsingLedgeObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return false;
         }

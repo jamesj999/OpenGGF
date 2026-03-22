@@ -3,6 +3,7 @@ package com.openggf.game.sonic2.objects.badniks;
 import com.openggf.level.objects.AbstractBadnikInstance;
 
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.ObjectSpawn;
@@ -76,7 +77,8 @@ public class RexonBadnikInstance extends AbstractBadnikInstance
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
             case WAIT_FOR_PLAYER -> updatePatrol(player);
             case READY_TO_CREATE -> createHeads();
@@ -248,7 +250,8 @@ public class RexonBadnikInstance extends AbstractBadnikInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Standard solid collision - no special behavior needed
     }
 

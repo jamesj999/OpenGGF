@@ -2,6 +2,7 @@ package com.openggf.game.sonic2.objects.bosses;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
@@ -195,7 +196,8 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
     }
 
     @Override
-    protected void updateBossLogic(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateBossLogic(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state.routine) {
             case ROUTINE_WAIT_PLAYER -> updateWaitPlayer(player);
             case ROUTINE_SPAWN_CHILDREN -> updateSpawnChildren();
@@ -758,7 +760,8 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (!beginUpdate(frameCounter)) {
                 return;
             }
@@ -858,7 +861,8 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (!beginUpdate(frameCounter)) {
                 return;
             }
@@ -991,7 +995,8 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (!beginUpdate(frameCounter)) {
                 return;
             }
@@ -1137,7 +1142,8 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (!beginUpdate(frameCounter)) {
                 return;
             }
@@ -1188,7 +1194,8 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (!beginUpdate(frameCounter)) {
                 return;
             }
@@ -1272,7 +1279,8 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (!beginUpdate(frameCounter)) {
                 return;
             }
@@ -1428,7 +1436,8 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (!beginUpdate(frameCounter)) {
                 return;
             }
@@ -1512,7 +1521,8 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (!beginUpdate(frameCounter)) {
                 return;
             }

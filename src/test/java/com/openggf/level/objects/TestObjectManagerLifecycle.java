@@ -3,6 +3,7 @@ package com.openggf.level.objects;
 import org.junit.Test;
 import com.openggf.graphics.GLCommand;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
@@ -80,7 +81,7 @@ public class TestObjectManagerLifecycle {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity player) {
         }
 
         @Override

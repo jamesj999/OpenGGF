@@ -4,6 +4,7 @@ import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
 import com.openggf.game.sonic2.constants.Sonic2AudioConstants;
 import com.openggf.graphics.GLCommand;
@@ -215,7 +216,8 @@ public class BreakablePlatingObjectInstance extends AbstractObjectInstance
     // ========================================================================
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (routine) {
             case MAIN -> updateMain(player);
             case BREAKUP -> updateBreakup();
@@ -486,7 +488,8 @@ public class BreakablePlatingObjectInstance extends AbstractObjectInstance
      * - If all checks pass: grab the player
      */
     @Override
-    public void onTouchResponse(AbstractPlayableSprite player, TouchResponseResult result, int frameCounter) {
+    public void onTouchResponse(PlayableEntity playerEntity, TouchResponseResult result, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (playerGrabbed) {
             return; // Already grabbed
         }
