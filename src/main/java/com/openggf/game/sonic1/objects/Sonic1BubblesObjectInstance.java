@@ -1,5 +1,4 @@
 package com.openggf.game.sonic1.objects;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 
 import com.openggf.audio.AudioManager;
@@ -8,7 +7,6 @@ import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
@@ -678,8 +676,8 @@ public class Sonic1BubblesObjectInstance extends AbstractObjectInstance {
         WaterSystem waterSystem = WaterSystem.getInstance();
         // Use feature zone/act so SBZ3 (ROM zone LZ act 3) resolves to the
         // water config stored under ZONE_SBZ act 2.
-        int zoneId = GameServices.level().getFeatureZoneId();
-        int actId = GameServices.level().getFeatureActId();
+        int zoneId = services().featureZoneId();
+        int actId = services().featureActId();
 
         if (waterSystem.hasWater(zoneId, actId)) {
             return waterSystem.getWaterLevelY(zoneId, actId);

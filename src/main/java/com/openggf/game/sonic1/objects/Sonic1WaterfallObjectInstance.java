@@ -1,6 +1,5 @@
 package com.openggf.game.sonic1.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -180,10 +179,6 @@ public class Sonic1WaterfallObjectInstance extends AbstractObjectInstance {
      * ROM: cmpi.b #7,(v_lvllayout+$80*2+6).w
      */
     private boolean isLayoutGapOpen() {
-        var lm = GameServices.level();
-        if (false) {
-            return false;
-        }
         Level level = services().currentLevel();
         if (level == null) {
             return false;
@@ -196,11 +191,10 @@ public class Sonic1WaterfallObjectInstance extends AbstractObjectInstance {
     }
 
     private int getWaterLevel() {
-        var lm = GameServices.level();
         if (services().currentLevel() == null) {
             return y;
         }
         WaterSystem waterSystem = WaterSystem.getInstance();
-        return waterSystem.getVisualWaterLevelY(GameServices.level().getFeatureZoneId(), GameServices.level().getFeatureActId());
+        return waterSystem.getVisualWaterLevelY(services().featureZoneId(), services().featureActId());
     }
 }

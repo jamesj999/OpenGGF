@@ -1,5 +1,4 @@
 package com.openggf.game.sonic1.objects;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 
 import com.openggf.camera.Camera;
@@ -583,8 +582,8 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
             return 0;
         }
         WaterSystem waterSystem = WaterSystem.getInstance();
-        int zoneId = GameServices.level().getFeatureZoneId();
-        int actId = GameServices.level().getFeatureActId();
+        int zoneId = services().featureZoneId();
+        int actId = services().featureActId();
         return waterSystem.getVisualWaterLevelY(zoneId, actId);
     }
 

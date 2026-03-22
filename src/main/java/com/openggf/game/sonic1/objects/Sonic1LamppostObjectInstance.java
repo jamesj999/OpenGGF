@@ -157,11 +157,11 @@ public class Sonic1LamppostObjectInstance extends AbstractObjectInstance {
 
             // ROM Lamp_StoreInfo also saves water state (v_waterpos2, v_wtr_routine)
             WaterSystem waterSystem = WaterSystem.getInstance();
-            int featureZone = GameServices.level().getFeatureZoneId();
-            int featureAct = GameServices.level().getFeatureActId();
+            int featureZone = services().featureZoneId();
+            int featureAct = services().featureActId();
             if (waterSystem.hasWater(featureZone, featureAct)) {
                 int waterLevel = waterSystem.getWaterLevelY(featureZone, featureAct);
-                ZoneFeatureProvider zfp = GameServices.level().getZoneFeatureProvider();
+                ZoneFeatureProvider zfp = services().zoneFeatureProvider();
                 int waterRoutine = 0;
                 if (zfp instanceof Sonic1ZoneFeatureProvider s1zfp && s1zfp.getWaterEvents() != null) {
                     waterRoutine = s1zfp.getWaterEvents().getWaterRoutine();

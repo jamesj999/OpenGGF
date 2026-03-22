@@ -1,6 +1,5 @@
 package com.openggf.game.sonic1.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.WaterSystem;
@@ -52,11 +51,10 @@ public class Sonic1SplashObjectInstance extends AbstractObjectInstance {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM (Spla_Display): move.w (v_waterpos1).w,obY(a0)
         // Track water surface Y each frame
-        var lm = GameServices.level();
         if (services().currentLevel() != null) {
             WaterSystem waterSystem = WaterSystem.getInstance();
             posY = waterSystem.getVisualWaterLevelY(
-                    GameServices.level().getFeatureZoneId(), GameServices.level().getFeatureActId());
+                    services().featureZoneId(), services().featureActId());
         }
 
         // AnimateSprite with Ani_Splash: duration 4, frames 0/1/2, afRoutine

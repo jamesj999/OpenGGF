@@ -1,5 +1,4 @@
 package com.openggf.game.sonic1.objects;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 
 import com.openggf.audio.AudioManager;
@@ -7,7 +6,6 @@ import com.openggf.game.sonic1.Sonic1ZoneFeatureProvider;
 import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
@@ -146,7 +144,7 @@ public class Sonic1FlappingDoorObjectInstance extends AbstractObjectInstance
     }
 
     private void setWindTunnelDisabled(boolean disabled) {
-        ZoneFeatureProvider provider = GameServices.level().getZoneFeatureProvider();
+        ZoneFeatureProvider provider = services().zoneFeatureProvider();
         if (provider instanceof Sonic1ZoneFeatureProvider sonic1) {
             sonic1.setWindTunnelDisabled(disabled);
         }
