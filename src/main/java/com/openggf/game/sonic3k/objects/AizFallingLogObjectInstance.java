@@ -327,7 +327,7 @@ public class AizFallingLogObjectInstance extends AbstractObjectInstance {
                 if (lm != null) {
                     WaterSystem ws = WaterSystem.getInstance();
                     if (ws != null) {
-                        return ws.getWaterLevelY(lm.getCurrentZone(), lm.getCurrentAct());
+                        return ws.getWaterLevelY(lm.getCurrentZone(), services().currentAct());
                     }
                 }
             } catch (Exception ignored) {
