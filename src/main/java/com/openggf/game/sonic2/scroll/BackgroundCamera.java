@@ -1,4 +1,4 @@
-package com.openggf.level.scroll;
+package com.openggf.game.sonic2.scroll;
 
 /**
  * Tracks background camera positions as per original Sonic 2 RAM.

@@ -4,8 +4,8 @@ import org.junit.Before;
 import org.junit.Test;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.Sonic2LevelEventManager;
-import com.openggf.level.scroll.BackgroundCamera;
-import com.openggf.level.scroll.SwScrlHtz;
+import com.openggf.game.sonic2.scroll.BackgroundCamera;
+import com.openggf.game.sonic2.scroll.SwScrlHtz;
 
 import java.lang.reflect.Field;
 

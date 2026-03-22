@@ -5,7 +5,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import com.openggf.camera.Camera;
 import com.openggf.data.Rom;
-import com.openggf.level.scroll.ParallaxTables;
+import com.openggf.game.sonic2.scroll.ParallaxTables;
 import com.openggf.tests.rules.RequiresGameModule;
 import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;

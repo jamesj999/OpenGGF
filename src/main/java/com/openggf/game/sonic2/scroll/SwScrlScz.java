@@ -1,6 +1,8 @@
-package com.openggf.level.scroll;
+package com.openggf.game.sonic2.scroll;
 
 import com.openggf.camera.Camera;
+import com.openggf.level.scroll.AbstractZoneScrollHandler;
+import com.openggf.level.scroll.M68KMath;
 
 /**
  * ROM-accurate implementation of SwScrl_SCZ (Sky Chase Zone scroll routine).

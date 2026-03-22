@@ -1,4 +1,6 @@
-package com.openggf.level.scroll;
+package com.openggf.game.sonic2.scroll;
+
+import com.openggf.level.scroll.AbstractZoneScrollHandler;
 
 import static com.openggf.level.scroll.M68KMath.*;
 

@@ -1,4 +1,4 @@
-package com.openggf.level.scroll;
+package com.openggf.game.sonic2.scroll;
 
 import com.openggf.data.Rom;
 

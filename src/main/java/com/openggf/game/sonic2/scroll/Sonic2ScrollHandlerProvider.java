@@ -2,12 +2,6 @@ package com.openggf.game.sonic2.scroll;
 
 import com.openggf.data.Rom;
 import com.openggf.game.ScrollHandlerProvider;
-import com.openggf.level.scroll.ParallaxTables;
-import com.openggf.level.scroll.SwScrlArz;
-import com.openggf.level.scroll.SwScrlCpz;
-import com.openggf.level.scroll.SwScrlDez;
-import com.openggf.level.scroll.SwScrlEhz;
-import com.openggf.level.scroll.SwScrlMcz;
 import com.openggf.level.scroll.ZoneScrollHandler;
 
 import java.io.IOException;

@@ -2,7 +2,7 @@ package com.openggf.game.sonic2;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.events.Sonic2SCZEvents;
-import com.openggf.level.scroll.SwScrlScz;
+import com.openggf.game.sonic2.scroll.SwScrlScz;
 import org.junit.Before;
 import org.junit.Test;
 

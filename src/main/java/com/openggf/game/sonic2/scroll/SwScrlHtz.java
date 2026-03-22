@@ -1,7 +1,9 @@
-package com.openggf.level.scroll;
+package com.openggf.game.sonic2.scroll;
 
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.Sonic2LevelEventManager;
+import com.openggf.level.scroll.AbstractZoneScrollHandler;
+import com.openggf.level.scroll.M68KMath;
 
 /**
  * ROM-accurate implementation of SwScrl_HTZ (Hill Top Zone scroll routine).
