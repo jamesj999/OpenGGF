@@ -36,6 +36,8 @@ public final class Sonic1ConveyorState {
         return instance;
     }
 
+    /** @deprecated Use {@link #resetState()} for test teardown. */
+    @Deprecated
     public static void resetInstance() {
         instance = null;
     }
@@ -82,6 +84,10 @@ public final class Sonic1ConveyorState {
         if (index >= 0 && index < SPAWNER_SLOTS) {
             spawned[index] = false;
         }
+    }
+
+    public void resetState() {
+        reset();
     }
 
     /**
