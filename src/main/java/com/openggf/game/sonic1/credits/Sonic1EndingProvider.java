@@ -1,11 +1,11 @@
 package com.openggf.game.sonic1.credits;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.EndingPhase;
 import com.openggf.game.EndingProvider;
 import com.openggf.graphics.FadeManager;
 
 import java.util.logging.Logger;
+import com.openggf.game.GameServices;
 
 /**
  * Sonic 1 implementation of the {@link EndingProvider} interface.
@@ -231,9 +231,9 @@ public class Sonic1EndingProvider implements EndingProvider {
         currentPhase = EndingPhase.POST_CREDITS;
 
         // Fade out credits music before entering TRY AGAIN
-        AudioManager.getInstance().fadeOutMusic();
+        GameServices.audio().fadeOutMusic();
 
-        FadeManager fadeManager = FadeManager.getInstance();
+        FadeManager fadeManager = GameServices.fade();
         if (!fadeManager.isActive()) {
             fadeManager.startFadeToBlack(this::initTryAgainEnd);
         } else {
@@ -244,7 +244,7 @@ public class Sonic1EndingProvider implements EndingProvider {
     private void initTryAgainEnd() {
         tryAgainEndManager = new TryAgainEndManager();
         tryAgainEndManager.initialize();
-        FadeManager.getInstance().startFadeFromBlack(null);
+        GameServices.fade().startFadeFromBlack(null);
         LOGGER.info("Sonic1EndingProvider: transitioned to POST_CREDITS (TRY AGAIN / END)");
     }
 

@@ -4,6 +4,7 @@ import com.openggf.audio.AudioManager;
 
 import java.util.Random;
 import java.util.logging.Logger;
+import com.openggf.game.GameServices;
 
 /**
  * Manages the CNZ slot machine state machine.
@@ -101,7 +102,7 @@ public class CNZSlotMachineManager {
     private final AudioManager audioManager;
 
     public CNZSlotMachineManager() {
-        this.audioManager = AudioManager.getInstance();
+        this.audioManager = GameServices.audio();
     }
 
     /**

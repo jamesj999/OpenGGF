@@ -99,7 +99,7 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         loadShieldArt();
 
         // Get act index from LevelManager (available during level load)
-        currentActIndex = LevelManager.getInstance().getCurrentAct();
+        currentActIndex = GameServices.level().getCurrentAct();
         Sonic3kPlcArtRegistry.ZoneArtPlan plan =
                 Sonic3kPlcArtRegistry.getPlan(zoneIndex, currentActIndex);
         loadStandaloneFromRegistry(plan);
@@ -640,7 +640,7 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
 
         // Refresh act index from LevelManager — required for act transitions
         // (e.g. AIZ1→AIZ2 seamless reload) where the act changed after initial load.
-        currentActIndex = LevelManager.getInstance().getCurrentAct();
+        currentActIndex = GameServices.level().getCurrentAct();
 
         RomByteReader reader = null;
         try {

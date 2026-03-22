@@ -1,11 +1,9 @@
 package com.openggf.game.sonic2.events;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.bosses.Sonic2EHZBossInstance;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectSpawn;
 
 /**
@@ -61,7 +59,7 @@ public class Sonic2EHZEvents extends Sonic2ZoneEvents {
                     bossSpawnDelay = 0;
                     // ROM: Start music fade-out (s2.asm:20404)
                     // Fade runs during the 90-frame spawn delay
-                    AudioManager.getInstance().fadeOutMusic();
+                    GameServices.audio().fadeOutMusic();
                 }
             }
             case 4 -> {
@@ -76,7 +74,7 @@ public class Sonic2EHZEvents extends Sonic2ZoneEvents {
                     spawnEHZBoss();
                     eventRoutine += 2;
                     // Start boss music
-                    AudioManager.getInstance().playMusic(Sonic2Music.BOSS.id);
+                    GameServices.audio().playMusic(Sonic2Music.BOSS.id);
                 }
             }
             case 6 -> {

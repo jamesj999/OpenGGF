@@ -1,13 +1,11 @@
 package com.openggf.game.sonic2.events;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.bosses.Sonic2MCZBossInstance;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectSpawn;
 
 /**
@@ -62,7 +60,7 @@ public class Sonic2MCZEvents extends Sonic2ZoneEvents {
                     eventRoutine += 2;
                     bossSpawnDelay = 0;
                     // ROM: Fade out music
-                    AudioManager.getInstance().fadeOutMusic();
+                    GameServices.audio().fadeOutMusic();
                     // ROM: PalLoad_Now Pal_MCZ_B -> palette line 1 (s2.asm:21447-21448)
                     loadBossPalette(1, Sonic2Constants.PAL_MCZ_BOSS_ADDR);
                 }
@@ -79,7 +77,7 @@ public class Sonic2MCZEvents extends Sonic2ZoneEvents {
                     spawnMCZBoss();
                     eventRoutine += 2;
                     // Start boss music
-                    AudioManager.getInstance().playMusic(Sonic2Music.BOSS.id);
+                    GameServices.audio().playMusic(Sonic2Music.BOSS.id);
                 }
             }
             case 6 -> {
@@ -87,7 +85,7 @@ public class Sonic2MCZEvents extends Sonic2ZoneEvents {
                 // ROM: Play rumble SFX every $20 frames during screen shake
                 if (mczBoss != null && mczBoss.isScreenShaking()) {
                     if ((frameCounter & 0x1F) == 0) {
-                        AudioManager.getInstance().playSfx(Sonic2Sfx.RUMBLING_2.id);
+                        GameServices.audio().playSfx(Sonic2Sfx.RUMBLING_2.id);
                     }
                 }
                 // ROM: Update minX to camera X (prevent backtracking)

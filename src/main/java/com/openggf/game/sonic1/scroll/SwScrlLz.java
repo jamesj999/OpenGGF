@@ -3,6 +3,7 @@ package com.openggf.game.sonic1.scroll;
 import com.openggf.camera.Camera;
 import com.openggf.level.scroll.AbstractZoneScrollHandler;
 import static com.openggf.level.scroll.M68KMath.*;
+import com.openggf.game.GameServices;
 
 /**
  * ROM-accurate implementation of Deform_LZ (Labyrinth Zone scroll routine).
@@ -61,7 +62,7 @@ public class SwScrlLz extends AbstractZoneScrollHandler {
         // ROM: When vertical wrapping is active (LZ3/SBZ2), a wrap can cause a
         // huge delta (e.g. camera jumps from ~2047 to ~0). Detect and correct
         // by checking if |deltaY| exceeds half the wrap range.
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         if (camera.isVerticalWrapEnabled()) {
             int halfRange = Camera.getVerticalWrapRange() / 2; // 0x400
             if (deltaY > halfRange) {

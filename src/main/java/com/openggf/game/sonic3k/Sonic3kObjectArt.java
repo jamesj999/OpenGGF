@@ -6,7 +6,6 @@ import com.openggf.game.GameServices;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.level.Level;
-import com.openggf.level.LevelManager;
 import com.openggf.level.Pattern;
 import com.openggf.level.objects.ObjectSpriteSheet;
 import com.openggf.level.render.SpriteDplcFrame;
@@ -681,7 +680,7 @@ public class Sonic3kObjectArt {
 
             // 2. Number art → VRAM $568 (index $48)
             // Use Num1 when act == 0 AND zone != 0x16 (DDZ), else Num2
-            int zone = LevelManager.getInstance().getCurrentZone();
+            int zone = GameServices.level().getCurrentZone();
             int numArtAddr = (act == 0 && zone != 0x16)
                     ? Sonic3kConstants.ART_KOSM_TITLE_CARD_NUM1_ADDR
                     : Sonic3kConstants.ART_KOSM_TITLE_CARD_NUM2_ADDR;

@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.specialstage;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.GameServices;
 import com.openggf.game.PlayerCharacter;
@@ -959,15 +958,15 @@ public class S3kSpecialStageResultsScreen implements ResultsScreen {
     // ================================================================
 
     private void fadeOutMusic() {
-        try { AudioManager.getInstance().fadeOutMusic(); } catch (Exception e) { /* ignore */ }
+        try { GameServices.audio().fadeOutMusic(); } catch (Exception e) { /* ignore */ }
     }
 
     private void playMusic(int id) {
-        try { AudioManager.getInstance().playMusic(id); } catch (Exception e) { /* ignore */ }
+        try { GameServices.audio().playMusic(id); } catch (Exception e) { /* ignore */ }
     }
 
     private void playSfx(int id) {
-        try { AudioManager.getInstance().playSfx(id); } catch (Exception e) { /* ignore */ }
+        try { GameServices.audio().playSfx(id); } catch (Exception e) { /* ignore */ }
     }
 
     // ================================================================

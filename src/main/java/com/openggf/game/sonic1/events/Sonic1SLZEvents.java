@@ -1,6 +1,5 @@
 package com.openggf.game.sonic1.events;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic1.objects.bosses.Sonic1SLZBossInstance;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.audio.Sonic1Music;
@@ -82,7 +81,7 @@ class Sonic1SLZEvents extends Sonic1ZoneEvents {
         // BossStarLight_Main sets X = boss_slz_x+$188, Y = boss_slz_y+$18
         int bossSpawnX = BOSS_SLZ_X + 0x188; // $2188
         int bossSpawnY = BOSS_SLZ_Y + 0x18;  // $228
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         ObjectSpawn bossSpawn = new ObjectSpawn(
                 bossSpawnX, bossSpawnY,
                 Sonic1ObjectIds.SLZ_BOSS, 0, 0, false, 0);
@@ -92,7 +91,7 @@ class Sonic1SLZEvents extends Sonic1ZoneEvents {
         }
 
         // ROM: QueueSound1 bgm_Boss — play boss music
-        AudioManager.getInstance().playMusic(Sonic1Music.BOSS.id);
+        GameServices.audio().playMusic(Sonic1Music.BOSS.id);
 
         // ROM: f_lockscreen = 1 — gates the 64px right boundary extension in Sonic_LevelBound. Does NOT modify v_limitleft2 or v_limitright2; camera scrolls within natural level boundaries.
         GameServices.gameState().setCurrentBossId(Sonic1ObjectIds.SLZ_BOSS);

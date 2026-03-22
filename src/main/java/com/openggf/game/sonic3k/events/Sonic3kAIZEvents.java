@@ -420,7 +420,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         if (isFireTransitionActive()) {
             return;
         }
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         if (levelManager == null || levelManager.getCurrentLevel() == null) {
             return;
         }
@@ -470,7 +470,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
             return;
         }
 
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         boolean changed = false;
         if (cameraX >= TREE_REVEAL_CLEAR_CAMERA_X || eventsFg4 >= TREE_REVEAL_CLEAR_COUNTER) {
             changed |= applyChunkCopyAndSync(levelManager, 3);
@@ -749,7 +749,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
                     // Continue scroll-off until fire has exited the screen.
                     advanceFireRise(false);
                     if (getFireTransitionBgY() >= FIRE_BG_FINISH_Y) {
-                        applyPostFireContinuationPaletteLine4(LevelManager.getInstance());
+                        applyPostFireContinuationPaletteLine4(GameServices.level());
                         fireSequencePhase = FireSequencePhase.AIZ2_BG_REDRAW;
                         firePhaseFrames = 0;
                     }
@@ -775,14 +775,14 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
             PlayerCharacter character = Sonic3kLevelEventManager.getInstance().getPlayerCharacter();
             int cameraTrigger = (character == PlayerCharacter.KNUCKLES) ? 0x1040 : 0x0F50;
 
-            if (Camera.getInstance().getX() >= cameraTrigger) {
+            if (GameServices.camera().getX() >= cameraTrigger) {
                 minibossSpawned = true;
                 int bossX = (character == PlayerCharacter.KNUCKLES) ? 0x11D0 : 0x11F0;
                 int bossY = (character == PlayerCharacter.KNUCKLES) ? 0x0420 : 0x0289;
 
                 ObjectSpawn bossSpawn = new ObjectSpawn(bossX, bossY, 0x91, 0, 0, false, bossY);
                 AizMinibossInstance boss = new AizMinibossInstance(bossSpawn);
-                var objManager = LevelManager.getInstance().getObjectManager();
+                var objManager = GameServices.level().getObjectManager();
                 if (objManager != null) {
                     objManager.addDynamicObject(boss);
                 }
@@ -887,7 +887,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         // ROM: AIZ1_AIZ2_Transition writes 6 fire words to Normal_palette_line_4+$2
         // at the START of the fire transition. The full fire palette (PalPointers #$0B)
         // is loaded later by the mutation executor when bgY >= $190.
-        applyFireTransitionPaletteLine4(LevelManager.getInstance());
+        applyFireTransitionPaletteLine4(GameServices.level());
         ensureFireOverlayTilesLoaded();
         LOG.info("AIZ1: fire transition started");
     }
@@ -905,7 +905,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     private void applyFireTransitionMutation() {
         fireTransitionMutationRequested = true;
         S3kSeamlessMutationExecutor.apply(
-                LevelManager.getInstance(),
+                GameServices.level(),
                 S3kSeamlessMutationExecutor.MUTATION_AIZ1_FIRE_TRANSITION_STAGE);
         LOG.info("AIZ1: applied in-place fire mutation stage (direct)");
     }
@@ -935,8 +935,8 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
                 fireTransitionMutationRequested,
                 false);
         persistTransitionCheckpoint();
-        LevelManager levelManager = LevelManager.getInstance();
-        LevelManager.getInstance().requestSeamlessTransition(
+        LevelManager levelManager = GameServices.level();
+        GameServices.level().requestSeamlessTransition(
                 SeamlessLevelTransitionRequest.builder(SeamlessLevelTransitionRequest.TransitionType.RELOAD_TARGET_LEVEL)
                         // ROM loads AIZ act 2 resources here, but this is presented as
                         // a seamless continuation (no title card transition).
@@ -983,7 +983,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         if (fireOverlayTilesLoaded) {
             return;
         }
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         if (!(levelManager.getCurrentLevel() instanceof Sonic3kLevel sonic3kLevel)) {
             return;
         }
@@ -1035,7 +1035,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         // The level reload loads the normal AIZ2 palette which may not match the
         // fire transition state; PalPointers #$0B + fire line 4 words restore it.
         loadPaletteFromPalPointers(PAL_POINTER_AIZ_FIRE_INDEX);
-        applyFireTransitionPaletteLine4(LevelManager.getInstance());
+        applyFireTransitionPaletteLine4(GameServices.level());
         LOG.info("AIZ2 fake-out: resumed fire continuation phase " + fireSequencePhase);
     }
 
@@ -1088,7 +1088,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     }
 
     private void persistTransitionCheckpoint() {
-        if (!(LevelManager.getInstance().getCheckpointState() instanceof CheckpointState checkpoint)) {
+        if (!(GameServices.level().getCheckpointState() instanceof CheckpointState checkpoint)) {
             return;
         }
         Camera cam = camera();

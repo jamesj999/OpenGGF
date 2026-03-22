@@ -109,8 +109,8 @@ class Sonic1PaletteCycler implements AnimatedPaletteManager {
      * </ol>
      */
     private List<PaletteCycle> createSbzCycles() {
-        int act = LevelManager.getInstance().getCurrentAct();
-        int zone = LevelManager.getInstance().getCurrentZone();
+        int act = GameServices.level().getCurrentAct();
+        int zone = GameServices.level().getCurrentZone();
         List<PaletteCycle> list = new ArrayList<>();
 
         // FZ is engine zone 6 act 0, but maps to ROM zone SBZ act 2.
@@ -165,13 +165,13 @@ class Sonic1PaletteCycler implements AnimatedPaletteManager {
     }
 
     private int resolveFeatureZoneId() {
-        LevelManager manager = LevelManager.getInstance();
+        LevelManager manager = GameServices.level();
         int featureZone = manager.getFeatureZoneId();
         return featureZone >= 0 ? featureZone : level.getZoneIndex();
     }
 
     private int resolveFeatureActId() {
-        LevelManager manager = LevelManager.getInstance();
+        LevelManager manager = GameServices.level();
         int featureAct = manager.getFeatureActId();
         return featureAct >= 0 ? featureAct : 0;
     }

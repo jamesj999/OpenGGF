@@ -1,6 +1,5 @@
 package com.openggf.game.sonic1.levelselect;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.Control.InputHandler;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
@@ -17,6 +16,7 @@ import java.util.logging.Logger;
 import static org.lwjgl.opengl.GL11.glClearColor;
 
 import static com.openggf.game.sonic1.levelselect.Sonic1LevelSelectConstants.*;
+import com.openggf.game.GameServices;
 
 /**
  * Manages the Sonic 1 Level Select screen.
@@ -84,7 +84,7 @@ public class Sonic1LevelSelectManager implements LevelSelectProvider {
         resetHoldTimers();
 
         // Play title screen music (Sonic 1 uses title music for level select)
-        AudioManager.getInstance().playMusic(Sonic1Music.TITLE.id);
+        GameServices.audio().playMusic(Sonic1Music.TITLE.id);
 
         LOGGER.info("Sonic 1 level select initialized, entering FADE_IN state");
     }
@@ -221,10 +221,10 @@ public class Sonic1LevelSelectManager implements LevelSelectProvider {
             // Sonic 1 sound test plays values 0x80-0x9F which covers both music and SFX
             if (soundId >= 0x80 && soundId <= 0x93) {
                 // Music range
-                AudioManager.getInstance().playMusic(soundId);
+                GameServices.audio().playMusic(soundId);
             } else {
                 // SFX range
-                AudioManager.getInstance().playSfx(soundId);
+                GameServices.audio().playSfx(soundId);
             }
         } else {
             // Signal exit - GameLoop will handle the fade

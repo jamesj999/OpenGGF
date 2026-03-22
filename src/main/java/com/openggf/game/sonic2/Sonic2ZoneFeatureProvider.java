@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import com.openggf.game.GameServices;
 
 /**
  * Zone feature provider for Sonic 2.
@@ -159,7 +160,7 @@ public class Sonic2ZoneFeatureProvider implements ZoneFeatureProvider {
             cpzPylon = new CPZPylonObjectInstance(spawn, "CPZPylon");
 
             // Add to ObjectManager's dynamic objects list
-            LevelManager levelManager = LevelManager.getInstance();
+            LevelManager levelManager = GameServices.level();
             if (levelManager != null && levelManager.getObjectManager() != null) {
                 levelManager.getObjectManager().addDynamicObject(cpzPylon);
                 LOGGER.info("Initialized CPZ pylon");

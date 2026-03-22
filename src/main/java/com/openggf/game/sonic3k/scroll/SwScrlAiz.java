@@ -12,6 +12,7 @@ import com.openggf.level.scroll.AbstractZoneScrollHandler;
 import java.util.Arrays;
 
 import static com.openggf.level.scroll.M68KMath.*;
+import com.openggf.game.GameServices;
 
 /**
  * Angel Island Zone (AIZ) scroll handler.
@@ -131,7 +132,7 @@ public class SwScrlAiz extends AbstractZoneScrollHandler {
         // ROM mode gate: AIZ1 intro uses IntroDeform only before the $1400 transition.
         boolean introMode = false;
         try {
-            introMode = !Camera.getInstance().isLevelStarted()
+            introMode = !GameServices.camera().isLevelStarted()
                     && !AizPlaneIntroInstance.isMainLevelPhaseActive();
         } catch (Exception ignored) {}
 
@@ -154,7 +155,7 @@ public class SwScrlAiz extends AbstractZoneScrollHandler {
                 // AIZ2_Deform: scattered-speed BG parallax with shake-compensated Y.
                 // BG vertical scroll = (cameraY - shake) / 2 + shake.
                 short shakeY = 0;
-                try { shakeY = Camera.getInstance().getShakeOffsetY(); } catch (Exception ignored) {}
+                try { shakeY = GameServices.camera().getShakeOffsetY(); } catch (Exception ignored) {}
                 vscrollFactorBG = (short) (asrWord(cameraY, 1) + shakeY);
                 computeAiz2Deform(horizScrollBuf, fgScroll, cameraX);
             } else {

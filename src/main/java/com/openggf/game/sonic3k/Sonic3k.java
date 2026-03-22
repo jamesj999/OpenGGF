@@ -14,7 +14,6 @@ import com.openggf.sprites.art.SpriteArtSet;
 import com.openggf.game.sonic3k.audio.Sonic3kAudioProfile;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.level.Level;
-import com.openggf.level.LevelManager;
 import com.openggf.level.animation.AnimatedPaletteManager;
 import com.openggf.level.animation.AnimatedPatternManager;
 import com.openggf.level.resources.LevelResourcePlan;
@@ -27,6 +26,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
+import com.openggf.game.GameServices;
 
 /**
  * Game implementation for Sonic 3 &amp; Knuckles.
@@ -136,7 +136,7 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, DynamicSta
                 && levelAnimationZone == zoneIndex) {
             return levelAnimationManager;
         }
-        int actIndex = LevelManager.getInstance().getCurrentAct();
+        int actIndex = GameServices.level().getCurrentAct();
         Sonic3kLoadBootstrap bootstrap = Sonic3kBootstrapResolver.resolve(zoneIndex, actIndex);
         levelAnimationManager = new Sonic3kLevelAnimationManager(
                 RomByteReader.fromRom(rom), level, zoneIndex, actIndex, bootstrap.isSkipIntro());

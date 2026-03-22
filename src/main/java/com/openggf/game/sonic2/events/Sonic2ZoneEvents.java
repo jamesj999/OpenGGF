@@ -31,7 +31,7 @@ public abstract class Sonic2ZoneEvents {
      * than caching the reference, so it survives singleton replacement.
      */
     protected Camera camera() {
-        return Camera.getInstance();
+        return GameServices.camera();
     }
 
     /** Reset event state for a new level load. */
@@ -53,7 +53,7 @@ public abstract class Sonic2ZoneEvents {
 
     /** Spawn a dynamic object into the level. */
     protected void spawnObject(ObjectInstance object) {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         if (lm.getObjectManager() != null) {
             lm.getObjectManager().addDynamicObject(object);
         }
@@ -66,7 +66,7 @@ public abstract class Sonic2ZoneEvents {
     protected static void loadBossPalette(int paletteLine, int romAddr) {
         try {
             byte[] paletteData = GameServices.rom().getRom().readBytes(romAddr, PALETTE_LINE_SIZE);
-            LevelManager.getInstance().updatePalette(paletteLine, paletteData);
+            GameServices.level().updatePalette(paletteLine, paletteData);
         } catch (Exception e) {
             LOGGER.warning("Failed to load boss palette from ROM offset 0x" +
                     Integer.toHexString(romAddr) + ": " + e.getMessage());

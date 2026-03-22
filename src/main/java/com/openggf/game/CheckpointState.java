@@ -53,7 +53,7 @@ public class CheckpointState implements RespawnState {
         this.savedY = y;
         this.cameraLock = cameraLockFlag;
 
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         this.savedCameraX = camera.getX();
         this.savedCameraY = camera.getY();
 

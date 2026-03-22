@@ -11,6 +11,7 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.PatternRenderCommand;
 import com.openggf.level.LevelManager;
+import com.openggf.game.GameServices;
 
 /**
  * Encapsulates AIZ transition visual behavior:
@@ -55,7 +56,7 @@ public final class AizTransitionRenderFeature {
         if (camera == null) {
             return;
         }
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         if (levelManager.getCurrentZone() != Sonic3kZoneIds.ZONE_AIZ) {
             return;
         }

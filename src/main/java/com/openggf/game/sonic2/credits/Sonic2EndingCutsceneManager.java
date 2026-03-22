@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.credits;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
@@ -30,6 +29,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.logging.Logger;
+import com.openggf.game.GameServices;
 
 /**
  * ROM-accurate state machine for the Sonic 2 ending cutscene sequence.
@@ -471,7 +471,7 @@ public class Sonic2EndingCutsceneManager {
         }
 
         // Play ending music
-        AudioManager.getInstance().playMusic(Sonic2AudioConstants.MUS_ENDING);
+        GameServices.audio().playMusic(Sonic2AudioConstants.MUS_ENDING);
 
         // Start photo loop at photo 0
         photoIndex = 0;

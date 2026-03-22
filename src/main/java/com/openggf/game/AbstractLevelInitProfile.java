@@ -1,8 +1,6 @@
 package com.openggf.game;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
-import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.LevelManager;
 import com.openggf.level.ParallaxManager;
@@ -96,7 +94,7 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
      * @return mutable list — callers may append post-load assembly steps
      */
     protected List<InitStep> buildCoreSteps(LevelLoadContext ctx) {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         List<InitStep> steps = new ArrayList<>(20);
         steps.add(ioStep("InitGameModule",
                 "Create Game instance, fade out, clear PLC",
@@ -155,49 +153,49 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
     protected InitStep restoreCheckpointStep(LevelLoadContext ctx) {
         return new InitStep("RestoreCheckpoint",
             "S1: Lamp_LoadInfo, S2: Obj79_LoadData, S3K: Saved_zone_and_act restore",
-            () -> LevelManager.getInstance().restoreCheckpointState(ctx));
+            () -> GameServices.level().restoreCheckpointState(ctx));
     }
 
     /** Step 15: Set player position from checkpoint or level start. */
     protected InitStep spawnPlayerStep(LevelLoadContext ctx) {
         return new InitStep("SpawnPlayer",
             "S1/S2: StartLocations / Obj79_LoadData, S3K: Get_PlayerStart",
-            () -> LevelManager.getInstance().spawnPlayerAtStartPosition(ctx));
+            () -> GameServices.level().spawnPlayerAtStartPosition(ctx));
     }
 
     /** Step 16: Reset player state for level start. */
     protected InitStep resetPlayerStateStep(LevelLoadContext ctx) {
         return new InitStep("ResetPlayerState",
             "S2: InitPlayers state clear, S3K: object constructor defaults",
-            () -> LevelManager.getInstance().resetPlayerForLevelStart(ctx));
+            () -> GameServices.level().resetPlayerForLevelStart(ctx));
     }
 
     /** Step 17: Initialize camera for level start. */
     protected InitStep initCameraStep() {
         return new InitStep("InitCamera",
             "S1/S2: SetScreen/InitCameraValues, S3K: Get_LevelSizeStart",
-            () -> LevelManager.getInstance().initCameraForLevel());
+            () -> GameServices.level().initCameraForLevel());
     }
 
     /** Step 18: Initialize level events for dynamic boundary updates. */
     protected InitStep initLevelEventsStep() {
         return new InitStep("InitLevelEvents",
             "All: LevelEventProvider.initLevel(zone, act)",
-            () -> LevelManager.getInstance().initLevelEventsForLevel());
+            () -> GameServices.level().initLevelEventsForLevel());
     }
 
     /** Step 19: Spawn sidekick near the main player. Override for game-specific offset. */
     protected InitStep spawnSidekickStep() {
         return new InitStep("SpawnSidekick",
             "S2: InitPlayers multi-char, S3K: SpawnLevelMainSprites_SpawnPlayers",
-            () -> LevelManager.getInstance().spawnSidekicks(-40, 0));
+            () -> GameServices.level().spawnSidekicks(-40, 0));
     }
 
     /** Step 20: Request title card display. */
     protected InitStep requestTitleCardStep(LevelLoadContext ctx) {
         return new InitStep("RequestTitleCard",
             "S1/S2: title card loop, S3K: Obj_TitleCard",
-            () -> LevelManager.getInstance().requestTitleCardIfNeeded(ctx));
+            () -> GameServices.level().requestTitleCardIfNeeded(ctx));
     }
 
     /**
@@ -221,7 +219,7 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
         return List.of(
             // Undoes S1:Phase D / S2:Phase C / S3K:Phase F (PlayMusic)
             new InitStep("ResetAudio", "Undoes PlayMusic / bgm_Fade",
-                () -> AudioManager.getInstance().resetState()),
+                () -> GameServices.audio().resetState()),
 
             // Game-specific: undoes zone event handlers, boss arena state
             levelEventTeardownStep(),
@@ -231,7 +229,7 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
                 () -> ParallaxManager.getInstance().resetState()),
             // Undoes S1:Phase G / S2:Phase E / S3K:Phase I (LevelDataLoad/LoadZoneTiles)
             new InitStep("ResetLevelManager", "Undoes LevelDataLoad / LoadZoneTiles / LoadLevelLoadBlock",
-                () -> LevelManager.getInstance().resetState()),
+                () -> GameServices.level().resetState()),
 
             // Undoes S1:Phase I-J / S2:Phase G / S3K:Phase O (InitPlayers/SpawnLevelMainSprites)
             new InitStep("ResetSprites", "Undoes InitPlayers / SpawnLevelMainSprites",
@@ -243,13 +241,13 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
 
             // Undoes S1:Phase G / S2:Phase E / S3K:Phase H (LevelSizeLoad/Get_LevelSizeStart)
             new InitStep("ResetCamera", "Undoes LevelSizeLoad / Get_LevelSizeStart",
-                () -> Camera.getInstance().resetState()),
+                () -> GameServices.camera().resetState()),
             // Undoes S1:Phase B / S2:Phase B / S3K:Phase D (VDP register config)
             new InitStep("ResetGraphics", "Undoes VDP register / ClearScreen / Clear_DisplayData",
                 () -> GraphicsManager.getInstance().resetState()),
             // Undoes S1:Phase A / S2:Phase A / S3K:Phase A (PaletteFadeOut/Pal_FadeToBlack)
             new InitStep("ResetFade", "Undoes PaletteFadeOut / Pal_FadeToBlack",
-                () -> FadeManager.getInstance().resetState()),
+                () -> GameServices.fade().resetState()),
 
             // Undoes S1:Phase K / S2:Phase H / S3K:Phase N (game state clear)
             new InitStep("ResetGameState", "Undoes ring/timer/lives init from Level:",
@@ -275,9 +273,9 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
             new InitStep("ResetCollision", "Undoes ConvertCollisionArray / LoadSolids",
                 () -> CollisionSystem.getInstance().resetState()),
             new InitStep("ResetCamera", "Undoes LevelSizeLoad / Get_LevelSizeStart",
-                () -> Camera.getInstance().resetState()),
+                () -> GameServices.camera().resetState()),
             new InitStep("ResetFade", "Undoes PaletteFadeOut / Pal_FadeToBlack",
-                () -> FadeManager.getInstance().resetState()),
+                () -> GameServices.fade().resetState()),
             new InitStep("ResetGameState", "Undoes ring/timer/lives init from Level:",
                 () -> GameServices.gameState().resetSession()),
             new InitStep("ResetTimers", "Undoes Level_frame_counter / demo timer",

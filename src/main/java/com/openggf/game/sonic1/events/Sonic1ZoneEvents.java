@@ -1,6 +1,7 @@
 package com.openggf.game.sonic1.events;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 
 /**
  * Base class for Sonic 1 per-zone dynamic level events.
@@ -18,7 +19,7 @@ abstract class Sonic1ZoneEvents {
      * than caching the reference, so it survives singleton replacement.
      */
     protected Camera camera() {
-        return Camera.getInstance();
+        return GameServices.camera();
     }
 
     /** Reset event state for a new level. */

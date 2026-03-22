@@ -13,6 +13,7 @@ import com.openggf.level.animation.AniPlcParser;
 import com.openggf.level.animation.AniPlcScriptState;
 
 import java.util.List;
+import com.openggf.game.GameServices;
 
 /**
  * Animates S3K zone tiles using the ROM's AniPLC script format.
@@ -129,7 +130,7 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
         }
         int cameraX = 0;
         try {
-            cameraX = Camera.getInstance().getX();
+            cameraX = GameServices.camera().getX();
         } catch (Exception ignored) {
         }
 

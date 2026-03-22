@@ -1,6 +1,5 @@
 package com.openggf.game.sonic1.events;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic1.objects.bosses.Sonic1LZBossInstance;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.Sonic1SwitchManager;
@@ -87,7 +86,7 @@ class Sonic1LZEvents extends Sonic1ZoneEvents {
             return;
         }
 
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         Level level = lm.getCurrentLevel();
         if (level == null) {
             return;
@@ -110,7 +109,7 @@ class Sonic1LZEvents extends Sonic1ZoneEvents {
         lm.invalidateForegroundTilemap();
 
         // move.w #sfx_Rumbling,d0 / bsr.w QueueSound2
-        AudioManager.getInstance().playSfx(Sonic1Sfx.RUMBLING.id);
+        GameServices.audio().playSfx(Sonic1Sfx.RUMBLING.id);
     }
 
     /**
@@ -157,7 +156,7 @@ class Sonic1LZEvents extends Sonic1ZoneEvents {
 
         // ROM: FindFreeObj -> move.b #id_BossLabyrinth,(a1)
         // Boss spawns at its initial position (set in initializeBossState)
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         ObjectSpawn bossSpawn = new ObjectSpawn(
                 BOSS_LZ_X + 0x30,         // boss_lz_x + $30
                 BOSS_LZ_Y + 0x500,        // boss_lz_y + $500
@@ -168,7 +167,7 @@ class Sonic1LZEvents extends Sonic1ZoneEvents {
         }
 
         // ROM: QueueSound1 bgm_Boss — play boss music
-        AudioManager.getInstance().playMusic(Sonic1Music.BOSS.id);
+        GameServices.audio().playMusic(Sonic1Music.BOSS.id);
 
         // ROM: f_lockscreen = 1 — gates the 64px right boundary extension in Sonic_LevelBound. Does NOT modify v_limitleft2 or v_limitright2. The LZ vertical chase relies on natural level boundaries; no explicit camera lock needed.
 

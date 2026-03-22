@@ -1,6 +1,5 @@
 package com.openggf.game.sonic1.events;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic1.Sonic1SwitchManager;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
@@ -13,6 +12,7 @@ import com.openggf.physics.Direction;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.logging.Logger;
+import com.openggf.game.GameServices;
 
 /**
  * Dynamic water level events for Sonic 1 Labyrinth Zone.
@@ -178,7 +178,7 @@ public class Sonic1LZWaterEvents {
     }
 
     private Camera camera() {
-        return Camera.getInstance();
+        return GameServices.camera();
     }
 
     /**
@@ -482,7 +482,7 @@ public class Sonic1LZWaterEvents {
                 waterRoutine = 1;
 
                 // move.w #sfx_Rumbling,d0 / bsr.w QueueSound2
-                AudioManager.getInstance().playSfx(Sonic1Sfx.RUMBLING.id);
+                GameServices.audio().playSfx(Sonic1Sfx.RUMBLING.id);
                 LOGGER.fine("LZ3 routine 0: Water triggered, advancing to routine 1");
             }
         }
@@ -742,7 +742,7 @@ public class Sonic1LZWaterEvents {
             // move.b (v_vbla_byte).w,d0 / andi.b #$3F,d0 / bne.s .skipsound
             windTunnelSoundTimer++;
             if ((windTunnelSoundTimer & 0x3F) == 0) {
-                AudioManager.getInstance().playSfx(Sonic1Sfx.WATERFALL.id);
+                GameServices.audio().playSfx(Sonic1Sfx.WATERFALL.id);
             }
 
             // ROM: tst.b (f_wtunnelallow).w / bne.w .quit
@@ -854,7 +854,7 @@ public class Sonic1LZWaterEvents {
             // Player is inside this tunnel region
             windTunnelSoundTimer++;
             if ((windTunnelSoundTimer & 0x3F) == 0) {
-                AudioManager.getInstance().playSfx(Sonic1Sfx.WATERFALL.id);
+                GameServices.audio().playSfx(Sonic1Sfx.WATERFALL.id);
             }
 
             if (windTunnelDisabled) {
@@ -1009,7 +1009,7 @@ public class Sonic1LZWaterEvents {
         // Note: water slides use $1F mask (every 32 frames), not $3F like tunnels
         windTunnelSoundTimer++;  // Reuse the same timer (incremented once per frame)
         if ((windTunnelSoundTimer & 0x1F) == 0) {
-            AudioManager.getInstance().playSfx(Sonic1Sfx.WATERFALL.id);
+            GameServices.audio().playSfx(Sonic1Sfx.WATERFALL.id);
         }
     }
 
@@ -1127,7 +1127,7 @@ public class Sonic1LZWaterEvents {
      * Used by DynWater_LZ3 routine 0 to write $4B (water slide chunk).
      */
     private void writeLayoutChunk(int chunkId) {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         Level level = lm.getCurrentLevel();
         if (level == null) {
             return;

@@ -1,6 +1,7 @@
 package com.openggf.game.sonic3k.specialstage;
 
 import static com.openggf.game.sonic3k.specialstage.Sonic3kSpecialStageConstants.*;
+import com.openggf.game.GameServices;
 
 /**
  * Player state and physics for the S3K Blue Ball special stage.
@@ -417,7 +418,7 @@ public class Sonic3kSpecialStagePlayer {
                 jumpVelocity = JUMP_VELOCITY;
                 jumping = JUMP_NORMAL;
                 turning = 0;
-                com.openggf.audio.AudioManager.getInstance().playSfx(
+                GameServices.audio().playSfx(
                         com.openggf.game.sonic3k.audio.Sonic3kSfx.JUMP.id);
             }
         }

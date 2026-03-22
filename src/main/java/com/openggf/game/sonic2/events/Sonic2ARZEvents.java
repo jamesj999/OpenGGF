@@ -1,11 +1,9 @@
 package com.openggf.game.sonic2.events;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.bosses.Sonic2ARZBossInstance;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectSpawn;
 
 /**
@@ -61,7 +59,7 @@ public class Sonic2ARZEvents extends Sonic2ZoneEvents {
                     eventRoutine += 2;
                     bossSpawnDelay = 0;
                     // ROM: Fade out music
-                    AudioManager.getInstance().fadeOutMusic();
+                    GameServices.audio().fadeOutMusic();
                     // ROM: Spawn ARZ boss (obj89) - this is where the boss is created!
                     spawnARZBoss();
                 }
@@ -77,7 +75,7 @@ public class Sonic2ARZEvents extends Sonic2ZoneEvents {
                 if (bossSpawnDelay >= 0x5A) {
                     eventRoutine += 2;
                     // Start boss music
-                    AudioManager.getInstance().playMusic(Sonic2Music.BOSS.id);
+                    GameServices.audio().playMusic(Sonic2Music.BOSS.id);
                 }
             }
             case 6 -> {

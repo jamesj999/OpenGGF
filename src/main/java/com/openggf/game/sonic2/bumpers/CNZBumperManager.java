@@ -6,6 +6,7 @@ import com.openggf.level.spawn.AbstractPlacementManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
+import com.openggf.game.GameServices;
 
 /**
  * Handles CNZ bumper windowing and collision in one system.
@@ -54,7 +55,7 @@ public class CNZBumperManager {
 
     public CNZBumperManager(List<CNZBumperSpawn> bumpers) {
         this.placement = new Placement(bumpers);
-        this.audioManager = AudioManager.getInstance();
+        this.audioManager = GameServices.audio();
     }
 
     public void reset(int cameraX) {

@@ -1,12 +1,10 @@
 package com.openggf.game.sonic2.events;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.bosses.Sonic2HTZBossInstance;
-import com.openggf.level.LevelManager;
 import com.openggf.level.ParallaxManager;
 import com.openggf.level.objects.ObjectSpawn;
 
@@ -401,7 +399,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
                     eventRoutine += 2;
                     bossSpawnDelay = 0;
                     // ROM: Fade out music
-                    AudioManager.getInstance().fadeOutMusic();
+                    GameServices.audio().fadeOutMusic();
                     // ROM: Set Current_Boss_ID to 3 (HTZ boss)
                     GameServices.gameState().setCurrentBossId(3);
                 }
@@ -419,7 +417,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
                     spawnHTZBoss();
                     eventRoutine += 2;
                     // Start boss music
-                    AudioManager.getInstance().playMusic(Sonic2Music.BOSS.id);
+                    GameServices.audio().playMusic(Sonic2Music.BOSS.id);
                 }
             }
             case 18 -> {
@@ -514,7 +512,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
                     cameraBgYOffset++;
                     // Play rumbling sound every 64 frames
                     if ((frameCounter & 0x3F) == 0) {
-                        AudioManager.getInstance().playSfx(Sonic2Sfx.RUMBLING_2.id);
+                        GameServices.audio().playSfx(Sonic2Sfx.RUMBLING_2.id);
                     }
                 }
             }
@@ -529,7 +527,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
                     cameraBgYOffset--;
                     // Play rumbling sound every 64 frames
                     if ((frameCounter & 0x3F) == 0) {
-                        AudioManager.getInstance().playSfx(Sonic2Sfx.RUMBLING_2.id);
+                        GameServices.audio().playSfx(Sonic2Sfx.RUMBLING_2.id);
                     }
                 }
             }

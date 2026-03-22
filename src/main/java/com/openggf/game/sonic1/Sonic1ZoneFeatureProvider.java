@@ -14,6 +14,7 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
 import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import com.openggf.game.GameServices;
 
 /**
  * Zone feature provider for Sonic 1.
@@ -113,7 +114,7 @@ public class Sonic1ZoneFeatureProvider implements ZoneFeatureProvider {
             // player's centre position to query the equivalent layout block ID.
             int chunkIdAtPlayer = -1;
             int fallbackChunkId = -1;
-            LevelManager levelManager = LevelManager.getInstance();
+            LevelManager levelManager = GameServices.level();
             if (levelManager != null) {
                 chunkIdAtPlayer = levelManager.getBlockIdAt(player.getCentreX(), player.getCentreY());
                 // ROM uses obX/obY directly; in this engine we also sample sprite-origin

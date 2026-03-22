@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.events;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
@@ -82,7 +81,7 @@ public class Sonic2CNZEvents extends Sonic2ZoneEvents {
                     eventRoutine += 2;
                     bossSpawnDelay = 0;
                     // ROM: Fade out music
-                    AudioManager.getInstance().fadeOutMusic();
+                    GameServices.audio().fadeOutMusic();
                     // ROM: Set Current_Boss_ID to 6 (CNZ boss ID in BossCollision_Index)
                     GameServices.gameState().setCurrentBossId(6);
 
@@ -107,7 +106,7 @@ public class Sonic2CNZEvents extends Sonic2ZoneEvents {
                     spawnCNZBoss();
                     eventRoutine += 2;
                     // Start boss music
-                    AudioManager.getInstance().playMusic(Sonic2Music.BOSS.id);
+                    GameServices.audio().playMusic(Sonic2Music.BOSS.id);
                 }
             }
             case 6 -> {
@@ -164,7 +163,7 @@ public class Sonic2CNZEvents extends Sonic2ZoneEvents {
      * - Offset $C50 (3152): x = 3152 % 256 = 80, y = 3152 / 256 = 12
      */
     private void placeCNZArenaWalls() {
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         Level level = levelManager.getCurrentLevel();
         if (level == null) {
             return;
@@ -212,7 +211,7 @@ public class Sonic2CNZEvents extends Sonic2ZoneEvents {
      * This allows Sonic to exit the arena to the right after defeating the boss.
      */
     private void removeCNZArenaWalls() {
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         Level level = levelManager.getCurrentLevel();
         if (level == null || cnzRightWallX < 0) {
             return;

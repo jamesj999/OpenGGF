@@ -2,10 +2,10 @@ package com.openggf.game.sonic1.events;
 
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
 import com.openggf.game.sonic1.objects.Sonic1EndingSonicObjectInstance;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.physics.Direction;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.GameServices;
 
 /**
  * Sonic 1 ending sequence bootstrap events.
@@ -117,7 +117,7 @@ class Sonic1EndingEvents extends Sonic1ZoneEvents {
             int sonicY = player.getCentreY() & 0xFFFF;
             Sonic1EndingSonicObjectInstance endSonic =
                     new Sonic1EndingSonicObjectInstance(sonicX, sonicY);
-            ObjectManager om = LevelManager.getInstance().getObjectManager();
+            ObjectManager om = GameServices.level().getObjectManager();
             if (om != null) {
                 om.addDynamicObject(endSonic);
             }

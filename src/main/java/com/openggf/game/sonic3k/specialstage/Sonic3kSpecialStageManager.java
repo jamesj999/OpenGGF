@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.specialstage;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
@@ -472,12 +471,12 @@ public class Sonic3kSpecialStageManager {
                 if (tailsAI.shouldAutoSpringJump()) {
                     tailsJumpVelocity = Sonic3kSpecialStageConstants.SPRING_JUMP_VELOCITY;
                     tailsJumping = 0x81;
-                    AudioManager.getInstance().playSfx(
+                    GameServices.audio().playSfx(
                             com.openggf.game.sonic3k.audio.Sonic3kSfx.SPRING.id);
                 } else {
                     tailsJumpVelocity = -0x100000; // Normal jump
                     tailsJumping = 0x80;
-                    AudioManager.getInstance().playSfx(
+                    GameServices.audio().playSfx(
                             com.openggf.game.sonic3k.audio.Sonic3kSfx.JUMP.id);
                 }
             }
@@ -523,7 +522,7 @@ public class Sonic3kSpecialStageManager {
         // Rate 0x1000→40, 0x1400→32, 0x1800→24, 0x2000→8.
         if (player.didRateJustIncrease()) {
             int tempo = player.calculateMusicTempo();
-            AudioManager.getInstance().getBackend().setSpeedMultiplier(tempo);
+            GameServices.audio().getBackend().setSpeedMultiplier(tempo);
             musicSpedUp = true;
         }
 
@@ -590,7 +589,7 @@ public class Sonic3kSpecialStageManager {
             finished = true;
             // Reset music speed on exit
             if (musicSpedUp) {
-                AudioManager.getInstance().getBackend().setSpeedMultiplier(1);
+                GameServices.audio().getBackend().setSpeedMultiplier(1);
             }
         }
 
@@ -661,7 +660,7 @@ public class Sonic3kSpecialStageManager {
 
             case BLUE_SPHERE:
                 if (collisionQueue.addBlueSphere(result.gridIndex)) {
-                    AudioManager.getInstance().playSfx(Sonic3kSfx.BLUE_SPHERE.id);
+                    GameServices.audio().playSfx(Sonic3kSfx.BLUE_SPHERE.id);
                 }
                 break;
 
@@ -671,13 +670,13 @@ public class Sonic3kSpecialStageManager {
                     player.setFadeTimer(1);
                     exitSpinStarted = true;
                     emeraldCollected = false;
-                    AudioManager.getInstance().playSfx(Sonic3kSfx.GOAL.id);
+                    GameServices.audio().playSfx(Sonic3kSfx.GOAL.id);
                 }
                 break;
 
             case BUMPER:
                 player.activateBumperLock(result.gridIndex);
-                AudioManager.getInstance().playSfx(Sonic3kSfx.BUMPER.id);
+                GameServices.audio().playSfx(Sonic3kSfx.BUMPER.id);
                 break;
 
             case RING:
@@ -688,7 +687,7 @@ public class Sonic3kSpecialStageManager {
 
             case SPRING:
                 player.springJump();
-                AudioManager.getInstance().playSfx(Sonic3kSfx.SPRING.id);
+                GameServices.audio().playSfx(Sonic3kSfx.SPRING.id);
                 break;
 
             case EMERALD:
@@ -709,7 +708,7 @@ public class Sonic3kSpecialStageManager {
             ringsLeft--;
             if (ringsLeft == 0) {
                 // All rings collected — play PERFECT SFX and show PERFECT banner
-                AudioManager.getInstance().playSfx(Sonic3kSfx.PERFECT.id);
+                GameServices.audio().playSfx(Sonic3kSfx.PERFECT.id);
                 banner.triggerReEntry(); // Shows "PERFECT" text
             }
         }
@@ -718,13 +717,13 @@ public class Sonic3kSpecialStageManager {
 
         // Extra life thresholds
         if (ringsCollected == EXTRA_LIFE_THRESHOLD_CONTINUE) {
-            AudioManager.getInstance().playSfx(Sonic3kSfx.CONTINUE.id);
+            GameServices.audio().playSfx(Sonic3kSfx.CONTINUE.id);
         } else if (ringsCollected == EXTRA_LIFE_THRESHOLD_1
                 || ringsCollected == EXTRA_LIFE_THRESHOLD_2) {
-            AudioManager.getInstance().playSfx(Sonic3kSfx.RING_LOSS.id);
+            GameServices.audio().playSfx(Sonic3kSfx.RING_LOSS.id);
         } else {
             // Use GameSound.RING which auto-alternates between left and right channels
-            AudioManager.getInstance().playSfx(com.openggf.audio.GameSound.RING);
+            GameServices.audio().playSfx(com.openggf.audio.GameSound.RING);
         }
     }
 
@@ -745,7 +744,7 @@ public class Sonic3kSpecialStageManager {
         exitSpinStarted = true;
         // Don't set finished=true here — let the spin animation play first.
         // finished will be set when fadeTimer completes its cycle.
-        AudioManager.getInstance().playSfx(Sonic3kSfx.GOAL.id);
+        GameServices.audio().playSfx(Sonic3kSfx.GOAL.id);
     }
 
     /**
@@ -775,7 +774,7 @@ public class Sonic3kSpecialStageManager {
                 player.setClearRoutineActive(true);
             }
 
-            AudioManager.getInstance().playSfx(Sonic3kSfx.RING_LOSS.id);
+            GameServices.audio().playSfx(Sonic3kSfx.RING_LOSS.id);
         }
     }
 
@@ -818,7 +817,7 @@ public class Sonic3kSpecialStageManager {
         if (clearTimer == 2) {
             // ROM: sfx_AllSpheres (0x66) plays as SFX over the music.
             // Music continues until the chaos emerald jingle replaces it later.
-            AudioManager.getInstance().playSfx(Sonic3kSfx.ALL_SPHERES.id);
+            GameServices.audio().playSfx(Sonic3kSfx.ALL_SPHERES.id);
         }
 
         // Accelerate timer after thresholds
@@ -866,7 +865,7 @@ public class Sonic3kSpecialStageManager {
         emeraldTimer--;
         if (emeraldTimer <= 0) {
             clearRoutine = 3;
-            AudioManager.getInstance().playMusic(Sonic3kMusic.EMERALD.id);
+            GameServices.audio().playMusic(Sonic3kMusic.EMERALD.id);
         }
     }
 

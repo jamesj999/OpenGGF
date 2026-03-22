@@ -1,13 +1,12 @@
 package com.openggf.game.sonic1;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.level.Level;
-import com.openggf.level.LevelManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.logging.Logger;
+import com.openggf.game.GameServices;
 
 /**
  * Implements Sonic 1's loop/plane switching mechanism (Sonic_Loops).
@@ -97,7 +96,7 @@ public class Sonic1LoopManager {
             return;
         }
 
-        Level level = LevelManager.getInstance().getCurrentLevel();
+        Level level = GameServices.level().getCurrentLevel();
         if (!(level instanceof Sonic1Level s1Level)) {
             return;
         }
@@ -195,7 +194,7 @@ public class Sonic1LoopManager {
             // ROM: addq.w #5,obY(a0) — adjust Y for smaller hitbox (5px in center coords).
             // Engine uses top-left coords so we use the full height adjustment.
             player.setY((short) (player.getY() + player.getRollHeightAdjustment()));
-            AudioManager.getInstance().playSfx(GameSound.ROLLING);
+            GameServices.audio().playSfx(GameSound.ROLLING);
             // ROM: tst.w obInertia(a0); bne .ismoving; move.w #$200,obInertia(a0)
             if (player.getGSpeed() == 0) {
                 player.setGSpeed((short) 0x200);

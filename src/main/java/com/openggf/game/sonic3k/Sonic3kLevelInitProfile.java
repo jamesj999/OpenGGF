@@ -5,9 +5,9 @@ import com.openggf.game.InitStep;
 import com.openggf.game.LevelLoadContext;
 import com.openggf.game.StaticFixup;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
-import com.openggf.level.LevelManager;
 
 import java.util.List;
+import com.openggf.game.GameServices;
 
 /**
  * Sonic 3&K level initialization profile.
@@ -44,7 +44,7 @@ public class Sonic3kLevelInitProfile extends AbstractLevelInitProfile {
     protected InitStep spawnSidekickStep() {
         return new InitStep("SpawnSidekick",
             "S3K: SpawnLevelMainSprites_SpawnPlayers — Tails at player_pos - $20, +4 Y",
-            () -> LevelManager.getInstance().spawnSidekicks(-32, 4));
+            () -> GameServices.level().spawnSidekicks(-32, 4));
     }
 
     /** S3K: skip title card on checkpoint resume (ROM: {@code tst.b (Last_star_post_hit)}). */
@@ -54,7 +54,7 @@ public class Sonic3kLevelInitProfile extends AbstractLevelInitProfile {
             "S3K: Obj_TitleCard — skipped on checkpoint resume",
             () -> {
                 if (!ctx.hasCheckpoint()) {
-                    LevelManager.getInstance().requestTitleCardIfNeeded(ctx);
+                    GameServices.level().requestTitleCardIfNeeded(ctx);
                 }
             });
     }

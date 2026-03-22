@@ -1,11 +1,9 @@
 package com.openggf.game.sonic2.events;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.bosses.Sonic2MTZBossInstance;
 import com.openggf.game.GameServices;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectSpawn;
 
 import java.util.logging.Logger;
@@ -77,7 +75,7 @@ public class Sonic2MTZEvents extends Sonic2ZoneEvents {
                     setSidekickBounds(0x2AB0, 0x2AB0, null);
                     eventRoutine += 2;
                     // ROM: move.w #$E2,d0 / jsr (PlayMusic).l  (MusID_FadeOut)
-                    AudioManager.getInstance().fadeOutMusic();
+                    GameServices.audio().fadeOutMusic();
                     // ROM: clr.b (Boss_spawn_delay).w
                     bossSpawnDelay = 0;
                     // ROM: move.b #7,(Current_Boss_ID).w
@@ -101,7 +99,7 @@ public class Sonic2MTZEvents extends Sonic2ZoneEvents {
                     spawnMTZBoss();
                     eventRoutine += 2;
                     // ROM: move.w #$8C,d0 / jsr (PlayMusic).l  (MusID_Boss)
-                    AudioManager.getInstance().playMusic(Sonic2Music.BOSS.id);
+                    GameServices.audio().playMusic(Sonic2Music.BOSS.id);
                 }
             }
             case 8 -> {

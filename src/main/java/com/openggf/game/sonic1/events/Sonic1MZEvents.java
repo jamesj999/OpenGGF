@@ -1,6 +1,5 @@
 package com.openggf.game.sonic1.events;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic1.objects.bosses.Sonic1MZBossInstance;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.audio.Sonic1Music;
@@ -249,7 +248,7 @@ class Sonic1MZEvents extends Sonic1ZoneEvents {
         }
 
         // ROM: Spawn boss object at boss_mz_x + $1F0, boss_mz_y + $1C
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         if (lm != null && lm.getObjectManager() != null) {
             ObjectSpawn bossSpawn = new ObjectSpawn(
                     BOSS_MZ_X + 0x1F0, BOSS_MZ_Y + 0x1C,
@@ -259,7 +258,7 @@ class Sonic1MZEvents extends Sonic1ZoneEvents {
         }
 
         // ROM: bgm_Boss — play boss music
-        AudioManager.getInstance().playMusic(Sonic1Music.BOSS.id);
+        GameServices.audio().playMusic(Sonic1Music.BOSS.id);
 
         // f_lockscreen = 1.
         // ROM: f_lockscreen limits Sonic's movement range (01 Sonic.asm:824-834) but

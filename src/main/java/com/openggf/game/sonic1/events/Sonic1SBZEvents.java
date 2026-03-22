@@ -146,7 +146,7 @@ class Sonic1SBZEvents extends Sonic1ZoneEvents {
         }
 
         // ROM: Spawn collapsing floor object (FalseFloor / Object 0x83)
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         ObjectSpawn floorSpawn = new ObjectSpawn(
                 BOSS_SBZ2_X + 0x30, BOSS_SBZ2_Y + 0xC0,
                 Sonic1ObjectIds.FALSE_FLOOR, 0, 0, false, 0);
@@ -168,7 +168,7 @@ class Sonic1SBZEvents extends Sonic1ZoneEvents {
         // cmpi.w #boss_sbz2_x-$F0,(v_screenposx).w = 0x1F60
         if (camX >= (BOSS_SBZ2_X - 0xF0)) {
             // ROM: Spawn Eggman cutscene object (ScrapEggman / Object 0x82)
-            LevelManager lm = LevelManager.getInstance();
+            LevelManager lm = GameServices.level();
             ObjectSpawn eggSpawn = new ObjectSpawn(
                     BOSS_SBZ2_X + 0x110, BOSS_SBZ2_Y + 0x94,
                     Sonic1ObjectIds.SCRAP_EGGMAN, 0, 0, false, 0);
@@ -242,7 +242,7 @@ class Sonic1SBZEvents extends Sonic1ZoneEvents {
         // ROM: clr.b (v_lastlamp).w - checkpoint cleared by requestZoneAndAct
         // ROM: move.w #(id_SBZ<<8)+2,(v_zone).w - FZ is zone 6 act 0 in our engine
         // ROM: move.w #1,(f_restart).w - restart level
-        LevelManager.getInstance().requestZoneAndAct(
+        GameServices.level().requestZoneAndAct(
                 Sonic1ZoneConstants.ZONE_FZ, 0);
     }
 
@@ -295,7 +295,7 @@ class Sonic1SBZEvents extends Sonic1ZoneEvents {
         // cmpi.w #boss_fz_x-$150,(v_screenposx).w = 0x2300
         if (camX >= (BOSS_FZ_X - 0x150)) {
             // ROM: Spawn FZ boss (Object 0x85)
-            LevelManager lm = LevelManager.getInstance();
+            LevelManager lm = GameServices.level();
             ObjectSpawn bossSpawn = new ObjectSpawn(
                     BOSS_FZ_X + 0x160, BOSS_FZ_Y + 0x80,
                     Sonic1ObjectIds.FZ_BOSS, 0, 0, false, 0);

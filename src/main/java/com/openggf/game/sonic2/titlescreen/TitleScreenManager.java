@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.titlescreen;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.Control.InputHandler;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
@@ -20,6 +19,7 @@ import java.util.List;
 import java.util.logging.Logger;
 
 import static org.lwjgl.opengl.GL11.glClearColor;
+import com.openggf.game.GameServices;
 
 /**
  * Manages the Sonic 2 Title Screen with full intro animation.
@@ -467,7 +467,7 @@ public class TitleScreenManager implements TitleScreenProvider {
                     // Play title music
                     if (!musicPlaying) {
                         musicPlaying = true;
-                        AudioManager.getInstance().playMusic(Sonic2Music.TITLE.id);
+                        GameServices.audio().playMusic(Sonic2Music.TITLE.id);
                     }
                 }
             }
@@ -642,7 +642,7 @@ public class TitleScreenManager implements TitleScreenProvider {
                     // All positions visited, delete star
                     flashingStarSprite.active = false;
                     // Force-stop any lingering SFX (sparkle FM channel may not self-terminate)
-                    AudioManager.getInstance().stopAllSfx();
+                    GameServices.audio().stopAllSfx();
                 } else {
                     flashingStarSprite.x = FLASHING_STAR_POSITIONS[flashingStarPosIndex][0];
                     flashingStarSprite.y = FLASHING_STAR_POSITIONS[flashingStarPosIndex][1];
@@ -745,7 +745,7 @@ public class TitleScreenManager implements TitleScreenProvider {
         // Flashing star is deleted
         flashingStarSprite.active = false;
         // Force-stop any lingering SFX (sparkle FM channel may not self-terminate)
-        AudioManager.getInstance().stopAllSfx();
+        GameServices.audio().stopAllSfx();
 
         // Load Sonic palette
         sonicPaletteLoaded = true;
@@ -753,7 +753,7 @@ public class TitleScreenManager implements TitleScreenProvider {
         // Play title music if not already playing
         if (!musicPlaying) {
             musicPlaying = true;
-            AudioManager.getInstance().playMusic(Sonic2Music.TITLE.id);
+            GameServices.audio().playMusic(Sonic2Music.TITLE.id);
         }
 
         // Force palette re-upload to apply Sonic palette
@@ -1466,7 +1466,7 @@ public class TitleScreenManager implements TitleScreenProvider {
         }
         sparklePlayedAt[index] = true;
         LOGGER.fine("Playing sparkle #" + index + " at frame " + frameCounter);
-        AudioManager.getInstance().playSfx(Sonic2Sfx.SPARKLE.id);
+        GameServices.audio().playSfx(Sonic2Sfx.SPARKLE.id);
     }
 
     @Override

@@ -1,6 +1,5 @@
 package com.openggf.game.sonic1.specialstage;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.data.Rom;
 import com.openggf.data.RomManager;
@@ -235,7 +234,7 @@ public final class Sonic1SpecialStageResultsScreen implements ResultsScreen {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         if (camera == null) {
             return;
         }
@@ -876,7 +875,7 @@ public final class Sonic1SpecialStageResultsScreen implements ResultsScreen {
 
     private void playTickSound() {
         try {
-            AudioManager.getInstance().playSfx(Sonic1Sfx.SWITCH.id);
+            GameServices.audio().playSfx(Sonic1Sfx.SWITCH.id);
         } catch (Exception ignored) {
             // Audio failure should not affect results flow.
         }
@@ -884,7 +883,7 @@ public final class Sonic1SpecialStageResultsScreen implements ResultsScreen {
 
     private void playTallyEndSound() {
         try {
-            AudioManager.getInstance().playSfx(Sonic1Sfx.TALLY.id);
+            GameServices.audio().playSfx(Sonic1Sfx.TALLY.id);
         } catch (Exception ignored) {
             // Audio failure should not affect results flow.
         }

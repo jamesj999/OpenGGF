@@ -468,7 +468,7 @@ public class TryAgainEndManager {
 
         // Draw emeralds and Eggman in a single batch
         GraphicsManager gm = GraphicsManager.getInstance();
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         int camX = camera.getX();
         int camY = camera.getY();
 

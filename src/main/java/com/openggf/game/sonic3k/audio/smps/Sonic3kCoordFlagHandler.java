@@ -1,11 +1,11 @@
 package com.openggf.game.sonic3k.audio.smps;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.smps.CoordFlagContext;
 import com.openggf.audio.smps.CoordFlagHandler;
 import com.openggf.audio.smps.SmpsSequencer;
 
 import java.util.logging.Logger;
+import com.openggf.game.GameServices;
 
 /**
  * Sonic 3 &amp; Knuckles coordination flag handler.
@@ -65,7 +65,7 @@ public class Sonic3kCoordFlagHandler implements CoordFlagHandler {
                     int param = data[t.pos++] & 0xFF;
                     if (param == 0xFF) {
                         // Restore previous music with fade-in (same as S2 E4 handler)
-                        AudioManager.getInstance().getBackend().restoreMusic();
+                        GameServices.audio().getBackend().restoreMusic();
                     }
                     // Other values: no-op
                 }

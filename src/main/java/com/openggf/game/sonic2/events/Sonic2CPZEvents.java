@@ -1,11 +1,9 @@
 package com.openggf.game.sonic2.events;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.bosses.Sonic2CPZBossInstance;
-import com.openggf.level.LevelManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.ObjectSpawn;
 
@@ -73,7 +71,7 @@ public class Sonic2CPZEvents extends Sonic2ZoneEvents {
                     setSidekickBounds(0x2A20, 0x2A20, null);
                     eventRoutine += 2;
                     bossSpawnDelay = 0;
-                    AudioManager.getInstance().fadeOutMusic();
+                    GameServices.audio().fadeOutMusic();
                     GameServices.gameState().setCurrentBossId(1);
                 }
             }
@@ -85,7 +83,7 @@ public class Sonic2CPZEvents extends Sonic2ZoneEvents {
                 if (bossSpawnDelay >= 0x5A) {
                     spawnCPZBoss();
                     eventRoutine += 2;
-                    AudioManager.getInstance().playMusic(Sonic2Music.BOSS.id);
+                    GameServices.audio().playMusic(Sonic2Music.BOSS.id);
                 }
             }
             case 6 -> {

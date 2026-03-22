@@ -16,6 +16,7 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
 import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import com.openggf.game.GameServices;
 
 /**
  * Zone feature provider for Sonic 3 &amp; Knuckles.
@@ -112,7 +113,7 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
         if (AizPlaneIntroInstance.isMainLevelPhaseActive()) {
             return false;
         }
-        return !Camera.getInstance().isLevelStarted();
+        return !GameServices.camera().isLevelStarted();
     }
 
     @Override
@@ -139,7 +140,7 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
             return false;
         }
         // Hide HUD during AIZ intro until Camera marks level as started
-        return !Camera.getInstance().isLevelStarted();
+        return !GameServices.camera().isLevelStarted();
     }
 
     @Override
