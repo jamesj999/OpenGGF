@@ -31,7 +31,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class TestAudioManagerResetState {
 
     @Test
-    void resetStateClearsAllMutableFields() {
+    void resetStateClearsObservableState() {
         AudioManager am = AudioManager.getInstance();
 
         // Mutate observable state
@@ -41,10 +41,18 @@ class TestAudioManagerResetState {
 
         // ringLeft resets to true (default)
         assertTrue(am.isRingLeft(), "ringLeft should reset to true");
-        // smpsLoader, dacData, soundMap, audioProfile should be null
-        assertNull(am.getSmpsLoader(), "smpsLoader should be null after reset");
-        assertNull(am.getDacData(), "dacData should be null after reset");
+        // audioProfile is the only field with a public getter
         assertNull(am.getAudioProfile(), "audioProfile should be null after reset");
+    }
+
+    @Test
+    void resetStateClearsDonorAudio() {
+        AudioManager am = AudioManager.getInstance();
+        am.resetState();
+        // Donor state is cleared by clearDonorAudio() called from resetState().
+        // Verify no NPE when accessing audio after reset (indirect coverage).
+        assertDoesNotThrow(() -> am.resetState(),
+                "Double reset should not throw");
     }
 }
 ```
@@ -134,7 +142,7 @@ Both classes already have `reset()` methods that clear their state. Add `resetSt
 
 - [ ] **Step 1: Add resetState() to Sonic1ConveyorState**
 
-Add after the existing `reset()` method (line 93):
+Add after the existing `reset()` method (line ~90):
 
 ```java
 /**
@@ -146,19 +154,21 @@ Add after the existing `reset()` method (line 93):
 public void resetState() {
     reset();
 }
+```
 
+Then annotate the **existing** `resetInstance()` method (line ~39) with `@Deprecated`:
+
+```java
 /** @deprecated Use {@link #resetState()} for test teardown. */
 @Deprecated
 public static void resetInstance() {
-    instance = null;
-}
 ```
 
-Note: The existing `resetInstance()` at line 39 already exists — add the `@Deprecated` annotation to it.
+Do NOT add a new `resetInstance()` method — only annotate the existing one.
 
 - [ ] **Step 2: Add resetState() to Sonic1SwitchManager**
 
-Same pattern — add after the existing `reset()` method (line 98):
+Same pattern — add after the existing `reset()` method (line ~96):
 
 ```java
 /**
@@ -168,13 +178,9 @@ Same pattern — add after the existing `reset()` method (line 98):
 public void resetState() {
     reset();
 }
-
-/** @deprecated Use {@link #resetState()} for test teardown. */
-@Deprecated
-public static void resetInstance() {
-    instance = null;
-}
 ```
+
+Annotate the **existing** `resetInstance()` (line ~36) with `@Deprecated`.
 
 - [ ] **Step 3: Run existing tests**
 
@@ -246,9 +252,9 @@ git commit -m "refactor: add CrossGameFeatureProvider.resetState(), deprecate re
 These three already have `resetState()` used by the teardown framework. Add `@Deprecated` annotations to their `resetInstance()` methods.
 
 **Files:**
-- Modify: `src/main/java/com/openggf/camera/Camera.java` (resetInstance at line 547)
-- Modify: `src/main/java/com/openggf/data/RomManager.java` (resetInstance at line 176)
-- Modify: `src/main/java/com/openggf/graphics/GraphicsManager.java` (resetInstance at line 185)
+- Modify: `src/main/java/com/openggf/camera/Camera.java` (find `resetInstance()` — grep for it)
+- Modify: `src/main/java/com/openggf/data/RomManager.java` (find `resetInstance()` — grep for it)
+- Modify: `src/main/java/com/openggf/graphics/GraphicsManager.java` (find `resetInstance()` — grep for it)
 
 - [ ] **Step 1: Add @Deprecated to Camera.resetInstance()**
 
@@ -304,50 +310,54 @@ git commit -m "refactor: deprecate resetInstance() on Camera, RomManager, Graphi
 
 ---
 
-### Task 6: Migrate Test Files from resetInstance() to resetState()
+### Task 6: Migrate ALL resetInstance() Calls to resetState()
 
-Replace all `GraphicsManager.resetInstance()` and `Camera.resetInstance()` calls in test files with `resetState()` equivalents.
+Replace ALL `resetInstance()` calls across ALL singletons in test files (and any production files).
 
-**Files to modify (deduplicated union of both call sites, 26 files):**
+**Singletons to migrate (grep for each):**
+- `GraphicsManager.resetInstance()` (11 test files)
+- `Camera.resetInstance()` (23 test files, overlaps above)
+- `FadeManager.resetInstance()` (2 test files)
+- `CollisionSystem.resetInstance()` (1 test file)
+- `CrossGameFeatureProvider.resetInstance()` (3 test files)
+- `Sonic1ConveyorState.resetInstance()` (1 test file)
+- `Sonic1SwitchManager.resetInstance()` (1 test file)
 
-GraphicsManager.resetInstance() callers (11 files):
-- `src/test/java/com/openggf/tests/TestSonic1SbzFinalZoneRouting.java`
-- `src/test/java/com/openggf/tests/TestAizFireCurtainGpuDiag.java`
-- `src/test/java/com/openggf/tests/HeadlessTestRunner.java`
-- `src/test/java/com/openggf/graphics/VisualRegressionTest.java`
-- `src/test/java/com/openggf/graphics/VisualReferenceGenerator.java`
-- `src/test/java/com/openggf/graphics/TestGraphicsManagerHeadless.java`
-- `src/test/java/com/openggf/game/TestInstaShieldVisual.java`
-- `src/test/java/com/openggf/game/sonic3k/TestS3kBpzPaletteCycling.java`
-- `src/test/java/com/openggf/game/sonic3k/specialstage/TestS3kSpecialStageResultsVisual.java`
-- `src/test/java/com/openggf/game/sonic1/specialstage/Sonic1SpecialStageRendererTest.java`
-- `src/test/java/com/openggf/game/sonic1/specialstage/Sonic1SpecialStageManagerTest.java`
+Also check `src/main/java/` for any production-code `resetInstance()` callers.
 
-Camera.resetInstance() callers (23 files — overlaps with above):
-- All 11 above plus 12 additional Camera-only callers
+- [ ] **Step 1: Grep for all resetInstance() callers**
 
-Plus: `src/main/java/com/openggf/level/LevelManager.java` (line 23 — check if it calls Camera.resetInstance())
+Run: `grep -rn "resetInstance()" src/ --include="*.java" -l`
 
-- [ ] **Step 1: Perform the replacement**
+This gives the definitive list of files to modify (expected ~36 files).
+
+- [ ] **Step 2: Perform the replacements**
 
 For every file, replace:
 - `GraphicsManager.resetInstance()` → `GraphicsManager.getInstance().resetState()`
 - `Camera.resetInstance()` → `Camera.getInstance().resetState()`
+- `FadeManager.resetInstance()` → `FadeManager.getInstance().resetState()`
+- `CollisionSystem.resetInstance()` → `CollisionSystem.getInstance().resetState()`
+- `CrossGameFeatureProvider.resetInstance()` → `CrossGameFeatureProvider.getInstance().resetState()`
+- `Sonic1ConveyorState.resetInstance()` → `Sonic1ConveyorState.getInstance().resetState()`
+- `Sonic1SwitchManager.resetInstance()` → `Sonic1SwitchManager.getInstance().resetState()`
 
-Use grep to find exact occurrences, then edit each file.
+Also update Javadoc in `HeadlessTestRunner.java` that references `resetInstance()` in its documentation comments — replace with `resetState()` guidance.
 
-- [ ] **Step 2: Run full test suite**
+**Semantic equivalence warning:** `GraphicsManager.resetInstance()` destroys shaders, FBOs, and the GL context, then forces a full re-initialization. `GraphicsManager.resetState()` only clears per-level resources and the pattern atlas. If any test requires full GL context teardown, it may need to keep calling `resetInstance()` or the test setup needs to call `initHeadless()` after `resetState()`. Run the full test suite after migration and investigate any failures carefully.
+
+- [ ] **Step 3: Run full test suite**
 
 Run: `mvn test -pl . -q`
-Expected: PASS — resetState() is already what the teardown framework uses. The behavior is equivalent for test isolation purposes.
+Expected: PASS. If tests fail, investigate whether they need the full destroy-and-recreate cycle. For those tests, either:
+- Add the missing cleanup to `resetState()`, OR
+- Keep `resetInstance()` for those specific tests (annotate with a comment explaining why)
 
-If any test fails: that test was relying on the destroy-and-recreate semantics of `resetInstance()`. Investigate what state `resetState()` doesn't clear that `resetInstance()` did, and add it to `resetState()`.
-
-- [ ] **Step 3: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
 git add -u
-git commit -m "refactor: migrate all test files from resetInstance() to resetState()"
+git commit -m "refactor: migrate all resetInstance() calls to resetState() across 36 test files"
 ```
 
 ---
@@ -577,46 +587,81 @@ git commit -m "feat: add SingletonResetExtension and @FullReset for automated te
 
 ---
 
-### Task 9: Remove Defensive services() Null Checks
+### Task 9: Evaluate DebugOverlayManager State
 
-Remove 4 dead-code null checks across 3 files. The `services()` method now throws `IllegalStateException` if called before injection, making these guards unreachable.
+The spec requires evaluating whether DebugOverlayManager holds per-level state.
 
 **Files:**
-- Modify: `src/main/java/com/openggf/level/objects/boss/AbstractBossInstance.java` (lines 209-215, 379-390)
-- Modify: `src/main/java/com/openggf/game/sonic2/objects/badniks/TurtloidBadnikInstance.java` (lines 249-255)
-- Modify: `src/main/java/com/openggf/game/sonic1/objects/bosses/AbstractS1EggmanBossInstance.java` (lines 117-123)
+- Read: `src/main/java/com/openggf/debug/DebugOverlayManager.java`
 
-- [ ] **Step 1: Remove null checks in AbstractBossInstance**
+- [ ] **Step 1: Check DebugOverlayManager for per-level mutable state**
 
-In `spawnDefeatExplosion()` (line 209): Remove the `if (services() == null) { return; }` guard. Keep the `renderManager == null` / `objectManager == null` checks if they serve a different purpose (e.g., optional manager), but remove the `services() == null` part.
+Read the file and evaluate its fields:
+- `states` (EnumMap<DebugOverlayToggle, Boolean>) — debug toggle state
+- `pendingObjectDebugText` (List) — per-frame debug text
+- `windowHandle` (long) — GLFW window handle (persistent)
 
-In `getPaletteForFlash()` (line 379): Remove `if (services() == null || ...)` — replace with direct access. Keep the `currentLevel() == null` check if levels can legitimately be null at that point.
+Determine: does `states` persist across level loads in a way that could cause test pollution? If debug toggles should reset between tests, add `resetState()` and add to `perTestResetSteps()`. If toggle state is harmless (debug UI only, doesn't affect gameplay), no change needed — document the decision.
 
-- [ ] **Step 2: Remove null check in TurtloidBadnikInstance**
+- [ ] **Step 2: If reset needed, add resetState()**
 
-In `onRiderDestroyed()` (line 249): Remove `if (services() == null) { return; }`. Keep the `objectManager == null` check if it serves a separate purpose.
+```java
+public void resetState() {
+    states.clear();
+    pendingObjectDebugText.clear();
+}
+```
 
-- [ ] **Step 3: Remove null check in AbstractS1EggmanBossInstance**
+And add to `AbstractLevelInitProfile.perTestResetSteps()`.
 
-In `renderEggmanShip()` (line 117): Remove `if (services() == null) { return; }`. Keep the `renderManager == null` check.
+If no reset needed, add a comment explaining why: `// DebugOverlayManager: toggle state is UI-only, no gameplay impact — no reset needed`.
 
-- [ ] **Step 4: Run full test suite**
-
-Run: `mvn test -pl . -q`
-Expected: PASS — these checks were unreachable dead code.
-
-- [ ] **Step 5: Commit**
+- [ ] **Step 3: Commit (if changes made)**
 
 ```bash
-git add src/main/java/com/openggf/level/objects/boss/AbstractBossInstance.java \
-        src/main/java/com/openggf/game/sonic2/objects/badniks/TurtloidBadnikInstance.java \
-        src/main/java/com/openggf/game/sonic1/objects/bosses/AbstractS1EggmanBossInstance.java
-git commit -m "refactor: remove dead services() null checks (3 files, 4 guards)"
+git add -u
+git commit -m "refactor: evaluate DebugOverlayManager state for test reset"
 ```
 
 ---
 
-### Task 10: Migrate SwScrlScz from Camera.getInstance()
+### Task 10: Remove ALL Defensive services() Null Checks
+
+Remove all dead-code `services() == null` checks. The `services()` method now throws `IllegalStateException` if called before injection, making these guards unreachable.
+
+- [ ] **Step 1: Find all occurrences**
+
+Run: `grep -rn "services() == null" src/main/ --include="*.java"`
+
+Expected matches (~10 occurrences across ~7 files):
+- `AbstractBossInstance.java` (2 occurrences: spawnDefeatExplosion, getPaletteForFlash)
+- `TurtloidBadnikInstance.java` (1 occurrence: onRiderDestroyed)
+- `AbstractS1EggmanBossInstance.java` (1 occurrence: renderEggmanShip)
+- `Sonic1OrbinautBadnikInstance.java` (1 occurrence)
+- `Sonic2ARZBossInstance.java` (2 occurrences)
+- `MonkeyDudeBadnikInstance.java` (1 occurrence)
+- `CaterkillerJrBodyInstance.java` (1 occurrence)
+- `AbstractS3kBadnikInstance.java` (1 occurrence)
+
+- [ ] **Step 2: Remove each null check**
+
+For each file: Remove the `if (services() == null) { return; }` guard. Keep any subsequent null checks on specific service results (e.g., `renderManager == null`, `objectManager == null`, `currentLevel() == null`) if they guard against legitimately optional state.
+
+- [ ] **Step 3: Run full test suite**
+
+Run: `mvn test -pl . -q`
+Expected: PASS — these checks were unreachable dead code.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add -u
+git commit -m "refactor: remove all dead services() null checks (~10 guards across ~7 files)"
+```
+
+---
+
+### Task 11: Migrate SwScrlScz from Camera.getInstance()
 
 Replace the direct singleton call with `GameServices.camera()` for consistency.
 
@@ -634,7 +679,7 @@ to:
 Camera camera = GameServices.camera();
 ```
 
-Update imports: add `import com.openggf.game.GameServices;`, remove `import com.openggf.camera.Camera;` if no longer used elsewhere in the file.
+Update imports: add `import com.openggf.game.GameServices;`. Note: do NOT remove `import com.openggf.camera.Camera;` — `Camera` is used as a parameter type in `update(Camera camera)` and elsewhere in the file.
 
 - [ ] **Step 2: Run full test suite**
 
@@ -650,7 +695,7 @@ git commit -m "refactor: migrate SwScrlScz from Camera.getInstance() to GameServ
 
 ---
 
-### Task 11: Final Verification
+### Task 12: Final Verification
 
 Run the complete test suite and verify all Phase 1 objectives are met.
 
