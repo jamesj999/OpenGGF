@@ -156,40 +156,11 @@ public class LevelManager {
     private int prebuiltBgWidth;
     private int prebuiltBgHeight;
 
-    private boolean specialStageRequestedFromCheckpoint;
-    private boolean specialStageReturnLevelReloadRequested;
-
-    // S3K big ring return position (ROM: Saved2_* variables from Save_Level_Data2).
-    // Separate from checkpoint state (ROM: Saved_*) so the player returns to the
-    // big ring location, not the last starpost.
-    private boolean bigRingReturnActive;
-    private int bigRingReturnX;
-    private int bigRingReturnY;
-    private int bigRingReturnCameraX;
-    private int bigRingReturnCameraY;
-    private boolean titleCardRequested;
-    private int titleCardZone = -1;
-    private int titleCardAct = -1;
-    private boolean inLevelTitleCardRequested;
-    private int inLevelTitleCardZone = -1;
-    private int inLevelTitleCardAct = -1;
-
-    // Transition request flags (for fade-coordinated transitions)
-    private boolean respawnRequested;
-    private boolean nextActRequested;
-    private boolean nextZoneRequested;
-    private boolean specificZoneActRequested;
-    private boolean seamlessTransitionRequested;
-    private boolean creditsRequested;
-    private boolean forceHudSuppressed;
-    private boolean suppressNextMusicChange;
+    // All transition request/consume state lives in the coordinator
+    private final LevelTransitionCoordinator transitions = new LevelTransitionCoordinator();
 
     // ROM: LZ3/SBZ2 vertical wrapping — FG layer wraps Y instead of clamping
     private boolean verticalWrapEnabled = false;
-    private boolean levelInactiveForTransition;
-    private int requestedZone = -1;
-    private int requestedAct = -1;
-    private SeamlessLevelTransitionRequest pendingSeamlessTransitionRequest;
 
     // Background rendering support
     private final ParallaxManager parallaxManager = ParallaxManager.getInstance();
@@ -642,10 +613,10 @@ public class LevelManager {
         audioManager.setRom(GameServices.rom().getRom());
         audioManager.setSoundMap(game.getSoundMap());
         audioManager.resetRingSound();
-        if (!suppressNextMusicChange) {
+        if (!transitions.isSuppressNextMusicChange()) {
             audioManager.playMusic(game.getMusicId(levelIndex));
         }
-        suppressNextMusicChange = false;
+        transitions.setSuppressNextMusicChange(false);
     }
 
     /**
@@ -1399,7 +1370,7 @@ public class LevelManager {
     }
 
     private boolean isHudSuppressed() {
-        return forceHudSuppressed
+        return transitions.isForceHudSuppressed()
                 || (zoneFeatureProvider != null
                     && zoneFeatureProvider.shouldSuppressHud(currentZone, currentAct));
     }
@@ -3380,8 +3351,8 @@ public class LevelManager {
      */
     private void loadCurrentLevel(boolean showTitleCard) {
         try {
-            specialStageReturnLevelReloadRequested = false;
-            levelInactiveForTransition = false;
+            transitions.setSpecialStageReturnLevelReloadRequested(false);
+            transitions.setLevelInactiveForTransition(false);
 
             if (levels.isEmpty()) {
                 gameModule = GameModuleRegistry.getCurrent();
@@ -3457,7 +3428,7 @@ public class LevelManager {
         if (checkpointState != null) {
             checkpointState.clear();
         }
-        specialStageReturnLevelReloadRequested = true;
+        transitions.setSpecialStageReturnLevelReloadRequested(true);
     }
 
     public void loadZoneAndAct(int zone, int act) throws IOException {
@@ -3696,106 +3667,51 @@ public class LevelManager {
         return checkpointState;
     }
 
-    /**
-     * Request entry to special stage from a checkpoint star.
-     * Called by CheckpointStarInstance when the player touches a star.
-     */
-    public void requestSpecialStageFromCheckpoint() {
-        requestSpecialStageEntry();
-    }
+    // ==================== Transition Coordinator Delegation ====================
+    // Thin wrappers that delegate to LevelTransitionCoordinator.
+    // External callers continue to use LevelManager.getInstance().methodName().
 
-    /**
-     * Request entry to special stage using the current game's access method.
-     */
-    public void requestSpecialStageEntry() {
-        this.specialStageRequestedFromCheckpoint = true;
-    }
+    /** Returns the transition coordinator. */
+    public LevelTransitionCoordinator getTransitions() { return transitions; }
 
-    /**
-     * Consumes and clears the special stage request flag.
-     * 
-     * @return true if a special stage was requested since last check
-     */
-    public boolean consumeSpecialStageRequest() {
-        boolean requested = specialStageRequestedFromCheckpoint;
-        specialStageRequestedFromCheckpoint = false;
-        return requested;
-    }
+    /** @see LevelTransitionCoordinator#requestSpecialStageFromCheckpoint() */
+    public void requestSpecialStageFromCheckpoint() { transitions.requestSpecialStageFromCheckpoint(); }
 
-    /**
-     * Consumes and clears the pending level-reload request for special-stage
-     * return.
-     *
-     * @return true if the next act should be loaded before resuming gameplay
-     */
-    public boolean consumeSpecialStageReturnLevelReloadRequest() {
-        boolean requested = specialStageReturnLevelReloadRequested;
-        specialStageReturnLevelReloadRequested = false;
-        return requested;
-    }
+    /** @see LevelTransitionCoordinator#requestSpecialStageEntry() */
+    public void requestSpecialStageEntry() { transitions.requestSpecialStageEntry(); }
 
-    /**
-     * Saves the big ring return position (ROM: Save_Level_Data2 → Saved2_* variables).
-     * Called by S3K SSEntryRing before entering the special stage so the player
-     * returns to the ring location, not the last checkpoint.
-     */
-    public void saveBigRingReturnPosition(int playerX, int playerY, int cameraX, int cameraY) {
-        this.bigRingReturnActive = true;
-        this.bigRingReturnX = playerX;
-        this.bigRingReturnY = playerY;
-        this.bigRingReturnCameraX = cameraX;
-        this.bigRingReturnCameraY = cameraY;
-    }
+    /** @see LevelTransitionCoordinator#consumeSpecialStageRequest() */
+    public boolean consumeSpecialStageRequest() { return transitions.consumeSpecialStageRequest(); }
 
-    /** Returns true if a big ring return position is saved. */
-    public boolean hasBigRingReturnPosition() {
-        return bigRingReturnActive;
-    }
+    /** @see LevelTransitionCoordinator#consumeSpecialStageReturnLevelReloadRequest() */
+    public boolean consumeSpecialStageReturnLevelReloadRequest() { return transitions.consumeSpecialStageReturnLevelReloadRequest(); }
 
-    /** Returns saved big ring return X. */
-    public int getBigRingReturnX() { return bigRingReturnX; }
-    /** Returns saved big ring return Y. */
-    public int getBigRingReturnY() { return bigRingReturnY; }
-    /** Returns saved big ring return camera X. */
-    public int getBigRingReturnCameraX() { return bigRingReturnCameraX; }
-    /** Returns saved big ring return camera Y. */
-    public int getBigRingReturnCameraY() { return bigRingReturnCameraY; }
+    /** @see LevelTransitionCoordinator#saveBigRingReturnPosition(int, int, int, int) */
+    public void saveBigRingReturnPosition(int playerX, int playerY, int cameraX, int cameraY) { transitions.saveBigRingReturnPosition(playerX, playerY, cameraX, cameraY); }
 
-    /** Consumes and clears the big ring return position. */
-    public void clearBigRingReturnPosition() {
-        this.bigRingReturnActive = false;
-    }
+    /** @see LevelTransitionCoordinator#hasBigRingReturnPosition() */
+    public boolean hasBigRingReturnPosition() { return transitions.hasBigRingReturnPosition(); }
 
-    /**
-     * Requests a title card to be shown for the current zone/act.
-     * Called when a new level is loaded.
-     *
-     * @param zone Zone index (0-10)
-     * @param act  Act index (0-2)
-     */
-    public void requestTitleCard(int zone, int act) {
-        this.titleCardRequested = true;
-        this.titleCardZone = zone;
-        this.titleCardAct = act;
-    }
+    /** @see LevelTransitionCoordinator#getBigRingReturnX() */
+    public int getBigRingReturnX() { return transitions.getBigRingReturnX(); }
+    /** @see LevelTransitionCoordinator#getBigRingReturnY() */
+    public int getBigRingReturnY() { return transitions.getBigRingReturnY(); }
+    /** @see LevelTransitionCoordinator#getBigRingReturnCameraX() */
+    public int getBigRingReturnCameraX() { return transitions.getBigRingReturnCameraX(); }
+    /** @see LevelTransitionCoordinator#getBigRingReturnCameraY() */
+    public int getBigRingReturnCameraY() { return transitions.getBigRingReturnCameraY(); }
 
-    /**
-     * Requests an in-level (transparent) title card overlay.
-     */
-    public void requestInLevelTitleCard(int zone, int act) {
-        this.inLevelTitleCardRequested = true;
-        this.inLevelTitleCardZone = zone;
-        this.inLevelTitleCardAct = act;
-    }
+    /** @see LevelTransitionCoordinator#clearBigRingReturnPosition() */
+    public void clearBigRingReturnPosition() { transitions.clearBigRingReturnPosition(); }
 
-    /**
-     * Checks if a title card has been requested.
-     *
-     * @return true if a title card was requested since last check
-     */
-    public boolean isTitleCardRequested() {
-        return titleCardRequested;
-    }
+    /** @see LevelTransitionCoordinator#requestTitleCard(int, int) */
+    public void requestTitleCard(int zone, int act) { transitions.requestTitleCard(zone, act); }
+
+    /** @see LevelTransitionCoordinator#requestInLevelTitleCard(int, int) */
+    public void requestInLevelTitleCard(int zone, int act) { transitions.requestInLevelTitleCard(zone, act); }
+
+    /** @see LevelTransitionCoordinator#isTitleCardRequested() */
+    public boolean isTitleCardRequested() { return transitions.isTitleCardRequested(); }
 
     /**
      * @return true if vertical wrapping is active (ROM: LZ3/SBZ2 loop sections)
@@ -3804,51 +3720,23 @@ public class LevelManager {
         return verticalWrapEnabled;
     }
 
-    /**
-     * Consumes and clears the title card request flag.
-     *
-     * @return true if a title card was requested since last check
-     */
-    public boolean consumeTitleCardRequest() {
-        boolean requested = titleCardRequested;
-        titleCardRequested = false;
-        return requested;
-    }
+    /** @see LevelTransitionCoordinator#consumeTitleCardRequest() */
+    public boolean consumeTitleCardRequest() { return transitions.consumeTitleCardRequest(); }
 
-    /**
-     * Consumes and clears the in-level title card request flag.
-     */
-    public boolean consumeInLevelTitleCardRequest() {
-        boolean requested = inLevelTitleCardRequested;
-        inLevelTitleCardRequested = false;
-        return requested;
-    }
+    /** @see LevelTransitionCoordinator#consumeInLevelTitleCardRequest() */
+    public boolean consumeInLevelTitleCardRequest() { return transitions.consumeInLevelTitleCardRequest(); }
 
-    /**
-     * Gets the zone index for the requested title card.
-     *
-     * @return zone index, or -1 if none requested
-     */
-    public int getTitleCardZone() {
-        return titleCardZone;
-    }
+    /** @see LevelTransitionCoordinator#getTitleCardZone() */
+    public int getTitleCardZone() { return transitions.getTitleCardZone(); }
 
-    /**
-     * Gets the act index for the requested title card.
-     *
-     * @return act index, or -1 if none requested
-     */
-    public int getTitleCardAct() {
-        return titleCardAct;
-    }
+    /** @see LevelTransitionCoordinator#getTitleCardAct() */
+    public int getTitleCardAct() { return transitions.getTitleCardAct(); }
 
-    public int getInLevelTitleCardZone() {
-        return inLevelTitleCardZone;
-    }
+    /** @see LevelTransitionCoordinator#getInLevelTitleCardZone() */
+    public int getInLevelTitleCardZone() { return transitions.getInLevelTitleCardZone(); }
 
-    public int getInLevelTitleCardAct() {
-        return inLevelTitleCardAct;
-    }
+    /** @see LevelTransitionCoordinator#getInLevelTitleCardAct() */
+    public int getInLevelTitleCardAct() { return transitions.getInLevelTitleCardAct(); }
 
     /**
      * Resets mutable state without destroying the singleton instance.
@@ -3880,28 +3768,8 @@ public class LevelManager {
         currentBgPeriodWidth = VDP_BG_PLANE_WIDTH_PX;
         foregroundTilemapDirty = true;
         patternLookupDirty = true;
-        specialStageRequestedFromCheckpoint = false;
-        specialStageReturnLevelReloadRequested = false;
-        bigRingReturnActive = false;
-        titleCardRequested = false;
-        titleCardZone = -1;
-        titleCardAct = -1;
-        inLevelTitleCardRequested = false;
-        inLevelTitleCardZone = -1;
-        inLevelTitleCardAct = -1;
-        respawnRequested = false;
-        nextActRequested = false;
-        nextZoneRequested = false;
-        specificZoneActRequested = false;
-        seamlessTransitionRequested = false;
-        creditsRequested = false;
-        forceHudSuppressed = false;
-        suppressNextMusicChange = false;
+        transitions.resetState();
         verticalWrapEnabled = false;
-        levelInactiveForTransition = false;
-        requestedZone = -1;
-        requestedAct = -1;
-        pendingSeamlessTransitionRequest = null;
         cacheLevelDimensions();
         levels.clear();
     }
@@ -3975,113 +3843,38 @@ public class LevelManager {
         LOGGER.fine("Reloaded " + paletteCount + " level palettes");
     }
 
-    // ==================== Transition Request Methods ====================
-    // These allow GameLoop to coordinate fades with level transitions
+    // ==================== Transition Request Delegation ====================
+    // These delegate to LevelTransitionCoordinator so external callers keep working.
 
-    /**
-     * Request a respawn (death). GameLoop will handle the fade transition.
-     */
-    public void requestRespawn() {
-        this.respawnRequested = true;
-    }
+    /** @see LevelTransitionCoordinator#requestRespawn() */
+    public void requestRespawn() { transitions.requestRespawn(); }
 
-    /**
-     * Check and consume respawn request.
-     * 
-     * @return true if respawn was requested
-     */
-    public boolean consumeRespawnRequest() {
-        boolean requested = respawnRequested;
-        respawnRequested = false;
-        return requested;
-    }
+    /** @see LevelTransitionCoordinator#consumeRespawnRequest() */
+    public boolean consumeRespawnRequest() { return transitions.consumeRespawnRequest(); }
 
-    /**
-     * Request transition to next act. GameLoop will handle the fade transition.
-     */
-    public void requestNextAct() {
-        this.nextActRequested = true;
-    }
+    /** @see LevelTransitionCoordinator#requestNextAct() */
+    public void requestNextAct() { transitions.requestNextAct(); }
 
-    /**
-     * Check and consume next act request.
-     * 
-     * @return true if next act was requested
-     */
-    public boolean consumeNextActRequest() {
-        boolean requested = nextActRequested;
-        nextActRequested = false;
-        return requested;
-    }
+    /** @see LevelTransitionCoordinator#consumeNextActRequest() */
+    public boolean consumeNextActRequest() { return transitions.consumeNextActRequest(); }
 
-    /**
-     * Request transition to next zone. GameLoop will handle the fade transition.
-     */
-    public void requestNextZone() {
-        this.nextZoneRequested = true;
-    }
+    /** @see LevelTransitionCoordinator#requestNextZone() */
+    public void requestNextZone() { transitions.requestNextZone(); }
 
-    /**
-     * Check and consume next zone request.
-     * 
-     * @return true if next zone was requested
-     */
-    public boolean consumeNextZoneRequest() {
-        boolean requested = nextZoneRequested;
-        nextZoneRequested = false;
-        return requested;
-    }
+    /** @see LevelTransitionCoordinator#consumeNextZoneRequest() */
+    public boolean consumeNextZoneRequest() { return transitions.consumeNextZoneRequest(); }
 
-    /**
-     * Request transition to a specific zone and act. GameLoop will handle the fade transition.
-     *
-     * @param zone the zone index (0-based)
-     * @param act the act index (0-based)
-     */
-    public void requestZoneAndAct(int zone, int act) {
-        requestZoneAndAct(zone, act, false);
-    }
+    /** @see LevelTransitionCoordinator#requestZoneAndAct(int, int) */
+    public void requestZoneAndAct(int zone, int act) { transitions.requestZoneAndAct(zone, act); }
 
-    /**
-     * Request transition to a specific zone and act with optional level deactivation
-     * during the pending fade.
-     *
-     * @param zone                the zone index (0-based)
-     * @param act                 the act index (0-based)
-     * @param deactivateLevelNow  true to freeze level updates until the transition completes
-     */
-    public void requestZoneAndAct(int zone, int act, boolean deactivateLevelNow) {
-        this.requestedZone = zone;
-        this.requestedAct = act;
-        this.specificZoneActRequested = true;
-        this.levelInactiveForTransition = deactivateLevelNow;
-    }
+    /** @see LevelTransitionCoordinator#requestZoneAndAct(int, int, boolean) */
+    public void requestZoneAndAct(int zone, int act, boolean deactivateLevelNow) { transitions.requestZoneAndAct(zone, act, deactivateLevelNow); }
 
-    /**
-     * Request an in-place seamless transition. GameLoop will execute it directly
-     * without fade.
-     */
-    public void requestSeamlessTransition(SeamlessLevelTransitionRequest request) {
-        if (request == null) {
-            return;
-        }
-        this.pendingSeamlessTransitionRequest = request;
-        this.seamlessTransitionRequested = true;
-        this.levelInactiveForTransition = request.deactivateLevelNow();
-    }
+    /** @see LevelTransitionCoordinator#requestSeamlessTransition(SeamlessLevelTransitionRequest) */
+    public void requestSeamlessTransition(SeamlessLevelTransitionRequest request) { transitions.requestSeamlessTransition(request); }
 
-    /**
-     * Consumes the pending seamless transition request.
-     */
-    public SeamlessLevelTransitionRequest consumeSeamlessTransitionRequest() {
-        if (!seamlessTransitionRequested) {
-            return null;
-        }
-        seamlessTransitionRequested = false;
-        SeamlessLevelTransitionRequest request = pendingSeamlessTransitionRequest;
-        pendingSeamlessTransitionRequest = null;
-        return request;
-    }
+    /** @see LevelTransitionCoordinator#consumeSeamlessTransitionRequest() */
+    public SeamlessLevelTransitionRequest consumeSeamlessTransitionRequest() { return transitions.consumeSeamlessTransitionRequest(); }
 
     /**
      * Applies a seamless transition immediately.
@@ -4095,7 +3888,7 @@ public class LevelManager {
         }
 
         try {
-            specialStageReturnLevelReloadRequested = false;
+            transitions.setSpecialStageReturnLevelReloadRequested(false);
             switch (request.type()) {
                 case MUTATE_ONLY -> applySeamlessMutation(request.mutationKey());
                 case RELOAD_SAME_LEVEL -> {
@@ -4117,7 +3910,7 @@ public class LevelManager {
         } catch (IOException e) {
             throw new RuntimeException("Failed to apply seamless transition", e);
         } finally {
-            levelInactiveForTransition = false;
+            transitions.setLevelInactiveForTransition(false);
         }
     }
 
@@ -4125,78 +3918,29 @@ public class LevelManager {
         S3kSeamlessMutationExecutor.apply(this, mutationKey);
     }
 
-    /**
-     * Check and consume specific zone/act request.
-     *
-     * @return true if a specific zone/act was requested
-     */
-    public boolean consumeZoneActRequest() {
-        boolean requested = specificZoneActRequested;
-        specificZoneActRequested = false;
-        return requested;
-    }
+    /** @see LevelTransitionCoordinator#consumeZoneActRequest() */
+    public boolean consumeZoneActRequest() { return transitions.consumeZoneActRequest(); }
 
-    /**
-     * Get the requested zone index. Only valid after consumeZoneActRequest() returns true.
-     *
-     * @return the requested zone index
-     */
-    public int getRequestedZone() {
-        return requestedZone;
-    }
+    /** @see LevelTransitionCoordinator#getRequestedZone() */
+    public int getRequestedZone() { return transitions.getRequestedZone(); }
 
-    /**
-     * Get the requested act index. Only valid after consumeZoneActRequest() returns true.
-     *
-     * @return the requested act index
-     */
-    public int getRequestedAct() {
-        return requestedAct;
-    }
+    /** @see LevelTransitionCoordinator#getRequestedAct() */
+    public int getRequestedAct() { return transitions.getRequestedAct(); }
 
-    /**
-     * Returns true while the current level should be treated as inactive for a
-     * pending zone/act transition.
-     */
-    public boolean isLevelInactiveForTransition() {
-        return levelInactiveForTransition;
-    }
+    /** @see LevelTransitionCoordinator#isLevelInactiveForTransition() */
+    public boolean isLevelInactiveForTransition() { return transitions.isLevelInactiveForTransition(); }
 
-    /**
-     * Request transition to ending credits sequence.
-     * Called by Sonic1EndingSTHObjectInstance after the STH logo timer expires.
-     */
-    public void requestCreditsTransition() {
-        this.creditsRequested = true;
-    }
+    /** @see LevelTransitionCoordinator#requestCreditsTransition() */
+    public void requestCreditsTransition() { transitions.requestCreditsTransition(); }
 
-    /**
-     * Check and consume credits transition request.
-     *
-     * @return true if credits were requested
-     */
-    public boolean consumeCreditsRequest() {
-        boolean requested = creditsRequested;
-        creditsRequested = false;
-        return requested;
-    }
+    /** @see LevelTransitionCoordinator#consumeCreditsRequest() */
+    public boolean consumeCreditsRequest() { return transitions.consumeCreditsRequest(); }
 
-    /**
-     * Force-suppress HUD rendering. Used during credits demo playback
-     * where the HUD should not appear regardless of zone settings.
-     */
-    public void setForceHudSuppressed(boolean suppressed) {
-        this.forceHudSuppressed = suppressed;
-    }
+    /** @see LevelTransitionCoordinator#setForceHudSuppressed(boolean) */
+    public void setForceHudSuppressed(boolean suppressed) { transitions.setForceHudSuppressed(suppressed); }
 
-    /**
-     * Suppresses the zone music that normally plays on the next loadLevel() call.
-     * Resets after one use. Used by credits sequence to prevent zone music from
-     * overriding the credits music.
-     */
-    public void setSuppressNextMusicChange(boolean suppress) {
-        this.suppressNextMusicChange = suppress;
-    }
+    /** @see LevelTransitionCoordinator#setSuppressNextMusicChange(boolean) */
+    public void setSuppressNextMusicChange(boolean suppress) { transitions.setSuppressNextMusicChange(suppress); }
 
     /**
      * Finds the offset from a reference position to the first pattern within a tile index range.
