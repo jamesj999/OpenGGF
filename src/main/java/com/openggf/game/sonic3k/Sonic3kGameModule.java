@@ -12,6 +12,7 @@ import com.openggf.game.PlayerCharacter;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.game.DebugOverlayProvider;
 import com.openggf.game.GameModule;
+import com.openggf.game.GameServices;
 import com.openggf.game.LevelEventProvider;
 import com.openggf.game.LevelInitProfile;
 import com.openggf.game.PhysicsProvider;
@@ -39,8 +40,12 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRegistry;
 import com.openggf.level.objects.PlaneSwitcherConfig;
 import com.openggf.level.objects.TouchResponseTable;
+import com.openggf.sprites.art.SpriteArtSet;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.SuperStateController;
+
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * GameModule for Sonic 3 &amp; Knuckles.
@@ -49,6 +54,7 @@ import com.openggf.sprites.playable.SuperStateController;
  * Phase 1: terrain/collision only. Objects, rings, and zone features are deferred.
  */
 public class Sonic3kGameModule implements GameModule {
+    private static final Logger LOGGER = Logger.getLogger(Sonic3kGameModule.class.getName());
     private final GameAudioProfile audioProfile = new Sonic3kAudioProfile();
     private Sonic3kScrollHandlerProvider scrollHandlerProvider;
     private Sonic3kLevelEventManager levelEventManager;
@@ -71,8 +77,7 @@ public class Sonic3kGameModule implements GameModule {
         try {
             return new Sonic3k(rom);
         } catch (java.io.IOException e) {
-            java.util.logging.Logger.getLogger(Sonic3kGameModule.class.getName())
-                    .severe("Failed to create S3K game: " + e.getMessage());
+            LOGGER.severe("Failed to create S3K game: " + e.getMessage());
             return null;
         }
     }
@@ -181,6 +186,18 @@ public class Sonic3kGameModule implements GameModule {
     @Override
     public boolean hasSeparateTailsTailArt() {
         return true;
+    }
+
+    @Override
+    public SpriteArtSet loadTailsTailArt() {
+        try {
+            Rom rom = GameServices.rom().getRom();
+            Sonic3kPlayerArt s3kArt = new Sonic3kPlayerArt(RomByteReader.fromRom(rom));
+            return s3kArt.loadTailsTail();
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Failed to load S3K tails tail art", e);
+            return SpriteArtSet.EMPTY;
+        }
     }
 
     @Override

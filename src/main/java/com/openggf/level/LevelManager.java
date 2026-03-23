@@ -48,7 +48,6 @@ import com.openggf.sprites.art.SpriteArtSet;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.game.PowerUpObject;
 import com.openggf.level.objects.DefaultPowerUpSpawner;
-import com.openggf.game.sonic3k.Sonic3kPlayerArt;
 import com.openggf.sprites.managers.SpindashDustController;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.managers.TailsTailsController;
@@ -1174,16 +1173,17 @@ public class LevelManager {
         SpriteArtSet tailsArt;
         if (isS3k) {
             // S3K: Obj05 uses a completely separate art/mapping/DPLC set
-            try {
-                if (CrossGameFeatureProvider.isActive()) {
+            if (CrossGameFeatureProvider.isActive()) {
+                try {
                     tailsArt = CrossGameFeatureProvider.getInstance().loadTailsTailArt();
-                } else {
-                    Rom rom = GameServices.rom().getRom();
-                    Sonic3kPlayerArt s3kArt = new Sonic3kPlayerArt(RomByteReader.fromRom(rom));
-                    tailsArt = s3kArt.loadTailsTail();
+                } catch (IOException e) {
+                    LOGGER.log(SEVERE, "Failed to load cross-game tails tail art.", e);
+                    tailsArt = null;
                 }
-            } catch (Exception e) {
-                LOGGER.log(SEVERE, "Failed to load S3K tails tail art.", e);
+            } else {
+                tailsArt = gameModule.loadTailsTailArt();
+            }
+            if (tailsArt == null || tailsArt.isEmpty()) {
                 playable.setTailsTailsController(null);
                 return;
             }

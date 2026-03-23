@@ -22,4 +22,15 @@ public record SpriteArtSet(
         SpriteAnimationProfile animationProfile,
         SpriteAnimationSet animationSet
 ) {
+    /** Empty sentinel — returned by default {@code GameModule.loadTailsTailArt()}. */
+    public static final SpriteArtSet EMPTY = new SpriteArtSet(
+            new Pattern[0], List.of(), List.of(), 0, 0, 0, 0, null, null);
+
+    /**
+     * Returns {@code true} if this art set contains no tile data.
+     * Useful for checking the {@link #EMPTY} sentinel.
+     */
+    public boolean isEmpty() {
+        return artTiles() == null || artTiles().length == 0;
+    }
 }

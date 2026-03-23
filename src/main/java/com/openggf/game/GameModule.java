@@ -8,6 +8,7 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRegistry;
 import com.openggf.level.objects.PlaneSwitcherConfig;
 import com.openggf.level.objects.TouchResponseTable;
+import com.openggf.sprites.art.SpriteArtSet;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.SuperStateController;
 
@@ -299,6 +300,16 @@ public interface GameModule {
      */
     default boolean hasSeparateTailsTailArt() {
         return false;
+    }
+
+    /**
+     * Loads the separate Tails tail appendage art set (Obj05).
+     * Only meaningful when {@link #hasSeparateTailsTailArt()} returns true.
+     *
+     * @return the tail art set, or {@link SpriteArtSet#EMPTY} if not available
+     */
+    default SpriteArtSet loadTailsTailArt() {
+        return SpriteArtSet.EMPTY;
     }
 
     /**
