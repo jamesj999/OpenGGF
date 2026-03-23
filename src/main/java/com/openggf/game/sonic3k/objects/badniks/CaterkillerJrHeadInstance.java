@@ -142,6 +142,15 @@ public final class CaterkillerJrHeadInstance extends AbstractS3kBadnikInstance {
     public void onPlayerAttack(PlayableEntity playerEntity, TouchResponseResult result) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         super.onPlayerAttack(player, result);
+        destroyBodySegments();
+    }
+
+    @Override
+    public void onUnload() {
+        destroyBodySegments();
+    }
+
+    private void destroyBodySegments() {
         for (CaterkillerJrBodyInstance segment : bodySegments) {
             segment.onHeadDestroyed();
         }
