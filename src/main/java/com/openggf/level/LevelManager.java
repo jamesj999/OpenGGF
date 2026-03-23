@@ -3323,6 +3323,9 @@ public class LevelManager {
         frameCounter = 0;
         transitions.resetState();
         verticalWrapEnabled = false;
+        touchResponseTable = null;
+        currentShimmerStyle = 0;
+        useShaderBackground = true;
         cacheLevelDimensions();
         levels.clear();
     }

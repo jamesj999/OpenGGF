@@ -254,7 +254,7 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
 
             // Undoes S1:Phase K / S2:Phase H / S3K:Phase N (game state clear)
             new InitStep("ResetGameState", "Undoes ring/timer/lives init from Level:",
-                () -> GameServices.gameState().resetSession()),
+                () -> GameServices.gameState().resetState()),
             // Undoes S1:Phase J / S2:Phase I / S3K:Phase P (first frame timing)
             new InitStep("ResetTimers", "Undoes Level_frame_counter / demo timer",
                 () -> TimerManager.getInstance().resetState()),
@@ -283,7 +283,7 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
             new InitStep("ResetFade", "Undoes PaletteFadeOut / Pal_FadeToBlack",
                 () -> GameServices.fade().resetState()),
             new InitStep("ResetGameState", "Undoes ring/timer/lives init from Level:",
-                () -> GameServices.gameState().resetSession()),
+                () -> GameServices.gameState().resetState()),
             new InitStep("ResetTimers", "Undoes Level_frame_counter / demo timer",
                 () -> TimerManager.getInstance().resetState()),
             new InitStep("ResetWater", "Undoes LZWaterFeatures / WaterEffects / Handle_Onscreen_Water_Height",
