@@ -298,7 +298,6 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
         // ROM: s2.asm:60752 - move.w #$EEE,d0 (white = 0x0EEE)
         private static final Palette.Color WHITE = new Palette.Color((byte) 255, (byte) 255, (byte) 255); // 0xEEE scaled to RGB
 
-        private final GraphicsManager graphicsManager = GraphicsManager.getInstance();
         private boolean flashing;
         private int flashFrame;
         private Palette.Color originalColor;
@@ -358,9 +357,10 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
         }
 
         private void uploadPaletteToGpu(Palette palette) {
-            if (graphicsManager.isGlInitialized()) {
+            GraphicsManager gm = GraphicsManager.getInstance();
+            if (gm.isGlInitialized()) {
                 int paletteIndex = getPaletteLineForFlash();
-                graphicsManager.cachePaletteTexture(palette, paletteIndex);
+                gm.cachePaletteTexture(palette, paletteIndex);
             }
         }
 
