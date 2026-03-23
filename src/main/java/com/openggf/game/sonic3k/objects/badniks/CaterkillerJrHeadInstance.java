@@ -46,6 +46,7 @@ public final class CaterkillerJrHeadInstance extends AbstractS3kBadnikInstance {
     private boolean swingDown;
 
     private final List<CaterkillerJrBodyInstance> bodySegments = new ArrayList<>();
+    private boolean bodySpawned;
 
     public CaterkillerJrHeadInstance(ObjectSpawn spawn) {
         super(spawn, "CaterKillerJr",
@@ -53,12 +54,10 @@ public final class CaterkillerJrHeadInstance extends AbstractS3kBadnikInstance {
         this.mappingFrame = 0;
         this.xVelocity = INITIAL_X_VEL;
         initSwingPhase1();
-        spawnBodySegments();
     }
 
     private void spawnBodySegments() {
-        ObjectManager objectManager = services() != null ? services().objectManager() : null;
-        if (objectManager == null) return;
+        ObjectManager objectManager = services().objectManager();
 
         for (int i = 0; i < BODY_SEGMENT_COUNT; i++) {
             CaterkillerJrBodyInstance segment = new CaterkillerJrBodyInstance(
@@ -66,12 +65,14 @@ public final class CaterkillerJrHeadInstance extends AbstractS3kBadnikInstance {
             bodySegments.add(segment);
             objectManager.addDynamicObject(segment);
         }
+        bodySpawned = true;
     }
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (destroyed) return;
+        if (!bodySpawned) spawnBodySegments();
 
         boolean shouldMove = switch (phase) {
             case SWING_COUNTED -> updateSwingCounted();

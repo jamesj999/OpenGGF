@@ -235,7 +235,7 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
     // ---- Bonus calculation ----
 
     private void calculateBonuses() {
-        var levelGamestate = services().levelGamestate();
+        var levelGamestate = GameServices.level().getLevelGamestate();
         int elapsedSeconds = (levelGamestate != null) ? levelGamestate.getElapsedSeconds() : 0;
 
         // Pause the timer (ROM line 62550)
@@ -439,7 +439,7 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
 
     private void fadeOutMusic() {
         try {
-            services().fadeOutMusic();
+            GameServices.audio().fadeOutMusic();
         } catch (Exception e) {
             // Ignore audio errors
         }
