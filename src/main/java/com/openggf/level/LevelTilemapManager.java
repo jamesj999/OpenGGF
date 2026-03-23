@@ -1,5 +1,6 @@
 package com.openggf.level;
 
+import com.openggf.game.GameServices;
 import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.PatternAtlas;
@@ -307,7 +308,7 @@ public class LevelTilemapManager {
         boolean bgWrap = layerIndex == 1
                 && zoneFeatureProvider != null
                 && zoneFeatureProvider.bgWrapsHorizontally()
-                && currentZone != ParallaxManager.ZONE_HTZ;
+                && !GameServices.gameState().isHtzScreenShakeActive();
         // Use the scroll handler's required period width (may be wider than 512px
         // for zones with multi-speed parallax like GHZ).
         int bgPeriodWidth = parallaxManager != null ? parallaxManager.getBgPeriodWidth()

@@ -1898,7 +1898,7 @@ public class LevelManager {
      * so a single tilemap render call with the BG scroll offset suffices.
      */
     private void renderHtzEarthquakeBgHighOverlay() {
-        if (currentZone != ParallaxManager.ZONE_HTZ || !GameServices.gameState().isHtzScreenShakeActive()) {
+        if (!GameServices.gameState().isHtzScreenShakeActive()) {
             return;
         }
 

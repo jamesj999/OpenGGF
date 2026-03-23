@@ -588,16 +588,21 @@ public class TestHtzBgTilemapDiagnostic {
         Level level = levelManager.getCurrentLevel();
         assertNotNull("Level must be loaded", level);
 
-        // Get ParallaxManager and DynamicHtz via reflection
+        // Get DynamicHtz and htzHandler from Sonic2ScrollHandlerProvider via reflection
         ParallaxManager pm = ParallaxManager.getInstance();
-        Field dynamicField = ParallaxManager.class.getDeclaredField("dynamicHtz");
+        Field providerField = ParallaxManager.class.getDeclaredField("scrollProvider");
+        providerField.setAccessible(true);
+        Object scrollProvider = providerField.get(pm);
+        assertNotNull("scrollProvider should be initialized", scrollProvider);
+
+        Field dynamicField = scrollProvider.getClass().getDeclaredField("dynamicHtz");
         dynamicField.setAccessible(true);
-        Object dynamicHtz = dynamicField.get(pm);
+        Object dynamicHtz = dynamicField.get(scrollProvider);
         assertNotNull("DynamicHtz should be initialized", dynamicHtz);
 
-        Field htzHandlerField = ParallaxManager.class.getDeclaredField("htzHandler");
+        Field htzHandlerField = scrollProvider.getClass().getDeclaredField("htzHandler");
         htzHandlerField.setAccessible(true);
-        Object htzHandler = htzHandlerField.get(pm);
+        Object htzHandler = htzHandlerField.get(scrollProvider);
         assertNotNull("htzHandler should be initialized", htzHandler);
 
         // Verify PatchHTZTiles pre-filled patterns with actual cliff art at load time

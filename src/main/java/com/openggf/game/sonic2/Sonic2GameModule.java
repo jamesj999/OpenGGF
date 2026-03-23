@@ -240,11 +240,6 @@ public class Sonic2GameModule implements GameModule {
     }
 
     @Override
-    public boolean hasInlineParallaxHandlers() {
-        return true;
-    }
-
-    @Override
     public SuperStateController createSuperStateController(
             AbstractPlayableSprite player) {
         if (CrossGameFeatureProvider.isActive()) {

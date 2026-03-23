@@ -295,17 +295,6 @@ public interface GameModule {
     }
 
     /**
-     * Returns whether this game uses Sonic 2-style inline parallax scroll handlers.
-     * Only Sonic 2 loads zone-specific ParallaxTables-based handlers directly.
-     * Other games use the ScrollHandlerProvider path exclusively.
-     *
-     * @return true if inline parallax handlers should be loaded
-     */
-    default boolean hasInlineParallaxHandlers() {
-        return false;
-    }
-
-    /**
      * Returns the ending/credits provider for this game.
      * Manages the full ending sequence: cutscene, credits text,
      * demo playback, and post-credits screens.
