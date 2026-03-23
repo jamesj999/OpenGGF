@@ -4,7 +4,6 @@ import com.openggf.audio.GameAudioProfile;
 import com.openggf.data.Game;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
-import com.openggf.game.sonic2.Sonic2PhysicsProvider;
 import com.openggf.level.objects.ObjectRegistry;
 import com.openggf.level.objects.PlaneSwitcherConfig;
 import com.openggf.level.objects.TouchResponseTable;
@@ -213,11 +212,9 @@ public interface GameModule {
      * Provides per-character physics profiles, modifier rules (water/speed shoes),
      * and feature flags (spindash availability).
      *
-     * @return the physics provider (defaults to Sonic 2 provider for backward compatibility)
+     * @return the physics provider
      */
-    default PhysicsProvider getPhysicsProvider() {
-        return new Sonic2PhysicsProvider();
-    }
+    PhysicsProvider getPhysicsProvider();
 
     /**
      * Creates a Super Sonic state controller for the given player sprite.
