@@ -221,6 +221,9 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
             new InitStep("ResetAudio", "Undoes PlayMusic / bgm_Fade",
                 () -> GameServices.audio().resetState()),
 
+            new InitStep("ResetCrossGameFeatures", "Undoes CrossGameFeatureProvider.initialize()",
+                () -> CrossGameFeatureProvider.getInstance().resetState()),
+
             // Game-specific: undoes zone event handlers, boss arena state
             levelEventTeardownStep(),
 
@@ -265,6 +268,9 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
     public final List<InitStep> perTestResetSteps() {
         return List.of(
             perTestLeadStep(),
+
+            new InitStep("ResetCrossGameFeatures", "Undoes CrossGameFeatureProvider.initialize()",
+                () -> CrossGameFeatureProvider.getInstance().resetState()),
 
             new InitStep("ResetParallax", "Undoes DeformBgLayer init",
                 () -> ParallaxManager.getInstance().resetState()),
