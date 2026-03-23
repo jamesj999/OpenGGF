@@ -2,7 +2,7 @@ package com.openggf.sprites.playable;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.AnimationId;
-import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
+import com.openggf.game.CanonicalAnimation;
 import com.openggf.game.CrossGameFeatureProvider;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
@@ -308,6 +308,8 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         private int animationId = 0;
         /** When >= 0, overrides profile-based animation resolution (e.g., Tails CPU fly anim). */
         private int forcedAnimationId = -1;
+        /** Resolved native animation ID for CanonicalAnimation.BUBBLE. -1 if unsupported. */
+        private int bubbleAnimId = -1;
         /**
          * When true, object code owns mapping_frame updates for this player.
          * Animation manager still handles flip state and controllers, but does not
@@ -1971,6 +1973,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                         // Registration deferred to tickStatus() to avoid double-add
                         // when resolvePhysicsProfile() and tickStatus() both run on the same frame
                 }
+                bubbleAnimId = GameModuleRegistry.getCurrent().resolveAnimationId(CanonicalAnimation.BUBBLE);
         }
 
         /**
@@ -2869,7 +2872,9 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 gSpeed = 0;
 
                 // ROM: move.b #AniIDSonAni_Bubble,anim(a1)
-                setAnimationId(Sonic2AnimationIds.BUBBLE);
+                if (bubbleAnimId >= 0) {
+                        setAnimationId(bubbleAnimId);
+                }
 
                 // ROM: move.w #$23,move_lock(a1) (35 frames)
                 moveLockTimer = 0x23;
