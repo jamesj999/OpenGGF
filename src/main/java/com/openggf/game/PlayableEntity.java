@@ -59,10 +59,12 @@ public interface PlayableEntity {
 
     // ── Object interaction ──────────────────────────────────────────
     boolean isObjectControlled();
+    boolean isOnObject();
     void setOnObject(boolean onObject);
     void setPushing(boolean pushing);
     boolean getPinballMode();
     boolean isCpuControlled();
+    int getAnimationId();
 
     // ── Collision path ──────────────────────────────────────────────
     void setTopSolidBit(byte topSolidBit);
