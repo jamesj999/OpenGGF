@@ -16,60 +16,80 @@ import java.util.List;
 /**
  * Production implementation of {@link ObjectServices} backed by existing singletons.
  * A single instance is held by {@link ObjectManager} and shared across all objects.
+ *
+ * <p>The preferred constructor accepts a {@link LevelManager} reference so that
+ * every call to a level-backed method avoids the overhead of a synchronized
+ * {@code getInstance()} lookup. The no-arg constructor is provided for test
+ * contexts where the LevelManager-backed methods are not exercised.</p>
  */
 public class DefaultObjectServices implements ObjectServices {
 
     private static final java.util.logging.Logger LOG =
         java.util.logging.Logger.getLogger(DefaultObjectServices.class.getName());
 
+    private final LevelManager levelManager;
+
+    public DefaultObjectServices(LevelManager levelManager) {
+        this.levelManager = levelManager;
+    }
+
+    /** No-arg constructor for test contexts that do not invoke LevelManager-backed methods. */
+    public DefaultObjectServices() {
+        this.levelManager = null;
+    }
+
+    private LevelManager lm() {
+        return levelManager != null ? levelManager : LevelManager.getInstance();
+    }
+
     @Override
     public ObjectManager objectManager() {
-        return LevelManager.getInstance().getObjectManager();
+        return lm().getObjectManager();
     }
 
     @Override
     public ObjectRenderManager renderManager() {
-        return LevelManager.getInstance().getObjectRenderManager();
+        return lm().getObjectRenderManager();
     }
 
     @Override
     public LevelState levelGamestate() {
-        return LevelManager.getInstance().getLevelGamestate();
+        return lm().getLevelGamestate();
     }
 
     @Override
     public RespawnState checkpointState() {
-        return LevelManager.getInstance().getCheckpointState();
+        return lm().getCheckpointState();
     }
 
     @Override
     public Level currentLevel() {
-        return LevelManager.getInstance().getCurrentLevel();
+        return lm().getCurrentLevel();
     }
 
     @Override
     public int romZoneId() {
-        return LevelManager.getInstance().getRomZoneId();
+        return lm().getRomZoneId();
     }
 
     @Override
     public int currentAct() {
-        return LevelManager.getInstance().getCurrentAct();
+        return lm().getCurrentAct();
     }
 
     @Override
     public int featureZoneId() {
-        return LevelManager.getInstance().getFeatureZoneId();
+        return lm().getFeatureZoneId();
     }
 
     @Override
     public int featureActId() {
-        return LevelManager.getInstance().getFeatureActId();
+        return lm().getFeatureActId();
     }
 
     @Override
     public ZoneFeatureProvider zoneFeatureProvider() {
-        return LevelManager.getInstance().getZoneFeatureProvider();
+        return lm().getZoneFeatureProvider();
     }
 
     @Override
@@ -95,7 +115,7 @@ public class DefaultObjectServices implements ObjectServices {
     @Override
     public void spawnLostRings(PlayableEntity player, int frameCounter) {
         if (player instanceof com.openggf.sprites.playable.AbstractPlayableSprite aps) {
-            LevelManager.getInstance().spawnLostRings(aps, frameCounter);
+            lm().spawnLostRings(aps, frameCounter);
         } else {
             LOG.warning("spawnLostRings: player is not AbstractPlayableSprite, rings not spawned");
         }

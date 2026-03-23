@@ -43,7 +43,7 @@ public class ObjectManager {
     private final List<GLCommand> renderCommands = new ArrayList<>();
     private int frameCounter;
     private boolean updating;
-    private final ObjectServices objectServices = new DefaultObjectServices();
+    private final ObjectServices objectServices = new DefaultObjectServices(LevelManager.getInstance());
 
     // Pre-bucketed lists for O(n) rendering instead of O(n*buckets)
     @SuppressWarnings("unchecked")
