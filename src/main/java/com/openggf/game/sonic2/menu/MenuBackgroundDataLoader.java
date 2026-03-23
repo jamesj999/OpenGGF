@@ -58,7 +58,7 @@ public class MenuBackgroundDataLoader {
 
             dataLoaded = true;
             return true;
-        } catch (Exception e) {
+        } catch (IOException | RuntimeException e) {
             LOGGER.log(Level.WARNING, "Failed to load menu background data", e);
             return false;
         }

@@ -340,6 +340,15 @@ public class Engine {
 	 * exitMasterTitleScreen() after game selection.
 	 */
 	public void initializeGame() {
+		// Trigger ROM loading and game module detection early so that
+		// GameModuleRegistry.getCurrent() returns the correct module (S1/S2/S3K)
+		// before the cross-game features and sidekick checks below.
+		try {
+			GameServices.rom().getRom();
+		} catch (IOException e) {
+			throw new RuntimeException("Failed to load ROM during game initialization", e);
+		}
+
 		if (configService.getBoolean(SonicConfiguration.AUDIO_ENABLED)) {
 			AudioManager.getInstance().setBackend(new LWJGLAudioBackend());
 		}

@@ -284,7 +284,7 @@ public class Sonic2TrackFrameDecoder {
 
             return vdpBuffer;
 
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             LOGGER.log(Level.WARNING, "Error decoding frame", e);
             return new int[TOTAL_TILES];
         }

@@ -227,7 +227,7 @@ public class Sonic1SmpsLoader extends AbstractSmpsLoader {
             }
 
             return new DacData(samples, mapping, 301); // S1 baseCycles = 301
-        } catch (Exception e) {
+        } catch (IOException | RuntimeException e) {
             LOGGER.log(Level.SEVERE, "Failed to load S1 DAC data", e);
             return null;
         }

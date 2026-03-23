@@ -6,7 +6,6 @@ import com.openggf.audio.GameSound;
 import com.openggf.game.RespawnState;
 import com.openggf.game.CheckpointState;
 import com.openggf.game.ZoneFeatureProvider;
-import com.openggf.game.sonic1.Sonic1ZoneFeatureProvider;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.WaterSystem;
@@ -162,10 +161,7 @@ public class Sonic1LamppostObjectInstance extends AbstractObjectInstance {
             if (waterSystem.hasWater(featureZone, featureAct)) {
                 int waterLevel = waterSystem.getWaterLevelY(featureZone, featureAct);
                 ZoneFeatureProvider zfp = services().zoneFeatureProvider();
-                int waterRoutine = 0;
-                if (zfp instanceof Sonic1ZoneFeatureProvider s1zfp && s1zfp.getWaterEvents() != null) {
-                    waterRoutine = s1zfp.getWaterEvents().getWaterRoutine();
-                }
+                int waterRoutine = zfp != null ? zfp.getWaterRoutine() : 0;
                 cs.saveWaterState(waterLevel, waterRoutine);
             }
         }

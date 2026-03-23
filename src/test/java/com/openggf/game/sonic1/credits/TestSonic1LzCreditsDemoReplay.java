@@ -2,7 +2,6 @@ package com.openggf.game.sonic1.credits;
 
 import com.openggf.game.GameServices;
 import com.openggf.game.ZoneFeatureProvider;
-import com.openggf.game.sonic1.Sonic1ZoneFeatureProvider;
 import com.openggf.level.LevelManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.sprites.managers.SpriteManager;
@@ -112,8 +111,8 @@ public class TestSonic1LzCreditsDemoReplay {
         waterSystem.setWaterLevelTarget(featureZone, featureAct, Sonic1CreditsDemoData.LZ_LAMP_WATER_HEIGHT);
 
         ZoneFeatureProvider featureProvider = LevelManager.getInstance().getZoneFeatureProvider();
-        if (featureProvider instanceof Sonic1ZoneFeatureProvider s1 && s1.getWaterEvents() != null) {
-            s1.getWaterEvents().setWaterRoutine(Sonic1CreditsDemoData.LZ_LAMP_WATER_ROUTINE);
+        if (featureProvider != null) {
+            featureProvider.setWaterRoutine(Sonic1CreditsDemoData.LZ_LAMP_WATER_ROUTINE);
         }
     }
 

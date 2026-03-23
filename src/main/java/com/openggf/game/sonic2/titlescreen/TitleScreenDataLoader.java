@@ -154,7 +154,7 @@ public class TitleScreenDataLoader {
             dataLoaded = true;
             return true;
 
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             LOGGER.log(Level.WARNING, "Failed to load title screen data", e);
             return false;
         }
@@ -249,7 +249,7 @@ public class TitleScreenDataLoader {
 
             LOGGER.info("Loaded title palette from ROM at 0x" +
                     Integer.toHexString(Sonic2Constants.PAL_TITLE_ADDR));
-        } catch (Exception e) {
+        } catch (IOException | RuntimeException e) {
             LOGGER.warning("Failed to load title palette: " + e.getMessage());
             titlePalette = null;
         }
@@ -268,7 +268,7 @@ public class TitleScreenDataLoader {
 
             LOGGER.info("Loaded title background palette from ROM at 0x" +
                     Integer.toHexString(Sonic2Constants.PAL_TITLE_BACKGROUND_ADDR));
-        } catch (Exception e) {
+        } catch (IOException | RuntimeException e) {
             LOGGER.warning("Failed to load title background palette: " + e.getMessage());
             backgroundPalette = null;
         }
@@ -287,7 +287,7 @@ public class TitleScreenDataLoader {
 
             LOGGER.info("Loaded Sonic palette from ROM at 0x" +
                     Integer.toHexString(Sonic2Constants.PAL_TITLE_SONIC_ADDR));
-        } catch (Exception e) {
+        } catch (IOException | RuntimeException e) {
             LOGGER.warning("Failed to load Sonic palette: " + e.getMessage());
             sonicPalette = null;
         }
@@ -306,7 +306,7 @@ public class TitleScreenDataLoader {
 
             LOGGER.info("Loaded intro palette from ROM at 0x" +
                     Integer.toHexString(Sonic2Constants.SONIC_TAILS_PALETTE_ADDR));
-        } catch (Exception e) {
+        } catch (IOException | RuntimeException e) {
             LOGGER.warning("Failed to load intro palette: " + e.getMessage());
             introPalette = null;
         }
@@ -325,7 +325,7 @@ public class TitleScreenDataLoader {
 
             LOGGER.info("Loaded title emblem palette from ROM at 0x" +
                     Integer.toHexString(Sonic2Constants.PAL_TITLE_EMBLEM_ADDR));
-        } catch (Exception e) {
+        } catch (IOException | RuntimeException e) {
             LOGGER.warning("Failed to load title emblem palette: " + e.getMessage());
             emblemPalette = null;
         }

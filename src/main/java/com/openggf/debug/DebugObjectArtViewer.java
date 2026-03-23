@@ -3,7 +3,7 @@ package com.openggf.debug;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
 import com.openggf.game.ZoneFeatureProvider;
-import com.openggf.game.sonic2.Sonic2ZoneFeatureProvider;
+import com.openggf.game.ZoneFeatureRenderer;
 
 import com.openggf.control.InputHandler;
 import com.openggf.camera.Camera;
@@ -12,7 +12,6 @@ import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Pattern;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.game.sonic2.slotmachine.CNZSlotMachineRenderer;
 
 import static org.lwjgl.glfw.GLFW.*;
 
@@ -179,8 +178,8 @@ public class DebugObjectArtViewer {
      */
     private void drawCnzSlots(Camera camera) {
         // Get the slot machine renderer from the zone feature provider
-        CNZSlotMachineRenderer slotRenderer = getCnzSlotRenderer();
-        if (slotRenderer == null || !slotRenderer.isInitialized()) {
+        ZoneFeatureRenderer featureRenderer = getZoneFeatureRenderer();
+        if (featureRenderer == null || featureRenderer.getDebugFrameCount() == 0) {
             return;
         }
 
@@ -196,26 +195,27 @@ public class DebugObjectArtViewer {
         int screenY = DEBUG_Y_OFFSET;
 
         // Create and queue the debug render command
-        GLCommand cmd = slotRenderer.createDebugRenderCommand(screenX, screenY, paletteTextureId, frameIndex);
+        GLCommand cmd = featureRenderer.createDebugRenderCommand(screenX, screenY, paletteTextureId, frameIndex);
         if (cmd != null) {
             gm.registerCommand(cmd);
         }
 
         // Set frame info for display in panel
-        setMaxFrames(6);  // 6 faces total
+        setMaxFrames(featureRenderer.getDebugFrameCount());
     }
 
     /**
-     * Get the CNZ slot machine renderer from the zone feature provider.
+     * Get the zone feature renderer from the current game module's zone feature provider.
      */
-    private CNZSlotMachineRenderer getCnzSlotRenderer() {
+    private ZoneFeatureRenderer getZoneFeatureRenderer() {
         try {
             ZoneFeatureProvider provider = GameModuleRegistry.getCurrent().getZoneFeatureProvider();
-            if (provider instanceof Sonic2ZoneFeatureProvider sonic2Provider) {
-                return sonic2Provider.getSlotMachineRenderer();
+            if (provider != null) {
+                ZoneFeatureRenderer renderer = provider.getFeatureRenderer();
+                return renderer != ZoneFeatureRenderer.NONE ? renderer : null;
             }
         } catch (Exception e) {
-            // Not in CNZ or renderer not available
+            // Not in a zone with a feature renderer
         }
         return null;
     }
@@ -272,11 +272,16 @@ public class DebugObjectArtViewer {
         if (target != ArtTarget.CNZ_SLOTS) {
             return null;
         }
-        int faceIndex = frameIndex % 6;
-        return new String[] {
-            CNZSlotMachineRenderer.getFaceName(faceIndex),
-            CNZSlotMachineRenderer.getFaceReward(faceIndex)
-        };
+        ZoneFeatureRenderer renderer = getZoneFeatureRenderer();
+        if (renderer == null) {
+            return null;
+        }
+        int faceIndex = frameIndex % Math.max(1, renderer.getDebugFrameCount());
+        String name = renderer.getDebugFrameName(faceIndex);
+        String desc = renderer.getDebugFrameDescription(faceIndex);
+        return (name != null || desc != null)
+                ? new String[] { name != null ? name : "???", desc != null ? desc : "???" }
+                : null;
     }
 
     public int getFrameIndex() {

@@ -11,6 +11,7 @@ import com.openggf.level.Palette;
 import com.openggf.level.Pattern;
 import com.openggf.util.PatternDecompressor;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.logging.Logger;
 
@@ -419,7 +420,7 @@ public class Sonic2EndingArt {
             LOGGER.fine("Loaded " + patternCount + " " + name + " uncompressed patterns from ROM at 0x"
                     + Integer.toHexString(address));
             return patterns;
-        } catch (Exception e) {
+        } catch (IOException | RuntimeException e) {
             LOGGER.warning("Failed to load " + name + " uncompressed patterns: " + e.getMessage());
             return new Pattern[0];
         }
@@ -435,7 +436,7 @@ public class Sonic2EndingArt {
             palette.fromSegaFormat(data);
             LOGGER.fine("Loaded " + name + " palette from ROM at 0x" + Integer.toHexString(address));
             return palette;
-        } catch (Exception e) {
+        } catch (IOException | RuntimeException e) {
             LOGGER.warning("Failed to load " + name + " palette: " + e.getMessage());
             return null;
         }

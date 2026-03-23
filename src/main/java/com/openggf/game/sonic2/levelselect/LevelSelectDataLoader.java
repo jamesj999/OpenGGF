@@ -130,7 +130,7 @@ public class LevelSelectDataLoader {
             dataLoaded = true;
             return true;
 
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             LOGGER.log(Level.WARNING, "Failed to load level select data", e);
             return false;
         }
@@ -284,7 +284,7 @@ public class LevelSelectDataLoader {
 
             LOGGER.info("Loaded 4 menu palette lines from ROM at 0x" +
                     Integer.toHexString(Sonic2Constants.PAL_MENU_ADDR));
-        } catch (Exception e) {
+        } catch (IOException | RuntimeException e) {
             LOGGER.warning("Failed to load menu palettes from ROM: " + e.getMessage());
             menuPalettes = new Palette[0];
         }
@@ -309,7 +309,7 @@ public class LevelSelectDataLoader {
             }
 
             LOGGER.info("Loaded 15 icon palettes");
-        } catch (Exception e) {
+        } catch (IOException | RuntimeException e) {
             LOGGER.warning("Failed to load icon palettes: " + e.getMessage());
             iconPalettes = new Palette[0];
         }

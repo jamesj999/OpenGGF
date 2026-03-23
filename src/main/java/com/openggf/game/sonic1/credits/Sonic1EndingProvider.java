@@ -196,6 +196,18 @@ public class Sonic1EndingProvider implements EndingProvider {
         return tryAgainEndManager;
     }
 
+    @Override
+    public void updatePostCredits(com.openggf.control.InputHandler inputHandler) {
+        if (tryAgainEndManager != null) {
+            tryAgainEndManager.update(inputHandler);
+        }
+    }
+
+    @Override
+    public boolean consumePostCreditsExitRequest() {
+        return tryAgainEndManager != null && tryAgainEndManager.consumeExitRequest();
+    }
+
     // ========================================================================
     // Internal phase management
     // ========================================================================

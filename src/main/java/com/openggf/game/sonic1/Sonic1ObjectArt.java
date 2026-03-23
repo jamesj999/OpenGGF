@@ -124,7 +124,7 @@ public class Sonic1ObjectArt {
                 patterns[i].fromSegaFormat(sub);
             }
             return patterns;
-        } catch (Exception e) {
+        } catch (IOException | RuntimeException e) {
             LOG.warning("Failed to load uncompressed art at 0x"
                     + Integer.toHexString(address) + ": " + e.getMessage());
             return new Pattern[0];

@@ -498,6 +498,12 @@ public class CNZSlotMachineRenderer implements ZoneFeatureRenderer {
      * @param selectedFace    Currently selected face (-1 for none)
      * @return A GLCommand that renders the debug display, or null if not ready
      */
+    @Override
+    public int getDebugFrameCount() {
+        return 6;
+    }
+
+    @Override
     public GLCommand createDebugRenderCommand(int screenX, int screenY, int paletteTextureId, int selectedFace) {
         if (!initialized || shader == null) {
             return null;
@@ -528,6 +534,11 @@ public class CNZSlotMachineRenderer implements ZoneFeatureRenderer {
         };
     }
 
+    @Override
+    public String getDebugFrameName(int frameIndex) {
+        return getFaceName(frameIndex);
+    }
+
     /**
      * Get the expected reward for a given face index (for debug display).
      */
@@ -541,6 +552,11 @@ public class CNZSlotMachineRenderer implements ZoneFeatureRenderer {
             case 5 -> "20 rings";
             default -> "???";
         };
+    }
+
+    @Override
+    public String getDebugFrameDescription(int frameIndex) {
+        return getFaceReward(frameIndex);
     }
 
     /**

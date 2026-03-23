@@ -87,7 +87,7 @@ public class Sonic1LevelSelectDataLoader {
 
             dataLoaded = true;
             return true;
-        } catch (Exception e) {
+        } catch (IOException | RuntimeException e) {
             LOGGER.log(Level.WARNING, "Failed to load Sonic 1 level select data", e);
             return false;
         }

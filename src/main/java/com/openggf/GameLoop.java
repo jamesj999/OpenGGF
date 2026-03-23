@@ -28,9 +28,7 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.timer.TimerManager;
 import com.openggf.graphics.FadeManager;
 
-import com.openggf.game.sonic1.Sonic1ZoneFeatureProvider;
 import com.openggf.game.sonic1.credits.Sonic1CreditsDemoData;
-import com.openggf.game.sonic1.credits.TryAgainEndManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.debug.playback.PlaybackDebugManager;
 import com.openggf.level.SeamlessLevelTransitionRequest;
@@ -281,15 +279,11 @@ public class GameLoop {
 
             // Debug: X key = next stage within current set
             if (inputHandler.isKeyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_X)) {
-                if (ssProvider instanceof com.openggf.game.sonic3k.specialstage.Sonic3kSpecialStageProvider s3kProvider) {
-                    s3kProvider.getManager().debugNextStage();
-                }
+                ssProvider.debugNextStage();
             }
             // Debug: Z key = switch layout set (S3 ↔ SK)
             if (inputHandler.isKeyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_Z)) {
-                if (ssProvider instanceof com.openggf.game.sonic3k.specialstage.Sonic3kSpecialStageProvider s3kProvider) {
-                    s3kProvider.getManager().debugToggleLayoutSet();
-                }
+                ssProvider.debugToggleLayoutSet();
             }
 
             // Debug complete special stage with emerald (for testing results screen)
@@ -2091,41 +2085,17 @@ public class GameLoop {
 
     /**
      * POST_CREDITS phase: update the post-credits screen (e.g., TRY AGAIN / END).
-     * For Sonic 1, the TryAgainEndManager needs InputHandler access for START press.
-     * For Sonic 2, the LogoFlashManager needs InputHandler for button skip detection.
+     * Delegates to the provider's {@code updatePostCredits} / {@code consumePostCreditsExitRequest}
+     * methods so each game handles its own input-driven exit logic.
      */
     private void updateEndingPostCredits() {
-        if (endingProvider instanceof com.openggf.game.sonic1.credits.Sonic1EndingProvider s1Provider) {
-            TryAgainEndManager tryAgainEnd = s1Provider.getTryAgainEndManager();
-            if (tryAgainEnd != null) {
-                tryAgainEnd.update(inputHandler);
-                if (tryAgainEnd.consumeExitRequest()) {
-                    exitEndingToTitleScreen();
-                    return;
-                }
-            }
-        } else if (endingProvider instanceof com.openggf.game.sonic2.credits.Sonic2EndingProvider s2Provider) {
-            // S2 logo flash needs InputHandler for B/C/A/Start skip detection
-            var logoFlash = s2Provider.getLogoFlashManager();
-            if (logoFlash != null) {
-                logoFlash.update(inputHandler);
-                if (logoFlash.isDone()) {
-                    exitEndingToTitleScreen();
-                    return;
-                }
-            } else {
-                // Logo not yet loaded -- let provider advance its internal state
-                endingProvider.update();
-            }
-            if (endingProvider.isComplete()) {
-                exitEndingToTitleScreen();
-            }
-        } else {
-            // Generic provider: just call update() and check completion
-            endingProvider.update();
-            if (endingProvider.isComplete()) {
-                exitEndingToTitleScreen();
-            }
+        endingProvider.updatePostCredits(inputHandler);
+        if (endingProvider.consumePostCreditsExitRequest()) {
+            exitEndingToTitleScreen();
+            return;
+        }
+        if (endingProvider.isComplete()) {
+            exitEndingToTitleScreen();
         }
     }
 
@@ -2202,8 +2172,8 @@ public class GameLoop {
                 waterSystem.setWaterLevelTarget(featureZone, featureAct,
                         Sonic1CreditsDemoData.LZ_LAMP_WATER_HEIGHT);
                 ZoneFeatureProvider zfp = levelManager.getZoneFeatureProvider();
-                if (zfp instanceof Sonic1ZoneFeatureProvider s1zfp && s1zfp.getWaterEvents() != null) {
-                    s1zfp.getWaterEvents().setWaterRoutine(Sonic1CreditsDemoData.LZ_LAMP_WATER_ROUTINE);
+                if (zfp != null) {
+                    zfp.setWaterRoutine(Sonic1CreditsDemoData.LZ_LAMP_WATER_ROUTINE);
                 }
             } else {
                 // All other demos: use startpos (center coordinates)

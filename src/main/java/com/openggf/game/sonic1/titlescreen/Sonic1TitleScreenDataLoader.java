@@ -161,7 +161,7 @@ public class Sonic1TitleScreenDataLoader {
             dataLoaded = true;
             return true;
 
-        } catch (Exception e) {
+        } catch (IOException | RuntimeException e) {
             LOGGER.log(Level.WARNING, "Failed to load S1 title screen data", e);
             return false;
         }

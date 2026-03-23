@@ -224,7 +224,7 @@ public class Sonic3kSmpsLoader extends AbstractSmpsLoader {
 
             sfxCache.put(sfxId, sfx);
             return sfx;
-        } catch (Exception e) {
+        } catch (IOException | RuntimeException e) {
             LOGGER.severe("Failed to load S3K SFX ID 0x" + Integer.toHexString(sfxId)
                     + ": " + e.getMessage());
             return null;
@@ -335,7 +335,7 @@ public class Sonic3kSmpsLoader extends AbstractSmpsLoader {
 
             LOGGER.info("Loaded " + samples.size() + " S3K DAC samples.");
             return new DacData(samples, mapping, 297); // S3K baseCycles = 297
-        } catch (Exception e) {
+        } catch (IOException | RuntimeException e) {
             LOGGER.severe("Failed to load S3K DAC data: " + e.getMessage());
             return new DacData(samples, mapping, 297);
         }
@@ -499,7 +499,7 @@ public class Sonic3kSmpsLoader extends AbstractSmpsLoader {
             LOGGER.info("Decompressed S3K Z80 additional data: " + z80AdditionalData.length
                     + " bytes from ROM 0x" + Integer.toHexString(Sonic3kSmpsConstants.Z80_ADDITIONAL_DATA_ADDR));
             LOGGER.info("  First 16 bytes: " + hexDump(z80AdditionalData, 0, 16));
-        } catch (Exception e) {
+        } catch (IOException | RuntimeException e) {
             LOGGER.severe("Failed to decompress S3K Z80 data: " + e.getMessage());
         }
     }

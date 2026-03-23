@@ -259,4 +259,30 @@ public interface EndingProvider {
     default float[] getBackdropColorOverride() {
         return null;
     }
+
+    // --- Post-credits input handling ---
+
+    /**
+     * Updates the post-credits phase with input access.
+     * <p>
+     * Post-credits screens (S1 TRY AGAIN/END, S2 logo flash) need input
+     * for user-initiated skip/exit. The default delegates to {@link #update()}.
+     *
+     * @param inputHandler the input handler for detecting key presses
+     */
+    default void updatePostCredits(com.openggf.control.InputHandler inputHandler) {
+        update();
+    }
+
+    /**
+     * Checks and consumes a pending exit request from the post-credits phase.
+     * Returns true if the engine should transition back to the title screen.
+     * <p>
+     * Default returns false (rely on {@link #isComplete()} instead).
+     *
+     * @return true if an exit was requested and consumed
+     */
+    default boolean consumePostCreditsExitRequest() {
+        return false;
+    }
 }

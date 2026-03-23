@@ -2699,9 +2699,8 @@ public class LevelManager {
                 waterSystem.setWaterLevelDirect(featureZone, featureAct, ctx.getCheckpointWaterLevel());
                 waterSystem.setWaterLevelTarget(featureZone, featureAct, ctx.getCheckpointWaterLevel());
             }
-            if (zoneFeatureProvider instanceof com.openggf.game.sonic1.Sonic1ZoneFeatureProvider s1zfp
-                    && s1zfp.getWaterEvents() != null) {
-                s1zfp.getWaterEvents().setWaterRoutine(ctx.getCheckpointWaterRoutine());
+            if (zoneFeatureProvider != null) {
+                zoneFeatureProvider.setWaterRoutine(ctx.getCheckpointWaterRoutine());
             }
         }
     }

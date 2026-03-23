@@ -252,6 +252,24 @@ public class Sonic2EndingProvider implements EndingProvider {
         return logoFlashManager;
     }
 
+    @Override
+    public void updatePostCredits(com.openggf.control.InputHandler inputHandler) {
+        if (logoFlashManager != null) {
+            logoFlashManager.update(inputHandler);
+        } else {
+            // Logo not yet loaded -- let provider advance its internal state
+            update();
+        }
+    }
+
+    @Override
+    public boolean consumePostCreditsExitRequest() {
+        if (logoFlashManager != null && logoFlashManager.isDone()) {
+            return true;
+        }
+        return isComplete();
+    }
+
     /**
      * Returns the current credit slide index (0-20).
      * Useful for debugging/testing.

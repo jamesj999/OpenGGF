@@ -247,4 +247,16 @@ public class Sonic1ZoneFeatureProvider implements ZoneFeatureProvider {
     public Sonic1LZWaterEvents getWaterEvents() {
         return waterEvents;
     }
+
+    @Override
+    public int getWaterRoutine() {
+        return waterEvents != null ? waterEvents.getWaterRoutine() : 0;
+    }
+
+    @Override
+    public void setWaterRoutine(int routine) {
+        if (waterEvents != null) {
+            waterEvents.setWaterRoutine(routine);
+        }
+    }
 }
