@@ -14,8 +14,8 @@ public class TestSonic2LevelInitProfile {
     public void teardownStepsMatchGameContextPhases2Through8() {
         List<InitStep> steps = profile.levelTeardownSteps();
 
-        // GameContext.forTesting() phases 2-8 have 13 operations
-        assertEquals(13, steps.size());
+        // GameContext.forTesting() phases 2-8 (13 original + 1 DebugOverlayManager reset)
+        assertEquals(14, steps.size());
 
         // Verify ordering matches GameContext phases
         assertEquals("ResetAudio", steps.get(0).name());
@@ -31,6 +31,7 @@ public class TestSonic2LevelInitProfile {
         assertEquals("ResetGameState", steps.get(10).name());
         assertEquals("ResetTimers", steps.get(11).name());
         assertEquals("ResetWater", steps.get(12).name());
+        assertEquals("ResetDebugOverlay", steps.get(13).name());
     }
 
     @Test
