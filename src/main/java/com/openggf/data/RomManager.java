@@ -171,7 +171,7 @@ public class RomManager implements AutoCloseable {
     }
 
     /**
-     * @deprecated For test teardown, prefer {@link #resetState()}.
+     * @deprecated For test teardown, prefer calling {@link #close()} on the instance.
      * This method remains functional for ROM switching but should not
      * be used for inter-test cleanup.
      */
