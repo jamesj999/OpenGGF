@@ -433,7 +433,7 @@ public class Ym2612Chip {
 
     // Band-limited resampler (replaces simple linear interpolation)
     private BlipResampler blipResampler = new BlipResampler(INTERNAL_RATE, DEFAULT_OUTPUT_RATE);
-    private boolean useBlipResampler = true;  // Disabled for testing - set true to enable band-limited resampling
+    private boolean useBlipResampler = true;  // Band-limited resampling via BlipResampler (GPGX-quality output)
     private double outputRate = DEFAULT_OUTPUT_RATE;
     private double resampleRatio = DEFAULT_RESAMPLE_RATIO;
     private double inverseResampleRatio = 1.0 / DEFAULT_RESAMPLE_RATIO;

@@ -33,7 +33,7 @@ public enum SonicConfiguration {
 	 */
 	SCREEN_HEIGHT,
 	/**
-	 * Scale used with BufferedImage TODO: Work out what this does
+	 * Scale factor for BufferedImage rendering (used for AWT-based debug viewers).
 	 */
 	SCALE,
 	/**
