@@ -1,5 +1,8 @@
 package com.openggf.game.sonic2.objects;
 
+import com.openggf.game.GameModule;
+import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.sonic2.Sonic2GameModule;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import org.junit.After;
 import org.junit.Before;
@@ -23,8 +26,12 @@ import static org.junit.Assert.assertTrue;
 
 public class TestTornadoObjectInstance {
 
+    private GameModule previousModule;
+
     @Before
     public void setUp() {
+        previousModule = GameModuleRegistry.getCurrent();
+        GameModuleRegistry.setCurrent(new Sonic2GameModule());
         Camera.getInstance().resetState();
         SpriteManager.getInstance().resetState();
         LevelManager.getInstance().resetState();
@@ -35,6 +42,7 @@ public class TestTornadoObjectInstance {
     public void tearDown() {
         SpriteManager.getInstance().resetState();
         LevelManager.getInstance().resetState();
+        GameModuleRegistry.setCurrent(previousModule);
     }
 
     @Test
