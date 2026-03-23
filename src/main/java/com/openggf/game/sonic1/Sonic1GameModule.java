@@ -10,7 +10,6 @@ import com.openggf.game.sonic1.objects.Sonic1StomperDoorObjectInstance;
 import com.openggf.game.sonic1.scroll.Sonic1ZoneConstants;
 import com.openggf.game.sonic1.specialstage.Sonic1SpecialStageProvider;
 import com.openggf.game.sonic1.titlescreen.Sonic1TitleScreenManager;
-import com.openggf.game.DebugModeProvider;
 import com.openggf.game.DebugOverlayProvider;
 import com.openggf.game.EndingProvider;
 import com.openggf.game.GameModule;
@@ -21,13 +20,11 @@ import com.openggf.game.LevelState;
 import com.openggf.game.ObjectArtProvider;
 import com.openggf.game.PhysicsProvider;
 import com.openggf.game.RespawnState;
-import com.openggf.game.RomOffsetProvider;
 import com.openggf.game.ScrollHandlerProvider;
 import com.openggf.game.SpecialStageProvider;
 import com.openggf.game.TitleCardProvider;
 import com.openggf.game.TitleScreenProvider;
 import com.openggf.game.WaterDataProvider;
-import com.openggf.game.ZoneArtProvider;
 import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.game.ZoneRegistry;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
@@ -40,6 +37,7 @@ import com.openggf.game.CheckpointState;
 import com.openggf.game.CanonicalAnimation;
 import com.openggf.game.CrossGameFeatureProvider;
 import com.openggf.game.DonorCapabilities;
+import com.openggf.game.GameId;
 import com.openggf.game.LevelGamestate;
 import com.openggf.game.OscillationManager;
 import com.openggf.game.PlayerCharacter;
@@ -62,6 +60,11 @@ public class Sonic1GameModule implements GameModule {
     @Override
     public String getIdentifier() {
         return "Sonic1";
+    }
+
+    @Override
+    public GameId getGameId() {
+        return GameId.S1;
     }
 
     @Override
@@ -164,22 +167,7 @@ public class Sonic1GameModule implements GameModule {
     }
 
     @Override
-    public RomOffsetProvider getRomOffsetProvider() {
-        return null;
-    }
-
-    @Override
-    public DebugModeProvider getDebugModeProvider() {
-        return null;
-    }
-
-    @Override
     public DebugOverlayProvider getDebugOverlayProvider() {
-        return null;
-    }
-
-    @Override
-    public ZoneArtProvider getZoneArtProvider() {
         return null;
     }
 

@@ -7,7 +7,6 @@ import com.openggf.data.RomByteReader;
 import com.openggf.game.sonic3k.audio.Sonic3kAudioProfile;
 import com.openggf.game.CanonicalAnimation;
 import com.openggf.game.CrossGameFeatureProvider;
-import com.openggf.game.DebugModeProvider;
 import com.openggf.game.DonorCapabilities;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
@@ -20,9 +19,7 @@ import com.openggf.game.WaterDataProvider;
 import com.openggf.game.LevelState;
 import com.openggf.game.ObjectArtProvider;
 import com.openggf.game.RespawnState;
-import com.openggf.game.RomOffsetProvider;
 import com.openggf.game.ScrollHandlerProvider;
-import com.openggf.game.ZoneArtProvider;
 import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.game.ZoneRegistry;
 import com.openggf.game.CheckpointState;
@@ -35,6 +32,7 @@ import com.openggf.game.sonic3k.objects.Sonic3kObjectRegistry;
 import com.openggf.game.sonic3k.scroll.Sonic3kScrollHandlerProvider;
 import com.openggf.game.sonic3k.specialstage.Sonic3kSpecialStageProvider;
 import com.openggf.game.sonic3k.titlecard.Sonic3kTitleCardManager;
+import com.openggf.game.GameId;
 import com.openggf.game.OscillationManager;
 import com.openggf.level.objects.ObjectRegistry;
 import com.openggf.level.objects.PlaneSwitcherConfig;
@@ -59,6 +57,11 @@ public class Sonic3kGameModule implements GameModule {
     @Override
     public String getIdentifier() {
         return "Sonic3k";
+    }
+
+    @Override
+    public GameId getGameId() {
+        return GameId.S3K;
     }
 
     @Override
@@ -141,22 +144,7 @@ public class Sonic3kGameModule implements GameModule {
     }
 
     @Override
-    public RomOffsetProvider getRomOffsetProvider() {
-        return null;
-    }
-
-    @Override
-    public DebugModeProvider getDebugModeProvider() {
-        return null;
-    }
-
-    @Override
     public DebugOverlayProvider getDebugOverlayProvider() {
-        return null;
-    }
-
-    @Override
-    public ZoneArtProvider getZoneArtProvider() {
         return null;
     }
 

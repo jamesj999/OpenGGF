@@ -150,15 +150,19 @@ public interface GameModule {
      *
      * @return the ROM offset provider
      */
-    RomOffsetProvider getRomOffsetProvider();
+    default RomOffsetProvider getRomOffsetProvider() {
+        return NoOpRomOffsetProvider.INSTANCE;
+    }
 
     /**
      * Returns the debug mode provider for this game.
      * Provides game-specific debug modes and controls.
      *
-     * @return the debug mode provider, or null if no game-specific debug modes
+     * @return the debug mode provider
      */
-    DebugModeProvider getDebugModeProvider();
+    default DebugModeProvider getDebugModeProvider() {
+        return NoOpDebugModeProvider.INSTANCE;
+    }
 
     /**
      * Returns the debug overlay provider for this game.
@@ -172,9 +176,11 @@ public interface GameModule {
      * Returns the zone art provider for this game.
      * Provides zone-specific art configurations for objects.
      *
-     * @return the zone art provider, or null if no zone-specific art
+     * @return the zone art provider
      */
-    ZoneArtProvider getZoneArtProvider();
+    default ZoneArtProvider getZoneArtProvider() {
+        return NoOpZoneArtProvider.INSTANCE;
+    }
 
     /**
      * Returns the object art provider for this game.
@@ -356,15 +362,8 @@ public interface GameModule {
         return null;
     }
 
-    /** Returns the GameId for this module. Default derives from getIdentifier(). */
-    default GameId getGameId() {
-        return switch (getIdentifier()) {
-            case "Sonic1" -> GameId.S1;
-            case "Sonic2" -> GameId.S2;
-            case "Sonic3k" -> GameId.S3K;
-            default -> throw new IllegalStateException("Unknown module: " + getIdentifier());
-        };
-    }
+    /** Returns the GameId for this module. */
+    GameId getGameId();
 
     /**
      * Resolves a canonical animation to this game's native animation ID.

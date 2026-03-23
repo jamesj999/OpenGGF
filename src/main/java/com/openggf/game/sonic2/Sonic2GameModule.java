@@ -45,6 +45,7 @@ import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.game.RomOffsetProvider;
 import com.openggf.game.DebugModeProvider;
 import com.openggf.game.DebugOverlayProvider;
+import com.openggf.game.GameId;
 import com.openggf.game.ObjectArtProvider;
 import com.openggf.game.ZoneArtProvider;
 import com.openggf.game.TitleScreenProvider;
@@ -66,6 +67,11 @@ public class Sonic2GameModule implements GameModule {
     @Override
     public String getIdentifier() {
         return "Sonic2";
+    }
+
+    @Override
+    public GameId getGameId() {
+        return GameId.S2;
     }
 
     @Override
