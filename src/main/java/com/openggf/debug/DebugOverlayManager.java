@@ -127,6 +127,11 @@ public class DebugOverlayManager {
         pendingObjectDebugText = List.of();
     }
 
+    public void resetState() {
+        states.clear();
+        pendingObjectDebugText = List.of();
+    }
+
     public List<String> buildShortcutLines() {
         shortcutLines.clear();
         for (DebugOverlayToggle toggle : DebugOverlayToggle.values()) {

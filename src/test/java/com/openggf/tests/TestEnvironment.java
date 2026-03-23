@@ -1,6 +1,7 @@
 package com.openggf.tests;
 
 import com.openggf.GameContext;
+import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.InitStep;
 import com.openggf.game.LevelInitProfile;
@@ -20,6 +21,7 @@ public final class TestEnvironment {
      * then subsystems from outer (audio, level) to inner (camera, timers).
      */
     public static void resetAll() {
+        SonicConfigurationService.getInstance().resetToDefaults();
         GameContext.forTesting();
     }
 

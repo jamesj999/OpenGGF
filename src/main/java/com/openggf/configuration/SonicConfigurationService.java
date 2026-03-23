@@ -169,6 +169,11 @@ public class SonicConfigurationService {
 		return sonicConfigurationService;
 	}
 
+	public void resetToDefaults() {
+		config = new HashMap<>();
+		applyDefaults();
+	}
+
 	private void applyDefaults() {
 		if (config == null) {
 			config = new HashMap<>();

@@ -1,6 +1,7 @@
 package com.openggf.game;
 
 import com.openggf.camera.Camera;
+import com.openggf.debug.DebugOverlayManager;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.LevelManager;
 import com.openggf.level.ParallaxManager;
@@ -260,7 +261,10 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
                 () -> TimerManager.getInstance().resetState()),
             // Undoes S1:Phase C / S2:Phase B / S3K:Phase E,L (water init)
             new InitStep("ResetWater", "Undoes LZWaterFeatures / WaterEffects / Handle_Onscreen_Water_Height",
-                () -> WaterSystem.getInstance().reset())
+                () -> WaterSystem.getInstance().reset()),
+
+            new InitStep("ResetDebugOverlay", "Clears overlay toggle states and pending debug text",
+                () -> DebugOverlayManager.getInstance().resetState())
         );
     }
 
