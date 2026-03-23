@@ -13,6 +13,10 @@ public final class GameServices {
     private GameServices() {
     }
 
+    /**
+     * Global game state accessor for non-object code.
+     * Object instances should use {@code services().gameState()} instead.
+     */
     public static GameStateManager gameState() {
         return GameStateManager.getInstance();
     }
@@ -33,6 +37,10 @@ public final class GameServices {
         return AudioManager.getInstance();
     }
 
+    /**
+     * Global camera accessor for non-object code (HUD, level loading, rendering).
+     * Object instances should use {@code services().camera()} instead.
+     */
     public static Camera camera() {
         return Camera.getInstance();
     }

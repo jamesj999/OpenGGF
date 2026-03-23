@@ -42,7 +42,21 @@ public interface ObjectServices {
     void spawnLostRings(PlayableEntity player, int frameCounter);
 
     // Context-specific managers
+    /**
+     * Returns the camera for position queries and bounds checks.
+     * <p>
+     * <b>Governance:</b> Object instance code (subclasses of {@link AbstractObjectInstance})
+     * should use this method, not {@link com.openggf.game.GameServices#camera()}.
+     * {@code GameServices.camera()} is for non-object code (HUD, level loading, etc.).
+     */
     Camera camera();
+
+    /**
+     * Returns the game state manager for score, lives, and emerald tracking.
+     * <p>
+     * <b>Governance:</b> Object instance code should use this method, not
+     * {@link com.openggf.game.GameServices#gameState()}.
+     */
     GameStateManager gameState();
 
     // Player/sidekick access
