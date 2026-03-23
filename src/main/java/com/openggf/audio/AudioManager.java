@@ -9,6 +9,7 @@ import com.openggf.data.Rom;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class AudioManager {
@@ -55,8 +56,7 @@ public class AudioManager {
             this.backend.setAudioProfile(audioProfile);
             LOGGER.info("AudioBackend initialized: " + backend.getClass().getSimpleName());
         } catch (Exception e) {
-            LOGGER.severe("Failed to initialize AudioBackend: " + e.getMessage());
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Failed to initialize AudioBackend", e);
             this.backend = new NullAudioBackend();
         }
     }

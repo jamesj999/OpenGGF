@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -89,8 +90,7 @@ public class Sonic1SmpsLoader extends AbstractSmpsLoader {
             musicCache.put(musicId, data);
             return data;
         } catch (IOException e) {
-            LOGGER.severe("Failed to load S1 music ID 0x" + Integer.toHexString(musicId));
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Failed to load S1 music ID 0x" + Integer.toHexString(musicId), e);
             return null;
         }
     }
@@ -134,8 +134,7 @@ public class Sonic1SmpsLoader extends AbstractSmpsLoader {
             sfxCache.put(sfxId, data);
             return data;
         } catch (IOException e) {
-            LOGGER.severe("Failed to load S1 SFX ID 0x" + Integer.toHexString(sfxId));
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Failed to load S1 SFX ID 0x" + Integer.toHexString(sfxId), e);
             return null;
         }
     }
@@ -229,8 +228,7 @@ public class Sonic1SmpsLoader extends AbstractSmpsLoader {
 
             return new DacData(samples, mapping, 301); // S1 baseCycles = 301
         } catch (Exception e) {
-            LOGGER.severe("Failed to load S1 DAC data: " + e.getMessage());
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Failed to load S1 DAC data", e);
             return null;
         }
     }
@@ -271,8 +269,7 @@ public class Sonic1SmpsLoader extends AbstractSmpsLoader {
             sfxCache.put(sfxId, data);
             return data;
         } catch (IOException e) {
-            LOGGER.severe("Failed to load special SFX ID 0x" + Integer.toHexString(sfxId));
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Failed to load special SFX ID 0x" + Integer.toHexString(sfxId), e);
             return null;
         }
     }

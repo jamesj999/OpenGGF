@@ -9,10 +9,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import static org.lwjgl.glfw.GLFW.*;
 
 public class SonicConfigurationService {
+	private static final Logger LOGGER = Logger.getLogger(SonicConfigurationService.class.getName());
 	private static SonicConfigurationService sonicConfigurationService;
 	public static String ENGINE_VERSION = "0.5.prerelease";
 
@@ -53,7 +56,7 @@ public class SonicConfigurationService {
 					config = new HashMap<>();
 				}
 			} catch (IOException e) {
-				e.printStackTrace();
+				LOGGER.log(Level.WARNING, "Failed to load config.json from classpath", e);
 				config = new HashMap<>();
 			}
 		}
@@ -155,7 +158,7 @@ public class SonicConfigurationService {
 		try {
 			mapper.writerWithDefaultPrettyPrinter().writeValue(target, config);
 		} catch (IOException e) {
-			e.printStackTrace();
+			LOGGER.log(Level.WARNING, "Failed to save config.json", e);
 		}
 	}
 

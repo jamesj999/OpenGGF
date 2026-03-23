@@ -14,6 +14,7 @@ import com.openggf.tools.SaxmanDecompressor;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class Sonic2SmpsLoader extends AbstractSmpsLoader {
@@ -306,8 +307,7 @@ public class Sonic2SmpsLoader extends AbstractSmpsLoader {
             LOGGER.severe("Failed to parse SFX ID " + Integer.toHexString(sfxId));
             return null;
         } catch (Exception e) {
-            LOGGER.severe("Failed to load SFX ID " + Integer.toHexString(sfxId));
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Failed to load SFX ID " + Integer.toHexString(sfxId), e);
             return null;
         }
     }
@@ -449,8 +449,7 @@ public class Sonic2SmpsLoader extends AbstractSmpsLoader {
             LOGGER.info("Decompressed SMPS at " + Integer.toHexString(offset) + ". Size: " + decompressed.length);
             return new Sonic2SmpsData(decompressed, z80Addr);
         } catch (Exception e) {
-            LOGGER.severe("Failed to load SMPS at " + Integer.toHexString(offset));
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Failed to load SMPS at " + Integer.toHexString(offset), e);
             return null;
         }
     }
@@ -478,8 +477,7 @@ public class Sonic2SmpsLoader extends AbstractSmpsLoader {
                     + ". Size: " + raw.length + " bytes (0x" + Integer.toHexString(raw.length) + ")");
             return new Sonic2SmpsData(raw, z80Addr);
         } catch (Exception e) {
-            LOGGER.severe("Failed to load uncompressed SMPS at " + Integer.toHexString(offset));
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Failed to load uncompressed SMPS at " + Integer.toHexString(offset), e);
             return null;
         }
     }
@@ -545,8 +543,7 @@ public class Sonic2SmpsLoader extends AbstractSmpsLoader {
             LOGGER.info("Decompressed SFX SMPS at " + Integer.toHexString(offset) + ". Size: " + decompressed.length);
             return new Sonic2SfxData(decompressed, z80Addr, 0, 0);
         } catch (Exception e) {
-            LOGGER.severe("Failed to load SMPS at " + Integer.toHexString(offset));
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Failed to load SMPS at " + Integer.toHexString(offset), e);
             return null;
         }
     }
@@ -742,8 +739,7 @@ public class Sonic2SmpsLoader extends AbstractSmpsLoader {
 
             return new DacData(samples, mapping, 288); // S2 baseCycles = 288
         } catch (Exception e) {
-            LOGGER.severe("Failed to load DAC Data");
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Failed to load DAC Data", e);
             return new DacData(new HashMap<>(), new HashMap<>(), 288);
         }
     }

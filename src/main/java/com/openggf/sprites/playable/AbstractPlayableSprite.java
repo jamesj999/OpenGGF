@@ -622,7 +622,6 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                         }
                 } catch (Exception e) {
                         LOGGER.fine("DEBUG: Failed to create/add ShieldObjectInstance: " + e.getMessage());
-                        e.printStackTrace();
                         throw e;
                 }
         }

@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.util.Arrays;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -161,8 +162,7 @@ public class Sonic1TitleScreenDataLoader {
             return true;
 
         } catch (Exception e) {
-            LOGGER.warning("Failed to load S1 title screen data: " + e.getMessage());
-            e.printStackTrace();
+            LOGGER.log(Level.WARNING, "Failed to load S1 title screen data", e);
             return false;
         }
     }

@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.specialstage;
 
 import java.util.Arrays;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -284,9 +285,7 @@ public class Sonic2TrackFrameDecoder {
             return vdpBuffer;
 
         } catch (Exception e) {
-            LOGGER.warning("Error decoding frame: " + e.getMessage());
-            if (diagnose)
-                e.printStackTrace();
+            LOGGER.log(Level.WARNING, "Error decoding frame", e);
             return new int[TOTAL_TILES];
         }
     }
