@@ -10,8 +10,6 @@ import com.openggf.level.render.BackgroundRenderer;
 
 import static com.openggf.level.LevelConstants.*;
 
-import com.openggf.game.sonic2.slotmachine.CNZSlotMachineRenderer;
-
 import org.lwjgl.system.MemoryUtil;
 
 import static org.lwjgl.opengl.GL11.*;
@@ -64,7 +62,6 @@ public class GraphicsManager {
 	private static final String BASIC_VERTEX_SHADER_PATH = "shaders/shader_basic.vert";
 	private static final String DEBUG_VERTEX_SHADER_PATH = "shaders/shader_debug_color.vert";
 	private static final String INSTANCED_VERTEX_SHADER_PATH = "shaders/shader_instanced.vert";
-	private static final String CNZ_SLOTS_SHADER_PATH = "shaders/shader_cnz_slots.glsl";
 	private static final String SPRITE_PRIORITY_SHADER_PATH = "shaders/shader_sprite_priority.glsl";
 
 	// Sprite priority rendering for ROM-accurate sprite-to-tile layering
@@ -82,10 +79,6 @@ public class GraphicsManager {
 
 	// Fade manager for screen transitions
 	private FadeManager fadeManager;
-
-	// CNZ slot machine renderer
-	private ShaderProgram cnzSlotsShaderProgram;
-	private CNZSlotMachineRenderer cnzSlotMachineRenderer;
 
 	// Unified UI render pipeline for overlay + fade ordering
 	private UiRenderPipeline uiRenderPipeline;
@@ -176,9 +169,6 @@ public class GraphicsManager {
 		// Initialize fade manager with shader
 		this.fadeManager = FadeManager.getInstance();
 		this.fadeManager.setFadeShader(this.fadeShaderProgram);
-
-		// CNZ slot machine renderer - shader is loaded lazily when needed
-		this.cnzSlotMachineRenderer = new CNZSlotMachineRenderer();
 
 		// Initialize unified UI render pipeline
 		this.uiRenderPipeline = new UiRenderPipeline(this);
@@ -985,12 +975,6 @@ public class GraphicsManager {
 		if (shadowShaderProgram != null) {
 			shadowShaderProgram.cleanup();
 		}
-		if (cnzSlotsShaderProgram != null) {
-			cnzSlotsShaderProgram.cleanup();
-		}
-		if (cnzSlotMachineRenderer != null) {
-			cnzSlotMachineRenderer.cleanup();
-		}
 		BatchedPatternRenderer existingBatch = BatchedPatternRenderer.getInstanceIfInitialized();
 		if (existingBatch != null) {
 			existingBatch.cleanup();
@@ -1229,22 +1213,6 @@ public class GraphicsManager {
 	 */
 	public boolean isGlInitialized() {
 		return glInitialized;
-	}
-
-	/**
-	 * Get the CNZ slot machine renderer for visual display.
-	 * Lazily initializes the shader on first access.
-	 */
-	public CNZSlotMachineRenderer getCnzSlotMachineRenderer() {
-		if (cnzSlotMachineRenderer != null && cnzSlotsShaderProgram == null && glInitialized) {
-			try {
-				cnzSlotsShaderProgram = new ShaderProgram(ShaderProgram.FULLSCREEN_VERTEX_SHADER, CNZ_SLOTS_SHADER_PATH);
-				cnzSlotMachineRenderer.setShader(cnzSlotsShaderProgram);
-			} catch (Exception e) {
-				System.err.println("Failed to load CNZ slot shader: " + e.getMessage());
-			}
-		}
-		return cnzSlotMachineRenderer;
 	}
 
 	/**

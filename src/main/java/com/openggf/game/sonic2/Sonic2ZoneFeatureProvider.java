@@ -4,10 +4,12 @@ import com.openggf.camera.Camera;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.ZoneFeatureProvider;
+import com.openggf.game.ZoneFeatureRenderer;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.CPZPylonObjectInstance;
 import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
 import com.openggf.graphics.GraphicsManager;
+import com.openggf.graphics.ShaderProgram;
 import com.openggf.level.LevelManager;
 import com.openggf.level.Pattern;
 import com.openggf.level.WaterSystem;
@@ -45,10 +47,12 @@ import com.openggf.game.GameServices;
  */
 public class Sonic2ZoneFeatureProvider implements ZoneFeatureProvider {
     private static final Logger LOGGER = Logger.getLogger(Sonic2ZoneFeatureProvider.class.getName());
+    private static final String CNZ_SLOTS_SHADER_PATH = "shaders/shader_cnz_slots.glsl";
 
     private CNZBumperManager cnzBumperManager;
     private CNZSlotMachineManager cnzSlotMachineManager;
     private CNZSlotMachineRenderer cnzSlotMachineRenderer;
+    private ShaderProgram cnzSlotsShaderProgram;
     private ObjectInstance cpzPylon;
     private WaterSurfaceManager waterSurfaceManager;
     private int currentZone = -1;
@@ -115,10 +119,22 @@ public class Sonic2ZoneFeatureProvider implements ZoneFeatureProvider {
     private void initCNZSlotMachine(Rom rom) {
         cnzSlotMachineManager = new CNZSlotMachineManager();
 
-        // Initialize the visual renderer
+        // Initialize the visual renderer (owned by this provider, not GraphicsManager)
+        if (cnzSlotMachineRenderer == null) {
+            cnzSlotMachineRenderer = new CNZSlotMachineRenderer();
+        }
         GraphicsManager graphicsManager = GraphicsManager.getInstance();
-        cnzSlotMachineRenderer = graphicsManager.getCnzSlotMachineRenderer();
-        if (cnzSlotMachineRenderer != null && !graphicsManager.isHeadlessMode()) {
+        if (!graphicsManager.isHeadlessMode()) {
+            // Lazily initialize the shader
+            if (cnzSlotsShaderProgram == null && graphicsManager.isGlInitialized()) {
+                try {
+                    cnzSlotsShaderProgram = new ShaderProgram(
+                            ShaderProgram.FULLSCREEN_VERTEX_SHADER, CNZ_SLOTS_SHADER_PATH);
+                    cnzSlotMachineRenderer.setShader(cnzSlotsShaderProgram);
+                } catch (Exception e) {
+                    LOGGER.log(Level.WARNING, "Failed to load CNZ slot shader", e);
+                }
+            }
             cnzSlotMachineRenderer.init(rom);
         }
 
@@ -144,6 +160,14 @@ public class Sonic2ZoneFeatureProvider implements ZoneFeatureProvider {
      */
     public CNZSlotMachineRenderer getSlotMachineRenderer() {
         return cnzSlotMachineRenderer;
+    }
+
+    @Override
+    public ZoneFeatureRenderer getFeatureRenderer() {
+        if (cnzSlotMachineRenderer != null) {
+            return cnzSlotMachineRenderer;
+        }
+        return ZoneFeatureRenderer.NONE;
     }
 
     /**
@@ -280,7 +304,14 @@ public class Sonic2ZoneFeatureProvider implements ZoneFeatureProvider {
     public void reset() {
         cnzBumperManager = null;
         cnzSlotMachineManager = null;
-        cnzSlotMachineRenderer = null;
+        if (cnzSlotMachineRenderer != null) {
+            cnzSlotMachineRenderer.cleanup();
+            cnzSlotMachineRenderer = null;
+        }
+        if (cnzSlotsShaderProgram != null) {
+            cnzSlotsShaderProgram.cleanup();
+            cnzSlotsShaderProgram = null;
+        }
         cpzPylon = null;
         waterSurfaceManager = null;
         currentZone = -1;

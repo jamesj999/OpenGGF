@@ -209,4 +209,14 @@ public interface ZoneFeatureProvider {
     default boolean isForceBlackBackdrop() {
         return false;
     }
+
+    /**
+     * Returns a zone-specific renderer for custom visual effects (e.g. CNZ slot machine).
+     * Games/zones without custom renderers return {@link ZoneFeatureRenderer#NONE}.
+     *
+     * @return the zone feature renderer, never null
+     */
+    default ZoneFeatureRenderer getFeatureRenderer() {
+        return ZoneFeatureRenderer.NONE;
+    }
 }

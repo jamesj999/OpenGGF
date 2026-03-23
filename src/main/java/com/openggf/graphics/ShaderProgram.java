@@ -8,7 +8,7 @@ import static org.lwjgl.opengl.GL20.*;
 public class ShaderProgram {
     private static final Logger LOGGER = Logger.getLogger(ShaderProgram.class.getName());
     /** Fullscreen vertex shader path shared by tilemap, parallax, fade, and slot shaders. */
-    protected static final String FULLSCREEN_VERTEX_SHADER = "shaders/shader_fullscreen.vert";
+    public static final String FULLSCREEN_VERTEX_SHADER = "shaders/shader_fullscreen.vert";
 
     private int programId;
 

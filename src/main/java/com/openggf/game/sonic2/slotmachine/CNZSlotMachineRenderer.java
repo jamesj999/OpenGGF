@@ -1,5 +1,6 @@
 package com.openggf.game.sonic2.slotmachine;
 
+import com.openggf.game.ZoneFeatureRenderer;
 import com.openggf.graphics.RenderContext;
 import org.lwjgl.system.MemoryUtil;
 import com.openggf.data.Rom;
@@ -31,7 +32,7 @@ import static org.lwjgl.opengl.GL30.glGenVertexArrays;
  * The slot display appears above the cage when a player is captured in a
  * linked PointPokey (subtype 0x01).
  */
-public class CNZSlotMachineRenderer {
+public class CNZSlotMachineRenderer implements ZoneFeatureRenderer {
     private static final Logger LOGGER = Logger.getLogger(CNZSlotMachineRenderer.class.getName());
 
     // Texture dimensions: 32 wide × 192 tall (6 faces × 32 pixels/face)
