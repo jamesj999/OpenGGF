@@ -1065,58 +1065,8 @@ public class ObjectManager {
             // Clear building to prepare for this frame's data
             building.clear();
 
-            Collection<ObjectInstance> activeObjects = objectManager.getActiveObjects();
-            for (ObjectInstance instance : activeObjects) {
-                if (!(instance instanceof TouchResponseProvider provider)) {
-                    continue;
-                }
-
-                // Multi-region providers (e.g., spiked pole helix) check each region independently
-                TouchResponseProvider.TouchRegion[] regions = provider.getMultiTouchRegions();
-                if (regions != null) {
-                    checkMultiRegionTouch(player, playerX, playerY, playerHeight, instance, provider, regions, playerWidth);
-                    continue;
-                }
-
-                int flags = provider.getCollisionFlags();
-                if (flags == 0) {
-                    continue; // Skip collision for objects with no collision flags
-                }
-                int sizeIndex = flags & 0x3F;
-                int width = table.getWidthRadius(sizeIndex);
-                int height = table.getHeightRadius(sizeIndex);
-                TouchCategory category = decodeCategory(flags);
-                if (category == TouchCategory.HURT
-                        && tryShieldDeflect(player, instance, provider, width, height)) {
-                    continue;
-                }
-
-                // ROM: Touch_CheckCollision uses x_pos(a1)/y_pos(a1) — the object's current
-                // position, not its spawn position. Use getX()/getY() which moving objects
-                // (badniks, projectiles, boss children) override to return current coords.
-                boolean overlap = isOverlapping(playerX, playerY, playerHeight, instance.getX(), instance.getY(), width, height, playerWidth);
-                if (debugState.isEnabled()) {
-                    debugState.addHit(
-                            new TouchResponseDebugHit(instance.getSpawn(), flags, sizeIndex, width, height, category, overlap));
-                }
-                if (!overlap) {
-                    continue;
-                }
-
-                building.add(instance);
-                // ROM touch checks run every frame for bosses. Most other objects are
-                // edge-triggered, but some special objects need per-frame polling behavior.
-                boolean shouldTrigger = category == TouchCategory.BOSS
-                        || provider.requiresContinuousTouchCallbacks()
-                        || !overlapping.contains(instance);
-                if (shouldTrigger) {
-                    TouchResponseResult result = new TouchResponseResult(sizeIndex, width, height, category);
-                    TouchResponseListener listener = instance instanceof TouchResponseListener casted ? casted : null;
-                    handleTouchResponse(player, instance, listener, result);
-                    // ROM: exits after first hit found per frame (bne.w branch)
-                    break;
-                }
-            }
+            processCollisionLoop(player, playerX, playerY, playerHeight, playerWidth,
+                    building, overlapping, false);
 
             // Swap buffers: building becomes overlapping for next frame
             Set<ObjectInstance> temp = overlapping;
@@ -1158,20 +1108,106 @@ public class ObjectManager {
 
             buffers.building.clear();
 
+            processCollisionLoop(sidekick, playerX, playerY, playerHeight, 0x10,
+                    buffers.building, buffers.overlapping, true);
+
+            buffers.swap();
+        }
+
+        /**
+         * Shared collision loop for both main player and sidekick touch responses.
+         * Iterates active objects, checks touch regions and overlap, dispatches to the
+         * appropriate response handler. Behavioral differences are parameterized:
+         * - Player: records debug hits, breaks after first hit (ROM: bne.w branch)
+         * - Sidekick: no debug recording, continues loop after hits
+         *
+         * @param player         the playable entity to check collisions for
+         * @param playerX        hitbox left edge (centreX - 8, or insta-shield adjusted)
+         * @param playerY        hitbox top edge (centreY - yRadius adjusted)
+         * @param playerHeight   hitbox height
+         * @param playerWidth    hitbox width (0x10 normal, 0x30 insta-shield)
+         * @param buildingSet    the set being populated with this frame's overlapping objects
+         * @param overlappingSet last frame's overlapping objects (for edge-trigger detection)
+         * @param isSidekick     true for sidekick (no break-on-hit, sidekick response handler)
+         */
+        private void processCollisionLoop(PlayableEntity player,
+                int playerX, int playerY, int playerHeight, int playerWidth,
+                Set<ObjectInstance> buildingSet, Set<ObjectInstance> overlappingSet,
+                boolean isSidekick) {
             Collection<ObjectInstance> activeObjects = objectManager.getActiveObjects();
             for (ObjectInstance instance : activeObjects) {
                 if (!(instance instanceof TouchResponseProvider provider)) {
                     continue;
                 }
 
-                // Multi-region providers check each region independently
+                // Multi-region providers (e.g., spiked pole helix) check each region independently
                 TouchResponseProvider.TouchRegion[] regions = provider.getMultiTouchRegions();
                 if (regions != null) {
-                    checkMultiRegionTouchSidekick(sidekick, playerX, playerY, playerHeight, instance, provider, regions, buffers);
+                    processMultiRegionTouch(player, playerX, playerY, playerHeight,
+                            instance, provider, regions, playerWidth,
+                            buildingSet, overlappingSet, isSidekick);
                     continue;
                 }
 
                 int flags = provider.getCollisionFlags();
+                if (flags == 0) {
+                    continue; // Skip collision for objects with no collision flags
+                }
+                int sizeIndex = flags & 0x3F;
+                int width = table.getWidthRadius(sizeIndex);
+                int height = table.getHeightRadius(sizeIndex);
+                TouchCategory category = decodeCategory(flags);
+                if (category == TouchCategory.HURT
+                        && tryShieldDeflect(player, instance, provider, width, height)) {
+                    continue;
+                }
+
+                // ROM: Touch_CheckCollision uses x_pos(a1)/y_pos(a1) — the object's current
+                // position, not its spawn position. Use getX()/getY() which moving objects
+                // (badniks, projectiles, boss children) override to return current coords.
+                boolean overlap = isOverlapping(playerX, playerY, playerHeight, instance.getX(), instance.getY(), width, height, playerWidth);
+                if (!isSidekick && debugState.isEnabled()) {
+                    debugState.addHit(
+                            new TouchResponseDebugHit(instance.getSpawn(), flags, sizeIndex, width, height, category, overlap));
+                }
+                if (!overlap) {
+                    continue;
+                }
+
+                buildingSet.add(instance);
+                // ROM touch checks run every frame for bosses. Most other objects are
+                // edge-triggered, but some special objects need per-frame polling behavior.
+                boolean shouldTrigger = category == TouchCategory.BOSS
+                        || provider.requiresContinuousTouchCallbacks()
+                        || !overlappingSet.contains(instance);
+                if (shouldTrigger) {
+                    TouchResponseResult result = new TouchResponseResult(sizeIndex, width, height, category);
+                    TouchResponseListener listener = instance instanceof TouchResponseListener casted ? casted : null;
+                    if (isSidekick) {
+                        handleTouchResponseSidekick(player, instance, listener, result);
+                    } else {
+                        handleTouchResponse(player, instance, listener, result);
+                        // ROM: exits after first hit found per frame (bne.w branch)
+                        break;
+                    }
+                }
+            }
+        }
+
+        /**
+         * Unified multi-region touch check for both player and sidekick.
+         * Each region is checked separately; if any overlaps, the object is treated as
+         * overlapping with the first matching region's collision flags applied.
+         * One hit per object per frame is sufficient — returns after first overlapping region.
+         */
+        private void processMultiRegionTouch(PlayableEntity player,
+                int playerX, int playerY, int playerHeight,
+                ObjectInstance instance, TouchResponseProvider provider,
+                TouchResponseProvider.TouchRegion[] regions, int playerWidth,
+                Set<ObjectInstance> buildingSet, Set<ObjectInstance> overlappingSet,
+                boolean isSidekick) {
+            for (TouchResponseProvider.TouchRegion region : regions) {
+                int flags = region.collisionFlags();
                 if (flags == 0) {
                     continue;
                 }
@@ -1179,28 +1215,28 @@ public class ObjectManager {
                 int width = table.getWidthRadius(sizeIndex);
                 int height = table.getHeightRadius(sizeIndex);
                 TouchCategory category = decodeCategory(flags);
-                if (category == TouchCategory.HURT
-                        && tryShieldDeflect(sidekick, instance, provider, width, height)) {
-                    continue;
-                }
 
-                boolean overlap = isOverlapping(playerX, playerY, playerHeight, instance.getX(), instance.getY(), width, height, 0x10);
+                boolean overlap = isOverlappingXY(playerX, playerY, playerHeight,
+                        region.x(), region.y(), width, height, playerWidth);
                 if (!overlap) {
                     continue;
                 }
 
-                buffers.building.add(instance);
+                buildingSet.add(instance);
                 boolean shouldTrigger = category == TouchCategory.BOSS
                         || provider.requiresContinuousTouchCallbacks()
-                        || !buffers.overlapping.contains(instance);
+                        || !overlappingSet.contains(instance);
                 if (shouldTrigger) {
                     TouchResponseResult result = new TouchResponseResult(sizeIndex, width, height, category);
                     TouchResponseListener listener = instance instanceof TouchResponseListener casted ? casted : null;
-                    handleTouchResponseSidekick(sidekick, instance, listener, result);
+                    if (isSidekick) {
+                        handleTouchResponseSidekick(player, instance, listener, result);
+                    } else {
+                        handleTouchResponse(player, instance, listener, result);
+                    }
                 }
+                return; // One hit per object per frame is sufficient
             }
-
-            buffers.swap();
         }
 
         private boolean tryShieldDeflect(PlayableEntity player, ObjectInstance instance,
@@ -1357,80 +1393,6 @@ public class ObjectManager {
             }
 
             return true;
-        }
-
-        /**
-         * Check touch collision for objects with multiple independent collision regions.
-         * Each region is checked separately; if any overlaps, the object is treated as
-         * overlapping with the first matching region's collision flags applied.
-         */
-        private void checkMultiRegionTouch(PlayableEntity player,
-                int playerX, int playerY, int playerHeight,
-                ObjectInstance instance, TouchResponseProvider provider,
-                TouchResponseProvider.TouchRegion[] regions, int playerWidth) {
-            for (TouchResponseProvider.TouchRegion region : regions) {
-                int flags = region.collisionFlags();
-                if (flags == 0) {
-                    continue;
-                }
-                int sizeIndex = flags & 0x3F;
-                int width = table.getWidthRadius(sizeIndex);
-                int height = table.getHeightRadius(sizeIndex);
-                TouchCategory category = decodeCategory(flags);
-
-                boolean overlap = isOverlappingXY(playerX, playerY, playerHeight,
-                        region.x(), region.y(), width, height, playerWidth);
-                if (!overlap) {
-                    continue;
-                }
-
-                building.add(instance);
-                boolean shouldTrigger = category == TouchCategory.BOSS
-                        || provider.requiresContinuousTouchCallbacks()
-                        || !overlapping.contains(instance);
-                if (shouldTrigger) {
-                    TouchResponseResult result = new TouchResponseResult(sizeIndex, width, height, category);
-                    TouchResponseListener listener = instance instanceof TouchResponseListener casted ? casted : null;
-                    handleTouchResponse(player, instance, listener, result);
-                }
-                return; // One hit per object per frame is sufficient
-            }
-        }
-
-        /**
-         * Multi-region touch check for CPU sidekick.
-         */
-        private void checkMultiRegionTouchSidekick(PlayableEntity sidekick,
-                int playerX, int playerY, int playerHeight,
-                ObjectInstance instance, TouchResponseProvider provider,
-                TouchResponseProvider.TouchRegion[] regions, OverlapBufferPair buffers) {
-            for (TouchResponseProvider.TouchRegion region : regions) {
-                int flags = region.collisionFlags();
-                if (flags == 0) {
-                    continue;
-                }
-                int sizeIndex = flags & 0x3F;
-                int width = table.getWidthRadius(sizeIndex);
-                int height = table.getHeightRadius(sizeIndex);
-                TouchCategory category = decodeCategory(flags);
-
-                boolean overlap = isOverlappingXY(playerX, playerY, playerHeight,
-                        region.x(), region.y(), width, height, 0x10);
-                if (!overlap) {
-                    continue;
-                }
-
-                buffers.building.add(instance);
-                boolean shouldTrigger = category == TouchCategory.BOSS
-                        || provider.requiresContinuousTouchCallbacks()
-                        || !buffers.overlapping.contains(instance);
-                if (shouldTrigger) {
-                    TouchResponseResult result = new TouchResponseResult(sizeIndex, width, height, category);
-                    TouchResponseListener listener = instance instanceof TouchResponseListener casted ? casted : null;
-                    handleTouchResponseSidekick(sidekick, instance, listener, result);
-                }
-                return;
-            }
         }
 
         private TouchCategory decodeCategory(int flags) {
