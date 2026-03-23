@@ -171,9 +171,8 @@ public class AizMinibossInstance extends AbstractBossInstance {
 
         // ROM: loc_46ED4 creates Child6_CreateBossExplosion (sub_52850, subtype 0).
         // CreateBossExp00: timer=$20 (33 explosions), xRange=$20, yRange=$20.
-        // Plays sfx_Explode (0xB4) once at creation, then staggers explosions 3 frames apart.
+        // sub_52850 plays sfx_Explode each time it spawns an explosion child (every 3 frames).
         defeatExplosionController = new S3kBossExplosionController(state.x, state.y, 0);
-        services().playSfx(Sonic3kSfx.EXPLODE.id);
 
         services().fadeOutMusic();
 
@@ -376,6 +375,9 @@ public class AizMinibossInstance extends AbstractBossInstance {
             var objectManager = services().objectManager();
             if (objectManager != null) {
                 for (var pending : defeatExplosionController.drainPendingExplosions()) {
+                    if (pending.playSfx()) {
+                        services().playSfx(Sonic3kSfx.EXPLODE.id);
+                    }
                     objectManager.addDynamicObject(
                             new S3kBossExplosionChild(pending.x(), pending.y()));
                 }
