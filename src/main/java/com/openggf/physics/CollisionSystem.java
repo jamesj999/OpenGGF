@@ -15,9 +15,6 @@ import java.util.logging.Logger;
  * 1. Terrain probes (ground/ceiling/wall sensors against level collision)
  * 2. Solid object resolution (platforms, moving solids, sloped solids)
  * 3. Post-resolution adjustments (ground mode, gSpeed recompute, headroom)
- *
- * Initially this delegates to existing managers to prove behavioral parity.
- * Logic will be migrated incrementally once parity tests pass.
  */
 public class CollisionSystem {
     private static final Logger LOGGER = Logger.getLogger(CollisionSystem.class.getName());
@@ -29,12 +26,6 @@ public class CollisionSystem {
 
     // Trace for debugging/testing - defaults to no-op
     private CollisionTrace trace = NoOpCollisionTrace.INSTANCE;
-
-    // Runtime flag to enable unified pipeline vs legacy
-    private boolean unifiedPipelineEnabled = false;
-
-    // Shadow mode: run both pipelines and compare (for validation)
-    private boolean shadowModeEnabled = false;
 
     private CollisionSystem() {
         this.terrainCollisionManager = TerrainCollisionManager.getInstance();
@@ -55,8 +46,6 @@ public class CollisionSystem {
         terrainCollisionManager.resetState();
         objectManager = null;
         trace = NoOpCollisionTrace.INSTANCE;
-        unifiedPipelineEnabled = false;
-        shadowModeEnabled = false;
     }
 
     /**
@@ -78,22 +67,6 @@ public class CollisionSystem {
 
     public CollisionTrace getTrace() {
         return trace;
-    }
-
-    public void setUnifiedPipelineEnabled(boolean enabled) {
-        this.unifiedPipelineEnabled = enabled;
-    }
-
-    public boolean isUnifiedPipelineEnabled() {
-        return unifiedPipelineEnabled;
-    }
-
-    public void setShadowModeEnabled(boolean enabled) {
-        this.shadowModeEnabled = enabled;
-    }
-
-    public boolean isShadowModeEnabled() {
-        return shadowModeEnabled;
     }
 
     /**
@@ -170,22 +143,10 @@ public class CollisionSystem {
 
     /**
      * Phase 3: Apply post-resolution adjustments.
-     * This includes headroom checks, ground mode updates, and gSpeed recomputation.
+     * Currently a no-op; adjustments are performed inline in movement code.
+     * This will be expanded as logic migrates from PlayableSpriteMovement.
      */
     public void postResolutionAdjustments(AbstractPlayableSprite sprite) {
-        // Currently minimal - adjustments are done inline in movement code
-        // This will be expanded as we migrate logic from PlayableSpriteMovement
-
-        // Example: headroom check
-        if (objectManager != null && !sprite.getAir()) {
-            int hexAngle = sprite.getAngle() & 0xFF;
-            int headroom = objectManager.getHeadroomDistance(sprite, hexAngle);
-            if (headroom < Integer.MAX_VALUE && headroom < sprite.getYRadius()) {
-                int before = sprite.getCentreY();
-                // Headroom clamping would go here
-                trace.onPostAdjustment("headroom_check", before, sprite.getCentreY());
-            }
-        }
     }
 
     /**

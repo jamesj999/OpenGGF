@@ -44,28 +44,6 @@ public class CollisionSystemTest {
     }
 
     @Test
-    public void testUnifiedPipelineDisabledByDefault() {
-        assertFalse(collisionSystem.isUnifiedPipelineEnabled());
-    }
-
-    @Test
-    public void testShadowModeDisabledByDefault() {
-        assertFalse(collisionSystem.isShadowModeEnabled());
-    }
-
-    @Test
-    public void testPipelineCanBeEnabled() {
-        collisionSystem.setUnifiedPipelineEnabled(true);
-        assertTrue(collisionSystem.isUnifiedPipelineEnabled());
-    }
-
-    @Test
-    public void testShadowModeCanBeEnabled() {
-        collisionSystem.setShadowModeEnabled(true);
-        assertTrue(collisionSystem.isShadowModeEnabled());
-    }
-
-    @Test
     public void testNullSpriteHandledGracefully() {
         collisionSystem.step(null, new Sensor[0], new Sensor[0]);
         assertTrue(trace.getEvents().isEmpty());
