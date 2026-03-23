@@ -387,8 +387,6 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
     protected class BossDefeatSequencer {
         // ROM: s2.asm:63155 - move.w #$B3,objoff_3C(a0) ($B3 = 179 decimal)
         private static final int EXPLOSION_DURATION = 179; // Frames
-        // ROM: s2.asm:62992 - Boss_LoadExplosion spawns every 8 frames
-        private static final int EXPLOSION_INTERVAL = 8; // Spawn explosion every 8 frames
 
         private DefeatState defeatState;
         private int defeatTimer;

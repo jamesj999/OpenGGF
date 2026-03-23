@@ -70,8 +70,6 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
     private static final int FLAMETHROWER_DURATION = 60;
     /** Flamethrower spawn timing (ROM: cmpi.b #-$18,objoff_3E(a0)) = -24 */
     private static final int FLAMETHROWER_SPAWN_TIME = -24;
-    /** Defeat countdown initial value (ROM: move.w #$B3,(Boss_Countdown).w) */
-    private static final int DEFEAT_TIMER_START = 0xB3;
     /** Defeat flee threshold (ROM: cmpi.w #-$3C,(Boss_Countdown).w) */
     private static final int DEFEAT_FLEE_TIME = -0x3C;
 

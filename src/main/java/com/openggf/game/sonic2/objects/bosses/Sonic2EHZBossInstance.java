@@ -65,7 +65,6 @@ public class Sonic2EHZBossInstance extends AbstractBossInstance {
     private static final int DESCEND_WAIT_FRAMES = 60;
     private static final int POST_FALL_WAIT_FRAMES = 12;
     private static final int FLEE_UP_DURATION = 96;
-    private static final int DEFEAT_TIMER_START = 0xB3;
     private static final int FLOOR_Y = 0x48C; // Boss floor during defeat
 
     // Custom memory offsets (objoff_XX pattern from ROM)
