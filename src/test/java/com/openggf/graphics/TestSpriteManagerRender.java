@@ -56,6 +56,35 @@ public class TestSpriteManagerRender {
     }
 
     @Test
+    public void testSidekickDrawnBeforeMainPlayer() {
+        List<String> drawOrder = new ArrayList<>();
+        SpriteManager spriteManager = SpriteManager.getInstance();
+
+        // Add main first, then sidekick — same bucket and priority
+        TestPlayableSprite main = new TestPlayableSprite("main", drawOrder);
+        main.setPriorityBucket(2);
+        main.setHighPriority(false);
+
+        TestPlayableSprite sidekick = new TestPlayableSprite("sidekick", drawOrder);
+        sidekick.setCpuControlled(true);
+        sidekick.setPriorityBucket(2);
+        sidekick.setHighPriority(false);
+
+        spriteManager.addSprite(main);
+        spriteManager.addSprite(sidekick);
+
+        try {
+            spriteManager.drawLowPriority();
+            // VDP draws lower-indexed sprites on top; painter's algorithm means
+            // the sprite drawn LAST appears in front. Sidekick must draw first.
+            assertEquals(List.of("sidekick", "main"), drawOrder);
+        } finally {
+            spriteManager.removeSprite(main.getCode());
+            spriteManager.removeSprite(sidekick.getCode());
+        }
+    }
+
+    @Test
     public void testSonic2SidekickSuppressionZones() throws Exception {
         List<String> drawOrder = new ArrayList<>();
         SpriteManager spriteManager = SpriteManager.getInstance();

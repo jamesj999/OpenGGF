@@ -592,12 +592,33 @@ public class SpriteManager {
 		}
 		nonPlayableSprites.clear();
 
+		// Two-pass bucketing: sidekicks first (drawn behind), then main player
+		// (drawn on top). On the VDP, lower sprite indices have higher priority
+		// and appear in front. Sonic occupies slot 0 and Tails slot 1, so Sonic
+		// must be drawn last in painter's-algorithm order.
 		Collection<Sprite> sprites = getAllSprites();
 		for (Sprite sprite : sprites) {
 			if (isSuppressedSidekickSprite(sprite)) {
 				continue;
 			}
+			if (sprite instanceof AbstractPlayableSprite playable && playable.isCpuControlled()) {
+				int bucket = RenderPriority.clamp(playable.getPriorityBucket());
+				int idx = bucket - RenderPriority.MIN;
+				if (playable.isHighPriority()) {
+					highPriorityBuckets[idx].add(sprite);
+				} else {
+					lowPriorityBuckets[idx].add(sprite);
+				}
+			}
+		}
+		for (Sprite sprite : sprites) {
+			if (isSuppressedSidekickSprite(sprite)) {
+				continue;
+			}
 			if (sprite instanceof AbstractPlayableSprite playable) {
+				if (playable.isCpuControlled()) {
+					continue; // already added in first pass
+				}
 				int bucket = RenderPriority.clamp(playable.getPriorityBucket());
 				int idx = bucket - RenderPriority.MIN;
 				if (playable.isHighPriority()) {
