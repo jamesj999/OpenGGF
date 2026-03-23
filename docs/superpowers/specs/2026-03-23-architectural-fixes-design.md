@@ -63,9 +63,11 @@ objectRenderManager.ensurePatternsCached(graphicsManager, OBJECT_PATTERN_BASE);
 - `DynamicHtz` is a Level-aware resource manager for HTZ cloud art streaming. It depends on HTZ handler state but is not itself a scroll handler.
 - Screen shake offsets (ARZ, HTZ, MCZ) are accumulated per-frame from individual handlers into ParallaxManager's `currentShakeOffsetX/Y`.
 
+**Current state:** `Sonic2ScrollHandlerProvider` already registers 5 of 10 zone handlers (EHZ, CPZ, ARZ, DEZ, MCZ), but these are **never consulted for S2** — the `loaded` flag in `ParallaxManager.update()` gates S2 onto the inline switch-statement path (`if (!loaded && scrollProvider != null)`), bypassing the provider entirely. The 5 existing provider handlers are dead code for S2.
+
 **Design:**
 
-1. **Complete Sonic2ScrollHandlerProvider** — add the 5 missing handlers (CNZ, HTZ, OOZ, SCZ, WFZ). Move `BackgroundCamera` and `ParallaxTables` ownership into the provider. Expose `BackgroundCamera` via a getter for ParallaxManager's DynamicHtz integration.
+1. **Complete Sonic2ScrollHandlerProvider** — add the 5 missing handlers (CNZ, HTZ, OOZ, SCZ, WFZ). Move `BackgroundCamera` and `ParallaxTables` ownership into the provider. Expose `BackgroundCamera` via a getter for tornado velocity queries.
 
 2. **Extend ZoneScrollHandler interface** with default methods for features the remaining handlers need:
    ```java
@@ -74,27 +76,44 @@ objectRenderManager.ensurePatternsCached(graphicsManager, OBJECT_PATTERN_BASE);
    default int getShakeOffsetY() { return 0; }
    default void init(int actId, int cameraX, int cameraY) { /* no-op */ }
    ```
-   These defaults mean non-S2 handlers don't need to implement them.
+   These defaults mean non-S2 handlers don't need to implement them. MCZ and HTZ handlers override `getVscrollFactorFG()` to return meaningful foreground scroll values.
 
-3. **Unify the update path** — replace the 120-line switch statement (lines 427-553) with the same `scrollProvider.getHandler(zoneId)` dispatch used by S1/S3K. All 10 zones now go through the provider.
+3. **Eliminate the `loaded` flag dual-path** — currently `ParallaxManager.update()` branches on `loaded` (true = inline S2 switch, false = provider dispatch). After all 10 handlers are in the provider, remove the `loaded` flag and the inline code path entirely. The unified update path becomes:
+   ```java
+   ZoneScrollHandler handler = scrollProvider.getHandler(zoneId);
+   if (handler != null) {
+       handler.update(hScroll, cameraX, cameraY, frameCounter, actId);
+       minScroll = handler.getMinScrollOffset();
+       maxScroll = handler.getMaxScrollOffset();
+       vscrollFactorBG = handler.getVscrollFactorBG();
+       vscrollFactorFG = handler.getVscrollFactorFG();
+       currentShakeOffsetX = handler.getShakeOffsetX();
+       currentShakeOffsetY = handler.getShakeOffsetY();
+       cachedBgCameraX = handler.getBgCameraX();
+       cachedBgPeriodWidth = handler.getBgPeriodWidth();
+       capturePerLineVScroll(handler);
+       capturePerColumnVScroll(handler);
+   }
+   ```
+   This replaces both the 120-line switch statement (lines 427-553) and the existing provider path (lines 398-416) with a single unified path. The `loaded` field, the `load()` method's S2-specific handler instantiation, and the `initZone()` S2 dispatch are all removed.
 
 4. **Remove `hasInlineParallaxHandlers()` flag** from `GameModule` — no longer needed since all games use `ScrollHandlerProvider` exclusively.
 
-5. **Keep `DynamicHtz` in ParallaxManager** — it's a Level-aware resource manager, not a scroll handler. ParallaxManager fetches the HTZ handler reference from the provider to pass cloud data to `DynamicHtz.update()`. The `DynamicHtz` import is S2-specific but isolated to a single conditional block gated by zone ID from the handler.
+5. **Move DynamicHtz into Sonic2ScrollHandlerProvider** — to fully eliminate S2 imports from ParallaxManager. The provider exposes a `updateDynamicArt(Level, Camera)` method that internally coordinates HTZ handler + DynamicHtz. ParallaxManager calls this via the `ScrollHandlerProvider` interface (add a default no-op method). Note: `DynamicHtz.update()` takes a concrete `SwScrlHtz` reference — this is fine within the S2 provider class where the concrete type is known.
 
-6. **Move DynamicHtz into Sonic2ScrollHandlerProvider** — to fully eliminate the S2 import from ParallaxManager. The provider exposes a `updateDynamicArt(Level, Camera)` method that internally coordinates HTZ handler + DynamicHtz. ParallaxManager calls this via the `ScrollHandlerProvider` interface (add a default no-op method).
+6. **Move zone init into the provider** — add `initForZone(int zoneId, int actId, int cameraX, int cameraY)` to `ScrollHandlerProvider` (default no-op). `Sonic2ScrollHandlerProvider` overrides to dispatch zone-specific `handler.init()` calls and `bgCamera.init()`. ParallaxManager's `initZone()` calls `scrollProvider.initForZone(...)` instead of the inline S2 switch.
 
-**Imports removed from ParallaxManager:** All 10 `SwScrl*` classes, `BackgroundCamera`, `ParallaxTables`, `DynamicHtz`. The 11 hardcoded zone constants are also removed.
+**Imports removed from ParallaxManager:** All 10 `SwScrl*` classes, `BackgroundCamera`, `ParallaxTables`, `DynamicHtz`. The 11 hardcoded zone constants and the `loaded` flag are also removed.
 
-**ZoneScrollHandler additions:** 4 default methods (vscrollFG, shakeX, shakeY, init). Tornado velocity accessors stay on the concrete `SwScrlScz` class — ParallaxManager accesses them via a `ScrollHandlerProvider.getTornadoHandler()` method or casts from the provider.
+**ZoneScrollHandler additions:** 4 default methods (vscrollFG, shakeX, shakeY, init). Tornado velocity accessors stay on the concrete `SwScrlScz` class — `Sonic2ScrollHandlerProvider` exposes them via `getTornadoVelocityX()/Y()` methods on the provider interface (default returns 0).
 
 **Files modified:**
 - `ZoneScrollHandler.java` — add 4 default methods
-- `ScrollHandlerProvider.java` — add `updateDynamicArt()` default, `getBackgroundCamera()` default
-- `Sonic2ScrollHandlerProvider.java` — add 5 handlers, own BackgroundCamera/ParallaxTables/DynamicHtz
+- `ScrollHandlerProvider.java` — add `updateDynamicArt()`, `initForZone()`, `getTornadoVelocityX()/Y()` defaults
+- `Sonic2ScrollHandlerProvider.java` — add 5 handlers, own BackgroundCamera/ParallaxTables/DynamicHtz, implement `initForZone()` and `updateDynamicArt()`
 - `Sonic2GameModule.java` — remove `hasInlineParallaxHandlers()` override
 - `GameModule.java` — remove `hasInlineParallaxHandlers()` method
-- `ParallaxManager.java` — remove inline handlers, zone constants, switch statement; unify dispatch
+- `ParallaxManager.java` — remove `loaded` flag, inline handlers, zone constants, switch statement, S2-specific `load()`/`initZone()` paths; unify to single provider-based dispatch
 
 **Risk:** Largest task. SCZ has camera-freeze behavior, HTZ has DynamicHtz coupling. Both need careful frame-by-frame parity testing against the existing behavior.
 
@@ -147,12 +166,12 @@ objectRenderManager.ensurePatternsCached(graphicsManager, OBJECT_PATTERN_BASE);
 
 **Design:**
 
-1. **GameStateManager** — add `resetState()` as alias:
+1. **GameStateManager** — add `resetState()` that delegates to `resetSession()`, then update the teardown call sites to use the new name:
    ```java
-   /** Resets all mutable state. Alias for {@link #resetSession()} for naming consistency. */
+   /** Resets all mutable state for test teardown. Delegates to {@link #resetSession()}. */
    public void resetState() { resetSession(); }
    ```
-   `resetSession()` is already wired into `AbstractLevelInitProfile` teardown. No wiring change needed.
+   Update `AbstractLevelInitProfile.java` to call `resetState()` instead of `resetSession()` at both `levelTeardownSteps()` (line 257) and `perTestResetSteps()` (line 286). This makes the teardown call site consistent with all other singletons.
 
 2. **LevelManager.resetState()** — add 3 missing fields after the existing resets:
    ```java
@@ -166,6 +185,7 @@ objectRenderManager.ensurePatternsCached(graphicsManager, OBJECT_PATTERN_BASE);
 
 **Files modified:**
 - `GameStateManager.java` — add `resetState()` method
+- `AbstractLevelInitProfile.java` — change `resetSession()` → `resetState()` at 2 call sites
 - `LevelManager.java` — add 3 field resets to existing `resetState()`
 
 ---
@@ -190,6 +210,8 @@ if (bubbleAnimId >= 0) {
 ```
 
 Remove `import com.openggf.game.sonic2.constants.Sonic2AnimationIds`.
+
+**Note on -1 guard:** `resolveAnimationId()` returns -1 when the active game doesn't map the canonical animation. S1 has no BUBBLE animation (it uses GET_AIR for a different mechanic), so `bubbleAnimId` will be -1 in S1. The `if (bubbleAnimId >= 0)` guard correctly skips the animation set — S1's `replenishAir()` will not set a bubble animation, which is correct behavior (S1 doesn't have bubble shields).
 
 **Files modified:**
 - `AbstractPlayableSprite.java` — add field, resolve in init, replace usage, remove import
@@ -313,16 +335,16 @@ Integrate at key allocation sites:
        1. ResetAudio (AudioManager.resetState())
        2. ResetCrossGameFeatures (CrossGameFeatureProvider.resetState())
        3. Game-specific level event teardown
-       4. ResetParallax (ParallaxManager.resetInstance())
-       5. ResetLevelManager (LevelManager.resetState())
-       6. ResetSprites (SpriteManager.resetState())
-       7. ResetCollision (CollisionSystem.resetState())
-       8. ResetCamera (Camera.resetState())
-       9. ResetGraphics (GraphicsManager.resetState())
-       10. ResetFade (FadeManager.resetState())
-       11. ResetGameState (GameStateManager.resetSession())
-       12. ResetTimers (TimerManager.resetState())
-       13. ResetWater (WaterSystem.resetInstance())
+       4. ResetParallax (ParallaxManager.getInstance().resetState())
+       5. ResetLevelManager (LevelManager.getInstance().resetState())
+       6. ResetSprites (SpriteManager.getInstance().resetState())
+       7. ResetCollision (CollisionSystem.getInstance().resetState())
+       8. ResetCamera (Camera.getInstance().resetState())
+       9. ResetGraphics (GraphicsManager.getInstance().resetState())
+       10. ResetFade (FadeManager.getInstance().resetState())
+       11. ResetGameState (GameStateManager.getInstance().resetState())
+       12. ResetTimers (TimerManager.getInstance().resetState())
+       13. ResetWater (WaterSystem.getInstance().resetState())
      → profile.postTeardownFixups()
    ```
 
