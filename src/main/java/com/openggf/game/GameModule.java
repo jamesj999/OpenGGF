@@ -4,6 +4,7 @@ import com.openggf.audio.GameAudioProfile;
 import com.openggf.data.Game;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
+import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRegistry;
 import com.openggf.level.objects.PlaneSwitcherConfig;
 import com.openggf.level.objects.TouchResponseTable;
@@ -360,6 +361,19 @@ public interface GameModule {
      */
     default DonorCapabilities getDonorCapabilities() {
         return null;
+    }
+
+    /**
+     * Applies a seamless mutation to the given level manager using the provided key.
+     * Called when a seamless zone transition requires applying level data mutations.
+     *
+     * <p>Default implementation is a no-op for games without seamless mutations.
+     *
+     * @param levelManager the level manager to apply the mutation to
+     * @param mutationKey  the key identifying which mutation to apply
+     */
+    default void applySeamlessMutation(LevelManager levelManager, String mutationKey) {
+        // No-op for games without seamless mutations
     }
 
     /** Returns the GameId for this module. */

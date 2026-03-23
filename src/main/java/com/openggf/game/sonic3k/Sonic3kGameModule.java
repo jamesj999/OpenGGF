@@ -28,12 +28,14 @@ import com.openggf.game.TitleCardProvider;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.game.SpecialStageProvider;
+import com.openggf.game.sonic3k.events.S3kSeamlessMutationExecutor;
 import com.openggf.game.sonic3k.objects.Sonic3kObjectRegistry;
 import com.openggf.game.sonic3k.scroll.Sonic3kScrollHandlerProvider;
 import com.openggf.game.sonic3k.specialstage.Sonic3kSpecialStageProvider;
 import com.openggf.game.sonic3k.titlecard.Sonic3kTitleCardManager;
 import com.openggf.game.GameId;
 import com.openggf.game.OscillationManager;
+import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRegistry;
 import com.openggf.level.objects.PlaneSwitcherConfig;
 import com.openggf.level.objects.TouchResponseTable;
@@ -188,6 +190,11 @@ public class Sonic3kGameModule implements GameModule {
             return CrossGameFeatureProvider.getInstance().createSuperStateController(player);
         }
         return new Sonic3kSuperStateController(player);
+    }
+
+    @Override
+    public void applySeamlessMutation(LevelManager levelManager, String mutationKey) {
+        S3kSeamlessMutationExecutor.apply(levelManager, mutationKey);
     }
 
     @Override
