@@ -6,7 +6,7 @@ import org.lwjgl.glfw.*;
 import org.lwjgl.opengl.*;
 import org.lwjgl.system.MemoryStack;
 
-import com.openggf.Control.InputHandler;
+import com.openggf.control.InputHandler;
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.LWJGLAudioBackend;
 import com.openggf.camera.Camera;
@@ -62,8 +62,12 @@ public class Engine {
 
 	private final GameLoop gameLoop = new GameLoop();
 
-	public static DebugState debugState = DebugState.NONE;
-	public static DebugOption debugOption = DebugOption.A;
+	private static volatile DebugState debugState = DebugState.NONE;
+	private static volatile DebugOption debugOption = DebugOption.A;
+
+	public static DebugState getDebugState() { return debugState; }
+	public static DebugOption getDebugOption() { return debugOption; }
+	public static void setDebugOption(DebugOption option) { debugOption = option; }
 
 	private double realWidth = configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS);
 	private double realHeight = configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);

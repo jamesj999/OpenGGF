@@ -147,14 +147,14 @@ public class LevelDebugRenderer {
         int count = 0;
         int maxCount = level.getPatternCount();
 
-        if (Engine.debugOption.ordinal() > LevelConstants.MAX_PALETTES) {
-            Engine.debugOption = DebugOption.A;
+        if (Engine.getDebugOption().ordinal() > LevelConstants.MAX_PALETTES) {
+            Engine.setDebugOption(DebugOption.A);
         }
 
         for (int y = yTopBound; y <= yBottomBound; y += Pattern.PATTERN_HEIGHT) {
             for (int x = xLeftBound; x <= xRightBound; x += Pattern.PATTERN_WIDTH) {
                 if (count < maxCount) {
-                    reusablePatternDesc.setPaletteIndex(Engine.debugOption.ordinal());
+                    reusablePatternDesc.setPaletteIndex(Engine.getDebugOption().ordinal());
                     reusablePatternDesc.setPatternIndex(count);
                     graphicsManager.renderPattern(reusablePatternDesc, x, y);
                     count++;
