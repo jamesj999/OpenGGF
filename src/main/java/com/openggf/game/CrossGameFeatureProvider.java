@@ -385,8 +385,9 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
      * while S1 levels keep UNIFIED collision.
      */
     private PhysicsFeatureSet buildHybridFeatureSet() {
+        PhysicsFeatureSet donorFeatureSet = resolveDonorFeatureSet();
         short[] spindashSpeedTable = donorCapabilities.hasSpindash()
-                ? new short[]{0x0800, 0x0880, 0x0900, 0x0980, 0x0A00, 0x0A80, 0x0B00, 0x0B80, 0x0C00}
+                ? donorFeatureSet.spindashSpeedTable()
                 : null;
 
         // Inherit collision model from the base game module so plane switching
@@ -410,6 +411,14 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
                 baseFeatureSet.superSpindashSpeedTable(),       // superSpindashSpeedTable (from base game)
                 baseFeatureSet.movingCrouchThreshold()          // movingCrouchThreshold (from base game)
         );
+    }
+
+    private PhysicsFeatureSet resolveDonorFeatureSet() {
+        return switch (GameId.fromCode(donorGameId)) {
+            case S1 -> PhysicsFeatureSet.SONIC_1;
+            case S2 -> PhysicsFeatureSet.SONIC_2;
+            case S3K -> PhysicsFeatureSet.SONIC_3K;
+        };
     }
 
     /**
