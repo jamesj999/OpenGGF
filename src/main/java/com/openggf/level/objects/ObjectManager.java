@@ -965,6 +965,7 @@ public class ObjectManager {
     }
 
     static final class TouchResponses {
+        private static final Logger LOGGER = Logger.getLogger(TouchResponses.class.getName());
         private final ObjectManager objectManager;
         private final TouchResponseTable table;
         // Double-buffer pattern: swap buffers instead of allocating new sets each frame
@@ -1536,11 +1537,10 @@ public class ObjectManager {
                 return;
             }
 
-            // LOG: What object hurt Sonic
             if (instance != null) {
                 String className = instance.getClass().getSimpleName();
                 int objectId = instance.getSpawn().objectId();
-                System.out.println(">>> SONIC HURT by: " + className + " (ID: 0x" + Integer.toHexString(objectId) + ")");
+                LOGGER.fine(() -> "Touch hurt by: " + className + " (ID: 0x" + Integer.toHexString(objectId) + ")");
             }
 
             int sourceX = instance != null ? instance.getX() : player.getCentreX();

@@ -16,6 +16,7 @@ import com.openggf.level.PatternDesc;
 
 import java.nio.FloatBuffer;
 import java.util.ArrayDeque;
+import java.util.logging.Logger;
 
 /**
  * High-performance batched pattern renderer.
@@ -33,6 +34,8 @@ import java.util.ArrayDeque;
  * - Uses vertex arrays for efficient geometry transfer
  */
 public class BatchedPatternRenderer {
+
+    private static final Logger LOGGER = Logger.getLogger(BatchedPatternRenderer.class.getName());
 
     private static GraphicsManager cachedGm;
     private static Engine cachedEngine;
@@ -364,21 +367,12 @@ public class BatchedPatternRenderer {
         return patternCount;
     }
 
-    // Debug counter to limit log spam
-    private static int debugFrameCounter = 0;
-
     /**
      * End the current batch and return a command that can be queued.
      * This creates a snapshot of the batch data so it can be rendered later in the
      * correct order.
      */
     public GLCommandable endBatch() {
-        // Debug output for first few frames
-        if (debugFrameCounter < 10) {
-            System.out.println("[BatchedPatternRenderer] endBatch: patternCount=" + patternCount);
-            debugFrameCounter++;
-        }
-
         if (patternCount == 0) {
             batchActive = false;
             return null;
@@ -624,9 +618,6 @@ public class BatchedPatternRenderer {
             paletteCoordBuffer.flip();
         }
 
-        // Debug counter for execute method
-        private static int executeDebugCounter = 0;
-
         @Override
         public void execute(int cameraX, int cameraY, int cameraWidth, int cameraHeight) {
             if (patternCount == 0) {
@@ -642,16 +633,6 @@ public class BatchedPatternRenderer {
                 shader = (priorityShader != null) ? priorityShader : gm.getShaderProgram();
             } else {
                 shader = gm.getShaderProgram();
-            }
-
-            // Debug output for first few executions
-            if (executeDebugCounter < 5) {
-                System.out.println("[BatchRenderCommand] execute: patterns=" + patternCount +
-                    " camera=(" + cameraX + "," + cameraY + ")" +
-                    " shader=" + (shader != null ? shader.getProgramId() : "null") +
-                    " paletteTexId=" + gm.getCombinedPaletteTextureId() +
-                    " atlasTexId=" + gm.getPatternAtlasTextureId());
-                executeDebugCounter++;
             }
 
             // Setup state once for entire batch
