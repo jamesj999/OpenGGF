@@ -3192,6 +3192,26 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         return frames;
     }
 
+    @Override
+    public void registerLevelTileArt(Level level, int zoneIndex) {
+        registerPlatformSheet(level, zoneIndex);
+        registerCollapsingLedgeSheet(level, zoneIndex);
+        registerMzBrickSheet(level, zoneIndex);
+        registerLargeGrassyPlatformSheet(level, zoneIndex);
+        registerLavaWallSheet(level, zoneIndex);
+        registerFloatingBlockSheet(level, zoneIndex);
+        registerCirclingPlatformSheet(level, zoneIndex);
+        registerStaircaseSheet(level, zoneIndex);
+        registerElevatorSheet(level, zoneIndex);
+        if (zoneIndex == Sonic1Constants.ZONE_SYZ) {
+            registerSpinningLightSheet(level);
+            registerBossBlockSheet(level);
+        }
+        if (zoneIndex == Sonic1Constants.ZONE_LZ) {
+            registerSbz3BigDoorSheet(level, zoneIndex);
+        }
+    }
+
     /**
      * Registers the platform sprite sheet using level tile patterns.
      * Must be called AFTER the level is loaded since platforms use zone tileset art

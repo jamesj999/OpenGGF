@@ -628,6 +628,11 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         return shieldArtSets.get(key);
     }
 
+    @Override
+    public void registerLevelTileArt(Level level, int zoneIndex) {
+        registerLevelArtSheets(level, zoneIndex);
+    }
+
     /**
      * Registers object sprite sheets that use level patterns.
      * Must be called AFTER the level is loaded.

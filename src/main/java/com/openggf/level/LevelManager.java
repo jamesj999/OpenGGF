@@ -1,12 +1,9 @@
 package com.openggf.level;
 
 import com.openggf.game.*;
-import com.openggf.game.sonic1.Sonic1ObjectArtProvider;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.game.sonic2.Sonic2Level;
-import com.openggf.game.sonic2.Sonic2ObjectArtProvider;
 import com.openggf.game.sonic3k.events.S3kSeamlessMutationExecutor;
-import com.openggf.game.sonic3k.Sonic3kObjectArtProvider;
 
 import com.openggf.Engine;
 import com.openggf.camera.Camera;
@@ -1268,35 +1265,8 @@ public class LevelManager {
             objectRenderManager.ensurePatternsCached(graphicsManager, OBJECT_PATTERN_BASE);
 
             // Register level-tile-based object art (must be after level load)
-            if (provider instanceof Sonic2ObjectArtProvider sonic2Provider) {
-                sonic2Provider.registerSmashableGroundSheet(level);
-                sonic2Provider.registerSteamSpringPistonSheet(level);
-                objectRenderManager.ensurePatternsCached(graphicsManager, OBJECT_PATTERN_BASE);
-            }
-            if (provider instanceof Sonic1ObjectArtProvider sonic1Provider) {
-                sonic1Provider.registerPlatformSheet(level, zoneIndex);
-                sonic1Provider.registerCollapsingLedgeSheet(level, zoneIndex);
-                sonic1Provider.registerMzBrickSheet(level, zoneIndex);
-                sonic1Provider.registerLargeGrassyPlatformSheet(level, zoneIndex);
-                sonic1Provider.registerLavaWallSheet(level, zoneIndex);
-                sonic1Provider.registerFloatingBlockSheet(level, zoneIndex);
-                sonic1Provider.registerCirclingPlatformSheet(level, zoneIndex);
-                sonic1Provider.registerStaircaseSheet(level, zoneIndex);
-                sonic1Provider.registerElevatorSheet(level, zoneIndex);
-                if (zoneIndex == Sonic1Constants.ZONE_SYZ) {
-                    sonic1Provider.registerSpinningLightSheet(level);
-                    sonic1Provider.registerBossBlockSheet(level);
-                }
-                // SBZ3 (LZ zone slot) big diagonal door uses level tile art
-                if (zoneIndex == Sonic1Constants.ZONE_LZ) {
-                    sonic1Provider.registerSbz3BigDoorSheet(level, zoneIndex);
-                }
-                objectRenderManager.ensurePatternsCached(graphicsManager, OBJECT_PATTERN_BASE);
-            }
-            if (provider instanceof Sonic3kObjectArtProvider s3kProvider) {
-                s3kProvider.registerLevelArtSheets(level, zoneIndex);
-                objectRenderManager.ensurePatternsCached(graphicsManager, OBJECT_PATTERN_BASE);
-            }
+            provider.registerLevelTileArt(level, zoneIndex);
+            objectRenderManager.ensurePatternsCached(graphicsManager, OBJECT_PATTERN_BASE);
 
             hudRenderManager = new HudRenderManager(graphicsManager);
             hudRenderManager.setHudPalettes(provider.getHudTextPaletteLine(), provider.getHudFlashPaletteLine());
@@ -3084,8 +3054,8 @@ public class LevelManager {
         // keys per act; without re-registration they resolve to stale AIZ1 keys and
         // appear invisible after the AIZ1→AIZ2 fakeout transition.
         ObjectArtProvider artProvider = gameModule != null ? gameModule.getObjectArtProvider() : null;
-        if (artProvider instanceof Sonic3kObjectArtProvider s3kProvider) {
-            s3kProvider.registerLevelArtSheets(level, currentZone);
+        if (artProvider != null) {
+            artProvider.registerLevelTileArt(level, currentZone);
             if (objectRenderManager != null) {
                 objectRenderManager.ensurePatternsCached(graphicsManager, OBJECT_PATTERN_BASE);
             }

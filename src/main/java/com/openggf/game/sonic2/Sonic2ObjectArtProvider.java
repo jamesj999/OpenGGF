@@ -379,6 +379,12 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
         return artData;
     }
 
+    @Override
+    public void registerLevelTileArt(Level level, int zoneIndex) {
+        registerSmashableGroundSheet(level);
+        registerSteamSpringPistonSheet(level);
+    }
+
     /**
      * Registers the SmashableGround sprite sheet using level patterns.
      * This must be called AFTER the level is loaded since SmashableGround uses
