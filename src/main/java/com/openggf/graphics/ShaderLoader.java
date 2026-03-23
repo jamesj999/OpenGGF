@@ -3,10 +3,13 @@ package com.openggf.graphics;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.logging.Logger;
 
 import static org.lwjgl.opengl.GL20.*;
 
 public class ShaderLoader {
+    private static final Logger LOGGER = Logger.getLogger(ShaderLoader.class.getName());
+
     public static int loadShader(String filePath, int shaderType) throws IOException {
         // Load the shader source code from the classpath
         String shaderSource;
@@ -31,7 +34,8 @@ public class ShaderLoader {
         if (compiled == 0) {
             // Compilation failed, retrieve and print the log
             String log = glGetShaderInfoLog(shaderId);
-            System.err.println("Shader compilation failed:\n" + log);
+            LOGGER.severe("Shader compilation failed:\n" + log);
+            throw new RuntimeException("Shader compilation failed: " + log);
         }
 
         return shaderId;

@@ -1,10 +1,12 @@
 package com.openggf.graphics;
 
 import java.io.IOException;
+import java.util.logging.Logger;
 
 import static org.lwjgl.opengl.GL20.*;
 
 public class ShaderProgram {
+    private static final Logger LOGGER = Logger.getLogger(ShaderProgram.class.getName());
     /** Fullscreen vertex shader path shared by tilemap, parallax, fade, and slot shaders. */
     protected static final String FULLSCREEN_VERTEX_SHADER = "shaders/shader_fullscreen.vert";
 
@@ -91,7 +93,8 @@ public class ShaderProgram {
         int linked = glGetProgrami(programId, GL_LINK_STATUS);
         if (linked == 0) {
             String log = glGetProgramInfoLog(programId);
-            System.err.println("Shader linking failed:\n" + log);
+            LOGGER.severe("Shader linking failed:\n" + log);
+            throw new RuntimeException("Shader linking failed: " + log);
         }
 
         // Detach and delete shader objects - they're no longer needed after linking.
