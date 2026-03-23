@@ -2332,11 +2332,7 @@ public class Sonic2ObjectArt {
      * @return the art configuration, or null if not available
      */
     private ZoneArtProvider.ObjectArtConfig getObjectArtConfig(int objectId, int zoneIndex) {
-        ZoneArtProvider provider = GameModuleRegistry.getCurrent().getZoneArtProvider();
-        if (provider == null) {
-            return null;
-        }
-        return provider.getObjectArt(objectId, zoneIndex);
+        return GameModuleRegistry.getCurrent().getZoneArtProvider().getObjectArt(objectId, zoneIndex);
     }
 
     /**
