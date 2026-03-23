@@ -4,6 +4,7 @@ import org.lwjgl.system.MemoryUtil;
 import com.openggf.level.Pattern;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -201,20 +202,53 @@ public class PatternAtlas {
     }
 
     /**
-     * Remove a pattern entry from the atlas.
-     * This makes getEntry() return null for this pattern ID, causing
-     * the renderer to skip it. The atlas slot is not reclaimed.
+     * Remove a pattern entry from the atlas and reclaim its slot.
+     * If other entries (aliases) share the same physical slot, the slot
+     * is NOT freed until all references are removed.
      *
      * @param patternId The pattern ID to remove
      * @return true if the pattern was removed, false if it wasn't cached
      */
     public boolean removeEntry(int patternId) {
+        // Remove from lookup BEFORE calling isSlotShared() —
+        // the scan must not find this entry itself.
+        Entry old;
         if (patternId >= 0 && patternId < FAST_ENTRIES_SIZE) {
-            Entry old = fastEntries[patternId];
+            old = fastEntries[patternId];
             fastEntries[patternId] = null;
-            return old != null;
+        } else {
+            old = sparseEntries.remove(patternId);
         }
-        return sparseEntries.remove(patternId) != null;
+        if (old != null) {
+            if (!isSlotShared(old)) {
+                AtlasPage page = pages.get(old.atlasIndex());
+                page.freeSlot(old.slot());
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Check whether any remaining entry shares the same physical atlas slot
+     * as the given (already-removed) entry. Used to guard against freeing
+     * slots that are still referenced by aliases.
+     */
+    private boolean isSlotShared(Entry removed) {
+        int targetAtlas = removed.atlasIndex();
+        int targetSlot = removed.slot();
+        for (int i = 0; i < FAST_ENTRIES_SIZE; i++) {
+            Entry e = fastEntries[i];
+            if (e != null && e.atlasIndex() == targetAtlas && e.slot() == targetSlot) {
+                return true;
+            }
+        }
+        for (Entry e : sparseEntries.values()) {
+            if (e.atlasIndex() == targetAtlas && e.slot() == targetSlot) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -293,6 +327,10 @@ public class PatternAtlas {
         }
 
         int slot = page.allocateSlot();
+        if (slot < 0) {
+            LOGGER.warning("Pattern atlas slot allocation failed; patternId=" + patternId);
+            return null;
+        }
         int tileX = slot % tilesPerRow;
         int tileY = slot / tilesPerRow;
 
@@ -450,6 +488,7 @@ public class PatternAtlas {
         private int textureId;
         private final int maxSlots;
         private int nextSlot;
+        private final ArrayDeque<Integer> freeSlots = new ArrayDeque<>();
 
         private AtlasPage(int atlasIndex, int textureId, int maxSlots) {
             this.atlasIndex = atlasIndex;
@@ -458,11 +497,21 @@ public class PatternAtlas {
         }
 
         private boolean hasCapacity() {
-            return nextSlot < maxSlots;
+            return nextSlot < maxSlots || !freeSlots.isEmpty();
         }
 
         private int allocateSlot() {
+            if (!freeSlots.isEmpty()) {
+                return freeSlots.removeLast();
+            }
+            if (nextSlot >= maxSlots) {
+                return -1;
+            }
             return nextSlot++;
+        }
+
+        private void freeSlot(int slot) {
+            freeSlots.addLast(slot);
         }
 
         private int atlasIndex() {
