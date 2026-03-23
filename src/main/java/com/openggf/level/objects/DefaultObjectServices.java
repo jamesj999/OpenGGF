@@ -19,6 +19,9 @@ import java.util.List;
  */
 public class DefaultObjectServices implements ObjectServices {
 
+    private static final java.util.logging.Logger LOG =
+        java.util.logging.Logger.getLogger(DefaultObjectServices.class.getName());
+
     @Override
     public ObjectManager objectManager() {
         return LevelManager.getInstance().getObjectManager();
@@ -91,9 +94,10 @@ public class DefaultObjectServices implements ObjectServices {
 
     @Override
     public void spawnLostRings(PlayableEntity player, int frameCounter) {
-        // Escape hatch: LevelManager.spawnLostRings needs concrete type for RingManager
         if (player instanceof com.openggf.sprites.playable.AbstractPlayableSprite aps) {
             LevelManager.getInstance().spawnLostRings(aps, frameCounter);
+        } else {
+            LOG.warning("spawnLostRings: player is not AbstractPlayableSprite, rings not spawned");
         }
     }
 
