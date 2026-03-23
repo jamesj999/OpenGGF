@@ -349,8 +349,8 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
             if (focused != null) {
                 return focused;
             }
-        } catch (Exception ignored) {
-            // Fall through to candidate.
+        } catch (Exception e) {
+            LOG.fine(() -> "AizPlaneIntroInstance.resolveTrackedPlayer: " + e.getMessage());
         }
         return candidate;
     }
@@ -371,7 +371,9 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
             Camera camera = GameServices.camera();
             renderX += camera.getX() - 128;
             renderY += camera.getY() - 128;
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            LOG.fine(() -> "AizPlaneIntroInstance.appendRenderCommands: " + e.getMessage());
+        }
         renderer.drawFrame(mappingFrame, renderX, renderY, false, false);
     }
 
@@ -386,7 +388,9 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
                     ps.setObjectControlled(false);
                     ps.setHidden(false);
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                LOG.fine(() -> "AizPlaneIntroInstance.onUnload: " + e.getMessage());
+            }
             ownsPlayerControl = false;
         }
         activeWaves.clear();
@@ -637,7 +641,9 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         // CutsceneKnucklesAiz1Instance sets the flag back to $91 on exit.
         try {
             GameServices.camera().setLevelStarted(false);
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            LOG.fine(() -> "AizPlaneIntroInstance.routine0Init: " + e.getMessage());
+        }
 
         // Do NOT spawn plane child here — that happens after the wait in routine 2.
         // Do NOT set velocity here — that happens after the wait in routine 2.

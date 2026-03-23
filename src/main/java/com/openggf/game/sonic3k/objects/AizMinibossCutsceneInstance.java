@@ -22,6 +22,7 @@ import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
+import java.util.logging.Logger;
 
 /**
  * AIZ Act 1 miniboss cutscene object (0x90).
@@ -36,6 +37,7 @@ import java.util.List;
  * - loc_68646/loc_68690 exit + cleanup
  */
 public class AizMinibossCutsceneInstance extends AbstractBossInstance {
+    private static final Logger LOG = Logger.getLogger(AizMinibossCutsceneInstance.class.getName());
     private static final int ROUTINE_INIT = 0;
     private static final int ROUTINE_WAIT_TRIGGER = 2;
     private static final int ROUTINE_WAIT = 4;
@@ -361,8 +363,8 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
             byte[] line = GameServices.rom().getRom().readBytes(
                     Sonic3kConstants.PAL_AIZ_MINIBOSS_ADDR, 32);
             com.openggf.game.GameServices.level().updatePalette(1, line);
-        } catch (Exception ignored) {
-            // Palette load failures should not crash gameplay.
+        } catch (Exception e) {
+            LOG.fine(() -> "AizMinibossCutsceneInstance.loadBossPalette: " + e.getMessage());
         }
     }
 

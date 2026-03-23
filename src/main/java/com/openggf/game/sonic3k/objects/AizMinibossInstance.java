@@ -23,6 +23,7 @@ import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
+import java.util.logging.Logger;
 
 /**
  * AIZ miniboss object (0x91).
@@ -35,6 +36,7 @@ import java.util.List;
  * - loc_68B34/loc_68B92 movement variants
  */
 public class AizMinibossInstance extends AbstractBossInstance {
+    private static final Logger LOG = Logger.getLogger(AizMinibossInstance.class.getName());
     private static final int ROUTINE_INIT = 0;
     private static final int ROUTINE_WAIT_TRIGGER = 2;
     private static final int ROUTINE_WAIT = 4;
@@ -404,8 +406,8 @@ public class AizMinibossInstance extends AbstractBossInstance {
                             byte[] palData = GameServices.rom().getRom().readBytes(
                                     Sonic3kConstants.PAL_AIZ_FIRE_ADDR, 32);
                             com.openggf.game.GameServices.level().updatePalette(1, palData);
-                        } catch (Exception ignored) {
-                            // Palette restore failures should not crash gameplay.
+                        } catch (Exception e) {
+                            LOG.fine(() -> "AizMinibossInstance.updateDefeated: " + e.getMessage());
                         }
                     }
             );
@@ -486,8 +488,8 @@ public class AizMinibossInstance extends AbstractBossInstance {
             byte[] line = GameServices.rom().getRom().readBytes(
                     Sonic3kConstants.PAL_AIZ_MINIBOSS_ADDR, 32);
             com.openggf.game.GameServices.level().updatePalette(1, line);
-        } catch (Exception ignored) {
-            // Palette load failures should not crash gameplay.
+        } catch (Exception e) {
+            LOG.fine(() -> "AizMinibossInstance.loadBossPalette: " + e.getMessage());
         }
     }
 

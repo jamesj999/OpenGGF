@@ -618,7 +618,9 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
         // so it owns cleanup of the shared intro art cache.
         try {
             AizIntroArtLoader.reset();
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            LOG.fine(() -> "CutsceneKnucklesAiz1Instance.onUnload: " + e.getMessage());
+        }
     }
 
     /**
@@ -633,7 +635,9 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
                 ps.setObjectControlled(false);
                 ps.setHidden(false);
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            LOG.fine(() -> "CutsceneKnucklesAiz1Instance.unlockPlayerControls: " + e.getMessage());
+        }
     }
 
 }

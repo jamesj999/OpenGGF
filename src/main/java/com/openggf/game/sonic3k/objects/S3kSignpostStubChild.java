@@ -9,6 +9,7 @@ import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
+import java.util.logging.Logger;
 
 /**
  * Signpost stub/post child object.
@@ -18,6 +19,8 @@ import java.util.List;
  * Self-destroys when the parent signpost is destroyed.
  */
 public class S3kSignpostStubChild extends AbstractObjectInstance {
+
+    private static final Logger LOG = Logger.getLogger(S3kSignpostStubChild.class.getName());
 
     private static final int Y_OFFSET = 0x18;
 
@@ -79,8 +82,8 @@ public class S3kSignpostStubChild extends AbstractObjectInstance {
             if (renderManager != null) {
                 return renderManager.getRenderer(Sonic3kObjectArtKeys.SIGNPOST_STUB);
             }
-        } catch (Exception ignored) {
-            // Render manager unavailable (e.g. headless test)
+        } catch (Exception e) {
+            LOG.fine(() -> "S3kSignpostStubChild.getStubRenderer: " + e.getMessage());
         }
         return null;
     }

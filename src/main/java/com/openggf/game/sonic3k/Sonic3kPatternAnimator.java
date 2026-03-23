@@ -13,6 +13,7 @@ import com.openggf.level.animation.AniPlcParser;
 import com.openggf.level.animation.AniPlcScriptState;
 
 import java.util.List;
+import java.util.logging.Logger;
 import com.openggf.game.GameServices;
 
 /**
@@ -33,6 +34,7 @@ import com.openggf.game.GameServices;
  * actually run (boss active, camera position, intro state, etc.).
  */
 class Sonic3kPatternAnimator implements AnimatedPatternManager {
+    private static final Logger LOG = Logger.getLogger(Sonic3kPatternAnimator.class.getName());
     private final Level level;
     private final GraphicsManager graphicsManager = GraphicsManager.getInstance();
     private final int zoneIndex;
@@ -131,7 +133,8 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
         int cameraX = 0;
         try {
             cameraX = GameServices.camera().getX();
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            LOG.fine(() -> "Sonic3kPatternAnimator.updateAiz2: " + e.getMessage());
         }
 
         if (cameraX >= 0x1C0) {
@@ -169,7 +172,8 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
                     return aizEvents.isBossFlag();
                 }
             }
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            LOG.fine(() -> "Sonic3kPatternAnimator.isAizBossActive: " + e.getMessage());
         }
         return false;
     }

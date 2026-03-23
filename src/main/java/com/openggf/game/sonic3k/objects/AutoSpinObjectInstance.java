@@ -15,6 +15,7 @@ import com.openggf.sprites.animation.SpriteAnimationProfile;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
+import java.util.logging.Logger;
 
 /**
  * AutoSpin trigger object (Object 0x26).
@@ -41,6 +42,8 @@ import java.util.List;
  * </ul>
  */
 public class AutoSpinObjectInstance extends BoxObjectInstance {
+
+    private static final Logger LOG = Logger.getLogger(AutoSpinObjectInstance.class.getName());
 
     // Size lookup table from disassembly word_1E854 (sonic3k.asm line 42327)
     private static final int[] SIZE_TABLE = {0x20, 0x40, 0x80, 0x100};
@@ -330,7 +333,8 @@ public class AutoSpinObjectInstance extends BoxObjectInstance {
 
         try {
             services().playSfx(GameSound.ROLLING);
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            LOG.fine(() -> "AutoSpinObjectInstance.forceRoll: " + e.getMessage());
         }
     }
 

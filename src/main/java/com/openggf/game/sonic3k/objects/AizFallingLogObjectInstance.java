@@ -19,6 +19,7 @@ import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
+import java.util.logging.Logger;
 
 /**
  * Object 0x2D - AIZ Falling Log (Sonic 3 &amp; Knuckles).
@@ -38,6 +39,8 @@ import java.util.List;
  * loc_2B6D8 (solid + draw), loc_2B72C (splash animation).
  */
 public class AizFallingLogObjectInstance extends AbstractObjectInstance {
+
+    private static final Logger LOG = Logger.getLogger(AizFallingLogObjectInstance.class.getName());
 
     // word_2B566: timing mask table (sonic3k.asm line 59868)
     // Index N → mask = (2^(N+1)) - 1, so effective period = mask + 1 frames.
@@ -88,7 +91,8 @@ public class AizFallingLogObjectInstance extends AbstractObjectInstance {
         try {
             LevelManager lm = GameServices.level();
             if (lm != null) act = lm.getCurrentAct();
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            LOG.fine(() -> "AizFallingLogObjectInstance.<init>: " + e.getMessage());
         }
         if (act == 0) {
             logArtKey = Sonic3kObjectArtKeys.AIZ1_FALLING_LOG;
@@ -117,7 +121,8 @@ public class AizFallingLogObjectInstance extends AbstractObjectInstance {
                     return lem.getEventRoutineFg() >= EVENT_TRIGGER_ROUTINE_THRESHOLD;
                 }
             }
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            LOG.fine(() -> "AizFallingLogObjectInstance.shouldDeleteForIntro: " + e.getMessage());
         }
         return false;
     }
@@ -330,7 +335,8 @@ public class AizFallingLogObjectInstance extends AbstractObjectInstance {
                         return ws.getWaterLevelY(lm.getCurrentZone(), services().currentAct());
                     }
                 }
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                LOG.fine(() -> "AizFallingLogObjectInstance.getWaterLevel: " + e.getMessage());
             }
             return 0;
         }

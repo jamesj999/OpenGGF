@@ -77,7 +77,9 @@ public class CutsceneKnucklesRockChild extends AbstractObjectInstance {
             // ROM: BreakObjectToPieces plays sfx_Collapse (0x59) as its first action
             try {
                 services().playSfx(Sonic3kSfx.COLLAPSE.id);
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                LOG.fine(() -> "CutsceneKnucklesRockChild.update: " + e.getMessage());
+            }
 
             // BreakObjectToPieces: spawn fragments with scattered velocities
             spawnFragments();

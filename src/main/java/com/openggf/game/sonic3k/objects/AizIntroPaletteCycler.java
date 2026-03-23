@@ -2,6 +2,7 @@ package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.GameServices;
 import com.openggf.graphics.GraphicsManager;
+import java.util.logging.Logger;
 import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
 import com.openggf.level.Palette;
@@ -15,6 +16,7 @@ import com.openggf.level.Palette;
  * PalCycle_SuperSonic entries at 6-frame intervals.
  */
 public class AizIntroPaletteCycler {
+    private static final Logger LOG = Logger.getLogger(AizIntroPaletteCycler.class.getName());
     private static final int TIMER_PERIOD = 6;
     private static final int FRAME_ADVANCE = 6;   // bytes per cycle step
     private static final int CYCLE_MIN = 0x24;     // cycling range start
@@ -86,8 +88,8 @@ public class AizIntroPaletteCycler {
             if (gfx.isGlInitialized()) {
                 gfx.cachePaletteTexture(palette, SONIC_PALETTE_INDEX);
             }
-        } catch (Exception ignored) {
-            // May not be available in test environments
+        } catch (Exception e) {
+            LOG.fine(() -> "AizIntroPaletteCycler.applyToGpu: " + e.getMessage());
         }
     }
 

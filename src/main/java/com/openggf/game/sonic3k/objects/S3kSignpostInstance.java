@@ -417,8 +417,8 @@ public class S3kSignpostInstance extends AbstractObjectInstance {
             if (renderManager != null) {
                 return renderManager.getRenderer(Sonic3kObjectArtKeys.END_SIGN);
             }
-        } catch (Exception ignored) {
-            // Render manager unavailable (e.g. headless test)
+        } catch (Exception e) {
+            LOG.fine(() -> "S3kSignpostInstance.getEndSignRenderer: " + e.getMessage());
         }
         return null;
     }

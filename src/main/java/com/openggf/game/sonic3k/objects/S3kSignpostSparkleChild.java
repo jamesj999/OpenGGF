@@ -10,6 +10,7 @@ import com.openggf.level.rings.RingManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
+import java.util.logging.Logger;
 
 /**
  * Short-lived sparkle effect spawned by the S3K signpost during its fall.
@@ -18,6 +19,8 @@ import java.util.List;
  * Plays through 4 animation frames then self-destructs.
  */
 public class S3kSignpostSparkleChild extends AbstractObjectInstance {
+
+    private static final Logger LOG = Logger.getLogger(S3kSignpostSparkleChild.class.getName());
 
     private static final int FRAME_DELAY = 4;
     private static final int TOTAL_FRAMES = 4;
@@ -69,8 +72,8 @@ public class S3kSignpostSparkleChild extends AbstractObjectInstance {
                     return;
                 }
             }
-        } catch (Exception ignored) {
-            // Fall through to placeholder
+        } catch (Exception e) {
+            LOG.fine(() -> "S3kSignpostSparkleChild.appendRenderCommands: " + e.getMessage());
         }
 
         // Placeholder: small diamond shape

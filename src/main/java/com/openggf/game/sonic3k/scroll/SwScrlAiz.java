@@ -10,6 +10,7 @@ import com.openggf.level.WaterSystem;
 import com.openggf.level.scroll.AbstractZoneScrollHandler;
 
 import java.util.Arrays;
+import java.util.logging.Logger;
 
 import static com.openggf.level.scroll.M68KMath.*;
 import com.openggf.game.GameServices;
@@ -23,6 +24,8 @@ import com.openggf.game.GameServices;
  * - Writes negated BG values into the per-scanline hscroll buffer
  */
 public class SwScrlAiz extends AbstractZoneScrollHandler {
+
+    private static final Logger LOG = Logger.getLogger(SwScrlAiz.class.getName());
 
     private static final int INTRO_DEFORM_BANDS = 0x25;
     private static final int INTRO_DEFORM_CAP = 0x580;
@@ -134,7 +137,9 @@ public class SwScrlAiz extends AbstractZoneScrollHandler {
         try {
             introMode = !GameServices.camera().isLevelStarted()
                     && !AizPlaneIntroInstance.isMainLevelPhaseActive();
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            LOG.fine(() -> "SwScrlAiz.update: " + e.getMessage());
+        }
 
         if (introMode) {
             // AIZ1_IntroDeform:
@@ -155,7 +160,9 @@ public class SwScrlAiz extends AbstractZoneScrollHandler {
                 // AIZ2_Deform: scattered-speed BG parallax with shake-compensated Y.
                 // BG vertical scroll = (cameraY - shake) / 2 + shake.
                 short shakeY = 0;
-                try { shakeY = GameServices.camera().getShakeOffsetY(); } catch (Exception ignored) {}
+                try { shakeY = GameServices.camera().getShakeOffsetY(); } catch (Exception e) {
+                    LOG.fine(() -> "SwScrlAiz.update: " + e.getMessage());
+                }
                 vscrollFactorBG = (short) (asrWord(cameraY, 1) + shakeY);
                 computeAiz2Deform(horizScrollBuf, fgScroll, cameraX);
             } else {
@@ -585,7 +592,9 @@ public class SwScrlAiz extends AbstractZoneScrollHandler {
                 int waterWorldY = ws.getWaterLevelY(Sonic3kZoneIds.ZONE_AIZ, actId);
                 return waterWorldY - cameraY;
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            LOG.fine(() -> "SwScrlAiz.resolveWaterScreenY: " + e.getMessage());
+        }
         return VISIBLE_LINES; // no water → all heat haze
     }
 
@@ -593,7 +602,8 @@ public class SwScrlAiz extends AbstractZoneScrollHandler {
         try {
             Sonic3kLevelEventManager lem = Sonic3kLevelEventManager.getInstance();
             return lem != null ? lem.getAizEvents() : null;
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            LOG.fine(() -> "SwScrlAiz.resolveAizEvents: " + e.getMessage());
             return null;
         }
     }

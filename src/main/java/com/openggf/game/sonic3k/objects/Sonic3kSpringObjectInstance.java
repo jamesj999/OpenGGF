@@ -233,7 +233,7 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
             player.setYSpeed((short) 0);
         }
 
-        // ROM: Control lock 16 frames
+        // ROM: control lock 16 frames
         player.setSpringing(16);
 
         trigger(player);
