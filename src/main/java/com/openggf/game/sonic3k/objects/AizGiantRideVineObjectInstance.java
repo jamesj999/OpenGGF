@@ -208,8 +208,7 @@ public class AizGiantRideVineObjectInstance extends AbstractObjectInstance {
         if (player == null || !wasGrabbed) {
             return;
         }
-        player.setControlLocked(false);
-        player.setObjectControlled(false);
+        AizVineHandleLogic.clearPlayerControl(player);
     }
 
     private static int currentAizVineAngleByte(int frameCounter) {

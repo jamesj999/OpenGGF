@@ -2714,7 +2714,13 @@ public class LevelManager {
      * ROM: S1/S2 StartLocations / Obj79_LoadData, S3K Get_PlayerStart.
      */
     public void spawnPlayerAtStartPosition(LevelLoadContext ctx) {
-        Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        Sprite player = spriteManager.getSprite(mainCode);
+        if (player == null) {
+            LOGGER.warning("SpawnPlayer: no sprite registered for code '" + mainCode
+                    + "' — skipping. Register the player sprite before loadZoneAndAct().");
+            return;
+        }
         LevelData levelData = ctx.getLevelData();
         if (levelData == null) {
             levelData = resolveLevelData();
@@ -2921,6 +2927,9 @@ public class LevelManager {
             transitions.setLevelInactiveForTransition(false);
 
             if (levels.isEmpty()) {
+                // ROM is already loaded by Engine.initializeGame(), so
+                // GameModuleRegistry has the correct module. Just bootstrap
+                // the zone list for level data lookup.
                 gameModule = GameModuleRegistry.getCurrent();
                 refreshZoneList();
             }

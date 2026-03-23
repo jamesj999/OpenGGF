@@ -181,8 +181,8 @@ public class SonicConfigurationService {
 		// Fill in core defaults if missing to keep tests and headless runs stable.
 		putDefault(SonicConfiguration.SCREEN_WIDTH, 640);
 		putDefault(SonicConfiguration.SCREEN_WIDTH_PIXELS, 320);
-		putDefault(SonicConfiguration.SCREEN_HEIGHT, 480);
-		putDefault(SonicConfiguration.SCREEN_HEIGHT_PIXELS, 240);
+		putDefault(SonicConfiguration.SCREEN_HEIGHT, 448);
+		putDefault(SonicConfiguration.SCREEN_HEIGHT_PIXELS, 224);
 		putDefault(SonicConfiguration.SCALE, 1.0);
 		// Debug view now eagerly initialized in Engine.init() to avoid macOS freeze
 		putDefault(SonicConfiguration.DEBUG_VIEW_ENABLED, true);
@@ -232,6 +232,7 @@ public class SonicConfigurationService {
 		putDefault(SonicConfiguration.LEVEL_SELECT_KEY, GLFW_KEY_F9);
 		putDefault(SonicConfiguration.TITLE_SCREEN_ON_STARTUP, false);
 		putDefault(SonicConfiguration.LEVEL_SELECT_ON_STARTUP, false);
+		putDefault(SonicConfiguration.MAIN_CHARACTER_CODE, "sonic");
 		putDefault(SonicConfiguration.SIDEKICK_CHARACTER_CODE, "tails");
 		putDefault(SonicConfiguration.SONIC_1_ROM, "Sonic The Hedgehog (W) (REV01) [!].gen");
 		putDefault(SonicConfiguration.SONIC_2_ROM, "Sonic The Hedgehog 2 (W) (REV01) [!].gen");
@@ -244,6 +245,7 @@ public class SonicConfigurationService {
 			config.remove("S3K_SKIP_AIZ1_INTRO");
 		}
 		putDefault(SonicConfiguration.S3K_SKIP_INTROS, false);
+		putDefault(SonicConfiguration.MAIN_CHARACTER_CODE, "sonic");
 		putDefault(SonicConfiguration.DEFAULT_ROM, "s2");
 		putDefault(SonicConfiguration.SUPER_SONIC_DEBUG_KEY, GLFW_KEY_U);
 		putDefault(SonicConfiguration.GIVE_EMERALDS_KEY, GLFW_KEY_E);

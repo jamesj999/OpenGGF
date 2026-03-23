@@ -339,8 +339,7 @@ public class AizRideVineObjectInstance extends AbstractObjectInstance {
         if (player == null || !wasGrabbed) {
             return;
         }
-        player.setControlLocked(false);
-        player.setObjectControlled(false);
+        AizVineHandleLogic.clearPlayerControl(player);
     }
 
     @Override
