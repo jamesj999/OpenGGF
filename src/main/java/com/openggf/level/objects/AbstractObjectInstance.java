@@ -171,7 +171,8 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
      * Returns true if any player is currently riding (standing on) this object.
      */
     protected boolean isPlayerRiding() {
-        return services().objectManager().isAnyPlayerRiding(this);
+        ObjectManager om = services().objectManager();
+        return om != null && om.isAnyPlayerRiding(this);
     }
 
     /**

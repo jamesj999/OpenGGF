@@ -14,40 +14,42 @@ public class TestSonic2LevelInitProfile {
     public void teardownStepsMatchGameContextPhases2Through8() {
         List<InitStep> steps = profile.levelTeardownSteps();
 
-        // GameContext.forTesting() phases 2-8 have 12 operations
-        assertEquals(12, steps.size());
+        // GameContext.forTesting() phases 2-8 have 13 operations
+        assertEquals(13, steps.size());
 
         // Verify ordering matches GameContext phases
         assertEquals("ResetAudio", steps.get(0).name());
-        assertEquals("ResetS2LevelEvents", steps.get(1).name());
-        assertEquals("ResetParallax", steps.get(2).name());
-        assertEquals("ResetLevelManager", steps.get(3).name());
-        assertEquals("ResetSprites", steps.get(4).name());
-        assertEquals("ResetCollision", steps.get(5).name());
-        assertEquals("ResetCamera", steps.get(6).name());
-        assertEquals("ResetGraphics", steps.get(7).name());
-        assertEquals("ResetFade", steps.get(8).name());
-        assertEquals("ResetGameState", steps.get(9).name());
-        assertEquals("ResetTimers", steps.get(10).name());
-        assertEquals("ResetWater", steps.get(11).name());
+        assertEquals("ResetCrossGameFeatures", steps.get(1).name());
+        assertEquals("ResetS2LevelEvents", steps.get(2).name());
+        assertEquals("ResetParallax", steps.get(3).name());
+        assertEquals("ResetLevelManager", steps.get(4).name());
+        assertEquals("ResetSprites", steps.get(5).name());
+        assertEquals("ResetCollision", steps.get(6).name());
+        assertEquals("ResetCamera", steps.get(7).name());
+        assertEquals("ResetGraphics", steps.get(8).name());
+        assertEquals("ResetFade", steps.get(9).name());
+        assertEquals("ResetGameState", steps.get(10).name());
+        assertEquals("ResetTimers", steps.get(11).name());
+        assertEquals("ResetWater", steps.get(12).name());
     }
 
     @Test
     public void perTestResetOmitsAudioLevelManagerAndGraphics() {
         List<InitStep> steps = profile.perTestResetSteps();
 
-        // Per-test reset: 9 operations (no audio, no level manager, no graphics)
-        assertEquals(9, steps.size());
+        // Per-test reset: 10 operations (no audio, no level manager, no graphics)
+        assertEquals(10, steps.size());
 
         assertEquals("ResetS2LevelEvents", steps.get(0).name());
-        assertEquals("ResetParallax", steps.get(1).name());
-        assertEquals("ResetSprites", steps.get(2).name());
-        assertEquals("ResetCollision", steps.get(3).name());
-        assertEquals("ResetCamera", steps.get(4).name());
-        assertEquals("ResetFade", steps.get(5).name());
-        assertEquals("ResetGameState", steps.get(6).name());
-        assertEquals("ResetTimers", steps.get(7).name());
-        assertEquals("ResetWater", steps.get(8).name());
+        assertEquals("ResetCrossGameFeatures", steps.get(1).name());
+        assertEquals("ResetParallax", steps.get(2).name());
+        assertEquals("ResetSprites", steps.get(3).name());
+        assertEquals("ResetCollision", steps.get(4).name());
+        assertEquals("ResetCamera", steps.get(5).name());
+        assertEquals("ResetFade", steps.get(6).name());
+        assertEquals("ResetGameState", steps.get(7).name());
+        assertEquals("ResetTimers", steps.get(8).name());
+        assertEquals("ResetWater", steps.get(9).name());
     }
 
     @Test

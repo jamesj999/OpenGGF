@@ -75,6 +75,7 @@ class TestSidekickGating {
             public DebugOverlayProvider getDebugOverlayProvider() { return null; }
             public ZoneArtProvider getZoneArtProvider() { return null; }
             public ObjectArtProvider getObjectArtProvider() { return null; }
+            public com.openggf.game.PhysicsProvider getPhysicsProvider() { return null; }
         };
         assertFalse(anonymousModule.supportsSidekick(),
                 "Default supportsSidekick() should be false");
