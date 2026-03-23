@@ -6,7 +6,7 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 /**
- * TODO #35 -- Control lockout (locktime / objoff_3E) in Sonic 1.
+ * TODO #35 -- control lockout (locktime / objoff_3E) in Sonic 1.
  *
  * <p>Sonic 1 uses a per-sprite timer at objoff_3E (named {@code locktime} in
  * the disassembly) to temporarily lock D-Pad input. This is used by:

@@ -42,7 +42,7 @@ import java.util.logging.Logger;
  * SLIDE_IN -> DISPLAY -> SLIDE_OUT -> COMPLETE
  * </pre>
  *
- * <p>Control is released at the start of SLIDE_OUT. The elements slide off-screen
+ * <p>control is released at the start of SLIDE_OUT. The elements slide off-screen
  * as an overlay while the player can already move.
  */
 public class Sonic1TitleCardManager implements TitleCardProvider {
@@ -345,7 +345,7 @@ public class Sonic1TitleCardManager implements TitleCardProvider {
 
     /**
      * Returns true if player control should be released.
-     * Control is released at the start of SLIDE_OUT, matching S1's behavior
+     * control is released at the start of SLIDE_OUT, matching S1's behavior
      * where the level becomes playable while title card elements slide off-screen.
      */
     @Override

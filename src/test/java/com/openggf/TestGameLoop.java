@@ -3,7 +3,7 @@ package com.openggf;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import com.openggf.Control.InputHandler;
+import com.openggf.control.InputHandler;
 import com.openggf.game.GameMode;
 
 import static org.junit.Assert.*;

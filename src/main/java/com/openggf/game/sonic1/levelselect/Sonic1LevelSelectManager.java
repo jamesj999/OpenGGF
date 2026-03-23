@@ -1,6 +1,6 @@
 package com.openggf.game.sonic1.levelselect;
 
-import com.openggf.Control.InputHandler;
+import com.openggf.control.InputHandler;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.LevelSelectProvider;

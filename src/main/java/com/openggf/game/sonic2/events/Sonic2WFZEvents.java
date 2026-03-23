@@ -20,7 +20,7 @@ import java.util.logging.Logger;
  *
  * Secondary routines (LevEvents_WFZ_Index2):
  *   S0: Boss PLC trigger at camera ($2880, $400)
- *   S2: Control lock + Tornado PLC at camera Y >= $500
+ *   S2: control lock + Tornado PLC at camera Y >= $500
  *   S4: No-op
  */
 public class Sonic2WFZEvents extends Sonic2ZoneEvents {
@@ -358,7 +358,7 @@ public class Sonic2WFZEvents extends Sonic2ZoneEvents {
     }
 
     /**
-     * Secondary S2: Control lock + Tornado PLC.
+     * Secondary S2: control lock + Tornado PLC.
      * ROM: LevEvents_WFZ_Routine6 (s2.asm)
      *
      * When camera Y reaches $500, locks player controls and loads Tornado PLC.

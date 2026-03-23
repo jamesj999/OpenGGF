@@ -3,7 +3,7 @@ package com.openggf;
 import com.openggf.debug.DebugOverlayToggle;
 import com.openggf.game.*;
 
-import com.openggf.Control.InputHandler;
+import com.openggf.control.InputHandler;
 import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;

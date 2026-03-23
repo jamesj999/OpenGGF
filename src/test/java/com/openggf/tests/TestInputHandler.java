@@ -1,7 +1,7 @@
 package com.openggf.tests;
 
 import org.junit.Test;
-import com.openggf.Control.InputHandler;
+import com.openggf.control.InputHandler;
 
 import static org.lwjgl.glfw.GLFW.*;
 import static org.junit.Assert.*;

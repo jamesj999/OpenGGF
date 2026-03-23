@@ -216,7 +216,7 @@ public class TestBuzzBomberLifecycle {
     }
 
     /**
-     * Control test: without the isPersistent override (margin=0, beyond screen),
+     * control test: without the isPersistent override (margin=0, beyond screen),
      * a flying object at X=600 is removed when camera backs up enough that the
      * spawn leaves the window – even though the object is on-screen.
      * This demonstrates the bug that the fix addresses.

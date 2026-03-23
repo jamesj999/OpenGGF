@@ -588,7 +588,7 @@ Wire keyboard input to LevelEditorManager actions. This is a thin dispatcher tha
 ```java
 package com.openggf.editor;
 
-import com.openggf.Control.InputHandler;
+import com.openggf.control.InputHandler;
 
 import static org.lwjgl.glfw.GLFW.*;
 
@@ -640,10 +640,10 @@ public class EditorInputHandler {
 
     private EditorAction updateGridInput(InputHandler input) {
         // Navigation
-        if (input.isKeyPressed(GLFW_KEY_LEFT))  editor.moveCursorLeft();
+        if (input.isKeyPressed(GLFW_KEY_LEFT)) editor.moveCursorLeft();
         if (input.isKeyPressed(GLFW_KEY_RIGHT)) editor.moveCursorRight();
-        if (input.isKeyPressed(GLFW_KEY_UP))    editor.moveCursorUp();
-        if (input.isKeyPressed(GLFW_KEY_DOWN))  editor.moveCursorDown();
+        if (input.isKeyPressed(GLFW_KEY_UP)) editor.moveCursorUp();
+        if (input.isKeyPressed(GLFW_KEY_DOWN)) editor.moveCursorDown();
 
         // Actions
         if (input.isKeyPressed(KEY_PLACE) || input.isKeyPressed(KEY_CONFIRM)) {
@@ -660,10 +660,10 @@ public class EditorInputHandler {
     }
 
     private void updatePanelInput(InputHandler input) {
-        if (input.isKeyPressed(GLFW_KEY_UP))    editor.movePanelSelectionUp();
-        if (input.isKeyPressed(GLFW_KEY_DOWN))  editor.movePanelSelectionDown();
-        if (input.isKeyPressed(KEY_PAGE_UP))    editor.movePanelSelectionPageUp(8);
-        if (input.isKeyPressed(KEY_PAGE_DOWN))  editor.movePanelSelectionPageDown(8);
+        if (input.isKeyPressed(GLFW_KEY_UP)) editor.movePanelSelectionUp();
+        if (input.isKeyPressed(GLFW_KEY_DOWN)) editor.movePanelSelectionDown();
+        if (input.isKeyPressed(KEY_PAGE_UP)) editor.movePanelSelectionPageUp(8);
+        if (input.isKeyPressed(KEY_PAGE_DOWN)) editor.movePanelSelectionPageDown(8);
 
         // Confirm selection and return to grid
         if (input.isKeyPressed(KEY_CONFIRM)) {

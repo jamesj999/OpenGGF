@@ -1,6 +1,6 @@
 package com.openggf.configuration;
 
-import com.openggf.Control.InputHandler;
+import com.openggf.control.InputHandler;
 
 import java.util.List;
 import java.util.Map;

@@ -1,4 +1,4 @@
-package com.openggf.Control;
+package com.openggf.control;
 
 import static org.lwjgl.glfw.GLFW.*;
 
