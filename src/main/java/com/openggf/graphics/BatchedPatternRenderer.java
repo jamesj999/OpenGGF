@@ -131,6 +131,43 @@ public class BatchedPatternRenderer {
     }
 
     /**
+     * Writes a 2-triangle quad (6 vertices) into the vertex and texcoord arrays.
+     */
+    private void writeQuad(int vertOffset, int texOffset,
+            float x0, float y0, float x1, float y1,
+            float u0, float v0, float u1, float v1) {
+        // Triangle 1: bottom-left, bottom-right, top-right
+        vertexData[vertOffset]      = x0;
+        vertexData[vertOffset + 1]  = y0;
+        vertexData[vertOffset + 2]  = x1;
+        vertexData[vertOffset + 3]  = y0;
+        vertexData[vertOffset + 4]  = x1;
+        vertexData[vertOffset + 5]  = y1;
+        // Triangle 2: bottom-left, top-right, top-left
+        vertexData[vertOffset + 6]  = x0;
+        vertexData[vertOffset + 7]  = y0;
+        vertexData[vertOffset + 8]  = x1;
+        vertexData[vertOffset + 9]  = y1;
+        vertexData[vertOffset + 10] = x0;
+        vertexData[vertOffset + 11] = y1;
+
+        // Triangle 1 texture coords
+        texCoordData[texOffset]      = u0;
+        texCoordData[texOffset + 1]  = v0;
+        texCoordData[texOffset + 2]  = u1;
+        texCoordData[texOffset + 3]  = v0;
+        texCoordData[texOffset + 4]  = u1;
+        texCoordData[texOffset + 5]  = v1;
+        // Triangle 2 texture coords
+        texCoordData[texOffset + 6]  = u0;
+        texCoordData[texOffset + 7]  = v0;
+        texCoordData[texOffset + 8]  = u1;
+        texCoordData[texOffset + 9]  = v1;
+        texCoordData[texOffset + 10] = u0;
+        texCoordData[texOffset + 11] = v1;
+    }
+
+    /**
      * Add a pattern to the current batch.
      *
      * @return true if the pattern was added, false if batch is full or not active
@@ -171,41 +208,9 @@ public class BatchedPatternRenderer {
             v1 = tmp;
         }
 
-        // Calculate array offsets
         int vertOffset = patternCount * FLOATS_PER_PATTERN_VERTS;
         int texOffset = patternCount * FLOATS_PER_PATTERN_TEXCOORDS;
-
-        // Add vertices as 2 triangles (6 vertices) for GL_TRIANGLES
-        // Triangle 1: bottom-left, bottom-right, top-right
-        vertexData[vertOffset + 0] = x0;
-        vertexData[vertOffset + 1] = y0;
-        vertexData[vertOffset + 2] = x1;
-        vertexData[vertOffset + 3] = y0;
-        vertexData[vertOffset + 4] = x1;
-        vertexData[vertOffset + 5] = y1;
-        // Triangle 2: bottom-left, top-right, top-left
-        vertexData[vertOffset + 6] = x0;
-        vertexData[vertOffset + 7] = y0;
-        vertexData[vertOffset + 8] = x1;
-        vertexData[vertOffset + 9] = y1;
-        vertexData[vertOffset + 10] = x0;
-        vertexData[vertOffset + 11] = y1;
-
-        // Add texture coordinates (matching vertex order)
-        // Triangle 1
-        texCoordData[texOffset + 0] = u0;
-        texCoordData[texOffset + 1] = v0;
-        texCoordData[texOffset + 2] = u1;
-        texCoordData[texOffset + 3] = v0;
-        texCoordData[texOffset + 4] = u1;
-        texCoordData[texOffset + 5] = v1;
-        // Triangle 2
-        texCoordData[texOffset + 6] = u0;
-        texCoordData[texOffset + 7] = v0;
-        texCoordData[texOffset + 8] = u1;
-        texCoordData[texOffset + 9] = v1;
-        texCoordData[texOffset + 10] = u0;
-        texCoordData[texOffset + 11] = v1;
+        writeQuad(vertOffset, texOffset, x0, y0, x1, y1, u0, v0, u1, v1);
 
         int paletteOffset = patternCount * 6;
         paletteCoordData[paletteOffset + 0] = paletteIndex;
@@ -305,41 +310,9 @@ public class BatchedPatternRenderer {
             v1 = stripTop; // Top of quad
         }
 
-        // Calculate array offsets
         int vertOffset = patternCount * FLOATS_PER_PATTERN_VERTS;
         int texOffset = patternCount * FLOATS_PER_PATTERN_TEXCOORDS;
-
-        // Add vertices as 2 triangles (6 vertices) for GL_TRIANGLES
-        // Triangle 1: bottom-left, bottom-right, top-right
-        vertexData[vertOffset + 0] = x0;
-        vertexData[vertOffset + 1] = y0;
-        vertexData[vertOffset + 2] = x1;
-        vertexData[vertOffset + 3] = y0;
-        vertexData[vertOffset + 4] = x1;
-        vertexData[vertOffset + 5] = y1;
-        // Triangle 2: bottom-left, top-right, top-left
-        vertexData[vertOffset + 6] = x0;
-        vertexData[vertOffset + 7] = y0;
-        vertexData[vertOffset + 8] = x1;
-        vertexData[vertOffset + 9] = y1;
-        vertexData[vertOffset + 10] = x0;
-        vertexData[vertOffset + 11] = y1;
-
-        // Add texture coordinates (matching vertex order)
-        // Triangle 1
-        texCoordData[texOffset + 0] = u0;
-        texCoordData[texOffset + 1] = v0;
-        texCoordData[texOffset + 2] = u1;
-        texCoordData[texOffset + 3] = v0;
-        texCoordData[texOffset + 4] = u1;
-        texCoordData[texOffset + 5] = v1;
-        // Triangle 2
-        texCoordData[texOffset + 6] = u0;
-        texCoordData[texOffset + 7] = v0;
-        texCoordData[texOffset + 8] = u1;
-        texCoordData[texOffset + 9] = v1;
-        texCoordData[texOffset + 10] = u0;
-        texCoordData[texOffset + 11] = v1;
+        writeQuad(vertOffset, texOffset, x0, y0, x1, y1, u0, v0, u1, v1);
 
         int paletteOffset = patternCount * 6;
         paletteCoordData[paletteOffset + 0] = paletteIndex;
@@ -449,41 +422,9 @@ public class BatchedPatternRenderer {
             v1 = tmp;
         }
 
-        // Calculate array offsets
         int vertOffset = patternCount * FLOATS_PER_PATTERN_VERTS;
         int texOffset = patternCount * FLOATS_PER_PATTERN_TEXCOORDS;
-
-        // Add vertices as 2 triangles (6 vertices) for GL_TRIANGLES
-        // Triangle 1: bottom-left, bottom-right, top-right
-        vertexData[vertOffset + 0] = x0;
-        vertexData[vertOffset + 1] = y0;
-        vertexData[vertOffset + 2] = x1;
-        vertexData[vertOffset + 3] = y0;
-        vertexData[vertOffset + 4] = x1;
-        vertexData[vertOffset + 5] = y1;
-        // Triangle 2: bottom-left, top-right, top-left
-        vertexData[vertOffset + 6] = x0;
-        vertexData[vertOffset + 7] = y0;
-        vertexData[vertOffset + 8] = x1;
-        vertexData[vertOffset + 9] = y1;
-        vertexData[vertOffset + 10] = x0;
-        vertexData[vertOffset + 11] = y1;
-
-        // Add texture coordinates (matching vertex order)
-        // Triangle 1
-        texCoordData[texOffset + 0] = u0;
-        texCoordData[texOffset + 1] = v0;
-        texCoordData[texOffset + 2] = u1;
-        texCoordData[texOffset + 3] = v0;
-        texCoordData[texOffset + 4] = u1;
-        texCoordData[texOffset + 5] = v1;
-        // Triangle 2
-        texCoordData[texOffset + 6] = u0;
-        texCoordData[texOffset + 7] = v0;
-        texCoordData[texOffset + 8] = u1;
-        texCoordData[texOffset + 9] = v1;
-        texCoordData[texOffset + 10] = u0;
-        texCoordData[texOffset + 11] = v1;
+        writeQuad(vertOffset, texOffset, x0, y0, x1, y1, u0, v0, u1, v1);
 
         patternCount++;
 
