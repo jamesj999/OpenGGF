@@ -2,9 +2,6 @@ package com.openggf.level;
 
 import com.openggf.game.*;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
-import com.openggf.game.sonic2.Sonic2Level;
-import com.openggf.game.sonic3k.events.S3kSeamlessMutationExecutor;
-
 import com.openggf.Engine;
 import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
@@ -3389,12 +3386,8 @@ public class LevelManager {
     }
 
     private boolean isForceBlackBackdrop() {
-        if (level instanceof Sonic2Level) {
-            int zoneId = ((Sonic2Level) level).getZoneIndex();
-            // Zone 11 (0xB) is MCZ
-            return zoneId == 11;
-        }
-        return false;
+        ZoneFeatureProvider zfp = zoneFeatureProvider;
+        return zfp != null && zfp.isForceBlackBackdrop();
     }
 
     /**
@@ -3489,7 +3482,7 @@ public class LevelManager {
     }
 
     private void applySeamlessMutation(String mutationKey) {
-        S3kSeamlessMutationExecutor.apply(this, mutationKey);
+        gameModule.applySeamlessMutation(this, mutationKey);
     }
 
     /** @see LevelTransitionCoordinator#consumeZoneActRequest() */

@@ -198,4 +198,15 @@ public interface ZoneFeatureProvider {
     default boolean shouldSuppressHud(int zoneIndex, int actIndex) {
         return false;
     }
+
+    /**
+     * Whether the backdrop colour should be forced to black regardless of the
+     * level's own backdrop colour.  Used for zones (e.g. MCZ in Sonic 2) whose
+     * background is drawn entirely by sprites/tiles with no sky visible.
+     *
+     * @return true if the backdrop should be forced to black
+     */
+    default boolean isForceBlackBackdrop() {
+        return false;
+    }
 }
