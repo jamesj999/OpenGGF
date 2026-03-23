@@ -152,11 +152,13 @@ public class Sonic2GameModule implements GameModule {
         return 7;
     }
 
+    // Fresh instance per call. Callers store for the level's lifetime. Stateless.
     @Override
     public ScrollHandlerProvider getScrollHandlerProvider() {
         return new Sonic2ScrollHandlerProvider();
     }
 
+    // Lazily cached — same instance across level loads. Reset via module replacement.
     @Override
     public ZoneFeatureProvider getZoneFeatureProvider() {
         if (zoneFeatureProvider == null) {
@@ -165,16 +167,19 @@ public class Sonic2GameModule implements GameModule {
         return zoneFeatureProvider;
     }
 
+    // Fresh instance per call. Callers store for the level's lifetime. Stateless.
     @Override
     public WaterDataProvider getWaterDataProvider() {
         return new Sonic2WaterDataProvider();
     }
 
+    // Fresh instance per call. Callers store for the level's lifetime. Stateless.
     @Override
     public RomOffsetProvider getRomOffsetProvider() {
         return new Sonic2RomOffsetProvider();
     }
 
+    // Fresh instance per call. Callers store for the level's lifetime. Stateless.
     @Override
     public DebugModeProvider getDebugModeProvider() {
         return new Sonic2DebugModeProvider();
@@ -187,6 +192,7 @@ public class Sonic2GameModule implements GameModule {
         return null;
     }
 
+    // Fresh instance per call. Callers store for the level's lifetime. Stateless.
     @Override
     public ZoneArtProvider getZoneArtProvider() {
         return new Sonic2ZoneArtProvider();
@@ -216,6 +222,7 @@ public class Sonic2GameModule implements GameModule {
         return LevelSelectManager.getInstance();
     }
 
+    // Lazily cached — same instance across level loads. Reset via module replacement.
     @Override
     public ObjectArtProvider getObjectArtProvider() {
         if (objectArtProvider == null) {
@@ -224,6 +231,7 @@ public class Sonic2GameModule implements GameModule {
         return objectArtProvider;
     }
 
+    // Lazily cached — same instance across level loads. Reset via module replacement.
     @Override
     public PhysicsProvider getPhysicsProvider() {
         if (physicsProvider == null) {
@@ -260,6 +268,7 @@ public class Sonic2GameModule implements GameModule {
             || zoneId == Sonic2ZoneConstants.ZONE_DEZ;
     }
 
+    // Fresh instance per call. Callers store for the level's lifetime. Stateless.
     @Override
     public EndingProvider getEndingProvider() {
         return new Sonic2EndingProvider();

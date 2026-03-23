@@ -52,8 +52,13 @@ public final class Sonic2SmpsSequencerConfig {
         tempos.put(Sonic2Music.GOT_EMERALD.id, 0xD5);
         tempos.put(Sonic2Music.CREDITS.id, 0xF0);
         SPEED_UP_TEMPOS = Collections.unmodifiableMap(tempos);
-        CONFIG = new SmpsSequencerConfig(SPEED_UP_TEMPOS, TEMPO_MOD_BASE, FM_CHANNEL_ORDER, PSG_CHANNEL_ORDER,
-                SmpsSequencerConfig.TempoMode.OVERFLOW2, null);
+        CONFIG = new SmpsSequencerConfig.Builder()
+                .speedUpTempos(SPEED_UP_TEMPOS)
+                .tempoModBase(TEMPO_MOD_BASE)
+                .fmChannelOrder(FM_CHANNEL_ORDER)
+                .psgChannelOrder(PSG_CHANNEL_ORDER)
+                .tempoMode(SmpsSequencerConfig.TempoMode.OVERFLOW2)
+                .build();
     }
 
     private Sonic2SmpsSequencerConfig() {

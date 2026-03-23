@@ -59,14 +59,19 @@ public final class Sonic1SmpsSequencerConfig {
         Map<Integer, Integer> coordOverrides = new HashMap<>();
         coordOverrides.put(0xED, 0);  // S1: ClearPush (no param) vs S2: IGNORE (1 param)
 
-        CONFIG = new SmpsSequencerConfig(
-                SPEED_UP_TEMPOS, TEMPO_MOD_BASE, FM_CHANNEL_ORDER, PSG_CHANNEL_ORDER,
-                SmpsSequencerConfig.TempoMode.TIMEOUT, coordOverrides,
-                false,            // S1: don't apply modulation during note start (ModAlgo = 68k)
-                false,            // S1: don't halve mod steps (68k driver has no srl a)
-                Set.of(0xEE),
-                true,             // S1: PC-relative pointers for F6/F7/F8
-                true);            // S1: process tempo on first frame (DOTEMPO)
+        CONFIG = new SmpsSequencerConfig.Builder()
+                .speedUpTempos(SPEED_UP_TEMPOS)
+                .tempoModBase(TEMPO_MOD_BASE)
+                .fmChannelOrder(FM_CHANNEL_ORDER)
+                .psgChannelOrder(PSG_CHANNEL_ORDER)
+                .tempoMode(SmpsSequencerConfig.TempoMode.TIMEOUT)
+                .coordFlagParamOverrides(coordOverrides)
+                .applyModOnNote(false)   // S1: don't apply modulation during note start (ModAlgo = 68k)
+                .halveModSteps(false)    // S1: don't halve mod steps (68k driver has no srl a)
+                .extraTrkEndFlags(Set.of(0xEE))
+                .relativePointers(true)  // S1: PC-relative pointers for F6/F7/F8
+                .tempoOnFirstTick(true)  // S1: process tempo on first frame (DOTEMPO)
+                .build();
     }
 
     private Sonic1SmpsSequencerConfig() {
