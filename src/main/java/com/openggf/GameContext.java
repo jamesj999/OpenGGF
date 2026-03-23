@@ -84,9 +84,9 @@ public final class GameContext {
      * S3K resets AizPlaneIntroInstance, etc.).
      * <p>
      * <b>Warning:</b> Callers should not hold references to singleton instances
-     * across a {@code forTesting()} call. {@link CollisionSystem} and
-     * {@link FadeManager} are destroyed and recreated (via {@code resetInstance()}),
-     * so any previously captured references become stale.
+     * across a {@code forTesting()} call. Singletons are reset in-place via
+     * {@code resetState()}, but the generation counter invalidates any
+     * previously issued {@code GameContext} instances.
      */
     public static GameContext forTesting() {
         // Invalidate any previously issued GameContext instances.
