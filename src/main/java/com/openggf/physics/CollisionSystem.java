@@ -52,6 +52,7 @@ public class CollisionSystem {
      * Preferred over {@link #resetInstance()} — cached references remain valid.
      */
     public void resetState() {
+        terrainCollisionManager.resetState();
         objectManager = null;
         trace = NoOpCollisionTrace.INSTANCE;
         unifiedPipelineEnabled = false;
