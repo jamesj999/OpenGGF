@@ -1,9 +1,9 @@
 package com.openggf.game.sonic1.objects.bosses;
 
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -156,8 +156,8 @@ public class Sonic1ScrapEggmanInstance extends AbstractObjectInstance implements
         this.button = new ScrapEggmanButton(buttonSpawn, this);
 
         // Add button as dynamic object
-        if (services().objectManager() != null) {
-            services().objectManager().addDynamicObject(button);
+        if (GameServices.level().getObjectManager() != null) {
+            GameServices.level().getObjectManager().addDynamicObject(button);
         }
     }
 

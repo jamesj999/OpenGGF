@@ -67,7 +67,7 @@ public class Sonic1EndingSTHObjectInstance extends AbstractObjectInstance {
 
     public Sonic1EndingSTHObjectInstance() {
         super(null, "EndSTH");
-        ObjectRenderManager renderManager = services().renderManager();
+        ObjectRenderManager renderManager = GameServices.level().getObjectRenderManager();
         this.renderer = renderManager != null ? renderManager.getRenderer(ObjectArtKeys.END_STH) : null;
 
         // Routine 0: ESth_Main — initialize

@@ -53,10 +53,7 @@ public class SuperSonicStarsObjectInstance extends AbstractObjectInstance {
         super(null, "SuperSonicStars");
         this.player = player;
 
-        ObjectRenderManager renderManager = null;
-        if (GameServices.level() != null) {
-            renderManager = services().renderManager();
-        }
+        ObjectRenderManager renderManager = GameServices.level().getObjectRenderManager();
         if (renderManager != null) {
             this.renderer = renderManager.getSuperSonicStarsRenderer();
         } else {

@@ -1,5 +1,6 @@
 package com.openggf.game.sonic1.objects;
 
+import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.AnimalType;
 import com.openggf.graphics.GLCommand;
@@ -115,7 +116,7 @@ public class Sonic1AnimalsObjectInstance extends AbstractObjectInstance {
 
     public Sonic1AnimalsObjectInstance(ObjectSpawn spawn) {
         super(spawn, "Animals");
-        ObjectRenderManager renderManager = services().renderManager();
+        ObjectRenderManager renderManager = GameServices.level().getObjectRenderManager();
         this.zoneAnimalRenderer = renderManager != null ? renderManager.getAnimalRenderer() : null;
         this.endingAnimalRenderer = renderManager != null ? renderManager.getRenderer(ObjectArtKeys.ANIMAL_ENDING) : null;
         this.currentX = spawn.x();
@@ -146,7 +147,7 @@ public class Sonic1AnimalsObjectInstance extends AbstractObjectInstance {
 
     private void initialiseFromEnemy() {
         // ROM: Anml_FromEnemy random zone pair selection.
-        int zoneId = services().romZoneId();
+        int zoneId = GameServices.level().getRomZoneId();
         int[] zoneVariants = resolveZoneVariants(zoneId);
         this.fromEnemyVariantIndex = zoneVariants[ThreadLocalRandom.current().nextInt(2)];
         AnimalType animalType = VARIABLE_ANIMALS[fromEnemyVariantIndex];
@@ -161,7 +162,7 @@ public class Sonic1AnimalsObjectInstance extends AbstractObjectInstance {
         this.xVelocity = 0;
         this.yVelocity = INITIAL_POP_Y_VELOCITY;
 
-        if (services().gameState().isBossFightActive()) {
+        if (GameServices.gameState().isBossFightActive()) {
             this.routine = ROUTINE_PRISON_WAIT;
             this.prisonWaitTimer = PRISON_WAIT_FRAMES;
             this.xVelocity = 0;
@@ -203,7 +204,7 @@ public class Sonic1AnimalsObjectInstance extends AbstractObjectInstance {
             animFrame = 1;
             routine = (fromEnemyVariantIndex << 1) + 4;
 
-            if (services().gameState().isBossFightActive() && (frameCounter & 0x10) != 0) {
+            if (GameServices.gameState().isBossFightActive() && (frameCounter & 0x10) != 0) {
                 xVelocity = -xVelocity;
                 hFlip = !hFlip;
             }
