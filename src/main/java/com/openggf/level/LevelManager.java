@@ -26,6 +26,7 @@ import com.openggf.debug.DebugOverlayToggle;
 import com.openggf.debug.PerformanceProfiler;
 import com.openggf.level.objects.HudRenderManager;
 import com.openggf.graphics.GLCommand;
+import com.openggf.graphics.PatternAtlas;
 import com.openggf.audio.AudioManager;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.TilemapGpuRenderer;
@@ -1250,6 +1251,10 @@ public class LevelManager {
     }
 
     private void initObjectArt() {
+        PatternAtlas patternAtlas = graphicsManager.getPatternAtlas();
+        if (patternAtlas != null) {
+            patternAtlas.clearRanges();
+        }
         ObjectArtProvider provider = gameModule != null ? gameModule.getObjectArtProvider() : null;
         if (provider == null) {
             objectRenderManager = null;
@@ -1266,7 +1271,11 @@ public class LevelManager {
 
             // Register level-tile-based object art (must be after level load)
             provider.registerLevelTileArt(level, zoneIndex);
-            objectRenderManager.ensurePatternsCached(graphicsManager, OBJECT_PATTERN_BASE);
+            int objectEndIndex = objectRenderManager.ensurePatternsCached(graphicsManager, OBJECT_PATTERN_BASE);
+            if (patternAtlas != null) {
+                patternAtlas.registerRange(
+                    OBJECT_PATTERN_BASE, objectEndIndex - OBJECT_PATTERN_BASE, "Objects");
+            }
 
             hudRenderManager = new HudRenderManager(graphicsManager);
             hudRenderManager.setHudPalettes(provider.getHudTextPaletteLine(), provider.getHudFlashPaletteLine());

@@ -49,6 +49,40 @@ public class PatternAtlas {
     private boolean[] dirtyPages;    // tracks which pages were written during batch
     private boolean batchMode = false;
 
+    /** Describes a registered virtual pattern ID range for collision detection. */
+    public record PatternRange(int base, int size, String category) {}
+
+    private final List<PatternRange> registeredRanges = new ArrayList<>();
+
+    /**
+     * Registers a virtual pattern ID range for collision detection.
+     * Logs a warning if the range overlaps an existing registered range.
+     * Diagnostic only — does not prevent allocation.
+     *
+     * @param base     the starting pattern ID
+     * @param size     the number of patterns in this range
+     * @param category a human-readable name for logging (e.g., "Objects", "HUD")
+     */
+    public void registerRange(int base, int size, String category) {
+        int newEnd = base + size;
+        for (PatternRange existing : registeredRanges) {
+            int existingEnd = existing.base() + existing.size();
+            if (base < existingEnd && newEnd > existing.base()) {
+                LOGGER.warning("Pattern range collision: " + category
+                    + " [0x" + Integer.toHexString(base) + "-0x" + Integer.toHexString(newEnd)
+                    + "] overlaps " + existing.category()
+                    + " [0x" + Integer.toHexString(existing.base())
+                    + "-0x" + Integer.toHexString(existingEnd) + "]");
+            }
+        }
+        registeredRanges.add(new PatternRange(base, size, category));
+    }
+
+    /** Clears all registered ranges. Called on level unload or atlas reset. */
+    public void clearRanges() {
+        registeredRanges.clear();
+    }
+
     public PatternAtlas(int atlasWidth, int atlasHeight) {
         if (atlasWidth % TILE_SIZE != 0 || atlasHeight % TILE_SIZE != 0) {
             throw new IllegalArgumentException("Atlas size must be divisible by tile size");
