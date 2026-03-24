@@ -10,6 +10,9 @@ import com.openggf.game.PlayableEntity;
 
 public class HudRenderManager {
 
+    private static final java.util.logging.Logger LOGGER =
+            java.util.logging.Logger.getLogger(HudRenderManager.class.getName());
+
     /**
      * Controls how the HUD warns the player when rings=0 or time>=9:00.
      * S1/S2 swap the label palette (red flash), S3K hides the label text entirely.
@@ -94,13 +97,13 @@ public class HudRenderManager {
 
     public void setDigitPatternIndex(int digitPatternIndex) {
         this.digitPatternIndex = digitPatternIndex;
-        System.out.println("HudRenderManager Digit Index: " + digitPatternIndex);
+        LOGGER.fine("HudRenderManager Digit Index: " + digitPatternIndex);
     }
 
     public void setTextPatternIndex(int textPatternIndex, int count) {
         this.textPatternIndex = textPatternIndex;
         this.textPatternCount = count;
-        System.out.println("HudRenderManager Text Index: " + textPatternIndex + ", Count: " + count);
+        LOGGER.fine("HudRenderManager Text Index: " + textPatternIndex + ", Count: " + count);
     }
 
     private int livesPatternIndex;

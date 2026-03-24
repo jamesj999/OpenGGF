@@ -10,11 +10,13 @@ import com.openggf.level.animation.AniPlcScriptState;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.logging.Logger;
 
 /**
  * Updates Sonic 2 zone animated tiles using the Dynamic_Normal scripts.
  */
 class Sonic2PatternAnimator implements AnimatedPatternManager {
+    private static final Logger LOGGER = Logger.getLogger(Sonic2PatternAnimator.class.getName());
     // Disassembly: loc_3FF94 (Animated_EHZ)
     private static final int ANIMATED_EHZ_ADDR = 0x3FF94;
 
@@ -103,7 +105,7 @@ class Sonic2PatternAnimator implements AnimatedPatternManager {
                 // Ignore read errors during scan
             }
         }
-        System.err.println("Sonic2PatternAnimator: Could not locate PLC_DYNANM table.");
+        LOGGER.warning("Sonic2PatternAnimator: Could not locate PLC_DYNANM table.");
         return -1;
     }
 

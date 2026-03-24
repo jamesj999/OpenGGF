@@ -10,6 +10,8 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.Map;
 import com.openggf.level.objects.ObjectSpawn;
 
+import java.util.logging.Logger;
+
 /**
  * Casino Night Zone events.
  * ROM: LevEvents_CNZ (s2.asm:21479-21570)
@@ -24,6 +26,7 @@ import com.openggf.level.objects.ObjectSpawn;
  * - Routine 6: Prevent backtracking during fight
  */
 public class Sonic2CNZEvents extends Sonic2ZoneEvents {
+    private static final Logger LOGGER = Logger.getLogger(Sonic2CNZEvents.class.getName());
     private Sonic2CNZBossInstance cnzBoss;
     // CNZ Act 2 boss arena wall positions (for removal after defeat)
     // Layout offset calculation: offset / layoutWidth = y, offset % layoutWidth = x
@@ -197,7 +200,7 @@ public class Sonic2CNZEvents extends Sonic2ZoneEvents {
             levelManager.invalidateForegroundTilemap();
         } catch (IllegalArgumentException e) {
             // Layout dimensions may differ - log and continue
-            System.err.println("CNZ wall placement failed: " + e.getMessage());
+            LOGGER.log(java.util.logging.Level.WARNING, "CNZ wall placement failed", e);
         }
     }
 

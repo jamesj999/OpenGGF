@@ -32,7 +32,7 @@ public class SonicConfigurationService {
 				try {
 					config = mapper.readValue(execConfig, type);
 				} catch (IOException e) {
-					System.err.println("Failed to load config.json from executable directory: " + e.getMessage());
+					LOGGER.log(Level.WARNING, "Failed to load config.json from executable directory", e);
 				}
 			}
 		} else {
@@ -42,7 +42,7 @@ public class SonicConfigurationService {
 				try {
 					config = mapper.readValue(file, type);
 				} catch (IOException e) {
-					System.err.println("Failed to load config.json from working directory: " + e.getMessage());
+					LOGGER.log(Level.WARNING, "Failed to load config.json from working directory", e);
 				}
 			}
 		}
@@ -52,7 +52,7 @@ public class SonicConfigurationService {
 				if (is != null) {
 					config = mapper.readValue(is, type);
 				} else {
-					System.err.println("Could not find config.json, using defaults.");
+					LOGGER.log(Level.WARNING, "Could not find config.json, using defaults.");
 					config = new HashMap<>();
 				}
 			} catch (IOException e) {
