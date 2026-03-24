@@ -291,7 +291,9 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
             new InitStep("ResetTimers", "Undoes Level_frame_counter / demo timer",
                 () -> TimerManager.getInstance().resetState()),
             new InitStep("ResetWater", "Undoes LZWaterFeatures / WaterEffects / Handle_Onscreen_Water_Height",
-                () -> WaterSystem.getInstance().reset())
+                () -> WaterSystem.getInstance().reset()),
+            new InitStep("ResetDebugOverlay", "Clears overlay toggle states and pending debug text",
+                () -> DebugOverlayManager.getInstance().resetState())
         );
     }
 

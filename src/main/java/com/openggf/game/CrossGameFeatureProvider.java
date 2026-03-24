@@ -92,7 +92,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
         }
 
         // Resolve donor capabilities before any ROM access
-        this.donorCapabilities = resolveDonorCapabilities(donorGameId.code());
+        this.donorCapabilities = resolveDonorCapabilities(donorGameId);
         if (donorCapabilities == null) {
             LOGGER.warning("No donor capabilities for: " + donorGameId.code());
             active = false;
@@ -421,15 +421,14 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
     }
 
     /**
-     * Resolves donor capabilities for the given game code by constructing a
+     * Resolves donor capabilities for the given game ID by constructing a
      * temporary GameModule and extracting its DonorCapabilities.
      */
-    private static DonorCapabilities resolveDonorCapabilities(String gameCode) {
-        return switch (gameCode.toLowerCase()) {
-            case "s1" -> new com.openggf.game.sonic1.Sonic1GameModule().getDonorCapabilities();
-            case "s2" -> new com.openggf.game.sonic2.Sonic2GameModule().getDonorCapabilities();
-            case "s3k" -> new com.openggf.game.sonic3k.Sonic3kGameModule().getDonorCapabilities();
-            default -> null;
+    private static DonorCapabilities resolveDonorCapabilities(GameId gameId) {
+        return switch (gameId) {
+            case S1 -> new com.openggf.game.sonic1.Sonic1GameModule().getDonorCapabilities();
+            case S2 -> new com.openggf.game.sonic2.Sonic2GameModule().getDonorCapabilities();
+            case S3K -> new com.openggf.game.sonic3k.Sonic3kGameModule().getDonorCapabilities();
         };
     }
 }

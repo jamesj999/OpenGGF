@@ -64,7 +64,7 @@ class TestSidekickGating {
     void s1WithoutCrossGameFeatures_blocksSidekick() {
         GameModuleRegistry.setCurrent(new Sonic1GameModule());
         // CrossGameFeatureProvider is not initialized, so isActive() returns false
-        CrossGameFeatureProvider.resetInstance();
+        CrossGameFeatureProvider.getInstance().resetState();
 
         boolean sidekickAllowed = GameModuleRegistry.getCurrent().supportsSidekick()
                 || CrossGameFeatureProvider.isActive();
@@ -75,7 +75,7 @@ class TestSidekickGating {
     @Test
     void s2NativelySupportsSidekick_regardlessOfCrossGame() {
         GameModuleRegistry.setCurrent(new Sonic2GameModule());
-        CrossGameFeatureProvider.resetInstance();
+        CrossGameFeatureProvider.getInstance().resetState();
 
         boolean sidekickAllowed = GameModuleRegistry.getCurrent().supportsSidekick()
                 || CrossGameFeatureProvider.isActive();

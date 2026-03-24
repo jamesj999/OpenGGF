@@ -343,7 +343,7 @@ public class Sonic2ZoneFeatureProvider implements ZoneFeatureProvider {
 
     @Override
     public boolean isForceBlackBackdrop() {
-        return currentZone == 0x0B; // MCZ
+        return currentZone == Sonic2ZoneConstants.ROM_ZONE_MCZ;
     }
 
     // Intentionally no public accessors for bumper system.
