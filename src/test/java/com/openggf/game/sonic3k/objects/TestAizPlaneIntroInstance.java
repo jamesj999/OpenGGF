@@ -3,6 +3,7 @@ package com.openggf.game.sonic3k.objects;
 import org.junit.Before;
 import org.junit.Test;
 import com.openggf.camera.Camera;
+import com.openggf.level.objects.DefaultObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.sprites.playable.Sonic;
 
@@ -17,6 +18,7 @@ public class TestAizPlaneIntroInstance {
         Camera.getInstance().resetState();
         intro = new AizPlaneIntroInstance(
                 new ObjectSpawn(0x60, 0x30, 0, 0, 0, false, 0));
+        intro.setServices(new DefaultObjectServices());
     }
 
     @Test

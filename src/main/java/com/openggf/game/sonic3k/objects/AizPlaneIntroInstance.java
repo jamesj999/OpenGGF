@@ -1,8 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.camera.Camera;
 import com.openggf.data.RomByteReader;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kPlayerArt;
 import com.openggf.game.sonic3k.Sonic3kSuperStateController;
@@ -345,7 +343,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
      */
     private AbstractPlayableSprite resolveTrackedPlayer(AbstractPlayableSprite candidate) {
         try {
-            AbstractPlayableSprite focused = GameServices.camera().getFocusedSprite();
+            AbstractPlayableSprite focused = services().camera().getFocusedSprite();
             if (focused != null) {
                 return focused;
             }
@@ -368,7 +366,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         int renderX = currentX;
         int renderY = currentY;
         try {
-            Camera camera = GameServices.camera();
+            var camera = services().camera();
             renderX += camera.getX() - 128;
             renderY += camera.getY() - 128;
         } catch (Exception e) {
@@ -382,7 +380,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         // Safety net: release player control if we still own it.
         if (ownsPlayerControl) {
             try {
-                var focusedSprite = GameServices.camera().getFocusedSprite();
+                var focusedSprite = services().camera().getFocusedSprite();
                 if (focusedSprite instanceof AbstractPlayableSprite ps) {
                     ps.setControlLocked(false);
                     ps.setObjectControlled(false);
@@ -441,7 +439,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
             return;
         }
         try {
-            var rom = GameServices.rom().getRom();
+            var rom = services().rom();
             Sonic3kPlayerArt art = new Sonic3kPlayerArt(RomByteReader.fromRom(rom));
             sonicRenderer = new PlayerSpriteRenderer(art.loadSonic());
             superSonicRenderer = new PlayerSpriteRenderer(art.loadSuperSonicArtSet());
@@ -640,7 +638,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         // This gates intro/HUD/start-state flow; camera scrolling still runs.
         // CutsceneKnucklesAiz1Instance sets the flag back to $91 on exit.
         try {
-            GameServices.camera().setLevelStarted(false);
+            services().camera().setLevelStarted(false);
         } catch (Exception e) {
             LOG.fine(() -> "AizPlaneIntroInstance.routine0Init: " + e.getMessage());
         }

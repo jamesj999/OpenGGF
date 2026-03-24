@@ -31,95 +31,154 @@ class TestObjectServicesMigrationGuard {
      * class is in this set but no longer uses getInstance() (migration complete),
      * or if a class NOT in this set starts using getInstance() (regression).
      */
+    // Reason codes for KNOWN_UNMIGRATED entries:
+    //   GAME_SINGLETON — uses game-specific singleton (Sonic1SwitchManager, Sonic2LevelEventManager, etc.)
+    //   MISSING_METHOD — uses a LevelManager method not yet in ObjectServices
+    //   STATIC_METHOD  — uses GameServices in a static context where services() isn't available
+    //   NOT_OBJECT     — class doesn't extend AbstractObjectInstance, has no services()
+    //   REGISTRY       — ObjectRegistry class, not an object instance
+    //   DEBUG_ONLY     — only remaining calls are GameServices.debugOverlay() (scanner sees GameServices ref)
+    //
+    // To unblock GAME_SINGLETON: expose through ZoneFeatureProvider or ObjectServices
+    // To unblock MISSING_METHOD: add the method to ObjectServices + DefaultObjectServices
+    // To unblock STATIC_METHOD:  convert to instance method or accept as permanent exception
+    // NOT_OBJECT/REGISTRY:       permanent exceptions — these classes don't participate in DI
+
     private static final Set<String> KNOWN_UNMIGRATED = Set.of(
-            // Sonic 1 — GameServices/getInstance usage (S1 switch/conveyor singletons, camera, etc.)
+            // ── Sonic 1 ──────────────────────────────────────────────────────
+
+            // GAME_SINGLETON: Sonic1SwitchManager.getInstance()
+            "com.openggf.game.sonic1.objects.Sonic1FloatingBlockObjectInstance",
+            "com.openggf.game.sonic1.objects.Sonic1GlassBlockObjectInstance",
+            "com.openggf.game.sonic1.objects.Sonic1JunctionObjectInstance",
+            "com.openggf.game.sonic1.objects.Sonic1MovingBlockObjectInstance",
+            "com.openggf.game.sonic1.objects.Sonic1PlatformObjectInstance",
+
+            // GAME_SINGLETON: Sonic1SwitchManager + Sonic1ConveyorState
+            "com.openggf.game.sonic1.objects.Sonic1LZConveyorObjectInstance",
+            "com.openggf.game.sonic1.objects.Sonic1SpinConveyorObjectInstance",
+
+            // PARTIAL: agents migrated some calls but GameServices references remain
             "com.openggf.game.sonic1.objects.Sonic1AnimalsObjectInstance",
             "com.openggf.game.sonic1.objects.Sonic1BreakableWallObjectInstance",
             "com.openggf.game.sonic1.objects.Sonic1EndingEmeraldsObjectInstance",
             "com.openggf.game.sonic1.objects.Sonic1EndingSTHObjectInstance",
             "com.openggf.game.sonic1.objects.Sonic1LavaBallObjectInstance",
             "com.openggf.game.sonic1.objects.Sonic1MonitorObjectInstance",
-            "com.openggf.game.sonic1.objects.Sonic1ObjectRegistry",
             "com.openggf.game.sonic1.objects.Sonic1PushBlockObjectInstance",
-            "com.openggf.game.sonic1.objects.Sonic1ResultsScreenObjectInstance",
             "com.openggf.game.sonic1.objects.Sonic1SignpostObjectInstance",
             "com.openggf.game.sonic1.objects.Sonic1SmashBlockObjectInstance",
             "com.openggf.game.sonic1.objects.Sonic1SpringObjectInstance",
             "com.openggf.game.sonic1.objects.Sonic1SwingingPlatformObjectInstance",
             "com.openggf.game.sonic1.objects.Sonic1TryAgainEggmanObjectInstance",
             "com.openggf.game.sonic1.objects.Sonic1TryAgainEmeraldsObjectInstance",
+
+            // MISSING_METHOD: advanceZoneActOnly(), requestSpecialStageFromCheckpoint()
+            "com.openggf.game.sonic1.objects.Sonic1ResultsScreenObjectInstance",
+
+            // REGISTRY: not an object instance
+            "com.openggf.game.sonic1.objects.Sonic1ObjectRegistry",
+
+            // STATIC_METHOD: GameServices.level().getObjectManager() in static context
             "com.openggf.game.sonic1.objects.bosses.Sonic1BossBlockInstance",
-            "com.openggf.game.sonic1.objects.bosses.Sonic1FZBossInstance",
-            "com.openggf.game.sonic1.objects.Sonic1FloatingBlockObjectInstance",
-            "com.openggf.game.sonic1.objects.Sonic1GlassBlockObjectInstance",
-            "com.openggf.game.sonic1.objects.Sonic1JunctionObjectInstance",
-            "com.openggf.game.sonic1.objects.Sonic1LZConveyorObjectInstance",
-            "com.openggf.game.sonic1.objects.Sonic1MovingBlockObjectInstance",
-            "com.openggf.game.sonic1.objects.Sonic1PlatformObjectInstance",
-            "com.openggf.game.sonic1.objects.Sonic1SpinConveyorObjectInstance",
             "com.openggf.game.sonic1.objects.bosses.Sonic1ScrapEggmanInstance",
-            // Sonic 2 — GameServices.level/rom/audio usage
+
+            // MISSING_METHOD: requestZoneAndAct()
+            "com.openggf.game.sonic1.objects.bosses.Sonic1FZBossInstance",
+
+            // ── Sonic 2 ──────────────────────────────────────────────────────
+
+            // STATIC_METHOD: GameServices.level().getObjectManager() in static factory
+            "com.openggf.game.sonic2.objects.ConveyorObjectInstance",
+
+            // MISSING_METHOD: areAllRingsCollected()
+            "com.openggf.game.sonic2.objects.EggPrisonObjectInstance",
+
+            // DEBUG_ONLY: only GameServices.debugOverlay() remains
+            "com.openggf.game.sonic2.objects.ForcedSpinObjectInstance",
+            "com.openggf.game.sonic2.objects.InvisibleBlockObjectInstance",
+            "com.openggf.game.sonic2.objects.MTZTwinStompersObjectInstance",
+            "com.openggf.game.sonic2.objects.SlidingSpikesObjectInstance",
+            "com.openggf.game.sonic2.objects.StomperObjectInstance",
+
+            // PARTIAL: agents migrated some calls but GameServices references remain
             "com.openggf.game.sonic2.objects.BreakableBlockObjectInstance",
             "com.openggf.game.sonic2.objects.CheckpointObjectInstance",
             "com.openggf.game.sonic2.objects.CheckpointStarInstance",
-            "com.openggf.game.sonic2.objects.ConveyorObjectInstance",
-            "com.openggf.game.sonic2.objects.EggPrisonObjectInstance",
             "com.openggf.game.sonic2.objects.FlipperObjectInstance",
-            "com.openggf.game.sonic2.objects.ForcedSpinObjectInstance",
-            "com.openggf.game.sonic2.objects.InvisibleBlockObjectInstance",
-            "com.openggf.game.sonic2.objects.MTZLongPlatformObjectInstance",
             "com.openggf.game.sonic2.objects.MonitorObjectInstance",
             "com.openggf.game.sonic2.objects.PipeExitSpringObjectInstance",
-            "com.openggf.game.sonic2.objects.PointPokeyObjectInstance",
             "com.openggf.game.sonic2.objects.RingPrizeObjectInstance",
             "com.openggf.game.sonic2.objects.RivetObjectInstance",
-            "com.openggf.game.sonic2.objects.SidewaysPformObjectInstance",
             "com.openggf.game.sonic2.objects.SignpostObjectInstance",
             "com.openggf.game.sonic2.objects.SmashableGroundObjectInstance",
-            "com.openggf.game.sonic2.objects.Sonic2ObjectRegistry",
             "com.openggf.game.sonic2.objects.SpringObjectInstance",
             "com.openggf.game.sonic2.objects.SpringboardObjectInstance",
             "com.openggf.game.sonic2.objects.SuperSonicStarsObjectInstance",
             "com.openggf.game.sonic2.objects.TippingFloorObjectInstance",
             "com.openggf.game.sonic2.objects.badniks.SolBadnikInstance",
-            "com.openggf.game.sonic2.objects.bosses.Sonic2ARZBossInstance",
             "com.openggf.game.sonic2.objects.bosses.Sonic2DeathEggRobotInstance",
-            "com.openggf.game.sonic2.objects.MTZTwinStompersObjectInstance",
-            "com.openggf.game.sonic2.objects.RisingLavaObjectInstance",
-            "com.openggf.game.sonic2.objects.SlidingSpikesObjectInstance",
-            "com.openggf.game.sonic2.objects.SpecialStageResultsScreenObjectInstance",
-            "com.openggf.game.sonic2.objects.StomperObjectInstance",
-            "com.openggf.game.sonic2.objects.TornadoObjectInstance",
-            "com.openggf.game.sonic2.objects.WFZPalSwitcherObjectInstance",
-            "com.openggf.game.sonic2.objects.bosses.Sonic2MechaSonicInstance",
             "com.openggf.game.sonic2.objects.bosses.Sonic2MTZBossInstance",
-            // Sonic 3K — GameServices.level/rom/audio usage
-            "com.openggf.game.sonic3k.objects.AizGiantRideVineObjectInstance",
+
+            // MISSING_METHOD: getCurrentZone()
+            "com.openggf.game.sonic2.objects.MTZLongPlatformObjectInstance",
+
+            // MISSING_METHOD: findPatternOffset()
+            "com.openggf.game.sonic2.objects.PointPokeyObjectInstance",
+
+            // GAME_SINGLETON: Sonic2LevelEventManager.getInstance()
+            "com.openggf.game.sonic2.objects.RisingLavaObjectInstance",
+            "com.openggf.game.sonic2.objects.bosses.Sonic2MechaSonicInstance",
+
+            // MISSING_METHOD: getGame().getRom() in static context
+            "com.openggf.game.sonic2.objects.SidewaysPformObjectInstance",
+
+            // GAME_SINGLETON: Sonic2SpecialStageManager.getInstance() + RomManager
+            "com.openggf.game.sonic2.objects.SpecialStageResultsScreenObjectInstance",
+
+            // MISSING_METHOD: requestZoneAndAct() + GAME_SINGLETON: Sonic2LevelEventManager
+            "com.openggf.game.sonic2.objects.TornadoObjectInstance",
+
+            // GAME_SINGLETON: Sonic2LevelEventManager (WFZPalSwitcher reads palette switch flag)
+            "com.openggf.game.sonic2.objects.WFZPalSwitcherObjectInstance",
+
+            // REGISTRY: not an object instance
+            "com.openggf.game.sonic2.objects.Sonic2ObjectRegistry",
+
+            // MISSING_METHOD: getCurrentLevelMusicId()
+            "com.openggf.game.sonic2.objects.bosses.Sonic2ARZBossInstance",
+
+            // ── Sonic 3K ─────────────────────────────────────────────────────
+
+            // NOT_OBJECT: static utility classes, no AbstractObjectInstance inheritance
             "com.openggf.game.sonic3k.objects.AizIntroArtLoader",
             "com.openggf.game.sonic3k.objects.AizIntroPaletteCycler",
             "com.openggf.game.sonic3k.objects.AizIntroBoosterChild",
             "com.openggf.game.sonic3k.objects.AizIntroTerrainSwap",
-            "com.openggf.game.sonic3k.objects.AizMinibossBarrelShotChild",
-            "com.openggf.game.sonic3k.objects.AizPlaneIntroInstance",
             "com.openggf.game.sonic3k.objects.AizVineHandleLogic",
+
+            // DEBUG_ONLY: only GameServices.debugOverlay() remains
             "com.openggf.game.sonic3k.objects.AutoSpinObjectInstance",
-            "com.openggf.game.sonic3k.objects.CorkFloorObjectInstance",
-            "com.openggf.game.sonic3k.objects.FloatingPlatformObjectInstance",
-            "com.openggf.game.sonic3k.objects.S3kSignpostSparkleChild",
-            "com.openggf.game.sonic3k.objects.SongFadeTransitionInstance",
-            "com.openggf.game.sonic3k.objects.Sonic3kCollapsingPlatformObjectInstance",
-            "com.openggf.game.sonic3k.objects.Sonic3kMonitorObjectInstance",
+
+            // REGISTRY: not an object instance
             "com.openggf.game.sonic3k.objects.Sonic3kObjectRegistry",
-            "com.openggf.game.sonic3k.objects.Sonic3kSSEntryFlashObjectInstance",
+
+            // MISSING_METHOD: saveBigRingReturnPosition()
             "com.openggf.game.sonic3k.objects.Sonic3kSSEntryRingObjectInstance",
+
+            // GAME_SINGLETON: Sonic3kLevelEventManager.getInstance()
             "com.openggf.game.sonic3k.objects.AizMinibossCutsceneInstance",
             "com.openggf.game.sonic3k.objects.AizMinibossInstance",
-            "com.openggf.game.sonic3k.objects.AizRideVineObjectInstance",
-            "com.openggf.game.sonic3k.objects.CutsceneKnucklesAiz1Instance",
             "com.openggf.game.sonic3k.objects.S3kBossDefeatSignpostFlow",
-            "com.openggf.game.sonic3k.objects.S3kResultsScreenObjectInstance",
             "com.openggf.game.sonic3k.objects.S3kSignpostInstance",
-            "com.openggf.game.sonic3k.objects.Sonic3kStarPostObjectInstance"
+
+            // GAME_SINGLETON: Sonic3kTitleCardManager.getInstance()
+            "com.openggf.game.sonic3k.objects.CutsceneKnucklesAiz1Instance",
+            "com.openggf.game.sonic3k.objects.S3kResultsScreenObjectInstance",
+
+            // GAME_SINGLETON: SpriteManager (getSprite/getAllSprites beyond sidekicks())
+            "com.openggf.game.sonic3k.objects.AizGiantRideVineObjectInstance",
+            "com.openggf.game.sonic3k.objects.AizRideVineObjectInstance"
     );
 
     /** Packages containing object instance classes to scan. */

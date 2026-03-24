@@ -1,9 +1,7 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.GameStateManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
@@ -108,7 +106,7 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
         this.bitIndex = spawn.subtype();
 
         // ROM pre-check: if already collected, delete immediately
-        GameStateManager gameState = GameServices.gameState();
+        var gameState = services().gameState();
         if (gameState.isSpecialRingCollected(bitIndex)) {
             setDestroyed(true);
             this.state = State.MARKED_DELETE;
@@ -208,7 +206,7 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
      * </ul>
      */
     private void onTouched(AbstractPlayableSprite player) {
-        GameStateManager gameState = services().gameState();
+        var gameState = services().gameState();
 
         // Play sfx_BigRing ($B3) — always plays on touch
         services().playSfx(Sonic3kSfx.BIG_RING.id);
@@ -246,7 +244,7 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
 
         // ROM: Save_Level_Data2 — save player position at ring for return from SS.
         // This is separate from checkpoint state (ROM: Saved_ vs Saved2_).
-        Camera camera = services().camera();
+        var camera = services().camera();
         GameServices.level().saveBigRingReturnPosition(
                 player.getCentreX(), player.getCentreY(),
                 camera.getX(), camera.getY());

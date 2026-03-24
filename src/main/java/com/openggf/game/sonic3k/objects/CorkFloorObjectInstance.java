@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
@@ -8,7 +7,6 @@ import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -490,10 +488,9 @@ public class CorkFloorObjectInstance extends AbstractObjectInstance
 
     // Uses inherited getRenderManager() from AbstractObjectInstance
 
-    private static ObjectManager getObjectManager() {
+    private ObjectManager getObjectManager() {
         try {
-            LevelManager lm = GameServices.level();
-            return lm != null ? lm.getObjectManager() : null;
+            return services().objectManager();
         } catch (Exception e) {
             return null;
         }
@@ -503,27 +500,24 @@ public class CorkFloorObjectInstance extends AbstractObjectInstance
      * Resolves zone configuration based on current level.
      * ROM: Obj_CorkFloor uses a zone-indexed jump table (sonic3k.asm:58420).
      */
-    private static ZoneConfig resolveConfig(int subtype) {
+    private ZoneConfig resolveConfig(int subtype) {
         try {
-            LevelManager lm = GameServices.level();
-            if (lm != null) {
-                int zone = lm.getCurrentZone();
-                int act = lm.getCurrentAct();
-                return switch (zone) {
-                    case Sonic3kZoneIds.ZONE_AIZ -> act == 0 ? AIZ1_CONFIG : AIZ2_CONFIG;
-                    case Sonic3kZoneIds.ZONE_CNZ -> CNZ_CONFIG;
-                    case Sonic3kZoneIds.ZONE_FBZ -> FBZ_CONFIG;
-                    case Sonic3kZoneIds.ZONE_ICZ ->
-                        // ROM: btst #4,subtype(a0) selects between two ICZ variants
-                        (subtype & 0x10) != 0 ? ICZ_SMALL_CONFIG : ICZ_CONFIG;
-                    case Sonic3kZoneIds.ZONE_LBZ -> LBZ_CONFIG;
-                    default -> {
-                        LOG.warning("CorkFloor: unknown zone 0x" + Integer.toHexString(zone)
-                                + ", defaulting to AIZ1 config");
-                        yield AIZ1_CONFIG;
-                    }
-                };
-            }
+            int zone = services().romZoneId();
+            int act = services().currentAct();
+            return switch (zone) {
+                case Sonic3kZoneIds.ZONE_AIZ -> act == 0 ? AIZ1_CONFIG : AIZ2_CONFIG;
+                case Sonic3kZoneIds.ZONE_CNZ -> CNZ_CONFIG;
+                case Sonic3kZoneIds.ZONE_FBZ -> FBZ_CONFIG;
+                case Sonic3kZoneIds.ZONE_ICZ ->
+                    // ROM: btst #4,subtype(a0) selects between two ICZ variants
+                    (subtype & 0x10) != 0 ? ICZ_SMALL_CONFIG : ICZ_CONFIG;
+                case Sonic3kZoneIds.ZONE_LBZ -> LBZ_CONFIG;
+                default -> {
+                    LOG.warning("CorkFloor: unknown zone 0x" + Integer.toHexString(zone)
+                            + ", defaulting to AIZ1 config");
+                    yield AIZ1_CONFIG;
+                }
+            };
         } catch (Exception e) {
             LOG.fine("Could not resolve zone config: " + e.getMessage());
         }

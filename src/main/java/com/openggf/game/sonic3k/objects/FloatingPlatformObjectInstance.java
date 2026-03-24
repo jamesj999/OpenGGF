@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.OscillationManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
@@ -8,7 +7,6 @@ import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -505,24 +503,21 @@ public class FloatingPlatformObjectInstance extends AbstractObjectInstance
 
     // Uses inherited getRenderManager() from AbstractObjectInstance
 
-    private static ZoneConfig resolveConfig() {
+    private ZoneConfig resolveConfig() {
         try {
-            LevelManager lm = GameServices.level();
-            if (lm != null) {
-                int zone = lm.getCurrentZone();
-                int act = lm.getCurrentAct();
-                if (zone == Sonic3kZoneIds.ZONE_AIZ) {
-                    return act == 0 ? AIZ1_CONFIG : AIZ2_CONFIG;
-                }
-                if (zone == Sonic3kZoneIds.ZONE_HCZ) {
-                    return HCZ_CONFIG;
-                }
-                if (zone == Sonic3kZoneIds.ZONE_MGZ) {
-                    return MGZ_CONFIG;
-                }
-                LOG.warning("FloatingPlatform: unknown zone 0x"
-                        + Integer.toHexString(zone) + ", defaulting to AIZ1 config");
+            int zone = services().romZoneId();
+            int act = services().currentAct();
+            if (zone == Sonic3kZoneIds.ZONE_AIZ) {
+                return act == 0 ? AIZ1_CONFIG : AIZ2_CONFIG;
             }
+            if (zone == Sonic3kZoneIds.ZONE_HCZ) {
+                return HCZ_CONFIG;
+            }
+            if (zone == Sonic3kZoneIds.ZONE_MGZ) {
+                return MGZ_CONFIG;
+            }
+            LOG.warning("FloatingPlatform: unknown zone 0x"
+                    + Integer.toHexString(zone) + ", defaulting to AIZ1 config");
         } catch (Exception e) {
             LOG.fine("Could not resolve zone config: " + e.getMessage());
         }

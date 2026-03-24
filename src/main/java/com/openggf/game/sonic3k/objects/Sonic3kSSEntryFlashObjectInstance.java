@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.graphics.GLCommand;
@@ -109,7 +108,7 @@ public class Sonic3kSSEntryFlashObjectInstance extends AbstractObjectInstance {
             // Sonic3kSpecialStageProvider.getTransitionSfxId() (sfx_EnterSS = $AF),
             // so we just trigger the request here.
             state = State.DONE;
-            GameServices.level().requestSpecialStageEntry();
+            services().requestSpecialStageEntry();
             LOGGER.fine("SSEntryFlash: triggering special stage entry");
             setDestroyed(true);
         }

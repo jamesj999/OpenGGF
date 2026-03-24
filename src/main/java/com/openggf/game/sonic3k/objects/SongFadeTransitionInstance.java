@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -63,7 +62,7 @@ public class SongFadeTransitionInstance extends AbstractObjectInstance {
     public void update(int frameCounter, PlayableEntity playerEntity) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (!fadeStarted) {
-            GameServices.audio().fadeOutMusic(0x28, 6);
+            services().audioManager().fadeOutMusic(0x28, 6);
             fadeStarted = true;
         }
         timer++;

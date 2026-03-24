@@ -3,7 +3,6 @@ package com.openggf.game.sonic3k.objects;
 import com.openggf.game.BonusStageType;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.CheckpointState;
-import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -152,7 +151,7 @@ public class Sonic3kStarPostObjectInstance extends AbstractObjectInstance {
 
         // Init routine (loc_2CFC0):
         // Check respawn table and compare subtype against Last_star_post_hit
-        var checkpointState = GameServices.level().getCheckpointState();
+        var checkpointState = services().checkpointState();
         if (checkpointState != null && checkpointState.getLastCheckpointIndex() >= this.checkpointIndex) {
             // loc_2D008: already activated - set anim 2 (spinning)
             this.activated = true;

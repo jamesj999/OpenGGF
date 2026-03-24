@@ -7,6 +7,7 @@ import com.openggf.camera.Camera;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
+import com.openggf.level.objects.DefaultObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
 
 import static org.junit.Assert.assertEquals;
@@ -469,6 +470,7 @@ public class SwScrlAizTest {
     private void activateIntroScrollState() {
         AizPlaneIntroInstance intro = new AizPlaneIntroInstance(
                 new ObjectSpawn(0x60, 0x30, 0, 0, 0, false, 0));
+        intro.setServices(new DefaultObjectServices());
         // First update: routine 0 → init (resets introScrollOffset to 0, advances to routine 2)
         intro.update(0, null);
         // Second update: scrollVelocity runs before routine 2, sets introScrollOffset < 0

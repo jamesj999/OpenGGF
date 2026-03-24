@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
@@ -99,7 +98,11 @@ public class AizMinibossBarrelShotChild extends AbstractObjectInstance implement
         this.state = State.PRELAUNCH;
         this.vFlip = false;
 
-        GameServices.audio().playSfx(Sonic3kSfx.PROJECTILE.id);
+        try {
+            services().playSfx(Sonic3kSfx.PROJECTILE.id);
+        } catch (Exception e) {
+            // Services may not be set during test construction
+        }
     }
 
     @Override

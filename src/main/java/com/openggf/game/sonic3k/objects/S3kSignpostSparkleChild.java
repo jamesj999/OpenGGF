@@ -1,10 +1,8 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.rings.RingManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -63,14 +61,11 @@ public class S3kSignpostSparkleChild extends AbstractObjectInstance {
     public void appendRenderCommands(List<GLCommand> commands) {
         // Try to use RingManager's sparkle frames if available
         try {
-            LevelManager lm = GameServices.level();
-            if (lm != null) {
-                RingManager ringManager = lm.getRingManager();
-                if (ringManager != null) {
-                    int startIdx = ringManager.getSparkleStartIndex();
-                    ringManager.drawFrameIndex(startIdx + animFrame, worldX, worldY);
-                    return;
-                }
+            RingManager ringManager = services().ringManager();
+            if (ringManager != null) {
+                int startIdx = ringManager.getSparkleStartIndex();
+                ringManager.drawFrameIndex(startIdx + animFrame, worldX, worldY);
+                return;
             }
         } catch (Exception e) {
             LOG.fine(() -> "S3kSignpostSparkleChild.appendRenderCommands: " + e.getMessage());

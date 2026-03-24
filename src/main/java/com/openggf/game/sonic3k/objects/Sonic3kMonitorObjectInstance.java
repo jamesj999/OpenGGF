@@ -2,7 +2,6 @@ package com.openggf.game.sonic3k.objects;
 
 import com.openggf.audio.GameAudioProfile;
 import com.openggf.audio.GameSound;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.ExplosionObjectInstance;
 import com.openggf.level.objects.ObjectAnimationState;
@@ -90,14 +89,14 @@ public class Sonic3kMonitorObjectInstance extends AbstractMonitorObjectInstance
         this.motion = new SubpixelMotion.State(spawn.x(), spawn.y(), 0, 0, 0, 0);
 
         // Check persistence: if previously broken, spawn as broken shell
-        ObjectManager objectManager = GameServices.level().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         boolean previouslyBroken = objectManager != null && objectManager.isRemembered(spawn);
         this.broken = previouslyBroken;
 
         // Initialize animation: animId = subtype
         int initialAnim = type.animId;
         int initialFrame = broken ? BROKEN_FRAME : 0;
-        ObjectRenderManager renderManager = GameServices.level().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         this.animationState = new ObjectAnimationState(
                 renderManager != null ? renderManager.getMonitorAnimations() : null,
                 initialAnim,
@@ -271,7 +270,7 @@ public class Sonic3kMonitorObjectInstance extends AbstractMonitorObjectInstance
             }
             case SPEED_SHOES -> {
                 player.giveSpeedShoes();
-                GameAudioProfile audioProfile = GameServices.audio().getAudioProfile();
+                GameAudioProfile audioProfile = services().audioManager().getAudioProfile();
                 if (audioProfile != null) {
                     services().playMusic(audioProfile.getSpeedShoesOnCommandId());
                 }
