@@ -12,6 +12,16 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     private static final Logger LOG = Logger.getLogger(AbstractObjectInstance.class.getName());
 
     /**
+     * Construction-time services context. Set by {@link ObjectManager} before calling
+     * a factory, cleared in a finally block after construction completes.
+     * <p>
+     * This allows {@link #services()} to work during construction without requiring
+     * constructor injection through every factory and subclass constructor.
+     * Package-private: only {@link ObjectManager} should set/clear this.
+     */
+    static final ThreadLocal<ObjectServices> CONSTRUCTION_CONTEXT = new ThreadLocal<>();
+
+    /**
      * Cached camera bounds, updated once per frame by ObjectManager.
      * Avoids repeated Camera.getInstance() calls when checking visibility.
      */
@@ -68,17 +78,26 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     }
 
     /**
-     * Returns the injectable services handle.
-     * Throws if called before ObjectManager has injected services
-     * (e.g. during construction — use {@link GameServices} instead).
+     * Returns the injectable services handle. Safe to call at any point in the
+     * object lifecycle — during construction, update, or rendering — as long as
+     * the object was created through {@link ObjectManager} or
+     * {@link ObjectManager#addDynamicObject}.
+     * <p>
+     * During construction, falls back to the {@link #CONSTRUCTION_CONTEXT} ThreadLocal
+     * set by ObjectManager before calling the factory. After construction,
+     * uses the instance field set by {@link #setServices}.
      */
     protected ObjectServices services() {
-        if (services == null) {
-            throw new IllegalStateException(
-                    getClass().getSimpleName() + ": services not injected — "
-                    + "use GameServices for constructor-time access");
+        if (services != null) {
+            return services;
         }
-        return services;
+        ObjectServices ctx = CONSTRUCTION_CONTEXT.get();
+        if (ctx != null) {
+            return ctx;
+        }
+        throw new IllegalStateException(
+                getClass().getSimpleName() + ": services not available — "
+                + "object must be created through ObjectManager");
     }
 
     public void setDestroyed(boolean destroyed) {
@@ -143,18 +162,56 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
 
     /**
      * Adds a dynamically-created object to the level's object manager.
+     * Sets the construction context so the child's constructor can use {@link #services()}.
      * Safe to call in test environments where LevelManager may not be initialized.
      *
      * @param object the object instance to spawn
      */
-    protected static void spawnDynamicObject(AbstractObjectInstance object) {
+    protected void spawnDynamicObject(AbstractObjectInstance object) {
         try {
-            LevelManager lm = LevelManager.getInstance();
-            if (lm != null && lm.getObjectManager() != null) {
-                lm.getObjectManager().addDynamicObject(object);
+            ObjectManager om = services().objectManager();
+            if (om != null) {
+                om.addDynamicObject(object);
             }
-        } catch (Exception e) {
-            LOG.fine("Could not spawn dynamic object (test env?): " + e.getMessage());
+        } catch (IllegalStateException e) {
+            // Fallback for test environments or objects not managed by ObjectManager
+            try {
+                LevelManager lm = LevelManager.getInstance();
+                if (lm != null && lm.getObjectManager() != null) {
+                    lm.getObjectManager().addDynamicObject(object);
+                }
+            } catch (Exception ex) {
+                LOG.fine("Could not spawn dynamic object (test env?): " + ex.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Creates a dynamic child object with services available during construction.
+     * The supplier is called with the {@link #CONSTRUCTION_CONTEXT} set, so the
+     * child's constructor can safely call {@link #services()}.
+     * <p>
+     * Example usage:
+     * <pre>{@code
+     * ChildObject child = spawnChild(() -> new ChildObject(spawn, params));
+     * }</pre>
+     *
+     * @param factory supplier that constructs the child object
+     * @return the constructed child, already added to the object manager
+     * @param <T> the child type
+     */
+    protected <T extends AbstractObjectInstance> T spawnChild(java.util.function.Supplier<T> factory) {
+        ObjectServices svc = services();
+        CONSTRUCTION_CONTEXT.set(svc);
+        try {
+            T child = factory.get();
+            ObjectManager om = svc.objectManager();
+            if (om != null) {
+                om.addDynamicObject(child);
+            }
+            return child;
+        } finally {
+            CONSTRUCTION_CONTEXT.remove();
         }
     }
 

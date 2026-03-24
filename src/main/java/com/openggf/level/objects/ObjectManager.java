@@ -551,13 +551,18 @@ public class ObjectManager {
                 if (placement.isRemembered(spawn) && !placement.isStayActive(spawn)) {
                     continue;
                 }
-                ObjectInstance instance = registry != null ? registry.create(spawn) : null;
-                if (instance != null) {
-                    if (instance instanceof AbstractObjectInstance aoi) {
-                        aoi.setServices(objectServices);
+                AbstractObjectInstance.CONSTRUCTION_CONTEXT.set(objectServices);
+                try {
+                    ObjectInstance instance = registry != null ? registry.create(spawn) : null;
+                    if (instance != null) {
+                        if (instance instanceof AbstractObjectInstance aoi) {
+                            aoi.setServices(objectServices);
+                        }
+                        activeObjects.put(spawn, instance);
+                        changed = true;
                     }
-                    activeObjects.put(spawn, instance);
-                    changed = true;
+                } finally {
+                    AbstractObjectInstance.CONSTRUCTION_CONTEXT.remove();
                 }
             }
         }
