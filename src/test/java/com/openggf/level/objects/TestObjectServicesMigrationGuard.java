@@ -32,7 +32,24 @@ class TestObjectServicesMigrationGuard {
      * or if a class NOT in this set starts using getInstance() (regression).
      */
     private static final Set<String> KNOWN_UNMIGRATED = Set.of(
-            // Sonic 1 — remaining: game-specific singletons only (not migratable)
+            // Sonic 1 — GameServices/getInstance usage (S1 switch/conveyor singletons, camera, etc.)
+            "com.openggf.game.sonic1.objects.Sonic1AnimalsObjectInstance",
+            "com.openggf.game.sonic1.objects.Sonic1BreakableWallObjectInstance",
+            "com.openggf.game.sonic1.objects.Sonic1EndingEmeraldsObjectInstance",
+            "com.openggf.game.sonic1.objects.Sonic1EndingSTHObjectInstance",
+            "com.openggf.game.sonic1.objects.Sonic1LavaBallObjectInstance",
+            "com.openggf.game.sonic1.objects.Sonic1MonitorObjectInstance",
+            "com.openggf.game.sonic1.objects.Sonic1ObjectRegistry",
+            "com.openggf.game.sonic1.objects.Sonic1PushBlockObjectInstance",
+            "com.openggf.game.sonic1.objects.Sonic1ResultsScreenObjectInstance",
+            "com.openggf.game.sonic1.objects.Sonic1SignpostObjectInstance",
+            "com.openggf.game.sonic1.objects.Sonic1SmashBlockObjectInstance",
+            "com.openggf.game.sonic1.objects.Sonic1SpringObjectInstance",
+            "com.openggf.game.sonic1.objects.Sonic1SwingingPlatformObjectInstance",
+            "com.openggf.game.sonic1.objects.Sonic1TryAgainEggmanObjectInstance",
+            "com.openggf.game.sonic1.objects.Sonic1TryAgainEmeraldsObjectInstance",
+            "com.openggf.game.sonic1.objects.bosses.Sonic1BossBlockInstance",
+            "com.openggf.game.sonic1.objects.bosses.Sonic1FZBossInstance",
             "com.openggf.game.sonic1.objects.Sonic1FloatingBlockObjectInstance",
             "com.openggf.game.sonic1.objects.Sonic1GlassBlockObjectInstance",
             "com.openggf.game.sonic1.objects.Sonic1JunctionObjectInstance",
@@ -40,7 +57,33 @@ class TestObjectServicesMigrationGuard {
             "com.openggf.game.sonic1.objects.Sonic1MovingBlockObjectInstance",
             "com.openggf.game.sonic1.objects.Sonic1PlatformObjectInstance",
             "com.openggf.game.sonic1.objects.Sonic1SpinConveyorObjectInstance",
-            // Sonic 2 — remaining: partial migration (some calls not in ObjectServices)
+            "com.openggf.game.sonic1.objects.bosses.Sonic1ScrapEggmanInstance",
+            // Sonic 2 — GameServices.level/rom/audio usage
+            "com.openggf.game.sonic2.objects.BreakableBlockObjectInstance",
+            "com.openggf.game.sonic2.objects.CheckpointObjectInstance",
+            "com.openggf.game.sonic2.objects.CheckpointStarInstance",
+            "com.openggf.game.sonic2.objects.ConveyorObjectInstance",
+            "com.openggf.game.sonic2.objects.EggPrisonObjectInstance",
+            "com.openggf.game.sonic2.objects.FlipperObjectInstance",
+            "com.openggf.game.sonic2.objects.ForcedSpinObjectInstance",
+            "com.openggf.game.sonic2.objects.InvisibleBlockObjectInstance",
+            "com.openggf.game.sonic2.objects.MTZLongPlatformObjectInstance",
+            "com.openggf.game.sonic2.objects.MonitorObjectInstance",
+            "com.openggf.game.sonic2.objects.PipeExitSpringObjectInstance",
+            "com.openggf.game.sonic2.objects.PointPokeyObjectInstance",
+            "com.openggf.game.sonic2.objects.RingPrizeObjectInstance",
+            "com.openggf.game.sonic2.objects.RivetObjectInstance",
+            "com.openggf.game.sonic2.objects.SidewaysPformObjectInstance",
+            "com.openggf.game.sonic2.objects.SignpostObjectInstance",
+            "com.openggf.game.sonic2.objects.SmashableGroundObjectInstance",
+            "com.openggf.game.sonic2.objects.Sonic2ObjectRegistry",
+            "com.openggf.game.sonic2.objects.SpringObjectInstance",
+            "com.openggf.game.sonic2.objects.SpringboardObjectInstance",
+            "com.openggf.game.sonic2.objects.SuperSonicStarsObjectInstance",
+            "com.openggf.game.sonic2.objects.TippingFloorObjectInstance",
+            "com.openggf.game.sonic2.objects.badniks.SolBadnikInstance",
+            "com.openggf.game.sonic2.objects.bosses.Sonic2ARZBossInstance",
+            "com.openggf.game.sonic2.objects.bosses.Sonic2DeathEggRobotInstance",
             "com.openggf.game.sonic2.objects.MTZTwinStompersObjectInstance",
             "com.openggf.game.sonic2.objects.RisingLavaObjectInstance",
             "com.openggf.game.sonic2.objects.SlidingSpikesObjectInstance",
@@ -49,17 +92,34 @@ class TestObjectServicesMigrationGuard {
             "com.openggf.game.sonic2.objects.TornadoObjectInstance",
             "com.openggf.game.sonic2.objects.WFZPalSwitcherObjectInstance",
             "com.openggf.game.sonic2.objects.bosses.Sonic2MechaSonicInstance",
-            // Sonic 3K — remaining: non-ObjectInstance classes or partial migration
+            "com.openggf.game.sonic2.objects.bosses.Sonic2MTZBossInstance",
+            // Sonic 3K — GameServices.level/rom/audio usage
             "com.openggf.game.sonic3k.objects.AizGiantRideVineObjectInstance",
             "com.openggf.game.sonic3k.objects.AizIntroArtLoader",
             "com.openggf.game.sonic3k.objects.AizIntroPaletteCycler",
+            "com.openggf.game.sonic3k.objects.AizIntroBoosterChild",
+            "com.openggf.game.sonic3k.objects.AizIntroTerrainSwap",
+            "com.openggf.game.sonic3k.objects.AizMinibossBarrelShotChild",
+            "com.openggf.game.sonic3k.objects.AizPlaneIntroInstance",
+            "com.openggf.game.sonic3k.objects.AizVineHandleLogic",
+            "com.openggf.game.sonic3k.objects.AutoSpinObjectInstance",
+            "com.openggf.game.sonic3k.objects.CorkFloorObjectInstance",
+            "com.openggf.game.sonic3k.objects.FloatingPlatformObjectInstance",
+            "com.openggf.game.sonic3k.objects.S3kSignpostSparkleChild",
+            "com.openggf.game.sonic3k.objects.SongFadeTransitionInstance",
+            "com.openggf.game.sonic3k.objects.Sonic3kCollapsingPlatformObjectInstance",
+            "com.openggf.game.sonic3k.objects.Sonic3kMonitorObjectInstance",
+            "com.openggf.game.sonic3k.objects.Sonic3kObjectRegistry",
+            "com.openggf.game.sonic3k.objects.Sonic3kSSEntryFlashObjectInstance",
+            "com.openggf.game.sonic3k.objects.Sonic3kSSEntryRingObjectInstance",
             "com.openggf.game.sonic3k.objects.AizMinibossCutsceneInstance",
             "com.openggf.game.sonic3k.objects.AizMinibossInstance",
             "com.openggf.game.sonic3k.objects.AizRideVineObjectInstance",
             "com.openggf.game.sonic3k.objects.CutsceneKnucklesAiz1Instance",
             "com.openggf.game.sonic3k.objects.S3kBossDefeatSignpostFlow",
             "com.openggf.game.sonic3k.objects.S3kResultsScreenObjectInstance",
-            "com.openggf.game.sonic3k.objects.S3kSignpostInstance"
+            "com.openggf.game.sonic3k.objects.S3kSignpostInstance",
+            "com.openggf.game.sonic3k.objects.Sonic3kStarPostObjectInstance"
     );
 
     /** Packages containing object instance classes to scan. */
@@ -69,17 +129,28 @@ class TestObjectServicesMigrationGuard {
             "com/openggf/game/sonic3k/objects",
     };
 
-    /** Singleton class names whose getInstance() should be replaced with services(). */
-    private static final Set<String> MONITORED_SINGLETONS = Set.of(
-            "Camera",
-            "LevelManager",
-            "AudioManager",
-            "GameStateManager",
-            "SpriteManager",
-            "WaterSystem",
-            "FadeManager",
-            "GraphicsManager"
+    /**
+     * Internal class name prefixes for monitored singletons.
+     * The bytecode constant pool contains class references like "com/openggf/camera/Camera"
+     * and method name strings like "getInstance". We check for both the class reference
+     * AND a nearby "getInstance" to avoid false positives from mere type usage.
+     */
+    private static final Map<String, String> MONITORED_SINGLETONS = Map.ofEntries(
+            Map.entry("Camera", "com/openggf/camera/Camera"),
+            Map.entry("LevelManager", "com/openggf/level/LevelManager"),
+            Map.entry("AudioManager", "com/openggf/audio/AudioManager"),
+            Map.entry("GameStateManager", "com/openggf/game/GameStateManager"),
+            Map.entry("SpriteManager", "com/openggf/sprites/managers/SpriteManager"),
+            Map.entry("WaterSystem", "com/openggf/level/WaterSystem"),
+            Map.entry("FadeManager", "com/openggf/graphics/FadeManager"),
+            Map.entry("GraphicsManager", "com/openggf/graphics/GraphicsManager")
     );
+
+    /**
+     * Also detect GameServices static calls (GameServices.level(), GameServices.camera(), etc.).
+     * These bypass the ObjectServices abstraction just like getInstance() does.
+     */
+    private static final String GAME_SERVICES_CLASS = "com/openggf/game/GameServices";
 
     @Test
     void objectInstances_shouldNotCallGetInstance() throws IOException {
@@ -152,7 +223,11 @@ class TestObjectServicesMigrationGuard {
 
     /**
      * Scans a .class file's constant pool for references to monitored singleton
-     * getInstance() methods. Returns the singleton names found.
+     * getInstance() methods or GameServices static calls. Returns the singleton names found.
+     * <p>
+     * Uses the internal class name (e.g., "com/openggf/camera/Camera") which is more precise
+     * than the simple class name — avoids false positives from type references that don't
+     * involve getInstance() calls.
      */
     private List<String> scanForGetInstance(Path classFile) {
         try {
@@ -160,14 +235,22 @@ class TestObjectServicesMigrationGuard {
             String content = new String(bytes, java.nio.charset.StandardCharsets.ISO_8859_1);
 
             List<String> found = new ArrayList<>();
-            for (String singleton : MONITORED_SINGLETONS) {
-                // The constant pool contains UTF-8 strings for class names and method refs.
-                // A call to Foo.getInstance() will have both "Foo" and "getInstance" in the pool,
-                // plus the class descriptor containing the singleton's package path.
-                if (content.contains("getInstance") && content.contains(singleton)) {
-                    found.add(singleton);
+
+            // Check for Foo.getInstance() — requires both the internal class name
+            // AND "getInstance" in the constant pool
+            if (content.contains("getInstance")) {
+                for (var entry : MONITORED_SINGLETONS.entrySet()) {
+                    if (content.contains(entry.getValue())) {
+                        found.add(entry.getKey());
+                    }
                 }
             }
+
+            // Check for GameServices.level() / .camera() / .audio() / etc.
+            if (content.contains(GAME_SERVICES_CLASS)) {
+                found.add("GameServices");
+            }
+
             return found;
         } catch (IOException e) {
             return List.of();
