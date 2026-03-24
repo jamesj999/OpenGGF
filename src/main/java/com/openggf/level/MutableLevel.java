@@ -32,7 +32,12 @@ public class MutableLevel extends AbstractLevel {
     private final ArrayList<ObjectSpawn> mutableObjects;
     private final ArrayList<RingSpawn> mutableRings;
 
-    private MutableLevel(int zoneIndex,
+    // Game-specific overrides captured from source level
+    private final int blockPixelSize;
+    private final int chunksPerBlockSide;
+    private final Level sourceLevel;  // retained for resolveCollisionBlockIndex delegation
+
+    private MutableLevel(Level sourceLevel, int zoneIndex,
                          Pattern[] patterns, int patternCount,
                          Chunk[] chunks, int chunkCount,
                          Block[] blocks, int blockCount,
@@ -45,6 +50,10 @@ public class MutableLevel extends AbstractLevel {
                          java.util.Map<Integer, Set<Integer>> chunkToBlocks,
                          java.util.Map<Integer, Set<Integer>> blockToMapCells) {
         super(zoneIndex);
+        this.sourceLevel = sourceLevel;
+        this.blockPixelSize = sourceLevel.getBlockPixelSize();
+        this.chunksPerBlockSide = sourceLevel.getChunksPerBlockSide();
+        this.ringSpriteSheet = sourceLevel.getRingSpriteSheet();
         this.patterns = patterns;
         this.patternCount = patternCount;
         this.chunks = chunks;
@@ -138,7 +147,7 @@ public class MutableLevel extends AbstractLevel {
         java.util.Map<Integer, Set<Integer>> blockToMapCells = buildBlockToMapCellsMap(map);
 
         return new MutableLevel(
-                source.getZoneIndex(),
+                source, source.getZoneIndex(),
                 patterns, patCount,
                 chunks, chkCount,
                 blocks, blkCount,
@@ -148,6 +157,23 @@ public class MutableLevel extends AbstractLevel {
                 source.getMinX(), source.getMaxX(),
                 source.getMinY(), source.getMaxY(),
                 chunkToBlocks, blockToMapCells);
+    }
+
+    // ===== Game-specific overrides =====
+
+    @Override
+    public int getBlockPixelSize() {
+        return blockPixelSize;
+    }
+
+    @Override
+    public int getChunksPerBlockSide() {
+        return chunksPerBlockSide;
+    }
+
+    @Override
+    public int resolveCollisionBlockIndex(int blockIndex, int mapX, int mapY) {
+        return sourceLevel.resolveCollisionBlockIndex(blockIndex, mapX, mapY);
     }
 
     // ===== Mutation methods (each marks dirty) =====
@@ -199,8 +225,8 @@ public class MutableLevel extends AbstractLevel {
         int idx = mutableObjects.indexOf(oldSpawn);
         if (idx >= 0) {
             mutableObjects.set(idx, newSpawn);
+            objectsDirty = true;
         }
-        objectsDirty = true;
     }
 
     public void addRingSpawn(RingSpawn spawn) {
@@ -233,6 +259,11 @@ public class MutableLevel extends AbstractLevel {
         return copy;
     }
 
+    /**
+     * Returns and clears dirty map cells. Cell indices are linearized as:
+     * {@code layer * width * height + y * width + x}.
+     * Use {@link #delinearizeMapCell(int)} to recover (layer, x, y).
+     */
     public BitSet consumeDirtyMapCells() {
         BitSet copy = (BitSet) dirtyMapCells.clone();
         dirtyMapCells.clear();
@@ -258,6 +289,23 @@ public class MutableLevel extends AbstractLevel {
     }
 
     // ===== Helpers =====
+
+    /**
+     * Recovers (layer, x, y) from a linearized map cell index.
+     * Linearization: {@code layer * width * height + y * width + x}.
+     *
+     * @return int[3] = {layer, x, y}
+     */
+    public int[] delinearizeMapCell(int cellIdx) {
+        int w = map.getWidth();
+        int h = map.getHeight();
+        int layerSize = w * h;
+        int layer = cellIdx / layerSize;
+        int remainder = cellIdx % layerSize;
+        int y = remainder / w;
+        int x = remainder % w;
+        return new int[] { layer, x, y };
+    }
 
     private void dirtyTransitiveMapCells(int blockIndex) {
         Set<Integer> cells = blockToMapCells.getOrDefault(blockIndex, Set.of());
