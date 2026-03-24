@@ -1,5 +1,4 @@
 package com.openggf.game.sonic1.objects;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 
 import com.openggf.audio.GameSound;
@@ -69,7 +68,7 @@ public class Sonic1LamppostObjectInstance extends AbstractObjectInstance {
         this.cameraLockFlag = (spawn.subtype() & 0x80) != 0;
 
         // Lamp_Main: check if already visited
-        var checkpointState = GameServices.level().getCheckpointState();
+        var checkpointState = services().checkpointState();
         if (checkpointState != null && checkpointState.getLastCheckpointIndex() >= this.checkpointIndex) {
             // Already visited - show red, go to Lamp_Finish
             this.activated = true;
@@ -155,7 +154,7 @@ public class Sonic1LamppostObjectInstance extends AbstractObjectInstance {
             cs.saveCheckpoint(checkpointIndex, spawn.x(), spawn.y(), cameraLockFlag);
 
             // ROM Lamp_StoreInfo also saves water state (v_waterpos2, v_wtr_routine)
-            WaterSystem waterSystem = WaterSystem.getInstance();
+            WaterSystem waterSystem = services().waterSystem();
             int featureZone = services().featureZoneId();
             int featureAct = services().featureActId();
             if (waterSystem.hasWater(featureZone, featureAct)) {

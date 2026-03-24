@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
@@ -9,9 +8,7 @@ import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpriteSheet;
 import com.openggf.level.objects.ObjectSpawn;
@@ -223,7 +220,7 @@ public class BreakableWallObjectInstance extends AbstractObjectInstance
         if (player == null || broken) return;
 
         // Capture pre-contact X velocity (ROM saves before SolidObjectFull)
-        ObjectManager om = getObjectManager();
+        var om = services().objectManager();
         if (om != null) {
             savedPreContactXSpeed = om.getPreContactXSpeed();
         }
@@ -409,7 +406,7 @@ public class BreakableWallObjectInstance extends AbstractObjectInstance
 
     private void markRemembered() {
         try {
-            ObjectManager om = getObjectManager();
+            var om = services().objectManager();
             if (om != null) {
                 om.markRemembered(spawn);
             }
@@ -448,15 +445,6 @@ public class BreakableWallObjectInstance extends AbstractObjectInstance
 
     // Uses inherited getRenderManager() from AbstractObjectInstance
 
-    private static ObjectManager getObjectManager() {
-        try {
-            LevelManager lm = GameServices.level();
-            return lm != null ? lm.getObjectManager() : null;
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
     private static boolean isKnuckles() {
         try {
             Sonic3kLevelEventManager lem = Sonic3kLevelEventManager.getInstance();
@@ -470,13 +458,10 @@ public class BreakableWallObjectInstance extends AbstractObjectInstance
      * Resolves zone-specific configuration.
      * ROM: Obj_BreakableWall zone table (sonic3k.asm:45530-45518).
      */
-    private static ZoneConfig resolveConfig(int subtype, int frame) {
+    private ZoneConfig resolveConfig(int subtype, int frame) {
         try {
-            LevelManager lm = GameServices.level();
-            if (lm != null) {
-                int zone = lm.getCurrentZone();
-                return resolveForZone(zone, subtype, frame);
-            }
+            int zone = services().romZoneId();
+            return resolveForZone(zone, subtype, frame);
         } catch (Exception e) {
             LOG.fine("Could not resolve zone config: " + e.getMessage());
         }

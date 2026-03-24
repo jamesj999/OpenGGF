@@ -6,7 +6,6 @@ import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.ParallaxManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -106,7 +105,7 @@ public class CloudObjectInstance extends AbstractObjectInstance {
         xPosFrac &= 0xFF;
 
         // Add Tornado velocity (whole pixels, not subpixel)
-        int tornadoVelX = ParallaxManager.getInstance().getTornadoVelocityX();
+        int tornadoVelX = services().parallaxManager().getTornadoVelocityX();
         currentX += tornadoVelX;
 
         // Obj_DeleteBehindScreen: delete if x_pos is behind camera

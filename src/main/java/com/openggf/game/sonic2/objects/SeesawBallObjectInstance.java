@@ -6,13 +6,11 @@ import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.Sprite;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -450,7 +448,7 @@ public class SeesawBallObjectInstance extends AbstractObjectInstance
         // We use LevelManager to get access to it since we're in the render method
         {
             // Get main playable sprite from all sprites
-            for (Sprite sprite : SpriteManager.getInstance().getAllSprites()) {
+            for (Sprite sprite : services().spriteManager().getAllSprites()) {
                 if (sprite instanceof AbstractPlayableSprite mainChar) {
                     // x-flip when player is to the right of the ball (face toward player)
                     hFlip = mainChar.getCentreX() >= (xPos >> 16);

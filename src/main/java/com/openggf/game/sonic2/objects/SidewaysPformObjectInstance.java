@@ -90,7 +90,7 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
     public SidewaysPformObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
         this.isChild = false;
-        this.isMcz = GameServices.level() != null && GameServices.level().getRomZoneId() == Sonic2Constants.ZONE_MYSTIC_CAVE;
+        this.isMcz = services().currentLevel() != null && services().romZoneId() == Sonic2Constants.ZONE_MYSTIC_CAVE;
         init();
     }
 
@@ -193,7 +193,7 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = services().graphicsManager();
         SpritePieceRenderer.renderPieces(
                 frame.pieces(),
                 x, y,

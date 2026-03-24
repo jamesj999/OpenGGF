@@ -6,7 +6,9 @@ import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.Sonic2LevelEventManager;
 import com.openggf.game.sonic2.objects.RisingLavaObjectInstance;
+import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.DefaultObjectServices;
+import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
 
 import java.lang.reflect.Field;
@@ -80,20 +82,35 @@ public class TestHTZRisingLavaDisassemblyParity {
     @Test
     public void obj30Subtype6And8FollowRouteSplitAt380() {
         GameServices.gameState().setHtzScreenShakeActive(true);
+        DefaultObjectServices services = new DefaultObjectServices();
 
         camera.setY((short) 0x200); // top route
-        RisingLavaObjectInstance subtype6Top = new RisingLavaObjectInstance(spawnWithSubtype(6), "Obj30_6_top");
-        subtype6Top.setServices(new DefaultObjectServices());
-        RisingLavaObjectInstance subtype8Top = new RisingLavaObjectInstance(spawnWithSubtype(8), "Obj30_8_top");
-        subtype8Top.setServices(new DefaultObjectServices());
+        setConstructionContext(services);
+        RisingLavaObjectInstance subtype6Top;
+        RisingLavaObjectInstance subtype8Top;
+        try {
+            subtype6Top = new RisingLavaObjectInstance(spawnWithSubtype(6), "Obj30_6_top");
+            subtype8Top = new RisingLavaObjectInstance(spawnWithSubtype(8), "Obj30_8_top");
+        } finally {
+            clearConstructionContext();
+        }
+        subtype6Top.setServices(services);
+        subtype8Top.setServices(services);
         assertFalse(subtype6Top.isSolidFor(null));
         assertTrue(subtype8Top.isSolidFor(null));
 
         camera.setY((short) 0x400); // bottom route
-        RisingLavaObjectInstance subtype6Bottom = new RisingLavaObjectInstance(spawnWithSubtype(6), "Obj30_6_bottom");
-        subtype6Bottom.setServices(new DefaultObjectServices());
-        RisingLavaObjectInstance subtype8Bottom = new RisingLavaObjectInstance(spawnWithSubtype(8), "Obj30_8_bottom");
-        subtype8Bottom.setServices(new DefaultObjectServices());
+        setConstructionContext(services);
+        RisingLavaObjectInstance subtype6Bottom;
+        RisingLavaObjectInstance subtype8Bottom;
+        try {
+            subtype6Bottom = new RisingLavaObjectInstance(spawnWithSubtype(6), "Obj30_6_bottom");
+            subtype8Bottom = new RisingLavaObjectInstance(spawnWithSubtype(8), "Obj30_8_bottom");
+        } finally {
+            clearConstructionContext();
+        }
+        subtype6Bottom.setServices(services);
+        subtype8Bottom.setServices(services);
         assertTrue(subtype6Bottom.isSolidFor(null));
         assertFalse(subtype8Bottom.isSolidFor(null));
     }
@@ -124,5 +141,27 @@ public class TestHTZRisingLavaDisassemblyParity {
         Field instanceField = Sonic2LevelEventManager.class.getDeclaredField("instance");
         instanceField.setAccessible(true);
         instanceField.set(null, null);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void setConstructionContext(ObjectServices svc) {
+        try {
+            Field field = AbstractObjectInstance.class.getDeclaredField("CONSTRUCTION_CONTEXT");
+            field.setAccessible(true);
+            ((ThreadLocal<Object>) field.get(null)).set(svc);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void clearConstructionContext() {
+        try {
+            Field field = AbstractObjectInstance.class.getDeclaredField("CONSTRUCTION_CONTEXT");
+            field.setAccessible(true);
+            ((ThreadLocal<Object>) field.get(null)).remove();
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

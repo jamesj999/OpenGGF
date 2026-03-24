@@ -1,20 +1,31 @@
 package com.openggf.level.objects;
 
+import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.camera.Camera;
+import com.openggf.data.Rom;
+import com.openggf.data.RomByteReader;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.LevelState;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.RespawnState;
 import com.openggf.game.ZoneFeatureProvider;
+import com.openggf.graphics.FadeManager;
+import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
+import com.openggf.level.ParallaxManager;
+import com.openggf.level.WaterSystem;
+import com.openggf.level.rings.RingManager;
+import com.openggf.sprites.managers.SpriteManager;
+import java.io.IOException;
 import java.util.List;
 
 /**
- * Injectable service handle for game objects. Provides access to level sub-managers
- * and audio without requiring singleton lookups.
+ * Injectable service handle for game objects. Provides access to level sub-managers,
+ * rendering, audio, and gameplay systems without requiring singleton lookups.
  * <p>
- * Injected by {@link ObjectManager} after object construction via
+ * Available during construction (via ThreadLocal context), update, and rendering.
+ * Injected by {@link ObjectManager} via
  * {@link AbstractObjectInstance#setServices(ObjectServices)}.
  */
 public interface ObjectServices {
@@ -37,6 +48,7 @@ public interface ObjectServices {
     void playSfx(GameSound sound);
     void playMusic(int musicId);
     void fadeOutMusic();
+    AudioManager audioManager();
 
     // Gameplay
     void spawnLostRings(PlayableEntity player, int frameCounter);
@@ -61,4 +73,51 @@ public interface ObjectServices {
 
     // Player/sidekick access
     List<PlayableEntity> sidekicks();
+
+    /** Returns the sprite manager for player sprite access. */
+    SpriteManager spriteManager();
+
+    // --- Rendering ---
+
+    /** Returns the graphics manager for pattern caching and rendering. */
+    GraphicsManager graphicsManager();
+
+    /** Returns the fade manager for screen transitions. */
+    FadeManager fadeManager();
+
+    // --- ROM data ---
+
+    /** Returns the current ROM instance. */
+    Rom rom() throws IOException;
+
+    /** Returns a ROM byte reader for the current ROM. */
+    RomByteReader romReader() throws IOException;
+
+    // --- Level subsystems ---
+
+    /** Returns the water system for water level queries. */
+    WaterSystem waterSystem();
+
+    /** Returns the parallax manager for scroll offset queries. */
+    ParallaxManager parallaxManager();
+
+    // --- Level actions ---
+
+    /** Requests transition to the next level. Wraps IOException as unchecked. */
+    void advanceToNextLevel();
+
+    /** Requests transition to the credits/ending sequence. */
+    void requestCreditsTransition();
+
+    /** Requests entry into a special stage. */
+    void requestSpecialStageEntry();
+
+    /** Invalidates the cached foreground tilemap (e.g., after block changes). */
+    void invalidateForegroundTilemap();
+
+    /** Updates a palette line in the level's palette table. */
+    void updatePalette(int paletteIndex, byte[] paletteData);
+
+    /** Returns the ring manager for ring-related operations. */
+    RingManager ringManager();
 }

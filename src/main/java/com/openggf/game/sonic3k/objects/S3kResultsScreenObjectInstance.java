@@ -1,11 +1,8 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.camera.Camera;
 import com.openggf.data.Rom;
-import com.openggf.data.RomByteReader;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.level.objects.AbstractResultsScreen;
 import com.openggf.game.sonic3k.Sonic3kObjectArt;
@@ -15,7 +12,6 @@ import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.titlecard.Sonic3kTitleCardManager;
 import com.openggf.tools.NemesisReader;
 import com.openggf.graphics.GLCommand;
-import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Pattern;
 import com.openggf.level.objects.ObjectSpriteSheet;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -235,7 +231,7 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
     // ---- Bonus calculation ----
 
     private void calculateBonuses() {
-        var levelGamestate = GameServices.level().getLevelGamestate();
+        var levelGamestate = services().levelGamestate();
         int elapsedSeconds = (levelGamestate != null) ? levelGamestate.getElapsedSeconds() : 0;
 
         // Pause the timer (ROM line 62550)
@@ -439,7 +435,7 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
 
     private void fadeOutMusic() {
         try {
-            GameServices.audio().fadeOutMusic();
+            services().fadeOutMusic();
         } catch (Exception e) {
             // Ignore audio errors
         }
@@ -461,7 +457,7 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
             sidekick.setObjectControlled(false);
         }
         // Restore camera bounds from level data (boss arena locked the boundaries)
-        Camera cam = services().camera();
+        var cam = services().camera();
         cam.setFrozen(false);
         var level = services().currentLevel();
         if (level != null) {
@@ -519,8 +515,8 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
 
     private void loadArt() {
         try {
-            var rom = GameServices.rom().getRom();
-            RomByteReader reader = RomByteReader.fromRom(rom);
+            var rom = services().rom();
+            var reader = services().romReader();
             Sonic3kObjectArt objectArt = new Sonic3kObjectArt(null, reader);
 
             combinedPatterns = objectArt.loadResultsArt(character, act);
@@ -593,7 +589,7 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
 
     private void ensureArtCached() {
         if (artCached || !artLoaded || renderer == null) return;
-        GraphicsManager gm = GraphicsManager.getInstance();
+        var gm = services().graphicsManager();
         if (gm == null) return;
         renderer.ensurePatternsCached(gm, PATTERN_BASE);
         artCached = true;
@@ -607,7 +603,7 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
         ensureArtCached();
         if (!renderer.isReady()) return;
 
-        Camera camera = services().camera();
+        var camera = services().camera();
         if (camera == null) return;
 
         int baseX = camera.getX();

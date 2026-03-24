@@ -14,7 +14,6 @@ import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.Sprite;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.ArrayList;
@@ -209,7 +208,7 @@ public class RexonBadnikInstance extends AbstractBadnikInstance
     }
 
     private AbstractPlayableSprite getPlayer() {
-        SpriteManager spriteManager = SpriteManager.getInstance();
+        var spriteManager = services().spriteManager();
         if (spriteManager == null) {
             return null;
         }

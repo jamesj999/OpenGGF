@@ -5,7 +5,6 @@ import com.openggf.game.PlayableEntity;
 
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -108,8 +107,7 @@ public class BridgeObjectInstance extends BoxObjectInstance implements SlopedSol
 
         // Calculate Target Sag if player is riding
         if (player != null) {
-            ObjectManager objectManager = LevelManager
-                    .getInstance().getObjectManager();
+            ObjectManager objectManager = services().objectManager();
 
             if (objectManager != null && objectManager.isAnyPlayerRiding(this)) {
                 calculateTargetSag(player, logCount);

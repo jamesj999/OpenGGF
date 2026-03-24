@@ -1,7 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.data.Rom;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
@@ -281,7 +280,7 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
      */
     private void loadAnimScript(int romAddr) {
         try {
-            Rom rom = GameServices.rom().getRom();
+            var rom = services().rom();
             animDuration = rom.readByte(romAddr) & 0xFF;
             animTimer = animDuration;
             animIndex = 0;
@@ -629,7 +628,7 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
      */
     private void unlockPlayerControls() {
         try {
-            var sprite = GameServices.camera().getFocusedSprite();
+            var sprite = services().camera().getFocusedSprite();
             if (sprite instanceof AbstractPlayableSprite ps) {
                 ps.setControlLocked(false);
                 ps.setObjectControlled(false);

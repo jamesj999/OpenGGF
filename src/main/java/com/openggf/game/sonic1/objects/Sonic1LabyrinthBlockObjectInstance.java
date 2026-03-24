@@ -5,7 +5,6 @@ import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
@@ -581,7 +580,7 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
         if (services().currentLevel() == null) {
             return 0;
         }
-        WaterSystem waterSystem = WaterSystem.getInstance();
+        var waterSystem = services().waterSystem();
         int zoneId = services().featureZoneId();
         int actId = services().featureActId();
         return waterSystem.getVisualWaterLevelY(zoneId, actId);

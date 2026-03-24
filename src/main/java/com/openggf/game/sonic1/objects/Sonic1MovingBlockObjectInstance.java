@@ -1,5 +1,4 @@
 package com.openggf.game.sonic1.objects;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 
 import com.openggf.game.sonic1.Sonic1SwitchManager;
@@ -137,7 +136,7 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
 
     public Sonic1MovingBlockObjectInstance(ObjectSpawn spawn) {
         super(spawn, "MovingBlock");
-        this.zoneIndex = GameServices.level().getRomZoneId();
+        this.zoneIndex = services().romZoneId();
 
         int fullSubtype = spawn.subtype() & 0xFF;
 

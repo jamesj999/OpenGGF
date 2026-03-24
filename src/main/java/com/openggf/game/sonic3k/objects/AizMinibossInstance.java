@@ -1,7 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.camera.Camera;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
@@ -11,7 +9,6 @@ import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.graphics.GLCommand;
-import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Palette;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -231,7 +228,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
             byte[] bytes = {(byte) ((colors[i] >> 8) & 0xFF), (byte) (colors[i] & 0xFF)};
             pal.getColor(CUSTOM_FLASH_INDICES[i]).fromSegaFormat(bytes, 0);
         }
-        GraphicsManager gm = GraphicsManager.getInstance();
+        var gm = services().graphicsManager();
         if (gm.isGlInitialized()) {
             gm.cachePaletteTexture(pal, 1);
         }
@@ -248,7 +245,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
     }
 
     private void updateWaitTrigger() {
-        Camera camera = services().camera();
+        var camera = services().camera();
         PlayerCharacter character = Sonic3kLevelEventManager.getInstance().getPlayerCharacter();
         int triggerX = (character == PlayerCharacter.KNUCKLES) ? TRIGGER_X_KNUCKLES : TRIGGER_X;
         if (camera.getX() < triggerX) {
@@ -405,9 +402,9 @@ public class AizMinibossInstance extends AbstractBossInstance {
                         // The real miniboss fights in the post-fire section (technically AIZ2),
                         // so we restore Pal_AIZFire, NOT Pal_AIZ (green AIZ1 palette).
                         try {
-                            byte[] palData = GameServices.rom().getRom().readBytes(
+                            byte[] palData = services().rom().readBytes(
                                     Sonic3kConstants.PAL_AIZ_FIRE_ADDR, 32);
-                            com.openggf.game.GameServices.level().updatePalette(1, palData);
+                            services().updatePalette(1, palData);
                         } catch (Exception e) {
                             LOG.fine(() -> "AizMinibossInstance.updateDefeated: " + e.getMessage());
                         }
@@ -487,9 +484,9 @@ public class AizMinibossInstance extends AbstractBossInstance {
 
     private void loadBossPalette() {
         try {
-            byte[] line = GameServices.rom().getRom().readBytes(
+            byte[] line = services().rom().readBytes(
                     Sonic3kConstants.PAL_AIZ_MINIBOSS_ADDR, 32);
-            com.openggf.game.GameServices.level().updatePalette(1, line);
+            services().updatePalette(1, line);
         } catch (Exception e) {
             LOG.fine(() -> "AizMinibossInstance.loadBossPalette: " + e.getMessage());
         }

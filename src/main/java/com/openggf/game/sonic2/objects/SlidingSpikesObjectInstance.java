@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.debug.DebugOverlayManager;
@@ -298,7 +297,7 @@ public class SlidingSpikesObjectInstance extends AbstractObjectInstance
      * which is loaded via MCZ PLC2 and cached in the object pattern atlas (0x20000+).
      */
     private void renderUsingLevelArt() {
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = services().graphicsManager();
 
         // Body first (drawn behind end caps, matching original reverse-order rendering)
         for (int i = BODY_PIECES.size() - 1; i >= 0; i--) {
@@ -391,8 +390,7 @@ public class SlidingSpikesObjectInstance extends AbstractObjectInstance
     private boolean isOnScreenAt(int x, int y, int margin) {
         // Use the camera bounds from parent class
         // This mirrors isOnScreen(margin) but with explicit coordinates
-        Camera camera =
-                services().camera();
+        var camera = services().camera();
         if (camera == null) {
             return true;  // Assume on-screen if no camera
         }

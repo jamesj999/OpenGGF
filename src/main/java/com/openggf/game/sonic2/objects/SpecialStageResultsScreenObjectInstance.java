@@ -8,7 +8,6 @@ import com.openggf.game.sonic2.specialstage.Sonic2SpecialStageConstants;
 import com.openggf.game.sonic2.specialstage.Sonic2SpecialStageDataLoader;
 import com.openggf.game.sonic2.specialstage.Sonic2SpecialStageManager;
 import com.openggf.game.GameServices;
-
 import com.openggf.data.Rom;
 import com.openggf.data.RomManager;
 import com.openggf.graphics.GLCommand;
@@ -466,7 +465,7 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
             return;
         }
 
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = services().graphicsManager();
         if (graphicsManager == null) {
             LOGGER.warning("ensureArtCached: GraphicsManager is null");
             return;
@@ -545,7 +544,7 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
         }
 
         // Re-cache the updated patterns to GPU
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = services().graphicsManager();
         if (graphicsManager != null) {
             // Re-cache ring bonus digit patterns (offset 8-15)
             for (int i = 0; i < DIGITS_PER_VALUE; i++) {
@@ -736,7 +735,7 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
         // Ensure art is cached for rendering
         ensureArtCached();
 
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = services().graphicsManager();
         if (graphicsManager == null) {
             return;
         }
@@ -928,7 +927,7 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
             return;
         }
 
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = services().graphicsManager();
         if (graphicsManager == null) {
             return;
         }
@@ -1123,7 +1122,7 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
             return;
         }
 
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = services().graphicsManager();
         if (graphicsManager == null) {
             return;
         }

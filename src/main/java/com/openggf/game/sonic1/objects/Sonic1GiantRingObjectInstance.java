@@ -1,12 +1,9 @@
 package com.openggf.game.sonic1.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
-import com.openggf.game.GameStateManager;
 import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectManager;
@@ -102,7 +99,7 @@ public class Sonic1GiantRingObjectInstance extends AbstractObjectInstance
             return; // Not visible yet, keep checking
         }
 
-        GameStateManager gameState = GameStateManager.getInstance();
+        var gameState = services().gameState();
         if (gameState.getEmeraldCount() >= MAX_EMERALDS) {
             // All emeralds collected - delete: beq.w GRing_Delete
             state = State.DELETED;

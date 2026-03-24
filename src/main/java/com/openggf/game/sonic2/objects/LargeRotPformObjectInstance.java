@@ -267,7 +267,7 @@ public class LargeRotPformObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = services().graphicsManager();
 
         SpritePieceRenderer.renderPieces(
                 frame.pieces(),

@@ -4,7 +4,6 @@ import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.debug.DebugOverlayManager;
 import com.openggf.debug.DebugRenderContext;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
@@ -53,7 +52,7 @@ public class StomperObjectInstance extends AbstractObjectInstance
 
     private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
             .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
+    private static final DebugOverlayManager OVERLAY_MANAGER = com.openggf.game.GameServices.debugOverlay();
 
     // Timer constants (from disassembly)
     private static final int MAX_TIMER = 0x60;      // 96 frames - fully retracted
@@ -137,7 +136,7 @@ public class StomperObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = services().graphicsManager();
         List<SpriteMappingPiece> pieces = STOMPER_MAPPING.pieces();
 
         // Render using level art tiles

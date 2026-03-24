@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects.badniks;
 
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
+import com.openggf.level.objects.DefaultObjectServices;
 import org.junit.Test;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectManager;
@@ -41,12 +42,18 @@ public class TestTurtloidBadnikInstance {
         lmField.set(null, levelManager);
 
         try {
-            TurtloidBadnikInstance base = new TurtloidBadnikInstance(
-                    new ObjectSpawn(0x200, 0x100, Sonic2ObjectIds.TURTLOID, 0x18, 0, false, 0));
-
             com.openggf.level.objects.ObjectServices services = mock(com.openggf.level.objects.ObjectServices.class);
             when(services.objectManager()).thenReturn(objectManager);
             when(services.renderManager()).thenReturn(objectRenderManager);
+
+            setConstructionContext(services);
+            TurtloidBadnikInstance base;
+            try {
+                base = new TurtloidBadnikInstance(
+                        new ObjectSpawn(0x200, 0x100, Sonic2ObjectIds.TURTLOID, 0x18, 0, false, 0));
+            } finally {
+                clearConstructionContext();
+            }
             base.setServices(services);
 
         TurtloidRiderInstance rider = (TurtloidRiderInstance) getField(base, "rider");
@@ -105,5 +112,29 @@ public class TestTurtloidBadnikInstance {
             }
         }
         throw new NoSuchFieldException(fieldName);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void setConstructionContext(com.openggf.level.objects.ObjectServices services) {
+        try {
+            Field field = com.openggf.level.objects.AbstractObjectInstance.class
+                    .getDeclaredField("CONSTRUCTION_CONTEXT");
+            field.setAccessible(true);
+            ((ThreadLocal<Object>) field.get(null)).set(services);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void clearConstructionContext() {
+        try {
+            Field field = com.openggf.level.objects.AbstractObjectInstance.class
+                    .getDeclaredField("CONSTRUCTION_CONTEXT");
+            field.setAccessible(true);
+            ((ThreadLocal<Object>) field.get(null)).remove();
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

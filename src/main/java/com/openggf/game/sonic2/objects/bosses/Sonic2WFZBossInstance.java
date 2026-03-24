@@ -187,7 +187,7 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         childrenSpawned = false;
 
         // ROM: Camera max Y = $442
-        Camera camera = Camera.getInstance();
+        var camera = services().camera();
         if (camera != null) {
             camera.setMaxY((short) CAMERA_MAX_Y_BOSS);
         }

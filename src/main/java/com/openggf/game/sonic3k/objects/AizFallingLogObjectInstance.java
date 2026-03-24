@@ -1,14 +1,11 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
-import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
@@ -89,8 +86,7 @@ public class AizFallingLogObjectInstance extends AbstractObjectInstance {
         // Act 2: ArtTile_AIZMisc2, palette 2 for log, palette 3 for splash
         int act = 0;
         try {
-            LevelManager lm = GameServices.level();
-            if (lm != null) act = lm.getCurrentAct();
+            act = services().currentAct();
         } catch (Exception e) {
             LOG.fine(() -> "AizFallingLogObjectInstance.<init>: " + e.getMessage());
         }
@@ -116,8 +112,7 @@ public class AizFallingLogObjectInstance extends AbstractObjectInstance {
         try {
             Sonic3kLevelEventManager lem = Sonic3kLevelEventManager.getInstance();
             if (lem != null) {
-                LevelManager lm = GameServices.level();
-                if (lm != null && lm.getCurrentZone() == Sonic3kZoneIds.ZONE_AIZ) {
+                if (services().romZoneId() == Sonic3kZoneIds.ZONE_AIZ) {
                     return lem.getEventRoutineFg() >= EVENT_TRIGGER_ROUTINE_THRESHOLD;
                 }
             }
@@ -328,12 +323,9 @@ public class AizFallingLogObjectInstance extends AbstractObjectInstance {
 
         private int getWaterLevel() {
             try {
-                LevelManager lm = GameServices.level();
-                if (lm != null) {
-                    WaterSystem ws = WaterSystem.getInstance();
-                    if (ws != null) {
-                        return ws.getWaterLevelY(lm.getCurrentZone(), services().currentAct());
-                    }
+                var ws = services().waterSystem();
+                if (ws != null) {
+                    return ws.getWaterLevelY(services().romZoneId(), services().currentAct());
                 }
             } catch (Exception e) {
                 LOG.fine(() -> "AizFallingLogObjectInstance.getWaterLevel: " + e.getMessage());

@@ -1,8 +1,8 @@
 package com.openggf.game.sonic2.objects;
 
+import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
-import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2LevelEventManager;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
@@ -466,7 +466,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
     }
 
     private void wfzWaitForPlane(AbstractPlayableSprite player) {
-        int bgX = ParallaxManager.getInstance().getCameraBgXOffset();
+        int bgX = services().parallaxManager().getCameraBgXOffset();
         if (bgX < WFZ_PLANE_WAIT_BG_X) {
             applyWaitingAnimation(player);
             return;
@@ -926,7 +926,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
     }
 
     private void applyTornadoParallaxVelocity() {
-        ParallaxManager pm = ParallaxManager.getInstance();
+        ParallaxManager pm = services().parallaxManager();
         int vx = pm.getTornadoVelocityX();
         int vy = pm.getTornadoVelocityY();
         currentX += vx;
@@ -1118,7 +1118,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
         }
 
         if (wroteAny) {
-            GameServices.level().invalidateForegroundTilemap();
+            services().invalidateForegroundTilemap();
         }
         if (wroteAny) {
             levelLayoutPatched = true;

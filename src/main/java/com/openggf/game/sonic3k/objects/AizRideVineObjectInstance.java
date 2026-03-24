@@ -10,7 +10,6 @@ import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.TrigLookupTable;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -329,7 +328,7 @@ public class AizRideVineObjectInstance extends AbstractObjectInstance {
     }
 
     private AbstractPlayableSprite resolveMainPlayer() {
-        var sprite = SpriteManager.getInstance().getSprite(
+        var sprite = services().spriteManager().getSprite(
                 SonicConfigurationService.getInstance()
                         .getString(SonicConfiguration.MAIN_CHARACTER_CODE));
         return sprite instanceof AbstractPlayableSprite playable ? playable : null;

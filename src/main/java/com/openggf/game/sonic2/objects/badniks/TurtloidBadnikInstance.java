@@ -4,7 +4,6 @@ import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.level.objects.AnimalObjectInstance;
 
 import com.openggf.debug.DebugRenderContext;
-import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -12,7 +11,6 @@ import com.openggf.level.objects.ExplosionObjectInstance;
 import com.openggf.game.sonic2.objects.PointsObjectInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.ParallaxManager;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -105,7 +103,7 @@ public class TurtloidBadnikInstance extends AbstractBadnikInstance
     }
 
     private void spawnChildren() {
-        ObjectManager objectManager = GameServices.level() != null ? GameServices.level().getObjectManager() : null;
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -142,7 +140,7 @@ public class TurtloidBadnikInstance extends AbstractBadnikInstance
         currentX = motionState.x;
 
         // ROM: loc_36776 - add Tornado_Velocity_X/Y to position each frame
-        ParallaxManager parallax = ParallaxManager.getInstance();
+        var parallax = services().parallaxManager();
         currentX += parallax.getTornadoVelocityX();
         currentY += parallax.getTornadoVelocityY();
     }

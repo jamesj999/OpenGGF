@@ -1,15 +1,12 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.level.objects.AbstractResultsScreen;
-import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Pattern;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpriteSheet;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -139,18 +136,14 @@ public class ResultsScreenObjectInstance extends AbstractResultsScreen {
         LOGGER.info("Results screen complete, starting fade to black");
 
         // Start fade to black, then transition to next level when fade completes
-        FadeManager fadeManager = FadeManager.getInstance();
+        var fadeManager = services().fadeManager();
         fadeManager.startFadeToBlack(() -> {
             // Mark this object as done
             setDestroyed(true);
 
             // Use existing LevelManager helper to advance to next act
-            if (GameServices.level() != null) {
-                try {
-                    GameServices.level().advanceToNextLevel();
-                } catch (java.io.IOException e) {
-                    LOGGER.severe("Failed to load next level: " + e.getMessage());
-                }
+            if (services().currentLevel() != null) {
+                services().advanceToNextLevel();
             }
 
             // Keep transition atomic: once the new level is loaded, immediately
@@ -272,7 +265,7 @@ public class ResultsScreenObjectInstance extends AbstractResultsScreen {
             clearBonusValue(patterns, Sonic2Constants.RESULTS_BONUS_DIGIT_GROUP_TILES * 3);
         }
 
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = services().graphicsManager();
         renderer.updatePatternRange(graphicsManager, 0, Sonic2Constants.RESULTS_BONUS_DIGIT_TILES);
 
         lastTimeBonus = timeBonus;

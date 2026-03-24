@@ -298,7 +298,7 @@ public class SwingingPformObjectInstance extends AbstractObjectInstance
         // Get water level from WaterSystem
         int zoneId = services().currentLevel().getZoneIndex();
         int actId = services().currentAct();
-        WaterSystem waterSystem = WaterSystem.getInstance();
+        WaterSystem waterSystem = services().waterSystem();
 
         if (!waterSystem.hasWater(zoneId, actId)) {
             return;  // No water in this level
@@ -423,7 +423,7 @@ public class SwingingPformObjectInstance extends AbstractObjectInstance
         boolean hFlip = (spawn.renderFlags() & 0x1) != 0;
         boolean vFlip = (spawn.renderFlags() & 0x2) != 0;
 
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = services().graphicsManager();
         List<SpriteMappingPiece> pieces = mapping.pieces();
 
         // Render pieces in reverse order (painter's algorithm)

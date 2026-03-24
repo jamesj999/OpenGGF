@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.camera.Camera;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
@@ -162,7 +161,7 @@ public class S3kSignpostInstance extends AbstractObjectInstance {
     private void updateInit(AbstractPlayableSprite player) {
         activeSignpost = this;
 
-        Camera camera = services().camera();
+        var camera = services().camera();
         worldY = camera.getY() - 0x20;
 
         // Select animation based on player character
@@ -219,7 +218,7 @@ public class S3kSignpostInstance extends AbstractObjectInstance {
         checkBumpFromBelow(player);
 
         // Wall bounce
-        Camera camera = services().camera();
+        var camera = services().camera();
         int camX = camera.getX();
         if (worldX > camX + WALL_RIGHT_MARGIN) {
             xVel = -Math.abs(xVel);

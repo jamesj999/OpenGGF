@@ -3,14 +3,23 @@ package com.openggf.level.objects;
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.camera.Camera;
+import com.openggf.data.Rom;
+import com.openggf.data.RomByteReader;
+import com.openggf.data.RomManager;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.LevelState;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.RespawnState;
 import com.openggf.game.ZoneFeatureProvider;
+import com.openggf.graphics.FadeManager;
+import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
+import com.openggf.level.ParallaxManager;
+import com.openggf.level.WaterSystem;
+import com.openggf.level.rings.RingManager;
 import com.openggf.sprites.managers.SpriteManager;
+import java.io.IOException;
 import java.util.List;
 
 /**
@@ -134,5 +143,79 @@ public class DefaultObjectServices implements ObjectServices {
     @Override
     public List<PlayableEntity> sidekicks() {
         return List.copyOf(SpriteManager.getInstance().getSidekicks());
+    }
+
+    @Override
+    public SpriteManager spriteManager() {
+        return SpriteManager.getInstance();
+    }
+
+    @Override
+    public GraphicsManager graphicsManager() {
+        return GraphicsManager.getInstance();
+    }
+
+    @Override
+    public FadeManager fadeManager() {
+        return FadeManager.getInstance();
+    }
+
+    @Override
+    public Rom rom() throws IOException {
+        return RomManager.getInstance().getRom();
+    }
+
+    @Override
+    public RomByteReader romReader() throws IOException {
+        return RomByteReader.fromRom(RomManager.getInstance().getRom());
+    }
+
+    @Override
+    public WaterSystem waterSystem() {
+        return WaterSystem.getInstance();
+    }
+
+    @Override
+    public ParallaxManager parallaxManager() {
+        return ParallaxManager.getInstance();
+    }
+
+    @Override
+    public AudioManager audioManager() {
+        return AudioManager.getInstance();
+    }
+
+    @Override
+    public void advanceToNextLevel() {
+        try {
+            lm().advanceToNextLevel();
+        } catch (IOException e) {
+            throw new java.io.UncheckedIOException("Failed to advance to next level", e);
+        }
+    }
+
+    @Override
+    public void requestCreditsTransition() {
+        lm().requestCreditsTransition();
+    }
+
+    @Override
+    public void requestSpecialStageEntry() {
+        lm().requestSpecialStageEntry();
+    }
+
+    @Override
+    public void invalidateForegroundTilemap() {
+        lm().invalidateForegroundTilemap();
+    }
+
+    @Override
+    public void updatePalette(int paletteIndex, byte[] paletteData) {
+        lm().updatePalette(paletteIndex, paletteData);
+    }
+
+    @Override
+    public RingManager ringManager() {
+        return lm().getRingManager();
     }
 }

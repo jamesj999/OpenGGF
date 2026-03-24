@@ -5,11 +5,15 @@ import org.junit.Test;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.bosses.Sonic2WFZBossInstance;
 import com.openggf.level.LevelManager;
+import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.DefaultObjectServices;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectRegistry;
+import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
+import java.lang.reflect.Field;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
@@ -34,10 +38,16 @@ public class TestWFZBoss {
 
     @Before
     public void setUp() {
-
-        boss = new Sonic2WFZBossInstance(
-                new ObjectSpawn(BOSS_X, BOSS_Y,
-                        Sonic2ObjectIds.WFZ_BOSS, 0x92, 0, false, 0));
+        DefaultObjectServices services = new DefaultObjectServices();
+        setConstructionContext(services);
+        try {
+            boss = new Sonic2WFZBossInstance(
+                    new ObjectSpawn(BOSS_X, BOSS_Y,
+                            Sonic2ObjectIds.WFZ_BOSS, 0x92, 0, false, 0));
+        } finally {
+            clearConstructionContext();
+        }
+        boss.setServices(services);
 
         player = mock(AbstractPlayableSprite.class);
         when(player.getCentreX()).thenReturn((short) (BOSS_X - 32));
@@ -365,5 +375,27 @@ public class TestWFZBoss {
         // Bounce behavior (for comparison):
         int bouncedVel = -velocity; // neg.w x_vel
         assertEquals("Bounced velocity should negate", -0x80, bouncedVel);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void setConstructionContext(ObjectServices svc) {
+        try {
+            Field field = AbstractObjectInstance.class.getDeclaredField("CONSTRUCTION_CONTEXT");
+            field.setAccessible(true);
+            ((ThreadLocal<Object>) field.get(null)).set(svc);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void clearConstructionContext() {
+        try {
+            Field field = AbstractObjectInstance.class.getDeclaredField("CONSTRUCTION_CONTEXT");
+            field.setAccessible(true);
+            ((ThreadLocal<Object>) field.get(null)).remove();
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

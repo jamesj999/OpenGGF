@@ -5,7 +5,6 @@ import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.ParallaxManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -93,7 +92,7 @@ public class WFZShipFireObjectInstance extends AbstractObjectInstance {
         // ROM: ObjBC_Main (s2.asm line 79915)
         // move.w objoff_2C(a0),d0          ; d0 = initial X
         // move.w (Camera_BG_X_offset).w,d1 ; d1 = BG scroll offset
-        int bgXOffset = ParallaxManager.getInstance().getCameraBgXOffset();
+        int bgXOffset = services().parallaxManager().getCameraBgXOffset();
 
         // cmpi.w #$380,d1 / bhs.w JmpTo65_DeleteObject
         // Delete when BG offset has scrolled too far (ship off-screen)
@@ -130,7 +129,7 @@ public class WFZShipFireObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void appendDebugRenderCommands(DebugRenderContext ctx) {
-        int bgXOffset = ParallaxManager.getInstance().getCameraBgXOffset();
+        int bgXOffset = services().parallaxManager().getCameraBgXOffset();
         ctx.drawCross(currentX, currentY, 4, 1.0f, 0.5f, 0.0f);
         ctx.drawWorldLabel(currentX, currentY, -1,
                 String.format("BC fire bgX=%d %s",

@@ -14,7 +14,6 @@ import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -269,7 +268,7 @@ public class Sonic1SeesawObjectInstance extends AbstractObjectInstance
             return null;
         }
         // Get from SpriteManager - the standing player is always the main character
-        var sprites = SpriteManager.getInstance().getAllSprites();
+        var sprites = services().spriteManager().getAllSprites();
         for (var sprite : sprites) {
             if (sprite instanceof AbstractPlayableSprite aps) {
                 return aps;

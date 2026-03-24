@@ -8,9 +8,7 @@ import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.game.sonic1.scroll.Sonic1ZoneConstants;
 import com.openggf.level.objects.AbstractResultsScreen;
-import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.GLCommand;
-import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Pattern;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpriteSheet;
@@ -358,10 +356,9 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
             // Don't let audio failure break the transition
         }
 
-        FadeManager fadeManager = FadeManager.getInstance();
+        var fadeManager = services().fadeManager();
         fadeManager.startFadeToWhite(() -> {
             setDestroyed(true);
-            var levelManager = GameServices.level();
             if (true) {
                 // Giant Ring collected: advance zone/act first (ROM-accurate: Got_NextLevel),
                 // then enter special stage. On return, the advanced values are used.
@@ -377,16 +374,11 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
     private void triggerFadeToBlack() {
         LOGGER.info("S1 Results screen complete, starting fade to black");
 
-        FadeManager fadeManager = FadeManager.getInstance();
+        var fadeManager = services().fadeManager();
         fadeManager.startFadeToBlack(() -> {
             setDestroyed(true);
-            var levelManager = GameServices.level();
             if (true) {
-                try {
-                    GameServices.level().advanceToNextLevel();
-                } catch (java.io.IOException e) {
-                    LOGGER.severe("Failed to load next level: " + e.getMessage());
-                }
+                services().advanceToNextLevel();
                 // Keep transition atomic: immediately reveal the next scene.
                 fadeManager.startFadeFromBlack(null);
             }
@@ -403,9 +395,8 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
      * ROM: cmpi.w #(id_SBZ<<8)+1,(v_zone).w
      */
     private boolean isSBZ2() {
-        var lm = GameServices.level();
-        return lm != null
-                && GameServices.level().getCurrentZone() == Sonic1ZoneConstants.ZONE_SBZ
+        return services().currentLevel() != null
+                && services().romZoneId() == Sonic1ZoneConstants.ZONE_SBZ
                 && services().currentAct() == 1;
     }
 
@@ -638,7 +629,7 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
         writeScoreValue(patterns, scoreValue, digitPatterns);
 
         // Push updated digit patterns to GPU
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        var graphicsManager = services().graphicsManager();
         renderer.updatePatternRange(graphicsManager, 0, Sonic1Constants.S1_RESULTS_BONUS_DIGIT_TILES);
         renderer.updatePatternRange(graphicsManager, SCORE_DIGITS_START_INDEX, SCORE_DIGIT_TILES);
 

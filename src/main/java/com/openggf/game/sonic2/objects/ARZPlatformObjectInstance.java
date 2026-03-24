@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.OscillationManager;
 import com.openggf.game.sonic2.S2SpriteDataLoader;
@@ -124,7 +123,7 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
         boolean hFlip = (spawn.renderFlags() & 0x1) != 0;
         boolean vFlip = (spawn.renderFlags() & 0x2) != 0;
 
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = services().graphicsManager();
         List<SpriteMappingPiece> pieces = mapping.pieces();
         for (int i = pieces.size() - 1; i >= 0; i--) {
             SpriteMappingPiece piece = pieces.get(i);
@@ -345,7 +344,7 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
     }
 
     private boolean isAquaticRuin() {
-        return GameServices.level() != null && GameServices.level().getCurrentZone() == Sonic2Constants.ZONE_AQUATIC_RUIN;
+        return services().currentLevel() != null && services().currentLevel().getZoneIndex() == Sonic2Constants.ZONE_AQUATIC_RUIN;
     }
 
     private List<SpriteMappingFrame> resolveMappings() {

@@ -5,7 +5,6 @@ import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.sonic2.Sonic2LevelEventManager;
 import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
-import com.openggf.camera.Camera;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
@@ -142,7 +141,7 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
         // Get width from table (subtype is index)
         int widthIndex = Math.min(subtype, SUBTYPE_WIDTHS.length - 1);
         this.widthPixels = SUBTYPE_WIDTHS[widthIndex];
-        Camera cameraInst = Camera.getInstance();
+        var cameraInst = services().camera();
         this.routeEnabled = isEnabledForCurrentRoute(subtype, cameraInst != null ? cameraInst.getY() : 0);
 
         updateDynamicSpawn(baseX, currentY);

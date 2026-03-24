@@ -100,7 +100,7 @@ public class BubbleGeneratorObjectInstance extends AbstractObjectInstance {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: Check if generator is above water (only spawn when underwater)
         if (services().currentLevel() != null) {
-            WaterSystem waterSystem = WaterSystem.getInstance();
+            WaterSystem waterSystem = services().waterSystem();
             int zoneId = services().currentLevel().getZoneIndex();
             int actId = services().currentAct();
 

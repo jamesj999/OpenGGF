@@ -170,7 +170,7 @@ public class GrounderWallInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = services().graphicsManager();
 
         for (int i = WALL_PIECES.size() - 1; i >= 0; i--) {
             SpriteMappingPiece piece = WALL_PIECES.get(i);

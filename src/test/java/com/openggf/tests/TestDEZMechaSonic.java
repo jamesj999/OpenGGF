@@ -12,6 +12,7 @@ import com.openggf.level.objects.DefaultObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseTable;
 
+import java.lang.reflect.Field;
 import java.util.List;
 
 import static org.junit.Assert.assertArrayEquals;
@@ -39,11 +40,40 @@ public class TestDEZMechaSonic {
 
     @Before
     public void setUp() {
+        DefaultObjectServices services = new DefaultObjectServices();
+        setConstructionContext(services);
+        try {
+            boss = new Sonic2MechaSonicInstance(
+                    new ObjectSpawn(MECHA_SONIC_X, MECHA_SONIC_Y,
+                            Sonic2ObjectIds.MECHA_SONIC, 0x48, 0, false, 0));
+        } finally {
+            clearConstructionContext();
+        }
+        boss.setServices(services);
+    }
 
-        boss = new Sonic2MechaSonicInstance(
-                new ObjectSpawn(MECHA_SONIC_X, MECHA_SONIC_Y,
-                        Sonic2ObjectIds.MECHA_SONIC, 0x48, 0, false, 0));
-        boss.setServices(new DefaultObjectServices());
+    @SuppressWarnings("unchecked")
+    private static void setConstructionContext(DefaultObjectServices services) {
+        try {
+            Field field = com.openggf.level.objects.AbstractObjectInstance.class
+                    .getDeclaredField("CONSTRUCTION_CONTEXT");
+            field.setAccessible(true);
+            ((ThreadLocal<Object>) field.get(null)).set(services);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void clearConstructionContext() {
+        try {
+            Field field = com.openggf.level.objects.AbstractObjectInstance.class
+                    .getDeclaredField("CONSTRUCTION_CONTEXT");
+            field.setAccessible(true);
+            ((ThreadLocal<Object>) field.get(null)).remove();
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Test
@@ -200,10 +230,15 @@ public class TestDEZMechaSonic {
                 List.of(), new NoOpObjectRegistry(), 0, null, touchTable);
 
 
-        Sonic2MechaSonicInstance testBoss = new Sonic2MechaSonicInstance(
-                new ObjectSpawn(MECHA_SONIC_X, MECHA_SONIC_Y,
-                        Sonic2ObjectIds.MECHA_SONIC, 0x48, 0, false, 0));
-        testBoss.setServices(new DefaultObjectServices());
+        setConstructionContext(new DefaultObjectServices());
+        Sonic2MechaSonicInstance testBoss;
+        try {
+            testBoss = new Sonic2MechaSonicInstance(
+                    new ObjectSpawn(MECHA_SONIC_X, MECHA_SONIC_Y,
+                            Sonic2ObjectIds.MECHA_SONIC, 0x48, 0, false, 0));
+        } finally {
+            clearConstructionContext();
+        }
 
         assertEquals("Boss should start with 8 HP", 8, testBoss.getState().hitCount);
         assertFalse("Boss should not be defeated initially", testBoss.getState().defeated);

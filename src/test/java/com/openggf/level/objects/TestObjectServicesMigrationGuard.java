@@ -32,70 +32,34 @@ class TestObjectServicesMigrationGuard {
      * or if a class NOT in this set starts using getInstance() (regression).
      */
     private static final Set<String> KNOWN_UNMIGRATED = Set.of(
-            // Sonic 1 (17 classes)
-            "com.openggf.game.sonic1.objects.Sonic1BubblesObjectInstance",
-            "com.openggf.game.sonic1.objects.Sonic1EndingSonicObjectInstance",
+            // Sonic 1 — remaining: game-specific singletons only (not migratable)
             "com.openggf.game.sonic1.objects.Sonic1FloatingBlockObjectInstance",
-            "com.openggf.game.sonic1.objects.Sonic1GiantRingObjectInstance",
             "com.openggf.game.sonic1.objects.Sonic1GlassBlockObjectInstance",
             "com.openggf.game.sonic1.objects.Sonic1JunctionObjectInstance",
             "com.openggf.game.sonic1.objects.Sonic1LZConveyorObjectInstance",
-            "com.openggf.game.sonic1.objects.Sonic1LabyrinthBlockObjectInstance",
-            "com.openggf.game.sonic1.objects.Sonic1LamppostObjectInstance",
             "com.openggf.game.sonic1.objects.Sonic1MovingBlockObjectInstance",
             "com.openggf.game.sonic1.objects.Sonic1PlatformObjectInstance",
-            "com.openggf.game.sonic1.objects.Sonic1ResultsScreenObjectInstance",
-            "com.openggf.game.sonic1.objects.Sonic1RingFlashObjectInstance",
-            "com.openggf.game.sonic1.objects.Sonic1SeesawObjectInstance",
             "com.openggf.game.sonic1.objects.Sonic1SpinConveyorObjectInstance",
-            "com.openggf.game.sonic1.objects.Sonic1SplashObjectInstance",
-            "com.openggf.game.sonic1.objects.Sonic1WaterfallObjectInstance",
-            // Sonic 2 (29 classes)
-            "com.openggf.game.sonic2.objects.ARZPlatformObjectInstance",
-            "com.openggf.game.sonic2.objects.ARZRotPformsObjectInstance",
-            "com.openggf.game.sonic2.objects.BridgeObjectInstance",
-            "com.openggf.game.sonic2.objects.BubbleGeneratorObjectInstance",
-            "com.openggf.game.sonic2.objects.BubbleObjectInstance",
-            "com.openggf.game.sonic2.objects.CloudObjectInstance",
-            "com.openggf.game.sonic2.objects.CollapsingPlatformObjectInstance",
-            "com.openggf.game.sonic2.objects.FallingPillarObjectInstance",
-            "com.openggf.game.sonic2.objects.GrounderWallInstance",
-            "com.openggf.game.sonic2.objects.LargeRotPformObjectInstance",
-            "com.openggf.game.sonic2.objects.MCZBrickObjectInstance",
+            // Sonic 2 — remaining: partial migration (some calls not in ObjectServices)
             "com.openggf.game.sonic2.objects.MTZTwinStompersObjectInstance",
-            "com.openggf.game.sonic2.objects.ResultsScreenObjectInstance",
             "com.openggf.game.sonic2.objects.RisingLavaObjectInstance",
-            "com.openggf.game.sonic2.objects.RisingPillarObjectInstance",
-            "com.openggf.game.sonic2.objects.SeesawBallObjectInstance",
-            "com.openggf.game.sonic2.objects.SidewaysPformObjectInstance",
             "com.openggf.game.sonic2.objects.SlidingSpikesObjectInstance",
             "com.openggf.game.sonic2.objects.SpecialStageResultsScreenObjectInstance",
             "com.openggf.game.sonic2.objects.StomperObjectInstance",
-            "com.openggf.game.sonic2.objects.SwingingPformObjectInstance",
-            "com.openggf.game.sonic2.objects.SwingingPlatformObjectInstance",
             "com.openggf.game.sonic2.objects.TornadoObjectInstance",
             "com.openggf.game.sonic2.objects.WFZPalSwitcherObjectInstance",
-            "com.openggf.game.sonic2.objects.WFZShipFireObjectInstance",
-            "com.openggf.game.sonic2.objects.badniks.RexonBadnikInstance",
-            "com.openggf.game.sonic2.objects.badniks.TurtloidBadnikInstance",
             "com.openggf.game.sonic2.objects.bosses.Sonic2MechaSonicInstance",
-            "com.openggf.game.sonic2.objects.bosses.Sonic2WFZBossInstance",
-            // Sonic 3K (15 classes)
-            "com.openggf.game.sonic3k.objects.AizFallingLogObjectInstance",
+            // Sonic 3K — remaining: non-ObjectInstance classes or partial migration
             "com.openggf.game.sonic3k.objects.AizGiantRideVineObjectInstance",
             "com.openggf.game.sonic3k.objects.AizIntroArtLoader",
             "com.openggf.game.sonic3k.objects.AizIntroPaletteCycler",
-            "com.openggf.game.sonic3k.objects.AizLrzRockObjectInstance",
             "com.openggf.game.sonic3k.objects.AizMinibossCutsceneInstance",
             "com.openggf.game.sonic3k.objects.AizMinibossInstance",
             "com.openggf.game.sonic3k.objects.AizRideVineObjectInstance",
-            "com.openggf.game.sonic3k.objects.BreakableWallObjectInstance",
             "com.openggf.game.sonic3k.objects.CutsceneKnucklesAiz1Instance",
-            "com.openggf.game.sonic3k.objects.LightningSparkObjectInstance",
             "com.openggf.game.sonic3k.objects.S3kBossDefeatSignpostFlow",
             "com.openggf.game.sonic3k.objects.S3kResultsScreenObjectInstance",
-            "com.openggf.game.sonic3k.objects.S3kSignpostInstance",
-            "com.openggf.game.sonic3k.objects.Sonic3kSpringObjectInstance"
+            "com.openggf.game.sonic3k.objects.S3kSignpostInstance"
     );
 
     /** Packages containing object instance classes to scan. */

@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
@@ -61,7 +60,7 @@ public class S3kBossDefeatSignpostFlow extends AbstractObjectInstance {
         this.timer = FADE_TIMER;
 
         // Signal that the end-of-level sequence is active
-        GameServices.gameState().setEndOfLevelActive(true);
+        services().gameState().setEndOfLevelActive(true);
         LOG.fine("S3K defeat flow started — WAIT_FADE, timer=" + timer);
     }
 

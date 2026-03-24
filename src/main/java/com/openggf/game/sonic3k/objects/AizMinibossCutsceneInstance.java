@@ -1,7 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.camera.Camera;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
@@ -10,7 +8,6 @@ import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.graphics.GLCommand;
-import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Palette;
 import com.openggf.level.objects.ObjectManager;
 
@@ -167,14 +164,14 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
             byte[] bytes = {(byte) ((colors[i] >> 8) & 0xFF), (byte) (colors[i] & 0xFF)};
             pal.getColor(CUSTOM_FLASH_INDICES[i]).fromSegaFormat(bytes, 0);
         }
-        GraphicsManager gm = GraphicsManager.getInstance();
+        var gm = services().graphicsManager();
         if (gm.isGlInitialized()) {
             gm.cachePaletteTexture(pal, 1);
         }
     }
 
     private void updateInit() {
-        Camera camera = services().camera();
+        var camera = services().camera();
         savedCameraMaxX = camera.getMaxX();
 
         Sonic3kAIZEvents events = getAizEvents();
@@ -188,7 +185,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
     }
 
     private void updateWaitTrigger() {
-        Camera camera = services().camera();
+        var camera = services().camera();
         if (camera.getX() < TRIGGER_X) {
             return;
         }
@@ -233,7 +230,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         // ROM: loc_6862E — directly after swing, spawn explosion and set pre-exit wait
         setWait(PRE_EXIT_TIME, this::onPreExitComplete);
         // ROM: Obj_BossExplosionSpecial positions at screen center (overrides child offset)
-        Camera camera = services().camera();
+        var camera = services().camera();
         explosionController = new S3kBossExplosionController(
                 camera.getX() + 160, camera.getY() + 112, 2);
     }
@@ -306,8 +303,8 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         // During the unwinnable AIZ1 cutscene transition, BG events own camera/music flow.
         // Only restore defaults when no transition handoff is active.
         if (!transitionInProgress) {
-            GameServices.audio().getBackend().restoreMusic();
-            Camera camera = services().camera();
+            services().audioManager().getBackend().restoreMusic();
+            var camera = services().camera();
             camera.setMinX((short) 0);
             camera.setMaxX((short) savedCameraMaxX);
             services().gameState().setCurrentBossId(0);
@@ -360,9 +357,9 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
 
     private void loadBossPalette() {
         try {
-            byte[] line = GameServices.rom().getRom().readBytes(
+            byte[] line = services().rom().readBytes(
                     Sonic3kConstants.PAL_AIZ_MINIBOSS_ADDR, 32);
-            com.openggf.game.GameServices.level().updatePalette(1, line);
+            services().updatePalette(1, line);
         } catch (Exception e) {
             LOG.fine(() -> "AizMinibossCutsceneInstance.loadBossPalette: " + e.getMessage());
         }

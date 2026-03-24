@@ -1,7 +1,6 @@
 package com.openggf.game.sonic2.objects.bosses;
 
 import com.openggf.camera.Camera;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2LevelEventManager;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -209,7 +208,7 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
     }
 
     private void spawnChildObjects() {
-        var objectManager = GameServices.level() != null ? GameServices.level().getObjectManager() : null;
+        var objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }

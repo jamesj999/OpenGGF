@@ -5,7 +5,6 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.Level;
 import com.openggf.level.Map;
-import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
@@ -194,7 +193,7 @@ public class Sonic1WaterfallObjectInstance extends AbstractObjectInstance {
         if (services().currentLevel() == null) {
             return y;
         }
-        WaterSystem waterSystem = WaterSystem.getInstance();
+        var waterSystem = services().waterSystem();
         return waterSystem.getVisualWaterLevelY(services().featureZoneId(), services().featureActId());
     }
 }

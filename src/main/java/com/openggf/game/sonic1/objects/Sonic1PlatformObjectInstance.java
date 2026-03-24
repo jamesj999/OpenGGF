@@ -1,5 +1,4 @@
 package com.openggf.game.sonic1.objects;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 
 import com.openggf.game.sonic1.Sonic1SwitchManager;
@@ -125,7 +124,7 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
     public Sonic1PlatformObjectInstance(ObjectSpawn spawn) {
         super(spawn, "Platform");
         
-        this.zoneIndex = GameServices.level().getRomZoneId();
+        this.zoneIndex = services().romZoneId();
 
         this.baseX = spawn.x();
         this.baseY = spawn.y();

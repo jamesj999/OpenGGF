@@ -28,10 +28,24 @@ class TestObjectServicesConstructionContext {
         @Override public void playSfx(com.openggf.audio.GameSound sound) {}
         @Override public void playMusic(int musicId) {}
         @Override public void fadeOutMusic() {}
+        @Override public com.openggf.audio.AudioManager audioManager() { return null; }
         @Override public void spawnLostRings(com.openggf.game.PlayableEntity player, int fc) {}
         @Override public com.openggf.camera.Camera camera() { return null; }
         @Override public com.openggf.game.GameStateManager gameState() { return null; }
         @Override public java.util.List<com.openggf.game.PlayableEntity> sidekicks() { return java.util.List.of(); }
+        @Override public com.openggf.sprites.managers.SpriteManager spriteManager() { return null; }
+        @Override public com.openggf.graphics.GraphicsManager graphicsManager() { return null; }
+        @Override public com.openggf.graphics.FadeManager fadeManager() { return null; }
+        @Override public com.openggf.data.Rom rom() { return null; }
+        @Override public com.openggf.data.RomByteReader romReader() { return null; }
+        @Override public com.openggf.level.WaterSystem waterSystem() { return null; }
+        @Override public com.openggf.level.ParallaxManager parallaxManager() { return null; }
+        @Override public void advanceToNextLevel() {}
+        @Override public void requestCreditsTransition() {}
+        @Override public void requestSpecialStageEntry() {}
+        @Override public void invalidateForegroundTilemap() {}
+        @Override public void updatePalette(int idx, byte[] data) {}
+        @Override public com.openggf.level.rings.RingManager ringManager() { return null; }
     };
 
     /** Test object that calls services() in its constructor. */

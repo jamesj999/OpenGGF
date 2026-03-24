@@ -1,5 +1,4 @@
 package com.openggf.game.sonic1.objects;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 
 import com.openggf.debug.DebugRenderContext;
@@ -429,7 +428,7 @@ public class Sonic1GlassBlockObjectInstance extends AbstractObjectInstance
      * Subtype gets addq.b #8 then andi.b #$F.
      */
     private void spawnReflection() {
-        var objectManager = GameServices.level().getObjectManager();
+        var objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }

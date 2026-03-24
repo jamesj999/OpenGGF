@@ -2,7 +2,6 @@ package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.PlayableEntity;
 import com.openggf.audio.GameSound;
-import com.openggf.game.GameStateManager;
 import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.level.objects.SpringHelper;
 import com.openggf.level.objects.SpringBounceHelper;
@@ -94,7 +93,7 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
 
         // ROM: Reverse_gravity_flag swaps UP↔DOWN during init (sonic3k.asm:47622-47627)
         int type = (spawn.subtype() >> 3) & 0xE;
-        if (GameStateManager.getInstance().isReverseGravityActive()) {
+        if (services().gameState().isReverseGravityActive()) {
             if (type == TYPE_UP) {
                 type = TYPE_DOWN;
             } else if (type == TYPE_DOWN) {

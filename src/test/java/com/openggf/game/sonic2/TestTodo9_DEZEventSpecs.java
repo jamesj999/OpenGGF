@@ -2,8 +2,12 @@ package com.openggf.game.sonic2;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.events.Sonic2DEZEvents;
+import com.openggf.level.objects.DefaultObjectServices;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+
+import java.lang.reflect.Field;
 
 import static org.junit.Assert.*;
 
@@ -35,6 +39,38 @@ public class TestTodo9_DEZEventSpecs {
         cam = Camera.getInstance();
         events = new Sonic2DEZEvents();
         events.init(0);
+        // Set construction context so that any objects spawned by event updates
+        // (e.g., Silver Sonic) can call services() during their constructor.
+        setConstructionContext(new DefaultObjectServices());
+    }
+
+    @After
+    public void tearDown() {
+        clearConstructionContext();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void setConstructionContext(DefaultObjectServices services) {
+        try {
+            Field field = com.openggf.level.objects.AbstractObjectInstance.class
+                    .getDeclaredField("CONSTRUCTION_CONTEXT");
+            field.setAccessible(true);
+            ((ThreadLocal<Object>) field.get(null)).set(services);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void clearConstructionContext() {
+        try {
+            Field field = com.openggf.level.objects.AbstractObjectInstance.class
+                    .getDeclaredField("CONSTRUCTION_CONTEXT");
+            field.setAccessible(true);
+            ((ThreadLocal<Object>) field.get(null)).remove();
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**

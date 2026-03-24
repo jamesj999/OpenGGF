@@ -143,7 +143,7 @@ public class BubbleObjectInstance extends AbstractObjectInstance {
         // Use getFeatureZoneId/ActId to match the keys WaterSystem stores configs
         // under (important for S1 SBZ3 which remaps from LZ).
         if (services().currentLevel() != null) {
-            WaterSystem waterSystem = WaterSystem.getInstance();
+            WaterSystem waterSystem = services().waterSystem();
             int zoneId = services().featureZoneId();
             int actId = services().featureActId();
 

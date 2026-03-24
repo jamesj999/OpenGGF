@@ -389,7 +389,7 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
         // ARZ uses level art tiles at specific indices from obj1F_d.asm
         // basePatternIndex = 0 because level patterns start at index 0
         SpriteMappingFrame frame = (mappingFrame == 0) ? ARZ_FRAME_INTACT : ARZ_FRAME_COLLAPSED;
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = services().graphicsManager();
         List<SpriteMappingPiece> pieces = frame.pieces();
 
         // Draw in reverse order (Painter's Algorithm) - first piece in list appears on top
@@ -549,7 +549,7 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
             }
 
             SpriteMappingPiece piece = ARZ_FRAME_COLLAPSED.pieces().get(fragmentIndex);
-            GraphicsManager graphicsManager = GraphicsManager.getInstance();
+            GraphicsManager graphicsManager = services().graphicsManager();
 
             // Render at parent position (getX()/getY() minus offset) because
             // SpritePieceRenderer will add the piece offset

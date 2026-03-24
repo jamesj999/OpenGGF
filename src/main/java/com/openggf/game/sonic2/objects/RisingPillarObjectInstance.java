@@ -320,7 +320,7 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
         boolean hFlip = (spawn.renderFlags() & 0x1) != 0;
         boolean vFlip = (spawn.renderFlags() & 0x2) != 0;
 
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = services().graphicsManager();
         List<SpriteMappingPiece> pieces = mapping.pieces();
         for (int i = pieces.size() - 1; i >= 0; i--) {
             SpriteMappingPiece piece = pieces.get(i);
@@ -338,7 +338,7 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = services().graphicsManager();
         renderPieceWithArtTile(graphicsManager, debrisPiece, x, y, false, false);
     }
 
@@ -499,7 +499,7 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
                 return;
             }
 
-            GraphicsManager graphicsManager = GraphicsManager.getInstance();
+            GraphicsManager graphicsManager = services().graphicsManager();
             SpritePieceRenderer.renderPieces(
                     List.of(piece),
                     currentX,

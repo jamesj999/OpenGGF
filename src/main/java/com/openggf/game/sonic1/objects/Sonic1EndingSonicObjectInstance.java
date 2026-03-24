@@ -1,8 +1,6 @@
 package com.openggf.game.sonic1.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
-import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.Level;
 import com.openggf.level.Map;
@@ -104,7 +102,7 @@ public class Sonic1EndingSonicObjectInstance extends AbstractObjectInstance {
         super(null, "EndSonic");
         this.currentX = x;
         this.currentY = y;
-        ObjectRenderManager renderManager = GameServices.level().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         this.renderer = renderManager != null ? renderManager.getRenderer(ObjectArtKeys.END_SONIC) : null;
     }
 
@@ -346,7 +344,7 @@ public class Sonic1EndingSonicObjectInstance extends AbstractObjectInstance {
             map.setValue(0, 0, 1, (byte) 0x2E);
             map.setValue(0, 1, 1, (byte) 0x2F);
             // ROM: bsr.w DrawChunks — re-render level with modified layout
-            GameServices.level().invalidateForegroundTilemap();
+            services().invalidateForegroundTilemap();
         } catch (IllegalArgumentException e) {
             LOGGER.warning("Ending layout patch failed: " + e.getMessage());
         }
@@ -374,7 +372,7 @@ public class Sonic1EndingSonicObjectInstance extends AbstractObjectInstance {
 
     private void triggerFlash() {
         try {
-            var fadeManager = FadeManager.getInstance();
+            var fadeManager = services().fadeManager();
             if (!fadeManager.isActive()) {
                 fadeManager.startFadeToWhite(() ->
                         fadeManager.startFadeFromWhite(null));

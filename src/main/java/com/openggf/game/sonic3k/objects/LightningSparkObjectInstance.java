@@ -117,7 +117,7 @@ public class LightningSparkObjectInstance extends AbstractObjectInstance {
         // Frame 2 = empty (invisible flash frame)
         if (currentMappingFrame >= 2) return;
 
-        GraphicsManager gfx = GraphicsManager.getInstance();
+        GraphicsManager gfx = services().graphicsManager();
         ensureSparkTilesCached(gfx);
 
         if (currentMappingFrame == 0) {
