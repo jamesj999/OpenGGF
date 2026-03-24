@@ -270,7 +270,7 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
 
             // Check f_conveyrev at init time
             // From disassembly: tst.b (f_conveyrev).w / beq.s loc_16356
-            Sonic1ConveyorState conveyorState = Sonic1ConveyorState.getInstance();
+            Sonic1ConveyorState conveyorState = services().gameService(Sonic1ConveyorState.class);
             if (conveyorState.isReversed()) {
                 // From disassembly: move.b #1,objoff_3B(a0) / neg.b objoff_3A(a0)
                 this.waypointStep = -WAYPOINT_STEP;
@@ -380,7 +380,7 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
         }
         spawnerDone = true;
 
-        Sonic1ConveyorState conveyorState = Sonic1ConveyorState.getInstance();
+        Sonic1ConveyorState conveyorState = services().gameService(Sonic1ConveyorState.class);
         if (conveyorState.testAndSetSpawned(spawnerSlotIndex)) {
             // Already spawned - delete self
             setDestroyed(true);

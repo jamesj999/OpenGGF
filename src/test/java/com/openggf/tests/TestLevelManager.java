@@ -1,5 +1,6 @@
 package com.openggf.tests;
 
+import com.openggf.game.GameServices;
 import com.openggf.level.*;
 import com.openggf.level.rings.RingSpawn;
 import org.junit.Before;
@@ -24,7 +25,7 @@ public class TestLevelManager {
         MockLevel level = new MockLevel();
 
         // Inject into LevelManager
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         Field levelField = LevelManager.class.getDeclaredField("level");
         levelField.setAccessible(true);
         levelField.set(levelManager, level);

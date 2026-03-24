@@ -438,7 +438,7 @@ public class S3kSignpostInstance extends AbstractObjectInstance {
 
     private PlayerCharacter getPlayerCharacter() {
         try {
-            return Sonic3kLevelEventManager.getInstance().getPlayerCharacter();
+            return ((Sonic3kLevelEventManager) services().levelEventProvider()).getPlayerCharacter();
         } catch (Exception e) {
             return PlayerCharacter.SONIC_AND_TAILS;
         }

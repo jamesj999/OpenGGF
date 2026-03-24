@@ -2,6 +2,7 @@ package com.openggf.tests;
 
 import com.openggf.game.CheckpointState;
 import com.openggf.game.RespawnState;
+import com.openggf.game.GameServices;
 import com.openggf.level.LevelManager;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -54,7 +55,7 @@ public class TestS2PostLoadAssemblyHeadless {
         sprite = (Sonic) fixture.sprite();
 
         // Clear checkpoint state from previous tests (resetPerTest doesn't touch it)
-        RespawnState cs = LevelManager.getInstance().getCheckpointState();
+        RespawnState cs = GameServices.level().getCheckpointState();
         if (cs != null) {
             cs.clear();
         }
@@ -72,12 +73,12 @@ public class TestS2PostLoadAssemblyHeadless {
         sprite.setCentreY((short) checkpointY);
         fixture.camera().updatePosition(true);
 
-        RespawnState checkpointState = LevelManager.getInstance().getCheckpointState();
+        RespawnState checkpointState = GameServices.level().getCheckpointState();
         assertNotNull("Checkpoint state should exist after level load", checkpointState);
         ((CheckpointState) checkpointState).saveCheckpoint(1, checkpointX, checkpointY, false);
 
         // Respawn triggers full level reload with checkpoint data preserved
-        LevelManager.getInstance().respawnPlayer();
+        GameServices.level().respawnPlayer();
 
         // After respawn, SpawnPlayer step positions player at checkpoint coords
         assertEquals("Player centre X should match checkpoint after respawn",
@@ -92,10 +93,10 @@ public class TestS2PostLoadAssemblyHeadless {
         sprite.setYSpeed((short) -400);
         sprite.setGSpeed((short) 500);
 
-        RespawnState checkpointState = LevelManager.getInstance().getCheckpointState();
+        RespawnState checkpointState = GameServices.level().getCheckpointState();
         ((CheckpointState) checkpointState).saveCheckpoint(0, 96, 655, false);
 
-        LevelManager.getInstance().respawnPlayer();
+        GameServices.level().respawnPlayer();
 
         // ResetPlayerState step zeroes all velocities
         assertEquals("X speed should be 0 after respawn", 0, sprite.getXSpeed());
@@ -108,10 +109,10 @@ public class TestS2PostLoadAssemblyHeadless {
         sprite.setDead(true);
         sprite.setHurt(true);
 
-        RespawnState checkpointState = LevelManager.getInstance().getCheckpointState();
+        RespawnState checkpointState = GameServices.level().getCheckpointState();
         ((CheckpointState) checkpointState).saveCheckpoint(0, 96, 655, false);
 
-        LevelManager.getInstance().respawnPlayer();
+        GameServices.level().respawnPlayer();
 
         // ResetPlayerState step clears death/hurt flags
         assertFalse("Player should not be dead after respawn", sprite.getDead());
@@ -121,7 +122,7 @@ public class TestS2PostLoadAssemblyHeadless {
     @Test
     public void respawnWithoutCheckpointUsesLevelStart() {
         // No checkpoint saved — checkpoint state should be inactive from loadZoneAndAct
-        RespawnState checkpointState = LevelManager.getInstance().getCheckpointState();
+        RespawnState checkpointState = GameServices.level().getCheckpointState();
         assertFalse("Checkpoint should be inactive when no starpost touched",
                 checkpointState.isActive());
 
@@ -129,7 +130,7 @@ public class TestS2PostLoadAssemblyHeadless {
         sprite.setCentreX((short) 2000);
         sprite.setCentreY((short) 300);
 
-        LevelManager.getInstance().respawnPlayer();
+        GameServices.level().respawnPlayer();
 
         // SpawnPlayer step uses level start position (not the modified position)
         assertNotEquals("Player should NOT stay at modified X after respawn without checkpoint",
@@ -147,10 +148,10 @@ public class TestS2PostLoadAssemblyHeadless {
         fixture.camera().setY((short) 300);
         fixture.camera().updatePosition(true);
 
-        RespawnState checkpointState = LevelManager.getInstance().getCheckpointState();
+        RespawnState checkpointState = GameServices.level().getCheckpointState();
         ((CheckpointState) checkpointState).saveCheckpoint(2, checkpointX, checkpointY, false);
 
-        LevelManager.getInstance().respawnPlayer();
+        GameServices.level().respawnPlayer();
 
         // InitCamera step snaps camera to player. With checkpoint at 800,400
         // camera should be positioned near the player (exact coords depend on
@@ -172,7 +173,7 @@ public class TestS2PostLoadAssemblyHeadless {
         Tails tails = createSidekick();
 
         // S2 sidekick offset: -40 X, 0 Y
-        LevelManager.getInstance().spawnSidekicks(-40, 0);
+        GameServices.level().spawnSidekicks(-40, 0);
 
         assertEquals("S2 sidekick X should be player X - 40",
                 playerX - 40, tails.getX());
@@ -190,7 +191,7 @@ public class TestS2PostLoadAssemblyHeadless {
         Tails tails = createSidekick();
 
         // S3K sidekick offset: -32 X, +4 Y
-        LevelManager.getInstance().spawnSidekicks(-32, 4);
+        GameServices.level().spawnSidekicks(-32, 4);
 
         assertEquals("S3K sidekick X should be player X - 32",
                 playerX - 32, tails.getX());
@@ -207,7 +208,7 @@ public class TestS2PostLoadAssemblyHeadless {
         tails.setDead(true);
         tails.setAir(true);
 
-        LevelManager.getInstance().spawnSidekicks(-40, 0);
+        GameServices.level().spawnSidekicks(-40, 0);
 
         assertEquals("Sidekick X speed should be 0 after spawn", 0, tails.getXSpeed());
         assertEquals("Sidekick Y speed should be 0 after spawn", 0, tails.getYSpeed());
@@ -223,7 +224,7 @@ public class TestS2PostLoadAssemblyHeadless {
         tails.setCpuControlled(true);
         SidekickCpuController controller = new SidekickCpuController(tails);
         tails.setCpuController(controller);
-        SpriteManager.getInstance().addSprite(tails);
+        GameServices.sprites().addSprite(tails);
         return tails;
     }
 }

@@ -1,6 +1,7 @@
 package com.openggf.sprites.playable;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.physics.Direction;
 
 /**
@@ -28,7 +29,7 @@ public class KnucklesRespawnStrategy implements SidekickRespawnStrategy {
         approachFrameCount = 0;
         dropping = false;
 
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         int cameraX = (camera != null) ? camera.getX() : leader.getCentreX();
         int edgeX;
         if (leader.getXSpeed() >= 0) {

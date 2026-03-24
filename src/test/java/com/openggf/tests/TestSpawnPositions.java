@@ -9,6 +9,7 @@ import com.openggf.data.Rom;
 import com.openggf.game.sonic2.Sonic2;
 import com.openggf.level.Level;
 import com.openggf.level.LevelData;
+import com.openggf.game.GameServices;
 import com.openggf.level.LevelManager;
 import com.openggf.physics.Direction;
 import com.openggf.physics.GroundSensor;
@@ -48,7 +49,7 @@ public class TestSpawnPositions {
 
         assertTrue("ROM should be compatible", game.isCompatible());
 
-        levelManager = LevelManager.getInstance();
+        levelManager = GameServices.level();
     }
 
     @After

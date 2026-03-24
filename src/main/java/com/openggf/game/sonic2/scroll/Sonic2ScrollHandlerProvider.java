@@ -2,6 +2,7 @@ package com.openggf.game.sonic2.scroll;
 
 import com.openggf.camera.Camera;
 import com.openggf.data.Rom;
+import com.openggf.game.GameServices;
 import com.openggf.game.ScrollHandlerProvider;
 import com.openggf.game.sonic2.DynamicHtz;
 import com.openggf.level.Level;
@@ -149,7 +150,7 @@ public class Sonic2ScrollHandlerProvider implements ScrollHandlerProvider {
                 }
                 // SCZ camera is driven by Tornado velocity, not player following.
                 // Freeze camera to prevent normal updatePosition() from overriding.
-                Camera.getInstance().setFrozen(true);
+                GameServices.camera().setFrozen(true);
             }
             default -> {
                 // Other zones only need the bgCamera init (already done above)

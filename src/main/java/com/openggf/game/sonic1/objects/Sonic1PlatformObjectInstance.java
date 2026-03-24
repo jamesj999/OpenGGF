@@ -419,7 +419,7 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
 
         // Check switch state: lsr.w #4,d0 / tst.b (a2,d0.w)
         int switchIndex = (spawn.subtype() >> 4) & 0x0F;
-        if (Sonic1SwitchManager.getInstance().isPressed(switchIndex)) {
+        if (services().gameService(Sonic1SwitchManager.class).isPressed(switchIndex)) {
             timer = SWITCH_DELAY;
         }
     }

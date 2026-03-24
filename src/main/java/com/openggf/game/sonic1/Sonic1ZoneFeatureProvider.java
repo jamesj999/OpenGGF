@@ -208,7 +208,7 @@ public class Sonic1ZoneFeatureProvider implements ZoneFeatureProvider {
     @Override
     public int getWaterLevel(int zoneIndex, int actIndex) {
         if (hasWater(zoneIndex)) {
-            return WaterSystem.getInstance().getWaterLevelY(zoneIndex, actIndex);
+            return GameServices.water().getWaterLevelY(zoneIndex, actIndex);
         }
         return Integer.MAX_VALUE;
     }

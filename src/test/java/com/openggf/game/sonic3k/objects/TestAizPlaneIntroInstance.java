@@ -3,6 +3,7 @@ package com.openggf.game.sonic3k.objects;
 import org.junit.Before;
 import org.junit.Test;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.level.objects.DefaultObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.sprites.playable.Sonic;
@@ -15,7 +16,7 @@ public class TestAizPlaneIntroInstance {
 
     @Before
     public void setUp() {
-        Camera.getInstance().resetState();
+        GameServices.camera().resetState();
         intro = new AizPlaneIntroInstance(
                 new ObjectSpawn(0x60, 0x30, 0, 0, 0, false, 0));
         intro.setServices(new DefaultObjectServices());
@@ -59,7 +60,7 @@ public class TestAizPlaneIntroInstance {
         player.setCentreX((short) 0x40);
         player.setCentreY((short) 0x420);
 
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         camera.setFocusedSprite(player);
         camera.setX((short) 0x200);
         camera.setY((short) 0x200);
@@ -82,7 +83,7 @@ public class TestAizPlaneIntroInstance {
         focusedPlayer.setCentreX((short) 0x40);
         focusedPlayer.setCentreY((short) 0x420);
 
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         camera.setFocusedSprite(focusedPlayer);
         camera.setFrozen(false);
 
@@ -101,7 +102,7 @@ public class TestAizPlaneIntroInstance {
         player.setCentreX((short) 0x40);
         player.setCentreY((short) 0x420);
 
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         camera.setFocusedSprite(player);
 
         for (int frame = 0; frame < 2500 && intro.getRoutine() < 24; frame++) {
@@ -118,7 +119,7 @@ public class TestAizPlaneIntroInstance {
         focusedPlayer.setCentreX((short) 0x40);
         focusedPlayer.setCentreY((short) 0x420);
 
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         camera.setFocusedSprite(focusedPlayer);
 
         for (int frame = 0; frame < 2500 && intro.getRoutine() < 24; frame++) {

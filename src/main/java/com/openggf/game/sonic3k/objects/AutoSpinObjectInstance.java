@@ -5,7 +5,6 @@ import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.debug.DebugOverlayManager;
 import com.openggf.debug.DebugOverlayToggle;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.BoxObjectInstance;
 import com.openggf.graphics.GLCommand;
@@ -61,9 +60,8 @@ public class AutoSpinObjectInstance extends BoxObjectInstance {
     // Debug colors
     private static final float ENABLE_R = 0.0f, ENABLE_G = 1.0f, ENABLE_B = 0.0f;
     private static final float DISABLE_R = 1.0f, DISABLE_G = 0.0f, DISABLE_B = 0.0f;
-    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
-            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
+    private static final boolean DEBUG_VIEW_ENABLED = staticDebugViewEnabled();
+    private static final DebugOverlayManager OVERLAY_MANAGER = staticDebugOverlay();
 
     private final boolean verticalMode;     // subtype bit 2
     private final boolean noSpinLock;       // subtype bit 4

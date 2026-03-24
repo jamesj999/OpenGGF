@@ -51,9 +51,8 @@ import java.util.List;
 public class MTZTwinStompersObjectInstance extends AbstractObjectInstance
         implements SolidObjectProvider, SolidObjectListener {
 
-    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
-            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-    private static final DebugOverlayManager OVERLAY_MANAGER = com.openggf.game.GameServices.debugOverlay();
+    private static final boolean DEBUG_VIEW_ENABLED = staticDebugViewEnabled();
+    private static final DebugOverlayManager OVERLAY_MANAGER = staticDebugOverlay();
 
     // Obj64_Properties flat byte array (s2.asm:52214-52220)
     // Accessed as a3 = Properties + byteOffset, then 3 sequential reads: (a3)+, (a3)+, (a3)+

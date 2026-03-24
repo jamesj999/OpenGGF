@@ -964,7 +964,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
                 spawnAiz2Miniboss(AIZ2_KNUX_BOSS_X, AIZ2_KNUX_BOSS_Y);
             }
             // ROM: set Target_water_level = $F80
-            WaterSystem waterSystem = WaterSystem.getInstance();
+            WaterSystem waterSystem = GameServices.water();
             waterSystem.setWaterLevelTarget(0, 1, AIZ2_KNUX_WATER_LEVEL);
             aiz2ResizeRoutine = 0x16;
         }
@@ -1197,7 +1197,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         if (camera().getFocusedSprite() instanceof AbstractPlayableSprite player) {
             player.setControlLocked(locked);
         }
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+        for (AbstractPlayableSprite sidekick : GameServices.sprites().getSidekicks()) {
             sidekick.setControlLocked(locked);
         }
     }

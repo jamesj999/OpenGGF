@@ -1,6 +1,5 @@
 package com.openggf.game.sonic1.objects.bosses;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
@@ -131,7 +130,7 @@ public class Sonic1BossBlockInstance extends AbstractObjectInstance
      * ROM: BossBlock_Main spawning loop.
      */
     public static void spawnAllBlocks() {
-        var objectManager = GameServices.level().getObjectManager();
+        var objectManager = staticObjectManager();
         if (objectManager == null) {
             return;
         }

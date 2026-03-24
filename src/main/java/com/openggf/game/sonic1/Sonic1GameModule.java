@@ -188,6 +188,14 @@ public class Sonic1GameModule implements GameModule {
                 .getLoopManager().update(player);
     }
 
+    @SuppressWarnings("unchecked")
+    @Override
+    public <T> T getGameService(Class<T> type) {
+        if (type == Sonic1SwitchManager.class) return (T) Sonic1SwitchManager.getInstance();
+        if (type == Sonic1ConveyorState.class) return (T) Sonic1ConveyorState.getInstance();
+        return null;
+    }
+
     @Override
     public void onLevelLoad() {
         // Reset oscillation values to Sonic 1 settings.

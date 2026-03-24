@@ -3,6 +3,7 @@ package com.openggf.game.sonic1.objects;
 import org.junit.Before;
 import org.junit.Test;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectInstance;
@@ -38,12 +39,12 @@ public class TestSonic1PlatformObjectInstanceRespawn {
 
     @Before
     public void setUp() {
-        Camera.getInstance().resetState();
+        GameServices.camera().resetState();
     }
 
     @Test
     public void fallingPlatformDoesNotRespawnImmediatelyWhileStillInWindow() {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         camera.setX((short) 0);
         camera.setMaxY((short) 0);
 

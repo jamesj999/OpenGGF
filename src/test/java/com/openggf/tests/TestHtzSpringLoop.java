@@ -5,6 +5,7 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
+import com.openggf.game.GameServices;
 import com.openggf.level.LevelManager;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.rules.RequiresRom;
@@ -84,7 +85,7 @@ public class TestHtzSpringLoop {
 
         // Reset the object manager's spawn window to the new camera position
         // so objects near our test position are spawned
-        LevelManager.getInstance().getObjectManager().reset(fixture.camera().getX());
+        GameServices.level().getObjectManager().reset(fixture.camera().getX());
 
         // Log initial state
         logState("Initial");

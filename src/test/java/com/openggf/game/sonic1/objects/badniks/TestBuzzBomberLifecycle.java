@@ -3,6 +3,7 @@ package com.openggf.game.sonic1.objects.badniks;
 import org.junit.Before;
 import org.junit.Test;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectInstance;
@@ -125,7 +126,7 @@ public class TestBuzzBomberLifecycle {
     @Before
     public void setUp() {
         // Ensure Camera singleton exists with clean state (screen 320×224 from config)
-        Camera.getInstance().resetState();
+        GameServices.camera().resetState();
     }
 
     /**
@@ -153,7 +154,7 @@ public class TestBuzzBomberLifecycle {
 
         // --- Frame 1: Camera at X=400, windowEnd = 400+640 = 1040.
         //     Spawn at X=1000 ≤ 1040 → object created.
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         camera.setX((short) 400);
         manager.reset(400);
         manager.update(400, null, null, 1);
@@ -192,7 +193,7 @@ public class TestBuzzBomberLifecycle {
         ObjectManager manager = new ObjectManager(spawns, registry, 0, null, null);
 
         // Camera at X=400, spawn at 1000 in window → object created.
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         camera.setX((short) 400);
         manager.reset(400);
         manager.update(400, null, null, 1);
@@ -230,7 +231,7 @@ public class TestBuzzBomberLifecycle {
         TestRegistry registry = new TestRegistry(0x22, 160); // 0x22 doesn't match 0x01
         ObjectManager manager = new ObjectManager(spawns, registry, 0, null, null);
 
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         camera.setX((short) 400);
         manager.reset(400);
         manager.update(400, null, null, 1);

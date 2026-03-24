@@ -4,7 +4,6 @@ import com.openggf.camera.Camera;
 import com.openggf.game.sonic1.audio.Sonic1Music;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
-import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.game.sonic1.scroll.Sonic1ZoneConstants;
 import com.openggf.level.objects.AbstractResultsScreen;
@@ -362,8 +361,8 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
             if (true) {
                 // Giant Ring collected: advance zone/act first (ROM-accurate: Got_NextLevel),
                 // then enter special stage. On return, the advanced values are used.
-                GameServices.level().advanceZoneActOnly();
-                GameServices.level().requestSpecialStageFromCheckpoint();
+                services().advanceZoneActOnly();
+                services().requestSpecialStageFromCheckpoint();
             }
             // Don't start fadeFromWhite here — let the screen stay white
             // (HOLD_WHITE). enterSpecialStage() will detect HOLD_WHITE and

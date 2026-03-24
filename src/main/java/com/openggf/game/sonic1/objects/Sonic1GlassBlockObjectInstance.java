@@ -399,7 +399,7 @@ public class Sonic1GlassBlockObjectInstance extends AbstractObjectInstance
         if (!type4Activated) {
             // Check switch state: the high nybble indexes into f_switch
             int switchIndex = (fullSubtype >> 4) & 0x0F;
-            if (Sonic1SwitchManager.getInstance().isPressed(switchIndex)) {
+            if (services().gameService(Sonic1SwitchManager.class).isPressed(switchIndex)) {
                 type4Activated = true;
             }
         }

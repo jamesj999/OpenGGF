@@ -84,7 +84,7 @@ public class BalkiryBadnikInstance extends AbstractBadnikInstance {
         subPixelY &= 0xFF;
 
         // ROM: loc_36776 - add Tornado_Velocity_X/Y to position
-        ParallaxManager pm = ParallaxManager.getInstance();
+        ParallaxManager pm = services().parallaxManager();
         currentX += pm.getTornadoVelocityX();
         currentY += pm.getTornadoVelocityY();
     }

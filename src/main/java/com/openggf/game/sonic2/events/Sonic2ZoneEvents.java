@@ -74,7 +74,7 @@ public abstract class Sonic2ZoneEvents {
     }
 
     protected void setSidekickBounds(Integer minX, Integer maxX, Integer maxY) {
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+        for (AbstractPlayableSprite sidekick : GameServices.sprites().getSidekicks()) {
             if (sidekick.getCpuController() != null) {
                 sidekick.getCpuController().setLevelBounds(minX, maxX, maxY);
             }

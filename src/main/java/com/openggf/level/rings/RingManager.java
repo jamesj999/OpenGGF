@@ -2,6 +2,7 @@ package com.openggf.level.rings;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
+import com.openggf.game.GameServices;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.LevelManager;
 import com.openggf.level.SolidTile;
@@ -639,7 +640,7 @@ public class RingManager {
         private final RingRenderer renderer;
         private final TouchResponseTable touchResponseTable;
         private final AudioManager audioManager = AudioManager.getInstance();
-        private final Camera camera = Camera.getInstance();
+        private final Camera camera = GameServices.camera();
         private final LostRing[] ringPool = new LostRing[MAX_LOST_RINGS];
         private int activeRingCount = 0;
         private int nextId;
@@ -745,7 +746,7 @@ public class RingManager {
             }
 
             // S3K: Reverse_gravity_flag gates Obj_Bouncing_Ring_Reverse_Gravity variant.
-            boolean reverseGravity = GameStateManager.getInstance().isReverseGravityActive();
+            boolean reverseGravity = GameServices.gameState().isReverseGravityActive();
             int gravity = reverseGravity ? -GRAVITY : GRAVITY;
 
             int cameraBottom = camera.getMaxY() + 224;

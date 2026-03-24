@@ -333,7 +333,7 @@ public class Sonic2ZoneFeatureProvider implements ZoneFeatureProvider {
 
     @Override
     public int getWaterLevel(int zoneIndex, int actIndex) {
-        return WaterSystem.getInstance().getWaterLevelY(zoneIndex, actIndex);
+        return GameServices.water().getWaterLevelY(zoneIndex, actIndex);
     }
 
     @Override

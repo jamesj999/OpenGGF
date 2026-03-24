@@ -1,6 +1,7 @@
 package com.openggf.level.objects;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -124,7 +125,7 @@ public class BreathingBubbleInstance extends AbstractObjectInstance {
         // NOT the visual level with oscillation. Use getFeatureZoneId/ActId to
         // match the keys WaterSystem stores configs under (important for SBZ3).
         if (services().currentLevel() != null) {
-            WaterSystem waterSystem = WaterSystem.getInstance();
+            WaterSystem waterSystem = GameServices.water();
             int zoneId = services().featureZoneId();
             int actId = services().featureActId();
 

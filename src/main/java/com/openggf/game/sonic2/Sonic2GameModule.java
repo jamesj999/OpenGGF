@@ -204,6 +204,15 @@ public class Sonic2GameModule implements GameModule {
         return new Sonic2ZoneArtProvider();
     }
 
+    @SuppressWarnings("unchecked")
+    @Override
+    public <T> T getGameService(Class<T> type) {
+        if (type == Sonic2LevelEventManager.class) return (T) Sonic2LevelEventManager.getInstance();
+        if (type == com.openggf.game.sonic2.specialstage.Sonic2SpecialStageManager.class)
+            return (T) com.openggf.game.sonic2.specialstage.Sonic2SpecialStageManager.getInstance();
+        return null;
+    }
+
     @Override
     public void onLevelLoad() {
         // Reset oscillation values used by moving platforms, etc.

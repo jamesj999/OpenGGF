@@ -4,7 +4,6 @@ import com.openggf.level.objects.BoxObjectInstance;
 import com.openggf.audio.GameSound;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.GameServices;
 import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.Sonic2ZoneFeatureProvider;
@@ -514,12 +513,12 @@ public class PointPokeyObjectInstance extends BoxObjectInstance
      */
     private void calculateSlotDisplayOffset() {
         slotDisplayOffsetCalculated = true;
-        if (GameServices.level() == null) {
+        if (services().currentLevel() == null) {
             return;
         }
 
         // Search for slot display patterns (tiles $0550-$057F) within 128 pixels of cage
-        int[] offset = GameServices.level().findPatternOffset(
+        int[] offset = services().findPatternOffset(
                 spawn.x(),
                 spawn.y(),
                 CNZSlotMachineRenderer.SLOT_TILE_MIN,

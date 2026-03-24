@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.events.Sonic2DEZEvents;
 import com.openggf.level.objects.DefaultObjectServices;
 import org.junit.After;
@@ -35,8 +36,8 @@ public class TestTodo9_DEZEventSpecs {
 
     @Before
     public void setUp() {
-        Camera.getInstance().resetState();
-        cam = Camera.getInstance();
+        GameServices.camera().resetState();
+        cam = GameServices.camera();
         events = new Sonic2DEZEvents();
         events.init(0);
         // Set construction context so that any objects spawned by event updates

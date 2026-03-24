@@ -130,9 +130,8 @@ public class Sonic1JunctionObjectInstance extends AbstractObjectInstance
             (byte) -0x1E, (byte) -0x0E,   // Frame 15
     };
 
-    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
-            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
+    private static final boolean DEBUG_VIEW_ENABLED = staticDebugViewEnabled();
+    private static final DebugOverlayManager OVERLAY_MANAGER = staticDebugOverlay();
     private static final DebugColor DEBUG_COLOR = new DebugColor(100, 200, 100);
 
     // ========================================================================
@@ -409,7 +408,7 @@ public class Sonic1JunctionObjectInstance extends AbstractObjectInstance
      * </pre>
      */
     private void checkSwitch() {
-        Sonic1SwitchManager switchMgr = Sonic1SwitchManager.getInstance();
+        Sonic1SwitchManager switchMgr = services().gameService(Sonic1SwitchManager.class);
 
         // btst #0,(a2,d0.w) — check if switch bit 0 is pressed
         boolean pressed = (switchMgr.getRaw(switchIndex) & 0x01) != 0;

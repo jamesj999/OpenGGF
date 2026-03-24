@@ -91,7 +91,7 @@ public class NebulaBadnikInstance extends AbstractBadnikInstance {
         currentY = motionState.y;
 
         // ROM: loc_36776 - add Tornado velocity each frame
-        ParallaxManager parallax = ParallaxManager.getInstance();
+        ParallaxManager parallax = services().parallaxManager();
         currentX += parallax.getTornadoVelocityX();
         currentY += parallax.getTornadoVelocityY();
 

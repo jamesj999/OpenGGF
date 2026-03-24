@@ -2,6 +2,7 @@ package com.openggf.game.sonic3k;
 
 import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
+import com.openggf.game.GameServices;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.RomByteReader;
 import com.openggf.graphics.GraphicsManager;
@@ -54,13 +55,13 @@ public class TestS3kIczPaletteCycling {
         String mainChar = SonicConfigurationService.getInstance()
                 .getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         Sonic temp = new Sonic(mainChar, (short) 0, (short) 0);
-        SpriteManager.getInstance().addSprite(temp);
+        GameServices.sprites().addSprite(temp);
 
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         camera.setFocusedSprite(temp);
         camera.setFrozen(false);
 
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         lm.loadZoneAndAct(ZONE_ICZ, ACT_1);
         GroundSensor.setLevelManager(lm);
 

@@ -197,12 +197,12 @@ public class TestAizPlaneArtDiag {
     public void noPatternIdCollisionBetweenLevelAndIntroArt() throws Exception {
         // Load the level first (this caches level patterns in the atlas)
         Sonic sonic = new Sonic("sonic", (short) 0, (short) 0);
-        SpriteManager.getInstance().addSprite(sonic);
-        Camera camera = Camera.getInstance();
+        GameServices.sprites().addSprite(sonic);
+        Camera camera = GameServices.camera();
         camera.setFocusedSprite(sonic);
         camera.setFrozen(false);
 
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         levelManager.loadZoneAndAct(0, 0);
         GroundSensor.setLevelManager(levelManager);
         camera.updatePosition(true);

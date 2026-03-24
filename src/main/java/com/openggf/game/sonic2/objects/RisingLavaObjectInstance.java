@@ -181,7 +181,7 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
         // y_pos = objoff_32 + Camera_BG_Y_offset (ONLY bgYOffset, no shake)
         // Ripple shake is a global screen-space effect applied via Camera shake offsets,
         // so objects don't add it to their world positions.
-        int bgYOffset = Sonic2LevelEventManager.getInstance().getCameraBgYOffset();
+        int bgYOffset = ((Sonic2LevelEventManager) services().levelEventProvider()).getCameraBgYOffset();
         currentY = baseY + bgYOffset;
 
         updateDynamicSpawn(baseX, currentY);
@@ -345,7 +345,7 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
         }
 
         // Invisible during normal gameplay - only render in debug mode
-        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        SonicConfigurationService config = config();
         if (!config.getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED)) {
             return;
         }

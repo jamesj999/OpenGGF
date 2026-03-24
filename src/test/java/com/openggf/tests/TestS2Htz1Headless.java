@@ -67,7 +67,7 @@ public class TestS2Htz1Headless {
                 .withSharedLevel(sharedLevel)
                 .build();
         sprite = (Sonic) fixture.sprite();
-        levelManager = LevelManager.getInstance();
+        levelManager = GameServices.level();
     }
 
     // ========== From TestHtzDropOnFloor ==========
@@ -498,7 +498,7 @@ public class TestS2Htz1Headless {
         // We need to teleport both Sonic AND the camera to the trigger zone.
 
         Sonic2LevelEventManager levelEventManager = Sonic2LevelEventManager.getInstance();
-        ParallaxManager parallaxManager = ParallaxManager.getInstance();
+        ParallaxManager parallaxManager = GameServices.parallax();
         Camera camera = fixture.camera();
 
         // Teleport Sonic to a position where the camera will be in the earthquake zone
@@ -634,7 +634,7 @@ public class TestS2Htz1Headless {
                     boolean htzShake = GameServices.gameState().isHtzScreenShakeActive();
                     boolean screenShake = GameServices.gameState().isScreenShakeActive();
                     int bgYOffset = Sonic2LevelEventManager.getInstance().getCameraBgYOffset();
-                    int shakeY = ParallaxManager.getInstance().getShakeOffsetY();
+                    int shakeY = GameServices.parallax().getShakeOffsetY();
 
                     System.out.println("HTZ shake active: " + htzShake);
                     System.out.println("Screen shake active: " + screenShake);

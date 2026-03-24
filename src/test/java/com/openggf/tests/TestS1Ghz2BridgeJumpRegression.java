@@ -5,6 +5,7 @@ import com.openggf.game.sonic1.Sonic1ObjectPlacement;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.game.sonic1.objects.Sonic1BridgeObjectInstance;
+import com.openggf.game.GameServices;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -67,7 +68,7 @@ public class TestS1Ghz2BridgeJumpRegression {
                 .withSharedLevel(sharedLevel)
                 .build();
 
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = GameServices.level().getObjectManager();
         if (objectManager != null) {
             objectManager.reset(fixture.camera().getX());
         }
@@ -117,7 +118,7 @@ public class TestS1Ghz2BridgeJumpRegression {
         fixture.sprite().setGSpeed((short) 0);
         fixture.camera().updatePosition(true);
 
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = GameServices.level().getObjectManager();
         for (int frame = 0; frame < SETTLE_TIMEOUT_FRAMES; frame++) {
             fixture.stepFrame(false, false, false, false, false);
             ObjectInstance riding = objectManager != null ? objectManager.getRidingObject(fixture.sprite()) : null;
@@ -129,7 +130,7 @@ public class TestS1Ghz2BridgeJumpRegression {
     }
 
     private Sonic1BridgeObjectInstance findFirstBridgeInstance() {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = GameServices.level().getObjectManager();
         if (objectManager == null) {
             return null;
         }

@@ -21,6 +21,8 @@ import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 
+import com.openggf.game.GameRuntime;
+import com.openggf.game.RuntimeManager;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 
@@ -44,18 +46,24 @@ public class TestHTZBossChildObjects {
     private Field levelManagerField;
     private LevelManager originalLevelManager;
     private LevelManager mockLevelManager;
+    private GameRuntime originalRuntime;
 
     @Before
     public void setUp() throws Exception {
         levelManagerField = LevelManager.class.getDeclaredField("levelManager");
         levelManagerField.setAccessible(true);
         originalLevelManager = (LevelManager) levelManagerField.get(null);
+        originalRuntime = RuntimeManager.getCurrent();
+        // Clear runtime so GameServices.level() falls back to LevelManager.getInstance()
+        // which we mock via reflection below
+        RuntimeManager.setCurrent(null);
         mockLevelManager = mock(LevelManager.class);
     }
 
     @After
     public void tearDown() throws Exception {
         levelManagerField.set(null, originalLevelManager);
+        RuntimeManager.setCurrent(originalRuntime);
     }
 
     @Test

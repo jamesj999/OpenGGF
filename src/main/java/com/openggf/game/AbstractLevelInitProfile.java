@@ -1,14 +1,6 @@
 package com.openggf.game;
 
-import com.openggf.camera.Camera;
-import com.openggf.debug.DebugOverlayManager;
-import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.LevelManager;
-import com.openggf.level.ParallaxManager;
-import com.openggf.level.WaterSystem;
-import com.openggf.physics.CollisionSystem;
-import com.openggf.sprites.managers.SpriteManager;
-import com.openggf.timer.TimerManager;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -230,25 +222,25 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
 
             // Undoes S1:Phase G / S2:Phase E / S3K:Phase H (DeformBgLayer/DeformLayers)
             new InitStep("ResetParallax", "Undoes DeformBgLayer init",
-                () -> ParallaxManager.getInstance().resetState()),
+                () -> GameServices.parallax().resetState()),
             // Undoes S1:Phase G / S2:Phase E / S3K:Phase I (LevelDataLoad/LoadZoneTiles)
             new InitStep("ResetLevelManager", "Undoes LevelDataLoad / LoadZoneTiles / LoadLevelLoadBlock",
                 () -> GameServices.level().resetState()),
 
             // Undoes S1:Phase I-J / S2:Phase G / S3K:Phase O (InitPlayers/SpawnLevelMainSprites)
             new InitStep("ResetSprites", "Undoes InitPlayers / SpawnLevelMainSprites",
-                () -> SpriteManager.getInstance().resetState()),
+                () -> GameServices.sprites().resetState()),
 
             // Undoes S1:Phase H / S2:Phase F / S3K:Phase K (ConvertCollisionArray/LoadSolids)
             new InitStep("ResetCollision", "Undoes ConvertCollisionArray / LoadCollisionIndexes / LoadSolids",
-                () -> CollisionSystem.getInstance().resetState()),
+                () -> GameServices.collision().resetState()),
 
             // Undoes S1:Phase G / S2:Phase E / S3K:Phase H (LevelSizeLoad/Get_LevelSizeStart)
             new InitStep("ResetCamera", "Undoes LevelSizeLoad / Get_LevelSizeStart",
                 () -> GameServices.camera().resetState()),
             // Undoes S1:Phase B / S2:Phase B / S3K:Phase D (VDP register config)
             new InitStep("ResetGraphics", "Undoes VDP register / ClearScreen / Clear_DisplayData",
-                () -> GraphicsManager.getInstance().resetState()),
+                () -> com.openggf.graphics.GraphicsManager.getInstance().resetState()),
             // Undoes S1:Phase A / S2:Phase A / S3K:Phase A (PaletteFadeOut/Pal_FadeToBlack)
             new InitStep("ResetFade", "Undoes PaletteFadeOut / Pal_FadeToBlack",
                 () -> GameServices.fade().resetState()),
@@ -258,13 +250,13 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
                 () -> GameServices.gameState().resetState()),
             // Undoes S1:Phase J / S2:Phase I / S3K:Phase P (first frame timing)
             new InitStep("ResetTimers", "Undoes Level_frame_counter / demo timer",
-                () -> TimerManager.getInstance().resetState()),
+                () -> GameServices.timers().resetState()),
             // Undoes S1:Phase C / S2:Phase B / S3K:Phase E,L (water init)
             new InitStep("ResetWater", "Undoes LZWaterFeatures / WaterEffects / Handle_Onscreen_Water_Height",
-                () -> WaterSystem.getInstance().reset()),
+                () -> GameServices.water().reset()),
 
             new InitStep("ResetDebugOverlay", "Clears overlay toggle states and pending debug text",
-                () -> DebugOverlayManager.getInstance().resetState())
+                () -> GameServices.debugOverlay().resetState())
         );
     }
 
@@ -277,11 +269,11 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
                 () -> CrossGameFeatureProvider.getInstance().resetState()),
 
             new InitStep("ResetParallax", "Undoes DeformBgLayer init",
-                () -> ParallaxManager.getInstance().resetState()),
+                () -> GameServices.parallax().resetState()),
             new InitStep("ResetSprites", "Undoes InitPlayers / SpawnLevelMainSprites",
-                () -> SpriteManager.getInstance().resetState()),
+                () -> GameServices.sprites().resetState()),
             new InitStep("ResetCollision", "Undoes ConvertCollisionArray / LoadSolids",
-                () -> CollisionSystem.getInstance().resetState()),
+                () -> GameServices.collision().resetState()),
             new InitStep("ResetCamera", "Undoes LevelSizeLoad / Get_LevelSizeStart",
                 () -> GameServices.camera().resetState()),
             new InitStep("ResetFade", "Undoes PaletteFadeOut / Pal_FadeToBlack",
@@ -289,11 +281,11 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
             new InitStep("ResetGameState", "Undoes ring/timer/lives init from Level:",
                 () -> GameServices.gameState().resetState()),
             new InitStep("ResetTimers", "Undoes Level_frame_counter / demo timer",
-                () -> TimerManager.getInstance().resetState()),
+                () -> GameServices.timers().resetState()),
             new InitStep("ResetWater", "Undoes LZWaterFeatures / WaterEffects / Handle_Onscreen_Water_Height",
-                () -> WaterSystem.getInstance().reset()),
+                () -> GameServices.water().reset()),
             new InitStep("ResetDebugOverlay", "Clears overlay toggle states and pending debug text",
-                () -> DebugOverlayManager.getInstance().resetState())
+                () -> GameServices.debugOverlay().resetState())
         );
     }
 

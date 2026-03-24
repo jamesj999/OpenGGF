@@ -4,7 +4,6 @@ import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
-import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -344,7 +343,7 @@ public class Sonic2ARZBossInstance extends AbstractBossInstance {
             bossYVel -= 8;
         } else if (bossCountdown == 0x18) {
             bossYVel = 0;
-            int levelMusic = GameServices.level() != null ? GameServices.level().getCurrentLevelMusicId() : -1;
+            int levelMusic = services().getCurrentLevelMusicId();
             if (levelMusic >= 0) {
                 services().playMusic(levelMusic);
             }

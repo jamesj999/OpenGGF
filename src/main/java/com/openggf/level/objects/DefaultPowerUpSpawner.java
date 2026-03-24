@@ -10,6 +10,7 @@ import com.openggf.game.sonic3k.objects.BubbleShieldObjectInstance;
 import com.openggf.game.sonic3k.objects.FireShieldObjectInstance;
 import com.openggf.game.sonic3k.objects.InstaShieldObjectInstance;
 import com.openggf.game.sonic3k.objects.LightningShieldObjectInstance;
+import com.openggf.game.GameServices;
 import com.openggf.level.LevelManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.physics.Direction;
@@ -86,7 +87,7 @@ public class DefaultPowerUpSpawner implements PowerUpSpawner {
             return;
         }
 
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         if (levelManager == null) {
             return;
         }
@@ -98,7 +99,7 @@ public class DefaultPowerUpSpawner implements PowerUpSpawner {
 
         // Get water level from WaterSystem
         // Use getVisualWaterLevelY so splash appears at the oscillating water surface (CPZ2)
-        var waterSystem = WaterSystem.getInstance();
+        var waterSystem = GameServices.water();
         int waterY = waterSystem.getVisualWaterLevelY(level.getZoneIndex(), levelManager.getCurrentAct());
 
         // S2/S3K: use dust/splash renderer from SpindashDustController

@@ -1,6 +1,7 @@
 package com.openggf.physics;
 
 import org.junit.Test;
+import com.openggf.game.GameServices;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import static org.junit.Assert.assertSame;
@@ -30,7 +31,7 @@ public class TestTerrainCollisionManager {
                 new TestSensor(sprite, second)
         };
 
-        SensorResult[] results = TerrainCollisionManager.getInstance().getSensorResult(sensors);
+        SensorResult[] results = GameServices.terrainCollision().getSensorResult(sensors);
         assertSame(first, results[0]);
         assertSame(second, results[1]);
     }

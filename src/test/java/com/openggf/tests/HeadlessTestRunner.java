@@ -2,6 +2,7 @@ package com.openggf.tests;
 
 import com.openggf.LevelFrameStep;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.level.LevelManager;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -20,11 +21,11 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
  *
  * <p>Important setup requirements for tests using this class:
  * <ul>
- *   <li>Reset singletons: GraphicsManager.getInstance().resetState(), Camera.getInstance().resetState()</li>
+ *   <li>Reset singletons: GraphicsManager.getInstance().resetState(), GameServices.camera().resetState()</li>
  *   <li>Initialize headless graphics: GraphicsManager.getInstance().initHeadless()</li>
- *   <li>Load level: LevelManager.getInstance().loadZoneAndAct(zone, act)</li>
- *   <li>Fix GroundSensor: GroundSensor.setLevelManager(LevelManager.getInstance())</li>
- *   <li>Update camera position: Camera.getInstance().updatePosition(true)</li>
+ *   <li>Load level: GameServices.level().loadZoneAndAct(zone, act)</li>
+ *   <li>Fix GroundSensor: GroundSensor.setLevelManager(GameServices.level())</li>
+ *   <li>Update camera position: GameServices.camera().updatePosition(true)</li>
  * </ul>
  */
 public class HeadlessTestRunner {
@@ -39,7 +40,7 @@ public class HeadlessTestRunner {
      */
     public HeadlessTestRunner(AbstractPlayableSprite sprite) {
         this.sprite = sprite;
-        this.levelManager = LevelManager.getInstance();
+        this.levelManager = GameServices.level();
     }
 
     /**
@@ -65,7 +66,7 @@ public class HeadlessTestRunner {
         sprite.setDirectionalInputPressed(up, down, left, right);
 
         // Canonical frame tick: objects → zone features → sprites → level events → camera → level.
-        LevelFrameStep.execute(levelManager, Camera.getInstance(), () -> {
+        LevelFrameStep.execute(levelManager, GameServices.camera(), () -> {
             // Compute effective inputs matching SpriteManager.update() filtering.
             boolean controlLocked = sprite.isControlLocked();
             boolean forcedRight = sprite.isForcedInputActive(AbstractPlayableSprite.INPUT_RIGHT)

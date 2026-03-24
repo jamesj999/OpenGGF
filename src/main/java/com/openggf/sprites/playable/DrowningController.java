@@ -3,6 +3,7 @@ package com.openggf.sprites.playable;
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameAudioProfile;
 import com.openggf.audio.GameSound;
+import com.openggf.game.GameServices;
 import com.openggf.level.objects.BreathingBubbleInstance;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectArtKeys;
@@ -248,7 +249,7 @@ public class DrowningController {
      * @param countdownNumber Countdown number (-1 for regular bubble)
      */
     private void spawnBubble(int countdownNumber) {
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         if (levelManager == null || levelManager.getObjectManager() == null) {
             return;
         }
@@ -342,7 +343,7 @@ public class DrowningController {
      * Called when exiting water or replenishing air while drowning music was playing.
      */
     private void restartZoneMusic() {
-        int musicId = LevelManager.getInstance().getCurrentLevelMusicId();
+        int musicId = GameServices.level().getCurrentLevelMusicId();
         if (musicId >= 0) {
             AudioManager.getInstance().playMusic(musicId);
         }

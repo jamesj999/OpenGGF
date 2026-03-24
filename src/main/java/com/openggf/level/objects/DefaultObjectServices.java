@@ -6,10 +6,14 @@ import com.openggf.camera.Camera;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.data.RomManager;
+import com.openggf.game.GameModule;
+import com.openggf.game.GameRuntime;
 import com.openggf.game.GameStateManager;
+import com.openggf.game.LevelEventProvider;
 import com.openggf.game.LevelState;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.RespawnState;
+import com.openggf.game.TitleCardProvider;
 import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.GraphicsManager;
@@ -23,33 +27,41 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * Production implementation of {@link ObjectServices} backed by existing singletons.
+ * Production implementation of {@link ObjectServices} backed by {@link GameRuntime}.
  * A single instance is held by {@link ObjectManager} and shared across all objects.
  *
- * <p>The preferred constructor accepts a {@link LevelManager} reference so that
- * every call to a level-backed method avoids the overhead of a synchronized
- * {@code getInstance()} lookup. The no-arg constructor is provided for test
- * contexts where the LevelManager-backed methods are not exercised.</p>
+ * <p>The preferred constructor accepts a {@link GameRuntime} reference so that
+ * every method reads from the runtime container. The no-arg constructor is
+ * provided for test contexts where a runtime may not yet be available.</p>
  */
 public class DefaultObjectServices implements ObjectServices {
 
     private static final java.util.logging.Logger LOG =
         java.util.logging.Logger.getLogger(DefaultObjectServices.class.getName());
 
-    private final LevelManager levelManager;
+    private final GameRuntime runtime;
 
-    public DefaultObjectServices(LevelManager levelManager) {
-        this.levelManager = levelManager;
+    /**
+     * Primary constructor backed by a GameRuntime.
+     */
+    public DefaultObjectServices(GameRuntime runtime) {
+        this.runtime = runtime;
     }
 
-    /** No-arg constructor for test contexts that do not invoke LevelManager-backed methods. */
+    /**
+     * No-arg constructor for test contexts that mock singletons via reflection.
+     * Falls back to singleton getInstance() calls (not RuntimeManager) so that
+     * test code that reflectively replaces the singleton static field still works.
+     */
     public DefaultObjectServices() {
-        this.levelManager = null;
+        this.runtime = null;
     }
 
     private LevelManager lm() {
-        return levelManager != null ? levelManager : LevelManager.getInstance();
+        return runtime != null ? runtime.getLevelManager() : LevelManager.getInstance();
     }
+
+    // ── Level state ─────────────────────────────────────────────────────
 
     @Override
     public ObjectManager objectManager() {
@@ -102,6 +114,62 @@ public class DefaultObjectServices implements ObjectServices {
     }
 
     @Override
+    public RingManager ringManager() {
+        return lm().getRingManager();
+    }
+
+    @Override
+    public boolean areAllRingsCollected() {
+        return lm().areAllRingsCollected();
+    }
+
+    // ── Direct from runtime ─────────────────────────────────────────────
+
+    @Override
+    public Camera camera() {
+        return runtime != null ? runtime.getCamera() : Camera.getInstance();
+    }
+
+    @Override
+    public GameStateManager gameState() {
+        return runtime != null ? runtime.getGameState() : GameStateManager.getInstance();
+    }
+
+    @Override
+    public SpriteManager spriteManager() {
+        return runtime != null ? runtime.getSpriteManager() : SpriteManager.getInstance();
+    }
+
+    @Override
+    public FadeManager fadeManager() {
+        return runtime != null ? runtime.getFadeManager() : FadeManager.getInstance();
+    }
+
+    @Override
+    public WaterSystem waterSystem() {
+        return runtime != null ? runtime.getWaterSystem() : WaterSystem.getInstance();
+    }
+
+    @Override
+    public ParallaxManager parallaxManager() {
+        return runtime != null ? runtime.getParallaxManager() : ParallaxManager.getInstance();
+    }
+
+    // ── Engine globals (not runtime-owned) ──────────────────────────────
+
+    @Override
+    public GraphicsManager graphicsManager() {
+        return GraphicsManager.getInstance();
+    }
+
+    @Override
+    public AudioManager audioManager() {
+        return AudioManager.getInstance();
+    }
+
+    // ── Audio convenience ───────────────────────────────────────────────
+
+    @Override
     public void playSfx(int soundId) {
         AudioManager.getInstance().playSfx(soundId);
     }
@@ -121,44 +189,7 @@ public class DefaultObjectServices implements ObjectServices {
         AudioManager.getInstance().fadeOutMusic();
     }
 
-    @Override
-    public void spawnLostRings(PlayableEntity player, int frameCounter) {
-        if (player instanceof com.openggf.sprites.playable.AbstractPlayableSprite aps) {
-            lm().spawnLostRings(aps, frameCounter);
-        } else {
-            LOG.warning("spawnLostRings: player is not AbstractPlayableSprite, rings not spawned");
-        }
-    }
-
-    @Override
-    public Camera camera() {
-        return Camera.getInstance();
-    }
-
-    @Override
-    public GameStateManager gameState() {
-        return GameStateManager.getInstance();
-    }
-
-    @Override
-    public List<PlayableEntity> sidekicks() {
-        return List.copyOf(SpriteManager.getInstance().getSidekicks());
-    }
-
-    @Override
-    public SpriteManager spriteManager() {
-        return SpriteManager.getInstance();
-    }
-
-    @Override
-    public GraphicsManager graphicsManager() {
-        return GraphicsManager.getInstance();
-    }
-
-    @Override
-    public FadeManager fadeManager() {
-        return FadeManager.getInstance();
-    }
+    // ── ROM (engine global) ─────────────────────────────────────────────
 
     @Override
     public Rom rom() throws IOException {
@@ -170,20 +201,26 @@ public class DefaultObjectServices implements ObjectServices {
         return RomByteReader.fromRom(RomManager.getInstance().getRom());
     }
 
-    @Override
-    public WaterSystem waterSystem() {
-        return WaterSystem.getInstance();
-    }
+    // ── Sidekicks ───────────────────────────────────────────────────────
 
     @Override
-    public ParallaxManager parallaxManager() {
-        return ParallaxManager.getInstance();
+    public List<PlayableEntity> sidekicks() {
+        SpriteManager sm = runtime != null ? runtime.getSpriteManager() : SpriteManager.getInstance();
+        return List.copyOf(sm.getSidekicks());
     }
 
+    // ── Lost rings ──────────────────────────────────────────────────────
+
     @Override
-    public AudioManager audioManager() {
-        return AudioManager.getInstance();
+    public void spawnLostRings(PlayableEntity player, int frameCounter) {
+        if (player instanceof com.openggf.sprites.playable.AbstractPlayableSprite aps) {
+            lm().spawnLostRings(aps, frameCounter);
+        } else {
+            LOG.warning("spawnLostRings: player is not AbstractPlayableSprite, rings not spawned");
+        }
     }
+
+    // ── Level actions ───────────────────────────────────────────────────
 
     @Override
     public void advanceToNextLevel() {
@@ -214,13 +251,62 @@ public class DefaultObjectServices implements ObjectServices {
         lm().updatePalette(paletteIndex, paletteData);
     }
 
+    // ── Level transition actions ───────────────────────────────────────
+
     @Override
-    public RingManager ringManager() {
-        return lm().getRingManager();
+    public void advanceZoneActOnly() {
+        lm().advanceZoneActOnly();
     }
 
     @Override
-    public boolean areAllRingsCollected() {
-        return lm().areAllRingsCollected();
+    public void requestSpecialStageFromCheckpoint() {
+        lm().requestSpecialStageFromCheckpoint();
+    }
+
+    @Override
+    public void requestZoneAndAct(int zone, int act) {
+        lm().requestZoneAndAct(zone, act);
+    }
+
+    @Override
+    public void requestZoneAndAct(int zone, int act, boolean deactivateLevelNow) {
+        lm().requestZoneAndAct(zone, act, deactivateLevelNow);
+    }
+
+    // ── Level queries ──────────────────────────────────────────────────
+
+    @Override
+    public int getCurrentLevelMusicId() {
+        return lm().getCurrentLevelMusicId();
+    }
+
+    @Override
+    public int[] findPatternOffset(int refX, int refY, int minTileIdx, int maxTileIdx, int searchRadius) {
+        return lm().findPatternOffset(refX, refY, minTileIdx, maxTileIdx, searchRadius);
+    }
+
+    @Override
+    public void saveBigRingReturnPosition(int playerX, int playerY, int cameraX, int cameraY) {
+        lm().saveBigRingReturnPosition(playerX, playerY, cameraX, cameraY);
+    }
+
+    // ── Game-specific providers ─────────────────────────────────────────
+
+    @Override
+    public LevelEventProvider levelEventProvider() {
+        GameModule gm = lm().getGameModule();
+        return gm != null ? gm.getLevelEventProvider() : null;
+    }
+
+    @Override
+    public TitleCardProvider titleCardProvider() {
+        GameModule gm = lm().getGameModule();
+        return gm != null ? gm.getTitleCardProvider() : null;
+    }
+
+    @Override
+    public <T> T gameService(Class<T> type) {
+        GameModule gm = lm().getGameModule();
+        return gm != null ? gm.getGameService(type) : null;
     }
 }

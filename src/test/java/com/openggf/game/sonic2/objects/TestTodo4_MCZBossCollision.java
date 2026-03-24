@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.events.Sonic2MCZEvents;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -41,8 +42,8 @@ public class TestTodo4_MCZBossCollision {
 
     @Before
     public void setUp() {
-        Camera.getInstance().resetState();
-        cam = Camera.getInstance();
+        GameServices.camera().resetState();
+        cam = GameServices.camera();
         events = new Sonic2MCZEvents();
         events.init(1); // MCZ Act 2
     }

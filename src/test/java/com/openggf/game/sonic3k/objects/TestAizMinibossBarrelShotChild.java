@@ -3,6 +3,7 @@ package com.openggf.game.sonic3k.objects;
 import org.junit.Before;
 import org.junit.Test;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.graphics.GLCommand;
 
 import com.openggf.level.objects.DefaultObjectServices;
@@ -23,8 +24,8 @@ public class TestAizMinibossBarrelShotChild {
 
     @Before
     public void setUp() {
-        Camera.getInstance().resetState();
-        Camera camera = Camera.getInstance();
+        GameServices.camera().resetState();
+        Camera camera = GameServices.camera();
         camera.setX((short) 0);
         camera.setY((short) 0);
         parent = new DummyBoss();

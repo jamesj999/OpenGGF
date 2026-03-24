@@ -31,8 +31,8 @@ public class DebugRenderer {
 	private static DebugRenderer debugRenderer;
 	// private final GraphicsManager graphicsManager = GraphicsManager
 	// .getInstance();
-	private final SpriteManager spriteManager = SpriteManager.getInstance();
-	private final LevelManager levelManager = LevelManager.getInstance();
+	private final SpriteManager spriteManager = GameServices.sprites();
+	private final LevelManager levelManager = GameServices.level();
         private final SonicConfigurationService configService = SonicConfigurationService
                         .getInstance();
         private final DebugOverlayManager overlayManager = GameServices.debugOverlay();
@@ -151,7 +151,7 @@ public class DebugRenderer {
                                 }
                                 SensorResult result = sensor.getCurrentResult();
                                 if (sensor.isActive() && result != null) {
-                                        Camera camera = Camera.getInstance();
+                                        Camera camera = GameServices.camera();
 
                                         SensorConfiguration sensorConfiguration = SpriteManager
                                                         .getSensorConfigurationForGroundModeAndDirection(
@@ -229,7 +229,7 @@ public class DebugRenderer {
                 if (registry == null || spawns.isEmpty()) {
                         return;
                 }
-                Camera camera = Camera.getInstance();
+                Camera camera = GameServices.camera();
 
                 for (ObjectSpawn spawn : spawns) {
                         int screenX = spawn.x() - camera.getX();
@@ -346,7 +346,7 @@ public class DebugRenderer {
                 if (!(sprite instanceof AbstractPlayableSprite playable)) {
                         return;
                 }
-                Camera camera = Camera.getInstance();
+                Camera camera = GameServices.camera();
                 int screenX = playable.getCentreX() - camera.getX();
                 int screenY = playable.getY() - camera.getY();
                 if (screenX < -16 || screenX > baseWidth + 16) {
@@ -370,7 +370,7 @@ public class DebugRenderer {
                 if (entries.isEmpty()) {
                         return;
                 }
-                Camera camera = Camera.getInstance();
+                Camera camera = GameServices.camera();
                 int lineHeight = glyphBatch.getLineHeight(OBJECT_LABEL_FONT);
 
                 for (DebugRenderContext.DebugTextEntry entry : entries) {

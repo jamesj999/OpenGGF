@@ -349,7 +349,7 @@ public class Sonic1LZWaterEvents {
 
         // cmp.w (v_waterpos2).w,d1 ; has water reached last height?
         // bne.s .setwater          ; if not, branch
-        int currentWater = WaterSystem.getInstance().getWaterLevelY(zoneId, actId);
+        int currentWater = GameServices.water().getWaterLevelY(zoneId, actId);
         if (currentWater != target) {
             setTarget(target);
             return;
@@ -523,7 +523,7 @@ public class Sonic1LZWaterEvents {
 
         // At this point camX >= $1400
         // cmpi.w #$508,(v_waterpos3).w
-        int currentTarget = WaterSystem.getInstance().getWaterLevelTarget(zoneId, actId);
+        int currentTarget = GameServices.water().getWaterLevelTarget(zoneId, actId);
         if (currentTarget == 0x508) {
             // beq.s .sonicislow - if target is already $508, go to sonicislow
             target = 0x508;
@@ -603,7 +603,7 @@ public class Sonic1LZWaterEvents {
 
         // cmp.w (v_waterpos2).w,d1 ; has water reached target?
         // bne.s .setwater3         ; if not, branch
-        int currentWater = WaterSystem.getInstance().getWaterLevelY(zoneId, actId);
+        int currentWater = GameServices.water().getWaterLevelY(zoneId, actId);
         if (currentWater == target) {
             // .loc_3DC6: move.b #3,(v_wtr_routine).w
             waterRoutine = 3;
@@ -1111,7 +1111,7 @@ public class Sonic1LZWaterEvents {
      * The WaterSystem will gradually move the current level toward this.
      */
     private void setTarget(int targetY) {
-        WaterSystem.getInstance().setWaterLevelTarget(zoneId, actId, targetY);
+        GameServices.water().setWaterLevelTarget(zoneId, actId, targetY);
     }
 
     /**
@@ -1119,7 +1119,7 @@ public class Sonic1LZWaterEvents {
      * the gradual movement. Used when the ROM writes to v_waterpos2 directly.
      */
     private void setDirect(int currentY) {
-        WaterSystem.getInstance().setWaterLevelDirect(zoneId, actId, currentY);
+        GameServices.water().setWaterLevelDirect(zoneId, actId, currentY);
     }
 
     /**

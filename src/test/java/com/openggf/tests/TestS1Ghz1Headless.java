@@ -11,6 +11,7 @@ import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.game.sonic1.objects.badniks.Sonic1CrabmeatBadnikInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.ChunkDesc;
+import com.openggf.game.GameServices;
 import com.openggf.level.LevelManager;
 import com.openggf.level.SolidTile;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -79,7 +80,7 @@ public class TestS1Ghz1Headless {
 
         // Reset object manager to clear dynamic objects and respawn state from
         // previous tests. Uses camera X=0 since sprite starts at origin.
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = GameServices.level().getObjectManager();
         if (objectManager != null) {
             objectManager.reset(fixture.camera().getX());
         }
@@ -390,7 +391,7 @@ public class TestS1Ghz1Headless {
         slopeResetAtTopLeft(1903, TARGET_Y);
         fixture.sprite().setTopSolidBit((byte) 0x0D);
         fixture.sprite().setLrbSolidBit((byte) 0x0E);
-        Sonic1Level level = (Sonic1Level) LevelManager.getInstance().getCurrentLevel();
+        Sonic1Level level = (Sonic1Level) GameServices.level().getCurrentLevel();
         int aX0 = fixture.sprite().getCentreX() - fixture.sprite().getXRadius();
         int bX0 = fixture.sprite().getCentreX() + fixture.sprite().getXRadius();
         int footY0 = fixture.sprite().getCentreY() + fixture.sprite().getYRadius();
@@ -446,7 +447,7 @@ public class TestS1Ghz1Headless {
     }
 
     private void slopePrintVerticalScanState(String label, int x, int y) {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         byte topBit = fixture.sprite().getTopSolidBit();
         System.out.printf("  %s sensor at (%d,%d) topBit=0x%02X%n", label, x, y, topBit & 0xFF);
         slopePrintTileState(label + " cur ", lm, x, y, topBit);
@@ -497,7 +498,7 @@ public class TestS1Ghz1Headless {
      * Returns {mapX, mapY} or null if not found.
      */
     private int[] findFirstTunnelTile() {
-        Sonic1Level s1Level = (Sonic1Level) LevelManager.getInstance().getCurrentLevel();
+        Sonic1Level s1Level = (Sonic1Level) GameServices.level().getCurrentLevel();
         // Scan through the FG layout looking for tunnel tiles
         // The layout is indexed by 256x256 block cells
         for (int mapY = 0; mapY < 8; mapY++) {
@@ -517,7 +518,7 @@ public class TestS1Ghz1Headless {
      */
     @Test
     public void testTunnelTraversal() throws Exception {
-        Sonic1Level s1Level = (Sonic1Level) LevelManager.getInstance().getCurrentLevel();
+        Sonic1Level s1Level = (Sonic1Level) GameServices.level().getCurrentLevel();
         assertTrue("Level should be Sonic1Level", s1Level != null);
 
         int[] tunnelCell = findFirstTunnelTile();
@@ -707,7 +708,7 @@ public class TestS1Ghz1Headless {
 
     private void assertNoPushJitter(boolean pushRight) {
         // Create a floor platform for Sonic to stand on
-        LevelManager.getInstance().getObjectManager()
+        GameServices.level().getObjectManager()
                 .addDynamicObject(new PushTestSolidObject(
                         PUSH_TESTBED_X,
                         PUSH_TESTBED_FLOOR_Y,
@@ -738,7 +739,7 @@ public class TestS1Ghz1Headless {
                 + (pushRight ? PUSH_WALL_HALF_WIDTH + PUSH_OBJECT_GAP : -(PUSH_WALL_HALF_WIDTH + PUSH_OBJECT_GAP));
         int objectY = fixture.sprite().getCentreY();
 
-        LevelManager.getInstance().getObjectManager()
+        GameServices.level().getObjectManager()
                 .addDynamicObject(new PushTestSolidObject(
                         objectX,
                         objectY,
@@ -1022,7 +1023,7 @@ public class TestS1Ghz1Headless {
     }
 
     private void edgeCreatePlatformAndLand() {
-        LevelManager.getInstance().getObjectManager()
+        GameServices.level().getObjectManager()
                 .addDynamicObject(new EdgeBalanceSolidObject(
                         EDGE_TESTBED_X, EDGE_TESTBED_FLOOR_Y,
                         new SolidObjectParams(EDGE_PLATFORM_HALF_WIDTH, EDGE_PLATFORM_HALF_HEIGHT, EDGE_PLATFORM_HALF_HEIGHT),
@@ -1138,7 +1139,7 @@ public class TestS1Ghz1Headless {
     @Test
     public void testSideCollisionUsesAirHalfHeight() {
         // Floor platform
-        LevelManager.getInstance().getObjectManager()
+        GameServices.level().getObjectManager()
                 .addDynamicObject(new CollisionTestSolidObject(
                         COLLISION_TESTBED_X, COLLISION_TESTBED_FLOOR_Y,
                         new SolidObjectParams(COLLISION_FLOOR_HALF_WIDTH, COLLISION_FLOOR_HALF_HEIGHT, COLLISION_FLOOR_HALF_HEIGHT),
@@ -1148,7 +1149,7 @@ public class TestS1Ghz1Headless {
         int objectX = COLLISION_TESTBED_X + 0x50;
         int objectY = COLLISION_TESTBED_FLOOR_Y - COLLISION_FLOOR_HALF_HEIGHT - COLLISION_AIR_HALF_HEIGHT;
 
-        LevelManager.getInstance().getObjectManager()
+        GameServices.level().getObjectManager()
                 .addDynamicObject(new CollisionTestSolidObject(
                         objectX, objectY,
                         new SolidObjectParams(COLLISION_HALF_WIDTH, COLLISION_AIR_HALF_HEIGHT, COLLISION_GROUND_HALF_HEIGHT),
@@ -1205,7 +1206,7 @@ public class TestS1Ghz1Headless {
         int objectX = COLLISION_TESTBED_X;
         int objectY = COLLISION_TESTBED_FLOOR_Y;
 
-        LevelManager.getInstance().getObjectManager()
+        GameServices.level().getObjectManager()
                 .addDynamicObject(new CollisionTestSolidObject(
                         objectX, objectY,
                         new SolidObjectParams(COLLISION_HALF_WIDTH, COLLISION_AIR_HALF_HEIGHT, COLLISION_GROUND_HALF_HEIGHT),
@@ -1239,7 +1240,7 @@ public class TestS1Ghz1Headless {
     @Test
     public void testCanLandWithinActiveWidth() {
         // Floor far below to catch Sonic if landing fails
-        LevelManager.getInstance().getObjectManager()
+        GameServices.level().getObjectManager()
                 .addDynamicObject(new CollisionTestSolidObject(
                         COLLISION_TESTBED_X, COLLISION_TESTBED_FLOOR_Y + 0x80,
                         new SolidObjectParams(COLLISION_FLOOR_HALF_WIDTH, COLLISION_FLOOR_HALF_HEIGHT, COLLISION_FLOOR_HALF_HEIGHT),
@@ -1249,7 +1250,7 @@ public class TestS1Ghz1Headless {
         int objectX = COLLISION_TESTBED_X;
         int objectY = COLLISION_TESTBED_FLOOR_Y;
 
-        LevelManager.getInstance().getObjectManager()
+        GameServices.level().getObjectManager()
                 .addDynamicObject(new CollisionTestSolidObject(
                         objectX, objectY,
                         new SolidObjectParams(COLLISION_HALF_WIDTH, COLLISION_AIR_HALF_HEIGHT, COLLISION_GROUND_HALF_HEIGHT),
@@ -1290,7 +1291,7 @@ public class TestS1Ghz1Headless {
         int halfWidth = 0x60;
         int halfHeight = 0x10;
 
-        LevelManager.getInstance().getObjectManager()
+        GameServices.level().getObjectManager()
                 .addDynamicObject(new CollisionTestSolidObject(
                         objectX, objectY,
                         new SolidObjectParams(halfWidth, halfHeight, halfHeight),
@@ -1339,7 +1340,7 @@ public class TestS1Ghz1Headless {
         int halfWidth = 0x50;
         int halfHeight = 0x10;
 
-        LevelManager.getInstance().getObjectManager()
+        GameServices.level().getObjectManager()
                 .addDynamicObject(new CollisionTestSolidObject(
                         objectX, objectY,
                         new SolidObjectParams(halfWidth, halfHeight, halfHeight),
@@ -1434,7 +1435,7 @@ public class TestS1Ghz1Headless {
     // ========================================================================
 
     private List<Sonic1CrabmeatBadnikInstance> findCrabmeats() {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = GameServices.level().getObjectManager();
         assertNotNull("ObjectManager should exist", objectManager);
 
         return objectManager.getActiveObjects().stream()

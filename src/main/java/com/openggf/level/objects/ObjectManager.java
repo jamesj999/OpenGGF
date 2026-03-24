@@ -3,6 +3,7 @@ package com.openggf.level.objects;
 import static org.lwjgl.opengl.GL11.GL_LINES;
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugOverlayManager;
+import com.openggf.game.GameServices;
 import com.openggf.debug.DebugOverlayToggle;
 import com.openggf.game.CollisionModel;
 import com.openggf.game.PhysicsFeatureSet;
@@ -43,7 +44,8 @@ public class ObjectManager {
     private final List<GLCommand> renderCommands = new ArrayList<>();
     private int frameCounter;
     private boolean updating;
-    private final ObjectServices objectServices = new DefaultObjectServices(LevelManager.getInstance());
+    private final ObjectServices objectServices = new DefaultObjectServices(
+            com.openggf.game.RuntimeManager.getCurrent());
 
     // Pre-bucketed lists for O(n) rendering instead of O(n*buckets)
     @SuppressWarnings("unchecked")
@@ -591,14 +593,14 @@ public class ObjectManager {
      * on the "wrong side" of a wrap boundary render at correct screen positions.
      */
     private void enableVerticalWrapIfNeeded() {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         if (camera.isVerticalWrapEnabled()) {
             graphicsManager.enableVerticalWrapAdjust(Camera.VERTICAL_WRAP_RANGE, camera.getY());
         }
     }
 
     private void updateCameraBounds() {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         int left = camera.getX();
         int top = camera.getY();
         int right = left + camera.getWidth();
@@ -1531,7 +1533,7 @@ public class ObjectManager {
             if (hadRings && !player.hasShield()) {
                 // Escape hatch: LevelManager.spawnLostRings needs concrete type for RingManager
                 if (player instanceof AbstractPlayableSprite aps) {
-                    LevelManager.getInstance().spawnLostRings(aps, currentFrameCounter);
+                    com.openggf.game.GameServices.level().spawnLostRings(aps, currentFrameCounter);
                 }
             }
             player.applyHurtOrDeath(sourceX, cause, hadRings);

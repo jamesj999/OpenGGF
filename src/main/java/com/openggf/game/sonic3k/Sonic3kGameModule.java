@@ -214,6 +214,14 @@ public class Sonic3kGameModule implements GameModule {
         S3kSeamlessMutationExecutor.apply(levelManager, mutationKey);
     }
 
+    @SuppressWarnings("unchecked")
+    @Override
+    public <T> T getGameService(Class<T> type) {
+        if (type == Sonic3kLevelEventManager.class) return (T) Sonic3kLevelEventManager.getInstance();
+        if (type == Sonic3kTitleCardManager.class) return (T) Sonic3kTitleCardManager.getInstance();
+        return null;
+    }
+
     @Override
     public void onLevelLoad() {
         // Reset oscillation values used by moving platforms, etc.

@@ -166,8 +166,9 @@ public class GraphicsManager {
 		this.instancedPatternRenderer = new InstancedPatternRenderer();
 		this.instancedPatternRenderer.init(INSTANCED_VERTEX_SHADER_PATH, pixelShaderPath, WATER_SHADER_PATH);
 
-		// Initialize fade manager with shader
-		this.fadeManager = FadeManager.getInstance();
+		// Initialize fade manager with shader — get from RuntimeManager if available, else singleton
+		com.openggf.game.GameRuntime rt = com.openggf.game.RuntimeManager.getCurrent();
+		this.fadeManager = rt != null ? rt.getFadeManager() : FadeManager.getInstance();
 		this.fadeManager.setFadeShader(this.fadeShaderProgram);
 
 		// Initialize unified UI render pipeline
@@ -222,7 +223,8 @@ public class GraphicsManager {
 	 */
 	private Camera getCamera() {
 		if (camera == null) {
-			camera = Camera.getInstance();
+			com.openggf.game.GameRuntime rt2 = com.openggf.game.RuntimeManager.getCurrent();
+			camera = rt2 != null ? rt2.getCamera() : Camera.getInstance();
 		}
 		return camera;
 	}
@@ -1200,7 +1202,8 @@ public class GraphicsManager {
 	 */
 	public FadeManager getFadeManager() {
 		if (fadeManager == null) {
-			fadeManager = FadeManager.getInstance();
+			com.openggf.game.GameRuntime rt = com.openggf.game.RuntimeManager.getCurrent();
+			fadeManager = rt != null ? rt.getFadeManager() : FadeManager.getInstance();
 			if (fadeShaderProgram != null) {
 				fadeManager.setFadeShader(fadeShaderProgram);
 			}

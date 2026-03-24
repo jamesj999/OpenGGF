@@ -495,7 +495,7 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
             // ROM lines 62713-62720
             boolean skipTitleCard = (zone == 0x08) || (zone == 0x0B);
             if (!skipTitleCard) {
-                Sonic3kTitleCardManager.getInstance().initializeInLevel(zone, 1);
+                services().titleCardProvider().initializeInLevel(zone, 1);
             }
         }
 

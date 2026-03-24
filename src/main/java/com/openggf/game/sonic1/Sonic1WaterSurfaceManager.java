@@ -2,6 +2,7 @@ package com.openggf.game.sonic1;
 
 import com.openggf.camera.Camera;
 import com.openggf.data.Rom;
+import com.openggf.game.GameServices;
 import com.openggf.tools.NemesisReader;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.graphics.GraphicsManager;
@@ -162,7 +163,7 @@ public class Sonic1WaterSurfaceManager {
             return;
         }
 
-        WaterSystem waterSystem = WaterSystem.getInstance();
+        WaterSystem waterSystem = GameServices.water();
         int waterLevelY = waterSystem.getVisualWaterLevelY(zoneId, actId);
         if (waterLevelY == 0) {
             return;

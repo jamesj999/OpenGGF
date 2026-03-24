@@ -1,6 +1,7 @@
 package com.openggf.tests;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.level.LevelManager;
 import com.openggf.level.SeamlessLevelTransitionRequest;
 import com.openggf.level.SeamlessLevelTransitionRequest.TransitionType;
@@ -60,15 +61,15 @@ public class TestLevelEntryPathsHeadless {
                 .startPosition((short) 96, (short) 655)
                 .build();
 
-        Camera.getInstance().setFocusedSprite(fixture.sprite());
-        Camera.getInstance().setFrozen(false);
+        GameServices.camera().setFocusedSprite(fixture.sprite());
+        GameServices.camera().setFrozen(false);
 
         // Force zone/act counters to known state. resetPerTest() does NOT
         // reset these, so tests that call nextAct()/nextZone() leave dirty
         // counters for subsequent tests. loadZoneAndAct() sets the counters
         // and routes through loadCurrentLevel(), which the SharedLevel data
         // supports.
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         if (lm.getCurrentZone() != ZONE_EHZ || lm.getCurrentAct() != ACT_1) {
             lm.loadZoneAndAct(ZONE_EHZ, ACT_1);
         }
@@ -78,7 +79,7 @@ public class TestLevelEntryPathsHeadless {
 
     @Test
     public void nextActAdvancesActCounter() throws Exception {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         assertEquals("Should start at act 0", ACT_1, lm.getCurrentAct());
 
         lm.nextAct();
@@ -88,7 +89,7 @@ public class TestLevelEntryPathsHeadless {
 
     @Test
     public void nextActRebuildsManagers() throws Exception {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         ObjectManager beforeOM = lm.getObjectManager();
         RingManager beforeRM = lm.getRingManager();
 
@@ -102,7 +103,7 @@ public class TestLevelEntryPathsHeadless {
 
     @Test
     public void nextActWrapsToZeroWhenExhausted() throws Exception {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
 
         // EHZ has 2 acts — two nextAct() calls should wrap back to 0
         lm.nextAct(); // act 0 → 1
@@ -116,7 +117,7 @@ public class TestLevelEntryPathsHeadless {
 
     @Test
     public void nextZoneAdvancesZoneAndResetsAct() throws Exception {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
 
         lm.nextZone();
 
@@ -126,7 +127,7 @@ public class TestLevelEntryPathsHeadless {
 
     @Test
     public void nextZoneRebuildsManagers() throws Exception {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         ObjectManager beforeOM = lm.getObjectManager();
 
         lm.nextZone();
@@ -139,7 +140,7 @@ public class TestLevelEntryPathsHeadless {
 
     @Test
     public void advanceToNextLevelGoesToAct2First() throws Exception {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
 
         lm.advanceToNextLevel();
 
@@ -149,7 +150,7 @@ public class TestLevelEntryPathsHeadless {
 
     @Test
     public void advanceToNextLevelAdvancesZoneWhenActsExhausted() throws Exception {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
 
         // EHZ has 2 acts — two advanceToNextLevel() calls should move to next zone
         lm.advanceToNextLevel(); // EHZ act 0 → EHZ act 1
@@ -165,7 +166,7 @@ public class TestLevelEntryPathsHeadless {
 
     @Test
     public void advanceZoneActOnlyAdvancesCountersWithoutLoading() {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         ObjectManager beforeOM = lm.getObjectManager();
 
         lm.advanceZoneActOnly();
@@ -180,7 +181,7 @@ public class TestLevelEntryPathsHeadless {
 
     @Test
     public void advanceZoneActOnlySetsSpecialStageReturnFlag() {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         // Drain any pre-existing flag
         lm.consumeSpecialStageReturnLevelReloadRequest();
 
@@ -192,7 +193,7 @@ public class TestLevelEntryPathsHeadless {
 
     @Test
     public void consumeSpecialStageReturnClearsFlag() {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         lm.advanceZoneActOnly();
 
         // First consume returns true
@@ -204,7 +205,7 @@ public class TestLevelEntryPathsHeadless {
 
     @Test
     public void advanceZoneActOnlyClearsCheckpoint() {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         assertNotNull("Checkpoint state should exist", lm.getCheckpointState());
 
         lm.advanceZoneActOnly();
@@ -217,7 +218,7 @@ public class TestLevelEntryPathsHeadless {
 
     @Test
     public void applySeamlessTransitionReloadTargetRoutesToExecuteActTransition() throws Exception {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         ObjectManager beforeOM = lm.getObjectManager();
 
         SeamlessLevelTransitionRequest request = SeamlessLevelTransitionRequest
@@ -237,7 +238,7 @@ public class TestLevelEntryPathsHeadless {
 
     @Test
     public void applySeamlessTransitionReloadSameRoutesToExecuteActTransition() throws Exception {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         int zoneBefore = lm.getCurrentZone();
         int actBefore = lm.getCurrentAct();
         ObjectManager beforeOM = lm.getObjectManager();
@@ -258,7 +259,7 @@ public class TestLevelEntryPathsHeadless {
 
     @Test
     public void applySeamlessTransitionNullRequestIsNoOp() {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         ObjectManager beforeOM = lm.getObjectManager();
 
         lm.applySeamlessTransition(null);
@@ -271,7 +272,7 @@ public class TestLevelEntryPathsHeadless {
 
     @Test
     public void respawnPlayerRebuildsManagers() throws Exception {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         ObjectManager beforeOM = lm.getObjectManager();
         RingManager beforeRM = lm.getRingManager();
 
@@ -285,7 +286,7 @@ public class TestLevelEntryPathsHeadless {
 
     @Test
     public void respawnPlayerPreservesZoneAndAct() throws Exception {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         int zoneBefore = lm.getCurrentZone();
         int actBefore = lm.getCurrentAct();
 
@@ -299,7 +300,7 @@ public class TestLevelEntryPathsHeadless {
 
     @Test
     public void loadZoneAndActSetsCountersAndLoads() throws Exception {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         ObjectManager beforeOM = lm.getObjectManager();
 
         lm.loadZoneAndAct(ZONE_EHZ, ACT_2);

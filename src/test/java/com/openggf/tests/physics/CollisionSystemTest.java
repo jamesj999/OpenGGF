@@ -1,5 +1,6 @@
 package com.openggf.tests.physics;
 
+import com.openggf.game.GameServices;
 import com.openggf.physics.*;
 import org.junit.Before;
 import org.junit.Test;
@@ -20,8 +21,8 @@ public class CollisionSystemTest {
 
     @Before
     public void setUp() {
-        CollisionSystem.getInstance().resetState();
-        collisionSystem = CollisionSystem.getInstance();
+        GameServices.collision().resetState();
+        collisionSystem = GameServices.collision();
         trace = new RecordingCollisionTrace();
         collisionSystem.setTrace(trace);
     }
@@ -36,8 +37,8 @@ public class CollisionSystemTest {
 
     @Test
     public void testNoOpTraceIsDefault() {
-        CollisionSystem.getInstance().resetState();
-        CollisionSystem fresh = CollisionSystem.getInstance();
+        GameServices.collision().resetState();
+        CollisionSystem fresh = GameServices.collision();
 
         assertNotNull(fresh.getTrace());
         assertEquals(NoOpCollisionTrace.INSTANCE, fresh.getTrace());
@@ -422,17 +423,17 @@ public class CollisionSystemTest {
     }
 
     @Test
-    public void testSingletonReset() {
-        CollisionSystem first = CollisionSystem.getInstance();
-        CollisionSystem.resetInstance();
-        CollisionSystem second = CollisionSystem.getInstance();
-        assertNotSame("After reset, new instance should be created", first, second);
+    public void testResetStateDoesNotChangeInstance() {
+        CollisionSystem first = GameServices.collision();
+        first.resetState();
+        CollisionSystem second = GameServices.collision();
+        assertSame("resetState() should not change instance", first, second);
     }
 
     @Test
-    public void testSingletonSameInstance() {
-        CollisionSystem first = CollisionSystem.getInstance();
-        CollisionSystem second = CollisionSystem.getInstance();
+    public void testSameInstanceReturned() {
+        CollisionSystem first = GameServices.collision();
+        CollisionSystem second = GameServices.collision();
         assertSame("Without reset, same instance should be returned", first, second);
     }
 }

@@ -3,6 +3,7 @@ package com.openggf.sprites.playable;
 import com.openggf.camera.Camera;
 import com.openggf.game.CanonicalAnimation;
 import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.GameServices;
 import com.openggf.level.LevelManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.ObjectInstance;
@@ -334,11 +335,11 @@ public class SidekickCpuController {
     }
 
     int clampTargetYToWater(int targetY) {
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         if (levelManager == null) {
             return targetY;
         }
-        int waterY = WaterSystem.getInstance().getWaterLevelY(levelManager.getCurrentZone(), levelManager.getCurrentAct());
+        int waterY = GameServices.water().getWaterLevelY(levelManager.getCurrentZone(), levelManager.getCurrentAct());
         if (waterY == 0) {
             return targetY;
         }
@@ -346,9 +347,9 @@ public class SidekickCpuController {
     }
 
     private boolean checkDespawn() {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         ObjectInstance ridingObject = null;
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         if (levelManager != null && levelManager.getObjectManager() != null) {
             ridingObject = levelManager.getObjectManager().getRidingObject(sidekick);
         }

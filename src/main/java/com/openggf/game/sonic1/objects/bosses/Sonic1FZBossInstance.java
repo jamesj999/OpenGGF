@@ -1,7 +1,6 @@
 package com.openggf.game.sonic1.objects.bosses;
 
 import com.openggf.camera.Camera;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
@@ -840,7 +839,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
                 : ENDING_ACT_NO_EMERALDS;
         // ROM: move.b #id_Ending,(v_gamemode).w
         // Engine parity path: transition to the dedicated ending zone/act variant.
-        GameServices.level().requestZoneAndAct(Sonic1ZoneConstants.ZONE_ENDING, endingAct, true);
+        services().requestZoneAndAct(Sonic1ZoneConstants.ZONE_ENDING, endingAct, true);
     }
 
     // === SolidObjectProvider interface ===

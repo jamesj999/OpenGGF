@@ -1,5 +1,6 @@
 package com.openggf.tests;
 
+import com.openggf.game.GameServices;
 import org.junit.Test;
 import com.openggf.timer.AbstractTimer;
 import com.openggf.timer.TimerManager;
@@ -16,7 +17,7 @@ public class TestTimerManager {
 
     @Test
     public void testTimerLifecycle() {
-        TimerManager manager = TimerManager.getInstance();
+        TimerManager manager = GameServices.timers();
         manager.removeTimerForCode("TEST");
         DummyTimer timer = new DummyTimer("TEST", 2);
         manager.registerTimer(timer);

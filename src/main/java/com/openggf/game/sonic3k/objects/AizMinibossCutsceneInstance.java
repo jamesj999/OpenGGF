@@ -370,7 +370,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
     }
 
     private Sonic3kAIZEvents getAizEvents() {
-        return Sonic3kLevelEventManager.getInstance().getAizEvents();
+        return ((Sonic3kLevelEventManager) services().levelEventProvider()).getAizEvents();
     }
 
     @Override

@@ -7,7 +7,6 @@ import com.openggf.level.objects.AbstractResultsScreen;
 import com.openggf.game.sonic2.specialstage.Sonic2SpecialStageConstants;
 import com.openggf.game.sonic2.specialstage.Sonic2SpecialStageDataLoader;
 import com.openggf.game.sonic2.specialstage.Sonic2SpecialStageManager;
-import com.openggf.game.GameServices;
 import com.openggf.data.Rom;
 import com.openggf.data.RomManager;
 import com.openggf.graphics.GLCommand;
@@ -191,7 +190,7 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
      */
     private void loadArt() {
         try {
-            RomManager romManager = GameServices.rom();
+            RomManager romManager = staticRomManager();
             if (!romManager.isRomAvailable()) {
                 LOGGER.warning("ROM not available for results art loading");
                 return;
@@ -216,7 +215,7 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
 
             // Load special stage results art from DataLoader
             Pattern[] resultsArtPatterns = null;
-            Sonic2SpecialStageManager manager = Sonic2SpecialStageManager.getInstance();
+            Sonic2SpecialStageManager manager = services().gameService(Sonic2SpecialStageManager.class);
             if (manager != null) {
                 Sonic2SpecialStageDataLoader dataLoader = manager.getDataLoader();
                 if (dataLoader != null) {

@@ -5,6 +5,7 @@ import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.opengl.GL;
 import com.openggf.Engine;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
@@ -158,10 +159,10 @@ public class VisualReferenceGenerator {
         SonicConfigurationService configService = SonicConfigurationService.getInstance();
         String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         AbstractPlayableSprite mainSprite = new Sonic(mainCode, (short) 100, (short) 624);
-        SpriteManager.getInstance().addSprite(mainSprite);
+        GameServices.sprites().addSprite(mainSprite);
 
         // Set up camera to follow player
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         camera.setFocusedSprite(mainSprite);
         camera.updatePosition(true);
     }
@@ -175,14 +176,14 @@ public class VisualReferenceGenerator {
 
         System.out.println("Generating visual reference files to: " + refDir.toAbsolutePath());
 
-        LevelManager levelManager = LevelManager.getInstance();
-        Camera camera = Camera.getInstance();
+        LevelManager levelManager = GameServices.level();
+        Camera camera = GameServices.camera();
         GraphicsManager graphicsManager = GraphicsManager.getInstance();
 
         // Update viewport dimensions in GraphicsManager
         graphicsManager.setViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 
-        SpriteManager spriteManager = SpriteManager.getInstance();
+        SpriteManager spriteManager = GameServices.sprites();
 
         for (Object[] position : TEST_POSITIONS) {
             int zone = (int) position[0];

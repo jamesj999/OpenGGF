@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.ButtonVineTriggerManager;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -505,7 +504,7 @@ public class MTZLongPlatformObjectInstance extends AbstractObjectInstance
      * Writes x_pos to MTZ_Platform_Cog_X shared variable.
      */
     private void moveConveyor() {
-        boolean isMtzAct3 = (GameServices.level().getCurrentZone() == Sonic2ZoneConstants.ZONE_MTZ
+        boolean isMtzAct3 = (services().currentZone() == Sonic2ZoneConstants.ZONE_MTZ
                 && services().currentAct() == 2);
 
         if (!triggered) {

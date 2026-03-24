@@ -90,7 +90,7 @@ public class TestS3kSpecialStageResultsVisual {
             // in an incompatible state. resetState() only clears per-level resources; this GPU test
             // needs shaders and the tilemap renderer fully re-initialized for correct pixel rendering.
             GraphicsManager.resetInstance(); // intentional: full GL teardown needed, not resetState()
-            Camera.getInstance().resetState();
+            GameServices.camera().resetState();
 
             GraphicsManager gm = GraphicsManager.getInstance();
             gm.init(Engine.RESOURCES_SHADERS_PIXEL_SHADER_GLSL);
@@ -120,7 +120,7 @@ public class TestS3kSpecialStageResultsVisual {
             gs.configureSpecialStageProgress(7, 7);
 
             // Initialize camera at origin
-            Camera camera = Camera.getInstance();
+            Camera camera = GameServices.camera();
             camera.setX((short) 0);
             camera.setY((short) 0);
 
@@ -141,7 +141,7 @@ public class TestS3kSpecialStageResultsVisual {
         }
         glfwTerminate();
         GraphicsManager.getInstance().resetState();
-        Camera.getInstance().resetState();
+        GameServices.camera().resetState();
     }
 
     /**
@@ -226,7 +226,7 @@ public class TestS3kSpecialStageResultsVisual {
 
     private BufferedImage renderResultsScreen(S3kSpecialStageResultsScreen screen, int frame) {
         GraphicsManager gm = GraphicsManager.getInstance();
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
 
         // Set camera to origin (matches Engine.java SPECIAL_STAGE_RESULTS mode)
         camera.setX((short) 0);

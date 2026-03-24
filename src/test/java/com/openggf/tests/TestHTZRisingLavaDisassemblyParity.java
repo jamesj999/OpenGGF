@@ -28,10 +28,10 @@ public class TestHTZRisingLavaDisassemblyParity {
     @Before
     public void setUp() throws Exception {
         resetSonic2LevelEventManagerSingleton();
-        Camera.getInstance().resetState();
+        GameServices.camera().resetState();
         GameServices.gameState().resetSession();
 
-        camera = Camera.getInstance();
+        camera = GameServices.camera();
         levelEvents = Sonic2LevelEventManager.getInstance();
     }
 

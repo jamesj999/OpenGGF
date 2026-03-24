@@ -6,9 +6,11 @@ import com.openggf.camera.Camera;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.GameStateManager;
+import com.openggf.game.LevelEventProvider;
 import com.openggf.game.LevelState;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.RespawnState;
+import com.openggf.game.TitleCardProvider;
 import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.GraphicsManager;
@@ -126,4 +128,90 @@ public interface ObjectServices {
 
     /** Returns true if all rings in the current level have been collected. */
     boolean areAllRingsCollected();
+
+    // --- Level transition actions ---
+
+    /**
+     * Advances zone/act counters without loading the new level.
+     * Used when entering a special stage after results screen (ROM: Got_NextLevel).
+     */
+    void advanceZoneActOnly();
+
+    /**
+     * Requests entry into a special stage from a checkpoint/big ring.
+     * Wraps {@link com.openggf.level.LevelTransitionCoordinator#requestSpecialStageFromCheckpoint()}.
+     */
+    void requestSpecialStageFromCheckpoint();
+
+    /**
+     * Requests transition to a specific zone and act.
+     *
+     * @param zone the zone index (0-based)
+     * @param act  the act index (0-based)
+     */
+    void requestZoneAndAct(int zone, int act);
+
+    /**
+     * Requests transition to a specific zone and act, optionally freezing level updates.
+     *
+     * @param zone               the zone index (0-based)
+     * @param act                the act index (0-based)
+     * @param deactivateLevelNow true to freeze level updates until the transition completes
+     */
+    void requestZoneAndAct(int zone, int act, boolean deactivateLevelNow);
+
+    // --- Level queries ---
+
+    /**
+     * Returns the music ID for the current level, or -1 if unknown.
+     */
+    int getCurrentLevelMusicId();
+
+    /**
+     * Searches the level's foreground tilemap for a pattern within a radius.
+     *
+     * @param refX         reference X position (world coordinates)
+     * @param refY         reference Y position (world coordinates)
+     * @param minTileIdx   minimum tile index to match
+     * @param maxTileIdx   maximum tile index to match
+     * @param searchRadius search radius in tiles
+     * @return {offsetX, offsetY} from ref to pattern center, or null if not found
+     */
+    int[] findPatternOffset(int refX, int refY, int minTileIdx, int maxTileIdx, int searchRadius);
+
+    /**
+     * Saves the player/camera position for returning from a big ring special stage.
+     */
+    void saveBigRingReturnPosition(int playerX, int playerY, int cameraX, int cameraY);
+
+    // --- Game-specific providers ---
+
+    /**
+     * Returns the level event provider for the current game.
+     * Object code may cast to the game-specific type (e.g., Sonic2LevelEventManager)
+     * for methods not on the base interface.
+     *
+     * @return the level event provider, or null if unavailable
+     */
+    default LevelEventProvider levelEventProvider() { return null; }
+
+    /**
+     * Returns the title card provider for the current game.
+     *
+     * @return the title card provider, or null if unavailable
+     */
+    default TitleCardProvider titleCardProvider() { return null; }
+
+    /**
+     * Returns a game-specific service by type, or null if not available.
+     * Used for game-specific singletons (e.g., Sonic1SwitchManager, Sonic2SpecialStageManager)
+     * that don't have cross-game abstract interfaces.
+     * <p>
+     * The service is resolved through the current {@link com.openggf.game.GameModule}.
+     *
+     * @param type the service class
+     * @param <T>  the service type
+     * @return the service instance, or null if not registered for the current game
+     */
+    default <T> T gameService(Class<T> type) { return null; }
 }

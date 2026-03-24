@@ -215,7 +215,7 @@ public class Sonic1LZConveyorObjectInstance extends AbstractObjectInstance
             this.waypointStep = WAYPOINT_STEP;
 
             // Check f_conveyrev at init time
-            Sonic1ConveyorState conveyorState = Sonic1ConveyorState.getInstance();
+            Sonic1ConveyorState conveyorState = services().gameService(Sonic1ConveyorState.class);
             if (conveyorState.isReversed()) {
                 // From disassembly: move.b #1,objoff_3B(a0) / neg.b objoff_3A(a0)
                 this.dirReversed = true;
@@ -385,7 +385,7 @@ public class Sonic1LZConveyorObjectInstance extends AbstractObjectInstance
         }
         spawnerDone = true;
 
-        Sonic1ConveyorState conveyorState = Sonic1ConveyorState.getInstance();
+        Sonic1ConveyorState conveyorState = services().gameService(Sonic1ConveyorState.class);
         if (conveyorState.testAndSetSpawned(spawnerSlotIndex)) {
             // Already spawned - delete self (FixBugs: avoid returning to main loop)
             setDestroyed(true);
@@ -405,15 +405,21 @@ public class Sonic1LZConveyorObjectInstance extends AbstractObjectInstance
         }
 
         // Spawn child platforms - first one replaces this object's identity,
-        // rest are new dynamic objects
-        for (int i = 0; i < positionData.length; i++) {
-            int childX = positionData[i][0];
-            int childY = positionData[i][1];
-            int childSubtype = positionData[i][2];
+        // rest are new dynamic objects.
+        // Set construction context so children can call services() in their constructors.
+        setConstructionContext(services());
+        try {
+            for (int i = 0; i < positionData.length; i++) {
+                int childX = positionData[i][0];
+                int childY = positionData[i][1];
+                int childSubtype = positionData[i][2];
 
-            Sonic1LZConveyorObjectInstance child =
-                    new Sonic1LZConveyorObjectInstance(childX, childY, childSubtype);
-            services().objectManager().addDynamicObject(child);
+                Sonic1LZConveyorObjectInstance child =
+                        new Sonic1LZConveyorObjectInstance(childX, childY, childSubtype);
+                services().objectManager().addDynamicObject(child);
+            }
+        } finally {
+            clearConstructionContext();
         }
 
         // Spawner itself is consumed after spawning
@@ -525,10 +531,10 @@ public class Sonic1LZConveyorObjectInstance extends AbstractObjectInstance
      * </pre>
      */
     private void applyConveyorMovement() {
-        Sonic1ConveyorState conveyorState = Sonic1ConveyorState.getInstance();
+        Sonic1ConveyorState conveyorState = services().gameService(Sonic1ConveyorState.class);
 
         // Check switch $E for reversal trigger
-        if (Sonic1SwitchManager.getInstance().isPressed(REVERSAL_SWITCH_INDEX)
+        if (services().gameService(Sonic1SwitchManager.class).isPressed(REVERSAL_SWITCH_INDEX)
                 && !dirReversed) {
             // First time switch $E is triggered
             dirReversed = true;
@@ -639,7 +645,7 @@ public class Sonic1LZConveyorObjectInstance extends AbstractObjectInstance
         // Every 4th frame: advance animation
         if ((frameCounter & WHEEL_ANIM_FRAME_MASK) == 0) {
             int step = 1;
-            if (Sonic1ConveyorState.getInstance().isReversed()) {
+            if (services().gameService(Sonic1ConveyorState.class).isReversed()) {
                 step = -1;
             }
             wheelFrame = (wheelFrame + step) & WHEEL_ANIM_FRAME_MASK;

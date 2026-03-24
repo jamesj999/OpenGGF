@@ -3,6 +3,7 @@ package com.openggf.game.sonic1.objects;
 import org.junit.Before;
 import org.junit.Test;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.DefaultObjectServices;
 import com.openggf.level.objects.ObjectInstance;
@@ -39,8 +40,8 @@ public class TestSonic1LavaGeyserOutOfRange {
 
     @Before
     public void setUp() {
-        Camera.getInstance().resetState();
-        Camera camera = Camera.getInstance();
+        GameServices.camera().resetState();
+        Camera camera = GameServices.camera();
         camera.setX((short) 0);
         camera.setY((short) 0);
         AbstractObjectInstance.updateCameraBounds(0, 0, 320, 224, 0);
@@ -83,7 +84,7 @@ public class TestSonic1LavaGeyserOutOfRange {
         assertTrue("Body piece should remain persistent when X is in range, even if Y is off-screen",
                 body.isPersistent());
 
-        Camera.getInstance().setX((short) 0x600);
+        GameServices.camera().setX((short) 0x600);
 
         assertFalse("Body piece should become non-persistent when X leaves out_of_range window",
                 body.isPersistent());

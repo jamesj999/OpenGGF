@@ -330,11 +330,12 @@ public class BreakableBlockObjectInstance extends BoxObjectInstance
     }
 
     private static int resolveHalfWidth() {
-        com.openggf.level.LevelManager lm = com.openggf.level.LevelManager.getInstance();
-        if (lm == null || lm.getCurrentLevel() == null) {
+        // Use construction context ThreadLocal since this is called during super() args
+        var ctx = constructionContext();
+        if (ctx == null || ctx.currentLevel() == null) {
             return CPZ_HALF_WIDTH;
         }
-        int zoneId = lm.getCurrentLevel().getZoneIndex();
+        int zoneId = ctx.currentLevel().getZoneIndex();
         return zoneId == Sonic2Constants.ZONE_HTZ
                 ? HTZ_HALF_WIDTH
                 : CPZ_HALF_WIDTH;

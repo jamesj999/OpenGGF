@@ -45,109 +45,27 @@ class TestObjectServicesMigrationGuard {
     // NOT_OBJECT/REGISTRY:       permanent exceptions — these classes don't participate in DI
 
     private static final Set<String> KNOWN_UNMIGRATED = Set.of(
-            // ── Sonic 1 ──────────────────────────────────────────────────────
+            // All object classes have been migrated to use services().
+            // Any new violations will be caught as regressions.
+    );
 
-            // GAME_SINGLETON: Sonic1SwitchManager.getInstance()
-            "com.openggf.game.sonic1.objects.Sonic1FloatingBlockObjectInstance",
-            "com.openggf.game.sonic1.objects.Sonic1GlassBlockObjectInstance",
-            "com.openggf.game.sonic1.objects.Sonic1JunctionObjectInstance",
-            "com.openggf.game.sonic1.objects.Sonic1MovingBlockObjectInstance",
-            "com.openggf.game.sonic1.objects.Sonic1PlatformObjectInstance",
-
-            // GAME_SINGLETON: Sonic1SwitchManager + Sonic1ConveyorState
-            "com.openggf.game.sonic1.objects.Sonic1LZConveyorObjectInstance",
-            "com.openggf.game.sonic1.objects.Sonic1SpinConveyorObjectInstance",
-
-            // MISSING_METHOD: advanceZoneActOnly(), requestSpecialStageFromCheckpoint()
-            "com.openggf.game.sonic1.objects.Sonic1ResultsScreenObjectInstance",
-
-            // REGISTRY: not an object instance
+    /**
+     * Permanent exceptions: classes in the scanned packages that are NOT object instances
+     * (no services() method), or are registry/utility classes that legitimately use
+     * getInstance() or GameServices for non-object purposes.
+     */
+    private static final Set<String> PERMANENT_EXCEPTIONS = Set.of(
+            // REGISTRY: ObjectRegistry classes, not AbstractObjectInstance subclasses
             "com.openggf.game.sonic1.objects.Sonic1ObjectRegistry",
-
-            // STATIC_METHOD: GameServices.level().getObjectManager() in static context
-            "com.openggf.game.sonic1.objects.bosses.Sonic1BossBlockInstance",
-            "com.openggf.game.sonic1.objects.bosses.Sonic1ScrapEggmanInstance",
-
-            // MISSING_METHOD: requestZoneAndAct()
-            "com.openggf.game.sonic1.objects.bosses.Sonic1FZBossInstance",
-
-            // ── Sonic 2 ──────────────────────────────────────────────────────
-
-            // STATIC_METHOD: GameServices.level() in static resolveHalfWidth()
-            "com.openggf.game.sonic2.objects.BreakableBlockObjectInstance",
-
-            // STATIC_METHOD: GameServices.level().getObjectManager() in static factory
-            "com.openggf.game.sonic2.objects.ConveyorObjectInstance",
-
-            // MISSING_METHOD: areAllRingsCollected()
-            "com.openggf.game.sonic2.objects.EggPrisonObjectInstance",
-
-            // DEBUG_ONLY: only GameServices.debugOverlay() remains (scanner sees GameServices ref)
-            "com.openggf.game.sonic2.objects.ForcedSpinObjectInstance",
-            "com.openggf.game.sonic2.objects.InvisibleBlockObjectInstance",
-            "com.openggf.game.sonic2.objects.MTZTwinStompersObjectInstance",
-            "com.openggf.game.sonic2.objects.SlidingSpikesObjectInstance",
-            "com.openggf.game.sonic2.objects.StomperObjectInstance",
-
-            // MISSING_METHOD: getCurrentZone()
-            "com.openggf.game.sonic2.objects.MTZLongPlatformObjectInstance",
-
-            // MISSING_METHOD: findPatternOffset()
-            "com.openggf.game.sonic2.objects.PointPokeyObjectInstance",
-
-            // GAME_SINGLETON: Sonic2LevelEventManager.getInstance()
-            "com.openggf.game.sonic2.objects.RisingLavaObjectInstance",
-            "com.openggf.game.sonic2.objects.bosses.Sonic2MechaSonicInstance",
-
-            // MISSING_METHOD: getGame().getRom() in static ensureMczMappingsLoaded()
-            "com.openggf.game.sonic2.objects.SidewaysPformObjectInstance",
-
-            // GAME_SINGLETON: Sonic2SpecialStageManager.getInstance() + RomManager
-            "com.openggf.game.sonic2.objects.SpecialStageResultsScreenObjectInstance",
-
-            // MISSING_METHOD: requestZoneAndAct() + GAME_SINGLETON: Sonic2LevelEventManager
-            "com.openggf.game.sonic2.objects.TornadoObjectInstance",
-
-            // GAME_SINGLETON: Sonic2LevelEventManager (reads palette switch flag)
-            "com.openggf.game.sonic2.objects.WFZPalSwitcherObjectInstance",
-
-            // REGISTRY: not an object instance
             "com.openggf.game.sonic2.objects.Sonic2ObjectRegistry",
-
-            // MISSING_METHOD: getCurrentLevelMusicId()
-            "com.openggf.game.sonic2.objects.bosses.Sonic2ARZBossInstance",
-
-            // ── Sonic 3K ─────────────────────────────────────────────────────
-
-            // DEBUG_ONLY: only GameServices.debugOverlay() remains
-            "com.openggf.game.sonic3k.objects.AutoSpinObjectInstance",
+            "com.openggf.game.sonic3k.objects.Sonic3kObjectRegistry",
 
             // NOT_OBJECT: utility/helper classes, no AbstractObjectInstance inheritance
             "com.openggf.game.sonic3k.objects.AizIntroArtLoader",
             "com.openggf.game.sonic3k.objects.AizIntroPaletteCycler",
             "com.openggf.game.sonic3k.objects.AizIntroBoosterChild",
             "com.openggf.game.sonic3k.objects.AizIntroTerrainSwap",
-            "com.openggf.game.sonic3k.objects.AizVineHandleLogic",
-
-            // REGISTRY: not an object instance
-            "com.openggf.game.sonic3k.objects.Sonic3kObjectRegistry",
-
-            // MISSING_METHOD: saveBigRingReturnPosition()
-            "com.openggf.game.sonic3k.objects.Sonic3kSSEntryRingObjectInstance",
-
-            // GAME_SINGLETON: Sonic3kLevelEventManager.getInstance()
-            "com.openggf.game.sonic3k.objects.AizMinibossCutsceneInstance",
-            "com.openggf.game.sonic3k.objects.AizMinibossInstance",
-            "com.openggf.game.sonic3k.objects.S3kBossDefeatSignpostFlow",
-            "com.openggf.game.sonic3k.objects.S3kSignpostInstance",
-
-            // GAME_SINGLETON: Sonic3kTitleCardManager.getInstance()
-            "com.openggf.game.sonic3k.objects.CutsceneKnucklesAiz1Instance",
-            "com.openggf.game.sonic3k.objects.S3kResultsScreenObjectInstance",
-
-            // GAME_SINGLETON: SpriteManager (getSprite/getAllSprites beyond sidekicks())
-            "com.openggf.game.sonic3k.objects.AizGiantRideVineObjectInstance",
-            "com.openggf.game.sonic3k.objects.AizRideVineObjectInstance"
+            "com.openggf.game.sonic3k.objects.AizVineHandleLogic"
     );
 
     /** Packages containing object instance classes to scan. */
@@ -209,10 +127,10 @@ class TestObjectServicesMigrationGuard {
             }
         }
 
-        // Check for regressions: classes not in KNOWN_UNMIGRATED that use getInstance()
+        // Check for regressions: classes not in KNOWN_UNMIGRATED or PERMANENT_EXCEPTIONS
         Set<String> regressions = new TreeSet<>();
         for (String violator : violations.keySet()) {
-            if (!KNOWN_UNMIGRATED.contains(violator)) {
+            if (!KNOWN_UNMIGRATED.contains(violator) && !PERMANENT_EXCEPTIONS.contains(violator)) {
                 regressions.add(violator);
             }
         }

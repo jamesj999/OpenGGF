@@ -1,7 +1,6 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.camera.Camera;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2LevelEventManager;
@@ -312,7 +311,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
         if (cameraX >= SCZ_CAMERA_FINISH_X) {
             if (playerX >= SCZ_PLAYER_FINISH_X) {
                 if (!sczTransitionRequested) {
-                    GameServices.level().requestZoneAndAct(Sonic2ZoneConstants.ZONE_WFZ, 0, true);
+                    services().requestZoneAndAct(Sonic2ZoneConstants.ZONE_WFZ, 0, true);
                     sczTransitionRequested = true;
                 }
             } else {
@@ -556,7 +555,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
 
         if (scriptTimer >= WFZ_SPAWN_EXTRA_CHILDREN_AT && !spawnedWfzDockChildren) {
             spawnedWfzDockChildren = true;
-            Sonic2LevelEventManager.getInstance().setEventRoutine(6);
+            ((Sonic2LevelEventManager) services().levelEventProvider()).setEventRoutine(6);
             routineSecondary = 0x10;
             spawnTornadoChild(SUBTYPE_BLINKER, 0x3090, 0x03D0);
             spawnTornadoChild(SUBTYPE_BLINKER, 0x30C0, 0x03F0);
@@ -569,7 +568,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
     private void wfzDockOnDez() {
         if (scriptTimer >= WFZ_START_DEZ_AT) {
             if (!dezTransitionRequested) {
-                GameServices.level().requestZoneAndAct(Sonic2ZoneConstants.ZONE_DEZ, 0, true);
+                services().requestZoneAndAct(Sonic2ZoneConstants.ZONE_DEZ, 0, true);
                 dezTransitionRequested = true;
             }
             return;

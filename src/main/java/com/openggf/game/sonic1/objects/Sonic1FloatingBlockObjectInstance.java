@@ -308,7 +308,7 @@ public class Sonic1FloatingBlockObjectInstance extends AbstractObjectInstance
         // Label with type info
         String label = String.format("FB t%X", moveType);
         if (moveType == 5 || moveType == 6 || moveType == 0x0C || moveType == 0x0D) {
-            Sonic1SwitchManager switches = Sonic1SwitchManager.getInstance();
+            Sonic1SwitchManager switches = services().gameService(Sonic1SwitchManager.class);
             boolean sw = switches.isPressed(fbType);
             label += String.format(" sw%d=%s h=%d", fbType, sw ? "ON" : "OFF", fbHeight);
         }
@@ -384,7 +384,7 @@ public class Sonic1FloatingBlockObjectInstance extends AbstractObjectInstance
             handleLz1WaterTunnel();
 
             // Check switch state
-            Sonic1SwitchManager switches = Sonic1SwitchManager.getInstance();
+            Sonic1SwitchManager switches = services().gameService(Sonic1SwitchManager.class);
             // ROM: btst #0,(f_switch+fb_type)
             if ((switches.getRaw(fbType) & 0x01) != 0) {
                 // Switch pressed - begin activation
@@ -419,7 +419,7 @@ public class Sonic1FloatingBlockObjectInstance extends AbstractObjectInstance
     private void moveType06SwitchDown() {
         if (!activated) {
             // tst.b (a2,d0.w) / bpl.s .noactivate
-            Sonic1SwitchManager switches = Sonic1SwitchManager.getInstance();
+            Sonic1SwitchManager switches = services().gameService(Sonic1SwitchManager.class);
             byte raw = switches.getRaw(fbType);
             if (raw < 0) { // bit 7 set = negative byte
                 activated = true;
@@ -457,7 +457,7 @@ public class Sonic1FloatingBlockObjectInstance extends AbstractObjectInstance
     private void moveType07SlideRight() {
         if (!activated) {
             // tst.b (f_switch+$F).w — switch index $F
-            Sonic1SwitchManager switches = Sonic1SwitchManager.getInstance();
+            Sonic1SwitchManager switches = services().gameService(Sonic1SwitchManager.class);
             if (!switches.isPressed(0x0F)) {
                 return;
             }
@@ -548,7 +548,7 @@ public class Sonic1FloatingBlockObjectInstance extends AbstractObjectInstance
      */
     private void moveType0CSwitchLeft() {
         if (!activated) {
-            Sonic1SwitchManager switches = Sonic1SwitchManager.getInstance();
+            Sonic1SwitchManager switches = services().gameService(Sonic1SwitchManager.class);
             // ROM: btst #0,(f_switch+fb_type)
             if ((switches.getRaw(fbType) & 0x01) != 0) {
                 activated = true;
@@ -576,7 +576,7 @@ public class Sonic1FloatingBlockObjectInstance extends AbstractObjectInstance
      */
     private void moveType0DSwitchRight() {
         if (!activated) {
-            Sonic1SwitchManager switches = Sonic1SwitchManager.getInstance();
+            Sonic1SwitchManager switches = services().gameService(Sonic1SwitchManager.class);
             byte raw = switches.getRaw(fbType);
             if (raw < 0) { // bit 7 set
                 activated = true;

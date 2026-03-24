@@ -50,9 +50,8 @@ import java.util.List;
 public class StomperObjectInstance extends AbstractObjectInstance
         implements SolidObjectProvider {
 
-    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
-            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-    private static final DebugOverlayManager OVERLAY_MANAGER = com.openggf.game.GameServices.debugOverlay();
+    private static final boolean DEBUG_VIEW_ENABLED = staticDebugViewEnabled();
+    private static final DebugOverlayManager OVERLAY_MANAGER = staticDebugOverlay();
 
     // Timer constants (from disassembly)
     private static final int MAX_TIMER = 0x60;      // 96 frames - fully retracted

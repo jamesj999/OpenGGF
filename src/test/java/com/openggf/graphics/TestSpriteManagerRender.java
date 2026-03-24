@@ -1,5 +1,6 @@
 package com.openggf.graphics;
 
+import com.openggf.game.GameServices;
 import com.openggf.physics.Direction;
 import org.junit.Test;
 import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
@@ -21,8 +22,8 @@ public class TestSpriteManagerRender {
     @Test
     public void testBucketOrderingAndNonPlayablePlacement() {
         List<String> drawOrder = new ArrayList<>();
-        SpriteManager spriteManager = SpriteManager.getInstance();
-        SpriteManager renderManager = SpriteManager.getInstance();
+        SpriteManager spriteManager = GameServices.sprites();
+        SpriteManager renderManager = GameServices.sprites();
 
         TestPlayableSprite highBucket = new TestPlayableSprite("high", drawOrder);
         highBucket.setPriorityBucket(3);
@@ -58,7 +59,7 @@ public class TestSpriteManagerRender {
     @Test
     public void testSidekickDrawnBeforeMainPlayer() {
         List<String> drawOrder = new ArrayList<>();
-        SpriteManager spriteManager = SpriteManager.getInstance();
+        SpriteManager spriteManager = GameServices.sprites();
 
         // Add main first, then sidekick — same bucket and priority
         TestPlayableSprite main = new TestPlayableSprite("main", drawOrder);
@@ -87,8 +88,8 @@ public class TestSpriteManagerRender {
     @Test
     public void testSonic2SidekickSuppressionZones() throws Exception {
         List<String> drawOrder = new ArrayList<>();
-        SpriteManager spriteManager = SpriteManager.getInstance();
-        LevelManager levelManager = LevelManager.getInstance();
+        SpriteManager spriteManager = GameServices.sprites();
+        LevelManager levelManager = GameServices.level();
 
         int originalZone = levelManager.getCurrentZone();
 

@@ -21,10 +21,10 @@ public class TestHTZBossEventRoutine9 {
     @Before
     public void setUp() throws Exception {
         resetSonic2LevelEventManagerSingleton();
-        Camera.getInstance().resetState();
+        GameServices.camera().resetState();
         GameServices.gameState().resetSession();
 
-        camera = Camera.getInstance();
+        camera = GameServices.camera();
         levelEvents = Sonic2LevelEventManager.getInstance();
         levelEvents.initLevel(Sonic2LevelEventManager.ZONE_HTZ, 1); // HTZ Act 2
         levelEvents.setEventRoutine(18); // Routine 9

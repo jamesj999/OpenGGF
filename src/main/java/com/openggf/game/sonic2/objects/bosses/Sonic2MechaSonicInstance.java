@@ -848,7 +848,7 @@ public class Sonic2MechaSonicInstance extends AbstractBossInstance {
         if (defeatTimer < 0) {
             Camera camera = services().camera();
             camera.setMaxX((short) 0x1000);
-            Sonic2LevelEventManager eventManager = Sonic2LevelEventManager.getInstance();
+            Sonic2LevelEventManager eventManager = (Sonic2LevelEventManager) services().levelEventProvider();
             eventManager.setEventRoutine(eventManager.getEventRoutine() + 2);
             services().gameState().setCurrentBossId(0);
             services().playMusic(Sonic2Music.DEATH_EGG.id);

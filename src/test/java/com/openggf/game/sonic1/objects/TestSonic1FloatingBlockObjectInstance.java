@@ -1,6 +1,8 @@
 package com.openggf.game.sonic1.objects;
 
 import com.openggf.game.sonic1.Sonic1SwitchManager;
+import com.openggf.level.objects.ObjectServices;
+import com.openggf.level.objects.StubObjectServices;
 import org.junit.Before;
 import org.junit.Test;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
@@ -15,9 +17,19 @@ public class TestSonic1FloatingBlockObjectInstance {
     private static final int ORIG_X = 0x600;
     private static final int ORIG_Y = 0x1A0;
 
+    private ObjectServices testServices;
+
     @Before
     public void resetSwitchState() {
         Sonic1SwitchManager.getInstance().resetState();
+        testServices = new StubObjectServices() {
+            @SuppressWarnings("unchecked")
+            @Override
+            public <T> T gameService(Class<T> type) {
+                if (type == Sonic1SwitchManager.class) return (T) Sonic1SwitchManager.getInstance();
+                return null;
+            }
+        };
     }
 
     @Test
@@ -67,7 +79,7 @@ public class TestSonic1FloatingBlockObjectInstance {
         assertTrue(door.getX() < ORIG_X + 0x80);
     }
 
-    private static Sonic1FloatingBlockObjectInstance createLzDoor(int subtype, boolean respawnTracked) {
+    private Sonic1FloatingBlockObjectInstance createLzDoor(int subtype, boolean respawnTracked) {
         ObjectSpawn spawn = new ObjectSpawn(
                 ORIG_X,
                 ORIG_Y,
@@ -77,6 +89,8 @@ public class TestSonic1FloatingBlockObjectInstance {
                 respawnTracked,
                 0
         );
-        return new Sonic1FloatingBlockObjectInstance(spawn, Sonic1Constants.ZONE_LZ);
+        Sonic1FloatingBlockObjectInstance door = new Sonic1FloatingBlockObjectInstance(spawn, Sonic1Constants.ZONE_LZ);
+        door.setServices(testServices);
+        return door;
     }
 }

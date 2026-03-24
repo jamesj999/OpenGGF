@@ -587,7 +587,7 @@ public class SwScrlAiz extends AbstractZoneScrollHandler {
      */
     private int resolveWaterScreenY(int actId, int cameraY) {
         try {
-            WaterSystem ws = WaterSystem.getInstance();
+            WaterSystem ws = GameServices.water();
             if (ws != null && ws.hasWater(Sonic3kZoneIds.ZONE_AIZ, actId)) {
                 int waterWorldY = ws.getWaterLevelY(Sonic3kZoneIds.ZONE_AIZ, actId);
                 return waterWorldY - cameraY;

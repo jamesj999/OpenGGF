@@ -2,6 +2,7 @@ package com.openggf.tests;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.GameModule;
+import com.openggf.game.GameServices;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.LevelEventProvider;
 import com.openggf.game.ZoneFeatureProvider;
@@ -61,8 +62,8 @@ public class TestActTransitionIntentionalSkips {
                 .startPosition((short) 96, (short) 655)
                 .build();
 
-        Camera.getInstance().setFocusedSprite(fixture.sprite());
-        Camera.getInstance().setFrozen(false);
+        GameServices.camera().setFocusedSprite(fixture.sprite());
+        GameServices.camera().setFrozen(false);
     }
 
     private SeamlessLevelTransitionRequest transitionToAct2() {
@@ -75,18 +76,18 @@ public class TestActTransitionIntentionalSkips {
 
     @Test
     public void waterSystemInstancePreservedAcrossTransition() throws Exception {
-        WaterSystem before = WaterSystem.getInstance();
+        WaterSystem before = GameServices.water();
         assertNotNull("WaterSystem should exist before transition", before);
 
-        LevelManager.getInstance().executeActTransition(transitionToAct2());
+        GameServices.level().executeActTransition(transitionToAct2());
 
-        WaterSystem after = WaterSystem.getInstance();
+        WaterSystem after = GameServices.water();
         assertSame("WaterSystem instance must survive act transition", before, after);
     }
 
     @Test
     public void zoneFeatureProviderPreservedAcrossTransition() throws Exception {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         ZoneFeatureProvider before = lm.getZoneFeatureProvider();
 
         lm.executeActTransition(transitionToAct2());
@@ -97,7 +98,7 @@ public class TestActTransitionIntentionalSkips {
 
     @Test
     public void gameModulePreservedAcrossTransition() throws Exception {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         GameModule beforeLm = lm.getGameModule();
         GameModule beforeRegistry = GameModuleRegistry.getCurrent();
         assertNotNull("GameModule should exist before transition", beforeLm);
@@ -113,7 +114,7 @@ public class TestActTransitionIntentionalSkips {
 
     @Test
     public void gameInstancePreservedAcrossTransition() throws Exception {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         Object beforeGame = lm.getGame();
         assertNotNull("Game should exist before transition", beforeGame);
 
@@ -125,7 +126,7 @@ public class TestActTransitionIntentionalSkips {
 
     @Test
     public void animatedPatternManagerReinitializedAcrossTransition() throws Exception {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         AnimatedPatternManager before = lm.getAnimatedPatternManager();
         assertNotNull("AnimatedPatternManager should exist before transition", before);
 
@@ -138,7 +139,7 @@ public class TestActTransitionIntentionalSkips {
 
     @Test
     public void animatedPaletteManagerReinitializedAcrossTransition() throws Exception {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         AnimatedPaletteManager before = lm.getAnimatedPaletteManager();
         assertNotNull("AnimatedPaletteManager should exist before transition", before);
 
@@ -151,7 +152,7 @@ public class TestActTransitionIntentionalSkips {
 
     @Test
     public void objectManagerRebuiltAcrossTransition() throws Exception {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         ObjectManager before = lm.getObjectManager();
         assertNotNull("ObjectManager should exist before transition", before);
 
@@ -164,7 +165,7 @@ public class TestActTransitionIntentionalSkips {
 
     @Test
     public void levelEventsReinitializedAcrossTransition() throws Exception {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         LevelEventProvider provider = GameModuleRegistry.getCurrent().getLevelEventProvider();
         assertNotNull("LevelEventProvider should exist", provider);
 

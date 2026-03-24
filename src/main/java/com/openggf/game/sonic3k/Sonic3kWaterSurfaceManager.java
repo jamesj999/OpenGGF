@@ -2,6 +2,7 @@ package com.openggf.game.sonic3k;
 
 import com.openggf.camera.Camera;
 import com.openggf.data.Rom;
+import com.openggf.game.GameServices;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.graphics.GraphicsManager;
@@ -121,7 +122,7 @@ public class Sonic3kWaterSurfaceManager {
             return;
         }
 
-        WaterSystem waterSystem = WaterSystem.getInstance();
+        WaterSystem waterSystem = GameServices.water();
         int waterLevelY = waterSystem.getWaterLevelY(zoneId, actId);
         if (waterLevelY == 0) {
             return;

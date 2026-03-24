@@ -11,13 +11,13 @@ public class TestSonic2LevelInitProfile {
     private final Sonic2LevelInitProfile profile = new Sonic2LevelInitProfile();
 
     @Test
-    public void teardownStepsMatchGameContextPhases2Through8() {
+    public void teardownStepsMatchExpected14Steps() {
         List<InitStep> steps = profile.levelTeardownSteps();
 
-        // GameContext.forTesting() phases 2-8 (13 original + 1 DebugOverlayManager reset)
+        // 13 original teardown steps + 1 DebugOverlayManager reset = 14 total
         assertEquals(14, steps.size());
 
-        // Verify ordering matches GameContext phases
+        // Verify ordering matches ROM teardown phases
         assertEquals("ResetAudio", steps.get(0).name());
         assertEquals("ResetCrossGameFeatures", steps.get(1).name());
         assertEquals("ResetS2LevelEvents", steps.get(2).name());

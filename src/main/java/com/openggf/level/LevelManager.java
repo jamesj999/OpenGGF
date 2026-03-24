@@ -105,7 +105,7 @@ public class LevelManager {
     }
 
     private final GraphicsManager graphicsManager = GraphicsManager.getInstance();
-    private final SpriteManager spriteManager = SpriteManager.getInstance();
+    private SpriteManager spriteManager = GameServices.sprites();
     private final SonicConfigurationService configService = SonicConfigurationService.getInstance();
     private final DebugOverlayManager overlayManager = GameServices.debugOverlay();
     private LevelDebugRenderer debugRenderer;
@@ -136,7 +136,7 @@ public class LevelManager {
     private boolean verticalWrapEnabled = false;
 
     // Background rendering support
-    private final ParallaxManager parallaxManager = ParallaxManager.getInstance();
+    private ParallaxManager parallaxManager = GameServices.parallax();
     private boolean useShaderBackground = true; // Feature flag for shader background
 
 
@@ -145,7 +145,7 @@ public class LevelManager {
     private final int cachedScreenHeight = configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
 
     // Camera reference for frustum culling
-    private final Camera camera = Camera.getInstance();
+    private Camera camera = GameServices.camera();
 
     // Pre-allocated viewport buffer to avoid per-frame int[4] allocations inside GL commands
     private final int[] viewportBuffer = new int[4];
@@ -204,7 +204,7 @@ public class LevelManager {
         graphicsManager.setWindowHeight(windowHeight);
         graphicsManager.setScreenHeight(screenHeightPixels);
 
-        WaterSystem waterSystem = WaterSystem.getInstance();
+        WaterSystem waterSystem = GameServices.water();
         int zoneId = getFeatureZoneId();
         Palette[] underwater = waterSystem.getUnderwaterPalette(zoneId, currentAct);
         if (underwater != null) {
@@ -485,6 +485,20 @@ public class LevelManager {
     }
 
     /**
+     * Constructs a LevelManager with explicit manager dependencies.
+     * Used by {@link com.openggf.game.GameRuntime} to inject peers
+     * instead of reading from singletons.
+     */
+    public LevelManager(Camera camera, SpriteManager spriteManager,
+                        ParallaxManager parallaxManager, CollisionSystem collisionSystem) {
+        this.camera = camera;
+        this.spriteManager = spriteManager;
+        this.parallaxManager = parallaxManager;
+        // collisionSystem is not a field - it's accessed via getInstance() or GameServices
+        // but we need it for wiring ObjectManager during level load
+    }
+
+    /**
      * Refreshes the zone list from the current GameModule's ZoneRegistry.
      * Called during level loading to ensure zones match the current game.
      */
@@ -636,7 +650,7 @@ public class LevelManager {
                 gameModule.getPlaneSwitcherConfig(),
                 touchResponseTable);
         // Wire up CollisionSystem with ObjectManager for unified collision pipeline
-        CollisionSystem.getInstance().setObjectManager(objectManager);
+        GameServices.collision().setObjectManager(objectManager);
 
         // Inject PowerUpSpawner into all playable sprites
         injectPowerUpSpawner();
@@ -663,7 +677,7 @@ public class LevelManager {
      */
     public void initCameraBounds() {
         // Reset camera state from previous level (signpost may have locked it)
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         camera.setFrozen(false);
         // ROM: LevelSizeLoad sets v_limitleft2 and v_limitright2 from LevelSizeArray.
         // Use the level's ROM boundaries (not map pixel width) so the camera is
@@ -694,7 +708,7 @@ public class LevelManager {
     public void initRings() {
         RingSpriteSheet ringSpriteSheet = level.getRingSpriteSheet();
         ringManager = new RingManager(level.getRings(), ringSpriteSheet, this, touchResponseTable);
-        ringManager.reset(Camera.getInstance().getX());
+        ringManager.reset(GameServices.camera().getX());
         ringManager.ensurePatternsCached(graphicsManager, level.getPatternCount());
     }
 
@@ -703,7 +717,7 @@ public class LevelManager {
      */
     public void initZoneFeatures() throws IOException {
         Rom rom = GameServices.rom().getRom();
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         zoneFeatureProvider = gameModule.getZoneFeatureProvider();
         if (zoneFeatureProvider != null) {
             zoneFeatureProvider.initZoneFeatures(rom, getFeatureZoneId(), getFeatureActId(), camera.getX());
@@ -757,7 +771,7 @@ public class LevelManager {
      */
     public void initWater() throws IOException {
         Rom rom = GameServices.rom().getRom();
-        WaterSystem waterSystem = WaterSystem.getInstance();
+        WaterSystem waterSystem = GameServices.water();
         WaterDataProvider waterProvider = gameModule != null ? gameModule.getWaterDataProvider() : null;
         if (waterProvider != null) {
             // Use the game-agnostic provider-based loading
@@ -821,7 +835,7 @@ public class LevelManager {
             Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
             AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
             List<AbstractPlayableSprite> sidekicks = spriteManager.getSidekicks();
-            objectManager.update(Camera.getInstance().getX(), playable, sidekicks, frameCounter + 1);
+            objectManager.update(GameServices.camera().getX(), playable, sidekicks, frameCounter + 1);
         }
     }
 
@@ -837,7 +851,7 @@ public class LevelManager {
             Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
             AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
             List<AbstractPlayableSprite> sidekicks = spriteManager.getSidekicks();
-            objectManager.update(Camera.getInstance().getX(), playable, sidekicks, frameCounter + 1, false);
+            objectManager.update(GameServices.camera().getX(), playable, sidekicks, frameCounter + 1, false);
         }
     }
 
@@ -853,7 +867,7 @@ public class LevelManager {
         if (zoneFeatureProvider != null && level != null) {
             Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
             AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
-            zoneFeatureProvider.updatePrePhysics(playable, Camera.getInstance().getX(), getFeatureZoneId());
+            zoneFeatureProvider.updatePrePhysics(playable, GameServices.camera().getX(), getFeatureZoneId());
         }
     }
 
@@ -869,14 +883,14 @@ public class LevelManager {
             playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
         }
         if (ringManager != null) {
-            ringManager.update(Camera.getInstance().getX(), playable, frameCounter + 1);
+            ringManager.update(GameServices.camera().getX(), playable, frameCounter + 1);
             // Lost ring physics run once per frame; collection checks run per-player.
             ringManager.updateLostRingPhysics(frameCounter + 1);
             ringManager.checkLostRingCollection(playable);
             // ROM: CPU Tails can also collect rings in 1P mode
             for (AbstractPlayableSprite sidekick : spriteManager.getSidekicks()) {
                 if (!sidekick.getDead()) {
-                    ringManager.update(Camera.getInstance().getX(), sidekick, frameCounter + 1);
+                    ringManager.update(GameServices.camera().getX(), sidekick, frameCounter + 1);
                     ringManager.checkLostRingCollection(sidekick);
                 }
             }
@@ -885,18 +899,18 @@ public class LevelManager {
         // DynWaterHeight (zone features set new target for next frame).
         // Use effective feature zone/act so S1 SBZ3 (loaded from LZ act 4 slot)
         // resolves to SBZ3 water behavior while retaining LZ tile/object resources.
-        WaterSystem waterSystem = WaterSystem.getInstance();
+        WaterSystem waterSystem = GameServices.water();
         int featureZone = getFeatureZoneId();
         int featureAct = getFeatureActId();
         if (level != null && waterSystem.hasWater(featureZone, featureAct)) {
-            Camera camera = Camera.getInstance();
+            Camera camera = GameServices.camera();
             waterSystem.updateDynamic(featureZone, featureAct, camera.getX(), camera.getY());
             waterSystem.update();
         }
 
         // Update zone-specific features (CNZ bumpers, S1 DynWaterHeight, etc.)
         if (zoneFeatureProvider != null && level != null) {
-            zoneFeatureProvider.update(playable, Camera.getInstance().getX(), getFeatureZoneId());
+            zoneFeatureProvider.update(playable, GameServices.camera().getX(), getFeatureZoneId());
         }
         if (levelGamestate != null) {
             if (!isHudSuppressed()) {
@@ -923,21 +937,21 @@ public class LevelManager {
         AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
 
         if (ringManager != null) {
-            ringManager.update(Camera.getInstance().getX(), null, frameCounter + 1);
+            ringManager.update(GameServices.camera().getX(), null, frameCounter + 1);
         }
 
         // Water movement before zone features (ROM order: MoveWater before DynWaterHeight)
-        WaterSystem waterSystem = WaterSystem.getInstance();
+        WaterSystem waterSystem = GameServices.water();
         int featureZone = getFeatureZoneId();
         int featureAct = getFeatureActId();
         if (level != null && waterSystem.hasWater(featureZone, featureAct)) {
-            Camera camera = Camera.getInstance();
+            Camera camera = GameServices.camera();
             waterSystem.updateDynamic(featureZone, featureAct, camera.getX(), camera.getY());
             waterSystem.update();
         }
 
         if (zoneFeatureProvider != null && level != null) {
-            zoneFeatureProvider.update(playable, Camera.getInstance().getX(), getFeatureZoneId());
+            zoneFeatureProvider.update(playable, GameServices.camera().getX(), getFeatureZoneId());
         }
 
         if (level != null && waterSystem.hasWater(featureZone, featureAct) && playable != null) {
@@ -1396,7 +1410,7 @@ public class LevelManager {
         if (animatedPaletteManager != null && animatedPaletteManager != animatedPatternManager) {
             animatedPaletteManager.update();
         }
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
 
         int bgScrollY = (int) (camera.getY() * 0.1f);
         if (game != null) {
@@ -1506,7 +1520,7 @@ public class LevelManager {
     }
 
     private void updateWaterShaderState(Camera camera) {
-        WaterSystem waterSystem = WaterSystem.getInstance();
+        WaterSystem waterSystem = GameServices.water();
         int zoneId = getFeatureZoneId();
         int actId = getFeatureActId();
 
@@ -1557,7 +1571,7 @@ public class LevelManager {
         if (bgRenderer == null)
             return;
 
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         Palette.Color backdropColor = resolveLevelBackdropColor();
         bgRenderer.setBackdropColor(
                 backdropColor.rFloat(),
@@ -1656,7 +1670,7 @@ public class LevelManager {
 
         // 2. Begin Tile Pass (Bind FBO)
         // Use water shader in screen-space mode for FBO, with adjusted waterline
-        WaterSystem waterSystem = WaterSystem.getInstance();
+        WaterSystem waterSystem = GameServices.water();
         int featureZone = getFeatureZoneId();
         int featureAct = getFeatureActId();
         boolean hasWater = waterSystem.hasWater(featureZone, featureAct);
@@ -1722,7 +1736,7 @@ public class LevelManager {
      * sprites/objects visible while the level tiles remain hidden.
      */
     public void renderSpriteObjectPass(SpriteManager spriteManager, boolean includeWaterSurface) {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
 
         // Render ALL sprites in unified bucket order (7→0)
         // Sprite-to-sprite ordering is by bucket number regardless of isHighPriority
@@ -1839,7 +1853,7 @@ public class LevelManager {
             return;
         }
 
-        WaterSystem waterSystem = WaterSystem.getInstance();
+        WaterSystem waterSystem = GameServices.water();
         int featureZone = getFeatureZoneId();
         int featureAct = getFeatureActId();
         boolean hasWater = waterSystem.hasWater(featureZone, featureAct);
@@ -2694,7 +2708,7 @@ public class LevelManager {
         if (ctx.hasWaterState()) {
             int featureZone = getFeatureZoneId();
             int featureAct = getFeatureActId();
-            WaterSystem waterSystem = WaterSystem.getInstance();
+            WaterSystem waterSystem = GameServices.water();
             if (waterSystem.hasWater(featureZone, featureAct)) {
                 waterSystem.setWaterLevelDirect(featureZone, featureAct, ctx.getCheckpointWaterLevel());
                 waterSystem.setWaterLevelTarget(featureZone, featureAct, ctx.getCheckpointWaterLevel());
@@ -2808,7 +2822,7 @@ public class LevelManager {
         if (!(player instanceof AbstractPlayableSprite playable)) {
             return;
         }
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         camera.setFrozen(false);
         camera.setFocusedSprite(playable);
         camera.updatePosition(true);
@@ -2856,7 +2870,7 @@ public class LevelManager {
             sidekick.setHighPriority(false);
             sidekick.setDirection(Direction.RIGHT);
             if (sidekick.getCpuController() != null) {
-                Camera camera = Camera.getInstance();
+                Camera camera = GameServices.camera();
                 sidekick.getCpuController().setLevelBounds(
                         (int) camera.getMinX(),
                         (int) camera.getMaxX(),
@@ -3034,7 +3048,7 @@ public class LevelManager {
 
         // Use fresh Camera singleton (the cached field can go stale after
         // Camera.resetInstance() in test teardown or level reload)
-        Camera cam = Camera.getInstance();
+        Camera cam = GameServices.camera();
 
         // Suppress music reload if requested (ROM: music continues through transition)
         if (request.preserveMusic()) {
@@ -3172,7 +3186,7 @@ public class LevelManager {
                 gameModule.getPlaneSwitcherObjectId(),
                 gameModule.getPlaneSwitcherConfig(),
                 touchResponseTable);
-        CollisionSystem.getInstance().setObjectManager(objectManager);
+        GameServices.collision().setObjectManager(objectManager);
         objectManager.reset(cameraX);
 
         // Rebuild RingManager with the new act's ring spawns

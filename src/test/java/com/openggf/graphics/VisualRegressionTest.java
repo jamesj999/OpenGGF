@@ -8,6 +8,7 @@ import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.opengl.GL;
 import com.openggf.Engine;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
@@ -150,10 +151,10 @@ public class VisualRegressionTest {
             SonicConfigurationService configService = SonicConfigurationService.getInstance();
             String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
             AbstractPlayableSprite mainSprite = new Sonic(mainCode, (short) 100, (short) 624);
-            SpriteManager.getInstance().addSprite(mainSprite);
+            GameServices.sprites().addSprite(mainSprite);
 
             // Set up camera to follow player
-            Camera camera = Camera.getInstance();
+            Camera camera = GameServices.camera();
             camera.setFocusedSprite(mainSprite);
             camera.updatePosition(true);
 
@@ -279,10 +280,10 @@ public class VisualRegressionTest {
      * Render a screenshot of the level at the specified player position.
      */
     private BufferedImage renderScreenshot(int zone, int act, int playerX, int playerY) throws IOException {
-        LevelManager levelManager = LevelManager.getInstance();
-        Camera camera = Camera.getInstance();
+        LevelManager levelManager = GameServices.level();
+        Camera camera = GameServices.camera();
         GraphicsManager graphicsManager = GraphicsManager.getInstance();
-        SpriteManager spriteManager = SpriteManager.getInstance();
+        SpriteManager spriteManager = GameServices.sprites();
 
         // Clear all sprites to avoid state pollution from other tests
         // (other tests may leave mock sprites with empty sensor arrays)
@@ -290,7 +291,7 @@ public class VisualRegressionTest {
 
         // Reset parallax state to ensure deterministic rendering
         // (forces HTZ cloudCounter to reset, etc.)
-        ParallaxManager.getInstance().resetZoneState();
+        GameServices.parallax().resetZoneState();
 
         // Create a fresh player sprite
         SonicConfigurationService configService = SonicConfigurationService.getInstance();
@@ -319,14 +320,14 @@ public class VisualRegressionTest {
 
         // Update sprite animation to set correct mapping frame
         // (default frame 0 is intentionally empty; WAIT animation starts at frame 15)
-        SpriteManager.getInstance().updateWithoutInput();
+        GameServices.sprites().updateWithoutInput();
 
         // Clear screen with level's background color
         levelManager.setClearColor();
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // Render level with sprites
-        levelManager.drawWithSpritePriority(SpriteManager.getInstance());
+        levelManager.drawWithSpritePriority(GameServices.sprites());
 
         // Flush all queued commands
         graphicsManager.flush();

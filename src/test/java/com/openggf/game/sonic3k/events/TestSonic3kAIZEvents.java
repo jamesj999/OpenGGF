@@ -1,6 +1,7 @@
 package com.openggf.game.sonic3k.events;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.Sonic3kLoadBootstrap;
 import com.openggf.level.LevelManager;
 import com.openggf.level.SeamlessLevelTransitionRequest;
@@ -15,7 +16,7 @@ public class TestSonic3kAIZEvents {
 
     @Test
     public void initWithIntroSkipDoesNotSpawnIntroObject() {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         var events = new Sonic3kAIZEvents(
                 new Sonic3kLoadBootstrap(Sonic3kLoadBootstrap.Mode.SKIP_INTRO, null));
         events.init(0);
@@ -24,7 +25,7 @@ public class TestSonic3kAIZEvents {
 
     @Test
     public void initForAct1WithNormalBootstrapRequestsIntro() {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         var events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
         // When bootstrap is NORMAL and act is 0, intro should be requested
         assertTrue(events.shouldSpawnIntro(0));
@@ -32,14 +33,14 @@ public class TestSonic3kAIZEvents {
 
     @Test
     public void initForAct2DoesNotRequestIntro() {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         var events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
         assertFalse(events.shouldSpawnIntro(1));
     }
 
     @Test
     public void fireCurtainStateIsInactiveOutsideTransition() {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         var events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
         events.init(0);
 
@@ -50,8 +51,8 @@ public class TestSonic3kAIZEvents {
 
     @Test
     public void eventsFg5StartsFireTransitionAndRequestsSeamlessFlow() {
-        LevelManager.getInstance().resetState();
-        Camera camera = Camera.getInstance();
+        GameServices.level().resetState();
+        Camera camera = GameServices.camera();
         camera.setX((short) 0x2F10);
         camera.setY((short) 0x0200);
 
@@ -68,7 +69,7 @@ public class TestSonic3kAIZEvents {
         }
 
         assertTrue(events.isAct2TransitionRequested());
-        SeamlessLevelTransitionRequest request = LevelManager.getInstance().consumeSeamlessTransitionRequest();
+        SeamlessLevelTransitionRequest request = GameServices.level().consumeSeamlessTransitionRequest();
         assertNotNull(request);
         assertEquals(SeamlessLevelTransitionRequest.TransitionType.RELOAD_TARGET_LEVEL, request.type());
         assertEquals(0, request.targetZone());
@@ -81,10 +82,10 @@ public class TestSonic3kAIZEvents {
 
     @Test
     public void fireTransitionAppliesMutationBeforeActReload() {
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         levelManager.resetState();
 
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         camera.setX((short) 0x2F10);
         camera.setY((short) 0x0200);
 
@@ -107,10 +108,10 @@ public class TestSonic3kAIZEvents {
 
     @Test
     public void postFireHazeOnlyEnablesAfterBurnHandoff() {
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         levelManager.resetState();
 
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         camera.setX((short) 0x2F10);
         camera.setY((short) 0x0200);
 
@@ -141,10 +142,10 @@ public class TestSonic3kAIZEvents {
 
     @Test
     public void fireCurtainRenderStateCarriesAcrossSeamlessReload() {
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         levelManager.resetState();
 
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         camera.setX((short) 0x2F10);
         camera.setY((short) 0x0200);
 
@@ -178,10 +179,10 @@ public class TestSonic3kAIZEvents {
 
     @Test
     public void fireCurtainIsFullScreenWhenFireMutationStarts() {
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         levelManager.resetState();
 
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         camera.setX((short) 0x2F10);
         camera.setY((short) 0x0200);
 
@@ -204,8 +205,8 @@ public class TestSonic3kAIZEvents {
 
     @Test
     public void fireCurtainCoverHeightIsMonotonicDuringRise() {
-        LevelManager.getInstance().resetState();
-        Camera camera = Camera.getInstance();
+        GameServices.level().resetState();
+        Camera camera = GameServices.camera();
         camera.setX((short) 0x2F10);
         camera.setY((short) 0x0200);
 
@@ -228,8 +229,8 @@ public class TestSonic3kAIZEvents {
 
     @Test
     public void fireCurtainStartsImmediatelyAndReachesFullCoverByMutation() {
-        LevelManager.getInstance().resetState();
-        Camera camera = Camera.getInstance();
+        GameServices.level().resetState();
+        Camera camera = GameServices.camera();
         camera.setX((short) 0x2F10);
         camera.setY((short) 0x0200);
 
@@ -268,8 +269,8 @@ public class TestSonic3kAIZEvents {
 
     @Test
     public void fireCurtainStateExposesDeterministicTwentyColumnWaveData() {
-        LevelManager.getInstance().resetState();
-        Camera camera = Camera.getInstance();
+        GameServices.level().resetState();
+        Camera camera = GameServices.camera();
         camera.setX((short) 0x2F10);
         camera.setY((short) 0x0200);
 
@@ -295,8 +296,8 @@ public class TestSonic3kAIZEvents {
 
     @Test
     public void fireCurtainHandoffAccessorIsPureWithinTheSameFrame() {
-        LevelManager.getInstance().resetState();
-        Camera camera = Camera.getInstance();
+        GameServices.level().resetState();
+        Camera camera = GameServices.camera();
         camera.setX((short) 0x2F10);
         camera.setY((short) 0x0200);
 
@@ -321,8 +322,8 @@ public class TestSonic3kAIZEvents {
 
     @Test
     public void act2ContinuationKeepsCurtainUntilWaitFireFinishes() {
-        LevelManager.getInstance().resetState();
-        Camera camera = Camera.getInstance();
+        GameServices.level().resetState();
+        Camera camera = GameServices.camera();
         camera.setX((short) 0x2F10);
         camera.setY((short) 0x0200);
 

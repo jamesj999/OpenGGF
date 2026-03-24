@@ -198,7 +198,7 @@ public class AizGiantRideVineObjectInstance extends AbstractObjectInstance {
 
     private AbstractPlayableSprite resolveMainPlayer() {
         var sprite = services().spriteManager().getSprite(
-                SonicConfigurationService.getInstance()
+                config()
                         .getString(SonicConfiguration.MAIN_CHARACTER_CODE));
         return sprite instanceof AbstractPlayableSprite playable ? playable : null;
     }

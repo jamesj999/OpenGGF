@@ -47,6 +47,13 @@ class TestObjectServicesConstructionContext {
         @Override public boolean areAllRingsCollected() { return false; }
         @Override public void updatePalette(int idx, byte[] data) {}
         @Override public com.openggf.level.rings.RingManager ringManager() { return null; }
+        @Override public void advanceZoneActOnly() {}
+        @Override public void requestSpecialStageFromCheckpoint() {}
+        @Override public void requestZoneAndAct(int zone, int act) {}
+        @Override public void requestZoneAndAct(int zone, int act, boolean deactivateLevelNow) {}
+        @Override public int getCurrentLevelMusicId() { return 0; }
+        @Override public int[] findPatternOffset(int refX, int refY, int minTileIdx, int maxTileIdx, int searchRadius) { return null; }
+        @Override public void saveBigRingReturnPosition(int playerX, int playerY, int cameraX, int cameraY) {}
     };
 
     /** Test object that calls services() in its constructor. */

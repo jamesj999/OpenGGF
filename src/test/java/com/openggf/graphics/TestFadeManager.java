@@ -1,5 +1,6 @@
 package com.openggf.graphics;
 
+import com.openggf.game.GameServices;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -15,8 +16,8 @@ public class TestFadeManager {
 
     @Test
     public void testFadeToWhiteCompletes() {
-        FadeManager.getInstance().resetState();
-        FadeManager fadeManager = FadeManager.getInstance();
+        GameServices.fade().resetState();
+        FadeManager fadeManager = GameServices.fade();
 
         fadeManager.startFadeToWhite(null);
         for (int i = 0; i < FADE_DURATION_FRAMES; i++) {
@@ -31,8 +32,8 @@ public class TestFadeManager {
 
     @Test
     public void testFadeToBlackWithHoldCompletes() {
-        FadeManager.getInstance().resetState();
-        FadeManager fadeManager = FadeManager.getInstance();
+        GameServices.fade().resetState();
+        FadeManager fadeManager = GameServices.fade();
 
         fadeManager.startFadeToBlack(null, 5);
         for (int i = 0; i < FADE_DURATION_FRAMES; i++) {

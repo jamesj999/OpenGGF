@@ -1,5 +1,4 @@
 package com.openggf.game.sonic2.objects;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.ExplosionObjectInstance;
 
@@ -539,7 +538,7 @@ public class EggPrisonObjectInstance extends AbstractObjectInstance
         int elapsedSeconds = levelGamestate != null ? levelGamestate.getElapsedSeconds() : 0;
         int ringCount = lastPlayer != null ? lastPlayer.getRingCount() : 0;
         int actNumber = services().currentAct() + 1;
-        boolean allRingsCollected = GameServices.level().areAllRingsCollected();
+        boolean allRingsCollected = services().areAllRingsCollected();
 
         ResultsScreenObjectInstance resultsScreen = new ResultsScreenObjectInstance(
                 elapsedSeconds, ringCount, actNumber, allRingsCollected);

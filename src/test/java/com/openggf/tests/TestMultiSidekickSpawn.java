@@ -6,6 +6,7 @@ import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.level.LevelManager;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -70,7 +71,7 @@ public class TestMultiSidekickSpawn {
         sidekicks[1] = new Sonic("sonic_p3", (short) 36, (short) 655);
         sidekicks[2] = new Sonic("sonic_p4", (short) 16, (short) 655);
 
-        SpriteManager sm = SpriteManager.getInstance();
+        SpriteManager sm = GameServices.sprites();
         for (int i = 0; i < 3; i++) {
             sidekicks[i].setCpuControlled(true);
 
@@ -88,7 +89,7 @@ public class TestMultiSidekickSpawn {
 
     @Test
     public void testMultiSidekickSpawn() {
-        List<AbstractPlayableSprite> registered = SpriteManager.getInstance().getSidekicks();
+        List<AbstractPlayableSprite> registered = GameServices.sprites().getSidekicks();
         assertEquals("Should have 3 sidekicks registered", 3, registered.size());
 
         // Verify chain leader assignment

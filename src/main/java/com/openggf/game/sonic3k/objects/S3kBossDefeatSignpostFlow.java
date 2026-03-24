@@ -113,7 +113,7 @@ public class S3kBossDefeatSignpostFlow extends AbstractObjectInstance {
     private void updateSpawnSignpost() {
         // Clear boss flag and boss ID so level events resume normal behavior
         try {
-            Sonic3kAIZEvents events = Sonic3kLevelEventManager.getInstance().getAizEvents();
+            Sonic3kAIZEvents events = ((Sonic3kLevelEventManager) services().levelEventProvider()).getAizEvents();
             if (events != null) {
                 events.setBossFlag(false);
             }

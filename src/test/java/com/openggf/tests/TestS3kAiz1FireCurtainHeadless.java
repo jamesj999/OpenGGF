@@ -1,6 +1,7 @@
 package com.openggf.tests;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
@@ -83,7 +84,7 @@ public class TestS3kAiz1FireCurtainHeadless {
                 .build();
         sprite = (Sonic) fixture.sprite();
         AizHollowTreeObjectInstance.resetTreeRevealCounter();
-        LevelManager.getInstance().getObjectManager().reset(0);
+        GameServices.level().getObjectManager().reset(0);
     }
 
     // ---- Helpers ----
@@ -146,7 +147,7 @@ public class TestS3kAiz1FireCurtainHeadless {
         teleportToMinibossArea();
         fixture.stepIdleFrames(1);
 
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         // Sample the BG sky area: x=0x1000..0x1140, y=0x20..0xE0.
         // The fire tiles live at Y >= 0x100; this range is the empty sky above.
         int emptyCount = 0;
@@ -173,7 +174,7 @@ public class TestS3kAiz1FireCurtainHeadless {
         teleportToMinibossArea();
         fixture.stepIdleFrames(1);
 
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         // The full-screen capture in the diagnostic showed non-empty tiles at lower Y.
         // The BG has actual fire/terrain tiles below the sky area.
         int nonEmptyCount = 0;
@@ -310,7 +311,7 @@ public class TestS3kAiz1FireCurtainHeadless {
 
         // After beginFireTransition(), palette line 4 (index 3) colors 1-6
         // should have fire transition words: 0x004E, 0x006E, 0x00AE, 0x00CE, 0x02EE, 0x0AEE
-        Palette pal3 = LevelManager.getInstance().getCurrentLevel().getPalette(3);
+        Palette pal3 = GameServices.level().getCurrentLevel().getPalette(3);
         assertNotNull("Palette line 4 (index 3) should exist", pal3);
 
         // Convert expected fire words to RGB for comparison
@@ -349,7 +350,7 @@ public class TestS3kAiz1FireCurtainHeadless {
         // After mutation, PalPointers #$0B should have been loaded, overwriting
         // ALL 16 colors of palette line 4 (index 3) with fire values.
         // Colors 7-15 should no longer have green AIZ1 values.
-        Palette pal3 = LevelManager.getInstance().getCurrentLevel().getPalette(3);
+        Palette pal3 = GameServices.level().getCurrentLevel().getPalette(3);
         assertNotNull("Palette line 4 should exist after mutation", pal3);
 
         // Check that colors 7-15 are NOT the typical green AIZ1 waterfall colors.
@@ -430,7 +431,7 @@ public class TestS3kAiz1FireCurtainHeadless {
         int tileCount = state.fireOverlayTileCount();
         assertTrue("Fire overlay tiles should be loaded", tileCount > 0);
 
-        com.openggf.level.Level level = LevelManager.getInstance().getCurrentLevel();
+        com.openggf.level.Level level = GameServices.level().getCurrentLevel();
         int patternCount = level.getPatternCount();
         int patternsChecked = 0;
         int patternsWithContent = 0;
@@ -517,7 +518,7 @@ public class TestS3kAiz1FireCurtainHeadless {
         events.setEventsFg5(true);
         fixture.stepIdleFrames(1);
 
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         // With VDP mapping: screen bottom (drawY=216) maps to sourceY = bgY + 216.
         // Fire tiles exist at BG Y >= 0x100. So fire appears when bgY + 216 >= 0x100,
         // i.e., bgY >= 0x100 - 216 ≈ 0x28. Since bgY starts at 0x20 and increases,

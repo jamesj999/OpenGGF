@@ -9,6 +9,7 @@ import org.junit.ClassRule;
 import org.junit.Test;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.game.GameServices;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectManager;
@@ -90,12 +91,12 @@ public class TestAizIntroEmeraldCollection {
                 .startPosition(START_X, START_Y)
                 .build();
         // Reset object manager so intro cutscene objects spawn fresh per test.
-        LevelManager.getInstance().getObjectManager().reset(0);
+        GameServices.level().getObjectManager().reset(0);
     }
 
     @Test
     public void allEmeraldsCollectedBeforeKnucklesExit() {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = GameServices.level().getObjectManager();
 
         // Phase 1: Run until emeralds are spawned.
         boolean emeraldsSpawned = false;

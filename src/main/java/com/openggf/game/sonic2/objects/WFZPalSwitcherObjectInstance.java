@@ -279,8 +279,7 @@ public class WFZPalSwitcherObjectInstance extends BoxObjectInstance {
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
         // Only render in debug mode (invisible in normal gameplay)
-        if (!SonicConfigurationService.getInstance()
-                .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED)) {
+        if (!config().getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED)) {
             return;
         }
 

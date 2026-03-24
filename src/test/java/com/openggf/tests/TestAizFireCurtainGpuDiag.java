@@ -2,6 +2,7 @@ package com.openggf.tests;
 
 import com.openggf.Engine;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
@@ -87,8 +88,8 @@ public class TestAizFireCurtainGpuDiag {
             // reinitialize shaders or the tilemap renderer; this GPU test needs a completely fresh
             // GraphicsManager to ensure fire tiles are rendered correctly.
             GraphicsManager.resetInstance(); // intentional: full GL teardown needed, not resetState()
-            Camera.getInstance().resetState();
-            SpriteManager.getInstance().resetState();
+            GameServices.camera().resetState();
+            GameServices.sprites().resetState();
 
             GraphicsManager gm = GraphicsManager.getInstance();
             gm.init(Engine.RESOURCES_SHADERS_PIXEL_SHADER_GLSL);
@@ -124,13 +125,13 @@ public class TestAizFireCurtainGpuDiag {
             // Create player and load AIZ1
             String mainCode = config.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
             AbstractPlayableSprite player = new Sonic(mainCode, (short) 12002, (short) 872);
-            SpriteManager.getInstance().addSprite(player);
-            Camera camera = Camera.getInstance();
+            GameServices.sprites().addSprite(player);
+            Camera camera = GameServices.camera();
             camera.setFocusedSprite(player);
             camera.setFrozen(false);
             camera.updatePosition(true);
 
-            LevelManager lm = LevelManager.getInstance();
+            LevelManager lm = GameServices.level();
             lm.loadZoneAndAct(0, 0); // AIZ act 1
 
             // Position near miniboss area
@@ -156,7 +157,7 @@ public class TestAizFireCurtainGpuDiag {
         }
         glfwTerminate();
         GraphicsManager.getInstance().resetState();
-        Camera.getInstance().resetState();
+        GameServices.camera().resetState();
     }
 
     @Test
@@ -164,9 +165,9 @@ public class TestAizFireCurtainGpuDiag {
         assumeTrue("GPU init failed or ROM not available", initialized);
         Files.createDirectories(OUT_DIR);
 
-        LevelManager lm = LevelManager.getInstance();
-        Camera camera = Camera.getInstance();
-        SpriteManager sm = SpriteManager.getInstance();
+        LevelManager lm = GameServices.level();
+        Camera camera = GameServices.camera();
+        SpriteManager sm = GameServices.sprites();
         AbstractPlayableSprite player = camera.getFocusedSprite();
 
         // Trigger fire transition
@@ -196,7 +197,7 @@ public class TestAizFireCurtainGpuDiag {
             lem.update();
 
             // Update parallax/scroll
-            ParallaxManager pm = ParallaxManager.getInstance();
+            ParallaxManager pm = GameServices.parallax();
             if (pm != null) {
                 pm.update(0, 0, camera, frame, 0);
             }
@@ -206,7 +207,7 @@ public class TestAizFireCurtainGpuDiag {
                 FireCurtainRenderState state = events.getFireCurtainRenderState(H);
 
                 // Diagnostic: check what the parallax manager actually has
-                ParallaxManager pmDiag = ParallaxManager.getInstance();
+                ParallaxManager pmDiag = GameServices.parallax();
                 short bgVScroll = pmDiag != null ? pmDiag.getVscrollFactorBG() : -1;
                 int bgCamX = pmDiag != null ? pmDiag.getBgCameraX() : -1;
                 System.out.println("  [DIAG] pm.vscrollFactorBG=" + bgVScroll

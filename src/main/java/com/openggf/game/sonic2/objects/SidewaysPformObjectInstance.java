@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.sonic2.S2SpriteDataLoader;
@@ -218,12 +217,8 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
             return;
         }
         mczMappingsLoadAttempted = true;
-        if (GameServices.level() == null || GameServices.level().getGame() == null) {
-            return;
-        }
-
         try {
-            RomByteReader reader = RomByteReader.fromRom(GameServices.level().getGame().getRom());
+            RomByteReader reader = RomByteReader.fromRom(staticRomManager().getRom());
             mczMappings = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ15_MCZ_ADDR);
             LOGGER.fine("Loaded " + mczMappings.size() + " MCZ SidewaysPform mapping frames");
         } catch (IOException | RuntimeException e) {

@@ -1,6 +1,7 @@
 package com.openggf.timer.timers;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.timer.AbstractTimer;
 
 /**
@@ -17,7 +18,7 @@ public class SpindashCameraTimer extends AbstractTimer {
     }
 
     public boolean perform() {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         if (camera != null) {
             // Clear full freeze (if any)
             camera.setFrozen(false);

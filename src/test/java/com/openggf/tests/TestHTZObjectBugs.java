@@ -5,6 +5,7 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.graphics.GraphicsManager;
@@ -80,20 +81,20 @@ public class TestHTZObjectBugs {
         sprite = new Sonic(mainCode, (short) 0, (short) 0);
 
         // Add sprite to SpriteManager
-        SpriteManager.getInstance().addSprite(sprite);
+        GameServices.sprites().addSprite(sprite);
 
         // Set camera focus - must be done BEFORE level load
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         camera.setFocusedSprite(sprite);
         // Reset camera to ensure clean state (frozen may be left over from death in other tests)
         camera.setFrozen(false);
 
         // Load HTZ Act 1 (zone index 4, act index 0)
-        LevelManager.getInstance().loadZoneAndAct(ZONE_HTZ, ACT_1);
+        GameServices.level().loadZoneAndAct(ZONE_HTZ, ACT_1);
 
         // Ensure GroundSensor uses the current LevelManager instance
         // (static field may be stale from earlier tests)
-        GroundSensor.setLevelManager(LevelManager.getInstance());
+        GroundSensor.setLevelManager(GameServices.level());
 
         // Fix camera position - loadZoneAndAct sets bounds AFTER updatePosition,
         // so the camera may have been clamped incorrectly. Force update again now
@@ -102,7 +103,7 @@ public class TestHTZObjectBugs {
 
         // Reset the object manager's spawn window to the new camera position
         // so objects near our test position are spawned
-        LevelManager.getInstance().getObjectManager().reset(camera.getX());
+        GameServices.level().getObjectManager().reset(camera.getX());
 
         // Create the headless test runner
         testRunner = new HeadlessTestRunner(sprite);
@@ -126,14 +127,14 @@ public class TestHTZObjectBugs {
     @Test
     public void testRisingPillarSonicCanClearFromTop() throws Exception {
         // Rising pillars are in ARZ (zone 2), reload level
-        LevelManager.getInstance().loadZoneAndAct(ZONE_ARZ, ACT_1);
-        GroundSensor.setLevelManager(LevelManager.getInstance());
-        Camera.getInstance().updatePosition(true);
-        LevelManager.getInstance().getObjectManager().reset(Camera.getInstance().getX());
+        GameServices.level().loadZoneAndAct(ZONE_ARZ, ACT_1);
+        GroundSensor.setLevelManager(GameServices.level());
+        GameServices.camera().updatePosition(true);
+        GameServices.level().getObjectManager().reset(GameServices.camera().getX());
 
         logState("ARZ loaded");
 
-        ObjectManager objMgr = LevelManager.getInstance().getObjectManager();
+        ObjectManager objMgr = GameServices.level().getObjectManager();
         ObjectInstance pillarObj = null;
 
         // Walk right through ARZ1 looking for a rising pillar (0x2B)
@@ -170,8 +171,8 @@ public class TestHTZObjectBugs {
         sprite.setGSpeed((short) 0);
         sprite.setXSpeed((short) 0);
         sprite.setYSpeed((short) 0);
-        Camera.getInstance().updatePosition(true);
-        objMgr.reset(Camera.getInstance().getX());
+        GameServices.camera().updatePosition(true);
+        objMgr.reset(GameServices.camera().getX());
 
         // Wait 30 frames for pillar to fully extend (3-frame delay + 6 rise steps)
         for (int i = 0; i < 30; i++) {
@@ -194,7 +195,7 @@ public class TestHTZObjectBugs {
         sprite.setGSpeed((short) 0);
         sprite.setXSpeed((short) 0);
         sprite.setYSpeed((short) 0);
-        Camera.getInstance().updatePosition(true);
+        GameServices.camera().updatePosition(true);
 
         // Jump and HOLD the button during ascent to get full jump height.
         // A single-frame press triggers short-jump cap (-0x400), giving only ~39px.
@@ -237,19 +238,19 @@ public class TestHTZObjectBugs {
     @Test
     public void testSpringboardHighSpeedLaunch() throws Exception {
         // Springboards (0x40) exist in CPZ, ARZ, MCZ — not HTZ. Load ARZ Act 1.
-        LevelManager.getInstance().loadZoneAndAct(ZONE_ARZ, ACT_1);
-        GroundSensor.setLevelManager(LevelManager.getInstance());
-        Camera.getInstance().updatePosition(true);
+        GameServices.level().loadZoneAndAct(ZONE_ARZ, ACT_1);
+        GroundSensor.setLevelManager(GameServices.level());
+        GameServices.camera().updatePosition(true);
 
-        ObjectManager objMgr = LevelManager.getInstance().getObjectManager();
+        ObjectManager objMgr = GameServices.level().getObjectManager();
         ObjectInstance springboardObj = null;
 
         // Scan the level for a springboard by teleporting in 256px increments
         for (int scanX = 0; scanX < 10240; scanX += 256) {
             sprite.setX((short) scanX);
             sprite.setY((short) 512);
-            Camera.getInstance().updatePosition(true);
-            objMgr.reset(Camera.getInstance().getX());
+            GameServices.camera().updatePosition(true);
+            objMgr.reset(GameServices.camera().getX());
             testRunner.stepIdleFrames(2);
 
             for (ObjectInstance obj : objMgr.getActiveObjects()) {
@@ -277,8 +278,8 @@ public class TestHTZObjectBugs {
         sprite.setXSpeed((short) 0);
         sprite.setYSpeed((short) 0);
         sprite.setRolling(false);
-        Camera.getInstance().updatePosition(true);
-        objMgr.reset(Camera.getInstance().getX());
+        GameServices.camera().updatePosition(true);
+        objMgr.reset(GameServices.camera().getX());
 
         // Let Sonic fall onto terrain (up to 30 frames)
         for (int i = 0; i < 30; i++) {
@@ -327,7 +328,7 @@ public class TestHTZObjectBugs {
      */
     @Test
     public void testSeesawBallNoDuplicateOnReentry() {
-        ObjectManager objMgr = LevelManager.getInstance().getObjectManager();
+        ObjectManager objMgr = GameServices.level().getObjectManager();
 
         // First HTZ1 seesaw is at (1920, 1000). Teleport near it.
         int seesawX = 1920;
@@ -339,8 +340,8 @@ public class TestHTZObjectBugs {
         sprite.setGSpeed((short) 0);
         sprite.setXSpeed((short) 0);
         sprite.setYSpeed((short) 0);
-        Camera.getInstance().updatePosition(true);
-        objMgr.reset(Camera.getInstance().getX());
+        GameServices.camera().updatePosition(true);
+        objMgr.reset(GameServices.camera().getX());
 
         // Step frames to spawn the seesaw and its ball
         testRunner.stepIdleFrames(10);
@@ -365,8 +366,8 @@ public class TestHTZObjectBugs {
         sprite.setGSpeed((short) 0);
         sprite.setXSpeed((short) 0);
         sprite.setYSpeed((short) 0);
-        Camera.getInstance().updatePosition(true);
-        objMgr.reset(Camera.getInstance().getX());
+        GameServices.camera().updatePosition(true);
+        objMgr.reset(GameServices.camera().getX());
 
         // Step frames so the seesaw spawns its ball
         testRunner.stepIdleFrames(10);
@@ -383,8 +384,8 @@ public class TestHTZObjectBugs {
         sprite.setGSpeed((short) 0);
         sprite.setXSpeed((short) 0);
         sprite.setYSpeed((short) 0);
-        Camera.getInstance().updatePosition(true);
-        objMgr.reset(Camera.getInstance().getX());
+        GameServices.camera().updatePosition(true);
+        objMgr.reset(GameServices.camera().getX());
 
         // Step frames for despawn processing
         testRunner.stepIdleFrames(60);
@@ -398,8 +399,8 @@ public class TestHTZObjectBugs {
         sprite.setGSpeed((short) 0);
         sprite.setXSpeed((short) 0);
         sprite.setYSpeed((short) 0);
-        Camera.getInstance().updatePosition(true);
-        objMgr.reset(Camera.getInstance().getX());
+        GameServices.camera().updatePosition(true);
+        objMgr.reset(GameServices.camera().getX());
 
         // Step frames for respawn processing
         testRunner.stepIdleFrames(60);
@@ -433,7 +434,7 @@ public class TestHTZObjectBugs {
      */
     @Test
     public void testDiagonalSpringActivatesFromGround() {
-        ObjectManager objMgr = LevelManager.getInstance().getObjectManager();
+        ObjectManager objMgr = GameServices.level().getObjectManager();
 
         // First diagonal spring in HTZ1 is at (1744, 752) subtype 0x30.
         // Teleport Sonic near it so the object spawns.
@@ -446,8 +447,8 @@ public class TestHTZObjectBugs {
         sprite.setGSpeed((short) 0);
         sprite.setXSpeed((short) 0);
         sprite.setYSpeed((short) 0);
-        Camera.getInstance().updatePosition(true);
-        objMgr.reset(Camera.getInstance().getX());
+        GameServices.camera().updatePosition(true);
+        objMgr.reset(GameServices.camera().getX());
 
         // Step a few frames to let the spring spawn
         testRunner.stepIdleFrames(5);
@@ -480,8 +481,8 @@ public class TestHTZObjectBugs {
         sprite.setGSpeed((short) 0);
         sprite.setXSpeed((short) 0);
         sprite.setYSpeed((short) 0);
-        Camera.getInstance().updatePosition(true);
-        objMgr.reset(Camera.getInstance().getX());
+        GameServices.camera().updatePosition(true);
+        objMgr.reset(GameServices.camera().getX());
 
         logState("Positioned on diagonal spring");
 
@@ -526,8 +527,8 @@ public class TestHTZObjectBugs {
         sprite.setGSpeed((short) 0);
         sprite.setXSpeed((short) 0);
         sprite.setYSpeed((short) 0);
-        Camera.getInstance().updatePosition(true);
-        LevelManager.getInstance().getObjectManager().reset(Camera.getInstance().getX());
+        GameServices.camera().updatePosition(true);
+        GameServices.level().getObjectManager().reset(GameServices.camera().getX());
 
         logState("Positioned at (3456, 793)");
 
@@ -581,10 +582,10 @@ public class TestHTZObjectBugs {
     @Test
     public void testLandingOnCornerDoesNotBounce() throws Exception {
         // Use EHZ for simpler terrain
-        LevelManager.getInstance().loadZoneAndAct(ZONE_EHZ, ACT_1);
-        GroundSensor.setLevelManager(LevelManager.getInstance());
-        Camera.getInstance().updatePosition(true);
-        LevelManager.getInstance().getObjectManager().reset(Camera.getInstance().getX());
+        GameServices.level().loadZoneAndAct(ZONE_EHZ, ACT_1);
+        GroundSensor.setLevelManager(GameServices.level());
+        GameServices.camera().updatePosition(true);
+        GameServices.level().getObjectManager().reset(GameServices.camera().getX());
 
         logState("EHZ loaded");
 
@@ -621,7 +622,7 @@ public class TestHTZObjectBugs {
         sprite.setXSpeed((short) 0x200);  // Moving right
         sprite.setYSpeed((short) 0x200);  // Falling down
         sprite.setGSpeed((short) 0);
-        Camera.getInstance().updatePosition(true);
+        GameServices.camera().updatePosition(true);
 
         logState("Dropped from (" + testX + ", " + testY + ") with diagonal velocity");
 

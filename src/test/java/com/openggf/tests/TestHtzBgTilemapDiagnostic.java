@@ -1,6 +1,7 @@
 package com.openggf.tests;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.graphics.GraphicsManager;
@@ -62,13 +63,13 @@ public class TestHtzBgTilemapDiagnostic {
         SonicConfigurationService configService = SonicConfigurationService.getInstance();
         String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         Sonic sprite = new Sonic(mainCode, (short) 0x1800, (short) 0x450);
-        SpriteManager.getInstance().addSprite(sprite);
+        GameServices.sprites().addSprite(sprite);
 
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         camera.setFocusedSprite(sprite);
         camera.setFrozen(false);
 
-        levelManager = LevelManager.getInstance();
+        levelManager = GameServices.level();
         levelManager.loadZoneAndAct(HTZ_ZONE, HTZ_ACT);
         GroundSensor.setLevelManager(levelManager);
         camera.updatePosition(true);
@@ -482,8 +483,8 @@ public class TestHtzBgTilemapDiagnostic {
 
         System.out.println("=== HTZ EARTHQUAKE BG DIAGNOSTIC (CURRENT CODE) ===");
         System.out.println("Pattern count: " + level.getPatternCount());
-        System.out.println("Camera: X=" + Camera.getInstance().getX()
-                + " Y=" + Camera.getInstance().getY());
+        System.out.println("Camera: X=" + GameServices.camera().getX()
+                + " Y=" + GameServices.camera().getY());
 
         // Build BG tilemap
         byte[] data = forceBuildBgTilemap();
@@ -589,7 +590,7 @@ public class TestHtzBgTilemapDiagnostic {
         assertNotNull("Level must be loaded", level);
 
         // Get DynamicHtz and htzHandler from Sonic2ScrollHandlerProvider via reflection
-        ParallaxManager pm = ParallaxManager.getInstance();
+        ParallaxManager pm = GameServices.parallax();
         Field providerField = ParallaxManager.class.getDeclaredField("scrollProvider");
         providerField.setAccessible(true);
         Object scrollProvider = providerField.get(pm);

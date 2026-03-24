@@ -5,6 +5,7 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
@@ -57,8 +58,8 @@ public class TestSonic1SbzFinalZoneRouting {
     @After
     public void tearDown() {
         GraphicsManager.getInstance().resetState();
-        Camera.getInstance().resetState();
-        SpriteManager.getInstance().resetState();
+        GameServices.camera().resetState();
+        GameServices.sprites().resetState();
     }
 
     @Test
@@ -119,24 +120,24 @@ public class TestSonic1SbzFinalZoneRouting {
     @Test
     public void testLevelManagerUsesSbz3WaterContextWhenLoadingSbzAct3() throws Exception {
         initializeHeadlessLevelManager();
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         levelManager.loadZoneAndAct(Sonic1ZoneConstants.ZONE_SBZ, 2);
 
         assertEquals("SBZ3 map/art should come from LZ ROM slot", Sonic1Constants.ZONE_LZ, levelManager.getRomZoneId());
         assertEquals(
                 "SBZ3 water should use SBZ3 height from ROM behavior",
                 Sonic1Constants.WATER_HEIGHT_SBZ3,
-                WaterSystem.getInstance().getWaterLevelY(Sonic1Constants.ZONE_SBZ, 2));
+                GameServices.water().getWaterLevelY(Sonic1Constants.ZONE_SBZ, 2));
     }
 
     @Test
     public void testLevelManagerLoadsFinalZoneWithoutUnderwaterState() throws Exception {
         initializeHeadlessLevelManager();
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         levelManager.loadZoneAndAct(Sonic1ZoneConstants.ZONE_FZ, 0);
 
         assertEquals("Final Zone map/art should come from SBZ ROM slot", Sonic1Constants.ZONE_SBZ, levelManager.getRomZoneId());
-        assertFalse("Final Zone must not be treated as water", WaterSystem.getInstance().hasWater(Sonic1Constants.ZONE_SBZ, 0));
+        assertFalse("Final Zone must not be treated as water", GameServices.water().hasWater(Sonic1Constants.ZONE_SBZ, 0));
     }
 
     @Test
@@ -294,13 +295,13 @@ public class TestSonic1SbzFinalZoneRouting {
         String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         Sonic sprite = new Sonic(mainCode, (short) 0x0050, (short) 0x0300);
 
-        SpriteManager spriteManager = SpriteManager.getInstance();
+        SpriteManager spriteManager = GameServices.sprites();
         spriteManager.addSprite(sprite);
 
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         camera.setFocusedSprite(sprite);
         camera.setFrozen(false);
 
-        GroundSensor.setLevelManager(LevelManager.getInstance());
+        GroundSensor.setLevelManager(GameServices.level());
     }
 }

@@ -9,6 +9,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.graphics.GraphicsManager;
@@ -46,7 +47,7 @@ class TestSonic3kLevelLoading {
         config.setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, true);
         mainCharacter = config.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         GraphicsManager.getInstance().initHeadless();
-        levelManager = LevelManager.getInstance();
+        levelManager = GameServices.level();
     }
 
     @AfterEach
@@ -57,8 +58,8 @@ class TestSonic3kLevelLoading {
     @Test
     void playerSpriteArtLoadsSuccessfully() throws Exception {
         Sonic sprite = new Sonic(mainCharacter, (short) 100, (short) 400);
-        SpriteManager.getInstance().addSprite(sprite);
-        Camera camera = Camera.getInstance();
+        GameServices.sprites().addSprite(sprite);
+        Camera camera = GameServices.camera();
         camera.setFocusedSprite(sprite);
         camera.setFrozen(false);
 
@@ -73,8 +74,8 @@ class TestSonic3kLevelLoading {
     @Test
     void aizIntroLayoutDimensionsMatchHeader() throws Exception {
         Sonic sprite = new Sonic(mainCharacter, (short) 100, (short) 400);
-        SpriteManager.getInstance().addSprite(sprite);
-        Camera camera = Camera.getInstance();
+        GameServices.sprites().addSprite(sprite);
+        Camera camera = GameServices.camera();
         camera.setFocusedSprite(sprite);
         camera.setFrozen(false);
 
@@ -96,8 +97,8 @@ class TestSonic3kLevelLoading {
     @Test
     void aizIntroBlockZeroIsNotSanitizedEmpty() throws Exception {
         Sonic sprite = new Sonic(mainCharacter, (short) 100, (short) 400);
-        SpriteManager.getInstance().addSprite(sprite);
-        Camera camera = Camera.getInstance();
+        GameServices.sprites().addSprite(sprite);
+        Camera camera = GameServices.camera();
         camera.setFocusedSprite(sprite);
         camera.setFrozen(false);
 
@@ -117,8 +118,8 @@ class TestSonic3kLevelLoading {
     @Test
     void aizIntroChunkZeroIsValidAndReferenced() throws Exception {
         Sonic sprite = new Sonic(mainCharacter, (short) 100, (short) 400);
-        SpriteManager.getInstance().addSprite(sprite);
-        Camera camera = Camera.getInstance();
+        GameServices.sprites().addSprite(sprite);
+        Camera camera = GameServices.camera();
         camera.setFocusedSprite(sprite);
         camera.setFrozen(false);
 
@@ -195,8 +196,8 @@ class TestSonic3kLevelLoading {
     @MethodSource("zoneActProvider")
     void zoneLoads(int zone, int act, String label) throws Exception {
         Sonic sprite = new Sonic(mainCharacter, (short) 100, (short) 400);
-        SpriteManager.getInstance().addSprite(sprite);
-        Camera camera = Camera.getInstance();
+        GameServices.sprites().addSprite(sprite);
+        Camera camera = GameServices.camera();
         camera.setFocusedSprite(sprite);
         camera.setFrozen(false);
 

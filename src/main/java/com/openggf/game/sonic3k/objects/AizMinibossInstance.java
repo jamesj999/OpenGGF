@@ -246,7 +246,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
 
     private void updateWaitTrigger() {
         var camera = services().camera();
-        PlayerCharacter character = Sonic3kLevelEventManager.getInstance().getPlayerCharacter();
+        PlayerCharacter character = ((Sonic3kLevelEventManager) services().levelEventProvider()).getPlayerCharacter();
         int triggerX = (character == PlayerCharacter.KNUCKLES) ? TRIGGER_X_KNUCKLES : TRIGGER_X;
         if (camera.getX() < triggerX) {
             return;
@@ -300,7 +300,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
 
     private void onBreathCycleComplete() {
         // ROM: loc_68ADE — Knuckles fight triggers napalm after breath cycle
-        PlayerCharacter character = Sonic3kLevelEventManager.getInstance().getPlayerCharacter();
+        PlayerCharacter character = ((Sonic3kLevelEventManager) services().levelEventProvider()).getPlayerCharacter();
         if (character == PlayerCharacter.KNUCKLES) {
             setCustomFlag(FLAG_PARENT_BITS, getCustomFlag(FLAG_PARENT_BITS) | PARENT_BIT_NAPALM_ACTIVATE);
         }
@@ -493,7 +493,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
     }
 
     private Sonic3kAIZEvents getAizEvents() {
-        return Sonic3kLevelEventManager.getInstance().getAizEvents();
+        return ((Sonic3kLevelEventManager) services().levelEventProvider()).getAizEvents();
     }
 
     @Override

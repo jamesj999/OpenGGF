@@ -1,6 +1,7 @@
 package com.openggf.sprites.playable;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.physics.Direction;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
@@ -37,7 +38,7 @@ public class SonicRespawnStrategy implements SidekickRespawnStrategy {
 
     @Override
     public boolean beginApproach(AbstractPlayableSprite sidekick, AbstractPlayableSprite leader) {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         if (camera == null) {
             return false;
         }

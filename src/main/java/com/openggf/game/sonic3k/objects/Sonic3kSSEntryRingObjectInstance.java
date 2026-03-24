@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
@@ -245,7 +244,7 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
         // ROM: Save_Level_Data2 — save player position at ring for return from SS.
         // This is separate from checkpoint state (ROM: Saved_ vs Saved2_).
         var camera = services().camera();
-        GameServices.level().saveBigRingReturnPosition(
+        services().saveBigRingReturnPosition(
                 player.getCentreX(), player.getCentreY(),
                 camera.getX(), camera.getY());
 

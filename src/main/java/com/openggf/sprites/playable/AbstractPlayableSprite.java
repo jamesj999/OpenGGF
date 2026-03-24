@@ -722,19 +722,19 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         public int getRingCount() {
-                var levelState = LevelManager.getInstance().getLevelGamestate();
+                var levelState = GameServices.level().getLevelGamestate();
                 return levelState != null ? levelState.getRings() : 0;
         }
 
         public void setRingCount(int ringCount) {
-                var levelState = LevelManager.getInstance().getLevelGamestate();
+                var levelState = GameServices.level().getLevelGamestate();
                 if (levelState != null) {
                         levelState.setRings(ringCount);
                 }
         }
 
         public void addRings(int delta) {
-                var levelState = LevelManager.getInstance().getLevelGamestate();
+                var levelState = GameServices.level().getLevelGamestate();
                 if (levelState != null) {
                         levelState.addRings(delta);
                 }
@@ -1419,7 +1419,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 drownPreDeathTimer = 120;
                 // Lock camera - prevent following the sinking player
                 if (!cpuControlled) {
-                        Camera.getInstance().setFrozen(true);
+                        GameServices.camera().setFrozen(true);
                 }
                 // ROM order: resume zone music first, then play drown SFX.
                 // playMusic() replaces the SMPS driver, so any SFX queued on the
@@ -1462,7 +1462,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 // Lock camera when dying - prevent following the falling corpse
                 // Only freeze camera for the main player, not for CPU sidekick
                 if (!cpuControlled) {
-                        Camera.getInstance().setFrozen(true);
+                        GameServices.camera().setFrozen(true);
                 }
                 setInvulnerableFrames(0);
                 setInvincibleFrames(0);

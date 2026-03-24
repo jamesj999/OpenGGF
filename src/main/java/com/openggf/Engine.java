@@ -51,10 +51,10 @@ public class Engine {
 	private static final Logger LOGGER = Logger.getLogger(Engine.class.getName());
 	public static final String RESOURCES_SHADERS_PIXEL_SHADER_GLSL = "shaders/shader_the_hedgehog.glsl";
 	private final SonicConfigurationService configService = SonicConfigurationService.getInstance();
-	private final SpriteManager spriteManager = SpriteManager.getInstance();
+	private SpriteManager spriteManager = GameServices.sprites();
 	private final GraphicsManager graphicsManager = GraphicsManager.getInstance();
 
-	private final Camera camera = Camera.getInstance();
+	private Camera camera = GameServices.camera();
 	// Lazy-initialized: DebugRenderer.<clinit> references java.awt.Color which
 	// is unavailable in GraalVM native-image builds.
 	private DebugRenderer debugRenderer;
@@ -79,7 +79,10 @@ public class Engine {
 
 	private boolean debugViewEnabled = configService.getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
 
-	private final LevelManager levelManager = LevelManager.getInstance();
+	private LevelManager levelManager = GameServices.level();
+
+	// The gameplay runtime — set during initializeGame()
+	private com.openggf.game.GameRuntime runtime;
 
 	// Pre-allocated list for results screen rendering
 	private final java.util.List<GLCommand> resultsCommands = new java.util.ArrayList<>(64);
@@ -340,6 +343,14 @@ public class Engine {
 	 * exitMasterTitleScreen() after game selection.
 	 */
 	public void initializeGame() {
+		// Create the gameplay runtime before any manager access.
+		// During this transitional period, createGameplay() wraps existing singletons.
+		runtime = com.openggf.game.RuntimeManager.createGameplay();
+		this.camera = runtime.getCamera();
+		this.spriteManager = runtime.getSpriteManager();
+		this.levelManager = runtime.getLevelManager();
+		gameLoop.setRuntime(runtime);
+
 		// Trigger ROM loading and game module detection early so that
 		// GameModuleRegistry.getCurrent() returns the correct module (S1/S2/S3K)
 		// before the cross-game features and sidekick checks below.
@@ -913,6 +924,7 @@ public class Engine {
 	}
 
 	private void cleanup() {
+		com.openggf.game.RuntimeManager.destroyCurrent();
 		AudioManager.getInstance().clearDonorAudio();
 		CrossGameFeatureProvider.getInstance().resetState();
 		RenderContext.reset();

@@ -387,6 +387,18 @@ public interface GameModule {
         // No-op for games without seamless mutations
     }
 
+    /**
+     * Returns a game-specific service by type, or null if not registered.
+     * Used to expose game-specific singletons (e.g., Sonic1SwitchManager,
+     * Sonic2SpecialStageManager) to object code via
+     * {@link com.openggf.level.objects.ObjectServices#gameService(Class)}.
+     *
+     * @param type the service class
+     * @param <T>  the service type
+     * @return the service instance, or null
+     */
+    default <T> T getGameService(Class<T> type) { return null; }
+
     /** Returns the GameId for this module. */
     GameId getGameId();
 

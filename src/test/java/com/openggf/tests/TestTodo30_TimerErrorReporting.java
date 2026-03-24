@@ -3,6 +3,7 @@ package com.openggf.tests;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import com.openggf.game.GameServices;
 import com.openggf.timer.AbstractTimer;
 import com.openggf.timer.TimerManager;
 
@@ -25,7 +26,7 @@ public class TestTodo30_TimerErrorReporting {
 
     @Before
     public void setUp() {
-        manager = TimerManager.getInstance();
+        manager = GameServices.timers();
         manager.resetState();
     }
 

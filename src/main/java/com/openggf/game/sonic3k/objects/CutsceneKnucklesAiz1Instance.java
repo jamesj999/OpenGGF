@@ -601,7 +601,7 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
             services().camera().updatePosition(true);
 
             // ROM: AllocateObject + move.l #Obj_TitleCard,(a1)
-            Sonic3kTitleCardManager.getInstance().initializeInLevel(0, 0);
+            services().titleCardProvider().initializeInLevel(0, 0);
 
             setDestroyed(true);
         }

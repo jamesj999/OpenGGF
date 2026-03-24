@@ -199,7 +199,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
                     cameraX0 >= HTZ1_SHAKE_TRIGGER_X &&
                     cameraX0 < HTZ1_SHAKE_EXIT_X) {
                     // Enable screen shake and initialize earthquake
-                    ParallaxManager.getInstance().setHtzScreenShake(true);
+                    GameServices.parallax().setHtzScreenShake(true);
                     initHtzEarthquake(HTZ1_LAVA_OFFSET_RISEN, HTZ1_LAVA_OFFSET_SUNKEN, HTZ_BG_X_OFFSET_TOP);
                     eventRoutine += 2;
                 } else if (cameraX0 >= HTZ1_SHAKE_EXIT_X) {
@@ -236,7 +236,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
                 // Routine 3: Post-shake area
                 // Check for re-entry into shake zone
                 if (camera().getX() < HTZ1_SHAKE_EXIT_X) {
-                    ParallaxManager.getInstance().setHtzScreenShake(true);
+                    GameServices.parallax().setHtzScreenShake(true);
                     initHtzEarthquake(HTZ1_LAVA_OFFSET_RISEN, HTZ1_LAVA_OFFSET_SUNKEN, HTZ_BG_X_OFFSET_TOP);
                     eventRoutine -= 2;  // Go back to routine 2
                 }
@@ -271,13 +271,13 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
                     // If Camera_Y >= $380, jump to bottom area routines
                     if (camera().getY() >= HTZ2_Y_ZONE_THRESHOLD) {
                         // Bottom area
-                        ParallaxManager.getInstance().setHtzScreenShake(true);
+                        GameServices.parallax().setHtzScreenShake(true);
                         initHtzEarthquake(HTZ2_LAVA_OFFSET_RISEN_BOTTOM, HTZ2_LAVA_OFFSET_SUNKEN,
                                 HTZ_BG_X_OFFSET_BOTTOM);
                         eventRoutine = 8;
                     } else {
                         // Top area
-                        ParallaxManager.getInstance().setHtzScreenShake(true);
+                        GameServices.parallax().setHtzScreenShake(true);
                         initHtzEarthquake(HTZ2_LAVA_OFFSET_RISEN_TOP, HTZ2_LAVA_OFFSET_SUNKEN, HTZ_BG_X_OFFSET_TOP);
                         eventRoutine = 2;
                     }
@@ -324,7 +324,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
             case 4 -> {
                 // Routine 2: Post-shake (top zone)
                 if (camera().getX() < HTZ2_SHAKE_EXIT_X) {
-                    ParallaxManager.getInstance().setHtzScreenShake(true);
+                    GameServices.parallax().setHtzScreenShake(true);
                     initHtzEarthquake(HTZ2_LAVA_OFFSET_RISEN_TOP, HTZ2_LAVA_OFFSET_SUNKEN, HTZ_BG_X_OFFSET_TOP);
                     eventRoutine -= 2;
                 }
@@ -333,7 +333,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
                 // Routine 3: Wait for bottom area shake trigger
                 // This handles re-entry to earthquake zone in bottom area
                 if (camera().getX() >= HTZ2_SHAKE_TRIGGER_X) {
-                    ParallaxManager.getInstance().setHtzScreenShake(true);
+                    GameServices.parallax().setHtzScreenShake(true);
                     initHtzEarthquake(HTZ2_LAVA_OFFSET_RISEN_BOTTOM, HTZ2_LAVA_OFFSET_SUNKEN,
                             HTZ_BG_X_OFFSET_BOTTOM);
                     eventRoutine += 2;
@@ -366,7 +366,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
             case 10 -> {
                 // Routine 5: Post-shake (bottom zone)
                 if (camera().getX() < HTZ2_SHAKE_EXIT_X) {
-                    ParallaxManager.getInstance().setHtzScreenShake(true);
+                    GameServices.parallax().setHtzScreenShake(true);
                     initHtzEarthquake(HTZ2_LAVA_OFFSET_RISEN_BOTTOM, HTZ2_LAVA_OFFSET_SUNKEN,
                             HTZ_BG_X_OFFSET_BOTTOM);
                     eventRoutine -= 2;
@@ -476,7 +476,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
      * ROM: LevEvents_HTZ_Routine1_Part2 lines 20714-20724
      */
     private void exitHtzEarthquakeArea() {
-        ParallaxManager.getInstance().setHtzScreenShake(false);
+        GameServices.parallax().setHtzScreenShake(false);
         cameraBgYOffset = 0;
         htzTerrainSinking = false;
         htzTerrainDelay = 0;

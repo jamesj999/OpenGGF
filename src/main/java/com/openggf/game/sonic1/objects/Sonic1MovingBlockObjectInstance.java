@@ -432,7 +432,7 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
      */
     private void moveType07SwitchActivated() {
         // f_switch+2 = switch index 2
-        if (Sonic1SwitchManager.getInstance().isPressed(2)) {
+        if (services().gameService(Sonic1SwitchManager.class).isPressed(2)) {
             // subq.b #3,obSubtype(a0) — type 7 becomes type 4 (wait-for-stand)
             moveType = 0x04;
         }

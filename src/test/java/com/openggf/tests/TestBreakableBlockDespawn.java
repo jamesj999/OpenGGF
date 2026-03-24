@@ -5,6 +5,7 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
+import com.openggf.game.GameServices;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -72,7 +73,7 @@ public class TestBreakableBlockDespawn {
 
         // Reset the object manager's spawn window to the new camera position
         // so objects near our test position are spawned
-        LevelManager.getInstance().getObjectManager().reset(fixture.camera().getX());
+        GameServices.level().getObjectManager().reset(fixture.camera().getX());
     }
 
     /**
@@ -84,7 +85,7 @@ public class TestBreakableBlockDespawn {
      */
     @Test
     public void testBrokenBlockDoesNotReappearOnCameraReturn() {
-        ObjectManager objMgr = LevelManager.getInstance().getObjectManager();
+        ObjectManager objMgr = GameServices.level().getObjectManager();
 
         // Walk right through CPZ1 looking for a breakable block
         ObjectSpawn blockSpawn = null;

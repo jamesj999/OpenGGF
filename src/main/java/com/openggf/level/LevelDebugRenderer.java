@@ -2,6 +2,7 @@ package com.openggf.level;
 
 import com.openggf.Engine;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.debug.DebugOption;
@@ -105,7 +106,7 @@ public class LevelDebugRenderer {
      * @return true if the point is visible (or near-visible with padding)
      */
     boolean isInCameraFrustum(int x, int y, int padding) {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         int camX = camera.getX();
         int camY = camera.getY();
         return x >= camX - padding && x <= camX + ctx.screenWidth() + padding
@@ -124,7 +125,7 @@ public class LevelDebugRenderer {
             return;
         }
 
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         int cameraX = camera.getX();
         int cameraY = camera.getY();
         int cameraWidth = camera.getWidth();
@@ -547,7 +548,7 @@ public class LevelDebugRenderer {
 
     void drawCameraBounds() {
         GraphicsManager graphicsManager = ctx.graphicsManager();
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         cameraBoundsCommands.clear();
 
         int camX = camera.getX();

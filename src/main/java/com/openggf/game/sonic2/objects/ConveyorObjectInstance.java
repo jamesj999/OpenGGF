@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -243,7 +242,9 @@ public class ConveyorObjectInstance extends AbstractObjectInstance
             return null;
         }
 
-        ObjectManager manager = GameServices.level() != null ? GameServices.level().getObjectManager() : null;
+        // Use construction context since this factory runs during object creation
+        var ctx = constructionContext();
+        ObjectManager manager = ctx != null ? ctx.objectManager() : null;
         if (manager == null) {
             return null;
         }
