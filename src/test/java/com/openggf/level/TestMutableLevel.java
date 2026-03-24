@@ -454,4 +454,92 @@ class TestMutableLevel {
         BitSet dirtyCells = ml.consumeDirtyMapCells();
         assertFalse(dirtyCells.isEmpty());
     }
+
+    // ===== Round-trip and edge-case tests =====
+
+    @Test
+    void doubleSnapshot_producesIndependentCopies() {
+        SyntheticLevel source = createSyntheticLevel();
+        MutableLevel ml1 = MutableLevel.snapshot(source);
+        MutableLevel ml2 = MutableLevel.snapshot(source);
+
+        // Mutate ml1
+        ml1.getPattern(0).setPixel(0, 0, (byte) 77);
+        ml1.addObjectSpawn(new ObjectSpawn(1, 2, 3, 0, 0, false, 0));
+
+        // ml2 and source should be unaffected
+        assertNotEquals(77, ml2.getPattern(0).getPixel(0, 0));
+        assertNotEquals(77, source.getPattern(0).getPixel(0, 0));
+        assertEquals(1, ml2.getObjects().size());
+        assertEquals(1, source.getObjects().size());
+    }
+
+    @Test
+    void snapshotOfMutableLevel_producesIndependentCopy() {
+        SyntheticLevel source = createSyntheticLevel();
+        MutableLevel ml1 = MutableLevel.snapshot(source);
+
+        // Mutate ml1
+        ml1.getPattern(0).setPixel(0, 0, (byte) 55);
+
+        // Snapshot the mutable level itself
+        MutableLevel ml2 = MutableLevel.snapshot(ml1);
+
+        // Verify ml2 has the mutated value
+        assertEquals(55, ml2.getPattern(0).getPixel(0, 0));
+
+        // Further mutation of ml2 doesn't affect ml1
+        ml2.getPattern(0).setPixel(0, 0, (byte) 99);
+        assertEquals(55, ml1.getPattern(0).getPixel(0, 0));
+    }
+
+    @Test
+    void noMutations_allDirtyRegionsEmpty() {
+        MutableLevel ml = MutableLevel.snapshot(createSyntheticLevel());
+
+        assertTrue(ml.consumeDirtyPatterns().isEmpty());
+        assertTrue(ml.consumeDirtyChunks().isEmpty());
+        assertTrue(ml.consumeDirtyBlocks().isEmpty());
+        assertTrue(ml.consumeDirtyMapCells().isEmpty());
+        assertTrue(ml.consumeDirtySolidTiles().isEmpty());
+        assertFalse(ml.consumeObjectsDirty());
+        assertFalse(ml.consumeRingsDirty());
+    }
+
+    @Test
+    void transitiveChunkDirty_propagatesToBlocksAndMapCells() {
+        // Build a level where chunk 0 is used by block 0, and block 0 is at map (0,0)
+        MutableLevel ml = MutableLevel.snapshot(createSyntheticLevel());
+
+        // Edit chunk 0's pattern
+        ml.setPatternDescInChunk(0, 0, 0, new PatternDesc(42));
+
+        // Chunk 0 should be dirty
+        BitSet dirtyChunks = ml.consumeDirtyChunks();
+        assertTrue(dirtyChunks.get(0));
+
+        // Block 0 should be transitively dirty (references chunk 0)
+        BitSet dirtyBlocks = ml.consumeDirtyBlocks();
+        assertTrue(dirtyBlocks.get(0));
+
+        // Map cells referencing block 0 should be transitively dirty
+        BitSet dirtyMapCells = ml.consumeDirtyMapCells();
+        assertFalse(dirtyMapCells.isEmpty());
+    }
+
+    @Test
+    void levelInterface_satisfied_byMutableLevel() {
+        MutableLevel ml = MutableLevel.snapshot(createSyntheticLevel());
+
+        // Verify all Level interface methods work
+        Level level = ml; // implicit upcast
+        assertNotNull(level.getMap());
+        assertEquals(2, level.getPatternCount());
+        assertEquals(2, level.getChunkCount());
+        assertEquals(2, level.getBlockCount());
+        assertEquals(1, level.getSolidTileCount());
+        assertEquals(4, level.getPaletteCount());
+        assertFalse(level.getObjects().isEmpty());
+        assertFalse(level.getRings().isEmpty());
+    }
 }
