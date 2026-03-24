@@ -121,6 +121,11 @@ public abstract class AbstractLevel implements Level {
     }
 
     @Override
+    public int getSolidTileCount() {
+        return solidTileCount;
+    }
+
+    @Override
     public SolidTile getSolidTile(int index) {
         if (index >= solidTileCount) {
             throw new IllegalArgumentException("Invalid solid tile index: " + index);
