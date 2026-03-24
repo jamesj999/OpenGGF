@@ -1,7 +1,6 @@
 package com.openggf.game.sonic2.objects;
 import com.openggf.level.objects.BoxObjectInstance;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.game.PlayableEntity;
 
@@ -81,7 +80,7 @@ public class BreakableBlockObjectInstance extends BoxObjectInstance
         this.broken = false;
 
         // Check persistence: if already broken, stay broken
-        ObjectManager objectManager = GameServices.level() != null ? GameServices.level().getObjectManager() : null;
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null && objectManager.isRemembered(spawn)) {
             this.broken = true;
             setDestroyed(true);
@@ -331,10 +330,11 @@ public class BreakableBlockObjectInstance extends BoxObjectInstance
     }
 
     private static int resolveHalfWidth() {
-        if (GameServices.level() == null || GameServices.level().getCurrentLevel() == null) {
+        com.openggf.level.LevelManager lm = com.openggf.level.LevelManager.getInstance();
+        if (lm == null || lm.getCurrentLevel() == null) {
             return CPZ_HALF_WIDTH;
         }
-        int zoneId = GameServices.level().getCurrentLevel().getZoneIndex();
+        int zoneId = lm.getCurrentLevel().getZoneIndex();
         return zoneId == Sonic2Constants.ZONE_HTZ
                 ? HTZ_HALF_WIDTH
                 : CPZ_HALF_WIDTH;

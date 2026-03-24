@@ -218,4 +218,9 @@ public class DefaultObjectServices implements ObjectServices {
     public RingManager ringManager() {
         return lm().getRingManager();
     }
+
+    @Override
+    public boolean areAllRingsCollected() {
+        return lm().areAllRingsCollected();
+    }
 }

@@ -1,5 +1,4 @@
 package com.openggf.game.sonic2.objects;
-import com.openggf.game.GameServices;
 import com.openggf.level.objects.BoxObjectInstance;
 
 import com.openggf.game.CheckpointState;
@@ -69,7 +68,7 @@ public class CheckpointObjectInstance extends BoxObjectInstance {
         this.cameraLockFlag = (spawn.subtype() & 0x80) != 0;
 
         // Check if already activated (respawn persistence)
-        var checkpointState = GameServices.level() != null ? GameServices.level().getCheckpointState() : null;
+        var checkpointState = services().checkpointState();
         if (checkpointState != null && checkpointState.getLastCheckpointIndex() >= this.checkpointIndex) {
             this.activated = true;
             this.animId = ANIM_BLINKING;

@@ -120,4 +120,10 @@ public interface ObjectServices {
 
     /** Returns the ring manager for ring-related operations. */
     RingManager ringManager();
+
+    /** Returns the current zone index (rom-mapped). Alias for {@link #romZoneId()}. */
+    default int currentZone() { return romZoneId(); }
+
+    /** Returns true if all rings in the current level have been collected. */
+    boolean areAllRingsCollected();
 }

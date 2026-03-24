@@ -1,5 +1,4 @@
 package com.openggf.game.sonic2.objects;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.BoxObjectInstance;
 import com.openggf.level.objects.ObjectAnimationState;
@@ -79,7 +78,7 @@ public class FlipperObjectInstance extends BoxObjectInstance
         this.idleAnimId = isHorizontal() ? ANIM_HORIZONTAL_IDLE : ANIM_VERTICAL_IDLE;
         this.mappingFrame = isHorizontal() ? 4 : 0;
 
-        ObjectRenderManager renderManager = GameServices.level() != null ? GameServices.level().getObjectRenderManager() : null;
+        ObjectRenderManager renderManager = services().renderManager();
         this.animationState = new ObjectAnimationState(
                 renderManager != null ? renderManager.getAnimations(Sonic2ObjectArtKeys.ANIM_FLIPPER) : null,
                 idleAnimId,

@@ -1,5 +1,4 @@
 package com.openggf.game.sonic2.objects;
-import com.openggf.game.GameServices;
 import com.openggf.level.objects.BoxObjectInstance;
 
 import com.openggf.game.PlayableEntity;
@@ -108,7 +107,7 @@ public class SmashableGroundObjectInstance extends BoxObjectInstance
         this.savedChainCounter = 0;
 
         // Check persistence: if already broken (remembered), stay destroyed
-        ObjectManager objectManager = GameServices.level() != null ? GameServices.level().getObjectManager() : null;
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null && objectManager.isRemembered(spawn)) {
             this.broken = true;
             setDestroyed(true);

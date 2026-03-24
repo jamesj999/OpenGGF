@@ -1,5 +1,4 @@
 package com.openggf.game.sonic2.objects;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.SpringHelper;
 import com.openggf.level.objects.BoxObjectInstance;
@@ -66,7 +65,7 @@ public class PipeExitSpringObjectInstance extends BoxObjectInstance
         this.fullStrength = (spawn.subtype() & 0x02) == 0;
         this.mappingFrame = 0;
 
-        ObjectRenderManager renderManager = GameServices.level() != null ? GameServices.level().getObjectRenderManager() : null;
+        ObjectRenderManager renderManager = services().renderManager();
         this.animationState = new ObjectAnimationState(
                 renderManager != null ? renderManager.getAnimations(Sonic2ObjectArtKeys.ANIM_PIPE_EXIT_SPRING) : null,
                 ANIM_IDLE,

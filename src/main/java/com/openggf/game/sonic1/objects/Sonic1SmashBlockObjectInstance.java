@@ -3,7 +3,6 @@ package com.openggf.game.sonic1.objects;
 import com.openggf.audio.GameSound;
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
@@ -119,7 +118,7 @@ public class Sonic1SmashBlockObjectInstance extends AbstractObjectInstance
         this.frameIndex = spawn.subtype() & 0xFF;
 
         // RememberState: check if already broken
-        ObjectManager objectManager = GameServices.level().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null && objectManager.isRemembered(spawn)) {
             this.broken = true;
             setDestroyed(true);

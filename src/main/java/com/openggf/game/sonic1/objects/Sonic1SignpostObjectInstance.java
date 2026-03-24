@@ -1,5 +1,4 @@
 package com.openggf.game.sonic1.objects;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 
 import com.openggf.camera.Camera;
@@ -122,9 +121,9 @@ public class Sonic1SignpostObjectInstance extends AbstractObjectInstance {
 
         // Signpost is disabled in act 3 (boss acts)
         // S1 only has signposts in acts 1 and 2 (indices 0 and 1)
-        int currentAct = GameServices.level().getCurrentAct();
+        int currentAct = services().currentAct();
         if (currentAct >= BOSS_ACT_INDEX) {
-            ObjectManager objMgr = GameServices.level().getObjectManager();
+            ObjectManager objMgr = services().objectManager();
             if (objMgr != null) {
                 objMgr.markRemembered(spawn);
             }

@@ -1,7 +1,6 @@
 package com.openggf.game.sonic2.objects.bosses;
 
 import com.openggf.camera.Camera;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.audio.Sonic2Music;
@@ -232,7 +231,7 @@ public class Sonic2MTZBossInstance extends AbstractBossInstance {
         // Spawn laser shooter child
         laserShooter = new MTZLaserShooter(this);
         childComponents.add(laserShooter);
-        var objectManager = GameServices.level() != null ? GameServices.level().getObjectManager() : null;
+        var objectManager = services().objectManager();
         if (objectManager != null) {
             objectManager.addDynamicObject(laserShooter);
         }
@@ -248,7 +247,7 @@ public class Sonic2MTZBossInstance extends AbstractBossInstance {
         // byte_329D3: 0, 1, 1, 0, 1, 1, 0
         int[] tiltFlags = {0, 1, 1, 0, 1, 1, 0};
 
-        var objectManager = GameServices.level() != null ? GameServices.level().getObjectManager() : null;
+        var objectManager = services().objectManager();
         for (int i = 0; i < 7; i++) {
             MTZBossOrb orb = new MTZBossOrb(this, i, phaseOffsets[i], tiltFlags[i]);
             childComponents.add(orb);

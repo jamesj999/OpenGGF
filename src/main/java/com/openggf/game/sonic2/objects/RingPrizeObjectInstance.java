@@ -1,11 +1,9 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.audio.GameSound;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.rings.RingManager;
@@ -165,7 +163,7 @@ public class RingPrizeObjectInstance extends AbstractObjectInstance {
         // Ring no longer moves - stays at current position
 
         // Check if sparkle animation is complete
-        RingManager ringManager = GameServices.level().getRingManager();
+        RingManager ringManager = services().ringManager();
         if (ringManager == null || sparkleStartFrame < 0) {
             // No sparkle available, destroy immediately
             destroyed = true;
@@ -232,7 +230,7 @@ public class RingPrizeObjectInstance extends AbstractObjectInstance {
         }
 
         // Get the ring renderer from RingManager
-        RingManager ringManager = GameServices.level().getRingManager();
+        RingManager ringManager = services().ringManager();
         if (ringManager == null || !ringManager.canRenderRings()) {
             // Fallback to debug box if ring renderer not available
             appendDebugBox(commands, currentX >> 16, currentY >> 16);

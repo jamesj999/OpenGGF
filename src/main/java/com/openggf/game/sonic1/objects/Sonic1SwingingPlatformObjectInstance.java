@@ -1,5 +1,4 @@
 package com.openggf.game.sonic1.objects;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 
 import com.openggf.debug.DebugRenderContext;
@@ -92,7 +91,7 @@ public class Sonic1SwingingPlatformObjectInstance extends AbstractObjectInstance
     public Sonic1SwingingPlatformObjectInstance(ObjectSpawn spawn) {
         super(spawn, "SwingingPlatform");
 
-        int zoneIndex = GameServices.level().getRomZoneId();
+        int zoneIndex = services().romZoneId();
         int subtype = spawn.subtype() & 0xFF;
         this.chainCount = subtype & 0x0F;
         boolean isGiantBall = (subtype & 0x10) != 0;

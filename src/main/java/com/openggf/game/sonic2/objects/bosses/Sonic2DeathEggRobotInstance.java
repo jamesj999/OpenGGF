@@ -1,7 +1,6 @@
 package com.openggf.game.sonic2.objects.bosses;
 
 import com.openggf.camera.Camera;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.audio.Sonic2Music;
@@ -497,7 +496,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         childComponents.add(backThigh);
 
         // Register children with ObjectManager for rendering (matches Silver Sonic pattern)
-        var objectManager = GameServices.level() != null ? GameServices.level().getObjectManager() : null;
+        var objectManager = services().objectManager();
         if (objectManager != null) {
             for (var child : childComponents) {
                 if (child instanceof com.openggf.level.objects.boss.AbstractBossChild bossChild) {
@@ -1067,7 +1066,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         fadeTimer--;
         if (fadeTimer < 0) {
             // ROM: move.b #id_Ending,(v_gamemode).w
-            GameServices.level().requestCreditsTransition();
+            services().requestCreditsTransition();
             defeatPhase = 10; // Terminal state
         }
     }

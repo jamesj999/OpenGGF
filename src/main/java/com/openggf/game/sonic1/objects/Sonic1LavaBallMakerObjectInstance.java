@@ -128,8 +128,7 @@ public class Sonic1LavaBallMakerObjectInstance extends AbstractObjectInstance {
                 0x14,  // id_LavaBall
                 ballSubtype,
                 0, false, 0);
-        Sonic1LavaBallObjectInstance lavaBall = new Sonic1LavaBallObjectInstance(ballSpawn);
-        services().objectManager().addDynamicObject(lavaBall);
+        spawnChild(() -> new Sonic1LavaBallObjectInstance(ballSpawn));
     }
 
     // ========================================================================

@@ -1,5 +1,4 @@
 package com.openggf.game.sonic2.objects;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.BoxObjectInstance;
 import com.openggf.level.objects.SignpostSparkleObjectInstance;
@@ -92,23 +91,21 @@ public class SignpostObjectInstance extends BoxObjectInstance {
         // ROM: Obj0D_Init (s2.asm:34412-34418)
         // Signpost is disabled in Act 2+ except for MTZ Act 2
         // ROM sets x_pos to 0, causing MarkObjGone to delete it and clear respawn bit
-        if (GameServices.level() != null) {
-            int currentAct = GameServices.level().getCurrentAct();
-            int currentZone = GameServices.level().getCurrentZone();
+        int currentAct = services().currentAct();
+        int currentZone = services().currentZone();
 
-            // ROM check: if (Current_Act != 0 && Current_ZoneAndAct != metropolis_zone_act_2)
-            // metropolis_zone_act_2 = (7 << 8) | 1 = 0x0701
-            if (currentAct > 0) {
-                boolean isMTZAct2 = (currentZone == 7 && currentAct == 1);
-                if (!isMTZAct2) {
-                    // Mark as remembered to prevent respawning, then destroy
-                    // This prevents the spawn-destroy cycle every frame
-                    ObjectManager objMgr = GameServices.level().getObjectManager();
-                    if (objMgr != null) {
-                        objMgr.markRemembered(spawn);
-                    }
-                    setDestroyed(true);
+        // ROM check: if (Current_Act != 0 && Current_ZoneAndAct != metropolis_zone_act_2)
+        // metropolis_zone_act_2 = (7 << 8) | 1 = 0x0701
+        if (currentAct > 0) {
+            boolean isMTZAct2 = (currentZone == 7 && currentAct == 1);
+            if (!isMTZAct2) {
+                // Mark as remembered to prevent respawning, then destroy
+                // This prevents the spawn-destroy cycle every frame
+                ObjectManager objMgr = services().objectManager();
+                if (objMgr != null) {
+                    objMgr.markRemembered(spawn);
                 }
+                setDestroyed(true);
             }
         }
     }
@@ -275,7 +272,7 @@ public class SignpostObjectInstance extends BoxObjectInstance {
         int elapsedSeconds = levelGamestate != null ? levelGamestate.getElapsedSeconds() : 0;
         int ringCount = player.getRingCount();
         int actNumber = services().currentAct() + 1; // 1-indexed for display
-        boolean allRingsCollected = GameServices.level() != null && GameServices.level().areAllRingsCollected();
+        boolean allRingsCollected = services().areAllRingsCollected();
 
         // Spawn the results screen
         ResultsScreenObjectInstance resultsScreen = new ResultsScreenObjectInstance(

@@ -5,7 +5,6 @@ import com.openggf.audio.GameSound;
 import com.openggf.game.sonic1.audio.Sonic1Music;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
-import com.openggf.game.GameServices;
 import com.openggf.level.objects.ExplosionObjectInstance;
 import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.graphics.GLCommand;
@@ -83,14 +82,14 @@ public class Sonic1MonitorObjectInstance extends AbstractMonitorObjectInstance
         this.type = MonitorType.fromSubtype(spawn.subtype());
 
         // Check persistence: if previously broken, spawn as broken shell
-        ObjectManager objectManager = GameServices.level().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         boolean previouslyBroken = objectManager != null && objectManager.isRemembered(spawn);
         this.broken = this.type == MonitorType.BROKEN || previouslyBroken;
 
         // Initialize animation: obAnim = obSubtype (from Mon_Main)
         int initialAnim = type.id;
         int initialFrame = broken ? BROKEN_FRAME : 0;
-        ObjectRenderManager renderManager = GameServices.level().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         this.animationState = new ObjectAnimationState(
                 renderManager != null ? renderManager.getMonitorAnimations() : null,
                 initialAnim,
@@ -234,7 +233,7 @@ public class Sonic1MonitorObjectInstance extends AbstractMonitorObjectInstance
             // Pow_ChkShoes: speed shoes on, play bgm_Speedup (CMD_SPEED_UP = $E2)
             case SHOES -> {
                 player.giveSpeedShoes();
-                GameAudioProfile audioProfile = GameServices.audio().getAudioProfile();
+                GameAudioProfile audioProfile = services().audioManager().getAudioProfile();
                 if (audioProfile != null) {
                     services().playMusic(audioProfile.getSpeedShoesOnCommandId());
                 }

@@ -1,5 +1,4 @@
 package com.openggf.game.sonic2.objects;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.SpringHelper;
 import com.openggf.level.objects.BoxObjectInstance;
@@ -64,7 +63,7 @@ public class SpringObjectInstance extends BoxObjectInstance
         this.triggeredAnimId = resolveTriggeredAnimId();
         this.mappingFrame = resolveIdleMappingFrame();
 
-        ObjectRenderManager renderManager = GameServices.level() != null ? GameServices.level().getObjectRenderManager() : null;
+        ObjectRenderManager renderManager = services().renderManager();
         this.animationState = new ObjectAnimationState(
                 renderManager != null ? renderManager.getSpringAnimations() : null,
                 idleAnimId,

@@ -44,6 +44,7 @@ class TestObjectServicesConstructionContext {
         @Override public void requestCreditsTransition() {}
         @Override public void requestSpecialStageEntry() {}
         @Override public void invalidateForegroundTilemap() {}
+        @Override public boolean areAllRingsCollected() { return false; }
         @Override public void updatePalette(int idx, byte[] data) {}
         @Override public com.openggf.level.rings.RingManager ringManager() { return null; }
     };

@@ -1,9 +1,7 @@
 package com.openggf.game.sonic2.objects;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.ExplosionObjectInstance;
 
-import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
@@ -241,7 +239,7 @@ public class RivetObjectInstance extends AbstractObjectInstance
             }
 
             // ROM: move.b #1,(Screen_redraw_flag).w (s2.asm line 80615)
-            GameServices.level().invalidateForegroundTilemap();
+            services().invalidateForegroundTilemap();
         } catch (IllegalArgumentException e) {
             LOGGER.warning("Rivet layout modification failed: " + e.getMessage());
         }

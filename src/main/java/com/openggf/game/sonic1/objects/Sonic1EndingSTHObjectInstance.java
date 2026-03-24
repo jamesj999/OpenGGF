@@ -1,5 +1,4 @@
 package com.openggf.game.sonic1.objects;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 
 import com.openggf.camera.Camera;
@@ -67,7 +66,7 @@ public class Sonic1EndingSTHObjectInstance extends AbstractObjectInstance {
 
     public Sonic1EndingSTHObjectInstance() {
         super(null, "EndSTH");
-        ObjectRenderManager renderManager = GameServices.level().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         this.renderer = renderManager != null ? renderManager.getRenderer(ObjectArtKeys.END_STH) : null;
 
         // Routine 0: ESth_Main — initialize
@@ -109,7 +108,7 @@ public class Sonic1EndingSTHObjectInstance extends AbstractObjectInstance {
         if (timer < 0) {
             // ROM: move.b #id_Credits,(v_gamemode).w
             // Signal GameLoop to begin the credits sequence via fade-to-black.
-            GameServices.level().requestCreditsTransition();
+            services().requestCreditsTransition();
             setDestroyed(true);
         }
     }

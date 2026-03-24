@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.CheckpointState;
 import com.openggf.graphics.GLCommand;
@@ -120,7 +119,7 @@ public class CheckpointStarInstance extends AbstractObjectInstance {
             if (parentCheckpoint != null) {
                 parentCheckpoint.markUsedForSpecialStage();
             }
-            GameServices.level().requestSpecialStageEntry();
+            services().requestSpecialStageEntry();
             setDestroyed(true);
         }
     }

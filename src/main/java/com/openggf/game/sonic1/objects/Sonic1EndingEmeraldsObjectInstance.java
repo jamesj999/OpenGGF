@@ -1,7 +1,6 @@
 package com.openggf.game.sonic1.objects;
 
 import com.openggf.graphics.GLCommand;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -91,7 +90,7 @@ public class Sonic1EndingEmeraldsObjectInstance extends AbstractObjectInstance {
         this.currentX = centerX;
         this.currentY = centerY;
 
-        ObjectRenderManager renderManager = GameServices.level().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         this.renderer = renderManager != null ? renderManager.getRenderer(ObjectArtKeys.END_EMERALDS) : null;
 
         synchronized (ALL_EMERALDS) {

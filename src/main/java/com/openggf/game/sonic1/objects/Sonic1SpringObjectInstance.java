@@ -1,14 +1,11 @@
 package com.openggf.game.sonic1.objects;
 
-import com.openggf.audio.AudioManager;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
 import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -86,7 +83,7 @@ public class Sonic1SpringObjectInstance extends AbstractObjectInstance
         // Initial mapping frame: 0 = idle for both vertical and horizontal sheets
         this.mappingFrame = 0;
 
-        ObjectRenderManager renderManager = GameServices.level().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         this.animationState = new ObjectAnimationState(
                 renderManager != null ? renderManager.getSpringAnimations() : null,
                 ANIM_IDLE,

@@ -2,7 +2,6 @@ package com.openggf.game.sonic2.objects.badniks;
 
 import com.openggf.level.objects.AbstractBadnikInstance;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.ObjectAnimationState;
@@ -113,7 +112,7 @@ public class SolBadnikInstance extends AbstractBadnikInstance {
     }
 
     private void spawnFireballs() {
-        ObjectManager objectManager = GameServices.level() != null ? GameServices.level().getObjectManager() : null;
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }

@@ -1,7 +1,5 @@
 package com.openggf.game.sonic1.objects;
 
-import com.openggf.audio.AudioManager;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
@@ -9,7 +7,6 @@ import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectInstance;
@@ -174,8 +171,8 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
         this.x = spawn.x();
         this.y = spawn.y();
 
-        this.zoneIndex = GameServices.level().getRomZoneId();
-        this.actIndex = GameServices.level().getCurrentAct();
+        this.zoneIndex = services().romZoneId();
+        this.actIndex = services().currentAct();
         this.isLZ = (zoneIndex == Sonic1Constants.ZONE_LZ);
         this.isMZ = (zoneIndex == Sonic1Constants.ZONE_MZ);
 

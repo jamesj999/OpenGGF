@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -53,7 +52,7 @@ public class SuperSonicStarsObjectInstance extends AbstractObjectInstance {
         super(null, "SuperSonicStars");
         this.player = player;
 
-        ObjectRenderManager renderManager = GameServices.level().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager != null) {
             this.renderer = renderManager.getSuperSonicStarsRenderer();
         } else {

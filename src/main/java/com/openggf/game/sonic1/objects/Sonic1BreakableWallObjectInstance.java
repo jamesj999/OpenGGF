@@ -1,5 +1,4 @@
 package com.openggf.game.sonic1.objects;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 
 import com.openggf.audio.GameSound;
@@ -94,7 +93,7 @@ public class Sonic1BreakableWallObjectInstance extends AbstractObjectInstance
         this.frameIndex = spawn.subtype() & 0xFF;
 
         // RememberState: check if already broken
-        ObjectManager objectManager = GameServices.level().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null && objectManager.isRemembered(spawn)) {
             this.broken = true;
             setDestroyed(true);
