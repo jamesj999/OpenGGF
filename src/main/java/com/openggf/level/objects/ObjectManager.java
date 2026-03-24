@@ -1143,9 +1143,12 @@ public class ObjectManager {
                 // Multi-region providers (e.g., spiked pole helix) check each region independently
                 TouchResponseProvider.TouchRegion[] regions = provider.getMultiTouchRegions();
                 if (regions != null) {
-                    processMultiRegionTouch(player, playerX, playerY, playerHeight,
+                    boolean hit = processMultiRegionTouch(player, playerX, playerY, playerHeight,
                             instance, provider, regions, playerWidth,
                             buildingSet, overlappingSet, isSidekick);
+                    if (!isSidekick && hit) {
+                        break;
+                    }
                     continue;
                 }
 
@@ -1200,7 +1203,7 @@ public class ObjectManager {
          * overlapping with the first matching region's collision flags applied.
          * One hit per object per frame is sufficient — returns after first overlapping region.
          */
-        private void processMultiRegionTouch(PlayableEntity player,
+        private boolean processMultiRegionTouch(PlayableEntity player,
                 int playerX, int playerY, int playerHeight,
                 ObjectInstance instance, TouchResponseProvider provider,
                 TouchResponseProvider.TouchRegion[] regions, int playerWidth,
@@ -1234,9 +1237,11 @@ public class ObjectManager {
                     } else {
                         handleTouchResponse(player, instance, listener, result);
                     }
+                    return true; // Hit triggered — signal caller to break for player path
                 }
-                return; // One hit per object per frame is sufficient
+                return false; // Overlap but not triggered (edge-trigger suppressed)
             }
+            return false; // No region overlapped
         }
 
         private boolean tryShieldDeflect(PlayableEntity player, ObjectInstance instance,
