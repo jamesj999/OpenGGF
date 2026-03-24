@@ -370,7 +370,7 @@ public class BreakableWallObjectInstance extends AbstractObjectInstance
      */
     private boolean isTriggerActive() {
         try {
-            Sonic3kLevelEventManager lem = Sonic3kLevelEventManager.getInstance();
+            Sonic3kLevelEventManager lem = (Sonic3kLevelEventManager) services().levelEventProvider();
             return lem != null && lem.getEventRoutineFg() >= 2;
         } catch (Exception e) {
             return false;
@@ -445,9 +445,9 @@ public class BreakableWallObjectInstance extends AbstractObjectInstance
 
     // Uses inherited getRenderManager() from AbstractObjectInstance
 
-    private static boolean isKnuckles() {
+    private boolean isKnuckles() {
         try {
-            Sonic3kLevelEventManager lem = Sonic3kLevelEventManager.getInstance();
+            Sonic3kLevelEventManager lem = (Sonic3kLevelEventManager) services().levelEventProvider();
             return lem != null && lem.getPlayerCharacter() == PlayerCharacter.KNUCKLES;
         } catch (Exception e) {
             return false;

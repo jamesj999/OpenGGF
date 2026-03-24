@@ -1,6 +1,5 @@
 package com.openggf.game.sonic1.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.Sonic1SwitchManager;
 import com.openggf.game.PlayableEntity;
@@ -329,7 +328,7 @@ public class Sonic1ChainedStomperObjectInstance extends AbstractObjectInstance
      */
     private void updateType00(int frameCounter) {
         // In ROM: tst.b (f_switch+switchNumber) / beq.s loc_B8A8
-        boolean switchPressed = Sonic1SwitchManager.getInstance().isPressed(switchNumber);
+        boolean switchPressed = services().gameService(Sonic1SwitchManager.class).isPressed(switchNumber);
 
         if (switchPressed) {
             // Rising behavior

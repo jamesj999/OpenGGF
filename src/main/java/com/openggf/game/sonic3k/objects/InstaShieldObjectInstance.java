@@ -1,6 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.CrossGameFeatureProvider;
+import com.openggf.game.CrossGameFeatureProvider; // type reference for gameService() lookup
 import com.openggf.game.InstaShieldHandle;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.GameModule;
@@ -64,8 +64,8 @@ public class InstaShieldObjectInstance extends ShieldObjectInstance implements I
                 return;
             }
         }
-        if (CrossGameFeatureProvider.isActive()) {
-            CrossGameFeatureProvider donor = CrossGameFeatureProvider.getInstance();
+        CrossGameFeatureProvider donor = services().gameService(CrossGameFeatureProvider.class);
+        if (donor != null) {
             this.dplcRenderer = donor.getInstaShieldRenderer();
             SpriteArtSet artSet = donor.getInstaShieldArtSet();
             this.animSet = artSet != null ? artSet.animationSet() : null;

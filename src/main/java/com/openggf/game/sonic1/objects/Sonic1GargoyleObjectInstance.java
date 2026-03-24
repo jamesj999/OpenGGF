@@ -1,7 +1,6 @@
 package com.openggf.game.sonic1.objects;
 
 import com.openggf.debug.DebugRenderContext;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.graphics.GLCommand;
@@ -135,6 +134,8 @@ public class Sonic1GargoyleObjectInstance extends AbstractObjectInstance {
         //      move.b obStatus(a0),obStatus(a1)
         Fireball fireball = new Fireball(spawn.x(), spawn.y(), facingRight);
         services().objectManager().addDynamicObject(fireball);
+        // Play fireball sound (ROM: move.w #sfx_Fireball,d0 / jsr (QueueSound2).l)
+        services().playSfx(Fireball.SFX_FIREBALL);
     }
 
     // ========================================================================
@@ -234,7 +235,7 @@ public class Sonic1GargoyleObjectInstance extends AbstractObjectInstance {
          * SFX ID for fireball: sfx_Fireball = $AE.
          * From Constants.asm: sfx_Fireball equ ((ptr_sndAE-SoundIndex)/4)+sfx__First
          */
-        private static final int SFX_FIREBALL = Sonic1Sfx.AE_UNUSED.id;
+        static final int SFX_FIREBALL = Sonic1Sfx.AE_UNUSED.id;
 
         /** Debug color for fireball (bright orange). */
         private static final DebugColor DEBUG_COLOR = new DebugColor(255, 140, 0);
@@ -284,9 +285,7 @@ public class Sonic1GargoyleObjectInstance extends AbstractObjectInstance {
 
             this.xSubpixel = 0;
 
-            // Play fireball sound
-            // move.w #sfx_Fireball,d0 / jsr (QueueSound2).l
-            GameServices.audio().playSfx(SFX_FIREBALL);
+            // Sound is played by the parent Gargoyle after construction
         }
 
         @Override

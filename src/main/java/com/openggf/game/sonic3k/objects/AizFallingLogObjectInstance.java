@@ -110,7 +110,7 @@ public class AizFallingLogObjectInstance extends AbstractObjectInstance {
             return false;
         }
         try {
-            Sonic3kLevelEventManager lem = Sonic3kLevelEventManager.getInstance();
+            Sonic3kLevelEventManager lem = (Sonic3kLevelEventManager) services().levelEventProvider();
             if (lem != null) {
                 if (services().romZoneId() == Sonic3kZoneIds.ZONE_AIZ) {
                     return lem.getEventRoutineFg() >= EVENT_TRIGGER_ROUTINE_THRESHOLD;

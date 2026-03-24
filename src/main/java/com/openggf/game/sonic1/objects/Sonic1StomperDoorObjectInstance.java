@@ -311,7 +311,7 @@ public class Sonic1StomperDoorObjectInstance extends AbstractObjectInstance
         if (!active) {
             // lea (f_switch).w,a2 / btst #0,(a2,d0.w) / beq.s .loc_15DC2
             if (switchIndex >= 0) {
-                Sonic1SwitchManager switches = Sonic1SwitchManager.getInstance();
+                Sonic1SwitchManager switches = services().gameService(Sonic1SwitchManager.class);
                 if ((switches.getRaw(switchIndex) & 0x01) != 0) {
                     // move.b #1,sto_active(a0)
                     active = true;
@@ -507,7 +507,7 @@ public class Sonic1StomperDoorObjectInstance extends AbstractObjectInstance
         if (!active) {
             // Check switch
             if (switchIndex >= 0) {
-                Sonic1SwitchManager switches = Sonic1SwitchManager.getInstance();
+                Sonic1SwitchManager switches = services().gameService(Sonic1SwitchManager.class);
                 if ((switches.getRaw(switchIndex) & 0x01) != 0) {
                     active = true;
                     // bset #0,2(a2,d0.w) — set respawn flag so this door won't

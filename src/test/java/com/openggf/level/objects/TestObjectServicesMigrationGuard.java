@@ -82,6 +82,7 @@ class TestObjectServicesMigrationGuard {
      * AND a nearby "getInstance" to avoid false positives from mere type usage.
      */
     private static final Map<String, String> MONITORED_SINGLETONS = Map.ofEntries(
+            // Core runtime-owned managers
             Map.entry("Camera", "com/openggf/camera/Camera"),
             Map.entry("LevelManager", "com/openggf/level/LevelManager"),
             Map.entry("AudioManager", "com/openggf/audio/AudioManager"),
@@ -89,7 +90,15 @@ class TestObjectServicesMigrationGuard {
             Map.entry("SpriteManager", "com/openggf/sprites/managers/SpriteManager"),
             Map.entry("WaterSystem", "com/openggf/level/WaterSystem"),
             Map.entry("FadeManager", "com/openggf/graphics/FadeManager"),
-            Map.entry("GraphicsManager", "com/openggf/graphics/GraphicsManager")
+            Map.entry("GraphicsManager", "com/openggf/graphics/GraphicsManager"),
+            // Game-specific singletons (should use services().gameService() or services().levelEventProvider())
+            Map.entry("Sonic1SwitchManager", "com/openggf/game/sonic1/Sonic1SwitchManager"),
+            Map.entry("Sonic1ConveyorState", "com/openggf/game/sonic1/Sonic1ConveyorState"),
+            Map.entry("Sonic2LevelEventManager", "com/openggf/game/sonic2/Sonic2LevelEventManager"),
+            Map.entry("Sonic2SpecialStageManager", "com/openggf/game/sonic2/specialstage/Sonic2SpecialStageManager"),
+            Map.entry("Sonic3kLevelEventManager", "com/openggf/game/sonic3k/Sonic3kLevelEventManager"),
+            Map.entry("Sonic3kTitleCardManager", "com/openggf/game/sonic3k/Sonic3kTitleCardManager"),
+            Map.entry("CrossGameFeatureProvider", "com/openggf/game/CrossGameFeatureProvider")
     );
 
     /**
@@ -115,7 +124,6 @@ class TestObjectServicesMigrationGuard {
             try (Stream<Path> classFiles = Files.walk(pkgDir)) {
                 classFiles
                         .filter(p -> p.toString().endsWith(".class"))
-                        .filter(p -> !p.getFileName().toString().contains("$"))  // skip inner classes for clarity
                         .forEach(classFile -> {
                             String className = classesDir.relativize(classFile).toString()
                                     .replace('\\', '/').replace(".class", "").replace('/', '.');

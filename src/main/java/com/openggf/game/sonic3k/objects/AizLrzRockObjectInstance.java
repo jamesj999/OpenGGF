@@ -530,9 +530,9 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
      * ROM: cmpi.b #2,character_id(a1) — character_id 2 = Knuckles in S3K
      * (Player_mode 3 = KNUCKLES in the engine's PlayerCharacter enum).
      */
-    private static boolean isKnuckles() {
+    private boolean isKnuckles() {
         try {
-            Sonic3kLevelEventManager lem = Sonic3kLevelEventManager.getInstance();
+            Sonic3kLevelEventManager lem = (Sonic3kLevelEventManager) services().levelEventProvider();
             return lem != null && lem.getPlayerCharacter() == PlayerCharacter.KNUCKLES;
         } catch (Exception e) {
             return false;

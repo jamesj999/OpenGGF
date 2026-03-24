@@ -1,13 +1,11 @@
 package com.openggf.game.sonic1.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.Sonic1SwitchManager;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectInstance;
@@ -101,7 +99,7 @@ public class Sonic1ButtonObjectInstance extends AbstractObjectInstance
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
-        Sonic1SwitchManager switches = Sonic1SwitchManager.getInstance();
+        Sonic1SwitchManager switches = services().gameService(Sonic1SwitchManager.class);
 
         // Default to unpressed frame
         // bclr #0,obFrame(a0)
@@ -282,7 +280,7 @@ public class Sonic1ButtonObjectInstance extends AbstractObjectInstance
         ctx.drawRect(x, y, SOLID_HALF_WIDTH, SOLID_HALF_HEIGHT, r, g, b);
 
         // Label with switch info
-        Sonic1SwitchManager switches = Sonic1SwitchManager.getInstance();
+        Sonic1SwitchManager switches = services().gameService(Sonic1SwitchManager.class);
         String state = switches.isPressed(switchIndex) ? "ON" : "OFF";
         ctx.drawWorldLabel(x, y - 12, 0,
                 String.format("SW%d.b%d=%s", switchIndex, switchBit, state),
