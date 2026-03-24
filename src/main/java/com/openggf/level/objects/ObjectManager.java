@@ -102,6 +102,20 @@ public class ObjectManager {
         }
     }
 
+    /**
+     * Replaces the spawn list with a new one from the editor.
+     * Clears remembered/destroyed state so edited spawns can respawn.
+     * Existing active objects are cleared — {@code syncActiveSpawns()} on
+     * the next frame will re-instantiate objects in the camera window.
+     */
+    public void resyncSpawnList(List<ObjectSpawn> newSpawns) {
+        activeObjects.clear();
+        cachedActiveObjects.clear();
+        activeObjectsCacheDirty = true;
+        bucketsDirty = true;
+        placement.replaceSpawnsAndReset(newSpawns);
+    }
+
     void resetTouchResponses() {
         if (touchResponses != null) {
             touchResponses.reset();
@@ -656,6 +670,17 @@ public class ObjectManager {
 
         Placement(List<ObjectSpawn> spawns) {
             super(spawns, LOAD_AHEAD, UNLOAD_BEHIND);
+        }
+
+        /** Replaces spawns and clears all tracking state. */
+        void replaceSpawnsAndReset(List<ObjectSpawn> newSpawns) {
+            replaceSpawns(newSpawns);
+            remembered.clear();
+            stayActive.clear();
+            destroyedInWindow.clear();
+            cursorIndex = 0;
+            lastCameraX = Integer.MIN_VALUE;
+            lastCameraChunk = Integer.MIN_VALUE;
         }
 
         void reset(int cameraX) {

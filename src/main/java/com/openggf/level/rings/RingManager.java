@@ -65,6 +65,16 @@ public class RingManager {
         }
     }
 
+    /**
+     * Replaces the ring spawn list with a new one from the editor.
+     * Resets all collection state (collected BitSet, sparkle frames).
+     * In editor mode this is acceptable -- all rings become uncollected.
+     */
+    public void resyncSpawnList(List<RingSpawn> newSpawns) {
+        placement.replaceSpawnsAndReset(newSpawns);
+        lostRings.reset();
+    }
+
     public void ensurePatternsCached(GraphicsManager graphicsManager, int basePatternIndex) {
         if (renderer != null) {
             renderer.ensurePatternsCached(graphicsManager, basePatternIndex);
@@ -430,7 +440,7 @@ public class RingManager {
         private static final int NO_SPARKLE = -1;
 
         private final BitSet collected = new BitSet();
-        private final int[] sparkleStartFrames;
+        private int[] sparkleStartFrames;
         private int cursorIndex = 0;
         private int lastCameraX = Integer.MIN_VALUE;
 
@@ -438,6 +448,16 @@ public class RingManager {
             super(spawns, LOAD_AHEAD, UNLOAD_BEHIND);
             this.sparkleStartFrames = new int[this.spawns.size()];
             Arrays.fill(this.sparkleStartFrames, NO_SPARKLE);
+        }
+
+        /** Replaces spawns and resets all collection/sparkle state. */
+        private void replaceSpawnsAndReset(List<RingSpawn> newSpawns) {
+            replaceSpawns(newSpawns);
+            collected.clear();
+            sparkleStartFrames = new int[this.spawns.size()];
+            Arrays.fill(sparkleStartFrames, NO_SPARKLE);
+            cursorIndex = 0;
+            lastCameraX = Integer.MIN_VALUE;
         }
 
         private void reset(int cameraX) {

@@ -334,6 +334,25 @@ public class GraphicsManager {
 	}
 
 	/**
+	 * Re-uploads only the patterns whose indices are set in the dirty BitSet.
+	 * Used by MutableLevel dirty-region processing to incrementally update
+	 * the GPU pattern atlas after editor mutations.
+	 *
+	 * @param dirtyIndices BitSet of pattern indices that changed
+	 * @param level the current level (provides pattern data)
+	 */
+	public void reuploadDirtyPatterns(java.util.BitSet dirtyIndices,
+									  com.openggf.level.Level level) {
+		if (headlessMode || !glInitialized) return;
+		for (int i = dirtyIndices.nextSetBit(0); i >= 0;
+			 i = dirtyIndices.nextSetBit(i + 1)) {
+			if (i < level.getPatternCount()) {
+				updatePatternTexture(level.getPattern(i), i);
+			}
+		}
+	}
+
+	/**
 	 * Begin batching pattern atlas uploads. While active, individual
 	 * {@code cachePatternTexture} calls write to a CPU-side buffer only.
 	 * Call {@link #endPatternAtlasBatch()} to upload everything in one GL call.

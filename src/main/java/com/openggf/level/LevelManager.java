@@ -638,6 +638,56 @@ public class LevelManager {
     }
 
     /**
+     * Swaps the current level for a new one (e.g. a MutableLevel snapshot).
+     * Re-initialises animated content managers so they read from the new
+     * level's Pattern/Palette arrays, and invalidates the foreground tilemap
+     * to trigger a full rebuild.
+     *
+     * @param newLevel the level to swap in
+     */
+    public void setLevel(Level newLevel) {
+        this.level = newLevel;
+        blockPixelSize = newLevel.getBlockPixelSize();
+        chunksPerBlockSide = newLevel.getChunksPerBlockSide();
+        cacheLevelDimensions();
+        initAnimatedContent();
+        invalidateForegroundTilemap();
+    }
+
+    /**
+     * Processes dirty regions from a MutableLevel, dispatching incremental
+     * updates to the relevant subsystems. This is a no-op when the current
+     * level is not a MutableLevel, so there is zero performance impact on
+     * normal gameplay.
+     * <p>
+     * Called from {@code LevelFrameStep} at the start of each frame.
+     */
+    public void processDirtyRegions() {
+        if (!(level instanceof MutableLevel ml)) return;
+
+        java.util.BitSet dirtyPatterns = ml.consumeDirtyPatterns();
+        if (!dirtyPatterns.isEmpty()) {
+            graphicsManager.reuploadDirtyPatterns(dirtyPatterns, ml);
+        }
+
+        java.util.BitSet dirtyBlocks = ml.consumeDirtyBlocks();
+        java.util.BitSet dirtyMapCells = ml.consumeDirtyMapCells();
+        if (!dirtyBlocks.isEmpty() || !dirtyMapCells.isEmpty()) {
+            if (tilemapManager != null) {
+                tilemapManager.rebuildDirtyRegions(dirtyBlocks, dirtyMapCells, ml);
+            }
+        }
+
+        if (ml.consumeObjectsDirty() && objectManager != null) {
+            objectManager.resyncSpawnList(ml.getObjects());
+        }
+
+        if (ml.consumeRingsDirty() && ringManager != null) {
+            ringManager.resyncSpawnList(ml.getRings());
+        }
+    }
+
+    /**
      * Phase G: Create ObjectManager, TouchResponseTable, and wire CollisionSystem.
      */
     public void initObjectManager() throws IOException {

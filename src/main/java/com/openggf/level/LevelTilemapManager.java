@@ -460,6 +460,24 @@ public class LevelTilemapManager {
     }
 
     /**
+     * Handles dirty block/map-cell updates from a MutableLevel.
+     * Currently triggers a full foreground tilemap rebuild; incremental
+     * partial updates can be added later if needed for performance.
+     *
+     * @param dirtyBlocks  block indices that changed (unused for now)
+     * @param dirtyMapCells linearized map cell indices that changed (unused for now)
+     * @param level         the current level
+     */
+    public void rebuildDirtyRegions(java.util.BitSet dirtyBlocks,
+                                    java.util.BitSet dirtyMapCells,
+                                    Level level) {
+        // For now, a full rebuild is acceptable. The editor doesn't need
+        // incremental tile updates in Phase 3 — correctness is the priority.
+        foregroundTilemapDirty = true;
+        backgroundTilemapDirty = true;
+    }
+
+    /**
      * Marks background/foreground tilemaps and pattern lookup as dirty.
      * Use this after runtime terrain art/chunk overlays so the GPU tilemap
      * data is rebuilt on the next render.
