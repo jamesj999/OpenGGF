@@ -93,6 +93,10 @@ public class ShaderProgram {
         int linked = glGetProgrami(programId, GL_LINK_STATUS);
         if (linked == 0) {
             String log = glGetProgramInfoLog(programId);
+            glDetachShader(programId, vertexShaderId);
+            glDetachShader(programId, fragmentShaderId);
+            glDeleteShader(vertexShaderId);
+            glDeleteShader(fragmentShaderId);
             glDeleteProgram(programId);
             programId = 0;
             LOGGER.severe("Shader linking failed:\n" + log);

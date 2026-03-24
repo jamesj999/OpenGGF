@@ -32,8 +32,9 @@ public class ShaderLoader {
         // Check for compile errors
         int compiled = glGetShaderi(shaderId, GL_COMPILE_STATUS);
         if (compiled == 0) {
-            // Compilation failed, retrieve and print the log
+            // Compilation failed, retrieve log, clean up the shader object, then throw.
             String log = glGetShaderInfoLog(shaderId);
+            glDeleteShader(shaderId);
             LOGGER.severe("Shader compilation failed:\n" + log);
             throw new RuntimeException("Shader compilation failed: " + log);
         }
