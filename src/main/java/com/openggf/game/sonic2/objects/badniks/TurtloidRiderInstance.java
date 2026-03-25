@@ -2,11 +2,10 @@ package com.openggf.game.sonic2.objects.badniks;
 
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseAttackable;
 import com.openggf.level.objects.TouchResponseProvider;
@@ -49,7 +48,8 @@ public class TurtloidRiderInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (destroyed || parent.isParentDestroyed()) {
             setDestroyed(true);
             return;
@@ -78,7 +78,8 @@ public class TurtloidRiderInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onPlayerAttack(AbstractPlayableSprite player, TouchResponseResult result) {
+    public void onPlayerAttack(PlayableEntity playerEntity, TouchResponseResult result) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (destroyed) {
             return;
         }
@@ -90,8 +91,7 @@ public class TurtloidRiderInstance extends AbstractObjectInstance
 
     @Override
     public ObjectSpawn getSpawn() {
-        return new ObjectSpawn(currentX, currentY, spawn.objectId(),
-                spawn.subtype(), spawn.renderFlags(), spawn.respawnTracked(), spawn.rawYWord());
+        return buildSpawnAt(currentX, currentY);
     }
 
     @Override
@@ -112,15 +112,8 @@ public class TurtloidRiderInstance extends AbstractObjectInstance
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.TURTLOID);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.TURTLOID);
+        if (renderer == null) return;
 
         // Rider uses frames 2 (normal) and 3 (shooting) from shared Turtloid sheet
         renderer.drawFrameIndex(mappingFrame, currentX, currentY, false, false);

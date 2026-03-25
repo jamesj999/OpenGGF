@@ -3,13 +3,14 @@ package com.openggf.game.sonic1.objects.badniks;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
-import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.AbstractProjectileInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
-import com.openggf.level.objects.TouchResponseProvider;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import java.util.List;
 
@@ -30,23 +31,16 @@ import java.util.List;
  *   <li>Have no Y velocity (fly horizontally only)</li>
  * </ul>
  */
-public class Sonic1NewtronMissileInstance extends AbstractObjectInstance
-        implements TouchResponseProvider {
+public class Sonic1NewtronMissileInstance extends AbstractProjectileInstance {
 
     // Collision: obColType = $87 -> category HURT ($80), size index 7
-    // Size 7: width=$06 (6px), height=$06 (6px)
     private static final int COLLISION_SIZE_INDEX = 0x07;
 
     // Active missile animation: speed=1 means each frame shows for 2 game frames
     // From Ani_Missile animation 1: dc.b 1, 2, 3, afEnd
     private static final int ACTIVE_ANIM_SPEED = 2;
 
-    private int currentX;
-    private int currentY;
-    private final int xVelocity;
-    private int xSubpixel;
     private final boolean facingLeft;
-
     private int animTimer;
     private int animFrame;
 
@@ -59,31 +53,24 @@ public class Sonic1NewtronMissileInstance extends AbstractObjectInstance
      * @param facingLeft Direction the parent Newtron was facing
      */
     public Sonic1NewtronMissileInstance(int x, int y, int xVel, boolean facingLeft) {
-        super(new ObjectSpawn(x, y, 0x23, 1, 0, false, 0), "NewtronMissile");
-        this.currentX = x;
-        this.currentY = y;
-        this.xVelocity = xVel;
-        this.xSubpixel = 0;
+        super(new ObjectSpawn(x, y, 0x23, 1, 0, false, 0), "NewtronMissile",
+                xVel, 0, 0, COLLISION_SIZE_INDEX, 32);
         this.facingLeft = facingLeft;
         this.animTimer = 0;
         this.animFrame = 0;
     }
 
+    /**
+     * Newtron missiles move horizontally only (no Y movement).
+     */
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
-        // Msl_FromNewt: tst.b obRender(a0) / bpl.s Msl_Delete
-        // Check if still on-screen; delete if not
-        if (!isOnScreen(32)) {
-            setDestroyed(true);
-            return;
-        }
+    protected void updateMotion() {
+        SubpixelMotion.moveX(motionState);
+    }
 
-        // SpeedToPos: apply horizontal velocity with subpixel precision
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
-        xPos24 += xVelocity;
-        currentX = xPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
-
+    @Override
+    protected void updateExtra(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Animate: alternate frames 2-3 (Ball1/Ball2) at speed 1
         animTimer++;
         if (animTimer >= ACTIVE_ANIM_SPEED) {
@@ -93,39 +80,13 @@ public class Sonic1NewtronMissileInstance extends AbstractObjectInstance
     }
 
     @Override
-    public int getCollisionFlags() {
-        // HURT category ($80) + size index 7 - enabled immediately
-        return 0x80 | (COLLISION_SIZE_INDEX & 0x3F);
-    }
-
-    @Override
-    public int getCollisionProperty() {
-        return 0;
-    }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return new ObjectSpawn(currentX, currentY, 0x23, 1, 0, false, 0);
-    }
-
-    @Override
-    public int getX() {
-        return currentX;
-    }
-
-    @Override
-    public int getY() {
-        return currentY;
-    }
-
-    @Override
     public int getPriorityBucket() {
         return RenderPriority.clamp(3); // obPriority = 3
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

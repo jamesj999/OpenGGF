@@ -1,9 +1,10 @@
 package com.openggf.game.sonic2.objects;
+import com.openggf.level.objects.BoxObjectInstance;
 import com.openggf.level.objects.*;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -54,7 +55,8 @@ public class BridgeObjectInstance extends BoxObjectInstance implements SlopedSol
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return true;
     }
 
@@ -79,13 +81,15 @@ public class BridgeObjectInstance extends BoxObjectInstance implements SlopedSol
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Bridge is just a platform - no special interaction needed
         // Future: Could add sag physics here
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         int logCount = getLogCount();
         int slopeWidth = getHalfWidth() + 1;
 
@@ -103,8 +107,7 @@ public class BridgeObjectInstance extends BoxObjectInstance implements SlopedSol
 
         // Calculate Target Sag if player is riding
         if (player != null) {
-            ObjectManager objectManager = LevelManager
-                    .getInstance().getObjectManager();
+            ObjectManager objectManager = services().objectManager();
 
             if (objectManager != null && objectManager.isAnyPlayerRiding(this)) {
                 calculateTargetSag(player, logCount);
@@ -179,7 +182,7 @@ public class BridgeObjectInstance extends BoxObjectInstance implements SlopedSol
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             super.appendRenderCommands(commands);
             return;

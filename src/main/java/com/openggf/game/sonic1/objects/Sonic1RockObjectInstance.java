@@ -1,10 +1,8 @@
 package com.openggf.game.sonic1.objects;
 
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
@@ -12,6 +10,7 @@ import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import java.util.List;
 
@@ -44,14 +43,8 @@ public class Sonic1RockObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.ROCK);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.ROCK);
+        if (renderer == null) return;
         renderer.drawFrameIndex(0, getX(), getY(), false, false);
     }
 
@@ -61,7 +54,8 @@ public class Sonic1RockObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // No special behavior - standard solid collision handled by ObjectManager
     }
 }

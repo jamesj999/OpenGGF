@@ -1,10 +1,10 @@
 package com.openggf.game.sonic1.events;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic1.Sonic1SwitchManager;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
+import com.openggf.audio.AudioManager;
 import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
 import com.openggf.level.Map;
@@ -13,6 +13,7 @@ import com.openggf.physics.Direction;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.logging.Logger;
+import com.openggf.game.GameServices;
 
 /**
  * Dynamic water level events for Sonic 1 Labyrinth Zone.
@@ -178,7 +179,19 @@ public class Sonic1LZWaterEvents {
     }
 
     private Camera camera() {
-        return Camera.getInstance();
+        return GameServices.camera();
+    }
+
+    private WaterSystem waterSystem() {
+        return GameServices.water();
+    }
+
+    private AudioManager audio() {
+        return GameServices.audio();
+    }
+
+    private LevelManager levelManager() {
+        return GameServices.level();
     }
 
     /**
@@ -349,7 +362,7 @@ public class Sonic1LZWaterEvents {
 
         // cmp.w (v_waterpos2).w,d1 ; has water reached last height?
         // bne.s .setwater          ; if not, branch
-        int currentWater = WaterSystem.getInstance().getWaterLevelY(zoneId, actId);
+        int currentWater = waterSystem().getWaterLevelY(zoneId, actId);
         if (currentWater != target) {
             setTarget(target);
             return;
@@ -482,7 +495,7 @@ public class Sonic1LZWaterEvents {
                 waterRoutine = 1;
 
                 // move.w #sfx_Rumbling,d0 / bsr.w QueueSound2
-                AudioManager.getInstance().playSfx(Sonic1Sfx.RUMBLING.id);
+                audio().playSfx(Sonic1Sfx.RUMBLING.id);
                 LOGGER.fine("LZ3 routine 0: Water triggered, advancing to routine 1");
             }
         }
@@ -523,7 +536,7 @@ public class Sonic1LZWaterEvents {
 
         // At this point camX >= $1400
         // cmpi.w #$508,(v_waterpos3).w
-        int currentTarget = WaterSystem.getInstance().getWaterLevelTarget(zoneId, actId);
+        int currentTarget = waterSystem().getWaterLevelTarget(zoneId, actId);
         if (currentTarget == 0x508) {
             // beq.s .sonicislow - if target is already $508, go to sonicislow
             target = 0x508;
@@ -603,7 +616,7 @@ public class Sonic1LZWaterEvents {
 
         // cmp.w (v_waterpos2).w,d1 ; has water reached target?
         // bne.s .setwater3         ; if not, branch
-        int currentWater = WaterSystem.getInstance().getWaterLevelY(zoneId, actId);
+        int currentWater = waterSystem().getWaterLevelY(zoneId, actId);
         if (currentWater == target) {
             // .loc_3DC6: move.b #3,(v_wtr_routine).w
             waterRoutine = 3;
@@ -742,7 +755,7 @@ public class Sonic1LZWaterEvents {
             // move.b (v_vbla_byte).w,d0 / andi.b #$3F,d0 / bne.s .skipsound
             windTunnelSoundTimer++;
             if ((windTunnelSoundTimer & 0x3F) == 0) {
-                AudioManager.getInstance().playSfx(Sonic1Sfx.WATERFALL.id);
+                audio().playSfx(Sonic1Sfx.WATERFALL.id);
             }
 
             // ROM: tst.b (f_wtunnelallow).w / bne.w .quit
@@ -854,7 +867,7 @@ public class Sonic1LZWaterEvents {
             // Player is inside this tunnel region
             windTunnelSoundTimer++;
             if ((windTunnelSoundTimer & 0x3F) == 0) {
-                AudioManager.getInstance().playSfx(Sonic1Sfx.WATERFALL.id);
+                audio().playSfx(Sonic1Sfx.WATERFALL.id);
             }
 
             if (windTunnelDisabled) {
@@ -1009,7 +1022,7 @@ public class Sonic1LZWaterEvents {
         // Note: water slides use $1F mask (every 32 frames), not $3F like tunnels
         windTunnelSoundTimer++;  // Reuse the same timer (incremented once per frame)
         if ((windTunnelSoundTimer & 0x1F) == 0) {
-            AudioManager.getInstance().playSfx(Sonic1Sfx.WATERFALL.id);
+            audio().playSfx(Sonic1Sfx.WATERFALL.id);
         }
     }
 
@@ -1111,7 +1124,7 @@ public class Sonic1LZWaterEvents {
      * The WaterSystem will gradually move the current level toward this.
      */
     private void setTarget(int targetY) {
-        WaterSystem.getInstance().setWaterLevelTarget(zoneId, actId, targetY);
+        waterSystem().setWaterLevelTarget(zoneId, actId, targetY);
     }
 
     /**
@@ -1119,7 +1132,7 @@ public class Sonic1LZWaterEvents {
      * the gradual movement. Used when the ROM writes to v_waterpos2 directly.
      */
     private void setDirect(int currentY) {
-        WaterSystem.getInstance().setWaterLevelDirect(zoneId, actId, currentY);
+        waterSystem().setWaterLevelDirect(zoneId, actId, currentY);
     }
 
     /**
@@ -1127,7 +1140,7 @@ public class Sonic1LZWaterEvents {
      * Used by DynWater_LZ3 routine 0 to write $4B (water slide chunk).
      */
     private void writeLayoutChunk(int chunkId) {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = levelManager();
         Level level = lm.getCurrentLevel();
         if (level == null) {
             return;

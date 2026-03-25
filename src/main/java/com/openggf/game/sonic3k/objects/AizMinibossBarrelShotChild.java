@@ -1,11 +1,9 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.audio.AudioManager;
-import com.openggf.camera.Camera;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -100,11 +98,16 @@ public class AizMinibossBarrelShotChild extends AbstractObjectInstance implement
         this.state = State.PRELAUNCH;
         this.vFlip = false;
 
-        AudioManager.getInstance().playSfx(Sonic3kSfx.PROJECTILE.id);
+        try {
+            services().playSfx(Sonic3kSfx.PROJECTILE.id);
+        } catch (Exception e) {
+            // Services may not be set during test construction
+        }
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (parent == null || parent.isDestroyed() || parent.getState().defeated) {
             setDestroyed(true);
             return;
@@ -175,7 +178,7 @@ public class AizMinibossBarrelShotChild extends AbstractObjectInstance implement
         // ROM loc_68D70: ObjHitFloor_DoRoutine with y_radius=8
         TerrainCheckResult floor = ObjectTerrainUtils.checkFloorDist(currentX, currentY, Y_RADIUS);
         if (floor.hasCollision()) {
-            AudioManager.getInstance().playSfx(Sonic3kSfx.MISSILE_EXPLODE.id);
+            services().playSfx(Sonic3kSfx.MISSILE_EXPLODE.id);
             spawnImpactFlames();
             setDestroyed(true);
         }
@@ -190,8 +193,8 @@ public class AizMinibossBarrelShotChild extends AbstractObjectInstance implement
         int selector = hFlip ? SELECT_TABLE_FLIPPED[index] : SELECT_TABLE_NORMAL[index];
         int xOffset = hFlip ? X_COLUMNS_FLIPPED[selector] : X_COLUMNS_NORMAL[selector];
 
-        currentX = Camera.getInstance().getX() + xOffset;
-        currentY = Camera.getInstance().getY() - 0x20;
+        currentX = services().camera().getX() + xOffset;
+        currentY = services().camera().getY() - 0x20;
         xFixed = currentX << 16;
         yFixed = currentY << 16;
 
@@ -199,7 +202,7 @@ public class AizMinibossBarrelShotChild extends AbstractObjectInstance implement
         xVel = 0;
         animTimer = 2;
         vFlip = true; // bset #1, render_flags in loc_688B0 / loc_68D1C
-        AudioManager.getInstance().playSfx(Sonic3kSfx.MISSILE_THROW.id);
+        services().playSfx(Sonic3kSfx.MISSILE_THROW.id);
     }
 
     private int getTopDropStaggerDelay() {
@@ -211,8 +214,8 @@ public class AizMinibossBarrelShotChild extends AbstractObjectInstance implement
     }
 
     private void spawnImpactFlames() {
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        var objectManager = services().objectManager();
+        if (objectManager == null) {
             return;
         }
         boolean hazardous = mode == Mode.ADVANCED_COLLIDING;
@@ -220,7 +223,7 @@ public class AizMinibossBarrelShotChild extends AbstractObjectInstance implement
             int x = currentX + IMPACT_X_OFFSETS[i];
             int y = currentY + IMPACT_Y_OFFSETS[i];
             int subtype = i * 2; // loc_68D9C -> sub_68928 delay source
-            levelManager.getObjectManager().addDynamicObject(
+            objectManager.addDynamicObject(
                     new AizMinibossImpactFlameChild(x, y, subtype, hazardous));
         }
     }
@@ -260,21 +263,15 @@ public class AizMinibossBarrelShotChild extends AbstractObjectInstance implement
     }
 
     @Override
-    public boolean onShieldDeflect(AbstractPlayableSprite player) {
+    public boolean onShieldDeflect(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         setDestroyed(true);
         return true;
     }
 
     @Override
     public ObjectSpawn getSpawn() {
-        return new ObjectSpawn(
-                currentX,
-                currentY,
-                spawn.objectId(),
-                spawn.subtype(),
-                spawn.renderFlags(),
-                spawn.respawnTracked(),
-                spawn.rawYWord());
+        return buildSpawnAt(currentX, currentY);
     }
 
     @Override
@@ -289,7 +286,7 @@ public class AizMinibossBarrelShotChild extends AbstractObjectInstance implement
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager rm = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager rm = services().renderManager();
         if (rm == null) {
             return;
         }

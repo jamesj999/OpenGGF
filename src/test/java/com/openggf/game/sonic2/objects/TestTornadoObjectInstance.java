@@ -1,13 +1,19 @@
 package com.openggf.game.sonic2.objects;
 
+import com.openggf.game.GameModule;
+import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.sonic2.Sonic2GameModule;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.level.LevelManager;
+import com.openggf.level.objects.TestObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.physics.Sensor;
 import com.openggf.sprites.managers.SpriteManager;
@@ -22,18 +28,25 @@ import static org.junit.Assert.assertTrue;
 
 public class TestTornadoObjectInstance {
 
+    private GameModule previousModule;
+
     @Before
     public void setUp() {
-        Camera.resetInstance();
-        SpriteManager.getInstance().resetState();
-        LevelManager.getInstance().resetState();
+        RuntimeManager.createGameplay();
+        previousModule = GameModuleRegistry.getCurrent();
+        GameModuleRegistry.setCurrent(new Sonic2GameModule());
+        GameServices.camera().resetState();
+        GameServices.sprites().resetState();
+        GameServices.level().resetState();
         AizPlaneIntroInstance.resetIntroPhaseState();
     }
 
     @After
     public void tearDown() {
-        SpriteManager.getInstance().resetState();
-        LevelManager.getInstance().resetState();
+        GameServices.sprites().resetState();
+        GameServices.level().resetState();
+        GameModuleRegistry.setCurrent(previousModule);
+        RuntimeManager.destroyCurrent();
     }
 
     @Test
@@ -57,8 +70,8 @@ public class TestTornadoObjectInstance {
         TestPlayableSprite sidekick = new TestPlayableSprite("sidekick", (short) 140, (short) 100);
         sidekick.setCpuControlled(true);
 
-        SpriteManager.getInstance().addSprite(main);
-        SpriteManager.getInstance().addSprite(sidekick);
+        GameServices.sprites().addSprite(main);
+        GameServices.sprites().addSprite(sidekick);
         setField(tornado, "standingTransition", true);
 
         invokePrivate(tornado, "moveWithPlayer",
@@ -78,9 +91,9 @@ public class TestTornadoObjectInstance {
         TestPlayableSprite sidekick = new TestPlayableSprite("sidekick", (short) 140, (short) 100);
         sidekick.setCpuControlled(true);
 
-        SpriteManager.getInstance().addSprite(main);
-        SpriteManager.getInstance().addSprite(sidekick);
-        setField(LevelManager.getInstance(), "currentZone", 8);
+        GameServices.sprites().addSprite(main);
+        GameServices.sprites().addSprite(sidekick);
+        setField(GameServices.level(), "currentZone", 8);
         setField(tornado, "standingTransition", true);
 
         invokePrivate(tornado, "moveWithPlayer",
@@ -94,7 +107,7 @@ public class TestTornadoObjectInstance {
 
     @Test
     public void unusedMoverUsesCloudVisualsAndMarkObjGoneRange() throws Exception {
-        Camera.getInstance().setX((short) 0);
+        GameServices.camera().setX((short) 0);
 
         TornadoObjectInstance tornado = createTornado(0x700, 0x100, 0x5A);
         String artKey = (String) invokePrivate(tornado, "resolveRenderArtKey", new Class<?>[0]);
@@ -108,7 +121,7 @@ public class TestTornadoObjectInstance {
 
     @Test
     public void wfzStartUsesDeleteOffScreenCulling() {
-        Camera.getInstance().setX((short) 0);
+        GameServices.camera().setX((short) 0);
 
         TornadoObjectInstance tornado = createTornado(0x700, 0x100, 0x52);
         tornado.update(1, null);
@@ -118,7 +131,7 @@ public class TestTornadoObjectInstance {
 
     @Test
     public void requestZoneAndActDeactivateLevelFlagIsSet() {
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         levelManager.requestZoneAndAct(9, 0, true);
         assertTrue(levelManager.isLevelInactiveForTransition());
 
@@ -128,7 +141,12 @@ public class TestTornadoObjectInstance {
 
     private static TornadoObjectInstance createTornado(int x, int y, int subtype) {
         ObjectSpawn spawn = new ObjectSpawn(x, y, Sonic2ObjectIds.TORNADO, subtype, 0, false, 0);
-        return new TornadoObjectInstance(spawn);
+        TornadoObjectInstance t = new TornadoObjectInstance(spawn);
+        t.setServices(new TestObjectServices()
+                .withCamera(GameServices.camera())
+                .withParallaxManager(GameServices.parallax())
+                .withSpriteManager(GameServices.sprites()));
+        return t;
     }
 
     private static Object invokePrivate(Object target, String methodName, Class<?>[] argTypes, Object... args)

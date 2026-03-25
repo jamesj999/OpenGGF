@@ -3,6 +3,8 @@ package com.openggf.tests;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import com.openggf.game.GameServices;
+import com.openggf.game.RuntimeManager;
 import com.openggf.timer.AbstractTimer;
 import com.openggf.timer.TimerManager;
 
@@ -25,13 +27,15 @@ public class TestTodo30_TimerErrorReporting {
 
     @Before
     public void setUp() {
-        manager = TimerManager.getInstance();
+        RuntimeManager.createGameplay();
+        manager = GameServices.timers();
         manager.resetState();
     }
 
     @After
     public void tearDown() {
         manager.resetState();
+        RuntimeManager.destroyCurrent();
     }
 
     /** A timer that always fails (returns false from perform()). */

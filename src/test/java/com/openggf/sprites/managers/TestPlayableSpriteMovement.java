@@ -10,7 +10,7 @@ import org.junit.Before;
 import org.junit.Test;
 import com.openggf.physics.Direction;
 import com.openggf.physics.SensorResult;
-import com.openggf.sprites.playable.GroundMode;
+import com.openggf.game.GroundMode;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;

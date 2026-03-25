@@ -1,15 +1,13 @@
 package com.openggf.game.sonic1.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
-import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectManager;
@@ -120,7 +118,7 @@ public class Sonic1SmashBlockObjectInstance extends AbstractObjectInstance
         this.frameIndex = spawn.subtype() & 0xFF;
 
         // RememberState: check if already broken
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null && objectManager.isRemembered(spawn)) {
             this.broken = true;
             setDestroyed(true);
@@ -128,7 +126,8 @@ public class Sonic1SmashBlockObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (broken || player == null) {
             return;
         }
@@ -137,7 +136,7 @@ public class Sonic1SmashBlockObjectInstance extends AbstractObjectInstance
         // move.w (v_itembonus).w,objoff_34(a0)
         // move.b (v_player+obAnim).w,sonicAniFrame(a0)
         // Cache the current item bonus counter
-        cachedItemBonus = GameServices.gameState().getItemBonus();
+        cachedItemBonus = services().gameState().getItemBonus();
         cachedSonicAnimationId = player.getAnimationId();
     }
 
@@ -151,12 +150,14 @@ public class Sonic1SmashBlockObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !broken;
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (broken || player == null) {
             return;
         }
@@ -190,14 +191,14 @@ public class Sonic1SmashBlockObjectInstance extends AbstractObjectInstance
         broken = true;
 
         // Mark as remembered (RememberState) so it stays broken on revisit
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null) {
             objectManager.markRemembered(spawn);
         }
 
         // Restore cached item bonus before incrementing
         // From disassembly: move.w .count(a0),(v_itembonus).w
-        GameStateManager gameState = GameServices.gameState();
+        GameStateManager gameState = services().gameState();
         gameState.setItemBonus(cachedItemBonus);
 
         // From disassembly:
@@ -239,8 +240,8 @@ public class Sonic1SmashBlockObjectInstance extends AbstractObjectInstance
      * velocity from Smab_Speeds.
      */
     private void spawnFragments() {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectManager objectManager = services().objectManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (objectManager == null || renderManager == null) {
             return;
         }
@@ -275,7 +276,7 @@ public class Sonic1SmashBlockObjectInstance extends AbstractObjectInstance
 
         // From disassembly SmashObject .playsnd:
         //   move.w #sfx_WallSmash,d0 / jmp (QueueSound2).l
-        AudioManager.getInstance().playSfx(GameSound.WALL_SMASH);
+        services().playSfx(GameSound.WALL_SMASH);
     }
 
     /**
@@ -302,7 +303,7 @@ public class Sonic1SmashBlockObjectInstance extends AbstractObjectInstance
      * </pre>
      */
     private void awardChainPoints(ObjectManager objectManager) {
-        GameStateManager gameState = GameServices.gameState();
+        GameStateManager gameState = services().gameState();
 
         // move.w (v_itembonus).w,d2
         int d2 = gameState.getItemBonus();
@@ -339,7 +340,7 @@ public class Sonic1SmashBlockObjectInstance extends AbstractObjectInstance
         if (objectManager != null) {
             Sonic1PointsObjectInstance pointsObj = new Sonic1PointsObjectInstance(
                     new ObjectSpawn(spawn.x(), spawn.y(), 0x29, 0, 0, false, 0),
-                    LevelManager.getInstance(), points);
+                    services(), points);
             // ROM writes obFrame directly from d2>>1 for this path.
             pointsObj.setScoreFrameIndex(pointsFrameIndex);
             objectManager.addDynamicObject(pointsObj);
@@ -352,7 +353,7 @@ public class Sonic1SmashBlockObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
@@ -416,7 +417,8 @@ public class Sonic1SmashBlockObjectInstance extends AbstractObjectInstance
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (isDestroyed()) {
                 return;
             }
@@ -432,7 +434,7 @@ public class Sonic1SmashBlockObjectInstance extends AbstractObjectInstance
 
             // From disassembly: tst.b obRender(a0) / bpl.w DeleteObject
             // Delete when off-screen (render flag bit 7 indicates on-screen)
-            Camera cam = Camera.getInstance();
+            Camera cam = services().camera();
             int cameraX = cam.getX();
             int cameraY = cam.getY();
             if (posX < cameraX - 64 || posX > cameraX + 320 + 64

@@ -1,15 +1,17 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.physics.ObjectTerrainUtils;
-import com.openggf.physics.TerrainCheckResult;
+import com.openggf.level.objects.PatrolMovementHelper;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import com.openggf.debug.DebugColor;
@@ -89,13 +91,12 @@ public class ShellcrackerBadnikInstance extends AbstractBadnikInstance {
     private State state;
     private int timer;
     private int xSubpixel;
-    private int ySubpixel;
     private int walkAnimIndex;
     private int walkAnimTimer;
     private boolean clawDone; // Set by claw piece 0 when retracted (objoff_2C equivalent)
 
-    public ShellcrackerBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Shellcracker");
+    public ShellcrackerBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Shellcracker", Sonic2BadnikConfig.DESTRUCTION);
         this.currentX = spawn.x();
         this.currentY = spawn.y();
 
@@ -121,7 +122,8 @@ public class ShellcrackerBadnikInstance extends AbstractBadnikInstance {
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
             case WALKING -> updateWalking(player);
             case PAUSED -> updatePaused(player);
@@ -171,23 +173,20 @@ public class ShellcrackerBadnikInstance extends AbstractBadnikInstance {
             }
         }
 
-        // ObjectMove: apply velocity
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
-        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
-        xPos24 += xVelocity;
-        yPos24 += yVelocity;
-        currentX = xPos24 >> 8;
-        currentY = yPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
-        ySubpixel = yPos24 & 0xFF;
+        // ObjectMove + ObjCheckFloorDist via PatrolMovementHelper
+        var patrol = PatrolMovementHelper.updatePatrol(
+                currentX, xSubpixel, currentY, xVelocity, Y_RADIUS, FLOOR_MIN_DIST, FLOOR_MAX_DIST);
+        currentX = patrol.newX();
+        xSubpixel = patrol.newXSub();
+        currentY = patrol.newY();
 
-        // ObjCheckFloorDist
-        TerrainCheckResult floor = ObjectTerrainUtils.checkFloorDist(currentX, currentY, Y_RADIUS);
-
-        if (floor.foundSurface() && floor.distance() >= FLOOR_MIN_DIST && floor.distance() < FLOOR_MAX_DIST) {
-            // Snap to floor
-            currentY += floor.distance();
-
+        if (patrol.reversed()) {
+            // No valid floor → reverse velocity (no facing change - crab walks sideways)
+            // ROM: neg.w x_vel(a0) at loc_38096, then fall through to transitionToPaused
+            // Note: ROM does NOT toggle x_flip here, unlike Slicer
+            xVelocity = -xVelocity;
+            transitionToPaused();
+        } else {
             // Decrement walk timer
             timer--;
             if (timer < 0) {
@@ -197,12 +196,6 @@ public class ShellcrackerBadnikInstance extends AbstractBadnikInstance {
                 // Animate and continue (Ani_obj9F anim 0)
                 updateWalkAnimation();
             }
-        } else {
-            // No valid floor → reverse velocity (no facing change - crab walks sideways)
-            // ROM: neg.w x_vel(a0) at loc_38096, then fall through to transitionToPaused
-            // Note: ROM does NOT toggle x_flip here, unlike Slicer
-            xVelocity = -xVelocity;
-            transitionToPaused();
         }
     }
 
@@ -307,7 +300,7 @@ public class ShellcrackerBadnikInstance extends AbstractBadnikInstance {
      * All pieces positioned at (x + offset, y - 8).
      */
     private void spawnClawPieces() {
-        var objectManager = levelManager.getObjectManager();
+        var objectManager = services().objectManager();
         if (objectManager == null) return;
 
         for (int i = 0; i < CLAW_PIECE_COUNT; i++) {
@@ -330,7 +323,7 @@ public class ShellcrackerBadnikInstance extends AbstractBadnikInstance {
             int pieceY = currentY + CLAW_SPAWN_Y_OFFSET;
 
             ShellcrackerClawInstance claw = new ShellcrackerClawInstance(
-                    spawn, this, pieceX, pieceY, pieceIndex, !facingLeft, levelManager);
+                    spawn, this, pieceX, pieceY, pieceIndex, !facingLeft);
             objectManager.addDynamicObject(claw);
         }
     }
@@ -362,9 +355,9 @@ public class ShellcrackerBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) return;
+        if (isDestroyed()) return;
 
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) return;
 
         PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.SHELLCRACKER);

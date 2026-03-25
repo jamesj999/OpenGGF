@@ -1,7 +1,6 @@
 package com.openggf.game;
 
 import com.openggf.camera.Camera;
-import com.openggf.game.sonic2.objects.CheckpointObjectInstance;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.logging.Logger;
@@ -45,17 +44,8 @@ public class CheckpointState implements RespawnState {
     }
 
     /**
-     * Save state from a checkpoint activation.
-     */
-    public void saveFromCheckpoint(CheckpointObjectInstance checkpoint, AbstractPlayableSprite player) {
-        saveCheckpoint(checkpoint.getCheckpointIndex(),
-                checkpoint.getCenterX(), checkpoint.getCenterY(),
-                checkpoint.hasCameraLockFlag());
-    }
-
-    /**
      * Save checkpoint state from raw values.
-     * Game-agnostic alternative to saveFromCheckpoint that doesn't depend on a specific object class.
+     * Game-agnostic — callers extract position/flags from their game-specific checkpoint object.
      */
     public void saveCheckpoint(int checkpointIndex, int x, int y, boolean cameraLockFlag) {
         this.lastCheckpointIndex = checkpointIndex;
@@ -63,7 +53,7 @@ public class CheckpointState implements RespawnState {
         this.savedY = y;
         this.cameraLock = cameraLockFlag;
 
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         this.savedCameraX = camera.getX();
         this.savedCameraY = camera.getY();
 

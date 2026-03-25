@@ -2,7 +2,6 @@ package com.openggf.game.sonic2.specialstage;
 
 import com.openggf.game.GameServices;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.timer.Timer;
 import com.openggf.physics.TrigLookupTable;
@@ -407,7 +406,7 @@ public class Sonic2SpecialStagePlayer {
             swapPositionsFlag = !swapPositionsFlag;
         }
 
-        AudioManager.getInstance().playSfx(GameSound.JUMP);
+        GameServices.audio().playSfx(GameSound.JUMP);
         LOGGER.fine("Player jumped at angle " + angle + ", vel=(" + xVel + "," + yVel + ")");
     }
 

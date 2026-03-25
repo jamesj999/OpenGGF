@@ -70,20 +70,17 @@ public class Sonic3kPlayerArt {
         System.arraycopy(mainTiles, 0, allTiles, 0, mainTiles.length);
         System.arraycopy(extraTiles, 0, allTiles, mainTiles.length, extraTiles.length);
 
-        List<SpriteMappingFrame> mappingFrames = loadMappingFrames(Sonic3kConstants.MAP_SONIC_ADDR);
-        List<SpriteDplcFrame> dplcFrames = loadDplcFrames(Sonic3kConstants.DPLC_SONIC_ADDR);
-
         // S3K mapping/DPLC tables are combined 1P+2P: the offset table contains
         // N entries for 1P followed by N entries for 2P (total 2N). The first word
         // covers both halves, so the parser returns 2N frames. Only the first half
-        // (1P frames) is valid for single-player mode.
-        int onePlayerCount = mappingFrames.size() / 2;
-        if (onePlayerCount > 0 && mappingFrames.size() > onePlayerCount) {
-            mappingFrames = new ArrayList<>(mappingFrames.subList(0, onePlayerCount));
-        }
-        if (dplcFrames.size() > mappingFrames.size()) {
-            dplcFrames = new ArrayList<>(dplcFrames.subList(0, mappingFrames.size()));
-        }
+        // (1P frames) is valid for single-player mode. We must load only the 1P
+        // half directly; loading all 2N entries causes OOM because the 2P entry
+        // offsets are relative to the 2P sub-table and point to garbage data when
+        // interpreted relative to the combined table base.
+        int combinedMappingCount = reader.readU16BE(Sonic3kConstants.MAP_SONIC_ADDR) / 2;
+        int onePlayerCount = combinedMappingCount / 2;
+        List<SpriteMappingFrame> mappingFrames = loadMappingFrames(Sonic3kConstants.MAP_SONIC_ADDR, onePlayerCount);
+        List<SpriteDplcFrame> dplcFrames = loadDplcFrames(Sonic3kConstants.DPLC_SONIC_ADDR, onePlayerCount);
 
         // Post-process DPLCs: frames corresponding to mapping frames >= threshold
         // need their startTile values offset by mainTileCount so they index into the
@@ -382,6 +379,10 @@ public class Sonic3kPlayerArt {
 
     private List<SpriteMappingFrame> loadMappingFrames(int mappingAddr) {
         return S3kSpriteDataLoader.loadMappingFrames(reader, mappingAddr);
+    }
+
+    private List<SpriteMappingFrame> loadMappingFrames(int mappingAddr, int frameCount) {
+        return S3kSpriteDataLoader.loadMappingFrames(reader, mappingAddr, frameCount);
     }
 
     private List<SpriteDplcFrame> loadDplcFrames(int dplcAddr) {

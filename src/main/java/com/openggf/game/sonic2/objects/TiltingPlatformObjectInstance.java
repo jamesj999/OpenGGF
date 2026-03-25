@@ -1,11 +1,9 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
-import com.openggf.camera.Camera;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2AudioConstants;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -14,7 +12,6 @@ import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -142,7 +139,8 @@ public class TiltingPlatformObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Fix #3: One-frame-early initialization for behavior types 0, 2, and 6.
         // ROM: ObjB6_Init returns after setting routine. On the NEXT frame, the object
         // enters its behavior routine and hits sub 0 (loc_3B61C) which advances to sub 2
@@ -177,13 +175,8 @@ public class TiltingPlatformObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null) {
-            appendDebugBox(commands);
-            return;
-        }
-        PatternSpriteRenderer renderer = levelManager.getObjectRenderManager() != null
-                ? levelManager.getObjectRenderManager().getRenderer(Sonic2ObjectArtKeys.WFZ_TILT_PLATFORM)
+        PatternSpriteRenderer renderer = services().renderManager() != null
+                ? services().renderManager().getRenderer(Sonic2ObjectArtKeys.WFZ_TILT_PLATFORM)
                 : null;
         if (renderer == null || !renderer.isReady()) {
             appendDebugBox(commands);
@@ -206,12 +199,14 @@ public class TiltingPlatformObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Solid state is driven by ObjectManager standing checks
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return isSolidInCurrentState();
     }
 
@@ -275,7 +270,7 @@ public class TiltingPlatformObjectInstance extends AbstractObjectInstance
                     // loc_3B7F8: spawn VerticalLaser child (ObjB7)
                     spawnVerticalLaser();
                     // moveq #signextendB(SndID_Fire),d0 / jmpto JmpTo12_PlaySound
-                    AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_FIRE);
+                    services().playSfx(Sonic2AudioConstants.SFX_FIRE);
                 }
             }
             case 4 -> {
@@ -585,20 +580,19 @@ public class TiltingPlatformObjectInstance extends AbstractObjectInstance
      * ROM: bclr p1_standing_bit/p2_standing_bit, then bclr on_object + bset in_air.
      */
     private void dropRidingPlayers() {
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
-        ObjectManager objectManager = levelManager.getObjectManager();
+        ObjectManager objectManager = services().objectManager();
 
         // Get main character (ROM: MainCharacter)
-        AbstractPlayableSprite main = Camera.getInstance().getFocusedSprite();
+        AbstractPlayableSprite main = services().camera().getFocusedSprite();
         if (main != null && objectManager.isRidingObject(main, this)) {
             objectManager.clearRidingObject(main);
         }
 
         // Get sidekick(s) (ROM: Sidekick)
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+        for (PlayableEntity sidekick : services().sidekicks()) {
             if (objectManager.isRidingObject(sidekick, this)) {
                 objectManager.clearRidingObject(sidekick);
             }
@@ -617,14 +611,13 @@ public class TiltingPlatformObjectInstance extends AbstractObjectInstance
      *   render_flags=level_fg, priority=4, width_pixels=$18, collision_flags=$A9.
      */
     private void spawnVerticalLaser() {
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
         VerticalLaserObjectInstance laser = new VerticalLaserObjectInstance(
                 spawn, spawn.x(), spawn.y());
-        levelManager.getObjectManager().addDynamicObject(laser);
+        services().objectManager().addDynamicObject(laser);
     }
 
     /**
@@ -645,7 +638,7 @@ public class TiltingPlatformObjectInstance extends AbstractObjectInstance
      * -> x_flip is SET when d0 == 0 (player to the LEFT)
      */
     private boolean isPlayerToLeft(AbstractPlayableSprite player) {
-        AbstractPlayableSprite main = Camera.getInstance().getFocusedSprite();
+        AbstractPlayableSprite main = services().camera().getFocusedSprite();
 
         // Determine the closest player by absolute horizontal distance
         AbstractPlayableSprite closest = null;
@@ -660,12 +653,12 @@ public class TiltingPlatformObjectInstance extends AbstractObjectInstance
             }
         }
 
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+        for (PlayableEntity sidekick : services().sidekicks()) {
             int diff = spawn.x() - sidekick.getCentreX();
             int absDiff = Math.abs(diff);
             if (absDiff < closestAbsDist) {
                 closestAbsDist = absDiff;
-                closest = sidekick;
+                closest = (AbstractPlayableSprite) sidekick;
             }
         }
 
@@ -682,11 +675,10 @@ public class TiltingPlatformObjectInstance extends AbstractObjectInstance
     }
 
     private boolean isAnyPlayerRiding() {
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return false;
         }
-        return levelManager.getObjectManager().isAnyPlayerRiding(this);
+        return services().objectManager().isAnyPlayerRiding(this);
     }
 
     /**

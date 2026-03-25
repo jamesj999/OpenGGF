@@ -12,7 +12,8 @@
         <maven.compiler.release>21</maven.compiler.release>
         <lwjgl.version>3.3.3</lwjgl.version>
         <joml.version>1.10.5</joml.version>
-        <surefire.argLine>-Xmx2g</surefire.argLine>
+        <surefire.argLine>-Xmx1g -Djdk.attach.allowAttachSelf=true</surefire.argLine>
+        <surefire.forkCount>4</surefire.forkCount>
     </properties>
 
     <!-- LWJGL native classifier profiles -->
@@ -33,7 +34,7 @@
             </activation>
             <properties>
                 <lwjgl.natives>natives-macos</lwjgl.natives>
-                <surefire.argLine>-XstartOnFirstThread -Xmx2g</surefire.argLine>
+                <surefire.argLine>-XstartOnFirstThread -Xmx1g -Djdk.attach.allowAttachSelf=true</surefire.argLine>
             </properties>
         </profile>
         <profile>
@@ -43,7 +44,7 @@
             </activation>
             <properties>
                 <lwjgl.natives>natives-macos-arm64</lwjgl.natives>
-                <surefire.argLine>-XstartOnFirstThread -Xmx2g</surefire.argLine>
+                <surefire.argLine>-XstartOnFirstThread -Xmx1g -Djdk.attach.allowAttachSelf=true</surefire.argLine>
             </properties>
         </profile>
         <profile>
@@ -53,6 +54,29 @@
             </activation>
             <properties>
                 <lwjgl.natives>natives-windows</lwjgl.natives>
+            </properties>
+        </profile>
+
+        <!-- CI/CD profile: low-memory, single-fork execution.
+             Activated automatically when CI=true (GitHub Actions, GitLab CI, etc.)
+             or manually via: mvn test -Pci
+
+             Resource profile (measured):
+               1 fork × 256MB = 256MB total, ~19s for 1933 non-ROM tests
+               1 fork × 128MB = OOM on some tests
+               Local 4 forks × 512MB = 2GB total, ~19s (parallelism has <1s benefit)
+        -->
+        <profile>
+            <id>ci</id>
+            <activation>
+                <property>
+                    <name>env.CI</name>
+                    <value>true</value>
+                </property>
+            </activation>
+            <properties>
+                <surefire.argLine>-Xmx512m -Djdk.attach.allowAttachSelf=true</surefire.argLine>
+                <surefire.forkCount>1</surefire.forkCount>
             </properties>
         </profile>
 
@@ -230,16 +254,20 @@
                 <configuration>
                     <!-- LWJGL/GLFW on macOS requires -XstartOnFirstThread (set via profile) -->
                     <argLine>${surefire.argLine}</argLine>
-                    <!-- Run test classes in parallel forked JVMs (max 8).
+                    <!-- Run test classes in parallel forked JVMs.
                          Thread-level parallelism is unsafe due to singleton state,
-                         but process-level forks each get isolated singletons. -->
-                    <forkCount>8</forkCount>
+                         but process-level forks each get isolated singletons.
+                         Default: 4 forks locally, 1 in CI (see ci profile). -->
+                    <forkCount>${surefire.forkCount}</forkCount>
                     <reuseForks>true</reuseForks>
                     <!-- Exclude tests that require a GL context/display -->
                     <excludes>
                         <exclude>**/TestGraphicsManagerHeadless.java</exclude>
                         <exclude>**/VisualRegressionTest.java</exclude>
                         <exclude>**/VisualReferenceGenerator.java</exclude>
+                        <exclude>**/TestAizFireCurtainGpuDiag.java</exclude>
+                        <exclude>**/TestS3kSpecialStageResultsVisual.java</exclude>
+                        <exclude>**/TestInstaShieldVisual.java</exclude>
                     </excludes>
                 </configuration>
             </plugin>

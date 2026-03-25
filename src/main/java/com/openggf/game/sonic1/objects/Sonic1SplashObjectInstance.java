@@ -1,11 +1,9 @@
 package com.openggf.game.sonic1.objects;
 
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
-import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -48,14 +46,14 @@ public class Sonic1SplashObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM (Spla_Display): move.w (v_waterpos1).w,obY(a0)
         // Track water surface Y each frame
-        LevelManager lm = LevelManager.getInstance();
-        if (lm != null && lm.getCurrentLevel() != null) {
-            WaterSystem waterSystem = WaterSystem.getInstance();
+        if (services().currentLevel() != null) {
+            var waterSystem = services().waterSystem();
             posY = waterSystem.getVisualWaterLevelY(
-                    lm.getFeatureZoneId(), lm.getFeatureActId());
+                    services().featureZoneId(), services().featureActId());
         }
 
         // AnimateSprite with Ani_Splash: duration 4, frames 0/1/2, afRoutine
@@ -75,19 +73,8 @@ public class Sonic1SplashObjectInstance extends AbstractObjectInstance {
             return;
         }
 
-        LevelManager lm = LevelManager.getInstance();
-        if (lm == null) {
-            return;
-        }
-        ObjectRenderManager renderManager = lm.getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.LZ_SPLASH);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.LZ_SPLASH);
+        if (renderer == null) return;
 
         renderer.drawFrameIndex(frameIndex, posX, posY, false, false);
     }

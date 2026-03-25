@@ -1,9 +1,9 @@
 package com.openggf.game.sonic3k.objects.badniks;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
@@ -59,8 +59,8 @@ public final class RhinobotBadnikInstance extends AbstractS3kBadnikInstance {
     private int stateTimer;
     private SpeedCallback speedCallback = SpeedCallback.REACH_TURN_POINT;
 
-    public RhinobotBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, "Rhinobot", levelManager,
+    public RhinobotBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Rhinobot",
                 Sonic3kObjectArtKeys.RHINOBOT, COLLISION_SIZE_INDEX, PRIORITY_BUCKET);
 
         accelStep = -PATROL_ACCEL;
@@ -74,7 +74,8 @@ public final class RhinobotBadnikInstance extends AbstractS3kBadnikInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (destroyed) {
             return;
         }
@@ -108,7 +109,7 @@ public final class RhinobotBadnikInstance extends AbstractS3kBadnikInstance {
         stateTimer = CHARGE_PREP_FRAMES;
         mappingFrame = FRAME_SLOW;
         statusFlags |= FLAG_CHARGE_EFFECT;
-        AudioManager.getInstance().playSfx(Sonic3kSfx.BLAST.id);
+        services().playSfx(Sonic3kSfx.BLAST.id);
     }
 
     private void updateChargePrep() {
@@ -249,7 +250,7 @@ public final class RhinobotBadnikInstance extends AbstractS3kBadnikInstance {
             return;
         }
         statusFlags |= FLAG_CHARGE_EFFECT;
-        AudioManager.getInstance().playSfx(Sonic3kSfx.BLAST.id);
+        services().playSfx(Sonic3kSfx.BLAST.id);
     }
 
     private void reverseDirection() {

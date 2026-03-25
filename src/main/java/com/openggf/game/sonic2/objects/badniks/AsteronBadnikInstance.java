@@ -1,15 +1,18 @@
 package com.openggf.game.sonic2.objects.badniks;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
-import com.openggf.game.sonic2.objects.ExplosionObjectInstance;
+import com.openggf.game.PlayableEntity;
+import com.openggf.level.objects.ExplosionObjectInstance;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -70,19 +73,18 @@ public class AsteronBadnikInstance extends AbstractBadnikInstance {
 
     private State state;
     private int moveTimer;
-    private int subPixelX;
-    private int subPixelY;
+    private final SubpixelMotion.State motionState;
 
-    public AsteronBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Asteron");
+    public AsteronBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Asteron", Sonic2BadnikConfig.DESTRUCTION);
         this.state = State.IDLE;
         this.moveTimer = 0;
-        this.subPixelX = 0;
-        this.subPixelY = 0;
+        this.motionState = new SubpixelMotion.State(spawn.x(), spawn.y(), 0, 0, 0, 0);
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
             case IDLE -> updateIdle(player);
             case ARMED -> updateArmed(player);
@@ -170,14 +172,13 @@ public class AsteronBadnikInstance extends AbstractBadnikInstance {
         }
 
         // ObjectMove: position += velocity (8.8 fixed point)
-        int xPos24 = (currentX << 8) | (subPixelX & 0xFF);
-        int yPos24 = (currentY << 8) | (subPixelY & 0xFF);
-        xPos24 += xVelocity;
-        yPos24 += yVelocity;
-        currentX = xPos24 >> 8;
-        currentY = yPos24 >> 8;
-        subPixelX = xPos24 & 0xFF;
-        subPixelY = yPos24 & 0xFF;
+        motionState.x = currentX;
+        motionState.y = currentY;
+        motionState.xVel = xVelocity;
+        motionState.yVel = yVelocity;
+        SubpixelMotion.moveSprite2(motionState);
+        currentX = motionState.x;
+        currentY = motionState.y;
     }
 
     /**
@@ -187,21 +188,21 @@ public class AsteronBadnikInstance extends AbstractBadnikInstance {
      */
     private void explode() {
         // Destroy self (the Asteron becomes an explosion)
-        destroyed = true;
+        setDestroyed(true);
         setDestroyed(true);
 
-        var objectManager = levelManager.getObjectManager();
+        var objectManager = services().objectManager();
         if (objectManager != null) {
             objectManager.removeFromActiveSpawns(spawn);
         }
 
         // Spawn explosion at current position
         var explosion = new ExplosionObjectInstance(
-                0x27, currentX, currentY, levelManager.getObjectRenderManager());
+                0x27, currentX, currentY, services().renderManager());
         objectManager.addDynamicObject(explosion);
 
         // Play explosion SFX
-        AudioManager.getInstance().playSfx(
+        services().playSfx(
                 Sonic2Sfx.EXPLOSION.id);
 
         // Spawn 5 projectiles (from word_38A68 / Obj_CreateProjectiles)
@@ -251,19 +252,12 @@ public class AsteronBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.ASTERON);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.ASTERON);
+        if (renderer == null) return;
 
         // Asteron has no directional flipping - it's a symmetric starfish
         renderer.drawFrameIndex(animFrame, currentX, currentY, false, false);

@@ -108,4 +108,53 @@ public interface ZoneScrollHandler {
     default int getBgPeriodWidth() {
         return 512;
     }
+
+    /**
+     * Get the VScroll factor for Plane A (foreground).
+     * Most zones return 0 (foreground uses camera Y directly), but zones
+     * with screen shake (MCZ, HTZ earthquake mode) modify the FG vertical
+     * scroll to include ripple offsets.
+     *
+     * @return VScroll factor for foreground plane (16-bit signed), or 0 for default
+     */
+    default short getVscrollFactorFG() {
+        return 0;
+    }
+
+    /**
+     * Get the horizontal screen shake offset for this frame.
+     * Zones with screen shake effects (ARZ, HTZ, MCZ) produce per-frame
+     * horizontal offsets derived from ripple data. Used by LevelManager
+     * to offset FG tiles and sprites.
+     *
+     * @return Horizontal shake offset in pixels, or 0 if no shake
+     */
+    default int getShakeOffsetX() {
+        return 0;
+    }
+
+    /**
+     * Get the vertical screen shake offset for this frame.
+     * Zones with screen shake effects (ARZ, HTZ, MCZ) produce per-frame
+     * vertical offsets derived from ripple data. Used by LevelManager
+     * to offset FG tiles and sprites.
+     *
+     * @return Vertical shake offset in pixels, or 0 if no shake
+     */
+    default int getShakeOffsetY() {
+        return 0;
+    }
+
+    /**
+     * Initialize zone-specific scroll state on level load.
+     * Called when entering a zone to set up background camera positions,
+     * reset animation counters, and prepare zone-specific scroll data.
+     *
+     * @param actId   current act (0-based: 0 = Act 1, 1 = Act 2)
+     * @param cameraX current foreground camera X position (pixels)
+     * @param cameraY current foreground camera Y position (pixels)
+     */
+    default void init(int actId, int cameraX, int cameraY) {
+        // no-op by default
+    }
 }

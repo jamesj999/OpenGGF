@@ -1,17 +1,26 @@
 package com.openggf.game.sonic1.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameAudioProfile;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic1.audio.Sonic1Music;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
-import com.openggf.game.GameServices;
-import com.openggf.game.sonic2.objects.ExplosionObjectInstance;
-import com.openggf.game.sonic2.objects.ObjectAnimationState;
+import com.openggf.level.objects.ExplosionObjectInstance;
+import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
-import com.openggf.level.objects.*;
+import com.openggf.level.objects.AbstractMonitorObjectInstance;
+import com.openggf.level.objects.ObjectManager;
+import com.openggf.level.objects.ObjectRenderManager;
+import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.ObjectSpriteSheet;
+import com.openggf.level.objects.SolidContact;
+import com.openggf.level.objects.SolidObjectListener;
+import com.openggf.level.objects.SolidObjectParams;
+import com.openggf.level.objects.SolidObjectProvider;
+import com.openggf.level.objects.TouchResponseListener;
+import com.openggf.level.objects.TouchResponseProvider;
+import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpriteMappingPiece;
@@ -31,22 +40,13 @@ import java.util.logging.Logger;
  * <p>
  * Reference: docs/s1disasm/_incObj/26 Monitor.asm
  */
-public class Sonic1MonitorObjectInstance extends AbstractObjectInstance
+public class Sonic1MonitorObjectInstance extends AbstractMonitorObjectInstance
         implements TouchResponseProvider, TouchResponseListener,
         SolidObjectProvider, SolidObjectListener {
     private static final Logger LOGGER = Logger.getLogger(Sonic1MonitorObjectInstance.class.getName());
 
     // From disassembly: obHeight/obWidth = $0E
     private static final int HALF_RADIUS = 0x0E;
-
-    // From disassembly: Pow_Main sets obVelY = -$300
-    private static final int ICON_INITIAL_VELOCITY = -0x300;
-
-    // From disassembly: Pow_Move adds $18 to obVelY per frame
-    private static final int ICON_RISE_ACCEL = 0x18;
-
-    // From disassembly: Pow_Move sets timer to $1D (29 frames)
-    private static final int ICON_WAIT_FRAMES = 0x1D;
 
     // Map_Monitor frame 11 = broken shell
     private static final int BROKEN_FRAME = 0x0B;
@@ -68,13 +68,7 @@ public class Sonic1MonitorObjectInstance extends AbstractObjectInstance
     private boolean broken;
     private int mappingFrame;
 
-    // Icon rising state (PowerUp object in disassembly)
-    private boolean iconActive;
-    private int iconSubY;
-    private int iconVelY;
-    private int iconWaitFrames;
-    private boolean effectApplied;
-    private AbstractPlayableSprite effectTarget;
+    // Player reference preserved for icon rendering (effectTarget is cleared after apply)
     private AbstractPlayableSprite iconPlayer;
 
     // Falling state (ob2ndRout = 4 in disassembly)
@@ -88,14 +82,14 @@ public class Sonic1MonitorObjectInstance extends AbstractObjectInstance
         this.type = MonitorType.fromSubtype(spawn.subtype());
 
         // Check persistence: if previously broken, spawn as broken shell
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         boolean previouslyBroken = objectManager != null && objectManager.isRemembered(spawn);
         this.broken = this.type == MonitorType.BROKEN || previouslyBroken;
 
         // Initialize animation: obAnim = obSubtype (from Mon_Main)
         int initialAnim = type.id;
         int initialFrame = broken ? BROKEN_FRAME : 0;
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         this.animationState = new ObjectAnimationState(
                 renderManager != null ? renderManager.getMonitorAnimations() : null,
                 initialAnim,
@@ -115,7 +109,8 @@ public class Sonic1MonitorObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (falling) {
             updateFalling();
         }
@@ -147,7 +142,8 @@ public class Sonic1MonitorObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onTouchResponse(AbstractPlayableSprite player, TouchResponseResult result, int frameCounter) {
+    public void onTouchResponse(PlayableEntity playerEntity, TouchResponseResult result, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (broken || player == null) {
             return;
         }
@@ -187,7 +183,7 @@ public class Sonic1MonitorObjectInstance extends AbstractObjectInstance
         broken = true;
 
         // Mark as broken in persistence table
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null) {
             objectManager.markRemembered(spawn);
         }
@@ -198,54 +194,21 @@ public class Sonic1MonitorObjectInstance extends AbstractObjectInstance
         mappingFrame = BROKEN_FRAME;
 
         // Initialize icon rising (PowerUp object)
-        iconActive = true;
-        iconSubY = currentY << 8;
-        iconVelY = ICON_INITIAL_VELOCITY;
-        iconWaitFrames = 0;
-        effectApplied = false;
-        effectTarget = player;
+        startIconRise(currentY, player);
         iconPlayer = player;
 
         // Spawn explosion (id_ExplosionItem = $27) - only if explosion art is loaded
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager != null && objectManager != null
                 && renderManager.getExplosionRenderer() != null) {
             objectManager.addDynamicObject(
                     new ExplosionObjectInstance(0x27, spawn.x(), currentY, renderManager));
         }
-        AudioManager.getInstance().playSfx(Sonic1Sfx.BREAK_ITEM.id);
+        services().playSfx(Sonic1Sfx.BREAK_ITEM.id);
     }
 
-    /**
-     * Update the rising icon and apply power-up effect when it reaches the top.
-     * ROM: Pow_Move, Pow_ChkX
-     */
-    private void updateIcon() {
-        if (!iconActive) {
-            return;
-        }
-        if (iconVelY < 0) {
-            // Rising phase: apply velocity and deceleration
-            iconSubY += iconVelY;
-            iconVelY += ICON_RISE_ACCEL;
-            if (iconVelY >= 0) {
-                iconVelY = 0;
-                iconWaitFrames = ICON_WAIT_FRAMES;
-                if (!effectApplied && effectTarget != null) {
-                    applyMonitorEffect(effectTarget);
-                    effectApplied = true;
-                    effectTarget = null;
-                }
-            }
-            return;
-        }
-
-        // Waiting phase: count down then delete icon
-        if (iconWaitFrames > 0) {
-            iconWaitFrames--;
-            return;
-        }
-        iconActive = false;
+    @Override
+    protected void onIconDeactivated() {
         iconPlayer = null;
     }
 
@@ -253,35 +216,37 @@ public class Sonic1MonitorObjectInstance extends AbstractObjectInstance
      * Apply the monitor's power-up effect.
      * ROM: Pow_ChkX branch table
      */
-    private void applyMonitorEffect(AbstractPlayableSprite player) {
+    @Override
+    protected void applyPowerup(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (type) {
             // Pow_ChkRings: v_rings += 10, play sfx_Ring
             case RINGS -> {
                 player.addRings(RING_MONITOR_REWARD);
-                AudioManager.getInstance().playSfx(GameSound.RING);
+                services().playSfx(GameSound.RING);
             }
             // Pow_ChkShield: v_shield = 1, play sfx_Shield
             case SHIELD -> {
                 player.giveShield();
-                AudioManager.getInstance().playSfx(Sonic1Sfx.SHIELD.id);
+                services().playSfx(Sonic1Sfx.SHIELD.id);
             }
             // Pow_ChkShoes: speed shoes on, play bgm_Speedup (CMD_SPEED_UP = $E2)
             case SHOES -> {
                 player.giveSpeedShoes();
-                GameAudioProfile audioProfile = AudioManager.getInstance().getAudioProfile();
+                GameAudioProfile audioProfile = services().audioManager().getAudioProfile();
                 if (audioProfile != null) {
-                    AudioManager.getInstance().playMusic(audioProfile.getSpeedShoesOnCommandId());
+                    services().playMusic(audioProfile.getSpeedShoesOnCommandId());
                 }
             }
             // Pow_ChkInvinc: invincibility on, play bgm_Invincible
             case INVINCIBILITY -> {
                 player.giveInvincibility();
-                AudioManager.getInstance().playMusic(Sonic1Music.INVINCIBILITY.id);
+                services().playMusic(Sonic1Music.INVINCIBILITY.id);
             }
             // Pow_ChkSonic: v_lives++, play bgm_ExtraLife
             case SONIC -> {
-                AudioManager.getInstance().playMusic(Sonic1Music.EXTRA_LIFE.id);
-                GameServices.gameState().addLife();
+                services().playMusic(Sonic1Music.EXTRA_LIFE.id);
+                services().gameState().addLife();
             }
             // Pow_ChkEggman, Pow_ChkS, Pow_ChkGoggles: no effect
             default -> { }
@@ -290,7 +255,7 @@ public class Sonic1MonitorObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             appendFallbackBox(commands);
             return;
@@ -372,7 +337,8 @@ public class Sonic1MonitorObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: Mon_SolidSides always runs when the monitor is intact.
         // The rolling/velY check happens INSIDE Mon_Solid (after geometry
         // detection), not as an external solid gate. This is implemented
@@ -387,7 +353,8 @@ public class Sonic1MonitorObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Solid contact used for standing/edge checks; no additional behavior needed.
     }
 
@@ -405,14 +372,7 @@ public class Sonic1MonitorObjectInstance extends AbstractObjectInstance
     public ObjectSpawn getSpawn() {
         // Return spawn with dynamic Y for solid collision checks during falling
         if (currentY != spawn.y()) {
-            return new ObjectSpawn(
-                    spawn.x(),
-                    currentY,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
+            return buildSpawnAt(spawn.x(), currentY);
         }
         return spawn;
     }

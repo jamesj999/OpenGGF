@@ -7,6 +7,7 @@ import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectManager;
@@ -80,7 +81,7 @@ public class TestCNZObjectBugs {
         sprite = (Sonic) fixture.sprite();
 
         // Reset object spawn windows (was in original @Before)
-        LevelManager.getInstance().getObjectManager().reset(fixture.camera().getX());
+        GameServices.level().getObjectManager().reset(fixture.camera().getX());
     }
 
     // ========================================================================
@@ -110,7 +111,7 @@ public class TestCNZObjectBugs {
      * Returns null if not found.
      */
     private ObjectInstance findActiveObject(int objectId) {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = GameServices.level().getObjectManager();
         if (objectManager == null) {
             return null;
         }
@@ -134,7 +135,7 @@ public class TestCNZObjectBugs {
         Camera camera = fixture.camera();
         camera.updatePosition(true);
 
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = GameServices.level().getObjectManager();
         if (objectManager != null) {
             objectManager.reset(camera.getX());
         }
@@ -790,7 +791,7 @@ public class TestCNZObjectBugs {
      * Returns null if none found.
      */
     private ObjectInstance findSimplePointPokey() {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = GameServices.level().getObjectManager();
         for (int y : new int[]{800, 1200, 1600}) {
             for (int x = 0; x <= 8192; x += 256) {
                 teleportAndRefresh(x, y);
@@ -846,7 +847,7 @@ public class TestCNZObjectBugs {
         for (int y : new int[]{800, 1200, 1600}) {
             for (int x = 0; x <= 8192; x += 256) {
                 teleportAndRefresh(x, y);
-                ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+                ObjectManager objectManager = GameServices.level().getObjectManager();
                 if (objectManager == null) continue;
 
                 for (ObjectInstance obj : objectManager.getActiveObjects()) {

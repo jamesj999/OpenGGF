@@ -1,18 +1,12 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.PlayableEntity;
 
-import com.openggf.camera.Camera;
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.debug.DebugOverlayManager;
-import com.openggf.debug.DebugOverlayToggle;
-import com.openggf.game.GameServices;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.OscillationManager;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
@@ -65,11 +59,6 @@ public class Sonic1CirclingPlatformObjectInstance extends AbstractObjectInstance
     private static final int OSC_X_OFFSET = 0x20; // v_oscillate+$22 = oscillator 8 value high byte
     private static final int OSC_Y_OFFSET = 0x24; // v_oscillate+$26 = oscillator 9 value high byte
 
-    // Debug state
-    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
-            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
-
     // Saved original positions (circ_origX = objoff_32, circ_origY = objoff_30)
     private final int origX;
     private final int origY;
@@ -82,9 +71,6 @@ public class Sonic1CirclingPlatformObjectInstance extends AbstractObjectInstance
     private final boolean negateBoth;   // Bit 0: negate both offsets
     private final boolean rotated;      // Bit 1: negate X, exchange X/Y
     private final boolean type04;       // Bits 2-3: type04 additionally negates X
-
-    // Dynamic spawn for position tracking
-    private ObjectSpawn dynamicSpawn;
 
     public Sonic1CirclingPlatformObjectInstance(ObjectSpawn spawn) {
         super(spawn, "CirclingPlatform");
@@ -110,7 +96,7 @@ public class Sonic1CirclingPlatformObjectInstance extends AbstractObjectInstance
         this.x = origX;
         this.y = origY;
         updatePosition();
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -122,19 +108,14 @@ public class Sonic1CirclingPlatformObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
     @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
-    @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
         updatePosition();
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -204,19 +185,8 @@ public class Sonic1CirclingPlatformObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.SLZ_CIRCLING_PLATFORM);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
-
-        // Draw debug overlay
-        if (isDebugViewEnabled()) {
-            appendDebug(commands);
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.SLZ_CIRCLING_PLATFORM);
+        if (renderer == null) return;
 
         // Render platform at current position (single frame: frame 0)
         renderer.drawFrameIndex(0, x, y, false, false);
@@ -240,12 +210,14 @@ public class Sonic1CirclingPlatformObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed();
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Standing state is managed by ObjectManager
     }
 
@@ -263,7 +235,7 @@ public class Sonic1CirclingPlatformObjectInstance extends AbstractObjectInstance
      * out_of_range.w macro applied to circ_origX.
      */
     private boolean isOrigXOnScreen() {
-        var camera = Camera.getInstance();
+        var camera = services().camera();
         if (camera == null) {
             return true;
         }
@@ -274,52 +246,31 @@ public class Sonic1CirclingPlatformObjectInstance extends AbstractObjectInstance
         return distance <= (128 + 320 + 192);
     }
 
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = new ObjectSpawn(
-                    x, y,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
-    }
-
     // ---- Debug rendering ----
 
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         // Draw origin anchor point (yellow cross)
-        appendLine(commands, origX - 4, origY, origX + 4, origY, 1.0f, 1.0f, 0.0f);
-        appendLine(commands, origX, origY - 4, origX, origY + 4, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(origX - 4, origY, origX + 4, origY, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(origX, origY - 4, origX, origY + 4, 1.0f, 1.0f, 0.0f);
 
         // Draw line from origin to current position (cyan)
-        appendLine(commands, origX, origY, x, y, 0.0f, 1.0f, 1.0f);
+        ctx.drawLine(origX, origY, x, y, 0.0f, 1.0f, 1.0f);
 
         // Draw collision box (green for solid platform)
         int left = x - HALF_WIDTH;
         int right = x + HALF_WIDTH;
         int top = y - HALF_HEIGHT;
         int bottom = y + HALF_HEIGHT;
-        appendLine(commands, left, top, right, top, 0.0f, 1.0f, 0.0f);
-        appendLine(commands, right, top, right, bottom, 0.0f, 1.0f, 0.0f);
-        appendLine(commands, right, bottom, left, bottom, 0.0f, 1.0f, 0.0f);
-        appendLine(commands, left, bottom, left, top, 0.0f, 1.0f, 0.0f);
+        ctx.drawLine(left, top, right, top, 0.0f, 1.0f, 0.0f);
+        ctx.drawLine(right, top, right, bottom, 0.0f, 1.0f, 0.0f);
+        ctx.drawLine(right, bottom, left, bottom, 0.0f, 1.0f, 0.0f);
+        ctx.drawLine(left, bottom, left, top, 0.0f, 1.0f, 0.0f);
 
         // Draw platform center (red cross)
-        appendLine(commands, x - 4, y, x + 4, y, 1.0f, 0.0f, 0.0f);
-        appendLine(commands, x, y - 4, x, y + 4, 1.0f, 0.0f, 0.0f);
+        ctx.drawLine(x - 4, y, x + 4, y, 1.0f, 0.0f, 0.0f);
+        ctx.drawLine(x, y - 4, x, y + 4, 1.0f, 0.0f, 0.0f);
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2,
-                            float r, float g, float b) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x2, y2, 0, 0));
-    }
 
-    private boolean isDebugViewEnabled() {
-        return DEBUG_VIEW_ENABLED && OVERLAY_MANAGER.isEnabled(DebugOverlayToggle.OVERLAY);
-    }
 }

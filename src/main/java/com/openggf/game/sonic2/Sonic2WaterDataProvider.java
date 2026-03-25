@@ -1,5 +1,6 @@
 package com.openggf.game.sonic2;
 
+import com.openggf.data.PaletteLoader;
 import com.openggf.data.Rom;
 import com.openggf.game.DynamicWaterHandler;
 import com.openggf.game.PlayerCharacter;
@@ -28,8 +29,6 @@ import java.util.logging.Logger;
  */
 public class Sonic2WaterDataProvider implements WaterDataProvider {
     private static final Logger LOGGER = Logger.getLogger(Sonic2WaterDataProvider.class.getName());
-
-    private static final int PALETTE_SIZE_BYTES = 128; // 64 colors * 2 bytes per color
 
     // S2 ROM zone IDs (from Sonic2ZoneConstants)
     private static final int ZONE_ARZ = Sonic2ZoneConstants.ROM_ZONE_ARZ; // 0x0F
@@ -72,15 +71,7 @@ public class Sonic2WaterDataProvider implements WaterDataProvider {
         }
 
         try {
-            byte[] paletteData = rom.readBytes(paletteAddr, PALETTE_SIZE_BYTES);
-            Palette[] palettes = new Palette[4];
-            for (int i = 0; i < 4; i++) {
-                byte[] lineData = new byte[32];
-                System.arraycopy(paletteData, i * 32, lineData, 0, 32);
-                palettes[i] = new Palette();
-                palettes[i].fromSegaFormat(lineData);
-            }
-            return palettes;
+            return PaletteLoader.loadFullPalette(rom, paletteAddr);
         } catch (Exception e) {
             LOGGER.warning(String.format(
                     "Failed to load underwater palette for zone %d act %d at 0x%X: %s",

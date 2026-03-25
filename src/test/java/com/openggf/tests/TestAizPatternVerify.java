@@ -46,7 +46,7 @@ public class TestAizPatternVerify {
 
     @Test
     public void verifyCanopyPatterns() throws Exception {
-        Level level = LevelManager.getInstance().getCurrentLevel();
+        Level level = GameServices.level().getCurrentLevel();
         Rom rom = GameServices.rom().getRom();
         ResourceLoader loader = new ResourceLoader(rom);
 

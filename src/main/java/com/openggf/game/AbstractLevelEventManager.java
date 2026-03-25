@@ -1,6 +1,5 @@
 package com.openggf.game;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectInstance;
@@ -26,6 +25,14 @@ public abstract class AbstractLevelEventManager implements LevelEventProvider {
      */
     protected Camera camera() {
         return Camera.getInstance();
+    }
+
+    /**
+     * Returns the current LevelManager singleton. Always call this accessor rather
+     * than caching the reference, so it survives state resets cleanly.
+     */
+    protected LevelManager levelManager() {
+        return LevelManager.getInstance();
     }
 
     // Current zone and act
@@ -284,17 +291,17 @@ public abstract class AbstractLevelEventManager implements LevelEventProvider {
 
     /** Fade out the currently playing music. */
     protected void fadeMusic() {
-        AudioManager.getInstance().fadeOutMusic();
+        GameServices.audio().fadeOutMusic();
     }
 
     /** Play a music track by ID. */
     protected void playMusic(int musicId) {
-        AudioManager.getInstance().playMusic(musicId);
+        GameServices.audio().playMusic(musicId);
     }
 
     /** Play a sound effect by ID. */
     protected void playSfx(int sfxId) {
-        AudioManager.getInstance().playSfx(sfxId);
+        GameServices.audio().playSfx(sfxId);
     }
 
     // =========================================================================
@@ -306,7 +313,7 @@ public abstract class AbstractLevelEventManager implements LevelEventProvider {
      * Wraps {@code objectManager.addDynamicObject()}.
      */
     protected void spawnObject(ObjectInstance object) {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = levelManager();
         if (lm.getObjectManager() != null) {
             lm.getObjectManager().addDynamicObject(object);
         }
@@ -324,7 +331,7 @@ public abstract class AbstractLevelEventManager implements LevelEventProvider {
      * The checkpoint is cleared automatically by the transition.
      */
     protected void transitionToZone(int zone, int act) {
-        LevelManager.getInstance().requestZoneAndAct(zone, act);
+        levelManager().requestZoneAndAct(zone, act);
     }
 
     // =========================================================================

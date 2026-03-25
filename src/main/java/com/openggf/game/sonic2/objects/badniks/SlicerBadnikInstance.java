@@ -1,15 +1,17 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.physics.ObjectTerrainUtils;
-import com.openggf.physics.TerrainCheckResult;
+import com.openggf.level.objects.PatrolMovementHelper;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import com.openggf.debug.DebugColor;
@@ -80,12 +82,11 @@ public class SlicerBadnikInstance extends AbstractBadnikInstance {
     private State state;
     private int timer;
     private int xSubpixel; // Fractional X position for subpixel movement
-    private int ySubpixel; // Fractional Y position for subpixel movement
     private int walkAnimTimer;
     private boolean walkAnimToggle; // Toggles between frame 0 and frame 2
 
-    public SlicerBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Slicer");
+    public SlicerBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Slicer", Sonic2BadnikConfig.DESTRUCTION);
         this.currentX = spawn.x();
         this.currentY = spawn.y();
 
@@ -102,7 +103,8 @@ public class SlicerBadnikInstance extends AbstractBadnikInstance {
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
             case WALKING -> updateWalking(player);
             case EDGE_WAIT -> updateEdgeWait();
@@ -155,23 +157,14 @@ public class SlicerBadnikInstance extends AbstractBadnikInstance {
             }
         }
 
-        // ObjectMove: apply velocity to position using 16.8 fixed-point
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
-        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
-        xPos24 += xVelocity;
-        yPos24 += yVelocity;
-        currentX = xPos24 >> 8;
-        currentY = yPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
-        ySubpixel = yPos24 & 0xFF;
+        // ObjectMove + ObjCheckFloorDist via PatrolMovementHelper
+        var patrol = PatrolMovementHelper.updatePatrol(
+                currentX, xSubpixel, currentY, xVelocity, Y_RADIUS, FLOOR_MIN_DIST, FLOOR_MAX_DIST);
+        currentX = patrol.newX();
+        xSubpixel = patrol.newXSub();
+        currentY = patrol.newY();
 
-        // ROM: jsr (ObjCheckFloorDist).l
-        TerrainCheckResult floor = ObjectTerrainUtils.checkFloorDist(currentX, currentY, Y_RADIUS);
-
-        if (floor.foundSurface() && floor.distance() >= FLOOR_MIN_DIST && floor.distance() < FLOOR_MAX_DIST) {
-            // Snap to floor: add.w d1,y_pos(a0)
-            currentY += floor.distance();
-        } else {
+        if (patrol.reversed()) {
             // No valid floor - go to edge wait state
             // ROM: addq.b #2,routine(a0) → routine 4 (EDGE_WAIT)
             state = State.EDGE_WAIT;
@@ -221,7 +214,7 @@ public class SlicerBadnikInstance extends AbstractBadnikInstance {
      * Each pincer is an independent homing projectile (ObjA2).
      */
     private void spawnPincers() {
-        var objectManager = levelManager.getObjectManager();
+        var objectManager = services().objectManager();
         if (objectManager == null) return;
 
         int[][] offsets = {
@@ -265,9 +258,9 @@ public class SlicerBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) return;
+        if (isDestroyed()) return;
 
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) return;
 
         PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.SLICER);

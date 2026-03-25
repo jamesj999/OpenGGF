@@ -2,6 +2,7 @@ package com.openggf.tests;
 
 import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
+import com.openggf.game.GameServices;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
@@ -72,12 +73,12 @@ public final class SharedLevel {
         String mainCharCode = cs.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
 
         Sonic temp = new Sonic(mainCharCode, (short) 0, (short) 0);
-        SpriteManager.getInstance().addSprite(temp);
-        Camera camera = Camera.getInstance();
+        GameServices.sprites().addSprite(temp);
+        Camera camera = GameServices.camera();
         camera.setFocusedSprite(temp);
         camera.setFrozen(false);
 
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         lm.loadZoneAndAct(zone, act);
 
         // loadZoneAndAct → loadCurrentLevel now runs full profile including

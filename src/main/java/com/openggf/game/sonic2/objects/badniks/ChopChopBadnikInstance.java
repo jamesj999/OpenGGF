@@ -1,10 +1,12 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
-import com.openggf.level.objects.ObjectRenderManager;
+
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -59,8 +61,8 @@ public class ChopChopBadnikInstance extends AbstractBadnikInstance {
     private int ySubpixel;           // Subpixel accumulator for y movement during charge
     private final int startX;        // Initial X position for direction reference
 
-    public ChopChopBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "ChopChop");
+    public ChopChopBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "ChopChop", Sonic2BadnikConfig.DESTRUCTION);
         this.state = State.PATROLLING;
         this.moveTimer = MOVE_TIMER_INIT;
         this.waitTimer = 0;
@@ -78,7 +80,8 @@ public class ChopChopBadnikInstance extends AbstractBadnikInstance {
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
             case PATROLLING -> updatePatrolling(frameCounter, player);
             case WAITING -> updateWaiting(frameCounter);
@@ -231,19 +234,12 @@ public class ChopChopBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.CHOP_CHOP);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.CHOP_CHOP);
+        if (renderer == null) return;
 
         // Render current animation frame
         // Art faces left by default; flip when facing right

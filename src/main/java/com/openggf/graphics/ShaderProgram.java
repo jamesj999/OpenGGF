@@ -1,10 +1,15 @@
 package com.openggf.graphics;
 
 import java.io.IOException;
+import java.util.logging.Logger;
 
 import static org.lwjgl.opengl.GL20.*;
 
 public class ShaderProgram {
+    private static final Logger LOGGER = Logger.getLogger(ShaderProgram.class.getName());
+    /** Fullscreen vertex shader path shared by tilemap, parallax, fade, and slot shaders. */
+    public static final String FULLSCREEN_VERTEX_SHADER = "shaders/shader_fullscreen.vert";
+
     private int programId;
 
     // Cached uniform locations for pattern rendering
@@ -12,7 +17,7 @@ public class ShaderProgram {
     private int indexedColorTextureLocation = -1;
     private int paletteLineLocation = -1;
     private int totalPaletteLinesLocation = -1;
-    private boolean uniformsCached = false;
+    protected boolean uniformsCached = false;
 
     public int getProgramId() {
         return programId;
@@ -88,7 +93,14 @@ public class ShaderProgram {
         int linked = glGetProgrami(programId, GL_LINK_STATUS);
         if (linked == 0) {
             String log = glGetProgramInfoLog(programId);
-            System.err.println("Shader linking failed:\n" + log);
+            glDetachShader(programId, vertexShaderId);
+            glDetachShader(programId, fragmentShaderId);
+            glDeleteShader(vertexShaderId);
+            glDeleteShader(fragmentShaderId);
+            glDeleteProgram(programId);
+            programId = 0;
+            LOGGER.severe("Shader linking failed:\n" + log);
+            throw new RuntimeException("Shader linking failed: " + log);
         }
 
         // Detach and delete shader objects - they're no longer needed after linking.

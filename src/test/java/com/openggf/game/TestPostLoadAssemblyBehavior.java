@@ -1,9 +1,12 @@
 package com.openggf.game;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic1.Sonic1LevelInitProfile;
 import com.openggf.game.sonic2.Sonic2LevelInitProfile;
 import com.openggf.game.sonic3k.Sonic3kLevelInitProfile;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -22,14 +25,20 @@ public class TestPostLoadAssemblyBehavior {
 
     @Before
     public void resetCamera() {
-        Camera.resetInstance();
+        RuntimeManager.createGameplay();
+        GameServices.camera().resetState();
+    }
+
+    @After
+    public void tearDown() {
+        RuntimeManager.destroyCurrent();
     }
 
     // ========== Checkpoint Resume: Context Snapshot Round-Trip ==========
 
     @Test
     public void checkpointSnapshotPreservesAllFields() {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         camera.setX((short) 1000);
         camera.setY((short) 500);
 
@@ -49,7 +58,7 @@ public class TestPostLoadAssemblyBehavior {
 
     @Test
     public void checkpointRestoreFromSavedRoundTrip() {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         camera.setX((short) 800);
         camera.setY((short) 350);
 
@@ -288,7 +297,7 @@ public class TestPostLoadAssemblyBehavior {
     // ========== Helpers ==========
 
     private CheckpointState createCheckpoint(int index, int x, int y) {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         CheckpointState state = new CheckpointState();
         state.saveCheckpoint(index, x, y, false);
         return state;

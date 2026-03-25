@@ -4,9 +4,9 @@ import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -16,7 +16,6 @@ import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import com.openggf.debug.DebugColor;
@@ -136,7 +135,8 @@ public class LateralCannonObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (routine) {
             case WAIT_FOR_PHASE -> updateWaitForPhase(frameCounter);
             case EXTEND_ANIM -> updateAnimation(EXTEND_FRAMES, Routine.EXTENDED_HOLD);
@@ -240,7 +240,7 @@ public class LateralCannonObjectInstance extends AbstractObjectInstance
      * Clears on-object status and sets in_air for both main character and sidekick.
      */
     private void dropStandingPlayers(AbstractPlayableSprite mainChar) {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
 
         // bclr #p1_standing_bit,status(a0) / bclr #status.player.on_object,status(a1)
         // bset #status.player.in_air,status(a1)
@@ -251,7 +251,7 @@ public class LateralCannonObjectInstance extends AbstractObjectInstance
         }
 
         // bclr #p2_standing_bit,status(a0) - same for sidekick
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+        for (PlayableEntity sidekick : services().sidekicks()) {
             if (objectManager.isRidingObject(sidekick, this)) {
                 objectManager.clearRidingObject(sidekick);
                 sidekick.setOnObject(false);
@@ -309,7 +309,8 @@ public class LateralCannonObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Only solid when fully extended (mapping frames 3 or 4)
         return mappingFrame == 3 || mappingFrame == 4;
     }
@@ -321,7 +322,8 @@ public class LateralCannonObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Solid collision handled by ObjectManager
     }
 
@@ -331,7 +333,7 @@ public class LateralCannonObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

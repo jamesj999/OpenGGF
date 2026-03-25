@@ -1,19 +1,13 @@
 package com.openggf.game.sonic2.objects;
 
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.S2SpriteDataLoader;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
-import com.openggf.game.GameServices;
 
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.debug.DebugOverlayManager;
-import com.openggf.debug.DebugOverlayToggle;
-import com.openggf.data.Rom;
-import com.openggf.data.RomByteReader;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.PatternDesc;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
@@ -29,8 +23,8 @@ import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.util.LazyMappingHolder;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -92,13 +86,7 @@ public class SwingingPformObjectInstance extends AbstractObjectInstance
     private static final int WATER_SPEED = 2;         // Max speed toward water level (Type 7)
     private static final int CONTACT_DELAY = 0x1E;    // 30 frames delay before falling (Type 1/3)
 
-    private static List<SpriteMappingFrame> mappings;
-    private static boolean mappingsLoadAttempted;
-
-    // Debug state (cached for performance)
-    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
-            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
+    private static final LazyMappingHolder MAPPINGS = new LazyMappingHolder();
 
     // Position state
     private int x;
@@ -116,8 +104,6 @@ public class SwingingPformObjectInstance extends AbstractObjectInstance
     private int swingAngle;     // objoff_3E - current swing angle (0 to MAX_SWING_ANGLE)
     private boolean swingEnabled; // objoff_38 - whether swinging is active
     private boolean playerStanding; // Tracks if player is currently standing on platform
-    private ObjectSpawn dynamicSpawn;
-
     public SwingingPformObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
         this.x = spawn.x();
@@ -130,7 +116,7 @@ public class SwingingPformObjectInstance extends AbstractObjectInstance
         this.playerStanding = false;
 
         initFromSubtype();
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     private void initFromSubtype() {
@@ -183,14 +169,9 @@ public class SwingingPformObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
     @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
-    @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -201,7 +182,7 @@ public class SwingingPformObjectInstance extends AbstractObjectInstance
         // Update swinging animation
         updateSwinging();
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -310,15 +291,14 @@ public class SwingingPformObjectInstance extends AbstractObjectInstance
      * Corresponds to loc_2A3EC in disassembly.
      */
     private void updateWaterLevel() {
-        LevelManager manager = LevelManager.getInstance();
-        if (manager == null || manager.getCurrentLevel() == null) {
+        if (services().currentLevel() == null) {
             return;
         }
 
         // Get water level from WaterSystem
-        int zoneId = manager.getCurrentLevel().getZoneIndex();
-        int actId = manager.getCurrentAct();
-        WaterSystem waterSystem = WaterSystem.getInstance();
+        int zoneId = services().currentLevel().getZoneIndex();
+        int actId = services().currentAct();
+        WaterSystem waterSystem = services().waterSystem();
 
         if (!waterSystem.hasWater(zoneId, actId)) {
             return;  // No water in this level
@@ -372,10 +352,8 @@ public class SwingingPformObjectInstance extends AbstractObjectInstance
         }
 
         // Check if player is standing on platform
-        LevelManager manager = LevelManager.getInstance();
-        boolean standing = manager != null &&
-                manager.getObjectManager() != null &&
-                manager.getObjectManager().isAnyPlayerRiding(this);
+        boolean standing = services().objectManager() != null &&
+                services().objectManager().isAnyPlayerRiding(this);
         playerStanding = standing;
 
         if (standing) {
@@ -426,14 +404,9 @@ public class SwingingPformObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ensureMappingsLoaded();
-
-        // Draw debug collision box only when F1 debug view is enabled
-        if (isDebugViewEnabled()) {
-            appendDebug(commands);
-        }
-
-        if (mappings == null || mappings.isEmpty()) {
+        List<SpriteMappingFrame> mappings = MAPPINGS.get(
+                Sonic2Constants.MAP_UNC_OBJ82_ADDR, S2SpriteDataLoader::loadMappingFrames, "Obj82");
+        if (mappings.isEmpty()) {
             return;
         }
 
@@ -450,7 +423,7 @@ public class SwingingPformObjectInstance extends AbstractObjectInstance
         boolean hFlip = (spawn.renderFlags() & 0x1) != 0;
         boolean vFlip = (spawn.renderFlags() & 0x2) != 0;
 
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = services().graphicsManager();
         List<SpriteMappingPiece> pieces = mapping.pieces();
 
         // Render pieces in reverse order (painter's algorithm)
@@ -502,7 +475,8 @@ public class SwingingPformObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Track standing for swinging logic
         if (contact.standing()) {
             playerStanding = true;
@@ -510,45 +484,13 @@ public class SwingingPformObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed();
     }
 
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = new ObjectSpawn(
-                    x,
-                    y,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
-    }
-
-    private static void ensureMappingsLoaded() {
-        if (mappingsLoadAttempted) {
-            return;
-        }
-        mappingsLoadAttempted = true;
-
-        LevelManager manager = LevelManager.getInstance();
-        if (manager == null || manager.getGame() == null) {
-            return;
-        }
-
-        try {
-            Rom rom = manager.getGame().getRom();
-            RomByteReader reader = RomByteReader.fromRom(rom);
-            mappings = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ82_ADDR);
-            LOGGER.fine("Loaded " + mappings.size() + " Obj82 mapping frames");
-        } catch (IOException | RuntimeException e) {
-            LOGGER.warning("Failed to load Obj82 mappings: " + e.getMessage());
-        }
-    }
-
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         int halfWidth = widthPixels;
         int halfHeight = yRadius;
         int left = x - halfWidth;
@@ -557,32 +499,15 @@ public class SwingingPformObjectInstance extends AbstractObjectInstance
         int bottom = y + halfHeight;
 
         // Draw collision box in green
-        appendLine(commands, left, top, right, top, 0.0f, 1.0f, 0.0f);      // Top (standing surface)
-        appendLine(commands, right, top, right, bottom, 0.3f, 0.7f, 0.3f);
-        appendLine(commands, right, bottom, left, bottom, 0.3f, 0.7f, 0.3f);
-        appendLine(commands, left, bottom, left, top, 0.3f, 0.7f, 0.3f);
+        ctx.drawLine(left, top, right, top, 0.0f, 1.0f, 0.0f);      // Top (standing surface)
+        ctx.drawLine(right, top, right, bottom, 0.3f, 0.7f, 0.3f);
+        ctx.drawLine(right, bottom, left, bottom, 0.3f, 0.7f, 0.3f);
+        ctx.drawLine(left, bottom, left, top, 0.3f, 0.7f, 0.3f);
 
         // Draw center cross in red to show object origin
-        appendLine(commands, x - 4, y, x + 4, y, 1.0f, 0.0f, 0.0f);
-        appendLine(commands, x, y - 4, x, y + 4, 1.0f, 0.0f, 0.0f);
+        ctx.drawLine(x - 4, y, x + 4, y, 1.0f, 0.0f, 0.0f);
+        ctx.drawLine(x, y - 4, x, y + 4, 1.0f, 0.0f, 0.0f);
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2, float r, float g, float b) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x2, y2, 0, 0));
-    }
-
-    private boolean isDebugViewEnabled() {
-        return DEBUG_VIEW_ENABLED && OVERLAY_MANAGER.isEnabled(DebugOverlayToggle.OVERLAY);
-    }
-
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.3f, 0.7f, 0.4f, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.3f, 0.7f, 0.4f, x2, y2, 0, 0));
-    }
 }
 

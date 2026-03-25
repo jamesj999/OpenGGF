@@ -1,7 +1,7 @@
 ---
-name: s2disasm-guide
-description: "This skill provides guidance on finding, identifying, and interpreting items in the Sonic 2 disassembly (`docs/s2disasm/`)."
+title: s2disasm Navigation Guide
 ---
+
 # s2disasm Navigation Guide
 
 This skill provides guidance on finding, identifying, and interpreting items in the Sonic 2 disassembly (`docs/s2disasm/`).
@@ -138,7 +138,7 @@ Labels follow consistent prefixes that indicate data type and compression:
 | CNZ | Casino Night Zone | 0x0C |
 | HTZ | Hill Top Zone | 0x07 |
 | MCZ | Mystic Cave Zone | 0x0B |
-| OOZ | Oil Ocean Zone | 0x08 |
+| OOZ | Oil Ocean Zone | 0x0A |
 | MTZ | Metropolis Zone | 0x04 |
 | SCZ | Sky Chase Zone | 0x10 |
 | WFZ | Wing Fortress Zone | 0x11 |
@@ -166,7 +166,7 @@ Palettes use a special macro format:
 Pal_EHZ:    palette Emerald Hill Zone.bin
 ```
 
-These are located in `art/palettes/` as uncompressed .bin files (32 bytes each = 16 colors Ã— 2 bytes).
+These are located in `art/palettes/` as uncompressed .bin files (32 bytes each = 16 colors × 2 bytes).
 
 ### Include Directives
 
@@ -225,9 +225,9 @@ Per piece:
 ```
 
 Size byte encoding:
-- `0x00` = 1Ã—1 (8Ã—8 pixels)
-- `0x05` = 2Ã—2 (16Ã—16 pixels)
-- `0x0F` = 4Ã—4 (32Ã—32 pixels)
+- `0x00` = 1×1 (8×8 pixels)
+- `0x05` = 2×2 (16×16 pixels)
+- `0x0F` = 4×4 (32×32 pixels)
 
 ## Resource Overlay System
 
@@ -300,7 +300,7 @@ Key RAM addresses for understanding disassembly:
 
 | Address | Name | Description |
 |---------|------|-------------|
-| 0xFFB000 | Object_RAM | Object status table (64 slots Ã— 64 bytes) |
+| 0xFFB000 | Object_RAM | Object status table (64 slots × 64 bytes) |
 | 0xFFFE10 | Camera_X_pos | Camera X position |
 | 0xFFFE14 | Camera_Y_pos | Camera Y position |
 | 0xFFFE20 | Level_Layout | Pointer to level layout |
@@ -316,4 +316,3 @@ Test:    test <offset> <type>  Test decompression
 Verify:  verify <label>        Check calculated offset
 Export:  export <type> [prefix] Generate Java constants
 ```
-

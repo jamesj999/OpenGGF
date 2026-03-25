@@ -1,9 +1,10 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.GameModule;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.ObjectArtProvider;
-import com.openggf.game.sonic2.objects.ShieldObjectInstance;
+import com.openggf.level.objects.ShieldObjectInstance;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.Sonic3kObjectArtProvider;
 import com.openggf.graphics.GLCommand;
@@ -47,7 +48,8 @@ public class LightningShieldObjectInstance extends ShieldObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         super.update(frameCounter, player);
         if (isShieldDestroyed()) return;
         stepAnimation();
@@ -59,7 +61,7 @@ public class LightningShieldObjectInstance extends ShieldObjectInstance {
             return;
         }
         if (dplcRenderer != null) {
-            AbstractPlayableSprite player = getPlayer();
+            AbstractPlayableSprite player = ((AbstractPlayableSprite) getPlayer());
             if (player == null) return;
             int cx = player.getCentreX();
             int cy = player.getCentreY();
@@ -71,7 +73,7 @@ public class LightningShieldObjectInstance extends ShieldObjectInstance {
             return;
         }
         // Wireframe fallback
-        AbstractPlayableSprite player = getPlayer();
+        AbstractPlayableSprite player = ((AbstractPlayableSprite) getPlayer());
         if (player == null) return;
         int cx = player.getCentreX();
         int cy = player.getCentreY();
@@ -92,7 +94,7 @@ public class LightningShieldObjectInstance extends ShieldObjectInstance {
      * Creates 4 spark particles with diagonal velocities; shield stays on script 0.
      */
     public void triggerSparks() {
-        AbstractPlayableSprite player = getPlayer();
+        AbstractPlayableSprite player = ((AbstractPlayableSprite) getPlayer());
         if (player == null) return;
         Sonic3kObjectArtProvider artProvider = getS3kArtProvider();
         if (artProvider == null) return;

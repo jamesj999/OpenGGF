@@ -1,7 +1,7 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
+import com.openggf.game.PlayableEntity;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2LevelEventManager;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
@@ -12,7 +12,6 @@ import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.Level;
-import com.openggf.level.LevelManager;
 import com.openggf.level.Map;
 import com.openggf.level.ParallaxManager;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -26,7 +25,6 @@ import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.Direction;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import com.openggf.debug.DebugColor;
@@ -254,7 +252,8 @@ public class TornadoObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         renderThisFrame = false;
         solidActive = false;
         highPriority = false;
@@ -298,7 +297,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
         moveObeyPlayer(player, mainStandingNow);
 
         // ROM: Camera_Min_X_pos = Camera_X_pos
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         int cameraX = camera.getX();
         camera.setMinX((short) cameraX);
 
@@ -312,7 +311,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
         if (cameraX >= SCZ_CAMERA_FINISH_X) {
             if (playerX >= SCZ_PLAYER_FINISH_X) {
                 if (!sczTransitionRequested) {
-                    LevelManager.getInstance().requestZoneAndAct(Sonic2ZoneConstants.ZONE_WFZ, 0, true);
+                    services().requestZoneAndAct(Sonic2ZoneConstants.ZONE_WFZ, 0, true);
                     sczTransitionRequested = true;
                 }
             } else {
@@ -361,7 +360,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
             case 4 -> {
                 // ObjB2_Main_WFZ_Start_shot_down
                 if ((frameCounter & WFZ_SCATTER_SFX_MASK) == 0) {
-                    AudioManager.getInstance().playSfx(Sonic2Sfx.RING_SPILL.id);
+                    services().playSfx(Sonic2Sfx.RING_SPILL.id);
                 }
 
                 scriptTimer--;
@@ -466,7 +465,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
     }
 
     private void wfzWaitForPlane(AbstractPlayableSprite player) {
-        int bgX = ParallaxManager.getInstance().getCameraBgXOffset();
+        int bgX = services().parallaxManager().getCameraBgXOffset();
         if (bgX < WFZ_PLANE_WAIT_BG_X) {
             applyWaitingAnimation(player);
             return;
@@ -556,7 +555,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
 
         if (scriptTimer >= WFZ_SPAWN_EXTRA_CHILDREN_AT && !spawnedWfzDockChildren) {
             spawnedWfzDockChildren = true;
-            Sonic2LevelEventManager.getInstance().setEventRoutine(6);
+            ((Sonic2LevelEventManager) services().levelEventProvider()).setEventRoutine(6);
             routineSecondary = 0x10;
             spawnTornadoChild(SUBTYPE_BLINKER, 0x3090, 0x03D0);
             spawnTornadoChild(SUBTYPE_BLINKER, 0x30C0, 0x03F0);
@@ -569,7 +568,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
     private void wfzDockOnDez() {
         if (scriptTimer >= WFZ_START_DEZ_AT) {
             if (!dezTransitionRequested) {
-                LevelManager.getInstance().requestZoneAndAct(Sonic2ZoneConstants.ZONE_DEZ, 0, true);
+                services().requestZoneAndAct(Sonic2ZoneConstants.ZONE_DEZ, 0, true);
                 dezTransitionRequested = true;
             }
             return;
@@ -606,7 +605,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
                 grabberTriggered = true;
                 routineSecondary = 4;
 
-                Camera.getInstance().setYPosBias((short) ((224 / 2) + 8));
+                services().camera().setYPosBias((short) ((224 / 2) + 8));
 
                 player.setXSpeed((short) 0);
                 player.setYSpeed((short) 0);
@@ -695,7 +694,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
@@ -730,12 +729,14 @@ public class TornadoObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return solidActive;
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM uses direct SolidObject calls from ObjB2 routines. The unified pipeline
         // handles contact resolution; this callback is intentionally no-op.
     }
@@ -823,7 +824,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
                 // Refresh SolidContacts tracking position so the follow delta isn't
                 // double-applied as a riding delta. In the ROM, SolidObject runs inline
                 // before the horizontal follow, so it never sees this delta.
-                ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+                ObjectManager objectManager = services().objectManager();
                 if (objectManager != null) {
                     objectManager.refreshRidingTrackingPosition(this);
                 }
@@ -889,7 +890,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        int cameraY = Camera.getInstance().getY();
+        int cameraY = services().camera().getY();
         if (yVel < 0) {
             int upper = cameraY + VERTICAL_LIMIT_UP_OFFSET;
             if (currentY < upper) {
@@ -924,7 +925,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
     }
 
     private void applyTornadoParallaxVelocity() {
-        ParallaxManager pm = ParallaxManager.getInstance();
+        ParallaxManager pm = services().parallaxManager();
         int vx = pm.getTornadoVelocityX();
         int vy = pm.getTornadoVelocityY();
         currentX += vx;
@@ -954,7 +955,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
      * ((x_pos & $FF80) - Camera_X_pos_coarse) > $280 (unsigned compare).
      */
     private boolean checkMarkObjGone() {
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         if (camera == null) {
             return false;
         }
@@ -1016,12 +1017,12 @@ public class TornadoObjectInstance extends AbstractObjectInstance
     }
 
     private boolean isMainPlayerStanding(AbstractPlayableSprite player) {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         return objectManager != null && objectManager.isRidingObject(player, this);
     }
 
     private void releasePlayersFromPlatform() {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -1033,7 +1034,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
             main.setAir(true);
         }
 
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+        for (PlayableEntity sidekick : services().sidekicks()) {
             if (objectManager.isRidingObject(sidekick, this)) {
                 objectManager.clearRidingObject(sidekick);
                 sidekick.setOnObject(false);
@@ -1049,12 +1050,12 @@ public class TornadoObjectInstance extends AbstractObjectInstance
 
         // ROM: Obj_GetOrientationToPlayer always considers both players,
         // returning the closest one. No zone-specific filtering.
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+        for (PlayableEntity sidekick : services().sidekicks()) {
             if (!sidekick.getDead()) {
                 int signedSidekick = currentX - sidekick.getCentreX();
                 int absSidekick = Math.abs(signedSidekick);
                 if (absSidekick < absMain) {
-                    return new Orientation(sidekick, signedSidekick);
+                    return new Orientation((AbstractPlayableSprite) sidekick, signedSidekick);
                 }
             }
         }
@@ -1063,7 +1064,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
     }
 
     private void spawnSmokeObject() {
-        ObjectManager manager = LevelManager.getInstance().getObjectManager();
+        ObjectManager manager = services().objectManager();
         if (manager == null) {
             return;
         }
@@ -1073,7 +1074,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
     }
 
     private TornadoObjectInstance spawnTornadoChild(int childSubtype, int x, int y) {
-        ObjectManager manager = LevelManager.getInstance().getObjectManager();
+        ObjectManager manager = services().objectManager();
         if (manager == null) {
             return null;
         }
@@ -1089,9 +1090,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
         if (levelLayoutPatched) {
             return;
         }
-
-        LevelManager levelManager = LevelManager.getInstance();
-        Level level = levelManager.getCurrentLevel();
+        Level level = services().currentLevel();
         if (level == null) {
             return;
         }
@@ -1118,7 +1117,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
         }
 
         if (wroteAny) {
-            levelManager.invalidateForegroundTilemap();
+            services().invalidateForegroundTilemap();
         }
         if (wroteAny) {
             levelLayoutPatched = true;
@@ -1126,7 +1125,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
     }
 
     private AbstractPlayableSprite getMainPlayer() {
-        return Camera.getInstance().getFocusedSprite();
+        return services().camera().getFocusedSprite();
     }
 
     private String resolveRenderArtKey() {
@@ -1197,7 +1196,8 @@ public class TornadoObjectInstance extends AbstractObjectInstance
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             xPosFixed8 += xVel;
             yPosFixed8 += yVel;
             currentX = xPosFixed8 >> 8;
@@ -1221,7 +1221,7 @@ public class TornadoObjectInstance extends AbstractObjectInstance
                 return;
             }
 
-            ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+            ObjectRenderManager renderManager = services().renderManager();
             if (renderManager == null) {
                 return;
             }

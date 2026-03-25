@@ -4,6 +4,7 @@ import org.junit.Before;
 import org.junit.Test;
 import com.openggf.sprites.Sprite;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.GameServices;
 import com.openggf.tests.TestEnvironment;
 
 import static org.junit.Assert.*;
@@ -22,7 +23,7 @@ public class TestCamera {
     public void setUp() throws Exception {
         // Reset all singletons for test isolation
         TestEnvironment.resetAll();
-        camera = Camera.getInstance();
+        camera = GameServices.camera();
 
         // Create a mock sprite for testing
         mockSprite = mock(AbstractPlayableSprite.class);

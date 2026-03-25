@@ -1,19 +1,18 @@
 package com.openggf.game.sonic2.objects;
+import com.openggf.level.objects.BoxObjectInstance;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.game.GameModuleRegistry;
-import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.Sonic2ZoneFeatureProvider;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.*;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.level.slotmachine.CNZSlotMachineManager;
-import com.openggf.level.slotmachine.CNZSlotMachineRenderer;
+import com.openggf.game.sonic2.slotmachine.CNZSlotMachineManager;
+import com.openggf.game.sonic2.slotmachine.CNZSlotMachineRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -114,7 +113,6 @@ public class PointPokeyObjectInstance extends BoxObjectInstance
     private boolean playerOccupied = false;
 
     // Reference to level manager (for spawning prizes)
-    private LevelManager levelManager;
 
     // Cached slot display offset (calculated once at first render)
     private int slotDisplayOffsetX = CNZSlotMachineRenderer.DEFAULT_OFFSET_X;
@@ -134,12 +132,14 @@ public class PointPokeyObjectInstance extends BoxObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed();
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (player == null) {
             return;
         }
@@ -158,9 +158,6 @@ public class PointPokeyObjectInstance extends BoxObjectInstance
      * Based on loc_2BABE - loc_2BB10 in s2.asm.
      */
     private void capturePlayer(AbstractPlayableSprite player) {
-        // Get level manager for later use
-        levelManager = LevelManager.getInstance();
-
         // Force rolling state FIRST - this changes player height from 38 to 28.
         // Must be done before setCentreY, otherwise the center calculation uses
         // wrong height and shifts when setRolling changes it.
@@ -271,17 +268,15 @@ public class PointPokeyObjectInstance extends BoxObjectInstance
 
     private void playCasinoBonusSound() {
         try {
-            AudioManager audioManager = AudioManager.getInstance();
-            if (audioManager != null) {
-                audioManager.playSfx(GameSound.CASINO_BONUS);
-            }
+            services().playSfx(GameSound.CASINO_BONUS);
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic
         }
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (player == null) {
             return;
         }
@@ -319,13 +314,13 @@ public class PointPokeyObjectInstance extends BoxObjectInstance
             playCasinoBonusSound();
 
             // Award 100 points (per ROM: d0=10 → AddPoints2 adds d0*10 = 100)
-            GameServices.gameState().addScore(100);
+            services().gameState().addScore(100);
 
             // Spawn floating "100" points sprite at cage position
             PointsObjectInstance points = new PointsObjectInstance(
                     new ObjectSpawn(spawn.x(), spawn.y(), 0x29, 0, 0, false, 0),
-                    levelManager, 100);
-            levelManager.getObjectManager().addDynamicObject(points);
+                    services(), 100);
+            services().objectManager().addDynamicObject(points);
         }
 
         // Check if countdown expired
@@ -442,11 +437,7 @@ public class PointPokeyObjectInstance extends BoxObjectInstance
      * Per disassembly, prizes spiral inward from a starting radius of 128 pixels.
      */
     private void spawnPrize(AbstractPlayableSprite player, int frameCounter) {
-        if (levelManager == null) {
-            return;
-        }
-
-        ObjectManager objectManager = levelManager.getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -471,14 +462,14 @@ public class PointPokeyObjectInstance extends BoxObjectInstance
             // Bombs
             BombPrizeObjectInstance bomb = new BombPrizeObjectInstance(
                     startX, startY, spawn.x(), spawn.y(),
-                    displayDelay, activePrizeCount, levelManager);
+                    displayDelay, activePrizeCount);
             objectManager.addDynamicObject(bomb);
             prizeAngle += BOMB_ANGLE_INCREMENT;
         } else {
             // Rings
             RingPrizeObjectInstance ring = new RingPrizeObjectInstance(
                     startX, startY, spawn.x(), spawn.y(),
-                    displayDelay, activePrizeCount, levelManager);
+                    displayDelay, activePrizeCount);
             objectManager.addDynamicObject(ring);
             prizeAngle += RING_ANGLE_INCREMENT;
         }
@@ -489,13 +480,8 @@ public class PointPokeyObjectInstance extends BoxObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            super.appendRenderCommands(commands);
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.CNZ_CAGE);
-        if (renderer == null || !renderer.isReady()) {
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.CNZ_CAGE);
+        if (renderer == null) {
             super.appendRenderCommands(commands);
             return;
         }
@@ -527,14 +513,12 @@ public class PointPokeyObjectInstance extends BoxObjectInstance
      */
     private void calculateSlotDisplayOffset() {
         slotDisplayOffsetCalculated = true;
-
-        LevelManager lm = LevelManager.getInstance();
-        if (lm == null) {
+        if (services().currentLevel() == null) {
             return;
         }
 
         // Search for slot display patterns (tiles $0550-$057F) within 128 pixels of cage
-        int[] offset = lm.findPatternOffset(
+        int[] offset = services().findPatternOffset(
                 spawn.x(),
                 spawn.y(),
                 CNZSlotMachineRenderer.SLOT_TILE_MIN,

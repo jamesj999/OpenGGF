@@ -1,14 +1,13 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
-import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.audio.Sonic2Music;
+import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.EggPrisonObjectInstance;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.boss.AbstractBossChild;
@@ -197,8 +196,8 @@ public class Sonic2MTZBossInstance extends AbstractBossInstance {
     // Laser shooter child reference
     private MTZLaserShooter laserShooter;
 
-    public Sonic2MTZBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "MTZ Boss");
+    public Sonic2MTZBossInstance(ObjectSpawn spawn) {
+        super(spawn, "MTZ Boss");
     }
 
     @Override
@@ -232,8 +231,9 @@ public class Sonic2MTZBossInstance extends AbstractBossInstance {
         // Spawn laser shooter child
         laserShooter = new MTZLaserShooter(this);
         childComponents.add(laserShooter);
-        if (levelManager.getObjectManager() != null) {
-            levelManager.getObjectManager().addDynamicObject(laserShooter);
+        var objectManager = services().objectManager();
+        if (objectManager != null) {
+            objectManager.addDynamicObject(laserShooter);
         }
 
         // Spawn 7 orbiting shield orbs (Obj53)
@@ -247,11 +247,12 @@ public class Sonic2MTZBossInstance extends AbstractBossInstance {
         // byte_329D3: 0, 1, 1, 0, 1, 1, 0
         int[] tiltFlags = {0, 1, 1, 0, 1, 1, 0};
 
+        var objectManager = services().objectManager();
         for (int i = 0; i < 7; i++) {
             MTZBossOrb orb = new MTZBossOrb(this, i, phaseOffsets[i], tiltFlags[i]);
             childComponents.add(orb);
-            if (levelManager.getObjectManager() != null) {
-                levelManager.getObjectManager().addDynamicObject(orb);
+            if (objectManager != null) {
+                objectManager.addDynamicObject(orb);
             }
         }
     }
@@ -325,7 +326,8 @@ public class Sonic2MTZBossInstance extends AbstractBossInstance {
     // =========================================================================
 
     @Override
-    protected void updateBossLogic(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateBossLogic(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (!initialized) {
             return;
         }
@@ -738,7 +740,7 @@ public class Sonic2MTZBossInstance extends AbstractBossInstance {
             faceFrame = FRAME_FACE;
 
             // ROM: jsr PlayLevelMusic
-            AudioManager.getInstance().playMusic(Sonic2Music.METROPOLIS.id);
+            services().playMusic(Sonic2Music.METROPOLIS.id);
         }
 
         // Update position from boss coordinates
@@ -755,7 +757,7 @@ public class Sonic2MTZBossInstance extends AbstractBossInstance {
         state.xVel = VEL_FLEE_X;
         state.yVel = VEL_FLEE_Y;
 
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         if (camera.getMaxX() < CAMERA_MAX_X_FLEE) {
             camera.setMaxX((short) (camera.getMaxX() + 2));
         } else if (!isOnScreen()) {
@@ -776,7 +778,7 @@ public class Sonic2MTZBossInstance extends AbstractBossInstance {
     }
 
     private void spawnEggPrison() {
-        if (levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
         // Spawn at center of arena
@@ -785,7 +787,7 @@ public class Sonic2MTZBossInstance extends AbstractBossInstance {
                 Sonic2ObjectIds.EGG_PRISON,
                 0, 0, false, 0);
         EggPrisonObjectInstance prisonInstance = new EggPrisonObjectInstance(prisonSpawn, "Egg Prison");
-        levelManager.getObjectManager().addDynamicObject(prisonInstance);
+        services().objectManager().addDynamicObject(prisonInstance);
     }
 
     // =========================================================================
@@ -865,7 +867,7 @@ public class Sonic2MTZBossInstance extends AbstractBossInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
@@ -929,6 +931,16 @@ public class Sonic2MTZBossInstance extends AbstractBossInstance {
         return flags2B;
     }
 
+    @Override
+    protected int getBossHitSfxId() {
+        return Sonic2Sfx.BOSS_HIT.id;
+    }
+
+    @Override
+    protected int getBossExplosionSfxId() {
+        return Sonic2Sfx.BOSS_EXPLOSION.id;
+    }
+
     // =========================================================================
     // Inner class: MTZ Boss Orb (Obj53)
     // ROM: s2.asm:67271-67467
@@ -971,7 +983,8 @@ public class Sonic2MTZBossInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (!shouldUpdate(frameCounter)) {
                 return;
             }
@@ -1118,7 +1131,7 @@ public class Sonic2MTZBossInstance extends AbstractBossInstance {
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
             ObjectRenderManager renderManager =
-                    ((Sonic2MTZBossInstance) parent).levelManager.getObjectRenderManager();
+                    ((Sonic2MTZBossInstance) parent).services().renderManager();
             if (renderManager == null) {
                 return;
             }
@@ -1154,7 +1167,8 @@ public class Sonic2MTZBossInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (!shouldUpdate(frameCounter)) {
                 return;
             }
@@ -1166,7 +1180,7 @@ public class Sonic2MTZBossInstance extends AbstractBossInstance {
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
             ObjectRenderManager renderManager =
-                    ((Sonic2MTZBossInstance) parent).levelManager.getObjectRenderManager();
+                    ((Sonic2MTZBossInstance) parent).services().renderManager();
             if (renderManager == null) {
                 return;
             }

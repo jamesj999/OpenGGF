@@ -1,9 +1,9 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.game.sonic2.objects.ObjectAnimationState;
+import com.openggf.game.PlayableEntity;
+import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -22,8 +22,6 @@ public class CPZBossDripper extends AbstractObjectInstance {
     private static final int SUB_INIT = 0;
     private static final int SUB_MAIN = 2;
     private static final int SUB_END = 4;
-
-    private final LevelManager levelManager;
     private final Sonic2CPZBossInstance mainBoss;
     private final CPZBossPipe parentPipe;
 
@@ -38,10 +36,9 @@ public class CPZBossDripper extends AbstractObjectInstance {
 
     private ObjectAnimationState animationState;
 
-    public CPZBossDripper(ObjectSpawn spawn, LevelManager levelManager, Sonic2CPZBossInstance mainBoss,
+    public CPZBossDripper(ObjectSpawn spawn, Sonic2CPZBossInstance mainBoss,
                           CPZBossPipe parentPipe) {
         super(spawn, "CPZ Boss Dripper");
-        this.levelManager = levelManager;
         this.mainBoss = mainBoss;
         this.parentPipe = parentPipe;
         this.x = spawn.x();
@@ -56,7 +53,8 @@ public class CPZBossDripper extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -152,7 +150,7 @@ public class CPZBossDripper extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = levelManager != null ? levelManager.getObjectRenderManager() : null;
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

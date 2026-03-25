@@ -14,7 +14,7 @@ public class TestCrossGameSuperSonic {
 
     @After
     public void tearDown() {
-        CrossGameFeatureProvider.resetInstance();
+        CrossGameFeatureProvider.getInstance().resetState();
     }
 
     @Test

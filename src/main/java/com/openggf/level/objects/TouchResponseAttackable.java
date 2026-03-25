@@ -1,7 +1,7 @@
 package com.openggf.level.objects;
 
-import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 public interface TouchResponseAttackable {
-    void onPlayerAttack(AbstractPlayableSprite player, TouchResponseResult result);
+    void onPlayerAttack(PlayableEntity player, TouchResponseResult result);
 }

@@ -1,8 +1,8 @@
 package com.openggf.game.sonic2.objects.bosses;
 
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -21,17 +21,14 @@ public class ARZBossEyes extends AbstractObjectInstance {
     private static final int EYES_DURATION = 0x28; // 40 frames
     private static final int EYES_MAPPING_FRAME = 2;
 
-    private final LevelManager levelManager;
-
     private int x;
     private int y;
     private int renderFlags;
     private int eyesTimer;
     private int mappingFrame;
 
-    public ARZBossEyes(ObjectSpawn spawn, LevelManager levelManager) {
+    public ARZBossEyes(ObjectSpawn spawn) {
         super(spawn, "ARZ Boss Eyes");
-        this.levelManager = levelManager;
         this.x = spawn.x();
         this.y = spawn.y();
         this.renderFlags = spawn.renderFlags();
@@ -40,7 +37,8 @@ public class ARZBossEyes extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -55,7 +53,7 @@ public class ARZBossEyes extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = levelManager != null ? levelManager.getObjectRenderManager() : null;
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

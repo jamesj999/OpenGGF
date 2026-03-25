@@ -6,6 +6,7 @@ import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.objects.ResultsScreenObjectInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.LevelManager;
@@ -16,6 +17,7 @@ import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.sprites.playable.Tails;
 import com.openggf.sprites.playable.SidekickCpuController;
@@ -141,7 +143,7 @@ public class TestS2Ehz1Headless {
     }
 
     private void assertNoPushJitter(boolean pushRight) {
-        LevelManager.getInstance().getObjectManager()
+        GameServices.level().getObjectManager()
                 .addDynamicObject(new StaticSolidObject(
                         TESTBED_X,
                         TESTBED_FLOOR_Y,
@@ -170,7 +172,7 @@ public class TestS2Ehz1Headless {
                 + (pushRight ? WALL_HALF_WIDTH + OBJECT_GAP : -(WALL_HALF_WIDTH + OBJECT_GAP));
         int objectY = sprite.getCentreY();
 
-        LevelManager.getInstance().getObjectManager()
+        GameServices.level().getObjectManager()
                 .addDynamicObject(new StaticSolidObject(
                         objectX,
                         objectY,
@@ -231,6 +233,8 @@ public class TestS2Ehz1Headless {
             this.y = y;
             this.params = params;
             this.topSolidOnly = topSolidOnly;
+            setServices(new com.openggf.level.objects.DefaultObjectServices(
+                    com.openggf.game.RuntimeManager.getCurrent()));
         }
 
         @Override
@@ -259,7 +263,7 @@ public class TestS2Ehz1Headless {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity player) {
             // Static object.
         }
     }
@@ -276,7 +280,7 @@ public class TestS2Ehz1Headless {
         tails.setCpuControlled(true);
         controller = new SidekickCpuController(tails, sprite);
         tails.setCpuController(controller);
-        SpriteManager.getInstance().addSprite(tails);
+        GameServices.sprites().addSprite(tails);
     }
 
     // -- State Transition Tests --
@@ -766,7 +770,7 @@ public class TestS2Ehz1Headless {
     @Test
     public void testSpriteManagerGetSidekick() {
         createTailsForTest();
-        AbstractPlayableSprite sidekick = SpriteManager.getInstance().getSidekicks().getFirst();
+        AbstractPlayableSprite sidekick = GameServices.sprites().getSidekicks().getFirst();
         assertNotNull("getSidekicks() should return Tails", sidekick);
         assertTrue("Sidekick should be CPU controlled", sidekick.isCpuControlled());
         assertSame("Sidekick should be our Tails instance", tails, sidekick);
@@ -863,8 +867,8 @@ public class TestS2Ehz1Headless {
                 }
 
                 // Check if results screen was spawned
-                if (!resultsSpawned && LevelManager.getInstance().getObjectManager() != null) {
-                    for (ObjectInstance obj : LevelManager.getInstance().getObjectManager().getActiveObjects()) {
+                if (!resultsSpawned && GameServices.level().getObjectManager() != null) {
+                    for (ObjectInstance obj : GameServices.level().getObjectManager().getActiveObjects()) {
                         if (obj instanceof ResultsScreenObjectInstance) {
                             resultsSpawned = true;
                             System.out.println("Frame " + (frame + 1) + ": Results screen spawned");

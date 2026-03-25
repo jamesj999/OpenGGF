@@ -9,7 +9,7 @@ $ARGUMENTS: Boss name or zone (e.g., "GHZ boss", "Green Hill boss", "0x3D", "Fin
 ## Related Skills
 
 - **s1disasm-guide** (`.claude/skills/s1disasm-guide/skill.md`) - Disassembly navigation, label conventions, RomOffsetFinder
-- **s1-implement-object** (`.claude/skills/s1-implement-object/skill.md`) - For non-boss Sonic 1 objects and badniks
+- **s1-implement-object** (`.claude/skills/s1-implement-object/skill.md`) - For non-boss Sonic 1 objects and badniks. **Section 2.4 lists all reusable engine utilities** — check it before writing movement, collision, or rendering code.
 
 ## Sonic 1 Boss List
 
@@ -119,7 +119,7 @@ boss_ghz_x: equ $2A70   ; Boss X position
 Create the boss class in the S1 objects package:
 
 ```java
-package com.openggf.sonic.game.sonic1.objects.bosses;
+package com.openggf.game.sonic1.objects.bosses;
 
 public class Sonic1ZoneBossInstance extends AbstractBossInstance {
 
@@ -132,8 +132,8 @@ public class Sonic1ZoneBossInstance extends AbstractBossInstance {
     private static final int BOSS_START_X = 0xXXXX;
     private static final int BOSS_START_Y = 0xXXXX;
 
-    public Sonic1ZoneBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Zone Boss");
+    public Sonic1ZoneBossInstance(ObjectSpawn spawn) {
+        super(spawn, "Zone Boss");
     }
 
     @Override
@@ -179,7 +179,7 @@ S1 bosses use `ObjData` tables to define child objects. Parse these tables and s
 ```java
 // S1 pattern: sub-objects defined as data table entries
 private void spawnChildComponents() {
-    ObjectManager manager = LevelManager.getInstance().getObjectManager();
+    ObjectManager manager = services().objectManager();
 
     // From BossName_ObjData table in disassembly
     // Each entry typically: x_offset, y_offset, mapping_frame, subtype

@@ -1,15 +1,13 @@
 package com.openggf.game.sonic1.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.Sonic1SwitchManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
@@ -196,8 +194,6 @@ public class Sonic1ChainedStomperObjectInstance extends AbstractObjectInstance
     // Ceiling sub-object Y (routine 6: static display)
     private final int ceilingY;
 
-    // Dynamic spawn for position updates
-    private ObjectSpawn dynamicSpawn;
     private final TouchRegion[] spikeTouchRegion = new TouchRegion[1];
 
     public Sonic1ChainedStomperObjectInstance(ObjectSpawn spawn) {
@@ -280,7 +276,7 @@ public class Sonic1ChainedStomperObjectInstance extends AbstractObjectInstance
 
         // Apply initial Y offset
         updatePositions();
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -292,21 +288,16 @@ public class Sonic1ChainedStomperObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
     @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
-    @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Main block behavior: loc_B798 (routine 2)
         // bsr.w CStom_Types
         updateBehavior(frameCounter, player);
 
         // Update all sub-object positions based on current yOffset
         updatePositions();
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -337,7 +328,7 @@ public class Sonic1ChainedStomperObjectInstance extends AbstractObjectInstance
      */
     private void updateType00(int frameCounter) {
         // In ROM: tst.b (f_switch+switchNumber) / beq.s loc_B8A8
-        boolean switchPressed = Sonic1SwitchManager.getInstance().isPressed(switchNumber);
+        boolean switchPressed = services().gameService(Sonic1SwitchManager.class).isPressed(switchNumber);
 
         if (switchPressed) {
             // Rising behavior
@@ -427,7 +418,7 @@ public class Sonic1ChainedStomperObjectInstance extends AbstractObjectInstance
             yVelocity = 0;
             // Play stomp sound when on-screen
             if (isOnScreen(128)) {
-                AudioManager.getInstance().playSfx(Sonic1Sfx.CHAIN_STOMP.id);
+                services().playSfx(Sonic1Sfx.CHAIN_STOMP.id);
             }
         }
     }
@@ -448,7 +439,7 @@ public class Sonic1ChainedStomperObjectInstance extends AbstractObjectInstance
         }
         // Play rise sound every 16 frames when on-screen
         if ((frameCounter & SOUND_INTERVAL_MASK) == 0 && isOnScreen(128)) {
-            AudioManager.getInstance().playSfx(Sonic1Sfx.CHAIN_RISE.id);
+            services().playSfx(Sonic1Sfx.CHAIN_RISE.id);
         }
         yOffset -= RISE_SPEED;
         if (yOffset < 0) {
@@ -475,7 +466,7 @@ public class Sonic1ChainedStomperObjectInstance extends AbstractObjectInstance
             waitTimer = WAIT_TIMER;
             // Play stomp sound when on-screen
             if (isOnScreen(128)) {
-                AudioManager.getInstance().playSfx(Sonic1Sfx.CHAIN_STOMP.id);
+                services().playSfx(Sonic1Sfx.CHAIN_STOMP.id);
             }
         }
     }
@@ -493,7 +484,7 @@ public class Sonic1ChainedStomperObjectInstance extends AbstractObjectInstance
     private void riseBlockType01(int frameCounter) {
         // Play rise sound every 16 frames when on-screen
         if ((frameCounter & SOUND_INTERVAL_MASK) == 0 && isOnScreen(128)) {
-            AudioManager.getInstance().playSfx(Sonic1Sfx.CHAIN_RISE.id);
+            services().playSfx(Sonic1Sfx.CHAIN_RISE.id);
         }
         yOffset -= RISE_SPEED;
         if (yOffset < 0) {
@@ -541,14 +532,8 @@ public class Sonic1ChainedStomperObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-        PatternSpriteRenderer stomperRenderer = renderManager.getRenderer(ObjectArtKeys.MZ_CHAINED_STOMPER);
-        if (stomperRenderer == null || !stomperRenderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer stomperRenderer = getRenderer(ObjectArtKeys.MZ_CHAINED_STOMPER);
+        if (stomperRenderer == null) return;
 
         // Render ceiling anchor (routine 6, priority 3 = behind everything else)
         stomperRenderer.drawFrameIndex(FRAME_CEILING, x, ceilingY, false, false);
@@ -569,8 +554,8 @@ public class Sonic1ChainedStomperObjectInstance extends AbstractObjectInstance
         // Use exact Map_CStom .spikes spacing by drawing five single-spike pieces.
         // All pieces use yflip=1 in disassembly.
         if (spikesHaveCollision) {
-            PatternSpriteRenderer spikeRenderer = renderManager.getRenderer(ObjectArtKeys.SPIKE);
-            if (spikeRenderer != null && spikeRenderer.isReady()) {
+            PatternSpriteRenderer spikeRenderer = getRenderer(ObjectArtKeys.SPIKE);
+            if (spikeRenderer != null) {
                 for (int xOffset : STOMPER_SPIKE_RENDER_X_OFFSETS) {
                     spikeRenderer.drawFrameIndex(SPIKE_SINGLE_FRAME, x + xOffset, spikeY, false, true);
                 }
@@ -604,7 +589,8 @@ public class Sonic1ChainedStomperObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Crush check from disassembly:
         // btst #3,obStatus(a0) -> check if player is standing on the block
         // beq.s CStom_Display  -> if not standing, skip crush
@@ -674,17 +660,5 @@ public class Sonic1ChainedStomperObjectInstance extends AbstractObjectInstance
         String label = String.format("CStom:T%d off=%d/%d v=%d",
                 typeIndex, (yOffset >> 8) & 0xFF, (maxFallDistance >> 8) & 0xFF, yVelocity);
         ctx.drawWorldLabel(x, y, -2, label, DebugColor.CYAN);
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = new ObjectSpawn(
-                    x, y,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
     }
 }

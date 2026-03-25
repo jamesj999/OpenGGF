@@ -1,15 +1,12 @@
 package com.openggf.game.sonic1.objects;
 
-import com.openggf.audio.AudioManager;
-import com.openggf.game.GameStateManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.audio.Sonic1Music;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectManager;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -76,7 +73,8 @@ public class Sonic1RingFlashObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (finished) {
             setDestroyed(true);
             return;
@@ -107,7 +105,7 @@ public class Sonic1RingFlashObjectInstance extends AbstractObjectInstance {
             triggerFired = true;
 
             // ROM: move.b #1,(f_bigring).w — block hidden bonuses
-            GameStateManager.getInstance().setBigRingCollected(true);
+            services().gameState().setBigRingCollected(true);
 
             // ROM: move.b #6,obRoutine(a1) - delete parent Giant Ring
             if (parent != null) {
@@ -124,7 +122,7 @@ public class Sonic1RingFlashObjectInstance extends AbstractObjectInstance {
             }
 
             // Pause the level timer
-            var levelGamestate = LevelManager.getInstance().getLevelGamestate();
+            var levelGamestate = services().levelGamestate();
             if (levelGamestate != null) {
                 levelGamestate.pauseTimer();
             }
@@ -136,27 +134,26 @@ public class Sonic1RingFlashObjectInstance extends AbstractObjectInstance {
      * Called when the flash animation completes (frame 8).
      */
     private void triggerLevelEnd(AbstractPlayableSprite player) {
-        LevelManager levelManager = LevelManager.getInstance();
 
         // Play "Got Through" music
         try {
-            AudioManager.getInstance().playMusic(Sonic1Music.GOT_THROUGH.id);
+            services().playMusic(Sonic1Music.GOT_THROUGH.id);
         } catch (Exception e) {
             LOGGER.warning("Failed to play stage clear music: " + e.getMessage());
         }
 
         // Gather results data
-        var levelGamestate = levelManager.getLevelGamestate();
+        var levelGamestate = services().levelGamestate();
         int elapsedSeconds = levelGamestate != null ? levelGamestate.getElapsedSeconds() : 0;
         int ringCount = player != null ? player.getRingCount() : 0;
-        int actNumber = levelManager.getCurrentAct() + 1;
+        int actNumber = services().currentAct() + 1;
 
         // Spawn results screen with special stage transition
         Sonic1ResultsScreenObjectInstance resultsScreen = new Sonic1ResultsScreenObjectInstance(
                 elapsedSeconds, ringCount, actNumber);
         resultsScreen.setSpecialStageAfter(true);
 
-        ObjectManager objectManager = levelManager.getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null) {
             objectManager.addDynamicObject(resultsScreen);
         }
@@ -167,14 +164,8 @@ public class Sonic1RingFlashObjectInstance extends AbstractObjectInstance {
         if (finished || animFrame < 0) {
             return;
         }
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.GIANT_RING_FLASH);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.GIANT_RING_FLASH);
+        if (renderer == null) return;
         renderer.drawFrameIndex(animFrame, posX, posY, hFlip, false);
     }
 

@@ -5,8 +5,8 @@ import static com.openggf.game.sonic2.audio.Sonic2SmpsConstants.*;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.audio.smps.AbstractSmpsData;
+import com.openggf.audio.smps.AbstractSmpsLoader;
 import com.openggf.audio.smps.DacData;
-import com.openggf.audio.smps.SmpsLoader;
 import com.openggf.data.Rom;
 import com.openggf.tools.DcmDecoder;
 import com.openggf.tools.SaxmanDecompressor;
@@ -14,20 +14,19 @@ import com.openggf.tools.SaxmanDecompressor;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class Sonic2SmpsLoader implements SmpsLoader {
+public class Sonic2SmpsLoader extends AbstractSmpsLoader {
     private static final Logger LOGGER = Logger.getLogger(Sonic2SmpsLoader.class.getName());
-    private final Rom rom;
     private final SaxmanDecompressor decompressor = new SaxmanDecompressor();
     private final DcmDecoder dcmDecoder = new DcmDecoder();
     private final Map<Integer, Integer> musicMap = new HashMap<>();
     private final Map<String, Integer> sfxMap = new HashMap<>();
-    private final Map<Integer, AbstractSmpsData> sfxCache = new HashMap<>();
     private final Map<Integer, String> sfxNames = new HashMap<>();
 
     public Sonic2SmpsLoader(Rom rom) {
-        this.rom = rom;
+        super(rom);
         populateSfxNames();
         cacheAllSfx();
         // Known Sonic 2 final music offsets (ROM addresses, Saxman compressed)
@@ -225,20 +224,20 @@ public class Sonic2SmpsLoader implements SmpsLoader {
         return mapped != null ? mapped : resolveMusicOffset(musicId);
     }
 
+    @Override
     public AbstractSmpsData loadSfx(String name) {
+        // Check named sfxMap first (e.g. "RING")
         Integer offset = sfxMap.get(name);
         if (offset != null) {
             return loadSmps(offset, Z80_UNCOMPRESSED_LOAD_ADDR);
         }
-        // Try parsing as hex ID (e.g. "A0")
-        try {
-            int id = Integer.parseInt(name, 16);
-            if (id >= Sonic2Sfx.ID_BASE && id <= Sonic2Sfx.ID_MAX + 1) {
-                return loadSfx(id);
-            }
-        } catch (NumberFormatException ignored) {
-        }
-        return null;
+        // Fall back to base class hex-ID parsing
+        return super.loadSfx(name);
+    }
+
+    @Override
+    protected boolean isValidSfxId(int id) {
+        return id >= Sonic2Sfx.ID_BASE && id <= Sonic2Sfx.ID_MAX + 1;
     }
 
     public AbstractSmpsData loadSfx(int sfxId) {
@@ -307,9 +306,8 @@ public class Sonic2SmpsLoader implements SmpsLoader {
 
             LOGGER.severe("Failed to parse SFX ID " + Integer.toHexString(sfxId));
             return null;
-        } catch (Exception e) {
-            LOGGER.severe("Failed to load SFX ID " + Integer.toHexString(sfxId));
-            e.printStackTrace();
+        } catch (IOException | RuntimeException e) {
+            LOGGER.log(Level.SEVERE, "Failed to load SFX ID " + Integer.toHexString(sfxId), e);
             return null;
         }
     }
@@ -418,7 +416,7 @@ public class Sonic2SmpsLoader implements SmpsLoader {
                         + Integer.toHexString(offset));
             }
             return offset;
-        } catch (Exception e) {
+        } catch (IOException | RuntimeException e) {
             return -1;
         }
     }
@@ -450,9 +448,8 @@ public class Sonic2SmpsLoader implements SmpsLoader {
             byte[] decompressed = decompressor.decompress(compressed, true);
             LOGGER.info("Decompressed SMPS at " + Integer.toHexString(offset) + ". Size: " + decompressed.length);
             return new Sonic2SmpsData(decompressed, z80Addr);
-        } catch (Exception e) {
-            LOGGER.severe("Failed to load SMPS at " + Integer.toHexString(offset));
-            e.printStackTrace();
+        } catch (IOException | RuntimeException e) {
+            LOGGER.log(Level.SEVERE, "Failed to load SMPS at " + Integer.toHexString(offset), e);
             return null;
         }
     }
@@ -479,9 +476,8 @@ public class Sonic2SmpsLoader implements SmpsLoader {
             LOGGER.info("Loaded uncompressed SMPS at " + Integer.toHexString(offset)
                     + ". Size: " + raw.length + " bytes (0x" + Integer.toHexString(raw.length) + ")");
             return new Sonic2SmpsData(raw, z80Addr);
-        } catch (Exception e) {
-            LOGGER.severe("Failed to load uncompressed SMPS at " + Integer.toHexString(offset));
-            e.printStackTrace();
+        } catch (IOException | RuntimeException e) {
+            LOGGER.log(Level.SEVERE, "Failed to load uncompressed SMPS at " + Integer.toHexString(offset), e);
             return null;
         }
     }
@@ -546,9 +542,8 @@ public class Sonic2SmpsLoader implements SmpsLoader {
             byte[] decompressed = decompressor.decompress(compressed, true);
             LOGGER.info("Decompressed SFX SMPS at " + Integer.toHexString(offset) + ". Size: " + decompressed.length);
             return new Sonic2SfxData(decompressed, z80Addr, 0, 0);
-        } catch (Exception e) {
-            LOGGER.severe("Failed to load SMPS at " + Integer.toHexString(offset));
-            e.printStackTrace();
+        } catch (IOException | RuntimeException e) {
+            LOGGER.log(Level.SEVERE, "Failed to load SMPS at " + Integer.toHexString(offset), e);
             return null;
         }
     }
@@ -666,7 +661,7 @@ public class Sonic2SmpsLoader implements SmpsLoader {
                     LOGGER.fine("Skipped invalid PSG envelope " + id + " at " + Integer.toHexString(romAddr));
                 }
             }
-        } catch (Exception e) {
+        } catch (IOException | RuntimeException e) {
             LOGGER.warning("Failed to load PSG Envelopes from ROM");
         }
         return envelopes;
@@ -743,9 +738,8 @@ public class Sonic2SmpsLoader implements SmpsLoader {
             }
 
             return new DacData(samples, mapping, 288); // S2 baseCycles = 288
-        } catch (Exception e) {
-            LOGGER.severe("Failed to load DAC Data");
-            e.printStackTrace();
+        } catch (IOException | RuntimeException e) {
+            LOGGER.log(Level.SEVERE, "Failed to load DAC Data", e);
             return new DacData(new HashMap<>(), new HashMap<>(), 288);
         }
     }

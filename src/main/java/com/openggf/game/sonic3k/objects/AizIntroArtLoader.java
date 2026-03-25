@@ -2,7 +2,7 @@ package com.openggf.game.sonic3k.objects;
 
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
-import com.openggf.game.GameServices;
+import com.openggf.data.RomManager;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.LevelManager;
@@ -215,7 +215,7 @@ public class AizIntroArtLoader {
     public static void loadIntroSpritesArt() {
         if (introSpritesPatterns != null) return;
         try {
-            Rom rom = GameServices.rom().getRom();
+            Rom rom = currentRom();
             FileChannel channel = rom.getFileChannel();
             synchronized (rom) {
                 channel.position(Sonic3kConstants.ART_NEM_AIZ_INTRO_SPRITES_ADDR);
@@ -237,7 +237,7 @@ public class AizIntroArtLoader {
     public static void loadKnucklesArt() {
         if (knucklesPatterns != null) return;
         try {
-            Rom rom = GameServices.rom().getRom();
+            Rom rom = currentRom();
             byte[] data = rom.readBytes(
                     Sonic3kConstants.ART_UNC_CUTSCENE_KNUX_ADDR,
                     Sonic3kConstants.ART_UNC_CUTSCENE_KNUX_SIZE);
@@ -265,8 +265,7 @@ public class AizIntroArtLoader {
             // Cork floor tiles come from the LEVEL's pattern data, not Nemesis sprite art.
             // art_tile = make_art_tile($001,2,0) adds +1 to mapping tile indices.
             // Mapping tiles $1C-$37 → VRAM tiles $1D-$38 → level pattern indices 0x1D-0x38.
-            var lm = LevelManager.getInstance();
-            var level = (lm != null) ? lm.getCurrentLevel() : null;
+            var level = currentLevel();
             if (level == null || level.getPatternCount() < 0x39) {
                 LOG.warning("Level patterns not available for cork floor (count="
                         + (level != null ? level.getPatternCount() : 0) + ")");
@@ -420,7 +419,7 @@ public class AizIntroArtLoader {
         try {
             int size = Sonic3kConstants.PAL_CYCLE_SUPER_SONIC_ENTRY_COUNT
                     * Sonic3kConstants.PAL_CYCLE_SUPER_SONIC_ENTRY_SIZE;
-            Rom rom = GameServices.rom().getRom();
+            Rom rom = currentRom();
             superSonicPaletteCycleData = rom.readBytes(Sonic3kConstants.PAL_CYCLE_SUPER_SONIC_ADDR, size);
             LOG.fine("Loaded Super Sonic palette cycle data: " + superSonicPaletteCycleData.length + " bytes");
         } catch (Exception e) {
@@ -436,7 +435,7 @@ public class AizIntroArtLoader {
     public static void loadCutsceneKnucklesPalette() {
         if (cutsceneKnucklesPalette != null) return;
         try {
-            Rom rom = GameServices.rom().getRom();
+            Rom rom = currentRom();
             cutsceneKnucklesPalette = rom.readBytes(Sonic3kConstants.PAL_CUTSCENE_KNUX_ADDR, 32);
             LOG.fine("Loaded cutscene Knuckles palette: " + cutsceneKnucklesPalette.length + " bytes");
         } catch (Exception e) {
@@ -452,7 +451,7 @@ public class AizIntroArtLoader {
     public static void loadEmeraldPalette() {
         if (emeraldPalette != null) return;
         try {
-            Rom rom = GameServices.rom().getRom();
+            Rom rom = currentRom();
             emeraldPalette = rom.readBytes(Sonic3kConstants.PAL_AIZ_INTRO_EMERALDS_ADDR, 32);
             LOG.fine("Loaded emerald palette: " + emeraldPalette.length + " bytes");
         } catch (Exception e) {
@@ -830,7 +829,7 @@ public class AizIntroArtLoader {
      * delegates to {@link KosinskiReader#decompressModuled(byte[], int)}.
      */
     private static byte[] decompressKosinskiModuled(int romAddr) throws IOException {
-        Rom rom = GameServices.rom().getRom();
+        Rom rom = currentRom();
 
         // Read KosM 2-byte BE header: total decompressed size
         byte[] header = rom.readBytes(romAddr, 2);
@@ -877,7 +876,16 @@ public class AizIntroArtLoader {
      * Creates a {@link RomByteReader} from the current ROM.
      */
     private static RomByteReader getReader() throws IOException {
-        return RomByteReader.fromRom(GameServices.rom().getRom());
+        return RomByteReader.fromRom(currentRom());
+    }
+
+    private static Rom currentRom() throws IOException {
+        return RomManager.getInstance().getRom();
+    }
+
+    private static com.openggf.level.Level currentLevel() {
+        LevelManager levelManager = LevelManager.getInstance();
+        return levelManager != null ? levelManager.getCurrentLevel() : null;
     }
 
     /**

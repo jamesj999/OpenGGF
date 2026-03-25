@@ -1,11 +1,9 @@
 package com.openggf.game.sonic2.events;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.bosses.Sonic2CPZBossInstance;
-import com.openggf.level.LevelManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.ObjectSpawn;
 
@@ -49,7 +47,7 @@ public class Sonic2CPZEvents extends Sonic2ZoneEvents {
         final int WATER_TARGET_Y = 0x508;
         var player = camera().getFocusedSprite();
         if (player != null && player.getX() >= WATER_RISE_TRIGGER_X) {
-            WaterSystem.getInstance().setWaterLevelTarget(
+            waterSystem().setWaterLevelTarget(
                     ZONE_ID_CPZ_ROM, 1, WATER_TARGET_Y);
             cpzWaterTriggered = true;
         }
@@ -73,8 +71,8 @@ public class Sonic2CPZEvents extends Sonic2ZoneEvents {
                     setSidekickBounds(0x2A20, 0x2A20, null);
                     eventRoutine += 2;
                     bossSpawnDelay = 0;
-                    AudioManager.getInstance().fadeOutMusic();
-                    GameServices.gameState().setCurrentBossId(1);
+                    audio().fadeOutMusic();
+                    gameState().setCurrentBossId(1);
                 }
             }
             case 4 -> {
@@ -85,7 +83,7 @@ public class Sonic2CPZEvents extends Sonic2ZoneEvents {
                 if (bossSpawnDelay >= 0x5A) {
                     spawnCPZBoss();
                     eventRoutine += 2;
-                    AudioManager.getInstance().playMusic(Sonic2Music.BOSS.id);
+                    audio().playMusic(Sonic2Music.BOSS.id);
                 }
             }
             case 6 -> {
@@ -105,7 +103,7 @@ public class Sonic2CPZEvents extends Sonic2ZoneEvents {
     private void spawnCPZBoss() {
         ObjectSpawn bossSpawn = new ObjectSpawn(
                 0x2B80, 0x04B0, Sonic2ObjectIds.CPZ_BOSS, 0, 0, false, 0);
-        cpzBoss = new Sonic2CPZBossInstance(bossSpawn, LevelManager.getInstance());
+        cpzBoss = new Sonic2CPZBossInstance(bossSpawn);
         spawnObject(cpzBoss);
     }
 }

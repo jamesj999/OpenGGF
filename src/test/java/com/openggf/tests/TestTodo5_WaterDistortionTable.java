@@ -4,6 +4,7 @@ import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import com.openggf.data.Rom;
+import com.openggf.game.GameServices;
 import com.openggf.level.WaterSystem;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.RequiresRomRule;
@@ -85,7 +86,7 @@ public class TestTodo5_WaterDistortionTable {
      */
     @Test
     public void testGeneratedDistortionTableProperties() {
-        WaterSystem waterSystem = WaterSystem.getInstance();
+        WaterSystem waterSystem = GameServices.water();
         int[] table = waterSystem.getDistortionTable();
         assertNotNull("Distortion table should not be null", table);
         assertEquals("Distortion table should be 66 entries", 66, table.length);
@@ -101,7 +102,7 @@ public class TestTodo5_WaterDistortionTable {
      */
     @Test
     public void testDistortionTableMatchesRom() {
-        WaterSystem waterSystem = WaterSystem.getInstance();
+        WaterSystem waterSystem = GameServices.water();
         int[] engineTable = waterSystem.getDistortionTable();
 
         // The ROM ripple data has 66 entries with values 0-3.

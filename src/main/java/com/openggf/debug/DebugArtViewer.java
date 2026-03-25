@@ -10,8 +10,12 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class DebugArtViewer {
+
+    private static final Logger LOGGER = Logger.getLogger(DebugArtViewer.class.getName());
 
     public static void main(String[] args) {
         try {
@@ -36,7 +40,7 @@ public class DebugArtViewer {
             System.out.println("Use the modified Sonic2ObjectArt to dump images.");
 
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.log(Level.WARNING, "Failed to load ROM or art data", e);
         }
     }
 
@@ -72,7 +76,7 @@ public class DebugArtViewer {
             ImageIO.write(img, "png", new File(filename));
             System.out.println("Dumped " + filename);
         } catch (IOException e) {
-            e.printStackTrace();
+            LOGGER.log(Level.WARNING, "Failed to write pattern image", e);
         }
     }
 }

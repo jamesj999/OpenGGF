@@ -2,7 +2,7 @@ package com.openggf.tests;
 
 import org.junit.After;
 import org.junit.Test;
-import com.openggf.Control.InputHandler;
+import com.openggf.control.InputHandler;
 import com.openggf.audio.AudioBackend;
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.ChannelType;

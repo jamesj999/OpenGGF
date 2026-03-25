@@ -1,13 +1,7 @@
 package com.openggf.level;
 
 import com.openggf.game.*;
-import com.openggf.game.sonic1.Sonic1ObjectArtProvider;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
-import com.openggf.game.sonic2.Sonic2Level;
-import com.openggf.game.sonic2.Sonic2ObjectArtProvider;
-import com.openggf.game.sonic3k.events.S3kSeamlessMutationExecutor;
-import com.openggf.game.sonic3k.Sonic3kObjectArtProvider;
-
 import com.openggf.Engine;
 import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
@@ -24,27 +18,20 @@ import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.game.DynamicStartPositionProvider;
 
 import com.openggf.debug.DebugObjectArtViewer;
-import com.openggf.debug.DebugOption;
 import com.openggf.debug.DebugOverlayManager;
-import com.openggf.debug.DebugOverlayPalette;
 import com.openggf.debug.DebugOverlayToggle;
-import com.openggf.debug.DebugRenderContext;
 import com.openggf.debug.PerformanceProfiler;
-import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.HudRenderManager;
 import com.openggf.graphics.GLCommand;
-import com.openggf.graphics.GLCommandGroup;
+import com.openggf.graphics.PatternAtlas;
 import com.openggf.audio.AudioManager;
 import com.openggf.graphics.GraphicsManager;
-import com.openggf.graphics.ShaderProgram;
 import com.openggf.graphics.TilemapGpuRenderer;
 import com.openggf.graphics.TilePriorityFBO;
 import com.openggf.graphics.WaterShaderProgram;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.graphics.PatternRenderCommand;
-import com.openggf.graphics.PatternAtlas;
 import com.openggf.graphics.RenderContext;
-import com.openggf.level.render.SpritePieceRenderer;
 import com.openggf.level.render.BackgroundRenderer;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -52,21 +39,15 @@ import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseTable;
 import com.openggf.level.rings.RingManager;
 import com.openggf.level.rings.RingSpriteSheet;
-import com.openggf.level.rings.RingSpawn;
-import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.level.animation.AnimatedPaletteManager;
 import com.openggf.level.animation.AnimatedPatternManager;
 import com.openggf.physics.CollisionSystem;
 import com.openggf.physics.Direction;
-import com.openggf.physics.Sensor;
-import com.openggf.physics.SensorResult;
 import com.openggf.sprites.Sprite;
-import com.openggf.sprites.SensorConfiguration;
 import com.openggf.sprites.art.SpriteArtSet;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
-import com.openggf.game.sonic2.objects.InvincibilityStarsObjectInstance;
-import com.openggf.game.sonic2.objects.ShieldObjectInstance;
-import com.openggf.game.sonic3k.Sonic3kPlayerArt;
+import com.openggf.game.PowerUpObject;
+import com.openggf.level.objects.DefaultPowerUpSpawner;
 import com.openggf.sprites.managers.SpindashDustController;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.managers.TailsTailsController;
@@ -91,10 +72,6 @@ import static org.lwjgl.opengl.GL20.*;
  */
 public class LevelManager {
     private static final Logger LOGGER = Logger.getLogger(LevelManager.class.getName());
-    private static final float SWITCHER_DEBUG_R = 1.0f;
-    private static final float SWITCHER_DEBUG_G = 0.55f;
-    private static final float SWITCHER_DEBUG_B = 0.1f;
-    private static final float SWITCHER_DEBUG_ALPHA = 0.35f;
     private static final int OBJECT_PATTERN_BASE = 0x20000;
     private static final int HUD_PATTERN_BASE = 0x28000;
     /** Base for extra sidekick DPLC banks — above water (0x30000) and below title cards (0x40000). */
@@ -122,12 +99,19 @@ public class LevelManager {
         return gameModule;
     }
 
+    /** Returns the tilemap lifecycle delegate. */
+    public LevelTilemapManager getTilemapManager() {
+        return tilemapManager;
+    }
+
     private final GraphicsManager graphicsManager = GraphicsManager.getInstance();
-    private final SpriteManager spriteManager = SpriteManager.getInstance();
+    private SpriteManager spriteManager = SpriteManager.getInstance();
+    private CollisionSystem collisionSystem = CollisionSystem.getInstance();
+    private WaterSystem waterSystem = WaterSystem.getInstance();
+    private GameStateManager gameState = GameStateManager.getInstance();
     private final SonicConfigurationService configService = SonicConfigurationService.getInstance();
     private final DebugOverlayManager overlayManager = GameServices.debugOverlay();
-    // Reusable context for per-object debug rendering (avoids per-frame allocation)
-    private final DebugRenderContext reusableDebugCtx = new DebugRenderContext();
+    private LevelDebugRenderer debugRenderer;
     private final PerformanceProfiler profiler = PerformanceProfiler.getInstance();
     private final List<List<LevelData>> levels = new ArrayList<>();
     private int currentAct = 0;
@@ -145,94 +129,26 @@ public class LevelManager {
     private RespawnState checkpointState;
     private LevelState levelGamestate;
 
-    // GPU tilemap data (Track B)
-    private byte[] backgroundTilemapData;
-    private int backgroundTilemapWidthTiles;
-    private int backgroundTilemapHeightTiles;
-    private boolean backgroundTilemapDirty = true;
-    private int backgroundVdpWrapHeightTiles = 0; // 0 = disabled
-    // X offset (in pixels, 512-aligned) for BG tilemap building.
-    // Wide BG maps (> 512px) need tiles from the correct region, not always from position 0.
-    private int bgTilemapBaseX = 0;
-    private int currentBgPeriodWidth = VDP_BG_PLANE_WIDTH_PX;
-    private byte[] foregroundTilemapData;
-    private int foregroundTilemapWidthTiles;
-    private int foregroundTilemapHeightTiles;
-    private boolean foregroundTilemapDirty = true;
+    // GPU tilemap lifecycle delegate (build/cache/upload/invalidate)
+    private LevelTilemapManager tilemapManager;
 
-    private byte[] patternLookupData;
-    private int patternLookupSize;
-    private boolean patternLookupDirty = true;
-    private boolean multiAtlasWarningLogged = false;
-
-    // Pre-built tilemap data for stutter-free terrain transitions (AIZ intro)
-    private byte[] prebuiltFgTilemap;
-    private int prebuiltFgWidth;
-    private int prebuiltFgHeight;
-    private byte[] prebuiltBgTilemap;
-    private int prebuiltBgWidth;
-    private int prebuiltBgHeight;
-
-    private boolean specialStageRequestedFromCheckpoint;
-    private boolean specialStageReturnLevelReloadRequested;
-
-    // S3K big ring return position (ROM: Saved2_* variables from Save_Level_Data2).
-    // Separate from checkpoint state (ROM: Saved_*) so the player returns to the
-    // big ring location, not the last starpost.
-    private boolean bigRingReturnActive;
-    private int bigRingReturnX;
-    private int bigRingReturnY;
-    private int bigRingReturnCameraX;
-    private int bigRingReturnCameraY;
-    private boolean titleCardRequested;
-    private int titleCardZone = -1;
-    private int titleCardAct = -1;
-    private boolean inLevelTitleCardRequested;
-    private int inLevelTitleCardZone = -1;
-    private int inLevelTitleCardAct = -1;
-
-    // Transition request flags (for fade-coordinated transitions)
-    private boolean respawnRequested;
-    private boolean nextActRequested;
-    private boolean nextZoneRequested;
-    private boolean specificZoneActRequested;
-    private boolean seamlessTransitionRequested;
-    private boolean creditsRequested;
-    private boolean forceHudSuppressed;
-    private boolean suppressNextMusicChange;
+    // All transition request/consume state lives in the coordinator
+    private final LevelTransitionCoordinator transitions = new LevelTransitionCoordinator();
 
     // ROM: LZ3/SBZ2 vertical wrapping — FG layer wraps Y instead of clamping
     private boolean verticalWrapEnabled = false;
-    private boolean levelInactiveForTransition;
-    private int requestedZone = -1;
-    private int requestedAct = -1;
-    private SeamlessLevelTransitionRequest pendingSeamlessTransitionRequest;
 
     // Background rendering support
-    private final ParallaxManager parallaxManager = ParallaxManager.getInstance();
+    private ParallaxManager parallaxManager = ParallaxManager.getInstance();
     private boolean useShaderBackground = true; // Feature flag for shader background
 
-    // Pre-allocated lists for debug overlay rendering (avoids per-frame allocations)
-    private final List<GLCommand> debugObjectCommands = new ArrayList<>(256);
-    private final List<GLCommand> debugSwitcherLineCommands = new ArrayList<>(128);
-    private final List<GLCommand> debugSwitcherAreaCommands = new ArrayList<>(128);
-    private final List<GLCommand> debugRingCommands = new ArrayList<>(256);
-    private final List<GLCommand> debugBoxCommands = new ArrayList<>(512);
-    private final List<GLCommand> debugCenterCommands = new ArrayList<>(256);
-    private final List<GLCommand> collisionCommands = new ArrayList<>(256);
-    private final List<GLCommand> priorityDebugCommands = new ArrayList<>(256);
-    private final List<GLCommand> sensorCommands = new ArrayList<>(128);
-    private final List<GLCommand> cameraBoundsCommands = new ArrayList<>(64);
-
-    // Reusable PatternDesc to avoid per-iteration allocations in tight loops
-    private final PatternDesc reusablePatternDesc = new PatternDesc();
 
     // Cached screen dimensions (avoids repeated config service lookups)
     private final int cachedScreenWidth = configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS);
     private final int cachedScreenHeight = configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
 
     // Camera reference for frustum culling
-    private final Camera camera = Camera.getInstance();
+    private Camera camera = Camera.getInstance();
 
     // Pre-allocated viewport buffer to avoid per-frame int[4] allocations inside GL commands
     private final int[] viewportBuffer = new int[4];
@@ -291,7 +207,6 @@ public class LevelManager {
         graphicsManager.setWindowHeight(windowHeight);
         graphicsManager.setScreenHeight(screenHeightPixels);
 
-        WaterSystem waterSystem = WaterSystem.getInstance();
         int zoneId = getFeatureZoneId();
         Palette[] underwater = waterSystem.getUnderwaterPalette(zoneId, currentAct);
         if (underwater != null) {
@@ -564,27 +479,24 @@ public class LevelManager {
     }
 
     /**
-     * Checks if a point is within the visible camera frustum with optional padding.
-     * Used to cull debug overlay commands for off-screen objects.
-     *
-     * @param x       world X coordinate
-     * @param y       world Y coordinate
-     * @param padding extra pixels around screen edges to include
-     * @return true if the point is visible (or near-visible with padding)
-     */
-    private boolean isInCameraFrustum(int x, int y, int padding) {
-        int camX = camera.getX();
-        int camY = camera.getY();
-        return x >= camX - padding && x <= camX + cachedScreenWidth + padding
-                && y >= camY - padding && y <= camY + cachedScreenHeight + padding;
-    }
-
-    /**
      * Private constructor for Singleton pattern.
      * Zone list is lazily initialized from the current GameModule's ZoneRegistry.
      */
     protected LevelManager() {
         // Zones are loaded from ZoneRegistry in refreshZoneList()
+    }
+
+    /**
+     * Constructs a LevelManager with explicit manager dependencies.
+     * Used by {@link com.openggf.game.GameRuntime} to inject peers
+     * instead of reading from singletons.
+     */
+    public LevelManager(Camera camera, SpriteManager spriteManager,
+                        ParallaxManager parallaxManager, CollisionSystem collisionSystem) {
+        this.camera = camera;
+        this.spriteManager = spriteManager;
+        this.parallaxManager = parallaxManager;
+        this.collisionSystem = collisionSystem;
     }
 
     /**
@@ -686,10 +598,10 @@ public class LevelManager {
         audioManager.setRom(GameServices.rom().getRom());
         audioManager.setSoundMap(game.getSoundMap());
         audioManager.resetRingSound();
-        if (!suppressNextMusicChange) {
+        if (!transitions.isSuppressNextMusicChange()) {
             audioManager.playMusic(game.getMusicId(levelIndex));
         }
-        suppressNextMusicChange = false;
+        transitions.setSuppressNextMusicChange(false);
     }
 
     /**
@@ -710,18 +622,11 @@ public class LevelManager {
         level = loaded;
         blockPixelSize = level.getBlockPixelSize();
         chunksPerBlockSide = level.getChunksPerBlockSide();
+        debugRenderer = new LevelDebugRenderer(new LevelDebugContext(
+                level, blockPixelSize, overlayManager, graphicsManager,
+                cachedScreenWidth, cachedScreenHeight));
         cacheLevelDimensions();
-        backgroundTilemapDirty = true;
-        bgTilemapBaseX = 0;
-        currentBgPeriodWidth = VDP_BG_PLANE_WIDTH_PX;
-        foregroundTilemapDirty = true;
-        patternLookupDirty = true;
-        multiAtlasWarningLogged = false;
-        backgroundTilemapData = null;
-        foregroundTilemapData = null;
-        patternLookupData = null;
-        prebuiltFgTilemap = null;
-        prebuiltBgTilemap = null;
+        tilemapManager = new LevelTilemapManager(buildGeometry(), graphicsManager);
         return loaded;
     }
 
@@ -731,6 +636,63 @@ public class LevelManager {
     public void initAnimatedContent() {
         initAnimatedPatterns();
         initAnimatedPalettes();
+    }
+
+    /**
+     * Swaps the current level for a new one (e.g. a MutableLevel snapshot).
+     * Re-initialises animated content managers so they read from the new
+     * level's Pattern/Palette arrays, and invalidates the foreground tilemap
+     * to trigger a full rebuild.
+     *
+     * @param newLevel the level to swap in
+     */
+    public void setLevel(Level newLevel) {
+        this.level = newLevel;
+        blockPixelSize = newLevel.getBlockPixelSize();
+        chunksPerBlockSide = newLevel.getChunksPerBlockSide();
+        cacheLevelDimensions();
+        initAnimatedContent();
+        invalidateForegroundTilemap();
+    }
+
+    /**
+     * Processes dirty regions from a MutableLevel, dispatching incremental
+     * updates to the relevant subsystems. This is a no-op when the current
+     * level is not a MutableLevel, so there is zero performance impact on
+     * normal gameplay.
+     * <p>
+     * Called from {@code LevelFrameStep} at the start of each frame.
+     */
+    public void processDirtyRegions() {
+        if (!(level instanceof MutableLevel ml)) return;
+
+        java.util.BitSet dirtyPatterns = ml.consumeDirtyPatterns();
+        if (!dirtyPatterns.isEmpty()) {
+            graphicsManager.reuploadDirtyPatterns(dirtyPatterns, ml);
+        }
+
+        java.util.BitSet dirtyBlocks = ml.consumeDirtyBlocks();
+        java.util.BitSet dirtyMapCells = ml.consumeDirtyMapCells();
+        if (!dirtyBlocks.isEmpty() || !dirtyMapCells.isEmpty()) {
+            if (tilemapManager != null) {
+                tilemapManager.rebuildDirtyRegions(dirtyBlocks, dirtyMapCells, ml);
+            }
+        }
+
+        java.util.BitSet dirtySolidTiles = ml.consumeDirtySolidTiles();
+        if (!dirtySolidTiles.isEmpty()) {
+            // Terrain sensors read SolidTile data directly from the current Level,
+            // so no cache rebuild is needed here. We still consume the dirty set
+            // to keep MutableLevel state in sync with the frame pipeline.
+        }
+
+        if (ml.consumeObjectsDirty() && objectManager != null) {
+            objectManager.resyncSpawnList(ml.getObjects());
+        }
+
+        if (ml.consumeRingsDirty() && ringManager != null) {
+            ringManager.resyncSpawnList(ml.getRings());
+        }
     }
 
     /**
@@ -746,7 +708,26 @@ public class LevelManager {
                 gameModule.getPlaneSwitcherConfig(),
                 touchResponseTable);
         // Wire up CollisionSystem with ObjectManager for unified collision pipeline
-        CollisionSystem.getInstance().setObjectManager(objectManager);
+        collisionSystem.setObjectManager(objectManager);
+
+        // Inject PowerUpSpawner into all playable sprites
+        injectPowerUpSpawner();
+    }
+
+    /**
+     * Injects a {@link DefaultPowerUpSpawner} backed by the current
+     * {@link ObjectManager} into the main player and all sidekicks.
+     */
+    private void injectPowerUpSpawner() {
+        DefaultPowerUpSpawner spawner = new DefaultPowerUpSpawner(objectManager);
+        Sprite player = spriteManager.getSprite(
+                configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+        if (player instanceof AbstractPlayableSprite playable) {
+            playable.setPowerUpSpawner(spawner);
+        }
+        for (AbstractPlayableSprite sidekick : spriteManager.getSidekicks()) {
+            sidekick.setPowerUpSpawner(spawner);
+        }
     }
 
     /**
@@ -754,7 +735,6 @@ public class LevelManager {
      */
     public void initCameraBounds() {
         // Reset camera state from previous level (signpost may have locked it)
-        Camera camera = Camera.getInstance();
         camera.setFrozen(false);
         // ROM: LevelSizeLoad sets v_limitleft2 and v_limitright2 from LevelSizeArray.
         // Use the level's ROM boundaries (not map pixel width) so the camera is
@@ -785,7 +765,7 @@ public class LevelManager {
     public void initRings() {
         RingSpriteSheet ringSpriteSheet = level.getRingSpriteSheet();
         ringManager = new RingManager(level.getRings(), ringSpriteSheet, this, touchResponseTable);
-        ringManager.reset(Camera.getInstance().getX());
+        ringManager.reset(camera.getX());
         ringManager.ensurePatternsCached(graphicsManager, level.getPatternCount());
     }
 
@@ -794,7 +774,6 @@ public class LevelManager {
      */
     public void initZoneFeatures() throws IOException {
         Rom rom = GameServices.rom().getRom();
-        Camera camera = Camera.getInstance();
         zoneFeatureProvider = gameModule.getZoneFeatureProvider();
         if (zoneFeatureProvider != null) {
             zoneFeatureProvider.initZoneFeatures(rom, getFeatureZoneId(), getFeatureActId(), camera.getX());
@@ -848,7 +827,6 @@ public class LevelManager {
      */
     public void initWater() throws IOException {
         Rom rom = GameServices.rom().getRom();
-        WaterSystem waterSystem = WaterSystem.getInstance();
         WaterDataProvider waterProvider = gameModule != null ? gameModule.getWaterDataProvider() : null;
         if (waterProvider != null) {
             // Use the game-agnostic provider-based loading
@@ -882,7 +860,7 @@ public class LevelManager {
                 // S1/S2 use VDP-width (512px) background periods.
                 // Pre-allocating to full level width can exceed GPU max texture size
                 // (S2: 128 blocks * 128px = 16384, right at GPU limit).
-                maxBgWidth = Math.max(cachedScreenWidth, VDP_BG_PLANE_WIDTH_PX);
+                maxBgWidth = Math.max(cachedScreenWidth, LevelTilemapManager.VDP_BG_PLANE_WIDTH_PX);
             }
             int fboHeight = 256 + LevelConstants.CHUNK_HEIGHT;
             graphicsManager.registerCommand(new GLCommand(GLCommand.CommandType.CUSTOM,
@@ -912,7 +890,7 @@ public class LevelManager {
             Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
             AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
             List<AbstractPlayableSprite> sidekicks = spriteManager.getSidekicks();
-            objectManager.update(Camera.getInstance().getX(), playable, sidekicks, frameCounter + 1);
+            objectManager.update(camera.getX(), playable, sidekicks, frameCounter + 1);
         }
     }
 
@@ -928,7 +906,7 @@ public class LevelManager {
             Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
             AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
             List<AbstractPlayableSprite> sidekicks = spriteManager.getSidekicks();
-            objectManager.update(Camera.getInstance().getX(), playable, sidekicks, frameCounter + 1, false);
+            objectManager.update(camera.getX(), playable, sidekicks, frameCounter + 1, false);
         }
     }
 
@@ -944,7 +922,7 @@ public class LevelManager {
         if (zoneFeatureProvider != null && level != null) {
             Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
             AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
-            zoneFeatureProvider.updatePrePhysics(playable, Camera.getInstance().getX(), getFeatureZoneId());
+            zoneFeatureProvider.updatePrePhysics(playable, camera.getX(), getFeatureZoneId());
         }
     }
 
@@ -960,14 +938,14 @@ public class LevelManager {
             playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
         }
         if (ringManager != null) {
-            ringManager.update(Camera.getInstance().getX(), playable, frameCounter + 1);
+            ringManager.update(camera.getX(), playable, frameCounter + 1);
             // Lost ring physics run once per frame; collection checks run per-player.
             ringManager.updateLostRingPhysics(frameCounter + 1);
             ringManager.checkLostRingCollection(playable);
             // ROM: CPU Tails can also collect rings in 1P mode
             for (AbstractPlayableSprite sidekick : spriteManager.getSidekicks()) {
                 if (!sidekick.getDead()) {
-                    ringManager.update(Camera.getInstance().getX(), sidekick, frameCounter + 1);
+                    ringManager.update(camera.getX(), sidekick, frameCounter + 1);
                     ringManager.checkLostRingCollection(sidekick);
                 }
             }
@@ -976,25 +954,23 @@ public class LevelManager {
         // DynWaterHeight (zone features set new target for next frame).
         // Use effective feature zone/act so S1 SBZ3 (loaded from LZ act 4 slot)
         // resolves to SBZ3 water behavior while retaining LZ tile/object resources.
-        WaterSystem waterSystem = WaterSystem.getInstance();
         int featureZone = getFeatureZoneId();
         int featureAct = getFeatureActId();
         if (level != null && waterSystem.hasWater(featureZone, featureAct)) {
-            Camera camera = Camera.getInstance();
             waterSystem.updateDynamic(featureZone, featureAct, camera.getX(), camera.getY());
             waterSystem.update();
         }
 
         // Update zone-specific features (CNZ bumpers, S1 DynWaterHeight, etc.)
         if (zoneFeatureProvider != null && level != null) {
-            zoneFeatureProvider.update(playable, Camera.getInstance().getX(), getFeatureZoneId());
+            zoneFeatureProvider.update(playable, camera.getX(), getFeatureZoneId());
         }
         if (levelGamestate != null) {
             if (!isHudSuppressed()) {
                 levelGamestate.update();
             }
             if (levelGamestate.isTimeOver() && playable != null && !playable.getDead()) {
-                playable.applyHurtOrDeath(0, AbstractPlayableSprite.DamageCause.TIME_OVER, false);
+                playable.applyHurtOrDeath(0, DamageCause.TIME_OVER, false);
             }
         }
 
@@ -1014,21 +990,19 @@ public class LevelManager {
         AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
 
         if (ringManager != null) {
-            ringManager.update(Camera.getInstance().getX(), null, frameCounter + 1);
+            ringManager.update(camera.getX(), null, frameCounter + 1);
         }
 
         // Water movement before zone features (ROM order: MoveWater before DynWaterHeight)
-        WaterSystem waterSystem = WaterSystem.getInstance();
         int featureZone = getFeatureZoneId();
         int featureAct = getFeatureActId();
         if (level != null && waterSystem.hasWater(featureZone, featureAct)) {
-            Camera camera = Camera.getInstance();
             waterSystem.updateDynamic(featureZone, featureAct, camera.getX(), camera.getY());
             waterSystem.update();
         }
 
         if (zoneFeatureProvider != null && level != null) {
-            zoneFeatureProvider.update(playable, Camera.getInstance().getX(), getFeatureZoneId());
+            zoneFeatureProvider.update(playable, camera.getX(), getFeatureZoneId());
         }
 
         if (level != null && waterSystem.hasWater(featureZone, featureAct) && playable != null) {
@@ -1264,16 +1238,17 @@ public class LevelManager {
         SpriteArtSet tailsArt;
         if (isS3k) {
             // S3K: Obj05 uses a completely separate art/mapping/DPLC set
-            try {
-                if (CrossGameFeatureProvider.isActive()) {
+            if (CrossGameFeatureProvider.isActive()) {
+                try {
                     tailsArt = CrossGameFeatureProvider.getInstance().loadTailsTailArt();
-                } else {
-                    Rom rom = GameServices.rom().getRom();
-                    Sonic3kPlayerArt s3kArt = new Sonic3kPlayerArt(RomByteReader.fromRom(rom));
-                    tailsArt = s3kArt.loadTailsTail();
+                } catch (IOException e) {
+                    LOGGER.log(SEVERE, "Failed to load cross-game tails tail art.", e);
+                    tailsArt = null;
                 }
-            } catch (Exception e) {
-                LOGGER.log(SEVERE, "Failed to load S3K tails tail art.", e);
+            } else {
+                tailsArt = gameModule.loadTailsTailArt();
+            }
+            if (tailsArt == null || tailsArt.isEmpty()) {
                 playable.setTailsTailsController(null);
                 return;
             }
@@ -1338,6 +1313,10 @@ public class LevelManager {
     }
 
     private void initObjectArt() {
+        PatternAtlas patternAtlas = graphicsManager.getPatternAtlas();
+        if (patternAtlas != null) {
+            patternAtlas.clearRanges();
+        }
         ObjectArtProvider provider = gameModule != null ? gameModule.getObjectArtProvider() : null;
         if (provider == null) {
             objectRenderManager = null;
@@ -1353,34 +1332,11 @@ public class LevelManager {
             objectRenderManager.ensurePatternsCached(graphicsManager, OBJECT_PATTERN_BASE);
 
             // Register level-tile-based object art (must be after level load)
-            if (provider instanceof Sonic2ObjectArtProvider sonic2Provider) {
-                sonic2Provider.registerSmashableGroundSheet(level);
-                sonic2Provider.registerSteamSpringPistonSheet(level);
-                objectRenderManager.ensurePatternsCached(graphicsManager, OBJECT_PATTERN_BASE);
-            }
-            if (provider instanceof Sonic1ObjectArtProvider sonic1Provider) {
-                sonic1Provider.registerPlatformSheet(level, zoneIndex);
-                sonic1Provider.registerCollapsingLedgeSheet(level, zoneIndex);
-                sonic1Provider.registerMzBrickSheet(level, zoneIndex);
-                sonic1Provider.registerLargeGrassyPlatformSheet(level, zoneIndex);
-                sonic1Provider.registerLavaWallSheet(level, zoneIndex);
-                sonic1Provider.registerFloatingBlockSheet(level, zoneIndex);
-                sonic1Provider.registerCirclingPlatformSheet(level, zoneIndex);
-                sonic1Provider.registerStaircaseSheet(level, zoneIndex);
-                sonic1Provider.registerElevatorSheet(level, zoneIndex);
-                if (zoneIndex == Sonic1Constants.ZONE_SYZ) {
-                    sonic1Provider.registerSpinningLightSheet(level);
-                    sonic1Provider.registerBossBlockSheet(level);
-                }
-                // SBZ3 (LZ zone slot) big diagonal door uses level tile art
-                if (zoneIndex == Sonic1Constants.ZONE_LZ) {
-                    sonic1Provider.registerSbz3BigDoorSheet(level, zoneIndex);
-                }
-                objectRenderManager.ensurePatternsCached(graphicsManager, OBJECT_PATTERN_BASE);
-            }
-            if (provider instanceof Sonic3kObjectArtProvider s3kProvider) {
-                s3kProvider.registerLevelArtSheets(level, zoneIndex);
-                objectRenderManager.ensurePatternsCached(graphicsManager, OBJECT_PATTERN_BASE);
+            provider.registerLevelTileArt(level, zoneIndex);
+            int objectEndIndex = objectRenderManager.ensurePatternsCached(graphicsManager, OBJECT_PATTERN_BASE);
+            if (patternAtlas != null) {
+                patternAtlas.registerRange(
+                    OBJECT_PATTERN_BASE, objectEndIndex - OBJECT_PATTERN_BASE, "Objects");
             }
 
             hudRenderManager = new HudRenderManager(graphicsManager);
@@ -1440,7 +1396,7 @@ public class LevelManager {
     }
 
     private boolean isHudSuppressed() {
-        return forceHudSuppressed
+        return transitions.isForceHudSuppressed()
                 || (zoneFeatureProvider != null
                     && zoneFeatureProvider.shouldSuppressHud(currentZone, currentAct));
     }
@@ -1475,52 +1431,9 @@ public class LevelManager {
      * Debug Functionality to print each pattern to the screen.
      */
     public void drawAllPatterns() {
-        if (level == null) {
-            LOGGER.warning("No level loaded to draw.");
-            return;
+        if (debugRenderer != null) {
+            debugRenderer.drawAllPatterns();
         }
-
-        Camera camera = Camera.getInstance();
-        int cameraX = camera.getX();
-        int cameraY = camera.getY();
-        int cameraWidth = camera.getWidth();
-        int cameraHeight = camera.getHeight();
-
-        // Calculate drawing bounds, adjusted to include partially visible tiles
-        int drawX = cameraX;
-        int drawY = cameraY;
-        int levelWidth = level.getMap().getWidth() * blockPixelSize;
-        int levelHeight = level.getMap().getHeight() * blockPixelSize;
-
-        int xLeftBound = Math.max(drawX, 0);
-        int xRightBound = Math.min(cameraX + cameraWidth, levelWidth);
-        int yTopBound = Math.max(drawY, 0);
-        int yBottomBound = Math.min(cameraY + cameraHeight + LevelConstants.CHUNK_HEIGHT, levelHeight);
-
-        List<GLCommand> commands = new ArrayList<>(256);
-
-        // Iterate over the visible area of the level
-        int count = 0;
-        int maxCount = level.getPatternCount();
-
-        if (Engine.debugOption.ordinal() > LevelConstants.MAX_PALETTES) {
-            Engine.debugOption = DebugOption.A;
-        }
-
-        for (int y = yTopBound; y <= yBottomBound; y += Pattern.PATTERN_HEIGHT) {
-            for (int x = xLeftBound; x <= xRightBound; x += Pattern.PATTERN_WIDTH) {
-                if (count < maxCount) {
-                    reusablePatternDesc.setPaletteIndex(Engine.debugOption.ordinal());
-                    reusablePatternDesc.setPatternIndex(count);
-                    graphicsManager.renderPattern(reusablePatternDesc, x, y);
-                    count++;
-                }
-            }
-        }
-
-        // Register all collected drawing commands with the graphics manager
-        graphicsManager.registerCommand(new GLCommandGroup(GL_POINTS, commands));
-
     }
 
     /**
@@ -1548,8 +1461,6 @@ public class LevelManager {
         if (animatedPaletteManager != null && animatedPaletteManager != animatedPatternManager) {
             animatedPaletteManager.update();
         }
-        Camera camera = Camera.getInstance();
-
         int bgScrollY = (int) (camera.getY() * 0.1f);
         if (game != null) {
             int levelIdx = levels.get(currentZone).get(currentAct).getLevelIndex();
@@ -1565,6 +1476,8 @@ public class LevelManager {
                 parallaxManager.getShakeOffsetX(),
                 parallaxManager.getShakeOffsetY());
 
+        List<GLCommand> collisionCommands = debugRenderer != null
+                ? debugRenderer.getCollisionCommands() : new ArrayList<>();
         collisionCommands.clear();
 
         // Update water shader state before rendering level
@@ -1583,8 +1496,8 @@ public class LevelManager {
         enqueueForegroundTilemapPass(camera, 0);
 
         // Generate collision debug overlay commands (independent of GPU/CPU path)
-        if (overlayManager.isEnabled(DebugOverlayToggle.COLLISION_VIEW)) {
-            generateCollisionDebugCommands(collisionCommands, camera);
+        if (debugRenderer != null && overlayManager.isEnabled(DebugOverlayToggle.COLLISION_VIEW)) {
+            debugRenderer.generateCollisionDebugCommands(collisionCommands, camera, this::getBlockAtPosition);
         }
 
         // Render collision debug overlay on top of foreground tiles
@@ -1595,15 +1508,16 @@ public class LevelManager {
         }
 
         // Generate tile priority debug overlay commands (shows high-priority tiles in red)
-        if (overlayManager.isEnabled(DebugOverlayToggle.TILE_PRIORITY_VIEW)) {
+        if (debugRenderer != null && overlayManager.isEnabled(DebugOverlayToggle.TILE_PRIORITY_VIEW)) {
+            List<GLCommand> priorityDebugCommands = debugRenderer.getPriorityDebugCommands();
             priorityDebugCommands.clear();
-            generateTilePriorityDebugCommands(priorityDebugCommands, camera);
-        }
+            debugRenderer.generateTilePriorityDebugCommands(priorityDebugCommands, camera, this::getBlockAtPosition);
 
-        // Render tile priority debug overlay on top of foreground tiles
-        if (!priorityDebugCommands.isEmpty() && overlayManager.isEnabled(DebugOverlayToggle.TILE_PRIORITY_VIEW)) {
-            for (GLCommand cmd : priorityDebugCommands) {
-                graphicsManager.registerCommand(cmd);
+            // Render tile priority debug overlay on top of foreground tiles
+            if (!priorityDebugCommands.isEmpty()) {
+                for (GLCommand cmd : priorityDebugCommands) {
+                    graphicsManager.registerCommand(cmd);
+                }
             }
         }
 
@@ -1647,178 +1561,14 @@ public class LevelManager {
 
         boolean debugViewEnabled = configService.getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
         boolean overlayEnabled = debugViewEnabled && overlayManager.isEnabled(DebugOverlayToggle.OVERLAY);
-        if (overlayEnabled) {
-            graphicsManager.enqueueDebugLineState();
-        }
-
-        if (objectManager != null && overlayEnabled) {
-            boolean showObjectPoints = overlayManager.isEnabled(DebugOverlayToggle.OBJECT_POINTS);
-            boolean showPlaneSwitchers = overlayManager.isEnabled(DebugOverlayToggle.PLANE_SWITCHERS);
-            debugObjectCommands.clear();
-            debugSwitcherLineCommands.clear();
-            debugSwitcherAreaCommands.clear();
-            Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
-            AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite
-                    ? (AbstractPlayableSprite) player
-                    : null;
-            for (ObjectSpawn spawn : objectManager.getActiveSpawns()) {
-                // Frustum cull: skip objects outside visible area (with 32px padding for large objects)
-                if (!isInCameraFrustum(spawn.x(), spawn.y(), 32)) {
-                    continue;
-                }
-                if (showObjectPoints) {
-                    debugObjectCommands.add(new GLCommand(GLCommand.CommandType.VERTEX2I,
-                            -1,
-                            GLCommand.BlendType.ONE_MINUS_SRC_ALPHA,
-                            1f, 0f, 1f,
-                            spawn.x(), spawn.y(), 0, 0));
-                }
-                if (showPlaneSwitchers) {
-                    appendPlaneSwitcherDebug(spawn, debugSwitcherLineCommands, debugSwitcherAreaCommands, playable);
-                }
-            }
-            if (showPlaneSwitchers && !debugSwitcherAreaCommands.isEmpty()) {
-                graphicsManager.enqueueDebugLineState();
-                for (GLCommand command : debugSwitcherAreaCommands) {
-                    graphicsManager.registerCommand(command);
-                }
-            }
-            if (showPlaneSwitchers && !debugSwitcherLineCommands.isEmpty()) {
-                graphicsManager.enqueueDebugLineState();
-                graphicsManager.registerCommand(new GLCommandGroup(GL_LINES, debugSwitcherLineCommands));
-            }
-            if (showObjectPoints && !debugObjectCommands.isEmpty()) {
-                graphicsManager.enqueueDebugLineState();
-                graphicsManager.registerCommand(new GLCommandGroup(GL_POINTS, debugObjectCommands));
-            }
-        }
-
-        // Per-object debug rendering (hitboxes, velocity vectors, AI state labels)
-        if (objectManager != null && overlayEnabled
-                && overlayManager.isEnabled(DebugOverlayToggle.OBJECT_DEBUG)) {
-            reusableDebugCtx.clear();
-            for (ObjectInstance instance : objectManager.getActiveObjects()) {
-                if (!isInCameraFrustum(instance.getX(), instance.getY(), 64)) {
-                    continue;
-                }
-                instance.appendDebugRenderCommands(reusableDebugCtx);
-            }
-            if (reusableDebugCtx.hasGeometry()) {
-                graphicsManager.enqueueDebugLineState();
-                graphicsManager.registerCommand(new GLCommandGroup(GL_LINES, reusableDebugCtx.getGeometryCommands()));
-            }
-            if (reusableDebugCtx.hasText()) {
-                // Transfer ownership - the overlay manager holds this list until
-                // DebugRenderer consumes it, then we clear() on the next frame.
-                overlayManager.setObjectDebugTextEntries(reusableDebugCtx.getTextEntries());
-            } else {
-                overlayManager.clearObjectDebugTextEntries();
-            }
-        }
-
-        if (ringManager != null && overlayEnabled
-                && overlayManager.isEnabled(DebugOverlayToggle.RING_BOUNDS)) {
-            Collection<RingSpawn> rings = ringManager.getActiveSpawns();
-            if (!rings.isEmpty()) {
-                if (!ringManager.hasRenderer()) {
-                    debugRingCommands.clear();
-                    for (RingSpawn ring : rings) {
-                        if (!ringManager.isRenderable(ring, frameCounter)) {
-                            continue;
-                        }
-                        // Frustum cull rings outside visible area
-                        if (!isInCameraFrustum(ring.x(), ring.y(), 16)) {
-                            continue;
-                        }
-                        debugRingCommands.add(new GLCommand(GLCommand.CommandType.VERTEX2I,
-                                -1,
-                                GLCommand.BlendType.ONE_MINUS_SRC_ALPHA,
-                                1f, 0.85f, 0.1f,
-                                ring.x(), ring.y(), 0, 0));
-                    }
-                    graphicsManager.enqueueDebugLineState();
-                    graphicsManager.registerCommand(new GLCommandGroup(GL_POINTS, debugRingCommands));
-                } else {
-                    PatternSpriteRenderer.FrameBounds bounds = ringManager.getFrameBounds(frameCounter);
-                    debugBoxCommands.clear();
-                    debugCenterCommands.clear();
-                    int crossHalf = 2;
-
-                    for (RingSpawn ring : rings) {
-                        if (!ringManager.isRenderable(ring, frameCounter)) {
-                            continue;
-                        }
-                        // Frustum cull rings outside visible area
-                        if (!isInCameraFrustum(ring.x(), ring.y(), 16)) {
-                            continue;
-                        }
-                        int centerX = ring.x();
-                        int centerY = ring.y();
-                        int left = centerX + bounds.minX();
-                        int right = centerX + bounds.maxX();
-                        int top = centerY + bounds.minY();
-                        int bottom = centerY + bounds.maxY();
-
-                        // Bounding box (4 line segments)
-                        debugBoxCommands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                                0.2f, 1f, 0.2f, left, top, 0, 0));
-                        debugBoxCommands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                                0.2f, 1f, 0.2f, right, top, 0, 0));
-
-                        debugBoxCommands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                                0.2f, 1f, 0.2f, right, top, 0, 0));
-                        debugBoxCommands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                                0.2f, 1f, 0.2f, right, bottom, 0, 0));
-
-                        debugBoxCommands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                                0.2f, 1f, 0.2f, right, bottom, 0, 0));
-                        debugBoxCommands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                                0.2f, 1f, 0.2f, left, bottom, 0, 0));
-
-                        debugBoxCommands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                                0.2f, 1f, 0.2f, left, bottom, 0, 0));
-                        debugBoxCommands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                                0.2f, 1f, 0.2f, left, top, 0, 0));
-
-                        // Center cross
-                        debugCenterCommands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                                1f, 0.85f, 0.1f, centerX - crossHalf, centerY, 0, 0));
-                        debugCenterCommands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                                1f, 0.85f, 0.1f, centerX + crossHalf, centerY, 0, 0));
-                        debugCenterCommands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                                1f, 0.85f, 0.1f, centerX, centerY - crossHalf, 0, 0));
-                        debugCenterCommands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                                1f, 0.85f, 0.1f, centerX, centerY + crossHalf, 0, 0));
-                    }
-
-                    if (!debugBoxCommands.isEmpty()) {
-                        graphicsManager.enqueueDebugLineState();
-                        graphicsManager.registerCommand(new GLCommandGroup(GL_LINES, debugBoxCommands));
-                    }
-                    if (!debugCenterCommands.isEmpty()) {
-                        graphicsManager.enqueueDebugLineState();
-                        graphicsManager.registerCommand(new GLCommandGroup(GL_LINES, debugCenterCommands));
-                    }
-                }
-            }
-        }
-
-        if (overlayEnabled) {
-            Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
-            if (player instanceof AbstractPlayableSprite playable) {
-                if (overlayManager.isEnabled(DebugOverlayToggle.CAMERA_BOUNDS)) {
-                    drawCameraBounds();
-                }
-                if (overlayManager.isEnabled(DebugOverlayToggle.PLAYER_BOUNDS)) {
-                    drawPlayableSpriteBounds(playable);
-                }
-            }
+        if (debugRenderer != null) {
+            debugRenderer.renderDebugOverlays(overlayEnabled, objectManager, ringManager,
+                    spriteManager, gameModule, configService, frameCounter);
         }
         graphicsManager.enqueueDefaultShaderState();
     }
 
     private void updateWaterShaderState(Camera camera) {
-        WaterSystem waterSystem = WaterSystem.getInstance();
         int zoneId = getFeatureZoneId();
         int actId = getFeatureActId();
 
@@ -1869,7 +1619,6 @@ public class LevelManager {
         if (bgRenderer == null)
             return;
 
-        Camera camera = Camera.getInstance();
         Palette.Color backdropColor = resolveLevelBackdropColor();
         bgRenderer.setBackdropColor(
                 backdropColor.rFloat(),
@@ -1891,31 +1640,31 @@ public class LevelManager {
             // 16px-aligned base offset. The tilemap is 512px wide, viewport is 320px.
             // This leaves 192px of headroom for the viewport within the tilemap.
             int newBase = Math.floorDiv(bgCameraX, 16) * 16;
-            if (newBase != bgTilemapBaseX) {
-                bgTilemapBaseX = newBase;
-                backgroundTilemapDirty = true;
+            if (newBase != tilemapManager.getBgTilemapBaseX()) {
+                tilemapManager.setBgTilemapBaseX(newBase);
+                tilemapManager.setBackgroundTilemapDirty(true);
             }
-        } else if (bgTilemapBaseX != 0) {
+        } else if (tilemapManager.getBgTilemapBaseX() != 0) {
             // Zone doesn't need offset - reset to 0 if previously set
-            bgTilemapBaseX = 0;
-            backgroundTilemapDirty = true;
+            tilemapManager.setBgTilemapBaseX(0);
+            tilemapManager.setBackgroundTilemapDirty(true);
         }
 
         // Track BG period width changes (e.g., GHZ parallax spread grows with cameraX).
         // When the period widens, the tilemap must be rebuilt at the larger size.
         int newBgPeriodWidth = parallaxManager.getBgPeriodWidth();
-        if (newBgPeriodWidth != currentBgPeriodWidth) {
-            currentBgPeriodWidth = newBgPeriodWidth;
-            backgroundTilemapDirty = true;
+        if (newBgPeriodWidth != tilemapManager.getCurrentBgPeriodWidth()) {
+            tilemapManager.setCurrentBgPeriodWidth(newBgPeriodWidth);
+            tilemapManager.setBackgroundTilemapDirty(true);
         }
 
         ensureBackgroundTilemapData();
 
-        int bgPeriodWidthPixels = backgroundTilemapWidthTiles * Pattern.PATTERN_WIDTH;
+        int bgPeriodWidthPixels = tilemapManager.getBackgroundTilemapWidthTiles() * Pattern.PATTERN_WIDTH;
         // Pass bgTilemapBaseX to the shader so it offsets worldX before wrapping.
         // Shader: fboWorldOffsetX = -ScrollMidpoint - ExtraBuffer
         // We want fboWorldOffsetX = bgTilemapBaseX, so ScrollMidpoint = -bgTilemapBaseX.
-        int shaderScrollMidpoint = -bgTilemapBaseX;
+        int shaderScrollMidpoint = -tilemapManager.getBgTilemapBaseX();
         int shaderExtraBuffer = 0;
         float bgTilemapWorldOffsetX = 0.0f;
         boolean perLineScrollActive = false;
@@ -1937,7 +1686,7 @@ public class LevelManager {
             // Camera tracking: overflow gradually increases, revealing beach tiles.
             vdpWrapWidthTiles = 64.0f;
             nametableBaseTile = zoneFeatureProvider.getVdpNametableBase(
-                    currentZone, currentAct, camera.getX(), backgroundTilemapWidthTiles);
+                    currentZone, currentAct, camera.getX(), tilemapManager.getBackgroundTilemapWidthTiles());
         }
         // Cap BG period at the scroll handler's required width.
         // Zones with a single BG scroll speed cap at VDP nametable width (512px).
@@ -1968,7 +1717,6 @@ public class LevelManager {
 
         // 2. Begin Tile Pass (Bind FBO)
         // Use water shader in screen-space mode for FBO, with adjusted waterline
-        WaterSystem waterSystem = WaterSystem.getInstance();
         int featureZone = getFeatureZoneId();
         int featureAct = getFeatureActId();
         boolean hasWater = waterSystem.hasWater(featureZone, featureAct);
@@ -2034,8 +1782,6 @@ public class LevelManager {
      * sprites/objects visible while the level tiles remain hidden.
      */
     public void renderSpriteObjectPass(SpriteManager spriteManager, boolean includeWaterSurface) {
-        Camera camera = Camera.getInstance();
-
         // Render ALL sprites in unified bucket order (7→0)
         // Sprite-to-sprite ordering is by bucket number regardless of isHighPriority
         // The sprite priority shader composites sprites with tile priority awareness
@@ -2123,10 +1869,14 @@ public class LevelManager {
         // FBO bakes palette colors at render time, so it must be rebuilt each frame
         // to reflect the evolving palette state. Without this, the DEZ star field
         // appears at full color instantly instead of fading in with the palette.
-        backgroundTilemapDirty = true;
+        if (tilemapManager != null) {
+            tilemapManager.setBackgroundTilemapDirty(true);
+        }
 
         // Render using the existing shader pipeline
-        renderBackgroundShader(collisionCommands, bgVscroll);
+        List<GLCommand> endingCollisionCommands = debugRenderer != null
+                ? debugRenderer.getCollisionCommands() : new ArrayList<>();
+        renderBackgroundShader(endingCollisionCommands, bgVscroll);
 
         // Override backdrop color for ending cutscene palette fade.
         // The deferred commands read bgRenderer fields at execution time, so
@@ -2147,7 +1897,6 @@ public class LevelManager {
             return;
         }
 
-        WaterSystem waterSystem = WaterSystem.getInstance();
         int featureZone = getFeatureZoneId();
         int featureAct = getFeatureActId();
         boolean hasWater = waterSystem.hasWater(featureZone, featureAct);
@@ -2212,7 +1961,7 @@ public class LevelManager {
      * so a single tilemap render call with the BG scroll offset suffices.
      */
     private void renderHtzEarthquakeBgHighOverlay() {
-        if (currentZone != ParallaxManager.ZONE_HTZ || !GameServices.gameState().isHtzScreenShakeActive()) {
+        if (!gameState.isHtzScreenShakeActive()) {
             return;
         }
 
@@ -2310,802 +2059,17 @@ public class LevelManager {
     }
 
     private void ensureBackgroundTilemapData() {
-        if (!backgroundTilemapDirty && backgroundTilemapData != null && patternLookupData != null) {
-            // Tilemap data already up to date — but still push VDP wrap height
-            // to the renderer in case it was null during the initial build.
-            TilemapGpuRenderer renderer = graphicsManager.getTilemapGpuRenderer();
-            if (renderer != null && backgroundVdpWrapHeightTiles > 0) {
-                renderer.setBgVdpWrapHeight(backgroundVdpWrapHeightTiles);
-            }
-            return;
-        }
-        if (level == null || level.getMap() == null) {
-            return;
-        }
-
-        buildBackgroundTilemapData();
-        backgroundTilemapDirty = false;
-
-        ensurePatternLookupData();
-        TilemapGpuRenderer renderer = graphicsManager.getTilemapGpuRenderer();
-        if (renderer != null) {
-            renderer.setTilemapData(TilemapGpuRenderer.Layer.BACKGROUND, backgroundTilemapData,
-                    backgroundTilemapWidthTiles, backgroundTilemapHeightTiles);
-            renderer.setBgVdpWrapHeight(backgroundVdpWrapHeightTiles);
-            renderer.setPatternLookupData(patternLookupData, patternLookupSize);
+        if (tilemapManager != null) {
+            tilemapManager.ensureBackgroundTilemapData(this::getBlockAtPosition,
+                    zoneFeatureProvider, currentZone, parallaxManager, verticalWrapEnabled);
         }
     }
 
     private void ensureForegroundTilemapData() {
-        if (!foregroundTilemapDirty && foregroundTilemapData != null && patternLookupData != null) {
-            return;
+        if (tilemapManager != null) {
+            tilemapManager.ensureForegroundTilemapData(this::getBlockAtPosition,
+                    zoneFeatureProvider, currentZone, parallaxManager, verticalWrapEnabled);
         }
-        if (level == null || level.getMap() == null) {
-            return;
-        }
-        buildForegroundTilemapData();
-        foregroundTilemapDirty = false;
-        ensurePatternLookupData();
-        TilemapGpuRenderer renderer = graphicsManager.getTilemapGpuRenderer();
-        if (renderer != null) {
-            renderer.setTilemapData(TilemapGpuRenderer.Layer.FOREGROUND, foregroundTilemapData,
-                    foregroundTilemapWidthTiles, foregroundTilemapHeightTiles);
-            renderer.setPatternLookupData(patternLookupData, patternLookupSize);
-        }
-    }
-
-    private void ensurePatternLookupData() {
-        if (!patternLookupDirty && patternLookupData != null) {
-            return;
-        }
-        if (level == null) {
-            return;
-        }
-        int patternCount = level.getPatternCount();
-        patternLookupSize = Math.max(1, patternCount);
-        patternLookupData = new byte[patternLookupSize * 4];
-        for (int i = 0; i < patternCount; i++) {
-            PatternAtlas.Entry entry = graphicsManager.getPatternAtlasEntry(i);
-            int offset = i * 4;
-            if (entry != null) {
-                patternLookupData[offset] = (byte) entry.tileX();
-                patternLookupData[offset + 1] = (byte) entry.tileY();
-                patternLookupData[offset + 2] = (byte) entry.atlasIndex();
-                patternLookupData[offset + 3] = (byte) 255;
-            } else {
-                patternLookupData[offset] = 0;
-                patternLookupData[offset + 1] = 0;
-                patternLookupData[offset + 2] = 0;
-                patternLookupData[offset + 3] = 0;
-            }
-        }
-        PatternAtlas atlas = graphicsManager.getPatternAtlas();
-        if (!multiAtlasWarningLogged && atlas != null && atlas.getAtlasCount() > 1) {
-            LOGGER.warning("Pattern atlas overflow: using multiple atlases (count="
-                    + atlas.getAtlasCount()
-                    + ", slotsPerAtlas=" + atlas.getMaxSlotsPerAtlas()
-                    + ", atlasSize=" + atlas.getAtlasWidth() + "x" + atlas.getAtlasHeight()
-                    + ") for this level.");
-            multiAtlasWarningLogged = true;
-        }
-        patternLookupDirty = false;
-    }
-
-    private void buildBackgroundTilemapData() {
-        TilemapData data = buildTilemapData((byte) 1);
-        backgroundTilemapData = data.data;
-        backgroundTilemapWidthTiles = data.widthTiles;
-        backgroundTilemapHeightTiles = data.heightTiles;
-
-        // For VDP wrap height detection, only scan the contiguous BG data region (columns 0-N).
-        // HTZ has earthquake cave data at distant columns (54+, rows 48+) that must not
-        // inflate the data height beyond 32 — the normal sky BG wraps at 32 rows.
-        int scanWidthTiles = Math.min(backgroundTilemapWidthTiles,
-                cachedBgContiguousWidthPx / Pattern.PATTERN_WIDTH);
-        int actualHeightTiles = findActualBgTilemapDataHeight(backgroundTilemapData,
-                backgroundTilemapWidthTiles, backgroundTilemapHeightTiles, scanWidthTiles);
-        backgroundVdpWrapHeightTiles = (actualHeightTiles > 0
-                && actualHeightTiles <= VDP_BG_PLANE_HEIGHT_TILES)
-                ? VDP_BG_PLANE_HEIGHT_TILES : 0;
-        LOGGER.fine("BG tilemap " + backgroundTilemapWidthTiles + "x" + backgroundTilemapHeightTiles
-                + " actualDataHeight=" + actualHeightTiles
-                + " VDPWrapHeight=" + backgroundVdpWrapHeightTiles);
-    }
-
-    /**
-     * Scan the BG tilemap data bottom-up to find the last row containing
-     * actual art (pattern index >= 2).  Pattern 0 is VDP-transparent and
-     * pattern 1 is the default fill tile produced by block 0, so both are
-     * excluded.  Real level art starts at pattern index 2+.
-     * <p>
-     * Only scans the first {@code scanWidthTiles} columns.  This excludes
-     * distant earthquake columns (e.g., HTZ BG column 54+) from inflating
-     * the detected height beyond the VDP plane size.
-     * <p>
-     * This lets us distinguish HTZ (real art in rows 0-31 only, fill beyond)
-     * from MCZ (real art extending to row 85+).
-     */
-    private int findActualBgTilemapDataHeight(byte[] data, int widthTiles, int heightTiles,
-            int scanWidthTiles) {
-        int scanW = Math.min(scanWidthTiles, widthTiles);
-        for (int y = heightTiles - 1; y >= 0; y--) {
-            for (int x = 0; x < scanW; x++) {
-                int offset = (y * widthTiles + x) * 4;
-                int r = data[offset] & 0xFF;
-                int g = data[offset + 1] & 0xFF;
-                int patternIndex = r + ((g & 0x07) << 8);
-                if (patternIndex >= 2) {
-                    return y + 1;
-                }
-            }
-        }
-        return 0;
-    }
-
-    private void buildForegroundTilemapData() {
-        TilemapData data = buildTilemapData((byte) 0);
-        foregroundTilemapData = data.data;
-        foregroundTilemapWidthTiles = data.widthTiles;
-        foregroundTilemapHeightTiles = data.heightTiles;
-    }
-
-    // VDP plane size for Sonic 2 normal levels: 64x32 cells = 512x256 pixels.
-    // The background tilemap wraps at this width for Sonic 2's redraw-style pipeline.
-    private static final int VDP_BG_PLANE_WIDTH_PX = 512;
-    private static final int VDP_BG_PLANE_HEIGHT_TILES = 32; // VDP 64x32 nametable
-
-    private TilemapData buildTilemapData(byte layerIndex) {
-        int layerLevelWidth = getLayerLevelWidthPx(layerIndex);
-        int levelHeight = getLayerLevelHeightPx(layerIndex);
-
-        // Keep Sonic 2's 512px BG wrap behavior (VDP plane redraw model).
-        // S3K uses a different background data flow in AIZ intro and needs full-width BG data.
-        // HTZ earthquake needs full-width BG data because high-priority BG tiles (cave ceiling)
-        // are rendered as a direct overlay between FG-low and FG-high passes, and they span the
-        // full BG map. The FBO/parallax path still caps its period at 512px.
-        boolean bgWrap = layerIndex == 1
-                && zoneFeatureProvider != null
-                && zoneFeatureProvider.bgWrapsHorizontally()
-                && currentZone != ParallaxManager.ZONE_HTZ;
-        // Use the scroll handler's required period width (may be wider than 512px
-        // for zones with multi-speed parallax like GHZ).
-        int bgPeriodWidth = parallaxManager != null ? parallaxManager.getBgPeriodWidth()
-                : VDP_BG_PLANE_WIDTH_PX;
-        int levelWidth = bgWrap ? bgPeriodWidth : layerLevelWidth;
-
-        // For BG layers wider than 512px (e.g., SBZ 15360px), the 64-tile tilemap
-        // must contain tiles from the correct BG map region, not always from position 0.
-        // bgTilemapBaseX is the 16px-aligned offset into the BG map (matching the
-        // BG camera X from the scroll handler). The shader uses this same offset
-        // (via ScrollMidpoint → fboWorldOffsetX) to index into the tilemap correctly.
-        // When using the 512px window, wrap the base offset at the contiguous BG data extent
-        // so that large camera X positions map back to valid BG columns (not empty map regions).
-        int bgXQueryOffset = 0;
-        if (layerIndex == 1 && bgWrap && cachedBgContiguousWidthPx > 0) {
-            bgXQueryOffset = ((bgTilemapBaseX % cachedBgContiguousWidthPx) + cachedBgContiguousWidthPx)
-                    % cachedBgContiguousWidthPx;
-        }
-
-        int widthTiles = levelWidth / Pattern.PATTERN_WIDTH;
-        int heightTiles = levelHeight / Pattern.PATTERN_HEIGHT;
-        byte[] data = new byte[widthTiles * heightTiles * 4];
-
-        int chunkWidth = LevelConstants.CHUNK_WIDTH;
-        int chunkHeight = LevelConstants.CHUNK_HEIGHT;
-
-        for (int y = 0; y < levelHeight; y += chunkHeight) {
-            int chunkY = y / chunkHeight;
-            for (int x = 0; x < levelWidth; x += chunkWidth) {
-                int chunkX = x / chunkWidth;
-
-                // Query the BG map at the offset position (wrapping handled by getBlockAtPosition)
-                int queryX = x + bgXQueryOffset;
-                Block block = getBlockAtPosition(layerIndex, queryX, y);
-                if (block == null) {
-                    writeEmptyChunk(data, widthTiles, heightTiles, chunkX, chunkY);
-                    continue;
-                }
-
-                // xBlockBit uses the query position to select the correct chunk within the block.
-                int xBlockBit = (queryX % blockPixelSize) / chunkWidth;
-                int yBlockBit = (y % blockPixelSize) / chunkHeight;
-                ChunkDesc chunkDesc = block.getChunkDesc(xBlockBit, yBlockBit);
-                int chunkIndex = chunkDesc.getChunkIndex();
-
-                if (chunkIndex < 0 || chunkIndex >= level.getChunkCount()) {
-                    writeEmptyChunk(data, widthTiles, heightTiles, chunkX, chunkY);
-                    continue;
-                }
-
-                Chunk chunk = level.getChunk(chunkIndex);
-                if (chunk == null) {
-                    writeEmptyChunk(data, widthTiles, heightTiles, chunkX, chunkY);
-                    continue;
-                }
-
-                boolean chunkHFlip = chunkDesc.getHFlip();
-                boolean chunkVFlip = chunkDesc.getVFlip();
-
-                for (int cY = 0; cY < 2; cY++) {
-                    for (int cX = 0; cX < 2; cX++) {
-                        int logicalX = chunkHFlip ? 1 - cX : cX;
-                        int logicalY = chunkVFlip ? 1 - cY : cY;
-
-                        PatternDesc patternDesc = chunk.getPatternDesc(logicalX, logicalY);
-                        int newIndex = patternDesc.get();
-                        if (chunkHFlip) {
-                            newIndex ^= 0x800;
-                        }
-                        if (chunkVFlip) {
-                            newIndex ^= 0x1000;
-                        }
-                        reusablePatternDesc.set(newIndex);
-
-                        int tileX = chunkX * 2 + cX;
-                        int tileY = chunkY * 2 + cY;
-                        writeTileDescriptor(data, widthTiles, heightTiles, tileX, tileY, reusablePatternDesc);
-                    }
-                }
-            }
-        }
-
-        return new TilemapData(data, widthTiles, heightTiles);
-    }
-
-    private void writeEmptyChunk(byte[] data, int widthTiles, int heightTiles, int chunkX, int chunkY) {
-        for (int cY = 0; cY < 2; cY++) {
-            for (int cX = 0; cX < 2; cX++) {
-                int tileX = chunkX * 2 + cX;
-                int tileY = chunkY * 2 + cY;
-                writeEmptyTile(data, widthTiles, heightTiles, tileX, tileY);
-            }
-        }
-    }
-
-    private void writeEmptyTile(byte[] data, int widthTiles, int heightTiles, int tileX, int tileY) {
-        if (tileX < 0 || tileY < 0 || tileX >= widthTiles
-                || tileY >= heightTiles) {
-            return;
-        }
-        int offset = (tileY * widthTiles + tileX) * 4;
-        data[offset] = 0;
-        data[offset + 1] = 0;
-        data[offset + 2] = 0;
-        data[offset + 3] = 0;
-    }
-
-    private void writeTileDescriptor(byte[] data, int widthTiles, int heightTiles, int tileX, int tileY,
-            PatternDesc desc) {
-        if (tileX < 0 || tileY < 0 || tileX >= widthTiles || tileY >= heightTiles) {
-            return;
-        }
-        int offset = (tileY * widthTiles + tileX) * 4;
-        int patternIndex = desc.getPatternIndex();
-        int paletteIndex = desc.getPaletteIndex();
-        boolean hFlip = desc.getHFlip();
-        boolean vFlip = desc.getVFlip();
-        boolean priority = desc.getPriority();
-
-        int r = patternIndex & 0xFF;
-        int g = ((patternIndex >> 8) & 0x7)
-                | ((paletteIndex & 0x3) << 3)
-                | (hFlip ? 0x20 : 0)
-                | (vFlip ? 0x40 : 0)
-                | (priority ? 0x80 : 0);
-
-        data[offset] = (byte) r;
-        data[offset + 1] = (byte) g;
-        data[offset + 2] = 0;
-        data[offset + 3] = (byte) 255;
-    }
-
-    private record TilemapData(byte[] data, int widthTiles, int heightTiles) {
-    }
-
-    /**
-     * Generates collision debug overlay commands for visible chunks.
-     * This method iterates over visible chunks in the foreground layer (Layer 0)
-     * and generates collision debug rendering commands independently of tile rendering.
-     *
-     * @param commands the list of GLCommands to add collision rectangles to
-     * @param camera   the camera for visibility culling
-     */
-    private void generateCollisionDebugCommands(List<GLCommand> commands, Camera camera) {
-        if (level == null || level.getMap() == null) {
-            return;
-        }
-        if (!overlayManager.isEnabled(DebugOverlayToggle.COLLISION_VIEW)) {
-            return;
-        }
-
-        int cameraX = camera.getX();
-        int cameraY = camera.getY();
-        int cameraWidth = camera.getWidth();
-        int cameraHeight = camera.getHeight();
-
-        int levelWidth = level.getMap().getWidth() * blockPixelSize;
-        int levelHeight = level.getMap().getHeight() * blockPixelSize;
-
-        // Calculate visible chunk range (same culling logic as foreground rendering)
-        int xStart = cameraX - (cameraX % LevelConstants.CHUNK_WIDTH);
-        int xEnd = cameraX + cameraWidth;
-        int yStart = cameraY - (cameraY % LevelConstants.CHUNK_HEIGHT);
-        int yEnd = cameraY + cameraHeight + LevelConstants.CHUNK_HEIGHT;
-
-        for (int y = yStart; y <= yEnd; y += LevelConstants.CHUNK_HEIGHT) {
-            // Foreground clamps vertically (doesn't wrap)
-            if (y < 0 || y >= levelHeight) {
-                continue;
-            }
-
-            for (int x = xStart; x <= xEnd; x += LevelConstants.CHUNK_WIDTH) {
-                // Handle X wrapping
-                int wrappedX = ((x % levelWidth) + levelWidth) % levelWidth;
-
-                Block block = getBlockAtPosition((byte) 0, wrappedX, y);
-                if (block == null) {
-                    continue;
-                }
-
-                int xBlockBit = (wrappedX % blockPixelSize) / LevelConstants.CHUNK_WIDTH;
-                int yBlockBit = (y % blockPixelSize) / LevelConstants.CHUNK_HEIGHT;
-                ChunkDesc chunkDesc = block.getChunkDesc(xBlockBit, yBlockBit);
-
-                int chunkIndex = chunkDesc.getChunkIndex();
-                if (chunkIndex < 0 || chunkIndex >= level.getChunkCount()) {
-                    continue;
-                }
-
-                Chunk chunk = level.getChunk(chunkIndex);
-                if (chunk == null) {
-                    continue;
-                }
-
-                // Calculate screen coordinates then convert to render coordinates
-                int screenX = x - cameraX;
-                int screenY = y - cameraY;
-                int renderX = screenX + cameraX;
-                int renderY = screenY + cameraY;
-
-                // Generate collision debug for both primary and secondary collision
-                processCollisionMode(commands, chunkDesc, chunk, true, renderX, renderY);
-                processCollisionMode(commands, chunkDesc, chunk, false, renderX, renderY);
-            }
-        }
-    }
-
-    /**
-     * Processes and renders collision modes for a chunk.
-     *
-     * @param commands  the list of GLCommands to add to
-     * @param chunkDesc the description of the chunk
-     * @param chunk     the chunk data
-     * @param isPrimary whether to process the primary collision mode
-     * @param x         the x-coordinate
-     * @param y         the y-coordinate
-     */
-    private void processCollisionMode(
-            List<GLCommand> commands,
-            ChunkDesc chunkDesc,
-            Chunk chunk,
-            boolean isPrimary,
-            int x,
-            int y) {
-        if (!overlayManager.isEnabled(DebugOverlayToggle.COLLISION_VIEW)) {
-            return;
-        }
-
-        boolean hasSolidity = isPrimary
-                ? chunkDesc.hasPrimarySolidity()
-                : chunkDesc.hasSecondarySolidity();
-        if (!hasSolidity) {
-            return;
-        }
-
-        int solidTileIndex = isPrimary
-                ? chunk.getSolidTileIndex()
-                : chunk.getSolidTileAltIndex();
-        SolidTile solidTile = level.getSolidTile(solidTileIndex);
-        if (solidTile == null) {
-            LOGGER.warning("SolidTile at index " + solidTileIndex + " is null.");
-            return;
-        }
-
-        // Determine color based on collision mode
-        float r, g, b;
-        if (isPrimary) {
-            r = 1.0f; // White color for primary collision
-            g = 1.0f;
-            b = 1.0f;
-        } else {
-            r = 0.5f; // Gray color for secondary collision
-            g = 0.5f;
-            b = 0.5f;
-        }
-
-        boolean hFlip = chunkDesc.getHFlip();
-        boolean yFlip = chunkDesc.getVFlip(); // Using VFlip as per your current code
-
-        // Disable shaders for drawing solid colors (RECTI uses its own debug shader)
-        ShaderProgram shaderProgram = graphicsManager.getShaderProgram();
-        int shaderProgramId = 0;
-        if (shaderProgram != null) {
-            shaderProgramId = shaderProgram.getProgramId();
-        }
-        commands.add(new GLCommand(GLCommand.CommandType.USE_PROGRAM, 0));
-
-        // Iterate over each pixel column in the tile
-        for (int i = 0; i < LevelConstants.CHUNK_WIDTH; i++) {
-            int tileIndex = hFlip ? (LevelConstants.CHUNK_HEIGHT - 1 - i) : i;
-            int height = solidTile.getHeightAt((byte) tileIndex);
-
-            if (height > 0) {
-                int drawStartX = x + i;
-                int drawEndX = drawStartX + 1;
-
-                int drawStartY;
-                int drawEndY;
-
-                // Adjust drawing coordinates based on vertical flip
-                // GLCommand constructor handles Y-flip (SCREEN_HEIGHT_PIXELS - y)
-                // and execute() applies camera offset (y + cameraY)
-                // We add 16 to align with the pattern renderer's coordinate system
-                if (yFlip) {
-                    // When yFlip is true, collision extends upward from bottom of chunk
-                    drawStartY = y - LevelConstants.CHUNK_HEIGHT + 16;
-                    drawEndY = drawStartY + height;
-                } else {
-                    // Normal rendering: collision extends downward from top of chunk
-                    drawStartY = y + 16;
-                    drawEndY = y - height + 16;
-                }
-
-                commands.add(new GLCommand(
-                        GLCommand.CommandType.RECTI,
-                        GL_2D,
-                        r,
-                        g,
-                        b,
-                        drawStartX,
-                        drawEndY,
-                        drawEndX,
-                        drawStartY));
-            }
-        }
-        // Re-enable shader for subsequent rendering
-        if (shaderProgramId != 0) {
-            commands.add(new GLCommand(GLCommand.CommandType.USE_PROGRAM, shaderProgramId));
-        }
-    }
-
-    /**
-     * Generates tile priority debug overlay commands for visible chunks.
-     * This method iterates over visible chunks in the foreground layer (Layer 0)
-     * and overlays high-priority tiles with a semi-transparent red tint.
-     * Helps diagnose sprite-behind-tile priority issues like the ARZ wall bug.
-     *
-     * @param commands the list of GLCommands to add priority rectangles to
-     * @param camera   the camera for visibility culling
-     */
-    private void generateTilePriorityDebugCommands(List<GLCommand> commands, Camera camera) {
-        if (level == null || level.getMap() == null) {
-            return;
-        }
-        if (!overlayManager.isEnabled(DebugOverlayToggle.TILE_PRIORITY_VIEW)) {
-            return;
-        }
-
-        int cameraX = camera.getX();
-        int cameraY = camera.getY();
-        int cameraWidth = camera.getWidth();
-        int cameraHeight = camera.getHeight();
-
-        int levelWidth = level.getMap().getWidth() * blockPixelSize;
-        int levelHeight = level.getMap().getHeight() * blockPixelSize;
-
-        // Calculate visible chunk range (same culling logic as foreground rendering)
-        int xStart = cameraX - (cameraX % LevelConstants.CHUNK_WIDTH);
-        int xEnd = cameraX + cameraWidth;
-        int yStart = cameraY - (cameraY % LevelConstants.CHUNK_HEIGHT);
-        int yEnd = cameraY + cameraHeight + LevelConstants.CHUNK_HEIGHT;
-
-        // Disable shaders for drawing solid colors (RECTI uses its own debug shader)
-        ShaderProgram shaderProgram = graphicsManager.getShaderProgram();
-        int shaderProgramId = 0;
-        if (shaderProgram != null) {
-            shaderProgramId = shaderProgram.getProgramId();
-        }
-        commands.add(new GLCommand(GLCommand.CommandType.USE_PROGRAM, 0));
-
-        for (int y = yStart; y <= yEnd; y += LevelConstants.CHUNK_HEIGHT) {
-            // Foreground clamps vertically (doesn't wrap)
-            if (y < 0 || y >= levelHeight) {
-                continue;
-            }
-
-            for (int x = xStart; x <= xEnd; x += LevelConstants.CHUNK_WIDTH) {
-                // Handle X wrapping
-                int wrappedX = ((x % levelWidth) + levelWidth) % levelWidth;
-
-                Block block = getBlockAtPosition((byte) 0, wrappedX, y);
-                if (block == null) {
-                    continue;
-                }
-
-                int xBlockBit = (wrappedX % blockPixelSize) / LevelConstants.CHUNK_WIDTH;
-                int yBlockBit = (y % blockPixelSize) / LevelConstants.CHUNK_HEIGHT;
-                ChunkDesc chunkDesc = block.getChunkDesc(xBlockBit, yBlockBit);
-
-                int chunkIndex = chunkDesc.getChunkIndex();
-                if (chunkIndex < 0 || chunkIndex >= level.getChunkCount()) {
-                    continue;
-                }
-
-                Chunk chunk = level.getChunk(chunkIndex);
-                if (chunk == null) {
-                    continue;
-                }
-
-                // Check each of the 4 patterns (8x8 tiles) in this 16x16 chunk
-                for (int py = 0; py < 2; py++) {
-                    for (int px = 0; px < 2; px++) {
-                        PatternDesc desc = chunk.getPatternDesc(px, py);
-                        if (desc == null || desc == PatternDesc.EMPTY) {
-                            continue;
-                        }
-
-                        // Only highlight high-priority tiles (priority bit = 1)
-                        if (!desc.getPriority()) {
-                            continue;
-                        }
-
-                        // Calculate screen coordinates for this 8x8 pattern
-                        // We need to account for chunk flip flags
-                        int patternX = x + (chunkDesc.getHFlip() ? (1 - px) : px) * Pattern.PATTERN_WIDTH;
-                        int patternY = y + (chunkDesc.getVFlip() ? (1 - py) : py) * Pattern.PATTERN_HEIGHT;
-
-                        // Draw a semi-transparent red overlay for high-priority tiles
-                        // Use RECTI with alpha blending
-                        int renderX = patternX;
-                        int renderY = patternY;
-
-                        // Add 16 to align with the pattern renderer's coordinate system (same as collision debug)
-                        int drawStartX = renderX;
-                        int drawEndX = drawStartX + Pattern.PATTERN_WIDTH;
-                        int drawStartY = renderY + 16;
-                        int drawEndY = drawStartY - Pattern.PATTERN_HEIGHT;
-
-                        commands.add(new GLCommand(
-                                GLCommand.CommandType.RECTI,
-                                -1,
-                                GLCommand.BlendType.ONE_MINUS_SRC_ALPHA,
-                                1.0f, 0.0f, 0.0f, 0.4f, // Red with 40% opacity
-                                drawStartX,
-                                drawEndY,
-                                drawEndX,
-                                drawStartY));
-                    }
-                }
-            }
-        }
-
-        // Re-enable shader for subsequent rendering
-        if (shaderProgramId != 0) {
-            commands.add(new GLCommand(GLCommand.CommandType.USE_PROGRAM, shaderProgramId));
-        }
-    }
-
-    private void drawPlayableSpriteBounds(AbstractPlayableSprite sprite) {
-        PlayerSpriteRenderer renderer = sprite.getSpriteRenderer();
-        if (renderer == null) {
-            return;
-        }
-
-        boolean hFlip = Direction.LEFT.equals(sprite.getDirection());
-        SpritePieceRenderer.FrameBounds mappingBounds = renderer.getFrameBounds(sprite.getMappingFrame(), hFlip, false);
-
-        int collisionCenterX = sprite.getCentreX();
-        int collisionCenterY = sprite.getCentreY();
-        int renderCenterX = sprite.getRenderCentreX();
-        int renderCenterY = sprite.getRenderCentreY();
-        sensorCommands.clear();
-
-        if (mappingBounds.width() > 0 && mappingBounds.height() > 0) {
-            int mapLeft = renderCenterX + mappingBounds.minX();
-            int mapRight = renderCenterX + mappingBounds.maxX();
-            int mapTop = renderCenterY + mappingBounds.minY();
-            int mapBottom = renderCenterY + mappingBounds.maxY();
-            appendBox(sensorCommands, mapLeft, mapTop, mapRight, mapBottom, 0.1f, 0.85f, 1f);
-        }
-
-        int radiusLeft = collisionCenterX - sprite.getXRadius();
-        int radiusRight = collisionCenterX + sprite.getXRadius();
-        int radiusTop = collisionCenterY - sprite.getYRadius();
-        int radiusBottom = collisionCenterY + sprite.getYRadius();
-        appendBox(sensorCommands, radiusLeft, radiusTop, radiusRight, radiusBottom, 1f, 0.8f, 0.1f);
-
-        appendCross(sensorCommands, collisionCenterX, collisionCenterY, 2, 1f, 0.8f, 0.1f);
-        appendCross(sensorCommands, renderCenterX, renderCenterY, 2, 0.1f, 0.85f, 1f);
-
-        Sensor[] sensors = sprite.getAllSensors();
-        for (int i = 0; i < sensors.length; i++) {
-            Sensor sensor = sensors[i];
-            if (sensor == null) {
-                continue;
-            }
-            sensor.computeRotatedOffset();
-            int originX = collisionCenterX + sensor.getRotatedX();
-            int originY = collisionCenterY + sensor.getRotatedY();
-
-            float[] color = DebugOverlayPalette.sensorLineColor(i, sensor.isActive());
-            appendCross(sensorCommands, originX, originY, 1, color[0], color[1], color[2]);
-
-            if (!sensor.isActive()) {
-                continue;
-            }
-            SensorResult result = sensor.getCurrentResult();
-            if (result == null) {
-                continue;
-            }
-
-            SensorConfiguration sensorConfiguration = SpriteManager
-                    .getSensorConfigurationForGroundModeAndDirection(sprite.getGroundMode(), sensor.getDirection());
-            Direction globalDirection = sensorConfiguration.direction();
-
-            int dist = result.distance();
-            int endX = originX;
-            int endY = originY;
-            switch (globalDirection) {
-                case DOWN -> endY = originY + dist;
-                case UP -> endY = originY - dist;
-                case LEFT -> endX = originX - dist;
-                case RIGHT -> endX = originX + dist;
-            }
-
-            appendLine(sensorCommands, originX, originY, endX, endY, color[0], color[1], color[2]);
-        }
-
-        if (!sensorCommands.isEmpty()) {
-            graphicsManager.enqueueDebugLineState();
-            graphicsManager.registerCommand(new GLCommandGroup(GL_LINES, sensorCommands));
-        }
-    }
-
-    private void drawCameraBounds() {
-        Camera camera = Camera.getInstance();
-        cameraBoundsCommands.clear();
-
-        int camX = camera.getX();
-        int camY = camera.getY();
-        int camW = camera.getWidth();
-        int camH = camera.getHeight();
-
-        appendBox(cameraBoundsCommands, camX, camY, camX + camW, camY + camH, 0.85f, 0.9f, 1f);
-        appendCross(cameraBoundsCommands, camX + (camW / 2), camY + (camH / 2), 4, 0.85f, 0.9f, 1f);
-
-        int minX = camera.getMinX();
-        int minY = camera.getMinY();
-        int maxX = camera.getMaxX();
-        int maxY = camera.getMaxY();
-        if (maxX > minX || maxY > minY) {
-            appendBox(cameraBoundsCommands, minX, minY, maxX + camW, maxY + camH, 0.2f, 0.9f, 0.9f);
-        }
-
-        if (!cameraBoundsCommands.isEmpty()) {
-            graphicsManager.enqueueDebugLineState();
-            graphicsManager.registerCommand(new GLCommandGroup(GL_LINES, cameraBoundsCommands));
-        }
-    }
-
-    private void appendLine(
-            List<GLCommand> commands,
-            int x1,
-            int y1,
-            int x2,
-            int y2,
-            float r,
-            float g,
-            float b) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x2, y2, 0, 0));
-    }
-
-    private void appendCross(
-            List<GLCommand> commands,
-            int centerX,
-            int centerY,
-            int halfSpan,
-            float r,
-            float g,
-            float b) {
-        appendLine(commands, centerX - halfSpan, centerY, centerX + halfSpan, centerY, r, g, b);
-        appendLine(commands, centerX, centerY - halfSpan, centerX, centerY + halfSpan, r, g, b);
-    }
-
-    private void appendPlaneSwitcherDebug(ObjectSpawn spawn,
-            List<GLCommand> lineCommands,
-            List<GLCommand> areaCommands,
-            AbstractPlayableSprite player) {
-        if (gameModule == null || spawn.objectId() != gameModule.getPlaneSwitcherObjectId()) {
-            return;
-        }
-        int subtype = spawn.subtype();
-        int halfSpan = ObjectManager.decodePlaneSwitcherHalfSpan(subtype);
-        boolean horizontal = ObjectManager.isPlaneSwitcherHorizontal(subtype);
-        int x = spawn.x();
-        int y = spawn.y();
-        int sideState = objectManager != null ? objectManager.getPlaneSwitcherSideState(spawn) : -1;
-        if (sideState < 0 && player != null) {
-            sideState = horizontal
-                    ? (player.getCentreY() >= y ? 1 : 0)
-                    : (player.getCentreX() >= x ? 1 : 0);
-        }
-        if (sideState < 0) {
-            sideState = 0;
-        }
-
-        int extent = halfSpan;
-        if (horizontal) {
-            lineCommands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                    SWITCHER_DEBUG_R, SWITCHER_DEBUG_G, SWITCHER_DEBUG_B,
-                    x - halfSpan, y, 0, 0));
-            lineCommands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                    SWITCHER_DEBUG_R, SWITCHER_DEBUG_G, SWITCHER_DEBUG_B,
-                    x + halfSpan, y, 0, 0));
-
-            int top = sideState == 0 ? y - extent : y;
-            int bottom = sideState == 0 ? y : y + extent;
-            areaCommands.add(new GLCommand(GLCommand.CommandType.RECTI, -1, GLCommand.BlendType.ONE_MINUS_SRC_ALPHA,
-                    SWITCHER_DEBUG_R, SWITCHER_DEBUG_G, SWITCHER_DEBUG_B, SWITCHER_DEBUG_ALPHA,
-                    x - halfSpan, top,
-                    x + halfSpan, bottom));
-        } else {
-            lineCommands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                    SWITCHER_DEBUG_R, SWITCHER_DEBUG_G, SWITCHER_DEBUG_B,
-                    x, y - halfSpan, 0, 0));
-            lineCommands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                    SWITCHER_DEBUG_R, SWITCHER_DEBUG_G, SWITCHER_DEBUG_B,
-                    x, y + halfSpan, 0, 0));
-
-            int left = sideState == 0 ? x - extent : x;
-            int right = sideState == 0 ? x : x + extent;
-            areaCommands.add(new GLCommand(GLCommand.CommandType.RECTI, -1, GLCommand.BlendType.ONE_MINUS_SRC_ALPHA,
-                    SWITCHER_DEBUG_R, SWITCHER_DEBUG_G, SWITCHER_DEBUG_B, SWITCHER_DEBUG_ALPHA,
-                    left, y - halfSpan,
-                    right, y + halfSpan));
-        }
-    }
-
-    private void appendBox(
-            List<GLCommand> commands,
-            int left,
-            int top,
-            int right,
-            int bottom,
-            float r,
-            float g,
-            float b) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, left, top, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, right, top, 0, 0));
-
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, right, top, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, right, bottom, 0, 0));
-
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, right, bottom, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, left, bottom, 0, 0));
-
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, left, bottom, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, left, top, 0, 0));
     }
 
     /**
@@ -3148,6 +2112,15 @@ public class LevelManager {
             cachedBgContiguousWidthPx = blockPixelSize;
             cachedBgHeightPx = blockPixelSize;
         }
+    }
+
+    /**
+     * Builds a LevelGeometry snapshot from the current cached dimensions.
+     */
+    private LevelGeometry buildGeometry() {
+        return new LevelGeometry(level, cachedFgWidthPx, cachedFgHeightPx,
+                cachedBgWidthPx, cachedBgContiguousWidthPx, cachedBgHeightPx,
+                blockPixelSize, chunksPerBlockSide);
     }
 
     /**
@@ -3527,7 +2500,9 @@ public class LevelManager {
      * This is equivalent to setting Screen_redraw_flag in the original ROM.
      */
     public void invalidateForegroundTilemap() {
-        foregroundTilemapDirty = true;
+        if (tilemapManager != null) {
+            tilemapManager.invalidateForegroundTilemap();
+        }
     }
 
     /**
@@ -3613,60 +2588,12 @@ public class LevelManager {
      * @return true if tilemap bytes changed
      */
     public boolean setForegroundTileDescriptorAtWorld(int worldX, int worldY, int descriptor) {
-        if (level == null || level.getMap() == null) {
+        if (tilemapManager == null) {
             return false;
         }
-
-        ensureForegroundTilemapData();
-        if (foregroundTilemapData == null) {
-            return false;
-        }
-
-        int levelWidth = getLayerLevelWidthPx((byte) 0);
-        int levelHeight = getLayerLevelHeightPx((byte) 0);
-        if (levelWidth <= 0 || levelHeight <= 0) {
-            return false;
-        }
-
-        int wrappedX = Math.floorMod(worldX, levelWidth);
-        int wrappedY = worldY;
-        if (verticalWrapEnabled) {
-            wrappedY = Math.floorMod(worldY, levelHeight);
-        } else if (wrappedY < 0 || wrappedY >= levelHeight) {
-            return false;
-        }
-
-        int tileX = wrappedX / Pattern.PATTERN_WIDTH;
-        int tileY = wrappedY / Pattern.PATTERN_HEIGHT;
-        if (tileX < 0 || tileY < 0
-                || tileX >= foregroundTilemapWidthTiles
-                || tileY >= foregroundTilemapHeightTiles) {
-            return false;
-        }
-
-        int offset = (tileY * foregroundTilemapWidthTiles + tileX) * 4;
-        int patternIndex = descriptor & 0x7FF;
-        int paletteIndex = (descriptor >> 13) & 0x3;
-        int g = ((patternIndex >> 8) & 0x7)
-                | ((paletteIndex & 0x3) << 3)
-                | ((descriptor & 0x800) != 0 ? 0x20 : 0)
-                | ((descriptor & 0x1000) != 0 ? 0x40 : 0)
-                | ((descriptor & 0x8000) != 0 ? 0x80 : 0);
-        byte rByte = (byte) (patternIndex & 0xFF);
-        byte gByte = (byte) g;
-
-        if (foregroundTilemapData[offset] == rByte
-                && foregroundTilemapData[offset + 1] == gByte
-                && foregroundTilemapData[offset + 2] == 0
-                && foregroundTilemapData[offset + 3] == (byte) 0xFF) {
-            return false;
-        }
-
-        foregroundTilemapData[offset] = rByte;
-        foregroundTilemapData[offset + 1] = gByte;
-        foregroundTilemapData[offset + 2] = 0;
-        foregroundTilemapData[offset + 3] = (byte) 0xFF;
-        return true;
+        return tilemapManager.setForegroundTileDescriptorAtWorld(worldX, worldY, descriptor,
+                this::getBlockAtPosition, zoneFeatureProvider, currentZone,
+                parallaxManager, verticalWrapEnabled);
     }
 
     /**
@@ -3675,54 +2602,12 @@ public class LevelManager {
      * descriptor after runtime tilemap writes.
      */
     public int getForegroundTileDescriptorFromTilemapAtWorld(int worldX, int worldY) {
-        if (level == null || level.getMap() == null) {
+        if (tilemapManager == null) {
             return 0;
         }
-
-        ensureForegroundTilemapData();
-        if (foregroundTilemapData == null) {
-            return 0;
-        }
-
-        int levelWidth = getLayerLevelWidthPx((byte) 0);
-        int levelHeight = getLayerLevelHeightPx((byte) 0);
-        if (levelWidth <= 0 || levelHeight <= 0) {
-            return 0;
-        }
-
-        int wrappedX = Math.floorMod(worldX, levelWidth);
-        int wrappedY = worldY;
-        if (verticalWrapEnabled) {
-            wrappedY = Math.floorMod(worldY, levelHeight);
-        } else if (wrappedY < 0 || wrappedY >= levelHeight) {
-            return 0;
-        }
-
-        int tileX = wrappedX / Pattern.PATTERN_WIDTH;
-        int tileY = wrappedY / Pattern.PATTERN_HEIGHT;
-        if (tileX < 0 || tileY < 0
-                || tileX >= foregroundTilemapWidthTiles
-                || tileY >= foregroundTilemapHeightTiles) {
-            return 0;
-        }
-
-        int offset = (tileY * foregroundTilemapWidthTiles + tileX) * 4;
-        int r = foregroundTilemapData[offset] & 0xFF;
-        int g = foregroundTilemapData[offset + 1] & 0xFF;
-        int patternIndex = r | ((g & 0x7) << 8);
-        int paletteIndex = (g >> 3) & 0x3;
-
-        int descriptor = patternIndex | (paletteIndex << 13);
-        if ((g & 0x20) != 0) {
-            descriptor |= 0x800;
-        }
-        if ((g & 0x40) != 0) {
-            descriptor |= 0x1000;
-        }
-        if ((g & 0x80) != 0) {
-            descriptor |= 0x8000;
-        }
-        return descriptor & 0xFFFF;
+        return tilemapManager.getForegroundTileDescriptorFromTilemapAtWorld(worldX, worldY,
+                this::getBlockAtPosition, zoneFeatureProvider, currentZone,
+                parallaxManager, verticalWrapEnabled);
     }
 
     /**
@@ -3730,17 +2615,9 @@ public class LevelManager {
      * No-op in headless mode.
      */
     public void uploadForegroundTilemap() {
-        if (foregroundTilemapData == null) {
-            return;
+        if (tilemapManager != null) {
+            tilemapManager.uploadForegroundTilemap();
         }
-        TilemapGpuRenderer renderer = graphicsManager.getTilemapGpuRenderer();
-        if (renderer == null) {
-            return;
-        }
-        ensurePatternLookupData();
-        renderer.setTilemapData(TilemapGpuRenderer.Layer.FOREGROUND, foregroundTilemapData,
-                foregroundTilemapWidthTiles, foregroundTilemapHeightTiles);
-        renderer.setPatternLookupData(patternLookupData, patternLookupSize);
     }
 
     /**
@@ -3749,9 +2626,9 @@ public class LevelManager {
      * data is rebuilt on the next render.
      */
     public void invalidateAllTilemaps() {
-        backgroundTilemapDirty = true;
-        foregroundTilemapDirty = true;
-        patternLookupDirty = true;
+        if (tilemapManager != null) {
+            tilemapManager.invalidateAllTilemaps();
+        }
     }
 
     /**
@@ -3760,18 +2637,10 @@ public class LevelManager {
      * to avoid the expensive full-level tilemap rebuild on the transition frame.
      */
     public void prebuildTransitionTilemaps() {
-        if (level == null || level.getMap() == null) {
-            return;
+        if (tilemapManager != null) {
+            tilemapManager.prebuildTransitionTilemaps(this::getBlockAtPosition,
+                    zoneFeatureProvider, currentZone, parallaxManager, verticalWrapEnabled);
         }
-        TilemapData fg = buildTilemapData((byte) 0);
-        prebuiltFgTilemap = fg.data.clone();
-        prebuiltFgWidth = fg.widthTiles;
-        prebuiltFgHeight = fg.heightTiles;
-
-        TilemapData bg = buildTilemapData((byte) 1);
-        prebuiltBgTilemap = bg.data.clone();
-        prebuiltBgWidth = bg.widthTiles;
-        prebuiltBgHeight = bg.heightTiles;
     }
 
     /**
@@ -3782,43 +2651,17 @@ public class LevelManager {
      * @return true if pre-built data was available and swapped in
      */
     public boolean swapToPrebuiltTilemaps() {
-        if (prebuiltFgTilemap == null || prebuiltBgTilemap == null) {
+        if (tilemapManager == null) {
             return false;
         }
-
-        foregroundTilemapData = prebuiltFgTilemap;
-        foregroundTilemapWidthTiles = prebuiltFgWidth;
-        foregroundTilemapHeightTiles = prebuiltFgHeight;
-        foregroundTilemapDirty = false;
-
-        backgroundTilemapData = prebuiltBgTilemap;
-        backgroundTilemapWidthTiles = prebuiltBgWidth;
-        backgroundTilemapHeightTiles = prebuiltBgHeight;
-        backgroundTilemapDirty = false;
-
-        patternLookupDirty = true;
-
-        TilemapGpuRenderer renderer = graphicsManager.getTilemapGpuRenderer();
-        if (renderer != null) {
-            ensurePatternLookupData();
-            renderer.setTilemapData(TilemapGpuRenderer.Layer.FOREGROUND,
-                    foregroundTilemapData, foregroundTilemapWidthTiles, foregroundTilemapHeightTiles);
-            renderer.setTilemapData(TilemapGpuRenderer.Layer.BACKGROUND,
-                    backgroundTilemapData, backgroundTilemapWidthTiles, backgroundTilemapHeightTiles);
-            renderer.setPatternLookupData(patternLookupData, patternLookupSize);
-        }
-
-        // Release pre-built data (one-shot use)
-        prebuiltFgTilemap = null;
-        prebuiltBgTilemap = null;
-        return true;
+        return tilemapManager.swapToPrebuiltTilemaps();
     }
 
     /**
      * Returns whether pre-built transition tilemap data is available.
      */
     public boolean hasPrebuiltTilemaps() {
-        return prebuiltFgTilemap != null && prebuiltBgTilemap != null;
+        return tilemapManager != null && tilemapManager.hasPrebuiltTilemaps();
     }
 
     /**
@@ -3908,14 +2751,12 @@ public class LevelManager {
         if (ctx.hasWaterState()) {
             int featureZone = getFeatureZoneId();
             int featureAct = getFeatureActId();
-            WaterSystem waterSystem = WaterSystem.getInstance();
             if (waterSystem.hasWater(featureZone, featureAct)) {
                 waterSystem.setWaterLevelDirect(featureZone, featureAct, ctx.getCheckpointWaterLevel());
                 waterSystem.setWaterLevelTarget(featureZone, featureAct, ctx.getCheckpointWaterLevel());
             }
-            if (zoneFeatureProvider instanceof com.openggf.game.sonic1.Sonic1ZoneFeatureProvider s1zfp
-                    && s1zfp.getWaterEvents() != null) {
-                s1zfp.getWaterEvents().setWaterRoutine(ctx.getCheckpointWaterRoutine());
+            if (zoneFeatureProvider != null) {
+                zoneFeatureProvider.setWaterRoutine(ctx.getCheckpointWaterRoutine());
             }
         }
     }
@@ -3925,7 +2766,13 @@ public class LevelManager {
      * ROM: S1/S2 StartLocations / Obj79_LoadData, S3K Get_PlayerStart.
      */
     public void spawnPlayerAtStartPosition(LevelLoadContext ctx) {
-        Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        Sprite player = spriteManager.getSprite(mainCode);
+        if (player == null) {
+            LOGGER.warning("SpawnPlayer: no sprite registered for code '" + mainCode
+                    + "' — skipping. Register the player sprite before loadZoneAndAct().");
+            return;
+        }
         LevelData levelData = ctx.getLevelData();
         if (levelData == null) {
             levelData = resolveLevelData();
@@ -4017,7 +2864,6 @@ public class LevelManager {
         if (!(player instanceof AbstractPlayableSprite playable)) {
             return;
         }
-        Camera camera = Camera.getInstance();
         camera.setFrozen(false);
         camera.setFocusedSprite(playable);
         camera.updatePosition(true);
@@ -4065,7 +2911,6 @@ public class LevelManager {
             sidekick.setHighPriority(false);
             sidekick.setDirection(Direction.RIGHT);
             if (sidekick.getCpuController() != null) {
-                Camera camera = Camera.getInstance();
                 sidekick.getCpuController().setLevelBounds(
                         (int) camera.getMinX(),
                         (int) camera.getMaxX(),
@@ -4128,10 +2973,13 @@ public class LevelManager {
      */
     private void loadCurrentLevel(boolean showTitleCard) {
         try {
-            specialStageReturnLevelReloadRequested = false;
-            levelInactiveForTransition = false;
+            transitions.setSpecialStageReturnLevelReloadRequested(false);
+            transitions.setLevelInactiveForTransition(false);
 
             if (levels.isEmpty()) {
+                // ROM is already loaded by Engine.initializeGame(), so
+                // GameModuleRegistry has the correct module. Just bootstrap
+                // the zone list for level data lookup.
                 gameModule = GameModuleRegistry.getCurrent();
                 refreshZoneList();
             }
@@ -4205,7 +3053,7 @@ public class LevelManager {
         if (checkpointState != null) {
             checkpointState.clear();
         }
-        specialStageReturnLevelReloadRequested = true;
+        transitions.setSpecialStageReturnLevelReloadRequested(true);
     }
 
     public void loadZoneAndAct(int zone, int act) throws IOException {
@@ -4240,7 +3088,7 @@ public class LevelManager {
 
         // Use fresh Camera singleton (the cached field can go stale after
         // Camera.resetInstance() in test teardown or level reload)
-        Camera cam = Camera.getInstance();
+        Camera cam = camera;
 
         // Suppress music reload if requested (ROM: music continues through transition)
         if (request.preserveMusic()) {
@@ -4274,8 +3122,8 @@ public class LevelManager {
         // keys per act; without re-registration they resolve to stale AIZ1 keys and
         // appear invisible after the AIZ1→AIZ2 fakeout transition.
         ObjectArtProvider artProvider = gameModule != null ? gameModule.getObjectArtProvider() : null;
-        if (artProvider instanceof Sonic3kObjectArtProvider s3kProvider) {
-            s3kProvider.registerLevelArtSheets(level, currentZone);
+        if (artProvider != null) {
+            artProvider.registerLevelTileArt(level, currentZone);
             if (objectRenderManager != null) {
                 objectRenderManager.ensurePatternsCached(graphicsManager, OBJECT_PATTERN_BASE);
             }
@@ -4378,7 +3226,7 @@ public class LevelManager {
                 gameModule.getPlaneSwitcherObjectId(),
                 gameModule.getPlaneSwitcherConfig(),
                 touchResponseTable);
-        CollisionSystem.getInstance().setObjectManager(objectManager);
+        collisionSystem.setObjectManager(objectManager);
         objectManager.reset(cameraX);
 
         // Rebuild RingManager with the new act's ring spawns
@@ -4400,13 +3248,15 @@ public class LevelManager {
         if (!(sprite instanceof AbstractPlayableSprite playable)) {
             return;
         }
-        ShieldObjectInstance shield = playable.getShieldObject();
+        // Re-inject spawner since ObjectManager was rebuilt
+        playable.setPowerUpSpawner(new DefaultPowerUpSpawner(objectManager));
+        PowerUpObject shield = playable.getShieldObject();
         if (shield != null && !shield.isDestroyed()) {
-            objectManager.addDynamicObject(shield);
+            playable.getPowerUpSpawner().registerObject(shield);
         }
-        InvincibilityStarsObjectInstance invincibility = playable.getInvincibilityObject();
+        PowerUpObject invincibility = playable.getInvincibilityObject();
         if (invincibility != null && !invincibility.isDestroyed()) {
-            objectManager.addDynamicObject(invincibility);
+            playable.getPowerUpSpawner().registerObject(invincibility);
         }
     }
 
@@ -4444,106 +3294,51 @@ public class LevelManager {
         return checkpointState;
     }
 
-    /**
-     * Request entry to special stage from a checkpoint star.
-     * Called by CheckpointStarInstance when the player touches a star.
-     */
-    public void requestSpecialStageFromCheckpoint() {
-        requestSpecialStageEntry();
-    }
+    // ==================== Transition Coordinator Delegation ====================
+    // Thin wrappers that delegate to LevelTransitionCoordinator.
+    // External callers continue to use LevelManager.getInstance().methodName().
 
-    /**
-     * Request entry to special stage using the current game's access method.
-     */
-    public void requestSpecialStageEntry() {
-        this.specialStageRequestedFromCheckpoint = true;
-    }
+    /** Returns the transition coordinator. */
+    public LevelTransitionCoordinator getTransitions() { return transitions; }
 
-    /**
-     * Consumes and clears the special stage request flag.
-     * 
-     * @return true if a special stage was requested since last check
-     */
-    public boolean consumeSpecialStageRequest() {
-        boolean requested = specialStageRequestedFromCheckpoint;
-        specialStageRequestedFromCheckpoint = false;
-        return requested;
-    }
+    /** @see LevelTransitionCoordinator#requestSpecialStageFromCheckpoint() */
+    public void requestSpecialStageFromCheckpoint() { transitions.requestSpecialStageFromCheckpoint(); }
 
-    /**
-     * Consumes and clears the pending level-reload request for special-stage
-     * return.
-     *
-     * @return true if the next act should be loaded before resuming gameplay
-     */
-    public boolean consumeSpecialStageReturnLevelReloadRequest() {
-        boolean requested = specialStageReturnLevelReloadRequested;
-        specialStageReturnLevelReloadRequested = false;
-        return requested;
-    }
+    /** @see LevelTransitionCoordinator#requestSpecialStageEntry() */
+    public void requestSpecialStageEntry() { transitions.requestSpecialStageEntry(); }
 
-    /**
-     * Saves the big ring return position (ROM: Save_Level_Data2 → Saved2_* variables).
-     * Called by S3K SSEntryRing before entering the special stage so the player
-     * returns to the ring location, not the last checkpoint.
-     */
-    public void saveBigRingReturnPosition(int playerX, int playerY, int cameraX, int cameraY) {
-        this.bigRingReturnActive = true;
-        this.bigRingReturnX = playerX;
-        this.bigRingReturnY = playerY;
-        this.bigRingReturnCameraX = cameraX;
-        this.bigRingReturnCameraY = cameraY;
-    }
+    /** @see LevelTransitionCoordinator#consumeSpecialStageRequest() */
+    public boolean consumeSpecialStageRequest() { return transitions.consumeSpecialStageRequest(); }
 
-    /** Returns true if a big ring return position is saved. */
-    public boolean hasBigRingReturnPosition() {
-        return bigRingReturnActive;
-    }
+    /** @see LevelTransitionCoordinator#consumeSpecialStageReturnLevelReloadRequest() */
+    public boolean consumeSpecialStageReturnLevelReloadRequest() { return transitions.consumeSpecialStageReturnLevelReloadRequest(); }
 
-    /** Returns saved big ring return X. */
-    public int getBigRingReturnX() { return bigRingReturnX; }
-    /** Returns saved big ring return Y. */
-    public int getBigRingReturnY() { return bigRingReturnY; }
-    /** Returns saved big ring return camera X. */
-    public int getBigRingReturnCameraX() { return bigRingReturnCameraX; }
-    /** Returns saved big ring return camera Y. */
-    public int getBigRingReturnCameraY() { return bigRingReturnCameraY; }
+    /** @see LevelTransitionCoordinator#saveBigRingReturnPosition(int, int, int, int) */
+    public void saveBigRingReturnPosition(int playerX, int playerY, int cameraX, int cameraY) { transitions.saveBigRingReturnPosition(playerX, playerY, cameraX, cameraY); }
 
-    /** Consumes and clears the big ring return position. */
-    public void clearBigRingReturnPosition() {
-        this.bigRingReturnActive = false;
-    }
+    /** @see LevelTransitionCoordinator#hasBigRingReturnPosition() */
+    public boolean hasBigRingReturnPosition() { return transitions.hasBigRingReturnPosition(); }
 
-    /**
-     * Requests a title card to be shown for the current zone/act.
-     * Called when a new level is loaded.
-     *
-     * @param zone Zone index (0-10)
-     * @param act  Act index (0-2)
-     */
-    public void requestTitleCard(int zone, int act) {
-        this.titleCardRequested = true;
-        this.titleCardZone = zone;
-        this.titleCardAct = act;
-    }
+    /** @see LevelTransitionCoordinator#getBigRingReturnX() */
+    public int getBigRingReturnX() { return transitions.getBigRingReturnX(); }
+    /** @see LevelTransitionCoordinator#getBigRingReturnY() */
+    public int getBigRingReturnY() { return transitions.getBigRingReturnY(); }
+    /** @see LevelTransitionCoordinator#getBigRingReturnCameraX() */
+    public int getBigRingReturnCameraX() { return transitions.getBigRingReturnCameraX(); }
+    /** @see LevelTransitionCoordinator#getBigRingReturnCameraY() */
+    public int getBigRingReturnCameraY() { return transitions.getBigRingReturnCameraY(); }
 
-    /**
-     * Requests an in-level (transparent) title card overlay.
-     */
-    public void requestInLevelTitleCard(int zone, int act) {
-        this.inLevelTitleCardRequested = true;
-        this.inLevelTitleCardZone = zone;
-        this.inLevelTitleCardAct = act;
-    }
+    /** @see LevelTransitionCoordinator#clearBigRingReturnPosition() */
+    public void clearBigRingReturnPosition() { transitions.clearBigRingReturnPosition(); }
 
-    /**
-     * Checks if a title card has been requested.
-     *
-     * @return true if a title card was requested since last check
-     */
-    public boolean isTitleCardRequested() {
-        return titleCardRequested;
-    }
+    /** @see LevelTransitionCoordinator#requestTitleCard(int, int) */
+    public void requestTitleCard(int zone, int act) { transitions.requestTitleCard(zone, act); }
+
+    /** @see LevelTransitionCoordinator#requestInLevelTitleCard(int, int) */
+    public void requestInLevelTitleCard(int zone, int act) { transitions.requestInLevelTitleCard(zone, act); }
+
+    /** @see LevelTransitionCoordinator#isTitleCardRequested() */
+    public boolean isTitleCardRequested() { return transitions.isTitleCardRequested(); }
 
     /**
      * @return true if vertical wrapping is active (ROM: LZ3/SBZ2 loop sections)
@@ -4552,51 +3347,23 @@ public class LevelManager {
         return verticalWrapEnabled;
     }
 
-    /**
-     * Consumes and clears the title card request flag.
-     *
-     * @return true if a title card was requested since last check
-     */
-    public boolean consumeTitleCardRequest() {
-        boolean requested = titleCardRequested;
-        titleCardRequested = false;
-        return requested;
-    }
+    /** @see LevelTransitionCoordinator#consumeTitleCardRequest() */
+    public boolean consumeTitleCardRequest() { return transitions.consumeTitleCardRequest(); }
 
-    /**
-     * Consumes and clears the in-level title card request flag.
-     */
-    public boolean consumeInLevelTitleCardRequest() {
-        boolean requested = inLevelTitleCardRequested;
-        inLevelTitleCardRequested = false;
-        return requested;
-    }
+    /** @see LevelTransitionCoordinator#consumeInLevelTitleCardRequest() */
+    public boolean consumeInLevelTitleCardRequest() { return transitions.consumeInLevelTitleCardRequest(); }
 
-    /**
-     * Gets the zone index for the requested title card.
-     *
-     * @return zone index, or -1 if none requested
-     */
-    public int getTitleCardZone() {
-        return titleCardZone;
-    }
+    /** @see LevelTransitionCoordinator#getTitleCardZone() */
+    public int getTitleCardZone() { return transitions.getTitleCardZone(); }
 
-    /**
-     * Gets the act index for the requested title card.
-     *
-     * @return act index, or -1 if none requested
-     */
-    public int getTitleCardAct() {
-        return titleCardAct;
-    }
+    /** @see LevelTransitionCoordinator#getTitleCardAct() */
+    public int getTitleCardAct() { return transitions.getTitleCardAct(); }
 
-    public int getInLevelTitleCardZone() {
-        return inLevelTitleCardZone;
-    }
+    /** @see LevelTransitionCoordinator#getInLevelTitleCardZone() */
+    public int getInLevelTitleCardZone() { return transitions.getInLevelTitleCardZone(); }
 
-    public int getInLevelTitleCardAct() {
-        return inLevelTitleCardAct;
-    }
+    /** @see LevelTransitionCoordinator#getInLevelTitleCardAct() */
+    public int getInLevelTitleCardAct() { return transitions.getInLevelTitleCardAct(); }
 
     /**
      * Resets mutable state without destroying the singleton instance.
@@ -4615,41 +3382,18 @@ public class LevelManager {
         animatedPaletteManager = null;
         checkpointState = null;
         levelGamestate = null;
-        backgroundTilemapData = null;
-        foregroundTilemapData = null;
-        patternLookupData = null;
-        prebuiltFgTilemap = null;
-        prebuiltBgTilemap = null;
+        if (tilemapManager != null) {
+            tilemapManager.resetState();
+        }
+        tilemapManager = null;
         currentZone = 0;
         currentAct = 0;
         frameCounter = 0;
-        backgroundTilemapDirty = true;
-        bgTilemapBaseX = 0;
-        currentBgPeriodWidth = VDP_BG_PLANE_WIDTH_PX;
-        foregroundTilemapDirty = true;
-        patternLookupDirty = true;
-        specialStageRequestedFromCheckpoint = false;
-        specialStageReturnLevelReloadRequested = false;
-        bigRingReturnActive = false;
-        titleCardRequested = false;
-        titleCardZone = -1;
-        titleCardAct = -1;
-        inLevelTitleCardRequested = false;
-        inLevelTitleCardZone = -1;
-        inLevelTitleCardAct = -1;
-        respawnRequested = false;
-        nextActRequested = false;
-        nextZoneRequested = false;
-        specificZoneActRequested = false;
-        seamlessTransitionRequested = false;
-        creditsRequested = false;
-        forceHudSuppressed = false;
-        suppressNextMusicChange = false;
+        transitions.resetState();
         verticalWrapEnabled = false;
-        levelInactiveForTransition = false;
-        requestedZone = -1;
-        requestedAct = -1;
-        pendingSeamlessTransitionRequest = null;
+        touchResponseTable = null;
+        currentShimmerStyle = 0;
+        useShaderBackground = true;
         cacheLevelDimensions();
         levels.clear();
     }
@@ -4695,12 +3439,8 @@ public class LevelManager {
     }
 
     private boolean isForceBlackBackdrop() {
-        if (level instanceof Sonic2Level) {
-            int zoneId = ((Sonic2Level) level).getZoneIndex();
-            // Zone 11 (0xB) is MCZ
-            return zoneId == 11;
-        }
-        return false;
+        ZoneFeatureProvider zfp = zoneFeatureProvider;
+        return zfp != null && zfp.isForceBlackBackdrop();
     }
 
     /**
@@ -4723,113 +3463,38 @@ public class LevelManager {
         LOGGER.fine("Reloaded " + paletteCount + " level palettes");
     }
 
-    // ==================== Transition Request Methods ====================
-    // These allow GameLoop to coordinate fades with level transitions
+    // ==================== Transition Request Delegation ====================
+    // These delegate to LevelTransitionCoordinator so external callers keep working.
 
-    /**
-     * Request a respawn (death). GameLoop will handle the fade transition.
-     */
-    public void requestRespawn() {
-        this.respawnRequested = true;
-    }
+    /** @see LevelTransitionCoordinator#requestRespawn() */
+    public void requestRespawn() { transitions.requestRespawn(); }
 
-    /**
-     * Check and consume respawn request.
-     * 
-     * @return true if respawn was requested
-     */
-    public boolean consumeRespawnRequest() {
-        boolean requested = respawnRequested;
-        respawnRequested = false;
-        return requested;
-    }
+    /** @see LevelTransitionCoordinator#consumeRespawnRequest() */
+    public boolean consumeRespawnRequest() { return transitions.consumeRespawnRequest(); }
 
-    /**
-     * Request transition to next act. GameLoop will handle the fade transition.
-     */
-    public void requestNextAct() {
-        this.nextActRequested = true;
-    }
+    /** @see LevelTransitionCoordinator#requestNextAct() */
+    public void requestNextAct() { transitions.requestNextAct(); }
 
-    /**
-     * Check and consume next act request.
-     * 
-     * @return true if next act was requested
-     */
-    public boolean consumeNextActRequest() {
-        boolean requested = nextActRequested;
-        nextActRequested = false;
-        return requested;
-    }
+    /** @see LevelTransitionCoordinator#consumeNextActRequest() */
+    public boolean consumeNextActRequest() { return transitions.consumeNextActRequest(); }
 
-    /**
-     * Request transition to next zone. GameLoop will handle the fade transition.
-     */
-    public void requestNextZone() {
-        this.nextZoneRequested = true;
-    }
+    /** @see LevelTransitionCoordinator#requestNextZone() */
+    public void requestNextZone() { transitions.requestNextZone(); }
 
-    /**
-     * Check and consume next zone request.
-     * 
-     * @return true if next zone was requested
-     */
-    public boolean consumeNextZoneRequest() {
-        boolean requested = nextZoneRequested;
-        nextZoneRequested = false;
-        return requested;
-    }
+    /** @see LevelTransitionCoordinator#consumeNextZoneRequest() */
+    public boolean consumeNextZoneRequest() { return transitions.consumeNextZoneRequest(); }
 
-    /**
-     * Request transition to a specific zone and act. GameLoop will handle the fade transition.
-     *
-     * @param zone the zone index (0-based)
-     * @param act the act index (0-based)
-     */
-    public void requestZoneAndAct(int zone, int act) {
-        requestZoneAndAct(zone, act, false);
-    }
+    /** @see LevelTransitionCoordinator#requestZoneAndAct(int, int) */
+    public void requestZoneAndAct(int zone, int act) { transitions.requestZoneAndAct(zone, act); }
 
-    /**
-     * Request transition to a specific zone and act with optional level deactivation
-     * during the pending fade.
-     *
-     * @param zone                the zone index (0-based)
-     * @param act                 the act index (0-based)
-     * @param deactivateLevelNow  true to freeze level updates until the transition completes
-     */
-    public void requestZoneAndAct(int zone, int act, boolean deactivateLevelNow) {
-        this.requestedZone = zone;
-        this.requestedAct = act;
-        this.specificZoneActRequested = true;
-        this.levelInactiveForTransition = deactivateLevelNow;
-    }
+    /** @see LevelTransitionCoordinator#requestZoneAndAct(int, int, boolean) */
+    public void requestZoneAndAct(int zone, int act, boolean deactivateLevelNow) { transitions.requestZoneAndAct(zone, act, deactivateLevelNow); }
 
-    /**
-     * Request an in-place seamless transition. GameLoop will execute it directly
-     * without fade.
-     */
-    public void requestSeamlessTransition(SeamlessLevelTransitionRequest request) {
-        if (request == null) {
-            return;
-        }
-        this.pendingSeamlessTransitionRequest = request;
-        this.seamlessTransitionRequested = true;
-        this.levelInactiveForTransition = request.deactivateLevelNow();
-    }
+    /** @see LevelTransitionCoordinator#requestSeamlessTransition(SeamlessLevelTransitionRequest) */
+    public void requestSeamlessTransition(SeamlessLevelTransitionRequest request) { transitions.requestSeamlessTransition(request); }
 
-    /**
-     * Consumes the pending seamless transition request.
-     */
-    public SeamlessLevelTransitionRequest consumeSeamlessTransitionRequest() {
-        if (!seamlessTransitionRequested) {
-            return null;
-        }
-        seamlessTransitionRequested = false;
-        SeamlessLevelTransitionRequest request = pendingSeamlessTransitionRequest;
-        pendingSeamlessTransitionRequest = null;
-        return request;
-    }
+    /** @see LevelTransitionCoordinator#consumeSeamlessTransitionRequest() */
+    public SeamlessLevelTransitionRequest consumeSeamlessTransitionRequest() { return transitions.consumeSeamlessTransitionRequest(); }
 
     /**
      * Applies a seamless transition immediately.
@@ -4843,7 +3508,7 @@ public class LevelManager {
         }
 
         try {
-            specialStageReturnLevelReloadRequested = false;
+            transitions.setSpecialStageReturnLevelReloadRequested(false);
             switch (request.type()) {
                 case MUTATE_ONLY -> applySeamlessMutation(request.mutationKey());
                 case RELOAD_SAME_LEVEL -> {
@@ -4865,86 +3530,37 @@ public class LevelManager {
         } catch (IOException e) {
             throw new RuntimeException("Failed to apply seamless transition", e);
         } finally {
-            levelInactiveForTransition = false;
+            transitions.setLevelInactiveForTransition(false);
         }
     }
 
     private void applySeamlessMutation(String mutationKey) {
-        S3kSeamlessMutationExecutor.apply(this, mutationKey);
+        gameModule.applySeamlessMutation(this, mutationKey);
     }
 
-    /**
-     * Check and consume specific zone/act request.
-     *
-     * @return true if a specific zone/act was requested
-     */
-    public boolean consumeZoneActRequest() {
-        boolean requested = specificZoneActRequested;
-        specificZoneActRequested = false;
-        return requested;
-    }
+    /** @see LevelTransitionCoordinator#consumeZoneActRequest() */
+    public boolean consumeZoneActRequest() { return transitions.consumeZoneActRequest(); }
 
-    /**
-     * Get the requested zone index. Only valid after consumeZoneActRequest() returns true.
-     *
-     * @return the requested zone index
-     */
-    public int getRequestedZone() {
-        return requestedZone;
-    }
+    /** @see LevelTransitionCoordinator#getRequestedZone() */
+    public int getRequestedZone() { return transitions.getRequestedZone(); }
 
-    /**
-     * Get the requested act index. Only valid after consumeZoneActRequest() returns true.
-     *
-     * @return the requested act index
-     */
-    public int getRequestedAct() {
-        return requestedAct;
-    }
+    /** @see LevelTransitionCoordinator#getRequestedAct() */
+    public int getRequestedAct() { return transitions.getRequestedAct(); }
 
-    /**
-     * Returns true while the current level should be treated as inactive for a
-     * pending zone/act transition.
-     */
-    public boolean isLevelInactiveForTransition() {
-        return levelInactiveForTransition;
-    }
+    /** @see LevelTransitionCoordinator#isLevelInactiveForTransition() */
+    public boolean isLevelInactiveForTransition() { return transitions.isLevelInactiveForTransition(); }
 
-    /**
-     * Request transition to ending credits sequence.
-     * Called by Sonic1EndingSTHObjectInstance after the STH logo timer expires.
-     */
-    public void requestCreditsTransition() {
-        this.creditsRequested = true;
-    }
+    /** @see LevelTransitionCoordinator#requestCreditsTransition() */
+    public void requestCreditsTransition() { transitions.requestCreditsTransition(); }
 
-    /**
-     * Check and consume credits transition request.
-     *
-     * @return true if credits were requested
-     */
-    public boolean consumeCreditsRequest() {
-        boolean requested = creditsRequested;
-        creditsRequested = false;
-        return requested;
-    }
+    /** @see LevelTransitionCoordinator#consumeCreditsRequest() */
+    public boolean consumeCreditsRequest() { return transitions.consumeCreditsRequest(); }
 
-    /**
-     * Force-suppress HUD rendering. Used during credits demo playback
-     * where the HUD should not appear regardless of zone settings.
-     */
-    public void setForceHudSuppressed(boolean suppressed) {
-        this.forceHudSuppressed = suppressed;
-    }
+    /** @see LevelTransitionCoordinator#setForceHudSuppressed(boolean) */
+    public void setForceHudSuppressed(boolean suppressed) { transitions.setForceHudSuppressed(suppressed); }
 
-    /**
-     * Suppresses the zone music that normally plays on the next loadLevel() call.
-     * Resets after one use. Used by credits sequence to prevent zone music from
-     * overriding the credits music.
-     */
-    public void setSuppressNextMusicChange(boolean suppress) {
-        this.suppressNextMusicChange = suppress;
-    }
+    /** @see LevelTransitionCoordinator#setSuppressNextMusicChange(boolean) */
+    public void setSuppressNextMusicChange(boolean suppress) { transitions.setSuppressNextMusicChange(suppress); }
 
     /**
      * Finds the offset from a reference position to the first pattern within a tile index range.

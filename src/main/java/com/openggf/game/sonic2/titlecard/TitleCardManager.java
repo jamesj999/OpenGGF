@@ -1,6 +1,8 @@
 package com.openggf.game.sonic2.titlecard;
 
 import com.openggf.game.sonic2.constants.Sonic2Constants;
+import com.openggf.game.titlecard.TitleCardElement;
+import com.openggf.game.titlecard.TitleCardMappings;
 import com.openggf.game.GameServices;
 
 import com.openggf.data.Rom;
@@ -8,17 +10,14 @@ import com.openggf.data.RomManager;
 import com.openggf.game.TitleCardProvider;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
+import com.openggf.graphics.TitleCardSpriteRenderer;
 import com.openggf.level.Pattern;
-import com.openggf.level.PatternDesc;
-import com.openggf.tools.NemesisReader;
+import com.openggf.util.PatternDecompressor;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.nio.channels.Channels;
-import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -302,13 +301,13 @@ public class TitleCardManager implements TitleCardProvider {
             Rom rom = romManager.getRom();
 
             // Load ArtNem_TitleCard - base title card art (E,N,O,Z, numbers, bar, stripes)
-            titleCardBasePatterns = loadNemesisPatterns(rom,
+            titleCardBasePatterns = PatternDecompressor.nemesis(rom,
                     Sonic2Constants.ART_NEM_TITLE_CARD_ADDR, "TitleCard");
             LOGGER.info("Loaded " + (titleCardBasePatterns != null ? titleCardBasePatterns.length : 0) +
                     " title card base patterns");
 
             // Load ArtNem_TitleCard2 - zone name alphabet (keep in "RAM")
-            titleCard2RawPatterns = loadNemesisPatterns(rom,
+            titleCard2RawPatterns = PatternDecompressor.nemesis(rom,
                     Sonic2Constants.ART_NEM_TITLE_CARD2_ADDR, "TitleCard2");
             LOGGER.info("Loaded " + (titleCard2RawPatterns != null ? titleCard2RawPatterns.length : 0) +
                     " title card 2 alphabet patterns");
@@ -339,8 +338,7 @@ public class TitleCardManager implements TitleCardProvider {
             artLoaded = true;
 
         } catch (Exception e) {
-            LOGGER.warning("Failed to load title card art: " + e.getMessage());
-            e.printStackTrace();
+            LOGGER.log(Level.WARNING, "Failed to load title card art", e);
             artLoaded = false;
         }
     }
@@ -417,28 +415,6 @@ public class TitleCardManager implements TitleCardProvider {
                    " tiles for zone " + zoneName);
     }
 
-    private Pattern[] loadNemesisPatterns(Rom rom, int address, String name) {
-        try {
-            byte[] compressed = rom.readBytes(address, 8192);
-            try (ByteArrayInputStream bais = new ByteArrayInputStream(compressed);
-                 ReadableByteChannel channel = Channels.newChannel(bais)) {
-                byte[] decompressed = NemesisReader.decompress(channel);
-                int patternCount = decompressed.length / Pattern.PATTERN_SIZE_IN_ROM;
-                Pattern[] patterns = new Pattern[patternCount];
-                for (int i = 0; i < patternCount; i++) {
-                    patterns[i] = new Pattern();
-                    byte[] subArray = Arrays.copyOfRange(decompressed,
-                            i * Pattern.PATTERN_SIZE_IN_ROM,
-                            (i + 1) * Pattern.PATTERN_SIZE_IN_ROM);
-                    patterns[i].fromSegaFormat(subArray);
-                }
-                return patterns;
-            }
-        } catch (IOException e) {
-            LOGGER.warning("Failed to load " + name + " patterns: " + e.getMessage());
-            return new Pattern[0];
-        }
-    }
 
     /**
      * Ensures art is cached to GPU.
@@ -841,66 +817,9 @@ public class TitleCardManager implements TitleCardProvider {
         int centerY = element.getY();
 
         for (TitleCardMappings.SpritePiece piece : pieces) {
-            renderSpritePiece(graphicsManager, piece, centerX, centerY);
-        }
-    }
-
-    /**
-     * Renders a single sprite piece.
-     */
-    private void renderSpritePiece(GraphicsManager graphicsManager,
-                                    TitleCardMappings.SpritePiece piece,
-                                    int originX, int originY) {
-        int baseTileIndex = piece.tileIndex();
-
-        // Convert VRAM tile index to our pattern array index
-        // Array index = VRAM address - VRAM_BASE
-        int patternArrayIndex = baseTileIndex - VRAM_BASE;
-        if (patternArrayIndex < 0) {
-            patternArrayIndex = 0;
-        }
-
-        int widthTiles = piece.widthTiles();
-        int heightTiles = piece.heightTiles();
-
-        // Render each 8x8 tile in the piece (column-major order like VDP)
-        for (int tx = 0; tx < widthTiles; tx++) {
-            for (int ty = 0; ty < heightTiles; ty++) {
-                int tileOffset = tx * heightTiles + ty;
-                int arrayIndex = patternArrayIndex + tileOffset;
-
-                // Bounds check
-                if (arrayIndex < 0 || arrayIndex >= combinedPatterns.length) {
-                    continue;
-                }
-
-                int patternId = PATTERN_BASE + arrayIndex;
-
-                // Calculate screen position
-                int tileX = originX + piece.xOffset() + (tx * 8);
-                int tileY = originY + piece.yOffset() + (ty * 8);
-
-                // Handle flipping - swap column/row order
-                if (piece.hFlip()) {
-                    tileX = originX + piece.xOffset() + ((widthTiles - 1 - tx) * 8);
-                }
-                if (piece.vFlip()) {
-                    tileY = originY + piece.yOffset() + ((heightTiles - 1 - ty) * 8);
-                }
-
-                // Build PatternDesc with flip flags and palette
-                int descIndex = patternId & 0x7FF;
-                if (piece.hFlip()) {
-                    descIndex |= 0x800;
-                }
-                if (piece.vFlip()) {
-                    descIndex |= 0x1000;
-                }
-                descIndex |= (piece.paletteIndex() & 0x3) << 13;
-                PatternDesc desc = new PatternDesc(descIndex);
-
-                graphicsManager.renderPatternWithId(patternId, desc, tileX, tileY);
-            }
+            TitleCardSpriteRenderer.renderSpritePiece(
+                    graphicsManager, piece, centerX, centerY,
+                    VRAM_BASE, PATTERN_BASE, combinedPatterns.length);
         }
     }
 

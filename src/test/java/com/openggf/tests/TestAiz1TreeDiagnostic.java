@@ -6,6 +6,7 @@ import org.junit.ClassRule;
 import org.junit.Test;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.game.GameServices;
 import com.openggf.level.Block;
 import com.openggf.level.Chunk;
 import com.openggf.level.ChunkDesc;
@@ -65,7 +66,7 @@ public class TestAiz1TreeDiagnostic {
      */
     @Test
     public void dumpTreeArtTilePixels() {
-        Level level = LevelManager.getInstance().getCurrentLevel();
+        Level level = GameServices.level().getCurrentLevel();
         assertNotNull("Level must be loaded", level);
 
         int patternCount = level.getPatternCount();
@@ -137,7 +138,7 @@ public class TestAiz1TreeDiagnostic {
      */
     @Test
     public void dumpTreePaletteData() {
-        Level level = LevelManager.getInstance().getCurrentLevel();
+        Level level = GameServices.level().getCurrentLevel();
         assertNotNull("Level must be loaded", level);
 
         int paletteCount = level.getPaletteCount();
@@ -193,7 +194,7 @@ public class TestAiz1TreeDiagnostic {
      */
     @Test
     public void dumpFgChunkPaletteIndicesAtTreePositions() {
-        Level level = LevelManager.getInstance().getCurrentLevel();
+        Level level = GameServices.level().getCurrentLevel();
         assertNotNull("Level must be loaded", level);
 
         Map map = level.getMap();
@@ -301,7 +302,7 @@ public class TestAiz1TreeDiagnostic {
      */
     @Test
     public void dumpLowPriorityFgPatternsAtTreePositions() {
-        Level level = LevelManager.getInstance().getCurrentLevel();
+        Level level = GameServices.level().getCurrentLevel();
         assertNotNull("Level must be loaded", level);
 
         Map map = level.getMap();
@@ -390,7 +391,7 @@ public class TestAiz1TreeDiagnostic {
      */
     @Test
     public void scanChunksReferencingTreePatterns() {
-        Level level = LevelManager.getInstance().getCurrentLevel();
+        Level level = GameServices.level().getCurrentLevel();
         assertNotNull("Level must be loaded", level);
 
         int chunkCount = level.getChunkCount();
@@ -428,7 +429,7 @@ public class TestAiz1TreeDiagnostic {
      */
     @Test
     public void dumpBgTilePrioritiesAtSkyPositions() {
-        Level level = LevelManager.getInstance().getCurrentLevel();
+        Level level = GameServices.level().getCurrentLevel();
         assertNotNull("Level must be loaded", level);
 
         Map map = level.getMap();

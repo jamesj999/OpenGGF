@@ -1,7 +1,6 @@
 package com.openggf.game.sonic3k.objects.badniks;
 
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -9,6 +8,7 @@ import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import java.util.List;
 
@@ -60,7 +60,8 @@ final class S3kBadnikProjectileInstance extends AbstractObjectInstance implement
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // MoveSprite / MoveSprite_LightGravity order:
         // use old y_vel for movement this frame, then apply gravity.
         int oldYVel = yVelocity;
@@ -96,14 +97,7 @@ final class S3kBadnikProjectileInstance extends AbstractObjectInstance implement
 
     @Override
     public ObjectSpawn getSpawn() {
-        return new ObjectSpawn(
-                currentX,
-                currentY,
-                spawn.objectId(),
-                spawn.subtype(),
-                spawn.renderFlags(),
-                spawn.respawnTracked(),
-                spawn.rawYWord());
+        return buildSpawnAt(currentX, currentY);
     }
 
     @Override
@@ -127,7 +121,8 @@ final class S3kBadnikProjectileInstance extends AbstractObjectInstance implement
     }
 
     @Override
-    public boolean onShieldDeflect(AbstractPlayableSprite player) {
+    public boolean onShieldDeflect(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (player == null) {
             return false;
         }
@@ -146,7 +141,7 @@ final class S3kBadnikProjectileInstance extends AbstractObjectInstance implement
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

@@ -1,17 +1,22 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.objects.GrounderRockProjectile;
 import com.openggf.game.sonic2.objects.GrounderWallInstance;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
-import com.openggf.level.objects.ObjectRenderManager;
+
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.level.objects.PatrolMovementHelper;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.util.AnimationTimer;
 
 import java.util.List;
 
@@ -87,8 +92,7 @@ public class GrounderBadnikInstance extends AbstractBadnikInstance {
     private boolean activated;     // Activation flag for child objects (objoff_2B)
     private int pauseTimer;        // Timer for edge/wall pause (objoff_2A)
     private int idleAnimTimer;     // Timer for idle animation
-    private int walkAnimTimer;     // Timer for walking animation
-    private int walkAnimFrame;     // Current walking frame (0-2 -> frames 2-4)
+    private final AnimationTimer walkAnim = new AnimationTimer(WALK_ANIM_DURATION, 3);
 
     /**
      * Creates a Grounder badnik.
@@ -97,15 +101,13 @@ public class GrounderBadnikInstance extends AbstractBadnikInstance {
      * @param levelManager  Level manager for spawning children
      * @param skipWallSetup True for 0x8E variant (skips wall/rock spawning)
      */
-    public GrounderBadnikInstance(ObjectSpawn spawn, LevelManager levelManager, boolean skipWallSetup) {
-        super(spawn, levelManager, "Grounder");
+    public GrounderBadnikInstance(ObjectSpawn spawn, boolean skipWallSetup) {
+        super(spawn, "Grounder", Sonic2BadnikConfig.DESTRUCTION);
         this.skipWallSetup = skipWallSetup;
         this.state = State.INIT;
         this.activated = false;
         this.pauseTimer = 0;
         this.idleAnimTimer = 0;
-        this.walkAnimTimer = 0;
-        this.walkAnimFrame = 0;
 
         // Initial facing from render_flags
         boolean xFlip = (spawn.renderFlags() & 0x01) != 0;
@@ -120,7 +122,8 @@ public class GrounderBadnikInstance extends AbstractBadnikInstance {
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
             case INIT -> updateInit();
             case DETECTION -> updateDetection(player);
@@ -167,7 +170,7 @@ public class GrounderBadnikInstance extends AbstractBadnikInstance {
             int wallX = currentX + offset[0];
             int wallY = currentY + offset[1];
             GrounderWallInstance wall = new GrounderWallInstance(wallX, wallY, i, this);
-            levelManager.getObjectManager().addDynamicObject(wall);
+            services().objectManager().addDynamicObject(wall);
         }
     }
 
@@ -178,7 +181,7 @@ public class GrounderBadnikInstance extends AbstractBadnikInstance {
     private void spawnRocks() {
         for (int i = 0; i < 5; i++) {
             GrounderRockProjectile rock = new GrounderRockProjectile(currentX, currentY, i, this);
-            levelManager.getObjectManager().addDynamicObject(rock);
+            services().objectManager().addDynamicObject(rock);
         }
     }
 
@@ -248,8 +251,7 @@ public class GrounderBadnikInstance extends AbstractBadnikInstance {
         xVelocity = facingLeft ? -MOVEMENT_VELOCITY : MOVEMENT_VELOCITY;
 
         // Reset walking animation
-        walkAnimTimer = 0;
-        walkAnimFrame = 0;
+        walkAnim.reset();
 
         state = State.MOVEMENT;
     }
@@ -271,28 +273,17 @@ public class GrounderBadnikInstance extends AbstractBadnikInstance {
      *   add.w d1,y_pos(a0)                ; Snap to floor
      */
     private void updateWalking(AbstractPlayableSprite player) {
-        // Apply velocity (ObjectMove behavior - NO gravity)
-        // Velocity is +/-0x100 which is exactly +/-1 pixel per frame in 8.8 fixed point
-        currentX += (xVelocity >> 8);
+        // Apply velocity and check floor (ObjectMove + ObjCheckFloorDist)
+        // Velocity is +/-0x100 (exactly +/-1 pixel per frame), no subpixel accumulation needed
+        var result = PatrolMovementHelper.updatePatrol(
+                currentX, 0, currentY, xVelocity, Y_RADIUS, -1, 12);
+        currentX = result.newX();
+        currentY = result.newY();
 
-        // Check floor from feet (y + y_radius)
-        TerrainCheckResult floorResult = ObjectTerrainUtils.checkFloorDist(currentX, currentY, Y_RADIUS);
-
-        // Edge detection from disassembly:
-        // - If no floor found: edge
-        // - If distance < -1: inside terrain, edge
-        // - If distance >= 12 (0xC): floor too far below, edge
-        // ROM accepts -1 to +11 as valid floor (snap to it)
-        // Note: Use foundSurface() not hasCollision() - positive distances (floor below) are valid
-        int floorDistance = floorResult.foundSurface() ? floorResult.distance() : 100;
-
-        if (floorDistance < -1 || floorDistance >= 12) {
+        if (result.reversed()) {
             // At edge - pause and reverse
             pauseTimer = PAUSE_TIME;
             state = State.ROCK_THROW;
-        } else {
-            // Valid floor - snap to it
-            currentY += floorDistance;
         }
     }
 
@@ -316,8 +307,7 @@ public class GrounderBadnikInstance extends AbstractBadnikInstance {
             xVelocity = facingLeft ? -MOVEMENT_VELOCITY : MOVEMENT_VELOCITY;
 
             // Reset walking animation
-            walkAnimTimer = 0;
-            walkAnimFrame = 0;
+            walkAnim.reset();
 
             state = State.MOVEMENT;
         }
@@ -336,12 +326,8 @@ public class GrounderBadnikInstance extends AbstractBadnikInstance {
             }
             case MOVEMENT_SETUP, MOVEMENT, ROCK_THROW -> {
                 // Walking animation: frames 2,3,4, duration 3
-                walkAnimTimer++;
-                if (walkAnimTimer >= WALK_ANIM_DURATION) {
-                    walkAnimTimer = 0;
-                    walkAnimFrame = (walkAnimFrame + 1) % 3;
-                }
-                animFrame = FRAME_WALK_1 + walkAnimFrame;
+                walkAnim.tick();
+                animFrame = FRAME_WALK_1 + walkAnim.getFrame();
             }
         }
     }
@@ -358,20 +344,12 @@ public class GrounderBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.GROUNDER);
-        if (renderer == null || !renderer.isReady()) {
-            appendDebug(commands);
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.GROUNDER);
+        if (renderer == null) return;
 
         // Render current animation frame
         // Art faces left by default; flip when facing right
@@ -379,7 +357,8 @@ public class GrounderBadnikInstance extends AbstractBadnikInstance {
         renderer.drawFrameIndex(animFrame, currentX, currentY, hFlip, false);
     }
 
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         int halfWidth = 16;
         int halfHeight = 16;
         int left = currentX - halfWidth;
@@ -392,16 +371,9 @@ public class GrounderBadnikInstance extends AbstractBadnikInstance {
         float g = activated ? 0.8f : 0.8f;
         float b = 0.2f;
 
-        appendLine(commands, left, top, right, top, r, g, b);
-        appendLine(commands, right, top, right, bottom, r, g, b);
-        appendLine(commands, right, bottom, left, bottom, r, g, b);
-        appendLine(commands, left, bottom, left, top, r, g, b);
-    }
-
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2, float r, float g, float b) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x2, y2, 0, 0));
+        ctx.drawLine(left, top, right, top, r, g, b);
+        ctx.drawLine(right, top, right, bottom, r, g, b);
+        ctx.drawLine(right, bottom, left, bottom, r, g, b);
+        ctx.drawLine(left, bottom, left, top, r, g, b);
     }
 }

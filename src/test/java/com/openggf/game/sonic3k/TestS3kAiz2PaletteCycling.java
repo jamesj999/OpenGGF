@@ -7,6 +7,7 @@ import org.junit.ClassRule;
 import org.junit.Test;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.game.GameServices;
 import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
 import com.openggf.level.Palette;
@@ -69,7 +70,7 @@ public class TestS3kAiz2PaletteCycling {
      * drawWithSpritePriority(); headless tests must call it explicitly.
      */
     private void tickAnimation() {
-        AnimatedPatternManager apm = LevelManager.getInstance().getAnimatedPatternManager();
+        AnimatedPatternManager apm = GameServices.level().getAnimatedPatternManager();
         if (apm != null) {
             apm.update();
         }
@@ -77,7 +78,7 @@ public class TestS3kAiz2PaletteCycling {
 
     @Test
     public void torchGlowCycleModifiesPaletteLine4Color1() {
-        Level level = LevelManager.getInstance().getCurrentLevel();
+        Level level = GameServices.level().getCurrentLevel();
         assertNotNull("Level must be loaded", level);
 
         Palette pal3 = level.getPalette(3);
@@ -114,7 +115,7 @@ public class TestS3kAiz2PaletteCycling {
 
     @Test
     public void waterCycleModifiesPaletteLine4Colors12to15() {
-        Level level = LevelManager.getInstance().getCurrentLevel();
+        Level level = GameServices.level().getCurrentLevel();
         assertNotNull("Level must be loaded", level);
 
         Palette pal3 = level.getPalette(3);

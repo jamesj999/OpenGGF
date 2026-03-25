@@ -1,11 +1,9 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
-import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -38,8 +36,6 @@ public class ARZBossPillar extends AbstractObjectInstance
     private static final int PILLAR_START_Y = 0x510;
 
     private static final SolidObjectParams PILLAR_SOLID_PARAMS = new SolidObjectParams(0x23, 0x44, 0x45, 0, 4);
-
-    private final LevelManager levelManager;
     private final Sonic2ARZBossInstance mainBoss;
 
     private int x;
@@ -51,9 +47,8 @@ public class ARZBossPillar extends AbstractObjectInstance
     private boolean pillarShaking;
     private int pillarShakeTime;
 
-    public ARZBossPillar(ObjectSpawn spawn, LevelManager levelManager, Sonic2ARZBossInstance mainBoss) {
+    public ARZBossPillar(ObjectSpawn spawn, Sonic2ARZBossInstance mainBoss) {
         super(spawn, "ARZ Boss Pillar");
-        this.levelManager = levelManager;
         this.mainBoss = mainBoss;
         this.x = spawn.x();
         this.y = spawn.y();
@@ -65,7 +60,8 @@ public class ARZBossPillar extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -88,14 +84,14 @@ public class ARZBossPillar extends AbstractObjectInstance
      */
     private void updatePillarRaise(int frameCounter) {
         if ((frameCounter & 0x1F) == 0) {
-            AudioManager.getInstance().playSfx(Sonic2Sfx.RUMBLING_2.id);
+            services().playSfx(Sonic2Sfx.RUMBLING_2.id);
         }
         y -= 1;
         if (y <= PILLAR_TARGET_Y) {
             y = PILLAR_TARGET_Y;
             routineSecondary = PILLAR_SUB_IDLE;
             // ROM: move.b #0,(Screen_Shaking_Flag).w - stop screen shaking
-            GameServices.gameState().setScreenShakeActive(false);
+            services().gameState().setScreenShakeActive(false);
         }
         mappingFrame = 0;
     }
@@ -124,11 +120,11 @@ public class ARZBossPillar extends AbstractObjectInstance
      * ROM: Obj89_Pillar_Sub4 (lines 64963-65001)
      */
     private void updatePillarLower(AbstractPlayableSprite player) {
-        GameServices.gameState().setScreenShakeActive(true);
+        services().gameState().setScreenShakeActive(true);
 
         y += 1;
         if (y >= PILLAR_START_Y) {
-            GameServices.gameState().setScreenShakeActive(false);
+            services().gameState().setScreenShakeActive(false);
             dropStandingPlayers(player);
             setDestroyed(true);
             return;
@@ -137,11 +133,11 @@ public class ARZBossPillar extends AbstractObjectInstance
     }
 
     private void dropStandingPlayers(AbstractPlayableSprite player) {
-        if (player == null || levelManager == null || levelManager.getObjectManager() == null) {
+        if (player == null || services().objectManager() == null) {
             return;
         }
-        if (levelManager.getObjectManager().isRidingObject(player, this)) {
-            levelManager.getObjectManager().clearRidingObject(player);
+        if (services().objectManager().isRidingObject(player, this)) {
+            services().objectManager().clearRidingObject(player);
             player.setOnObject(false);
             player.setAir(true);
         }
@@ -178,7 +174,7 @@ public class ARZBossPillar extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = levelManager != null ? levelManager.getObjectRenderManager() : null;
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
@@ -213,7 +209,8 @@ public class ARZBossPillar extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return routineSecondary != PILLAR_SUB_LOWERING;
     }
 
@@ -223,7 +220,8 @@ public class ARZBossPillar extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Pillar doesn't need special contact handling
     }
 

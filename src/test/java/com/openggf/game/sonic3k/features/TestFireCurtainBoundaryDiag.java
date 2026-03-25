@@ -1,7 +1,10 @@
 package com.openggf.game.sonic3k.features;
 
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic3k.events.FireCurtainRenderState;
 import com.openggf.game.sonic3k.events.FireCurtainStage;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
 import java.util.List;
@@ -13,6 +16,16 @@ import static org.junit.Assert.*;
  * produces at the fire zone boundaries.
  */
 public class TestFireCurtainBoundaryDiag {
+
+    @Before
+    public void setUp() {
+        RuntimeManager.createGameplay();
+    }
+
+    @After
+    public void tearDown() {
+        RuntimeManager.destroyCurrent();
+    }
 
     private static final int SCREEN_W = 320;
     private static final int SCREEN_H = 224;

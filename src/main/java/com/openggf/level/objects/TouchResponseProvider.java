@@ -1,6 +1,6 @@
 package com.openggf.level.objects;
 
-import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 public interface TouchResponseProvider {
     int getCollisionFlags();
@@ -44,7 +44,7 @@ public interface TouchResponseProvider {
      *
      * @return true if the deflect was applied and regular hurt handling should be skipped
      */
-    default boolean onShieldDeflect(AbstractPlayableSprite player) {
+    default boolean onShieldDeflect(PlayableEntity player) {
         return false;
     }
 

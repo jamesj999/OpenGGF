@@ -1,10 +1,9 @@
 package com.openggf.game.sonic2.objects.bosses;
 
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -37,7 +36,6 @@ public class MCZFallingDebrisInstance extends AbstractObjectInstance implements 
     private int posY;
     private int yFixed;
     private int yVel;
-    private ObjectSpawn dynamicSpawn;
 
     public MCZFallingDebrisInstance(int x, int y, boolean isSpike) {
         super(new ObjectSpawn(x, y, 0x57, 4, 0, false, 0), "MCZ Debris");
@@ -46,25 +44,18 @@ public class MCZFallingDebrisInstance extends AbstractObjectInstance implements 
         this.posY = y;
         this.yFixed = y << 16;
         this.yVel = 0;
-        this.dynamicSpawn = getSpawn();
+        updateDynamicSpawn(posX, posY);
     }
 
     @Override
-    public ObjectSpawn getSpawn() {
-        if (dynamicSpawn != null && dynamicSpawn.x() == posX && dynamicSpawn.y() == posY) {
-            return dynamicSpawn;
-        }
-        dynamicSpawn = new ObjectSpawn(posX, posY, 0x57, 4, 0, false, 0);
-        return dynamicSpawn;
-    }
-
-    @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: Obj57_FallingStuff - ObjectMoveAndFall
         yFixed += (yVel << 8);
         yVel += GRAVITY;
 
         posY = yFixed >> 16;
+        updateDynamicSpawn(posX, posY);
 
         // ROM: cmpi.w #$6F0,y_pos(a0) - delete if below boundary
         if (posY > DELETE_Y) {
@@ -90,15 +81,8 @@ public class MCZFallingDebrisInstance extends AbstractObjectInstance implements 
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.MCZ_FALLING_ROCKS);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.MCZ_FALLING_ROCKS);
+        if (renderer == null) return;
 
         int frame = isSpike ? FRAME_SPIKE : FRAME_STONE;
         renderer.drawFrameIndex(frame, posX, posY, false, false);

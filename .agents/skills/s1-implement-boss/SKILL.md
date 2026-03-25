@@ -1,7 +1,7 @@
 ---
-name: s1-implement-boss
-description: "Implement a Sonic 1 zone boss with complete ROM accuracy. This skill guides complete implementation including arena setup, hit handling, defeat sequences, and cross-validation against the Sonic 1 disassembly."
+title: Implement Sonic 1 Boss
 ---
+
 # Implement Sonic 1 Boss
 
 Implement a Sonic 1 zone boss with complete ROM accuracy. This skill guides complete implementation including arena setup, hit handling, defeat sequences, and cross-validation against the Sonic 1 disassembly.
@@ -12,8 +12,8 @@ $ARGUMENTS: Boss name or zone (e.g., "GHZ boss", "Green Hill boss", "0x3D", "Fin
 
 ## Related Skills
 
-- **s1disasm-guide** (`.agents/skills/s1disasm-guide/SKILL.md`) - Disassembly navigation, label conventions, RomOffsetFinder
-- **s1-implement-object** (`.agents/skills/s1-implement-object/SKILL.md`) - For non-boss Sonic 1 objects and badniks
+- **s1disasm-guide** (`.agents/skills/s1disasm-guide/skill.md`) - Disassembly navigation, label conventions, RomOffsetFinder
+- **s1-implement-object** (`.agents/skills/s1-implement-object/skill.md`) - For non-boss Sonic 1 objects and badniks. **Section 2.4 lists all reusable engine utilities** — check it before writing movement, collision, or rendering code.
 
 ## Sonic 1 Boss List
 
@@ -37,7 +37,7 @@ $ARGUMENTS: Boss name or zone (e.g., "GHZ boss", "Green Hill boss", "0x3D", "Fin
 | **Palette flash** | `v_palette+$22` (line 1, color 1) | Boss-specific palette line |
 | **Hit count** | 8 hits (standard) | 8 hits (standard) |
 | **Arena setup** | Zone-specific camera lock in object code | `LevEvents_ZONE2` routines |
-| **Level events** | No dedicated LevelEventManager for S1 | `LevelEventManager.java` |
+| **Level events** | `Sonic1LevelEventManager` (per-zone handler classes) | `Sonic2LevelEventManager.java` |
 | **Music** | `MUS_BOSS` (0x8C) | `Sonic2AudioConstants.MUS_BOSS` |
 | **Defeat** | Explosion sequence + flee + EggPrison | Similar pattern |
 | **Boss state** | Object-local fields (`obRoutine`, `ob2ndRout`) | `BossStateContext` |
@@ -51,7 +51,7 @@ $ARGUMENTS: Boss name or zone (e.g., "GHZ boss", "Green Hill boss", "0x3D", "Fin
 
 Delegate multiple agents to explore the disassembly. **Include this instruction in each agent prompt:**
 
-> Use the s1disasm-guide skill (`.agents/skills/s1disasm-guide/SKILL.md`) for reference on disassembly structure, label conventions, RomOffsetFinder commands, and object system patterns.
+> Use the s1disasm-guide skill (`.agents/skills/s1disasm-guide/skill.md`) for reference on disassembly structure, label conventions, RomOffsetFinder commands, and object system patterns.
 
 **Research checklist:**
 - [ ] Locate boss object file in `docs/s1disasm/_incObj/` (may have multiple parts)
@@ -82,13 +82,12 @@ Delegate multiple agents to explore the disassembly. **Include this instruction 
 
 ### Phase 2: Arena & Level Event Setup
 
-S1 bosses handle their own camera lock and arena setup, unlike S2 which uses `LevelEventManager`. There are two approaches:
+S1 bosses use `Sonic1LevelEventManager` (at `game/sonic1/events/Sonic1LevelEventManager.java`) for arena setup and boss spawning. This manager extends `AbstractLevelEventManager` and delegates to per-zone handler classes.
 
-#### Option A: Add S1 Support to LevelEventManager
-If `LevelEventManager` has been extended for S1, add zone-specific event handling:
+Add zone-specific event handling in a zone handler class:
 
 ```java
-// In LevelEventManager or a Sonic1LevelEventManager
+// In the zone's event handler class (called from Sonic1LevelEventManager)
 private void updateGhzEvents() {
     if (currentAct != 2) return; // Act 3 (0-indexed act 2)
     switch (eventRoutine) {
@@ -114,20 +113,6 @@ private void updateGhzEvents() {
 }
 ```
 
-#### Option B: Self-Contained Boss Setup
-If no S1 LevelEventManager exists yet, the boss object can handle its own arena setup during initialization (matching the ROM pattern where bosses directly manipulate camera boundaries):
-
-```java
-@Override
-protected void initializeBossState() {
-    // Lock camera to arena
-    Camera camera = Camera.getInstance();
-    camera.setMinX((short) ARENA_MIN_X);
-    camera.setMaxX((short) ARENA_MAX_X);
-    // ... set up arena boundaries from disassembly
-}
-```
-
 **Extract arena coordinates from disassembly** - search for camera boundary writes in the boss ASM or in `Constants.asm`:
 ```asm
 boss_ghz_x: equ $2A70   ; Boss X position
@@ -138,7 +123,7 @@ boss_ghz_x: equ $2A70   ; Boss X position
 Create the boss class in the S1 objects package:
 
 ```java
-package com.openggf.sonic.game.sonic1.objects.bosses;
+package com.openggf.game.sonic1.objects.bosses;
 
 public class Sonic1ZoneBossInstance extends AbstractBossInstance {
 
@@ -151,8 +136,8 @@ public class Sonic1ZoneBossInstance extends AbstractBossInstance {
     private static final int BOSS_START_X = 0xXXXX;
     private static final int BOSS_START_Y = 0xXXXX;
 
-    public Sonic1ZoneBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Zone Boss");
+    public Sonic1ZoneBossInstance(ObjectSpawn spawn) {
+        super(spawn, "Zone Boss");
     }
 
     @Override
@@ -198,7 +183,7 @@ S1 bosses use `ObjData` tables to define child objects. Parse these tables and s
 ```java
 // S1 pattern: sub-objects defined as data table entries
 private void spawnChildComponents() {
-    ObjectManager manager = LevelManager.getInstance().getObjectManager();
+    ObjectManager manager = services().objectManager();
 
     // From BossName_ObjData table in disassembly
     // Each entry typically: x_offset, y_offset, mapping_frame, subtype
@@ -234,7 +219,7 @@ The hit response typically:
 
 ### Phase 6: Art Loading
 
-**PLC note:** S1 boss art has dedicated PLC IDs in ArtLoadCues. The shared `PlcParser` utility handles parsing. See `plc-system` skill. Use `RomOffsetFinder plc <name>` to inspect PLC contents from the CLI.
+**PLC-based art loading:** S1 boss art has dedicated PLC IDs in ArtLoadCues. Use the shared `PlcParser` API for standalone decompression to avoid VRAM tile conflicts. See `plc-system` skill. Use `RomOffsetFinder plc <name>` to inspect PLC contents from the CLI.
 
 ```bash
 # Find boss art
@@ -247,10 +232,21 @@ S1 bosses typically use shared Eggman art plus zone-specific boss weapon art:
 - `Nem_BossItems` - Shared boss accessories (explosions, etc.)
 - Zone-specific art (e.g., `Nem_GHZBoss_Wrecking_Ball` for GHZ)
 
+**Standalone PLC pattern (preferred):**
+```java
+PlcDefinition plc = PlcParser.parse(rom, Sonic1Constants.ART_LOAD_CUES_ADDR, plcId);
+List<Pattern[]> artArrays = PlcParser.decompressAll(rom, plc);
+ObjectSpriteSheet sheet = new ObjectSpriteSheet(
+    artArrays.get(entryIndex),
+    S1SpriteDataLoader.loadMappingFrames(reader, mappingAddr),
+    paletteIndex, 1);
+```
+
 **Implementation checklist:**
-- [ ] Add ROM address constants to `Sonic1Constants.java`
+- [ ] Find the boss PLC ID in the disassembly's ArtLoadCues
+- [ ] Add PLC ID or ROM address constants to `Sonic1Constants.java`
 - [ ] Add art keys (create `Sonic1ObjectArtKeys.java` if needed)
-- [ ] Create loader method (create `Sonic1ObjectArt.java` if needed)
+- [ ] Use `PlcParser.decompressAll()` for standalone `Pattern[]` (preferred), or create loader method in `Sonic1ObjectArt.java` for direct Nemesis loading
 - [ ] Create mappings method (parse from `_maps/Eggman.asm`, `_maps/Boss Items.asm`)
 - [ ] Register in art provider
 
@@ -263,7 +259,7 @@ registerFactory(Sonic1ObjectIds.ZONE_BOSS,
     (spawn, registry) -> new Sonic1ZoneBossInstance(spawn, LevelManager.getInstance()));
 ```
 
-If `Sonic1ObjectRegistry` doesn't yet support factories, refactor it following `Sonic2ObjectRegistry` pattern.
+`Sonic1ObjectRegistry` already has `registerDefaultFactories()` — add your factory registration there.
 
 ### Phase 8: Code Quality
 
@@ -328,14 +324,15 @@ Report any discrepancies with specific line references.
 
 | Purpose | Location |
 |---------|----------|
-| **Disassembly guide** | `.agents/skills/s1disasm-guide/SKILL.md` |
-| **Object skill** | `.agents/skills/s1-implement-object/SKILL.md` |
+| **Disassembly guide** | `.agents/skills/s1disasm-guide/skill.md` |
+| **Object skill** | `.agents/skills/s1-implement-object/skill.md` |
 | Base boss | `src/.../level/objects/boss/AbstractBossInstance.java` |
 | Boss state context | `src/.../level/objects/boss/BossStateContext.java` |
 | Boss child base | `src/.../level/objects/boss/AbstractBossChild.java` |
 | Object IDs | `src/.../game/sonic1/constants/Sonic1ObjectIds.java` |
 | ROM offsets | `src/.../game/sonic1/constants/Sonic1Constants.java` |
 | Audio profile | `src/.../game/sonic1/audio/Sonic1AudioProfile.java` |
+| Level events | `src/.../game/sonic1/events/Sonic1LevelEventManager.java` |
 | Registry | `src/.../game/sonic1/objects/Sonic1ObjectRegistry.java` |
 | S2 boss examples | `src/.../game/sonic2/objects/bosses/` |
 | Disassembly bosses | `docs/s1disasm/_incObj/*Boss*.asm` |
@@ -381,4 +378,3 @@ Report any discrepancies with specific line references.
 - Energy ball projectiles
 - No rings available
 - Most complex S1 boss
-

@@ -1,11 +1,8 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.debug.DebugOverlayManager;
-import com.openggf.debug.DebugOverlayToggle;
-import com.openggf.game.GameServices;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -49,11 +46,6 @@ public class GrabObjectInstance extends AbstractObjectInstance {
 
     private static final Logger LOGGER = Logger.getLogger(GrabObjectInstance.class.getName());
 
-    // Debug state
-    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
-            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
-
     // === Grab Zone Constants (from disassembly) ===
     // ROM: addi.w #$18,d0 / cmpi.w #$30,d0 -> horizontal range is -0x18 to +0x17 (+-24 pixels)
     private static final int GRAB_HALF_WIDTH = 0x18;
@@ -92,7 +84,8 @@ public class GrabObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -321,10 +314,6 @@ public class GrabObjectInstance extends AbstractObjectInstance {
     public void appendRenderCommands(List<GLCommand> commands) {
         // This object is invisible - no art, no mappings, no rendering
         // ROM: render_flags = #1<<render_flags.level_fg (no on_screen bit set)
-        // Only render debug visualization when enabled
-        if (isDebugViewEnabled()) {
-            appendDebug(commands);
-        }
     }
 
     @Override
@@ -333,16 +322,14 @@ public class GrabObjectInstance extends AbstractObjectInstance {
         return RenderPriority.clamp(4);
     }
 
-    /**
-     * Appends debug visualization showing the grab zone and state.
-     */
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         int x = spawn.x();
         int y = spawn.y();
 
         // Draw object center (yellow cross)
-        appendLine(commands, x - 4, y, x + 4, y, 1.0f, 1.0f, 0.0f);
-        appendLine(commands, x, y - 4, x, y + 4, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(x - 4, y, x + 4, y, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(x, y - 4, x, y + 4, 1.0f, 1.0f, 0.0f);
 
         // Draw grab detection zone (green rectangle)
         // Horizontal: x +- GRAB_HALF_WIDTH, Vertical: y to y + GRAB_Y_RANGE
@@ -351,33 +338,16 @@ public class GrabObjectInstance extends AbstractObjectInstance {
         int top = y;
         int bottom = y + GRAB_Y_RANGE;
 
-        appendLine(commands, left, top, right, top, 0.0f, 1.0f, 0.0f);
-        appendLine(commands, right, top, right, bottom, 0.0f, 1.0f, 0.0f);
-        appendLine(commands, right, bottom, left, bottom, 0.0f, 1.0f, 0.0f);
-        appendLine(commands, left, bottom, left, top, 0.0f, 1.0f, 0.0f);
+        ctx.drawLine(left, top, right, top, 0.0f, 1.0f, 0.0f);
+        ctx.drawLine(right, top, right, bottom, 0.0f, 1.0f, 0.0f);
+        ctx.drawLine(right, bottom, left, bottom, 0.0f, 1.0f, 0.0f);
+        ctx.drawLine(left, bottom, left, top, 0.0f, 1.0f, 0.0f);
 
         // Draw grabbed state indicator (red X if grabbed, gray X if not)
         float grabR = (player1Grabbed || player2Grabbed) ? 1.0f : 0.5f;
         float grabG = (player1Grabbed || player2Grabbed) ? 0.0f : 0.5f;
-        appendLine(commands, x - 6, y - 6, x + 6, y + 6, grabR, grabG, 0.0f);
-        appendLine(commands, x + 6, y - 6, x - 6, y + 6, grabR, grabG, 0.0f);
+        ctx.drawLine(x - 6, y - 6, x + 6, y + 6, grabR, grabG, 0.0f);
+        ctx.drawLine(x + 6, y - 6, x - 6, y + 6, grabR, grabG, 0.0f);
     }
 
-    /**
-     * Appends a debug line to the render commands.
-     */
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2,
-                            float r, float g, float b) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x2, y2, 0, 0));
-    }
-
-    /**
-     * Checks if debug view is currently enabled.
-     */
-    private boolean isDebugViewEnabled() {
-        return DEBUG_VIEW_ENABLED && OVERLAY_MANAGER.isEnabled(DebugOverlayToggle.OVERLAY);
-    }
 }

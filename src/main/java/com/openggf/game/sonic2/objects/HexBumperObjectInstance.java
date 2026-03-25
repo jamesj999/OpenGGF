@@ -1,12 +1,10 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -181,7 +179,8 @@ public class HexBumperObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Update movement for moving subtype
         if ((spawn.subtype() & 0xFF) == SUBTYPE_MOVING) {
             updateMovement();
@@ -318,18 +317,13 @@ public class HexBumperObjectInstance extends AbstractObjectInstance {
         bounceCooldown = BOUNCE_COOLDOWN;
 
         // Play sound
-        AudioManager.getInstance().playSfx(GameSound.BUMPER);
+        services().playSfx(GameSound.BUMPER);
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager rm = LevelManager.getInstance().getObjectRenderManager();
-        if (rm == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = rm.getRenderer(Sonic2ObjectArtKeys.HEX_BUMPER);
-        if (renderer != null && renderer.isReady()) {
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.HEX_BUMPER);
+        if (renderer != null) {
             boolean hFlip = (spawn.renderFlags() & 0x1) != 0;
             boolean vFlip = (spawn.renderFlags() & 0x2) != 0;
             renderer.drawFrameIndex(animFrame, getCurrentX(), spawn.y(), hFlip, vFlip);

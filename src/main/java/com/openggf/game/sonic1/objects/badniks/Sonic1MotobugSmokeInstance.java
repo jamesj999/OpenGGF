@@ -5,10 +5,10 @@ import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import java.util.List;
 
@@ -35,24 +35,24 @@ public class Sonic1MotobugSmokeInstance extends AbstractObjectInstance {
     private final int posX;
     private final int posY;
     private final boolean facingLeft;
-    private final LevelManager levelManager;
     private int animTimer;
     private int animStep;
     private boolean finished;
 
-    public Sonic1MotobugSmokeInstance(int x, int y, boolean facingLeft, LevelManager levelManager) {
+    public Sonic1MotobugSmokeInstance(int x, int y, boolean facingLeft) {
         super(new ObjectSpawn(x, y, 0x40, 0, 0, false, 0), "MotobugSmoke");
         this.posX = x;
         this.posY = y;
         this.facingLeft = facingLeft;
-        this.levelManager = levelManager;
+        
         this.animTimer = 0;
         this.animStep = 0;
         this.finished = false;
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (finished) {
             return;
         }
@@ -95,15 +95,8 @@ public class Sonic1MotobugSmokeInstance extends AbstractObjectInstance {
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.MOTOBUG);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.MOTOBUG);
+        if (renderer == null) return;
 
         int frame = SMOKE_FRAMES[animStep];
         // S1 convention: default sprite art faces left, hFlip = true when facing right

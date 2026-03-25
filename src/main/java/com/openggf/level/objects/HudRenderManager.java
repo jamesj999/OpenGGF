@@ -3,12 +3,16 @@ package com.openggf.level.objects;
 import com.openggf.game.GameServices;
 
 import com.openggf.game.LevelState;
+import com.openggf.game.GameStateManager;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.PatternDesc;
 import com.openggf.camera.Camera;
-import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 public class HudRenderManager {
+
+    private static final java.util.logging.Logger LOGGER =
+            java.util.logging.Logger.getLogger(HudRenderManager.class.getName());
 
     /**
      * Controls how the HUD warns the player when rings=0 or time>=9:00.
@@ -43,6 +47,7 @@ public class HudRenderManager {
 
     private final GraphicsManager graphicsManager;
     private final Camera camera = Camera.getInstance();
+    private final GameStateManager gameState = GameStateManager.getInstance();
     private int digitPatternIndex;
     private int textPatternIndex;
 
@@ -94,13 +99,13 @@ public class HudRenderManager {
 
     public void setDigitPatternIndex(int digitPatternIndex) {
         this.digitPatternIndex = digitPatternIndex;
-        System.out.println("HudRenderManager Digit Index: " + digitPatternIndex);
+        LOGGER.fine("HudRenderManager Digit Index: " + digitPatternIndex);
     }
 
     public void setTextPatternIndex(int textPatternIndex, int count) {
         this.textPatternIndex = textPatternIndex;
         this.textPatternCount = count;
-        System.out.println("HudRenderManager Text Index: " + textPatternIndex + ", Count: " + count);
+        LOGGER.fine("HudRenderManager Text Index: " + textPatternIndex + ", Count: " + count);
     }
 
     private int livesPatternIndex;
@@ -163,7 +168,7 @@ public class HudRenderManager {
         draw(levelGamestate, null);
     }
 
-    public void draw(LevelState levelGamestate, AbstractPlayableSprite player) {
+    public void draw(LevelState levelGamestate, PlayableEntity player) {
         if (levelGamestate == null)
             return;
 
@@ -201,7 +206,7 @@ public class HudRenderManager {
         } else {
             // Normal gameplay: Draw Score
             drawHudString(16, 8, "SCORE", hudPatternDesc);
-            drawScore(GameServices.gameState().getScore());
+            drawScore(gameState.getScore());
 
             // Draw Time
             boolean flashTime = levelGamestate.shouldFlashTimer();
@@ -210,7 +215,7 @@ public class HudRenderManager {
         }
 
         drawCores(levelGamestate.getRings(), levelGamestate.getFlashCycle());
-        drawLives(GameServices.gameState().getLives());
+        drawLives(gameState.getLives());
     }
 
     private void drawTimeLabel(boolean flashTime, boolean flashCycle) {

@@ -1,6 +1,6 @@
 package com.openggf.game;
 
-import com.openggf.Control.InputHandler;
+import com.openggf.control.InputHandler;
 
 /**
  * Interface for game-specific title screens.

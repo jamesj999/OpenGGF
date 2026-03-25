@@ -1,13 +1,13 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
-import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
+import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.audio.Sonic2Music;
+import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.EggPrisonObjectInstance;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.boss.AbstractBossChild;
@@ -65,7 +65,6 @@ public class Sonic2EHZBossInstance extends AbstractBossInstance {
     private static final int DESCEND_WAIT_FRAMES = 60;
     private static final int POST_FALL_WAIT_FRAMES = 12;
     private static final int FLEE_UP_DURATION = 96;
-    private static final int DEFEAT_TIMER_START = 0xB3;
     private static final int FLOOR_Y = 0x48C; // Boss floor during defeat
 
     // Custom memory offsets (objoff_XX pattern from ROM)
@@ -87,8 +86,8 @@ public class Sonic2EHZBossInstance extends AbstractBossInstance {
     private int defeatTimer;
     private int currentFrameCounter;
 
-    public Sonic2EHZBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "EHZ Boss");
+    public Sonic2EHZBossInstance(ObjectSpawn spawn) {
+        super(spawn, "EHZ Boss");
     }
 
     @Override
@@ -132,14 +131,15 @@ public class Sonic2EHZBossInstance extends AbstractBossInstance {
 
         for (AbstractBossChild child : spawned) {
             childComponents.add(child);
-            if (levelManager.getObjectManager() != null) {
-                levelManager.getObjectManager().addDynamicObject(child);
+            if (services().objectManager() != null) {
+                services().objectManager().addDynamicObject(child);
             }
         }
     }
 
     @Override
-    protected void updateBossLogic(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateBossLogic(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         currentFrameCounter = frameCounter;
         // Run state machine
         switch (state.routineSecondary) {
@@ -274,8 +274,8 @@ public class Sonic2EHZBossInstance extends AbstractBossInstance {
                 // ROM: s2.asm:63052 - move.w #$32,objoff_2A(a0)
                 waitTimer = 0x32;
                 // Clear boss fight active flag so right boundary expands
-                GameServices.gameState().setCurrentBossId(0);
-                AudioManager.getInstance().playMusic(Sonic2Music.EMERALD_HILL.id);
+                services().gameState().setCurrentBossId(0);
+                services().playMusic(Sonic2Music.EMERALD_HILL.id);
             }
             case 2 -> {
                 // ROM: s2.asm:63060-63068 (loc_2F424 - SubA_2: Waiting)
@@ -300,7 +300,7 @@ public class Sonic2EHZBossInstance extends AbstractBossInstance {
                 }
                 syncFixedFromPosition();
 
-                Camera camera = Camera.getInstance();
+                Camera camera = services().camera();
                 if (camera.getMaxX() < CAMERA_MAX_X_TARGET) {
                     camera.setMaxXTarget((short) (camera.getMaxX() + 2));
                 } else if (!isOnScreen()) {
@@ -329,13 +329,13 @@ public class Sonic2EHZBossInstance extends AbstractBossInstance {
         }
         EHZBossPropeller propeller = new EHZBossPropeller(this);
         childComponents.add(propeller);
-        if (levelManager.getObjectManager() != null) {
-            levelManager.getObjectManager().addDynamicObject(propeller);
+        if (services().objectManager() != null) {
+            services().objectManager().addDynamicObject(propeller);
         }
     }
 
     private void spawnEggPrison() {
-        if (levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
         ObjectSpawn prisonSpawn = new ObjectSpawn(
@@ -347,7 +347,7 @@ public class Sonic2EHZBossInstance extends AbstractBossInstance {
                 false,
                 0);
         EggPrisonObjectInstance prisonInstance = new EggPrisonObjectInstance(prisonSpawn, "Egg Prison");
-        levelManager.getObjectManager().addDynamicObject(prisonInstance);
+        services().objectManager().addDynamicObject(prisonInstance);
     }
 
     @Override
@@ -454,12 +454,12 @@ public class Sonic2EHZBossInstance extends AbstractBossInstance {
             return;
         }
 
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
 
-        PatternSpriteRenderer renderer = renderManager.getEHZBossRenderer();
+        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.EHZ_BOSS);
         if (renderer == null || !renderer.isReady()) {
             return;
         }
@@ -467,5 +467,15 @@ public class Sonic2EHZBossInstance extends AbstractBossInstance {
         // Render main flying vehicle bottom (frame 15)
         boolean flipped = (state.renderFlags & 1) != 0;
         renderer.drawFrameIndex(15, state.x, state.y, flipped, false);
+    }
+
+    @Override
+    protected int getBossHitSfxId() {
+        return Sonic2Sfx.BOSS_HIT.id;
+    }
+
+    @Override
+    protected int getBossExplosionSfxId() {
+        return Sonic2Sfx.BOSS_EXPLOSION.id;
     }
 }

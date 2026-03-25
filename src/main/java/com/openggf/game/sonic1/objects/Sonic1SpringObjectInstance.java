@@ -1,12 +1,11 @@
 package com.openggf.game.sonic1.objects;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
-import com.openggf.game.sonic2.objects.ObjectAnimationState;
+import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -15,6 +14,7 @@ import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
+import com.openggf.level.objects.SpringBounceHelper;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.Direction;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -44,14 +44,13 @@ public class Sonic1SpringObjectInstance extends AbstractObjectInstance
     private static final int TYPE_DOWN = 2;
 
     // Spring_Powers: dc.w -$1000, -$A00
-    private static final int RED_STRENGTH = -0x1000;    // Red spring power
-    private static final int YELLOW_STRENGTH = -0x0A00;  // Yellow spring power
+    // Strength constants shared via SpringBounceHelper.STRENGTH_RED / STRENGTH_YELLOW
 
     // From disassembly: move.b #4,obPriority(a0)
     private static final int PRIORITY = 4;
 
     // From disassembly: move.w #$F,objoff_3E(a1) — horizontal control lock
-    private static final int HORIZONTAL_CONTROL_LOCK = 15;
+    // Shared via SpringBounceHelper.CONTROL_LOCK_FRAMES
 
     // Animation IDs (registered in Sonic1ObjectArtProvider)
     private static final int ANIM_IDLE = 0;
@@ -79,12 +78,12 @@ public class Sonic1SpringObjectInstance extends AbstractObjectInstance
 
         // Bit 1: yellow flag. andi.w #$F,d0 then index into Spring_Powers
         this.yellow = (subtype & 0x02) != 0;
-        this.strength = yellow ? YELLOW_STRENGTH : RED_STRENGTH;
+        this.strength = SpringBounceHelper.strength(!yellow);
 
         // Initial mapping frame: 0 = idle for both vertical and horizontal sheets
         this.mappingFrame = 0;
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         this.animationState = new ObjectAnimationState(
                 renderManager != null ? renderManager.getSpringAnimations() : null,
                 ANIM_IDLE,
@@ -92,13 +91,15 @@ public class Sonic1SpringObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         animationState.update();
         mappingFrame = animationState.getMappingFrame();
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (player == null) {
             return;
         }
@@ -141,7 +142,7 @@ public class Sonic1SpringObjectInstance extends AbstractObjectInstance
         player.setYSpeed((short) strength);
         player.setAir(true);
         player.setGSpeed((short) 0);
-        player.setSpringing(HORIZONTAL_CONTROL_LOCK);
+        player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
 
         // Up spring sets Sonic's animation to Spring (id_Spring = 0x10)
         player.setAnimationId(Sonic1AnimationIds.SPRING);
@@ -165,7 +166,7 @@ public class Sonic1SpringObjectInstance extends AbstractObjectInstance
         player.setYSpeed((short) -strength);
         player.setAir(true);
         player.setGSpeed((short) 0);
-        player.setSpringing(HORIZONTAL_CONTROL_LOCK);
+        player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
 
         // Down spring does NOT change Sonic's animation
         triggerSpring();
@@ -211,7 +212,7 @@ public class Sonic1SpringObjectInstance extends AbstractObjectInstance
         player.setDirection(xVel > 0 ? Direction.RIGHT : Direction.LEFT);
 
         // ROM: move.w #$F,objoff_3E(a1) — 15 frame control lock
-        player.setSpringing(HORIZONTAL_CONTROL_LOCK);
+        player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
 
         // ROM: btst #2,obStatus(a1) / bne.s loc_DC56 — skip Walk anim if rolling
         if (!player.getRolling()) {
@@ -228,14 +229,15 @@ public class Sonic1SpringObjectInstance extends AbstractObjectInstance
         animationState.setAnimId(ANIM_TRIGGERED);
 
         try {
-            AudioManager.getInstance().playSfx(Sonic1Sfx.SPRING.id);
+            services().playSfx(Sonic1Sfx.SPRING.id);
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic
         }
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Springs are always solid — collision resolution prevents re-triggering
         return true;
     }
@@ -257,7 +259,7 @@ public class Sonic1SpringObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

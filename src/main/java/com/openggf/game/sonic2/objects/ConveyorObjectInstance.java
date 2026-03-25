@@ -1,11 +1,12 @@
 package com.openggf.game.sonic2.objects;
 
+import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -14,6 +15,8 @@ import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
+import com.openggf.level.objects.SubpixelMotion;
+import com.openggf.level.objects.WaypointPathFollower;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -156,11 +159,11 @@ public class ConveyorObjectInstance extends AbstractObjectInstance
     private int xSub;
     private int ySub;
 
+    /** Reusable state for SubpixelMotion calls (avoids per-frame allocation). */
+    private final SubpixelMotion.State motion = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
+
     /** X-flip from status byte. */
     private final boolean xFlip;
-
-    /** Dynamic spawn for solid collision tracking. */
-    private ObjectSpawn dynamicSpawn;
 
     /** Collision params: half-width = width_pixels, d3 = 8. */
     private static final SolidObjectParams SOLID_PARAMS =
@@ -212,7 +215,7 @@ public class ConveyorObjectInstance extends AbstractObjectInstance
         this.ySub = 0;
         calculateVelocity();
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -239,7 +242,9 @@ public class ConveyorObjectInstance extends AbstractObjectInstance
             return null;
         }
 
-        ObjectManager manager = LevelManager.getInstance().getObjectManager();
+        // Use construction context since this factory runs during object creation
+        var ctx = constructionContext();
+        ObjectManager manager = ctx != null ? ctx.objectManager() : null;
         if (manager == null) {
             return null;
         }
@@ -279,12 +284,6 @@ public class ConveyorObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public SolidObjectParams getSolidParams() {
         return SOLID_PARAMS;
@@ -297,17 +296,20 @@ public class ConveyorObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed();
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // No special contact handling needed
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -326,7 +328,7 @@ public class ConveyorObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -335,7 +337,7 @@ public class ConveyorObjectInstance extends AbstractObjectInstance
      */
     private boolean isBasePositionOnScreen() {
         Camera camera =
-                Camera.getInstance();
+                services().camera();
         if (camera == null) {
             return true;
         }
@@ -353,7 +355,7 @@ public class ConveyorObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         PatternSpriteRenderer renderer = null;
 
         if (renderManager != null) {
@@ -362,8 +364,6 @@ public class ConveyorObjectInstance extends AbstractObjectInstance
 
         if (renderer != null && renderer.isReady()) {
             renderer.drawFrameIndex(0, x, y, false, false);
-        } else {
-            appendDebug(commands);
         }
     }
 
@@ -394,66 +394,19 @@ public class ConveyorObjectInstance extends AbstractObjectInstance
     }
 
     /**
-     * Calculate velocity to move from current position to target.
-     * Picks the dominant axis (whichever distance is larger), sets that axis to
-     * +/-0x100 (1 pixel/frame), and calculates proportional velocity for the other axis.
+     * Calculate velocity to move from current position to target using
+     * the shared LCon_ChangeDir dominant-axis algorithm.
      * <p>
-     * From disassembly loc_281DA (lines 54345-54398):
-     * <pre>
-     * d0 = |x_pos - targetX|,  d2 = sign(x_pos - targetX) * -$100
-     * d1 = |y_pos - targetY|,  d3 = sign(y_pos - targetY) * -$100
-     * if d1 >= d0:  (Y dominant)
-     *   x_vel = -(x_pos - targetX) * 256 / d1
-     *   y_vel = d3
-     * else:  (X dominant)
-     *   y_vel = -(y_pos - targetY) * 256 / d0
-     *   x_vel = d2
-     * </pre>
+     * From disassembly loc_281DA (lines 54345-54398).
+     *
+     * @see WaypointPathFollower#calculateWaypointVelocity
      */
     private void calculateVelocity() {
-        int dx = x - targetX;
-        int dy = y - targetY;
-
-        int absDx = Math.abs(dx);
-        int absDy = Math.abs(dy);
-
-        // Sign for velocity on dominant axis: move toward target
-        int signX = (dx >= 0) ? -MOVE_SPEED : MOVE_SPEED;
-        int signY = (dy >= 0) ? -MOVE_SPEED : MOVE_SPEED;
-
-        if (absDy >= absDx) {
-            // Y-axis dominant (or equal)
-            yVel = signY;
-            ySub = 0;
-            if (absDy == 0 || dx == 0) {
-                xVel = 0;
-                xSub = 0;
-            } else {
-                // x_vel = -(dx * 256 / |dy|), x_sub = remainder from divs
-                // From disassembly: ext.l d0; asl.l #8,d0; divs.w d1,d0; neg.w d0
-                long scaled = ((long) dx) << 8;
-                int divided = (int) (scaled / absDy);
-                xVel = (short) -divided;
-                // swap d0 → remainder (from divs, same sign as dividend)
-                int remainder = (int) (scaled % absDy);
-                xSub = remainder & 0xFFFF;
-            }
-        } else {
-            // X-axis dominant
-            xVel = signX;
-            xSub = 0;
-            if (absDx == 0 || dy == 0) {
-                yVel = 0;
-                ySub = 0;
-            } else {
-                // y_vel = -(dy * 256 / |dx|), y_sub = remainder from divs
-                long scaled = ((long) dy) << 8;
-                int divided = (int) (scaled / absDx);
-                yVel = (short) -divided;
-                int remainder = (int) (scaled % absDx);
-                ySub = remainder & 0xFFFF;
-            }
-        }
+        var vel = WaypointPathFollower.calculateWaypointVelocity(x, y, targetX, targetY, MOVE_SPEED);
+        xVel = vel.xVel();
+        yVel = vel.yVel();
+        xSub = vel.xSub();
+        ySub = vel.ySub();
     }
 
     /**
@@ -470,67 +423,29 @@ public class ConveyorObjectInstance extends AbstractObjectInstance
      * </pre>
      */
     private void applyVelocity() {
-        // Compose 32-bit position, add shifted velocity, decompose
-        // x_vel is a signed 16-bit value; shift left 8 to align with 16.16 format
-        int xPos32 = (x << 16) | (xSub & 0xFFFF);
-        xPos32 += ((short) xVel) << 8;
-        x = xPos32 >> 16;
-        xSub = xPos32 & 0xFFFF;
-
-        int yPos32 = (y << 16) | (ySub & 0xFFFF);
-        yPos32 += ((short) yVel) << 8;
-        y = yPos32 >> 16;
-        ySub = yPos32 & 0xFFFF;
+        // Delegates to SubpixelMotion.speedToPos for ROM-accurate 16.16 integration
+        motion.x = x; motion.y = y;
+        motion.xSub = xSub; motion.ySub = ySub;
+        motion.xVel = xVel; motion.yVel = yVel;
+        SubpixelMotion.speedToPos(motion);
+        x = motion.x; y = motion.y;
+        xSub = motion.xSub; ySub = motion.ySub;
     }
 
     /**
      * Wrap waypoint offset around the path length.
      * When advancing past the end, wraps to 0. When going before 0, wraps to end.
      * <p>
-     * From disassembly (lines 54319-54327):
-     * <pre>
-     * add.b objoff_3A(a0),d1   ; d1 = current offset + delta
-     * cmp.b objoff_39(a0),d1   ; compare with path length
-     * blo.s loc_281B0          ; if d1 < length, use it
-     * tst.b d0                 ; check if d1 overflowed (went negative)
-     * bpl.s loc_281B0          ; if positive (just exceeded), use 0
-     * move.b objoff_39(a0),d1  ; if negative (went below 0), use length - 4
-     * subq.b #4,d1
-     * </pre>
+     * From disassembly (lines 54319-54327).
+     *
+     * @see WaypointPathFollower#wrapWaypointIndex
      */
     private int wrapWaypointOffset(int offset) {
-        // The ROM uses unsigned byte comparison (cmp.b, blo)
-        int offsetByte = offset & 0xFF;
-        int lengthByte = pathLength & 0xFF;
-
-        if (offsetByte < lengthByte) {
-            // Within bounds
-            return offsetByte;
-        }
-
-        // Out of bounds - check direction
-        if (offset >= 0 && offset < 256) {
-            // Exceeded path length going forward: wrap to 0
-            return 0;
-        } else {
-            // Went negative going backward: wrap to last waypoint
-            return (lengthByte - WAYPOINT_STEP) & 0xFF;
-        }
+        return WaypointPathFollower.wrapWaypointIndex(offset, pathLength, WAYPOINT_STEP);
     }
 
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = new ObjectSpawn(
-                    x, y,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
-    }
-
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         int halfWidth = WIDTH_PIXELS;
         int left = x - halfWidth;
         int right = x + halfWidth;
@@ -538,21 +453,14 @@ public class ConveyorObjectInstance extends AbstractObjectInstance
         int bottom = y + Y_RADIUS + 1;
 
         // Green box for platform collision bounds
-        appendLine(commands, left, top, right, top);
-        appendLine(commands, right, top, right, bottom);
-        appendLine(commands, right, bottom, left, bottom);
-        appendLine(commands, left, bottom, left, top);
+        ctx.drawLine(left, top, right, top, 0.4f, 0.9f, 0.4f);
+        ctx.drawLine(right, top, right, bottom, 0.4f, 0.9f, 0.4f);
+        ctx.drawLine(right, bottom, left, bottom, 0.4f, 0.9f, 0.4f);
+        ctx.drawLine(left, bottom, left, top, 0.4f, 0.9f, 0.4f);
 
         // Center cross
-        appendLine(commands, x - 4, y, x + 4, y);
-        appendLine(commands, x, y - 4, x, y + 4);
-    }
-
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.4f, 0.9f, 0.4f, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.4f, 0.9f, 0.4f, x2, y2, 0, 0));
+        ctx.drawLine(x - 4, y, x + 4, y, 0.4f, 0.9f, 0.4f);
+        ctx.drawLine(x, y - 4, x, y + 4, 0.4f, 0.9f, 0.4f);
     }
 
     /**

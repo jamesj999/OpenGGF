@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -8,6 +9,7 @@ import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
+import java.util.logging.Logger;
 
 /**
  * Emerald glow child for the AIZ1 intro plane.
@@ -18,6 +20,8 @@ import java.util.List;
  * with a fixed (x, y) offset and self-destructs when the parent is destroyed.
  */
 public class AizIntroEmeraldGlowChild extends AbstractObjectInstance {
+
+    private static final Logger LOG = Logger.getLogger(AizIntroEmeraldGlowChild.class.getName());
 
     private final AizIntroPlaneChild parent;
     private final int xOffset;
@@ -58,7 +62,8 @@ public class AizIntroEmeraldGlowChild extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         animTimer++;
         if (animTimer >= ANIM_FRAME_DURATION) {
             animTimer = 0;
@@ -77,10 +82,12 @@ public class AizIntroEmeraldGlowChild extends AbstractObjectInstance {
         int renderX = getX();
         int renderY = getY();
         try {
-            Camera camera = Camera.getInstance();
+            Camera camera = services().camera();
             renderX += camera.getX() - 128;
             renderY += camera.getY() - 128;
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            LOG.fine(() -> "AizIntroEmeraldGlowChild.appendRenderCommands: " + e.getMessage());
+        }
         renderer.drawFrameIndex(GLOW_FRAMES[animIndex], renderX, renderY, false, false);
     }
 }

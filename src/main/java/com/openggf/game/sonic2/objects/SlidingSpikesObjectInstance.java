@@ -1,15 +1,13 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.debug.DebugOverlayManager;
 import com.openggf.debug.DebugOverlayToggle;
-import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.PatternDesc;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
@@ -23,7 +21,6 @@ import com.openggf.level.render.PatternSpriteRenderer;
 
 import com.openggf.level.render.SpriteMappingPiece;
 import com.openggf.level.render.SpritePieceRenderer;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -45,9 +42,8 @@ import java.util.List;
 public class SlidingSpikesObjectInstance extends AbstractObjectInstance
         implements SolidObjectProvider, SolidObjectListener {
 
-    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
-            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
+    private static final boolean DEBUG_VIEW_ENABLED = staticDebugViewEnabled();
+    private static final DebugOverlayManager OVERLAY_MANAGER = staticDebugOverlay();
 
     // Constants from disassembly (Obj76_InitData at s2.asm:55221-55225)
     // The ROM defines a table lookup for subtypes (s2.asm:55236-55242),
@@ -73,8 +69,6 @@ public class SlidingSpikesObjectInstance extends AbstractObjectInstance
     private int currentX;
     private int slidingRemainingMovement = 0;
     private int currentSubtype;  // 0 = waiting, 2 = sliding
-    private ObjectSpawn dynamicSpawn;
-
     // Orientation from spawn render_flags
     private final boolean hFlip;
 
@@ -105,7 +99,6 @@ public class SlidingSpikesObjectInstance extends AbstractObjectInstance
         super(spawn, name);
         this.baseX = spawn.x();
         this.currentX = baseX;
-        this.dynamicSpawn = spawn;
         // Extract h_flip from render_flags bit 0 (status.npc.x_flip in disassembly)
         this.hFlip = (spawn.renderFlags() & 0x01) != 0;
         // subtype starts at 0 (waiting mode)
@@ -123,7 +116,8 @@ public class SlidingSpikesObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -144,7 +138,7 @@ public class SlidingSpikesObjectInstance extends AbstractObjectInstance
             slideOut();
         }
 
-        updateDynamicSpawn();
+        updateDynamicSpawn(currentX, spawn.y());
     }
 
     @Override
@@ -171,7 +165,8 @@ public class SlidingSpikesObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (player == null || player.getInvulnerable()) {
             return;
         }
@@ -188,16 +183,10 @@ public class SlidingSpikesObjectInstance extends AbstractObjectInstance
         }
         boolean hadRings = player.getRingCount() > 0;
         if (hadRings && !player.hasShield()) {
-            LevelManager.getInstance().spawnLostRings(player, frameCounter);
+            services().spawnLostRings(player, frameCounter);
         }
         player.applyHurtOrDeath(currentX, true, hadRings);
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn;
-    }
-
     @Override
     public int getPriorityBucket() {
         return RenderPriority.clamp(4);
@@ -218,8 +207,8 @@ public class SlidingSpikesObjectInstance extends AbstractObjectInstance
         checkSinglePlayer(player);
 
         // Check sidekick(s) if present - matches disassembly behavior
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
-            checkSinglePlayer(sidekick);
+        for (PlayableEntity sidekick : services().sidekicks()) {
+            checkSinglePlayer((AbstractPlayableSprite) sidekick);
         }
     }
 
@@ -298,22 +287,7 @@ public class SlidingSpikesObjectInstance extends AbstractObjectInstance
 
     /**
      * Update dynamic spawn to reflect current position for collision detection.
-     */
-    private void updateDynamicSpawn() {
-        if (dynamicSpawn.x() == currentX) {
-            return;
-        }
-        dynamicSpawn = new ObjectSpawn(
-                currentX,
-                spawn.y(),
-                spawn.objectId(),
-                spawn.subtype(),
-                spawn.renderFlags(),
-                spawn.respawnTracked(),
-                spawn.rawYWord());
-    }
-
-    /**
+     */    /**
      * Render using mixed art sources.
      * <p>
      * Body pieces (tiles 0x40/0x48) use level art patterns (ArtTile_ArtKos_LevelArt).
@@ -321,7 +295,7 @@ public class SlidingSpikesObjectInstance extends AbstractObjectInstance
      * which is loaded via MCZ PLC2 and cached in the object pattern atlas (0x20000+).
      */
     private void renderUsingLevelArt() {
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = services().graphicsManager();
 
         // Body first (drawn behind end caps, matching original reverse-order rendering)
         for (int i = BODY_PIECES.size() - 1; i >= 0; i--) {
@@ -344,7 +318,7 @@ public class SlidingSpikesObjectInstance extends AbstractObjectInstance
         }
 
         // End caps from SPIKE_SIDE sheet (HorizSpike art loaded via MCZ PLC2)
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager != null) {
             PatternSpriteRenderer spikeRenderer = renderManager.getSpikeRenderer(true);
             if (spikeRenderer != null && spikeRenderer.isReady()) {
@@ -414,8 +388,7 @@ public class SlidingSpikesObjectInstance extends AbstractObjectInstance
     private boolean isOnScreenAt(int x, int y, int margin) {
         // Use the camera bounds from parent class
         // This mirrors isOnScreen(margin) but with explicit coordinates
-        Camera camera =
-                Camera.getInstance();
+        var camera = services().camera();
         if (camera == null) {
             return true;  // Assume on-screen if no camera
         }

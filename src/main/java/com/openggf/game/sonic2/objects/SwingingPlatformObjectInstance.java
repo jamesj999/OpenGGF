@@ -1,20 +1,14 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.data.Rom;
-import com.openggf.data.RomByteReader;
-import com.openggf.debug.DebugOverlayManager;
-import com.openggf.debug.DebugOverlayToggle;
+import com.openggf.game.PlayableEntity;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.OscillationManager;
 import com.openggf.game.sonic2.S2SpriteDataLoader;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
-import com.openggf.game.GameServices;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.PatternDesc;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
@@ -27,8 +21,8 @@ import com.openggf.level.render.SpriteMappingPiece;
 import com.openggf.level.render.SpritePieceRenderer;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.util.LazyMappingHolder;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -100,16 +94,10 @@ public class SwingingPlatformObjectInstance extends AbstractObjectInstance
     private static final int TRAP_ROTATION_MAX = 0x200; // Maximum rotation accumulator
 
     // Static mapping data (loaded per-zone)
-    private static List<SpriteMappingFrame> oozMappings;
-    private static List<SpriteMappingFrame> mczMappings;
-    private static List<SpriteMappingFrame> arzMappings;
-    private static List<SpriteMappingFrame> trapMappings;
-    private static boolean mappingsLoadAttempted;
-
-    // Debug state
-    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
-            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
+    private static final LazyMappingHolder OOZ_MAPPINGS = new LazyMappingHolder();
+    private static final LazyMappingHolder MCZ_MAPPINGS = new LazyMappingHolder();
+    private static final LazyMappingHolder ARZ_MAPPINGS = new LazyMappingHolder();
+    private static final LazyMappingHolder TRAP_MAPPINGS = new LazyMappingHolder();
 
     // Position state
     private final int baseX;
@@ -135,8 +123,6 @@ public class SwingingPlatformObjectInstance extends AbstractObjectInstance
 
     // Player tracking
     private boolean playerStanding;
-    private ObjectSpawn dynamicSpawn;
-
     public SwingingPlatformObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
         this.baseX = spawn.x();
@@ -174,7 +160,7 @@ public class SwingingPlatformObjectInstance extends AbstractObjectInstance
 
         // Calculate initial positions
         updatePositions(0);
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
 
         LOGGER.fine(() -> String.format(
                 "SwingingPlatform init: pos=(%d,%d), subtype=0x%02X, chains=%d, mode=%s, zone=%s",
@@ -182,9 +168,8 @@ public class SwingingPlatformObjectInstance extends AbstractObjectInstance
     }
 
     private ZoneConfig determineZoneConfig() {
-        LevelManager manager = LevelManager.getInstance();
-        if (manager != null && manager.getCurrentLevel() != null) {
-            int zoneId = manager.getCurrentLevel().getZoneIndex();
+        if (services().currentLevel() != null) {
+            int zoneId = services().currentLevel().getZoneIndex();
             if (zoneId == Sonic2ZoneConstants.ROM_ZONE_MCZ) {
                 return ZoneConfig.MCZ;
             } else if (zoneId == Sonic2ZoneConstants.ROM_ZONE_ARZ) {
@@ -204,14 +189,9 @@ public class SwingingPlatformObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
     @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
-    @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -225,7 +205,7 @@ public class SwingingPlatformObjectInstance extends AbstractObjectInstance
             case STATIC -> { /* No update needed */ }
         }
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -390,20 +370,13 @@ public class SwingingPlatformObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ensureMappingsLoaded();
-
-        // Draw debug collision box when F1 debug view is enabled
-        if (isDebugViewEnabled()) {
-            appendDebug(commands);
-        }
-
         // Get appropriate mappings for this zone
         List<SpriteMappingFrame> mappings = getMappingsForZone();
         if (mappings == null || mappings.isEmpty()) {
             return;
         }
 
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = services().graphicsManager();
         boolean hFlip = (spawn.renderFlags() & 0x1) != 0;
         boolean vFlip = (spawn.renderFlags() & 0x2) != 0;
 
@@ -437,12 +410,16 @@ public class SwingingPlatformObjectInstance extends AbstractObjectInstance
 
     private List<SpriteMappingFrame> getMappingsForZone() {
         if (behaviorMode == BehaviorMode.TRAP) {
-            return trapMappings;
+            return TRAP_MAPPINGS.get(
+                    Sonic2Constants.MAP_UNC_OBJ15_TRAP_ADDR, S2SpriteDataLoader::loadMappingFrames, "Obj15Trap");
         }
         return switch (zoneConfig) {
-            case OOZ -> oozMappings;
-            case ARZ -> arzMappings;
-            case MCZ -> mczMappings;
+            case OOZ -> OOZ_MAPPINGS.get(
+                    Sonic2Constants.MAP_UNC_OBJ15_A_ADDR, S2SpriteDataLoader::loadMappingFrames, "Obj15OOZ");
+            case ARZ -> ARZ_MAPPINGS.get(
+                    Sonic2Constants.MAP_UNC_OBJ83_ADDR, S2SpriteDataLoader::loadMappingFrames, "Obj15ARZ");
+            case MCZ -> MCZ_MAPPINGS.get(
+                    Sonic2Constants.MAP_UNC_OBJ15_MCZ_ADDR, S2SpriteDataLoader::loadMappingFrames, "Obj15MCZ");
         };
     }
 
@@ -488,75 +465,29 @@ public class SwingingPlatformObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (contact.standing()) {
             playerStanding = true;
         }
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed();
     }
 
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = new ObjectSpawn(
-                    x,
-                    y,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
-    }
-
-    private static void ensureMappingsLoaded() {
-        if (mappingsLoadAttempted) {
-            return;
-        }
-        mappingsLoadAttempted = true;
-
-        LevelManager manager = LevelManager.getInstance();
-        if (manager == null || manager.getGame() == null) {
-            return;
-        }
-
-        try {
-            Rom rom = manager.getGame().getRom();
-            RomByteReader reader = RomByteReader.fromRom(rom);
-
-            // Load OOZ mappings
-            oozMappings = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ15_A_ADDR);
-            LOGGER.fine("Loaded " + oozMappings.size() + " Obj15 OOZ mapping frames");
-
-            // Load MCZ mappings (Obj15_Obj7A_MapUnc_10256)
-            mczMappings = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ15_MCZ_ADDR);
-            LOGGER.fine("Loaded " + mczMappings.size() + " Obj15 MCZ mapping frames");
-
-            // Load ARZ mappings (Obj15_Obj83_MapUnc_1021E) - shared with ARZRotPforms
-            arzMappings = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ83_ADDR);
-            LOGGER.fine("Loaded " + arzMappings.size() + " Obj15 ARZ mapping frames");
-
-            // Load trap mode mappings
-            trapMappings = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ15_TRAP_ADDR);
-            LOGGER.fine("Loaded " + trapMappings.size() + " Obj15 trap mapping frames");
-
-        } catch (IOException | RuntimeException e) {
-            LOGGER.warning("Failed to load Obj15 mappings: " + e.getMessage());
-        }
-    }
-
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         // Draw pivot point (yellow cross)
-        appendLine(commands, baseX - 4, baseY, baseX + 4, baseY, 1.0f, 1.0f, 0.0f);
-        appendLine(commands, baseX, baseY - 4, baseX, baseY + 4, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(baseX - 4, baseY, baseX + 4, baseY, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(baseX, baseY - 4, baseX, baseY + 4, 1.0f, 1.0f, 0.0f);
 
         // Draw chain link positions (cyan crosses)
         for (int i = 0; i < chainCount; i++) {
-            appendLine(commands, chainX[i] - 2, chainY[i], chainX[i] + 2, chainY[i], 0.0f, 1.0f, 1.0f);
-            appendLine(commands, chainX[i], chainY[i] - 2, chainX[i], chainY[i] + 2, 0.0f, 1.0f, 1.0f);
+            ctx.drawLine(chainX[i] - 2, chainY[i], chainX[i] + 2, chainY[i], 0.0f, 1.0f, 1.0f);
+            ctx.drawLine(chainX[i], chainY[i] - 2, chainX[i], chainY[i] + 2, 0.0f, 1.0f, 1.0f);
         }
 
         // Draw platform collision box (green)
@@ -567,24 +498,14 @@ public class SwingingPlatformObjectInstance extends AbstractObjectInstance
         int top = y - halfHeight;
         int bottom = y + halfHeight;
 
-        appendLine(commands, left, top, right, top, 0.0f, 1.0f, 0.0f);      // Top (standing surface)
-        appendLine(commands, right, top, right, bottom, 0.3f, 0.7f, 0.3f);
-        appendLine(commands, right, bottom, left, bottom, 0.3f, 0.7f, 0.3f);
-        appendLine(commands, left, bottom, left, top, 0.3f, 0.7f, 0.3f);
+        ctx.drawLine(left, top, right, top, 0.0f, 1.0f, 0.0f);      // Top (standing surface)
+        ctx.drawLine(right, top, right, bottom, 0.3f, 0.7f, 0.3f);
+        ctx.drawLine(right, bottom, left, bottom, 0.3f, 0.7f, 0.3f);
+        ctx.drawLine(left, bottom, left, top, 0.3f, 0.7f, 0.3f);
 
         // Draw platform center (red cross)
-        appendLine(commands, x - 4, y, x + 4, y, 1.0f, 0.0f, 0.0f);
-        appendLine(commands, x, y - 4, x, y + 4, 1.0f, 0.0f, 0.0f);
+        ctx.drawLine(x - 4, y, x + 4, y, 1.0f, 0.0f, 0.0f);
+        ctx.drawLine(x, y - 4, x, y + 4, 1.0f, 0.0f, 0.0f);
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2, float r, float g, float b) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x2, y2, 0, 0));
-    }
-
-    private boolean isDebugViewEnabled() {
-        return DEBUG_VIEW_ENABLED && OVERLAY_MANAGER.isEnabled(DebugOverlayToggle.OVERLAY);
-    }
 }

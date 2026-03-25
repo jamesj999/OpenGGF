@@ -1,13 +1,12 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -170,7 +169,8 @@ public class Sonic1LavaGeyserMakerObjectInstance extends AbstractObjectInstance 
     // ========================================================================
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (routine) {
             case 2 -> updateWait(player);
             case 4 -> updateChkType();
@@ -249,8 +249,7 @@ public class Sonic1LavaGeyserMakerObjectInstance extends AbstractObjectInstance 
         routine = 8;
 
         // Spawn LavaGeyser (0x4D)
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager != null && levelManager.getObjectManager() != null) {
+        if (services().objectManager() != null) {
             ObjectSpawn geyserSpawn = new ObjectSpawn(
                     spawn.x(), spawn.y(),
                     0x4D, subtype, 0, false, 0);
@@ -258,7 +257,7 @@ public class Sonic1LavaGeyserMakerObjectInstance extends AbstractObjectInstance 
                     geyserSpawn, Sonic1LavaGeyserObjectInstance.Role.HEAD,
                     null, this, false);
             geyser.initialize();
-            levelManager.getObjectManager().addDynamicObject(geyser);
+            services().objectManager().addDynamicObject(geyser);
         }
 
         // Set maker animation
@@ -347,7 +346,7 @@ public class Sonic1LavaGeyserMakerObjectInstance extends AbstractObjectInstance 
      * round both X positions to $80 and compare against 128+320+192.
      */
     private boolean isWithinOutOfRangeWindow(int objectX) {
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         if (camera == null) {
             return true;
         }
@@ -403,15 +402,8 @@ public class Sonic1LavaGeyserMakerObjectInstance extends AbstractObjectInstance 
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.MZ_LAVA_GEYSER);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.MZ_LAVA_GEYSER);
+        if (renderer == null) return;
 
         renderer.drawFrameIndex(displayFrame, spawn.x(), spawn.y(), false, false);
     }

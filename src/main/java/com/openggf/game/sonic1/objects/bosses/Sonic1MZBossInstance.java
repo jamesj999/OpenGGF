@@ -1,17 +1,14 @@
 package com.openggf.game.sonic1.objects.bosses;
 
-import com.openggf.audio.AudioManager;
-import com.openggf.camera.Camera;
-import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.objects.Sonic1LavaBallObjectInstance;
 import com.openggf.game.sonic1.audio.Sonic1Music;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
-import com.openggf.level.objects.boss.AbstractBossInstance;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -34,7 +31,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * MZ boss uses loc_1833E (direct fixed-point → display copy).
  * Sine is only applied as VELOCITY during descent via CalcSine >> 2.
  */
-public class Sonic1MZBossInstance extends AbstractBossInstance {
+public class Sonic1MZBossInstance extends AbstractS1EggmanBossInstance {
 
     // State machine constants (routineSecondary values)
     private static final int STATE_DESCENT = 0;
@@ -80,12 +77,8 @@ public class Sonic1MZBossInstance extends AbstractBossInstance {
     // 0,4 = movement (loc_183CA); 2,6 = return-to-center (BossMarble_MakeLava2)
     private int combatSubtype;
 
-    // Face/flame animation state
-    private int faceAnim;
-    private int flameAnim;
-
-    public Sonic1MZBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "MZ Boss");
+    public Sonic1MZBossInstance(ObjectSpawn spawn) {
+        super(spawn, "MZ Boss");
     }
 
     @Override
@@ -137,7 +130,8 @@ public class Sonic1MZBossInstance extends AbstractBossInstance {
     }
 
     @Override
-    protected void updateBossLogic(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateBossLogic(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state.routineSecondary) {
             case STATE_DESCENT -> updateDescent();
             case STATE_COMBAT -> updateCombat();
@@ -321,7 +315,7 @@ public class Sonic1MZBossInstance extends AbstractBossInstance {
      * ROM: BossMarble_MakeLava — spawns id_LavaBall with obSubtype word $00FF.
      */
     private void spawnLavaBall() {
-        if (levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
         // ROM: Random X in range [boss_mz_x+$78, boss_mz_x+$78+$4F]
@@ -331,7 +325,7 @@ public class Sonic1MZBossInstance extends AbstractBossInstance {
         ObjectSpawn fireSpawn = new ObjectSpawn(
                 lavaX, LAVA_LEVEL_Y,
                 Sonic1ObjectIds.LAVA_BALL, 0xFF, 0, false, 0);
-        levelManager.getObjectManager().addDynamicObject(new Sonic1LavaBallObjectInstance(fireSpawn));
+        services().objectManager().addDynamicObject(new Sonic1LavaBallObjectInstance(fireSpawn));
     }
 
     /**
@@ -339,7 +333,7 @@ public class Sonic1MZBossInstance extends AbstractBossInstance {
      * ROM: BossMarble_MakeLava2 — spawns id_BossFire with subtype 1 at boss pos + $18 Y.
      */
     private void spawnBossFireAtPosition() {
-        if (levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
         int fireX = state.xFixed >> 16;
@@ -349,7 +343,7 @@ public class Sonic1MZBossInstance extends AbstractBossInstance {
                 fireX, fireY,
                 Sonic1ObjectIds.BOSS_FIRE, 1, 0, false, 0);
         Sonic1BossFireInstance fire = new Sonic1BossFireInstance(fireSpawn);
-        levelManager.getObjectManager().addDynamicObject(fire);
+        services().objectManager().addDynamicObject(fire);
     }
 
     // === State 4: DEFEAT_WAIT ===
@@ -364,7 +358,7 @@ public class Sonic1MZBossInstance extends AbstractBossInstance {
             state.routineSecondary = STATE_ASCENT;
             timer = -0x26; // Start ascent counter at -$26
             // ROM: v_bossstatus = 1
-            GameServices.gameState().setCurrentBossId(0);
+            services().gameState().setCurrentBossId(0);
             state.yVel = 0;
         } else {
             // BossDefeated: Spawn explosions every 8 frames
@@ -400,7 +394,7 @@ public class Sonic1MZBossInstance extends AbstractBossInstance {
         } else if (timer == 0x30) {
             // loc_1856C: Timer = $30 — stop, play zone music
             state.yVel = 0;
-            AudioManager.getInstance().playMusic(Sonic1Music.MZ.id);
+            services().playMusic(Sonic1Music.MZ.id);
         } else if (timer >= 0x38) {
             // Timer >= $38 — advance to escape
             state.routineSecondary = STATE_ESCAPE;
@@ -417,33 +411,11 @@ public class Sonic1MZBossInstance extends AbstractBossInstance {
         state.xVel = 0x500;
         state.yVel = -0x40;
 
-        Camera camera = Camera.getInstance();
-        if (camera.getFrozen()) {
-            camera.setFrozen(false);
-        }
-
-        int rightBoundary = camera.getMaxX() & 0xFFFF;
-        if (rightBoundary >= BOSS_MZ_END) {
-            // ROM: tst.b obRender(a0) / bpl.s BossMarble_ShipDel
-            if (!isBossOnScreen()) {
-                setDestroyed(true);
-                return;
-            }
-        } else {
-            // ROM: addq.w #2,(v_limitright2).w
-            camera.setMaxX((short) (rightBoundary + 2));
+        if (runCameraExpandEscape(BOSS_MZ_END)) {
+            return; // Destroyed (off-screen)
         }
 
         bossMove();
-    }
-
-    /**
-     * BossMove: applies velocity to fixed-point position.
-     * ROM: objoff_30 += obVelX << 8; objoff_38 += obVelY << 8
-     */
-    private void bossMove() {
-        state.xFixed += (state.xVel << 8);
-        state.yFixed += (state.yVel << 8);
     }
 
     private void updateFaceAnimation(AbstractPlayableSprite player) {
@@ -482,12 +454,6 @@ public class Sonic1MZBossInstance extends AbstractBossInstance {
         }
     }
 
-    private boolean isBossOnScreen() {
-        Camera camera = Camera.getInstance();
-        int screenX = state.x - camera.getX();
-        return screenX >= -64 && screenX <= 384;
-    }
-
     /**
      * ROM: andi.b #$1F,d0 / addi.b #$40,d0 → random delay 64-95 frames.
      */
@@ -502,59 +468,18 @@ public class Sonic1MZBossInstance extends AbstractBossInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        renderEggmanShip();
+
+        // Exhaust tube (Boss Items frame 4) — MZ-specific overlay
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
-        PatternSpriteRenderer eggmanRenderer = renderManager.getRenderer(ObjectArtKeys.EGGMAN);
-        if (eggmanRenderer == null || !eggmanRenderer.isReady()) {
-            return;
-        }
         boolean flipped = (state.renderFlags & 1) != 0;
-
-        // Ship body (frame 0)
-        eggmanRenderer.drawFrameIndex(0, state.x, state.y, flipped, false);
-
-        // Face overlay
-        int faceFrame = getFaceFrame();
-        if (faceFrame >= 0) {
-            eggmanRenderer.drawFrameIndex(faceFrame, state.x, state.y, flipped, false);
-        }
-
-        // Flame overlay
-        int flameFrame = getFlameFrame();
-        if (flameFrame >= 0) {
-            eggmanRenderer.drawFrameIndex(flameFrame, state.x, state.y, flipped, false);
-        }
-
-        // Exhaust tube (Boss Items frame 4)
         PatternSpriteRenderer weaponsRenderer = renderManager.getRenderer(ObjectArtKeys.BOSS_WEAPONS);
         if (weaponsRenderer != null && weaponsRenderer.isReady()) {
             weaponsRenderer.drawFrameIndex(4, state.x, state.y, flipped, false);
         }
-    }
-
-    private int getFaceFrame() {
-        return switch (faceAnim) {
-            case Sonic1BossAnimations.ANIM_FACE_NORMAL_1,
-                 Sonic1BossAnimations.ANIM_FACE_NORMAL_2,
-                 Sonic1BossAnimations.ANIM_FACE_NORMAL_3 -> 1;
-            case Sonic1BossAnimations.ANIM_FACE_LAUGH -> 3;
-            case Sonic1BossAnimations.ANIM_FACE_HIT -> 5;
-            case Sonic1BossAnimations.ANIM_FACE_PANIC -> 6;
-            case Sonic1BossAnimations.ANIM_FACE_DEFEAT -> 7;
-            default -> -1;
-        };
-    }
-
-    private int getFlameFrame() {
-        return switch (flameAnim) {
-            case Sonic1BossAnimations.ANIM_FLAME_1,
-                 Sonic1BossAnimations.ANIM_FLAME_2 -> 8;
-            case Sonic1BossAnimations.ANIM_ESCAPE_FLAME -> 11;
-            case Sonic1BossAnimations.ANIM_BLANK -> -1;
-            default -> -1;
-        };
     }
 
     @Override

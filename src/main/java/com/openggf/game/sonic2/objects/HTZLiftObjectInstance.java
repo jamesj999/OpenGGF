@@ -1,15 +1,13 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
@@ -96,9 +94,6 @@ public class HTZLiftObjectInstance extends AbstractObjectInstance
     // Track if scenery spawned
     private boolean scenerySpawned;
 
-    // Dynamic spawn for moving position
-    private ObjectSpawn dynamicSpawn;
-
     public HTZLiftObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
         this.baseX = spawn.x();
@@ -118,7 +113,7 @@ public class HTZLiftObjectInstance extends AbstractObjectInstance
         this.yVel = 0;
         this.scenerySpawned = false;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(xFixed >> 8, yFixed >> 8);
 
         LOGGER.fine(() -> String.format(
                 "HTZLift init: pos=(%d,%d), subtype=0x%02X, duration=%d frames, flipped=%b",
@@ -134,14 +129,9 @@ public class HTZLiftObjectInstance extends AbstractObjectInstance
     public int getY() {
         return yFixed >> 8;
     }
-
     @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
-    @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -152,7 +142,7 @@ public class HTZLiftObjectInstance extends AbstractObjectInstance
             case STATE_FALL -> updateFall(player);
         }
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(xFixed >> 8, yFixed >> 8);
     }
 
     /**
@@ -172,7 +162,7 @@ public class HTZLiftObjectInstance extends AbstractObjectInstance
         // Play click sound every 16 frames
         // ROM: andi.w #$F,d0 / bne.s + / move.w #SndID_HTZLiftClick,d0
         if ((frameCounter & 0x0F) == 0) {
-            AudioManager.getInstance().playSfx(Sonic2Sfx.HTZ_LIFT_CLICK.id);
+            services().playSfx(Sonic2Sfx.HTZ_LIFT_CLICK.id);
         }
 
         // Apply velocity (ObjectMove equivalent)
@@ -206,7 +196,7 @@ public class HTZLiftObjectInstance extends AbstractObjectInstance
         yFixed += yVel;
 
         // Check if fallen off bottom of screen
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         int screenBottom = camera.getMaxY() + 224;
         int currentY = yFixed >> 8;
 
@@ -227,7 +217,7 @@ public class HTZLiftObjectInstance extends AbstractObjectInstance
         }
         scenerySpawned = true;
 
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -253,7 +243,8 @@ public class HTZLiftObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (player == null || !contact.standing()) {
             return;
         }
@@ -291,22 +282,16 @@ public class HTZLiftObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Only solid in wait and slide states
         return !isDestroyed() && routineSecondary != STATE_FALL;
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.HTZ_LIFT);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.HTZ_LIFT);
+        if (renderer == null) return;
 
         int drawX = xFixed >> 8;
         int drawY = yFixed >> 8;
@@ -318,21 +303,5 @@ public class HTZLiftObjectInstance extends AbstractObjectInstance
     @Override
     public int getPriorityBucket() {
         return RenderPriority.clamp(PRIORITY);
-    }
-
-    private void refreshDynamicSpawn() {
-        int currentX = xFixed >> 8;
-        int currentY = yFixed >> 8;
-
-        if (dynamicSpawn == null || dynamicSpawn.x() != currentX || dynamicSpawn.y() != currentY) {
-            dynamicSpawn = new ObjectSpawn(
-                    currentX,
-                    currentY,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
     }
 }

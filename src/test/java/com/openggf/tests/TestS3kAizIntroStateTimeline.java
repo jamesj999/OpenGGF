@@ -7,6 +7,7 @@ import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.GameModuleRegistry;
@@ -88,7 +89,7 @@ public class TestS3kAizIntroStateTimeline {
         }
 
         // Reset object manager so intro objects spawn fresh.
-        LevelManager.getInstance().getObjectManager().reset(0);
+        GameServices.level().getObjectManager().reset(0);
     }
 
     @After
@@ -98,7 +99,7 @@ public class TestS3kAizIntroStateTimeline {
 
     @Test
     public void recordsAizIntroStateTransitionTimeline() {
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         ObjectManager objectManager = levelManager.getObjectManager();
         Camera camera = fixture.camera();
 

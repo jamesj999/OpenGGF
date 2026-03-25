@@ -1,15 +1,13 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2AudioConstants;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -99,7 +97,8 @@ public class LaserObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (routine) {
             case 2 -> updateWaitForOnScreen();
             case 4 -> updateFiring();
@@ -113,7 +112,7 @@ public class LaserObjectInstance extends AbstractObjectInstance {
         // cmp.w d1,d0
         // blt.w JmpTo65_DeleteObject
         // jmpto JmpTo45_DisplaySprite
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         int deleteThreshold = camera.getX() - DELETE_MARGIN;
         if ((short) currentX < (short) deleteThreshold) {
             setDestroyed(true);
@@ -142,7 +141,7 @@ public class LaserObjectInstance extends AbstractObjectInstance {
         // ROM: moveq #signextendB(SndID_LargeLaser),d0
         //      jsrto JmpTo12_PlaySound
         if (!soundPlayed) {
-            AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_LARGE_LASER);
+            services().playSfx(Sonic2AudioConstants.SFX_LARGE_LASER);
             soundPlayed = true;
         }
     }
@@ -164,14 +163,8 @@ public class LaserObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.WFZ_LASER);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.WFZ_LASER);
+        if (renderer == null) return;
 
         // Single mapping frame (index 0), no flip
         renderer.drawFrameIndex(0, currentX, currentY, false, false);

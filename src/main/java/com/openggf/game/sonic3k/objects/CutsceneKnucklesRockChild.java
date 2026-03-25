@@ -1,9 +1,8 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -62,7 +61,8 @@ public class CutsceneKnucklesRockChild extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (broken || isDestroyed()) {
             return;
         }
@@ -76,8 +76,10 @@ public class CutsceneKnucklesRockChild extends AbstractObjectInstance {
 
             // ROM: BreakObjectToPieces plays sfx_Collapse (0x59) as its first action
             try {
-                AudioManager.getInstance().playSfx(Sonic3kSfx.COLLAPSE.id);
-            } catch (Exception ignored) {}
+                services().playSfx(Sonic3kSfx.COLLAPSE.id);
+            } catch (Exception e) {
+                LOG.fine(() -> "CutsceneKnucklesRockChild.update: " + e.getMessage());
+            }
 
             // BreakObjectToPieces: spawn fragments with scattered velocities
             spawnFragments();
@@ -95,8 +97,8 @@ public class CutsceneKnucklesRockChild extends AbstractObjectInstance {
      */
     private void spawnFragments() {
         try {
-            LevelManager lm = LevelManager.getInstance();
-            if (lm == null || lm.getObjectManager() == null) return;
+            var objectManager = services().objectManager();
+            if (objectManager == null) return;
 
             int[][] velocities = AizRockFragmentChild.FRAGMENT_VELOCITIES;
             for (int i = 0; i < velocities.length; i++) {
@@ -104,7 +106,7 @@ public class CutsceneKnucklesRockChild extends AbstractObjectInstance {
                         getX(), getY(), 0, 0, 0, false, 0);
                 AizRockFragmentChild frag = new AizRockFragmentChild(
                         fragSpawn, velocities[i][0], velocities[i][1], mappingFrame, i);
-                lm.getObjectManager().addDynamicObject(frag);
+                objectManager.addDynamicObject(frag);
                 // Compensate for pendingDynamicAdditions delay: ROM processes
                 // each fragment's first movement in the same frame as creation.
                 frag.update(0, null);

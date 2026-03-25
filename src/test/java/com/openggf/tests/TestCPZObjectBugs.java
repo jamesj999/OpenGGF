@@ -6,6 +6,7 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
+import com.openggf.game.GameServices;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectManager;
@@ -75,7 +76,7 @@ public class TestCPZObjectBugs {
         sprite = (Sonic) fixture.sprite();
 
         // Reset the object manager's spawn window so objects near our test position are spawned
-        LevelManager.getInstance().getObjectManager().reset(fixture.camera().getX());
+        GameServices.level().getObjectManager().reset(fixture.camera().getX());
     }
 
     /**
@@ -106,7 +107,7 @@ public class TestCPZObjectBugs {
         sprite.setXSpeed((short) 0x400);
         sprite.setYSpeed((short) 0);
         fixture.camera().updatePosition(true);
-        LevelManager.getInstance().getObjectManager().reset(fixture.camera().getX());
+        GameServices.level().getObjectManager().reset(fixture.camera().getX());
 
         logState("Initial (at tube 1920,896)");
 
@@ -176,11 +177,11 @@ public class TestCPZObjectBugs {
         sprite.setXSpeed((short) 0);
         sprite.setYSpeed((short) 0);
         fixture.camera().updatePosition(true);
-        LevelManager.getInstance().getObjectManager().reset(fixture.camera().getX());
+        GameServices.level().getObjectManager().reset(fixture.camera().getX());
 
         logState("Initial (above staircase at " + staircaseX + "," + staircaseY + ")");
 
-        ObjectManager objMgr = LevelManager.getInstance().getObjectManager();
+        ObjectManager objMgr = GameServices.level().getObjectManager();
         boolean foundStaircase = false;
 
         // Drop onto the staircase - wait for landing on an object

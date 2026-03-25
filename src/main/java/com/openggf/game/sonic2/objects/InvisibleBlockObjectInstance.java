@@ -1,17 +1,17 @@
 package com.openggf.game.sonic2.objects;
+import com.openggf.level.objects.BoxObjectInstance;
 
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.debug.DebugOverlayManager;
 import com.openggf.debug.DebugOverlayToggle;
-import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
-import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
 
@@ -25,9 +25,8 @@ import java.util.List;
 public class InvisibleBlockObjectInstance extends BoxObjectInstance
         implements SolidObjectProvider, SolidObjectListener {
 
-    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
-            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
+    private static final boolean DEBUG_VIEW_ENABLED = staticDebugViewEnabled();
+    private static final DebugOverlayManager OVERLAY_MANAGER = staticDebugOverlay();
 
     private final int halfWidth;
     private final int halfHeight;
@@ -53,7 +52,7 @@ public class InvisibleBlockObjectInstance extends BoxObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player,
+    public void onSolidContact(PlayableEntity playerEntity,
                                SolidContact contact, int frameCounter) {
         // No special behavior - standard collision handled by ObjectManager
     }

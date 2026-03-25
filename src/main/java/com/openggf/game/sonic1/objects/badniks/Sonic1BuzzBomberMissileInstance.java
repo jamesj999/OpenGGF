@@ -5,11 +5,12 @@ import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import java.util.List;
 
@@ -58,11 +59,9 @@ public class Sonic1BuzzBomberMissileInstance extends AbstractObjectInstance
     private int currentY;
     private final int xVelocity;
     private final int yVelocity;
-    private int xSubpixel;
-    private int ySubpixel;
+    private final SubpixelMotion.State motionState;
     private final boolean facingLeft;
     private final Sonic1BuzzBomberBadnikInstance parent;
-    private final LevelManager levelManager;
 
     private Phase phase;
     private int flareTimer;
@@ -83,16 +82,16 @@ public class Sonic1BuzzBomberMissileInstance extends AbstractObjectInstance
      * @param levelManager Level manager reference
      */
     public Sonic1BuzzBomberMissileInstance(int x, int y, int xVel, int yVel,
-            boolean facingLeft, Sonic1BuzzBomberBadnikInstance parent,
-            LevelManager levelManager) {
+            boolean facingLeft, Sonic1BuzzBomberBadnikInstance parent) {
         super(new ObjectSpawn(x, y, 0x23, 0, 0, false, 0), "BuzzBomberMissile");
         this.currentX = x;
         this.currentY = y;
         this.xVelocity = xVel;
         this.yVelocity = yVel;
+        this.motionState = new SubpixelMotion.State(x, y, 0, 0, xVel, yVel);
         this.facingLeft = facingLeft;
         this.parent = parent;
-        this.levelManager = levelManager;
+        
         this.phase = Phase.FLARE_COUNTDOWN;
         this.flareTimer = FLARE_COUNTDOWN;
         this.animTimer = 0;
@@ -102,7 +101,8 @@ public class Sonic1BuzzBomberMissileInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Msl_ChkCancel: if parent Buzz Bomber was destroyed, delete missile
         if (parent != null && parent.isDestroyed()) {
             setDestroyed(true);
@@ -157,14 +157,13 @@ public class Sonic1BuzzBomberMissileInstance extends AbstractObjectInstance
      */
     private void updateActive() {
         // Apply velocity (SpeedToPos: 16.8 fixed-point)
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
-        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
-        xPos24 += xVelocity;
-        yPos24 += yVelocity;
-        currentX = xPos24 >> 8;
-        currentY = yPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
-        ySubpixel = yPos24 & 0xFF;
+        motionState.x = currentX;
+        motionState.y = currentY;
+        motionState.xVel = xVelocity;
+        motionState.yVel = yVelocity;
+        SubpixelMotion.moveSprite2(motionState);
+        currentX = motionState.x;
+        currentY = motionState.y;
 
         // Check if below level bottom boundary + $E0
         if (!isOnScreen(BOTTOM_MARGIN)) {
@@ -217,15 +216,8 @@ public class Sonic1BuzzBomberMissileInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.BUZZ_BOMBER_MISSILE);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.BUZZ_BOMBER_MISSILE);
+        if (renderer == null) return;
 
         // Missile uses palette 1 (set in the sprite sheet); art faces left by default
         renderer.drawFrameIndex(renderedFrame, currentX, currentY, !facingLeft, false);

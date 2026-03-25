@@ -1,12 +1,10 @@
 package com.openggf.game.sonic2.events;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.bosses.Sonic2HTZBossInstance;
-import com.openggf.level.LevelManager;
 import com.openggf.level.ParallaxManager;
 import com.openggf.level.objects.ObjectSpawn;
 
@@ -180,7 +178,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
      * This is used by SwScrlHtz to offset vscrollFactorBG without modifying bgCamera.bgYPos.
      */
     public int getHtzBgVerticalShift() {
-        if (!GameServices.gameState().isHtzScreenShakeActive()) {
+        if (!gameState().isHtzScreenShakeActive()) {
             return 0;
         }
         return htzCurrentRisenLimit - cameraBgYOffset;
@@ -201,7 +199,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
                     cameraX0 >= HTZ1_SHAKE_TRIGGER_X &&
                     cameraX0 < HTZ1_SHAKE_EXIT_X) {
                     // Enable screen shake and initialize earthquake
-                    ParallaxManager.getInstance().setHtzScreenShake(true);
+                    parallax().setHtzScreenShake(true);
                     initHtzEarthquake(HTZ1_LAVA_OFFSET_RISEN, HTZ1_LAVA_OFFSET_SUNKEN, HTZ_BG_X_OFFSET_TOP);
                     eventRoutine += 2;
                 } else if (cameraX0 >= HTZ1_SHAKE_EXIT_X) {
@@ -209,7 +207,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
                     eventRoutine = 4;
                 } else {
                     // Before earthquake zone or Y not met
-                    if (GameServices.gameState().isHtzScreenShakeActive()) {
+                    if (gameState().isHtzScreenShakeActive()) {
                         exitHtzEarthquakeArea();
                     }
                 }
@@ -222,7 +220,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
                     updateHtzLavaOscillation(frameCounter);
                 } else if (cameraX >= HTZ1_SHAKE_DISABLE_X) {
                     // ROM: move.b #0,(Screen_Shaking_Flag).w
-                    GameServices.gameState().setScreenShakeActive(false);
+                    gameState().setScreenShakeActive(false);
                 }
 
                 // Keep routine 2 active while in [$1800, $1F00), matching disassembly.
@@ -238,7 +236,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
                 // Routine 3: Post-shake area
                 // Check for re-entry into shake zone
                 if (camera().getX() < HTZ1_SHAKE_EXIT_X) {
-                    ParallaxManager.getInstance().setHtzScreenShake(true);
+                    parallax().setHtzScreenShake(true);
                     initHtzEarthquake(HTZ1_LAVA_OFFSET_RISEN, HTZ1_LAVA_OFFSET_SUNKEN, HTZ_BG_X_OFFSET_TOP);
                     eventRoutine -= 2;  // Go back to routine 2
                 }
@@ -273,13 +271,13 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
                     // If Camera_Y >= $380, jump to bottom area routines
                     if (camera().getY() >= HTZ2_Y_ZONE_THRESHOLD) {
                         // Bottom area
-                        ParallaxManager.getInstance().setHtzScreenShake(true);
+                        parallax().setHtzScreenShake(true);
                         initHtzEarthquake(HTZ2_LAVA_OFFSET_RISEN_BOTTOM, HTZ2_LAVA_OFFSET_SUNKEN,
                                 HTZ_BG_X_OFFSET_BOTTOM);
                         eventRoutine = 8;
                     } else {
                         // Top area
-                        ParallaxManager.getInstance().setHtzScreenShake(true);
+                        parallax().setHtzScreenShake(true);
                         initHtzEarthquake(HTZ2_LAVA_OFFSET_RISEN_TOP, HTZ2_LAVA_OFFSET_SUNKEN, HTZ_BG_X_OFFSET_TOP);
                         eventRoutine = 2;
                     }
@@ -298,7 +296,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
                     }
                 } else {
                     // Before earthquake zone
-                    if (GameServices.gameState().isHtzScreenShakeActive()) {
+                    if (gameState().isHtzScreenShakeActive()) {
                         exitHtzEarthquakeArea();
                     }
                 }
@@ -311,7 +309,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
                     updateHtzLavaOscillation(frameCounter);
                 } else if (cameraX >= HTZ2_TOP_SHAKE_DISABLE_X) {
                     // ROM: move.b #0,(Screen_Shaking_Flag).w
-                    GameServices.gameState().setScreenShakeActive(false);
+                    gameState().setScreenShakeActive(false);
                 }
 
                 // Keep routine 2 active while in [$14C0, $1B00).
@@ -326,7 +324,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
             case 4 -> {
                 // Routine 2: Post-shake (top zone)
                 if (camera().getX() < HTZ2_SHAKE_EXIT_X) {
-                    ParallaxManager.getInstance().setHtzScreenShake(true);
+                    parallax().setHtzScreenShake(true);
                     initHtzEarthquake(HTZ2_LAVA_OFFSET_RISEN_TOP, HTZ2_LAVA_OFFSET_SUNKEN, HTZ_BG_X_OFFSET_TOP);
                     eventRoutine -= 2;
                 }
@@ -335,12 +333,12 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
                 // Routine 3: Wait for bottom area shake trigger
                 // This handles re-entry to earthquake zone in bottom area
                 if (camera().getX() >= HTZ2_SHAKE_TRIGGER_X) {
-                    ParallaxManager.getInstance().setHtzScreenShake(true);
+                    parallax().setHtzScreenShake(true);
                     initHtzEarthquake(HTZ2_LAVA_OFFSET_RISEN_BOTTOM, HTZ2_LAVA_OFFSET_SUNKEN,
                             HTZ_BG_X_OFFSET_BOTTOM);
                     eventRoutine += 2;
                 } else {
-                    if (GameServices.gameState().isHtzScreenShakeActive()) {
+                    if (gameState().isHtzScreenShakeActive()) {
                         exitHtzEarthquakeArea();
                     }
                 }
@@ -353,7 +351,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
                     updateHtzLavaOscillation(frameCounter);
                 } else if (cameraX >= HTZ2_BOTTOM_SHAKE_DISABLE_X) {
                     // ROM: move.b #0,(Screen_Shaking_Flag).w
-                    GameServices.gameState().setScreenShakeActive(false);
+                    gameState().setScreenShakeActive(false);
                 }
 
                 // Keep routine 8 active while in [$14C0, $1B00).
@@ -368,7 +366,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
             case 10 -> {
                 // Routine 5: Post-shake (bottom zone)
                 if (camera().getX() < HTZ2_SHAKE_EXIT_X) {
-                    ParallaxManager.getInstance().setHtzScreenShake(true);
+                    parallax().setHtzScreenShake(true);
                     initHtzEarthquake(HTZ2_LAVA_OFFSET_RISEN_BOTTOM, HTZ2_LAVA_OFFSET_SUNKEN,
                             HTZ_BG_X_OFFSET_BOTTOM);
                     eventRoutine -= 2;
@@ -401,9 +399,9 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
                     eventRoutine += 2;
                     bossSpawnDelay = 0;
                     // ROM: Fade out music
-                    AudioManager.getInstance().fadeOutMusic();
+                    audio().fadeOutMusic();
                     // ROM: Set Current_Boss_ID to 3 (HTZ boss)
-                    GameServices.gameState().setCurrentBossId(3);
+                    gameState().setCurrentBossId(3);
                 }
             }
             case 16 -> {
@@ -419,14 +417,14 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
                     spawnHTZBoss();
                     eventRoutine += 2;
                     // Start boss music
-                    AudioManager.getInstance().playMusic(Sonic2Music.BOSS.id);
+                    audio().playMusic(Sonic2Music.BOSS.id);
                 }
             }
             case 18 -> {
                 // Routine 9: Boss end / camera extend (LevEvents_HTZ2_Routine9)
                 // ROM: s2.asm:21261-21277
                 syncSidekickBoundsToCamera();
-                if (GameServices.gameState().getCurrentBossId() != 0) {
+                if (gameState().getCurrentBossId() != 0) {
                     // ROM: does nothing until Boss_defeated_flag is set.
                     return;
                 }
@@ -478,7 +476,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
      * ROM: LevEvents_HTZ_Routine1_Part2 lines 20714-20724
      */
     private void exitHtzEarthquakeArea() {
-        ParallaxManager.getInstance().setHtzScreenShake(false);
+        parallax().setHtzScreenShake(false);
         cameraBgYOffset = 0;
         htzTerrainSinking = false;
         htzTerrainDelay = 0;
@@ -514,7 +512,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
                     cameraBgYOffset++;
                     // Play rumbling sound every 64 frames
                     if ((frameCounter & 0x3F) == 0) {
-                        AudioManager.getInstance().playSfx(Sonic2Sfx.RUMBLING_2.id);
+                        audio().playSfx(Sonic2Sfx.RUMBLING_2.id);
                     }
                 }
             }
@@ -529,7 +527,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
                     cameraBgYOffset--;
                     // Play rumbling sound every 64 frames
                     if ((frameCounter & 0x3F) == 0) {
-                        AudioManager.getInstance().playSfx(Sonic2Sfx.RUMBLING_2.id);
+                        audio().playSfx(Sonic2Sfx.RUMBLING_2.id);
                     }
                 }
             }
@@ -542,14 +540,14 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
      */
     private void handleHtzTerrainDelayAndToggle() {
         // Disable general screen shaking while at limit (waiting)
-        GameServices.gameState().setScreenShakeActive(false);
+        gameState().setScreenShakeActive(false);
         htzTerrainDelay--;
         if (htzTerrainDelay < 0) {
             // Toggle direction and reset delay
             htzTerrainDelay = HTZ_TERRAIN_DELAY_INIT;
             htzTerrainSinking = !htzTerrainSinking;
             // Re-enable screen shake for movement
-            GameServices.gameState().setScreenShakeActive(true);
+            gameState().setScreenShakeActive(true);
         }
     }
 
@@ -561,7 +559,7 @@ public class Sonic2HTZEvents extends Sonic2ZoneEvents {
         // HTZ boss initial position from Obj52_Init
         ObjectSpawn bossSpawn = new ObjectSpawn(
                 0x3040, 0x0580, Sonic2ObjectIds.HTZ_BOSS, 0, 0, false, 0);
-        htzBoss = new Sonic2HTZBossInstance(bossSpawn, LevelManager.getInstance());
+        htzBoss = new Sonic2HTZBossInstance(bossSpawn);
         spawnObject(htzBoss);
     }
 }

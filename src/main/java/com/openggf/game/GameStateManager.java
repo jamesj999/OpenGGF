@@ -141,6 +141,16 @@ public class GameStateManager {
     }
 
     /**
+     * Resets all mutable state for test teardown.
+     * Delegates to {@link #resetSession()} for the actual reset logic.
+     * This method exists for naming consistency with other singletons
+     * (Camera, CollisionSystem, TimerManager, etc.).
+     */
+    public void resetState() {
+        resetSession();
+    }
+
+    /**
      * Resets per-level state flags between act transitions.
      * Session-persistent state (score, lives, emeralds) is NOT reset.
      */

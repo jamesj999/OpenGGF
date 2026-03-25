@@ -1,13 +1,13 @@
 package com.openggf.game.sonic2.objects;
+import com.openggf.game.PlayableEntity;
+import com.openggf.level.objects.ExplosionObjectInstance;
 
-import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.Level;
-import com.openggf.level.LevelManager;
 import com.openggf.level.Map;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
@@ -117,7 +117,8 @@ public class RivetObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (busted) {
             return;
         }
@@ -140,7 +141,8 @@ public class RivetObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !busted;
     }
 
@@ -149,7 +151,8 @@ public class RivetObjectInstance extends AbstractObjectInstance
     // ========================================================================
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (busted || player == null) {
             return;
         }
@@ -178,7 +181,7 @@ public class RivetObjectInstance extends AbstractObjectInstance
         busted = true;
 
         // ROM: move.w #$2880,(Camera_Min_X_pos).w (s2.asm line 80603)
-        Camera.getInstance().setMinX((short) BUST_CAMERA_MIN_X);
+        services().camera().setMinX((short) BUST_CAMERA_MIN_X);
 
         // ROM: bclr #p1_standing_bit,status(a0) (s2.asm line 80604)
         // (Handled by engine when we destroy the object)
@@ -215,8 +218,7 @@ public class RivetObjectInstance extends AbstractObjectInstance
      * </pre>
      */
     private void modifyLevelLayout() {
-        LevelManager levelManager = LevelManager.getInstance();
-        Level level = levelManager.getCurrentLevel();
+        Level level = services().currentLevel();
         if (level == null) {
             return;
         }
@@ -237,7 +239,7 @@ public class RivetObjectInstance extends AbstractObjectInstance
             }
 
             // ROM: move.b #1,(Screen_redraw_flag).w (s2.asm line 80615)
-            levelManager.invalidateForegroundTilemap();
+            services().invalidateForegroundTilemap();
         } catch (IllegalArgumentException e) {
             LOGGER.warning("Rivet layout modification failed: " + e.getMessage());
         }
@@ -249,8 +251,8 @@ public class RivetObjectInstance extends AbstractObjectInstance
      * The ROM transforms the object in-place into an explosion (Obj27).
      */
     private void spawnExplosion() {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectManager objectManager = services().objectManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (objectManager == null || renderManager == null) {
             return;
         }
@@ -270,15 +272,8 @@ public class RivetObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.WFZ_RIVET);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.WFZ_RIVET);
+        if (renderer == null) return;
 
         // ROM: single mapping frame (frame 0), no flip
         renderer.drawFrameIndex(0, spawn.x(), spawn.y(), false, false);

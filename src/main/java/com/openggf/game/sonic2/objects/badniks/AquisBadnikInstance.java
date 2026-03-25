@@ -1,13 +1,16 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
-import com.openggf.game.sonic2.objects.ObjectAnimationState;
+import com.openggf.game.PlayableEntity;
+import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectManager;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.animation.SpriteAnimationEndAction;
 import com.openggf.sprites.animation.SpriteAnimationScript;
@@ -55,22 +58,20 @@ public class AquisBadnikInstance extends AbstractBadnikInstance {
     private int timer;
     private int shotsRemaining;
     private boolean shootingFlag; // prevents double-fire per shooting phase
-    private int xSubpixel;
-    private int ySubpixel;
+    private final SubpixelMotion.State motionState;
     private final ObjectAnimationState animationState;
 
     // Wing child state
     private final ObjectAnimationState wingAnimationState;
     private boolean wingDestroyed;
 
-    public AquisBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Aquis");
+    public AquisBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Aquis", Sonic2BadnikConfig.DESTRUCTION);
         this.state = State.WAIT_FOR_SCREEN;
         this.timer = 0;
         this.shotsRemaining = INITIAL_SHOTS;
         this.shootingFlag = false;
-        this.xSubpixel = 0;
-        this.ySubpixel = 0;
+        this.motionState = new SubpixelMotion.State(spawn.x(), spawn.y(), 0, 0, 0, 0);
         this.facingLeft = (spawn.renderFlags() & 0x01) != 0;
         this.animationState = new ObjectAnimationState(ANIMATIONS, 0, 0);
         this.wingAnimationState = new ObjectAnimationState(WING_ANIMATIONS, 0, 1);
@@ -78,7 +79,8 @@ public class AquisBadnikInstance extends AbstractBadnikInstance {
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
             case WAIT_FOR_SCREEN -> updateWaitForScreen();
             case CHASE -> updateChase(player);
@@ -172,14 +174,14 @@ public class AquisBadnikInstance extends AbstractBadnikInstance {
         applyMovement();
 
         if (!isOnScreen(64)) {
-            destroyed = true;
+            setDestroyed(true);
             setDestroyed(true);
             wingDestroyed = true;
         }
     }
 
     private void fireProjectile() {
-        ObjectManager objectManager = levelManager.getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -201,14 +203,13 @@ public class AquisBadnikInstance extends AbstractBadnikInstance {
     }
 
     private void applyMovement() {
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
-        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
-        xPos24 += xVelocity;
-        yPos24 += yVelocity;
-        currentX = xPos24 >> 8;
-        currentY = yPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
-        ySubpixel = yPos24 & 0xFF;
+        motionState.x = currentX;
+        motionState.y = currentY;
+        motionState.xVel = xVelocity;
+        motionState.yVel = yVelocity;
+        SubpixelMotion.moveSprite2(motionState);
+        currentX = motionState.x;
+        currentY = motionState.y;
     }
 
     private static int clampSpeed(int velocity, int max) {
@@ -229,19 +230,12 @@ public class AquisBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.AQUIS);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.AQUIS);
+        if (renderer == null) return;
 
         // Draw main body (priority 4)
         renderer.drawFrameIndex(animFrame, currentX, currentY, !facingLeft, false);
@@ -256,7 +250,8 @@ public class AquisBadnikInstance extends AbstractBadnikInstance {
     }
 
     @Override
-    protected void destroyBadnik(AbstractPlayableSprite player) {
+    protected void destroyBadnik(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         wingDestroyed = true;
         super.destroyBadnik(player);
     }

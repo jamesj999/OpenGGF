@@ -3,12 +3,11 @@ package com.openggf.game.sonic1.objects;
 import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.OscillationManager;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -158,7 +157,8 @@ public class Sonic1SawObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (sawType) {
             case 0 -> updateType00();
             case 1 -> updateType01(frameCounter);
@@ -218,7 +218,7 @@ public class Sonic1SawObjectInstance extends AbstractObjectInstance
         // tst.b obRender(a0) / bpl.s .nosound01
         // move.w (v_framecount).w,d0 / andi.w #$F,d0 / bne.s .nosound01
         if (isOnScreen() && (frameCounter & TYPE01_SOUND_MASK) == 0) {
-            AudioManager.getInstance().playSfx(Sonic1Sfx.SAW.id);
+            services().playSfx(Sonic1Sfx.SAW.id);
         }
     }
 
@@ -262,7 +262,7 @@ public class Sonic1SawObjectInstance extends AbstractObjectInstance
         if (isOnScreen()) {
             int oscCheck = OscillationManager.getByte(OSC_TYPE02_OFFSET) & 0xFF;
             if (oscCheck == TYPE02_SOUND_TRIGGER) {
-                AudioManager.getInstance().playSfx(Sonic1Sfx.SAW.id);
+                services().playSfx(Sonic1Sfx.SAW.id);
             }
         }
     }
@@ -329,7 +329,7 @@ public class Sonic1SawObjectInstance extends AbstractObjectInstance
             collisionActive = true;
             mappingFrame = 2; // move.b #2,obFrame(a0) -> ground saw frame
 
-            AudioManager.getInstance().playSfx(Sonic1Sfx.SAW.id);
+            services().playSfx(Sonic1Sfx.SAW.id);
         } else {
             // .here03: Apply velocity and animate
             applyVelocity();
@@ -391,7 +391,7 @@ public class Sonic1SawObjectInstance extends AbstractObjectInstance
             collisionActive = true;
             mappingFrame = 2;
 
-            AudioManager.getInstance().playSfx(Sonic1Sfx.SAW.id);
+            services().playSfx(Sonic1Sfx.SAW.id);
         } else {
             // .here04: Apply velocity and animate
             applyVelocity();
@@ -447,15 +447,8 @@ public class Sonic1SawObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.SBZ_SAW);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.SBZ_SAW);
+        if (renderer == null) return;
 
         // obRender = 4 (use screen coordinates, no flipping applied at render level)
         // The sprite mappings already contain the mirrored quadrants.

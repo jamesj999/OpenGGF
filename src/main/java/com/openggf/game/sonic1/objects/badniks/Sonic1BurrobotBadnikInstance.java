@@ -1,21 +1,17 @@
 package com.openggf.game.sonic1.objects.badniks;
 
-import com.openggf.audio.AudioManager;
-import com.openggf.game.sonic1.audio.Sonic1Sfx;
-import com.openggf.game.sonic1.objects.Sonic1PointsObjectInstance;
-import com.openggf.game.GameServices;
-import com.openggf.game.sonic2.objects.ExplosionObjectInstance;
-import com.openggf.game.sonic2.objects.badniks.AbstractBadnikInstance;
-import com.openggf.game.sonic2.objects.badniks.AnimalObjectInstance;
+import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+import com.openggf.game.PlayableEntity;
+
+import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -49,15 +45,14 @@ public class Sonic1BurrobotBadnikInstance extends AbstractBadnikInstance {
     private int state;
     private int stateTimer;
 
-    private int xSubpixel;
-    private int ySubpixel;
+    private final SubpixelMotion.State motionState;
     private boolean floorProbeToggle;
 
     private int animationId;
     private int animationTick;
 
-    public Sonic1BurrobotBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Burrobot");
+    public Sonic1BurrobotBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Burrobot");
         this.currentX = spawn.x();
         this.currentY = spawn.y();
 
@@ -67,8 +62,7 @@ public class Sonic1BurrobotBadnikInstance extends AbstractBadnikInstance {
         this.state = STATE_CHECK_SONIC;
         this.stateTimer = 0;
 
-        this.xSubpixel = 0;
-        this.ySubpixel = 0;
+        this.motionState = new SubpixelMotion.State(spawn.x(), spawn.y(), 0, 0, 0, 0);
         this.floorProbeToggle = false;
 
         this.animationId = ANIM_DIGGING;
@@ -76,7 +70,8 @@ public class Sonic1BurrobotBadnikInstance extends AbstractBadnikInstance {
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
             case STATE_CHANGEDIR -> updateChangeDir();
             case STATE_MOVE -> updateMove(frameCounter);
@@ -221,15 +216,13 @@ public class Sonic1BurrobotBadnikInstance extends AbstractBadnikInstance {
     }
 
     private void applySpeedToPos() {
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
-        xPos24 += xVelocity;
-        currentX = xPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
-
-        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
-        yPos24 += yVelocity;
-        currentY = yPos24 >> 8;
-        ySubpixel = yPos24 & 0xFF;
+        motionState.x = currentX;
+        motionState.y = currentY;
+        motionState.xVel = xVelocity;
+        motionState.yVel = yVelocity;
+        SubpixelMotion.moveSprite2(motionState);
+        currentX = motionState.x;
+        currentY = motionState.y;
     }
 
     @Override
@@ -254,43 +247,13 @@ public class Sonic1BurrobotBadnikInstance extends AbstractBadnikInstance {
     }
 
     @Override
-    protected void destroyBadnik(AbstractPlayableSprite player) {
-        destroyed = true;
-        setDestroyed(true);
-
-        var objectManager = levelManager.getObjectManager();
-        if (objectManager != null) {
-            if (spawn.respawnTracked()) {
-                objectManager.markRemembered(spawn);
-            } else {
-                objectManager.removeFromActiveSpawns(spawn);
-            }
-        }
-
-        ExplosionObjectInstance explosion = new ExplosionObjectInstance(0x27, currentX, currentY,
-                levelManager.getObjectRenderManager());
-        levelManager.getObjectManager().addDynamicObject(explosion);
-
-        AnimalObjectInstance animal = new AnimalObjectInstance(
-                new ObjectSpawn(currentX, currentY, 0x28, 0, 0, false, 0), levelManager);
-        levelManager.getObjectManager().addDynamicObject(animal);
-
-        int pointsValue = 100;
-        if (player != null) {
-            pointsValue = player.incrementBadnikChain();
-            GameServices.gameState().addScore(pointsValue);
-        }
-
-        Sonic1PointsObjectInstance points = new Sonic1PointsObjectInstance(
-                new ObjectSpawn(currentX, currentY, 0x29, 0, 0, false, 0), levelManager, pointsValue);
-        levelManager.getObjectManager().addDynamicObject(points);
-
-        AudioManager.getInstance().playSfx(Sonic1Sfx.BREAK_ITEM.id);
+    protected DestructionConfig getDestructionConfig() {
+        return Sonic1DestructionConfig.S1_DESTRUCTION_CONFIG;
     }
 
     @Override
     public boolean isPersistent() {
-        return !destroyed && isOnScreenX(192);
+        return !isDestroyed() && isOnScreenX(192);
     }
 
     @Override
@@ -300,19 +263,12 @@ public class Sonic1BurrobotBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.BURROBOT);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.BURROBOT);
+        if (renderer == null) return;
 
         int frame = getMappingFrame();
         renderer.drawFrameIndex(frame, currentX, currentY, !facingLeft, false);

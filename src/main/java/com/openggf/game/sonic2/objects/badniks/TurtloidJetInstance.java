@@ -1,11 +1,10 @@
 package com.openggf.game.sonic2.objects.badniks;
 
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -42,7 +41,8 @@ public class TurtloidJetInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (parent.isParentDestroyed()) {
             setDestroyed(true);
             return;
@@ -62,8 +62,7 @@ public class TurtloidJetInstance extends AbstractObjectInstance {
 
     @Override
     public ObjectSpawn getSpawn() {
-        return new ObjectSpawn(currentX, currentY, spawn.objectId(),
-                spawn.subtype(), spawn.renderFlags(), spawn.respawnTracked(), spawn.rawYWord());
+        return buildSpawnAt(currentX, currentY);
     }
 
     @Override
@@ -80,15 +79,8 @@ public class TurtloidJetInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.TURTLOID);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.TURTLOID);
+        if (renderer == null) return;
 
         // Jet exhaust frames 6-7 from shared Turtloid sheet
         renderer.drawFrameIndex(animFrame, currentX, currentY, false, false);

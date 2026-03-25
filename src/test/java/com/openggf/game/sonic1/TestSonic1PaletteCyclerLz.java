@@ -48,7 +48,7 @@ public class TestSonic1PaletteCyclerLz {
 
     @Before
     public void resetConveyorState() {
-        Sonic1ConveyorState.resetInstance();
+        Sonic1ConveyorState.getInstance().resetState();
     }
 
     @Test

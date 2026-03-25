@@ -35,8 +35,7 @@ import java.util.logging.Logger;
  *   <li>Block word format differs: 0SSY X0II IIII IIII</li>
  * </ul>
  */
-public class Sonic1Level implements Level {
-    private static final int PALETTE_COUNT = 4;
+public class Sonic1Level extends AbstractLevel {
     private static final int V_PALETTE_RAM_ADDR = 0xFB00;
     private static final int S1_CHUNKS_PER_BLOCK = 256; // 16x16 grid
     private static final int S1_BLOCK_SIZE_IN_ROM = S1_CHUNKS_PER_BLOCK * LevelConstants.BYTES_PER_CHUNK; // 512 bytes
@@ -44,26 +43,6 @@ public class Sonic1Level implements Level {
     private static final int COLLISION_INDEX_MAX_SIZE = 0x300;
 
     private static final Logger LOG = Logger.getLogger(Sonic1Level.class.getName());
-
-    private final int zoneIndex;
-    private Palette[] palettes;
-    private Pattern[] patterns;
-    private Chunk[] chunks;
-    private Block[] blocks;
-    private SolidTile[] solidTiles;
-    private Map map;
-    private final List<ObjectSpawn> objects;
-    private final List<RingSpawn> rings;
-    private final RingSpriteSheet ringSpriteSheet;
-
-    private int patternCount;
-    private int chunkCount;
-    private int blockCount;
-    private int solidTileCount;
-    private int minX;
-    private int maxX;
-    private int minY;
-    private int maxY;
 
     // Loop flag data: bit 7 of original FG layout bytes (used by Sonic_Loops)
     private boolean[] fgLoopFlags;
@@ -87,7 +66,7 @@ public class Sonic1Level implements Level {
                        List<RingSpawn> ringSpawns,
                        RingSpriteSheet ringSpriteSheet,
                        int[] boundaries) throws IOException {
-        this.zoneIndex = zoneIndex;
+        super(zoneIndex);
         this.objects = List.copyOf(objectSpawns);
         this.rings = List.copyOf(ringSpawns);
         this.ringSpriteSheet = ringSpriteSheet;
@@ -106,7 +85,7 @@ public class Sonic1Level implements Level {
         this.maxY = boundaries[3];
     }
 
-    // ===== Level interface =====
+    // ===== Level interface overrides =====
 
     @Override
     public int getBlockPixelSize() {
@@ -116,134 +95,6 @@ public class Sonic1Level implements Level {
     @Override
     public int getChunksPerBlockSide() {
         return 16;
-    }
-
-    @Override
-    public int getPaletteCount() {
-        return PALETTE_COUNT;
-    }
-
-    @Override
-    public Palette getPalette(int index) {
-        if (index >= PALETTE_COUNT) {
-            throw new IllegalArgumentException("Invalid palette index: " + index);
-        }
-        return palettes[index];
-    }
-
-    @Override
-    public void setPalette(int index, Palette palette) {
-        if (index >= 0 && index < PALETTE_COUNT && palette != null) {
-            palettes[index] = palette;
-        }
-    }
-
-    @Override
-    public int getPatternCount() {
-        return patternCount;
-    }
-
-    @Override
-    public Pattern getPattern(int index) {
-        if (index >= patternCount) {
-            throw new IllegalArgumentException("Invalid pattern index: " + index);
-        }
-        return patterns[index];
-    }
-
-    @Override
-    public void ensurePatternCapacity(int minCount) {
-        if (minCount <= patternCount) {
-            return;
-        }
-        patterns = Arrays.copyOf(patterns, minCount);
-        GraphicsManager graphicsMan = GraphicsManager.getInstance();
-        for (int i = patternCount; i < minCount; i++) {
-            patterns[i] = new Pattern();
-            if (graphicsMan.isGlInitialized()) {
-                graphicsMan.cachePatternTexture(patterns[i], i);
-            }
-        }
-        patternCount = minCount;
-    }
-
-    @Override
-    public int getChunkCount() {
-        return chunkCount;
-    }
-
-    @Override
-    public Chunk getChunk(int index) {
-        if (index >= chunkCount) {
-            throw new IllegalArgumentException("Invalid chunk index: " + index);
-        }
-        return chunks[index];
-    }
-
-    @Override
-    public int getBlockCount() {
-        return blockCount;
-    }
-
-    @Override
-    public Block getBlock(int index) {
-        if (index >= blockCount) {
-            throw new IllegalArgumentException("Invalid block index: " + index);
-        }
-        return blocks[index];
-    }
-
-    @Override
-    public SolidTile getSolidTile(int index) {
-        if (index >= solidTileCount) {
-            throw new IllegalArgumentException("Invalid solid tile index: " + index);
-        }
-        return solidTiles[index];
-    }
-
-    @Override
-    public Map getMap() {
-        return map;
-    }
-
-    @Override
-    public List<ObjectSpawn> getObjects() {
-        return objects;
-    }
-
-    @Override
-    public List<RingSpawn> getRings() {
-        return rings;
-    }
-
-    @Override
-    public RingSpriteSheet getRingSpriteSheet() {
-        return ringSpriteSheet;
-    }
-
-    @Override
-    public int getMinX() {
-        return minX;
-    }
-
-    @Override
-    public int getMaxX() {
-        return maxX;
-    }
-
-    @Override
-    public int getMinY() {
-        return minY;
-    }
-
-    @Override
-    public int getMaxY() {
-        return maxY;
-    }
-
-    @Override
-    public int getZoneIndex() {
-        return zoneIndex;
     }
 
     // ===== Loop flag accessors =====

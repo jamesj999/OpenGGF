@@ -25,7 +25,7 @@ VRAM destination stores `tile_index * 32`. To recover tile index: `vramDest / 32
 
 ## PlcParser API
 
-Located in `resources.com.openggf.level.PlcParser`.
+Located in `com.openggf.level.resources.PlcParser`.
 
 ### Records
 - `PlcParser.PlcEntry(int romAddr, int tileIndex)` -- single PLC entry

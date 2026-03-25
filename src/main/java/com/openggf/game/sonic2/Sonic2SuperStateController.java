@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.CrossGameFeatureProvider;
 import com.openggf.game.PhysicsProfile;
@@ -8,13 +7,13 @@ import com.openggf.game.sonic2.constants.Sonic2AudioConstants;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.game.sonic2.objects.SuperSonicStarsObjectInstance;
 import com.openggf.graphics.GraphicsManager;
-import com.openggf.level.LevelManager;
 import com.openggf.level.Palette;
 import com.openggf.sprites.animation.SpriteAnimationSet;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.SuperStateController;
 
 import java.util.logging.Logger;
+import com.openggf.game.GameServices;
 
 /**
  * Sonic 2 implementation of Super Sonic state management.
@@ -137,11 +136,11 @@ public class Sonic2SuperStateController extends SuperStateController {
         // Play transformation SFX
         try {
             if (CrossGameFeatureProvider.isActive()) {
-                AudioManager.getInstance().playDonorSfx(
+                GameServices.audio().playDonorSfx(
                         CrossGameFeatureProvider.getInstance().getDonorGameId(),
                         Sonic2AudioConstants.SFX_SUPER_TRANSFORM);
             } else {
-                AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_SUPER_TRANSFORM);
+                GameServices.audio().playSfx(Sonic2AudioConstants.SFX_SUPER_TRANSFORM);
             }
         } catch (Exception e) {
             LOGGER.fine("Could not play transformation SFX: " + e.getMessage());
@@ -162,11 +161,11 @@ public class Sonic2SuperStateController extends SuperStateController {
         // Play Super Sonic music (overrides zone music)
         try {
             if (CrossGameFeatureProvider.isActive()) {
-                AudioManager.getInstance().playDonorMusic(
+                GameServices.audio().playDonorMusic(
                         CrossGameFeatureProvider.getInstance().getDonorGameId(),
                         Sonic2AudioConstants.MUS_SUPER_SONIC);
             } else {
-                AudioManager.getInstance().playMusic(Sonic2AudioConstants.MUS_SUPER_SONIC);
+                GameServices.audio().playMusic(Sonic2AudioConstants.MUS_SUPER_SONIC);
             }
         } catch (Exception e) {
             LOGGER.fine("Could not play Super Sonic music: " + e.getMessage());
@@ -183,7 +182,7 @@ public class Sonic2SuperStateController extends SuperStateController {
         // Spawn Super Sonic stars sparkle effect (Obj7E)
         if (starsObject == null) {
             starsObject = new SuperSonicStarsObjectInstance(player);
-            LevelManager.getInstance().getObjectManager().addDynamicObject(starsObject);
+            GameServices.level().getObjectManager().addDynamicObject(starsObject);
         }
         LOGGER.info("Super Sonic activated (S2)");
     }
@@ -234,7 +233,7 @@ public class Sonic2SuperStateController extends SuperStateController {
         }
         // Revert to zone music
         try {
-            AudioManager.getInstance().endMusicOverride(Sonic2AudioConstants.MUS_SUPER_SONIC);
+            GameServices.audio().endMusicOverride(Sonic2AudioConstants.MUS_SUPER_SONIC);
         } catch (Exception e) {
             LOGGER.fine("Could not revert Super Sonic music: " + e.getMessage());
         }

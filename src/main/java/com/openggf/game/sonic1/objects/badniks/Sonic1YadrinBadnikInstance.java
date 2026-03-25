@@ -1,18 +1,13 @@
 package com.openggf.game.sonic1.objects.badniks;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
-import com.openggf.game.GameServices;
-import com.openggf.game.sonic1.audio.Sonic1Sfx;
-import com.openggf.game.sonic1.objects.Sonic1PointsObjectInstance;
-import com.openggf.game.sonic2.objects.ExplosionObjectInstance;
-import com.openggf.game.sonic2.objects.badniks.AbstractBadnikInstance;
-import com.openggf.game.sonic2.objects.badniks.AnimalObjectInstance;
+import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+import com.openggf.game.PlayableEntity;
+
+import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseListener;
 import com.openggf.level.objects.TouchResponseResult;
@@ -100,8 +95,8 @@ public class Sonic1YadrinBadnikInstance extends AbstractBadnikInstance implement
     private boolean initialized;
     private int walkAnimIndex;     // Current index into WALK_ANIM_FRAMES
 
-    public Sonic1YadrinBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Yadrin");
+    public Sonic1YadrinBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Yadrin");
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         // S1: obStatus bit 0 set = facing right (xFlip)
@@ -117,7 +112,8 @@ public class Sonic1YadrinBadnikInstance extends AbstractBadnikInstance implement
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (!initialized) {
             initialize();
             return;
@@ -303,7 +299,8 @@ public class Sonic1YadrinBadnikInstance extends AbstractBadnikInstance implement
     }
 
     @Override
-    public void onTouchResponse(AbstractPlayableSprite player, TouchResponseResult result, int frameCounter) {
+    public void onTouchResponse(PlayableEntity playerEntity, TouchResponseResult result, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // React_Special Yadrin check (s1disasm: sub ReactToItem.asm:393-420):
         // Compute vertical overlap between player center and Yadrin center.
         // If overlap < 8 pixels, Sonic is on the spiky top -> hurt.
@@ -354,50 +351,20 @@ public class Sonic1YadrinBadnikInstance extends AbstractBadnikInstance implement
         }
 
         boolean hadRings = player.getRingCount() > 0;
-        if (hadRings && !player.hasShield() && levelManager != null) {
-            levelManager.spawnLostRings(player, frameCounter);
+        if (hadRings && !player.hasShield() && services() != null) {
+            services().spawnLostRings(player, frameCounter);
         }
         player.applyHurtOrDeath(currentX, false, hadRings);
     }
 
     @Override
-    protected void destroyBadnik(AbstractPlayableSprite player) {
-        destroyed = true;
-        setDestroyed(true);
-
-        var objectManager = levelManager.getObjectManager();
-        if (objectManager != null) {
-            if (spawn.respawnTracked()) {
-                objectManager.markRemembered(spawn);
-            } else {
-                objectManager.removeFromActiveSpawns(spawn);
-            }
-        }
-
-        ExplosionObjectInstance explosion = new ExplosionObjectInstance(0x27, currentX, currentY,
-                levelManager.getObjectRenderManager());
-        levelManager.getObjectManager().addDynamicObject(explosion);
-
-        AnimalObjectInstance animal = new AnimalObjectInstance(
-                new ObjectSpawn(currentX, currentY, 0x28, 0, 0, false, 0), levelManager);
-        levelManager.getObjectManager().addDynamicObject(animal);
-
-        int pointsValue = 100;
-        if (player != null) {
-            pointsValue = player.incrementBadnikChain();
-            GameServices.gameState().addScore(pointsValue);
-        }
-
-        Sonic1PointsObjectInstance points = new Sonic1PointsObjectInstance(
-                new ObjectSpawn(currentX, currentY, 0x29, 0, 0, false, 0), levelManager, pointsValue);
-        levelManager.getObjectManager().addDynamicObject(points);
-
-        AudioManager.getInstance().playSfx(Sonic1Sfx.BREAK_ITEM.id);
+    protected DestructionConfig getDestructionConfig() {
+        return Sonic1DestructionConfig.S1_DESTRUCTION_CONFIG;
     }
 
     @Override
     public boolean isPersistent() {
-        return !destroyed && isOnScreenX(160);
+        return !isDestroyed() && isOnScreenX(160);
     }
 
     @Override
@@ -407,19 +374,12 @@ public class Sonic1YadrinBadnikInstance extends AbstractBadnikInstance implement
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.YADRIN);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.YADRIN);
+        if (renderer == null) return;
 
         int frame = getMappingFrame();
         // S1 convention: default sprite art faces left, hFlip = true when facing right

@@ -1,7 +1,7 @@
 ---
-name: s3k-disasm-guide
-description: "This skill provides guidance on finding, identifying, and interpreting items in the Sonic 3 & Knuckles disassembly (`docs/skdisasm/`)."
+title: s3k-disasm Navigation Guide
 ---
+
 # s3k-disasm Navigation Guide
 
 This skill provides guidance on finding, identifying, and interpreting items in the Sonic 3 & Knuckles disassembly (`docs/skdisasm/`).
@@ -18,7 +18,7 @@ When RomOffsetFinder returns multiple results for the same label — one from `s
 
 ## Directory Structure
 
-S3K is organized very differently from S1/S2 â€” per-zone directories under `Levels/`:
+S3K is organized very differently from S1/S2 — per-zone directories under `Levels/`:
 
 | Directory | Contents | Notes |
 |-----------|----------|-------|
@@ -257,7 +257,7 @@ S3K uses **S2-style field names** (same as S2, different from S1):
 | `routine_secondary` | 0x3C | byte | Secondary routine |
 | `parent` | 0x42 | word | Parent object address |
 
-**Object size:** `$4A` bytes (larger than S2's `$4A`).
+**Object size:** `$4A` bytes (same as S2).
 
 ### S3K-Specific Features
 
@@ -405,4 +405,3 @@ Like S1, addresses derived from skdisasm labels may not always match the compile
 - `ArtNem_` prefix indicates Nemesis compression
 - `ArtKos_` prefix indicates regular Kosinski compression
 - When the file extension is `.bin`, the tool infers compression from the label
-

@@ -1,13 +1,9 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.debug.DebugOverlayManager;
-import com.openggf.debug.DebugOverlayToggle;
-import com.openggf.game.GameServices;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -53,11 +49,6 @@ public class MCZRotPformsObjectInstance extends AbstractObjectInstance
         implements SolidObjectProvider, SolidObjectListener {
 
     private static final Logger LOGGER = Logger.getLogger(MCZRotPformsObjectInstance.class.getName());
-
-    // Debug state
-    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
-            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
 
     // MCZ movement tables from disassembly (lines 53834-53846)
     // Format: {x_vel, y_vel, duration} per phase
@@ -116,9 +107,6 @@ public class MCZRotPformsObjectInstance extends AbstractObjectInstance
     private final boolean yFlip;
     private final boolean isParent;  // Subtype 0x18 parent doesn't render
 
-    // Dynamic spawn for moving position
-    private ObjectSpawn dynamicSpawn;
-
     // Child tracking for cleanup on unload
     private final List<MCZRotPformsObjectInstance> children = new ArrayList<>();
 
@@ -160,7 +148,7 @@ public class MCZRotPformsObjectInstance extends AbstractObjectInstance
             spawnChildren();
         }
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
 
         LOGGER.fine(() -> String.format(
                 "MCZRotPforms init: pos=(%d,%d), subtype=0x%02X, xFlip=%b, isParent=%b",
@@ -176,12 +164,6 @@ public class MCZRotPformsObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public SolidObjectParams getSolidParams() {
         // From disassembly lines 53771-53777:
@@ -198,19 +180,22 @@ public class MCZRotPformsObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Parent platforms (subtype 0x18) don't provide collision - children do
         return !isDestroyed() && !isParent;
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Track standing for activation detection
         // This is handled in update() via status byte polling
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -249,7 +234,7 @@ public class MCZRotPformsObjectInstance extends AbstractObjectInstance
 
         prevStandingFlags = playerStanding ? 1 : 0;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -333,7 +318,7 @@ public class MCZRotPformsObjectInstance extends AbstractObjectInstance
         // Check if player is riding this object
         // In the original, this is done via status bit flags
         // We check if we're the player's riding object
-        ObjectManager manager = LevelManager.getInstance().getObjectManager();
+        ObjectManager manager = services().objectManager();
         if (manager != null) {
             return manager.isAnyPlayerRiding(this);
         }
@@ -346,7 +331,7 @@ public class MCZRotPformsObjectInstance extends AbstractObjectInstance
      * Disassembly lines 53685-53705
      */
     private void spawnChildren() {
-        ObjectManager manager = LevelManager.getInstance().getObjectManager();
+        ObjectManager manager = services().objectManager();
         if (manager == null) {
             return;
         }
@@ -401,13 +386,8 @@ public class MCZRotPformsObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        // Debug overlay
-        if (isDebugViewEnabled()) {
-            appendDebug(commands);
-        }
-
         // Try to render using loaded art
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         PatternSpriteRenderer renderer = null;
 
         if (renderManager != null) {
@@ -420,20 +400,8 @@ public class MCZRotPformsObjectInstance extends AbstractObjectInstance
         }
     }
 
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = new ObjectSpawn(
-                    x,
-                    y,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
-    }
-
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         // Draw collision box
         int left = x - MCZ_HALF_WIDTH;
         int right = x + MCZ_HALF_WIDTH;
@@ -449,24 +417,14 @@ public class MCZRotPformsObjectInstance extends AbstractObjectInstance
             b = 0.2f;
         }
 
-        appendLine(commands, left, top, right, top, r, g, b);
-        appendLine(commands, right, top, right, bottom, r, g, b);
-        appendLine(commands, right, bottom, left, bottom, r, g, b);
-        appendLine(commands, left, bottom, left, top, r, g, b);
+        ctx.drawLine(left, top, right, top, r, g, b);
+        ctx.drawLine(right, top, right, bottom, r, g, b);
+        ctx.drawLine(right, bottom, left, bottom, r, g, b);
+        ctx.drawLine(left, bottom, left, top, r, g, b);
 
         // Draw center cross (cyan)
-        appendLine(commands, x - 4, y, x + 4, y, 0.0f, 1.0f, 1.0f);
-        appendLine(commands, x, y - 4, x, y + 4, 0.0f, 1.0f, 1.0f);
+        ctx.drawLine(x - 4, y, x + 4, y, 0.0f, 1.0f, 1.0f);
+        ctx.drawLine(x, y - 4, x, y + 4, 0.0f, 1.0f, 1.0f);
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2, float r, float g, float b) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x2, y2, 0, 0));
-    }
-
-    private boolean isDebugViewEnabled() {
-        return DEBUG_VIEW_ENABLED && OVERLAY_MANAGER.isEnabled(DebugOverlayToggle.OVERLAY);
-    }
 }

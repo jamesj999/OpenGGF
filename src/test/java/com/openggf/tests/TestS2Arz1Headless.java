@@ -6,8 +6,9 @@ import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.level.LevelManager;
-import com.openggf.sprites.playable.GroundMode;
+import com.openggf.game.GroundMode;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.RequiresRomRule;
@@ -50,8 +51,8 @@ public class TestS2Arz1Headless {
         sharedLevel = SharedLevel.load(SonicGame.SONIC_2, ZONE_ARZ, ACT_1);
 
         // ARZ tests need object manager reset with camera position
-        Camera camera = Camera.getInstance();
-        var om = LevelManager.getInstance().getObjectManager();
+        Camera camera = GameServices.camera();
+        var om = GameServices.level().getObjectManager();
         if (om != null) om.reset(camera.getX());
     }
 
@@ -86,7 +87,7 @@ public class TestS2Arz1Headless {
         sprite.setX(START_X);
         sprite.setY(START_Y);
 
-        var level = LevelManager.getInstance().getCurrentLevel();
+        var level = GameServices.level().getCurrentLevel();
         System.out.println("=== ALL PLANE SWITCHERS IN ARZ1 ===");
         for (var obj : level.getObjects()) {
             if (obj.objectId() == 0x03) {
@@ -124,7 +125,7 @@ public class TestS2Arz1Headless {
         sprite.setX(START_X);
         sprite.setY(START_Y);
 
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         System.out.println("Chunk solidity at wall location (X=2580-2610, Y=440-850):");
         for (int y = 440; y <= 850; y += 10) {
             for (int x = 2560; x <= 2610; x += 8) {

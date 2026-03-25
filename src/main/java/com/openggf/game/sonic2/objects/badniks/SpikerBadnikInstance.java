@@ -1,14 +1,18 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
-import com.openggf.level.objects.ObjectRenderManager;
+
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.util.AnimationTimer;
 
 import java.util.List;
 
@@ -41,15 +45,16 @@ public class SpikerBadnikInstance extends AbstractBadnikInstance {
     private int moveTimer;
     private int pauseTimer;
     private int throwTimer;
-    private int xSubpixel;
+    private final SubpixelMotion.State motionState;
     private boolean hasThrown;
     private boolean useAttackAnim;
     private boolean animateThisFrame;
     private boolean xFlipFlag;
+    private final AnimationTimer anim = new AnimationTimer(9, 2);
     private final boolean yFlipFlag;
 
-    public SpikerBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Spiker");
+    public SpikerBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Spiker", Sonic2BadnikConfig.DESTRUCTION);
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         this.xVelocity = X_VELOCITY;
@@ -58,7 +63,7 @@ public class SpikerBadnikInstance extends AbstractBadnikInstance {
         this.throwTimer = 0;
         this.state = State.MOVE;
         this.returnState = State.MOVE;
-        this.xSubpixel = 0;
+        this.motionState = new SubpixelMotion.State(spawn.x(), spawn.y(), 0, 0, X_VELOCITY, 0);
         this.hasThrown = false;
         this.useAttackAnim = false;
 
@@ -70,7 +75,8 @@ public class SpikerBadnikInstance extends AbstractBadnikInstance {
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         animateThisFrame = false;
 
         switch (state) {
@@ -92,10 +98,10 @@ public class SpikerBadnikInstance extends AbstractBadnikInstance {
             }
         }
 
-        int xPos32 = (currentX << 8) | (xSubpixel & 0xFF);
-        xPos32 += xVelocity;
-        currentX = xPos32 >> 8;
-        xSubpixel = xPos32 & 0xFF;
+        motionState.x = currentX;
+        motionState.xVel = xVelocity;
+        SubpixelMotion.moveX(motionState);
+        currentX = motionState.x;
 
         animateThisFrame = true;
     }
@@ -121,7 +127,7 @@ public class SpikerBadnikInstance extends AbstractBadnikInstance {
             hasThrown = true;
             useAttackAnim = true;
             animFrame = 2;
-            animTimer = 0;
+            anim.reset();
             state = returnState;
             return;
         }
@@ -170,7 +176,7 @@ public class SpikerBadnikInstance extends AbstractBadnikInstance {
                 currentY,
                 xFlipFlag,
                 yFlipFlag);
-        levelManager.getObjectManager().addDynamicObject(drill);
+        services().objectManager().addDynamicObject(drill);
     }
 
     @Override
@@ -182,14 +188,11 @@ public class SpikerBadnikInstance extends AbstractBadnikInstance {
         int baseFrame = useAttackAnim ? 2 : 0;
         if (animFrame < baseFrame || animFrame > baseFrame + 1) {
             animFrame = baseFrame;
-            animTimer = 0;
+            anim.reset();
         }
 
-        animTimer++;
-        if (animTimer >= 9) {
-            animTimer = 0;
-            animFrame = (animFrame == baseFrame) ? baseFrame + 1 : baseFrame;
-        }
+        anim.tick();
+        animFrame = baseFrame + anim.getFrame();
     }
 
     @Override
@@ -204,19 +207,12 @@ public class SpikerBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.SPIKER);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.SPIKER);
+        if (renderer == null) return;
 
         renderer.drawFrameIndex(animFrame, currentX, currentY, xFlipFlag, yFlipFlag);
     }

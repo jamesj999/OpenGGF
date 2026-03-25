@@ -2,6 +2,7 @@ package com.openggf.level.rings;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
+import com.openggf.game.GameServices;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.LevelManager;
 import com.openggf.level.SolidTile;
@@ -10,7 +11,7 @@ import com.openggf.level.spawn.AbstractPlacementManager;
 import com.openggf.level.ChunkDesc;
 import com.openggf.level.objects.TouchResponseTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import com.openggf.sprites.playable.ShieldType;
+import com.openggf.game.ShieldType;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameStateManager;
@@ -62,6 +63,16 @@ public class RingManager {
         for (AttractedRing ar : attractedRings) {
             ar.active = false;
         }
+    }
+
+    /**
+     * Replaces the ring spawn list with a new one from the editor.
+     * Resets all collection state (collected BitSet, sparkle frames).
+     * In editor mode this is acceptable -- all rings become uncollected.
+     */
+    public void resyncSpawnList(List<RingSpawn> newSpawns) {
+        placement.replaceSpawnsAndReset(newSpawns);
+        lostRings.reset();
     }
 
     public void ensurePatternsCached(GraphicsManager graphicsManager, int basePatternIndex) {
@@ -429,7 +440,7 @@ public class RingManager {
         private static final int NO_SPARKLE = -1;
 
         private final BitSet collected = new BitSet();
-        private final int[] sparkleStartFrames;
+        private int[] sparkleStartFrames;
         private int cursorIndex = 0;
         private int lastCameraX = Integer.MIN_VALUE;
 
@@ -437,6 +448,16 @@ public class RingManager {
             super(spawns, LOAD_AHEAD, UNLOAD_BEHIND);
             this.sparkleStartFrames = new int[this.spawns.size()];
             Arrays.fill(this.sparkleStartFrames, NO_SPARKLE);
+        }
+
+        /** Replaces spawns and resets all collection/sparkle state. */
+        private void replaceSpawnsAndReset(List<RingSpawn> newSpawns) {
+            replaceSpawns(newSpawns);
+            collected.clear();
+            sparkleStartFrames = new int[this.spawns.size()];
+            Arrays.fill(sparkleStartFrames, NO_SPARKLE);
+            cursorIndex = 0;
+            lastCameraX = Integer.MIN_VALUE;
         }
 
         private void reset(int cameraX) {
@@ -745,7 +766,7 @@ public class RingManager {
             }
 
             // S3K: Reverse_gravity_flag gates Obj_Bouncing_Ring_Reverse_Gravity variant.
-            boolean reverseGravity = GameStateManager.getInstance().isReverseGravityActive();
+            boolean reverseGravity = GameServices.gameState().isReverseGravityActive();
             int gravity = reverseGravity ? -GRAVITY : GRAVITY;
 
             int cameraBottom = camera.getMaxY() + 224;

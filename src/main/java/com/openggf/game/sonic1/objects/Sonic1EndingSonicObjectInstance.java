@@ -1,10 +1,8 @@
 package com.openggf.game.sonic1.objects;
 
-import com.openggf.game.GameServices;
-import com.openggf.graphics.FadeManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.Level;
-import com.openggf.level.LevelManager;
 import com.openggf.level.Map;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
@@ -104,12 +102,13 @@ public class Sonic1EndingSonicObjectInstance extends AbstractObjectInstance {
         super(null, "EndSonic");
         this.currentX = x;
         this.currentY = y;
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         this.renderer = renderManager != null ? renderManager.getRenderer(ObjectArtKeys.END_SONIC) : null;
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (routine) {
             case 0x00 -> updateMain();
             case 0x02 -> updateMakeEmeralds();
@@ -128,7 +127,7 @@ public class Sonic1EndingSonicObjectInstance extends AbstractObjectInstance {
 
     /** Routine 0x00: Check emerald count and branch. */
     private void updateMain() {
-        int emeraldCount = GameServices.gameState().getEmeraldCount();
+        int emeraldCount = services().gameState().getEmeraldCount();
         if (emeraldCount >= EMERALD_COUNT_FULL) {
             // Full emerald sequence
             routine = 0x02;
@@ -300,7 +299,7 @@ public class Sonic1EndingSonicObjectInstance extends AbstractObjectInstance {
         }
         emeraldsSpawned = true;
 
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -308,15 +307,20 @@ public class Sonic1EndingSonicObjectInstance extends AbstractObjectInstance {
         // ROM: ECha_CreateEms spawns 6 emeralds at player position
         // with angle offsets spaced by $100/6 = $2A
         int angleStep = 0x100 / 6; // $2A
-        for (int i = 0; i < 6; i++) {
-            int angleOffset = (angleStep * i) & 0xFF;
-            int emeraldFrame = i + 1; // frames 1-6
-            Sonic1EndingEmeraldsObjectInstance emerald =
-                    new Sonic1EndingEmeraldsObjectInstance(currentX, currentY, angleOffset, emeraldFrame);
-            objectManager.addDynamicObject(emerald);
-            if (i == 0) {
-                emeraldMaster = emerald;
+        setConstructionContext(services());
+        try {
+            for (int i = 0; i < 6; i++) {
+                int angleOffset = (angleStep * i) & 0xFF;
+                int emeraldFrame = i + 1; // frames 1-6
+                Sonic1EndingEmeraldsObjectInstance emerald =
+                        new Sonic1EndingEmeraldsObjectInstance(currentX, currentY, angleOffset, emeraldFrame);
+                objectManager.addDynamicObject(emerald);
+                if (i == 0) {
+                    emeraldMaster = emerald;
+                }
             }
+        } finally {
+            clearConstructionContext();
         }
     }
 
@@ -331,8 +335,7 @@ public class Sonic1EndingSonicObjectInstance extends AbstractObjectInstance {
      * that reference the animated Kos_EndFlowers tile positions.
      */
     private void patchLayoutWithFlowers() {
-        LevelManager levelManager = LevelManager.getInstance();
-        Level level = levelManager.getCurrentLevel();
+        Level level = services().currentLevel();
         if (level == null) {
             return;
         }
@@ -346,7 +349,7 @@ public class Sonic1EndingSonicObjectInstance extends AbstractObjectInstance {
             map.setValue(0, 0, 1, (byte) 0x2E);
             map.setValue(0, 1, 1, (byte) 0x2F);
             // ROM: bsr.w DrawChunks — re-render level with modified layout
-            levelManager.invalidateForegroundTilemap();
+            services().invalidateForegroundTilemap();
         } catch (IllegalArgumentException e) {
             LOGGER.warning("Ending layout patch failed: " + e.getMessage());
         }
@@ -368,13 +371,18 @@ public class Sonic1EndingSonicObjectInstance extends AbstractObjectInstance {
         }
         sthSpawned = true;
 
-        Sonic1EndingSTHObjectInstance sth = new Sonic1EndingSTHObjectInstance();
-        spawnDynamicObject(sth);
+        setConstructionContext(services());
+        try {
+            Sonic1EndingSTHObjectInstance sth = new Sonic1EndingSTHObjectInstance();
+            spawnDynamicObject(sth);
+        } finally {
+            clearConstructionContext();
+        }
     }
 
     private void triggerFlash() {
         try {
-            var fadeManager = FadeManager.getInstance();
+            var fadeManager = services().fadeManager();
             if (!fadeManager.isActive()) {
                 fadeManager.startFadeToWhite(() ->
                         fadeManager.startFadeFromWhite(null));

@@ -2,12 +2,13 @@ package com.openggf.game.sonic2.objects.badniks;
 
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -70,12 +71,9 @@ public class ShellcrackerClawInstance extends AbstractObjectInstance {
     private final ShellcrackerBadnikInstance parent;
     private final int pieceIndex; // 0, 2, 4, 6, 8, 10, 12, 14
     private final boolean facingRight;
-    private final LevelManager levelManager;
-
     private int currentX;
     private int currentY;
-    private int xSubpixel;
-    private int ySubpixel;
+    private final SubpixelMotion.State motionState = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
     private int xVelocity;
     private int yVelocity;
     private State state;
@@ -84,14 +82,12 @@ public class ShellcrackerClawInstance extends AbstractObjectInstance {
     private int animFrame;
 
     public ShellcrackerClawInstance(ObjectSpawn parentSpawn, ShellcrackerBadnikInstance parent,
-                                    int x, int y, int pieceIndex, boolean facingRight,
-                                    LevelManager levelManager) {
+                                    int x, int y, int pieceIndex, boolean facingRight) {
         super(new ObjectSpawn(x, y, 0xA0, 0x26, parentSpawn.renderFlags(),
                 false, parentSpawn.rawYWord()), "ShellcrackerClaw");
         this.parent = parent;
         this.pieceIndex = pieceIndex;
         this.facingRight = facingRight;
-        this.levelManager = levelManager;
         this.currentX = x;
         this.currentY = y;
 
@@ -114,7 +110,8 @@ public class ShellcrackerClawInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: loc_381AC checks parent alive before processing sub-states
         if (state != State.FALLING && !checkParentAlive()) {
             // Parent died - now in FALLING state, process it
@@ -222,14 +219,13 @@ public class ShellcrackerClawInstance extends AbstractObjectInstance {
     }
 
     private void applyVelocity() {
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
-        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
-        xPos24 += xVelocity;
-        yPos24 += yVelocity;
-        currentX = xPos24 >> 8;
-        currentY = yPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
-        ySubpixel = yPos24 & 0xFF;
+        motionState.x = currentX;
+        motionState.y = currentY;
+        motionState.xVel = xVelocity;
+        motionState.yVel = yVelocity;
+        SubpixelMotion.moveSprite2(motionState);
+        currentX = motionState.x;
+        currentY = motionState.y;
     }
 
     /**
@@ -264,7 +260,7 @@ public class ShellcrackerClawInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services() != null ? services().renderManager() : null;
         if (renderManager == null) return;
 
         PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.SHELLCRACKER);

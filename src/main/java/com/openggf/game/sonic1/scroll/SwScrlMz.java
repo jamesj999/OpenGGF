@@ -1,6 +1,6 @@
 package com.openggf.game.sonic1.scroll;
 
-import com.openggf.level.scroll.ZoneScrollHandler;
+import com.openggf.level.scroll.AbstractZoneScrollHandler;
 import static com.openggf.level.scroll.M68KMath.*;
 
 /**
@@ -22,7 +22,7 @@ import static com.openggf.level.scroll.M68KMath.*;
  *   <li>The 32-entry scroll buffer is sampled by BG Y in 16-line blocks</li>
  * </ul>
  */
-public class SwScrlMz implements ZoneScrollHandler {
+public class SwScrlMz extends AbstractZoneScrollHandler {
 
     private static final int LINES_PER_GROUP = 16;
     private static final int CLOUD_ENTRY_COUNT = 5;
@@ -31,10 +31,6 @@ public class SwScrlMz implements ZoneScrollHandler {
     private static final int INTERIOR_ENTRY_COUNT = 16;
     private static final int SCROLL_BUFFER_SIZE =
             CLOUD_ENTRY_COUNT + MOUNTAIN_ENTRY_COUNT + BUSH_ENTRY_COUNT + INTERIOR_ENTRY_COUNT;
-
-    private int minScrollOffset;
-    private int maxScrollOffset;
-    private short vscrollFactorBG;
 
     // REV01 has three independent BG X cameras:
     // BG1 (interior) at 3/4x, BG2 (bushes) at 1/2x, BG3 (mountains) at 1/4x.
@@ -67,8 +63,7 @@ public class SwScrlMz implements ZoneScrollHandler {
             init(cameraX);
         }
 
-        minScrollOffset = Integer.MAX_VALUE;
-        maxScrollOffset = Integer.MIN_VALUE;
+        resetScrollTracking();
 
         // Compute delta
         int deltaX = cameraX - lastCameraX;
@@ -176,28 +171,4 @@ public class SwScrlMz implements ZoneScrollHandler {
         return line;
     }
 
-    private void trackOffset(short fgScroll, short bgScroll) {
-        int offset = bgScroll - fgScroll;
-        if (offset < minScrollOffset) {
-            minScrollOffset = offset;
-        }
-        if (offset > maxScrollOffset) {
-            maxScrollOffset = offset;
-        }
-    }
-
-    @Override
-    public short getVscrollFactorBG() {
-        return vscrollFactorBG;
-    }
-
-    @Override
-    public int getMinScrollOffset() {
-        return minScrollOffset;
-    }
-
-    @Override
-    public int getMaxScrollOffset() {
-        return maxScrollOffset;
-    }
 }

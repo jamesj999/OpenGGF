@@ -77,6 +77,10 @@ public class TestGameModuleProfiles {
             public ZoneArtProvider getZoneArtProvider() { return null; }
             @Override
             public ObjectArtProvider getObjectArtProvider() { return null; }
+            @Override
+            public com.openggf.game.PhysicsProvider getPhysicsProvider() { return null; }
+            @Override
+            public GameId getGameId() { return null; }
         };
         LevelInitProfile profile = anon.getLevelInitProfile();
         assertNotNull(profile);

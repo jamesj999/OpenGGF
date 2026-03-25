@@ -4,6 +4,7 @@ import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.data.RomByteReader;
 import com.openggf.level.Pattern;
 import com.openggf.level.render.SpriteDplcFrame;
+import com.openggf.util.PatternDecompressor;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpriteMappingPiece;
 import com.openggf.level.render.TileLoadRequest;
@@ -84,17 +85,7 @@ public class Sonic2DustArt {
     }
 
     private Pattern[] loadArtTiles(int artAddr, int artSize) throws IOException {
-        if (artSize % Pattern.PATTERN_SIZE_IN_ROM != 0) {
-            throw new IOException("Inconsistent dust art tile data");
-        }
-        int tileCount = artSize / Pattern.PATTERN_SIZE_IN_ROM;
-        Pattern[] patterns = new Pattern[tileCount];
-        for (int i = 0; i < tileCount; i++) {
-            patterns[i] = new Pattern();
-            int start = i * Pattern.PATTERN_SIZE_IN_ROM;
-            patterns[i].fromSegaFormat(reader.slice(artAddr + start, Pattern.PATTERN_SIZE_IN_ROM));
-        }
-        return patterns;
+        return PatternDecompressor.uncompressed(reader, artAddr, artSize);
     }
 
     private List<SpriteMappingFrame> loadMappingFrames(int mappingAddr) {

@@ -1,17 +1,12 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.debug.DebugOverlayManager;
-import com.openggf.debug.DebugOverlayToggle;
-import com.openggf.game.GameServices;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.MultiPieceSolidProvider;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
@@ -134,11 +129,6 @@ public class CogObjectInstance extends AbstractObjectInstance
             {0x10, 0x10},  // frame 15
     };
 
-    // Debug state
-    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
-            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
-
     // Instance state
     private final int baseX;      // objoff_32 - center X position
     private final int baseY;      // objoff_30 - center Y position
@@ -186,7 +176,8 @@ public class CogObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -309,12 +300,14 @@ public class CogObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed();
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // No special handling needed
     }
 
@@ -322,19 +315,8 @@ public class CogObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (isDebugViewEnabled()) {
-            appendDebug(commands);
-        }
-
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.MTZ_WHEEL);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.MTZ_WHEEL);
+        if (renderer == null) return;
 
         for (int i = 0; i < NUM_TEETH; i++) {
             renderer.drawFrameIndex(toothFrame[i], toothX[i], toothY[i], false, false);
@@ -346,7 +328,8 @@ public class CogObjectInstance extends AbstractObjectInstance
         return RenderPriority.clamp(PRIORITY);
     }
 
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         // Draw collision bounds for each tooth
         for (int i = 0; i < NUM_TEETH; i++) {
             SolidObjectParams params = getParamsForFrame(toothFrame[i]);
@@ -355,26 +338,15 @@ public class CogObjectInstance extends AbstractObjectInstance
             int top = toothY[i] - params.airHalfHeight();
             int bottom = toothY[i] + params.groundHalfHeight();
 
-            appendLine(commands, left, top, right, top, 0.0f, 1.0f, 0.0f);
-            appendLine(commands, right, top, right, bottom, 0.3f, 0.7f, 0.3f);
-            appendLine(commands, right, bottom, left, bottom, 0.3f, 0.7f, 0.3f);
-            appendLine(commands, left, bottom, left, top, 0.3f, 0.7f, 0.3f);
+            ctx.drawLine(left, top, right, top, 0.0f, 1.0f, 0.0f);
+            ctx.drawLine(right, top, right, bottom, 0.3f, 0.7f, 0.3f);
+            ctx.drawLine(right, bottom, left, bottom, 0.3f, 0.7f, 0.3f);
+            ctx.drawLine(left, bottom, left, top, 0.3f, 0.7f, 0.3f);
         }
 
         // Center cross (yellow)
-        appendLine(commands, baseX - 4, baseY, baseX + 4, baseY, 1.0f, 1.0f, 0.0f);
-        appendLine(commands, baseX, baseY - 4, baseX, baseY + 4, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(baseX - 4, baseY, baseX + 4, baseY, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(baseX, baseY - 4, baseX, baseY + 4, 1.0f, 1.0f, 0.0f);
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2,
-                            float r, float g, float b) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x2, y2, 0, 0));
-    }
-
-    private boolean isDebugViewEnabled() {
-        return DEBUG_VIEW_ENABLED && OVERLAY_MANAGER.isEnabled(DebugOverlayToggle.OVERLAY);
-    }
 }

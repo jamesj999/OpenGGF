@@ -1,6 +1,6 @@
 package com.openggf.game.sonic1.credits;
 
-import com.openggf.Control.InputHandler;
+import com.openggf.control.InputHandler;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
@@ -468,7 +468,7 @@ public class TryAgainEndManager {
 
         // Draw emeralds and Eggman in a single batch
         GraphicsManager gm = GraphicsManager.getInstance();
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         int camX = camera.getX();
         int camY = camera.getY();
 

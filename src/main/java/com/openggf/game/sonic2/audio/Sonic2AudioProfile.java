@@ -1,6 +1,6 @@
 package com.openggf.game.sonic2.audio;
 
-import com.openggf.audio.GameAudioProfile;
+import com.openggf.audio.AbstractAudioProfile;
 import com.openggf.audio.GameSound;
 import com.openggf.audio.smps.SmpsLoader;
 import com.openggf.audio.smps.SmpsSequencerConfig;
@@ -11,7 +11,7 @@ import java.util.Collections;
 import java.util.EnumMap;
 import java.util.Map;
 
-public class Sonic2AudioProfile implements GameAudioProfile {
+public class Sonic2AudioProfile extends AbstractAudioProfile {
 
     private static final Map<GameSound, Integer> SOUND_MAP;
 
@@ -45,6 +45,11 @@ public class Sonic2AudioProfile implements GameAudioProfile {
         map.put(GameSound.OIL_SLIDE, Sonic2Sfx.OIL_SLIDE.id);
         SOUND_MAP = Collections.unmodifiableMap(map);
     }
+
+    public Sonic2AudioProfile() {
+        super(SOUND_MAP);
+    }
+
     @Override
     public SmpsLoader createSmpsLoader(Rom rom) {
         return new Sonic2SmpsLoader(rom);
@@ -88,10 +93,5 @@ public class Sonic2AudioProfile implements GameAudioProfile {
     @Override
     public int getSfxPriority(int soundId) {
         return Sonic2SmpsConstants.getSfxPriority(soundId);
-    }
-
-    @Override
-    public Map<GameSound, Integer> getSoundMap() {
-        return SOUND_MAP;
     }
 }

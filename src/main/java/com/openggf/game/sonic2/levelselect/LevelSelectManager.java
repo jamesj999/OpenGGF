@@ -1,7 +1,6 @@
 package com.openggf.game.sonic2.levelselect;
 
-import com.openggf.audio.AudioManager;
-import com.openggf.Control.InputHandler;
+import com.openggf.control.InputHandler;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.sonic2.audio.Sonic2Music;
@@ -18,6 +17,7 @@ import com.openggf.level.PatternDesc;
 import java.util.logging.Logger;
 
 import static org.lwjgl.opengl.GL11.glClearColor;
+import com.openggf.game.GameServices;
 
 /**
  * Manages the Sonic 2 Level Select screen.
@@ -106,7 +106,7 @@ public class LevelSelectManager implements LevelSelectProvider {
         resetHoldTimers();
 
         // Play level select music
-        AudioManager.getInstance().playMusic(Sonic2Music.OPTIONS.id);
+        GameServices.audio().playMusic(Sonic2Music.OPTIONS.id);
 
         LOGGER.info("Level select initialized, entering FADE_IN state");
     }
@@ -245,9 +245,9 @@ public class LevelSelectManager implements LevelSelectProvider {
             LOGGER.info("Playing sound test: 0x" + Integer.toHexString(soundTestValue)
                     + " -> soundId 0x" + Integer.toHexString(soundId));
             if (Sonic2SoundTestCatalog.isMusicId(soundId)) {
-                AudioManager.getInstance().playMusic(soundId);
+                GameServices.audio().playMusic(soundId);
             } else if (Sonic2SoundTestCatalog.isSfxId(soundId)) {
-                AudioManager.getInstance().playSfx(soundId);
+                GameServices.audio().playSfx(soundId);
             } else {
                 LOGGER.fine("No mapped sound for sound test value: 0x" + Integer.toHexString(soundTestValue));
             }

@@ -6,8 +6,8 @@ import com.openggf.game.sonic3k.audio.Sonic3kSmpsConstants;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 
 import com.openggf.audio.smps.AbstractSmpsData;
+import com.openggf.audio.smps.AbstractSmpsLoader;
 import com.openggf.audio.smps.DacData;
-import com.openggf.audio.smps.SmpsLoader;
 import com.openggf.data.Rom;
 import com.openggf.tools.KosinskiReader;
 
@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.nio.channels.Channels;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -36,7 +37,7 @@ import java.util.logging.Logger;
  *   <li>DAC samples use DPCM compression with bank-switching.</li>
  * </ul>
  */
-public class Sonic3kSmpsLoader implements SmpsLoader {
+public class Sonic3kSmpsLoader extends AbstractSmpsLoader {
     private static final Logger LOGGER = Logger.getLogger(Sonic3kSmpsLoader.class.getName());
 
     /** Maximum reasonable size for a single SMPS song/SFX blob. */
@@ -45,9 +46,6 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
     /** Voice table padding for SFX (25 bytes per voice, generous margin). */
     private static final int SFX_VOICE_TABLE_PADDING = 0x100;
 
-    private final Rom rom;
-    private final Map<Integer, AbstractSmpsData> musicCache = new HashMap<>();
-    private final Map<Integer, AbstractSmpsData> sfxCache = new HashMap<>();
     private final Map<Integer, byte[]> bankCache = new HashMap<>();
 
     // Decompressed Z80 driver data
@@ -67,7 +65,7 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
     private int[] s3MusicPointers;
 
     public Sonic3kSmpsLoader(Rom rom) {
-        this.rom = rom;
+        super(rom);
         decompressZ80Data();
         parseZ80Tables();
         parseS3MusicTables();
@@ -163,8 +161,7 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
             musicCache.put(musicId, data);
             return data;
         } catch (IOException e) {
-            LOGGER.severe("Failed to load S3K music ID 0x" + Integer.toHexString(musicId)
-                    + ": " + e.getMessage());
+            LOGGER.log(Level.SEVERE, "Failed to load S3K music ID 0x" + Integer.toHexString(musicId), e);
             return null;
         }
     }
@@ -227,25 +224,15 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
 
             sfxCache.put(sfxId, sfx);
             return sfx;
-        } catch (Exception e) {
-            LOGGER.severe("Failed to load S3K SFX ID 0x" + Integer.toHexString(sfxId)
-                    + ": " + e.getMessage());
+        } catch (IOException | RuntimeException e) {
+            LOGGER.log(Level.SEVERE, "Failed to load S3K SFX ID 0x" + Integer.toHexString(sfxId), e);
             return null;
         }
     }
 
     @Override
-    public AbstractSmpsData loadSfx(String sfxName) {
-        if (sfxName != null) {
-            try {
-                int id = Integer.parseInt(sfxName, 16);
-                if (id >= Sonic3kSfx.ID_BASE && id <= Sonic3kSfx.ID_MAX) {
-                    return loadSfx(id);
-                }
-            } catch (NumberFormatException ignored) {
-            }
-        }
-        return null;
+    protected boolean isValidSfxId(int id) {
+        return id >= Sonic3kSfx.ID_BASE && id <= Sonic3kSfx.ID_MAX;
     }
 
     @Override
@@ -347,8 +334,8 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
 
             LOGGER.info("Loaded " + samples.size() + " S3K DAC samples.");
             return new DacData(samples, mapping, 297); // S3K baseCycles = 297
-        } catch (Exception e) {
-            LOGGER.severe("Failed to load S3K DAC data: " + e.getMessage());
+        } catch (IOException | RuntimeException e) {
+            LOGGER.log(Level.SEVERE, "Failed to load S3K DAC data", e);
             return new DacData(samples, mapping, 297);
         }
     }
@@ -488,8 +475,7 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
             musicCache.put(cacheKey, data);
             return data;
         } catch (IOException e) {
-            LOGGER.severe("Failed to load S3 music ID 0x" + Integer.toHexString(musicId)
-                    + ": " + e.getMessage());
+            LOGGER.log(Level.SEVERE, "Failed to load S3 music ID 0x" + Integer.toHexString(musicId), e);
             return null;
         }
     }
@@ -511,8 +497,8 @@ public class Sonic3kSmpsLoader implements SmpsLoader {
             LOGGER.info("Decompressed S3K Z80 additional data: " + z80AdditionalData.length
                     + " bytes from ROM 0x" + Integer.toHexString(Sonic3kSmpsConstants.Z80_ADDITIONAL_DATA_ADDR));
             LOGGER.info("  First 16 bytes: " + hexDump(z80AdditionalData, 0, 16));
-        } catch (Exception e) {
-            LOGGER.severe("Failed to decompress S3K Z80 data: " + e.getMessage());
+        } catch (IOException | RuntimeException e) {
+            LOGGER.log(Level.SEVERE, "Failed to decompress S3K Z80 data", e);
         }
     }
 

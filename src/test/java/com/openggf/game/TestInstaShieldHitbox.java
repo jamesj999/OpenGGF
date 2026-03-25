@@ -1,7 +1,7 @@
 package com.openggf.game;
 
 import com.openggf.game.sonic2.Sonic2GameModule;
-import com.openggf.sprites.playable.ShieldType;
+import com.openggf.game.ShieldType;
 import com.openggf.tests.TestablePlayableSprite;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;

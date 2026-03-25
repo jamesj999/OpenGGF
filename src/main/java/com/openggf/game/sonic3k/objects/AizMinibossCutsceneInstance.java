@@ -1,8 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.audio.AudioManager;
-import com.openggf.camera.Camera;
-import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
@@ -10,10 +8,9 @@ import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.graphics.GLCommand;
-import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Palette;
 import com.openggf.level.objects.ObjectManager;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.boss.AbstractBossChild;
@@ -22,6 +19,7 @@ import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
+import java.util.logging.Logger;
 
 /**
  * AIZ Act 1 miniboss cutscene object (0x90).
@@ -36,6 +34,7 @@ import java.util.List;
  * - loc_68646/loc_68690 exit + cleanup
  */
 public class AizMinibossCutsceneInstance extends AbstractBossInstance {
+    private static final Logger LOG = Logger.getLogger(AizMinibossCutsceneInstance.class.getName());
     private static final int ROUTINE_INIT = 0;
     private static final int ROUTINE_WAIT_TRIGGER = 2;
     private static final int ROUTINE_WAIT = 4;
@@ -79,8 +78,8 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
     private Runnable waitCallback;
     private int savedCameraMaxX;
 
-    public AizMinibossCutsceneInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "AIZMinibossCutscene");
+    public AizMinibossCutsceneInstance(ObjectSpawn spawn) {
+        super(spawn, "AIZMinibossCutscene");
     }
 
     @Override
@@ -123,7 +122,13 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
     }
 
     @Override
-    protected void updateBossLogic(int frameCounter, AbstractPlayableSprite player) {
+    protected int getBossExplosionSfxId() {
+        return Sonic3kSfx.EXPLODE.id;
+    }
+
+    @Override
+    protected void updateBossLogic(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state.routine) {
             case ROUTINE_INIT -> updateInit();
             case ROUTINE_WAIT_TRIGGER -> updateWaitTrigger();
@@ -147,7 +152,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         if (!state.invulnerable) {
             return;
         }
-        var level = levelManager.getCurrentLevel();
+        var level = services().currentLevel();
         if (level == null || level.getPaletteCount() <= 1) {
             return;
         }
@@ -159,14 +164,14 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
             byte[] bytes = {(byte) ((colors[i] >> 8) & 0xFF), (byte) (colors[i] & 0xFF)};
             pal.getColor(CUSTOM_FLASH_INDICES[i]).fromSegaFormat(bytes, 0);
         }
-        GraphicsManager gm = GraphicsManager.getInstance();
+        var gm = services().graphicsManager();
         if (gm.isGlInitialized()) {
             gm.cachePaletteTexture(pal, 1);
         }
     }
 
     private void updateInit() {
-        Camera camera = Camera.getInstance();
+        var camera = services().camera();
         savedCameraMaxX = camera.getMaxX();
 
         Sonic3kAIZEvents events = getAizEvents();
@@ -180,7 +185,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
     }
 
     private void updateWaitTrigger() {
-        Camera camera = Camera.getInstance();
+        var camera = services().camera();
         if (camera.getX() < TRIGGER_X) {
             return;
         }
@@ -190,8 +195,8 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
 
         camera.setMinX((short) TRIGGER_X);
         camera.setMaxX((short) TRIGGER_X);
-        GameServices.gameState().setCurrentBossId(CUTSCENE_BOSS_ID);
-        AudioManager.getInstance().fadeOutMusic();
+        services().gameState().setCurrentBossId(CUTSCENE_BOSS_ID);
+        services().fadeOutMusic();
 
         state.routine = ROUTINE_WAIT;
         setWait(WAIT_AFTER_TRIGGER, this::onInitialDelayComplete);
@@ -202,14 +207,14 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         state.yVel = DESCEND_VEL;
         setWait(DESCEND_TIME, this::onDescendComplete);
 
-        var objectManager = levelManager.getObjectManager();
+        var objectManager = services().objectManager();
         spawnChild(new AizMinibossBodyChild(this), objectManager);
         spawnChild(new AizMinibossArmChild(this), objectManager);
         for (int i = 0; i < 3; i++) {
             spawnChild(new AizMinibossFlameBarrelChild(this, i, true), objectManager);
         }
 
-        AudioManager.getInstance().playMusic(Sonic3kMusic.MINIBOSS.id);
+        services().playMusic(Sonic3kMusic.MINIBOSS.id);
     }
 
     private void onDescendComplete() {
@@ -225,7 +230,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         // ROM: loc_6862E — directly after swing, spawn explosion and set pre-exit wait
         setWait(PRE_EXIT_TIME, this::onPreExitComplete);
         // ROM: Obj_BossExplosionSpecial positions at screen center (overrides child offset)
-        Camera camera = Camera.getInstance();
+        var camera = services().camera();
         explosionController = new S3kBossExplosionController(
                 camera.getX() + 160, camera.getY() + 112, 2);
     }
@@ -235,14 +240,14 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
             return;
         }
         explosionController.tick();
-        var objectManager = levelManager.getObjectManager();
+        var objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
         for (var pending : explosionController.drainPendingExplosions()) {
             // ROM: sub_52850 plays sfx_Explode when spawning each child
             if (pending.playSfx()) {
-                AudioManager.getInstance().playSfx(Sonic3kSfx.EXPLODE.id);
+                services().playSfx(Sonic3kSfx.EXPLODE.id);
             }
             objectManager.addDynamicObject(new S3kBossExplosionChild(pending.x(), pending.y()));
         }
@@ -254,7 +259,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         state.yVel = 0;
 
         loadBossPalette();
-        AudioManager.getInstance().fadeOutMusic();
+        services().fadeOutMusic();
 
         int exitFrames = isAiz1() ? EXIT_TIME_AIZ1 : EXIT_TIME_OTHER;
         setWait(exitFrames, this::onExitComplete);
@@ -298,11 +303,11 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         // During the unwinnable AIZ1 cutscene transition, BG events own camera/music flow.
         // Only restore defaults when no transition handoff is active.
         if (!transitionInProgress) {
-            AudioManager.getInstance().getBackend().restoreMusic();
-            Camera camera = Camera.getInstance();
+            services().audioManager().getBackend().restoreMusic();
+            var camera = services().camera();
             camera.setMinX((short) 0);
             camera.setMaxX((short) savedCameraMaxX);
-            GameServices.gameState().setCurrentBossId(0);
+            services().gameState().setCurrentBossId(0);
         }
 
         setDestroyed(true);
@@ -337,11 +342,11 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
     }
 
     private void spawnDebris() {
-        var objectManager = levelManager.getObjectManager();
+        var objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
-        int cameraX = Camera.getInstance().getX();
+        int cameraX = services().camera().getX();
         for (int i = 0; i < DEBRIS_X_OFFSETS.length; i++) {
             int x = cameraX + DEBRIS_X_OFFSETS[i];
             int y = DEBRIS_Y_POSITIONS[i];
@@ -352,20 +357,20 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
 
     private void loadBossPalette() {
         try {
-            byte[] line = GameServices.rom().getRom().readBytes(
+            byte[] line = services().rom().readBytes(
                     Sonic3kConstants.PAL_AIZ_MINIBOSS_ADDR, 32);
-            levelManager.updatePalette(1, line);
-        } catch (Exception ignored) {
-            // Palette load failures should not crash gameplay.
+            services().updatePalette(1, line);
+        } catch (Exception e) {
+            LOG.fine(() -> "AizMinibossCutsceneInstance.loadBossPalette: " + e.getMessage());
         }
     }
 
     private boolean isAiz1() {
-        return levelManager.getCurrentZone() == 0 && levelManager.getCurrentAct() == 0;
+        return services().romZoneId() == 0 && services().currentAct() == 0;
     }
 
     private Sonic3kAIZEvents getAizEvents() {
-        return Sonic3kLevelEventManager.getInstance().getAizEvents();
+        return ((Sonic3kLevelEventManager) services().levelEventProvider()).getAizEvents();
     }
 
     @Override
@@ -373,7 +378,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         if (state.routine < ROUTINE_DESCEND || isDestroyed()) {
             return;
         }
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

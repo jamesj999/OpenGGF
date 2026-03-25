@@ -1,6 +1,5 @@
 package com.openggf.game.sonic2.events;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
@@ -10,6 +9,8 @@ import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
 import com.openggf.level.Map;
 import com.openggf.level.objects.ObjectSpawn;
+
+import java.util.logging.Logger;
 
 /**
  * Casino Night Zone events.
@@ -25,6 +26,7 @@ import com.openggf.level.objects.ObjectSpawn;
  * - Routine 6: Prevent backtracking during fight
  */
 public class Sonic2CNZEvents extends Sonic2ZoneEvents {
+    private static final Logger LOGGER = Logger.getLogger(Sonic2CNZEvents.class.getName());
     private Sonic2CNZBossInstance cnzBoss;
     // CNZ Act 2 boss arena wall positions (for removal after defeat)
     // Layout offset calculation: offset / layoutWidth = y, offset % layoutWidth = x
@@ -82,9 +84,9 @@ public class Sonic2CNZEvents extends Sonic2ZoneEvents {
                     eventRoutine += 2;
                     bossSpawnDelay = 0;
                     // ROM: Fade out music
-                    AudioManager.getInstance().fadeOutMusic();
+                    audio().fadeOutMusic();
                     // ROM: Set Current_Boss_ID to 6 (CNZ boss ID in BossCollision_Index)
-                    GameServices.gameState().setCurrentBossId(6);
+                    gameState().setCurrentBossId(6);
 
                     // ROM: Load CNZ boss palette (Pal_CNZ_B to palette line 1)
                     // This palette contains the electricity effect colors
@@ -107,7 +109,7 @@ public class Sonic2CNZEvents extends Sonic2ZoneEvents {
                     spawnCNZBoss();
                     eventRoutine += 2;
                     // Start boss music
-                    AudioManager.getInstance().playMusic(Sonic2Music.BOSS.id);
+                    audio().playMusic(Sonic2Music.BOSS.id);
                 }
             }
             case 6 -> {
@@ -147,7 +149,7 @@ public class Sonic2CNZEvents extends Sonic2ZoneEvents {
         // CNZ boss initial position from Sonic2CNZBossInstance: (0x2A46, 0x654)
         ObjectSpawn bossSpawn = new ObjectSpawn(
                 0x2A46, 0x654, Sonic2ObjectIds.CNZ_BOSS, 0, 0, false, 0);
-        cnzBoss = new Sonic2CNZBossInstance(bossSpawn, LevelManager.getInstance(), this);
+        cnzBoss = new Sonic2CNZBossInstance(bossSpawn, this);
         spawnObject(cnzBoss);
     }
 
@@ -164,7 +166,7 @@ public class Sonic2CNZEvents extends Sonic2ZoneEvents {
      * - Offset $C50 (3152): x = 3152 % 256 = 80, y = 3152 / 256 = 12
      */
     private void placeCNZArenaWalls() {
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = levelManager();
         Level level = levelManager.getCurrentLevel();
         if (level == null) {
             return;
@@ -198,7 +200,7 @@ public class Sonic2CNZEvents extends Sonic2ZoneEvents {
             levelManager.invalidateForegroundTilemap();
         } catch (IllegalArgumentException e) {
             // Layout dimensions may differ - log and continue
-            System.err.println("CNZ wall placement failed: " + e.getMessage());
+            LOGGER.log(java.util.logging.Level.WARNING, "CNZ wall placement failed", e);
         }
     }
 
@@ -212,7 +214,7 @@ public class Sonic2CNZEvents extends Sonic2ZoneEvents {
      * This allows Sonic to exit the arena to the right after defeating the boss.
      */
     private void removeCNZArenaWalls() {
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = levelManager();
         Level level = levelManager.getCurrentLevel();
         if (level == null || cnzRightWallX < 0) {
             return;

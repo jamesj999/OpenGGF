@@ -1,10 +1,12 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.CrossGameFeatureProvider;
+import com.openggf.game.CrossGameFeatureProvider; // type reference for gameService() lookup
+import com.openggf.game.InstaShieldHandle;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.GameModule;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.ObjectArtProvider;
-import com.openggf.game.sonic2.objects.ShieldObjectInstance;
+import com.openggf.level.objects.ShieldObjectInstance;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.Sonic3kObjectArtProvider;
 import com.openggf.graphics.GLCommand;
@@ -23,7 +25,7 @@ import java.util.List;
  * Idles on animation 0 (invisible) and plays the attack animation (1) on ability use.
  * Transitions doubleJumpFlag from 1 to 2 at mapping frame 7 (end of attack animation).
  */
-public class InstaShieldObjectInstance extends ShieldObjectInstance {
+public class InstaShieldObjectInstance extends ShieldObjectInstance implements InstaShieldHandle {
 
     private static final int IDLE_ANIM = 0;
     private static final int ATTACK_ANIM = 1;
@@ -62,8 +64,8 @@ public class InstaShieldObjectInstance extends ShieldObjectInstance {
                 return;
             }
         }
-        if (CrossGameFeatureProvider.isActive()) {
-            CrossGameFeatureProvider donor = CrossGameFeatureProvider.getInstance();
+        CrossGameFeatureProvider donor = services().gameService(CrossGameFeatureProvider.class);
+        if (donor != null) {
             this.dplcRenderer = donor.getInstaShieldRenderer();
             SpriteArtSet artSet = donor.getInstaShieldArtSet();
             this.animSet = artSet != null ? artSet.animationSet() : null;
@@ -71,7 +73,8 @@ public class InstaShieldObjectInstance extends ShieldObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isShieldDestroyed()) return;
         stepAnimation();
         if (currentMappingFrame == FINAL_FRAME && player.getDoubleJumpFlag() == 1) {
@@ -102,7 +105,7 @@ public class InstaShieldObjectInstance extends ShieldObjectInstance {
         if (isShieldDestroyed() || !isShieldVisible()) {
             return;
         }
-        AbstractPlayableSprite player = getPlayer();
+        AbstractPlayableSprite player = ((AbstractPlayableSprite) getPlayer());
         if (player == null) return;
         if (player.getInvincibleFrames() > 0) {
             return;

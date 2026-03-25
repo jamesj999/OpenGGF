@@ -1,21 +1,13 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.sonic3k.objects.badniks.CaterkillerJrHeadInstance;
 import com.openggf.game.sonic3k.objects.badniks.MonkeyDudeBadnikInstance;
 import com.openggf.game.sonic3k.constants.S3kZoneSet;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.game.sonic3k.objects.badniks.BloominatorBadnikInstance;
 import com.openggf.game.sonic3k.objects.badniks.RhinobotBadnikInstance;
-import com.openggf.level.LevelManager;
-import com.openggf.level.objects.ObjectFactory;
-import com.openggf.level.objects.ObjectInstance;
-import com.openggf.level.objects.ObjectRegistry;
-import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.AbstractObjectRegistry;
 import com.openggf.level.objects.PlaceholderObjectInstance;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.logging.Logger;
 
 /**
  * Object registry for Sonic 3 &amp; Knuckles.
@@ -29,38 +21,10 @@ import java.util.logging.Logger;
  * use SK Set 1 as the canonical source; S3-only remappings share the
  * same underlying object names in most cases.
  */
-public class Sonic3kObjectRegistry implements ObjectRegistry {
-    private static final Logger LOG = Logger.getLogger(Sonic3kObjectRegistry.class.getName());
-
-    private final Map<Integer, ObjectFactory> factories = new HashMap<>();
-    private boolean loaded;
-
-    private final ObjectFactory defaultFactory = (spawn, registry) ->
-            new PlaceholderObjectInstance(spawn, registry.getPrimaryName(spawn.objectId()));
+public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
 
     @Override
-    public ObjectInstance create(ObjectSpawn spawn) {
-        ensureLoaded();
-        int id = spawn.objectId();
-        ObjectFactory factory = factories.getOrDefault(id, defaultFactory);
-        return factory.create(spawn, this);
-    }
-
-    @Override
-    public void reportCoverage(List<ObjectSpawn> spawns) {
-        // No-op for now
-    }
-
-    private void ensureLoaded() {
-        if (loaded) {
-            return;
-        }
-        loaded = true;
-        registerDefaultFactories();
-        LOG.fine("Sonic3kObjectRegistry loaded with " + factories.size() + " factories.");
-    }
-
-    private void registerDefaultFactories() {
+    protected void registerDefaultFactories() {
         factories.put(Sonic3kObjectIds.MONITOR,
                 (spawn, registry) -> new Sonic3kMonitorObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.PATH_SWAP, (spawn, registry) -> null);
@@ -82,10 +46,22 @@ public class Sonic3kObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Aiz1ZiplinePegObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.AIZ_GIANT_RIDE_VINE,
                 (spawn, registry) -> new AizGiantRideVineObjectInstance(spawn));
+        factories.put(Sonic3kObjectIds.BREAKABLE_WALL,
+                (spawn, registry) -> new BreakableWallObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.TWISTED_RAMP,
                 (spawn, registry) -> new Sonic3kTwistedRampObjectInstance(spawn));
+        factories.put(Sonic3kObjectIds.AUTO_SPIN,
+                (spawn, registry) -> new AutoSpinObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.CORK_FLOOR,
                 (spawn, registry) -> new CorkFloorObjectInstance(spawn));
+        factories.put(Sonic3kObjectIds.AIZ_FALLING_LOG,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new AizFallingLogObjectInstance(spawn);
+                });
         factories.put(Sonic3kObjectIds.INVISIBLE_BLOCK,
                 (spawn, registry) -> new Sonic3kInvisibleBlockObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.FLOATING_PLATFORM,
@@ -108,7 +84,7 @@ public class Sonic3kObjectRegistry implements ObjectRegistry {
                     if (zoneSet != S3kZoneSet.S3KL) {
                         return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
                     }
-                    return new BloominatorBadnikInstance(spawn, LevelManager.getInstance());
+                    return new BloominatorBadnikInstance(spawn);
                 });
         factories.put(Sonic3kObjectIds.RHINOBOT,
                 (spawn, registry) -> {
@@ -116,7 +92,7 @@ public class Sonic3kObjectRegistry implements ObjectRegistry {
                     if (zoneSet != S3kZoneSet.S3KL) {
                         return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
                     }
-                    return new RhinobotBadnikInstance(spawn, LevelManager.getInstance());
+                    return new RhinobotBadnikInstance(spawn);
                 });
         factories.put(Sonic3kObjectIds.MONKEY_DUDE,
                 (spawn, registry) -> {
@@ -124,7 +100,15 @@ public class Sonic3kObjectRegistry implements ObjectRegistry {
                     if (zoneSet != S3kZoneSet.S3KL) {
                         return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
                     }
-                    return new MonkeyDudeBadnikInstance(spawn, LevelManager.getInstance());
+                    return new MonkeyDudeBadnikInstance(spawn);
+                });
+        factories.put(Sonic3kObjectIds.CATERKILLER_JR,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new CaterkillerJrHeadInstance(spawn);
                 });
         factories.put(Sonic3kObjectIds.AIZ_MINIBOSS_CUTSCENE,
                 (spawn, registry) -> {
@@ -132,7 +116,7 @@ public class Sonic3kObjectRegistry implements ObjectRegistry {
                     if (zoneSet != S3kZoneSet.S3KL) {
                         return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
                     }
-                    return new AizMinibossCutsceneInstance(spawn, LevelManager.getInstance());
+                    return new AizMinibossCutsceneInstance(spawn);
                 });
         factories.put(Sonic3kObjectIds.AIZ_MINIBOSS,
                 (spawn, registry) -> {
@@ -140,12 +124,12 @@ public class Sonic3kObjectRegistry implements ObjectRegistry {
                     if (zoneSet != S3kZoneSet.S3KL) {
                         return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
                     }
-                    return new AizMinibossInstance(spawn, LevelManager.getInstance());
+                    return new AizMinibossInstance(spawn);
                 });
     }
 
     private S3kZoneSet getCurrentZoneSet() {
-        int romZoneId = LevelManager.getInstance().getRomZoneId();
+        int romZoneId = currentRomZoneId();
         if (romZoneId < 0) {
             return S3kZoneSet.S3KL;
         }

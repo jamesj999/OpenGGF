@@ -5,6 +5,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import com.openggf.data.Rom;
 import com.openggf.level.Palette;
+import com.openggf.game.GameServices;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.tests.rules.RequiresRom;
@@ -42,7 +43,7 @@ public class WaterSystemTest {
 
     @Before
     public void setUp() {
-        waterSystem = WaterSystem.getInstance();
+        waterSystem = GameServices.water();
         waterSystem.reset();
         rom = romRule.rom();
     }

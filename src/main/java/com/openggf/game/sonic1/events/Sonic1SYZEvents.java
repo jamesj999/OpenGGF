@@ -1,6 +1,5 @@
 package com.openggf.game.sonic1.events;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.objects.bosses.Sonic1BossBlockInstance;
 import com.openggf.game.sonic1.objects.bosses.Sonic1SYZBossInstance;
@@ -87,10 +86,7 @@ class Sonic1SYZEvents extends Sonic1ZoneEvents {
         }
 
         // ROM: Spawn boss block object which self-replicates into 10 blocks
-        LevelManager lm = LevelManager.getInstance();
-        if (lm != null) {
-            Sonic1BossBlockInstance.spawnAllBlocks(lm);
-        }
+        Sonic1BossBlockInstance.spawnAllBlocks();
 
         eventRoutine += 2; // advance to DLE_SYZ3boss
     }
@@ -112,21 +108,21 @@ class Sonic1SYZEvents extends Sonic1ZoneEvents {
         camera().setMaxYTarget((short) BOSS_SYZ_Y);
 
         // ROM: Spawn boss object
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = levelManager();
         if (lm != null && lm.getObjectManager() != null) {
             // Create boss at spawn position (boss_syz_x + $1B0, boss_syz_y + $E)
             ObjectSpawn bossSpawn = new ObjectSpawn(
                     BOSS_SYZ_X + 0x1B0, BOSS_SYZ_Y + 0x0E,
                     0x75, 0, 0, false, 0);
-            Sonic1SYZBossInstance boss = new Sonic1SYZBossInstance(bossSpawn, lm);
+            Sonic1SYZBossInstance boss = new Sonic1SYZBossInstance(bossSpawn);
             lm.getObjectManager().addDynamicObject(boss);
         }
 
         // ROM: QueueSound1 bgm_Boss
-        AudioManager.getInstance().playMusic(Sonic1Music.BOSS.id);
+        audio().playMusic(Sonic1Music.BOSS.id);
 
         // ROM: f_lockscreen = 1 — gates the 64px right boundary extension in Sonic_LevelBound. Does NOT modify v_limitleft2 or v_limitright2; camera scrolls within natural level boundaries.
-        GameServices.gameState().setCurrentBossId(0x75);
+        gameState().setCurrentBossId(0x75);
         eventRoutine += 2; // advance to DLE_SYZ3end
     }
 

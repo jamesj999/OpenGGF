@@ -1,11 +1,10 @@
 package com.openggf.game.sonic3k;
 
 import com.openggf.data.RomByteReader;
+import com.openggf.game.common.CommonPlacementParser;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.level.objects.ObjectSpawn;
 
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -26,9 +25,6 @@ import java.util.List;
  * 32-bit absolute addresses, indexed as {@code zone * 2 + act}.
  */
 public class Sonic3kObjectPlacement {
-
-    private static final int RECORD_SIZE = 6;
-    private static final int TERMINATOR = 0xFFFF;
 
     private final RomByteReader rom;
 
@@ -51,27 +47,6 @@ public class Sonic3kObjectPlacement {
             return List.of();
         }
 
-        List<ObjectSpawn> spawns = new ArrayList<>();
-        int cursor = listAddr;
-
-        while (cursor + RECORD_SIZE <= rom.size()) {
-            int x = rom.readU16BE(cursor);
-            if (x == TERMINATOR) {
-                break;
-            }
-
-            int yWord = rom.readU16BE(cursor + 2);
-            int y = yWord & 0x0FFF;
-            int renderFlags = (yWord >> 13) & 0x3;
-            boolean respawnTracked = (yWord & 0x8000) != 0;
-            int objectId = rom.readU8(cursor + 4);
-            int subtype = rom.readU8(cursor + 5);
-
-            spawns.add(new ObjectSpawn(x, y, objectId, subtype, renderFlags, respawnTracked, yWord));
-            cursor += RECORD_SIZE;
-        }
-
-        spawns.sort(Comparator.comparingInt(ObjectSpawn::x));
-        return List.copyOf(spawns);
+        return CommonPlacementParser.parseObjectRecords(rom, listAddr);
     }
 }

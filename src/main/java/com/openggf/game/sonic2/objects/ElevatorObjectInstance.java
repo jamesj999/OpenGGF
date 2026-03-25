@@ -1,11 +1,11 @@
 package com.openggf.game.sonic2.objects;
+import com.openggf.game.PlayableEntity;
+import com.openggf.level.objects.BoxObjectInstance;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.*;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -79,9 +79,6 @@ public class ElevatorObjectInstance extends BoxObjectInstance
     // Contact tracking
     private int lastContactFrame = -2;
 
-    // Dynamic spawn for moving position
-    private ObjectSpawn dynamicSpawn;
-
     public ElevatorObjectInstance(ObjectSpawn spawn, String name) {
         // Use platform half-width for debug box, cyan color
         super(spawn, name, HALF_WIDTH, PLATFORM_HEIGHT, 0.2f, 0.8f, 0.8f, false);
@@ -113,7 +110,7 @@ public class ElevatorObjectInstance extends BoxObjectInstance
         yVel = 0;
         state = STATE_WAIT_FOR_CONTACT;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -125,12 +122,6 @@ public class ElevatorObjectInstance extends BoxObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public SolidObjectParams getSolidParams() {
         // From disassembly: d1 = 0x10 (half-width), d3 = 9 (platform height)
@@ -144,7 +135,8 @@ public class ElevatorObjectInstance extends BoxObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM (s2.asm lines 58412-58417): Platform collision only runs in states 0, 2, 4.
         // State 6 (return) has NO collision - player cannot stand on returning elevator.
         if (state == STATE_RETURN) {
@@ -154,14 +146,16 @@ public class ElevatorObjectInstance extends BoxObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (contact.standing() || contact.touchTop()) {
             lastContactFrame = frameCounter;
         }
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Apply velocity FIRST (matches ROM ObjectMove timing)
         applyVelocity();
 
@@ -174,7 +168,7 @@ public class ElevatorObjectInstance extends BoxObjectInstance
             case STATE_RETURN -> updateReturnAcceleration();
         }
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -288,31 +282,15 @@ public class ElevatorObjectInstance extends BoxObjectInstance
 
     private void playElevatorSound() {
         try {
-            AudioManager audioManager = AudioManager.getInstance();
-            if (audioManager != null) {
-                audioManager.playSfx(GameSound.CNZ_ELEVATOR);
-            }
+            services().playSfx(GameSound.CNZ_ELEVATOR);
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic
         }
     }
 
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.y() != y) {
-            dynamicSpawn = new ObjectSpawn(
-                    x,
-                    y,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
-    }
-
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             super.appendRenderCommands(commands);
             return;

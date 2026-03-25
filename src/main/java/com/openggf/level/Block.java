@@ -43,4 +43,37 @@ public class Block {
 
         return chunkDescs[y * gridSide + x];
     }
+
+    /** Sets a chunk descriptor at the given grid position. */
+    public void setChunkDesc(int x, int y, ChunkDesc desc) {
+        if (x >= gridSide || y >= gridSide) {
+            throw new IllegalArgumentException("Invalid chunk index: (" + x + ", " + y + ") for gridSide " + gridSide);
+        }
+        chunkDescs[y * gridSide + x] = desc;
+    }
+
+    public int getGridSide() {
+        return gridSide;
+    }
+
+    /**
+     * Saves the block state (chunk descriptors) as a compact int array.
+     * Used for snapshot/restore during level editing.
+     */
+    public int[] saveState() {
+        int[] state = new int[chunkDescs.length];
+        for (int i = 0; i < chunkDescs.length; i++) {
+            state[i] = chunkDescs[i].get();
+        }
+        return state;
+    }
+
+    /**
+     * Restores block state from a previously saved snapshot.
+     */
+    public void restoreState(int[] state) {
+        for (int i = 0; i < state.length; i++) {
+            chunkDescs[i] = new ChunkDesc(state[i]);
+        }
+    }
 }

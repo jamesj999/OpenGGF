@@ -1,11 +1,26 @@
 package com.openggf.physics;
 
+import com.openggf.game.RuntimeManager;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
+import com.openggf.game.GameServices;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import static org.junit.Assert.assertSame;
 
 public class TestTerrainCollisionManager {
+
+    @Before
+    public void setUp() {
+        RuntimeManager.createGameplay();
+    }
+
+    @After
+    public void tearDown() {
+        RuntimeManager.destroyCurrent();
+    }
+
     @Test
     public void testSensorResultOrdering() {
         AbstractPlayableSprite sprite = new AbstractPlayableSprite("test", (short) 0, (short) 0) {
@@ -30,7 +45,7 @@ public class TestTerrainCollisionManager {
                 new TestSensor(sprite, second)
         };
 
-        SensorResult[] results = TerrainCollisionManager.getInstance().getSensorResult(sensors);
+        SensorResult[] results = GameServices.terrainCollision().getSensorResult(sensors);
         assertSame(first, results[0]);
         assertSame(second, results[1]);
     }

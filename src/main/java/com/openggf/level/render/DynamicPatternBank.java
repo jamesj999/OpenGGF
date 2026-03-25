@@ -50,22 +50,32 @@ public class DynamicPatternBank {
         if (requests == null || source == null) {
             return;
         }
-        int dstIndex = 0;
-        for (TileLoadRequest request : requests) {
-            int count = Math.max(0, request.count());
-            int startTile = Math.max(0, request.startTile());
-            for (int i = 0; i < count; i++) {
-                if (dstIndex >= patterns.length) {
-                    return;
-                }
-                int srcIndex = startTile + i;
-                if (srcIndex >= 0 && srcIndex < source.length) {
-                    patterns[dstIndex].copyFrom(source[srcIndex]);
-                    if (cached && graphicsManager != null) {
-                        graphicsManager.updatePatternTexture(patterns[dstIndex], basePatternIndex + dstIndex);
+
+        if (cached && graphicsManager != null) {
+            graphicsManager.beginPatternAtlasBatch();
+        }
+        try {
+            int dstIndex = 0;
+            for (TileLoadRequest request : requests) {
+                int count = Math.max(0, request.count());
+                int startTile = Math.max(0, request.startTile());
+                for (int i = 0; i < count; i++) {
+                    if (dstIndex >= patterns.length) {
+                        return;
                     }
+                    int srcIndex = startTile + i;
+                    if (srcIndex >= 0 && srcIndex < source.length) {
+                        patterns[dstIndex].copyFrom(source[srcIndex]);
+                        if (cached && graphicsManager != null) {
+                            graphicsManager.updatePatternTexture(patterns[dstIndex], basePatternIndex + dstIndex);
+                        }
+                    }
+                    dstIndex++;
                 }
-                dstIndex++;
+            }
+        } finally {
+            if (cached && graphicsManager != null) {
+                graphicsManager.endPatternAtlasBatch();
             }
         }
     }

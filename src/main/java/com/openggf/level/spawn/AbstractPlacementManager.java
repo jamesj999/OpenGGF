@@ -17,7 +17,7 @@ import java.util.logging.Logger;
 public abstract class AbstractPlacementManager<T extends SpawnPoint> {
     private static final Logger LOGGER = Logger.getLogger(AbstractPlacementManager.class.getName());
 
-    protected final List<T> spawns;
+    protected List<T> spawns;
     protected final Set<T> active = new LinkedHashSet<>();
     protected final Collection<T> activeUnmodifiable = Collections.unmodifiableCollection(active);
     protected final Map<T, Integer> spawnIndexMap = new IdentityHashMap<>();
@@ -30,6 +30,22 @@ public abstract class AbstractPlacementManager<T extends SpawnPoint> {
         this.spawns = Collections.unmodifiableList(sorted);
         this.loadAhead = loadAhead;
         this.unloadBehind = unloadBehind;
+        for (int i = 0; i < this.spawns.size(); i++) {
+            spawnIndexMap.put(this.spawns.get(i), i);
+        }
+    }
+
+    /**
+     * Replaces the internal spawn list with a new one.
+     * Clears active set, rebuilds sorted index, and resets the index map.
+     * Used by the level editor when spawns are added/removed.
+     */
+    protected void replaceSpawns(List<T> newSpawns) {
+        active.clear();
+        spawnIndexMap.clear();
+        ArrayList<T> sorted = new ArrayList<>(newSpawns);
+        sorted.sort(Comparator.comparingInt(SpawnPoint::x));
+        this.spawns = Collections.unmodifiableList(sorted);
         for (int i = 0; i < this.spawns.size(); i++) {
             spawnIndexMap.put(this.spawns.get(i), i);
         }

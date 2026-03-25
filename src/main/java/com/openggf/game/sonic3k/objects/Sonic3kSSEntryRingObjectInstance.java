@@ -1,14 +1,10 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.audio.AudioManager;
-import com.openggf.camera.Camera;
-import com.openggf.game.GameServices;
-import com.openggf.game.GameStateManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -109,7 +105,7 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
         this.bitIndex = spawn.subtype();
 
         // ROM pre-check: if already collected, delete immediately
-        GameStateManager gameState = GameServices.gameState();
+        var gameState = services().gameState();
         if (gameState.isSpecialRingCollected(bitIndex)) {
             setDestroyed(true);
             this.state = State.MARKED_DELETE;
@@ -123,7 +119,8 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
             case FORMING -> updateFormation(player);
             case IDLE -> updateIdle(player);
@@ -208,10 +205,10 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
      * </ul>
      */
     private void onTouched(AbstractPlayableSprite player) {
-        GameStateManager gameState = GameServices.gameState();
+        var gameState = services().gameState();
 
         // Play sfx_BigRing ($B3) — always plays on touch
-        AudioManager.getInstance().playSfx(Sonic3kSfx.BIG_RING.id);
+        services().playSfx(Sonic3kSfx.BIG_RING.id);
 
         // TODO: Hidden Palace route — subtype bit 7, or S3 completed + 7 chaos + 7 super
         // When implemented: check (bitIndex & 0x80) != 0 or SSEntry_CheckLevel + emerald state
@@ -246,8 +243,8 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
 
         // ROM: Save_Level_Data2 — save player position at ring for return from SS.
         // This is separate from checkpoint state (ROM: Saved_ vs Saved2_).
-        Camera camera = Camera.getInstance();
-        LevelManager.getInstance().saveBigRingReturnPosition(
+        var camera = services().camera();
+        services().saveBigRingReturnPosition(
                 player.getCentreX(), player.getCentreY(),
                 camera.getX(), camera.getY());
 
@@ -274,7 +271,7 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
      */
     public void markForDeletion() {
         state = State.MARKED_DELETE;
-        GameServices.gameState().markSpecialRingCollected(bitIndex);
+        services().gameState().markSpecialRingCollected(bitIndex);
         LOGGER.fine("SSEntryRing #" + bitIndex + " marked for deletion by flash");
     }
 
@@ -284,7 +281,7 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager != null) {
             PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic3kObjectArtKeys.SS_ENTRY_RING);
             if (renderer != null && renderer.isReady()) {

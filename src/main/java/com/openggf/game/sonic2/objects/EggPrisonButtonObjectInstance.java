@@ -2,7 +2,6 @@ package com.openggf.game.sonic2.objects;
 
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -12,6 +11,7 @@ import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import java.util.List;
 
@@ -59,7 +59,8 @@ public class EggPrisonButtonObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Button is purely reactive - no autonomous updates
         // Collision system handles player landing detection via SolidObjectProvider
     }
@@ -80,7 +81,7 @@ public class EggPrisonButtonObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite sprite) {
+    public boolean isSolidFor(PlayableEntity sprite) {
         return true; // Solid for all players
     }
 
@@ -89,7 +90,8 @@ public class EggPrisonButtonObjectInstance extends AbstractObjectInstance
     // ========================================================================================
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (!triggered && contact.standing() && player.getYSpeed() >= 0) {
             // Button triggered - depress and notify parent
             triggered = true;
@@ -107,7 +109,7 @@ public class EggPrisonButtonObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         PatternSpriteRenderer renderer = renderManager != null
                 ? renderManager.getEggPrisonRenderer()
                 : null;

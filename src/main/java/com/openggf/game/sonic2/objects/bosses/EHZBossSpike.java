@@ -1,10 +1,11 @@
 package com.openggf.game.sonic2.objects.bosses;
 
+import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
+import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
-import com.openggf.game.sonic2.objects.ObjectAnimationState;
+import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.objects.boss.AbstractBossChild;
@@ -47,7 +48,8 @@ public class EHZBossSpike extends AbstractBossChild implements TouchResponseProv
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed() || !shouldUpdate(frameCounter)) {
             return;
         }
@@ -66,7 +68,7 @@ public class EHZBossSpike extends AbstractBossChild implements TouchResponseProv
     }
 
     private void updateApproach() {
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         if (camera != null && camera.getMinX() < CAMERA_GATE_X) {
             return;
         }
@@ -201,16 +203,16 @@ public class EHZBossSpike extends AbstractBossChild implements TouchResponseProv
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
-        if (renderManager.getEHZBossRenderer() == null || !renderManager.getEHZBossRenderer().isReady()) {
+        if (renderManager.getRenderer(Sonic2ObjectArtKeys.EHZ_BOSS) == null || !renderManager.getRenderer(Sonic2ObjectArtKeys.EHZ_BOSS).isReady()) {
             return;
         }
 
         boolean flipped = (renderFlags & 1) != 0;
         int frameIndex = VEHICLE_FRAME_OFFSET + animationState.getMappingFrame();
-        renderManager.getEHZBossRenderer().drawFrameIndex(frameIndex, currentX, currentY, flipped, false);
+        renderManager.getRenderer(Sonic2ObjectArtKeys.EHZ_BOSS).drawFrameIndex(frameIndex, currentX, currentY, flipped, false);
     }
 }

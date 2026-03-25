@@ -1,13 +1,13 @@
 package com.openggf.game.sonic2.objects.badniks;
 
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
-import com.openggf.game.sonic2.objects.ObjectAnimationState;
+import com.openggf.game.PlayableEntity;
+import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.TrigLookupTable;
@@ -35,7 +35,7 @@ public class SolFireballObjectInstance extends AbstractObjectInstance implements
     private int currentX;
     private int currentY;
     private int xVelocity;
-    private int xSubpixel;
+    private final SubpixelMotion.State motionState;
 
     public SolFireballObjectInstance(ObjectSpawn spawn, SolBadnikInstance parent, int angle) {
         super(spawn, "SolFireball");
@@ -44,11 +44,13 @@ public class SolFireballObjectInstance extends AbstractObjectInstance implements
         this.state = State.ORBIT;
         this.currentX = parent != null ? parent.getX() : spawn.x();
         this.currentY = parent != null ? parent.getY() : spawn.y();
+        this.motionState = new SubpixelMotion.State(currentX, currentY, 0, 0, 0, 0);
         this.animationState = new ObjectAnimationState(SolBadnikInstance.getFireballAnimations(), 0, 3);
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -81,10 +83,10 @@ public class SolFireballObjectInstance extends AbstractObjectInstance implements
     }
 
     private void updateFlying() {
-        int xPos32 = (currentX << 8) | (xSubpixel & 0xFF);
-        xPos32 += xVelocity;
-        currentX = xPos32 >> 8;
-        xSubpixel = xPos32 & 0xFF;
+        motionState.x = currentX;
+        motionState.xVel = xVelocity;
+        SubpixelMotion.moveX(motionState);
+        currentX = motionState.x;
 
         if (!isOnScreen()) {
             setDestroyed(true);
@@ -124,14 +126,7 @@ public class SolFireballObjectInstance extends AbstractObjectInstance implements
 
     @Override
     public ObjectSpawn getSpawn() {
-        return new ObjectSpawn(
-                currentX,
-                currentY,
-                spawn.objectId(),
-                spawn.subtype(),
-                spawn.renderFlags(),
-                spawn.respawnTracked(),
-                spawn.rawYWord());
+        return buildSpawnAt(currentX, currentY);
     }
 
     @Override
@@ -155,15 +150,8 @@ public class SolFireballObjectInstance extends AbstractObjectInstance implements
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.SOL);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.SOL);
+        if (renderer == null) return;
 
         int frame = animationState.getMappingFrame();
         renderer.drawFrameIndex(frame, currentX, currentY, false, false);

@@ -4,21 +4,16 @@ import com.openggf.data.Rom;
 import com.openggf.data.RomManager;
 import com.openggf.game.GameServices;
 import com.openggf.game.TitleCardProvider;
-import com.openggf.game.sonic2.titlecard.TitleCardElement;
-import com.openggf.game.sonic2.titlecard.TitleCardMappings;
+import com.openggf.game.titlecard.TitleCardElement;
+import com.openggf.game.titlecard.TitleCardMappings;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
+import com.openggf.graphics.TitleCardSpriteRenderer;
 import com.openggf.level.Pattern;
-import com.openggf.level.PatternDesc;
-import com.openggf.tools.NemesisReader;
+import com.openggf.util.PatternDecompressor;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.nio.channels.Channels;
-import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -47,7 +42,7 @@ import java.util.logging.Logger;
  * SLIDE_IN -> DISPLAY -> SLIDE_OUT -> COMPLETE
  * </pre>
  *
- * <p>Control is released at the start of SLIDE_OUT. The elements slide off-screen
+ * <p>control is released at the start of SLIDE_OUT. The elements slide off-screen
  * as an overlay while the player can already move.
  */
 public class Sonic1TitleCardManager implements TitleCardProvider {
@@ -177,7 +172,7 @@ public class Sonic1TitleCardManager implements TitleCardProvider {
             }
             Rom rom = romManager.getRom();
 
-            patterns = loadNemesisPatterns(rom,
+            patterns = PatternDecompressor.nemesis(rom,
                     Sonic1Constants.ART_NEM_TITLE_CARD_ADDR, "S1 TitleCard");
 
             if (patterns == null) {
@@ -193,28 +188,6 @@ public class Sonic1TitleCardManager implements TitleCardProvider {
         }
     }
 
-    private Pattern[] loadNemesisPatterns(Rom rom, int address, String name) {
-        try {
-            byte[] compressed = rom.readBytes(address, 8192);
-            try (ByteArrayInputStream bais = new ByteArrayInputStream(compressed);
-                 ReadableByteChannel channel = Channels.newChannel(bais)) {
-                byte[] decompressed = NemesisReader.decompress(channel);
-                int patternCount = decompressed.length / Pattern.PATTERN_SIZE_IN_ROM;
-                Pattern[] result = new Pattern[patternCount];
-                for (int i = 0; i < patternCount; i++) {
-                    result[i] = new Pattern();
-                    byte[] subArray = Arrays.copyOfRange(decompressed,
-                            i * Pattern.PATTERN_SIZE_IN_ROM,
-                            (i + 1) * Pattern.PATTERN_SIZE_IN_ROM);
-                    result[i].fromSegaFormat(subArray);
-                }
-                return result;
-            }
-        } catch (IOException e) {
-            LOGGER.warning("Failed to load " + name + " patterns: " + e.getMessage());
-            return new Pattern[0];
-        }
-    }
 
     private void ensureArtCached() {
         if (artCached || !artLoaded || patterns == null) {
@@ -362,66 +335,17 @@ public class Sonic1TitleCardManager implements TitleCardProvider {
         // decoration where border pieces (indices 0-7) must render over fill
         // pieces (indices 8-12).
         for (int i = pieces.length - 1; i >= 0; i--) {
-            renderSpritePiece(graphicsManager, pieces[i], centerX, centerY);
-        }
-    }
-
-    /**
-     * Renders a single sprite piece using column-major tile ordering.
-     *
-     * <p>Sonic 1 tile indices are 0-based (direct index into the art pattern array),
-     * unlike Sonic 2 where tile indices include a VRAM base offset ($580+).
-     */
-    private void renderSpritePiece(GraphicsManager graphicsManager,
-                                    TitleCardMappings.SpritePiece piece,
-                                    int originX, int originY) {
-        int baseTileIndex = piece.tileIndex();
-        int widthTiles = piece.widthTiles();
-        int heightTiles = piece.heightTiles();
-
-        for (int tx = 0; tx < widthTiles; tx++) {
-            for (int ty = 0; ty < heightTiles; ty++) {
-                // Column-major tile ordering (same as VDP)
-                int tileOffset = tx * heightTiles + ty;
-                int arrayIndex = baseTileIndex + tileOffset;
-
-                if (arrayIndex < 0 || arrayIndex >= patterns.length) {
-                    continue;
-                }
-
-                int patternId = PATTERN_BASE + arrayIndex;
-
-                // Calculate screen position
-                int tileX = originX + piece.xOffset() + (tx * 8);
-                int tileY = originY + piece.yOffset() + (ty * 8);
-
-                // Handle flipping - swap column/row order
-                if (piece.hFlip()) {
-                    tileX = originX + piece.xOffset() + ((widthTiles - 1 - tx) * 8);
-                }
-                if (piece.vFlip()) {
-                    tileY = originY + piece.yOffset() + ((heightTiles - 1 - ty) * 8);
-                }
-
-                // Build PatternDesc with flip flags and palette
-                int descIndex = patternId & 0x7FF;
-                if (piece.hFlip()) {
-                    descIndex |= 0x800;
-                }
-                if (piece.vFlip()) {
-                    descIndex |= 0x1000;
-                }
-                descIndex |= (piece.paletteIndex() & 0x3) << 13;
-                PatternDesc desc = new PatternDesc(descIndex);
-
-                graphicsManager.renderPatternWithId(patternId, desc, tileX, tileY);
-            }
+            // S1 tile indices are 0-based (vramBase=0), unlike S2/S3K which
+            // include a VRAM base offset.
+            TitleCardSpriteRenderer.renderSpritePiece(
+                    graphicsManager, pieces[i], centerX, centerY,
+                    0, PATTERN_BASE, patterns.length);
         }
     }
 
     /**
      * Returns true if player control should be released.
-     * Control is released at the start of SLIDE_OUT, matching S1's behavior
+     * control is released at the start of SLIDE_OUT, matching S1's behavior
      * where the level becomes playable while title card elements slide off-screen.
      */
     @Override

@@ -1,13 +1,11 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -147,7 +145,6 @@ public class BlueBallsObjectInstance extends AbstractObjectInstance implements T
      */
     private static boolean gloopToggle = false;
 
-
     // ========================================================================
     // Instance State
     // ========================================================================
@@ -268,7 +265,8 @@ public class BlueBallsObjectInstance extends AbstractObjectInstance implements T
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // MarkObjGone check: destroy if too far from camera
         // ROM: s2.asm lines 29993-30011
         // This ensures dynamic siblings are unloaded like ROM behavior
@@ -308,7 +306,7 @@ public class BlueBallsObjectInstance extends AbstractObjectInstance implements T
      * @return true if the object should be destroyed
      */
     private boolean checkMarkObjGone() {
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         int cameraXCoarse = camera.getX() & 0xFF80;
         int objectXCoarse = (currentX >> 8) & 0xFF80;
 
@@ -466,8 +464,7 @@ public class BlueBallsObjectInstance extends AbstractObjectInstance implements T
      * When objects are unloaded (scrolled off-screen) and reloaded, they start fresh.
      */
     private void spawnSiblings() {
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
@@ -490,7 +487,7 @@ public class BlueBallsObjectInstance extends AbstractObjectInstance implements T
                     initialWaitTimer
             );
 
-            levelManager.getObjectManager().addDynamicObject(sibling);
+            services().objectManager().addDynamicObject(sibling);
         }
     }
 
@@ -515,7 +512,7 @@ public class BlueBallsObjectInstance extends AbstractObjectInstance implements T
             return;
         }
         try {
-            AudioManager.getInstance().playSfx(SND_ID_GLOOP);
+            services().playSfx(SND_ID_GLOOP);
         } catch (Exception e) {
             // Don't let audio failure break game logic
         }
@@ -569,13 +566,8 @@ public class BlueBallsObjectInstance extends AbstractObjectInstance implements T
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager rm = LevelManager.getInstance().getObjectRenderManager();
-        if (rm == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = rm.getRenderer(Sonic2ObjectArtKeys.BLUE_BALLS);
-        if (renderer != null && renderer.isReady()) {
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.BLUE_BALLS);
+        if (renderer != null) {
             int drawX = currentX >> 8;
             int drawY = currentY >> 8;
             boolean hFlip = xFlipped;

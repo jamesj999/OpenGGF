@@ -1,11 +1,10 @@
 package com.openggf.game.sonic1.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -103,7 +102,8 @@ public class Sonic1GargoyleObjectInstance extends AbstractObjectInstance {
     // ========================================================================
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: Gar_MakeFire (Routine 2)
         // subq.b #1,obTimeFrame(a0)
         timer--;
@@ -121,8 +121,7 @@ public class Sonic1GargoyleObjectInstance extends AbstractObjectInstance {
         }
 
         // bsr.w FindFreeObj / bne.s .nofire
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
@@ -134,7 +133,9 @@ public class Sonic1GargoyleObjectInstance extends AbstractObjectInstance {
         //      move.b obRender(a0),obRender(a1)
         //      move.b obStatus(a0),obStatus(a1)
         Fireball fireball = new Fireball(spawn.x(), spawn.y(), facingRight);
-        levelManager.getObjectManager().addDynamicObject(fireball);
+        services().objectManager().addDynamicObject(fireball);
+        // Play fireball sound (ROM: move.w #sfx_Fireball,d0 / jsr (QueueSound2).l)
+        services().playSfx(Fireball.SFX_FIREBALL);
     }
 
     // ========================================================================
@@ -143,14 +144,8 @@ public class Sonic1GargoyleObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.LZ_GARGOYLE);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.LZ_GARGOYLE);
+        if (renderer == null) return;
 
         // Head uses frame 0. Gargoyle art is authored facing left by default, so apply
         // H-flip when obStatus bit 0 is set (facing right).
@@ -240,7 +235,7 @@ public class Sonic1GargoyleObjectInstance extends AbstractObjectInstance {
          * SFX ID for fireball: sfx_Fireball = $AE.
          * From Constants.asm: sfx_Fireball equ ((ptr_sndAE-SoundIndex)/4)+sfx__First
          */
-        private static final int SFX_FIREBALL = Sonic1Sfx.AE_UNUSED.id;
+        static final int SFX_FIREBALL = Sonic1Sfx.AE_UNUSED.id;
 
         /** Debug color for fireball (bright orange). */
         private static final DebugColor DEBUG_COLOR = new DebugColor(255, 140, 0);
@@ -290,13 +285,12 @@ public class Sonic1GargoyleObjectInstance extends AbstractObjectInstance {
 
             this.xSubpixel = 0;
 
-            // Play fireball sound
-            // move.w #sfx_Fireball,d0 / jsr (QueueSound2).l
-            AudioManager.getInstance().playSfx(SFX_FIREBALL);
+            // Sound is played by the parent Gargoyle after construction
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             // ROM: Gar_AniFire (Routine 6)
 
             // Animation: toggle frame every 8 game frames
@@ -345,7 +339,7 @@ public class Sonic1GargoyleObjectInstance extends AbstractObjectInstance {
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
-            ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+            ObjectRenderManager renderManager = services().renderManager();
             if (renderManager == null) {
                 return;
             }

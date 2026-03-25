@@ -1,12 +1,11 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -46,8 +45,6 @@ public class CNZBossElectricBall extends AbstractObjectInstance implements Touch
     private static final int FRAME_SPIKED_BALL = 17;
     private static final int FRAME_ORB_1 = 18;
     private static final int FRAME_ORB_2 = 19;
-
-    private final LevelManager levelManager;
     private final Sonic2CNZBossInstance mainBoss;
 
     // Position
@@ -69,9 +66,8 @@ public class CNZBossElectricBall extends AbstractObjectInstance implements Touch
      * Create electric ball attached to boss.
      * ROM: loc_31F48 - Init sets position to parent.y + 0x30, then advances to attach.
      */
-    public CNZBossElectricBall(ObjectSpawn spawn, LevelManager levelManager, Sonic2CNZBossInstance mainBoss) {
+    public CNZBossElectricBall(ObjectSpawn spawn, Sonic2CNZBossInstance mainBoss) {
         super(spawn, "CNZ Boss Ball");
-        this.levelManager = levelManager;
         this.mainBoss = mainBoss;
 
         // ROM: loc_31F48 - position = parent (x, y+0x30) during init
@@ -94,9 +90,8 @@ public class CNZBossElectricBall extends AbstractObjectInstance implements Touch
     /**
      * Create split ball (called internally after floor hit).
      */
-    private CNZBossElectricBall(int x, int y, int xVel, int yVel, LevelManager levelManager, Sonic2CNZBossInstance mainBoss) {
+    private CNZBossElectricBall(int x, int y, int xVel, int yVel, Sonic2CNZBossInstance mainBoss) {
         super(new ObjectSpawn(x, y, Sonic2ObjectIds.CNZ_BOSS, 4, 0, false, 0), "CNZ Boss Ball");
-        this.levelManager = levelManager;
         this.mainBoss = mainBoss;
         this.x = x;
         this.y = y;
@@ -110,7 +105,8 @@ public class CNZBossElectricBall extends AbstractObjectInstance implements Touch
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -201,7 +197,7 @@ public class CNZBossElectricBall extends AbstractObjectInstance implements Touch
      * ROM: loc_32030 - Explode and split into two pieces.
      */
     private void explodeAndSplit() {
-        AudioManager.getInstance().playSfx(Sonic2Sfx.BOSS_EXPLOSION.id);
+        services().playSfx(Sonic2Sfx.BOSS_EXPLOSION.id);
         exploding = true;
         yVel = -0x300;
         xVel = -0x100;
@@ -212,17 +208,16 @@ public class CNZBossElectricBall extends AbstractObjectInstance implements Touch
     }
 
     private void spawnBallClone() {
-        if (levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
-        CNZBossElectricBall clone = new CNZBossElectricBall(x, y, 0x100, -0x300, levelManager, mainBoss);
-        levelManager.getObjectManager().addDynamicObject(clone);
+        CNZBossElectricBall clone = new CNZBossElectricBall(x, y, 0x100, -0x300, mainBoss);
+        services().objectManager().addDynamicObject(clone);
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = levelManager != null
-                ? levelManager.getObjectRenderManager() : null;
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
@@ -269,7 +264,7 @@ public class CNZBossElectricBall extends AbstractObjectInstance implements Touch
 
     @Override
     protected boolean isOnScreen() {
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         int screenX = x - camera.getX();
         int screenY = y - camera.getY();
         return screenX >= -64 && screenX <= camera.getWidth() + 64

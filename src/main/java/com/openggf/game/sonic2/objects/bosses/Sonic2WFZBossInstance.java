@@ -1,14 +1,12 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
-import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidObjectParams;
@@ -168,8 +166,8 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
     private WFZLaser laser;
     private WFZRobotnik robotnik;
 
-    public Sonic2WFZBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "WFZ Boss");
+    public Sonic2WFZBossInstance(ObjectSpawn spawn) {
+        super(spawn, "WFZ Boss");
     }
 
     @Override
@@ -189,15 +187,18 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         childrenSpawned = false;
 
         // ROM: Camera max Y = $442
-        Camera camera = Camera.getInstance();
-        camera.setMaxY((short) CAMERA_MAX_Y_BOSS);
+        var camera = services().camera();
+        if (camera != null) {
+            camera.setMaxY((short) CAMERA_MAX_Y_BOSS);
+        }
 
         // Advance to wait-for-player
         state.routine = ROUTINE_WAIT_PLAYER;
     }
 
     @Override
-    protected void updateBossLogic(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateBossLogic(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state.routine) {
             case ROUTINE_WAIT_PLAYER -> updateWaitPlayer(player);
             case ROUTINE_SPAWN_CHILDREN -> updateSpawnChildren();
@@ -250,13 +251,13 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         // Phase 2 (CaseWaitDown): Wait $5A frames with NO movement. Then advance to DESCEND.
         if (!childrenSpawned) {
             // First call: spawn children and set up wait
-            if (levelManager.getObjectManager() != null) {
+            if (services().objectManager() != null) {
                 spawnChildObjects();
             }
             state.yVel = DESCENT_SPEED;
             state.xVel = 0;
             actionTimer = DESCEND_TIMER; // $5A
-            AudioManager.getInstance().fadeOutMusic();
+            services().fadeOutMusic();
             childrenSpawned = true;
             return; // Stay in SPAWN_CHILDREN, wait phase starts next frame
         }
@@ -268,7 +269,7 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
             // ROM: ObjC5_CaseSpeedDown - advance to descent with movement
             state.routine = ROUTINE_DESCEND;
             actionTimer = MUSIC_DELAY_TIMER; // $60
-            AudioManager.getInstance().playMusic(Sonic2Music.BOSS.id);
+            services().playMusic(Sonic2Music.BOSS.id);
         }
     }
 
@@ -276,27 +277,27 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         // 1. Left wall at x - $88, y + $60
         leftWall = new WFZLaserWall(this, spawnX - WALL_OFFSET_X, state.y + WALL_OFFSET_Y);
         childComponents.add(leftWall);
-        levelManager.getObjectManager().addDynamicObject(leftWall);
+        services().objectManager().addDynamicObject(leftWall);
 
         // 2. Right wall at x + $88, y + $60
         rightWall = new WFZLaserWall(this, spawnX + WALL_OFFSET_X, state.y + WALL_OFFSET_Y);
         childComponents.add(rightWall);
-        levelManager.getObjectManager().addDynamicObject(rightWall);
+        services().objectManager().addDynamicObject(rightWall);
 
         // 3. Laser shooter (follows parent)
         laserShooter = new WFZLaserShooter(this);
         childComponents.add(laserShooter);
-        levelManager.getObjectManager().addDynamicObject(laserShooter);
+        services().objectManager().addDynamicObject(laserShooter);
 
         // 4. Platform releaser (follows parent X)
         platformReleaser = new WFZPlatformReleaser(this);
         childComponents.add(platformReleaser);
-        levelManager.getObjectManager().addDynamicObject(platformReleaser);
+        services().objectManager().addDynamicObject(platformReleaser);
 
         // 5. Robotnik at fixed position ($2C60, $4E6)
         robotnik = new WFZRobotnik(this);
         childComponents.add(robotnik);
-        levelManager.getObjectManager().addDynamicObject(robotnik);
+        services().objectManager().addDynamicObject(robotnik);
     }
 
     // ========================================================================
@@ -461,10 +462,10 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         // ROM: ObjC5_CaseLoadLaser spawns laser then advances routine.
         // ObjC5_CaseWaitMove ($14) then waits for laser to signal.
         // We combine both in this routine.
-        if (levelManager.getObjectManager() != null && laser == null) {
+        if (services().objectManager() != null && laser == null) {
             laser = new WFZLaser(this);
             childComponents.add(laser);
-            levelManager.getObjectManager().addDynamicObject(laser);
+            services().objectManager().addDynamicObject(laser);
             laserSignaled = false;
             return; // Wait for laser signal starting next frame
         }
@@ -578,10 +579,10 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         if (defeatTimer < 0) {
             // ROM: ObjC5_End - play WFZ music, camera max Y=$720, delete.
             // Issue 16: ROM does NOT advance Dynamic_Resize_Routine here.
-            AudioManager.getInstance().playMusic(Sonic2Music.WING_FORTRESS.id);
-            Camera camera = Camera.getInstance();
+            services().playMusic(Sonic2Music.WING_FORTRESS.id);
+            Camera camera = services().camera();
             camera.setMaxY((short) CAMERA_MAX_Y_DEFEAT);
-            GameServices.gameState().setCurrentBossId(0);
+            services().gameState().setCurrentBossId(0);
             setDestroyed(true);
             return;
         }
@@ -680,7 +681,7 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
@@ -730,6 +731,16 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         return spawnX;
     }
 
+    @Override
+    protected int getBossHitSfxId() {
+        return Sonic2Sfx.BOSS_HIT.id;
+    }
+
+    @Override
+    protected int getBossExplosionSfxId() {
+        return Sonic2Sfx.BOSS_EXPLOSION.id;
+    }
+
     // ========================================================================
     // Child Objects
     // ========================================================================
@@ -760,7 +771,8 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (!beginUpdate(frameCounter)) {
                 return;
             }
@@ -788,7 +800,7 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
                 return;
             }
             ObjectRenderManager renderManager =
-                    LevelManager.getInstance().getObjectRenderManager();
+                    services().renderManager();
             if (renderManager == null) {
                 return;
             }
@@ -860,7 +872,8 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (!beginUpdate(frameCounter)) {
                 return;
             }
@@ -903,14 +916,13 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         }
 
         private void spawnPlatform() {
-            LevelManager lm = LevelManager.getInstance();
-            if (lm.getObjectManager() == null) {
+            if (services().objectManager() == null) {
                 return;
             }
             Sonic2WFZBossInstance wfzParent = (Sonic2WFZBossInstance) parent;
             WFZFloatingPlatform platform = new WFZFloatingPlatform(wfzParent, currentX, currentY);
             wfzParent.childComponents.add(platform);
-            lm.getObjectManager().addDynamicObject(platform);
+            services().objectManager().addDynamicObject(platform);
             platformCount++;
         }
 
@@ -928,7 +940,7 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
                 return;
             }
             ObjectRenderManager renderManager =
-                    LevelManager.getInstance().getObjectRenderManager();
+                    services().renderManager();
             if (renderManager == null) {
                 return;
             }
@@ -985,17 +997,17 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         }
 
         private void spawnHurtChild(Sonic2WFZBossInstance wfzParent) {
-            LevelManager lm = LevelManager.getInstance();
-            if (lm.getObjectManager() == null) {
+            if (services().objectManager() == null) {
                 return;
             }
             hurtChild = new WFZPlatformHurt(wfzParent, this);
             wfzParent.childComponents.add(hurtChild);
-            lm.getObjectManager().addDynamicObject(hurtChild);
+            services().objectManager().addDynamicObject(hurtChild);
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (!beginUpdate(frameCounter)) {
                 return;
             }
@@ -1076,7 +1088,7 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
                 return;
             }
             ObjectRenderManager renderManager =
-                    LevelManager.getInstance().getObjectRenderManager();
+                    services().renderManager();
             if (renderManager == null) {
                 return;
             }
@@ -1141,7 +1153,8 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (!beginUpdate(frameCounter)) {
                 return;
             }
@@ -1192,7 +1205,8 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (!beginUpdate(frameCounter)) {
                 return;
             }
@@ -1214,7 +1228,7 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
                 return;
             }
             ObjectRenderManager renderManager =
-                    LevelManager.getInstance().getObjectRenderManager();
+                    services().renderManager();
             if (renderManager == null) {
                 return;
             }
@@ -1276,7 +1290,8 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (!beginUpdate(frameCounter)) {
                 return;
             }
@@ -1368,7 +1383,7 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
                 return;
             }
             ObjectRenderManager renderManager =
-                    LevelManager.getInstance().getObjectRenderManager();
+                    services().renderManager();
             if (renderManager == null) {
                 return;
             }
@@ -1418,13 +1433,12 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         }
 
         private void spawnPlatformChild(Sonic2WFZBossInstance wfzParent) {
-            LevelManager lm = LevelManager.getInstance();
-            if (lm.getObjectManager() == null) {
+            if (services().objectManager() == null) {
                 return;
             }
             robotnikPlatform = new WFZRobotnikPlatform(wfzParent, this);
             wfzParent.childComponents.add(robotnikPlatform);
-            lm.getObjectManager().addDynamicObject(robotnikPlatform);
+            services().objectManager().addDynamicObject(robotnikPlatform);
         }
 
         void signalDefeat() {
@@ -1433,7 +1447,8 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (!beginUpdate(frameCounter)) {
                 return;
             }
@@ -1483,7 +1498,7 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
                 return;
             }
             ObjectRenderManager renderManager =
-                    LevelManager.getInstance().getObjectRenderManager();
+                    services().renderManager();
             if (renderManager == null) {
                 return;
             }
@@ -1517,7 +1532,8 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (!beginUpdate(frameCounter)) {
                 return;
             }
@@ -1540,7 +1556,7 @@ public class Sonic2WFZBossInstance extends AbstractBossInstance {
                 return;
             }
             ObjectRenderManager renderManager =
-                    LevelManager.getInstance().getObjectRenderManager();
+                    services().renderManager();
             if (renderManager == null) {
                 return;
             }

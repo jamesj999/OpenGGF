@@ -4,7 +4,6 @@ import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.GameServices;
 import com.openggf.game.ObjectArtProvider;
-import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
@@ -27,6 +26,7 @@ import com.openggf.sprites.art.SpriteArtSet;
 import com.openggf.sprites.render.PlayerSpriteRenderer;
 import com.openggf.tools.KosinskiReader;
 import com.openggf.tools.NemesisReader;
+import com.openggf.util.PatternDecompressor;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
@@ -99,7 +99,7 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         loadShieldArt();
 
         // Get act index from LevelManager (available during level load)
-        currentActIndex = LevelManager.getInstance().getCurrentAct();
+        currentActIndex = GameServices.level().getCurrentAct();
         Sonic3kPlcArtRegistry.ZoneArtPlan plan =
                 Sonic3kPlcArtRegistry.getPlan(zoneIndex, currentActIndex);
         loadStandaloneFromRegistry(plan);
@@ -161,7 +161,7 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         LOG.info("Loaded " + (hudTextPatterns != null ? hudTextPatterns.length : 0) + " HUD text patterns");
 
         // Lives icon - Nemesis compressed
-        hudLivesPatterns = loadNemesisPatterns(rom, Sonic3kConstants.ART_NEM_SONIC_LIFE_ICON_ADDR);
+        hudLivesPatterns = PatternDecompressor.nemesis(rom, Sonic3kConstants.ART_NEM_SONIC_LIFE_ICON_ADDR);
         LOG.info("Loaded " + (hudLivesPatterns != null ? hudLivesPatterns.length : 0) + " HUD lives icon patterns");
 
         // Lives digits (0-9) - uncompressed
@@ -184,20 +184,6 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         return patterns;
     }
 
-    private Pattern[] loadNemesisPatterns(Rom rom, int addr) throws IOException {
-        FileChannel channel = rom.getFileChannel();
-        channel.position(addr);
-        byte[] data = NemesisReader.decompress(channel);
-        int count = data.length / Pattern.PATTERN_SIZE_IN_ROM;
-        Pattern[] patterns = new Pattern[count];
-        for (int i = 0; i < count; i++) {
-            patterns[i] = new Pattern();
-            byte[] tile = Arrays.copyOfRange(data, i * Pattern.PATTERN_SIZE_IN_ROM,
-                    (i + 1) * Pattern.PATTERN_SIZE_IN_ROM);
-            patterns[i].fromSegaFormat(tile);
-        }
-        return patterns;
-    }
 
     /**
      * Loads HUD text patterns from the shared ring/HUD Nemesis blob.
@@ -240,7 +226,7 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
             return;
         }
 
-        Pattern[] patterns = loadNemesisPatterns(rom, Sonic3kConstants.ART_NEM_EXPLOSION_ADDR);
+        Pattern[] patterns = PatternDecompressor.nemesis(rom, Sonic3kConstants.ART_NEM_EXPLOSION_ADDR);
 
         // 5 frames from Map - Explosion.asm (identical to S2)
         List<SpriteMappingFrame> frames = new ArrayList<>(5);
@@ -275,7 +261,7 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         }
 
         // Load monitor base patterns (Nemesis compressed, ~60 tiles)
-        Pattern[] monitorBasePatterns = loadNemesisPatterns(rom, Sonic3kConstants.ART_NEM_MONITORS_ADDR);
+        Pattern[] monitorBasePatterns = PatternDecompressor.nemesis(rom, Sonic3kConstants.ART_NEM_MONITORS_ADDR);
 
         // Extend pattern array to cover life icon at offset 0x310
         // (1-Up monitor icon uses ArtTile_Player_Life_Icon = ArtTile_Monitors + $310)
@@ -426,7 +412,7 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         }
 
         // Load combined enemy pts + starpost Nemesis art (28 tiles)
-        Pattern[] allPatterns = loadNemesisPatterns(rom, Sonic3kConstants.ART_NEM_ENEMY_PTS_STARPOST_ADDR);
+        Pattern[] allPatterns = PatternDecompressor.nemesis(rom, Sonic3kConstants.ART_NEM_ENEMY_PTS_STARPOST_ADDR);
 
         // Parse starpost mappings from ROM
         List<SpriteMappingFrame> frames = S3kSpriteDataLoader.loadMappingFrames(reader,
@@ -642,6 +628,11 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         return shieldArtSets.get(key);
     }
 
+    @Override
+    public void registerLevelTileArt(Level level, int zoneIndex) {
+        registerLevelArtSheets(level, zoneIndex);
+    }
+
     /**
      * Registers object sprite sheets that use level patterns.
      * Must be called AFTER the level is loaded.
@@ -654,7 +645,7 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
 
         // Refresh act index from LevelManager — required for act transitions
         // (e.g. AIZ1→AIZ2 seamless reload) where the act changed after initial load.
-        currentActIndex = LevelManager.getInstance().getCurrentAct();
+        currentActIndex = GameServices.level().getCurrentAct();
 
         RomByteReader reader = null;
         try {
@@ -783,7 +774,7 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
 
             // Entry 3: boss explosion art (ArtNem_BossExplosion → ArtTile_BossExplosion2)
             if (decompressed.size() >= 4) {
-                registerSheet(Sonic2ObjectArtKeys.BOSS_EXPLOSION,
+                registerSheet(ObjectArtKeys.BOSS_EXPLOSION,
                         buildSheetFromPatterns(decompressed.get(3), reader,
                                 Sonic3kConstants.MAP_BOSS_EXPLOSION_ADDR, 0));
             }

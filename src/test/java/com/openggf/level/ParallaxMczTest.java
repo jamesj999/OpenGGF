@@ -4,8 +4,10 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.data.Rom;
-import com.openggf.level.scroll.ParallaxTables;
+import com.openggf.game.sonic2.scroll.ParallaxTables;
+import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
 import com.openggf.tests.rules.RequiresGameModule;
 import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
@@ -41,7 +43,7 @@ public class ParallaxMczTest {
 
     @Before
     public void setUp() {
-        Camera.resetInstance();
+        GameServices.camera().resetState();
         parallaxManager = new ParallaxManager();
         mockRom = new MockRom();
         parallaxManager.load(mockRom);
@@ -53,9 +55,9 @@ public class ParallaxMczTest {
         // it can produce a non-null scroll handler after loading MCZ data
         assertNotNull("ParallaxManager should be constructed after load", parallaxManager);
         // Verify that calculations work (load must have succeeded for update to produce valid output)
-        Camera cam = Camera.getInstance();
+        Camera cam = GameServices.camera();
         setCamera(cam, 0, 960);
-        parallaxManager.update(ParallaxManager.ZONE_MCZ, 0, cam, 0, 0);
+        parallaxManager.update(Sonic2ZoneConstants.ZONE_MCZ, 0, cam, 0, 0);
         assertNotNull("hScroll should be non-null after update", parallaxManager.getHScroll());
     }
 
@@ -64,35 +66,35 @@ public class ParallaxMczTest {
         // Act 1 (ID 0): floor(cameraY / 3) - 320
         // Act 2 (ID 1): floor(cameraY / 6) - 16
 
-        Camera cam = Camera.getInstance();
+        Camera cam = GameServices.camera();
 
         // Test Act 1
         // CameraY = 960. Correct BG Y = 320 - 320 = 0
         setCamera(cam, 0, 960);
-        parallaxManager.update(ParallaxManager.ZONE_MCZ, 0, cam, 0, 0);
+        parallaxManager.update(Sonic2ZoneConstants.ZONE_MCZ, 0, cam, 0, 0);
         assertEquals(0, parallaxManager.getVscrollFactorBG());
 
         // CameraY = 1000. Correct BG Y = 333 - 320 = 13
         setCamera(cam, 0, 1000);
-        parallaxManager.update(ParallaxManager.ZONE_MCZ, 0, cam, 0, 0);
+        parallaxManager.update(Sonic2ZoneConstants.ZONE_MCZ, 0, cam, 0, 0);
         assertEquals(13, parallaxManager.getVscrollFactorBG());
 
         // Test Act 2
         // CameraY = 960. Correct BG Y = 160 - 16 = 144
         setCamera(cam, 0, 960);
-        parallaxManager.update(ParallaxManager.ZONE_MCZ, 1, cam, 0, 0);
+        parallaxManager.update(Sonic2ZoneConstants.ZONE_MCZ, 1, cam, 0, 0);
         assertEquals(144, parallaxManager.getVscrollFactorBG());
     }
 
     @Test
     public void testSegScrollGenerationAt256() {
         // Test exact parallax replication for Camera X = 256
-        Camera cam = Camera.getInstance();
+        Camera cam = GameServices.camera();
         int cameraX = 256;
         int cameraY = 960; // produces bgY=0 for Act 0
         setCamera(cam, cameraX, cameraY);
 
-        parallaxManager.update(ParallaxManager.ZONE_MCZ, 0, cam, 0, 0);
+        parallaxManager.update(Sonic2ZoneConstants.ZONE_MCZ, 0, cam, 0, 0);
         int[] hScroll = parallaxManager.getHScroll();
 
         // Verify Scanlines
@@ -118,11 +120,11 @@ public class ParallaxMczTest {
         // Mock Ripple Data: idx 10 => Y=5, idx 11 => X=3
         mockRom.setRippleData(10, (byte) 5, (byte) 3);
 
-        Camera cam = Camera.getInstance();
+        Camera cam = GameServices.camera();
         setCamera(cam, 100, 960); // Act 0. bgY=0 normally.
 
         // Frame 10 (idx = 10 & 0x3F = 10)
-        parallaxManager.update(ParallaxManager.ZONE_MCZ, 0, cam, 10, 0);
+        parallaxManager.update(Sonic2ZoneConstants.ZONE_MCZ, 0, cam, 10, 0);
 
         // Expect vscrollFactorBG = bgY + rippleY = 0 + 5 = 5
         assertEquals(5, parallaxManager.getVscrollFactorBG());

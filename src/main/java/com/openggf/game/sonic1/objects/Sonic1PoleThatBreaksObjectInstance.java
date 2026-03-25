@@ -1,4 +1,5 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
@@ -8,10 +9,8 @@ import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseListener;
 import com.openggf.level.objects.TouchResponseProvider;
@@ -76,7 +75,8 @@ public class Sonic1PoleThatBreaksObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (routine != Routine.ACTION) {
             return;
         }
@@ -217,7 +217,8 @@ public class Sonic1PoleThatBreaksObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onTouchResponse(AbstractPlayableSprite player, TouchResponseResult result, int frameCounter) {
+    public void onTouchResponse(PlayableEntity playerEntity, TouchResponseResult result, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (routine != Routine.ACTION || poleGrabbed || player == null || player.isCpuControlled()) {
             return;
         }
@@ -226,14 +227,8 @@ public class Sonic1PoleThatBreaksObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.LZ_BREAKABLE_POLE);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.LZ_BREAKABLE_POLE);
+        if (renderer == null) return;
         boolean hFlip = (spawn.renderFlags() & 0x1) != 0;
         boolean vFlip = (spawn.renderFlags() & 0x2) != 0;
         renderer.drawFrameIndex(mappingFrame, getX(), getY(), hFlip, vFlip);
@@ -263,7 +258,7 @@ public class Sonic1PoleThatBreaksObjectInstance extends AbstractObjectInstance
     }
 
     private void setWindTunnelDisabled(boolean disabled) {
-        ZoneFeatureProvider provider = LevelManager.getInstance().getZoneFeatureProvider();
+        ZoneFeatureProvider provider = services().zoneFeatureProvider();
         if (provider instanceof Sonic1ZoneFeatureProvider sonic1Provider) {
             sonic1Provider.setWindTunnelDisabled(disabled);
         }

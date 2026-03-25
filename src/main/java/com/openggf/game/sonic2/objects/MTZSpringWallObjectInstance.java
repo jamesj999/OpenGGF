@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects;
+import com.openggf.game.PlayableEntity;
+import com.openggf.level.objects.SpringHelper;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
@@ -11,6 +12,7 @@ import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
+import com.openggf.level.objects.SpringBounceHelper;
 import com.openggf.physics.Direction;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -55,7 +57,8 @@ public class MTZSpringWallObjectInstance extends AbstractObjectInstance
     private static final int BOUNCE_SPEED = 0x800;
 
     // From disassembly: move.w #$F,move_lock(a1)
-    private static final int MOVE_LOCK_FRAMES = 0xF;
+    // Same lock duration as standard springs
+    private static final int MOVE_LOCK_FRAMES = SpringBounceHelper.CONTROL_LOCK_FRAMES;
 
     private final int yRadius;
     private final boolean xFlip;
@@ -80,12 +83,14 @@ public class MTZSpringWallObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return true;
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (player == null) {
             return;
         }
@@ -221,9 +226,7 @@ public class MTZSpringWallObjectInstance extends AbstractObjectInstance
 
         // From disassembly: move.w #SndID_Spring,d0 / jmp (PlaySound).l
         try {
-            if (AudioManager.getInstance() != null) {
-                AudioManager.getInstance().playSfx(GameSound.SPRING);
-            }
+            services().playSfx(GameSound.SPRING);
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic
         }

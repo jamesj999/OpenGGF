@@ -1,13 +1,16 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
-import com.openggf.game.sonic2.objects.ObjectAnimationState;
+import com.openggf.game.PlayableEntity;
+import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectManager;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.animation.SpriteAnimationEndAction;
 import com.openggf.sprites.animation.SpriteAnimationScript;
@@ -43,11 +46,11 @@ public class SolBadnikInstance extends AbstractBadnikInstance {
     private final ObjectAnimationState afterAnimation;
     private final List<SolFireballObjectInstance> fireballs = new ArrayList<>();
     private int fireballsRemaining;
-    private int xSubpixel;
+    private final SubpixelMotion.State motionState;
     private State state;
 
-    public SolBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Sol");
+    public SolBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Sol", Sonic2BadnikConfig.DESTRUCTION);
         this.xFlip = (spawn.renderFlags() & 0x01) != 0;
         this.orbitDirection = xFlip ? -1 : 1;
         this.xVelocity = xFlip ? X_VELOCITY : -X_VELOCITY;
@@ -55,12 +58,13 @@ public class SolBadnikInstance extends AbstractBadnikInstance {
         this.bodyAnimation = new ObjectAnimationState(BODY_ANIMATIONS, 0, 0);
         this.afterAnimation = new ObjectAnimationState(FIREBALL_ANIMATIONS, 0, 3);
         this.state = resolveInitialState(spawn.subtype());
-        this.xSubpixel = 0;
+        this.motionState = new SubpixelMotion.State(spawn.x(), spawn.y(), 0, 0, 0, 0);
         spawnFireballs();
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
             case WAIT_FOR_PLAYER -> {
                 checkForPlayer(player);
@@ -101,14 +105,14 @@ public class SolBadnikInstance extends AbstractBadnikInstance {
     }
 
     private void applyObjectMove() {
-        int xPos32 = (currentX << 8) | (xSubpixel & 0xFF);
-        xPos32 += xVelocity;
-        currentX = xPos32 >> 8;
-        xSubpixel = xPos32 & 0xFF;
+        motionState.x = currentX;
+        motionState.xVel = xVelocity;
+        SubpixelMotion.moveX(motionState);
+        currentX = motionState.x;
     }
 
     private void spawnFireballs() {
-        ObjectManager objectManager = levelManager.getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -164,19 +168,12 @@ public class SolBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.SOL);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.SOL);
+        if (renderer == null) return;
 
         renderer.drawFrameIndex(animFrame, currentX, currentY, xFlip, false);
     }

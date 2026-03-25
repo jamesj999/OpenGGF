@@ -14,6 +14,7 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
 import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import com.openggf.game.GameServices;
 
 /**
  * Zone feature provider for Sonic 1.
@@ -113,7 +114,7 @@ public class Sonic1ZoneFeatureProvider implements ZoneFeatureProvider {
             // player's centre position to query the equivalent layout block ID.
             int chunkIdAtPlayer = -1;
             int fallbackChunkId = -1;
-            LevelManager levelManager = LevelManager.getInstance();
+            LevelManager levelManager = GameServices.level();
             if (levelManager != null) {
                 chunkIdAtPlayer = levelManager.getBlockIdAt(player.getCentreX(), player.getCentreY());
                 // ROM uses obX/obY directly; in this engine we also sample sprite-origin
@@ -207,7 +208,7 @@ public class Sonic1ZoneFeatureProvider implements ZoneFeatureProvider {
     @Override
     public int getWaterLevel(int zoneIndex, int actIndex) {
         if (hasWater(zoneIndex)) {
-            return WaterSystem.getInstance().getWaterLevelY(zoneIndex, actIndex);
+            return GameServices.water().getWaterLevelY(zoneIndex, actIndex);
         }
         return Integer.MAX_VALUE;
     }
@@ -245,5 +246,17 @@ public class Sonic1ZoneFeatureProvider implements ZoneFeatureProvider {
      */
     public Sonic1LZWaterEvents getWaterEvents() {
         return waterEvents;
+    }
+
+    @Override
+    public int getWaterRoutine() {
+        return waterEvents != null ? waterEvents.getWaterRoutine() : 0;
+    }
+
+    @Override
+    public void setWaterRoutine(int routine) {
+        if (waterEvents != null) {
+            waterEvents.setWaterRoutine(routine);
+        }
     }
 }

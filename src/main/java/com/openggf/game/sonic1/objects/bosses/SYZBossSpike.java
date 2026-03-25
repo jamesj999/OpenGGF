@@ -1,8 +1,8 @@
 package com.openggf.game.sonic1.objects.bosses;
 
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.TouchResponseProvider;
@@ -37,7 +37,7 @@ public class SYZBossSpike extends AbstractBossChild implements TouchResponseProv
     private int bossDropSubPhase;
     private int bossTimer;
 
-    public SYZBossSpike(AbstractBossInstance parent, LevelManager levelManager) {
+    public SYZBossSpike(AbstractBossInstance parent) {
         super(parent, "SYZSpike", 5, Sonic1ObjectIds.SYZ_BOSS);
         this.extensionDepth = 0;
         this.spikeActive = false;
@@ -89,11 +89,7 @@ public class SYZBossSpike extends AbstractBossChild implements TouchResponseProv
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        LevelManager lm = LevelManager.getInstance();
-        if (lm == null) {
-            return;
-        }
-        ObjectRenderManager renderManager = lm.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

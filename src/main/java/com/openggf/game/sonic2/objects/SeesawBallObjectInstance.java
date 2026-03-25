@@ -1,19 +1,16 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.Sprite;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -133,7 +130,8 @@ public class SeesawBallObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Update palette animation (toggle every 4 frames)
         // ROM: Obj14_Animate
         animTimer++;
@@ -393,10 +391,7 @@ public class SeesawBallObjectInstance extends AbstractObjectInstance
 
         // ROM: move.w #SndID_Spring,d0 / jmp (PlaySound).l
         try {
-            AudioManager audioManager = AudioManager.getInstance();
-            if (audioManager != null) {
-                audioManager.playSfx(GameSound.SPRING);
-            }
+            services().playSfx(GameSound.SPRING);
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic
         }
@@ -438,15 +433,8 @@ public class SeesawBallObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.SEESAW_BALL);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.SEESAW_BALL);
+        if (renderer == null) return;
 
         // ROM: Obj14_SetSolToFaceMainCharacter
         // Face toward main character: x-flip if player is to the right of the ball
@@ -458,10 +446,9 @@ public class SeesawBallObjectInstance extends AbstractObjectInstance
         boolean hFlip = false;
         // Get the main character from the sprites (the update() player parameter)
         // We use LevelManager to get access to it since we're in the render method
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager != null) {
+        {
             // Get main playable sprite from all sprites
-            for (Sprite sprite : SpriteManager.getInstance().getAllSprites()) {
+            for (Sprite sprite : services().spriteManager().getAllSprites()) {
                 if (sprite instanceof AbstractPlayableSprite mainChar) {
                     // x-flip when player is to the right of the ball (face toward player)
                     hFlip = mainChar.getCentreX() >= (xPos >> 16);

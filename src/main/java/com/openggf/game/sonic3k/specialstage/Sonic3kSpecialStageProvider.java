@@ -224,4 +224,14 @@ public class Sonic3kSpecialStageProvider implements SpecialStageProvider {
     public Sonic3kSpecialStageManager getManager() {
         return manager;
     }
+
+    @Override
+    public void debugNextStage() {
+        manager.debugNextStage();
+    }
+
+    @Override
+    public void debugToggleLayoutSet() {
+        manager.debugToggleLayoutSet();
+    }
 }

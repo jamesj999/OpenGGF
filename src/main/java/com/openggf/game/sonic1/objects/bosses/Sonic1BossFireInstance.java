@@ -2,12 +2,12 @@ package com.openggf.game.sonic1.objects.bosses;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -149,7 +149,8 @@ public class Sonic1BossFireInstance extends AbstractObjectInstance implements To
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (routine) {
             case ROUTINE_INIT -> updateInit();
             case ROUTINE_ACTION -> updateAction();
@@ -186,7 +187,7 @@ public class Sonic1BossFireInstance extends AbstractObjectInstance implements To
 
         // Non-zero subtype: delayed drop + sfx_Fireball (BossFire_Main -> loc_1870A).
         counter29 = 0x1E;
-        AudioManager.getInstance().playSfx(Sonic1Sfx.BURNING.id);
+        services().playSfx(Sonic1Sfx.BURNING.id);
     }
 
     private void updateAction() {
@@ -244,12 +245,11 @@ public class Sonic1BossFireInstance extends AbstractObjectInstance implements To
         collisionActive = true;
 
         // Spawn mirrored twin by copying parent state then negating X speed.
-        LevelManager lm = LevelManager.getInstance();
-        if (lm != null && lm.getObjectManager() != null) {
+        if (services().objectManager() != null) {
             Sonic1BossFireInstance twin = new Sonic1BossFireInstance(this);
             twin.xVel = -FLAME_X_VEL;
             twin.xFixed = twin.currentX << 16;
-            lm.getObjectManager().addDynamicObject(twin);
+            services().objectManager().addDynamicObject(twin);
         }
 
         routineSecondary = STATE_DUPLICATE;
@@ -280,11 +280,10 @@ public class Sonic1BossFireInstance extends AbstractObjectInstance implements To
     }
 
     private void spawnDuplicate() {
-        LevelManager lm = LevelManager.getInstance();
-        if (lm == null || lm.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
-        lm.getObjectManager().addDynamicObject(createDuplicateDecayFlame(currentX, currentY));
+        services().objectManager().addDynamicObject(createDuplicateDecayFlame(currentX, currentY));
     }
 
     private void updateFallEdge() {
@@ -397,15 +396,8 @@ public class Sonic1BossFireInstance extends AbstractObjectInstance implements To
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.MZ_FIREBALL);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.MZ_FIREBALL);
+        if (renderer == null) return;
 
         int frameIndex;
         boolean hFlip = statusHFlip;

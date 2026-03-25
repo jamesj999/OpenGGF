@@ -5,6 +5,7 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.graphics.GraphicsManager;
@@ -62,13 +63,13 @@ public class TestS3kAizIntroCoverage {
     @Test
     public void aizIntroTransitionLoadsMainLevelChunkCoverage() throws Exception {
         Sonic sonic = new Sonic("sonic", (short) 0, (short) 0);
-        SpriteManager.getInstance().addSprite(sonic);
+        GameServices.sprites().addSprite(sonic);
 
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         camera.setFocusedSprite(sonic);
         camera.setFrozen(false);
 
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         levelManager.loadZoneAndAct(0, 0);
         GroundSensor.setLevelManager(levelManager);
         camera.updatePosition(true);
@@ -160,13 +161,13 @@ public class TestS3kAizIntroCoverage {
     @Test
     public void diagnoseBgTileChainAtTransition() throws Exception {
         Sonic sonic = new Sonic("sonic", (short) 0, (short) 0);
-        SpriteManager.getInstance().addSprite(sonic);
+        GameServices.sprites().addSprite(sonic);
 
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         camera.setFocusedSprite(sonic);
         camera.setFrozen(false);
 
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         levelManager.loadZoneAndAct(0, 0);
         GroundSensor.setLevelManager(levelManager);
         camera.updatePosition(true);

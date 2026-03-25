@@ -1,14 +1,14 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.camera.Camera;
 import com.openggf.data.Rom;
-import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.titlecard.Sonic3kTitleCardManager;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
@@ -190,7 +190,8 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (routine) {
             case 0  -> routine0Init();
             case 2  -> routine2WaitTrigger();
@@ -279,7 +280,7 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
      */
     private void loadAnimScript(int romAddr) {
         try {
-            Rom rom = GameServices.rom().getRom();
+            var rom = services().rom();
             animDuration = rom.readByte(romAddr) & 0xFF;
             animTimer = animDuration;
             animIndex = 0;
@@ -596,11 +597,11 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
 
             // ROM: Level_started_flag = 0x91 — re-enable camera tracking
             // ROM does NOT change level boundaries here — intro bounds stay in effect
-            Camera.getInstance().setLevelStarted(true);
-            Camera.getInstance().updatePosition(true);
+            services().camera().setLevelStarted(true);
+            services().camera().updatePosition(true);
 
             // ROM: AllocateObject + move.l #Obj_TitleCard,(a1)
-            Sonic3kTitleCardManager.getInstance().initializeInLevel(0, 0);
+            services().titleCardProvider().initializeInLevel(0, 0);
 
             setDestroyed(true);
         }
@@ -616,7 +617,9 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
         // so it owns cleanup of the shared intro art cache.
         try {
             AizIntroArtLoader.reset();
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            LOG.fine(() -> "CutsceneKnucklesAiz1Instance.onUnload: " + e.getMessage());
+        }
     }
 
     /**
@@ -625,13 +628,15 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
      */
     private void unlockPlayerControls() {
         try {
-            var sprite = Camera.getInstance().getFocusedSprite();
+            var sprite = services().camera().getFocusedSprite();
             if (sprite instanceof AbstractPlayableSprite ps) {
                 ps.setControlLocked(false);
                 ps.setObjectControlled(false);
                 ps.setHidden(false);
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            LOG.fine(() -> "CutsceneKnucklesAiz1Instance.unlockPlayerControls: " + e.getMessage());
+        }
     }
 
 }

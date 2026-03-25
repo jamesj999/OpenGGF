@@ -3,6 +3,7 @@ package com.openggf.game;
 import com.openggf.Engine;
 import com.openggf.LevelFrameStep;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
@@ -83,9 +84,9 @@ public class TestInstaShieldVisual {
             GL.createCapabilities();
 
             // Reset stale singleton state from prior tests
-            GraphicsManager.resetInstance();
-            Camera.resetInstance();
-            SpriteManager.getInstance().resetState();
+            GraphicsManager.getInstance().resetState();
+            GameServices.camera().resetState();
+            GameServices.sprites().resetState();
 
             GraphicsManager gm = GraphicsManager.getInstance();
             gm.init(Engine.RESOURCES_SHADERS_PIXEL_SHADER_GLSL);
@@ -121,14 +122,14 @@ public class TestInstaShieldVisual {
             // Create player and load AIZ1 (with intro skip)
             String mainCode = config.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
             player = new Sonic(mainCode, (short) 0x80, (short) 0x3B0);
-            SpriteManager.getInstance().addSprite(player);
+            GameServices.sprites().addSprite(player);
 
-            Camera camera = Camera.getInstance();
+            Camera camera = GameServices.camera();
             camera.setFocusedSprite(player);
             camera.setFrozen(false);
             camera.updatePosition(true);
 
-            LevelManager lm = LevelManager.getInstance();
+            LevelManager lm = GameServices.level();
             lm.loadZoneAndAct(0, 0); // AIZ act 1
 
             // Wire GroundSensor to LevelManager (critical for collision)
@@ -162,8 +163,8 @@ public class TestInstaShieldVisual {
             try { glfwDestroyWindow(window); } catch (Exception e) { /* ignore */ }
         }
         glfwTerminate();
-        GraphicsManager.resetInstance();
-        Camera.resetInstance();
+        GraphicsManager.getInstance().resetState();
+        GameServices.camera().resetState();
     }
 
     @Test
@@ -171,9 +172,9 @@ public class TestInstaShieldVisual {
         assumeTrue(initialized, "GPU init failed or ROM not available");
         Files.createDirectories(OUT_DIR);
 
-        LevelManager lm = LevelManager.getInstance();
-        Camera camera = Camera.getInstance();
-        SpriteManager sm = SpriteManager.getInstance();
+        LevelManager lm = GameServices.level();
+        Camera camera = GameServices.camera();
+        SpriteManager sm = GameServices.sprites();
 
         // Phase 1: Jump to get airborne.
         // Hold jump for a few frames to initiate the jump, then release.
@@ -276,10 +277,10 @@ public class TestInstaShieldVisual {
         player.setJumpInputPressed(jump);
         player.setDirectionalInputPressed(up, down, left, right);
 
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
 
         // Canonical frame tick via LevelFrameStep
-        LevelFrameStep.execute(lm, Camera.getInstance(), () -> {
+        LevelFrameStep.execute(lm, GameServices.camera(), () -> {
             boolean controlLocked = player.isControlLocked();
             boolean forcedRight = player.isForcedInputActive(AbstractPlayableSprite.INPUT_RIGHT)
                     || player.isForceInputRight();

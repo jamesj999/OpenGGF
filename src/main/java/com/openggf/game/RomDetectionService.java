@@ -102,7 +102,7 @@ public class RomDetectionService {
                     LOGGER.info("ROM detected as: " + detector.getGameName());
                     return Optional.of(detector.createModule());
                 }
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 LOGGER.warning("Error in detector " + detector.getGameName() + ": " + e.getMessage());
             }
         }

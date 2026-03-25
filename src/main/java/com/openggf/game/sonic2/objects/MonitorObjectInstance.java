@@ -1,35 +1,43 @@
 package com.openggf.game.sonic2.objects;
+import com.openggf.level.objects.ObjectAnimationState;
+import com.openggf.level.objects.ExplosionObjectInstance;
 
 import com.openggf.game.sonic2.audio.Sonic2Music;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
-import com.openggf.game.GameServices;
 
-import com.openggf.level.objects.*;
+import com.openggf.level.objects.AbstractMonitorObjectInstance;
+import com.openggf.level.objects.ObjectManager;
+import com.openggf.level.objects.ObjectRenderManager;
+import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.ObjectSpriteSheet;
+import com.openggf.level.objects.SolidContact;
+import com.openggf.level.objects.SolidObjectListener;
+import com.openggf.level.objects.SolidObjectParams;
+import com.openggf.level.objects.SolidObjectProvider;
+import com.openggf.level.objects.TouchResponseListener;
+import com.openggf.level.objects.TouchResponseProvider;
+import com.openggf.level.objects.TouchResponseResult;
 
 import com.openggf.graphics.GLCommand;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpriteMappingPiece;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.Tails;
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic2.audio.Sonic2SmpsConstants;
 
 import java.util.List;
 import java.util.logging.Logger;
 
-public class MonitorObjectInstance extends BoxObjectInstance implements TouchResponseProvider, TouchResponseListener,
+public class MonitorObjectInstance extends AbstractMonitorObjectInstance implements TouchResponseProvider, TouchResponseListener,
         SolidObjectProvider, SolidObjectListener {
     private static final Logger LOGGER = Logger.getLogger(MonitorObjectInstance.class.getName());
     private static final int HALF_RADIUS = 0x0E;
-    private static final int ICON_INITIAL_VELOCITY = -0x300;
-    private static final int ICON_RISE_ACCEL = 0x18;
-    private static final int ICON_WAIT_FRAMES = 0x1D;
     private static final int BROKEN_FRAME = 0x0B;
     private static final int ICON_FRAME_OFFSET = 1;
     private static final int RING_MONITOR_REWARD = 10;
@@ -42,12 +50,6 @@ public class MonitorObjectInstance extends BoxObjectInstance implements TouchRes
     private final ObjectAnimationState animationState;
     private boolean broken;
     private int mappingFrame;
-    private boolean iconActive;
-    private int iconSubY;
-    private int iconVelY;
-    private int iconWaitFrames;
-    private boolean effectApplied;
-    private AbstractPlayableSprite effectTarget;
     private AbstractPlayableSprite iconPlayer; // Preserved for rendering (effectTarget gets nulled)
 
     // Falling state (routineSecondary != 0 in ROM)
@@ -57,17 +59,17 @@ public class MonitorObjectInstance extends BoxObjectInstance implements TouchRes
     private int currentY;
 
     public MonitorObjectInstance(ObjectSpawn spawn, String name) {
-        super(spawn, name, HALF_RADIUS, HALF_RADIUS, 0.4f, 0.9f, 1.0f, false);
+        super(spawn, name);
         this.type = MonitorType.fromSubtype(spawn.subtype());
 
         // Check persistence: if remembered, spawn as broken
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         boolean previouslyBroken = objectManager != null && objectManager.isRemembered(spawn);
         this.broken = this.type == MonitorType.BROKEN || previouslyBroken;
 
         int initialAnim = type.id;
         int initialFrame = broken ? BROKEN_FRAME : 0;
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         this.animationState = new ObjectAnimationState(
                 renderManager != null ? renderManager.getMonitorAnimations() : null,
                 initialAnim,
@@ -90,7 +92,8 @@ public class MonitorObjectInstance extends BoxObjectInstance implements TouchRes
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Handle falling state first (ROM: Obj26_Main routine_secondary check)
         if (falling) {
             updateFalling();
@@ -126,7 +129,8 @@ public class MonitorObjectInstance extends BoxObjectInstance implements TouchRes
     }
 
     @Override
-    public void onTouchResponse(AbstractPlayableSprite player, TouchResponseResult result, int frameCounter) {
+    public void onTouchResponse(PlayableEntity playerEntity, TouchResponseResult result, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (broken || player == null || player.isCpuControlled()) {
             return;
         }
@@ -165,39 +169,34 @@ public class MonitorObjectInstance extends BoxObjectInstance implements TouchRes
         broken = true;
 
         // Mark as broken in persistence table
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null) {
             objectManager.markRemembered(spawn);
         }
 
         player.setYSpeed((short) -player.getYSpeed());
         mappingFrame = BROKEN_FRAME;
-        iconActive = true;
-        iconSubY = spawn.y() << 8;
-        iconVelY = ICON_INITIAL_VELOCITY;
-        iconWaitFrames = 0;
-        effectApplied = false;
-        effectTarget = player;
+        startIconRise(spawn.y(), player);
         iconPlayer = player; // Preserve player reference for rendering
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager != null) {
-            LevelManager.getInstance().getObjectManager().addDynamicObject(
+            services().objectManager().addDynamicObject(
                     new ExplosionObjectInstance(0x27, spawn.x(), spawn.y(), renderManager));
         }
-        AudioManager.getInstance().playSfx(Sonic2Sfx.EXPLOSION.id);
+        services().playSfx(Sonic2Sfx.EXPLOSION.id);
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
-            super.appendRenderCommands(commands);
+            appendFallbackBox(commands);
             return;
         }
         PatternSpriteRenderer renderer = renderManager.getMonitorRenderer();
         if (renderer == null || !renderer.isReady()) {
-            super.appendRenderCommands(commands);
+            appendFallbackBox(commands);
             return;
         }
         int frameIndex = broken ? BROKEN_FRAME : mappingFrame;
@@ -218,16 +217,6 @@ public class MonitorObjectInstance extends BoxObjectInstance implements TouchRes
     }
 
     @Override
-    protected int getHalfWidth() {
-        return HALF_RADIUS;
-    }
-
-    @Override
-    protected int getHalfHeight() {
-        return HALF_RADIUS;
-    }
-
-    @Override
     public int getCollisionFlags() {
         return 0x46;
     }
@@ -243,7 +232,8 @@ public class MonitorObjectInstance extends BoxObjectInstance implements TouchRes
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (broken) {
             return false;
         }
@@ -259,34 +249,37 @@ public class MonitorObjectInstance extends BoxObjectInstance implements TouchRes
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Solid contact used for standing/edge checks in ROM; no behavior yet.
     }
 
-    private void applyMonitorEffect(AbstractPlayableSprite player) {
+    @Override
+    protected void applyPowerup(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (type) {
             case RINGS -> {
                 player.addRings(RING_MONITOR_REWARD);
-                AudioManager.getInstance().playSfx(GameSound.RING);
+                services().playSfx(GameSound.RING);
             }
             case SHIELD -> {
                 player.giveShield();
-                AudioManager.getInstance().playSfx(Sonic2Sfx.SHIELD.id);
+                services().playSfx(Sonic2Sfx.SHIELD.id);
             }
             case SHOES -> {
                 player.giveSpeedShoes();
-                AudioManager.getInstance().playMusic(Sonic2SmpsConstants.CMD_SPEED_UP);
+                services().playMusic(Sonic2SmpsConstants.CMD_SPEED_UP);
             }
             case INVINCIBILITY -> {
                 // ROM: tst.b (Super_Sonic_flag).w / bne.s +++ - skip when Super Sonic
                 if (!player.isSuperSonic()) {
                     player.giveInvincibility();
-                    AudioManager.getInstance().playMusic(Sonic2Music.INVINCIBILITY.id);
+                    services().playMusic(Sonic2Music.INVINCIBILITY.id);
                 }
             }
             case SONIC, TAILS -> {
-                AudioManager.getInstance().playMusic(Sonic2Music.EXTRA_LIFE.id);
-                GameServices.gameState().addLife();
+                services().playMusic(Sonic2Music.EXTRA_LIFE.id);
+                services().gameState().addLife();
             }
             case EGGMAN, STATIC -> {
                 // ROM: robotnik_monitor (s2.asm:25656-25658)
@@ -307,31 +300,9 @@ public class MonitorObjectInstance extends BoxObjectInstance implements TouchRes
         }
     }
 
-    private void updateIcon() {
-        if (!iconActive) {
-            return;
-        }
-        if (iconVelY < 0) {
-            iconSubY += iconVelY;
-            iconVelY += ICON_RISE_ACCEL;
-            if (iconVelY >= 0) {
-                iconVelY = 0;
-                iconWaitFrames = ICON_WAIT_FRAMES;
-                if (!effectApplied && effectTarget != null) {
-                    applyMonitorEffect(effectTarget);
-                    effectApplied = true;
-                    effectTarget = null;
-                }
-            }
-            return;
-        }
-
-        if (iconWaitFrames > 0) {
-            iconWaitFrames--;
-            return;
-        }
-        iconActive = false;
-        iconPlayer = null; // Clear player reference when icon is done
+    @Override
+    protected void onIconDeactivated() {
+        iconPlayer = null;
     }
 
     private int resolveIconFrame(AbstractPlayableSprite player) {
@@ -363,16 +334,30 @@ public class MonitorObjectInstance extends BoxObjectInstance implements TouchRes
     public ObjectSpawn getSpawn() {
         // Return spawn with dynamic Y for solid collision checks
         if (currentY != spawn.y()) {
-            return new ObjectSpawn(
-                    spawn.x(),
-                    currentY,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
+            return buildSpawnAt(spawn.x(), currentY);
         }
         return spawn;
+    }
+
+    /**
+     * Debug fallback: render as a colored box when art is unavailable.
+     */
+    private void appendFallbackBox(List<GLCommand> commands) {
+        int cx = spawn.x();
+        int cy = currentY;
+        int left = cx - HALF_RADIUS;
+        int right = cx + HALF_RADIUS;
+        int top = cy - HALF_RADIUS;
+        int bottom = cy + HALF_RADIUS;
+        float r = 0.4f, g = 0.9f, b = 1.0f;
+        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID, r, g, b, left, top, 0, 0));
+        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID, r, g, b, right, top, 0, 0));
+        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID, r, g, b, right, top, 0, 0));
+        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID, r, g, b, right, bottom, 0, 0));
+        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID, r, g, b, right, bottom, 0, 0));
+        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID, r, g, b, left, bottom, 0, 0));
+        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID, r, g, b, left, bottom, 0, 0));
+        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID, r, g, b, left, top, 0, 0));
     }
 
     private enum MonitorType {

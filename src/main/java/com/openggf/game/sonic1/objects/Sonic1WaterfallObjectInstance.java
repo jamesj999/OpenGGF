@@ -1,14 +1,12 @@
 package com.openggf.game.sonic1.objects;
 
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.Level;
-import com.openggf.level.LevelManager;
 import com.openggf.level.Map;
-import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -96,18 +94,12 @@ public class Sonic1WaterfallObjectInstance extends AbstractObjectInstance {
 
     @Override
     public ObjectSpawn getSpawn() {
-        return new ObjectSpawn(
-                x,
-                y,
-                spawn.objectId(),
-                spawn.subtype(),
-                spawn.renderFlags(),
-                spawn.respawnTracked(),
-                spawn.rawYWord());
+        return buildSpawnAt(x, y);
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (routine) {
             case ROUTINE_ON_WATER -> {
                 y = getWaterLevel() - 0x10;
@@ -158,15 +150,8 @@ public class Sonic1WaterfallObjectInstance extends AbstractObjectInstance {
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.LZ_WATERFALL);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.LZ_WATERFALL);
+        if (renderer == null) return;
 
         boolean hFlip = (spawn.renderFlags() & 0x1) != 0;
         boolean vFlip = (spawn.renderFlags() & 0x2) != 0;
@@ -193,11 +178,7 @@ public class Sonic1WaterfallObjectInstance extends AbstractObjectInstance {
      * ROM: cmpi.b #7,(v_lvllayout+$80*2+6).w
      */
     private boolean isLayoutGapOpen() {
-        LevelManager lm = LevelManager.getInstance();
-        if (lm == null) {
-            return false;
-        }
-        Level level = lm.getCurrentLevel();
+        Level level = services().currentLevel();
         if (level == null) {
             return false;
         }
@@ -209,11 +190,10 @@ public class Sonic1WaterfallObjectInstance extends AbstractObjectInstance {
     }
 
     private int getWaterLevel() {
-        LevelManager lm = LevelManager.getInstance();
-        if (lm == null || lm.getCurrentLevel() == null) {
+        if (services().currentLevel() == null) {
             return y;
         }
-        WaterSystem waterSystem = WaterSystem.getInstance();
-        return waterSystem.getVisualWaterLevelY(lm.getFeatureZoneId(), lm.getFeatureActId());
+        var waterSystem = services().waterSystem();
+        return waterSystem.getVisualWaterLevelY(services().featureZoneId(), services().featureActId());
     }
 }

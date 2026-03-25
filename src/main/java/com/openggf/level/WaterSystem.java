@@ -181,7 +181,7 @@ public class WaterSystem {
         // Private constructor for singleton
     }
 
-    public static WaterSystem getInstance() {
+    public static synchronized WaterSystem getInstance() {
         if (instance == null) {
             instance = new WaterSystem();
         }

@@ -17,6 +17,7 @@ import com.openggf.game.sonic2.objects.MTZLongPlatformObjectInstance;
 import com.openggf.game.sonic2.objects.SmashableGroundObjectInstance;
 import com.openggf.game.sonic2.objects.Sonic2ObjectRegistry;
 import com.openggf.game.sonic2.scroll.Sonic2ScrollHandlerProvider;
+import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
 import com.openggf.game.sonic2.titlecard.TitleCardManager;
 import com.openggf.game.sonic2.titlescreen.TitleScreenManager;
 import com.openggf.game.CanonicalAnimation;
@@ -44,6 +45,7 @@ import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.game.RomOffsetProvider;
 import com.openggf.game.DebugModeProvider;
 import com.openggf.game.DebugOverlayProvider;
+import com.openggf.game.GameId;
 import com.openggf.game.ObjectArtProvider;
 import com.openggf.game.ZoneArtProvider;
 import com.openggf.game.TitleScreenProvider;
@@ -65,6 +67,11 @@ public class Sonic2GameModule implements GameModule {
     @Override
     public String getIdentifier() {
         return "Sonic2";
+    }
+
+    @Override
+    public GameId getGameId() {
+        return GameId.S2;
     }
 
     @Override
@@ -151,11 +158,13 @@ public class Sonic2GameModule implements GameModule {
         return 7;
     }
 
+    // Fresh instance per call. Callers store for the level's lifetime. Stateless.
     @Override
     public ScrollHandlerProvider getScrollHandlerProvider() {
         return new Sonic2ScrollHandlerProvider();
     }
 
+    // Lazily cached — same instance across level loads. Reset via module replacement.
     @Override
     public ZoneFeatureProvider getZoneFeatureProvider() {
         if (zoneFeatureProvider == null) {
@@ -164,16 +173,19 @@ public class Sonic2GameModule implements GameModule {
         return zoneFeatureProvider;
     }
 
+    // Fresh instance per call. Callers store for the level's lifetime. Stateless.
     @Override
     public WaterDataProvider getWaterDataProvider() {
         return new Sonic2WaterDataProvider();
     }
 
+    // Fresh instance per call. Callers store for the level's lifetime. Stateless.
     @Override
     public RomOffsetProvider getRomOffsetProvider() {
         return new Sonic2RomOffsetProvider();
     }
 
+    // Fresh instance per call. Callers store for the level's lifetime. Stateless.
     @Override
     public DebugModeProvider getDebugModeProvider() {
         return new Sonic2DebugModeProvider();
@@ -186,9 +198,19 @@ public class Sonic2GameModule implements GameModule {
         return null;
     }
 
+    // Fresh instance per call. Callers store for the level's lifetime. Stateless.
     @Override
     public ZoneArtProvider getZoneArtProvider() {
         return new Sonic2ZoneArtProvider();
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public <T> T getGameService(Class<T> type) {
+        if (type == Sonic2LevelEventManager.class) return (T) Sonic2LevelEventManager.getInstance();
+        if (type == com.openggf.game.sonic2.specialstage.Sonic2SpecialStageManager.class)
+            return (T) com.openggf.game.sonic2.specialstage.Sonic2SpecialStageManager.getInstance();
+        return null;
     }
 
     @Override
@@ -215,6 +237,7 @@ public class Sonic2GameModule implements GameModule {
         return LevelSelectManager.getInstance();
     }
 
+    // Lazily cached — same instance across level loads. Reset via module replacement.
     @Override
     public ObjectArtProvider getObjectArtProvider() {
         if (objectArtProvider == null) {
@@ -223,6 +246,7 @@ public class Sonic2GameModule implements GameModule {
         return objectArtProvider;
     }
 
+    // Lazily cached — same instance across level loads. Reset via module replacement.
     @Override
     public PhysicsProvider getPhysicsProvider() {
         if (physicsProvider == null) {
@@ -239,11 +263,6 @@ public class Sonic2GameModule implements GameModule {
     }
 
     @Override
-    public boolean hasInlineParallaxHandlers() {
-        return true;
-    }
-
-    @Override
     public SuperStateController createSuperStateController(
             AbstractPlayableSprite player) {
         if (CrossGameFeatureProvider.isActive()) {
@@ -257,6 +276,14 @@ public class Sonic2GameModule implements GameModule {
         return true;
     }
 
+    @Override
+    public boolean isSidekickSuppressedForZone(int zoneId) {
+        return zoneId == Sonic2ZoneConstants.ZONE_SCZ
+            || zoneId == Sonic2ZoneConstants.ZONE_WFZ
+            || zoneId == Sonic2ZoneConstants.ZONE_DEZ;
+    }
+
+    // Fresh instance per call. Callers store for the level's lifetime. Stateless.
     @Override
     public EndingProvider getEndingProvider() {
         return new Sonic2EndingProvider();

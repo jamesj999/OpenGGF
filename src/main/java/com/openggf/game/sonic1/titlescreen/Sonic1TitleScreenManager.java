@@ -1,7 +1,6 @@
 package com.openggf.game.sonic1.titlescreen;
 
-import com.openggf.audio.AudioManager;
-import com.openggf.Control.InputHandler;
+import com.openggf.control.InputHandler;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.sonic1.audio.Sonic1Music;
@@ -21,6 +20,7 @@ import java.util.List;
 import java.util.logging.Logger;
 
 import static org.lwjgl.opengl.GL11.glClearColor;
+import com.openggf.game.GameServices;
 
 /**
  * Manages the Sonic 1 Title Screen.
@@ -260,7 +260,7 @@ public class Sonic1TitleScreenManager implements TitleScreenProvider {
         scrollHandler = new SwScrlGhz();
 
         // Play title music
-        AudioManager.getInstance().playMusic(Sonic1Music.TITLE.id);
+        GameServices.audio().playMusic(Sonic1Music.TITLE.id);
 
         LOGGER.info("S1 Title Screen: transitioning to main screen");
     }

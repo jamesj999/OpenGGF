@@ -34,8 +34,7 @@ public interface LevelInitProfile {
      * <p>
      * These are the <em>inverse</em> of the ROM's init phases — each step
      * undoes the state set up by a corresponding phase in the {@code Level:}
-     * routine. Replaces the manual 8-phase sequence that was in
-     * {@code GameContext.forTesting()}.
+     * routine. Executed by {@link com.openggf.tests.TestEnvironment#resetAll()}.
      */
     List<InitStep> levelTeardownSteps();
 
@@ -44,8 +43,8 @@ public interface LevelInitProfile {
      * <p>
      * Clears transient gameplay state (event routines, sprites, camera,
      * collision, fade, game-state counters, timers, water) while preserving
-     * loaded level geometry, art, and audio cache. Replaces
-     * {@code TestEnvironment.resetPerTest()}.
+     * loaded level geometry, art, and audio cache. Executed by
+     * {@link com.openggf.tests.TestEnvironment#resetPerTest()}.
      */
     List<InitStep> perTestResetSteps();
 

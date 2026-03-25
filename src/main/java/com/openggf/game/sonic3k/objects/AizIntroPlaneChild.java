@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -87,7 +88,8 @@ public class AizIntroPlaneChild extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -185,10 +187,12 @@ public class AizIntroPlaneChild extends AbstractObjectInstance {
         int renderX = currentX;
         int renderY = currentY;
         try {
-            Camera camera = Camera.getInstance();
+            Camera camera = services().camera();
             renderX += camera.getX() - 128;
             renderY += camera.getY() - 128;
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            LOG.fine(() -> "AizIntroPlaneChild.appendRenderCommands: " + e.getMessage());
+        }
         renderer.drawFrameIndex(mappingFrame, renderX, renderY, false, false);
 
         // Render booster flames

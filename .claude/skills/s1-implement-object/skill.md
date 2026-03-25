@@ -83,9 +83,9 @@ public static final int OBJECT_NAME = 0xXX;
 
 **PLC note:** S1 loads object art via ArtLoadCues (PLCs) during level init. The shared `PlcParser` utility handles parsing. See `plc-system` skill. Use `RomOffsetFinder plc <name>` to inspect PLC contents from the CLI. The ObjectDiscoveryTool checklist shows PLC IDs per object. For dedicated object art that shouldn't overwrite level pattern tiles, use standalone decompression: `PlcParser.decompressAll(rom, plc)` returns independent `Pattern[]` arrays per PLC entry.
 
-**S1 art infrastructure exists:** `Sonic1ObjectArt.java`, `Sonic1ObjectArtKeys.java`, and `Sonic1ObjectArtProvider.java` are established. Follow the existing pattern:
+**S1 art infrastructure exists:** `Sonic1ObjectArt.java` and `Sonic1ObjectArtProvider.java` are established. Art keys use the shared `ObjectArtKeys` class (`com.openggf.level.objects.ObjectArtKeys`). Follow the existing pattern:
 
-1. **Add art key** to `Sonic1ObjectArtKeys.java`:
+1. **Add art key** to `ObjectArtKeys.java`:
    ```java
    public static final String OBJECT_NAME = "objectname";
    ```
@@ -118,7 +118,7 @@ Create the instance class following existing Sonic 2 patterns but in the Sonic 1
 
 ##### Pattern 1: Simple Object
 ```java
-package com.openggf.sonic.game.sonic1.objects;
+package com.openggf.game.sonic1.objects;
 
 public class ObjectNameObjectInstance extends AbstractObjectInstance
         implements SolidObjectProvider, SolidObjectListener {
@@ -128,7 +128,7 @@ public class ObjectNameObjectInstance extends AbstractObjectInstance
 
 ##### Pattern 2: Badnik (Enemy with AI)
 ```java
-package com.openggf.sonic.game.sonic1.objects.badniks;
+package com.openggf.game.sonic1.objects.badniks;
 
 public class ObjectNameBadnikInstance extends AbstractBadnikInstance {
     @Override
@@ -157,7 +157,61 @@ public class ObjectNameBadnikInstance extends AbstractBadnikInstance {
 - Uses `obColProp` for hit counter
 - Has camera lock and arena setup behavior
 
-#### 2.4 Implementation Requirements
+#### 2.4 Reusable Engine Utilities
+
+**IMPORTANT: Before writing any physics, movement, or collision code, check these existing utilities. Do NOT reimplement functionality that already exists.**
+
+##### Movement & Physics
+
+| Utility | Location | Use When |
+|---------|----------|----------|
+| `SubpixelMotion.moveSprite(state, gravity)` | `com.openggf.level.objects.SubpixelMotion` | 16:8 fixed-point position update with gravity (ROM's `ObjectFall`/`MoveSprite`). Create a `SubpixelMotion.State` field, sync positions/velocities before call, read back after. |
+| `SubpixelMotion.moveSprite2(state)` | `com.openggf.level.objects.SubpixelMotion` | Same without gravity (ROM's `MoveSprite2`). |
+| `SubpixelMotion.moveX(state)` | `com.openggf.level.objects.SubpixelMotion` | X-only movement (horizontal projectiles). |
+| `SwingMotion.update()` | `com.openggf.physics.SwingMotion` | Object oscillates/bobs/swings (ROM's `Swing_UpAndDown`). |
+| `PatrolMovementHelper` | `com.openggf.level.objects.PatrolMovementHelper` | Left-right patrol with turn-at-edge detection. |
+| `PlatformBobHelper` | `com.openggf.level.objects.PlatformBobHelper` | Sine-based standing-nudge displacement for platforms. |
+| `ObjectTerrainUtils.checkFloorDist()` | `com.openggf.physics` | Single-point floor/ceiling/wall detection for objects. |
+| `TrigLookupTable.calcAngle()` / `sinHex()` / `cosHex()` | `com.openggf.physics` | ROM-accurate angle calculation and trig. |
+
+##### Base Classes
+
+| Base Class | Location | Use When |
+|------------|----------|----------|
+| `AbstractBadnikInstance` | `com.openggf.level.objects` | All badniks (enemies). Provides touch response, destruction with `DestructionEffects`, debug rendering. S1 badniks pass S1-specific `DestructionConfig`. Objects receive `ObjectServices` via injection — use `services()` to access camera, audio, level, game state. |
+| `AbstractProjectileInstance` | `com.openggf.level.objects` | Fire-and-forget projectiles (missiles, fireballs). Handles motion, gravity, off-screen destroy, HURT collision. |
+| `AbstractMonitorObjectInstance` | `com.openggf.level.objects` | Monitor objects. Shared icon-rise physics and state machine. Override `applyPowerup()`. |
+| `AbstractPointsObjectInstance` | `com.openggf.level.objects` | Floating score popups. Shared rise-and-fade physics. Override `getFrameForScore()`. |
+| `GravityDebrisChild` | `com.openggf.level.objects` | Debris/fragment children with gravity. Override `appendRenderCommands()`. |
+
+##### Collision & Touch Response
+
+| Pattern | When to Use |
+|---------|-------------|
+| `TouchResponseAttackable` + `TouchResponseProvider` | Destroyable enemies. Player jump/roll destroys them. |
+| `TouchResponseProvider` only (no `Attackable`) | Non-destroyable hazards. Return `0x80 \| sizeIndex` for HURT. |
+| `DestructionEffects.destroyBadnik()` | Explosion + animal + points on badnik defeat. |
+| `SpringBounceHelper` | `com.openggf.level.objects.SpringBounceHelper` — shared spring bounce physics. |
+
+##### Rendering & Animation
+
+| Utility | Use When |
+|---------|----------|
+| `getRenderer(artKey)` | Static method on `AbstractObjectInstance`. Returns ready `PatternSpriteRenderer` or null. Use instead of manual render manager access. |
+| `AnimationTimer` | `com.openggf.util.AnimationTimer` — cyclic frame animation timer. |
+| `LazyMappingHolder` | `com.openggf.util.LazyMappingHolder` — lazy-loading holder for sprite mappings. |
+| `PatternDecompressor` | `com.openggf.util.PatternDecompressor` — bytes→Pattern[] conversion. |
+
+##### Object Lifecycle
+
+| Utility | Use When |
+|---------|----------|
+| `buildSpawnAt(x, y)` | Inherited from `AbstractObjectInstance`. Use in `getSpawn()` overrides instead of constructing `new ObjectSpawn(...)` manually. |
+| `isPlayerRiding()` | Inherited from `AbstractObjectInstance`. Safe null-check chain for platform riding detection. |
+| `isOnScreen(margin)` | Inherited from `AbstractObjectInstance`. Off-screen visibility check. |
+| `DebugRenderContext` | `com.openggf.debug.DebugRenderContext` — use for `appendDebugRenderCommands()`. |
+
+#### 2.5 Implementation Requirements
 
 **Engine Extensions**: If the ROM uses functionality that the engine doesn't expose, **you MUST extend the engine** rather than working around it or documenting it as a limitation.
 
@@ -193,7 +247,7 @@ int configBits = subtype & 0x0F;
 
 **Sound effects**: Use constants from `Sonic1AudioProfile.java`:
 ```java
-AudioManager.getInstance().playSfx(Sonic1AudioProfile.SFX_SPRING);
+services().audioManager().playSfx(Sonic1AudioProfile.SFX_SPRING);
 ```
 
 Key Sonic 1 SFX IDs:
@@ -217,7 +271,7 @@ public void appendDebugRenderCommands(List<GLCommand> commands) {
 }
 ```
 
-#### 2.5 Factory Registration
+#### 2.6 Factory Registration
 
 Register in `Sonic1ObjectRegistry.registerDefaultFactories()`:
 

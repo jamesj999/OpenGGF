@@ -1,15 +1,12 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.TrigLookupTable;
@@ -218,7 +215,8 @@ public class BonusBlockObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -293,7 +291,7 @@ public class BonusBlockObjectInstance extends AbstractObjectInstance {
         applyBounce(player);
 
         // Play sound on every hit (ROM: line 59667)
-        AudioManager.getInstance().playSfx(GameSound.BONUS_BUMPER);
+        services().playSfx(GameSound.BONUS_BUMPER);
 
         int points = 10;  // Default for all hits
 
@@ -313,7 +311,7 @@ public class BonusBlockObjectInstance extends AbstractObjectInstance {
             hitCount++;
 
             // Mark as destroyed in persistence table to prevent respawning
-            ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+            ObjectManager objectManager = services().objectManager();
             if (objectManager != null) {
                 objectManager.markRemembered(spawn);
             }
@@ -330,14 +328,13 @@ public class BonusBlockObjectInstance extends AbstractObjectInstance {
         }
 
         // Award points and spawn points display (ROM: lines 59687-59694)
-        GameServices.gameState().addScore(points);
+        services().gameState().addScore(points);
 
         // Spawn floating points display
-        LevelManager levelManager = LevelManager.getInstance();
         PointsObjectInstance pointsObj = new PointsObjectInstance(
                 new ObjectSpawn(spawn.x(), spawn.y(), 0x29, 0, 0, false, 0),
-                levelManager, points);
-        levelManager.getObjectManager().addDynamicObject(pointsObj);
+                services(), points);
+        services().objectManager().addDynamicObject(pointsObj);
 
         // Trigger hit animation
         if (!isDestroyed()) {
@@ -504,13 +501,8 @@ public class BonusBlockObjectInstance extends AbstractObjectInstance {
             return;
         }
 
-        ObjectRenderManager rm = LevelManager.getInstance().getObjectRenderManager();
-        if (rm == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = rm.getRenderer(Sonic2ObjectArtKeys.BONUS_BLOCK);
-        if (renderer != null && renderer.isReady()) {
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.BONUS_BLOCK);
+        if (renderer != null) {
             boolean hFlip = (spawn.renderFlags() & 0x1) != 0;
             boolean vFlip = (spawn.renderFlags() & 0x2) != 0;
             // Pass paletteIndex for color change (2=green, 1=yellow, 0=red)

@@ -1,6 +1,5 @@
 package com.openggf.game.sonic1.specialstage;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
@@ -10,7 +9,6 @@ import com.openggf.game.sonic1.Sonic1RingArt;
 import com.openggf.game.sonic1.audio.Sonic1Music;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
-import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Palette;
@@ -865,7 +863,7 @@ public final class Sonic1SpecialStageManager {
         if (ssRotate >= 0x1800 && !exitFadeStarted) {
             exitFadeStarted = true;
             exitFadeTimer = 60; // v_generictimer = 60
-            FadeManager.getInstance().startFadeToWhite(null, Integer.MAX_VALUE);
+            GameServices.fade().startFadeToWhite(null, Integer.MAX_VALUE);
         }
 
         // Count down fade timer (SS_FinLoop: dbf d1,SS_FinLoop)
@@ -1808,19 +1806,19 @@ public final class Sonic1SpecialStageManager {
 
     private void playSfx(Sonic1Sfx sfx) {
         if (sfx != null) {
-            AudioManager.getInstance().playSfx(sfx.id);
+            GameServices.audio().playSfx(sfx.id);
         }
     }
 
     private void playSfx(GameSound sfx) {
         if (sfx != null) {
-            AudioManager.getInstance().playSfx(sfx);
+            GameServices.audio().playSfx(sfx);
         }
     }
 
     private void playMusic(Sonic1Music music) {
         if (music != null) {
-            AudioManager.getInstance().playMusic(music.id);
+            GameServices.audio().playMusic(music.id);
         }
     }
 }

@@ -9,6 +9,7 @@ import com.openggf.level.LevelManager;
 
 import java.util.ArrayList;
 import java.util.List;
+import com.openggf.game.GameServices;
 
 final class AizFireCurtainRenderer {
     private static final int COLUMN_COUNT = 20;
@@ -406,7 +407,7 @@ final class AizFireCurtainRenderer {
     }
 
     private static int sampleBackgroundStripDescriptor(int sourceX, int sourceY) {
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         if (levelManager == null || levelManager.getCurrentLevel() == null) {
             return 0;
         }

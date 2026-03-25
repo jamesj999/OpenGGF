@@ -1,10 +1,12 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
-import com.openggf.level.objects.ObjectRenderManager;
+
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -25,15 +27,16 @@ public class MasherBadnikInstance extends AbstractBadnikInstance {
     private final int baseY; // Initial y position (lowest point)
     private int localYVel; // Current y velocity in subpixels
 
-    public MasherBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Masher");
+    public MasherBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Masher", Sonic2BadnikConfig.DESTRUCTION);
         this.baseY = spawn.y();
         this.currentY = baseY;
         this.localYVel = INITIAL_Y_VEL; // Start moving upward
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Apply gravity
         localYVel += GRAVITY;
 
@@ -82,19 +85,12 @@ public class MasherBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.MASHER);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.MASHER);
+        if (renderer == null) return;
 
         // Render current animation frame
         boolean hFlip = false;

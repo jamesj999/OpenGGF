@@ -1,6 +1,7 @@
 package com.openggf.tests;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.CameraBounds;
 import com.openggf.level.objects.ObjectManager;
@@ -57,7 +58,7 @@ public class TestS1Lz3VerticalWrap {
                 .withSharedLevel(sharedLevel)
                 .build();
 
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = GameServices.level().getObjectManager();
         if (objectManager != null) {
             objectManager.reset(fixture.camera().getX());
         }

@@ -1,8 +1,6 @@
 package com.openggf.game;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameAudioProfile;
-import com.openggf.game.sonic2.LevelTimer;
 
 /**
  * Manages transient state for a single level execution, such as Rings and Time.
@@ -46,9 +44,9 @@ public class LevelGamestate implements LevelState {
                 if ((previousRings < 100 && rings >= 100)
                         || (previousRings < 200 && rings >= 200)) {
                     GameServices.gameState().addLife();
-                    GameAudioProfile profile = AudioManager.getInstance().getAudioProfile();
+                    GameAudioProfile profile = GameServices.audio().getAudioProfile();
                     if (profile != null) {
-                        AudioManager.getInstance().playMusic(profile.getExtraLifeMusicId());
+                        GameServices.audio().playMusic(profile.getExtraLifeMusicId());
                     }
                 }
             }

@@ -1,8 +1,11 @@
 package com.openggf.game.sonic1.objects.badniks;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
+import com.openggf.game.RuntimeManager;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectInstance;
@@ -124,8 +127,13 @@ public class TestBuzzBomberLifecycle {
 
     @Before
     public void setUp() {
-        // Ensure Camera singleton exists with clean state (screen 320×224 from config)
-        Camera.resetInstance();
+        RuntimeManager.createGameplay();
+        GameServices.camera().resetState();
+    }
+
+    @After
+    public void tearDown() {
+        RuntimeManager.destroyCurrent();
     }
 
     /**
@@ -153,7 +161,7 @@ public class TestBuzzBomberLifecycle {
 
         // --- Frame 1: Camera at X=400, windowEnd = 400+640 = 1040.
         //     Spawn at X=1000 ≤ 1040 → object created.
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         camera.setX((short) 400);
         manager.reset(400);
         manager.update(400, null, null, 1);
@@ -192,7 +200,7 @@ public class TestBuzzBomberLifecycle {
         ObjectManager manager = new ObjectManager(spawns, registry, 0, null, null);
 
         // Camera at X=400, spawn at 1000 in window → object created.
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         camera.setX((short) 400);
         manager.reset(400);
         manager.update(400, null, null, 1);
@@ -216,7 +224,7 @@ public class TestBuzzBomberLifecycle {
     }
 
     /**
-     * Control test: without the isPersistent override (margin=0, beyond screen),
+     * control test: without the isPersistent override (margin=0, beyond screen),
      * a flying object at X=600 is removed when camera backs up enough that the
      * spawn leaves the window – even though the object is on-screen.
      * This demonstrates the bug that the fix addresses.
@@ -230,7 +238,7 @@ public class TestBuzzBomberLifecycle {
         TestRegistry registry = new TestRegistry(0x22, 160); // 0x22 doesn't match 0x01
         ObjectManager manager = new ObjectManager(spawns, registry, 0, null, null);
 
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         camera.setX((short) 400);
         manager.reset(400);
         manager.update(400, null, null, 1);

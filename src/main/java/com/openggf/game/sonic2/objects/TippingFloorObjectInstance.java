@@ -1,9 +1,10 @@
 package com.openggf.game.sonic2.objects;
+import com.openggf.game.PlayableEntity;
+import com.openggf.level.objects.ObjectAnimationState;
 
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.*;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -61,7 +62,7 @@ public class TippingFloorObjectInstance extends AbstractObjectInstance
         this.durationInitial = durationValue - 1;  // ROM subtracts 1 before storing
         this.durationCurrent = durationValue - 1;
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         this.animationState = new ObjectAnimationState(
                 renderManager != null ? renderManager.getAnimations(Sonic2ObjectArtKeys.ANIM_TIPPING_FLOOR) : null,
                 ANIM_FORWARD,
@@ -69,7 +70,8 @@ public class TippingFloorObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (routine) {
             case ROUTINE_DELAY -> updateDelay(frameCounter);
             case ROUTINE_MAIN -> updateMain();
@@ -114,7 +116,8 @@ public class TippingFloorObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // No special handling - solid check already filters by mappingFrame
     }
 
@@ -123,7 +126,8 @@ public class TippingFloorObjectInstance extends AbstractObjectInstance
      * ROM: loc_2B036 - checks mappingFrame == 0 before calling SolidObject
      */
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return mappingFrame == 0;
     }
 
@@ -143,7 +147,7 @@ public class TippingFloorObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

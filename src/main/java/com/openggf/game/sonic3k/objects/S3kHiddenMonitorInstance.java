@@ -1,7 +1,7 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -10,7 +10,6 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
 import java.util.logging.Logger;
-
 
 /**
  * S3K hidden monitor (Object 0x80).
@@ -43,7 +42,8 @@ public class S3kHiddenMonitorInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed() || resolved) {
             return;
         }
@@ -70,7 +70,7 @@ public class S3kHiddenMonitorInstance extends AbstractObjectInstance {
             LOG.fine("Hidden monitor at (" + monitorX + "," + monitorY
                     + ") IN RANGE of signpost — revealing");
             try {
-                AudioManager.getInstance().playSfx(Sonic3kSfx.BUBBLE_ATTACK.id);
+                services().playSfx(Sonic3kSfx.BUBBLE_ATTACK.id);
             } catch (Exception e) {
                 LOG.fine("Could not play bubble attack SFX: " + e.getMessage());
             }
@@ -88,7 +88,7 @@ public class S3kHiddenMonitorInstance extends AbstractObjectInstance {
             LOG.fine("Hidden monitor at (" + monitorX + "," + monitorY
                     + ") OUT OF RANGE of signpost — dismissing");
             try {
-                AudioManager.getInstance().playSfx(Sonic3kSfx.GROUND_SLIDE.id);
+                services().playSfx(Sonic3kSfx.GROUND_SLIDE.id);
             } catch (Exception e) {
                 LOG.fine("Could not play ground slide SFX: " + e.getMessage());
             }

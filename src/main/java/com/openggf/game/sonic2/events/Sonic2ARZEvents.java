@@ -1,11 +1,9 @@
 package com.openggf.game.sonic2.events;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.bosses.Sonic2ARZBossInstance;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectSpawn;
 
 /**
@@ -47,7 +45,7 @@ public class Sonic2ARZEvents extends Sonic2ZoneEvents {
                     setSidekickBounds((int) camera().getX(), null, 0x400);
                     eventRoutine += 2;
                     // ROM: move.b #4,(Current_Boss_ID).w
-                    GameServices.gameState().setCurrentBossId(4);
+                    gameState().setCurrentBossId(4);
                     // ROM: LoadPLC for ARZ boss art (handled elsewhere)
                 }
             }
@@ -61,7 +59,7 @@ public class Sonic2ARZEvents extends Sonic2ZoneEvents {
                     eventRoutine += 2;
                     bossSpawnDelay = 0;
                     // ROM: Fade out music
-                    AudioManager.getInstance().fadeOutMusic();
+                    audio().fadeOutMusic();
                     // ROM: Spawn ARZ boss (obj89) - this is where the boss is created!
                     spawnARZBoss();
                 }
@@ -77,7 +75,7 @@ public class Sonic2ARZEvents extends Sonic2ZoneEvents {
                 if (bossSpawnDelay >= 0x5A) {
                     eventRoutine += 2;
                     // Start boss music
-                    AudioManager.getInstance().playMusic(Sonic2Music.BOSS.id);
+                    audio().playMusic(Sonic2Music.BOSS.id);
                 }
             }
             case 6 -> {
@@ -104,7 +102,7 @@ public class Sonic2ARZEvents extends Sonic2ZoneEvents {
         // ROM spawns obj89 with no specific coordinates - the object positions itself
         ObjectSpawn bossSpawn = new ObjectSpawn(
                 0x2AE0, 0x388, Sonic2ObjectIds.ARZ_BOSS, 0, 0, false, 0);
-        arzBoss = new Sonic2ARZBossInstance(bossSpawn, LevelManager.getInstance());
+        arzBoss = new Sonic2ARZBossInstance(bossSpawn);
         spawnObject(arzBoss);
     }
 }

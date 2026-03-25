@@ -3,7 +3,8 @@ package com.openggf.game.sonic1.objects.badniks;
 import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
-import com.openggf.game.sonic2.objects.ExplosionObjectInstance;
+import com.openggf.game.PlayableEntity;
+import com.openggf.level.objects.ExplosionObjectInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
@@ -15,6 +16,7 @@ import com.openggf.level.objects.TouchResponseAttackable;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import com.openggf.debug.DebugColor;
@@ -128,13 +130,11 @@ public class Sonic1BombBadnikInstance extends AbstractObjectInstance
     private static final int RENDER_PRIORITY = 3;
 
     // --- Instance state ---
-    private final LevelManager levelManager;
     private int currentX;
     private int currentY;
     private int xVelocity;
     private int yVelocity;
-    private int xSubpixel;
-    private int ySubpixel;
+    private final SubpixelMotion.State motionState;
     private boolean facingLeft;
     private boolean ceilingBomb; // obStatus bit 1: bomb is upside-down on ceiling
     private boolean destroyed;
@@ -144,15 +144,14 @@ public class Sonic1BombBadnikInstance extends AbstractObjectInstance
     private int currentAnim;    // obAnim
     private int animTickCounter;
 
-    public Sonic1BombBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
+    public Sonic1BombBadnikInstance(ObjectSpawn spawn) {
         super(spawn, "Bomb");
-        this.levelManager = levelManager;
+        
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         this.xVelocity = 0;
         this.yVelocity = 0;
-        this.xSubpixel = 0;
-        this.ySubpixel = 0;
+        this.motionState = new SubpixelMotion.State(spawn.x(), spawn.y(), 0, 0, 0, 0);
 
         // obStatus bit 0 is initialized from spawn data's render flags.
         // Bom_Main: bchg #0,obStatus(a0) toggles it.
@@ -180,7 +179,8 @@ public class Sonic1BombBadnikInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (destroyed) {
             return;
         }
@@ -192,7 +192,8 @@ public class Sonic1BombBadnikInstance extends AbstractObjectInstance
      * Bom_Action: Main update dispatches to state-specific handler, then
      * AnimateSprite + RememberState.
      */
-    private void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    private void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
             case STATE_WALK -> updateWalk(frameCounter, player);
             case STATE_WAIT -> updateWait(frameCounter, player);
@@ -297,7 +298,7 @@ public class Sonic1BombBadnikInstance extends AbstractObjectInstance
             spawnBombExplosion();
             destroyed = true;
             setDestroyed(true);
-            var objectManager = levelManager.getObjectManager();
+            var objectManager = services().objectManager();
             if (objectManager != null) {
                 if (spawn.respawnTracked()) {
                     objectManager.markRemembered(spawn);
@@ -386,7 +387,7 @@ public class Sonic1BombBadnikInstance extends AbstractObjectInstance
      * </pre>
      */
     private void spawnFuseChild(AbstractPlayableSprite player) {
-        var objectManager = levelManager.getObjectManager();
+        var objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -394,7 +395,7 @@ public class Sonic1BombBadnikInstance extends AbstractObjectInstance
         // btst #1,obStatus(a0) / beq.s .normal / neg.w obVelY(a1)
         int fuseYSpeed = ceilingBomb ? -FUSE_Y_SPEED : FUSE_Y_SPEED;
         Sonic1BombFuseInstance fuse = new Sonic1BombFuseInstance(
-                currentX, currentY, facingLeft, ceilingBomb, FUSE_TIME, fuseYSpeed, this, levelManager);
+                currentX, currentY, facingLeft, ceilingBomb, FUSE_TIME, fuseYSpeed, this);
         objectManager.addDynamicObject(fuse);
     }
 
@@ -404,7 +405,7 @@ public class Sonic1BombBadnikInstance extends AbstractObjectInstance
      * The explosion reuses the standard ExItem_Animate with 5 frames at 7 ticks each.
      */
     private void spawnBombExplosion() {
-        var objectManager = levelManager.getObjectManager();
+        var objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -412,11 +413,11 @@ public class Sonic1BombBadnikInstance extends AbstractObjectInstance
         // Spawn explosion with bomb sound effect
         ExplosionObjectInstance explosion = new ExplosionObjectInstance(
                 0x3F, currentX, currentY,
-                levelManager.getObjectRenderManager());
+                services().renderManager());
         objectManager.addDynamicObject(explosion);
 
         // sfx_Bomb = $C4 = BOSS_EXPLOSION
-        AudioManager.getInstance().playSfx(Sonic1Sfx.BOSS_EXPLOSION.id);
+        services().playSfx(Sonic1Sfx.BOSS_EXPLOSION.id);
     }
 
     /**
@@ -443,7 +444,7 @@ public class Sonic1BombBadnikInstance extends AbstractObjectInstance
      * </pre>
      */
     void spawnShrapnel(int fuseX, int fuseY) {
-        var objectManager = levelManager.getObjectManager();
+        var objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -451,8 +452,7 @@ public class Sonic1BombBadnikInstance extends AbstractObjectInstance
         for (int i = 0; i < SHRAPNEL_VELOCITIES.length; i++) {
             Sonic1BombShrapnelInstance shrapnel = new Sonic1BombShrapnelInstance(
                     fuseX, fuseY,
-                    SHRAPNEL_VELOCITIES[i][0], SHRAPNEL_VELOCITIES[i][1],
-                    levelManager);
+                    SHRAPNEL_VELOCITIES[i][0], SHRAPNEL_VELOCITIES[i][1]);
             objectManager.addDynamicObject(shrapnel);
         }
     }
@@ -472,15 +472,13 @@ public class Sonic1BombBadnikInstance extends AbstractObjectInstance
      * SpeedToPos: Apply X and Y velocity to position with subpixel precision.
      */
     private void applyVelocity() {
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
-        xPos24 += xVelocity;
-        currentX = xPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
-
-        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
-        yPos24 += yVelocity;
-        currentY = yPos24 >> 8;
-        ySubpixel = yPos24 & 0xFF;
+        motionState.x = currentX;
+        motionState.y = currentY;
+        motionState.xVel = xVelocity;
+        motionState.yVel = yVelocity;
+        SubpixelMotion.moveSprite2(motionState);
+        currentX = motionState.x;
+        currentY = motionState.y;
     }
 
     /**
@@ -526,7 +524,8 @@ public class Sonic1BombBadnikInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onPlayerAttack(AbstractPlayableSprite player, TouchResponseResult result) {
+    public void onPlayerAttack(PlayableEntity playerEntity, TouchResponseResult result) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // The bomb has HURT category ($80), so this should not normally be called.
         // However if the player is invincible, the bomb could be destroyed.
         // In ROM, React_ChkHurt returns without destroying the object when invincible.
@@ -553,15 +552,8 @@ public class Sonic1BombBadnikInstance extends AbstractObjectInstance
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.BOMB);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.BOMB);
+        if (renderer == null) return;
 
         int frame = getMappingFrame();
         // ori.b #4,obRender(a0): bit 2 set = use obStatus for flipping
@@ -597,10 +589,7 @@ public class Sonic1BombBadnikInstance extends AbstractObjectInstance
 
     @Override
     public ObjectSpawn getSpawn() {
-        return new ObjectSpawn(
-                currentX, currentY,
-                spawn.objectId(), spawn.subtype(), spawn.renderFlags(),
-                spawn.respawnTracked(), spawn.rawYWord());
+        return buildSpawnAt(currentX, currentY);
     }
 
     @Override

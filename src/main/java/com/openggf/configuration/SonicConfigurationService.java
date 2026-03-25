@@ -9,10 +9,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import static org.lwjgl.glfw.GLFW.*;
 
 public class SonicConfigurationService {
+	private static final Logger LOGGER = Logger.getLogger(SonicConfigurationService.class.getName());
 	private static SonicConfigurationService sonicConfigurationService;
 	public static String ENGINE_VERSION = "0.5.prerelease";
 
@@ -29,7 +32,7 @@ public class SonicConfigurationService {
 				try {
 					config = mapper.readValue(execConfig, type);
 				} catch (IOException e) {
-					System.err.println("Failed to load config.json from executable directory: " + e.getMessage());
+					LOGGER.log(Level.WARNING, "Failed to load config.json from executable directory", e);
 				}
 			}
 		} else {
@@ -39,7 +42,7 @@ public class SonicConfigurationService {
 				try {
 					config = mapper.readValue(file, type);
 				} catch (IOException e) {
-					System.err.println("Failed to load config.json from working directory: " + e.getMessage());
+					LOGGER.log(Level.WARNING, "Failed to load config.json from working directory", e);
 				}
 			}
 		}
@@ -49,11 +52,11 @@ public class SonicConfigurationService {
 				if (is != null) {
 					config = mapper.readValue(is, type);
 				} else {
-					System.err.println("Could not find config.json, using defaults.");
+					LOGGER.log(Level.WARNING, "Could not find config.json, using defaults.");
 					config = new HashMap<>();
 				}
 			} catch (IOException e) {
-				e.printStackTrace();
+				LOGGER.log(Level.WARNING, "Failed to load config.json from classpath", e);
 				config = new HashMap<>();
 			}
 		}
@@ -155,7 +158,7 @@ public class SonicConfigurationService {
 		try {
 			mapper.writerWithDefaultPrettyPrinter().writeValue(target, config);
 		} catch (IOException e) {
-			e.printStackTrace();
+			LOGGER.log(Level.WARNING, "Failed to save config.json", e);
 		}
 	}
 
@@ -166,6 +169,11 @@ public class SonicConfigurationService {
 		return sonicConfigurationService;
 	}
 
+	public void resetToDefaults() {
+		config = new HashMap<>();
+		applyDefaults();
+	}
+
 	private void applyDefaults() {
 		if (config == null) {
 			config = new HashMap<>();
@@ -173,8 +181,8 @@ public class SonicConfigurationService {
 		// Fill in core defaults if missing to keep tests and headless runs stable.
 		putDefault(SonicConfiguration.SCREEN_WIDTH, 640);
 		putDefault(SonicConfiguration.SCREEN_WIDTH_PIXELS, 320);
-		putDefault(SonicConfiguration.SCREEN_HEIGHT, 480);
-		putDefault(SonicConfiguration.SCREEN_HEIGHT_PIXELS, 240);
+		putDefault(SonicConfiguration.SCREEN_HEIGHT, 448);
+		putDefault(SonicConfiguration.SCREEN_HEIGHT_PIXELS, 224);
 		putDefault(SonicConfiguration.SCALE, 1.0);
 		// Debug view now eagerly initialized in Engine.init() to avoid macOS freeze
 		putDefault(SonicConfiguration.DEBUG_VIEW_ENABLED, true);
@@ -224,6 +232,7 @@ public class SonicConfigurationService {
 		putDefault(SonicConfiguration.LEVEL_SELECT_KEY, GLFW_KEY_F9);
 		putDefault(SonicConfiguration.TITLE_SCREEN_ON_STARTUP, false);
 		putDefault(SonicConfiguration.LEVEL_SELECT_ON_STARTUP, false);
+		putDefault(SonicConfiguration.MAIN_CHARACTER_CODE, "sonic");
 		putDefault(SonicConfiguration.SIDEKICK_CHARACTER_CODE, "tails");
 		putDefault(SonicConfiguration.SONIC_1_ROM, "Sonic The Hedgehog (W) (REV01) [!].gen");
 		putDefault(SonicConfiguration.SONIC_2_ROM, "Sonic The Hedgehog 2 (W) (REV01) [!].gen");
@@ -236,6 +245,7 @@ public class SonicConfigurationService {
 			config.remove("S3K_SKIP_AIZ1_INTRO");
 		}
 		putDefault(SonicConfiguration.S3K_SKIP_INTROS, false);
+		putDefault(SonicConfiguration.MAIN_CHARACTER_CODE, "sonic");
 		putDefault(SonicConfiguration.DEFAULT_ROM, "s2");
 		putDefault(SonicConfiguration.SUPER_SONIC_DEBUG_KEY, GLFW_KEY_U);
 		putDefault(SonicConfiguration.GIVE_EMERALDS_KEY, GLFW_KEY_E);

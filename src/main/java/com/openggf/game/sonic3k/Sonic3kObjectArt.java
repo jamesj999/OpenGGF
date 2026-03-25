@@ -6,7 +6,6 @@ import com.openggf.game.GameServices;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.level.Level;
-import com.openggf.level.LevelManager;
 import com.openggf.level.Pattern;
 import com.openggf.level.objects.ObjectSpriteSheet;
 import com.openggf.level.render.SpriteDplcFrame;
@@ -16,6 +15,7 @@ import com.openggf.level.render.TileLoadRequest;
 import com.openggf.level.resources.CompressionType;
 import com.openggf.tools.KosinskiReader;
 import com.openggf.tools.NemesisReader;
+import com.openggf.util.PatternDecompressor;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
@@ -631,7 +631,7 @@ public class Sonic3kObjectArt {
             case KOSINSKI_MODULED ->
                 patterns = loadKosinskiModuledPatterns(rom, entry.artAddr());
             case NEMESIS ->
-                patterns = loadNemesisPatterns(rom, entry.artAddr());
+                patterns = PatternDecompressor.nemesis(rom, entry.artAddr());
             case UNCOMPRESSED ->
                 patterns = loadUncompressedPatterns(rom, entry.artAddr(), entry.artSize());
             default -> { return null; }
@@ -680,7 +680,7 @@ public class Sonic3kObjectArt {
 
             // 2. Number art → VRAM $568 (index $48)
             // Use Num1 when act == 0 AND zone != 0x16 (DDZ), else Num2
-            int zone = LevelManager.getInstance().getCurrentZone();
+            int zone = GameServices.level().getCurrentZone();
             int numArtAddr = (act == 0 && zone != 0x16)
                     ? Sonic3kConstants.ART_KOSM_TITLE_CARD_NUM1_ADDR
                     : Sonic3kConstants.ART_KOSM_TITLE_CARD_NUM2_ADDR;
@@ -897,12 +897,6 @@ public class Sonic3kObjectArt {
         }
     }
 
-    private Pattern[] loadNemesisPatterns(Rom rom, int addr) throws IOException {
-        FileChannel channel = rom.getFileChannel();
-        channel.position(addr);
-        byte[] data = NemesisReader.decompress(channel);
-        return bytesToPatterns(data);
-    }
 
     private Pattern[] loadKosinskiModuledPatterns(Rom rom, int romAddr) throws IOException {
         byte[] header = rom.readBytes(romAddr, 2);
@@ -926,20 +920,7 @@ public class Sonic3kObjectArt {
     }
 
     private Pattern[] bytesToPatterns(byte[] data) {
-        if (data == null || data.length == 0) {
-            return new Pattern[0];
-        }
-        int count = data.length / Pattern.PATTERN_SIZE_IN_ROM;
-        Pattern[] patterns = new Pattern[count];
-        for (int i = 0; i < count; i++) {
-            patterns[i] = new Pattern();
-            byte[] tile = Arrays.copyOfRange(
-                    data,
-                    i * Pattern.PATTERN_SIZE_IN_ROM,
-                    (i + 1) * Pattern.PATTERN_SIZE_IN_ROM);
-            patterns[i].fromSegaFormat(tile);
-        }
-        return patterns;
+        return PatternDecompressor.fromBytes(data);
     }
 
     /**

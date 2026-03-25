@@ -1,6 +1,7 @@
 package com.openggf.game.sonic1.objects.bosses;
 
 import com.openggf.game.sonic1.constants.Sonic1Constants;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.LevelManager;
@@ -34,7 +35,6 @@ public class FZPlasmaBall extends AbstractObjectInstance implements TouchRespons
     private static final int BOSS_FZ_Y = Sonic1Constants.BOSS_FZ_Y;
     private static final SpriteAnimationSet PLASMA_ANIMATIONS = Sonic1BossAnimations.getPlasmaAnimations();
 
-    private final LevelManager levelManager;
     private final FZPlasmaLauncher launcher;
 
     // Movement state
@@ -59,11 +59,11 @@ public class FZPlasmaBall extends AbstractObjectInstance implements TouchRespons
     private int animFrame;       // obFrame (mapping frame)
     private boolean hasCollision; // Whether touch response is active
 
-    public FZPlasmaBall(FZPlasmaLauncher launcher, LevelManager levelManager,
+    public FZPlasmaBall(FZPlasmaLauncher launcher,
                         int startX, int startY, int targetX) {
         super(new ObjectSpawn(startX, startY, Sonic1ObjectIds.BOSS_PLASMA, 0, 0, false, 0),
                 "FZ Plasma Ball");
-        this.levelManager = levelManager;
+        
         this.launcher = launcher;
         this.posX = startX;
         this.posY = startY;
@@ -83,7 +83,8 @@ public class FZPlasmaBall extends AbstractObjectInstance implements TouchRespons
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (phase) {
             case 0 -> updateLaunch();
             case 2 -> updateTravel(player);
@@ -280,7 +281,7 @@ public class FZPlasmaBall extends AbstractObjectInstance implements TouchRespons
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) return;
 
         PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.FZ_PLASMA);

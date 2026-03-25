@@ -2,10 +2,10 @@ package com.openggf.game.sonic2.objects;
 
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -14,7 +14,6 @@ import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import com.openggf.debug.DebugColor;
@@ -76,7 +75,8 @@ public class SmallMetalPformObjectInstance extends AbstractObjectInstance {
     private int spawnTimer;
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: loc_3BC3C (routine 2)
         // subq.w #1,objoff_2A(a0)
         spawnTimer--;
@@ -102,7 +102,7 @@ public class SmallMetalPformObjectInstance extends AbstractObjectInstance {
      * </pre>
      */
     private void spawnChild() {
-        ObjectManager manager = LevelManager.getInstance().getObjectManager();
+        ObjectManager manager = services().objectManager();
         ObjectSpawn childSpawn = new ObjectSpawn(
                 spawn.x(), spawn.y(),
                 Sonic2ObjectIds.SMALL_METAL_PFORM,
@@ -207,9 +207,6 @@ public class SmallMetalPformObjectInstance extends AbstractObjectInstance {
         private int animFrameIndex;  // index into UNFOLD_FRAMES or FOLD_FRAMES
         private int animDelayCounter;
 
-        // Dynamic spawn for moving Y position
-        private ObjectSpawn dynamicSpawn;
-
         /**
          * Create a child platform instance.
          *
@@ -243,7 +240,7 @@ public class SmallMetalPformObjectInstance extends AbstractObjectInstance {
             this.animFrameIndex = -1;
             this.animDelayCounter = 0;
 
-            refreshDynamicSpawn();
+            updateDynamicSpawn(currentX, currentY);
         }
 
         @Override
@@ -255,12 +252,6 @@ public class SmallMetalPformObjectInstance extends AbstractObjectInstance {
         public int getY() {
             return currentY;
         }
-
-        @Override
-        public ObjectSpawn getSpawn() {
-            return dynamicSpawn != null ? dynamicSpawn : spawn;
-        }
-
         @Override
         public int getPriorityBucket() {
             // subObjData: priority = 4
@@ -268,14 +259,15 @@ public class SmallMetalPformObjectInstance extends AbstractObjectInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             switch (state) {
                 case UNFOLD -> updateUnfold();
                 case MOVE -> updateMove(frameCounter);
                 case FOLD -> updateFold();
                 case DELETE -> updateDelete();
             }
-            refreshDynamicSpawn();
+            updateDynamicSpawn(currentX, currentY);
         }
 
         // ================================================================
@@ -383,13 +375,15 @@ public class SmallMetalPformObjectInstance extends AbstractObjectInstance {
         }
 
         @Override
-        public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+        public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             // Solid collision handled by ObjectManager
         }
 
         // Only provide solid collision during the MOVE state
         @Override
-        public boolean isSolidFor(AbstractPlayableSprite player) {
+        public boolean isSolidFor(PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             return state == ChildState.MOVE;
         }
 
@@ -399,14 +393,8 @@ public class SmallMetalPformObjectInstance extends AbstractObjectInstance {
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
-            ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-            if (renderManager == null) {
-                return;
-            }
-            PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.WFZ_BELT_PLATFORM);
-            if (renderer == null || !renderer.isReady()) {
-                return;
-            }
+            PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.WFZ_BELT_PLATFORM);
+            if (renderer == null) return;
             // ROM: render_flags.x_flip determines horizontal flip
             renderer.drawFrameIndex(mappingFrame, currentX, currentY, xFlipped, false);
         }
@@ -421,13 +409,6 @@ public class SmallMetalPformObjectInstance extends AbstractObjectInstance {
                             state.name(), mappingFrame, moveTimer, yVelocity),
                     DebugColor.GREEN);
         }
+}
 
-        private void refreshDynamicSpawn() {
-            if (dynamicSpawn == null || dynamicSpawn.y() != currentY) {
-                dynamicSpawn = new ObjectSpawn(
-                        currentX, currentY, spawn.objectId(), spawn.subtype(),
-                        spawn.renderFlags(), false, spawn.rawYWord());
-            }
-        }
-    }
 }

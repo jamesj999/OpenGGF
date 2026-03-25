@@ -6,9 +6,10 @@ import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectInstance;
-import com.openggf.sprites.playable.GroundMode;
+import com.openggf.game.GroundMode;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.RequiresRomRule;
@@ -109,7 +110,7 @@ public class TestS2Cnz1Headless {
         }
 
         // Debug: Print active launcher springs
-        var objectManager = LevelManager.getInstance().getObjectManager();
+        var objectManager = GameServices.level().getObjectManager();
         if (objectManager != null) {
             System.out.println("Total active objects: " + objectManager.getActiveObjects().size());
             System.out.println("Active launcher springs (obj 0x85):");

@@ -1,11 +1,9 @@
 package com.openggf.game.sonic2.credits;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.EndingPhase;
 import com.openggf.game.EndingProvider;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.constants.Sonic2AudioConstants;
-import com.openggf.graphics.FadeManager;
 
 import java.io.IOException;
 import java.util.logging.Logger;
@@ -99,7 +97,7 @@ public class Sonic2EndingProvider implements EndingProvider {
                         // ROM: PaletteFadeOut after plane flyaway
                         slideTimer = 0;
                         state = InternalState.CUTSCENE_FADE_OUT;
-                        FadeManager.getInstance().startFadeToBlack(() -> {});
+                        GameServices.fade().startFadeToBlack(() -> {});
                     }
                 } else {
                     // No cutscene manager (ROM unavailable) -- skip to credits
@@ -126,7 +124,7 @@ public class Sonic2EndingProvider implements EndingProvider {
                     // ROM: PaletteFadeOut after each credit slide
                     slideTimer = 0;
                     state = InternalState.CREDITS_FADE_OUT;
-                    FadeManager.getInstance().startFadeToBlack(() -> {});
+                    GameServices.fade().startFadeToBlack(() -> {});
                 }
             }
             case CREDITS_FADE_OUT -> {
@@ -140,7 +138,7 @@ public class Sonic2EndingProvider implements EndingProvider {
                         // ROM: PaletteFadeIn for next credit slide
                         slideTimer = 0;
                         state = InternalState.CREDITS_FADE_IN;
-                        FadeManager.getInstance().startFadeFromBlack(null);
+                        GameServices.fade().startFadeFromBlack(null);
                     }
                 }
             }
@@ -149,7 +147,7 @@ public class Sonic2EndingProvider implements EndingProvider {
                 logoFlashManager.initialize();
                 state = InternalState.LOGO_FLASH;
                 // ROM: PaletteFadeIn to reveal logo
-                FadeManager.getInstance().startFadeFromBlack(null);
+                GameServices.fade().startFadeFromBlack(null);
             }
             case LOGO_FLASH -> {
                 // Logo flash update is driven by GameLoop.updateEndingPostCredits()
@@ -254,6 +252,24 @@ public class Sonic2EndingProvider implements EndingProvider {
         return logoFlashManager;
     }
 
+    @Override
+    public void updatePostCredits(com.openggf.control.InputHandler inputHandler) {
+        if (logoFlashManager != null) {
+            logoFlashManager.update(inputHandler);
+        } else {
+            // Logo not yet loaded -- let provider advance its internal state
+            update();
+        }
+    }
+
+    @Override
+    public boolean consumePostCreditsExitRequest() {
+        if (logoFlashManager != null && logoFlashManager.isDone()) {
+            return true;
+        }
+        return isComplete();
+    }
+
     /**
      * Returns the current credit slide index (0-20).
      * Useful for debugging/testing.
@@ -272,7 +288,7 @@ public class Sonic2EndingProvider implements EndingProvider {
      */
     private void transitionToCreditsFadeIn() {
         // Play credits music (ROM: move.w #MusID_Credits,d0)
-        AudioManager.getInstance().playMusic(Sonic2AudioConstants.MUS_CREDITS);
+        GameServices.audio().playMusic(Sonic2AudioConstants.MUS_CREDITS);
 
         // Initialize credits text renderer
         textRenderer = new Sonic2CreditsTextRenderer();
@@ -283,7 +299,7 @@ public class Sonic2EndingProvider implements EndingProvider {
         state = InternalState.CREDITS_FADE_IN;
 
         // ROM: PaletteFadeIn to reveal first credit slide
-        FadeManager.getInstance().startFadeFromBlack(null);
+        GameServices.fade().startFadeFromBlack(null);
 
         LOGGER.info("Sonic2EndingProvider: cutscene complete, starting credits text");
     }

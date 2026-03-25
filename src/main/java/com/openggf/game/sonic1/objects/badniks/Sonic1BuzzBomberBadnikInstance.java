@@ -1,17 +1,13 @@
 package com.openggf.game.sonic1.objects.badniks;
-
-import com.openggf.audio.AudioManager;
 import com.openggf.game.GameServices;
-import com.openggf.game.sonic1.audio.Sonic1Sfx;
-import com.openggf.game.sonic2.objects.ExplosionObjectInstance;
-import com.openggf.game.sonic1.objects.Sonic1PointsObjectInstance;
-import com.openggf.game.sonic2.objects.badniks.AbstractBadnikInstance;
-import com.openggf.game.sonic2.objects.badniks.AnimalObjectInstance;
+import com.openggf.game.PlayableEntity;
+
+import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
+import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -72,8 +68,8 @@ public class Sonic1BuzzBomberBadnikInstance extends AbstractBadnikInstance {
     private int renderedFrame; // Actual frame index for rendering (includes wing cycle)
     private int wingTimer;     // Per-object animation timer (matches ROM's obTimeFrame)
 
-    public Sonic1BuzzBomberBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "BuzzBomber");
+    public Sonic1BuzzBomberBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "BuzzBomber");
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         // S1: obStatus bit 0 set = facing right
@@ -87,7 +83,8 @@ public class Sonic1BuzzBomberBadnikInstance extends AbstractBadnikInstance {
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (secondaryState) {
             case STATE_HOVER -> updateHover(player);
             case STATE_FLY -> updateFly(player);
@@ -178,9 +175,9 @@ public class Sonic1BuzzBomberBadnikInstance extends AbstractBadnikInstance {
 
         Sonic1BuzzBomberMissileInstance missile = new Sonic1BuzzBomberMissileInstance(
                 missileX, missileY, missileXVel, MISSILE_Y_VEL,
-                facingLeft, this, levelManager);
+                facingLeft, this);
 
-        levelManager.getObjectManager().addDynamicObject(missile);
+        services().objectManager().addDynamicObject(missile);
 
         // Prevent refiring: set buzzStatus = 1
         buzzStatus = STATUS_FIRED;
@@ -209,44 +206,9 @@ public class Sonic1BuzzBomberBadnikInstance extends AbstractBadnikInstance {
         return COLLISION_SIZE_INDEX;
     }
 
-    /**
-     * Override destroyBadnik to use game-agnostic GameSound instead of
-     * hardcoded Sonic2AudioConstants.
-     */
     @Override
-    protected void destroyBadnik(AbstractPlayableSprite player) {
-        destroyed = true;
-        setDestroyed(true);
-
-        var objectManager = levelManager.getObjectManager();
-        if (objectManager != null) {
-            if (spawn.respawnTracked()) {
-                // S1 ROM behavior: destroyed respawn-tracked badniks set persistent respawn state.
-                objectManager.markRemembered(spawn);
-            } else {
-                objectManager.removeFromActiveSpawns(spawn);
-            }
-        }
-
-        ExplosionObjectInstance explosion = new ExplosionObjectInstance(0x27, currentX, currentY,
-                levelManager.getObjectRenderManager());
-        levelManager.getObjectManager().addDynamicObject(explosion);
-
-        AnimalObjectInstance animal = new AnimalObjectInstance(
-                new ObjectSpawn(currentX, currentY, 0x28, 0, 0, false, 0), levelManager);
-        levelManager.getObjectManager().addDynamicObject(animal);
-
-        int pointsValue = 100;
-        if (player != null) {
-            pointsValue = player.incrementBadnikChain();
-            GameServices.gameState().addScore(pointsValue);
-        }
-
-        Sonic1PointsObjectInstance points = new Sonic1PointsObjectInstance(
-                new ObjectSpawn(currentX, currentY, 0x29, 0, 0, false, 0), levelManager, pointsValue);
-        levelManager.getObjectManager().addDynamicObject(points);
-
-        AudioManager.getInstance().playSfx(Sonic1Sfx.BREAK_ITEM.id);
+    protected DestructionConfig getDestructionConfig() {
+        return Sonic1DestructionConfig.S1_DESTRUCTION_CONFIG;
     }
 
     /**
@@ -264,7 +226,7 @@ public class Sonic1BuzzBomberBadnikInstance extends AbstractBadnikInstance {
     public boolean isPersistent() {
         // ROM MarkObjGone: ~128px left margin, ~64px right margin.
         // We use 160px for a symmetric, generous margin.
-        return !destroyed && isOnScreenX(160);
+        return !isDestroyed() && isOnScreenX(160);
     }
 
     @Override
@@ -274,19 +236,12 @@ public class Sonic1BuzzBomberBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.BUZZ_BOMBER);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.BUZZ_BOMBER);
+        if (renderer == null) return;
 
         // Sprite art faces left by default; flip when facing right (same as S2 Buzzer)
         renderer.drawFrameIndex(renderedFrame, currentX, currentY, !facingLeft, false);

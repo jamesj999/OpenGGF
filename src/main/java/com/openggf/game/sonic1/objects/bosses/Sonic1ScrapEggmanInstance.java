@@ -1,8 +1,8 @@
 package com.openggf.game.sonic1.objects.bosses;
 
 import com.openggf.game.sonic1.constants.Sonic1Constants;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -94,7 +94,6 @@ public class Sonic1ScrapEggmanInstance extends AbstractObjectInstance implements
     private static final int PHASE_LAUGH_POST = 6;
 
     // ---- Instance state ----
-    private final LevelManager levelManager;
 
     private int currentX;
     private int currentY;
@@ -132,10 +131,8 @@ public class Sonic1ScrapEggmanInstance extends AbstractObjectInstance implements
     /** The button child object */
     private ScrapEggmanButton button;
 
-    public Sonic1ScrapEggmanInstance(ObjectSpawn spawn, LevelManager levelManager) {
+    public Sonic1ScrapEggmanInstance(ObjectSpawn spawn) {
         super(spawn, "ScrapEggman");
-        this.levelManager = levelManager;
-
         // Initialise Eggman position
         this.currentX = EGGMAN_INIT_X;
         this.currentY = EGGMAN_INIT_Y;
@@ -158,9 +155,7 @@ public class Sonic1ScrapEggmanInstance extends AbstractObjectInstance implements
         this.button = new ScrapEggmanButton(buttonSpawn, this);
 
         // Add button as dynamic object
-        if (levelManager.getObjectManager() != null) {
-            levelManager.getObjectManager().addDynamicObject(button);
-        }
+        spawnDynamicObject(button);
     }
 
     @Override
@@ -179,7 +174,8 @@ public class Sonic1ScrapEggmanInstance extends AbstractObjectInstance implements
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -313,12 +309,12 @@ public class Sonic1ScrapEggmanInstance extends AbstractObjectInstance implements
      * begin disintegrating.
      */
     private void signalFalseFloor() {
-        if (levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
         // getActiveObjects() includes both placement-managed and dynamic objects
-        Collection<ObjectInstance> activeObjects = levelManager.getObjectManager().getActiveObjects();
+        Collection<ObjectInstance> activeObjects = services().objectManager().getActiveObjects();
         for (ObjectInstance obj : activeObjects) {
             if (obj instanceof Disintegratable target) {
                 target.signalDisintegrate();
@@ -395,7 +391,7 @@ public class Sonic1ScrapEggmanInstance extends AbstractObjectInstance implements
             return;
         }
 
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
@@ -466,7 +462,8 @@ public class Sonic1ScrapEggmanInstance extends AbstractObjectInstance implements
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (isDestroyed()) {
                 return;
             }
@@ -490,7 +487,7 @@ public class Sonic1ScrapEggmanInstance extends AbstractObjectInstance implements
                 return;
             }
 
-            ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+            ObjectRenderManager renderManager = services().renderManager();
             if (renderManager == null) {
                 return;
             }

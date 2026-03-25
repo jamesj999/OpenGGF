@@ -51,10 +51,10 @@ public class TestAizFireCurtainRendererRom {
 
     @Test
     public void realAizFakeoutProducesNonEmptyCurtainPlan() throws Exception {
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         levelManager.loadZoneAndAct(0, 0);
 
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         camera.setX((short) 0x2F10);
         camera.setY((short) 0x0200);
 
@@ -94,10 +94,10 @@ public class TestAizFireCurtainRendererRom {
 
     @Test
     public void realAizFakeoutSamplesFlameOverlayTileRange() throws Exception {
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         levelManager.loadZoneAndAct(0, 0);
 
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         camera.setX((short) 0x2F10);
         camera.setY((short) 0x0200);
 
@@ -156,10 +156,10 @@ public class TestAizFireCurtainRendererRom {
 
     @Test
     public void realAizFakeoutReportsPerPhaseCurtainDescriptorStats() throws Exception {
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         levelManager.loadZoneAndAct(0, 0);
 
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         camera.setX((short) 0x2F10);
         camera.setY((short) 0x0200);
 
@@ -220,10 +220,10 @@ public class TestAizFireCurtainRendererRom {
      */
     @Test
     public void aiz2PaletteCyclerRunsDuringFireContinuation() throws Exception {
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         levelManager.loadZoneAndAct(0, 0);
 
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         camera.setX((short) 0x2F10);
         camera.setY((short) 0x0200);
 

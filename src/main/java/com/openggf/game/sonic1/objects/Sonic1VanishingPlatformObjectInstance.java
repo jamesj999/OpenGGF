@@ -6,7 +6,6 @@ import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
@@ -14,6 +13,7 @@ import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.debug.DebugColor;
 import java.util.List;
@@ -101,11 +101,10 @@ public class Sonic1VanishingPlatformObjectInstance extends AbstractObjectInstanc
     // Whether player is currently standing on this platform
     private boolean playerStanding;
 
-    private final LevelManager levelManager;
 
-    public Sonic1VanishingPlatformObjectInstance(ObjectSpawn spawn, LevelManager levelManager) {
+    public Sonic1VanishingPlatformObjectInstance(ObjectSpawn spawn) {
         super(spawn, "VanishingPlatform");
-        this.levelManager = levelManager;
+        
 
         // VanP_Main: decode subtype
         int subtype = spawn.subtype() & 0xFF;
@@ -142,7 +141,8 @@ public class Sonic1VanishingPlatformObjectInstance extends AbstractObjectInstanc
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -216,7 +216,7 @@ public class Sonic1VanishingPlatformObjectInstance extends AbstractObjectInstanc
         if (vanished) {
             // .notsolid: if player is standing, detach them
             if (playerStanding) {
-                var objectManager = levelManager.getObjectManager();
+                var objectManager = services().objectManager();
                 if (objectManager != null && player != null) {
                     // bclr #3,obStatus(a1) - clear player standing-on-object
                     // bclr #3,obStatus(a0) - clear object standing flag
@@ -254,14 +254,8 @@ public class Sonic1VanishingPlatformObjectInstance extends AbstractObjectInstanc
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.SBZ_VANISHING_PLATFORM);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.SBZ_VANISHING_PLATFORM);
+        if (renderer == null) return;
 
         renderer.drawFrameIndex(currentFrame, getX(), getY(), false, false);
     }
@@ -284,7 +278,8 @@ public class Sonic1VanishingPlatformObjectInstance extends AbstractObjectInstanc
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Platform is only solid when visible (frame bit 1 clear = frames 0 and 1)
         if (isDestroyed()) {
             return false;
@@ -293,7 +288,8 @@ public class Sonic1VanishingPlatformObjectInstance extends AbstractObjectInstanc
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Standing state is managed via isPlayerRiding() check in update()
     }
 
@@ -329,8 +325,4 @@ public class Sonic1VanishingPlatformObjectInstance extends AbstractObjectInstanc
 
     // ---- Helpers ----
 
-    private boolean isPlayerRiding() {
-        var objectManager = levelManager.getObjectManager();
-        return objectManager != null && objectManager.isAnyPlayerRiding(this);
-    }
 }

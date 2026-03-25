@@ -2,12 +2,12 @@ package com.openggf.game.sonic1.objects;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -175,11 +175,12 @@ public class Sonic1GrassFireObjectInstance extends AbstractObjectInstance
     // ========================================================================
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Play burning sound on first frame (GFire_Main: jsr QueueSound2)
         if (!soundPlayed) {
             soundPlayed = true;
-            AudioManager.getInstance().playSfx(Sonic1Sfx.BURNING.id);
+            services().playSfx(Sonic1Sfx.BURNING.id);
         }
 
         if (isWalker) {
@@ -251,8 +252,7 @@ public class Sonic1GrassFireObjectInstance extends AbstractObjectInstance
      * From loc_B238: FindNextFreeObj / _move.b #id_GrassFire,obID(a1) / ...
      */
     private void spawnChildFire() {
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
@@ -269,7 +269,7 @@ public class Sonic1GrassFireObjectInstance extends AbstractObjectInstance
 
         Sonic1GrassFireObjectInstance child = new Sonic1GrassFireObjectInstance(
                 currentX, childBaseY, sinkOffset, slopeData, parentPlatform, false);
-        levelManager.getObjectManager().addDynamicObject(child);
+        services().objectManager().addDynamicObject(child);
         children.add(child);
 
         // Register child with parent platform for sink offset updates
@@ -331,15 +331,8 @@ public class Sonic1GrassFireObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.MZ_FIREBALL);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.MZ_FIREBALL);
+        if (renderer == null) return;
 
         int frameIndex = ANIM_FRAMES[animIndex];
         boolean hFlip = ANIM_HFLIP[animIndex];

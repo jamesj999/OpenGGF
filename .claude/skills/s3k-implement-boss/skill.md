@@ -9,7 +9,7 @@ $ARGUMENTS: Boss name or zone (e.g., "AIZ mini-boss", "Angel Island end boss", "
 ## Related Skills
 
 - **s3k-disasm-guide** (`.claude/skills/s3k-disasm-guide/skill.md`) - Disassembly navigation, label conventions, RomOffsetFinder
-- **s3k-implement-object** (`.claude/skills/s3k-implement-object/skill.md`) - For non-boss Sonic 3&K objects and badniks
+- **s3k-implement-object** (`.claude/skills/s3k-implement-object/skill.md`) - For non-boss Sonic 3&K objects and badniks. **Section 2.4 lists all reusable engine utilities** — check it before writing movement, collision, or rendering code.
 
 ## Zone-Set-Aware Boss IDs
 
@@ -156,12 +156,37 @@ private void updateAizAct1Events() {
 
 **Extract arena coordinates from disassembly** - search for camera boundary writes in the boss code.
 
+### Reusable Engine Utilities
+
+**Check these before writing movement, physics, or collision code. Do NOT reimplement existing functionality.**
+
+| Utility | Location | Use When |
+|---------|----------|----------|
+| `SwingMotion.update()` | `com.openggf.physics.SwingMotion` | Boss oscillates/bobs/swings (ROM's `Swing_UpAndDown`). Returns velocity, direction, and peak-reached flag. |
+| `ObjectTerrainUtils.checkFloorDist()` | `com.openggf.physics` | Floor/ceiling/wall detection for boss projectiles or ground-following bosses. |
+| `TrigLookupTable.calcAngle()` / `sinHex()` / `cosHex()` | `com.openggf.physics` | Circular motion, aimed projectiles, angle-based velocity. ROM-accurate 256-step trig. |
+| `S3kBadnikProjectileInstance` | `game.sonic3k.objects.badniks` | Reusable projectile with gravity, HURT collision (0x80), and shield deflection. Spawn via `ObjectManager.addDynamicObject()`. |
+| `BoxObjectInstance` | `game.sonic2.objects` | Invisible trigger zones with debug visualization. |
+
+**Collision patterns:**
+- Boss body: `TouchResponseAttackable` + `TouchResponseProvider` — player can hit it, `collision_property` tracks hits
+- Boss projectiles: `TouchResponseProvider` only with `getCollisionFlags()` returning `0x80 | sizeIndex` — always hurts player
+- Indestructible hazard parts: `TouchResponseProvider` only with `0x80 | sizeIndex` — no `TouchResponseAttackable`
+
+**Subpixel movement** (24-bit position arithmetic) — use `AbstractS3kBadnikInstance.moveWithVelocity()` pattern:
+```java
+int xPos24 = (x << 8) | (xSub & 0xFF);
+xPos24 += xVelocity;
+x = xPos24 >> 8;
+xSub = xPos24 & 0xFF;
+```
+
 ### Phase 3: Boss Instance Class
 
 Create the boss class in the S3K objects package:
 
 ```java
-package com.openggf.sonic.game.sonic3k.objects.bosses;
+package com.openggf.game.sonic3k.objects.bosses;
 
 public class Sonic3kZoneBossInstance extends AbstractBossInstance {
 
@@ -174,8 +199,8 @@ public class Sonic3kZoneBossInstance extends AbstractBossInstance {
     private static final int BOSS_START_X = 0xXXXX;
     private static final int BOSS_START_Y = 0xXXXX;
 
-    public Sonic3kZoneBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Zone Boss");
+    public Sonic3kZoneBossInstance(ObjectSpawn spawn) {
+        super(spawn, "Zone Boss");
     }
 
     @Override
@@ -232,7 +257,7 @@ For visual-only children that share the parent's object slot:
 For children with separate behavior/collision:
 ```java
 private void spawnChildComponents() {
-    ObjectManager manager = LevelManager.getInstance().getObjectManager();
+    ObjectManager manager = services().objectManager();
 
     BossChildInstance child = new BossChildInstance(this, xOffset, yOffset);
     manager.addDynamicObject(child);

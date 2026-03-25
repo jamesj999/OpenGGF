@@ -1,17 +1,13 @@
 package com.openggf.game.sonic1.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic1.audio.Sonic1Music;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
-import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.game.sonic1.scroll.Sonic1ZoneConstants;
-import com.openggf.game.sonic2.objects.AbstractResultsScreen;
-import com.openggf.graphics.FadeManager;
+import com.openggf.level.objects.AbstractResultsScreen;
 import com.openggf.graphics.GLCommand;
-import com.openggf.graphics.GraphicsManager;
-import com.openggf.level.LevelManager;
 import com.openggf.level.Pattern;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpriteSheet;
@@ -204,7 +200,8 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
     // -----------------------------------------------------------------------
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Handle SBZ2 special states outside the base class state machine
         if (state == STATE_SBZ2_SLIDE_OUT || state == STATE_SBZ2_SCROLL) {
             this.frameCounter = frameCounter;
@@ -308,7 +305,7 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
     @Override
     protected void playTickSound() {
         try {
-            AudioManager.getInstance().playSfx(Sonic1Sfx.SWITCH.id);
+            services().playSfx(Sonic1Sfx.SWITCH.id);
         } catch (Exception e) {
             // Ignore audio errors
         }
@@ -321,7 +318,7 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
     @Override
     protected void playTallyEndSound() {
         try {
-            AudioManager.getInstance().playSfx(Sonic1Sfx.TALLY.id);
+            services().playSfx(Sonic1Sfx.TALLY.id);
         } catch (Exception e) {
             // Ignore audio errors
         }
@@ -353,20 +350,19 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
 
         // Play the special stage enter/exit SFX during the white fade
         try {
-            AudioManager.getInstance().playSfx(Sonic1Sfx.ENTER_SS.id);
+            services().playSfx(Sonic1Sfx.ENTER_SS.id);
         } catch (Exception e) {
             // Don't let audio failure break the transition
         }
 
-        FadeManager fadeManager = FadeManager.getInstance();
+        var fadeManager = services().fadeManager();
         fadeManager.startFadeToWhite(() -> {
             setDestroyed(true);
-            LevelManager levelManager = LevelManager.getInstance();
-            if (levelManager != null) {
+            if (true) {
                 // Giant Ring collected: advance zone/act first (ROM-accurate: Got_NextLevel),
                 // then enter special stage. On return, the advanced values are used.
-                levelManager.advanceZoneActOnly();
-                levelManager.requestSpecialStageFromCheckpoint();
+                services().advanceZoneActOnly();
+                services().requestSpecialStageFromCheckpoint();
             }
             // Don't start fadeFromWhite here — let the screen stay white
             // (HOLD_WHITE). enterSpecialStage() will detect HOLD_WHITE and
@@ -377,16 +373,11 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
     private void triggerFadeToBlack() {
         LOGGER.info("S1 Results screen complete, starting fade to black");
 
-        FadeManager fadeManager = FadeManager.getInstance();
+        var fadeManager = services().fadeManager();
         fadeManager.startFadeToBlack(() -> {
             setDestroyed(true);
-            LevelManager levelManager = LevelManager.getInstance();
-            if (levelManager != null) {
-                try {
-                    levelManager.advanceToNextLevel();
-                } catch (java.io.IOException e) {
-                    LOGGER.severe("Failed to load next level: " + e.getMessage());
-                }
+            if (true) {
+                services().advanceToNextLevel();
                 // Keep transition atomic: immediately reveal the next scene.
                 fadeManager.startFadeFromBlack(null);
             }
@@ -403,10 +394,9 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
      * ROM: cmpi.w #(id_SBZ<<8)+1,(v_zone).w
      */
     private boolean isSBZ2() {
-        LevelManager lm = LevelManager.getInstance();
-        return lm != null
-                && lm.getCurrentZone() == Sonic1ZoneConstants.ZONE_SBZ
-                && lm.getCurrentAct() == 1;
+        return services().currentLevel() != null
+                && services().romZoneId() == Sonic1ZoneConstants.ZONE_SBZ
+                && services().currentAct() == 1;
     }
 
     /**
@@ -449,7 +439,7 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
 
             // ROM: clr.b (f_lockctrl).w — unlock player controls and clear
             // the forced-right input injected by the signpost walkoff sequence.
-            Camera camera = Camera.getInstance();
+            var camera = services().camera();
             if (camera != null && camera.getFocusedSprite() != null) {
                 camera.getFocusedSprite().setControlLocked(false);
                 camera.getFocusedSprite().clearForcedInputMask();
@@ -457,7 +447,7 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
 
             // ROM: move.w #bgm_FZ,d0; jmp (QueueSound1).l
             try {
-                AudioManager.getInstance().playMusic(Sonic1Music.FZ.id);
+                services().playMusic(Sonic1Music.FZ.id);
             } catch (Exception e) {
                 // Don't let audio failure break the transition
             }
@@ -473,7 +463,7 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
      * ROM: addq.w #2,(v_limitright2).w / cmpi.w #$2100,(v_limitright2).w
      */
     private void updateSbz2Scroll() {
-        Camera camera = Camera.getInstance();
+        var camera = services().camera();
         if (camera == null) {
             setDestroyed(true);
             return;
@@ -496,17 +486,12 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        Camera camera = Camera.getInstance();
+        var camera = services().camera();
         if (camera == null) {
             return;
         }
 
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null) {
-            return;
-        }
-
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager != null) {
             PatternSpriteRenderer renderer = renderManager.getResultsRenderer();
             if (renderer != null) {
@@ -614,7 +599,7 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
             return;
         }
 
-        int scoreValue = Math.max(0, GameServices.gameState().getScore());
+        int scoreValue = Math.max(0, services().gameState().getScore());
 
         // Skip update if nothing has changed
         if (timeBonus == lastTimeBonus && ringBonus == lastRingBonus && scoreValue == lastScoreValue) {
@@ -643,7 +628,7 @@ public class Sonic1ResultsScreenObjectInstance extends AbstractResultsScreen {
         writeScoreValue(patterns, scoreValue, digitPatterns);
 
         // Push updated digit patterns to GPU
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        var graphicsManager = services().graphicsManager();
         renderer.updatePatternRange(graphicsManager, 0, Sonic1Constants.S1_RESULTS_BONUS_DIGIT_TILES);
         renderer.updatePatternRange(graphicsManager, SCORE_DIGITS_START_INDEX, SCORE_DIGIT_TILES);
 

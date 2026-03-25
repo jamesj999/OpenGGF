@@ -1,15 +1,12 @@
 package com.openggf.game.sonic1.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
-import com.openggf.game.GameStateManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectManager;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchCategory;
 import com.openggf.level.objects.TouchResponseListener;
@@ -81,7 +78,8 @@ public class Sonic1GiantRingObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
             case INIT -> updateInit(player);
             case ACTIVE, COLLECTED -> updateAnimate();
@@ -101,7 +99,7 @@ public class Sonic1GiantRingObjectInstance extends AbstractObjectInstance
             return; // Not visible yet, keep checking
         }
 
-        GameStateManager gameState = GameStateManager.getInstance();
+        var gameState = services().gameState();
         if (gameState.getEmeraldCount() >= MAX_EMERALDS) {
             // All emeralds collected - delete: beq.w GRing_Delete
             state = State.DELETED;
@@ -156,7 +154,8 @@ public class Sonic1GiantRingObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onTouchResponse(AbstractPlayableSprite player, TouchResponseResult result, int frameCounter) {
+    public void onTouchResponse(PlayableEntity playerEntity, TouchResponseResult result, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (state != State.ACTIVE) {
             return;
         }
@@ -186,7 +185,7 @@ public class Sonic1GiantRingObjectInstance extends AbstractObjectInstance
         collisionFlags = 0;
 
         // Mark spawn as remembered to prevent respawning
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null) {
             objectManager.markRemembered(spawn);
         }
@@ -206,7 +205,7 @@ public class Sonic1GiantRingObjectInstance extends AbstractObjectInstance
 
         // Play sound: move.w #sfx_GiantRing,d0 / jsr (QueueSound2).l
         try {
-            AudioManager.getInstance().playSfx(SFX_GIANT_RING);
+            services().playSfx(SFX_GIANT_RING);
         } catch (Exception e) {
             // Don't let audio failure break game logic
         }
@@ -227,14 +226,8 @@ public class Sonic1GiantRingObjectInstance extends AbstractObjectInstance
         if (state == State.INIT || state == State.DELETED) {
             return;
         }
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.GIANT_RING);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.GIANT_RING);
+        if (renderer == null) return;
         renderer.drawFrameIndex(animFrame, spawn.x(), spawn.y(), false, false);
     }
 

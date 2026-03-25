@@ -1,11 +1,11 @@
 package com.openggf.level.objects;
 
-import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 public interface SolidObjectProvider {
     SolidObjectParams getSolidParams();
 
-    default boolean isSolidFor(AbstractPlayableSprite player) {
+    default boolean isSolidFor(PlayableEntity player) {
         return true;
     }
 
@@ -52,7 +52,7 @@ public interface SolidObjectProvider {
      * Defaults to the full collision half-width. Override for objects whose
      * side/body collision is intentionally wider than their top landing area.
      */
-    default int getTopLandingHalfWidth(AbstractPlayableSprite player, int collisionHalfWidth) {
+    default int getTopLandingHalfWidth(PlayableEntity player, int collisionHalfWidth) {
         return collisionHalfWidth;
     }
 
@@ -61,7 +61,7 @@ public interface SolidObjectProvider {
      * ROM: bset #p1_pushing_bit,status(a0) (s2.asm:35220-35226).
      * Objects that need to react to being pushed (e.g., spring walls) can override.
      */
-    default void setPlayerPushing(AbstractPlayableSprite player, boolean pushing) {
+    default void setPlayerPushing(PlayableEntity player, boolean pushing) {
         // Default no-op
     }
 

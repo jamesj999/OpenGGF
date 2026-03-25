@@ -28,7 +28,7 @@ public class KnucklesRespawnStrategy implements SidekickRespawnStrategy {
         approachFrameCount = 0;
         dropping = false;
 
-        Camera camera = Camera.getInstance();
+        Camera camera = sidekick.currentCamera();
         int cameraX = (camera != null) ? camera.getX() : leader.getCentreX();
         int edgeX;
         if (leader.getXSpeed() >= 0) {

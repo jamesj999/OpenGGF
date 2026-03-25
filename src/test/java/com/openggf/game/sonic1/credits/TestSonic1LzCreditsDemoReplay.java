@@ -2,7 +2,6 @@ package com.openggf.game.sonic1.credits;
 
 import com.openggf.game.GameServices;
 import com.openggf.game.ZoneFeatureProvider;
-import com.openggf.game.sonic1.Sonic1ZoneFeatureProvider;
 import com.openggf.level.LevelManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.sprites.managers.SpriteManager;
@@ -62,7 +61,7 @@ public class TestSonic1LzCreditsDemoReplay {
         AbstractPlayableSprite player = fixture.sprite();
         setupLzCreditsStart(player);
 
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         if (levelManager.getObjectManager() != null) {
             levelManager.getObjectManager().reset(fixture.camera().getX());
         }
@@ -70,7 +69,7 @@ public class TestSonic1LzCreditsDemoReplay {
             levelManager.getRingManager().reset(fixture.camera().getX());
         }
 
-        SpriteManager.getInstance().primePlayableVisualState();
+        GameServices.sprites().primePlayableVisualState();
 
         for (int i = 0; i < Sonic1CreditsDemoData.DEMO_LOAD_DELAY_FRAMES; i++) {
             levelManager.updateObjectPositionsWithoutTouches();
@@ -105,15 +104,15 @@ public class TestSonic1LzCreditsDemoReplay {
         fixture.camera().setY((short) Sonic1CreditsDemoData.LZ_LAMP_CAMERA_Y);
         fixture.camera().setMaxY((short) Sonic1CreditsDemoData.LZ_LAMP_BOTTOM_BND);
 
-        WaterSystem waterSystem = WaterSystem.getInstance();
-        int featureZone = LevelManager.getInstance().getFeatureZoneId();
-        int featureAct = LevelManager.getInstance().getFeatureActId();
+        WaterSystem waterSystem = GameServices.water();
+        int featureZone = GameServices.level().getFeatureZoneId();
+        int featureAct = GameServices.level().getFeatureActId();
         waterSystem.setWaterLevelDirect(featureZone, featureAct, Sonic1CreditsDemoData.LZ_LAMP_WATER_HEIGHT);
         waterSystem.setWaterLevelTarget(featureZone, featureAct, Sonic1CreditsDemoData.LZ_LAMP_WATER_HEIGHT);
 
-        ZoneFeatureProvider featureProvider = LevelManager.getInstance().getZoneFeatureProvider();
-        if (featureProvider instanceof Sonic1ZoneFeatureProvider s1 && s1.getWaterEvents() != null) {
-            s1.getWaterEvents().setWaterRoutine(Sonic1CreditsDemoData.LZ_LAMP_WATER_ROUTINE);
+        ZoneFeatureProvider featureProvider = GameServices.level().getZoneFeatureProvider();
+        if (featureProvider != null) {
+            featureProvider.setWaterRoutine(Sonic1CreditsDemoData.LZ_LAMP_WATER_ROUTINE);
         }
     }
 

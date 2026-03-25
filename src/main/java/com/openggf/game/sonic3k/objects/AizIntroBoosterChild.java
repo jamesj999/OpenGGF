@@ -1,5 +1,7 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.PlayableEntity;
+import java.util.logging.Logger;
 import com.openggf.camera.Camera;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -20,6 +22,8 @@ import java.util.List;
  * Not spawned as a dynamic object — the plane child manages update/render directly.
  */
 public class AizIntroBoosterChild {
+
+    private static final Logger LOG = Logger.getLogger(AizIntroBoosterChild.class.getName());
 
     /**
      * ROM byte_45E6B/byte_45E73 both have timer reset = 0.
@@ -48,7 +52,8 @@ public class AizIntroBoosterChild {
         this.animIndex = 0;
     }
 
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Follow parent plane position with fixed offset
         currentX = parent.getX() + xOffset;
         currentY = parent.getY() + yOffset;
@@ -75,7 +80,9 @@ public class AizIntroBoosterChild {
             Camera camera = Camera.getInstance();
             renderX += camera.getX() - 128;
             renderY += camera.getY() - 128;
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            LOG.fine(() -> "AizIntroBoosterChild.appendRenderCommands: " + e.getMessage());
+        }
         renderer.drawFrameIndex(frame, renderX, renderY, false, false);
     }
 

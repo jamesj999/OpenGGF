@@ -7,11 +7,13 @@ import com.openggf.game.sonic3k.events.FireCurtainRenderState;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.level.WaterSystem;
-import com.openggf.level.scroll.ZoneScrollHandler;
+import com.openggf.level.scroll.AbstractZoneScrollHandler;
 
 import java.util.Arrays;
+import java.util.logging.Logger;
 
 import static com.openggf.level.scroll.M68KMath.*;
+import com.openggf.game.GameServices;
 
 /**
  * Angel Island Zone (AIZ) scroll handler.
@@ -21,7 +23,9 @@ import static com.openggf.level.scroll.M68KMath.*;
  * - Applies ROM segment heights from AIZ1_IntroDeformArray
  * - Writes negated BG values into the per-scanline hscroll buffer
  */
-public class SwScrlAiz implements ZoneScrollHandler {
+public class SwScrlAiz extends AbstractZoneScrollHandler {
+
+    private static final Logger LOG = Logger.getLogger(SwScrlAiz.class.getName());
 
     private static final int INTRO_DEFORM_BANDS = 0x25;
     private static final int INTRO_DEFORM_CAP = 0x580;
@@ -103,9 +107,6 @@ public class SwScrlAiz implements ZoneScrollHandler {
              1,  1,  1,  1,  1,  0, -1, -2, -2, -1,  0,  2,  2,  2,  2,  0
     };
 
-    private short vscrollFactorBG;
-    private int minScrollOffset;
-    private int maxScrollOffset;
     private final short[] introBandValues = new short[INTRO_DEFORM_BANDS];
     private final short[] perColumnVScrollBG = new short[Sonic3kAIZEvents.FIRE_WAVE_COLUMN_COUNT];
     private boolean hasPerColumnVScrollBG;
@@ -119,8 +120,7 @@ public class SwScrlAiz implements ZoneScrollHandler {
                        int cameraY,
                        int frameCounter,
                        int actId) {
-        minScrollOffset = Integer.MAX_VALUE;
-        maxScrollOffset = Integer.MIN_VALUE;
+        resetScrollTracking();
         hasPerColumnVScrollBG = false;
         Arrays.fill(perColumnVScrollBG, (short) 0);
 
@@ -135,9 +135,11 @@ public class SwScrlAiz implements ZoneScrollHandler {
         // ROM mode gate: AIZ1 intro uses IntroDeform only before the $1400 transition.
         boolean introMode = false;
         try {
-            introMode = !Camera.getInstance().isLevelStarted()
+            introMode = !GameServices.camera().isLevelStarted()
                     && !AizPlaneIntroInstance.isMainLevelPhaseActive();
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            LOG.fine(() -> "SwScrlAiz.update: " + e.getMessage());
+        }
 
         if (introMode) {
             // AIZ1_IntroDeform:
@@ -158,7 +160,9 @@ public class SwScrlAiz implements ZoneScrollHandler {
                 // AIZ2_Deform: scattered-speed BG parallax with shake-compensated Y.
                 // BG vertical scroll = (cameraY - shake) / 2 + shake.
                 short shakeY = 0;
-                try { shakeY = Camera.getInstance().getShakeOffsetY(); } catch (Exception ignored) {}
+                try { shakeY = GameServices.camera().getShakeOffsetY(); } catch (Exception e) {
+                    LOG.fine(() -> "SwScrlAiz.update: " + e.getMessage());
+                }
                 vscrollFactorBG = (short) (asrWord(cameraY, 1) + shakeY);
                 computeAiz2Deform(horizScrollBuf, fgScroll, cameraX);
             } else {
@@ -493,21 +497,6 @@ public class SwScrlAiz implements ZoneScrollHandler {
         return segments;
     }
 
-    private void trackOffset(short fgScroll, short bgScroll) {
-        int offset = bgScroll - fgScroll;
-        if (offset < minScrollOffset) {
-            minScrollOffset = offset;
-        }
-        if (offset > maxScrollOffset) {
-            maxScrollOffset = offset;
-        }
-    }
-
-    @Override
-    public short getVscrollFactorBG() {
-        return vscrollFactorBG;
-    }
-
     @Override
     public short[] getPerLineVScrollBG() {
         return null;
@@ -516,16 +505,6 @@ public class SwScrlAiz implements ZoneScrollHandler {
     @Override
     public short[] getPerColumnVScrollBG() {
         return hasPerColumnVScrollBG ? perColumnVScrollBG : null;
-    }
-
-    @Override
-    public int getMinScrollOffset() {
-        return minScrollOffset;
-    }
-
-    @Override
-    public int getMaxScrollOffset() {
-        return maxScrollOffset;
     }
 
     private void applyFireWaveVScroll(int[] columnWaveOffsetsPx) {
@@ -608,12 +587,14 @@ public class SwScrlAiz implements ZoneScrollHandler {
      */
     private int resolveWaterScreenY(int actId, int cameraY) {
         try {
-            WaterSystem ws = WaterSystem.getInstance();
+            WaterSystem ws = GameServices.water();
             if (ws != null && ws.hasWater(Sonic3kZoneIds.ZONE_AIZ, actId)) {
                 int waterWorldY = ws.getWaterLevelY(Sonic3kZoneIds.ZONE_AIZ, actId);
                 return waterWorldY - cameraY;
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            LOG.fine(() -> "SwScrlAiz.resolveWaterScreenY: " + e.getMessage());
+        }
         return VISIBLE_LINES; // no water → all heat haze
     }
 
@@ -621,7 +602,8 @@ public class SwScrlAiz implements ZoneScrollHandler {
         try {
             Sonic3kLevelEventManager lem = Sonic3kLevelEventManager.getInstance();
             return lem != null ? lem.getAizEvents() : null;
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            LOG.fine(() -> "SwScrlAiz.resolveAizEvents: " + e.getMessage());
             return null;
         }
     }

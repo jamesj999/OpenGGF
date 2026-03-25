@@ -1,6 +1,7 @@
 package com.openggf.game.sonic1.objects.bosses;
 
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectArtKeys;
@@ -49,7 +50,6 @@ public class GHZBossWreckingBall extends AbstractBossChild
     // Collision: obColType = $81 (enemy category $80, size index 1)
     private static final int BALL_COLLISION_FLAGS = 0x81;
 
-    private final LevelManager levelManager;
 
     // Swing state
     private int angle;          // obAngle — swing angle (byte)
@@ -76,9 +76,9 @@ public class GHZBossWreckingBall extends AbstractBossChild
 
     private boolean parentDefeated;
 
-    public GHZBossWreckingBall(AbstractBossInstance parent, LevelManager levelManager) {
+    public GHZBossWreckingBall(AbstractBossInstance parent) {
         super(parent, "GHZBall", 5, Sonic1ObjectIds.BOSS_BALL);
-        this.levelManager = levelManager;
+        
 
         // Initialize swing
         this.angle = INITIAL_ANGLE;
@@ -99,7 +99,8 @@ public class GHZBossWreckingBall extends AbstractBossChild
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (!shouldUpdate(frameCounter)) {
             return;
         }
@@ -222,7 +223,7 @@ public class GHZBossWreckingBall extends AbstractBossChild
             return;
         }
 
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

@@ -1,14 +1,12 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.PlayableEntity;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.game.RespawnState;
 import com.openggf.game.CheckpointState;
 import com.openggf.game.ZoneFeatureProvider;
-import com.openggf.game.sonic1.Sonic1ZoneFeatureProvider;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
@@ -70,7 +68,7 @@ public class Sonic1LamppostObjectInstance extends AbstractObjectInstance {
         this.cameraLockFlag = (spawn.subtype() & 0x80) != 0;
 
         // Lamp_Main: check if already visited
-        var checkpointState = LevelManager.getInstance().getCheckpointState();
+        var checkpointState = services().checkpointState();
         if (checkpointState != null && checkpointState.getLastCheckpointIndex() >= this.checkpointIndex) {
             // Already visited - show red, go to Lamp_Finish
             this.activated = true;
@@ -83,7 +81,8 @@ public class Sonic1LamppostObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (activated || player == null) {
             return; // Lamp_Finish: rts
         }
@@ -96,7 +95,7 @@ public class Sonic1LamppostObjectInstance extends AbstractObjectInstance {
      */
     private void checkActivation(AbstractPlayableSprite player) {
         // Check if a higher/equal checkpoint was activated since we spawned
-        var checkpointState = LevelManager.getInstance().getCheckpointState();
+        var checkpointState = services().checkpointState();
         if (checkpointState == null) {
             return;
         }
@@ -135,13 +134,13 @@ public class Sonic1LamppostObjectInstance extends AbstractObjectInstance {
 
         // Play lamppost sound: move.w #sfx_Lamppost,d0; jsr (QueueSound2).l
         try {
-            AudioManager.getInstance().playSfx(GameSound.CHECKPOINT);
+            services().playSfx(GameSound.CHECKPOINT);
         } catch (Exception e) {
             // Don't let audio failure break game logic
         }
 
         // Spawn twirl child: jsr (FindFreeObj).l
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null) {
             twirlActive = true;
             objectManager.addDynamicObject(new Sonic1LamppostTwirlInstance(this));
@@ -155,17 +154,13 @@ public class Sonic1LamppostObjectInstance extends AbstractObjectInstance {
             cs.saveCheckpoint(checkpointIndex, spawn.x(), spawn.y(), cameraLockFlag);
 
             // ROM Lamp_StoreInfo also saves water state (v_waterpos2, v_wtr_routine)
-            LevelManager lm = LevelManager.getInstance();
-            WaterSystem waterSystem = WaterSystem.getInstance();
-            int featureZone = lm.getFeatureZoneId();
-            int featureAct = lm.getFeatureActId();
+            WaterSystem waterSystem = services().waterSystem();
+            int featureZone = services().featureZoneId();
+            int featureAct = services().featureActId();
             if (waterSystem.hasWater(featureZone, featureAct)) {
                 int waterLevel = waterSystem.getWaterLevelY(featureZone, featureAct);
-                ZoneFeatureProvider zfp = lm.getZoneFeatureProvider();
-                int waterRoutine = 0;
-                if (zfp instanceof Sonic1ZoneFeatureProvider s1zfp && s1zfp.getWaterEvents() != null) {
-                    waterRoutine = s1zfp.getWaterEvents().getWaterRoutine();
-                }
+                ZoneFeatureProvider zfp = services().zoneFeatureProvider();
+                int waterRoutine = zfp != null ? zfp.getWaterRoutine() : 0;
                 cs.saveWaterState(waterLevel, waterRoutine);
             }
         }
@@ -175,7 +170,7 @@ public class Sonic1LamppostObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

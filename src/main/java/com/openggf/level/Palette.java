@@ -115,4 +115,16 @@ public class Palette {
         }
         colors[index] = color;
     }
+
+    /**
+     * Creates a deep copy of this palette.
+     * Each color is copied by value (new Color instances).
+     */
+    public Palette deepCopy() {
+        Palette copy = new Palette();
+        for (int i = 0; i < PALETTE_SIZE; i++) {
+            copy.colors[i] = new Color(colors[i].r, colors[i].g, colors[i].b);
+        }
+        return copy;
+    }
 }

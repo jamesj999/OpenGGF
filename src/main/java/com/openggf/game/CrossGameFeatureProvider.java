@@ -50,7 +50,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
 
     private static CrossGameFeatureProvider instance;
 
-    private String donorGameId;
+    private GameId donorGameId;
     private RomByteReader donorReader;
     private Sonic2PlayerArt s2PlayerArt;
     private Sonic3kPlayerArt s3kPlayerArt;
@@ -80,14 +80,13 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
      * @param donorGameId "s2" or "s3k"
      * @throws IOException if the donor ROM cannot be opened
      */
-    public void initialize(String donorGameId) throws IOException {
-        this.donorGameId = donorGameId;
+    public void initialize(String donorGameCode) throws IOException {
+        this.donorGameId = GameId.fromCode(donorGameCode);
 
         // Same-game guard: disable donation when donor == host
-        GameId donorId = GameId.fromCode(donorGameId);
         GameId hostId = GameModuleRegistry.getCurrent().getGameId();
-        if (donorId == hostId) {
-            LOGGER.info("Donor same as host (" + donorGameId + "), donation disabled");
+        if (donorGameId == hostId) {
+            LOGGER.info("Donor same as host (" + donorGameId.code() + "), donation disabled");
             active = false;
             return;
         }
@@ -95,15 +94,15 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
         // Resolve donor capabilities before any ROM access
         this.donorCapabilities = resolveDonorCapabilities(donorGameId);
         if (donorCapabilities == null) {
-            LOGGER.warning("No donor capabilities for: " + donorGameId);
+            LOGGER.warning("No donor capabilities for: " + donorGameId.code());
             active = false;
             return;
         }
 
-        Rom donorRom = RomManager.getInstance().getSecondaryRom(donorGameId);
+        Rom donorRom = RomManager.getInstance().getSecondaryRom(donorGameId.code());
         this.donorReader = RomByteReader.fromRom(donorRom);
 
-        if ("s3k".equalsIgnoreCase(donorGameId)) {
+        if (donorGameId == GameId.S3K) {
             s3kPlayerArt = new Sonic3kPlayerArt(donorReader);
             // S3K does not have a separate SpindashDustArtProvider
             s2DustArt = null;
@@ -118,7 +117,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
         hybridFeatureSet = buildHybridFeatureSet();
 
         // Create donor render context for palette isolation
-        donorRenderContext = RenderContext.getOrCreateDonor(donorId);
+        donorRenderContext = RenderContext.getOrCreateDonor(donorGameId);
         Palette charPalette = loadCharacterPalette();
         if (charPalette != null) {
             donorRenderContext.setPalette(0, charPalette);
@@ -128,7 +127,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
         loadInstaShieldArt();
 
         active = true;
-        LOGGER.info("Cross-game feature provider initialized with donor: " + donorGameId);
+        LOGGER.info("Cross-game feature provider initialized with donor: " + donorGameId.code());
     }
 
     /**
@@ -194,7 +193,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
             return null;
         }
         int paletteAddr;
-        if ("s3k".equalsIgnoreCase(donorGameId)) {
+        if (donorGameId == GameId.S3K) {
             paletteAddr = Sonic3kConstants.SONIC_PALETTE_ADDR;
         } else {
             paletteAddr = Sonic2Constants.SONIC_TAILS_PALETTE_ADDR;
@@ -217,36 +216,36 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
      */
     private void initializeDonorAudio() {
         GameAudioProfile donorProfile;
-        if ("s3k".equalsIgnoreCase(donorGameId)) {
+        if (donorGameId == GameId.S3K) {
             donorProfile = new Sonic3kAudioProfile();
         } else {
             donorProfile = new Sonic2AudioProfile();
         }
 
         try {
-            Rom donorRom = RomManager.getInstance().getSecondaryRom(donorGameId);
+            Rom donorRom = RomManager.getInstance().getSecondaryRom(donorGameId.code());
             donorSmpsLoader = donorProfile.createSmpsLoader(donorRom);
             donorDacData = donorSmpsLoader.loadDacData();
 
-            AudioManager am = AudioManager.getInstance();
-            am.registerDonorLoader(donorGameId, donorSmpsLoader, donorDacData,
+            AudioManager am = GameServices.audio();
+            am.registerDonorLoader(donorGameId.code(), donorSmpsLoader, donorDacData,
                     donorProfile.getSequencerConfig());
 
             Map<GameSound, Integer> donorSounds = donorProfile.getSoundMap();
             for (Map.Entry<GameSound, Integer> entry : donorSounds.entrySet()) {
-                am.registerDonorSound(entry.getKey(), donorGameId, entry.getValue());
+                am.registerDonorSound(entry.getKey(), donorGameId.code(), entry.getValue());
             }
 
-            LOGGER.info("Donor audio initialized from " + donorGameId
+            LOGGER.info("Donor audio initialized from " + donorGameId.code()
                     + " (" + donorSounds.size() + " sounds registered)");
         } catch (IOException e) {
-            LOGGER.warning("Failed to initialize donor audio from " + donorGameId
+            LOGGER.warning("Failed to initialize donor audio from " + donorGameId.code()
                     + ": " + e.getMessage());
         }
     }
 
     public String getDonorGameId() {
-        return donorGameId;
+        return donorGameId == null ? null : donorGameId.code();
     }
 
     /**
@@ -284,7 +283,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
         }
         // Controller selection stays game-specific (different palette formats)
         SuperStateController ctrl;
-        if ("s3k".equalsIgnoreCase(donorGameId)) {
+        if (donorGameId == GameId.S3K) {
             ctrl = new Sonic3kSuperStateController(player);
         } else {
             ctrl = new Sonic2SuperStateController(player);
@@ -292,12 +291,16 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
         try {
             ctrl.loadRomData(donorReader);
             ctrl.setRomDataPreLoaded(true);
-            LOGGER.fine("Created cross-game Super Sonic controller from donor: " + donorGameId);
+            LOGGER.fine("Created cross-game Super Sonic controller from donor: " + donorGameId.code());
         } catch (Exception e) {
             LOGGER.warning("Failed to load donor Super ROM data: " + e.getMessage());
             return null;
         }
         return ctrl;
+    }
+
+    public void resetState() {
+        close();
     }
 
     public void close() {
@@ -315,6 +318,8 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
         active = false;
     }
 
+    /** @deprecated Use {@link #resetState()} for test teardown. */
+    @Deprecated
     public static synchronized void resetInstance() {
         if (instance != null) {
             instance.close();
@@ -327,7 +332,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
      * Only runs when the donor is S3K; silently skips for S2 donors.
      */
     private void loadInstaShieldArt() {
-        if (!"s3k".equalsIgnoreCase(donorGameId) || donorReader == null) {
+        if (donorGameId != GameId.S3K || donorReader == null) {
             return;
         }
         try {
@@ -379,8 +384,9 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
      * while S1 levels keep UNIFIED collision.
      */
     private PhysicsFeatureSet buildHybridFeatureSet() {
+        PhysicsFeatureSet donorFeatureSet = resolveDonorFeatureSet();
         short[] spindashSpeedTable = donorCapabilities.hasSpindash()
-                ? new short[]{0x0800, 0x0880, 0x0900, 0x0980, 0x0A00, 0x0A80, 0x0B00, 0x0B80, 0x0C00}
+                ? donorFeatureSet.spindashSpeedTable()
                 : null;
 
         // Inherit collision model from the base game module so plane switching
@@ -406,16 +412,23 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
         );
     }
 
+    private PhysicsFeatureSet resolveDonorFeatureSet() {
+        return switch (donorGameId) {
+            case S1 -> PhysicsFeatureSet.SONIC_1;
+            case S2 -> PhysicsFeatureSet.SONIC_2;
+            case S3K -> PhysicsFeatureSet.SONIC_3K;
+        };
+    }
+
     /**
-     * Resolves donor capabilities for the given game code by constructing a
+     * Resolves donor capabilities for the given game ID by constructing a
      * temporary GameModule and extracting its DonorCapabilities.
      */
-    private static DonorCapabilities resolveDonorCapabilities(String gameCode) {
-        return switch (gameCode.toLowerCase()) {
-            case "s1" -> new com.openggf.game.sonic1.Sonic1GameModule().getDonorCapabilities();
-            case "s2" -> new com.openggf.game.sonic2.Sonic2GameModule().getDonorCapabilities();
-            case "s3k" -> new com.openggf.game.sonic3k.Sonic3kGameModule().getDonorCapabilities();
-            default -> null;
+    private static DonorCapabilities resolveDonorCapabilities(GameId gameId) {
+        return switch (gameId) {
+            case S1 -> new com.openggf.game.sonic1.Sonic1GameModule().getDonorCapabilities();
+            case S2 -> new com.openggf.game.sonic2.Sonic2GameModule().getDonorCapabilities();
+            case S3K -> new com.openggf.game.sonic3k.Sonic3kGameModule().getDonorCapabilities();
         };
     }
 }

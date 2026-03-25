@@ -3,11 +3,10 @@ package com.openggf.game.sonic1.objects;
 import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -80,7 +79,8 @@ public class Sonic1ElectrocuterObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Elec_Shock:
         //   move.w (v_framecount).w,d0
         //   and.w  elec_freq(a0),d0
@@ -96,7 +96,7 @@ public class Sonic1ElectrocuterObjectInstance extends AbstractObjectInstance
                 animTimer = 0;
             }
             if (isOnScreen()) {
-                AudioManager.getInstance().playSfx(Sonic1Sfx.ELECTRIC.id);
+                services().playSfx(Sonic1Sfx.ELECTRIC.id);
             }
         }
 
@@ -131,15 +131,8 @@ public class Sonic1ElectrocuterObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.SBZ_ELECTROCUTER);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.SBZ_ELECTROCUTER);
+        if (renderer == null) return;
 
         boolean hFlip = (spawn.renderFlags() & 0x1) != 0;
         boolean vFlip = (spawn.renderFlags() & 0x2) != 0;

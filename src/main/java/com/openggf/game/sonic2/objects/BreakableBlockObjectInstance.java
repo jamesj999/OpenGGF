@@ -1,15 +1,13 @@
 package com.openggf.game.sonic2.objects;
+import com.openggf.level.objects.BoxObjectInstance;
 
-import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
-import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.*;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.level.render.SpriteMappingFrame;
@@ -82,7 +80,7 @@ public class BreakableBlockObjectInstance extends BoxObjectInstance
         this.broken = false;
 
         // Check persistence: if already broken, stay broken
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null && objectManager.isRemembered(spawn)) {
             this.broken = true;
             setDestroyed(true);
@@ -90,7 +88,8 @@ public class BreakableBlockObjectInstance extends BoxObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (broken) {
             return;
         }
@@ -146,7 +145,8 @@ public class BreakableBlockObjectInstance extends BoxObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Block is not solid once broken
         if (broken) {
             return false;
@@ -160,7 +160,8 @@ public class BreakableBlockObjectInstance extends BoxObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (broken || player == null) {
             return;
         }
@@ -184,7 +185,7 @@ public class BreakableBlockObjectInstance extends BoxObjectInstance
         broken = true;
 
         // Mark as broken in persistence table (stays broken on respawn/revisit)
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null) {
             objectManager.markRemembered(spawn);
         }
@@ -216,16 +217,16 @@ public class BreakableBlockObjectInstance extends BoxObjectInstance
         spawnFragments();
 
         // Play slow smash sound effect
-        AudioManager.getInstance().playSfx(GameSound.SLOW_SMASH);
+        services().playSfx(GameSound.SLOW_SMASH);
 
         // Award 100 points
-        GameServices.gameState().addScore(100);
+        services().gameState().addScore(100);
 
         // Spawn points display popup
         if (objectManager != null) {
             PointsObjectInstance points = new PointsObjectInstance(
                     new ObjectSpawn(spawn.x(), spawn.y(), 0x29, 0, 0, false, 0),
-                    LevelManager.getInstance(), 100);
+                    services(), 100);
             objectManager.addDynamicObject(points);
         }
 
@@ -236,12 +237,12 @@ public class BreakableBlockObjectInstance extends BoxObjectInstance
     }
 
     private void spawnFragments() {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
 
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -298,7 +299,7 @@ public class BreakableBlockObjectInstance extends BoxObjectInstance
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             super.appendRenderCommands(commands);
             return;
@@ -329,11 +330,12 @@ public class BreakableBlockObjectInstance extends BoxObjectInstance
     }
 
     private static int resolveHalfWidth() {
-        LevelManager manager = LevelManager.getInstance();
-        if (manager == null || manager.getCurrentLevel() == null) {
+        // Use construction context ThreadLocal since this is called during super() args
+        var ctx = constructionContext();
+        if (ctx == null || ctx.currentLevel() == null) {
             return CPZ_HALF_WIDTH;
         }
-        int zoneId = manager.getCurrentLevel().getZoneIndex();
+        int zoneId = ctx.currentLevel().getZoneIndex();
         return zoneId == Sonic2Constants.ZONE_HTZ
                 ? HTZ_HALF_WIDTH
                 : CPZ_HALF_WIDTH;
@@ -392,7 +394,8 @@ public class BreakableBlockObjectInstance extends BoxObjectInstance
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (isDestroyed()) {
                 return;
             }
@@ -407,7 +410,7 @@ public class BreakableBlockObjectInstance extends BoxObjectInstance
             currentY = subY >> 8;
 
             // Check if off-screen (destroy if too far below camera)
-            int cameraY = Camera.getInstance().getY();
+            int cameraY = services().camera().getY();
             int screenHeight = 224;  // Standard MD screen height
             if (currentY > cameraY + screenHeight + 32) {
                 setDestroyed(true);

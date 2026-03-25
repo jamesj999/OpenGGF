@@ -198,4 +198,45 @@ public interface ZoneFeatureProvider {
     default boolean shouldSuppressHud(int zoneIndex, int actIndex) {
         return false;
     }
+
+    /**
+     * Whether the backdrop colour should be forced to black regardless of the
+     * level's own backdrop colour.  Used for zones (e.g. MCZ in Sonic 2) whose
+     * background is drawn entirely by sprites/tiles with no sky visible.
+     *
+     * @return true if the backdrop should be forced to black
+     */
+    default boolean isForceBlackBackdrop() {
+        return false;
+    }
+
+    /**
+     * Returns the current water routine index for checkpoint save/restore.
+     * Only meaningful for games with dynamic water routines (e.g., Sonic 1 LZ).
+     *
+     * @return the water routine index, or 0 if not applicable
+     */
+    default int getWaterRoutine() {
+        return 0;
+    }
+
+    /**
+     * Sets the water routine index after checkpoint restore.
+     * Only meaningful for games with dynamic water routines (e.g., Sonic 1 LZ).
+     *
+     * @param routine the water routine index to restore
+     */
+    default void setWaterRoutine(int routine) {
+        // No-op by default
+    }
+
+    /**
+     * Returns a zone-specific renderer for custom visual effects (e.g. CNZ slot machine).
+     * Games/zones without custom renderers return {@link ZoneFeatureRenderer#NONE}.
+     *
+     * @return the zone feature renderer, never null
+     */
+    default ZoneFeatureRenderer getFeatureRenderer() {
+        return ZoneFeatureRenderer.NONE;
+    }
 }

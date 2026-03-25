@@ -23,6 +23,7 @@ import com.openggf.level.SeamlessLevelTransitionRequest;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.resources.LoadOp;
 import com.openggf.level.resources.ResourceLoader;
+import com.openggf.level.WaterSystem;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -122,6 +123,37 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
             {0x02E0, 0xFFFF},
     };
 
+    // --- AIZ2 resize state machine (sonic3k.asm AIZ2_Resize) ---
+    // Sonic path thresholds
+    private static final int AIZ2_SONIC_RESIZE1_TRIGGER_X = 0x02E0;
+    private static final int AIZ2_SONIC_RESIZE2_BOSS_MAX_Y = 0x02B8;
+    private static final int AIZ2_SONIC_RESIZE2_BOSS_TRIGGER_X = 0x0ED0;
+    private static final int AIZ2_SONIC_RESIZE2_LOCK_X = 0x0F50;
+    private static final int AIZ2_SONIC_RESIZE3_TRIGGER_X = 0x1500;
+    private static final int AIZ2_SONIC_RESIZE3_MAX_Y = 0x0630;
+    private static final int AIZ2_SONIC_RESIZE4_TRIGGER_X = 0x3C00;
+    private static final int AIZ2_SONIC_RESIZE5_TRIGGER_X = 0x3F00;
+    private static final int AIZ2_SONIC_RESIZE5_MIN_Y = 0x015A;
+    private static final int AIZ2_SONIC_RESIZE6_TRIGGER_X = 0x4000;
+    private static final int AIZ2_SONIC_RESIZE7_TRIGGER_X = 0x4160;
+    private static final int AIZ2_SONIC_BOSS_X = 0x11F0;
+    private static final int AIZ2_SONIC_BOSS_Y = 0x0289;
+    // Knuckles path thresholds
+    private static final int AIZ2_KNUX_RESIZE1_TRIGGER_X = 0x02E0;
+    private static final int AIZ2_KNUX_RESIZE2_BOSS_MAX_Y = 0x0450;
+    private static final int AIZ2_KNUX_RESIZE2_BOSS_TRIGGER_X = 0x0E80;
+    private static final int AIZ2_KNUX_RESIZE2_LOCK_X = 0x1040;
+    private static final int AIZ2_KNUX_RESIZE3_TRIGGER_X = 0x11A0;
+    private static final int AIZ2_KNUX_RESIZE3_TARGET_MAX_Y = 0x0820;
+    private static final int AIZ2_KNUX_RESIZE4_TRIGGER_X = 0x3B80;
+    private static final int AIZ2_KNUX_RESIZE4_TARGET_MAX_Y = 0x05DA;
+    private static final int AIZ2_KNUX_RESIZE5_TRIGGER_X = 0x3F80;
+    private static final int AIZ2_KNUX_BOSS_X = 0x11D0;
+    private static final int AIZ2_KNUX_BOSS_Y = 0x0420;
+    private static final int AIZ2_KNUX_WATER_LEVEL = 0x0F80;
+    // Shared
+    private static final int AIZ2_DEFAULT_MAX_Y = 0x0590;
+
     private final Sonic3kLoadBootstrap bootstrap;
     private boolean introSpawned;
     /** One-shot guard: once AIZ intro minX is locked at $1308, stop rewriting minX each frame. */
@@ -131,8 +163,12 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     // Tracks one-shot application of AIZ1SE_ChangeChunk4/3/2/1.
     private int appliedTreeRevealChunkCopiesMask;
 
+    // --- AIZ2 Dynamic_resize_routine state ---
+    /** ROM: Dynamic_resize_routine equivalent for act 2. */
+    private int aiz2ResizeRoutine;
+
     // --- Boss / fire transition state ---
-    /** One-shot guard for AIZ2 resize boss spawn after fire transition completes. */
+    /** One-shot guard for AIZ2 resize boss spawn. */
     private boolean minibossSpawned;
     /** ROM: (Events_fg_5).w - set by boss exit sequence to trigger fire transition. */
     private boolean eventsFg5;
@@ -279,6 +315,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         boundariesUnlocked = false;
         appliedTreeRevealChunkCopiesMask = 0;
         minibossSpawned = false;
+        aiz2ResizeRoutine = 0;
         eventsFg5 = false;
         bossFlag = false;
         act2TransitionRequested = false;
@@ -420,7 +457,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         if (isFireTransitionActive()) {
             return;
         }
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = levelManager();
         if (levelManager == null || levelManager.getCurrentLevel() == null) {
             return;
         }
@@ -470,7 +507,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
             return;
         }
 
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = levelManager();
         boolean changed = false;
         if (cameraX >= TREE_REVEAL_CLEAR_CAMERA_X || eventsFg4 >= TREE_REVEAL_CLEAR_COUNTER) {
             changed |= applyChunkCopyAndSync(levelManager, 3);
@@ -749,7 +786,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
                     // Continue scroll-off until fire has exited the screen.
                     advanceFireRise(false);
                     if (getFireTransitionBgY() >= FIRE_BG_FINISH_Y) {
-                        applyPostFireContinuationPaletteLine4(LevelManager.getInstance());
+                        applyPostFireContinuationPaletteLine4(levelManager());
                         fireSequencePhase = FireSequencePhase.AIZ2_BG_REDRAW;
                         firePhaseFrames = 0;
                     }
@@ -769,27 +806,213 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
             }
         }
 
-        // AIZ2 resize: spawn real miniboss when camera reaches threshold.
-        // ROM: AIZ2_SonicResize2 (line 39076) / AIZ2_KnuxResize2 (line 39187)
-        if (!minibossSpawned && fireSequencePhase == FireSequencePhase.COMPLETE) {
-            PlayerCharacter character = Sonic3kLevelEventManager.getInstance().getPlayerCharacter();
-            int cameraTrigger = (character == PlayerCharacter.KNUCKLES) ? 0x1040 : 0x0F50;
+        // ROM: AIZ2_Resize — dynamic boundary state machine (sonic3k.asm:39012)
+        updateAiz2Resize();
+    }
 
-            if (Camera.getInstance().getX() >= cameraTrigger) {
-                minibossSpawned = true;
-                int bossX = (character == PlayerCharacter.KNUCKLES) ? 0x11D0 : 0x11F0;
-                int bossY = (character == PlayerCharacter.KNUCKLES) ? 0x0420 : 0x0289;
+    /**
+     * AIZ2 dynamic resize state machine.
+     * ROM: AIZ2_Resize (sonic3k.asm:39012-39241)
+     *
+     * <p>Routes to Sonic or Knuckles path based on player character.
+     * Adjusts maxY/minY/minX dynamically as camera moves through the zone,
+     * spawns the miniboss, and sets up the battleship sequence boundaries.
+     */
+    private void updateAiz2Resize() {
+        PlayerCharacter character = Sonic3kLevelEventManager.getInstance().getPlayerCharacter();
+        boolean isKnuckles = (character == PlayerCharacter.KNUCKLES);
 
-                ObjectSpawn bossSpawn = new ObjectSpawn(bossX, bossY, 0x91, 0, 0, false, bossY);
-                AizMinibossInstance boss = new AizMinibossInstance(bossSpawn, LevelManager.getInstance());
-                var objManager = LevelManager.getInstance().getObjectManager();
-                if (objManager != null) {
-                    objManager.addDynamicObject(boss);
+        switch (aiz2ResizeRoutine) {
+            // --- Routine 0: Route to Sonic or Knuckles path ---
+            case 0 -> {
+                if (isKnuckles) {
+                    aiz2ResizeRoutine = 0x12;
+                    updateAiz2KnuxResize1();
+                } else {
+                    aiz2ResizeRoutine = 2;
+                    updateAiz2SonicResize1();
                 }
-                LOG.info("AIZ2 resize: spawned miniboss at (0x" + Integer.toHexString(bossX)
-                        + ", 0x" + Integer.toHexString(bossY) + ")");
             }
+            // --- Sonic path ---
+            case 2 -> updateAiz2SonicResize1();
+            case 4 -> updateAiz2SonicResize2();
+            case 6 -> updateAiz2SonicResize3();
+            case 8 -> updateAiz2SonicResize4();
+            case 0xA -> updateAiz2SonicResize5();
+            case 0xC -> updateAiz2SonicResize6();
+            case 0xE -> updateAiz2SonicResize7();
+            // case 0x10: SonicResizeEnd — no-op
+            // --- Knuckles path ---
+            case 0x12 -> updateAiz2KnuxResize1();
+            case 0x14 -> updateAiz2KnuxResize2();
+            case 0x16 -> updateAiz2KnuxResize3();
+            case 0x18 -> updateAiz2KnuxResize4();
+            case 0x1A -> updateAiz2KnuxResize5();
+            // case 0x1C: KnuxResizeEnd — no-op
+            default -> { /* end state */ }
         }
+    }
+
+    // --- Sonic resize routines (sonic3k.asm:39046-39153) ---
+
+    /** ROM: AIZ2_SonicResize1 — set maxY=$590 at camera X >= $2E0. */
+    private void updateAiz2SonicResize1() {
+        if (camera().getX() < AIZ2_SONIC_RESIZE1_TRIGGER_X) {
+            return;
+        }
+        camera().setMaxY((short) AIZ2_DEFAULT_MAX_Y);
+        aiz2ResizeRoutine = 4;
+        // ROM: if Apparent_zone_and_act == AIZ2, skip the miniboss path.
+        // When we're in update(act=1), we're definitively on act 2.
+        camera().setMinX((short) AIZ2_SONIC_RESIZE2_LOCK_X);
+        aiz2ResizeRoutine = 6; // skip SonicResize2 (miniboss area)
+    }
+
+    /** ROM: AIZ2_SonicResize2 — continuous maxY + miniboss spawn. */
+    private void updateAiz2SonicResize2() {
+        int cameraX = camera().getX();
+        int maxY = AIZ2_DEFAULT_MAX_Y;
+        if (cameraX >= AIZ2_SONIC_RESIZE2_BOSS_TRIGGER_X) {
+            maxY = AIZ2_SONIC_RESIZE2_BOSS_MAX_Y;
+        }
+        camera().setMaxY((short) maxY);
+
+        if (cameraX >= AIZ2_SONIC_RESIZE2_LOCK_X) {
+            camera().setMinX((short) AIZ2_SONIC_RESIZE2_LOCK_X);
+            if (!minibossSpawned) {
+                spawnAiz2Miniboss(AIZ2_SONIC_BOSS_X, AIZ2_SONIC_BOSS_Y);
+            }
+            aiz2ResizeRoutine = 6;
+        }
+    }
+
+    /** ROM: AIZ2_SonicResize3 — maxY=$630 at camera X >= $1500. */
+    private void updateAiz2SonicResize3() {
+        if (camera().getX() < AIZ2_SONIC_RESIZE3_TRIGGER_X) {
+            return;
+        }
+        camera().setMaxY((short) AIZ2_SONIC_RESIZE3_MAX_Y);
+        aiz2ResizeRoutine = 8;
+    }
+
+    /** ROM: AIZ2_SonicResize4 — battleship art load at camera X >= $3C00. */
+    private void updateAiz2SonicResize4() {
+        if (camera().getX() < AIZ2_SONIC_RESIZE4_TRIGGER_X) {
+            return;
+        }
+        // TODO: load battleship art (Queue_Kos / Queue_Kos_Module + palette $30)
+        eventsFg5 = true; // Signal to background event
+        aiz2ResizeRoutine = 0xA;
+        LOG.info("AIZ2 Sonic resize4: battleship art trigger at X=0x"
+                + Integer.toHexString(camera().getX()));
+    }
+
+    /** ROM: AIZ2_SonicResize5 — minY=$15A at camera X >= $3F00. */
+    private void updateAiz2SonicResize5() {
+        if (camera().getX() < AIZ2_SONIC_RESIZE5_TRIGGER_X) {
+            return;
+        }
+        camera().setMinY((short) AIZ2_SONIC_RESIZE5_MIN_Y);
+        aiz2ResizeRoutine = 0xC;
+    }
+
+    /** ROM: AIZ2_SonicResize6 — maxY=$15A at camera X >= $4000. */
+    private void updateAiz2SonicResize6() {
+        if (camera().getX() < AIZ2_SONIC_RESIZE6_TRIGGER_X) {
+            return;
+        }
+        camera().setMaxY((short) AIZ2_SONIC_RESIZE5_MIN_Y);
+        aiz2ResizeRoutine = 0xE;
+    }
+
+    /** ROM: AIZ2_SonicResize7 — signal battleship sequence at camera X >= $4160. */
+    private void updateAiz2SonicResize7() {
+        if (camera().getX() < AIZ2_SONIC_RESIZE7_TRIGGER_X) {
+            return;
+        }
+        // Events_fg_4 signals AIZ2_ScreenEvent to start the battleship draw sequence.
+        // TODO: implement AIZ2_ScreenEvent handler
+        aiz2ResizeRoutine = 0x10; // SonicResizeEnd
+    }
+
+    // --- Knuckles resize routines (sonic3k.asm:39157-39241) ---
+
+    /** ROM: AIZ2_KnuxResize1 — set maxY=$590 at camera X >= $2E0. */
+    private void updateAiz2KnuxResize1() {
+        if (camera().getX() < AIZ2_KNUX_RESIZE1_TRIGGER_X) {
+            return;
+        }
+        camera().setMaxY((short) AIZ2_DEFAULT_MAX_Y);
+        aiz2ResizeRoutine = 0x14;
+        // ROM: if Apparent_zone_and_act == AIZ2, skip the miniboss path.
+        camera().setMinX((short) AIZ2_KNUX_RESIZE2_LOCK_X);
+        aiz2ResizeRoutine = 0x16; // skip KnuxResize2 (miniboss area)
+    }
+
+    /** ROM: AIZ2_KnuxResize2 — continuous maxY + miniboss spawn. */
+    private void updateAiz2KnuxResize2() {
+        int cameraX = camera().getX();
+        int maxY = AIZ2_DEFAULT_MAX_Y;
+        if (cameraX >= AIZ2_KNUX_RESIZE2_BOSS_TRIGGER_X) {
+            maxY = AIZ2_KNUX_RESIZE2_BOSS_MAX_Y;
+        }
+        camera().setMaxY((short) maxY);
+
+        if (cameraX >= AIZ2_KNUX_RESIZE2_LOCK_X) {
+            camera().setMinX((short) AIZ2_KNUX_RESIZE2_LOCK_X);
+            if (!minibossSpawned) {
+                spawnAiz2Miniboss(AIZ2_KNUX_BOSS_X, AIZ2_KNUX_BOSS_Y);
+            }
+            // ROM: set Target_water_level = $F80
+            WaterSystem waterSystem = waterSystem();
+            waterSystem.setWaterLevelTarget(0, 1, AIZ2_KNUX_WATER_LEVEL);
+            aiz2ResizeRoutine = 0x16;
+        }
+    }
+
+    /** ROM: AIZ2_KnuxResize3 — target maxY=$820 at camera X >= $11A0. */
+    private void updateAiz2KnuxResize3() {
+        if (camera().getX() < AIZ2_KNUX_RESIZE3_TRIGGER_X) {
+            return;
+        }
+        camera().setMaxYTarget((short) AIZ2_KNUX_RESIZE3_TARGET_MAX_Y);
+        aiz2ResizeRoutine = 0x18;
+    }
+
+    /** ROM: AIZ2_KnuxResize4 — battleship art load at camera X >= $3B80. */
+    private void updateAiz2KnuxResize4() {
+        if (camera().getX() < AIZ2_KNUX_RESIZE4_TRIGGER_X) {
+            return;
+        }
+        // TODO: load battleship art (Queue_Kos / Queue_Kos_Module + palette $30)
+        camera().setMinX((short) AIZ2_KNUX_RESIZE4_TRIGGER_X);
+        camera().setMaxYTarget((short) AIZ2_KNUX_RESIZE4_TARGET_MAX_Y);
+        eventsFg5 = true;
+        aiz2ResizeRoutine = 0x1A;
+        LOG.info("AIZ2 Knux resize4: battleship art trigger at X=0x"
+                + Integer.toHexString(camera().getX()));
+    }
+
+    /** ROM: AIZ2_KnuxResize5 — lock minX=$3F80 at camera X >= $3F80. */
+    private void updateAiz2KnuxResize5() {
+        if (camera().getX() < AIZ2_KNUX_RESIZE5_TRIGGER_X) {
+            return;
+        }
+        camera().setMinX((short) AIZ2_KNUX_RESIZE5_TRIGGER_X);
+        aiz2ResizeRoutine = 0x1C; // KnuxResizeEnd
+    }
+
+    /** Spawn the AIZ2 miniboss at the given position. */
+    private void spawnAiz2Miniboss(int bossX, int bossY) {
+        minibossSpawned = true;
+        ObjectSpawn bossSpawn = new ObjectSpawn(bossX, bossY, 0x91, 0, 0, false, bossY);
+        AizMinibossInstance boss = new AizMinibossInstance(bossSpawn);
+        var objManager = levelManager().getObjectManager();
+        if (objManager != null) {
+            objManager.addDynamicObject(boss);
+        }
+        LOG.info("AIZ2 resize: spawned miniboss at (0x" + Integer.toHexString(bossX)
+                + ", 0x" + Integer.toHexString(bossY) + ")");
     }
 
     private void advanceFireRise(boolean allowInitialLerp) {
@@ -887,7 +1110,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         // ROM: AIZ1_AIZ2_Transition writes 6 fire words to Normal_palette_line_4+$2
         // at the START of the fire transition. The full fire palette (PalPointers #$0B)
         // is loaded later by the mutation executor when bgY >= $190.
-        applyFireTransitionPaletteLine4(LevelManager.getInstance());
+        applyFireTransitionPaletteLine4(levelManager());
         ensureFireOverlayTilesLoaded();
         LOG.info("AIZ1: fire transition started");
     }
@@ -905,7 +1128,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     private void applyFireTransitionMutation() {
         fireTransitionMutationRequested = true;
         S3kSeamlessMutationExecutor.apply(
-                LevelManager.getInstance(),
+                levelManager(),
                 S3kSeamlessMutationExecutor.MUTATION_AIZ1_FIRE_TRANSITION_STAGE);
         LOG.info("AIZ1: applied in-place fire mutation stage (direct)");
     }
@@ -915,7 +1138,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         eventsFg5 = false;
         bossFlag = false;
         postFireHazeActive = false;
-        GameServices.gameState().setCurrentBossId(0);
+        gameState().setCurrentBossId(0);
         if (!fireTransitionMutationRequested) {
             applyFireTransitionMutation();
         }
@@ -935,8 +1158,8 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
                 fireTransitionMutationRequested,
                 false);
         persistTransitionCheckpoint();
-        LevelManager levelManager = LevelManager.getInstance();
-        LevelManager.getInstance().requestSeamlessTransition(
+        LevelManager levelManager = levelManager();
+        levelManager().requestSeamlessTransition(
                 SeamlessLevelTransitionRequest.builder(SeamlessLevelTransitionRequest.TransitionType.RELOAD_TARGET_LEVEL)
                         // ROM loads AIZ act 2 resources here, but this is presented as
                         // a seamless continuation (no title card transition).
@@ -974,7 +1197,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         if (camera().getFocusedSprite() instanceof AbstractPlayableSprite player) {
             player.setControlLocked(locked);
         }
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+        for (AbstractPlayableSprite sidekick : spriteManager().getSidekicks()) {
             sidekick.setControlLocked(locked);
         }
     }
@@ -983,12 +1206,12 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         if (fireOverlayTilesLoaded) {
             return;
         }
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = levelManager();
         if (!(levelManager.getCurrentLevel() instanceof Sonic3kLevel sonic3kLevel)) {
             return;
         }
         try {
-            Rom rom = GameServices.rom().getRom();
+            Rom rom = rom();
             if (rom == null) {
                 return;
             }
@@ -1035,7 +1258,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         // The level reload loads the normal AIZ2 palette which may not match the
         // fire transition state; PalPointers #$0B + fire line 4 words restore it.
         loadPaletteFromPalPointers(PAL_POINTER_AIZ_FIRE_INDEX);
-        applyFireTransitionPaletteLine4(LevelManager.getInstance());
+        applyFireTransitionPaletteLine4(levelManager());
         LOG.info("AIZ2 fake-out: resumed fire continuation phase " + fireSequencePhase);
     }
 
@@ -1088,7 +1311,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     }
 
     private void persistTransitionCheckpoint() {
-        if (!(LevelManager.getInstance().getCheckpointState() instanceof CheckpointState checkpoint)) {
+        if (!(levelManager().getCheckpointState() instanceof CheckpointState checkpoint)) {
             return;
         }
         Camera cam = camera();

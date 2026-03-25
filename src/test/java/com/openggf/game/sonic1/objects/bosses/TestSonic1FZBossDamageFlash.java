@@ -14,8 +14,7 @@ public class TestSonic1FZBossDamageFlash {
     @Test
     public void inTubeDamageAnimationAlternatesSurpriseAndIntubeFrames() throws Exception {
         Sonic1FZBossInstance boss = new Sonic1FZBossInstance(
-                new ObjectSpawn(0, 0, Sonic1ObjectIds.FZ_BOSS, 0, 0, false, 0),
-                null);
+                new ObjectSpawn(0, 0, Sonic1ObjectIds.FZ_BOSS, 0, 0, false, 0));
 
         setIntField(boss, "seggAnim", Sonic1BossAnimations.ANIM_SEGG_INTUBE);
         setIntField(boss, "seggAnimPrev", -1);

@@ -1,16 +1,13 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.PlayableEntity;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
-import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -258,7 +255,8 @@ public class Sonic1BubblesObjectInstance extends AbstractObjectInstance {
     // ========================================================================
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (routine) {
             case ROUTINE_ANIMATE -> updateAnimate(player);
             case ROUTINE_CHKWATER -> updateChkWater(player);
@@ -437,8 +435,7 @@ public class Sonic1BubblesObjectInstance extends AbstractObjectInstance {
      * From Bub_BblMaker spawn section (lines 165-196 of disassembly).
      */
     private void spawnBubble() {
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
@@ -483,7 +480,7 @@ public class Sonic1BubblesObjectInstance extends AbstractObjectInstance {
                 bubbleSubtype,
                 0, false, 0);
         Sonic1BubblesObjectInstance child = new Sonic1BubblesObjectInstance(childSpawn);
-        levelManager.getObjectManager().addDynamicObject(child);
+        services().objectManager().addDynamicObject(child);
     }
 
     /**
@@ -543,7 +540,7 @@ public class Sonic1BubblesObjectInstance extends AbstractObjectInstance {
         // bsr.w ResumeMusic ; cancel countdown music
         // move.w #sfx_Bubble,d0 / jsr (QueueSound2).l
         try {
-            AudioManager.getInstance().playSfx(Sonic1Sfx.BUBBLE.id);
+            services().playSfx(Sonic1Sfx.BUBBLE.id);
         } catch (Exception e) {
             // Don't let audio failure break game logic
         }
@@ -670,16 +667,15 @@ public class Sonic1BubblesObjectInstance extends AbstractObjectInstance {
      * Returns Integer.MAX_VALUE if no water (bubble should always be "underwater").
      */
     private int getWaterLevel() {
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null || levelManager.getCurrentLevel() == null) {
+        if (services().currentLevel() == null) {
             return Integer.MAX_VALUE;
         }
 
-        WaterSystem waterSystem = WaterSystem.getInstance();
+        var waterSystem = services().waterSystem();
         // Use feature zone/act so SBZ3 (ROM zone LZ act 3) resolves to the
         // water config stored under ZONE_SBZ act 2.
-        int zoneId = levelManager.getFeatureZoneId();
-        int actId = levelManager.getFeatureActId();
+        int zoneId = services().featureZoneId();
+        int actId = services().featureActId();
 
         if (waterSystem.hasWater(zoneId, actId)) {
             return waterSystem.getWaterLevelY(zoneId, actId);
@@ -707,15 +703,8 @@ public class Sonic1BubblesObjectInstance extends AbstractObjectInstance {
             }
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.LZ_BUBBLES);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.LZ_BUBBLES);
+        if (renderer == null) return;
 
         renderer.drawFrameIndex(mappingFrame, displayX, displayY, false, false);
     }

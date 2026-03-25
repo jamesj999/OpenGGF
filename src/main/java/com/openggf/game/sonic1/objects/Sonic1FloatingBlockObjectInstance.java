@@ -1,16 +1,14 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.PlayableEntity;
 
-import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.Sonic1SwitchManager;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.game.OscillationManager;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
@@ -171,8 +169,6 @@ public class Sonic1FloatingBlockObjectInstance extends AbstractObjectInstance
     // Zone index
     private final int zoneIndex;
 
-    private ObjectSpawn dynamicSpawn;
-
     public Sonic1FloatingBlockObjectInstance(ObjectSpawn spawn, int zoneIndex) {
         super(spawn, "FloatingBlock");
         this.zoneIndex = zoneIndex;
@@ -239,7 +235,7 @@ public class Sonic1FloatingBlockObjectInstance extends AbstractObjectInstance
         // Select art key based on zone
         this.artKey = isLZ ? ObjectArtKeys.LZ_FLOATING_BLOCK : ObjectArtKeys.SYZ_FLOATING_BLOCK;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -251,28 +247,17 @@ public class Sonic1FloatingBlockObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
     @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
-    @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         applyMovement();
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(artKey);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(artKey);
+        if (renderer == null) return;
         renderer.drawFrameIndex(mappingFrame, x, y, false, false);
     }
 
@@ -293,12 +278,14 @@ public class Sonic1FloatingBlockObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Solid contact handled by engine's SolidContacts system
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed();
     }
 
@@ -321,7 +308,7 @@ public class Sonic1FloatingBlockObjectInstance extends AbstractObjectInstance
         // Label with type info
         String label = String.format("FB t%X", moveType);
         if (moveType == 5 || moveType == 6 || moveType == 0x0C || moveType == 0x0D) {
-            Sonic1SwitchManager switches = Sonic1SwitchManager.getInstance();
+            Sonic1SwitchManager switches = services().gameService(Sonic1SwitchManager.class);
             boolean sw = switches.isPressed(fbType);
             label += String.format(" sw%d=%s h=%d", fbType, sw ? "ON" : "OFF", fbHeight);
         }
@@ -397,7 +384,7 @@ public class Sonic1FloatingBlockObjectInstance extends AbstractObjectInstance
             handleLz1WaterTunnel();
 
             // Check switch state
-            Sonic1SwitchManager switches = Sonic1SwitchManager.getInstance();
+            Sonic1SwitchManager switches = services().gameService(Sonic1SwitchManager.class);
             // ROM: btst #0,(f_switch+fb_type)
             if ((switches.getRaw(fbType) & 0x01) != 0) {
                 // Switch pressed - begin activation
@@ -432,7 +419,7 @@ public class Sonic1FloatingBlockObjectInstance extends AbstractObjectInstance
     private void moveType06SwitchDown() {
         if (!activated) {
             // tst.b (a2,d0.w) / bpl.s .noactivate
-            Sonic1SwitchManager switches = Sonic1SwitchManager.getInstance();
+            Sonic1SwitchManager switches = services().gameService(Sonic1SwitchManager.class);
             byte raw = switches.getRaw(fbType);
             if (raw < 0) { // bit 7 set = negative byte
                 activated = true;
@@ -470,7 +457,7 @@ public class Sonic1FloatingBlockObjectInstance extends AbstractObjectInstance
     private void moveType07SlideRight() {
         if (!activated) {
             // tst.b (f_switch+$F).w — switch index $F
-            Sonic1SwitchManager switches = Sonic1SwitchManager.getInstance();
+            Sonic1SwitchManager switches = services().gameService(Sonic1SwitchManager.class);
             if (!switches.isPressed(0x0F)) {
                 return;
             }
@@ -561,7 +548,7 @@ public class Sonic1FloatingBlockObjectInstance extends AbstractObjectInstance
      */
     private void moveType0CSwitchLeft() {
         if (!activated) {
-            Sonic1SwitchManager switches = Sonic1SwitchManager.getInstance();
+            Sonic1SwitchManager switches = services().gameService(Sonic1SwitchManager.class);
             // ROM: btst #0,(f_switch+fb_type)
             if ((switches.getRaw(fbType) & 0x01) != 0) {
                 activated = true;
@@ -589,7 +576,7 @@ public class Sonic1FloatingBlockObjectInstance extends AbstractObjectInstance
      */
     private void moveType0DSwitchRight() {
         if (!activated) {
-            Sonic1SwitchManager switches = Sonic1SwitchManager.getInstance();
+            Sonic1SwitchManager switches = services().gameService(Sonic1SwitchManager.class);
             byte raw = switches.getRaw(fbType);
             if (raw < 0) { // bit 7 set
                 activated = true;
@@ -682,7 +669,7 @@ public class Sonic1FloatingBlockObjectInstance extends AbstractObjectInstance
      * Check if the object is within out-of-range distance from camera.
      */
     private boolean isInRange(int objectX) {
-        var camera = Camera.getInstance();
+        var camera = services().camera();
         if (camera == null) {
             return true;
         }
@@ -690,17 +677,5 @@ public class Sonic1FloatingBlockObjectInstance extends AbstractObjectInstance
         int camRounded = (camera.getX() - 128) & 0xFF80;
         int distance = (objRounded - camRounded) & 0xFFFF;
         return distance <= (128 + 320 + 192);
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = new ObjectSpawn(
-                    x, y,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
     }
 }

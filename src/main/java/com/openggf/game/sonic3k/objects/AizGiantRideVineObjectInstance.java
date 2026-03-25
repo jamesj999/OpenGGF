@@ -1,17 +1,15 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.camera.Camera;
+import com.openggf.game.PlayableEntity;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.TrigLookupTable;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -95,12 +93,13 @@ public class AizGiantRideVineObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         updateSegmentsFromGlobalAngle(frameCounter);
         updateHandle(player);
 
         // ROM cull path in loc_22442/loc_2245C.
-        int coarse = (currentX & 0xFF80) - Camera.getInstance().getX();
+        int coarse = (currentX & 0xFF80) - services().camera().getX();
         if ((coarse < 0 || coarse > 0x280) && !AizVineHandleLogic.anyGrabbed(handle)) {
             setDestroyed(true);
         }
@@ -113,7 +112,7 @@ public class AizGiantRideVineObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
@@ -182,15 +181,15 @@ public class AizGiantRideVineObjectInstance extends AbstractObjectInstance {
         }
 
         AizVineHandleLogic.positionFromParent(handle, parentX, parentY, parentAngle);
-        var sidekicks = SpriteManager.getInstance().getSidekicks();
-        AbstractPlayableSprite sidekick = sidekicks.isEmpty() ? null : sidekicks.getFirst();
+        var sidekicks = services().sidekicks();
+        AbstractPlayableSprite sidekick = sidekicks.isEmpty() ? null : (AbstractPlayableSprite) sidekicks.getFirst();
         AizVineHandleLogic.updatePlayers(handle, player, sidekick, parentAngle);
     }
 
     private void clearGrabbedPlayers() {
         AbstractPlayableSprite player = resolveMainPlayer();
-        var sidekicks = SpriteManager.getInstance().getSidekicks();
-        AbstractPlayableSprite sidekick = sidekicks.isEmpty() ? null : sidekicks.getFirst();
+        var sidekicks = services().sidekicks();
+        AbstractPlayableSprite sidekick = sidekicks.isEmpty() ? null : (AbstractPlayableSprite) sidekicks.getFirst();
         clearControlFor(player, handle.p1.grabFlag != 0);
         clearControlFor(sidekick, handle.p2.grabFlag != 0);
         handle.p1.grabFlag = 0;
@@ -198,8 +197,8 @@ public class AizGiantRideVineObjectInstance extends AbstractObjectInstance {
     }
 
     private AbstractPlayableSprite resolveMainPlayer() {
-        var sprite = SpriteManager.getInstance().getSprite(
-                SonicConfigurationService.getInstance()
+        var sprite = services().spriteManager().getSprite(
+                config()
                         .getString(SonicConfiguration.MAIN_CHARACTER_CODE));
         return sprite instanceof AbstractPlayableSprite playable ? playable : null;
     }
@@ -208,8 +207,7 @@ public class AizGiantRideVineObjectInstance extends AbstractObjectInstance {
         if (player == null || !wasGrabbed) {
             return;
         }
-        player.setControlLocked(false);
-        player.setObjectControlled(false);
+        AizVineHandleLogic.clearPlayerControl(player);
     }
 
     private static int currentAizVineAngleByte(int frameCounter) {

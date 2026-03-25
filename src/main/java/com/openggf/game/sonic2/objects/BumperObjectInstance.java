@@ -1,15 +1,12 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -129,7 +126,8 @@ public class BumperObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Return to idle frame after animation
         if (animTimer > 0) {
             animTimer--;
@@ -225,26 +223,20 @@ public class BumperObjectInstance extends AbstractObjectInstance {
         bounceCooldown = BOUNCE_COOLDOWN;
 
         // Play sound
-        AudioManager.getInstance().playSfx(GameSound.BUMPER);
+        services().playSfx(GameSound.BUMPER);
 
         // Award 10 points and spawn points display (ROM: lines 44675-44683)
-        GameServices.gameState().addScore(10);
-        LevelManager levelManager = LevelManager.getInstance();
+        services().gameState().addScore(10);
         PointsObjectInstance pointsObj = new PointsObjectInstance(
                 new ObjectSpawn(spawn.x(), spawn.y(), 0x29, 0, 0, false, 0),
-                levelManager, 10);
-        levelManager.getObjectManager().addDynamicObject(pointsObj);
+                services(), 10);
+        services().objectManager().addDynamicObject(pointsObj);
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager rm = LevelManager.getInstance().getObjectRenderManager();
-        if (rm == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = rm.getRenderer(Sonic2ObjectArtKeys.BUMPER);
-        if (renderer != null && renderer.isReady()) {
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.BUMPER);
+        if (renderer != null) {
             boolean hFlip = (spawn.renderFlags() & 0x1) != 0;
             boolean vFlip = (spawn.renderFlags() & 0x2) != 0;
             renderer.drawFrameIndex(animFrame, spawn.x(), spawn.y(), hFlip, vFlip);

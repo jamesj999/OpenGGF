@@ -1,16 +1,18 @@
 package com.openggf.game.sonic2.objects.badniks;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
-import com.openggf.level.objects.ObjectRenderManager;
+
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.util.AnimationTimer;
 
 import java.util.List;
 
@@ -116,9 +118,11 @@ public class CrawlBadnikInstance extends AbstractBadnikInstance {
     private int xSubpixel;           // Subpixel accumulator for smooth movement
     private boolean playerApproaching; // True when player is near and rolling
     private boolean vulnerable;      // True when hit from back (collision_flags = $17)
+    private final AnimationTimer walkAnim = new AnimationTimer(ANIM_DELAY, 2);
+    private int lastFrameCounter;    // Cached for wobble calculation in applyBounce
 
-    public CrawlBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Crawl");
+    public CrawlBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Crawl", Sonic2BadnikConfig.DESTRUCTION);
         this.state = State.WALKING;
         this.previousState = State.WALKING;
         this.walkTimer = WALK_DURATION;
@@ -138,7 +142,10 @@ public class CrawlBadnikInstance extends AbstractBadnikInstance {
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
+        lastFrameCounter = frameCounter;
+
         // Check if player is approaching (to switch to attack mode)
         checkPlayerProximity(player);
 
@@ -240,8 +247,9 @@ public class CrawlBadnikInstance extends AbstractBadnikInstance {
     }
 
     @Override
-    public void onPlayerAttack(AbstractPlayableSprite player, TouchResponseResult result) {
-        if (destroyed || player == null) {
+    public void onPlayerAttack(PlayableEntity playerEntity, TouchResponseResult result) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
+        if (isDestroyed() || player == null) {
             return;
         }
 
@@ -308,8 +316,7 @@ public class CrawlBadnikInstance extends AbstractBadnikInstance {
         }
 
         // Add wobble based on frame counter (ROM: add (Timer_frames & 3) to angle)
-        // Using a simple counter here
-        double wobble = (animTimer & 3) * (2.0 * StrictMath.PI / 256.0);
+        double wobble = (lastFrameCounter & 3) * (2.0 * StrictMath.PI / 256.0);
         angle += wobble;
 
         // Calculate velocity components
@@ -331,7 +338,7 @@ public class CrawlBadnikInstance extends AbstractBadnikInstance {
         impactTimer = 16;
 
         // Play bumper sound
-        AudioManager.getInstance().playSfx(Sonic2Sfx.BUMPER.id);
+        services().playSfx(Sonic2Sfx.BUMPER.id);
     }
 
     @Override
@@ -342,11 +349,8 @@ public class CrawlBadnikInstance extends AbstractBadnikInstance {
         }
 
         // Walking animation - alternate between frames 0 and 1
-        animTimer++;
-        if (animTimer >= ANIM_DELAY) {
-            animTimer = 0;
-            animFrame = (animFrame == FRAME_WALK_1) ? FRAME_WALK_2 : FRAME_WALK_1;
-        }
+        walkAnim.tick();
+        animFrame = walkAnim.getFrame(); // 0 = FRAME_WALK_1, 1 = FRAME_WALK_2
     }
 
     @Override
@@ -361,19 +365,12 @@ public class CrawlBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.CRAWL);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.CRAWL);
+        if (renderer == null) return;
 
         // Art faces left by default; flip when facing right
         boolean hFlip = !facingLeft;

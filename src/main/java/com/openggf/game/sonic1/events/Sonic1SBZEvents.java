@@ -146,12 +146,12 @@ class Sonic1SBZEvents extends Sonic1ZoneEvents {
         }
 
         // ROM: Spawn collapsing floor object (FalseFloor / Object 0x83)
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = levelManager();
         ObjectSpawn floorSpawn = new ObjectSpawn(
                 BOSS_SBZ2_X + 0x30, BOSS_SBZ2_Y + 0xC0,
                 Sonic1ObjectIds.FALSE_FLOOR, 0, 0, false, 0);
         lm.getObjectManager().addDynamicObject(
-                new Sonic1FalseFloorInstance(floorSpawn, lm));
+                new Sonic1FalseFloorInstance(floorSpawn));
 
         // addq.b #2,(v_dle_routine).w
         eventRoutine += 2;
@@ -168,16 +168,16 @@ class Sonic1SBZEvents extends Sonic1ZoneEvents {
         // cmpi.w #boss_sbz2_x-$F0,(v_screenposx).w = 0x1F60
         if (camX >= (BOSS_SBZ2_X - 0xF0)) {
             // ROM: Spawn Eggman cutscene object (ScrapEggman / Object 0x82)
-            LevelManager lm = LevelManager.getInstance();
+            LevelManager lm = levelManager();
             ObjectSpawn eggSpawn = new ObjectSpawn(
                     BOSS_SBZ2_X + 0x110, BOSS_SBZ2_Y + 0x94,
                     Sonic1ObjectIds.SCRAP_EGGMAN, 0, 0, false, 0);
             lm.getObjectManager().addDynamicObject(
-                    new Sonic1ScrapEggmanInstance(eggSpawn, lm));
+                    new Sonic1ScrapEggmanInstance(eggSpawn));
 
             // addq.b #2,(v_dle_routine).w
             eventRoutine += 2;
-            GameServices.gameState().setCurrentBossId(Sonic1ObjectIds.SCRAP_EGGMAN);
+            gameState().setCurrentBossId(Sonic1ObjectIds.SCRAP_EGGMAN);
         }
 
         // loc_72B0: ROM: f_lockscreen = 1 — gates the 64px right boundary extension in Sonic_LevelBound. Does NOT modify v_limitright2.
@@ -242,7 +242,7 @@ class Sonic1SBZEvents extends Sonic1ZoneEvents {
         // ROM: clr.b (v_lastlamp).w - checkpoint cleared by requestZoneAndAct
         // ROM: move.w #(id_SBZ<<8)+2,(v_zone).w - FZ is zone 6 act 0 in our engine
         // ROM: move.w #1,(f_restart).w - restart level
-        LevelManager.getInstance().requestZoneAndAct(
+        levelManager().requestZoneAndAct(
                 Sonic1ZoneConstants.ZONE_FZ, 0);
     }
 
@@ -295,13 +295,13 @@ class Sonic1SBZEvents extends Sonic1ZoneEvents {
         // cmpi.w #boss_fz_x-$150,(v_screenposx).w = 0x2300
         if (camX >= (BOSS_FZ_X - 0x150)) {
             // ROM: Spawn FZ boss (Object 0x85)
-            LevelManager lm = LevelManager.getInstance();
+            LevelManager lm = levelManager();
             ObjectSpawn bossSpawn = new ObjectSpawn(
                     BOSS_FZ_X + 0x160, BOSS_FZ_Y + 0x80,
                     Sonic1ObjectIds.FZ_BOSS, 0, 0, false, 0);
             lm.getObjectManager().addDynamicObject(
-                    new Sonic1FZBossInstance(bossSpawn, lm));
-            GameServices.gameState().setCurrentBossId(Sonic1ObjectIds.FZ_BOSS);
+                    new Sonic1FZBossInstance(bossSpawn));
+            gameState().setCurrentBossId(Sonic1ObjectIds.FZ_BOSS);
 
             // addq.b #2,(v_dle_routine).w
             eventRoutine += 2;
