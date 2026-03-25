@@ -53,6 +53,11 @@ public final class TestEnvironment {
      * Resets per-test state without touching the loaded level data or game module.
      */
     public static void resetPerTest() {
+        // Ensure a runtime exists so GameServices can delegate through RuntimeManager.
+        // The first test in a JVM fork may not have run resetAll() yet.
+        if (RuntimeManager.getCurrent() == null) {
+            RuntimeManager.createGameplay();
+        }
         LevelInitProfile profile = GameModuleRegistry.getCurrent().getLevelInitProfile();
         for (InitStep step : profile.perTestResetSteps()) {
             step.execute();
