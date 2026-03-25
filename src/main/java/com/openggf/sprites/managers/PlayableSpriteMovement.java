@@ -24,9 +24,6 @@ import com.openggf.sprites.playable.SecondaryAbility;
 import com.openggf.sprites.animation.ScriptedVelocityAnimationProfile;
 import com.openggf.sprites.animation.SpriteAnimationProfile;
 import com.openggf.game.GroundMode;
-import com.openggf.game.sonic3k.objects.FireShieldObjectInstance;
-import com.openggf.game.sonic3k.objects.LightningShieldObjectInstance;
-import com.openggf.game.sonic3k.objects.BubbleShieldObjectInstance;
 
 /**
  * ROM-accurate movement handler for playable sprites.
@@ -596,7 +593,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		}
 		audioManager.playSfx(GameSound.FIRE_ATTACK);
 		var shield = sprite.getShieldObject();
-		if (shield instanceof FireShieldObjectInstance fire) fire.setAnimation(1);
+		if (shield != null) shield.onAbilityActivated(1);
 	}
 
 	/** Lightning double jump: upward velocity boost (s3.asm:21094-21102) */
@@ -604,7 +601,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		sprite.setYSpeed((short) -0x580);
 		audioManager.playSfx(GameSound.LIGHTNING_ATTACK);
 		var shield = sprite.getShieldObject();
-		if (shield instanceof LightningShieldObjectInstance lightning) lightning.triggerSparks();
+		if (shield != null) shield.onAbilityActivated(1);
 	}
 
 	/** Bubble bounce: slam downward (s3.asm:21105-21114) */
@@ -614,7 +611,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		sprite.setYSpeed((short) 0x800);
 		audioManager.playSfx(GameSound.BUBBLE_ATTACK);
 		var shield = sprite.getShieldObject();
-		if (shield instanceof BubbleShieldObjectInstance bubble) bubble.setAnimation(1);
+		if (shield != null) shield.onAbilityActivated(1);
 	}
 
 	// ========================================
@@ -1503,7 +1500,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		}
 		audioManager.playSfx(GameSound.BUBBLE_ATTACK);
 		var shield = sprite.getShieldObject();
-		if (shield instanceof BubbleShieldObjectInstance bubble) bubble.setAnimation(2);
+		if (shield != null) shield.onAbilityActivated(2);
 	}
 
 	// ========================================

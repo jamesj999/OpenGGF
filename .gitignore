@@ -53,11 +53,8 @@ docs/SMPS-rips/
 docs/SMPS_Research_Pack/
 docs/SCHG_*.htm
 
-# Debug screenshots and artifacts (keep locally)
-/fire_curtain_*.png
-/hollow-tree-*.png
-/miniboss-*.png
-/s3k-ss-*.png
+# Debug screenshots and temporary artifacts (keep locally)
+/*.png
 /sonic-engine-windows.zip
 /test-err.txt
 /test-out.txt

@@ -36,12 +36,6 @@ public final class Sonic1ConveyorState {
         return instance;
     }
 
-    /** @deprecated Use {@link #resetState()} for test teardown. */
-    @Deprecated
-    public static void resetInstance() {
-        instance = null;
-    }
-
     /**
      * Returns true if conveyor direction has been reversed.
      * Mirrors: tst.b (f_conveyrev).w

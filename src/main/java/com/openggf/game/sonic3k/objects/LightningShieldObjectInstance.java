@@ -89,6 +89,11 @@ public class LightningShieldObjectInstance extends ShieldObjectInstance {
         }
     }
 
+    @Override
+    public void onAbilityActivated(int actionId) {
+        triggerSparks();
+    }
+
     /**
      * Obj_LightningShield_CreateSpark (sonic3k.asm:34811-34858).
      * Creates 4 spark particles with diagonal velocities; shield stays on script 0.

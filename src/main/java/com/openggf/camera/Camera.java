@@ -834,13 +834,4 @@ public class Camera {
 		wrapDeltaY = 0;
 	}
 
-	/**
-	 * @deprecated Use {@link #resetState()} for test teardown.
-	 * This method destroys the singleton; resetState() clears
-	 * state in-place, avoiding stale reference issues.
-	 */
-	@Deprecated
-	public static synchronized void resetInstance() {
-		camera = null;
-	}
 }

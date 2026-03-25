@@ -87,7 +87,7 @@ public class TestAizFireCurtainGpuDiag {
             // with a different GL context. resetState() only clears per-level resources and does not
             // reinitialize shaders or the tilemap renderer; this GPU test needs a completely fresh
             // GraphicsManager to ensure fire tiles are rendered correctly.
-            GraphicsManager.resetInstance(); // intentional: full GL teardown needed, not resetState()
+            GraphicsManager.destroyForReinit(); // full GL teardown needed, not resetState()
             GameServices.camera().resetState();
             GameServices.sprites().resetState();
 

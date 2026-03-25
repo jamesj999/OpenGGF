@@ -33,12 +33,6 @@ public final class Sonic1SwitchManager {
         return instance;
     }
 
-    /** @deprecated Use {@link #resetState()} for test teardown. */
-    @Deprecated
-    public static void resetInstance() {
-        instance = null;
-    }
-
     /**
      * Set a bit in the switch state array.
      * Mirrors: bset d3,(a3) in the disassembly.

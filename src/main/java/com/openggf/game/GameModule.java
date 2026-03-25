@@ -313,6 +313,20 @@ public interface GameModule {
     }
 
     /**
+     * Returns the VRAM base tile index for the Tails tail appendage (Obj05)
+     * when the game reuses the main Tails body art at a different VRAM offset.
+     * <p>
+     * Only meaningful when {@link #hasSeparateTailsTailArt()} returns false
+     * (i.e. S2-style shared art). S3K overrides to return -1 since it uses
+     * completely separate art via {@link #loadTailsTailArt()}.
+     *
+     * @return the VRAM base tile index (e.g. 0x07B0 for S2), or -1 if not applicable
+     */
+    default int getTailsTailVramBase() {
+        return -1;
+    }
+
+    /**
      * Returns the ending/credits provider for this game.
      * Manages the full ending sequence: cutscene, credits text,
      * demo playback, and post-credits screens.
