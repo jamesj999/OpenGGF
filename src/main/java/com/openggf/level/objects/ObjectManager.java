@@ -7,17 +7,22 @@ import com.openggf.game.GameServices;
 import com.openggf.debug.DebugOverlayToggle;
 import com.openggf.game.CollisionModel;
 import com.openggf.game.PhysicsFeatureSet;
+import com.openggf.game.GameStateManager;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GLCommandGroup;
+import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
+import com.openggf.level.ParallaxManager;
+import com.openggf.level.WaterSystem;
 import com.openggf.level.spawn.AbstractPlacementManager;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.DamageCause;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.game.GroundMode;
 
 import java.util.ArrayList;
@@ -37,16 +42,15 @@ public class ObjectManager {
 
     private final Placement placement;
     private final ObjectRegistry registry;
-    private final GraphicsManager graphicsManager = GraphicsManager.getInstance();
-    private final Camera camera = Camera.getInstance();
+    private final GraphicsManager graphicsManager;
+    private final Camera camera;
     private final Map<ObjectSpawn, ObjectInstance> activeObjects = new IdentityHashMap<>();
     private final List<ObjectInstance> dynamicObjects = new ArrayList<>();
     private final List<ObjectInstance> pendingDynamicAdditions = new ArrayList<>();
     private final List<GLCommand> renderCommands = new ArrayList<>();
     private int frameCounter;
     private boolean updating;
-    private final ObjectServices objectServices = new DefaultObjectServices(
-            com.openggf.game.RuntimeManager.getCurrent());
+    private final ObjectServices objectServices;
 
     // Pre-bucketed lists for O(n) rendering instead of O(n*buckets)
     @SuppressWarnings("unchecked")
@@ -65,9 +69,13 @@ public class ObjectManager {
 
     public ObjectManager(List<ObjectSpawn> spawns, ObjectRegistry registry,
             int planeSwitcherObjectId, PlaneSwitcherConfig planeSwitcherConfig,
-            TouchResponseTable touchResponseTable) {
+            TouchResponseTable touchResponseTable, GraphicsManager graphicsManager,
+            Camera camera, ObjectServices objectServices) {
         this.placement = new Placement(spawns);
         this.registry = registry;
+        this.graphicsManager = graphicsManager;
+        this.camera = camera;
+        this.objectServices = objectServices;
         this.planeSwitchers = planeSwitcherConfig != null
                 ? new PlaneSwitchers(placement, planeSwitcherObjectId, planeSwitcherConfig)
                 : null;
@@ -80,6 +88,26 @@ public class ObjectManager {
             lowPriorityBuckets[i] = new ArrayList<>();
             highPriorityBuckets[i] = new ArrayList<>();
         }
+    }
+
+    public ObjectManager(List<ObjectSpawn> spawns, ObjectRegistry registry,
+            int planeSwitcherObjectId, PlaneSwitcherConfig planeSwitcherConfig,
+            TouchResponseTable touchResponseTable) {
+        this(spawns, registry, planeSwitcherObjectId, planeSwitcherConfig, touchResponseTable,
+                GraphicsManager.getInstance(),
+                Camera.getInstance(),
+                defaultServices());
+    }
+
+    private static ObjectServices defaultServices() {
+        return new DefaultObjectServices(
+                LevelManager.getInstance(),
+                Camera.getInstance(),
+                GameStateManager.getInstance(),
+                SpriteManager.getInstance(),
+                FadeManager.getInstance(),
+                WaterSystem.getInstance(),
+                ParallaxManager.getInstance());
     }
 
     public void reset(int cameraX) {

@@ -15,7 +15,7 @@ public class GameStateManager {
     private static final int DEFAULT_SPECIAL_STAGE_COUNT = 7;
     private static final int DEFAULT_CHAOS_EMERALD_COUNT = 7;
 
-    private static GameStateManager instance;
+    private static GameStateManager bootstrapInstance;
 
     private int score;
     private int lives;
@@ -103,16 +103,20 @@ public class GameStateManager {
      */
     private boolean endOfLevelFlag;
 
-    private GameStateManager() {
+    public GameStateManager() {
         configureSpecialStageProgress(DEFAULT_SPECIAL_STAGE_COUNT, DEFAULT_CHAOS_EMERALD_COUNT);
         resetSession();
     }
 
     public static synchronized GameStateManager getInstance() {
-        if (instance == null) {
-            instance = new GameStateManager();
+        GameRuntime runtime = RuntimeManager.getCurrent();
+        if (runtime != null) {
+            return runtime.getGameState();
         }
-        return instance;
+        if (bootstrapInstance == null) {
+            bootstrapInstance = new GameStateManager();
+        }
+        return bootstrapInstance;
     }
 
     /**

@@ -41,18 +41,41 @@ public class TestGameRuntime {
     }
 
     @Test
-    public void createGameplay_wrapsExistingSingletons() {
+    public void createGameplay_createsFreshRuntimeGraph() {
+        Camera bootstrapCamera = Camera.getInstance();
+        LevelManager bootstrapLevelManager = LevelManager.getInstance();
+        SpriteManager bootstrapSpriteManager = SpriteManager.getInstance();
+        GameStateManager bootstrapGameState = GameStateManager.getInstance();
+        TimerManager bootstrapTimers = TimerManager.getInstance();
+        FadeManager bootstrapFadeManager = FadeManager.getInstance();
+        CollisionSystem bootstrapCollision = CollisionSystem.getInstance();
+        TerrainCollisionManager bootstrapTerrainCollision = TerrainCollisionManager.getInstance();
+        WaterSystem bootstrapWaterSystem = WaterSystem.getInstance();
+        ParallaxManager bootstrapParallaxManager = ParallaxManager.getInstance();
+
         GameRuntime runtime = RuntimeManager.createGameplay();
-        assertSame(Camera.getInstance(), runtime.getCamera());
-        assertSame(LevelManager.getInstance(), runtime.getLevelManager());
-        assertSame(SpriteManager.getInstance(), runtime.getSpriteManager());
-        assertSame(GameStateManager.getInstance(), runtime.getGameState());
-        assertSame(TimerManager.getInstance(), runtime.getTimers());
-        assertSame(FadeManager.getInstance(), runtime.getFadeManager());
-        assertSame(CollisionSystem.getInstance(), runtime.getCollisionSystem());
-        assertSame(TerrainCollisionManager.getInstance(), runtime.getTerrainCollisionManager());
-        assertSame(WaterSystem.getInstance(), runtime.getWaterSystem());
-        assertSame(ParallaxManager.getInstance(), runtime.getParallaxManager());
+
+        assertSame(runtime.getCamera(), GameServices.camera());
+        assertSame(runtime.getLevelManager(), GameServices.level());
+        assertSame(runtime.getSpriteManager(), GameServices.sprites());
+        assertSame(runtime.getGameState(), GameServices.gameState());
+        assertSame(runtime.getTimers(), GameServices.timers());
+        assertSame(runtime.getFadeManager(), GameServices.fade());
+        assertSame(runtime.getCollisionSystem(), GameServices.collision());
+        assertSame(runtime.getTerrainCollisionManager(), GameServices.terrainCollision());
+        assertSame(runtime.getWaterSystem(), GameServices.water());
+        assertSame(runtime.getParallaxManager(), GameServices.parallax());
+
+        assertNotSame(bootstrapCamera, runtime.getCamera());
+        assertNotSame(bootstrapLevelManager, runtime.getLevelManager());
+        assertNotSame(bootstrapSpriteManager, runtime.getSpriteManager());
+        assertNotSame(bootstrapGameState, runtime.getGameState());
+        assertNotSame(bootstrapTimers, runtime.getTimers());
+        assertNotSame(bootstrapFadeManager, runtime.getFadeManager());
+        assertNotSame(bootstrapCollision, runtime.getCollisionSystem());
+        assertNotSame(bootstrapTerrainCollision, runtime.getTerrainCollisionManager());
+        assertNotSame(bootstrapWaterSystem, runtime.getWaterSystem());
+        assertNotSame(bootstrapParallaxManager, runtime.getParallaxManager());
     }
 
     @Test

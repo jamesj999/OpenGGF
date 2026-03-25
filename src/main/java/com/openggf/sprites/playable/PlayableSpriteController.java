@@ -14,7 +14,9 @@ public class PlayableSpriteController {
     private SuperStateController superState;
 
     public PlayableSpriteController(AbstractPlayableSprite sprite) {
-        this.movement = new PlayableSpriteMovement(sprite);
+        this.movement = new PlayableSpriteMovement(sprite,
+                sprite.currentCollisionSystem(),
+                sprite.currentGameState());
         this.animation = new PlayableSpriteAnimation(sprite);
         this.drowning = new DrowningController(sprite);
     }

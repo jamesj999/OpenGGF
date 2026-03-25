@@ -1,11 +1,13 @@
 package com.openggf.physics;
 
+import com.openggf.game.RuntimeManager;
+
 /**
  * Aggregates sensor results for terrain collision detection.
  * Delegates individual scans to Sensor implementations.
  */
 public class TerrainCollisionManager {
-	private static TerrainCollisionManager instance;
+	private static TerrainCollisionManager bootstrapInstance;
 
 	// Pre-allocated result arrays to avoid per-frame allocations.
 	// Max sensor count is 6 for player sprites (2 ground, 2 ceiling, 2 push).
@@ -37,9 +39,13 @@ public class TerrainCollisionManager {
 	}
 
 	public static synchronized TerrainCollisionManager getInstance() {
-		if (instance == null) {
-			instance = new TerrainCollisionManager();
+		var runtime = RuntimeManager.getCurrent();
+		if (runtime != null) {
+			return runtime.getTerrainCollisionManager();
 		}
-		return instance;
+		if (bootstrapInstance == null) {
+			bootstrapInstance = new TerrainCollisionManager();
+		}
+		return bootstrapInstance;
 	}
 }

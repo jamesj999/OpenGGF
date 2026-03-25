@@ -4,6 +4,7 @@ import com.openggf.data.Rom;
 import com.openggf.game.DynamicWaterHandler;
 import com.openggf.game.OscillationManager;
 import com.openggf.game.PlayerCharacter;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.WaterDataProvider;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.level.objects.ObjectSpawn;
@@ -58,7 +59,7 @@ public class WaterSystem {
     private static final int S1_ZONE_ID_SBZ = Sonic1Constants.ZONE_SBZ; // 0x05 - Scrap Brain Zone
 
     // Singleton instance
-    private static WaterSystem instance;
+    private static WaterSystem bootstrapInstance;
 
     // Water configuration data
     private final Map<String, WaterConfig> waterConfigs = new HashMap<>();
@@ -177,15 +178,18 @@ public class WaterSystem {
         }
     }
 
-    private WaterSystem() {
-        // Private constructor for singleton
+    public WaterSystem() {
     }
 
     public static synchronized WaterSystem getInstance() {
-        if (instance == null) {
-            instance = new WaterSystem();
+        var runtime = RuntimeManager.getCurrent();
+        if (runtime != null) {
+            return runtime.getWaterSystem();
         }
-        return instance;
+        if (bootstrapInstance == null) {
+            bootstrapInstance = new WaterSystem();
+        }
+        return bootstrapInstance;
     }
 
     /**

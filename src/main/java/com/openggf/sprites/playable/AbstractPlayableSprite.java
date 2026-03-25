@@ -29,6 +29,7 @@ import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.level.LevelManager;
 import com.openggf.level.WaterSystem;
+import com.openggf.physics.CollisionSystem;
 import com.openggf.physics.Direction;
 import com.openggf.physics.Sensor;
 import com.openggf.physics.TrigLookupTable;
@@ -736,6 +737,11 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         public final GameStateManager currentGameState() {
                 var runtime = RuntimeManager.getCurrent();
                 return runtime != null ? runtime.getGameState() : GameStateManager.getInstance();
+        }
+
+        public final CollisionSystem currentCollisionSystem() {
+                var runtime = RuntimeManager.getCurrent();
+                return runtime != null ? runtime.getCollisionSystem() : CollisionSystem.getInstance();
         }
 
         public final AudioManager currentAudioManager() {

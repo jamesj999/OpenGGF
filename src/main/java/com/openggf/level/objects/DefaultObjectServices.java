@@ -39,17 +39,45 @@ public class DefaultObjectServices implements ObjectServices {
     private static final java.util.logging.Logger LOG =
         java.util.logging.Logger.getLogger(DefaultObjectServices.class.getName());
 
-    private final GameRuntime runtime;
+    private final LevelManager levelManager;
+    private final Camera camera;
+    private final GameStateManager gameState;
+    private final SpriteManager spriteManager;
+    private final FadeManager fadeManager;
+    private final WaterSystem waterSystem;
+    private final ParallaxManager parallaxManager;
 
     /**
      * Primary constructor backed by a GameRuntime.
      */
     public DefaultObjectServices(GameRuntime runtime) {
-        this.runtime = Objects.requireNonNull(runtime, "runtime");
+        this(Objects.requireNonNull(runtime, "runtime").getLevelManager(),
+                runtime.getCamera(),
+                runtime.getGameState(),
+                runtime.getSpriteManager(),
+                runtime.getFadeManager(),
+                runtime.getWaterSystem(),
+                runtime.getParallaxManager());
+    }
+
+    public DefaultObjectServices(LevelManager levelManager,
+                                 Camera camera,
+                                 GameStateManager gameState,
+                                 SpriteManager spriteManager,
+                                 FadeManager fadeManager,
+                                 WaterSystem waterSystem,
+                                 ParallaxManager parallaxManager) {
+        this.levelManager = Objects.requireNonNull(levelManager, "levelManager");
+        this.camera = Objects.requireNonNull(camera, "camera");
+        this.gameState = Objects.requireNonNull(gameState, "gameState");
+        this.spriteManager = Objects.requireNonNull(spriteManager, "spriteManager");
+        this.fadeManager = Objects.requireNonNull(fadeManager, "fadeManager");
+        this.waterSystem = Objects.requireNonNull(waterSystem, "waterSystem");
+        this.parallaxManager = Objects.requireNonNull(parallaxManager, "parallaxManager");
     }
 
     private LevelManager lm() {
-        return runtime.getLevelManager();
+        return levelManager;
     }
 
     // ── Level state ─────────────────────────────────────────────────────
@@ -118,32 +146,32 @@ public class DefaultObjectServices implements ObjectServices {
 
     @Override
     public Camera camera() {
-        return runtime.getCamera();
+        return camera;
     }
 
     @Override
     public GameStateManager gameState() {
-        return runtime.getGameState();
+        return gameState;
     }
 
     @Override
     public SpriteManager spriteManager() {
-        return runtime.getSpriteManager();
+        return spriteManager;
     }
 
     @Override
     public FadeManager fadeManager() {
-        return runtime.getFadeManager();
+        return fadeManager;
     }
 
     @Override
     public WaterSystem waterSystem() {
-        return runtime.getWaterSystem();
+        return waterSystem;
     }
 
     @Override
     public ParallaxManager parallaxManager() {
-        return runtime.getParallaxManager();
+        return parallaxManager;
     }
 
     // ── Engine globals (not runtime-owned) ──────────────────────────────
@@ -196,7 +224,7 @@ public class DefaultObjectServices implements ObjectServices {
 
     @Override
     public List<PlayableEntity> sidekicks() {
-        return List.copyOf(runtime.getSpriteManager().getSidekicks());
+        return List.copyOf(spriteManager.getSidekicks());
     }
 
     // ── Lost rings ──────────────────────────────────────────────────────

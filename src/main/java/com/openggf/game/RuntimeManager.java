@@ -48,23 +48,23 @@ public final class RuntimeManager {
     }
 
     /**
-     * Creates a new gameplay runtime from the current singletons and sets it
-     * as current. This is the transitional factory — once singletons are removed,
-     * this method will construct managers directly.
+     * Creates a new gameplay runtime from a freshly constructed manager graph
+     * and sets it as current.
      *
      * @return the newly created runtime
      */
     public static synchronized GameRuntime createGameplay() {
-        Camera camera = Camera.getInstance();
-        TimerManager timers = TimerManager.getInstance();
-        GameStateManager gameState = GameStateManager.getInstance();
-        FadeManager fadeManager = FadeManager.getInstance();
-        WaterSystem waterSystem = WaterSystem.getInstance();
-        ParallaxManager parallaxManager = ParallaxManager.getInstance();
-        TerrainCollisionManager terrainCollisionManager = TerrainCollisionManager.getInstance();
-        CollisionSystem collisionSystem = CollisionSystem.getInstance();
-        SpriteManager spriteManager = SpriteManager.getInstance();
-        LevelManager levelManager = LevelManager.getInstance();
+        Camera camera = new Camera();
+        TimerManager timers = new TimerManager();
+        GameStateManager gameState = new GameStateManager();
+        FadeManager fadeManager = new FadeManager();
+        WaterSystem waterSystem = new WaterSystem();
+        ParallaxManager parallaxManager = new ParallaxManager();
+        TerrainCollisionManager terrainCollisionManager = new TerrainCollisionManager();
+        CollisionSystem collisionSystem = new CollisionSystem(terrainCollisionManager);
+        SpriteManager spriteManager = new SpriteManager();
+        LevelManager levelManager = new LevelManager(
+                camera, spriteManager, parallaxManager, collisionSystem, waterSystem, gameState);
 
         GameRuntime runtime = new GameRuntime(camera, timers, gameState, fadeManager,
                 waterSystem, parallaxManager, terrainCollisionManager,

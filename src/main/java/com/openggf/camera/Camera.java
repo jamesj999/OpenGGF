@@ -2,12 +2,13 @@ package com.openggf.camera;
 
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.game.RuntimeManager;
 import com.openggf.sprites.Sprite;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.Tails;
 
 public class Camera {
-	private static Camera camera;
+	private static Camera bootstrapInstance;
 	private short x = 0;
 	private short y = 0;
 
@@ -83,9 +84,11 @@ public class Camera {
 	// ROM: Inertia threshold for fast scroll (0x800 = 2048)
 	private static final short FAST_SCROLL_INERTIA_THRESHOLD = 0x800;
 
-	private Camera() {
-		SonicConfigurationService configService = SonicConfigurationService
-				.getInstance();
+	public Camera() {
+		this(SonicConfigurationService.getInstance());
+	}
+
+	public Camera(SonicConfigurationService configService) {
 		width = configService.getShort(SonicConfiguration.SCREEN_WIDTH_PIXELS);
 		height = configService.getShort(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
 	}
@@ -800,10 +803,14 @@ public class Camera {
 	}
 
 	public static synchronized Camera getInstance() {
-		if (camera == null) {
-			camera = new Camera();
+		var runtime = RuntimeManager.getCurrent();
+		if (runtime != null) {
+			return runtime.getCamera();
 		}
-		return camera;
+		if (bootstrapInstance == null) {
+			bootstrapInstance = new Camera();
+		}
+		return bootstrapInstance;
 	}
 
 	/**
