@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Pattern;
 import com.openggf.level.WaterSystem;
@@ -151,7 +152,7 @@ public class WaterSurfaceManager {
      * Check if water surface should be rendered for the current level.
      */
     public boolean shouldRenderWaterSurface() {
-        WaterSystem waterSystem = WaterSystem.getInstance();
+        WaterSystem waterSystem = GameServices.water();
         if (!waterSystem.hasWater(zoneId, actId)) {
             return false;
         }
@@ -180,7 +181,7 @@ public class WaterSurfaceManager {
             return;
         }
 
-        WaterSystem waterSystem = WaterSystem.getInstance();
+        WaterSystem waterSystem = GameServices.water();
         // Use visual water level (with oscillation) for rendering the water surface
         // sprites
         int waterLevelY = waterSystem.getVisualWaterLevelY(zoneId, actId);

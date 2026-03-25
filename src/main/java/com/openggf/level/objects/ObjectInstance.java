@@ -3,7 +3,7 @@ package com.openggf.level.objects;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import java.util.List;
 
@@ -18,7 +18,7 @@ public interface ObjectInstance {
         return getSpawn().y();
     }
 
-    void update(int frameCounter, AbstractPlayableSprite player);
+    void update(int frameCounter, PlayableEntity player);
 
     void appendRenderCommands(List<GLCommand> commands);
 

@@ -1,6 +1,6 @@
 package com.openggf.game.sonic1.scroll;
 
-import com.openggf.level.scroll.ZoneScrollHandler;
+import com.openggf.level.scroll.AbstractZoneScrollHandler;
 import static com.openggf.level.scroll.M68KMath.*;
 
 /**
@@ -27,11 +27,7 @@ import static com.openggf.level.scroll.M68KMath.*;
  *   move.w d0,bgscreenposy
  * </pre>
  */
-public class SwScrlFz implements ZoneScrollHandler {
-
-    private int minScrollOffset;
-    private int maxScrollOffset;
-    private short vscrollFactorBG;
+public class SwScrlFz extends AbstractZoneScrollHandler {
 
     // Persistent BG camera (16.16 fixed point)
     private long bgXPos;
@@ -63,8 +59,7 @@ public class SwScrlFz implements ZoneScrollHandler {
             init(cameraX, cameraY);
         }
 
-        minScrollOffset = Integer.MAX_VALUE;
-        maxScrollOffset = Integer.MIN_VALUE;
+        resetScrollTracking();
 
         int deltaX = cameraX - lastCameraX;
         int deltaY = cameraY - lastCameraY;
@@ -87,28 +82,11 @@ public class SwScrlFz implements ZoneScrollHandler {
         short bgScroll = negWord(bgX);
 
         int packed = packScrollWords(fgScroll, bgScroll);
-        int offset = bgScroll - fgScroll;
-        if (offset < minScrollOffset) minScrollOffset = offset;
-        if (offset > maxScrollOffset) maxScrollOffset = offset;
+        trackOffset(fgScroll, bgScroll);
 
         for (int i = 0; i < VISIBLE_LINES; i++) {
             horizScrollBuf[i] = packed;
         }
-    }
-
-    @Override
-    public short getVscrollFactorBG() {
-        return vscrollFactorBG;
-    }
-
-    @Override
-    public int getMinScrollOffset() {
-        return minScrollOffset;
-    }
-
-    @Override
-    public int getMaxScrollOffset() {
-        return maxScrollOffset;
     }
 
     @Override

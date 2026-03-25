@@ -1,9 +1,9 @@
 package com.openggf.game.sonic2.objects;
 
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.CheckpointState;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -67,12 +67,13 @@ public class CheckpointStarInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // If checkpoint was used for special stage entry, destroy remaining stars.
         // In the original ROM, the level is fully reloaded when returning from special
         // stage, so stars don't persist. We simulate this by having stars self-destruct
         // when the usedForSpecialStage flag is set.
-        var checkpointState = LevelManager.getInstance().getCheckpointState();
+        var checkpointState = services().checkpointState();
         if (checkpointState instanceof CheckpointState cs && cs.isUsedForSpecialStage()) {
             setDestroyed(true);
             return;
@@ -118,7 +119,7 @@ public class CheckpointStarInstance extends AbstractObjectInstance {
             if (parentCheckpoint != null) {
                 parentCheckpoint.markUsedForSpecialStage();
             }
-            LevelManager.getInstance().requestSpecialStageEntry();
+            services().requestSpecialStageEntry();
             setDestroyed(true);
         }
     }
@@ -218,7 +219,7 @@ public class CheckpointStarInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

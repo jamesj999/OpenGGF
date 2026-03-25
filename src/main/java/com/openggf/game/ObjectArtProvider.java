@@ -1,6 +1,7 @@
 package com.openggf.game;
 
 import com.openggf.graphics.GraphicsManager;
+import com.openggf.level.Level;
 import com.openggf.level.Pattern;
 import com.openggf.level.objects.HudRenderManager;
 import com.openggf.level.objects.ObjectSpriteSheet;
@@ -140,5 +141,17 @@ public interface ObjectArtProvider {
      */
     default HudRenderManager.HudFlashMode getHudFlashMode() {
         return HudRenderManager.HudFlashMode.PALETTE_SWAP;
+    }
+
+    /**
+     * Registers object art sheets that depend on level tile data (e.g., smashable
+     * ground, collapsing ledges, platforms that reuse level patterns).
+     * Called after level load when the level's Pattern[] is available.
+     *
+     * @param level     the loaded level (provides pattern data)
+     * @param zoneIndex the current zone index
+     */
+    default void registerLevelTileArt(Level level, int zoneIndex) {
+        // Default no-op — games without level-tile-based object art need not override
     }
 }

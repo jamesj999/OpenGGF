@@ -1,16 +1,13 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.audio.GameSound;
-import com.openggf.camera.Camera;
-import com.openggf.data.Rom;
-import com.openggf.data.RomByteReader;
 import com.openggf.game.sonic2.S2SpriteDataLoader;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.PatternDesc;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
@@ -23,8 +20,8 @@ import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpriteMappingPiece;
 import com.openggf.level.render.SpritePieceRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.util.LazyMappingHolder;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -84,8 +81,7 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
             { 0x080, -0x080, 20}   // Fragment 13
     };
 
-    private static List<SpriteMappingFrame> mappings;
-    private static boolean mappingLoadAttempted;
+    private static final LazyMappingHolder MAPPINGS = new LazyMappingHolder();
 
     // Position (8.8 fixed point for debris mode)
     private int x;
@@ -102,8 +98,6 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
     private int velY;
     private int debrisDelay;       // objoff_3F in ROM - delay before debris starts moving
     private SpriteMappingPiece debrisPiece;  // single piece for debris mode
-    private ObjectSpawn dynamicSpawn;
-
     public RisingPillarObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
         this.x = spawn.x();
@@ -120,7 +114,7 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
         this.debrisDelay = 0;
         this.debrisPiece = null;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -132,20 +126,15 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
     @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
-    @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (routine == 2) {
             updateMain(player);
         } else if (routine == 4) {
             updateDebris();
         }
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -226,10 +215,8 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
         x = subX >> 8;
         y = subY >> 8;
 
-        // Check if off-screen - delete if below screen
-        Camera camera = Camera.getInstance();
-        int screenBottom = camera.getY() + 224 + 128;
-        if (y > screenBottom) {
+        // Check if off-screen - delete if beyond camera viewport + margin
+        if (!isOnScreen(112)) {
             setDestroyed(true);
         }
     }
@@ -245,15 +232,16 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
         player.setAir(true);
 
         // Play slow smash sound effect
-        AudioManager.getInstance().playSfx(GameSound.SLOW_SMASH);
+        services().playSfx(GameSound.SLOW_SMASH);
 
         // NOTE: We do NOT call markRemembered here. The original game uses MarkObjGone
         // which CLEARS the respawn flag (bclr #7), allowing the pillar to respawn
         // in its initial shrunken state when the player returns to this area.
 
         // Get debris frame (mapping_frame + 7)
-        ensureMappingsLoaded();
-        if (mappings == null || mappings.isEmpty()) {
+        List<SpriteMappingFrame> mappings = MAPPINGS.get(
+                Sonic2Constants.MAP_UNC_OBJ2B_ADDR, S2SpriteDataLoader::loadMappingFrames, "Obj2B");
+        if (mappings.isEmpty()) {
             setDestroyed(true);
             return;
         }
@@ -281,7 +269,7 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
         subY = y << 8;
 
         // Spawn remaining debris pieces (1-13) as separate objects
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null) {
             int numPieces = Math.min(pieces.size(), DEBRIS_DATA.length);
             for (int i = 1; i < numPieces; i++) {
@@ -301,9 +289,9 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ensureMappingsLoaded();
-        if (mappings == null || mappings.isEmpty()) {
-            appendDebug(commands);
+        List<SpriteMappingFrame> mappings = MAPPINGS.get(
+                Sonic2Constants.MAP_UNC_OBJ2B_ADDR, S2SpriteDataLoader::loadMappingFrames, "Obj2B");
+        if (mappings.isEmpty()) {
             return;
         }
 
@@ -317,6 +305,8 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
     }
 
     private void renderFullFrame(List<GLCommand> commands) {
+        List<SpriteMappingFrame> mappings = MAPPINGS.get(
+                Sonic2Constants.MAP_UNC_OBJ2B_ADDR, S2SpriteDataLoader::loadMappingFrames, "Obj2B");
         int frame = mappingFrame;
         if (frame < 0 || frame >= mappings.size()) {
             frame = 0;
@@ -324,14 +314,13 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
 
         SpriteMappingFrame mapping = mappings.get(frame);
         if (mapping == null || mapping.pieces().isEmpty()) {
-            appendDebug(commands);
             return;
         }
 
         boolean hFlip = (spawn.renderFlags() & 0x1) != 0;
         boolean vFlip = (spawn.renderFlags() & 0x2) != 0;
 
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = services().graphicsManager();
         List<SpriteMappingPiece> pieces = mapping.pieces();
         for (int i = pieces.size() - 1; i >= 0; i--) {
             SpriteMappingPiece piece = pieces.get(i);
@@ -349,7 +338,7 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = services().graphicsManager();
         renderPieceWithArtTile(graphicsManager, debrisPiece, x, y, false, false);
     }
 
@@ -403,7 +392,8 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Only handle solid contact in main routine
         if (routine != 2) {
             return;
@@ -417,44 +407,14 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Only solid in main routine (not when debris)
         return routine == 2 && !isDestroyed();
     }
 
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = new ObjectSpawn(
-                    x,
-                    y,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
-    }
-
-    private static void ensureMappingsLoaded() {
-        if (mappingLoadAttempted) {
-            return;
-        }
-        mappingLoadAttempted = true;
-        LevelManager manager = LevelManager.getInstance();
-        if (manager == null || manager.getGame() == null) {
-            return;
-        }
-        try {
-            Rom rom = manager.getGame().getRom();
-            RomByteReader reader = RomByteReader.fromRom(rom);
-            mappings = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ2B_ADDR);
-            LOGGER.fine("Loaded " + mappings.size() + " Obj2B mapping frames");
-        } catch (IOException | RuntimeException e) {
-            LOGGER.warning("Failed to load Obj2B mappings: " + e.getMessage());
-        }
-    }
-
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         int halfWidth = HALF_WIDTH;
         int halfHeight = yRadius;
         int left = x - halfWidth;
@@ -462,17 +422,10 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
         int top = y - halfHeight;
         int bottom = y + halfHeight;
 
-        appendLine(commands, left, top, right, top);
-        appendLine(commands, right, top, right, bottom);
-        appendLine(commands, right, bottom, left, bottom);
-        appendLine(commands, left, bottom, left, top);
-    }
-
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.4f, 0.6f, 0.2f, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.4f, 0.6f, 0.2f, x2, y2, 0, 0));
+        ctx.drawLine(left, top, right, top, 0.4f, 0.6f, 0.2f);
+        ctx.drawLine(right, top, right, bottom, 0.4f, 0.6f, 0.2f);
+        ctx.drawLine(right, bottom, left, bottom, 0.4f, 0.6f, 0.2f);
+        ctx.drawLine(left, bottom, left, top, 0.4f, 0.6f, 0.2f);
     }
 
     /**
@@ -505,7 +458,18 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public int getX() {
+            return currentX;
+        }
+
+        @Override
+        public int getY() {
+            return currentY;
+        }
+
+        @Override
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (isDestroyed()) {
                 return;
             }
@@ -523,10 +487,8 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
             currentX = subX >> 8;
             currentY = subY >> 8;
 
-            // Check if off-screen
-            Camera camera = Camera.getInstance();
-            int screenBottom = camera.getY() + 224 + 128;
-            if (currentY > screenBottom) {
+            // Check if off-screen - delete if beyond camera viewport + margin
+            if (!isOnScreen(112)) {
                 setDestroyed(true);
             }
         }
@@ -537,7 +499,7 @@ public class RisingPillarObjectInstance extends AbstractObjectInstance
                 return;
             }
 
-            GraphicsManager graphicsManager = GraphicsManager.getInstance();
+            GraphicsManager graphicsManager = services().graphicsManager();
             SpritePieceRenderer.renderPieces(
                     List.of(piece),
                     currentX,

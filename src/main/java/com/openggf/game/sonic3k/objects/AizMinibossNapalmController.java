@@ -1,7 +1,7 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.boss.AbstractBossChild;
 import com.openggf.level.objects.boss.AbstractBossInstance;
@@ -45,7 +45,8 @@ public class AizMinibossNapalmController extends AbstractBossChild {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (!shouldUpdate(frameCounter)) {
             return;
         }
@@ -89,7 +90,7 @@ public class AizMinibossNapalmController extends AbstractBossChild {
         AizMinibossNapalmProjectile projectile = new AizMinibossNapalmProjectile(
                 currentX, currentY);
         spawnDynamicObject(projectile);
-        AudioManager.getInstance().playSfx(Sonic3kSfx.PROJECTILE.id);
+        services().playSfx(Sonic3kSfx.PROJECTILE.id);
         state = State.IDLE;
     }
 

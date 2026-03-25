@@ -6,6 +6,7 @@ import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
+import com.openggf.game.GameServices;
 import com.openggf.level.LevelManager;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.RequiresRomRule;
@@ -50,7 +51,7 @@ public class TestSczSpawnOnTornado {
         fixture = HeadlessTestFixture.builder()
                 .withSharedLevel(sharedLevel)
                 .build();
-        levelManager = LevelManager.getInstance();
+        levelManager = GameServices.level();
     }
 
     @Test

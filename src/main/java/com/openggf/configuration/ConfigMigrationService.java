@@ -1,9 +1,10 @@
 package com.openggf.configuration;
 
-import com.openggf.Control.InputHandler;
+import com.openggf.control.InputHandler;
 
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Logger;
 
 /**
  * Service to detect and migrate AWT key codes to GLFW key codes in config files.
@@ -11,6 +12,8 @@ import java.util.Map;
  * (which used AWT KeyEvent codes) to the LWJGL build (which uses GLFW codes).
  */
 public class ConfigMigrationService {
+
+    private static final Logger LOGGER = Logger.getLogger(ConfigMigrationService.class.getName());
 
     // AWT arrow key codes (used as detection sentinel)
     private static final int AWT_VK_LEFT = 37;
@@ -67,7 +70,7 @@ public class ConfigMigrationService {
      * @param config The config map to migrate (modified in place)
      */
     public void migrateConfig(Map<String, Object> config) {
-        System.out.println("[ConfigMigration] Migrating config from AWT to GLFW key codes...");
+        LOGGER.info("[ConfigMigration] Migrating config from AWT to GLFW key codes...");
         int migrated = 0;
 
         for (SonicConfiguration keyConfig : KEY_CONFIGS) {
@@ -76,13 +79,13 @@ public class ConfigMigrationService {
                 int glfwCode = InputHandler.awtToGlfw(awtCode);
                 if (glfwCode != awtCode) {
                     config.put(keyConfig.name(), glfwCode);
-                    System.out.println("[ConfigMigration] Migrated " + keyConfig.name() + ": " + awtCode + " -> " + glfwCode);
+                    LOGGER.info("[ConfigMigration] Migrated " + keyConfig.name() + ": " + awtCode + " -> " + glfwCode);
                     migrated++;
                 }
             }
         }
 
-        System.out.println("[ConfigMigration] Migrated " + migrated + " key bindings to GLFW codes");
+        LOGGER.info("[ConfigMigration] Migrated " + migrated + " key bindings to GLFW codes");
     }
 
     private Integer getIntValue(Map<String, Object> config, String key) {

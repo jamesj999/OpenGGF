@@ -1,11 +1,10 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
@@ -99,9 +98,6 @@ public class NutObjectInstance extends AbstractObjectInstance
     // Subtype flags
     private boolean fallsOff;       // Bit 7 of subtype: nut falls off at max travel
 
-    // Dynamic spawn for moving position
-    private ObjectSpawn dynamicSpawn;
-
     public NutObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
         init();
@@ -126,7 +122,7 @@ public class NutObjectInstance extends AbstractObjectInstance
         p1Mode = MODE_IDLE;
         p1Direction = 0;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -138,12 +134,6 @@ public class NutObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public SolidObjectParams getSolidParams() {
         return new SolidObjectParams(HALF_WIDTH, Y_RADIUS, GROUND_HALF_HEIGHT);
@@ -156,19 +146,22 @@ public class NutObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed();
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (contact.standing() || contact.touchTop()) {
             lastContactFrame = frameCounter;
         }
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         playerStanding = (frameCounter - lastContactFrame) <= 1;
 
         switch (routine) {
@@ -182,7 +175,7 @@ public class NutObjectInstance extends AbstractObjectInstance
         // Mask Y to 11 bits (from line 53531: andi.w #$7FF,y_pos(a0))
         y &= 0x7FF;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -372,15 +365,12 @@ public class NutObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager != null) {
-            PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.MTZ_NUT);
-            if (renderer != null && renderer.isReady()) {
-                // Clamp frame to 0-3
-                int frame = mappingFrame & 3;
-                renderer.drawFrameIndex(frame, x, y, false, false);
-                return;
-            }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.MTZ_NUT);
+        if (renderer != null) {
+            // Clamp frame to 0-3
+            int frame = mappingFrame & 3;
+            renderer.drawFrameIndex(frame, x, y, false, false);
+            return;
         }
         appendDebugRender(commands);
     }
@@ -423,18 +413,5 @@ public class NutObjectInstance extends AbstractObjectInstance
     public int getPriorityBucket() {
         // From disassembly: move.b #4,priority(a0)
         return RenderPriority.clamp(4);
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.y() != y) {
-            dynamicSpawn = new ObjectSpawn(
-                    x,
-                    y,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
     }
 }

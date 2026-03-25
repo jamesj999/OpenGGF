@@ -3,8 +3,7 @@ package com.openggf.sprites.playable;
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameAudioProfile;
 import com.openggf.audio.GameSound;
-import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
-import com.openggf.game.sonic2.objects.BreathingBubbleInstance;
+import com.openggf.level.objects.BreathingBubbleInstance;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -73,6 +72,7 @@ public class DrowningController {
     private static final int S1_MAX_BUBBLE_FRAME = 5;
 
     private final AbstractPlayableSprite player;
+    private final AudioManager audioManager;
     private final Random random = new Random();
 
     /** Remaining air in seconds */
@@ -107,6 +107,7 @@ public class DrowningController {
 
     public DrowningController(AbstractPlayableSprite player) {
         this.player = player;
+        this.audioManager = player.currentAudioManager();
         reset();
     }
 
@@ -169,14 +170,14 @@ public class DrowningController {
 
         // Check for warning chime
         if (WARNING_CHIME_LEVELS.contains(remainingAir)) {
-            AudioManager.getInstance().playSfx(GameSound.AIR_DING);
+            audioManager.playSfx(GameSound.AIR_DING);
         }
 
         // Check for drowning music
         if (remainingAir == DROWNING_MUSIC_LEVEL && !drowningMusicStarted) {
-            GameAudioProfile audioProfile = AudioManager.getInstance().getAudioProfile();
+            GameAudioProfile audioProfile = audioManager.getAudioProfile();
             if (audioProfile != null) {
-                AudioManager.getInstance().playMusic(audioProfile.getDrowningMusicId());
+                audioManager.playMusic(audioProfile.getDrowningMusicId());
                 drowningMusicStarted = true;
             }
         }
@@ -249,7 +250,7 @@ public class DrowningController {
      * @param countdownNumber Countdown number (-1 for regular bubble)
      */
     private void spawnBubble(int countdownNumber) {
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = player.currentLevelManager();
         if (levelManager == null || levelManager.getObjectManager() == null) {
             return;
         }
@@ -302,9 +303,9 @@ public class DrowningController {
         }
 
         // Check for S2 bubble art (BUBBLES)
-        PatternSpriteRenderer s2Renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.BUBBLES);
+        PatternSpriteRenderer s2Renderer = renderManager.getRenderer(ObjectArtKeys.BUBBLES);
         if (s2Renderer != null && s2Renderer.isReady()) {
-            bubbleArtKey = Sonic2ObjectArtKeys.BUBBLES;
+            bubbleArtKey = ObjectArtKeys.BUBBLES;
             bubbleCountdownFrames = S2_COUNTDOWN_FRAMES;
             bubbleMaxFrame = S2_MAX_BUBBLE_FRAME;
             return;
@@ -343,9 +344,9 @@ public class DrowningController {
      * Called when exiting water or replenishing air while drowning music was playing.
      */
     private void restartZoneMusic() {
-        int musicId = LevelManager.getInstance().getCurrentLevelMusicId();
+        int musicId = player.currentLevelManager().getCurrentLevelMusicId();
         if (musicId >= 0) {
-            AudioManager.getInstance().playMusic(musicId);
+            audioManager.playMusic(musicId);
         }
     }
 

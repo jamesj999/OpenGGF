@@ -1,20 +1,14 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.debug.DebugOverlayManager;
-import com.openggf.debug.DebugOverlayToggle;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
-import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.ButtonVineTriggerManager;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -51,11 +45,6 @@ import java.util.logging.Logger;
 public class VineSwitchObjectInstance extends AbstractObjectInstance {
 
     private static final Logger LOGGER = Logger.getLogger(VineSwitchObjectInstance.class.getName());
-
-    // Debug state
-    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
-            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
 
     // === Object Configuration ===
     private final int switchId;  // subtype & 0x0F: Switch ID for ButtonVine_Trigger
@@ -107,7 +96,8 @@ public class VineSwitchObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -269,7 +259,7 @@ public class VineSwitchObjectInstance extends AbstractObjectInstance {
 
         // Play blip sound
         // ROM: move.w #SndID_Blip,d0 / jsr (PlaySound).l
-        AudioManager.getInstance().playSfx(Sonic2Sfx.BLIP.id);
+        services().playSfx(Sonic2Sfx.BLIP.id);
 
         LOGGER.fine(() -> String.format("Player grabbed vine switch at (%d,%d), switchId=%d",
                 spawn.x(), spawn.y(), switchId));
@@ -338,21 +328,9 @@ public class VineSwitchObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        // Draw debug overlay when enabled
-        if (isDebugViewEnabled()) {
-            appendDebug(commands);
-        }
-
         // Get renderer from art provider
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.VINE_SWITCH);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.VINE_SWITCH);
+        if (renderer == null) return;
 
         // Render the current frame at object position
         renderer.drawFrameIndex(mappingFrame, getX(), getY(), false, false);
@@ -364,21 +342,19 @@ public class VineSwitchObjectInstance extends AbstractObjectInstance {
         return RenderPriority.clamp(4);
     }
 
-    /**
-     * Appends debug visualization to render commands.
-     */
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         int x = spawn.x();
         int y = spawn.y();
 
         // Draw object center (yellow cross)
-        appendLine(commands, x - 4, y, x + 4, y, 1.0f, 1.0f, 0.0f);
-        appendLine(commands, x, y - 4, x, y + 4, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(x - 4, y, x + 4, y, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(x, y - 4, x, y + 4, 1.0f, 1.0f, 0.0f);
 
         // Draw hang point (cyan cross at y + HANG_Y_OFFSET)
         int hangY = y + HANG_Y_OFFSET;
-        appendLine(commands, x - 4, hangY, x + 4, hangY, 0.0f, 1.0f, 1.0f);
-        appendLine(commands, x, hangY - 4, x, hangY + 4, 0.0f, 1.0f, 1.0f);
+        ctx.drawLine(x - 4, hangY, x + 4, hangY, 0.0f, 1.0f, 1.0f);
+        ctx.drawLine(x, hangY - 4, x, hangY + 4, 0.0f, 1.0f, 1.0f);
 
         // Draw grab detection zone (green rectangle)
         int grabTop = y + GRAB_Y_OFFSET;
@@ -386,37 +362,21 @@ public class VineSwitchObjectInstance extends AbstractObjectInstance {
         int left = x - GRAB_HALF_WIDTH;
         int right = x + GRAB_HALF_WIDTH;
 
-        appendLine(commands, left, grabTop, right, grabTop, 0.0f, 1.0f, 0.0f);
-        appendLine(commands, right, grabTop, right, grabBottom, 0.0f, 1.0f, 0.0f);
-        appendLine(commands, right, grabBottom, left, grabBottom, 0.0f, 1.0f, 0.0f);
-        appendLine(commands, left, grabBottom, left, grabTop, 0.0f, 1.0f, 0.0f);
+        ctx.drawLine(left, grabTop, right, grabTop, 0.0f, 1.0f, 0.0f);
+        ctx.drawLine(right, grabTop, right, grabBottom, 0.0f, 1.0f, 0.0f);
+        ctx.drawLine(right, grabBottom, left, grabBottom, 0.0f, 1.0f, 0.0f);
+        ctx.drawLine(left, grabBottom, left, grabTop, 0.0f, 1.0f, 0.0f);
 
         // Draw grabbed state indicator (red if grabbed, gray if not)
         float grabR = (player1Grabbed || player2Grabbed) ? 1.0f : 0.5f;
         float grabG = (player1Grabbed || player2Grabbed) ? 0.0f : 0.5f;
-        appendLine(commands, x - 8, y - 8, x + 8, y + 8, grabR, grabG, 0.0f);
-        appendLine(commands, x + 8, y - 8, x - 8, y + 8, grabR, grabG, 0.0f);
+        ctx.drawLine(x - 8, y - 8, x + 8, y + 8, grabR, grabG, 0.0f);
+        ctx.drawLine(x + 8, y - 8, x - 8, y + 8, grabR, grabG, 0.0f);
 
         // Draw switch ID indicator (small number display)
         // Just show a label line for now
         int labelY = y - 20;
-        appendLine(commands, x - 4, labelY, x + 4, labelY, 0.8f, 0.8f, 0.8f);
+        ctx.drawLine(x - 4, labelY, x + 4, labelY, 0.8f, 0.8f, 0.8f);
     }
 
-    /**
-     * Appends a debug line to the render commands.
-     */
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2, float r, float g, float b) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x2, y2, 0, 0));
-    }
-
-    /**
-     * Checks if debug view is currently enabled.
-     */
-    private boolean isDebugViewEnabled() {
-        return DEBUG_VIEW_ENABLED && OVERLAY_MANAGER.isEnabled(DebugOverlayToggle.OVERLAY);
-    }
 }

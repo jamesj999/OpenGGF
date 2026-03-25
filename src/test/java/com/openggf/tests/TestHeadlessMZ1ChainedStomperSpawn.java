@@ -7,6 +7,7 @@ import org.junit.ClassRule;
 import org.junit.Test;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.game.sonic1.objects.Sonic1ChainedStomperObjectInstance;
+import com.openggf.game.GameServices;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectManager;
@@ -94,7 +95,7 @@ public class TestHeadlessMZ1ChainedStomperSpawn {
         Sonic sprite = (Sonic) fixture.sprite();
         placeAndSettle(sprite);
 
-        ObjectManager om = LevelManager.getInstance().getObjectManager();
+        ObjectManager om = GameServices.level().getObjectManager();
         assertNotNull("ObjectManager should exist", om);
 
         int cameraX = fixture.camera().getX();
@@ -139,7 +140,7 @@ public class TestHeadlessMZ1ChainedStomperSpawn {
         Sonic sprite = (Sonic) fixture.sprite();
         placeAndSettle(sprite);
 
-        ObjectManager om = LevelManager.getInstance().getObjectManager();
+        ObjectManager om = GameServices.level().getObjectManager();
         assertNotNull("ObjectManager should exist", om);
 
         int cameraX = fixture.camera().getX();

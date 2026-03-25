@@ -7,11 +7,11 @@ import com.openggf.level.rings.RingFrame;
 import com.openggf.level.rings.RingFramePiece;
 import com.openggf.level.rings.RingSpriteSheet;
 import com.openggf.tools.NemesisReader;
+import com.openggf.util.PatternDecompressor;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -61,18 +61,7 @@ public class Sonic3kRingArt {
         FileChannel channel = rom.getFileChannel();
         channel.position(Sonic3kConstants.ART_NEM_RING_HUD_TEXT_ADDR);
         byte[] result = NemesisReader.decompress(channel);
-
-        int totalPatterns = result.length / Pattern.PATTERN_SIZE_IN_ROM;
-        int count = Math.min(totalPatterns, RING_PATTERN_COUNT);
-
-        Pattern[] patterns = new Pattern[count];
-        for (int i = 0; i < count; i++) {
-            patterns[i] = new Pattern();
-            byte[] subArray = Arrays.copyOfRange(result, i * Pattern.PATTERN_SIZE_IN_ROM,
-                    (i + 1) * Pattern.PATTERN_SIZE_IN_ROM);
-            patterns[i].fromSegaFormat(subArray);
-        }
-        return patterns;
+        return PatternDecompressor.fromBytes(result, RING_PATTERN_COUNT);
     }
 
     /**

@@ -1,8 +1,11 @@
 package com.openggf.game.sonic1.objects;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectInstance;
@@ -38,12 +41,18 @@ public class TestSonic1PlatformObjectInstanceRespawn {
 
     @Before
     public void setUp() {
-        Camera.resetInstance();
+        RuntimeManager.createGameplay();
+        GameServices.camera().resetState();
+    }
+
+    @After
+    public void tearDown() {
+        RuntimeManager.destroyCurrent();
     }
 
     @Test
     public void fallingPlatformDoesNotRespawnImmediatelyWhileStillInWindow() {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         camera.setX((short) 0);
         camera.setMaxY((short) 0);
 
@@ -53,7 +62,7 @@ public class TestSonic1PlatformObjectInstanceRespawn {
         ObjectRegistry registry = new ObjectRegistry() {
             @Override
             public ObjectInstance create(ObjectSpawn objectSpawn) {
-                return new Sonic1PlatformObjectInstance(objectSpawn, levelManager);
+                return new Sonic1PlatformObjectInstance(objectSpawn);
             }
 
             @Override

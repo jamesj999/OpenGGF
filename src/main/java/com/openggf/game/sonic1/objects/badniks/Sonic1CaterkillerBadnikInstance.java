@@ -1,18 +1,14 @@
 package com.openggf.game.sonic1.objects.badniks;
-
-import com.openggf.audio.AudioManager;
-import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.GameServices;
-import com.openggf.game.sonic1.audio.Sonic1Sfx;
-import com.openggf.game.sonic2.objects.ExplosionObjectInstance;
-import com.openggf.game.sonic1.objects.Sonic1PointsObjectInstance;
-import com.openggf.game.sonic2.objects.badniks.AbstractBadnikInstance;
-import com.openggf.game.sonic2.objects.badniks.AnimalObjectInstance;
+import com.openggf.game.PlayableEntity;
+
+import com.openggf.debug.DebugRenderContext;
+import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+import com.openggf.level.objects.DestructionEffects;
+import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.ObjectTerrainUtils;
@@ -153,8 +149,8 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
     // Child body segment objects
     private final List<Sonic1CaterkillerBodyInstance> bodySegments = new ArrayList<>();
 
-    public Sonic1CaterkillerBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Caterkiller");
+    public Sonic1CaterkillerBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Caterkiller");
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         // S1: obStatus bit 0 set = xFlip (facing right in screen terms)
@@ -176,7 +172,8 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (fragmenting) {
             updateFragment();
             return;
@@ -242,7 +239,7 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
      * </pre>
      */
     private void spawnBodySegments() {
-        var objectManager = levelManager.getObjectManager();
+        var objectManager = services() != null ? services().objectManager() : null;
         if (objectManager == null) {
             return;
         }
@@ -268,7 +265,7 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
 
             Sonic1CaterkillerBodyInstance body = new Sonic1CaterkillerBodyInstance(
                     this, parentState, segX, currentY, facingLeft,
-                    isAnimated[i], i, ringBufIdx, levelManager);
+                    isAnimated[i], i, ringBufIdx);
             bodySegments.add(body);
             objectManager.addDynamicObject(body);
             parentState = body;
@@ -497,45 +494,20 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
     }
 
     @Override
-    protected void destroyBadnik(AbstractPlayableSprite player) {
-        destroyed = true;
+    protected DestructionConfig getDestructionConfig() {
+        return Sonic1DestructionConfig.S1_DESTRUCTION_CONFIG;
+    }
+
+    @Override
+    protected void destroyBadnik(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         deleting = true;
-
-        var objectManager = levelManager.getObjectManager();
-        if (objectManager != null) {
-            if (spawn.respawnTracked()) {
-                objectManager.markRemembered(spawn);
-            } else {
-                objectManager.removeFromActiveSpawns(spawn);
-            }
-        }
-
-        // Spawn explosion at head position
-        ExplosionObjectInstance explosion = new ExplosionObjectInstance(0x27, currentX, currentY,
-                levelManager.getObjectRenderManager());
-        levelManager.getObjectManager().addDynamicObject(explosion);
-
-        // Spawn animal
-        AnimalObjectInstance animal = new AnimalObjectInstance(
-                new ObjectSpawn(currentX, currentY, 0x28, 0, 0, false, 0), levelManager);
-        levelManager.getObjectManager().addDynamicObject(animal);
-
-        // Award points
-        int pointsValue = 100;
-        if (player != null) {
-            pointsValue = player.incrementBadnikChain();
-            GameServices.gameState().addScore(pointsValue);
-        }
-
-        Sonic1PointsObjectInstance points = new Sonic1PointsObjectInstance(
-                new ObjectSpawn(currentX, currentY, 0x29, 0, 0, false, 0), levelManager, pointsValue);
-        levelManager.getObjectManager().addDynamicObject(points);
-
-        AudioManager.getInstance().playSfx(Sonic1Sfx.BREAK_ITEM.id);
-
+        setDestroyed(true);
+        setDestroyed(true);
+        DestructionEffects.destroyBadnik(currentX, currentY, spawn, player, services(),
+                getDestructionConfig());
         // Normal head destruction does not use fragment mode in S1; body segments delete.
         markBodySegmentsForDeletion();
-        setDestroyed(true);
     }
 
     /**
@@ -588,7 +560,7 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
      * This starts fragment behavior without awarding points or spawning explosions.
      */
     void triggerFragmentFromBodyHit() {
-        if (deleting || destroyed || fragmenting) {
+        if (deleting || isDestroyed() || fragmenting) {
             return;
         }
         startHeadFragment();
@@ -609,7 +581,7 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
             // ROM checks both X and Y via obRender on-screen flag.
             return isOnScreen(160);
         }
-        return !destroyed && isOnScreenX(160);
+        return !isDestroyed() && isOnScreenX(160);
     }
 
     @Override
@@ -623,15 +595,8 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.CATERKILLER);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.CATERKILLER);
+        if (renderer == null) return;
 
         int frame = getHeadMappingFrame();
         // S1: default art faces left. hFlip when facing right (obStatus bit 0 set).

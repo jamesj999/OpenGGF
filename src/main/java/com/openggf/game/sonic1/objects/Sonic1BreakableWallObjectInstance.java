@@ -1,12 +1,10 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.PlayableEntity;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
-import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectManager;
@@ -95,7 +93,7 @@ public class Sonic1BreakableWallObjectInstance extends AbstractObjectInstance
         this.frameIndex = spawn.subtype() & 0xFF;
 
         // RememberState: check if already broken
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null && objectManager.isRemembered(spawn)) {
             this.broken = true;
             setDestroyed(true);
@@ -103,7 +101,8 @@ public class Sonic1BreakableWallObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (broken || player == null) {
             return;
         }
@@ -118,12 +117,14 @@ public class Sonic1BreakableWallObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !broken;
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (broken || player == null) {
             return;
         }
@@ -156,7 +157,7 @@ public class Sonic1BreakableWallObjectInstance extends AbstractObjectInstance
         broken = true;
 
         // Mark as remembered (RememberState) so it stays broken
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null) {
             objectManager.markRemembered(spawn);
         }
@@ -202,8 +203,8 @@ public class Sonic1BreakableWallObjectInstance extends AbstractObjectInstance
     }
 
     private void spawnFragments(int[][] fragSpeeds) {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectManager objectManager = services().objectManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (objectManager == null || renderManager == null) {
             return;
         }
@@ -239,7 +240,7 @@ public class Sonic1BreakableWallObjectInstance extends AbstractObjectInstance
         }
 
         // From disassembly: move.w #sfx_WallSmash,d0 / jmp (QueueSound2).l
-        AudioManager.getInstance().playSfx(GameSound.WALL_SMASH);
+        services().playSfx(GameSound.WALL_SMASH);
     }
 
     @Override
@@ -248,7 +249,7 @@ public class Sonic1BreakableWallObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
@@ -311,7 +312,8 @@ public class Sonic1BreakableWallObjectInstance extends AbstractObjectInstance
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (isDestroyed()) {
                 return;
             }
@@ -327,7 +329,7 @@ public class Sonic1BreakableWallObjectInstance extends AbstractObjectInstance
 
             // From disassembly: tst.b obRender(a0) / bpl.w DeleteObject
             // Delete when off-screen (render flag bit 7 indicates on-screen)
-            var cam = Camera.getInstance();
+            var cam = services().camera();
             int cameraX = cam.getX();
             int cameraY = cam.getY();
             if (posX < cameraX - 64 || posX > cameraX + 320 + 64

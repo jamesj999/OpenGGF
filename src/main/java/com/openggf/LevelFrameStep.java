@@ -64,6 +64,10 @@ public final class LevelFrameStep {
      */
     public static void execute(LevelManager levelManager, Camera camera,
                                Runnable spriteUpdate, StepWrapper wrapper) {
+        // 0. Process dirty regions from MutableLevel (editor mutations).
+        //    No-op when the level is not a MutableLevel — zero impact on gameplay.
+        levelManager.processDirtyRegions();
+
         // 1. Zone features pre-physics — wind tunnels, water slides set
         //    f_slidemode / obInertia before ExecuteObjects and Sonic_Move.
         //    ROM: LZWaterFeatures runs before ExecuteObjects (sonic.asm:3042).

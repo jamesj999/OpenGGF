@@ -1,13 +1,16 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
-import com.openggf.game.sonic2.objects.ObjectAnimationState;
+import com.openggf.game.PlayableEntity;
+import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectManager;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.animation.SpriteAnimationEndAction;
 import com.openggf.sprites.animation.SpriteAnimationScript;
@@ -48,25 +51,26 @@ public class OctusBadnikInstance extends AbstractBadnikInstance {
     private final boolean xFlip;
     private State state;
     private int timer;
-    private int ySubpixel;
+    private final SubpixelMotion.State motionState;
     private boolean bulletFired;
     private final ObjectAnimationState animationState;
 
-    public OctusBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Octus");
+    public OctusBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Octus", Sonic2BadnikConfig.DESTRUCTION);
         this.startY = spawn.y();
         this.xFlip = (spawn.renderFlags() & 0x01) != 0;
         // Octus faces left by default; x_flip in spawn means face right
         this.facingLeft = !xFlip;
         this.state = State.WAIT_FOR_PLAYER;
         this.timer = 0;
-        this.ySubpixel = 0;
+        this.motionState = new SubpixelMotion.State(spawn.x(), spawn.y(), 0, 0, 0, 0);
         this.bulletFired = false;
         this.animationState = new ObjectAnimationState(ANIMATIONS, 0, 1);
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
             case WAIT_FOR_PLAYER -> updateWaitForPlayer(player);
             case DELAY_BEFORE_RISE -> updateDelayBeforeRise();
@@ -136,7 +140,7 @@ public class OctusBadnikInstance extends AbstractBadnikInstance {
             // Returned to start position - reset
             currentY = startY;
             yVelocity = 0;
-            ySubpixel = 0;
+            motionState.ySub = 0;
             state = State.WAIT_FOR_PLAYER;
             bulletFired = false;
             animationState.setAnimId(0); // Back to idle
@@ -145,10 +149,10 @@ public class OctusBadnikInstance extends AbstractBadnikInstance {
     }
 
     private void applyYMovement() {
-        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
-        yPos24 += yVelocity;
-        currentY = yPos24 >> 8;
-        ySubpixel = yPos24 & 0xFF;
+        motionState.y = currentY;
+        motionState.yVel = yVelocity;
+        SubpixelMotion.moveSprite2(motionState);
+        currentY = motionState.y;
     }
 
     private void fireBullet() {
@@ -157,7 +161,7 @@ public class OctusBadnikInstance extends AbstractBadnikInstance {
         }
         bulletFired = true;
 
-        ObjectManager objectManager = levelManager.getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -191,19 +195,12 @@ public class OctusBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.OCTUS);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.OCTUS);
+        if (renderer == null) return;
 
         // Art faces left by default. When xFlip is set in spawn, face right.
         // facingLeft=true means default orientation (no flip needed).

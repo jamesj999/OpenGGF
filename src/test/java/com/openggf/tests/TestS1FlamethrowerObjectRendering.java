@@ -3,6 +3,8 @@ package com.openggf.tests;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import com.openggf.game.GameRuntime;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.game.sonic1.objects.Sonic1FlamethrowerObjectInstance;
 import com.openggf.level.LevelManager;
@@ -24,29 +26,39 @@ public class TestS1FlamethrowerObjectRendering {
 
     private Field levelManagerField;
     private LevelManager originalLevelManager;
+    private LevelManager mockLevelManager;
+    private GameRuntime originalRuntime;
 
     @Before
     public void setUp() throws Exception {
+        // Save original state
         levelManagerField = LevelManager.class.getDeclaredField("levelManager");
         levelManagerField.setAccessible(true);
         originalLevelManager = (LevelManager) levelManagerField.get(null);
+        originalRuntime = RuntimeManager.getCurrent();
+
+        mockLevelManager = mock(LevelManager.class);
     }
 
     @After
     public void tearDown() throws Exception {
         levelManagerField.set(null, originalLevelManager);
+        RuntimeManager.setCurrent(originalRuntime);
     }
 
     @Test
     public void appendRenderCommandsUsesSpawnFlipBits() throws Exception {
-        LevelManager mockLevelManager = mock(LevelManager.class);
         ObjectRenderManager renderManager = mock(ObjectRenderManager.class);
         PatternSpriteRenderer renderer = mock(PatternSpriteRenderer.class);
 
         when(mockLevelManager.getObjectRenderManager()).thenReturn(renderManager);
         when(renderManager.getRenderer(ObjectArtKeys.SBZ_FLAMETHROWER)).thenReturn(renderer);
         when(renderer.isReady()).thenReturn(true);
+
+        // Install mock via both singleton field and RuntimeManager
         levelManagerField.set(null, mockLevelManager);
+        // Clear the runtime so GameServices.level() falls back to LevelManager.getInstance()
+        RuntimeManager.setCurrent(null);
 
         ObjectSpawn spawn = new ObjectSpawn(0x1234, 0x0560,
                 Sonic1ObjectIds.FLAMETHROWER, 0x43, 0x03, false, 0);

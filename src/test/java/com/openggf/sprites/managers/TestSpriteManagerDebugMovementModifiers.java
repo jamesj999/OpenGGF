@@ -1,7 +1,7 @@
 package com.openggf.sprites.managers;
 
 import org.junit.Test;
-import com.openggf.Control.InputHandler;
+import com.openggf.control.InputHandler;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;

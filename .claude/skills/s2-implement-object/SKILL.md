@@ -121,7 +121,7 @@ Create the instance class following existing patterns. **Choose the appropriate 
 For objects that exist as a single collision/render entity:
 
 ```java
-package com.openggf.sonic.game.sonic2.objects;
+package com.openggf.game.sonic2.objects;
 
 public class ObjectNameObjectInstance extends AbstractObjectInstance
         implements SolidObjectProvider, SolidObjectListener {
@@ -169,12 +169,9 @@ public class ObjectNameObjectInstance extends AbstractObjectInstance
         implements SolidObjectProvider {
 
     private void spawnChildren() {
-        ObjectManager manager = LevelManager.getInstance().getObjectManager();
-
-        // Create child with its own spawn data
+        // Preferred: use spawnChild() helper (inherited from AbstractObjectInstance)
         ObjectSpawn childSpawn = new ObjectSpawn(childX, childY, objectId, childSubtype, ...);
-        ChildObjectInstance child = new ChildObjectInstance(childSpawn, "ChildName");
-        manager.addDynamicObject(child);  // Child becomes independent
+        ChildObjectInstance child = spawnChild(() -> new ChildObjectInstance(childSpawn, "ChildName"));
     }
 }
 ```
@@ -194,9 +191,9 @@ public class ObjectNameObjectInstance extends AbstractObjectInstance
 For enemies with touch response and destruction behavior:
 
 ```java
-package com.openggf.sonic.game.sonic2.objects.badniks;
+package com.openggf.game.sonic2.objects.badniks;
 
-import com.openggf.game.sonic2.objects.badniks.AbstractBadnikInstance;
+import com.openggf.level.objects.AbstractBadnikInstance;
 
 public class ObjectNameBadnikInstance extends AbstractBadnikInstance {
     @Override
@@ -244,7 +241,64 @@ Bosses differ significantly from regular objects:
 | `Obj25` (enemy) base routines | Badnik | Uses touch response, spawns explosion on death |
 | `LevEvents_XXX` spawning, `Boss_HandleHits` | **Use /s2-implement-boss** | Spawned by level events, 8 hits, camera lock |
 
-#### 2.4 Implementation Requirements
+#### 2.4 Reusable Engine Utilities
+
+**IMPORTANT: Before writing any physics, movement, or collision code, check these existing utilities. Do NOT reimplement functionality that already exists.**
+
+##### Movement & Physics
+
+| Utility | Location | Use When |
+|---------|----------|----------|
+| `SubpixelMotion.moveSprite(state, gravity)` | `com.openggf.level.objects.SubpixelMotion` | 16:8 fixed-point position update with gravity (ROM's `ObjectFall`/`SpeedToPos`). Create a `SubpixelMotion.State` field, sync before call, read back after. |
+| `SubpixelMotion.moveSprite2(state)` | `com.openggf.level.objects.SubpixelMotion` | Same without gravity (ROM's `SpeedToPos`). |
+| `SubpixelMotion.moveX(state)` | `com.openggf.level.objects.SubpixelMotion` | X-only movement. |
+| `SwingMotion.update()` | `com.openggf.physics.SwingMotion` | Object oscillates/bobs/swings (ROM's `Swing_UpAndDown`). |
+| `PatrolMovementHelper` | `com.openggf.level.objects.PatrolMovementHelper` | Left-right patrol with turn-at-edge detection. |
+| `PlatformBobHelper` | `com.openggf.level.objects.PlatformBobHelper` | Sine-based standing-nudge displacement for platforms. |
+| `ObjectTerrainUtils.checkFloorDist()` | `com.openggf.physics` | Single-point floor/ceiling/wall detection for objects. |
+| `TrigLookupTable.calcAngle()` / `sinHex()` / `cosHex()` | `com.openggf.physics` | ROM-accurate angle calculation and trig. |
+
+##### Base Classes
+
+| Base Class | Location | Use When |
+|------------|----------|----------|
+| `AbstractBadnikInstance` | `com.openggf.level.objects` | All badniks. Provides touch response, destruction with `DestructionEffects`, debug rendering. S2 badniks pass `Sonic2BadnikConfig.DESTRUCTION`. Objects receive `ObjectServices` via injection — use `services()` to access camera, audio, level, game state. |
+| `AbstractProjectileInstance` | `com.openggf.level.objects` | Fire-and-forget projectiles. Handles motion, gravity, off-screen destroy, HURT collision. |
+| `AbstractSpikeObjectInstance` | `com.openggf.level.objects` | Spike objects with retract/extend behavior. |
+| `AbstractMonitorObjectInstance` | `com.openggf.level.objects` | Monitor objects. Shared icon-rise physics. Override `applyPowerup()`. |
+| `AbstractPointsObjectInstance` | `com.openggf.level.objects` | Floating score popups. Override `getFrameForScore()`. |
+| `GravityDebrisChild` | `com.openggf.level.objects` | Debris/fragment children with gravity. Override `appendRenderCommands()`. |
+
+##### Collision & Touch Response
+
+| Pattern | When to Use |
+|---------|-------------|
+| `TouchResponseAttackable` + `TouchResponseProvider` | Destroyable enemies. Player jump/roll destroys them. |
+| `TouchResponseProvider` only (no `Attackable`) | Non-destroyable hazards. Return `0x80 \| sizeIndex` for HURT. |
+| `DestructionEffects.destroyBadnik()` | Explosion + animal + points on badnik defeat. |
+| `SpringBounceHelper` | `com.openggf.level.objects.SpringBounceHelper` — shared spring bounce physics. |
+
+##### Rendering & Animation
+
+| Utility | Use When |
+|---------|----------|
+| `getRenderer(artKey)` | Inherited from `AbstractObjectInstance`. Returns ready `PatternSpriteRenderer` or null. Use instead of manual render manager access. |
+| `services().renderManager()` | Returns `ObjectRenderManager` for manual render control when needed. |
+| `AnimationTimer` | `com.openggf.util.AnimationTimer` — cyclic frame animation timer. |
+| `LazyMappingHolder` | `com.openggf.util.LazyMappingHolder` — lazy-loading holder for sprite mappings. |
+| `PatternDecompressor` | `com.openggf.util.PatternDecompressor` — bytes→Pattern[] conversion. |
+| `S2SpriteDataLoader.loadMappingFrames()` | Parse S2 mappings from ROM at runtime. Prefer over hardcoded mappings. |
+
+##### Object Lifecycle
+
+| Utility | Use When |
+|---------|----------|
+| `buildSpawnAt(x, y)` | Inherited from `AbstractObjectInstance`. Use in `getSpawn()` overrides instead of constructing `new ObjectSpawn(...)` manually. |
+| `isPlayerRiding()` | Inherited from `AbstractObjectInstance`. Safe null-check chain for platform riding detection. |
+| `isOnScreen(margin)` | Inherited from `AbstractObjectInstance`. Off-screen visibility check. |
+| `DebugRenderContext` | `com.openggf.debug.DebugRenderContext` — use for `appendDebugRenderCommands()`. |
+
+#### 2.5 Implementation Requirements
 
 **Engine Extensions**: If the ROM uses functionality that the engine doesn't expose, **you MUST extend the engine** rather than working around it or documenting it as a limitation. Examples:
 - ROM reads button state (up/down/left/right) → Engine must expose `isUpPressed()`, `isDownPressed()`, etc.
@@ -275,7 +329,7 @@ int configBits = subtype & 0x0F;
 
 **Sound effects**: Use constants from `Sonic2AudioConstants.java`:
 ```java
-AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_SPRING);
+services().audioManager().playSfx(Sonic2AudioConstants.SFX_SPRING);
 ```
 
 Reference `Sonic2SmpsLoader` for SFX name → ID mapping:
@@ -299,7 +353,7 @@ public void appendDebugRenderCommands(List<GLCommand> commands) {
 }
 ```
 
-#### 2.5 Factory Registration
+#### 2.6 Factory Registration
 
 Register in `Sonic2ObjectRegistry.registerDefaultFactories()`:
 ```java
@@ -310,7 +364,7 @@ registerFactory(Sonic2ObjectIds.OBJECT_NAME,
 For badniks:
 ```java
 registerFactory(Sonic2ObjectIds.OBJECT_NAME,
-    (spawn, registry) -> new ObjectNameBadnikInstance(spawn, levelManager));
+    (spawn, registry) -> new ObjectNameBadnikInstance(spawn));
 ```
 
 ### Phase 3: Code Quality
@@ -390,7 +444,7 @@ Once cross-validation is confirmed bug-free:
 | Art loader | `src/.../game/sonic2/Sonic2ObjectArt.java` |
 | Art provider | `src/.../game/sonic2/Sonic2ObjectArtProvider.java` |
 | Registry | `src/.../game/sonic2/objects/Sonic2ObjectRegistry.java` |
-| Base badnik | `src/.../game/sonic2/objects/badniks/AbstractBadnikInstance.java` |
+| Base badnik | `src/.../level/objects/AbstractBadnikInstance.java` |
 | SFX mapping | `src/.../game/sonic2/audio/smps/Sonic2SmpsLoader.java` |
 | SFX constants | `src/.../game/sonic2/constants/Sonic2AudioConstants.java` |
 | Disassembly | `docs/s2disasm/` |

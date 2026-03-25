@@ -1,10 +1,18 @@
 package com.openggf.game.sonic2;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic2.events.Sonic2MTZEvents;
+import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.ObjectServices;
+import com.openggf.level.objects.TestObjectServices;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
+
+import java.lang.reflect.Field;
 
 import static org.junit.Assert.*;
 
@@ -34,12 +42,42 @@ public class TestTodo10_MTZEventSpecs {
     private Sonic2MTZEvents events;
     private Camera cam;
 
+    @SuppressWarnings("unchecked")
+    private static void setConstructionContext(ObjectServices services) {
+        try {
+            Field field = AbstractObjectInstance.class.getDeclaredField("CONSTRUCTION_CONTEXT");
+            field.setAccessible(true);
+            ((ThreadLocal<Object>) field.get(null)).set(services);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void clearConstructionContext() {
+        try {
+            Field field = AbstractObjectInstance.class.getDeclaredField("CONSTRUCTION_CONTEXT");
+            field.setAccessible(true);
+            ((ThreadLocal<Object>) field.get(null)).remove();
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     @Before
     public void setUp() {
-        Camera.resetInstance();
-        cam = Camera.getInstance();
+        RuntimeManager.createGameplay();
+        GameServices.camera().resetState();
+        cam = GameServices.camera();
+        setConstructionContext(new TestObjectServices());
         events = new Sonic2MTZEvents();
         events.init(0);
+    }
+
+    @After
+    public void tearDown() {
+        clearConstructionContext();
+        RuntimeManager.destroyCurrent();
     }
 
     /**

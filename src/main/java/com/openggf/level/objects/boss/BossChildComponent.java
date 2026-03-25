@@ -1,7 +1,7 @@
 package com.openggf.level.objects.boss;
 
 import com.openggf.graphics.GLCommand;
-import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import java.util.List;
 
@@ -16,7 +16,7 @@ public interface BossChildComponent {
      * @param frameCounter Global frame counter
      * @param player       Player sprite
      */
-    void update(int frameCounter, AbstractPlayableSprite player);
+    void update(int frameCounter, PlayableEntity player);
 
     /**
      * Append render commands for this component.

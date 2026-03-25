@@ -1,10 +1,9 @@
 package com.openggf.game.sonic1.objects.bosses;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -130,13 +129,14 @@ public class Sonic1BossBlockInstance extends AbstractObjectInstance
      * Called from level events (DLE_SYZ3main).
      * ROM: BossBlock_Main spawning loop.
      */
-    public static void spawnAllBlocks(LevelManager levelManager) {
-        if (levelManager.getObjectManager() == null) {
+    public static void spawnAllBlocks() {
+        var objectManager = staticObjectManager();
+        if (objectManager == null) {
             return;
         }
         for (int col = 0; col < BLOCK_COUNT; col++) {
             Sonic1BossBlockInstance block = new Sonic1BossBlockInstance(col);
-            levelManager.getObjectManager().addDynamicObject(block);
+            objectManager.addDynamicObject(block);
         }
     }
 
@@ -193,7 +193,8 @@ public class Sonic1BossBlockInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return blockState == STATE_SOLID;
     }
 
@@ -202,7 +203,8 @@ public class Sonic1BossBlockInstance extends AbstractObjectInstance
     // ========================================================================
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (blockState) {
             case STATE_SOLID -> { /* Solid collision handled by engine */ }
             case STATE_GRABBED -> updateGrabbed();
@@ -237,8 +239,8 @@ public class Sonic1BossBlockInstance extends AbstractObjectInstance
      * ROM: BossBlock_Break — Create 4 quarter fragments with velocities.
      */
     private void doBreak() {
-        LevelManager lm = LevelManager.getInstance();
-        if (lm != null && lm.getObjectManager() != null) {
+        var objectManager = services().objectManager();
+        if (objectManager != null) {
             for (int i = 0; i < 4; i++) {
                 int fragX = x + FRAG_POSITIONS[i][0];
                 int fragY = y + FRAG_POSITIONS[i][1];
@@ -248,12 +250,12 @@ public class Sonic1BossBlockInstance extends AbstractObjectInstance
 
                 Sonic1BossBlockInstance frag = new Sonic1BossBlockInstance(
                         fragX, fragY, fragXVel, fragYVel, fragFrame);
-                lm.getObjectManager().addDynamicObject(frag);
+                objectManager.addDynamicObject(frag);
             }
         }
 
         // ROM: sfx_WallSmash
-        AudioManager.getInstance().playSfx(Sonic1Sfx.WALL_SMASH.id);
+        services().playSfx(Sonic1Sfx.WALL_SMASH.id);
 
         // Delete this block
         setDestroyed(true);
@@ -284,11 +286,7 @@ public class Sonic1BossBlockInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        LevelManager lm = LevelManager.getInstance();
-        if (lm == null) {
-            return;
-        }
-        ObjectRenderManager renderManager = lm.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

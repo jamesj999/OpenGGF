@@ -127,3 +127,48 @@ through ROM data tables. Without implementing this, fire objects in AIZ Act 2 re
 **Key insight:** Palette _animation_ (timer-based cycling in `AnPal_*`) and palette _mutation_
 (camera-threshold writes in `_Resize` routines) are separate systems that both modify palettes
 at runtime. Both must be implemented for visual accuracy.
+
+## Reusable Engine Utilities for S3K Objects
+
+When implementing S3K objects, bosses, or badniks, **always check for existing utilities before writing new code**. The following patterns have been reimplemented multiple times and should be reused:
+
+### Physics & Movement
+
+| Utility | Package | ROM Equivalent | API |
+|---------|---------|----------------|-----|
+| `SwingMotion.update()` | `com.openggf.physics` | `Swing_UpAndDown` (sonic3k.asm:177851) | `Result update(accel, vel, max, dirDown)` → `Result(velocity, directionDown, directionChanged)` |
+| `ObjectTerrainUtils` | `com.openggf.physics` | `ObjCheckFloorDist` etc. | `checkFloorDist(x, y, yRadius)`, `checkCeilingDist()`, `checkLeftWallDist()`, `checkRightWallDist()` |
+| `TrigLookupTable` | `com.openggf.physics` | `CalcAngle`, `GetSineCosine` | `calcAngle(dx, dy)`, `sinHex(angle)`, `cosHex(angle)` |
+
+**Subpixel movement** (ROM's `MoveSprite` / `MoveSprite2`) — use `SubpixelMotion` utility (`com.openggf.level.objects`). `AbstractS3kBadnikInstance.moveWithVelocity()` also provides the standard 24-bit position arithmetic.
+
+### Collision & Touch Response
+
+| Interface | When to Use | `getCollisionFlags()` Return |
+|-----------|-------------|------------------------------|
+| `TouchResponseAttackable` + `TouchResponseProvider` | Destroyable enemies (normal badniks, boss bodies) | `sizeIndex & 0x3F` |
+| `TouchResponseProvider` only | Non-destroyable hazards (body segments, projectiles, spikes) | `0x80 \| (sizeIndex & 0x3F)` |
+
+### Object Infrastructure
+
+| Class | Package | Purpose |
+|-------|---------|---------|
+| `AbstractS3kBadnikInstance` | `game.sonic3k.objects.badniks` | Base for attackable badniks. Provides `defeat()`, `spawnProjectile()`, `moveWithVelocity()`, rendering via `PatternSpriteRenderer`. |
+| `S3kBadnikProjectileInstance` | `game.sonic3k.objects.badniks` | Reusable projectile with gravity, HURT collision, shield deflection. |
+| `BoxObjectInstance` | `game.sonic2.objects` | Invisible trigger zones with debug box rendering. Used by AutoSpin. |
+| `Sonic3kPlcArtRegistry` | `game.sonic3k` | Zone art registration. Add `StandaloneArtEntry` for dedicated-art objects, `LevelArtEntry` for PLC-loaded art. |
+
+### Player State Manipulation
+
+**Force roll** (ROM's `loc_1E9B6`): check `getRolling()`, call `setRolling(true)`, adjust Y via `getRollHeightAdjustment()`, set animation via `ScriptedVelocityAnimationProfile.getRollAnimId()`, play `GameSound.ROLLING`.
+
+**Pinball mode** (`setPinballMode(true)`): prevents rolling from clearing on landing (ROM's `spin_dash_flag` bit 0).
+
+### Child Object Spawning
+
+Prefer `spawnChild()` for runtime children (body segments, projectiles, explosions):
+```java
+ChildObject child = spawnChild(() -> new ChildObject(spawn, params));
+```
+
+Legacy pattern (still works): `services().objectManager().addDynamicObject(childInstance)`. If called during the update loop, additions are queued and flushed after the frame.

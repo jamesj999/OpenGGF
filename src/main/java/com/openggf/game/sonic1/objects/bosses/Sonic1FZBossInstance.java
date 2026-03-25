@@ -1,15 +1,13 @@
 package com.openggf.game.sonic1.objects.bosses;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
-import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
-import com.openggf.game.sonic2.objects.BossExplosionObjectInstance;
+import com.openggf.level.objects.boss.BossExplosionObjectInstance;
 import com.openggf.game.sonic1.scroll.Sonic1ZoneConstants;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -120,8 +118,8 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
     private int escapeCollisionFlags;
     private boolean endingTransitionRequested;
 
-    public Sonic1FZBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "FZ Boss");
+    public Sonic1FZBossInstance(ObjectSpawn spawn) {
+        super(spawn, "FZ Boss");
     }
 
     @Override
@@ -163,27 +161,27 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
     }
 
     private void spawnChildComponents() {
-        var objectManager = levelManager.getObjectManager();
+        var objectManager = services().objectManager();
         if (objectManager == null) return;
 
         // Spawn 4 cylinders with subtypes 0, 2, 4, 6 (ROM: loc_19E3E)
         for (int i = 0; i < 4; i++) {
             int subtype = i * 2;
-            FZCylinder cylinder = new FZCylinder(this, levelManager, subtype);
+            FZCylinder cylinder = new FZCylinder(this, subtype);
             cylinders[i] = cylinder;
             childComponents.add(cylinder);
             objectManager.addDynamicObject(cylinder);
         }
 
         // Spawn plasma launcher (ROM: loc_19E20)
-        plasmaLauncher = new FZPlasmaLauncher(this, levelManager);
+        plasmaLauncher = new FZPlasmaLauncher(this);
         childComponents.add(plasmaLauncher);
         objectManager.addDynamicObject(plasmaLauncher);
     }
 
     private void ensureChildComponentsSpawned() {
         if (childComponentsSpawned) return;
-        if (levelManager.getObjectManager() == null) return;
+        if (services().objectManager() == null) return;
         spawnChildComponents();
         childComponentsSpawned = true;
     }
@@ -216,7 +214,8 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
     }
 
     @Override
-    public void onPlayerAttack(AbstractPlayableSprite player, TouchResponseResult result) {
+    public void onPlayerAttack(PlayableEntity playerEntity, TouchResponseResult result) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: In state 14, a successful player hit clears obColType, starting objoff_30 timer.
         if (state.routineSecondary != STATE_FINAL_FLIGHT || !escapeHittable || escapeCollisionFlags == 0) {
             return;
@@ -225,7 +224,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
         escapeHitTimer = 0x1E;
         escapeHittable = false;
         showDamaged = true;
-        AudioManager.getInstance().playSfx(Sonic1Sfx.HIT_BOSS.id);
+        services().playSfx(Sonic1Sfx.HIT_BOSS.id);
     }
 
     @Override
@@ -239,7 +238,8 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
     }
 
     @Override
-    protected void updateBossLogic(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateBossLogic(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Spawn children after the parent is already inserted in ObjectManager.
         // This preserves parent-before-child collision order for FZ boss solids.
         ensureChildComponentsSpawned();
@@ -259,7 +259,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
     // === State 0: WAIT (loc_19E90) ===
     // Wait for camera to reach boss_fz_x
     private void updateWait() {
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         int camX = camera.getX() & 0xFFFF;
 
         if (camX >= BOSS_FZ_X) {
@@ -281,9 +281,9 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
             // Cylinders done, check hit count
             if (state.hitCount <= 0) {
                 // ROM: loc_19FBC — defeated
-                GameServices.gameState().addScore(1000);
+                services().gameState().addScore(1000);
                 // ROM: v_bossstatus = 0 cleared on defeat (matches other S1 bosses)
-                GameServices.gameState().setCurrentBossId(0);
+                services().gameState().setCurrentBossId(0);
                 state.routineSecondary = STATE_DEFEAT_FALL;
                 state.x = BOSS_FZ_X + 0x170;
                 state.y = BOSS_FZ_Y + 0x2C;
@@ -331,7 +331,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
         damageCooldown = 0;
 
         // ROM: sfx_Rumbling
-        AudioManager.getInstance().playSfx(Sonic1Sfx.RUMBLING.id);
+        services().playSfx(Sonic1Sfx.RUMBLING.id);
     }
 
     private void handleCombatCollision(AbstractPlayableSprite player) {
@@ -379,7 +379,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
 
         // ROM: play electricity sound every 16 frames
         if ((frameCounter & 0xF) == 0) {
-            AudioManager.getInstance().playSfx(Sonic1Sfx.ELECTRIC.id);
+            services().playSfx(Sonic1Sfx.ELECTRIC.id);
         }
 
         // ROM: tst.w objoff_32 — check if plasma launcher signaled completion
@@ -709,7 +709,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
      * ROM: loc_1A166 — addq.w #2,(v_limitright2).w
      */
     private void expandCameraBoundary() {
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         int rightBoundary = camera.getMaxX() & 0xFFFF;
         if (rightBoundary < BOSS_FZ_END) {
             camera.setMaxX((short) (rightBoundary + 2));
@@ -727,7 +727,8 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
      * ROM: loc_19F50 — check d4 > 0 (side contact) AND obAnim == id_Roll
      */
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Only process during cylinder attack phase
         if (state.routineSecondary != STATE_CYLINDER_ATTACK) return;
 
@@ -754,7 +755,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
         damageCooldown = 0x64; // ROM: move.b #$64,objoff_35
 
         // ROM: sfx_HitBoss
-        AudioManager.getInstance().playSfx(Sonic1Sfx.HIT_BOSS.id);
+        services().playSfx(Sonic1Sfx.HIT_BOSS.id);
     }
 
     /**
@@ -811,8 +812,8 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
     }
 
     private void spawnDefeatExplosionAt(int sourceX, int sourceY) {
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
-        if (renderManager == null || levelManager.getObjectManager() == null) {
+        ObjectRenderManager renderManager = services().renderManager();
+        if (renderManager == null || services().objectManager() == null) {
             return;
         }
 
@@ -822,8 +823,9 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
         BossExplosionObjectInstance explosion = new BossExplosionObjectInstance(
                 sourceX + xOffset,
                 sourceY + yOffset,
-                renderManager);
-        levelManager.getObjectManager().addDynamicObject(explosion);
+                renderManager,
+                Sonic1Sfx.BOSS_EXPLOSION.id);
+        services().objectManager().addDynamicObject(explosion);
     }
 
     private void requestEndingTransition() {
@@ -832,12 +834,12 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
         }
         endingTransitionRequested = true;
 
-        int endingAct = GameServices.gameState().hasAllEmeralds()
+        int endingAct = services().gameState().hasAllEmeralds()
                 ? ENDING_ACT_FLOWERS
                 : ENDING_ACT_NO_EMERALDS;
         // ROM: move.b #id_Ending,(v_gamemode).w
         // Engine parity path: transition to the dedicated ending zone/act variant.
-        levelManager.requestZoneAndAct(Sonic1ZoneConstants.ZONE_ENDING, endingAct, true);
+        services().requestZoneAndAct(Sonic1ZoneConstants.ZONE_ENDING, endingAct, true);
     }
 
     // === SolidObjectProvider interface ===
@@ -858,7 +860,8 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: Solid during cylinder attack and escape phases 6-10
         return state.routineSecondary == STATE_CYLINDER_ATTACK ||
                 (state.routineSecondary >= STATE_DEFEAT_FALL &&
@@ -866,7 +869,8 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
     }
 
     @Override
-    public int getTopLandingHalfWidth(AbstractPlayableSprite player, int collisionHalfWidth) {
+    public int getTopLandingHalfWidth(PlayableEntity playerEntity, int collisionHalfWidth) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (state.routineSecondary == STATE_CYLINDER_ATTACK) {
             return COMBAT_TOP_LANDING_HALF_WIDTH;
         }
@@ -876,7 +880,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
     // === Rendering ===
 
     private boolean isBossOnScreen() {
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         int screenX = state.x - camera.getX();
         return screenX >= -64 && screenX <= 384;
     }
@@ -888,7 +892,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) return;
 
         if (!escapingInShip) {
@@ -934,6 +938,16 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
                 }
             }
         }
+    }
+
+    @Override
+    protected int getBossHitSfxId() {
+        return Sonic1Sfx.HIT_BOSS.id;
+    }
+
+    @Override
+    protected int getBossExplosionSfxId() {
+        return Sonic1Sfx.BOSS_EXPLOSION.id;
     }
 
 }

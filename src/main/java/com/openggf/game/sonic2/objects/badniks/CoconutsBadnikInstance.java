@@ -1,10 +1,12 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
-import com.openggf.level.objects.ObjectRenderManager;
+
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -53,8 +55,8 @@ public class CoconutsBadnikInstance extends AbstractBadnikInstance {
     private State state;
     private ThrowState throwState;
 
-    public CoconutsBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Coconuts");
+    public CoconutsBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Coconuts", Sonic2BadnikConfig.DESTRUCTION);
         this.currentY = spawn.y();
         this.currentX = spawn.x();
         this.timer = IDLE_TIMER_INIT;
@@ -66,7 +68,8 @@ public class CoconutsBadnikInstance extends AbstractBadnikInstance {
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         currentX = spawn.x();
         switch (state) {
             case IDLE -> updateIdle(player);
@@ -163,7 +166,7 @@ public class CoconutsBadnikInstance extends AbstractBadnikInstance {
                 true,
                 !facingLeft);
 
-        LevelManager.getInstance().getObjectManager().addDynamicObject(projectile);
+        services().objectManager().addDynamicObject(projectile);
     }
 
     @Override
@@ -189,19 +192,12 @@ public class CoconutsBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.COCONUTS);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.COCONUTS);
+        if (renderer == null) return;
 
         boolean hFlip = !facingLeft;
         boolean vFlip = false;

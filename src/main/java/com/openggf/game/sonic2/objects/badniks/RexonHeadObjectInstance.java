@@ -1,11 +1,11 @@
 package com.openggf.game.sonic2.objects.badniks;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.level.objects.AnimalObjectInstance;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -14,8 +14,7 @@ import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import com.openggf.game.GameServices;
-import com.openggf.game.sonic2.objects.ExplosionObjectInstance;
+import com.openggf.level.objects.ExplosionObjectInstance;
 import com.openggf.game.sonic2.objects.PointsObjectInstance;
 
 import java.util.List;
@@ -121,7 +120,6 @@ public class RexonHeadObjectInstance extends AbstractObjectInstance
         DEATH_DROP
     }
 
-    private final LevelManager levelManager;
     private final RexonBadnikInstance parent;
     private final int headIndex;  // 0, 2, 4, 6, or 8
     private final int headNumber; // 0-4 for array indexing
@@ -151,11 +149,10 @@ public class RexonHeadObjectInstance extends AbstractObjectInstance
     // Head 0 stays at base position; oscillation ripples toward tip
     private RexonHeadObjectInstance linkedHead;
 
-    public RexonHeadObjectInstance(ObjectSpawn spawn, LevelManager levelManager,
+    public RexonHeadObjectInstance(ObjectSpawn spawn,
                                    RexonBadnikInstance parent, int x, int y,
                                    int headIndex, boolean xFlip) {
         super(spawn, "RexonHead");
-        this.levelManager = levelManager;
         this.parent = parent;
         this.headIndex = headIndex;
         this.headNumber = headIndex / 2;  // Convert 0,2,4,6,8 to 0,1,2,3,4
@@ -199,7 +196,8 @@ public class RexonHeadObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (destroyed) {
             return;
         }
@@ -403,7 +401,7 @@ public class RexonHeadObjectInstance extends AbstractObjectInstance
                 xFlip
         );
 
-        levelManager.getObjectManager().addDynamicObject(projectile);
+        services().objectManager().addDynamicObject(projectile);
     }
 
     private void updateDeathDrop() {
@@ -457,7 +455,8 @@ public class RexonHeadObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onPlayerAttack(AbstractPlayableSprite player, TouchResponseResult result) {
+    public void onPlayerAttack(PlayableEntity playerEntity, TouchResponseResult result) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (destroyed) {
             return;
         }
@@ -471,28 +470,28 @@ public class RexonHeadObjectInstance extends AbstractObjectInstance
 
         // Spawn explosion
         ExplosionObjectInstance explosion = new ExplosionObjectInstance(0x27, currentX, currentY,
-                levelManager.getObjectRenderManager());
-        levelManager.getObjectManager().addDynamicObject(explosion);
+                services().renderManager());
+        services().objectManager().addDynamicObject(explosion);
 
         // Spawn animal
         AnimalObjectInstance animal = new AnimalObjectInstance(
-                new ObjectSpawn(currentX, currentY, 0x28, 0, 0, false, 0), levelManager);
-        levelManager.getObjectManager().addDynamicObject(animal);
+                new ObjectSpawn(currentX, currentY, 0x28, 0, 0, false, 0), services());
+        services().objectManager().addDynamicObject(animal);
 
         // Calculate and award points
         int pointsValue = 100;
         if (player != null) {
             pointsValue = player.incrementBadnikChain();
-            GameServices.gameState().addScore(pointsValue);
+            services().gameState().addScore(pointsValue);
         }
 
         // Spawn points display
         PointsObjectInstance points = new PointsObjectInstance(
-                new ObjectSpawn(currentX, currentY, 0x29, 0, 0, false, 0), levelManager, pointsValue);
-        levelManager.getObjectManager().addDynamicObject(points);
+                new ObjectSpawn(currentX, currentY, 0x29, 0, 0, false, 0), services(), pointsValue);
+        services().objectManager().addDynamicObject(points);
 
         // Play explosion SFX
-        AudioManager.getInstance().playSfx(Sonic2Sfx.EXPLOSION.id);
+        services().playSfx(Sonic2Sfx.EXPLOSION.id);
 
         // Notify parent to trigger death drop for other heads
         if (parent != null) {
@@ -502,14 +501,7 @@ public class RexonHeadObjectInstance extends AbstractObjectInstance
 
     @Override
     public ObjectSpawn getSpawn() {
-        return new ObjectSpawn(
-                currentX,
-                currentY,
-                spawn.objectId(),
-                spawn.subtype(),
-                spawn.renderFlags(),
-                spawn.respawnTracked(),
-                spawn.rawYWord());
+        return buildSpawnAt(currentX, currentY);
     }
 
     @Override
@@ -538,15 +530,8 @@ public class RexonHeadObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.REXON);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.REXON);
+        if (renderer == null) return;
 
         // From s2.asm:73791-73793:
         // - Tip head (headIndex == 8 / headNumber == 4): uses frame 0 (head with eyes)

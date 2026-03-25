@@ -40,6 +40,6 @@ public class TestSonic1LargeGrassyPlatformObjectInstance {
 
     private static Sonic1LargeGrassyPlatformObjectInstance create(int subtype) {
         ObjectSpawn spawn = new ObjectSpawn(100, 100, 0x2F, subtype, 0, false, 0);
-        return new Sonic1LargeGrassyPlatformObjectInstance(spawn, null);
+        return new Sonic1LargeGrassyPlatformObjectInstance(spawn);
     }
 }

@@ -1,12 +1,11 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -73,9 +72,6 @@ public class SpikyBlockSpikeInstance extends AbstractObjectInstance
     // routine_secondary - current direction (0=Up, 1=Right, 2=Down, 3=Left)
     private int direction;
 
-    // Dynamic spawn for touch collision position updates
-    private ObjectSpawn dynamicSpawn;
-
     /**
      * Create spike child with initial state synchronized to level frame counter.
      *
@@ -92,14 +88,14 @@ public class SpikyBlockSpikeInstance extends AbstractObjectInstance
         this.currentY = initialY;
         this.direction = direction & 3;
         this.position = position;
-        this.dynamicSpawn = spawn;
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         updateAction(frameCounter);
         updatePosition();
-        updateDynamicSpawn();
+        updateDynamicSpawn(currentX, currentY);
     }
 
     /**
@@ -117,7 +113,7 @@ public class SpikyBlockSpikeInstance extends AbstractObjectInstance
             waiting = 0;
             // ROM: btst #render_flags.on_screen,render_flags(a0)
             if (isOnScreen()) {
-                AudioManager.getInstance().playSfx(Sonic2Sfx.SPIKES_MOVE.id);
+                services().playSfx(Sonic2Sfx.SPIKES_MOVE.id);
             }
         }
 
@@ -185,12 +181,6 @@ public class SpikyBlockSpikeInstance extends AbstractObjectInstance
     public int getY() {
         return currentY;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn;
-    }
-
     @Override
     public int getPriorityBucket() {
         return RenderPriority.clamp(PRIORITY);
@@ -209,7 +199,7 @@ public class SpikyBlockSpikeInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
@@ -239,19 +229,5 @@ public class SpikyBlockSpikeInstance extends AbstractObjectInstance
         ctx.drawRect(currentX, currentY, WIDTH_PIXELS, WIDTH_PIXELS, 1f, 0f, 0f);
         ctx.drawCross(initialX, initialY, 3, 0.5f, 0.5f, 0.5f);
         ctx.drawWorldLabel(currentX, currentY, -2, label, DebugColor.RED);
-    }
-
-    private void updateDynamicSpawn() {
-        if (dynamicSpawn.x() == currentX && dynamicSpawn.y() == currentY) {
-            return;
-        }
-        dynamicSpawn = new ObjectSpawn(
-                currentX,
-                currentY,
-                spawn.objectId(),
-                spawn.subtype(),
-                spawn.renderFlags(),
-                spawn.respawnTracked(),
-                spawn.rawYWord());
     }
 }

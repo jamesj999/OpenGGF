@@ -1,5 +1,6 @@
 package com.openggf.tests;
 
+import com.openggf.game.GameServices;
 import com.openggf.level.LevelManager;
 import com.openggf.level.SeamlessLevelTransitionRequest;
 import com.openggf.level.SeamlessLevelTransitionRequest.TransitionType;
@@ -56,15 +57,15 @@ public class TestActTransitionHeadless {
         // Ensure camera has a focused sprite — executeActTransition calls
         // camera.updatePosition(true) which requires a focused sprite.
         // resetPerTest() creates a fresh Camera singleton with no focus.
-        Camera.getInstance().setFocusedSprite(fixture.sprite());
-        Camera.getInstance().setFrozen(false);
+        GameServices.camera().setFocusedSprite(fixture.sprite());
+        GameServices.camera().setFrozen(false);
     }
 
     // ========== Manager Rebuild ==========
 
     @Test
     public void executeActTransitionRebuildsObjectManager() throws Exception {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         ObjectManager beforeOM = lm.getObjectManager();
         assertNotNull("ObjectManager should exist before transition", beforeOM);
 
@@ -84,7 +85,7 @@ public class TestActTransitionHeadless {
 
     @Test
     public void executeActTransitionRebuildsRingManager() throws Exception {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         RingManager beforeRM = lm.getRingManager();
         assertNotNull("RingManager should exist before transition", beforeRM);
 
@@ -104,7 +105,7 @@ public class TestActTransitionHeadless {
 
     @Test
     public void executeActTransitionSpawnListIsNotStaleReference() throws Exception {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
 
         // Capture the Act 1 ObjectManager's spawn list reference
         List<ObjectSpawn> act1SpawnRef = lm.getObjectManager().getAllSpawns();
@@ -127,7 +128,7 @@ public class TestActTransitionHeadless {
 
     @Test
     public void executeActTransitionObjectsMatchLevel() throws Exception {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
 
         SeamlessLevelTransitionRequest request = SeamlessLevelTransitionRequest
                 .builder(TransitionType.RELOAD_TARGET_LEVEL)
@@ -163,17 +164,17 @@ public class TestActTransitionHeadless {
                 .preserveMusic(true)
                 .build();
 
-        LevelManager.getInstance().executeActTransition(request);
+        GameServices.level().executeActTransition(request);
 
         assertNotNull("Level should exist after transition with offsets",
-                LevelManager.getInstance().getCurrentLevel());
+                GameServices.level().getCurrentLevel());
     }
 
     // ========== Zone/Act State ==========
 
     @Test
     public void executeActTransitionUpdatesCurrentZoneAndAct() throws Exception {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
 
         SeamlessLevelTransitionRequest request = SeamlessLevelTransitionRequest
                 .builder(TransitionType.RELOAD_TARGET_LEVEL)
@@ -191,7 +192,7 @@ public class TestActTransitionHeadless {
 
     @Test
     public void executeActTransitionWindowsManagersAtLiveCameraX() throws Exception {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
 
         // Position the live camera at X=5000, well past the level start.
         // If rebuildManagersForActTransition uses the stale cached camera
@@ -199,7 +200,7 @@ public class TestActTransitionHeadless {
         // spawn window would be [−128, 640] and no objects near X=5000
         // would be active. The correct behavior uses the live camera so
         // the spawn window is [4872, 5640].
-        Camera cam = Camera.getInstance();
+        Camera cam = GameServices.camera();
         cam.setX((short) 5000);
 
         SeamlessLevelTransitionRequest request = SeamlessLevelTransitionRequest

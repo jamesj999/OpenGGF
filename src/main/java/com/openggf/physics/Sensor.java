@@ -1,7 +1,7 @@
 package com.openggf.physics;
 
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import com.openggf.sprites.playable.GroundMode;
+import com.openggf.game.GroundMode;
 
 public abstract class Sensor {
     protected AbstractPlayableSprite sprite;

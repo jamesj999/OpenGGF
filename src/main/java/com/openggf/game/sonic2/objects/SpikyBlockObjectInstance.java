@@ -2,10 +2,10 @@ package com.openggf.game.sonic2.objects;
 
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -56,7 +56,8 @@ public class SpikyBlockObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (!childSpawned) {
             spawnSpikeChild(frameCounter);
             childSpawned = true;
@@ -92,7 +93,7 @@ public class SpikyBlockObjectInstance extends AbstractObjectInstance
         SpikyBlockSpikeInstance spike = new SpikyBlockSpikeInstance(
                 childSpawn, "SpikyBlock-Spike", initialDirection, initialPosition);
 
-        LevelManager.getInstance().getObjectManager().addDynamicObject(spike);
+        services().objectManager().addDynamicObject(spike);
     }
 
     @Override
@@ -118,13 +119,14 @@ public class SpikyBlockObjectInstance extends AbstractObjectInstance
 
     // SolidObjectListener
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Block is purely passive solid - no special contact behavior
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

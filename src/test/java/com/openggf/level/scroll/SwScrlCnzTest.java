@@ -1,14 +1,27 @@
 package com.openggf.level.scroll;
 
 import org.junit.Before;
+import com.openggf.game.sonic2.scroll.ParallaxTables;
+import com.openggf.game.sonic2.scroll.SwScrlCnz;
 import org.junit.Test;
+import com.openggf.game.sonic2.scroll.ParallaxTables;
+import com.openggf.game.sonic2.scroll.SwScrlCnz;
 
 import java.io.IOException;
+import com.openggf.game.sonic2.scroll.ParallaxTables;
+import com.openggf.game.sonic2.scroll.SwScrlCnz;
 
 import com.openggf.data.Rom;
+import com.openggf.game.sonic2.scroll.SwScrlCnz;
+import com.openggf.game.sonic2.scroll.ParallaxTables;
+import com.openggf.game.sonic2.scroll.SwScrlCnz;
 
 import static org.junit.Assert.*;
+import com.openggf.game.sonic2.scroll.ParallaxTables;
+import com.openggf.game.sonic2.scroll.SwScrlCnz;
 import static com.openggf.level.scroll.M68KMath.*;
+import com.openggf.game.sonic2.scroll.ParallaxTables;
+import com.openggf.game.sonic2.scroll.SwScrlCnz;
 
 /**
  * Tests for SwScrlCnz - Casino Night Zone scroll handler.

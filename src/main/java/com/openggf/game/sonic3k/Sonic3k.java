@@ -14,7 +14,6 @@ import com.openggf.sprites.art.SpriteArtSet;
 import com.openggf.game.sonic3k.audio.Sonic3kAudioProfile;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.level.Level;
-import com.openggf.level.LevelManager;
 import com.openggf.level.animation.AnimatedPaletteManager;
 import com.openggf.level.animation.AnimatedPatternManager;
 import com.openggf.level.resources.LevelResourcePlan;
@@ -27,6 +26,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
+import com.openggf.game.GameServices;
 
 /**
  * Game implementation for Sonic 3 &amp; Knuckles.
@@ -136,7 +136,7 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, DynamicSta
                 && levelAnimationZone == zoneIndex) {
             return levelAnimationManager;
         }
-        int actIndex = LevelManager.getInstance().getCurrentAct();
+        int actIndex = GameServices.level().getCurrentAct();
         Sonic3kLoadBootstrap bootstrap = Sonic3kBootstrapResolver.resolve(zoneIndex, actIndex);
         levelAnimationManager = new Sonic3kLevelAnimationManager(
                 RomByteReader.fromRom(rom), level, zoneIndex, actIndex, bootstrap.isSkipIntro());
@@ -606,16 +606,10 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, DynamicSta
         }
 
         int index = zone * Sonic3kConstants.ACTS_PER_ZONE_STRIDE + act;
-        if (zone == 0 && act == 0 && bootstrap != null) {
-            if (bootstrap.mode() == Sonic3kLoadBootstrap.Mode.SKIP_INTRO) {
-                // Intro-skip bootstrap parity bridge:
-                // keep the wider intro profile so gameplay-after-intro bootstrap
-                // remains valid without full intro transition state.
-                index = Sonic3kConstants.LEVEL_SIZES_AIZ1_INTRO_INDEX;
-            }
-            // Mode.INTRO uses the normal AIZ1 LevelSizes bounds (already set above)
-            // and then overrides min X to 0 via boundariesMinXOverride.
-        }
+        // ROM parity: Get_LevelSizeStart always indexes by Current_zone_and_act,
+        // so AIZ1 always uses entry 0 (minX=$1308) regardless of intro/skip state.
+        // Entry 26 is only used by LoadLevelLoadBlock for *resource* loading.
+        // Mode.INTRO overrides min X to 0 via boundariesMinXOverride.
         return levelSizesAddr + index * Sonic3kConstants.LEVEL_SIZES_ENTRY_SIZE;
     }
 

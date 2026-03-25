@@ -1,12 +1,11 @@
 package com.openggf.game.sonic2.objects;
 
+import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -54,7 +53,7 @@ public class CPZPylonObjectInstance extends AbstractObjectInstance {
     @Override
     public int getX() {
         // X position uses parallax: -3 * (cameraX & 0x3FF) / 4
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         int cameraX = camera.getX();
         int masked = cameraX & CAMERA_X_MASK;
         // Original: asr.w #1,d1 -> d1/2; move.w d1,d0; asr.w #1,d1 -> d1/4; add.w d1,d0 -> 3/4; neg.w d0
@@ -65,7 +64,7 @@ public class CPZPylonObjectInstance extends AbstractObjectInstance {
     @Override
     public int getY() {
         // Y position: 0x100 - ((cameraY / 2) & 0x3F)
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         int cameraY = camera.getY();
         int yOffset = (cameraY >> 1) & CAMERA_Y_MASK;
         return BASE_Y - yOffset;
@@ -88,13 +87,14 @@ public class CPZPylonObjectInstance extends AbstractObjectInstance {
      * Checks if the pylon should be visible based on camera position.
      */
     private boolean isVisible() {
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         int cameraX = camera.getX();
         return (cameraX & CAMERA_X_MASK) < VISIBILITY_THRESHOLD;
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // No update logic needed - pylon is purely decorative
     }
 
@@ -104,17 +104,10 @@ public class CPZPylonObjectInstance extends AbstractObjectInstance {
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.CPZ_PYLON);
+        if (renderer == null) return;
 
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.CPZ_PYLON);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
-
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         int cameraX = camera.getX();
         int cameraY = camera.getY();
 

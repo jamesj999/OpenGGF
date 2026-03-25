@@ -3,6 +3,7 @@ package com.openggf.game.sonic3k;
 import org.junit.Rule;
 import org.junit.Test;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.ParallaxManager;
@@ -31,13 +32,13 @@ public class TestS3kAizIntroVisibleDiagnostics {
         GraphicsManager.getInstance().initHeadless();
 
         Sonic sonic = new Sonic("sonic", (short) 0, (short) 0);
-        SpriteManager.getInstance().addSprite(sonic);
+        GameServices.sprites().addSprite(sonic);
 
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         camera.setFocusedSprite(sonic);
         camera.setFrozen(false);
 
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         levelManager.loadZoneAndAct(0, 0);
         GroundSensor.setLevelManager(levelManager);
         camera.updatePosition(true);
@@ -109,7 +110,7 @@ public class TestS3kAizIntroVisibleDiagnostics {
     }
 
     private static int visibleBgParallaxInvalidRefs(LevelManager levelManager, Level level) {
-        ParallaxManager parallaxManager = ParallaxManager.getInstance();
+        ParallaxManager parallaxManager = GameServices.parallax();
         int[] hScroll = parallaxManager.getHScrollForShader();
         int vscrollBg = parallaxManager.getVscrollFactorBG();
         int chunkCount = level.getChunkCount();
@@ -133,7 +134,7 @@ public class TestS3kAizIntroVisibleDiagnostics {
     }
 
     private static int visibleBgParallaxZeroBlocks(LevelManager levelManager) {
-        ParallaxManager parallaxManager = ParallaxManager.getInstance();
+        ParallaxManager parallaxManager = GameServices.parallax();
         int[] hScroll = parallaxManager.getHScrollForShader();
         int vscrollBg = parallaxManager.getVscrollFactorBG();
         int zero = 0;
@@ -155,7 +156,7 @@ public class TestS3kAizIntroVisibleDiagnostics {
     }
 
     private static int visibleBgParallaxZeroBlocksWrapped(LevelManager levelManager, int wrapWidthPx) {
-        ParallaxManager parallaxManager = ParallaxManager.getInstance();
+        ParallaxManager parallaxManager = GameServices.parallax();
         int[] hScroll = parallaxManager.getHScrollForShader();
         int vscrollBg = parallaxManager.getVscrollFactorBG();
         int zero = 0;
@@ -178,7 +179,7 @@ public class TestS3kAizIntroVisibleDiagnostics {
     }
 
     private static int[] bgParallaxScrollRange() {
-        ParallaxManager parallaxManager = ParallaxManager.getInstance();
+        ParallaxManager parallaxManager = GameServices.parallax();
         int[] hScroll = parallaxManager.getHScrollForShader();
         int min = Integer.MAX_VALUE;
         int max = Integer.MIN_VALUE;

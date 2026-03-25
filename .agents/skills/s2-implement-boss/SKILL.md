@@ -1,10 +1,10 @@
 ---
-name: s2-implement-boss
-description: "Implement a Sonic 2 zone boss with complete ROM accuracy. This skill guides complete implementation including LevelEventManager integration, multi-component architecture, hit handling, defeat sequences, and cross-validation against the disassembly."
+title: Implement Sonic 2 Boss
 ---
+
 # Implement Sonic 2 Boss
 
-Implement a Sonic 2 zone boss with complete ROM accuracy. This skill guides complete implementation including LevelEventManager integration, multi-component architecture, hit handling, defeat sequences, and cross-validation against the disassembly.
+Implement a Sonic 2 zone boss with complete ROM accuracy. This skill guides complete implementation including Sonic2LevelEventManager integration, multi-component architecture, hit handling, defeat sequences, and cross-validation against the disassembly.
 
 ## Inputs
 
@@ -12,18 +12,18 @@ $ARGUMENTS: Boss name or zone (e.g., "EHZ boss", "Chemical Plant boss", "0x56")
 
 ## Related Skills
 
-- **s2disasm-guide** (`.agents/skills/s2disasm-guide/SKILL.md`) - Disassembly navigation, label conventions, RomOffsetFinder
-- **s2-implement-object** (`.agents/skills/s2-implement-object/SKILL.md`) - For non-boss Sonic 2 objects and badniks
+- **s2disasm-guide** (`.agents/skills/s2disasm-guide/skill.md`) - Disassembly navigation, label conventions, RomOffsetFinder
+- **s2-implement-object** (`.agents/skills/s2-implement-object/skill.md`) - For non-boss Sonic 2 objects and badniks. **Section 2.4 lists all reusable engine utilities** — check it before writing movement, collision, or rendering code.
 
 ## Key Differences: Bosses vs Regular Objects
 
 | Aspect | Regular Objects | Bosses |
 |--------|-----------------|--------|
-| **Spawning** | From level layout data via ObjectManager | Dynamically via LevelEventManager |
+| **Spawning** | From level layout data via ObjectManager | Dynamically via Sonic2LevelEventManager |
 | **Camera** | No camera control | Arena setup with boundary locking |
 | **Components** | Single entity or simple children | Multi-component with AbstractBossChild |
 | **Hits** | 1 hit (badniks) or indestructible | 8 hits with invulnerability periods |
-| **Defeat** | Explosion + animal | Explosion sequence â†’ Flee â†’ EggPrison |
+| **Defeat** | Explosion + animal | Explosion sequence → Flee → EggPrison |
 | **Art** | Unique per object | Often shares Eggpod art + unique parts |
 | **Music** | No music changes | Boss music at spawn, stops at defeat |
 | **State** | Object-local | Shared BossStateContext (ROM: Boss_X_pos, etc.) |
@@ -34,7 +34,7 @@ $ARGUMENTS: Boss name or zone (e.g., "EHZ boss", "Chemical Plant boss", "0x56")
 
 Delegate multiple agents to explore the disassembly. **Include this instruction in each agent prompt:**
 
-> Use the s2disasm-guide skill (`.agents/skills/s2disasm-guide/SKILL.md`) for reference on disassembly structure, label conventions, RomOffsetFinder commands, and object system patterns.
+> Use the s2disasm-guide skill (`.agents/skills/s2disasm-guide/skill.md`) for reference on disassembly structure, label conventions, RomOffsetFinder commands, and object system patterns.
 
 **Research checklist:**
 - [ ] Locate boss object in disassembly (e.g., `Obj56`, `Obj5D`, `Obj51`, `Obj89`)
@@ -55,9 +55,9 @@ Delegate multiple agents to explore the disassembly. **Include this instruction 
 - `Boss_HandleHits` routine usage
 - `routine_secondary` state machine with approach/battle/defeat phases
 
-### Phase 2: LevelEventManager Setup
+### Phase 2: Sonic2LevelEventManager Setup
 
-Bosses are spawned dynamically by zone-specific event handlers in `LevelEventManager.java`.
+Bosses are spawned dynamically by zone-specific event handlers in `Sonic2LevelEventManager.java`.
 
 **Implementation checklist:**
 - [ ] Add zone constant if not present
@@ -70,7 +70,7 @@ Bosses are spawned dynamically by zone-specific event handlers in `LevelEventMan
 **Example event routine pattern:**
 
 ```java
-// In LevelEventManager.java - updateZONE() method
+// In Sonic2LevelEventManager.java - updateZONE() method
 private void updateZONE() {
     if (currentAct != 1) return;  // Act 2 only
 
@@ -135,7 +135,7 @@ private void updateZONE() {
 **Boss instance template:**
 
 ```java
-package com.openggf.sonic.game.sonic2.objects.bosses;
+package com.openggf.game.sonic2.objects.bosses;
 
 public class Sonic2ZoneBossInstance extends AbstractBossInstance {
 
@@ -150,8 +150,8 @@ public class Sonic2ZoneBossInstance extends AbstractBossInstance {
     private static final int MAIN_START_X = 0xXXXX;
     private static final int MAIN_START_Y = 0xXXXX;
 
-    public Sonic2ZoneBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Zone Boss");
+    public Sonic2ZoneBossInstance(ObjectSpawn spawn) {
+        super(spawn, "Zone Boss");
     }
 
     @Override
@@ -235,12 +235,23 @@ public class BossChildName extends AbstractBossChild {
 
 ### Phase 5: Art Loading
 
-**PLC note:** S2 boss art has dedicated PLC IDs in ArtLoadCues. The shared `PlcParser` utility handles parsing. See `plc-system` skill. Use `RomOffsetFinder plc <name>` to inspect PLC contents from the CLI.
+**PLC-based art loading:** S2 boss art has dedicated PLC IDs in ArtLoadCues. Use the shared `PlcParser` API for standalone decompression — this avoids VRAM overlap conflicts where boss art tiles overwrite other object tiles. See `plc-system` skill. Use `RomOffsetFinder plc <name>` to inspect PLC contents from the CLI.
+
+**Standalone PLC pattern (preferred):**
+```java
+PlcDefinition plc = PlcParser.parse(rom, Sonic2Constants.ART_LOAD_CUES_ADDR, plcId);
+List<Pattern[]> artArrays = PlcParser.decompressAll(rom, plc);
+ObjectSpriteSheet sheet = new ObjectSpriteSheet(
+    artArrays.get(entryIndex),
+    S2SpriteDataLoader.loadMappingFrames(reader, mappingAddr),
+    paletteIndex, 1);
+```
 
 **Implementation checklist:**
-- [ ] Add ROM address constants to `Sonic2Constants.java`
+- [ ] Find the boss PLC ID in the disassembly's `LoadPLC` call
+- [ ] Add PLC ID or ROM address constants to `Sonic2Constants.java`
 - [ ] Add art keys to `Sonic2ObjectArtKeys.java`
-- [ ] Create loader method in `Sonic2ObjectArt.java`
+- [ ] Use `PlcParser.decompressAll()` for standalone `Pattern[]` (preferred), or create loader method in `Sonic2ObjectArt.java` for direct Nemesis loading
 - [ ] Create mappings method (parse from `Map_XXXBoss`)
 - [ ] Register in `Sonic2ObjectArtProvider.loadArtForZone()`
 
@@ -280,7 +291,7 @@ Disassembly references:
 - Level events: docs/s2disasm/LevEvents...
 
 Validation checklist:
-1. LevelEventManager arena setup matches LevEvents_ZONE2
+1. Sonic2LevelEventManager arena setup matches LevEvents_ZONE2
 2. State machine transitions match routine_secondary values
 3. All child components spawned correctly
 4. Hit count and invulnerability timing match ROM
@@ -314,12 +325,12 @@ Once cross-validation passes:
 
 | Purpose | Location |
 |---------|----------|
-| **Disassembly guide** | `.agents/skills/s2disasm-guide/SKILL.md` |
+| **Disassembly guide** | `.agents/skills/s2disasm-guide/skill.md` |
 | Base boss | `src/.../level/objects/boss/AbstractBossInstance.java` |
 | Boss state context | `src/.../level/objects/boss/BossStateContext.java` |
 | Boss child base | `src/.../level/objects/boss/AbstractBossChild.java` |
 | Boss child interface | `src/.../level/objects/boss/BossChildComponent.java` |
-| Level events | `src/.../game/sonic2/LevelEventManager.java` |
+| Level events | `src/.../game/sonic2/Sonic2LevelEventManager.java` |
 | Boss implementations | `src/.../game/sonic2/objects/bosses/` |
 | Object IDs | `src/.../game/sonic2/constants/Sonic2ObjectIds.java` |
 | ROM offsets | `src/.../game/sonic2/constants/Sonic2Constants.java` |
@@ -341,4 +352,3 @@ Study these implemented bosses for patterns:
 | `Sonic2CPZBossInstance` | 0x5D | Complex child hierarchy, gunk hazard, status bit flags |
 | `Sonic2ARZBossInstance` | 0x89 | Pillar spawning, hammer collision, multi-sprite rendering |
 | `Sonic2CNZBossInstance` | 0x51 | Electric balls, arena wall modification, palette swap |
-

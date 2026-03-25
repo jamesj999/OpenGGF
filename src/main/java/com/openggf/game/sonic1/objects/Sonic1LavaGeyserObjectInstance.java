@@ -1,15 +1,13 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.PlayableEntity;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -226,8 +224,7 @@ public class Sonic1LavaGeyserObjectInstance extends AbstractObjectInstance
         this.animTimer = 0;
 
         // .activate: create body child at Y+0x60
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager != null && levelManager.getObjectManager() != null) {
+        if (services().objectManager() != null) {
             // Create body piece (routine 4 = loc_EFFC)
             ObjectSpawn bodySpawn = new ObjectSpawn(
                     currentX, currentY + BODY_Y_OFFSET,
@@ -237,7 +234,7 @@ public class Sonic1LavaGeyserObjectInstance extends AbstractObjectInstance
             body.originY = this.originY + BODY_Y_OFFSET;
             body.columnAnimTimer = 7; // start with timer at 7 for immediate frame select
             body.columnAnimFrame = 0;
-            levelManager.getObjectManager().addDynamicObject(body);
+            services().objectManager().addDynamicObject(body);
 
             // Lavafall: create third piece as independent HEAD at Y+0x100
             // ROM: moveq #0,d1 / bsr.w .loop (creates one piece via .makelava)
@@ -254,7 +251,7 @@ public class Sonic1LavaGeyserObjectInstance extends AbstractObjectInstance
                 third.headAnimId = 2; // .end animation (set by .makelava since subtype=1)
                 third.velY = 0; // starts stationary, falls under gravity
                 // Don't call initialize() - manually configured, no child hierarchy
-                levelManager.getObjectManager().addDynamicObject(third);
+                services().objectManager().addDynamicObject(third);
 
                 // move.b #0,obSubtype(a0) — clear head's subtype to 0
                 // Head now uses Type00 (signals maker anim 3/afRoutine when done)
@@ -263,7 +260,7 @@ public class Sonic1LavaGeyserObjectInstance extends AbstractObjectInstance
         }
 
         // .sound: move.w #sfx_Burning,d0 / jsr (QueueSound2).l
-        AudioManager.getInstance().playSfx(Sonic1Sfx.BURNING.id);
+        services().playSfx(Sonic1Sfx.BURNING.id);
     }
 
     // ========================================================================
@@ -271,7 +268,8 @@ public class Sonic1LavaGeyserObjectInstance extends AbstractObjectInstance
     // ========================================================================
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (pendingDelete) {
             setDestroyed(true);
             return;
@@ -446,15 +444,8 @@ public class Sonic1LavaGeyserObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.MZ_LAVA_GEYSER);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.MZ_LAVA_GEYSER);
+        if (renderer == null) return;
 
         renderer.drawFrameIndex(displayFrame, currentX, currentY, false, false);
     }
@@ -493,7 +484,7 @@ public class Sonic1LavaGeyserObjectInstance extends AbstractObjectInstance
      * round both X positions to $80 and compare against 128+320+192.
      */
     private boolean isWithinOutOfRangeWindow(int objectX) {
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         if (camera == null) {
             return true;
         }

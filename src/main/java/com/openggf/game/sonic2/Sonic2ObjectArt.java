@@ -2,9 +2,10 @@ package com.openggf.game.sonic2;
 
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.ZoneArtProvider;
+import com.openggf.game.common.CommonSpriteDataLoader;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
-import com.openggf.game.sonic2.objects.badniks.AnimalType;
+import com.openggf.level.objects.AnimalType;
 
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
@@ -16,7 +17,7 @@ import com.openggf.level.render.SpriteMappingPiece;
 import com.openggf.sprites.animation.SpriteAnimationEndAction;
 import com.openggf.sprites.animation.SpriteAnimationScript;
 import com.openggf.sprites.animation.SpriteAnimationSet;
-import com.openggf.tools.NemesisReader;
+import com.openggf.util.PatternDecompressor;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
@@ -338,29 +339,6 @@ public class Sonic2ObjectArt {
         return artData;
     }
 
-    private Pattern[] loadNemesisPatterns(int artAddr) throws IOException {
-        byte[] result;
-        synchronized (rom) {
-            FileChannel channel = rom.getFileChannel();
-            channel.position(artAddr);
-            result = NemesisReader.decompress(channel);
-        }
-
-        if (result.length % Pattern.PATTERN_SIZE_IN_ROM != 0) {
-            throw new IOException("Inconsistent object art tile data");
-        }
-
-        int patternCount = result.length / Pattern.PATTERN_SIZE_IN_ROM;
-        Pattern[] patterns = new Pattern[patternCount];
-        for (int i = 0; i < patternCount; i++) {
-            patterns[i] = new Pattern();
-            byte[] subArray = Arrays.copyOfRange(result, i * Pattern.PATTERN_SIZE_IN_ROM,
-                    (i + 1) * Pattern.PATTERN_SIZE_IN_ROM);
-            patterns[i].fromSegaFormat(subArray);
-        }
-        return patterns;
-    }
-
     private Pattern[] loadUncompressedPatterns(int artAddr, int length) throws IOException {
         if (length <= 0) {
             return new Pattern[0];
@@ -404,8 +382,10 @@ public class Sonic2ObjectArt {
      */
     private Pattern[] safeLoadNemesisPatterns(int artAddr, String assetName) {
         try {
-            return loadNemesisPatterns(artAddr);
-        } catch (Exception e) {
+            synchronized (rom) {
+                return PatternDecompressor.nemesis(rom, artAddr);
+            }
+        } catch (IOException | RuntimeException e) {
             LOGGER.log(Level.SEVERE,
                     String.format("Failed to load art '%s' at 0x%06X", assetName, artAddr), e);
             return new Pattern[0];
@@ -418,7 +398,7 @@ public class Sonic2ObjectArt {
     private Pattern[] safeLoadUncompressedPatterns(int artAddr, int length, String assetName) {
         try {
             return loadUncompressedPatterns(artAddr, length);
-        } catch (Exception e) {
+        } catch (IOException | RuntimeException e) {
             LOGGER.log(Level.SEVERE,
                     String.format("Failed to load uncompressed art '%s' at 0x%06X", assetName, artAddr), e);
             return new Pattern[0];
@@ -1927,10 +1907,30 @@ public class Sonic2ObjectArt {
         return ZONE_ANIMALS[zoneIndex];
     }
 
+    /**
+     * Returns the S2-specific Nemesis art ROM address for the given animal type.
+     */
+    public static int getAnimalArtAddr(AnimalType type) {
+        return switch (type) {
+            case RABBIT -> Sonic2Constants.ART_NEM_RABBIT_ADDR;
+            case CHICKEN -> Sonic2Constants.ART_NEM_CHICKEN_ADDR;
+            case PENGUIN -> Sonic2Constants.ART_NEM_PENGUIN_ADDR;
+            case SEAL -> Sonic2Constants.ART_NEM_SEAL_ADDR;
+            case PIG -> Sonic2Constants.ART_NEM_PIG_ADDR;
+            case FLICKY -> Sonic2Constants.ART_NEM_FLICKY_ADDR;
+            case SQUIRREL -> Sonic2Constants.ART_NEM_SQUIRREL_ADDR;
+            case EAGLE -> Sonic2Constants.ART_NEM_EAGLE_ADDR;
+            case MOUSE -> Sonic2Constants.ART_NEM_MOUSE_ADDR;
+            case MONKEY -> Sonic2Constants.ART_NEM_MONKEY_ADDR;
+            case TURTLE -> Sonic2Constants.ART_NEM_TURTLE_ADDR;
+            case BEAR -> Sonic2Constants.ART_NEM_BEAR_ADDR;
+        };
+    }
+
     private Pattern[] loadAnimalPatterns(AnimalType animalTypeA, AnimalType animalTypeB) {
-        Pattern[] animalPatternsA = safeLoadNemesisPatterns(animalTypeA.artAddr(),
+        Pattern[] animalPatternsA = safeLoadNemesisPatterns(getAnimalArtAddr(animalTypeA),
                 "Animal-" + animalTypeA.displayName());
-        Pattern[] animalPatternsB = safeLoadNemesisPatterns(animalTypeB.artAddr(),
+        Pattern[] animalPatternsB = safeLoadNemesisPatterns(getAnimalArtAddr(animalTypeB),
                 "Animal-" + animalTypeB.displayName());
         int minLength = ANIMAL_TILE_OFFSET * 2;
         int combinedLength = Math.max(Math.max(animalPatternsA.length, ANIMAL_TILE_OFFSET + animalPatternsB.length),
@@ -1979,45 +1979,7 @@ public class Sonic2ObjectArt {
     }
 
     private SpriteAnimationSet loadAnimationSet(int animAddr, int scriptCount) {
-        SpriteAnimationSet set = new SpriteAnimationSet();
-        for (int i = 0; i < scriptCount; i++) {
-            int scriptAddr = animAddr + reader.readU16BE(animAddr + i * 2);
-            int delay = reader.readU8(scriptAddr);
-            scriptAddr += 1;
-
-            List<Integer> frames = new ArrayList<>();
-            SpriteAnimationEndAction endAction = SpriteAnimationEndAction.LOOP;
-            int endParam = 0;
-
-            while (true) {
-                int value = reader.readU8(scriptAddr);
-                scriptAddr += 1;
-                if (value >= 0xF0) {
-                    if (value == 0xFF) {
-                        endAction = SpriteAnimationEndAction.LOOP;
-                        break;
-                    }
-                    if (value == 0xFE) {
-                        endAction = SpriteAnimationEndAction.LOOP_BACK;
-                        endParam = reader.readU8(scriptAddr);
-                        scriptAddr += 1;
-                        break;
-                    }
-                    if (value == 0xFD) {
-                        endAction = SpriteAnimationEndAction.SWITCH;
-                        endParam = reader.readU8(scriptAddr);
-                        scriptAddr += 1;
-                        break;
-                    }
-                    endAction = SpriteAnimationEndAction.HOLD;
-                    break;
-                }
-                frames.add(value);
-            }
-
-            set.addScript(i, new SpriteAnimationScript(delay, frames, endAction, endParam));
-        }
-        return set;
+        return CommonSpriteDataLoader.loadAnimationSet(reader, animAddr, scriptCount);
     }
 
     private SpriteMappingFrame createSimpleFrame(int x, int y, int wTiles, int hTiles, int tileIndex) {
@@ -2370,11 +2332,7 @@ public class Sonic2ObjectArt {
      * @return the art configuration, or null if not available
      */
     private ZoneArtProvider.ObjectArtConfig getObjectArtConfig(int objectId, int zoneIndex) {
-        ZoneArtProvider provider = GameModuleRegistry.getCurrent().getZoneArtProvider();
-        if (provider == null) {
-            return null;
-        }
-        return provider.getObjectArt(objectId, zoneIndex);
+        return GameModuleRegistry.getCurrent().getZoneArtProvider().getObjectArt(objectId, zoneIndex);
     }
 
     /**

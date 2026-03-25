@@ -1,6 +1,6 @@
 package com.openggf.game.sonic1.scroll;
 
-import com.openggf.level.scroll.ZoneScrollHandler;
+import com.openggf.level.scroll.AbstractZoneScrollHandler;
 
 import java.util.logging.Logger;
 
@@ -23,13 +23,9 @@ import static com.openggf.level.scroll.M68KMath.*;
  * REV01 GHZ uses bg3screenposx (96/256 speed) and bg2screenposx (128/256 speed),
  * plus three auto-scroll cloud counters.
  */
-public class SwScrlGhz implements ZoneScrollHandler {
+public class SwScrlGhz extends AbstractZoneScrollHandler {
 
     private static final Logger LOG = Logger.getLogger(SwScrlGhz.class.getName());
-
-    private int minScrollOffset;
-    private int maxScrollOffset;
-    private short vscrollFactorBG;
 
     // Persistent BG camera positions (16.16 fixed point, matching original RAM)
     // v_bg2screenposx: accumulated at scrshiftx * 128
@@ -77,8 +73,7 @@ public class SwScrlGhz implements ZoneScrollHandler {
             init(cameraX);
         }
 
-        minScrollOffset = Integer.MAX_VALUE;
-        maxScrollOffset = Integer.MIN_VALUE;
+        resetScrollTracking();
 
         // Compute camera movement delta (equivalent to v_scrshiftx)
         int deltaX = cameraX - lastCameraX;
@@ -214,31 +209,6 @@ public class SwScrlGhz implements ZoneScrollHandler {
             horizScrollBuf[lineIndex] = packed;
         }
         return lineIndex;
-    }
-
-    private void trackOffset(short fgScroll, short bgScroll) {
-        int offset = bgScroll - fgScroll;
-        if (offset < minScrollOffset) {
-            minScrollOffset = offset;
-        }
-        if (offset > maxScrollOffset) {
-            maxScrollOffset = offset;
-        }
-    }
-
-    @Override
-    public short getVscrollFactorBG() {
-        return vscrollFactorBG;
-    }
-
-    @Override
-    public int getMinScrollOffset() {
-        return minScrollOffset;
-    }
-
-    @Override
-    public int getMaxScrollOffset() {
-        return maxScrollOffset;
     }
 
     /**

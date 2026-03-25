@@ -1,10 +1,10 @@
 package com.openggf.game.sonic2.objects.bosses;
 
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
-import com.openggf.game.sonic2.objects.ObjectAnimationState;
+import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -20,8 +20,6 @@ import java.util.concurrent.ThreadLocalRandom;
  * Follows boss position, splits into falling parts on defeat.
  */
 public class CPZBossPump extends AbstractObjectInstance {
-
-    private final LevelManager levelManager;
     private final Sonic2CPZBossInstance mainBoss;
 
     private int x;
@@ -32,9 +30,8 @@ public class CPZBossPump extends AbstractObjectInstance {
 
     private ObjectAnimationState animationState;
 
-    public CPZBossPump(ObjectSpawn spawn, LevelManager levelManager, Sonic2CPZBossInstance mainBoss) {
+    public CPZBossPump(ObjectSpawn spawn, Sonic2CPZBossInstance mainBoss) {
         super(spawn, "CPZ Boss Pump");
-        this.levelManager = levelManager;
         this.mainBoss = mainBoss;
         this.x = spawn.x();
         this.y = spawn.y();
@@ -45,7 +42,8 @@ public class CPZBossPump extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -67,7 +65,7 @@ public class CPZBossPump extends AbstractObjectInstance {
     }
 
     private void splitIntoFallingParts() {
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             setDestroyed(true);
             return;
         }
@@ -76,8 +74,8 @@ public class CPZBossPump extends AbstractObjectInstance {
         for (int i = 0; i < 3; i++) {
             int xVel = randomPipeVelocity();
             ObjectSpawn pieceSpawn = new ObjectSpawn(x, y, Sonic2ObjectIds.CPZ_BOSS, 0, renderFlags, false, 0);
-            CPZBossFallingPart piece = new CPZBossFallingPart(pieceSpawn, levelManager, 0x22 + i, xVel);
-            levelManager.getObjectManager().addDynamicObject(piece);
+            CPZBossFallingPart piece = new CPZBossFallingPart(pieceSpawn, 0x22 + i, xVel);
+            services().objectManager().addDynamicObject(piece);
         }
 
         setDestroyed(true);
@@ -100,7 +98,7 @@ public class CPZBossPump extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = levelManager != null ? levelManager.getObjectRenderManager() : null;
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

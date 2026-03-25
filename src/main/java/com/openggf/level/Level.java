@@ -56,6 +56,9 @@ public interface Level {
     // Abstract method to get a specific block by index
     public Block getBlock(int index);
 
+    /** Returns the number of solid (collision) tiles. Default returns 0 for stubs. */
+    default int getSolidTileCount() { return 0; }
+
     SolidTile getSolidTile(int index);
 
     // Abstract method to get the map associated with the level

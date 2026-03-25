@@ -1,13 +1,14 @@
 package com.openggf.game.sonic2.objects;
+import com.openggf.game.PlayableEntity;
+import com.openggf.level.objects.ExplosionObjectInstance;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
-import com.openggf.game.sonic2.objects.badniks.AnimalObjectInstance;
+import com.openggf.level.objects.AnimalObjectInstance;
+import com.openggf.level.objects.EggPrisonAnimalInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -166,7 +167,7 @@ public class EggPrisonObjectInstance extends AbstractObjectInstance
      * ROM: Button is child object 2 with routine 4 (loc_3F354).
      */
     private void spawnButtonObject() {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -184,7 +185,7 @@ public class EggPrisonObjectInstance extends AbstractObjectInstance
             buttonTriggered = true;
 
             // Pause level timer (ROM: clr.b Update_HUD_timer)
-            var levelGamestate = LevelManager.getInstance().getLevelGamestate();
+            var levelGamestate = services().levelGamestate();
             if (levelGamestate != null) {
                 levelGamestate.pauseTimer();
             }
@@ -192,7 +193,8 @@ public class EggPrisonObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (player == null) {
             return;
         }
@@ -231,7 +233,7 @@ public class EggPrisonObjectInstance extends AbstractObjectInstance
         }
 
         // Mark as remembered so capsule never respawns (ROM: RememberState="true")
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null) {
             objectManager.markRemembered(spawn);
         }
@@ -329,7 +331,7 @@ public class EggPrisonObjectInstance extends AbstractObjectInstance
         lockYSub &= 0xFF;
 
         // Check if lock is off screen
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         if (camera != null) {
             int screenRight = camera.getX() + 320 + 64;
             int screenBottom = camera.getY() + 224 + 64;
@@ -392,7 +394,8 @@ public class EggPrisonObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Always solid, even after breaking
         return true;
     }
@@ -410,7 +413,7 @@ public class EggPrisonObjectInstance extends AbstractObjectInstance
      * ROM: loc_3F2FC loop with d6=7, d5=$9A, d4=-$1C
      */
     private void spawnInitialAnimals() {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -438,7 +441,7 @@ public class EggPrisonObjectInstance extends AbstractObjectInstance
      * ROM: loc_3F3A8 random spawn logic
      */
     private void spawnRandomAnimal() {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -467,8 +470,8 @@ public class EggPrisonObjectInstance extends AbstractObjectInstance
      * Spawns an explosion at the given position.
      */
     private void spawnExplosion(int x, int y) {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectManager objectManager = services().objectManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (objectManager == null || renderManager == null) {
             return;
         }
@@ -482,7 +485,7 @@ public class EggPrisonObjectInstance extends AbstractObjectInstance
      * Mimics ROM orphaned child object behavior - body visual persists after parent deletion.
      */
     private void spawnDestroyedCapsule() {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -497,7 +500,7 @@ public class EggPrisonObjectInstance extends AbstractObjectInstance
      * ROM: loc_3F406 loop
      */
     private boolean areAnimalsPresent() {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return false;
         }
@@ -525,22 +528,21 @@ public class EggPrisonObjectInstance extends AbstractObjectInstance
 
         // Play stage clear music
         try {
-            AudioManager.getInstance().playMusic(Sonic2Music.ACT_CLEAR.id);
+            services().playMusic(Sonic2Music.ACT_CLEAR.id);
         } catch (Exception e) {
             LOGGER.warning("Failed to play stage clear music: " + e.getMessage());
         }
 
         // Spawn results screen
-        LevelManager levelManager = LevelManager.getInstance();
-        var levelGamestate = levelManager.getLevelGamestate();
+        var levelGamestate = services().levelGamestate();
         int elapsedSeconds = levelGamestate != null ? levelGamestate.getElapsedSeconds() : 0;
         int ringCount = lastPlayer != null ? lastPlayer.getRingCount() : 0;
-        int actNumber = levelManager.getCurrentAct() + 1;
-        boolean allRingsCollected = levelManager.areAllRingsCollected();
+        int actNumber = services().currentAct() + 1;
+        boolean allRingsCollected = services().areAllRingsCollected();
 
         ResultsScreenObjectInstance resultsScreen = new ResultsScreenObjectInstance(
                 elapsedSeconds, ringCount, actNumber, allRingsCollected);
-        ObjectManager objectManager = levelManager.getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null) {
             objectManager.addDynamicObject(resultsScreen);
         }
@@ -561,7 +563,7 @@ public class EggPrisonObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         PatternSpriteRenderer renderer = renderManager != null
                 ? renderManager.getEggPrisonRenderer()
                 : null;

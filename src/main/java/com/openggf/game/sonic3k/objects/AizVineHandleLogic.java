@@ -264,7 +264,7 @@ final class AizVineHandleLogic {
         player.setCentreY((short) (handle.y + offsetY));
     }
 
-    private static void clearPlayerControl(AbstractPlayableSprite player) {
+    static void clearPlayerControl(AbstractPlayableSprite player) {
         player.setObjectMappingFrameControl(false);
         player.setForcedAnimationId(-1);
         player.setControlLocked(false);

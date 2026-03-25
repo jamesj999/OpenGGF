@@ -1,10 +1,11 @@
 package com.openggf.game.sonic2.objects;
 
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.ButtonVineTriggerManager;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -124,9 +125,6 @@ public class MTZLongPlatformObjectInstance extends AbstractObjectInstance
     // Standing detection
     private int lastContactFrame = -2;
 
-    // Dynamic spawn for position updates
-    private ObjectSpawn dynamicSpawn;
-
     public MTZLongPlatformObjectInstance(ObjectSpawn spawn) {
         super(spawn, "MTZLongPlatform");
         init();
@@ -141,12 +139,6 @@ public class MTZLongPlatformObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public SolidObjectParams getSolidParams() {
         // From s2.asm lines 52457-52463: d1=width+5, d2=y_radius, d3=y_radius+1
@@ -160,26 +152,29 @@ public class MTZLongPlatformObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed();
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (contact.standing() || contact.touchTop()) {
             lastContactFrame = frameCounter;
         }
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         executeMovement(frameCounter, player);
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         PatternSpriteRenderer renderer = null;
         if (renderManager != null) {
             // Platform uses level art tiles. CPZ_STAIR_BLOCK sheet provides compatible mappings:
@@ -191,8 +186,6 @@ public class MTZLongPlatformObjectInstance extends AbstractObjectInstance
             // Map propsIndex to sheet frame: index 1 -> frame 1, all others -> frame 0
             int sheetFrame = (mappingFrame == 1) ? 1 : 0;
             renderer.drawFrameIndex(sheetFrame, x, y, xFlip, false);
-        } else {
-            appendDebug(commands);
         }
     }
 
@@ -288,7 +281,7 @@ public class MTZLongPlatformObjectInstance extends AbstractObjectInstance
     }
 
     private void spawnChildCog() {
-        ObjectManager objManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objManager = services().objectManager();
         if (objManager == null) {
             return;
         }
@@ -511,9 +504,8 @@ public class MTZLongPlatformObjectInstance extends AbstractObjectInstance
      * Writes x_pos to MTZ_Platform_Cog_X shared variable.
      */
     private void moveConveyor() {
-        LevelManager lm = LevelManager.getInstance();
-        boolean isMtzAct3 = (lm.getCurrentZone() == Sonic2ZoneConstants.ZONE_MTZ
-                && lm.getCurrentAct() == 2);
+        boolean isMtzAct3 = (services().currentZone() == Sonic2ZoneConstants.ZONE_MTZ
+                && services().currentAct() == 2);
 
         if (!triggered) {
             // Moving right: addq.w #2,x_pos(a0)
@@ -558,39 +550,22 @@ public class MTZLongPlatformObjectInstance extends AbstractObjectInstance
         x = baseX - d0;
     }
 
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = new ObjectSpawn(
-                    x, y,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
-    }
-
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         int halfWidth = widthPixels + 5;
         int left = x - halfWidth;
         int right = x + halfWidth;
         int top = y - yRadius;
         int bottom = y + yRadius + 1;
 
-        appendLine(commands, left, top, right, top);
-        appendLine(commands, right, top, right, bottom);
-        appendLine(commands, right, bottom, left, bottom);
-        appendLine(commands, left, bottom, left, top);
+        ctx.drawLine(left, top, right, top, 0.4f, 0.7f, 0.9f);
+        ctx.drawLine(right, top, right, bottom, 0.4f, 0.7f, 0.9f);
+        ctx.drawLine(right, bottom, left, bottom, 0.4f, 0.7f, 0.9f);
+        ctx.drawLine(left, bottom, left, top, 0.4f, 0.7f, 0.9f);
 
         // Center cross
-        appendLine(commands, x - 4, y, x + 4, y);
-        appendLine(commands, x, y - 4, x, y + 4);
+        ctx.drawLine(x - 4, y, x + 4, y, 0.4f, 0.7f, 0.9f);
+        ctx.drawLine(x, y - 4, x, y + 4, 0.4f, 0.7f, 0.9f);
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.4f, 0.7f, 0.9f, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.4f, 0.7f, 0.9f, x2, y2, 0, 0));
-    }
 }

@@ -6,6 +6,7 @@ import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.level.Chunk;
@@ -15,7 +16,7 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.Map;
 import com.openggf.game.sonic3k.objects.AizHollowTreeObjectInstance;
 import com.openggf.physics.GroundSensor;
-import com.openggf.sprites.playable.GroundMode;
+import com.openggf.game.GroundMode;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.RequiresRomRule;
@@ -81,7 +82,7 @@ public class TestS3kAiz1SkipHeadless {
         AizHollowTreeObjectInstance.resetTreeRevealCounter();
         // Reset object manager so spawn windows and active objects are fresh per test.
         // The original per-test level load did this implicitly.
-        LevelManager.getInstance().getObjectManager().reset(0);
+        GameServices.level().getObjectManager().reset(0);
     }
 
     // ========== From TestS3kAiz1SpawnStability ==========
@@ -98,13 +99,13 @@ public class TestS3kAiz1SkipHeadless {
     }
 
     private boolean hasPrimaryCollisionBelow(int worldX, int worldY, int rangePixels) {
-        Level level = LevelManager.getInstance().getCurrentLevel();
+        Level level = GameServices.level().getCurrentLevel();
         if (level == null) {
             return false;
         }
         int endY = worldY + Math.max(0, rangePixels);
         for (int y = worldY; y <= endY; y += 16) {
-            ChunkDesc chunkDesc = LevelManager.getInstance().getChunkDescAt((byte) 0, worldX, y);
+            ChunkDesc chunkDesc = GameServices.level().getChunkDescAt((byte) 0, worldX, y);
             if (chunkDesc == null || !chunkDesc.hasPrimarySolidity()) {
                 continue;
             }
@@ -335,7 +336,7 @@ public class TestS3kAiz1SkipHeadless {
     public void hollowLogTraversal_doesNotMutateCollisionMapRows() {
         applyDebugStartState();
 
-        Map map = LevelManager.getInstance().getCurrentLevel().getMap();
+        Map map = GameServices.level().getCurrentLevel().getMap();
         byte[][] before = snapshotTreeColumns(map);
 
         for (int frame = 0; frame < TIMEOUT_FRAMES; frame++) {
@@ -358,7 +359,7 @@ public class TestS3kAiz1SkipHeadless {
         // via applyHollowTreeScreenEvent during frame stepping.
         reloadAizAct1AndApplyDebugStart();
 
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
 
         assertTrue("Expected first traversal to trigger and finish tree reveal.",
                 runUntilTreeRevealClears());
@@ -561,7 +562,7 @@ public class TestS3kAiz1SkipHeadless {
     private void reloadAizAct1AndApplyDebugStart() {
         try {
             AizHollowTreeObjectInstance.resetTreeRevealCounter();
-            LevelManager levelManager = LevelManager.getInstance();
+            LevelManager levelManager = GameServices.level();
             levelManager.getObjectManager().reset(0);
             levelManager.loadZoneAndAct(ZONE_AIZ, ACT_1);
             GroundSensor.setLevelManager(levelManager);

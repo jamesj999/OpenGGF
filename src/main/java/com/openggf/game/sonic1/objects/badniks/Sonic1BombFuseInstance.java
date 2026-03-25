@@ -6,10 +6,11 @@ import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.debug.DebugColor;
 import java.util.List;
@@ -36,13 +37,12 @@ public class Sonic1BombFuseInstance extends AbstractObjectInstance {
     // From disassembly: move.b #3,obPriority(a0)
     private static final int RENDER_PRIORITY = 3;
 
-    private final LevelManager levelManager;
     private final Sonic1BombBadnikInstance parent;
     private int currentX;
     private int currentY;
     private final int origY;        // bom_origY (objoff_34): original Y position
     private int yVelocity;
-    private int ySubpixel;
+    private final SubpixelMotion.State motionState;
     private int timer;              // bom_time
     private int animTickCounter;
     private boolean facingLeft;
@@ -63,16 +63,15 @@ public class Sonic1BombFuseInstance extends AbstractObjectInstance {
      */
     public Sonic1BombFuseInstance(int x, int y, boolean facingLeft, boolean ceilingBomb,
                                   int fuseTime, int fuseYSpeed,
-                                  Sonic1BombBadnikInstance parent,
-                                  LevelManager levelManager) {
+                                  Sonic1BombBadnikInstance parent) {
         super(new ObjectSpawn(x, y, 0x5F, 4, 0, false, 0), "BombFuse");
-        this.levelManager = levelManager;
+        
         this.parent = parent;
         this.currentX = x;
         this.currentY = y;
         this.origY = y;
         this.yVelocity = fuseYSpeed;
-        this.ySubpixel = 0;
+        this.motionState = new SubpixelMotion.State(x, y, 0, 0, 0, fuseYSpeed);
         this.timer = fuseTime;
         this.facingLeft = facingLeft;
         this.ceilingBomb = ceilingBomb;
@@ -81,7 +80,8 @@ public class Sonic1BombFuseInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (destroyed) {
             return;
         }
@@ -102,10 +102,10 @@ public class Sonic1BombFuseInstance extends AbstractObjectInstance {
         }
 
         // SpeedToPos: apply Y velocity
-        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
-        yPos24 += yVelocity;
-        currentY = yPos24 >> 8;
-        ySubpixel = yPos24 & 0xFF;
+        motionState.y = currentY;
+        motionState.yVel = yVelocity;
+        SubpixelMotion.moveSprite2(motionState);
+        currentY = motionState.y;
 
         // Animate
         animTickCounter++;
@@ -137,15 +137,8 @@ public class Sonic1BombFuseInstance extends AbstractObjectInstance {
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.BOMB);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.BOMB);
+        if (renderer == null) return;
 
         int frame = getMappingFrame();
         // obStatus bit 1 inherited from parent: V-flip for ceiling bombs

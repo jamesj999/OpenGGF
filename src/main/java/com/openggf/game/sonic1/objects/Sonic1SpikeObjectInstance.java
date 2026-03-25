@@ -2,12 +2,12 @@ package com.openggf.game.sonic1.objects;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
@@ -70,15 +70,12 @@ public class Sonic1SpikeObjectInstance extends AbstractObjectInstance
     private int direction;       // objoff_36: 0=extending, 1=retracting
     private int delayTimer;      // objoff_38: frame delay counter
 
-    private ObjectSpawn dynamicSpawn;
-
     public Sonic1SpikeObjectInstance(ObjectSpawn spawn) {
         super(spawn, "Spikes");
         this.baseX = spawn.x();
         this.baseY = spawn.y();
         this.currentX = baseX;
         this.currentY = baseY;
-        this.dynamicSpawn = spawn;
 
         // From disassembly: high nybble selects Spik_Var entry
         int visualType = (spawn.subtype() >> 4) & 0x0F;
@@ -93,13 +90,15 @@ public class Sonic1SpikeObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         updateMovement();
-        updateDynamicSpawn();
+        updateDynamicSpawn(currentX, currentY);
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (player == null) {
             return;
         }
@@ -124,7 +123,7 @@ public class Sonic1SpikeObjectInstance extends AbstractObjectInstance
         }
         boolean hadRings = player.getRingCount() > 0;
         if (hadRings && !player.hasShield()) {
-            LevelManager.getInstance().spawnLostRings(player, frameCounter);
+            services().spawnLostRings(player, frameCounter);
         }
         // spikeHit=true triggers DamageCause.SPIKE → GameSound.HURT_SPIKE (SFX 0xA6)
         player.applyHurtOrDeathIgnoringIFrames(currentX, true, hadRings);
@@ -148,12 +147,6 @@ public class Sonic1SpikeObjectInstance extends AbstractObjectInstance
         // Spik_Upright: d1=obActWid+$B, d2=$10. Match ROM-effective overlap height.
         return new SolidObjectParams(actWidth + 0x0B, 0x10, 0x10);
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn;
-    }
-
     @Override
     public int getX() {
         return currentX;
@@ -171,14 +164,8 @@ public class Sonic1SpikeObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.SPIKE);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.SPIKE);
+        if (renderer == null) return;
         boolean hFlip = (spawn.renderFlags() & 0x1) != 0;
         boolean vFlip = (spawn.renderFlags() & 0x2) != 0;
         renderer.drawFrameIndex(frameIndex, currentX, currentY, hFlip, vFlip);
@@ -265,7 +252,7 @@ public class Sonic1SpikeObjectInstance extends AbstractObjectInstance
             if (delayTimer == 0 && isOnScreen()) {
                 // From disassembly: move.w #sfx_SpikesMove,d0 / jsr (QueueSound2).l
                 try {
-                    AudioManager.getInstance().playSfx(Sonic1Sfx.SPIKES_MOVE.id);
+                    services().playSfx(Sonic1Sfx.SPIKES_MOVE.id);
                 } catch (Exception e) {
                     // Prevent audio failure from breaking game logic
                 }
@@ -291,16 +278,5 @@ public class Sonic1SpikeObjectInstance extends AbstractObjectInstance
             direction = 1;
             delayTimer = RETRACT_DELAY;
         }
-    }
-
-    private void updateDynamicSpawn() {
-        if (dynamicSpawn.x() == currentX && dynamicSpawn.y() == currentY) {
-            return;
-        }
-        dynamicSpawn = new ObjectSpawn(
-                currentX, currentY,
-                spawn.objectId(), spawn.subtype(),
-                spawn.renderFlags(), spawn.respawnTracked(),
-                spawn.rawYWord());
     }
 }

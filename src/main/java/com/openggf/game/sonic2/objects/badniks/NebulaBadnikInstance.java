@@ -1,14 +1,18 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.ParallaxManager;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.util.AnimationTimer;
 
 import java.util.List;
 
@@ -53,46 +57,48 @@ public class NebulaBadnikInstance extends AbstractBadnikInstance {
 
     private State state;
     private boolean bombDropped;
-    private int xSubpixel;
-    private int ySubpixel;
+    private final SubpixelMotion.State motionState;
+    // duration = ANIM_SPEED + 1 because original code uses > (not >=)
+    private final AnimationTimer anim = new AnimationTimer(ANIM_SPEED + 1, ANIM_FRAMES.length);
 
-    public NebulaBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Nebula");
+    public NebulaBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Nebula", Sonic2BadnikConfig.DESTRUCTION);
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         this.xVelocity = INIT_X_VEL;
         this.yVelocity = 0;
+        this.motionState = new SubpixelMotion.State(spawn.x(), spawn.y(), 0, 0, INIT_X_VEL, 0);
         this.state = State.FLYING;
         this.bombDropped = false;
         this.facingLeft = true; // Always flies left
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
             case FLYING -> updateFlying(player);
             case BOMBING -> updateBombing(player);
         }
 
         // Apply velocity (8.8 fixed-point)
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
-        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
-        xPos24 += xVelocity;
-        yPos24 += yVelocity;
-        currentX = xPos24 >> 8;
-        currentY = yPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
-        ySubpixel = yPos24 & 0xFF;
+        motionState.x = currentX;
+        motionState.y = currentY;
+        motionState.xVel = xVelocity;
+        motionState.yVel = yVelocity;
+        SubpixelMotion.moveSprite2(motionState);
+        currentX = motionState.x;
+        currentY = motionState.y;
 
         // ROM: loc_36776 - add Tornado velocity each frame
-        ParallaxManager parallax = ParallaxManager.getInstance();
+        ParallaxManager parallax = services().parallaxManager();
         currentX += parallax.getTornadoVelocityX();
         currentY += parallax.getTornadoVelocityY();
 
         // ROM: Obj_DeleteBehindScreen - delete if scrolled off left
         if (!isOnScreen(64)) {
             setDestroyed(true);
-            destroyed = true;
+            setDestroyed(true);
         }
     }
 
@@ -159,21 +165,15 @@ public class NebulaBadnikInstance extends AbstractBadnikInstance {
                 true, // Apply gravity (ObjectMoveAndFall)
                 false);
 
-        LevelManager.getInstance().getObjectManager().addDynamicObject(bomb);
+        services().objectManager().addDynamicObject(bomb);
     }
 
     @Override
     protected void updateAnimation(int frameCounter) {
         // Ani_obj99: dc.b 3, 0, 1, 2, 3, $FF
-        // Speed 3 means update every 4 frames
-        animTimer++;
-        if (animTimer > ANIM_SPEED) {
-            animTimer = 0;
-            animFrame++;
-            if (animFrame >= ANIM_FRAMES.length) {
-                animFrame = 0;
-            }
-        }
+        // Speed 3 means update every 4 frames (original uses > not >=)
+        anim.tick();
+        animFrame = anim.getFrame();
     }
 
     @Override
@@ -189,19 +189,12 @@ public class NebulaBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.NEBULA);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.NEBULA);
+        if (renderer == null) return;
 
         // Nebula art is symmetric (propeller pieces are h-flipped), no facing flip needed
         renderer.drawFrameIndex(ANIM_FRAMES[animFrame], currentX, currentY, false, false);

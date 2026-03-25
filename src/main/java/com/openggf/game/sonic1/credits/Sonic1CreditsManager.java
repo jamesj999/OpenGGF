@@ -1,6 +1,5 @@
 package com.openggf.game.sonic1.credits;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.audio.Sonic1Music;
 import com.openggf.game.sonic1.titlescreen.Sonic1TitleScreenDataLoader;
@@ -81,11 +80,11 @@ public class Sonic1CreditsManager {
         textRenderer.initialize(dataLoader);
 
         // Play credits music (ROM: move.w #MusID_Credits,d0; jsr PlaySound)
-        AudioManager.getInstance().playMusic(Sonic1Music.CREDITS.id);
+        GameServices.audio().playMusic(Sonic1Music.CREDITS.id);
 
         // Start with fade from black to reveal first credit text
         state = State.TEXT_FADE_IN;
-        FadeManager.getInstance().startFadeFromBlack(() -> {
+        GameServices.fade().startFadeFromBlack(() -> {
             state = State.TEXT_DISPLAY;
             timer = Sonic1CreditsDemoData.TEXT_DISPLAY_FRAMES;
             textPacingDelay = getTextPacingDelayFrames(creditsNum);
@@ -143,14 +142,14 @@ public class Sonic1CreditsManager {
         if (creditsNum >= Sonic1CreditsDemoData.DEMO_CREDITS) {
             // Credit 8 ("PRESENTED BY SEGA"): no demo, go to finished
             state = State.TEXT_FADE_OUT;
-            FadeManager.getInstance().startFadeToBlack(() -> {
+            GameServices.fade().startFadeToBlack(() -> {
                 state = State.FINISHED;
                 requestFinished = true;
             });
         } else {
             // Credits 0-7: fade to black, then load demo zone
             state = State.TEXT_FADE_OUT;
-            FadeManager.getInstance().startFadeToBlack(() -> {
+            GameServices.fade().startFadeToBlack(() -> {
                 state = State.DEMO_LOADING;
                 requestDemoLoad = true;
             });
@@ -167,7 +166,7 @@ public class Sonic1CreditsManager {
         }
 
         state = State.DEMO_FADE_IN;
-        FadeManager.getInstance().startFadeFromBlack(() -> state = State.DEMO_PLAYING);
+        GameServices.fade().startFadeFromBlack(() -> state = State.DEMO_PLAYING);
     }
 
     /**
@@ -186,7 +185,7 @@ public class Sonic1CreditsManager {
             // Objects and demo input continue running during the fade.
             scrollFrozen = true;
             state = State.DEMO_FADING_OUT;
-            FadeManager.getInstance().startFadeToBlack(() -> {
+            GameServices.fade().startFadeToBlack(() -> {
                 scrollFrozen = false;
                 creditsNum++;
                 if (creditsNum >= Sonic1CreditsDemoData.TOTAL_CREDITS) {
@@ -247,7 +246,7 @@ public class Sonic1CreditsManager {
 
         // Start fade from black to reveal credit text
         state = State.TEXT_FADE_IN;
-        FadeManager.getInstance().startFadeFromBlack(() -> {
+        GameServices.fade().startFadeFromBlack(() -> {
             state = State.TEXT_DISPLAY;
             timer = Sonic1CreditsDemoData.TEXT_DISPLAY_FRAMES;
             textPacingDelay = getTextPacingDelayFrames(creditsNum);

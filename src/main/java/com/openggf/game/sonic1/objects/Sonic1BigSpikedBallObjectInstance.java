@@ -1,18 +1,12 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.PlayableEntity;
 
-import com.openggf.camera.Camera;
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.debug.DebugOverlayManager;
-import com.openggf.debug.DebugOverlayToggle;
-import com.openggf.game.GameServices;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.OscillationManager;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -70,11 +64,6 @@ public class Sonic1BigSpikedBallObjectInstance extends AbstractObjectInstance
     // Type 3 circular motion radius: move.b #$50,bball_radius(a0)
     private static final int CIRCLE_RADIUS = 0x50;
 
-    // Debug state
-    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
-            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
-
     // Stored original position (bball_origX = objoff_3A, bball_origY = objoff_38)
     private final int origX;
     private final int origY;
@@ -90,9 +79,6 @@ public class Sonic1BigSpikedBallObjectInstance extends AbstractObjectInstance
 
     // Type 3 circular motion angle (bball_radius already fixed at CIRCLE_RADIUS)
     private int angle;                // obAngle: accumulating angle for circular motion
-
-    // Dynamic spawn for position tracking
-    private ObjectSpawn dynamicSpawn;
 
     public Sonic1BigSpikedBallObjectInstance(ObjectSpawn spawn) {
         super(spawn, "BigSpikedBall");
@@ -128,7 +114,7 @@ public class Sonic1BigSpikedBallObjectInstance extends AbstractObjectInstance
         // move.b d0,obAngle(a0) — writes to high byte of word (68000 big-endian)
         this.angle = (d0 & 0xC0) << 8;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -140,14 +126,9 @@ public class Sonic1BigSpikedBallObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
     @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
-    @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -160,7 +141,7 @@ public class Sonic1BigSpikedBallObjectInstance extends AbstractObjectInstance
             default -> {} // types 4-7: not defined in disasm jump table, but index has only 4 entries
         }
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -263,18 +244,8 @@ public class Sonic1BigSpikedBallObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.SYZ_BIG_SPIKED_BALL);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
-
-        if (isDebugViewEnabled()) {
-            appendDebug(commands);
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.SYZ_BIG_SPIKED_BALL);
+        if (renderer == null) return;
 
         // Render spiked ball (frame 0 from Map_BBall)
         renderer.drawFrameIndex(0, x, y, false, false);
@@ -306,7 +277,7 @@ public class Sonic1BigSpikedBallObjectInstance extends AbstractObjectInstance
     }
 
     private boolean isOrigXOnScreen() {
-        var camera = Camera.getInstance();
+        var camera = services().camera();
         if (camera == null) {
             return true;
         }
@@ -316,57 +287,36 @@ public class Sonic1BigSpikedBallObjectInstance extends AbstractObjectInstance
         return distance <= (128 + 320 + 192);
     }
 
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = new ObjectSpawn(
-                    x, y,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
-    }
-
     // ---- Debug rendering ----
 
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         // Draw original position (yellow cross)
-        appendLine(commands, origX - 4, origY, origX + 4, origY, 1.0f, 1.0f, 0.0f);
-        appendLine(commands, origX, origY - 4, origX, origY + 4, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(origX - 4, origY, origX + 4, origY, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(origX, origY - 4, origX, origY + 4, 1.0f, 1.0f, 0.0f);
 
         // Draw collision bounds (red = harmful)
         int left = x - HALF_WIDTH;
         int right = x + HALF_WIDTH;
         int top = y - HALF_WIDTH;
         int bottom = y + HALF_WIDTH;
-        appendLine(commands, left, top, right, top, 1.0f, 0.0f, 0.0f);
-        appendLine(commands, right, top, right, bottom, 1.0f, 0.0f, 0.0f);
-        appendLine(commands, right, bottom, left, bottom, 1.0f, 0.0f, 0.0f);
-        appendLine(commands, left, bottom, left, top, 1.0f, 0.0f, 0.0f);
+        ctx.drawLine(left, top, right, top, 1.0f, 0.0f, 0.0f);
+        ctx.drawLine(right, top, right, bottom, 1.0f, 0.0f, 0.0f);
+        ctx.drawLine(right, bottom, left, bottom, 1.0f, 0.0f, 0.0f);
+        ctx.drawLine(left, bottom, left, top, 1.0f, 0.0f, 0.0f);
 
         // Draw ball center (red cross)
-        appendLine(commands, x - 4, y, x + 4, y, 1.0f, 0.0f, 0.0f);
-        appendLine(commands, x, y - 4, x, y + 4, 1.0f, 0.0f, 0.0f);
+        ctx.drawLine(x - 4, y, x + 4, y, 1.0f, 0.0f, 0.0f);
+        ctx.drawLine(x, y - 4, x, y + 4, 1.0f, 0.0f, 0.0f);
 
         // For type 3, draw the circular orbit path
         if (moveType == 3) {
-            appendLine(commands, origX - CIRCLE_RADIUS, origY, origX + CIRCLE_RADIUS, origY,
+            ctx.drawLine(origX - CIRCLE_RADIUS, origY, origX + CIRCLE_RADIUS, origY,
                     0.5f, 0.5f, 0.0f);
-            appendLine(commands, origX, origY - CIRCLE_RADIUS, origX, origY + CIRCLE_RADIUS,
+            ctx.drawLine(origX, origY - CIRCLE_RADIUS, origX, origY + CIRCLE_RADIUS,
                     0.5f, 0.5f, 0.0f);
         }
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2,
-                            float r, float g, float b) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x2, y2, 0, 0));
-    }
 
-    private boolean isDebugViewEnabled() {
-        return DEBUG_VIEW_ENABLED && OVERLAY_MANAGER.isEnabled(DebugOverlayToggle.OVERLAY);
-    }
 }

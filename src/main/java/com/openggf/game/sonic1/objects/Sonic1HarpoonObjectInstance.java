@@ -1,20 +1,15 @@
 package com.openggf.game.sonic1.objects;
 
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.debug.DebugOverlayManager;
-import com.openggf.debug.DebugOverlayToggle;
-import com.openggf.game.GameServices;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import java.util.List;
 
@@ -87,11 +82,6 @@ public class Sonic1HarpoonObjectInstance extends AbstractObjectInstance
             {4, 3},  // anim 3: v_retracting
     };
 
-    // Debug state
-    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
-            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
-
     // ---- Instance state ----
 
     // Current routine: 2=animate, 4=wait
@@ -134,7 +124,8 @@ public class Sonic1HarpoonObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -220,18 +211,8 @@ public class Sonic1HarpoonObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.LZ_HARPOON);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
-
-        if (isDebugViewEnabled()) {
-            appendDebug(commands);
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.LZ_HARPOON);
+        if (renderer == null) return;
 
         // Render current frame at object position, respecting level layout flip flags.
         // Downward-pointing harpoons have renderFlags bit 1 (Y-flip) set in the level data.
@@ -274,7 +255,8 @@ public class Sonic1HarpoonObjectInstance extends AbstractObjectInstance
 
     // ---- Debug rendering ----
 
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         int objX = getX();
         int objY = getY();
 
@@ -282,8 +264,8 @@ public class Sonic1HarpoonObjectInstance extends AbstractObjectInstance
         float r = 1.0f;
         float g = 0.5f;
         float b = 0.0f;
-        appendLine(commands, objX - 6, objY, objX + 6, objY, r, g, b);
-        appendLine(commands, objX, objY - 6, objX, objY + 6, r, g, b);
+        ctx.drawLine(objX - 6, objY, objX + 6, objY, r, g, b);
+        ctx.drawLine(objX, objY - 6, objX, objY + 6, r, g, b);
 
         // Draw collision bounds based on current frame
         if (currentFrame >= 0 && currentFrame < COLLISION_TYPES.length) {
@@ -304,22 +286,12 @@ public class Sonic1HarpoonObjectInstance extends AbstractObjectInstance
                 default -> { return; }
             }
             // Draw collision rectangle
-            appendLine(commands, objX - w, objY - h, objX + w, objY - h, 1.0f, 0.0f, 0.0f);
-            appendLine(commands, objX + w, objY - h, objX + w, objY + h, 1.0f, 0.0f, 0.0f);
-            appendLine(commands, objX + w, objY + h, objX - w, objY + h, 1.0f, 0.0f, 0.0f);
-            appendLine(commands, objX - w, objY + h, objX - w, objY - h, 1.0f, 0.0f, 0.0f);
+            ctx.drawLine(objX - w, objY - h, objX + w, objY - h, 1.0f, 0.0f, 0.0f);
+            ctx.drawLine(objX + w, objY - h, objX + w, objY + h, 1.0f, 0.0f, 0.0f);
+            ctx.drawLine(objX + w, objY + h, objX - w, objY + h, 1.0f, 0.0f, 0.0f);
+            ctx.drawLine(objX - w, objY + h, objX - w, objY - h, 1.0f, 0.0f, 0.0f);
         }
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2,
-                            float r, float g, float b) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x2, y2, 0, 0));
-    }
 
-    private boolean isDebugViewEnabled() {
-        return DEBUG_VIEW_ENABLED && OVERLAY_MANAGER.isEnabled(DebugOverlayToggle.OVERLAY);
-    }
 }

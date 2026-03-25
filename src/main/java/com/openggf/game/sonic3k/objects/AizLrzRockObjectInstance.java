@@ -1,6 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
@@ -8,7 +8,6 @@ import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -19,7 +18,7 @@ import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import com.openggf.sprites.playable.ShieldType;
+import com.openggf.game.ShieldType;
 
 import java.util.List;
 import java.util.logging.Logger;
@@ -144,8 +143,6 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
     private final int baseY;
     private int currentX;
     private int currentY;
-    private ObjectSpawn dynamicSpawn;
-
     private final ZoneVariant variant;
     private final int sizeIndex;
     private final int behaviorBits;
@@ -178,7 +175,6 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
         this.baseY = spawn.y();
         this.currentX = baseX;
         this.currentY = baseY;
-        this.dynamicSpawn = spawn;
 
         this.sizeIndex = (spawn.subtype() >> 4) & 0x07;
         int lowerNibble = spawn.subtype() & 0x0F;
@@ -198,7 +194,8 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (player == null || breaking) {
             return;
         }
@@ -206,7 +203,7 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
         // ROM: objects save player velocity/anim BEFORE SolidObjectFull.
         // Our resolveContact has already zeroed velocity and cleared rolling by this point.
         // Read the pre-contact snapshot captured at the start of SolidContacts.update().
-        ObjectManager om = LevelManager.getInstance().getObjectManager();
+        ObjectManager om = services().objectManager();
         if (om != null) {
             savedPreContactRolling = om.getPreContactRolling();
             savedPreContactXSpeed = om.getPreContactXSpeed();
@@ -235,7 +232,8 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (breaking) {
             // Already broken — destroyed by debris children going offscreen
             return;
@@ -310,7 +308,7 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
         playerStandingOnRock = false;
         playerPushingSide = false;
 
-        updateDynamicSpawn();
+        updateDynamicSpawn(currentX, currentY);
     }
 
     /**
@@ -375,12 +373,6 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
         // +0x0B offset verified: sonic3k.asm:43924 (addi.w #$B,d1 before SolidObjectFull call)
         return new SolidObjectParams(halfWidth + 0x0B, halfHeight, halfHeight + 1);
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn;
-    }
-
     @Override
     public int getX() {
         return currentX;
@@ -405,7 +397,7 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
@@ -428,7 +420,7 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
         // Play collapse SFX
         if (isOnScreen()) {
             try {
-                AudioManager.getInstance().playSfx(Sonic3kSfx.COLLAPSE.id);
+                services().playSfx(Sonic3kSfx.COLLAPSE.id);
             } catch (Exception e) {
                 // Prevent audio failure from breaking game logic.
             }
@@ -525,16 +517,6 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
         player.setCentreX((short) (playerX - 1));
     }
 
-    private void updateDynamicSpawn() {
-        if (dynamicSpawn.x() == currentX && dynamicSpawn.y() == currentY) {
-            return;
-        }
-        dynamicSpawn = new ObjectSpawn(
-                currentX, currentY,
-                spawn.objectId(), spawn.subtype(), spawn.renderFlags(),
-                spawn.respawnTracked(), spawn.rawYWord());
-    }
-
     /**
      * Checks if the player is in a spinning state (rolling, spindash, jumping while curled).
      * ROM checks: anim == 2 (rolling animation).
@@ -548,9 +530,9 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
      * ROM: cmpi.b #2,character_id(a1) — character_id 2 = Knuckles in S3K
      * (Player_mode 3 = KNUCKLES in the engine's PlayerCharacter enum).
      */
-    private static boolean isKnuckles() {
+    private boolean isKnuckles() {
         try {
-            Sonic3kLevelEventManager lem = Sonic3kLevelEventManager.getInstance();
+            Sonic3kLevelEventManager lem = (Sonic3kLevelEventManager) services().levelEventProvider();
             return lem != null && lem.getPlayerCharacter() == PlayerCharacter.KNUCKLES;
         } catch (Exception e) {
             return false;
@@ -560,14 +542,10 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
     /**
      * Determines zone variant based on current LevelManager zone/act.
      */
-    private static ZoneVariant resolveVariant() {
+    private ZoneVariant resolveVariant() {
         try {
-            LevelManager lm = LevelManager.getInstance();
-            if (lm == null) {
-                return ZoneVariant.UNKNOWN;
-            }
-            int zone = lm.getCurrentZone();
-            int act = lm.getCurrentAct();
+            int zone = services().romZoneId();
+            int act = services().currentAct();
             if (zone == Sonic3kZoneIds.ZONE_AIZ) {
                 return act == 0 ? ZoneVariant.AIZ1 : ZoneVariant.AIZ2;
             }

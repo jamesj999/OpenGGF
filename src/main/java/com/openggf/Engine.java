@@ -6,7 +6,7 @@ import org.lwjgl.glfw.*;
 import org.lwjgl.opengl.*;
 import org.lwjgl.system.MemoryStack;
 
-import com.openggf.Control.InputHandler;
+import com.openggf.control.InputHandler;
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.LWJGLAudioBackend;
 import com.openggf.camera.Camera;
@@ -51,10 +51,10 @@ public class Engine {
 	private static final Logger LOGGER = Logger.getLogger(Engine.class.getName());
 	public static final String RESOURCES_SHADERS_PIXEL_SHADER_GLSL = "shaders/shader_the_hedgehog.glsl";
 	private final SonicConfigurationService configService = SonicConfigurationService.getInstance();
-	private final SpriteManager spriteManager = SpriteManager.getInstance();
+	private SpriteManager spriteManager = SpriteManager.getInstance();
 	private final GraphicsManager graphicsManager = GraphicsManager.getInstance();
 
-	private final Camera camera = Camera.getInstance();
+	private Camera camera = Camera.getInstance();
 	// Lazy-initialized: DebugRenderer.<clinit> references java.awt.Color which
 	// is unavailable in GraalVM native-image builds.
 	private DebugRenderer debugRenderer;
@@ -62,8 +62,12 @@ public class Engine {
 
 	private final GameLoop gameLoop = new GameLoop();
 
-	public static DebugState debugState = DebugState.NONE;
-	public static DebugOption debugOption = DebugOption.A;
+	private static volatile DebugState debugState = DebugState.NONE;
+	private static volatile DebugOption debugOption = DebugOption.A;
+
+	public static DebugState getDebugState() { return debugState; }
+	public static DebugOption getDebugOption() { return debugOption; }
+	public static void setDebugOption(DebugOption option) { debugOption = option; }
 
 	private double realWidth = configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS);
 	private double realHeight = configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
@@ -75,7 +79,10 @@ public class Engine {
 
 	private boolean debugViewEnabled = configService.getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
 
-	private final LevelManager levelManager = LevelManager.getInstance();
+	private LevelManager levelManager = LevelManager.getInstance();
+
+	// The gameplay runtime — set during initializeGame()
+	private com.openggf.game.GameRuntime runtime;
 
 	// Pre-allocated list for results screen rendering
 	private final java.util.List<GLCommand> resultsCommands = new java.util.ArrayList<>(64);
@@ -336,6 +343,23 @@ public class Engine {
 	 * exitMasterTitleScreen() after game selection.
 	 */
 	public void initializeGame() {
+		// Create the gameplay runtime before any manager access.
+		// During this transitional period, createGameplay() wraps existing singletons.
+		runtime = com.openggf.game.RuntimeManager.createGameplay();
+		this.camera = runtime.getCamera();
+		this.spriteManager = runtime.getSpriteManager();
+		this.levelManager = runtime.getLevelManager();
+		gameLoop.setRuntime(runtime);
+
+		// Trigger ROM loading and game module detection early so that
+		// GameModuleRegistry.getCurrent() returns the correct module (S1/S2/S3K)
+		// before the cross-game features and sidekick checks below.
+		try {
+			GameServices.rom().getRom();
+		} catch (IOException e) {
+			throw new RuntimeException("Failed to load ROM during game initialization", e);
+		}
+
 		if (configService.getBoolean(SonicConfiguration.AUDIO_ENABLED)) {
 			AudioManager.getInstance().setBackend(new LWJGLAudioBackend());
 		}
@@ -900,8 +924,9 @@ public class Engine {
 	}
 
 	private void cleanup() {
+		com.openggf.game.RuntimeManager.destroyCurrent();
 		AudioManager.getInstance().clearDonorAudio();
-		CrossGameFeatureProvider.resetInstance();
+		CrossGameFeatureProvider.getInstance().resetState();
 		RenderContext.reset();
 		if (masterTitleScreen != null) {
 			masterTitleScreen.cleanup();

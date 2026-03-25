@@ -4,7 +4,9 @@ import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
+import com.openggf.data.RomByteReader;
 import com.openggf.game.ZoneFeatureProvider;
+import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.features.AizTransitionRenderFeature;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.graphics.GraphicsManager;
@@ -12,6 +14,9 @@ import com.openggf.level.WaterSystem;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.io.IOException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import com.openggf.game.GameServices;
 
 /**
  * Zone feature provider for Sonic 3 &amp; Knuckles.
@@ -19,11 +24,20 @@ import java.io.IOException;
  * and other S3K-specific zone features.
  */
 public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
+    private static final Logger LOGGER = Logger.getLogger(Sonic3kZoneFeatureProvider.class.getName());
+
     private final AizTransitionRenderFeature aizTransitionRenderFeature = new AizTransitionRenderFeature();
+    private Sonic3kWaterSurfaceManager waterSurfaceManager;
 
     @Override
     public void initZoneFeatures(Rom rom, int zoneIndex, int actIndex, int cameraX) throws IOException {
         aizTransitionRenderFeature.onZoneInit(zoneIndex, actIndex);
+
+        // Initialize water surface manager for HCZ (zone 1)
+        // From sonic3k.asm:7777-7787: only HCZ loads Obj_HCZWaveSplash
+        if (zoneIndex == Sonic3kZoneIds.ZONE_HCZ && hasWater(zoneIndex)) {
+            initWaterSurfaceManager(rom, zoneIndex, actIndex);
+        }
     }
 
     @Override
@@ -31,9 +45,20 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
         // No zone features to update yet
     }
 
+    private void initWaterSurfaceManager(Rom rom, int zoneIndex, int actIndex) {
+        try {
+            RomByteReader reader = RomByteReader.fromRom(rom);
+            waterSurfaceManager = new Sonic3kWaterSurfaceManager(rom, reader, zoneIndex, actIndex);
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Failed to initialize S3K water surface manager", e);
+            waterSurfaceManager = null;
+        }
+    }
+
     @Override
     public void reset() {
         aizTransitionRenderFeature.reset();
+        waterSurfaceManager = null;
     }
 
     @Override
@@ -44,18 +69,21 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
     @Override
     public boolean hasWater(int zoneIndex) {
         // Check if water was loaded for this zone (any act)
-        WaterSystem waterSystem = WaterSystem.getInstance();
+        WaterSystem waterSystem = GameServices.water();
         return waterSystem.hasWater(zoneIndex, 0) || waterSystem.hasWater(zoneIndex, 1);
     }
 
     @Override
     public int getWaterLevel(int zoneIndex, int actIndex) {
-        WaterSystem waterSystem = WaterSystem.getInstance();
+        WaterSystem waterSystem = GameServices.water();
         return waterSystem.getWaterLevelY(zoneIndex, actIndex);
     }
 
     @Override
     public void render(Camera camera, int frameCounter) {
+        if (waterSurfaceManager != null && waterSurfaceManager.isInitialized()) {
+            waterSurfaceManager.render(camera, frameCounter);
+        }
         aizTransitionRenderFeature.renderFlameOverlay(camera, frameCounter);
     }
 
@@ -66,6 +94,9 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
 
     @Override
     public int ensurePatternsCached(GraphicsManager graphicsManager, int baseIndex) {
+        if (waterSurfaceManager != null) {
+            return waterSurfaceManager.ensurePatternsCached(graphicsManager, baseIndex);
+        }
         return baseIndex;
     }
 
@@ -82,7 +113,7 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
         if (AizPlaneIntroInstance.isMainLevelPhaseActive()) {
             return false;
         }
-        return !Camera.getInstance().isLevelStarted();
+        return !GameServices.camera().isLevelStarted();
     }
 
     @Override
@@ -109,7 +140,7 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
             return false;
         }
         // Hide HUD during AIZ intro until Camera marks level as started
-        return !Camera.getInstance().isLevelStarted();
+        return !GameServices.camera().isLevelStarted();
     }
 
     @Override

@@ -1,11 +1,11 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.OscillationManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
@@ -60,8 +60,6 @@ public class CPZPlatformObjectInstance extends AbstractObjectInstance
     private int moveType;
     private int yVel;
     private boolean xFlip;
-    private ObjectSpawn dynamicSpawn;
-
     public CPZPlatformObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
         init();
@@ -76,33 +74,19 @@ public class CPZPlatformObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
     @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
-    @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Apply movement based on subtype
         applyMovement(player);
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            appendDebug(commands);
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.CPZ_PLATFORM);
-        if (renderer == null || !renderer.isReady()) {
-            appendDebug(commands);
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.CPZ_PLATFORM);
+        if (renderer == null) return;
 
         boolean hFlip = xFlip;
         boolean vFlip = false;
@@ -121,12 +105,14 @@ public class CPZPlatformObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Platform state is driven via ObjectManager standing checks.
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed();
     }
 
@@ -165,7 +151,7 @@ public class CPZPlatformObjectInstance extends AbstractObjectInstance
 
         yVel = 0;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -222,7 +208,7 @@ public class CPZPlatformObjectInstance extends AbstractObjectInstance
      * When player stands on platform, increment subtype (move to next routine).
      */
     private void applyTriggerOnStanding() {
-        if (isStanding()) {
+        if (isPlayerRiding()) {
             moveType = (moveType + 1) & 0x0F;
         }
     }
@@ -307,28 +293,8 @@ public class CPZPlatformObjectInstance extends AbstractObjectInstance
         y = baseY + d2;
     }
 
-    private boolean isStanding() {
-        LevelManager manager = LevelManager.getInstance();
-        if (manager == null || manager.getObjectManager() == null) {
-            return false;
-        }
-        return manager.getObjectManager().isAnyPlayerRiding(this);
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = new ObjectSpawn(
-                    x,
-                    y,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
-    }
-
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         int halfWidth = widthPixels;
         int halfHeight = HALF_HEIGHT;
         int left = x - halfWidth;
@@ -336,16 +302,10 @@ public class CPZPlatformObjectInstance extends AbstractObjectInstance
         int top = y - halfHeight;
         int bottom = y + halfHeight;
 
-        appendLine(commands, left, top, right, top);
-        appendLine(commands, right, top, right, bottom);
-        appendLine(commands, right, bottom, left, bottom);
-        appendLine(commands, left, bottom, left, top);
+        ctx.drawLine(left, top, right, top, 0.8f, 0.5f, 0.2f);
+        ctx.drawLine(right, top, right, bottom, 0.8f, 0.5f, 0.2f);
+        ctx.drawLine(right, bottom, left, bottom, 0.8f, 0.5f, 0.2f);
+        ctx.drawLine(left, bottom, left, top, 0.8f, 0.5f, 0.2f);
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.8f, 0.5f, 0.2f, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.8f, 0.5f, 0.2f, x2, y2, 0, 0));
-    }
 }

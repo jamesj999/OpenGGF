@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.CrossGameFeatureProvider;
 import com.openggf.game.PhysicsProfile;
@@ -17,6 +16,7 @@ import com.openggf.sprites.playable.Tails;
 import com.openggf.sprites.render.PlayerSpriteRenderer;
 
 import java.util.logging.Logger;
+import com.openggf.game.GameServices;
 
 /**
  * S3K-specific Super Sonic state controller.
@@ -158,11 +158,11 @@ public class Sonic3kSuperStateController extends SuperStateController {
         // Play transformation SFX
         try {
             if (CrossGameFeatureProvider.isActive()) {
-                AudioManager.getInstance().playDonorSfx(
+                GameServices.audio().playDonorSfx(
                         CrossGameFeatureProvider.getInstance().getDonorGameId(),
                         Sonic3kSfx.SUPER_TRANSFORM.id);
             } else {
-                AudioManager.getInstance().playSfx(Sonic3kSfx.SUPER_TRANSFORM.id);
+                GameServices.audio().playSfx(Sonic3kSfx.SUPER_TRANSFORM.id);
             }
         } catch (Exception e) {
             LOGGER.fine("Could not play transformation SFX: " + e.getMessage());
@@ -183,11 +183,11 @@ public class Sonic3kSuperStateController extends SuperStateController {
         // Play invincibility music (S3K Super Sonic uses mus_Invincibility)
         try {
             if (CrossGameFeatureProvider.isActive()) {
-                AudioManager.getInstance().playDonorMusic(
+                GameServices.audio().playDonorMusic(
                         CrossGameFeatureProvider.getInstance().getDonorGameId(),
                         Sonic3kMusic.INVINCIBILITY.id);
             } else {
-                AudioManager.getInstance().playMusic(Sonic3kMusic.INVINCIBILITY.id);
+                GameServices.audio().playMusic(Sonic3kMusic.INVINCIBILITY.id);
             }
         } catch (Exception e) {
             LOGGER.fine("Could not play Super Sonic music: " + e.getMessage());
@@ -243,7 +243,7 @@ public class Sonic3kSuperStateController extends SuperStateController {
         player.setShieldVisible(true);
         // Revert to zone music
         try {
-            AudioManager.getInstance().endMusicOverride(Sonic3kMusic.INVINCIBILITY.id);
+            GameServices.audio().endMusicOverride(Sonic3kMusic.INVINCIBILITY.id);
         } catch (Exception e) {
             LOGGER.fine("Could not revert Super Sonic music: " + e.getMessage());
         }

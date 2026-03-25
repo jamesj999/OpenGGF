@@ -1,8 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.audio.AudioManager;
-import com.openggf.camera.Camera;
-import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
@@ -11,10 +9,8 @@ import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.graphics.GLCommand;
-import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Palette;
 import com.openggf.level.objects.ObjectManager;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseResult;
@@ -24,6 +20,7 @@ import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
+import java.util.logging.Logger;
 
 /**
  * AIZ miniboss object (0x91).
@@ -36,6 +33,7 @@ import java.util.List;
  * - loc_68B34/loc_68B92 movement variants
  */
 public class AizMinibossInstance extends AbstractBossInstance {
+    private static final Logger LOG = Logger.getLogger(AizMinibossInstance.class.getName());
     private static final int ROUTINE_INIT = 0;
     private static final int ROUTINE_WAIT_TRIGGER = 2;
     private static final int ROUTINE_WAIT = 4;
@@ -89,8 +87,8 @@ public class AizMinibossInstance extends AbstractBossInstance {
     /** Stagger explosion controller for boss defeat (ROM: Child6_CreateBossExplosion subtype 0). */
     private S3kBossExplosionController defeatExplosionController;
 
-    public AizMinibossInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "AIZMiniboss");
+    public AizMinibossInstance(ObjectSpawn spawn) {
+        super(spawn, "AIZMiniboss");
     }
 
     @Override
@@ -134,7 +132,8 @@ public class AizMinibossInstance extends AbstractBossInstance {
     }
 
     @Override
-    public void onPlayerAttack(AbstractPlayableSprite player, TouchResponseResult result) {
+    public void onPlayerAttack(PlayableEntity playerEntity, TouchResponseResult result) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (state.invulnerable || state.defeated) {
             return;
         }
@@ -143,13 +142,13 @@ public class AizMinibossInstance extends AbstractBossInstance {
         state.invulnerabilityTimer = INVULN_TIME;
         state.invulnerable = true;
         paletteFlasher.startFlash();
-        AudioManager.getInstance().playSfx(Sonic3kSfx.BOSS_HIT.id);
+        services().playSfx(Sonic3kSfx.BOSS_HIT.id);
         onHitTaken(state.hitCount);
 
         if (state.hitCount <= 0) {
             state.hitCount = 0;
             state.defeated = true;
-            GameServices.gameState().addScore(1000);
+            services().gameState().addScore(1000);
             onDefeatStarted();
         }
     }
@@ -169,11 +168,10 @@ public class AizMinibossInstance extends AbstractBossInstance {
 
         // ROM: loc_46ED4 creates Child6_CreateBossExplosion (sub_52850, subtype 0).
         // CreateBossExp00: timer=$20 (33 explosions), xRange=$20, yRange=$20.
-        // Plays sfx_Explode (0xB4) once at creation, then staggers explosions 3 frames apart.
+        // sub_52850 plays sfx_Explode each time it spawns an explosion child (every 3 frames).
         defeatExplosionController = new S3kBossExplosionController(state.x, state.y, 0);
-        AudioManager.getInstance().playSfx(Sonic3kSfx.EXPLODE.id);
 
-        AudioManager.getInstance().fadeOutMusic();
+        services().fadeOutMusic();
 
         // Clean up all visible children — barrels, body, arm, napalm controller.
         for (var child : childComponents) {
@@ -188,7 +186,8 @@ public class AizMinibossInstance extends AbstractBossInstance {
     }
 
     @Override
-    protected void updateBossLogic(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateBossLogic(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state.routine) {
             case ROUTINE_INIT -> updateInit();
             case ROUTINE_WAIT_TRIGGER -> updateWaitTrigger();
@@ -217,7 +216,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
         if (!state.invulnerable) {
             return;
         }
-        var level = levelManager.getCurrentLevel();
+        var level = services().currentLevel();
         if (level == null || level.getPaletteCount() <= 1) {
             return;
         }
@@ -229,7 +228,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
             byte[] bytes = {(byte) ((colors[i] >> 8) & 0xFF), (byte) (colors[i] & 0xFF)};
             pal.getColor(CUSTOM_FLASH_INDICES[i]).fromSegaFormat(bytes, 0);
         }
-        GraphicsManager gm = GraphicsManager.getInstance();
+        var gm = services().graphicsManager();
         if (gm.isGlInitialized()) {
             gm.cachePaletteTexture(pal, 1);
         }
@@ -240,14 +239,14 @@ public class AizMinibossInstance extends AbstractBossInstance {
         if (events != null) {
             events.setBossFlag(true);
         }
-        GameServices.gameState().setCurrentBossId(0x91);
+        services().gameState().setCurrentBossId(0x91);
         loadBossPalette();
         state.routine = ROUTINE_WAIT_TRIGGER;
     }
 
     private void updateWaitTrigger() {
-        Camera camera = Camera.getInstance();
-        PlayerCharacter character = Sonic3kLevelEventManager.getInstance().getPlayerCharacter();
+        var camera = services().camera();
+        PlayerCharacter character = ((Sonic3kLevelEventManager) services().levelEventProvider()).getPlayerCharacter();
         int triggerX = (character == PlayerCharacter.KNUCKLES) ? TRIGGER_X_KNUCKLES : TRIGGER_X;
         if (camera.getX() < triggerX) {
             return;
@@ -255,7 +254,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
 
         camera.setMinX((short) triggerX);
         camera.setMaxX((short) triggerX);
-        AudioManager.getInstance().fadeOutMusic();
+        services().fadeOutMusic();
 
         state.routine = ROUTINE_WAIT;
         setWait(WAIT_AFTER_TRIGGER, this::onInitialDelayComplete);
@@ -266,7 +265,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
         state.yVel = DESCEND_VEL;
         setWait(DESCEND_TIME, this::onDescendComplete);
 
-        var objectManager = levelManager.getObjectManager();
+        var objectManager = services().objectManager();
         spawnChild(new AizMinibossBodyChild(this), objectManager);
         spawnChild(new AizMinibossArmChild(this), objectManager);
         for (int i = 0; i < 3; i++) {
@@ -275,7 +274,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
         // Napalm controller (stays idle for Sonic, activates for Knuckles)
         spawnChild(new AizMinibossNapalmController(this, 0), objectManager);
 
-        AudioManager.getInstance().playMusic(Sonic3kMusic.MINIBOSS.id);
+        services().playMusic(Sonic3kMusic.MINIBOSS.id);
     }
 
     private void onDescendComplete() {
@@ -294,14 +293,14 @@ public class AizMinibossInstance extends AbstractBossInstance {
     private void onFlamePrepComplete() {
         state.routine = ROUTINE_BREATH;
         setCustomFlag(FLAG_PARENT_COUNTER, 8);
-        AudioManager.getInstance().playSfx(Sonic3kSfx.FLAMETHROWER_QUIET.id);
+        services().playSfx(Sonic3kSfx.FLAMETHROWER_QUIET.id);
         spawnBreathFlames();
         setWait(BREATH_SWING_TIME, this::onBreathCycleComplete);
     }
 
     private void onBreathCycleComplete() {
         // ROM: loc_68ADE — Knuckles fight triggers napalm after breath cycle
-        PlayerCharacter character = Sonic3kLevelEventManager.getInstance().getPlayerCharacter();
+        PlayerCharacter character = ((Sonic3kLevelEventManager) services().levelEventProvider()).getPlayerCharacter();
         if (character == PlayerCharacter.KNUCKLES) {
             setCustomFlag(FLAG_PARENT_BITS, getCustomFlag(FLAG_PARENT_BITS) | PARENT_BIT_NAPALM_ACTIVATE);
         }
@@ -370,9 +369,12 @@ public class AizMinibossInstance extends AbstractBossInstance {
         // at random offsets within ±$20 pixels. Total: 33 explosions over ~102 frames.
         if (defeatExplosionController != null && !defeatExplosionController.isFinished()) {
             defeatExplosionController.tick();
-            var objectManager = levelManager.getObjectManager();
+            var objectManager = services().objectManager();
             if (objectManager != null) {
                 for (var pending : defeatExplosionController.drainPendingExplosions()) {
+                    if (pending.playSfx()) {
+                        services().playSfx(Sonic3kSfx.EXPLODE.id);
+                    }
                     objectManager.addDynamicObject(
                             new S3kBossExplosionChild(pending.x(), pending.y()));
                 }
@@ -400,11 +402,11 @@ public class AizMinibossInstance extends AbstractBossInstance {
                         // The real miniboss fights in the post-fire section (technically AIZ2),
                         // so we restore Pal_AIZFire, NOT Pal_AIZ (green AIZ1 palette).
                         try {
-                            byte[] palData = GameServices.rom().getRom().readBytes(
+                            byte[] palData = services().rom().readBytes(
                                     Sonic3kConstants.PAL_AIZ_FIRE_ADDR, 32);
-                            levelManager.updatePalette(1, palData);
-                        } catch (Exception ignored) {
-                            // Palette restore failures should not crash gameplay.
+                            services().updatePalette(1, palData);
+                        } catch (Exception e) {
+                            LOG.fine(() -> "AizMinibossInstance.updateDefeated: " + e.getMessage());
                         }
                     }
             );
@@ -441,7 +443,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
     }
 
     private void spawnBreathFlames() {
-        var objectManager = levelManager.getObjectManager();
+        var objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -455,14 +457,13 @@ public class AizMinibossInstance extends AbstractBossInstance {
         }
     }
 
-
     /**
      * Destroy all in-flight attack objects spawned by this boss.
      * ROM: barrel children enter defeat animation; existing shots/flames check parent
      * state and stop. We achieve the same by scanning active objects.
      */
     private void destroyAttackObjects() {
-        var objectManager = levelManager.getObjectManager();
+        var objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -483,16 +484,16 @@ public class AizMinibossInstance extends AbstractBossInstance {
 
     private void loadBossPalette() {
         try {
-            byte[] line = GameServices.rom().getRom().readBytes(
+            byte[] line = services().rom().readBytes(
                     Sonic3kConstants.PAL_AIZ_MINIBOSS_ADDR, 32);
-            levelManager.updatePalette(1, line);
-        } catch (Exception ignored) {
-            // Palette load failures should not crash gameplay.
+            services().updatePalette(1, line);
+        } catch (Exception e) {
+            LOG.fine(() -> "AizMinibossInstance.loadBossPalette: " + e.getMessage());
         }
     }
 
     private Sonic3kAIZEvents getAizEvents() {
-        return Sonic3kLevelEventManager.getInstance().getAizEvents();
+        return ((Sonic3kLevelEventManager) services().levelEventProvider()).getAizEvents();
     }
 
     @Override
@@ -500,7 +501,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
         if (isDestroyed() || state.routine < ROUTINE_DESCEND || defeatRenderComplete) {
             return;
         }
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
@@ -522,5 +523,15 @@ public class AizMinibossInstance extends AbstractBossInstance {
     public int getPriorityBucket() {
         // ROM: ObjDat_AIZMiniboss priority $0200 → $200/$80 = bucket 4
         return 4;
+    }
+
+    @Override
+    protected int getBossHitSfxId() {
+        return Sonic3kSfx.BOSS_HIT.id;
+    }
+
+    @Override
+    protected int getBossExplosionSfxId() {
+        return Sonic3kSfx.EXPLODE.id;
     }
 }

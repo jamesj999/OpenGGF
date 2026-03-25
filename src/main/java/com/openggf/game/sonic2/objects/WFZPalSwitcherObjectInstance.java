@@ -1,11 +1,11 @@
 package com.openggf.game.sonic2.objects;
+import com.openggf.level.objects.BoxObjectInstance;
 
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.ObjectSpawn;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -79,7 +79,8 @@ public class WFZPalSwitcherObjectInstance extends BoxObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (player == null) {
             return;
         }
@@ -102,8 +103,8 @@ public class WFZPalSwitcherObjectInstance extends BoxObjectInstance {
 
         // Check Tails (sidekick)
         // ROM: lea (Sidekick).w,a1 (s2.asm:46573)
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
-            checkPlayerCrossing(sidekick, false);
+        for (PlayableEntity sidekick : services().sidekicks()) {
+            checkPlayerCrossing((AbstractPlayableSprite) sidekick, false);
         }
     }
 
@@ -121,7 +122,7 @@ public class WFZPalSwitcherObjectInstance extends BoxObjectInstance {
         sonicPastTrigger = player.getCentreX() > objX;
 
         // Same check for sidekick(s)
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+        for (PlayableEntity sidekick : services().sidekicks()) {
             // ROM: cmp.w x_pos(a1),d1 / bhs.s Obj8B_Main (s2.asm:46562-46563)
             tailsPastTrigger = sidekick.getCentreX() > objX;
         }
@@ -247,10 +248,10 @@ public class WFZPalSwitcherObjectInstance extends BoxObjectInstance {
     private void applyForwardToggle() {
         if (!xFlipped) {
             // Unflipped: set toggle to 1 (switch to belt palette)
-            GameServices.gameState().setWfzFireToggle(true);
+            services().gameState().setWfzFireToggle(true);
         } else {
             // Flipped: set toggle to 0 (switch to fire palette)
-            GameServices.gameState().setWfzFireToggle(false);
+            services().gameState().setWfzFireToggle(false);
         }
     }
 
@@ -268,18 +269,17 @@ public class WFZPalSwitcherObjectInstance extends BoxObjectInstance {
     private void applyReverseToggle() {
         if (xFlipped) {
             // Flipped: set toggle to 1 (switch to belt palette)
-            GameServices.gameState().setWfzFireToggle(true);
+            services().gameState().setWfzFireToggle(true);
         } else {
             // Unflipped: set toggle to 0 (switch to fire palette)
-            GameServices.gameState().setWfzFireToggle(false);
+            services().gameState().setWfzFireToggle(false);
         }
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
         // Only render in debug mode (invisible in normal gameplay)
-        if (!SonicConfigurationService.getInstance()
-                .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED)) {
+        if (!config().getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED)) {
             return;
         }
 

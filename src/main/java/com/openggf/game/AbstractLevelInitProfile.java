@@ -1,9 +1,7 @@
 package com.openggf.game;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.graphics.FadeManager;
-import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.LevelManager;
 import com.openggf.level.ParallaxManager;
 import com.openggf.level.WaterSystem;
@@ -11,6 +9,9 @@ import com.openggf.physics.CollisionSystem;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.timer.TimerManager;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -59,6 +60,84 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
         return List.of();
     }
 
+    // ── IOException helper ───────────────────────────────────────────────
+
+    /** Runnable that may throw {@link IOException}. */
+    @FunctionalInterface
+    protected interface IORunnable {
+        void run() throws IOException;
+    }
+
+    /**
+     * Creates an {@link InitStep} whose action wraps an {@link IORunnable},
+     * converting any {@link IOException} to {@link UncheckedIOException}.
+     */
+    protected static InitStep ioStep(String name, String desc, IORunnable action) {
+        return new InitStep(name, desc, () -> {
+            try { action.run(); } catch (IOException e) { throw new UncheckedIOException(e); }
+        });
+    }
+
+    // ── Shared core level-load steps ─────────────────────────────────────
+
+    /**
+     * Builds the 13 core level-load steps that are identical across all
+     * three game profiles.  Each step delegates to the corresponding
+     * {@link LevelManager} method.
+     * <p>
+     * Order matches the ROM's {@code Level:} routine (game-agnostic
+     * sequence): module init → audio → geometry → animation → objects →
+     * camera bounds → gameplay state → rings → zone features → art →
+     * player/checkpoint → water → background renderer.
+     *
+     * @param ctx the level-load context accumulated across steps
+     * @return mutable list — callers may append post-load assembly steps
+     */
+    protected List<InitStep> buildCoreSteps(LevelLoadContext ctx) {
+        LevelManager lm = GameServices.level();
+        List<InitStep> steps = new ArrayList<>(20);
+        steps.add(ioStep("InitGameModule",
+                "Create Game instance, fade out, clear PLC",
+                () -> lm.initGameModule(ctx.getLevelIndex())));
+        steps.add(ioStep("InitAudio",
+                "Play level music from zone playlist",
+                () -> lm.initAudio(ctx.getLevelIndex())));
+        steps.add(ioStep("LoadLevelData",
+                "Load level geometry, tiles, collision indices",
+                () -> ctx.setLevel(lm.loadLevelData(ctx.getLevelIndex()))));
+        steps.add(new InitStep("InitAnimatedContent",
+                "Pattern animation scripts and palette cycling",
+                lm::initAnimatedContent));
+        steps.add(ioStep("InitObjectManager",
+                "Spawn players, create ObjectManager, wire CollisionSystem",
+                lm::initObjectManager));
+        steps.add(new InitStep("InitCameraBounds",
+                "Reset camera bounds from level geometry",
+                lm::initCameraBounds));
+        steps.add(new InitStep("InitGameplayState",
+                "OscillateNumInit, clear game state, HUD update flags",
+                lm::initGameplayState));
+        steps.add(new InitStep("InitRings",
+                "Initial ring placement and pattern caching",
+                lm::initRings));
+        steps.add(ioStep("InitZoneFeatures",
+                "Zone-specific features (water surface, bumpers, etc.)",
+                lm::initZoneFeatures));
+        steps.add(new InitStep("InitArt",
+                "Zone PLC, character art, shared HUD/ring/monitor patterns",
+                lm::initArt));
+        steps.add(new InitStep("InitPlayerAndCheckpoint",
+                "Player spawn state and checkpoint clear",
+                lm::initPlayerAndCheckpoint));
+        steps.add(ioStep("InitWater",
+                "Water system loading for water zones",
+                lm::initWater));
+        steps.add(new InitStep("InitBackgroundRenderer",
+                "Engine-specific: pre-allocate BG FBO",
+                lm::initBackgroundRenderer));
+        return steps;
+    }
+
     // Not final: subclasses provide game-specific level load steps.
     @Override
     public List<InitStep> levelLoadSteps(LevelLoadContext ctx) {
@@ -74,49 +153,49 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
     protected InitStep restoreCheckpointStep(LevelLoadContext ctx) {
         return new InitStep("RestoreCheckpoint",
             "S1: Lamp_LoadInfo, S2: Obj79_LoadData, S3K: Saved_zone_and_act restore",
-            () -> LevelManager.getInstance().restoreCheckpointState(ctx));
+            () -> GameServices.level().restoreCheckpointState(ctx));
     }
 
     /** Step 15: Set player position from checkpoint or level start. */
     protected InitStep spawnPlayerStep(LevelLoadContext ctx) {
         return new InitStep("SpawnPlayer",
             "S1/S2: StartLocations / Obj79_LoadData, S3K: Get_PlayerStart",
-            () -> LevelManager.getInstance().spawnPlayerAtStartPosition(ctx));
+            () -> GameServices.level().spawnPlayerAtStartPosition(ctx));
     }
 
     /** Step 16: Reset player state for level start. */
     protected InitStep resetPlayerStateStep(LevelLoadContext ctx) {
         return new InitStep("ResetPlayerState",
             "S2: InitPlayers state clear, S3K: object constructor defaults",
-            () -> LevelManager.getInstance().resetPlayerForLevelStart(ctx));
+            () -> GameServices.level().resetPlayerForLevelStart(ctx));
     }
 
     /** Step 17: Initialize camera for level start. */
     protected InitStep initCameraStep() {
         return new InitStep("InitCamera",
             "S1/S2: SetScreen/InitCameraValues, S3K: Get_LevelSizeStart",
-            () -> LevelManager.getInstance().initCameraForLevel());
+            () -> GameServices.level().initCameraForLevel());
     }
 
     /** Step 18: Initialize level events for dynamic boundary updates. */
     protected InitStep initLevelEventsStep() {
         return new InitStep("InitLevelEvents",
             "All: LevelEventProvider.initLevel(zone, act)",
-            () -> LevelManager.getInstance().initLevelEventsForLevel());
+            () -> GameServices.level().initLevelEventsForLevel());
     }
 
     /** Step 19: Spawn sidekick near the main player. Override for game-specific offset. */
     protected InitStep spawnSidekickStep() {
         return new InitStep("SpawnSidekick",
             "S2: InitPlayers multi-char, S3K: SpawnLevelMainSprites_SpawnPlayers",
-            () -> LevelManager.getInstance().spawnSidekicks(-40, 0));
+            () -> GameServices.level().spawnSidekicks(-40, 0));
     }
 
     /** Step 20: Request title card display. */
     protected InitStep requestTitleCardStep(LevelLoadContext ctx) {
         return new InitStep("RequestTitleCard",
             "S1/S2: title card loop, S3K: Obj_TitleCard",
-            () -> LevelManager.getInstance().requestTitleCardIfNeeded(ctx));
+            () -> GameServices.level().requestTitleCardIfNeeded(ctx));
     }
 
     /**
@@ -140,7 +219,10 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
         return List.of(
             // Undoes S1:Phase D / S2:Phase C / S3K:Phase F (PlayMusic)
             new InitStep("ResetAudio", "Undoes PlayMusic / bgm_Fade",
-                () -> AudioManager.getInstance().resetState()),
+                () -> GameServices.audio().resetState()),
+
+            new InitStep("ResetCrossGameFeatures", "Undoes CrossGameFeatureProvider.initialize()",
+                () -> CrossGameFeatureProvider.getInstance().resetState()),
 
             // Game-specific: undoes zone event handlers, boss arena state
             levelEventTeardownStep(),
@@ -165,20 +247,23 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
                 () -> Camera.getInstance().resetState()),
             // Undoes S1:Phase B / S2:Phase B / S3K:Phase D (VDP register config)
             new InitStep("ResetGraphics", "Undoes VDP register / ClearScreen / Clear_DisplayData",
-                () -> GraphicsManager.getInstance().resetState()),
+                () -> com.openggf.graphics.GraphicsManager.getInstance().resetState()),
             // Undoes S1:Phase A / S2:Phase A / S3K:Phase A (PaletteFadeOut/Pal_FadeToBlack)
             new InitStep("ResetFade", "Undoes PaletteFadeOut / Pal_FadeToBlack",
                 () -> FadeManager.getInstance().resetState()),
 
             // Undoes S1:Phase K / S2:Phase H / S3K:Phase N (game state clear)
             new InitStep("ResetGameState", "Undoes ring/timer/lives init from Level:",
-                () -> GameServices.gameState().resetSession()),
+                () -> GameStateManager.getInstance().resetState()),
             // Undoes S1:Phase J / S2:Phase I / S3K:Phase P (first frame timing)
             new InitStep("ResetTimers", "Undoes Level_frame_counter / demo timer",
                 () -> TimerManager.getInstance().resetState()),
             // Undoes S1:Phase C / S2:Phase B / S3K:Phase E,L (water init)
             new InitStep("ResetWater", "Undoes LZWaterFeatures / WaterEffects / Handle_Onscreen_Water_Height",
-                () -> WaterSystem.getInstance().reset())
+                () -> WaterSystem.getInstance().reset()),
+
+            new InitStep("ResetDebugOverlay", "Clears overlay toggle states and pending debug text",
+                () -> GameServices.debugOverlay().resetState())
         );
     }
 
@@ -186,6 +271,9 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
     public final List<InitStep> perTestResetSteps() {
         return List.of(
             perTestLeadStep(),
+
+            new InitStep("ResetCrossGameFeatures", "Undoes CrossGameFeatureProvider.initialize()",
+                () -> CrossGameFeatureProvider.getInstance().resetState()),
 
             new InitStep("ResetParallax", "Undoes DeformBgLayer init",
                 () -> ParallaxManager.getInstance().resetState()),
@@ -198,11 +286,13 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
             new InitStep("ResetFade", "Undoes PaletteFadeOut / Pal_FadeToBlack",
                 () -> FadeManager.getInstance().resetState()),
             new InitStep("ResetGameState", "Undoes ring/timer/lives init from Level:",
-                () -> GameServices.gameState().resetSession()),
+                () -> GameStateManager.getInstance().resetState()),
             new InitStep("ResetTimers", "Undoes Level_frame_counter / demo timer",
                 () -> TimerManager.getInstance().resetState()),
             new InitStep("ResetWater", "Undoes LZWaterFeatures / WaterEffects / Handle_Onscreen_Water_Height",
-                () -> WaterSystem.getInstance().reset())
+                () -> WaterSystem.getInstance().reset()),
+            new InitStep("ResetDebugOverlay", "Clears overlay toggle states and pending debug text",
+                () -> GameServices.debugOverlay().resetState())
         );
     }
 

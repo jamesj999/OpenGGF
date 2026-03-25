@@ -42,3 +42,26 @@ docs/screenshots/
 
 # Savestates
 *.gs2
+dist/
+
+# Reference docs (keep locally, never commit)
+docs/clownacy/
+docs/gensplusgx/
+docs/lz_comp2/
+docs/s2ssedit-0.2.0/
+docs/SMPS-rips/
+docs/SMPS_Research_Pack/
+docs/SCHG_*.htm
+
+# Debug screenshots and artifacts (keep locally)
+/fire_curtain_*.png
+/hollow-tree-*.png
+/miniboss-*.png
+/s3k-ss-*.png
+/sonic-engine-windows.zip
+/test-err.txt
+/test-out.txt
+/test-output.txt
+/test-output-atlas.txt
+/mvn-test-output.txt
+/tmp_*.asm

@@ -1,12 +1,13 @@
 package com.openggf.game.sonic2.objects.badniks;
 
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -57,8 +58,7 @@ public class SlicerPincerInstance extends AbstractObjectInstance
     private int currentY;
     private int xVelocity; // 8.8 fixed point
     private int yVelocity; // 8.8 fixed point
-    private int xSubpixel;
-    private int ySubpixel;
+    private final SubpixelMotion.State motionState = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
     private int timer;
     private boolean hFlip;
     private int animIndex;
@@ -91,7 +91,8 @@ public class SlicerPincerInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (phase) {
             case HOMING -> updateHoming(player);
             case FALLING -> updateFalling();
@@ -171,14 +172,13 @@ public class SlicerPincerInstance extends AbstractObjectInstance
      * (matches s2.asm:29990 ObjectMove).
      */
     private void objectMove() {
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
-        int yPos24 = (currentY << 8) | (ySubpixel & 0xFF);
-        xPos24 += xVelocity;
-        yPos24 += yVelocity;
-        currentX = xPos24 >> 8;
-        currentY = yPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
-        ySubpixel = yPos24 & 0xFF;
+        motionState.x = currentX;
+        motionState.y = currentY;
+        motionState.xVel = xVelocity;
+        motionState.yVel = yVelocity;
+        SubpixelMotion.moveSprite2(motionState);
+        currentX = motionState.x;
+        currentY = motionState.y;
     }
 
     /**
@@ -204,8 +204,7 @@ public class SlicerPincerInstance extends AbstractObjectInstance
 
     @Override
     public ObjectSpawn getSpawn() {
-        return new ObjectSpawn(currentX, currentY, spawn.objectId(),
-                spawn.subtype(), spawn.renderFlags(), spawn.respawnTracked(), spawn.rawYWord());
+        return buildSpawnAt(currentX, currentY);
     }
 
     @Override
@@ -226,7 +225,7 @@ public class SlicerPincerInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) return;
 
         PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.SLICER);

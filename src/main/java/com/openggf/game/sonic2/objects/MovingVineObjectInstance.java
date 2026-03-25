@@ -1,21 +1,15 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.debug.DebugOverlayManager;
-import com.openggf.debug.DebugOverlayToggle;
+import com.openggf.game.PlayableEntity;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
 import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
-import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.ButtonVineTriggerManager;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -48,11 +42,6 @@ import java.util.logging.Logger;
 public class MovingVineObjectInstance extends AbstractObjectInstance {
 
     private static final Logger LOGGER = Logger.getLogger(MovingVineObjectInstance.class.getName());
-
-    // Debug state
-    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
-            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
 
     /**
      * Zone variant configuration.
@@ -113,8 +102,6 @@ public class MovingVineObjectInstance extends AbstractObjectInstance {
     // === Position Tracking ===
     private int currentY;                   // Dynamic Y position = initialY + currentExtension
     private int mappingFrame;               // Current frame based on extension
-    private ObjectSpawn dynamicSpawn;       // Updated spawn with current position
-
     /**
      * Creates a new MovingVine object instance.
      *
@@ -174,7 +161,7 @@ public class MovingVineObjectInstance extends AbstractObjectInstance {
         updateMappingFrame();
 
         // Refresh dynamic spawn for position tracking
-        refreshDynamicSpawn();
+        updateDynamicSpawn(spawn.x(), currentY);
 
         LOGGER.fine(() -> String.format(
                 "MovingVine init: pos=(%d,%d), subtype=0x%02X, variant=%s, maxExt=%d, reversed=%s, button=%s(id=%d)",
@@ -186,9 +173,8 @@ public class MovingVineObjectInstance extends AbstractObjectInstance {
      * ROM: cmpi.b #wing_fortress_zone,(Current_Zone).w
      */
     private ZoneVariant determineZoneVariant() {
-        LevelManager manager = LevelManager.getInstance();
-        if (manager != null && manager.getCurrentLevel() != null) {
-            int zoneId = manager.getCurrentLevel().getZoneIndex();
+        if (services().currentLevel() != null) {
+            int zoneId = services().currentLevel().getZoneIndex();
             if (zoneId == Sonic2ZoneConstants.ROM_ZONE_WFZ) {
                 return ZoneVariant.WFZ;
             }
@@ -206,14 +192,9 @@ public class MovingVineObjectInstance extends AbstractObjectInstance {
     public int getY() {
         return currentY;  // Y position varies with extension
     }
-
     @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
-    @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -234,7 +215,7 @@ public class MovingVineObjectInstance extends AbstractObjectInstance {
         // TODO: Player 2 (Sidekick) when multiplayer is implemented
 
         // 4. Update dynamic spawn for collision system
-        refreshDynamicSpawn();
+        updateDynamicSpawn(spawn.x(), currentY);
     }
 
     /**
@@ -484,7 +465,7 @@ public class MovingVineObjectInstance extends AbstractObjectInstance {
 
             // Play blip sound
             // ROM: move.w #SndID_Blip,d0 / jsr (PlaySound).l
-            AudioManager.getInstance().playSfx(Sonic2Sfx.BLIP.id);
+            services().playSfx(Sonic2Sfx.BLIP.id);
         }
 
         LOGGER.fine(() -> String.format("Player grabbed vine at (%d,%d), switchId=%d",
@@ -570,21 +551,9 @@ public class MovingVineObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        // Draw debug overlay when enabled
-        if (isDebugViewEnabled()) {
-            appendDebug(commands);
-        }
-
         // Get renderer from art provider
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(variant.artKey);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(variant.artKey);
+        if (renderer == null) return;
 
         // Render the vine/chain at current position
         boolean hFlip = (spawn.renderFlags() & 0x1) != 0;
@@ -601,34 +570,18 @@ public class MovingVineObjectInstance extends AbstractObjectInstance {
 
     /**
      * Updates the dynamic spawn to track current position.
-     */
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.y() != currentY) {
-            dynamicSpawn = new ObjectSpawn(
-                    spawn.x(),
-                    currentY,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
-    }
-
-    /**
-     * Appends debug visualization to render commands.
-     */
-    private void appendDebug(List<GLCommand> commands) {
+     */    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         int x = spawn.x();
 
         // Draw anchor point (yellow cross at initial Y)
-        appendLine(commands, x - 4, initialY, x + 4, initialY, 1.0f, 1.0f, 0.0f);
-        appendLine(commands, x, initialY - 4, x, initialY + 4, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(x - 4, initialY, x + 4, initialY, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(x, initialY - 4, x, initialY + 4, 1.0f, 1.0f, 0.0f);
 
         // Draw current hang point (cyan cross at currentY + 0x94)
         int hangY = currentY + 0x94;
-        appendLine(commands, x - 4, hangY, x + 4, hangY, 0.0f, 1.0f, 1.0f);
-        appendLine(commands, x, hangY - 4, x, hangY + 4, 0.0f, 1.0f, 1.0f);
+        ctx.drawLine(x - 4, hangY, x + 4, hangY, 0.0f, 1.0f, 1.0f);
+        ctx.drawLine(x, hangY - 4, x, hangY + 4, 0.0f, 1.0f, 1.0f);
 
         // Draw grab detection zone (green rectangle)
         // Zone: ±0x10 horizontal, player must be 0x88 to 0x9F pixels BELOW vine Y
@@ -639,10 +592,10 @@ public class MovingVineObjectInstance extends AbstractObjectInstance {
         int top = grabTop;
         int bottom = grabBottom;
 
-        appendLine(commands, left, top, right, top, 0.0f, 1.0f, 0.0f);
-        appendLine(commands, right, top, right, bottom, 0.0f, 1.0f, 0.0f);
-        appendLine(commands, right, bottom, left, bottom, 0.0f, 1.0f, 0.0f);
-        appendLine(commands, left, bottom, left, top, 0.0f, 1.0f, 0.0f);
+        ctx.drawLine(left, top, right, top, 0.0f, 1.0f, 0.0f);
+        ctx.drawLine(right, top, right, bottom, 0.0f, 1.0f, 0.0f);
+        ctx.drawLine(right, bottom, left, bottom, 0.0f, 1.0f, 0.0f);
+        ctx.drawLine(left, bottom, left, top, 0.0f, 1.0f, 0.0f);
 
         // Draw extension bar (magenta, shows current vs max extension)
         int barLeft = x + 24;
@@ -651,37 +604,21 @@ public class MovingVineObjectInstance extends AbstractObjectInstance {
         int fillHeight = currentExtension;
 
         // Max extension outline
-        appendLine(commands, barLeft, barTop, barLeft + 8, barTop, 0.5f, 0.0f, 0.5f);
-        appendLine(commands, barLeft + 8, barTop, barLeft + 8, barTop + barHeight, 0.5f, 0.0f, 0.5f);
-        appendLine(commands, barLeft + 8, barTop + barHeight, barLeft, barTop + barHeight, 0.5f, 0.0f, 0.5f);
-        appendLine(commands, barLeft, barTop + barHeight, barLeft, barTop, 0.5f, 0.0f, 0.5f);
+        ctx.drawLine(barLeft, barTop, barLeft + 8, barTop, 0.5f, 0.0f, 0.5f);
+        ctx.drawLine(barLeft + 8, barTop, barLeft + 8, barTop + barHeight, 0.5f, 0.0f, 0.5f);
+        ctx.drawLine(barLeft + 8, barTop + barHeight, barLeft, barTop + barHeight, 0.5f, 0.0f, 0.5f);
+        ctx.drawLine(barLeft, barTop + barHeight, barLeft, barTop, 0.5f, 0.0f, 0.5f);
 
         // Current extension fill line
         if (fillHeight > 0) {
-            appendLine(commands, barLeft + 2, barTop + fillHeight, barLeft + 6, barTop + fillHeight, 1.0f, 0.0f, 1.0f);
+            ctx.drawLine(barLeft + 2, barTop + fillHeight, barLeft + 6, barTop + fillHeight, 1.0f, 0.0f, 1.0f);
         }
 
         // Draw grabbed state indicator (red if grabbed, gray if not)
         float grabR = (player1Grabbed || player2Grabbed) ? 1.0f : 0.5f;
         float grabG = (player1Grabbed || player2Grabbed) ? 0.0f : 0.5f;
-        appendLine(commands, x - 8, currentY - 8, x + 8, currentY + 8, grabR, grabG, 0.0f);
-        appendLine(commands, x + 8, currentY - 8, x - 8, currentY + 8, grabR, grabG, 0.0f);
+        ctx.drawLine(x - 8, currentY - 8, x + 8, currentY + 8, grabR, grabG, 0.0f);
+        ctx.drawLine(x + 8, currentY - 8, x - 8, currentY + 8, grabR, grabG, 0.0f);
     }
 
-    /**
-     * Appends a debug line to the render commands.
-     */
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2, float r, float g, float b) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x2, y2, 0, 0));
-    }
-
-    /**
-     * Checks if debug view is currently enabled.
-     */
-    private boolean isDebugViewEnabled() {
-        return DEBUG_VIEW_ENABLED && OVERLAY_MANAGER.isEnabled(DebugOverlayToggle.OVERLAY);
-    }
 }

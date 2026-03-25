@@ -1,7 +1,7 @@
 package com.openggf.game.sonic3k.audio;
 
+import com.openggf.audio.AbstractAudioProfile;
 import com.openggf.audio.AudioManager;
-import com.openggf.audio.GameAudioProfile;
 import com.openggf.audio.GameSound;
 import com.openggf.audio.smps.SmpsLoader;
 import com.openggf.audio.smps.SmpsSequencerConfig;
@@ -23,7 +23,7 @@ import java.util.Map;
  *   <li>DAC samples use DPCM compression with bank switching.</li>
  * </ul>
  */
-public class Sonic3kAudioProfile implements GameAudioProfile {
+public class Sonic3kAudioProfile extends AbstractAudioProfile {
 
     private static final Map<GameSound, Integer> SOUND_MAP;
 
@@ -54,6 +54,10 @@ public class Sonic3kAudioProfile implements GameAudioProfile {
         map.put(GameSound.BUBBLE_ATTACK, Sonic3kSfx.BUBBLE_ATTACK.id);
         map.put(GameSound.INSTA_SHIELD, Sonic3kSfx.INSTA_SHIELD.id);
         SOUND_MAP = Collections.unmodifiableMap(map);
+    }
+
+    public Sonic3kAudioProfile() {
+        super(SOUND_MAP);
     }
 
     @Override
@@ -97,19 +101,24 @@ public class Sonic3kAudioProfile implements GameAudioProfile {
     }
 
     @Override
-    public boolean handleSystemCommand(int soundId, AudioManager manager) {
-        if (soundId == Sonic3kSmpsConstants.CMD_FADE_OUT) {
-            // S3K: FadeOutSteps = 0x28, FadeOutDelay = 6
-            manager.fadeOutMusic(0x28, 6);
-            return true;
-        } else if (soundId == Sonic3kSmpsConstants.CMD_STOP_ALL) {
-            manager.stopMusic();
-            return true;
-        } else if (soundId == Sonic3kSmpsConstants.CMD_SEGA) {
-            // SEGA PCM sample - not yet implemented
-            return true;
-        }
-        return false;
+    protected int getFadeOutCommandId() {
+        return Sonic3kSmpsConstants.CMD_FADE_OUT;
+    }
+
+    @Override
+    protected int getStopAllCommandId() {
+        return Sonic3kSmpsConstants.CMD_STOP_ALL;
+    }
+
+    @Override
+    protected int getSegaCommandId() {
+        return Sonic3kSmpsConstants.CMD_SEGA;
+    }
+
+    /** S3K fade-out uses delay 6 instead of the S1/S2 default delay 3. */
+    @Override
+    protected void executeFadeOut(AudioManager manager) {
+        manager.fadeOutMusic(0x28, 6);
     }
 
     @Override
@@ -120,10 +129,5 @@ public class Sonic3kAudioProfile implements GameAudioProfile {
     @Override
     public int getSpeedMultiplierValue() {
         return 0x08; // Standard speed shoes: 125% speed
-    }
-
-    @Override
-    public Map<GameSound, Integer> getSoundMap() {
-        return SOUND_MAP;
     }
 }

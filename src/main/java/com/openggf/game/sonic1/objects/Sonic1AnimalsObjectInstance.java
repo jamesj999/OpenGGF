@@ -1,10 +1,9 @@
 package com.openggf.game.sonic1.objects;
 
-import com.openggf.game.GameServices;
-import com.openggf.game.sonic2.objects.badniks.AnimalType;
+import com.openggf.game.PlayableEntity;
+import com.openggf.level.objects.AnimalType;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -116,7 +115,7 @@ public class Sonic1AnimalsObjectInstance extends AbstractObjectInstance {
 
     public Sonic1AnimalsObjectInstance(ObjectSpawn spawn) {
         super(spawn, "Animals");
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         this.zoneAnimalRenderer = renderManager != null ? renderManager.getAnimalRenderer() : null;
         this.endingAnimalRenderer = renderManager != null ? renderManager.getRenderer(ObjectArtKeys.ANIMAL_ENDING) : null;
         this.currentX = spawn.x();
@@ -147,7 +146,7 @@ public class Sonic1AnimalsObjectInstance extends AbstractObjectInstance {
 
     private void initialiseFromEnemy() {
         // ROM: Anml_FromEnemy random zone pair selection.
-        int zoneId = LevelManager.getInstance().getRomZoneId();
+        int zoneId = services().romZoneId();
         int[] zoneVariants = resolveZoneVariants(zoneId);
         this.fromEnemyVariantIndex = zoneVariants[ThreadLocalRandom.current().nextInt(2)];
         AnimalType animalType = VARIABLE_ANIMALS[fromEnemyVariantIndex];
@@ -162,7 +161,7 @@ public class Sonic1AnimalsObjectInstance extends AbstractObjectInstance {
         this.xVelocity = 0;
         this.yVelocity = INITIAL_POP_Y_VELOCITY;
 
-        if (GameServices.gameState().isBossFightActive()) {
+        if (services().gameState().isBossFightActive()) {
             this.routine = ROUTINE_PRISON_WAIT;
             this.prisonWaitTimer = PRISON_WAIT_FRAMES;
             this.xVelocity = 0;
@@ -170,7 +169,8 @@ public class Sonic1AnimalsObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (routine) {
             case 0x02 -> updateRoutine912A(frameCounter);
             case 0x04, 0x08, 0x0A, 0x0C, 0x10 -> updateRoutine9184(player);
@@ -203,7 +203,7 @@ public class Sonic1AnimalsObjectInstance extends AbstractObjectInstance {
             animFrame = 1;
             routine = (fromEnemyVariantIndex << 1) + 4;
 
-            if (GameServices.gameState().isBossFightActive() && (frameCounter & 0x10) != 0) {
+            if (services().gameState().isBossFightActive() && (frameCounter & 0x10) != 0) {
                 xVelocity = -xVelocity;
                 hFlip = !hFlip;
             }

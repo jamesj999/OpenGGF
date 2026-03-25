@@ -1,17 +1,12 @@
 package com.openggf.game.sonic1.objects.badniks;
 
-import com.openggf.audio.AudioManager;
-import com.openggf.game.GameServices;
-import com.openggf.game.sonic1.audio.Sonic1Sfx;
-import com.openggf.game.sonic2.objects.ExplosionObjectInstance;
-import com.openggf.game.sonic1.objects.Sonic1PointsObjectInstance;
-import com.openggf.game.sonic2.objects.badniks.AbstractBadnikInstance;
-import com.openggf.game.sonic2.objects.badniks.AnimalObjectInstance;
+import com.openggf.level.objects.AbstractBadnikInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+import com.openggf.game.PlayableEntity;
+
+import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.ObjectTerrainUtils;
@@ -119,8 +114,8 @@ public class Sonic1NewtronBadnikInstance extends AbstractBadnikInstance {
     // Type 1 specific
     private boolean missileFired;          // objoff_32: prevents firing more than once
 
-    public Sonic1NewtronBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Newtron");
+    public Sonic1NewtronBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Newtron");
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         this.facingLeft = false;
@@ -143,7 +138,8 @@ public class Sonic1NewtronBadnikInstance extends AbstractBadnikInstance {
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (secondaryState) {
             case STATE_CHECK_DISTANCE -> updateCheckDistance(player);
             case STATE_TYPE00 -> updateType00(player);
@@ -365,7 +361,7 @@ public class Sonic1NewtronBadnikInstance extends AbstractBadnikInstance {
 
         Sonic1NewtronMissileInstance missile = new Sonic1NewtronMissileInstance(
                 missileX, missileY, missileXVel, facingLeft);
-        levelManager.getObjectManager().addDynamicObject(missile);
+        services().objectManager().addDynamicObject(missile);
     }
 
     @Override
@@ -456,44 +452,14 @@ public class Sonic1NewtronBadnikInstance extends AbstractBadnikInstance {
     }
 
     @Override
-    protected void destroyBadnik(AbstractPlayableSprite player) {
-        destroyed = true;
-        setDestroyed(true);
-
-        var objectManager = levelManager.getObjectManager();
-        if (objectManager != null) {
-            if (spawn.respawnTracked()) {
-                objectManager.markRemembered(spawn);
-            } else {
-                objectManager.removeFromActiveSpawns(spawn);
-            }
-        }
-
-        ExplosionObjectInstance explosion = new ExplosionObjectInstance(0x27, currentX, currentY,
-                levelManager.getObjectRenderManager());
-        levelManager.getObjectManager().addDynamicObject(explosion);
-
-        AnimalObjectInstance animal = new AnimalObjectInstance(
-                new ObjectSpawn(currentX, currentY, 0x28, 0, 0, false, 0), levelManager);
-        levelManager.getObjectManager().addDynamicObject(animal);
-
-        int pointsValue = 100;
-        if (player != null) {
-            pointsValue = player.incrementBadnikChain();
-            GameServices.gameState().addScore(pointsValue);
-        }
-
-        Sonic1PointsObjectInstance points = new Sonic1PointsObjectInstance(
-                new ObjectSpawn(currentX, currentY, 0x29, 0, 0, false, 0), levelManager, pointsValue);
-        levelManager.getObjectManager().addDynamicObject(points);
-
-        AudioManager.getInstance().playSfx(Sonic1Sfx.BREAK_ITEM.id);
+    protected DestructionConfig getDestructionConfig() {
+        return Sonic1DestructionConfig.S1_DESTRUCTION_CONFIG;
     }
 
     @Override
     public boolean isPersistent() {
         // RememberState: persists while on screen
-        return !destroyed && isOnScreenX(160);
+        return !isDestroyed() && isOnScreenX(160);
     }
 
     @Override
@@ -503,19 +469,12 @@ public class Sonic1NewtronBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.NEWTRON);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.NEWTRON);
+        if (renderer == null) return;
 
         // S1 convention: default sprite art faces left, hFlip = true when facing right
         // Type 1 uses palette line 1 (green): make_art_tile(ArtTile_Newtron,1,0)

@@ -6,6 +6,7 @@ import org.junit.ClassRule;
 import org.junit.Test;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.game.GameServices;
 import com.openggf.level.*;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.RequiresRomRule;
@@ -50,7 +51,7 @@ public class TestAizRedBlockDiagnostic {
      */
     @Test
     public void findRedPixelSources() {
-        Level level = LevelManager.getInstance().getCurrentLevel();
+        Level level = GameServices.level().getCurrentLevel();
         com.openggf.level.Map map = level.getMap();
 
         System.out.println("=== AIZ1 Red Block Diagnostic ===");

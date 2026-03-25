@@ -1,7 +1,7 @@
 package com.openggf.level.objects;
 
-import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 public interface TouchResponseListener {
-    void onTouchResponse(AbstractPlayableSprite player, TouchResponseResult result, int frameCounter);
+    void onTouchResponse(PlayableEntity player, TouchResponseResult result, int frameCounter);
 }

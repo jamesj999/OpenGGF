@@ -1,15 +1,13 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.audio.Sonic2Music;
-import com.openggf.game.GameServices;
+import com.openggf.game.sonic2.audio.Sonic2Sfx;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.EggPrisonObjectInstance;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.boss.AbstractBossInstance;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -201,8 +199,8 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
     private int rightDiggerYVel;
     private boolean diggersDetached;
 
-    public Sonic2MCZBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "MCZ Boss");
+    public Sonic2MCZBossInstance(ObjectSpawn spawn) {
+        super(spawn, "MCZ Boss");
     }
 
     @Override
@@ -254,7 +252,8 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
     }
 
     @Override
-    protected void updateBossLogic(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateBossLogic(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         currentFrameCounter = frameCounter;
         vintRuncount++;
 
@@ -548,7 +547,7 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
         } else if (countdown == 0x18) {
             // Play level music and load animal PLCs
             state.yVel = 0;
-            AudioManager.getInstance().playMusic(Sonic2Music.MYSTIC_CAVE.id);
+            services().playMusic(Sonic2Music.MYSTIC_CAVE.id);
         } else if (countdown >= 0x20) {
             // ROM writes to Boss_AnimationArray bytes here, but AnimateBoss is NEVER
             // called in SubA or SubC - those writes are inert. The actual mapframes
@@ -570,7 +569,7 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
         state.xVel = ESCAPE_X_VEL;
         state.yVel = ESCAPE_Y_VEL;
 
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         // ROM: cmpi.w #$2240,(Camera_Max_X_pos).w
         if (camera.getMaxX() < 0x2240) {
             camera.setMaxX((short) (camera.getMaxX() + 2));
@@ -662,7 +661,7 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
      * ROM: Obj57_SpawnStoneSpike (s2.asm:65632-65665)
      */
     private void spawnStoneOrSpike() {
-        if (levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
@@ -689,7 +688,7 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
 
         MCZFallingDebrisInstance debris = new MCZFallingDebrisInstance(
                 x, DEBRIS_SPAWN_Y, isSpike);
-        levelManager.getObjectManager().addDynamicObject(debris);
+        services().objectManager().addDynamicObject(debris);
     }
 
     /**
@@ -785,7 +784,7 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
 
     private void setScreenShaking(boolean shaking) {
         this.screenShaking = shaking;
-        GameServices.gameState().setScreenShakeActive(shaking);
+        services().gameState().setScreenShakeActive(shaking);
     }
 
     /** Returns true when Screen_Shaking_Flag is active (descent phases). */
@@ -794,7 +793,7 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
     }
 
     private void spawnEggPrison() {
-        if (levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
         ObjectSpawn prisonSpawn = new ObjectSpawn(
@@ -803,7 +802,7 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
                 0, 0, false, 0
         );
         EggPrisonObjectInstance prison = new EggPrisonObjectInstance(prisonSpawn, "Egg Prison");
-        levelManager.getObjectManager().addDynamicObject(prison);
+        services().objectManager().addDynamicObject(prison);
     }
 
     @Override
@@ -862,15 +861,8 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.MCZ_BOSS);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.MCZ_BOSS);
+        if (renderer == null) return;
 
         int bx = state.x;
         int by = state.y;
@@ -911,5 +903,15 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
 
         // 5. Hover thingies (mainspr) - FRONT
         renderer.drawFrameIndex(hoverFrame, bx, by, flipped, false);
+    }
+
+    @Override
+    protected int getBossHitSfxId() {
+        return Sonic2Sfx.BOSS_HIT.id;
+    }
+
+    @Override
+    protected int getBossExplosionSfxId() {
+        return Sonic2Sfx.BOSS_EXPLOSION.id;
     }
 }

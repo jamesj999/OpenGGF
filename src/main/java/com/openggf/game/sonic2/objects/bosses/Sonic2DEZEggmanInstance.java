@@ -1,8 +1,8 @@
 package com.openggf.game.sonic2.objects.bosses;
 
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -181,7 +181,8 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
     // ========================================================================
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) return;
 
         switch (routineSecondary) {
@@ -203,9 +204,8 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
         // solid dimensions: half-width=$13, half-height=$20/$20.
         // This blocks the player from running past Eggman.
         barrierWall = new BarrierWall(WALL_X, WALL_Y);
-        LevelManager lm = LevelManager.getInstance();
-        if (lm != null && lm.getObjectManager() != null) {
-            lm.getObjectManager().addDynamicObject(barrierWall);
+        if (services().objectManager() != null) {
+            services().objectManager().addDynamicObject(barrierWall);
         }
 
         routineSecondary = STATE_WAIT_PLAYER;
@@ -321,8 +321,6 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
         }
     }
 
-
-
     /**
      * State 8: Jump into cockpit.
      * ROM: ObjC6_State2_State5 — apply gravity, count down $50 frames.
@@ -365,9 +363,8 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
             return;
         }
         // Fallback: search active objects for the Death Egg Robot
-        LevelManager lm = LevelManager.getInstance();
-        if (lm != null && lm.getObjectManager() != null) {
-            for (var obj : lm.getObjectManager().getActiveObjects()) {
+        if (services().objectManager() != null) {
+            for (var obj : services().objectManager().getActiveObjects()) {
                 if (obj instanceof Sonic2DeathEggRobotInstance robot) {
                     robot.setEggmanBoarded();
                     return;
@@ -384,15 +381,7 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
     public void appendRenderCommands(List<GLCommand> commands) {
         if (isDestroyed()) return;
 
-        LevelManager lm;
-        try {
-            lm = LevelManager.getInstance();
-        } catch (Exception e) {
-            return;
-        }
-        if (lm == null) return;
-
-        ObjectRenderManager renderManager = lm.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) return;
 
         PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.DEZ_EGGMAN);
@@ -473,7 +462,8 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (isDestroyed()) return;
 
             switch (wallState) {
@@ -513,7 +503,8 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
         }
 
         @Override
-        public boolean isSolidFor(AbstractPlayableSprite player) {
+        public boolean isSolidFor(PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             return !isDestroyed() && wallState != WALL_STATE_DELETE;
         }
 
@@ -521,15 +512,7 @@ public class Sonic2DEZEggmanInstance extends AbstractObjectInstance {
         public void appendRenderCommands(List<GLCommand> commands) {
             if (isDestroyed() || wallState == WALL_STATE_DELETE) return;
 
-            LevelManager lm;
-            try {
-                lm = LevelManager.getInstance();
-            } catch (Exception e) {
-                return;
-            }
-            if (lm == null) return;
-
-            ObjectRenderManager renderManager = lm.getObjectRenderManager();
+            ObjectRenderManager renderManager = services().renderManager();
             if (renderManager == null) return;
 
             PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.DEZ_WALL);

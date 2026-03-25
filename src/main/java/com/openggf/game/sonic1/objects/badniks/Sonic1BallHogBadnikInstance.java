@@ -1,18 +1,13 @@
 package com.openggf.game.sonic1.objects.badniks;
-
-import com.openggf.audio.AudioManager;
-import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.GameServices;
-import com.openggf.game.sonic1.audio.Sonic1Sfx;
-import com.openggf.game.sonic1.objects.Sonic1PointsObjectInstance;
-import com.openggf.game.sonic2.objects.ExplosionObjectInstance;
-import com.openggf.game.sonic2.objects.badniks.AnimalObjectInstance;
+import com.openggf.game.PlayableEntity;
+
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.DestructionEffects;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseAttackable;
 import com.openggf.level.objects.TouchResponseProvider;
@@ -91,7 +86,6 @@ public class Sonic1BallHogBadnikInstance extends AbstractObjectInstance
     private static final int OPEN_FRAME = 1;
 
     // --- Instance state ---
-    private final LevelManager levelManager;
     private int currentX;
     private int currentY;
     private int yVelocity;
@@ -107,9 +101,8 @@ public class Sonic1BallHogBadnikInstance extends AbstractObjectInstance
     // hog_launchflag (objoff_32): 0 = ready to launch, nonzero = already launched this cycle
     private boolean launchFlag;
 
-    public Sonic1BallHogBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
+    public Sonic1BallHogBadnikInstance(ObjectSpawn spawn) {
         super(spawn, "BallHog");
-        this.levelManager = levelManager;
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         this.yVelocity = 0;
@@ -126,7 +119,8 @@ public class Sonic1BallHogBadnikInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (destroyed) {
             return;
         }
@@ -255,7 +249,7 @@ public class Sonic1BallHogBadnikInstance extends AbstractObjectInstance
      * </pre>
      */
     private void spawnCannonball() {
-        var objectManager = levelManager.getObjectManager();
+        var objectManager = services() != null ? services().objectManager() : null;
         if (objectManager == null) {
             return;
         }
@@ -277,7 +271,7 @@ public class Sonic1BallHogBadnikInstance extends AbstractObjectInstance
         int subtype = spawn.subtype();
 
         Sonic1CannonballInstance cannonball = new Sonic1CannonballInstance(
-                ballX, ballY, ballXVel, subtype, levelManager);
+                ballX, ballY, ballXVel, subtype);
         objectManager.addDynamicObject(cannonball);
     }
 
@@ -305,7 +299,8 @@ public class Sonic1BallHogBadnikInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onPlayerAttack(AbstractPlayableSprite player, TouchResponseResult result) {
+    public void onPlayerAttack(PlayableEntity playerEntity, TouchResponseResult result) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (destroyed) {
             return;
         }
@@ -313,46 +308,14 @@ public class Sonic1BallHogBadnikInstance extends AbstractObjectInstance
     }
 
     /**
-     * Handles badnik destruction: explosion, animal, points, score, SFX.
-     * Follows the same pattern as other S1 badniks (e.g., Crabmeat).
+     * Handles badnik destruction via the centralised DestructionEffects system.
      */
-    private void destroyBadnik(AbstractPlayableSprite player) {
+    private void destroyBadnik(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         destroyed = true;
         setDestroyed(true);
-
-        var objectManager = levelManager.getObjectManager();
-        if (objectManager != null) {
-            if (spawn.respawnTracked()) {
-                objectManager.markRemembered(spawn);
-            } else {
-                objectManager.removeFromActiveSpawns(spawn);
-            }
-        }
-
-        // Spawn explosion (object $27 = ExplosionItem)
-        ExplosionObjectInstance explosion = new ExplosionObjectInstance(0x27, currentX, currentY,
-                levelManager.getObjectRenderManager());
-        levelManager.getObjectManager().addDynamicObject(explosion);
-
-        // Spawn animal
-        AnimalObjectInstance animal = new AnimalObjectInstance(
-                new ObjectSpawn(currentX, currentY, 0x28, 0, 0, false, 0), levelManager);
-        levelManager.getObjectManager().addDynamicObject(animal);
-
-        // Calculate and award points based on badnik chain
-        int pointsValue = 100;
-        if (player != null) {
-            pointsValue = player.incrementBadnikChain();
-            GameServices.gameState().addScore(pointsValue);
-        }
-
-        // Spawn floating points display
-        Sonic1PointsObjectInstance points = new Sonic1PointsObjectInstance(
-                new ObjectSpawn(currentX, currentY, 0x29, 0, 0, false, 0), levelManager, pointsValue);
-        levelManager.getObjectManager().addDynamicObject(points);
-
-        // sfx_BreakItem = $C1
-        AudioManager.getInstance().playSfx(Sonic1Sfx.BREAK_ITEM.id);
+        DestructionEffects.destroyBadnik(currentX, currentY, spawn, player, services(),
+                Sonic1DestructionConfig.S1_DESTRUCTION_CONFIG);
     }
 
     // --- Rendering ---
@@ -375,15 +338,8 @@ public class Sonic1BallHogBadnikInstance extends AbstractObjectInstance
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.BALL_HOG);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.BALL_HOG);
+        if (renderer == null) return;
 
         int frame = getMappingFrame();
         // ori.b #4,obRender(a0): bit 2 set = use obStatus for flipping
@@ -409,10 +365,7 @@ public class Sonic1BallHogBadnikInstance extends AbstractObjectInstance
 
     @Override
     public ObjectSpawn getSpawn() {
-        return new ObjectSpawn(
-                currentX, currentY,
-                spawn.objectId(), spawn.subtype(), spawn.renderFlags(),
-                spawn.respawnTracked(), spawn.rawYWord());
+        return buildSpawnAt(currentX, currentY);
     }
 
     @Override

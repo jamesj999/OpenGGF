@@ -1,8 +1,11 @@
 package com.openggf.game.sonic1.objects.badniks;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
+import com.openggf.game.RuntimeManager;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
@@ -17,15 +20,20 @@ public class TestSonic1CaterkillerBodyChaining {
 
     @Before
     public void setUp() {
-        // Ensure Camera singleton exists with clean state (matches TestBuzzBomberLifecycle pattern)
-        Camera.resetInstance();
+        RuntimeManager.createGameplay();
+        GameServices.camera().resetState();
+    }
+
+    @After
+    public void tearDown() {
+        RuntimeManager.destroyCurrent();
     }
 
     @Test
     public void bodySegmentUsesImmediateParentStateForMovementAndYDelta() {
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         Sonic1CaterkillerBadnikInstance head = new Sonic1CaterkillerBadnikInstance(
-                new ObjectSpawn(0, 0, 0x78, 0, 0, false, 0), levelManager);
+                new ObjectSpawn(0, 0, 0x78, 0, 0, false, 0));
 
         FakeParentState parentState = new FakeParentState();
         parentState.secondaryState = 1; // moving
@@ -34,7 +42,7 @@ public class TestSonic1CaterkillerBodyChaining {
         parentState.ringBuffer[4] = 2; // apply +2 Y delta
 
         Sonic1CaterkillerBodyInstance body = new Sonic1CaterkillerBodyInstance(
-                head, parentState, 100, 50, true, false, 0, 4, levelManager);
+                head, parentState, 100, 50, true, false, 0, 4);
 
         body.update(0, null);
 
@@ -45,13 +53,13 @@ public class TestSonic1CaterkillerBodyChaining {
 
     @Test
     public void bodySegmentUsesHurtCollisionCategory() {
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         Sonic1CaterkillerBadnikInstance head = new Sonic1CaterkillerBadnikInstance(
-                new ObjectSpawn(0, 0, 0x78, 0, 0, false, 0), levelManager);
+                new ObjectSpawn(0, 0, 0x78, 0, 0, false, 0));
         FakeParentState parentState = new FakeParentState();
 
         Sonic1CaterkillerBodyInstance body = new Sonic1CaterkillerBodyInstance(
-                head, parentState, 0, 0, true, false, 0, 4, levelManager);
+                head, parentState, 0, 0, true, false, 0, 4);
 
         assertEquals("Body touch should route through HURT category with size index 0x0B",
                 0x8B, body.getCollisionFlags());
@@ -59,13 +67,13 @@ public class TestSonic1CaterkillerBodyChaining {
 
     @Test
     public void bodyTouchTriggersFragmentBehavior() {
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         Sonic1CaterkillerBadnikInstance head = new Sonic1CaterkillerBadnikInstance(
-                new ObjectSpawn(0, 0, 0x78, 0, 0, false, 0), levelManager);
+                new ObjectSpawn(0, 0, 0x78, 0, 0, false, 0));
         FakeParentState parentState = new FakeParentState();
 
         Sonic1CaterkillerBodyInstance body = new Sonic1CaterkillerBodyInstance(
-                head, parentState, 0, 0, true, false, 0, 4, levelManager);
+                head, parentState, 0, 0, true, false, 0, 4);
 
         assertFalse("Head should not start in fragment mode", head.isFragmenting());
         assertFalse("Body should not start in fragment mode", body.isFragmenting());
@@ -80,13 +88,13 @@ public class TestSonic1CaterkillerBodyChaining {
     @Test
     public void bodyDeletesWhenHeadIsUnloaded() {
         AbstractObjectInstance.updateCameraBounds(0, 0, 320, 224, 0);
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         Sonic1CaterkillerBadnikInstance head = new Sonic1CaterkillerBadnikInstance(
-                new ObjectSpawn(0, 0, 0x78, 0, 0, false, 0), levelManager);
+                new ObjectSpawn(0, 0, 0x78, 0, 0, false, 0));
         FakeParentState parentState = new FakeParentState();
 
         Sonic1CaterkillerBodyInstance body = new Sonic1CaterkillerBodyInstance(
-                head, parentState, 32, 32, true, false, 0, 4, levelManager);
+                head, parentState, 32, 32, true, false, 0, 4);
 
         head.onUnload();
         body.update(0, null);
@@ -98,13 +106,13 @@ public class TestSonic1CaterkillerBodyChaining {
     @Test
     public void fragmentingBodyDeletesWhenOffScreen() {
         AbstractObjectInstance.updateCameraBounds(0, 0, 320, 224, 0);
-        LevelManager levelManager = LevelManager.getInstance();
+        LevelManager levelManager = GameServices.level();
         Sonic1CaterkillerBadnikInstance head = new Sonic1CaterkillerBadnikInstance(
-                new ObjectSpawn(0, 0, 0x78, 0, 0, false, 0), levelManager);
+                new ObjectSpawn(0, 0, 0x78, 0, 0, false, 0));
         FakeParentState parentState = new FakeParentState();
 
         Sonic1CaterkillerBodyInstance body = new Sonic1CaterkillerBodyInstance(
-                head, parentState, 1000, 0, true, false, 0, 4, levelManager);
+                head, parentState, 1000, 0, true, false, 0, 4);
 
         head.triggerFragmentFromBodyHit();
         body.update(0, null); // enters fragment mode

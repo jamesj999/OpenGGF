@@ -1,17 +1,15 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.camera.Camera;
+import com.openggf.game.PlayableEntity;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.TrigLookupTable;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -55,8 +53,6 @@ public class AizRideVineObjectInstance extends AbstractObjectInstance {
 
     private int currentX;
     private int currentY;
-    private ObjectSpawn dynamicSpawn;
-
     private final Segment first = new Segment();
     private final Segment[] chain = {
             new Segment(),
@@ -89,7 +85,6 @@ public class AizRideVineObjectInstance extends AbstractObjectInstance {
         this.subtype = spawn.subtype();
         this.currentX = spawn.x();
         this.currentY = spawn.y();
-        this.dynamicSpawn = spawn;
         this.targetX = currentX + ((subtype & 0x7F) << 4);
 
         first.x = currentX;
@@ -103,12 +98,6 @@ public class AizRideVineObjectInstance extends AbstractObjectInstance {
         handle.prevX = handle.x;
         handle.prevY = handle.y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn;
-    }
-
     @Override
     public int getX() {
         return currentX;
@@ -130,14 +119,15 @@ public class AizRideVineObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         updateRootState();
         updateSegments();
         updateHandle(player);
-        updateDynamicSpawn();
+        updateDynamicSpawn(currentX, currentY);
 
         // ROM cull path in loc_21F38/loc_21F52.
-        int coarse = (currentX & 0xFF80) - Camera.getInstance().getX();
+        int coarse = (currentX & 0xFF80) - services().camera().getX();
         if ((coarse < 0 || coarse > 0x280) && !AizVineHandleLogic.anyGrabbed(handle)) {
             setDestroyed(true);
         }
@@ -301,8 +291,8 @@ public class AizRideVineObjectInstance extends AbstractObjectInstance {
     private void updateHandle(AbstractPlayableSprite player) {
         Segment lastSegment = chain[chain.length - 1];
         AizVineHandleLogic.positionFromParent(handle, lastSegment.x, lastSegment.y, lastSegment.angle);
-        var sidekicks = SpriteManager.getInstance().getSidekicks();
-        AbstractPlayableSprite sidekick = sidekicks.isEmpty() ? null : sidekicks.getFirst();
+        var sidekicks = services().sidekicks();
+        AbstractPlayableSprite sidekick = sidekicks.isEmpty() ? null : (AbstractPlayableSprite) sidekicks.getFirst();
         AizVineHandleLogic.updatePlayers(handle, player, sidekick, lastSegment.angle);
     }
 
@@ -329,8 +319,8 @@ public class AizRideVineObjectInstance extends AbstractObjectInstance {
 
     private void clearGrabbedPlayers() {
         AbstractPlayableSprite player = resolveMainPlayer();
-        var sidekicks = SpriteManager.getInstance().getSidekicks();
-        AbstractPlayableSprite sidekick = sidekicks.isEmpty() ? null : sidekicks.getFirst();
+        var sidekicks = services().sidekicks();
+        AbstractPlayableSprite sidekick = sidekicks.isEmpty() ? null : (AbstractPlayableSprite) sidekicks.getFirst();
         clearControlFor(player, handle.p1.grabFlag != 0);
         clearControlFor(sidekick, handle.p2.grabFlag != 0);
         handle.p1.grabFlag = 0;
@@ -338,8 +328,8 @@ public class AizRideVineObjectInstance extends AbstractObjectInstance {
     }
 
     private AbstractPlayableSprite resolveMainPlayer() {
-        var sprite = SpriteManager.getInstance().getSprite(
-                SonicConfigurationService.getInstance()
+        var sprite = services().spriteManager().getSprite(
+                config()
                         .getString(SonicConfiguration.MAIN_CHARACTER_CODE));
         return sprite instanceof AbstractPlayableSprite playable ? playable : null;
     }
@@ -348,13 +338,12 @@ public class AizRideVineObjectInstance extends AbstractObjectInstance {
         if (player == null || !wasGrabbed) {
             return;
         }
-        player.setControlLocked(false);
-        player.setObjectControlled(false);
+        AizVineHandleLogic.clearPlayerControl(player);
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
@@ -380,20 +369,6 @@ public class AizRideVineObjectInstance extends AbstractObjectInstance {
         if (AizVineHandleLogic.shouldRender(handle)) {
             renderer.drawFrameIndex(HANDLE_FRAME, handle.x, handle.y, false, false);
         }
-    }
-
-    private void updateDynamicSpawn() {
-        if (dynamicSpawn.x() == currentX && dynamicSpawn.y() == currentY) {
-            return;
-        }
-        dynamicSpawn = new ObjectSpawn(
-                currentX,
-                currentY,
-                spawn.objectId(),
-                spawn.subtype(),
-                spawn.renderFlags(),
-                spawn.respawnTracked(),
-                spawn.rawYWord());
     }
 
     private static int asSigned16(int value) {

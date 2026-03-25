@@ -1,6 +1,6 @@
 package com.openggf.debug;
 
-import com.openggf.Control.InputHandler;
+import com.openggf.control.InputHandler;
 
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -124,6 +124,11 @@ public class DebugOverlayManager {
     }
 
     public void clearObjectDebugTextEntries() {
+        pendingObjectDebugText = List.of();
+    }
+
+    public void resetState() {
+        states.clear();
         pendingObjectDebugText = List.of();
     }
 

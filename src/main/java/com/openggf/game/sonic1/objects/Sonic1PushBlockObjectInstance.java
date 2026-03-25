@@ -1,17 +1,15 @@
 package com.openggf.game.sonic1.objects;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
@@ -155,9 +153,6 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
     // Art key for rendering (MZ vs LZ)
     private final String artKey;
 
-    // Dynamic spawn for position updates
-    private ObjectSpawn dynamicSpawn;
-
     // Frame counter when push sound was last triggered.
     // ROM's SMPS driver uses f_push_playing flag: sfx_Push is ignored while already
     // playing, and smpsClearPush at the end of the sound data clears the flag.
@@ -176,9 +171,8 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
         this.x = spawn.x();
         this.y = spawn.y();
 
-        LevelManager lm = LevelManager.getInstance();
-        this.zoneIndex = lm != null ? lm.getRomZoneId() : 0;
-        this.actIndex = lm != null ? lm.getCurrentAct() : 0;
+        this.zoneIndex = services().romZoneId();
+        this.actIndex = services().currentAct();
         this.isLZ = (zoneIndex == Sonic1Constants.ZONE_LZ);
         this.isMZ = (zoneIndex == Sonic1Constants.ZONE_MZ);
 
@@ -207,7 +201,7 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
         // In all other acts/zones bit 7 retains its spawn value.
         this.chainedToStomper = (subtype & 0x80) != 0;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -219,20 +213,15 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
     @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
-    @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (routine) {
             case 2 -> updateActive(frameCounter, player);
             case 4 -> updateOffscreen();
             default -> { }
         }
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -491,12 +480,11 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
 
         // Find the chained stomper instance and read its Y position
         // ROM uses v_obj31ypos which is written by the stomper every frame
-        LevelManager lm = LevelManager.getInstance();
-        if (lm == null || lm.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
-        Collection<ObjectInstance> activeObjects = lm.getObjectManager().getActiveObjects();
+        Collection<ObjectInstance> activeObjects = services().objectManager().getActiveObjects();
         for (ObjectInstance obj : activeObjects) {
             ObjectSpawn objSpawn = obj.getSpawn();
             if (objSpawn != null && objSpawn.objectId() == Sonic1ObjectIds.CHAINED_STOMPER) {
@@ -557,11 +545,12 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
         ySubpixel = 0;
         pushMomentum = 0;
         lastGeyserSpawnX = Integer.MIN_VALUE;
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // loc_C218: Push only handled in state 0, when NOT in motion (objoff_32).
         // tst.b objoff_32(a0) / beq.s loc_C230 / bra.w locret_C2E4
         if (solidState != 0 || inMotion || player == null) {
@@ -676,7 +665,7 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
         // naturally when the player continues pushing.
         if (frameCounter - lastPushSoundFrame >= PUSH_SOUND_DURATION) {
             try {
-                AudioManager.getInstance().playSfx(Sonic1Sfx.PUSH.id);
+                services().playSfx(Sonic1Sfx.PUSH.id);
             } catch (Exception e) {
                 // Prevent audio failure from breaking game logic
             }
@@ -686,7 +675,7 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
         // tst.b obSubtype(a0) / bmi.s locret_C2E4
         // If chained to stomper (bit 7 set), skip ledge check
         if (chainedToStomper) {
-            refreshDynamicSpawn();
+            updateDynamicSpawn(x, y);
             return;
         }
 
@@ -706,7 +695,7 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
             y += floorResult.distance();
         }
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -763,8 +752,7 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
 
         // PushB_LoadLava: spawn GeyserMaker object
         // _move.b #id_GeyserMaker,obID(a1)
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
         // move.w obX(a0),obX(a1) / add.w d2,obX(a1)
@@ -772,7 +760,7 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
         // move.l a0,objoff_3C(a1)
         Sonic1LavaGeyserMakerObjectInstance maker = new Sonic1LavaGeyserMakerObjectInstance(
                 x + xOffset, y + 0x10, 0, this);
-        levelManager.getObjectManager().addDynamicObject(maker);
+        services().objectManager().addDynamicObject(maker);
     }
 
     /**
@@ -840,7 +828,8 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Solid in states 0 (idle/pushable) and 2 (player riding on top).
         // NOT solid in states 4 (falling) and 6 (sliding to alignment) — the
         // ROM's loc_C186 doesn't call Solid_ChkEnter during those states.
@@ -864,15 +853,8 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
             return; // Don't render when in offscreen/reset state
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(artKey);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(artKey);
+        if (renderer == null) return;
 
         renderer.drawFrameIndex(frameIndex, x, y, false, false);
     }
@@ -913,17 +895,5 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
             stateLabel = "PushBlk:IDLE";
         }
         ctx.drawWorldLabel(x, y, -2, stateLabel, DebugColor.ORANGE);
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = new ObjectSpawn(
-                    x, y,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
     }
 }

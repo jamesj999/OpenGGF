@@ -1,12 +1,14 @@
 package com.openggf.game.sonic2.objects;
+import com.openggf.game.PlayableEntity;
+import com.openggf.level.objects.SpringHelper;
+import com.openggf.level.objects.BoxObjectInstance;
+import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
 import com.openggf.level.objects.*;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.Direction;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -61,7 +63,7 @@ public class SpringObjectInstance extends BoxObjectInstance
         this.triggeredAnimId = resolveTriggeredAnimId();
         this.mappingFrame = resolveIdleMappingFrame();
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         this.animationState = new ObjectAnimationState(
                 renderManager != null ? renderManager.getSpringAnimations() : null,
                 idleAnimId,
@@ -69,7 +71,8 @@ public class SpringObjectInstance extends BoxObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (player == null) {
             return;
         }
@@ -164,7 +167,7 @@ public class SpringObjectInstance extends BoxObjectInstance
 
         player.setAir(true);
         player.setGSpeed((short) 0);
-        player.setSpringing(15);
+        player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
         trigger(player);
     }
 
@@ -183,7 +186,7 @@ public class SpringObjectInstance extends BoxObjectInstance
 
         player.setAir(true);
         player.setGSpeed((short) 0);
-        player.setSpringing(15);
+        player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
         trigger(player);
     }
 
@@ -235,7 +238,7 @@ public class SpringObjectInstance extends BoxObjectInstance
         // ROM: move.w #$F,move_lock(a1) — 15 frames of input lock
         // Horizontal springs use move_lock (not springing state) to prevent
         // player from braking immediately after being launched
-        player.setMoveLockTimer(15);
+        player.setMoveLockTimer(SpringBounceHelper.CONTROL_LOCK_FRAMES);
 
         trigger(player);
     }
@@ -270,7 +273,7 @@ public class SpringObjectInstance extends BoxObjectInstance
         player.setDirection(xStrength < 0 ? Direction.LEFT : Direction.RIGHT);
         player.setAir(true);
         player.setGSpeed((short) 0);
-        player.setSpringing(15);
+        player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
 
         trigger(player);
     }
@@ -333,9 +336,7 @@ public class SpringObjectInstance extends BoxObjectInstance
         SpringHelper.applyCollisionLayerBits(player, subtype);
 
         try {
-            if (AudioManager.getInstance() != null) {
-                AudioManager.getInstance().playSfx(GameSound.SPRING);
-            }
+            services().playSfx(GameSound.SPRING);
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic
         }
@@ -347,10 +348,7 @@ public class SpringObjectInstance extends BoxObjectInstance
      * Bit 1 of subtype: 0=red(-$1000), 2=yellow(-$A00)
      */
     private int getStrength() {
-        // ROM: bit 1 of subtype: 0=red(-$1000), 1=yellow(-$A00)
-        // Visual rendering and strength must match
-        // NOTE: Inverted ternary to match visual display behavior
-        return redSpring ? -0x1000 : -0x0A00;
+        return SpringBounceHelper.strength(redSpring);
     }
 
     private int getType() {
@@ -373,7 +371,8 @@ public class SpringObjectInstance extends BoxObjectInstance
      * which caused players to pass through springs and hit terrain.
      */
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return true;
     }
 
@@ -418,14 +417,15 @@ public class SpringObjectInstance extends BoxObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         animationState.update();
         mappingFrame = animationState.getMappingFrame();
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             super.appendRenderCommands(commands);
             return;

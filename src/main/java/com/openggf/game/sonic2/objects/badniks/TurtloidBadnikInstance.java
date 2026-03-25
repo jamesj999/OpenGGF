@@ -1,19 +1,20 @@
 package com.openggf.game.sonic2.objects.badniks;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.level.objects.AbstractBadnikInstance;
+import com.openggf.level.objects.AnimalObjectInstance;
+
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
-import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
-import com.openggf.game.sonic2.objects.ExplosionObjectInstance;
+import com.openggf.level.objects.ExplosionObjectInstance;
 import com.openggf.game.sonic2.objects.PointsObjectInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
-import com.openggf.level.ParallaxManager;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
@@ -36,7 +37,8 @@ public class TurtloidBadnikInstance extends AbstractBadnikInstance
         implements SolidObjectProvider, SolidObjectListener {
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Platform-only object - no special solid contact behavior needed
     }
 
@@ -75,7 +77,7 @@ public class TurtloidBadnikInstance extends AbstractBadnikInstance
 
     private State state;
     private int timer;
-    private int xSubpixel;
+    private final SubpixelMotion.State motionState;
 
     // Child references
     private TurtloidRiderInstance rider;
@@ -83,11 +85,12 @@ public class TurtloidBadnikInstance extends AbstractBadnikInstance
 
     private final SolidObjectParams platformParams;
 
-    public TurtloidBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Turtloid");
+    public TurtloidBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Turtloid", Sonic2BadnikConfig.DESTRUCTION);
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         this.xVelocity = X_VELOCITY;
+        this.motionState = new SubpixelMotion.State(spawn.x(), spawn.y(), 0, 0, X_VELOCITY, 0);
         this.state = State.MOVING;
         this.timer = 0;
         this.animFrame = 0;
@@ -100,7 +103,7 @@ public class TurtloidBadnikInstance extends AbstractBadnikInstance
     }
 
     private void spawnChildren() {
-        ObjectManager objectManager = levelManager.getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -121,7 +124,8 @@ public class TurtloidBadnikInstance extends AbstractBadnikInstance
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
             case MOVING -> updateMoving(player);
             case PAUSE_BEFORE -> updatePauseBefore();
@@ -130,13 +134,13 @@ public class TurtloidBadnikInstance extends AbstractBadnikInstance
         }
 
         // Apply movement (ObjectMove: x_pos += x_vel in 8.8 fixed-point)
-        int xPos24 = (currentX << 8) | (xSubpixel & 0xFF);
-        xPos24 += xVelocity;
-        currentX = xPos24 >> 8;
-        xSubpixel = xPos24 & 0xFF;
+        motionState.x = currentX;
+        motionState.xVel = xVelocity;
+        SubpixelMotion.moveX(motionState);
+        currentX = motionState.x;
 
         // ROM: loc_36776 - add Tornado_Velocity_X/Y to position each frame
-        ParallaxManager parallax = ParallaxManager.getInstance();
+        var parallax = services().parallaxManager();
         currentX += parallax.getTornadoVelocityX();
         currentY += parallax.getTornadoVelocityY();
     }
@@ -229,7 +233,7 @@ public class TurtloidBadnikInstance extends AbstractBadnikInstance
                 false,  // No gravity
                 false); // No H-flip
 
-        levelManager.getObjectManager().addDynamicObject(projectile);
+        services().objectManager().addDynamicObject(projectile);
     }
 
     void onRiderDestroyed(int riderX, int riderY, AbstractPlayableSprite player) {
@@ -243,30 +247,30 @@ public class TurtloidBadnikInstance extends AbstractBadnikInstance
             animFrame = 0;
         }
 
-        ObjectManager objectManager = levelManager.getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
 
         ExplosionObjectInstance explosion = new ExplosionObjectInstance(
-                0x27, riderX, riderY, levelManager.getObjectRenderManager());
+                0x27, riderX, riderY, services().renderManager());
         objectManager.addDynamicObject(explosion);
 
         AnimalObjectInstance animal = new AnimalObjectInstance(
-                new ObjectSpawn(riderX, riderY, 0x28, 0, 0, false, 0), levelManager);
+                new ObjectSpawn(riderX, riderY, 0x28, 0, 0, false, 0), services());
         objectManager.addDynamicObject(animal);
 
         int pointsValue = 100;
         if (player != null) {
             pointsValue = player.incrementBadnikChain();
-            GameServices.gameState().addScore(pointsValue);
+            services().gameState().addScore(pointsValue);
         }
 
         PointsObjectInstance points = new PointsObjectInstance(
-                new ObjectSpawn(riderX, riderY, 0x29, 0, 0, false, 0), levelManager, pointsValue);
+                new ObjectSpawn(riderX, riderY, 0x29, 0, 0, false, 0), services(), pointsValue);
         objectManager.addDynamicObject(points);
 
-        AudioManager.getInstance().playSfx(Sonic2Sfx.EXPLOSION.id);
+        services().playSfx(Sonic2Sfx.EXPLOSION.id);
     }
 
     @Override
@@ -303,19 +307,12 @@ public class TurtloidBadnikInstance extends AbstractBadnikInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.TURTLOID);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.TURTLOID);
+        if (renderer == null) return;
 
         // Turtloid body: frame 0 = flying, frame 1 = neck raised
         renderer.drawFrameIndex(animFrame, currentX, currentY, false, false);
@@ -340,5 +337,5 @@ public class TurtloidBadnikInstance extends AbstractBadnikInstance
     /** Used by rider and jet to track parent position. */
     public int getParentX() { return currentX; }
     public int getParentY() { return currentY; }
-    public boolean isParentDestroyed() { return destroyed; }
+    public boolean isParentDestroyed() { return isDestroyed(); }
 }

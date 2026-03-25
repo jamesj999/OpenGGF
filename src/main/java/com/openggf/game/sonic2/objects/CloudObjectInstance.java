@@ -1,14 +1,12 @@
 package com.openggf.game.sonic2.objects;
 
+import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
-import com.openggf.level.ParallaxManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -94,7 +92,8 @@ public class CloudObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: ObjB3_Main
         // jsrto JmpTo26_ObjectMove  -> applies x_vel to x_pos (256 subpixels)
         // move.w (Tornado_Velocity_X).w,d0 / add.w d0,x_pos(a0)
@@ -106,11 +105,11 @@ public class CloudObjectInstance extends AbstractObjectInstance {
         xPosFrac &= 0xFF;
 
         // Add Tornado velocity (whole pixels, not subpixel)
-        int tornadoVelX = ParallaxManager.getInstance().getTornadoVelocityX();
+        int tornadoVelX = services().parallaxManager().getTornadoVelocityX();
         currentX += tornadoVelX;
 
         // Obj_DeleteBehindScreen: delete if x_pos is behind camera
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         int cameraCoarse = camera.getX() & 0xFF80;
         int objCoarse = currentX & 0xFF80;
         if ((short) (objCoarse - cameraCoarse) < 0) {
@@ -120,14 +119,8 @@ public class CloudObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.CLOUDS);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.CLOUDS);
+        if (renderer == null) return;
 
         renderer.drawFrameIndex(mappingFrame, currentX, currentY, false, false);
     }

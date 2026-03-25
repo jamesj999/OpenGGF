@@ -1,14 +1,12 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
-import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseProvider;
@@ -424,8 +422,8 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     // Targeting sensor (transient child)
     private SensorChild sensorChild;
 
-    public Sonic2DeathEggRobotInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "DeathEggRobot");
+    public Sonic2DeathEggRobotInstance(ObjectSpawn spawn) {
+        super(spawn, "DeathEggRobot");
     }
 
     // ========================================================================
@@ -498,10 +496,11 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         childComponents.add(backThigh);
 
         // Register children with ObjectManager for rendering (matches Silver Sonic pattern)
-        if (levelManager.getObjectManager() != null) {
+        var objectManager = services().objectManager();
+        if (objectManager != null) {
             for (var child : childComponents) {
                 if (child instanceof com.openggf.level.objects.boss.AbstractBossChild bossChild) {
-                    levelManager.getObjectManager().addDynamicObject(bossChild);
+                    objectManager.addDynamicObject(bossChild);
                 }
             }
         }
@@ -568,7 +567,8 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
      * calling triggerDefeatSequence(), leaving state.invulnerable=true permanently).
      */
     @Override
-    public void onPlayerAttack(AbstractPlayableSprite player, TouchResponseResult result) {
+    public void onPlayerAttack(PlayableEntity playerEntity, TouchResponseResult result) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         onHeadHit();
     }
 
@@ -577,7 +577,8 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     // ========================================================================
 
     @Override
-    protected void updateBossLogic(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateBossLogic(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (bodyRoutine) {
             case BODY_WAIT_EGGMAN -> updateWaitEggman();
             case BODY_COUNTDOWN -> updateCountdown();
@@ -598,7 +599,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         if (head != null && head.isEggmanBoarded()) {
             bodyRoutine = BODY_COUNTDOWN;
             actionTimer = COUNTDOWN_TIMER;
-            AudioManager.getInstance().fadeOutMusic();
+            services().fadeOutMusic();
         }
     }
 
@@ -613,7 +614,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             if (jet != null) {
                 jet.setJetRoutine(4);
             }
-            AudioManager.getInstance().playMusic(Sonic2Music.FINAL_BOSS.id);
+            services().playMusic(Sonic2Music.FINAL_BOSS.id);
         }
     }
 
@@ -632,7 +633,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             return;
         }
         // ROM: SndID_Rumbling every frame during rise
-        AudioManager.getInstance().playSfx(Sonic2Sfx.RUMBLING.id);
+        services().playSfx(Sonic2Sfx.RUMBLING.id);
         // ObjectMove (constant velocity, no gravity)
         bodyYFixed += ((long) state.yVel << 8);
         state.y = (int)(bodyYFixed >> 16);
@@ -748,7 +749,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                 }
                 // Fire sound every 32 frames
                 if ((frameCounter & 0x1F) == 0) {
-                    AudioManager.getInstance().playSfx(Sonic2Sfx.FIRE.id);
+                    services().playSfx(Sonic2Sfx.FIRE.id);
                 }
                 // ObjectMove
                 bodyYFixed += ((long) state.yVel << 8);
@@ -784,14 +785,14 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                     //       shake API. Using static offset as stub until Camera supports
                     //       duration-based shake (ROM: ObjC7 stomp sets $40 frames of
                     //       oscillating Y shake via the ripple/shake system).
-                    Camera camera = Camera.getInstance();
+                    Camera camera = services().camera();
                     if (camera != null) {
                         camera.setShakeOffsets(0, 4);
                     }
                     if (jet != null) {
                         jet.setJetRoutine(6);
                     }
-                    AudioManager.getInstance().playSfx(Sonic2Sfx.SMASH.id);
+                    services().playSfx(Sonic2Sfx.SMASH.id);
                     resetGroupAnim();
                     return;
                 }
@@ -964,7 +965,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             }
         } else {
             defeatPhase = 4;
-            Camera camera = Camera.getInstance();
+            Camera camera = services().camera();
             if (camera != null) {
                 camera.setMaxX((short) DEFEAT_CAMERA_MAX_X);
                 // TODO: ROM sets (Vint_Count_addr+2).w = $1000 for persistent screen rumble.
@@ -987,7 +988,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             clampPlayerToGround(player);
         }
 
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         if (camera != null && camera.getX() >= DEFEAT_CAMERA_WALK_TARGET) {
             // ROM: ObjC7_SetupEnding (s2.asm:83050-83124)
             // Advance to setup-ending phase. Do NOT trigger credits yet.
@@ -1027,7 +1028,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
         // ROM: Every 32 frames: play rumble sound, decrement follow-offset
         if ((defeatFrameCounter & 0x1F) == 0) {
-            AudioManager.getInstance().playSfx(Sonic2Sfx.RUMBLING_2.id);
+            services().playSfx(Sonic2Sfx.RUMBLING_2.id);
             if (robotFollowOffset > 0) {
                 robotFollowOffset--;
             }
@@ -1052,7 +1053,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             if (player.getCentreX() >= DEFEAT_ENDING_PLAYER_X) {
                 defeatPhase = 8;
                 fadeTimer = FADE_DURATION;
-                AudioManager.getInstance().fadeOutMusic();
+                services().fadeOutMusic();
             }
         }
     }
@@ -1065,7 +1066,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         fadeTimer--;
         if (fadeTimer < 0) {
             // ROM: move.b #id_Ending,(v_gamemode).w
-            LevelManager.getInstance().requestCreditsTransition();
+            services().requestCreditsTransition();
             defeatPhase = 10; // Terminal state
         }
     }
@@ -1095,7 +1096,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         state.hitCount--;
         state.invulnerabilityTimer = DEZ_BOSS_INVULN_DURATION;
         state.invulnerable = true;
-        AudioManager.getInstance().playSfx(Sonic2Sfx.BOSS_HIT.id);
+        services().playSfx(Sonic2Sfx.BOSS_HIT.id);
         paletteFlasher.startFlash();
 
         if (state.hitCount <= 0) {
@@ -1106,7 +1107,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     private void triggerDefeatSequence() {
         if (state.defeated) return;
         state.defeated = true;
-        GameServices.gameState().addScore(1000);
+        services().gameState().addScore(1000);
         bodyRoutine = BODY_DEFEAT;
         defeatPhase = 0;
         state.xVel = 0;
@@ -1149,7 +1150,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         // Skip sound markers (encoded as -1 in the sequence)
         while (groupAnimFrameIdx < sequence.length && sequence[groupAnimFrameIdx] == -1) {
             // Play hammer sound
-            AudioManager.getInstance().playSfx(Sonic2Sfx.HAMMER.id);
+            services().playSfx(Sonic2Sfx.HAMMER.id);
             groupAnimFrameIdx++;
         }
 
@@ -1186,7 +1187,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
             // Skip sound markers after advancing
             while (groupAnimFrameIdx < sequence.length && sequence[groupAnimFrameIdx] == -1) {
-                AudioManager.getInstance().playSfx(Sonic2Sfx.HAMMER.id);
+                services().playSfx(Sonic2Sfx.HAMMER.id);
                 groupAnimFrameIdx++;
             }
 
@@ -1402,8 +1403,8 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
     }
 
     private void spawnBombs(AbstractPlayableSprite player) {
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
-        if (renderManager == null || levelManager.getObjectManager() == null) return;
+        ObjectRenderManager renderManager = services().renderManager();
+        if (renderManager == null || services().objectManager() == null) return;
 
         int xSign = facingLeft ? -1 : 1;
         int spawnX = state.x + (BOMB_SPAWN_DX * xSign);
@@ -1411,11 +1412,11 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
         BombChild bomb1 = new BombChild(this, spawnX, spawnY, 0x60 * xSign, -0x800);
         childComponents.add(bomb1);
-        levelManager.getObjectManager().addDynamicObject(bomb1);
+        services().objectManager().addDynamicObject(bomb1);
 
         BombChild bomb2 = new BombChild(this, spawnX, spawnY, 0xC0 * xSign, -0xA00);
         childComponents.add(bomb2);
-        levelManager.getObjectManager().addDynamicObject(bomb2);
+        services().objectManager().addDynamicObject(bomb2);
     }
 
     /** Spawn the targeting sensor child */
@@ -1423,8 +1424,8 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         if (player == null) return;
         sensorChild = new SensorChild(this, player.getCentreX(), player.getCentreY());
         // Register with ObjectManager for rendering if available
-        if (levelManager.getObjectManager() != null) {
-            levelManager.getObjectManager().addDynamicObject(sensorChild);
+        if (services().objectManager() != null) {
+            services().objectManager().addDynamicObject(sensorChild);
         }
     }
 
@@ -1487,13 +1488,23 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             return;
         }
 
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) return;
 
         PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.DEZ_BOSS);
         if (renderer == null || !renderer.isReady()) return;
 
         renderer.drawFrameIndex(currentFrame, state.x, state.y, facingLeft, false);
+    }
+
+    @Override
+    protected int getBossHitSfxId() {
+        return Sonic2Sfx.BOSS_HIT.id;
+    }
+
+    @Override
+    protected int getBossExplosionSfxId() {
+        return Sonic2Sfx.BOSS_EXPLOSION.id;
     }
 
     // ========================================================================
@@ -1530,7 +1541,8 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (!beginUpdate(frameCounter)) return;
             if (falling) {
                 fallTimer--;
@@ -1547,8 +1559,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
-            ObjectRenderManager renderManager = ((Sonic2DeathEggRobotInstance) parent).levelManager
-                    .getObjectRenderManager();
+            ObjectRenderManager renderManager = ((Sonic2DeathEggRobotInstance) parent).services().renderManager();
             if (renderManager == null) return;
             PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.DEZ_BOSS);
             if (renderer == null || !renderer.isReady()) return;
@@ -1614,7 +1625,8 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (!beginUpdate(frameCounter)) return;
 
             if (falling) {
@@ -1670,7 +1682,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                         // ROM loc_3DACC: x_flip SET -> +$800, x_flip NOT SET -> -$800
                         // Punch goes AWAY from facing direction (toward the player behind)
                         punchXVel = boss.facingLeft ? FOREARM_PUNCH_SPEED : -FOREARM_PUNCH_SPEED;
-                        AudioManager.getInstance().playSfx(Sonic2Sfx.SPINDASH_RELEASE.id);
+                        services().playSfx(Sonic2Sfx.SPINDASH_RELEASE.id);
                     } else {
                         punchYVel += 0x20;
                         currentY += (punchYVel >> 8);
@@ -1760,7 +1772,8 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (!beginUpdate(frameCounter)) return;
 
             switch (headRoutine) {
@@ -1808,8 +1821,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
-            ObjectRenderManager renderManager = ((Sonic2DeathEggRobotInstance) parent).levelManager
-                    .getObjectRenderManager();
+            ObjectRenderManager renderManager = ((Sonic2DeathEggRobotInstance) parent).services().renderManager();
             if (renderManager == null) return;
             PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.DEZ_BOSS);
             if (renderer == null || !renderer.isReady()) return;
@@ -1835,7 +1847,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void onPlayerAttack(AbstractPlayableSprite player,
+        public void onPlayerAttack(PlayableEntity playerEntity,
                                    com.openggf.level.objects.TouchResponseResult result) {
             ((Sonic2DeathEggRobotInstance) parent).onHeadHit();
         }
@@ -1899,7 +1911,8 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (!beginUpdate(frameCounter)) return;
 
             Sonic2DeathEggRobotInstance boss = (Sonic2DeathEggRobotInstance) parent;
@@ -1930,8 +1943,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
-            ObjectRenderManager renderManager = ((Sonic2DeathEggRobotInstance) parent).levelManager
-                    .getObjectRenderManager();
+            ObjectRenderManager renderManager = ((Sonic2DeathEggRobotInstance) parent).services().renderManager();
             if (renderManager == null) return;
             PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.DEZ_BOSS);
             if (renderer == null || !renderer.isReady()) return;
@@ -1996,7 +2008,8 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (!beginUpdate(frameCounter)) return;
 
             Sonic2DeathEggRobotInstance boss = (Sonic2DeathEggRobotInstance) parent;
@@ -2059,7 +2072,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                         // ROM: subq.b #1,angle(a0) / bpl.s — fires when byte goes negative
                         beepCounter--;
                         if (beepCounter < 0) {
-                            AudioManager.getInstance().playSfx(Sonic2Sfx.BEEP.id);
+                            services().playSfx(Sonic2Sfx.BEEP.id);
                             beepCounter = beepInterval;
                             // ROM: subq.b #1,objoff_27(a0) — unconditional decrement
                             beepInterval--;
@@ -2080,7 +2093,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
                     // ROM: subq.b #1,angle(a0) / bpl.s — fires when byte goes negative
                     beepCounter--;
                     if (beepCounter < 0) {
-                        AudioManager.getInstance().playSfx(Sonic2Sfx.BEEP.id);
+                        services().playSfx(Sonic2Sfx.BEEP.id);
                         beepCounter = 4;
                     }
                     // ROM: ObjC7_TargettingLock — bchg #palette_bit_0,art_tile(a0) every 4 frames
@@ -2107,8 +2120,7 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
-            ObjectRenderManager renderManager = ((Sonic2DeathEggRobotInstance) parent).levelManager
-                    .getObjectRenderManager();
+            ObjectRenderManager renderManager = ((Sonic2DeathEggRobotInstance) parent).services().renderManager();
             if (renderManager == null) return;
             PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.DEZ_BOSS);
             if (renderer == null || !renderer.isReady()) return;
@@ -2162,7 +2174,8 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (!beginUpdate(frameCounter)) return;
 
             Sonic2DeathEggRobotInstance boss = (Sonic2DeathEggRobotInstance) parent;
@@ -2209,13 +2222,12 @@ public class Sonic2DeathEggRobotInstance extends AbstractBossInstance {
             detonating = true;
             detonateFrame = 0;
             detonateTimer = 7;
-            AudioManager.getInstance().playSfx(Sonic2Sfx.BOSS_EXPLOSION.id);
+            services().playSfx(Sonic2Sfx.BOSS_EXPLOSION.id);
         }
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
-            ObjectRenderManager renderManager = ((Sonic2DeathEggRobotInstance) parent).levelManager
-                    .getObjectRenderManager();
+            ObjectRenderManager renderManager = ((Sonic2DeathEggRobotInstance) parent).services().renderManager();
             if (renderManager == null) return;
             PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.DEZ_BOSS);
             if (renderer == null || !renderer.isReady()) return;

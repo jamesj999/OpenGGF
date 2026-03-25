@@ -30,7 +30,7 @@ public interface TitleCardProvider {
 
     /**
      * Returns true if player control should be released.
-     * Control is released at the start of TEXT_WAIT phase,
+     * control is released at the start of TEXT_WAIT phase,
      * allowing the player to move while text is still visible.
      *
      * @return true if control should be released

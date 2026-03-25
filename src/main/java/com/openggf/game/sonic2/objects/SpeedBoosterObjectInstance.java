@@ -1,13 +1,11 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.Direction;
@@ -45,7 +43,8 @@ public class SpeedBoosterObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Animation: Toggle between frame 0 (visible) and frame 2 (empty)
         // ROM: move.b (Level_frame_counter+1).w,d0 / andi.b #2,d0 / move.b d0,mapping_frame(a0)
         // This masks bit 1 directly, producing 0 or 2
@@ -140,10 +139,7 @@ public class SpeedBoosterObjectInstance extends AbstractObjectInstance {
     private void playBoostSound() {
         // ROM: move.w #SndID_Spring,d0 / jmp (PlaySound).l
         try {
-            AudioManager audioManager = AudioManager.getInstance();
-            if (audioManager != null) {
-                audioManager.playSfx(GameSound.SPRING);
-            }
+            services().playSfx(GameSound.SPRING);
         } catch (Exception e) {
             // Don't let audio failure break game logic
         }
@@ -155,15 +151,8 @@ public class SpeedBoosterObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.SPEED_BOOSTER);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.SPEED_BOOSTER);
+        if (renderer == null) return;
 
         boolean hFlip = isFlippedHorizontal();
         boolean vFlip = (spawn.renderFlags() & 0x02) != 0;

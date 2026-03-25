@@ -1,11 +1,7 @@
 package com.openggf.level.objects.boss;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
-import com.openggf.game.GameServices;
-import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.graphics.GraphicsManager;
-import com.openggf.level.LevelManager;
 import com.openggf.level.Palette;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.TouchResponseProvider;
@@ -13,9 +9,8 @@ import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseAttackable;
 import com.openggf.level.objects.TouchResponseResult;
-import com.openggf.game.sonic2.objects.BossExplosionObjectInstance;
 import com.openggf.physics.TrigLookupTable;
-import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.debug.DebugColor;
 import java.util.ArrayList;
@@ -43,7 +38,6 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
     /** Boss explosion spawn interval (every 8 frames) */
     protected static final int EXPLOSION_INTERVAL = 8;
 
-    protected final LevelManager levelManager;
     protected final BossStateContext state;
     protected final BossHitHandler hitHandler;
     protected final BossPaletteFlasher paletteFlasher;
@@ -52,9 +46,8 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
     protected final Map<Integer, Integer> customMemory;
     private ObjectSpawn dynamicSpawn;
 
-    public AbstractBossInstance(ObjectSpawn spawn, LevelManager levelManager, String name) {
+    public AbstractBossInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
-        this.levelManager = levelManager;
         this.state = new BossStateContext(spawn.x(), spawn.y(), getInitialHitCount());
         this.hitHandler = new BossHitHandler();
         this.paletteFlasher = new BossPaletteFlasher();
@@ -73,7 +66,7 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
     /**
      * Update boss-specific logic.
      */
-    protected abstract void updateBossLogic(int frameCounter, AbstractPlayableSprite player);
+    protected abstract void updateBossLogic(int frameCounter, PlayableEntity player);
 
     /**
      * Get initial hit count (typically 8 for Sonic 2 bosses).
@@ -91,7 +84,7 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
     protected abstract int getCollisionSizeIndex();
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity player) {
         if (!state.defeated) {
             hitHandler.update();
             // Note: paletteFlasher.update() is now called inside hitHandler.update()
@@ -111,7 +104,7 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
         updateDynamicSpawn();
     }
 
-    private void updateChildren(int frameCounter, AbstractPlayableSprite player) {
+    private void updateChildren(int frameCounter, PlayableEntity player) {
         childComponents.removeIf(BossChildComponent::isDestroyed);
         for (BossChildComponent child : childComponents) {
             child.update(frameCounter, player);
@@ -129,7 +122,7 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
         return state.hitCount; // Return hit count for ROM accuracy
     }
 
-    public void onPlayerAttack(AbstractPlayableSprite player, TouchResponseResult result) {
+    public void onPlayerAttack(PlayableEntity player, TouchResponseResult result) {
         hitHandler.processHit(player);
     }
 
@@ -176,11 +169,13 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
 
     /**
      * SFX played when the boss takes damage.
-     * Defaults to Sonic 2 behavior; game-specific bosses can override.
      */
-    protected int getBossHitSfxId() {
-        return Sonic2Sfx.BOSS_HIT.id;
-    }
+    protected abstract int getBossHitSfxId();
+
+    /**
+     * SFX played by boss defeat explosions.
+     */
+    protected abstract int getBossExplosionSfxId();
 
     // ========================================================================
     // HELPER METHODS - Common functionality for all bosses
@@ -203,8 +198,8 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
      * Uses standard random offset calculation: (random >> 2) - 0x20.
      */
     protected void spawnDefeatExplosion() {
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
-        if (renderManager == null || levelManager.getObjectManager() == null) {
+        ObjectRenderManager renderManager = services().renderManager();
+        if (renderManager == null || services().objectManager() == null) {
             return;
         }
         int random = ThreadLocalRandom.current().nextInt(0x10000);
@@ -213,8 +208,9 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
         BossExplosionObjectInstance explosion = new BossExplosionObjectInstance(
                 state.x + xOffset,
                 state.y + yOffset,
-                renderManager);
-        levelManager.getObjectManager().addDynamicObject(explosion);
+                renderManager,
+                getBossExplosionSfxId());
+        services().objectManager().addDynamicObject(explosion);
     }
 
     /**
@@ -258,7 +254,7 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
             }
         }
 
-        public void processHit(AbstractPlayableSprite player) {
+        public void processHit(PlayableEntity player) {
             // ROM: s2.asm:63124 - tst.b collision_flags(a0)
             if (state.invulnerable || state.defeated) {
                 return;
@@ -271,7 +267,7 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
             state.invulnerable = true;
 
             // ROM: s2.asm:63129 - move.w #SndID_BossHit,d0
-            AudioManager.getInstance().playSfx(getBossHitSfxId());
+            services().playSfx(getBossHitSfxId());
             paletteFlasher.startFlash();
             onHitTaken(state.hitCount);
 
@@ -286,7 +282,7 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
             if (usesDefeatSequencer()) {
                 defeatSequencer.startDefeat();
             } else {
-                GameServices.gameState().addScore(1000);
+                services().gameState().addScore(1000);
                 onDefeatStarted();
             }
         }
@@ -302,7 +298,6 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
         // ROM: s2.asm:60752 - move.w #$EEE,d0 (white = 0x0EEE)
         private static final Palette.Color WHITE = new Palette.Color((byte) 255, (byte) 255, (byte) 255); // 0xEEE scaled to RGB
 
-        private final GraphicsManager graphicsManager = GraphicsManager.getInstance();
         private boolean flashing;
         private int flashFrame;
         private Palette.Color originalColor;
@@ -362,25 +357,26 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
         }
 
         private void uploadPaletteToGpu(Palette palette) {
-            if (graphicsManager.isGlInitialized()) {
+            GraphicsManager gm = GraphicsManager.getInstance();
+            if (gm.isGlInitialized()) {
                 int paletteIndex = getPaletteLineForFlash();
-                graphicsManager.cachePaletteTexture(palette, paletteIndex);
+                gm.cachePaletteTexture(palette, paletteIndex);
             }
         }
 
         private Palette getPaletteForFlash() {
-            if (levelManager == null || levelManager.getCurrentLevel() == null) {
+            if (services().currentLevel() == null) {
                 return null;
             }
             int paletteIndex = getPaletteLineForFlash();
             if (paletteIndex < 0) {
                 return null;
             }
-            int paletteCount = levelManager.getCurrentLevel().getPaletteCount();
+            int paletteCount = services().currentLevel().getPaletteCount();
             if (paletteCount <= paletteIndex) {
                 return null;
             }
-            return levelManager.getCurrentLevel().getPalette(paletteIndex);
+            return services().currentLevel().getPalette(paletteIndex);
         }
     }
 
@@ -391,8 +387,6 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
     protected class BossDefeatSequencer {
         // ROM: s2.asm:63155 - move.w #$B3,objoff_3C(a0) ($B3 = 179 decimal)
         private static final int EXPLOSION_DURATION = 179; // Frames
-        // ROM: s2.asm:62992 - Boss_LoadExplosion spawns every 8 frames
-        private static final int EXPLOSION_INTERVAL = 8; // Spawn explosion every 8 frames
 
         private DefeatState defeatState;
         private int defeatTimer;
@@ -415,7 +409,7 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
             defeatState = DefeatState.EXPLODING;
             defeatTimer = EXPLOSION_DURATION;
             // ROM: s2.asm:63150-63151 - moveq #100,d0 / jsrto JmpTo3_AddPoints (100 = 1000 points)
-            GameServices.gameState().addScore(1000);
+            services().gameState().addScore(1000);
             onDefeatStarted();
         }
 

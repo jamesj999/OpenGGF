@@ -1,12 +1,11 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
-import com.openggf.game.sonic2.objects.ObjectAnimationState;
+import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -35,8 +34,6 @@ public class CPZBossGunk extends AbstractObjectInstance implements TouchResponse
     private static final int FLOOR_Y = 0x0518;
     private static final int COLLISION_FLAGS = 0x87;
     private static final int GRAVITY = 0x38;
-
-    private final LevelManager levelManager;
     private final Sonic2CPZBossInstance mainBoss;
 
     private int x;
@@ -57,9 +54,8 @@ public class CPZBossGunk extends AbstractObjectInstance implements TouchResponse
 
     private ObjectAnimationState animationState;
 
-    public CPZBossGunk(ObjectSpawn spawn, LevelManager levelManager, Sonic2CPZBossInstance mainBoss, boolean gunkReady) {
+    public CPZBossGunk(ObjectSpawn spawn, Sonic2CPZBossInstance mainBoss, boolean gunkReady) {
         super(spawn, "CPZ Boss Gunk");
-        this.levelManager = levelManager;
         this.mainBoss = mainBoss;
         this.x = spawn.x();
         this.y = spawn.y();
@@ -83,10 +79,9 @@ public class CPZBossGunk extends AbstractObjectInstance implements TouchResponse
         }
     }
 
-    private CPZBossGunk(ObjectSpawn spawn, LevelManager levelManager, Sonic2CPZBossInstance mainBoss,
+    private CPZBossGunk(ObjectSpawn spawn, Sonic2CPZBossInstance mainBoss,
                         int x, int y, int xVel, int yVel, int renderFlags) {
         super(spawn, "CPZ Boss Gunk Droplet");
-        this.levelManager = levelManager;
         this.mainBoss = mainBoss;
         this.x = x;
         this.y = y;
@@ -104,7 +99,8 @@ public class CPZBossGunk extends AbstractObjectInstance implements TouchResponse
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -134,7 +130,7 @@ public class CPZBossGunk extends AbstractObjectInstance implements TouchResponse
             routineSecondary = SUB_DROPLETS;
             isDroplet = false;
             mappingFrame = 9;  // Set droplet frame immediately to avoid stale frame flash
-            AudioManager.getInstance().playSfx(Sonic2Sfx.MEGA_MACK_DROP.id);
+            services().playSfx(Sonic2Sfx.MEGA_MACK_DROP.id);
             return;
         }
         if (y >= FLOOR_Y) {
@@ -230,7 +226,7 @@ public class CPZBossGunk extends AbstractObjectInstance implements TouchResponse
     }
 
     private void spawnDroplet() {
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
         int random = ThreadLocalRandom.current().nextInt(0x10000);
@@ -242,8 +238,8 @@ public class CPZBossGunk extends AbstractObjectInstance implements TouchResponse
 
         int dropletYVel = yVel - ThreadLocalRandom.current().nextInt(0x400);
 
-        CPZBossGunk droplet = new CPZBossGunk(spawn, levelManager, mainBoss, x, y, dropletXVel, dropletYVel, renderFlags);
-        levelManager.getObjectManager().addDynamicObject(droplet);
+        CPZBossGunk droplet = new CPZBossGunk(spawn, mainBoss, x, y, dropletXVel, dropletYVel, renderFlags);
+        services().objectManager().addDynamicObject(droplet);
     }
 
     private void applyMove() {
@@ -272,7 +268,7 @@ public class CPZBossGunk extends AbstractObjectInstance implements TouchResponse
 
     @Override
     protected boolean isOnScreen(int margin) {
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         int screenX = x - camera.getX();
         int screenY = y - camera.getY();
         return screenX >= -margin && screenX <= camera.getWidth() + margin
@@ -281,7 +277,7 @@ public class CPZBossGunk extends AbstractObjectInstance implements TouchResponse
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = levelManager != null ? levelManager.getObjectRenderManager() : null;
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

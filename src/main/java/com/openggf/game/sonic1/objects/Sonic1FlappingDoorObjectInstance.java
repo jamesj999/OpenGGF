@@ -1,14 +1,13 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic1.Sonic1ZoneFeatureProvider;
 import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
@@ -61,14 +60,15 @@ public class Sonic1FlappingDoorObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         flapWait--;
         if (flapWait < 0) {
             flapWait = flapTime;
             animationId ^= 1;
             resetAnimation();
             if (isOnScreen()) {
-                AudioManager.getInstance().playSfx(Sonic1Sfx.DOOR.id);
+                services().playSfx(Sonic1Sfx.DOOR.id);
             }
         }
 
@@ -108,15 +108,8 @@ public class Sonic1FlappingDoorObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.LZ_FLAPPING_DOOR);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.LZ_FLAPPING_DOOR);
+        if (renderer == null) return;
 
         boolean hFlip = (spawn.renderFlags() & 0x1) != 0;
         boolean vFlip = (spawn.renderFlags() & 0x2) != 0;
@@ -129,12 +122,14 @@ public class Sonic1FlappingDoorObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return solidActive;
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // SolidObject handles response; no extra per-contact behavior.
     }
 
@@ -149,7 +144,7 @@ public class Sonic1FlappingDoorObjectInstance extends AbstractObjectInstance
     }
 
     private void setWindTunnelDisabled(boolean disabled) {
-        ZoneFeatureProvider provider = LevelManager.getInstance().getZoneFeatureProvider();
+        ZoneFeatureProvider provider = services().zoneFeatureProvider();
         if (provider instanceof Sonic1ZoneFeatureProvider sonic1) {
             sonic1.setWindTunnelDisabled(disabled);
         }

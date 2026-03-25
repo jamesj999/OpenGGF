@@ -1,20 +1,12 @@
 package com.openggf.game.sonic1.objects.bosses;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
-import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.audio.Sonic1Music;
-import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
-import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
+
 import com.openggf.level.objects.ObjectSpawn;
-import com.openggf.level.objects.boss.AbstractBossInstance;
-import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-
-import java.util.List;
 
 /**
  * Object 0x77 — Labyrinth Zone Boss (Eggman rising water chase).
@@ -39,7 +31,7 @@ import java.util.List;
  *  12: COOLDOWN      — Timer countdown, then high-speed escape
  *  14: CAMERA_EXPAND — Expand right camera boundary, delete when off-screen
  */
-public class Sonic1LZBossInstance extends AbstractBossInstance {
+public class Sonic1LZBossInstance extends AbstractS1EggmanBossInstance {
 
     // State constants (routineSecondary, incremented by 2 matching ROM)
     private static final int STATE_ENTRY = 0;
@@ -97,13 +89,8 @@ public class Sonic1LZBossInstance extends AbstractBossInstance {
     // ROM: objoff_3E — counts down from $20 during flash, re-enables collision at 0
     private int hitFlashTimer; // objoff_3E
 
-    // Face animation state
-    private int faceAnim;
-    // Flame animation state
-    private int flameAnim;
-
-    public Sonic1LZBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "LZ Boss");
+    public Sonic1LZBossInstance(ObjectSpawn spawn) {
+        super(spawn, "LZ Boss");
     }
 
     @Override
@@ -162,11 +149,12 @@ public class Sonic1LZBossInstance extends AbstractBossInstance {
         // ROM: v_bossstatus = 1 — clear boss fight active flag
         // (matches GHZ/MZ/SYZ pattern; without this, doLevelBoundary restricts
         // Sonic's rightward movement and he can't run off-screen at act end)
-        GameServices.gameState().setCurrentBossId(0);
+        services().gameState().setCurrentBossId(0);
     }
 
     @Override
-    protected void updateBossLogic(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateBossLogic(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state.routineSecondary) {
             case STATE_ENTRY -> updateEntry(player);
             case STATE_WAYPOINT_1 -> updateWaypoint1();
@@ -447,11 +435,11 @@ public class Sonic1LZBossInstance extends AbstractBossInstance {
         }
 
         // ROM: loc_18112 — play LZ music and advance
-        AudioManager.getInstance().playMusic(Sonic1Music.LZ.id);
+        services().playMusic(Sonic1Music.LZ.id);
 
         // ROM (Revision != 0): clr.b (f_lockscreen).w — unlock horizontal scrolling
         // Clear the left boundary lock set at boss spawn, allowing free camera movement
-        Camera.getInstance().setMinX((short) 0);
+        services().camera().setMinX((short) 0);
 
         // ROM: bset #0,obStatus(a0) — face right
         state.renderFlags |= 1;
@@ -502,20 +490,8 @@ public class Sonic1LZBossInstance extends AbstractBossInstance {
     // ROM: loc_18152
     // ========================================================================
     private void updateCameraExpand() {
-        Camera camera = Camera.getInstance();
-        int rightBoundary = camera.getMaxX() & 0xFFFF;
-
-        // ROM: cmpi.w #boss_lz_end,(v_limitright2).w
-        if (rightBoundary >= BOSS_LZ_END) {
-            // ROM: loc_18160 — tst.b obRender(a0) / bpl.s BossLabyrinth_ShipDel
-            // obRender bit 7 = on-screen flag. bpl = bit 7 clear = off-screen
-            if (!isBossOnScreen()) {
-                setDestroyed(true);
-                return;
-            }
-        } else {
-            // ROM: addq.w #2,(v_limitright2).w — expand right boundary
-            camera.setMaxX((short) (rightBoundary + 2));
+        if (runCameraExpandEscape(BOSS_LZ_END)) {
+            return; // Destroyed (off-screen)
         }
 
         bossMove();
@@ -545,7 +521,7 @@ public class Sonic1LZBossInstance extends AbstractBossInstance {
         // Check if status bit 7 is set (marked for defeat by collision system)
         if ((state.renderFlags & 0x80) != 0) {
             // ROM: loc_17F92 — award points and set defeated flag
-            GameServices.gameState().addScore(1000);
+            services().gameState().addScore(1000);
             bossDefeatedFlag = true;
             state.defeated = true;
             return;
@@ -567,17 +543,6 @@ public class Sonic1LZBossInstance extends AbstractBossInstance {
         if ((frameCounter & 7) == 0) {
             spawnDefeatExplosion();
         }
-    }
-
-    /**
-     * BossMove subroutine — applies velocity to fixed-point position.
-     * ROM: sonic.asm BossMove
-     *   objoff_30 += sign_extend(obVelX) << 8
-     *   objoff_38 += sign_extend(obVelY) << 8
-     */
-    private void bossMove() {
-        state.xFixed += (state.xVel << 8);
-        state.yFixed += (state.yVel << 8);
     }
 
     /**
@@ -656,12 +621,6 @@ public class Sonic1LZBossInstance extends AbstractBossInstance {
         }
     }
 
-    private boolean isBossOnScreen() {
-        Camera camera = Camera.getInstance();
-        int screenX = state.x - camera.getX();
-        return screenX >= -64 && screenX <= 384;
-    }
-
     @Override
     public int getCollisionFlags() {
         // No collision once defeated
@@ -676,62 +635,4 @@ public class Sonic1LZBossInstance extends AbstractBossInstance {
         return 4; // ROM: obPriority = 4
     }
 
-    @Override
-    public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer eggmanRenderer = renderManager.getRenderer(ObjectArtKeys.EGGMAN);
-        if (eggmanRenderer == null || !eggmanRenderer.isReady()) {
-            return;
-        }
-
-        boolean flipped = (state.renderFlags & 1) != 0;
-
-        // Draw ship body (frame 0)
-        eggmanRenderer.drawFrameIndex(0, state.x, state.y, flipped, false);
-
-        // Draw face overlay
-        int faceFrame = getFaceFrame();
-        if (faceFrame >= 0) {
-            eggmanRenderer.drawFrameIndex(faceFrame, state.x, state.y, flipped, false);
-        }
-
-        // Draw flame overlay
-        int flameFrame = getFlameFrame();
-        if (flameFrame >= 0) {
-            eggmanRenderer.drawFrameIndex(flameFrame, state.x, state.y, flipped, false);
-        }
-    }
-
-    /**
-     * Map face animation ID to mapping frame index.
-     */
-    private int getFaceFrame() {
-        return switch (faceAnim) {
-            case Sonic1BossAnimations.ANIM_FACE_NORMAL_1,
-                 Sonic1BossAnimations.ANIM_FACE_NORMAL_2,
-                 Sonic1BossAnimations.ANIM_FACE_NORMAL_3 -> 1;
-            case Sonic1BossAnimations.ANIM_FACE_LAUGH -> 3;
-            case Sonic1BossAnimations.ANIM_FACE_HIT -> 5;
-            case Sonic1BossAnimations.ANIM_FACE_PANIC -> 6;
-            case Sonic1BossAnimations.ANIM_FACE_DEFEAT -> 7;
-            default -> -1;
-        };
-    }
-
-    /**
-     * Map flame animation ID to mapping frame index.
-     */
-    private int getFlameFrame() {
-        return switch (flameAnim) {
-            case Sonic1BossAnimations.ANIM_FLAME_1,
-                 Sonic1BossAnimations.ANIM_FLAME_2 -> 8;
-            case Sonic1BossAnimations.ANIM_ESCAPE_FLAME -> 11;
-            case Sonic1BossAnimations.ANIM_BLANK -> -1;
-            default -> -1;
-        };
-    }
 }

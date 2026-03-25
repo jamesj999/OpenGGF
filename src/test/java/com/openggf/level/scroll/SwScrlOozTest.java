@@ -1,14 +1,27 @@
 package com.openggf.level.scroll;
 
 import org.junit.Before;
+import com.openggf.game.sonic2.scroll.ParallaxTables;
+import com.openggf.game.sonic2.scroll.SwScrlOoz;
 import org.junit.Test;
+import com.openggf.game.sonic2.scroll.ParallaxTables;
+import com.openggf.game.sonic2.scroll.SwScrlOoz;
 
 import java.io.IOException;
+import com.openggf.game.sonic2.scroll.ParallaxTables;
+import com.openggf.game.sonic2.scroll.SwScrlOoz;
 
 import com.openggf.data.Rom;
+import com.openggf.game.sonic2.scroll.SwScrlOoz;
+import com.openggf.game.sonic2.scroll.ParallaxTables;
+import com.openggf.game.sonic2.scroll.SwScrlOoz;
 
 import static org.junit.Assert.*;
+import com.openggf.game.sonic2.scroll.ParallaxTables;
+import com.openggf.game.sonic2.scroll.SwScrlOoz;
 import static com.openggf.level.scroll.M68KMath.*;
+import com.openggf.game.sonic2.scroll.ParallaxTables;
+import com.openggf.game.sonic2.scroll.SwScrlOoz;
 
 /**
  * Tests for SwScrlOoz - Oil Ocean Zone scroll handler.

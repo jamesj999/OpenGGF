@@ -1,12 +1,12 @@
 package com.openggf.game.sonic3k;
 
 import com.openggf.data.RomByteReader;
+import com.openggf.game.common.CommonSpriteDataLoader;
 import com.openggf.level.Pattern;
 import com.openggf.level.render.SpriteDplcFrame;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpriteMappingPiece;
 import com.openggf.level.render.TileLoadRequest;
-import com.openggf.sprites.animation.SpriteAnimationEndAction;
 import com.openggf.sprites.animation.SpriteAnimationScript;
 import com.openggf.sprites.animation.SpriteAnimationSet;
 
@@ -35,17 +35,7 @@ public final class S3kSpriteDataLoader {
      * @return array of Pattern tiles
      */
     public static Pattern[] loadArtTiles(RomByteReader reader, int artAddr, int artSize) throws IOException {
-        if (artSize % Pattern.PATTERN_SIZE_IN_ROM != 0) {
-            throw new IOException("Inconsistent player art tile data");
-        }
-        int tileCount = artSize / Pattern.PATTERN_SIZE_IN_ROM;
-        Pattern[] patterns = new Pattern[tileCount];
-        for (int i = 0; i < tileCount; i++) {
-            patterns[i] = new Pattern();
-            int start = i * Pattern.PATTERN_SIZE_IN_ROM;
-            patterns[i].fromSegaFormat(reader.slice(artAddr + start, Pattern.PATTERN_SIZE_IN_ROM));
-        }
-        return patterns;
+        return CommonSpriteDataLoader.loadArtTiles(reader, artAddr, artSize);
     }
 
     /**
@@ -59,6 +49,18 @@ public final class S3kSpriteDataLoader {
     public static List<SpriteMappingFrame> loadMappingFrames(RomByteReader reader, int mappingAddr) {
         int offsetTableSize = reader.readU16BE(mappingAddr);
         int frameCount = offsetTableSize / 2;
+        return loadMappingFrames(reader, mappingAddr, frameCount);
+    }
+
+    /**
+     * Loads S3K mapping frames with an explicit frame count instead of reading it from the first word.
+     *
+     * @param reader ROM byte reader
+     * @param mappingAddr ROM address of mapping table
+     * @param frameCount number of frames to read
+     * @return list of mapping frames
+     */
+    public static List<SpriteMappingFrame> loadMappingFrames(RomByteReader reader, int mappingAddr, int frameCount) {
         List<SpriteMappingFrame> frames = new ArrayList<>(frameCount);
         for (int i = 0; i < frameCount; i++) {
             int frameAddr = mappingAddr + reader.readU16BE(mappingAddr + i * 2);
@@ -83,9 +85,10 @@ public final class S3kSpriteDataLoader {
                 boolean hFlip = (tileWord & 0x800) != 0;
                 boolean vFlip = (tileWord & 0x1000) != 0;
                 int paletteIndex = (tileWord >> 13) & 0x3;
+                boolean priority = (tileWord & 0x8000) != 0;
 
                 pieces.add(new SpriteMappingPiece(
-                        xOffset, yOffset, widthTiles, heightTiles, tileIndex, hFlip, vFlip, paletteIndex));
+                        xOffset, yOffset, widthTiles, heightTiles, tileIndex, hFlip, vFlip, paletteIndex, priority));
             }
             frames.add(new SpriteMappingFrame(pieces));
         }
@@ -140,24 +143,7 @@ public final class S3kSpriteDataLoader {
      * @return bank size in tiles
      */
     public static int resolveBankSize(List<SpriteDplcFrame> dplcFrames, List<SpriteMappingFrame> mappingFrames) {
-        int maxDplcTotal = 0;
-        for (SpriteDplcFrame frame : dplcFrames) {
-            int total = 0;
-            for (TileLoadRequest request : frame.requests()) {
-                total += Math.max(0, request.count());
-            }
-            maxDplcTotal = Math.max(maxDplcTotal, total);
-        }
-
-        int maxMappingIndex = 0;
-        for (SpriteMappingFrame frame : mappingFrames) {
-            for (SpriteMappingPiece piece : frame.pieces()) {
-                int tileCount = piece.widthTiles() * piece.heightTiles();
-                maxMappingIndex = Math.max(maxMappingIndex, piece.tileIndex() + tileCount);
-            }
-        }
-
-        return Math.max(maxDplcTotal, maxMappingIndex);
+        return CommonSpriteDataLoader.resolveBankSize(dplcFrames, mappingFrames);
     }
 
     /**
@@ -168,42 +154,7 @@ public final class S3kSpriteDataLoader {
      * @return parsed animation script
      */
     public static SpriteAnimationScript parseAnimationScript(RomByteReader reader, int scriptAddr) {
-        int delay = reader.readU8(scriptAddr);
-        scriptAddr += 1;
-
-        List<Integer> frames = new ArrayList<>();
-        SpriteAnimationEndAction endAction = SpriteAnimationEndAction.LOOP;
-        int endParam = 0;
-
-        while (true) {
-            int value = reader.readU8(scriptAddr);
-            scriptAddr += 1;
-            if (value >= 0xF0) {
-                if (value == 0xFF) {
-                    endAction = SpriteAnimationEndAction.LOOP;
-                    break;
-                }
-                if (value == 0xFE) {
-                    endAction = SpriteAnimationEndAction.LOOP_BACK;
-                    endParam = reader.readU8(scriptAddr);
-                    break;
-                }
-                if (value == 0xFD) {
-                    endAction = SpriteAnimationEndAction.SWITCH;
-                    endParam = reader.readU8(scriptAddr);
-                    break;
-                }
-                if (value == 0xFC) {
-                    endAction = SpriteAnimationEndAction.LOOP;
-                    break;
-                }
-                endAction = SpriteAnimationEndAction.HOLD;
-                break;
-            }
-            frames.add(value);
-        }
-
-        return new SpriteAnimationScript(delay, frames, endAction, endParam);
+        return CommonSpriteDataLoader.parseAnimationScript(reader, scriptAddr);
     }
 
     /**
@@ -215,12 +166,6 @@ public final class S3kSpriteDataLoader {
      * @return animation set
      */
     public static SpriteAnimationSet loadAnimationSet(RomByteReader reader, int baseAddr, int count) {
-        SpriteAnimationSet set = new SpriteAnimationSet();
-        for (int i = 0; i < count; i++) {
-            int scriptAddr = baseAddr + reader.readU16BE(baseAddr + i * 2);
-            SpriteAnimationScript script = parseAnimationScript(reader, scriptAddr);
-            set.addScript(i, script);
-        }
-        return set;
+        return CommonSpriteDataLoader.loadAnimationSet(reader, baseAddr, count);
     }
 }

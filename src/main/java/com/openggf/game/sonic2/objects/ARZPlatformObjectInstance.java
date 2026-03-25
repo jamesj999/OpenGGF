@@ -1,17 +1,16 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.camera.Camera;
-import com.openggf.data.Rom;
-import com.openggf.data.RomByteReader;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.OscillationManager;
 import com.openggf.game.sonic2.S2SpriteDataLoader;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.PatternDesc;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.PlatformBobHelper;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
@@ -19,10 +18,9 @@ import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpriteMappingPiece;
 import com.openggf.level.render.SpritePieceRenderer;
-import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.util.LazyMappingHolder;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -52,9 +50,8 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
 
     private static final byte[] BUTTON_VINE_TRIGGERS = new byte[16];
 
-    private static List<SpriteMappingFrame> mappingsA;
-    private static List<SpriteMappingFrame> mappingsB;
-    private static boolean mappingLoadAttempted;
+    private static final LazyMappingHolder MAPPINGS_A = new LazyMappingHolder();
+    private static final LazyMappingHolder MAPPINGS_B = new LazyMappingHolder();
 
     private int x;
     private int y;
@@ -65,13 +62,11 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
     private int mappingFrame;
     private int subtype;
     private int routine;
-    private int bobAngle;
+    private final PlatformBobHelper bobHelper = new PlatformBobHelper();
     private int angle;
     private int timer;
     private int yVel;
     private int yRadius;
-    private ObjectSpawn dynamicSpawn;
-
     public ARZPlatformObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
         init();
@@ -86,19 +81,14 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
     @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
-    @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         x = baseX;
 
-        boolean standing = isStanding();
+        boolean standing = isPlayerRiding();
         if (routine == 2 || routine == 8) {
-            updateBobAngle(standing);
+            bobHelper.update(standing);
         }
 
         boolean updateAngle = applyBehaviour(player, standing);
@@ -106,15 +96,14 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
             angle = OscillationManager.getByte(0x18);
         }
 
-        applySineBob();
-        refreshDynamicSpawn();
+        y = (baseYFixed >> 8) + bobHelper.getOffset();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
         List<SpriteMappingFrame> mappings = resolveMappings();
         if (mappings == null || mappings.isEmpty()) {
-            appendDebug(commands);
             return;
         }
 
@@ -128,14 +117,13 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
 
         SpriteMappingFrame mapping = mappings.get(frame);
         if (mapping == null || mapping.pieces().isEmpty()) {
-            appendDebug(commands);
             return;
         }
 
         boolean hFlip = (spawn.renderFlags() & 0x1) != 0;
         boolean vFlip = (spawn.renderFlags() & 0x2) != 0;
 
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = services().graphicsManager();
         List<SpriteMappingPiece> pieces = mapping.pieces();
         for (int i = pieces.size() - 1; i >= 0; i--) {
             SpriteMappingPiece piece = pieces.get(i);
@@ -178,12 +166,14 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Platform state is driven via ObjectManager standing checks.
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed();
     }
 
@@ -217,7 +207,7 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
             yRadius = HALF_HEIGHT;
         }
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     private boolean applyBehaviour(AbstractPlayableSprite player, boolean standing) {
@@ -302,7 +292,7 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
         if (timer != 0) {
             timer--;
             if (timer == 0) {
-                if (player != null && isStanding()) {
+                if (player != null && isPlayerRiding()) {
                     releasePlayer(player);
                 }
                 routine = 6;
@@ -312,7 +302,7 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
         baseYFixed += yVel;
         yVel += FALL_GRAVITY;
 
-        int cameraMaxY = Camera.getInstance().getMaxY();
+        int cameraMaxY = services().camera().getMaxY();
         if ((baseYFixed >> 8) > cameraMaxY + OFFSCREEN_Y_MARGIN) {
             setDestroyed(true);
         }
@@ -345,28 +335,6 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
         }
     }
 
-    private void updateBobAngle(boolean standing) {
-        if (!standing) {
-            if (bobAngle > 0) {
-                bobAngle = Math.max(0, bobAngle - 4);
-            }
-            return;
-        }
-        if (bobAngle < 0x40) {
-            bobAngle = Math.min(0x40, bobAngle + 4);
-        }
-    }
-
-    private void applySineBob() {
-        int sin = calcSine(bobAngle);
-        int offset = (sin * 0x400) >> 16;
-        y = (baseYFixed >> 8) + offset;
-    }
-
-    private int calcSine(int angle) {
-        return TrigLookupTable.sinHex(angle);
-    }
-
     private int signedByte(int value) {
         return (byte) value;
     }
@@ -375,57 +343,21 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
         baseYFixed = value << 8;
     }
 
-    private boolean isStanding() {
-        LevelManager manager = LevelManager.getInstance();
-        if (manager == null || manager.getObjectManager() == null) {
-            return false;
-        }
-        return manager.getObjectManager().isAnyPlayerRiding(this);
-    }
-
     private boolean isAquaticRuin() {
-        LevelManager manager = LevelManager.getInstance();
-        return manager != null && manager.getCurrentZone() == Sonic2Constants.ZONE_AQUATIC_RUIN;
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = new ObjectSpawn(
-                    x,
-                    y,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
+        return services().currentLevel() != null && services().currentLevel().getZoneIndex() == Sonic2Constants.ZONE_AQUATIC_RUIN;
     }
 
     private List<SpriteMappingFrame> resolveMappings() {
-        ensureMappingsLoaded();
-        return isAquaticRuin() ? mappingsB : mappingsA;
+        if (isAquaticRuin()) {
+            return MAPPINGS_B.get(
+                    Sonic2Constants.MAP_UNC_OBJ18_B_ADDR, S2SpriteDataLoader::loadMappingFrames, "Obj18B");
+        }
+        return MAPPINGS_A.get(
+                Sonic2Constants.MAP_UNC_OBJ18_A_ADDR, S2SpriteDataLoader::loadMappingFrames, "Obj18A");
     }
 
-    private static void ensureMappingsLoaded() {
-        if (mappingLoadAttempted) {
-            return;
-        }
-        mappingLoadAttempted = true;
-        LevelManager manager = LevelManager.getInstance();
-        if (manager == null || manager.getGame() == null) {
-            return;
-        }
-        try {
-            Rom rom = manager.getGame().getRom();
-            RomByteReader reader = RomByteReader.fromRom(rom);
-            mappingsA = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ18_A_ADDR);
-            mappingsB = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ18_B_ADDR);
-        } catch (IOException | RuntimeException e) {
-            LOGGER.warning("Failed to load Obj18 mappings: " + e.getMessage());
-        }
-    }
-
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         int halfWidth = widthPixels;
         int halfHeight = routine == 8 ? yRadius : HALF_HEIGHT;
         int left = x - halfWidth;
@@ -433,16 +365,10 @@ public class ARZPlatformObjectInstance extends AbstractObjectInstance
         int top = y - halfHeight;
         int bottom = y + halfHeight;
 
-        appendLine(commands, left, top, right, top);
-        appendLine(commands, right, top, right, bottom);
-        appendLine(commands, right, bottom, left, bottom);
-        appendLine(commands, left, bottom, left, top);
+        ctx.drawLine(left, top, right, top, 0.35f, 0.7f, 1.0f);
+        ctx.drawLine(right, top, right, bottom, 0.35f, 0.7f, 1.0f);
+        ctx.drawLine(right, bottom, left, bottom, 0.35f, 0.7f, 1.0f);
+        ctx.drawLine(left, bottom, left, top, 0.35f, 0.7f, 1.0f);
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.35f, 0.7f, 1.0f, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.35f, 0.7f, 1.0f, x2, y2, 0, 0));
-    }
 }

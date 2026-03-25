@@ -1,13 +1,11 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.PlayableEntity;
 
-import com.openggf.camera.Camera;
 import com.openggf.game.OscillationManager;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SlopedSolidProvider;
 import com.openggf.level.objects.SolidContact;
@@ -171,9 +169,7 @@ public class Sonic1LargeGrassyPlatformObjectInstance extends AbstractObjectInsta
     // Type 5 state: the initial walker fire (subtype 0) for cleanup tracking
     private Sonic1GrassFireObjectInstance walkerFire;
 
-    private ObjectSpawn dynamicSpawn;
-
-    public Sonic1LargeGrassyPlatformObjectInstance(ObjectSpawn spawn, LevelManager levelManager) {
+    public Sonic1LargeGrassyPlatformObjectInstance(ObjectSpawn spawn) {
         super(spawn, "MzLargeGrassyPlatform");
 
         this.baseX = spawn.x();
@@ -206,7 +202,7 @@ public class Sonic1LargeGrassyPlatformObjectInstance extends AbstractObjectInsta
         this.fireSpawned = false;
         this.playerStanding = false;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -218,32 +214,21 @@ public class Sonic1LargeGrassyPlatformObjectInstance extends AbstractObjectInsta
     public int getY() {
         return y;
     }
-
     @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
-    @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         playerStanding = isPlayerRiding();
 
         // LGrass_Types: dispatch movement
         applyMovement();
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.MZ_LARGE_GRASSY_PLATFORM);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.MZ_LARGE_GRASSY_PLATFORM);
+        if (renderer == null) return;
 
         renderer.drawFrameIndex(mappingFrame, x, y, false, false);
     }
@@ -298,12 +283,14 @@ public class Sonic1LargeGrassyPlatformObjectInstance extends AbstractObjectInsta
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Standing state is managed via isPlayerRiding() check in update()
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed();
     }
 
@@ -445,8 +432,7 @@ public class Sonic1LargeGrassyPlatformObjectInstance extends AbstractObjectInsta
      * @param sinkOffset current vertical sink offset (CalcSine >> 4)
      */
     private void spawnGrassFire(int sinkOffset) {
-        var levelManager = LevelManager.getInstance();
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
@@ -457,7 +443,7 @@ public class Sonic1LargeGrassyPlatformObjectInstance extends AbstractObjectInsta
 
         walkerFire = new Sonic1GrassFireObjectInstance(
                 fireStartX, fireBaseY, sinkOffset, slopeData, this, true);
-        levelManager.getObjectManager().addDynamicObject(walkerFire);
+        services().objectManager().addDynamicObject(walkerFire);
 
         // Register walker itself in children list for sink offset updates
         fireChildren.add(walkerFire);
@@ -494,22 +480,10 @@ public class Sonic1LargeGrassyPlatformObjectInstance extends AbstractObjectInsta
     // --- Helpers ---
 
     /**
-     * Check if any player is riding this platform, via ObjectManager.
-     */
-    private boolean isPlayerRiding() {
-        var levelManager = LevelManager.getInstance();
-        if (levelManager == null) {
-            return false;
-        }
-        var objectManager = levelManager.getObjectManager();
-        return objectManager != null && objectManager.isAnyPlayerRiding(this);
-    }
-
-    /**
      * Check if the object is within out-of-range distance from camera using spawn X.
      */
     private boolean isOnScreenX(int objectX, int range) {
-        var camera = Camera.getInstance();
+        var camera = services().camera();
         if (camera == null) {
             return true;
         }
@@ -553,17 +527,5 @@ public class Sonic1LargeGrassyPlatformObjectInstance extends AbstractObjectInsta
         // Sine of angle in range [0, $40] maps to [0, $100] (0.0 to 1.0 in 8.8)
         double radians = (angle & 0xFF) * Math.PI * 2.0 / 256.0;
         return (int) (Math.sin(radians) * 256) & 0xFFFF;
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = new ObjectSpawn(
-                    x, y,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
     }
 }

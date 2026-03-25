@@ -1,14 +1,13 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -78,7 +77,8 @@ public class ArrowShooterObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (currentAnim != ANIM_FIRING) {
             updateDetection(player);
         }
@@ -158,14 +158,10 @@ public class ArrowShooterObjectInstance extends AbstractObjectInstance {
 
     private void fireArrow() {
         // Play pre-arrow sound
-        AudioManager.getInstance().playSfx(Sonic2Sfx.PRE_ARROW_FIRING.id);
+        services().playSfx(Sonic2Sfx.PRE_ARROW_FIRING.id);
 
         // Spawn arrow projectile
-        LevelManager manager = LevelManager.getInstance();
-        if (manager == null) {
-            return;
-        }
-        ObjectManager objectManager = manager.getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -193,23 +189,16 @@ public class ArrowShooterObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.ARROW_SHOOTER);
-        if (renderer == null || !renderer.isReady()) {
-            appendDebug(commands);
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.ARROW_SHOOTER);
+        if (renderer == null) return;
 
         // Clamp frame to valid range (0-4)
         int frame = Math.max(0, Math.min(animFrame, 4));
         renderer.drawFrameIndex(frame, currentX, currentY, hFlip, false);
     }
 
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         int halfWidth = 0x10;
         int halfHeight = 0x10;
         int left = currentX - halfWidth;
@@ -217,16 +206,10 @@ public class ArrowShooterObjectInstance extends AbstractObjectInstance {
         int top = currentY - halfHeight;
         int bottom = currentY + halfHeight;
 
-        appendLine(commands, left, top, right, top);
-        appendLine(commands, right, top, right, bottom);
-        appendLine(commands, right, bottom, left, bottom);
-        appendLine(commands, left, bottom, left, top);
+        ctx.drawLine(left, top, right, top, 0.4f, 0.6f, 0.2f);
+        ctx.drawLine(right, top, right, bottom, 0.4f, 0.6f, 0.2f);
+        ctx.drawLine(right, bottom, left, bottom, 0.4f, 0.6f, 0.2f);
+        ctx.drawLine(left, bottom, left, top, 0.4f, 0.6f, 0.2f);
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.4f, 0.6f, 0.2f, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.4f, 0.6f, 0.2f, x2, y2, 0, 0));
-    }
 }

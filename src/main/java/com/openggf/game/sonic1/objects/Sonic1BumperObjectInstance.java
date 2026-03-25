@@ -1,16 +1,13 @@
 package com.openggf.game.sonic1.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
-import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectManager;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -102,7 +99,8 @@ public class Sonic1BumperObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Update hit animation sequence
         if (hitAnimIndex >= 0) {
             if (hitAnimTimer > 0) {
@@ -207,7 +205,7 @@ public class Sonic1BumperObjectInstance extends AbstractObjectInstance {
 
         // ROM: move.w #sfx_Bumper,d0 / jsr (QueueSound2).l
         try {
-            AudioManager.getInstance().playSfx(Sonic1Sfx.BUMPER.id);
+            services().playSfx(Sonic1Sfx.BUMPER.id);
         } catch (Exception e) {
             // Don't let audio failure break game logic
         }
@@ -239,16 +237,15 @@ public class Sonic1BumperObjectInstance extends AbstractObjectInstance {
         hitCount++;
 
         // ROM: moveq #1,d0 / jsr (AddPoints).l — adds 10 points
-        GameServices.gameState().addScore(POINTS_PER_HIT);
+        services().gameState().addScore(POINTS_PER_HIT);
 
         // Spawn points popup (id_Points = 0x29)
-        LevelManager levelManager = LevelManager.getInstance();
-        ObjectManager objectManager = levelManager.getObjectManager();
+        ObjectManager objectManager = services() != null ? services().objectManager() : null;
         if (objectManager != null) {
             ObjectSpawn pointsSpawn = new ObjectSpawn(
                     spawn.x(), spawn.y(), 0x29, 0, 0, false, 0);
             Sonic1PointsObjectInstance pointsObj = new Sonic1PointsObjectInstance(
-                    pointsSpawn, levelManager, POINTS_PER_HIT);
+                    pointsSpawn, services(), POINTS_PER_HIT);
             pointsObj.setScoreFrameIndex(POINTS_FRAME_INDEX);
             objectManager.addDynamicObject(pointsObj);
         }
@@ -264,14 +261,8 @@ public class Sonic1BumperObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.BUMPER);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.BUMPER);
+        if (renderer == null) return;
         // ROM: move.b #4,obRender(a0) — bit 2 set = use screen coordinates
         // No H-flip or V-flip for bumpers (all subtypes are 0x00)
         renderer.drawFrameIndex(mappingFrame, spawn.x(), spawn.y(), false, false);

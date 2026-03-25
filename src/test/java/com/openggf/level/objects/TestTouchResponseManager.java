@@ -1,10 +1,14 @@
 package com.openggf.level.objects;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import com.openggf.game.RuntimeManager;
 import com.openggf.graphics.GLCommand;
 import org.mockito.Mockito;
+import com.openggf.game.DamageCause;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import java.util.List;
 
@@ -23,6 +27,7 @@ public class TestTouchResponseManager {
 
     @Before
     public void setUp() {
+        RuntimeManager.createGameplay();
         // Use Mockito to mock TouchResponseTable since its constructor reads from ROM
         table = Mockito.mock(TouchResponseTable.class);
         objectManager = new ObjectManager(List.of(), new ObjectRegistry() {
@@ -54,6 +59,11 @@ public class TestTouchResponseManager {
         when(player.getInvulnerable()).thenReturn(false);
         when(player.getDead()).thenReturn(false);
         when(player.getRingCount()).thenReturn(0);
+    }
+
+    @After
+    public void tearDown() {
+        RuntimeManager.destroyCurrent();
     }
 
     // ==================== Overlap Detection Tests ====================
@@ -259,7 +269,7 @@ public class TestTouchResponseManager {
 
         // Verify applyHurtOrDeath was called (DamageCause overload)
         verify(player).applyHurtOrDeath(anyInt(),
-                any(AbstractPlayableSprite.DamageCause.class), anyBoolean());
+                any(DamageCause.class), anyBoolean());
     }
 
     @Test
@@ -274,7 +284,7 @@ public class TestTouchResponseManager {
 
         // Verify applyHurtOrDeath was NOT called (DamageCause overload)
         verify(player, never()).applyHurtOrDeath(anyInt(),
-                any(AbstractPlayableSprite.DamageCause.class), anyBoolean());
+                any(DamageCause.class), anyBoolean());
     }
 
     // ==================== Overlap Persistence Tests ====================
@@ -381,7 +391,7 @@ public class TestTouchResponseManager {
         }
 
         @Override
-        public void onTouchResponse(AbstractPlayableSprite player, TouchResponseResult result, int frameCounter) {
+        public void onTouchResponse(PlayableEntity player, TouchResponseResult result, int frameCounter) {
             wasTouched = true;
             lastResult = result;
         }
@@ -392,7 +402,7 @@ public class TestTouchResponseManager {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {}
+        public void update(int frameCounter, PlayableEntity player) {}
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {}
@@ -419,7 +429,7 @@ public class TestTouchResponseManager {
         }
 
         @Override
-        public void onPlayerAttack(AbstractPlayableSprite player, TouchResponseResult result) {
+        public void onPlayerAttack(PlayableEntity player, TouchResponseResult result) {
             wasAttacked = true;
         }
     }

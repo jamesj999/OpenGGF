@@ -1,13 +1,17 @@
 package com.openggf.level.objects;
 
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import com.openggf.game.GameModule;
 import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic1.Sonic1GameModule;
 import com.openggf.game.sonic1.objects.Sonic1CollapsingLedgeObjectInstance;
 import com.openggf.graphics.GLCommand;
 import com.openggf.physics.Sensor;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import java.lang.reflect.Field;
 import java.util.List;
@@ -17,6 +21,17 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 public class TestSolidObjectManager {
+
+    @Before
+    public void setUp() {
+        RuntimeManager.createGameplay();
+    }
+
+    @After
+    public void tearDown() {
+        RuntimeManager.destroyCurrent();
+    }
+
     @Test
     public void testStandingContactOnFlatObject() {
         SolidObjectParams params = new SolidObjectParams(16, 8, 8);
@@ -54,7 +69,7 @@ public class TestSolidObjectManager {
     @Test
     public void testCollapsingLedgeUsesSlopedSurfaceProfile() {
         ObjectSpawn spawn = new ObjectSpawn(100, 100, 0x1A, 0, 0, false, 0);
-        Sonic1CollapsingLedgeObjectInstance ledge = new Sonic1CollapsingLedgeObjectInstance(spawn, null);
+        Sonic1CollapsingLedgeObjectInstance ledge = new Sonic1CollapsingLedgeObjectInstance(spawn);
         ObjectManager manager = buildManager(ledge);
 
         TestPlayableSprite player = new TestPlayableSprite((short) 0, (short) 0);
@@ -91,7 +106,7 @@ public class TestSolidObjectManager {
     @Test
     public void testCollapsingLedgeFragmentWalkOffWindowRemainsSolid() throws Exception {
         ObjectSpawn spawn = new ObjectSpawn(100, 100, 0x1A, 0, 0, false, 0);
-        Sonic1CollapsingLedgeObjectInstance ledge = new Sonic1CollapsingLedgeObjectInstance(spawn, null);
+        Sonic1CollapsingLedgeObjectInstance ledge = new Sonic1CollapsingLedgeObjectInstance(spawn);
 
         setPrivateInt(ledge, "routine", 6);
         setPrivateBoolean(ledge, "collapseFlag", true);
@@ -345,7 +360,7 @@ public class TestSolidObjectManager {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity player) {
             // No-op for tests.
         }
 
@@ -375,7 +390,7 @@ public class TestSolidObjectManager {
         }
 
         @Override
-        public int getTopLandingHalfWidth(AbstractPlayableSprite player, int collisionHalfWidth) {
+        public int getTopLandingHalfWidth(PlayableEntity player, int collisionHalfWidth) {
             return topLandingHalfWidth != null ? topLandingHalfWidth : collisionHalfWidth;
         }
     }

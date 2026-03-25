@@ -1,7 +1,7 @@
 ---
-name: s1disasm-guide
-description: "This skill provides guidance on finding, identifying, and interpreting items in the Sonic 1 disassembly (`docs/s1disasm/`)."
+title: s1disasm Navigation Guide
 ---
+
 # s1disasm Navigation Guide
 
 This skill provides guidance on finding, identifying, and interpreting items in the Sonic 1 disassembly (`docs/s1disasm/`).
@@ -330,4 +330,3 @@ Export:  --game s1 export <type> [prefix] Generate Java constants
 - Files in `artnem/` are Nemesis regardless of `.bin` extension
 - Files in `artkos/` are Kosinski regardless of extension
 - Files in `artunc/` are raw uncompressed data
-

@@ -6,6 +6,7 @@ import com.openggf.data.Rom;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.level.Level;
+import com.openggf.game.GameServices;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.sprites.managers.SpriteManager;
@@ -37,7 +38,7 @@ public class CheckpointFinder {
         SonicConfigurationService configService = SonicConfigurationService.getInstance();
         String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         Sonic mainSprite = new Sonic(mainCode, (short) 100, (short) 624);
-        SpriteManager.getInstance().addSprite(mainSprite);
+        GameServices.sprites().addSprite(mainSprite);
         
         // Zone/act pairs to check
         int[][] levels = {
@@ -48,7 +49,7 @@ public class CheckpointFinder {
             {5, 0}, {5, 1},  // MCZ
         };
         
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         
         for (int[] level : levels) {
             int zone = level[0];

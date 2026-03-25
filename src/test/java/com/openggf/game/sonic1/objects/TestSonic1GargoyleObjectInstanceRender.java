@@ -12,6 +12,7 @@ import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.ObjectSpriteSheet;
+import com.openggf.level.objects.TestObjectServices;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpriteMappingPiece;
@@ -69,6 +70,7 @@ public class TestSonic1GargoyleObjectInstanceRender {
 
         Sonic1GargoyleObjectInstance.Fireball fireball =
                 new Sonic1GargoyleObjectInstance.Fireball(100, 100, true);
+        fireball.setServices(new TestObjectServices().withLevelManager(LevelManager.getInstance()));
         fireball.appendRenderCommands(new ArrayList<>());
 
         assertEquals(1, renderer.drawCount);

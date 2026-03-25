@@ -1,17 +1,25 @@
 package com.openggf.sprites.playable;
 
 import com.openggf.camera.Camera;
-import com.openggf.game.sonic1.objects.Sonic1SplashObjectInstance;
 import com.openggf.game.AnimationId;
-import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
-import com.openggf.game.sonic2.objects.SplashObjectInstance;
+import com.openggf.game.CanonicalAnimation;
 import com.openggf.game.CrossGameFeatureProvider;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
+import com.openggf.game.InstaShieldHandle;
 import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.game.PhysicsModifiers;
 import com.openggf.game.PhysicsProfile;
 import com.openggf.game.PhysicsProvider;
+import com.openggf.game.PowerUpObject;
+import com.openggf.game.PowerUpSpawner;
+import com.openggf.game.GroundMode;
+import com.openggf.game.ShieldType;
+import com.openggf.game.DamageCause;
+import com.openggf.game.GameStateManager;
+import com.openggf.game.LevelState;
+import com.openggf.game.RuntimeManager;
+import com.openggf.timer.TimerManager;
 
 import com.openggf.audio.GameAudioProfile;
 
@@ -20,12 +28,6 @@ import java.util.logging.Logger;
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.level.LevelManager;
-import com.openggf.game.sonic2.objects.InvincibilityStarsObjectInstance;
-import com.openggf.game.sonic2.objects.ShieldObjectInstance;
-import com.openggf.game.sonic3k.objects.FireShieldObjectInstance;
-import com.openggf.game.sonic3k.objects.LightningShieldObjectInstance;
-import com.openggf.game.sonic3k.objects.BubbleShieldObjectInstance;
-import com.openggf.game.sonic3k.objects.InstaShieldObjectInstance;
 import com.openggf.level.WaterSystem;
 import com.openggf.physics.Direction;
 import com.openggf.physics.Sensor;
@@ -49,7 +51,7 @@ import com.openggf.timer.timers.SpeedShoesTimer;
  * @author james
  * 
  */
-public abstract class AbstractPlayableSprite extends AbstractSprite {
+public abstract class AbstractPlayableSprite extends AbstractSprite implements com.openggf.game.PlayableEntity {
         private static final Logger LOGGER = Logger.getLogger(AbstractPlayableSprite.class.getName());
 
         protected final PlayableSpriteController controller;
@@ -263,16 +265,6 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
          */
         protected int deathCountdown = 0;
 
-        public enum DamageCause {
-                NORMAL,
-                SPIKE,
-                CRUSH,
-                DROWN,
-                TIME_OVER,
-                PIT,
-                FIRE
-        }
-
         /**
          * Whether or not this sprite is preparing for a spindash.
          */
@@ -321,6 +313,8 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         private int animationId = 0;
         /** When >= 0, overrides profile-based animation resolution (e.g., Tails CPU fly anim). */
         private int forcedAnimationId = -1;
+        /** Resolved native animation ID for CanonicalAnimation.BUBBLE. -1 if unsupported. */
+        private int bubbleAnimId = -1;
         /**
          * When true, object code owns mapping_frame updates for this player.
          * Animation manager still handles flip state and controllers, but does not
@@ -336,10 +330,11 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
 
         protected boolean shield = false;
         private ShieldType shieldType = null;
-        private ShieldObjectInstance shieldObject;
-        private InstaShieldObjectInstance instaShieldObject;
+        private PowerUpObject shieldObject;
+        private InstaShieldHandle instaShieldObject;
         private boolean instaShieldRegistered = false;
-        private InvincibilityStarsObjectInstance invincibilityObject;
+        private PowerUpObject invincibilityObject;
+        private PowerUpSpawner powerUpSpawner;
         protected boolean speedShoes = false;
         /**
          * Super Sonic state flag.
@@ -464,6 +459,22 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
          */
 
         /**
+         * Sets the power-up spawner used to create shield, invincibility, splash
+         * and insta-shield objects. Injected by {@code LevelManager} during player
+         * initialization so the sprite does not need to know the concrete object types.
+         */
+        public void setPowerUpSpawner(PowerUpSpawner spawner) {
+                this.powerUpSpawner = spawner;
+        }
+
+        /**
+         * Returns the current power-up spawner, or {@code null} if not yet injected.
+         */
+        public PowerUpSpawner getPowerUpSpawner() {
+                return powerUpSpawner;
+        }
+
+        /**
          * Clears all active power-ups (shield, invincibility, speed shoes).
          * Called when entering special stage to remove power-up effects.
          */
@@ -484,7 +495,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 // Clear speed shoes
                 if (this.speedShoes) {
                         this.speedShoes = false;
-                        GameServices.timers().removeTimerForCode("SpeedShoes-" + getCode());
+                        currentTimerManager().removeTimerForCode("SpeedShoes-" + getCode());
                         defineSpeeds(); // Reset speeds to default
                 }
                 // Clear Super state
@@ -507,7 +518,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 }
                 this.speedShoes = false;
                 // Cancel any active speed shoes timer
-                GameServices.timers().removeTimerForCode("SpeedShoes-" + getCode());
+                currentTimerManager().removeTimerForCode("SpeedShoes-" + getCode());
                 this.invincibleFrames = 0;
                 this.invulnerableFrames = 0;
                 this.invincibleFrames = 0;
@@ -606,22 +617,16 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                         controller.getDrowning().replenishAir();
                 }
                 try {
-                        this.shieldObject = switch (type) {
-                                case FIRE -> new FireShieldObjectInstance(this);
-                                case LIGHTNING -> new LightningShieldObjectInstance(this);
-                                case BUBBLE -> new BubbleShieldObjectInstance(this);
-                                default -> new ShieldObjectInstance(this);
-                        };
+                        this.shieldObject = powerUpSpawner != null
+                                ? powerUpSpawner.spawnShield(this, type)
+                                : null;
                         LOGGER.fine("DEBUG: ShieldObjectInstance created successfully: " + shieldObject);
-                        LevelManager.getInstance().getObjectManager().addDynamicObject(shieldObject);
-                        LOGGER.fine("DEBUG: ShieldObjectInstance added to ObjectManager.");
                         // If picked up while invincible, hide shield until invincibility ends
-                        if (invincibleFrames > 0) {
+                        if (shieldObject != null && invincibleFrames > 0) {
                                 shieldObject.setVisible(false);
                         }
                 } catch (Exception e) {
                         LOGGER.fine("DEBUG: Failed to create/add ShieldObjectInstance: " + e.getMessage());
-                        e.printStackTrace();
                         throw e;
                 }
         }
@@ -630,15 +635,15 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 return shieldType;
         }
 
-        public ShieldObjectInstance getShieldObject() {
+        public PowerUpObject getShieldObject() {
                 return shieldObject;
         }
 
-        public InstaShieldObjectInstance getInstaShieldObject() {
+        public InstaShieldHandle getInstaShieldObject() {
                 return instaShieldObject;
         }
 
-        public void setInstaShieldObject(InstaShieldObjectInstance obj) {
+        public void setInstaShieldObject(InstaShieldHandle obj) {
                 this.instaShieldObject = obj;
         }
 
@@ -651,7 +656,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 this.instaShieldRegistered = false;
         }
 
-        public InvincibilityStarsObjectInstance getInvincibilityObject() {
+        public PowerUpObject getInvincibilityObject() {
                 return invincibilityObject;
         }
 
@@ -662,7 +667,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 this.speedShoes = true;
                 // Register speed shoes timer using the existing timer framework
                 // Duration is 1200 frames (20 seconds @ 60fps) per SPG Sonic 2
-                GameServices.timers().registerTimer(
+                currentTimerManager().registerTimer(
                                 new SpeedShoesTimer("SpeedShoes-" + getCode(), this));
         }
 
@@ -681,9 +686,8 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 if (shieldObject != null) {
                         shieldObject.setVisible(false);
                 }
-                if (invincibilityObject == null) {
-                        invincibilityObject = new InvincibilityStarsObjectInstance(this);
-                        LevelManager.getInstance().getObjectManager().addDynamicObject(invincibilityObject);
+                if (invincibilityObject == null && powerUpSpawner != null) {
+                        invincibilityObject = powerUpSpawner.spawnInvincibilityStars(this);
                 }
         }
 
@@ -709,6 +713,40 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 return superSonic;
         }
 
+        public final Camera currentCamera() {
+                var runtime = RuntimeManager.getCurrent();
+                return runtime != null ? runtime.getCamera() : Camera.getInstance();
+        }
+
+        public final LevelManager currentLevelManager() {
+                var runtime = RuntimeManager.getCurrent();
+                return runtime != null ? runtime.getLevelManager() : LevelManager.getInstance();
+        }
+
+        public final LevelState currentLevelState() {
+                LevelManager levelManager = currentLevelManager();
+                return levelManager != null ? levelManager.getLevelGamestate() : null;
+        }
+
+        public final TimerManager currentTimerManager() {
+                var runtime = RuntimeManager.getCurrent();
+                return runtime != null ? runtime.getTimers() : TimerManager.getInstance();
+        }
+
+        public final GameStateManager currentGameState() {
+                var runtime = RuntimeManager.getCurrent();
+                return runtime != null ? runtime.getGameState() : GameStateManager.getInstance();
+        }
+
+        public final AudioManager currentAudioManager() {
+                return AudioManager.getInstance();
+        }
+
+        public final WaterSystem currentWaterSystem() {
+                var runtime = RuntimeManager.getCurrent();
+                return runtime != null ? runtime.getWaterSystem() : WaterSystem.getInstance();
+        }
+
         /**
          * Returns this character's secondary (double-jump) ability.
          * ROM: character_id determines Sonic=insta-shield, Tails=fly, Knuckles=glide.
@@ -723,19 +761,19 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
         }
 
         public int getRingCount() {
-                var levelState = LevelManager.getInstance().getLevelGamestate();
+                var levelState = currentLevelState();
                 return levelState != null ? levelState.getRings() : 0;
         }
 
         public void setRingCount(int ringCount) {
-                var levelState = LevelManager.getInstance().getLevelGamestate();
+                var levelState = currentLevelState();
                 if (levelState != null) {
                         levelState.setRings(ringCount);
                 }
         }
 
         public void addRings(int delta) {
-                var levelState = LevelManager.getInstance().getLevelGamestate();
+                var levelState = currentLevelState();
                 if (levelState != null) {
                         levelState.addRings(delta);
                 }
@@ -906,7 +944,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                         doubleJumpFlag = 0;
                         // S1 ROM parity (Sonic_ResetOnFloor):
                         // move.w #0,(v_itembonus).w ; clear enemy/block score chain.
-                        GameServices.gameState().resetItemBonus();
+                        currentGameState().resetItemBonus();
                 }
                 this.air = air;
                 // SPG: Push sensor Y offset changes based on air state
@@ -1238,7 +1276,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                                 if (shieldObject != null) {
                                         shieldObject.setVisible(true);
                                 }
-                                AudioManager audioManager = AudioManager.getInstance();
+                                AudioManager audioManager = currentAudioManager();
                                 GameAudioProfile audioProfile = audioManager.getAudioProfile();
                                 if (audioProfile != null) {
                                         audioManager.endMusicOverride(audioProfile.getInvincibilityMusicId());
@@ -1260,9 +1298,8 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 // Lazy-register insta-shield with ObjectManager if not yet done (e.g. created before level load).
                 // When registered, ObjectManager drives update(); explicit call only needed for headless tests.
                 if (instaShieldObject != null && !instaShieldRegistered) {
-                        LevelManager lm = LevelManager.getInstance();
-                        if (lm != null && lm.getObjectManager() != null) {
-                                lm.getObjectManager().addDynamicObject(instaShieldObject);
+                        if (powerUpSpawner != null) {
+                                powerUpSpawner.registerObject(instaShieldObject);
                                 instaShieldRegistered = true;
                         } else {
                                 instaShieldObject.update(0, this);
@@ -1344,7 +1381,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                         setXSpeed((short) (0x200 * dir));
                         setYSpeed((short) -0x400);
                 }
-                AudioManager.getInstance().playSfx(resolveDamageSound(cause));
+                currentAudioManager().playSfx(resolveDamageSound(cause));
                 return true;
         }
 
@@ -1421,7 +1458,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 drownPreDeathTimer = 120;
                 // Lock camera - prevent following the sinking player
                 if (!cpuControlled) {
-                        Camera.getInstance().setFrozen(true);
+                        currentCamera().setFrozen(true);
                 }
                 // ROM order: resume zone music first, then play drown SFX.
                 // playMusic() replaces the SMPS driver, so any SFX queued on the
@@ -1430,7 +1467,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 if (controller.getDrowning() != null) {
                         controller.getDrowning().onDrown();
                 }
-                AudioManager.getInstance().playSfx(GameSound.DROWN);
+                currentAudioManager().playSfx(GameSound.DROWN);
                 return true;
         }
 
@@ -1464,7 +1501,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 // Lock camera when dying - prevent following the falling corpse
                 // Only freeze camera for the main player, not for CPU sidekick
                 if (!cpuControlled) {
-                        Camera.getInstance().setFrozen(true);
+                        currentCamera().setFrozen(true);
                 }
                 setInvulnerableFrames(0);
                 setInvincibleFrames(0);
@@ -1480,7 +1517,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 setHighPriority(true);
                 GameSound sound = resolveDamageSound(cause);
                 if (sound != null) {
-                        AudioManager.getInstance().playSfx(sound);
+                        currentAudioManager().playSfx(sound);
                 }
                 return true;
         }
@@ -1968,12 +2005,13 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 // ROM (sonic3k.asm:20614-20615): character_id == 0 check — Sonic only, not Tails/Knuckles
                 if (physicsFeatureSet != null && physicsFeatureSet.instaShieldEnabled()
                         && getSecondaryAbility() == SecondaryAbility.INSTA_SHIELD) {
-                        if (instaShieldObject == null) {
-                                instaShieldObject = new InstaShieldObjectInstance(this);
+                        if (instaShieldObject == null && powerUpSpawner != null) {
+                                instaShieldObject = powerUpSpawner.createInstaShield(this);
                         }
                         // Registration deferred to tickStatus() to avoid double-add
                         // when resolvePhysicsProfile() and tickStatus() both run on the same frame
                 }
+                bubbleAnimId = GameModuleRegistry.getCurrent().resolveAnimationId(CanonicalAnimation.BUBBLE);
         }
 
         /**
@@ -2767,7 +2805,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 //   beq.s   loc_F6DE         ; Skip splash if y_vel is now 0
                 if (ySpeed != 0) {
                         // Play splash sound
-                        AudioManager.getInstance().playSfx(GameSound.SPLASH);
+                        currentAudioManager().playSfx(GameSound.SPLASH);
 
                         // Spawn splash object at water surface
                         spawnSplash();
@@ -2818,7 +2856,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 }
 
                 // Play splash sound
-                AudioManager.getInstance().playSfx(GameSound.SPLASH);
+                currentAudioManager().playSfx(GameSound.SPLASH);
 
                 // Spawn splash object at water surface
                 spawnSplash();
@@ -2834,35 +2872,9 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
          * The splash appears at the player's X position at the water level Y.
          */
         private void spawnSplash() {
-                LevelManager levelManager = LevelManager.getInstance();
-                if (levelManager == null || levelManager.getObjectManager() == null) {
-                        return;
+                if (powerUpSpawner != null) {
+                        powerUpSpawner.spawnSplash(this);
                 }
-
-                var level = levelManager.getCurrentLevel();
-                if (level == null) {
-                        return;
-                }
-
-                // Get water level from WaterSystem
-                // Use getVisualWaterLevelY so splash appears at the oscillating water surface (CPZ2)
-                var waterSystem = WaterSystem.getInstance();
-                int waterY = waterSystem.getVisualWaterLevelY(level.getZoneIndex(), levelManager.getCurrentAct());
-
-                // S2/S3K: use dust/splash renderer from SpindashDustController
-                SpindashDustController dustController = getSpindashDustController();
-                if (dustController != null && dustController.getRenderer() != null) {
-                        var splash = new SplashObjectInstance(
-                                        getCentreX(), waterY, dustController.getRenderer(),
-                                        direction == Direction.LEFT);
-                        levelManager.getObjectManager().addDynamicObject(splash);
-                        return;
-                }
-
-                // S1: use LZ splash art from ObjectRenderManager (Object 0x08)
-                var s1Splash = new Sonic1SplashObjectInstance(
-                                getCentreX(), waterY);
-                levelManager.getObjectManager().addDynamicObject(s1Splash);
         }
 
         /**
@@ -2898,7 +2910,9 @@ public abstract class AbstractPlayableSprite extends AbstractSprite {
                 gSpeed = 0;
 
                 // ROM: move.b #AniIDSonAni_Bubble,anim(a1)
-                setAnimationId(Sonic2AnimationIds.BUBBLE);
+                if (bubbleAnimId >= 0) {
+                        setAnimationId(bubbleAnimId);
+                }
 
                 // ROM: move.w #$23,move_lock(a1) (35 frames)
                 moveLockTimer = 0x23;

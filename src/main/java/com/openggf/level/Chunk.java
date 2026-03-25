@@ -47,6 +47,14 @@ public class Chunk {
         return patternDescs[y * 2 + x];
     }
 
+    /** Sets a pattern descriptor at the given position (0-1 range for x and y). */
+    public void setPatternDesc(int x, int y, PatternDesc desc) {
+        if (x > 1 || y > 1) {
+            throw new IllegalArgumentException("Invalid pattern index");
+        }
+        patternDescs[y * 2 + x] = desc;
+    }
+
     public int getSolidTileIndex() {
         return solidTileIndex;
     }

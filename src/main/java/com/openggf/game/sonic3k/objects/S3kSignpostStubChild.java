@@ -1,15 +1,15 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
+import java.util.logging.Logger;
 
 /**
  * Signpost stub/post child object.
@@ -19,6 +19,8 @@ import java.util.List;
  * Self-destroys when the parent signpost is destroyed.
  */
 public class S3kSignpostStubChild extends AbstractObjectInstance {
+
+    private static final Logger LOG = Logger.getLogger(S3kSignpostStubChild.class.getName());
 
     private static final int Y_OFFSET = 0x18;
 
@@ -48,7 +50,8 @@ public class S3kSignpostStubChild extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (parent == null || parent.isDestroyed()) {
             setDestroyed(true);
             return;
@@ -75,15 +78,12 @@ public class S3kSignpostStubChild extends AbstractObjectInstance {
 
     private PatternSpriteRenderer getStubRenderer() {
         try {
-            LevelManager lm = LevelManager.getInstance();
-            if (lm != null) {
-                ObjectRenderManager orm = lm.getObjectRenderManager();
-                if (orm != null) {
-                    return orm.getRenderer(Sonic3kObjectArtKeys.SIGNPOST_STUB);
-                }
+            var renderManager = services().renderManager();
+            if (renderManager != null) {
+                return renderManager.getRenderer(Sonic3kObjectArtKeys.SIGNPOST_STUB);
             }
-        } catch (Exception ignored) {
-            // Render manager unavailable (e.g. headless test)
+        } catch (Exception e) {
+            LOG.fine(() -> "S3kSignpostStubChild.getStubRenderer: " + e.getMessage());
         }
         return null;
     }

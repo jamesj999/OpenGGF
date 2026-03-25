@@ -27,33 +27,13 @@ import java.util.logging.Logger;
  *   <li>LevelLoadBlock entries are 24 bytes with embedded PLC and palette indices</li>
  * </ul>
  */
-public class Sonic3kLevel implements Level {
+public class Sonic3kLevel extends AbstractLevel {
     private static final Logger LOG = Logger.getLogger(Sonic3kLevel.class.getName());
 
-    private static final int PALETTE_COUNT = 4;
     private static final int BLOCK_GRID_SIDE = 8;
 
-    private Palette[] palettes;
-    private Pattern[] patterns;
-    private Chunk[] chunks;
-    private Block[] blocks;
-    private SolidTile[] solidTiles;
-    private Map map;
     private byte[] primaryCollisionIndexTable = new byte[0];
     private byte[] secondaryCollisionIndexTable = new byte[0];
-    private final List<ObjectSpawn> objects;
-    private final List<RingSpawn> rings;
-    private RingSpriteSheet ringSpriteSheet;
-    private final int zoneIndex;
-
-    private int patternCount;
-    private int chunkCount;
-    private int blockCount;
-    private int solidTileCount;
-    private int minX;
-    private int maxX;
-    private int minY;
-    private int maxY;
     private final Integer minXOverride;
     private int fgLayoutWidthBlocks = Sonic3kConstants.MAP_WIDTH;
     private int fgLayoutHeightBlocks = Sonic3kConstants.MAP_HEIGHT;
@@ -93,7 +73,7 @@ public class Sonic3kLevel implements Level {
                         List<ObjectSpawn> objects,
                         List<RingSpawn> rings,
                         RingSpriteSheet ringSpriteSheet) throws IOException {
-        this.zoneIndex = zoneIndex;
+        super(zoneIndex);
         this.objects = objects != null ? objects : Collections.emptyList();
         this.rings = rings != null ? rings : Collections.emptyList();
         this.ringSpriteSheet = ringSpriteSheet;
@@ -110,97 +90,12 @@ public class Sonic3kLevel implements Level {
         validateResourceReferences();
     }
 
-    // ===== Level interface =====
-
-    @Override
-    public int getPaletteCount() { return PALETTE_COUNT; }
-
-    @Override
-    public Palette getPalette(int index) {
-        if (index >= PALETTE_COUNT) throw new IllegalArgumentException("Invalid palette index: " + index);
-        return palettes[index];
-    }
-
-    @Override
-    public void setPalette(int index, Palette palette) {
-        if (index >= 0 && index < PALETTE_COUNT && palette != null) {
-            palettes[index] = palette;
-        }
-    }
-
-    @Override
-    public int getPatternCount() { return patternCount; }
-
-    @Override
-    public Pattern getPattern(int index) {
-        if (index >= patternCount) throw new IllegalArgumentException("Invalid pattern index: " + index);
-        return patterns[index];
-    }
+    // ===== Level interface overrides =====
 
     @Override
     public synchronized void ensurePatternCapacity(int minCount) {
-        if (minCount <= patternCount) return;
-        patterns = Arrays.copyOf(patterns, minCount);
-        GraphicsManager graphicsMan = GraphicsManager.getInstance();
-        for (int i = patternCount; i < minCount; i++) {
-            patterns[i] = new Pattern();
-            if (graphicsMan.isGlInitialized()) {
-                graphicsMan.cachePatternTexture(patterns[i], i);
-            }
-        }
-        patternCount = minCount;
+        super.ensurePatternCapacity(minCount);
     }
-
-    @Override
-    public int getChunkCount() { return chunkCount; }
-
-    @Override
-    public Chunk getChunk(int index) {
-        if (index >= chunkCount) throw new IllegalArgumentException("Invalid chunk index: " + index);
-        return chunks[index];
-    }
-
-    @Override
-    public int getBlockCount() { return blockCount; }
-
-    @Override
-    public Block getBlock(int index) {
-        if (index >= blockCount) throw new IllegalArgumentException("Invalid block index: " + index);
-        return blocks[index];
-    }
-
-    @Override
-    public SolidTile getSolidTile(int index) {
-        if (index >= solidTileCount) throw new IllegalArgumentException("Invalid solid tile index: " + index);
-        return solidTiles[index];
-    }
-
-    @Override
-    public Map getMap() { return map; }
-
-    @Override
-    public List<ObjectSpawn> getObjects() { return objects; }
-
-    @Override
-    public List<RingSpawn> getRings() { return rings; }
-
-    @Override
-    public RingSpriteSheet getRingSpriteSheet() { return ringSpriteSheet; }
-
-    @Override
-    public int getMinX() { return minX; }
-
-    @Override
-    public int getMaxX() { return maxX; }
-
-    @Override
-    public int getMinY() { return minY; }
-
-    @Override
-    public int getMaxY() { return maxY; }
-
-    @Override
-    public int getZoneIndex() { return zoneIndex; }
 
     @Override
     public int getLayerWidthBlocks(int layer) {

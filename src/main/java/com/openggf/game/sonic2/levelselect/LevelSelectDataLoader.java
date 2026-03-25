@@ -9,6 +9,7 @@ import com.openggf.level.Palette;
 import com.openggf.level.Pattern;
 import com.openggf.tools.EnigmaReader;
 import com.openggf.tools.NemesisReader;
+import com.openggf.util.PatternDecompressor;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -16,6 +17,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.util.Arrays;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -104,9 +106,9 @@ public class LevelSelectDataLoader {
 
         try {
             // Load Nemesis-compressed art
-            menuBoxPatterns = loadNemesisPatterns(rom, Sonic2Constants.ART_NEM_MENU_BOX_ADDR, "MenuBox");
-            levelSelectPicsPatterns = loadNemesisPatterns(rom, Sonic2Constants.ART_NEM_LEVEL_SELECT_PICS_ADDR, "LevelSelectPics");
-            fontPatterns = loadNemesisPatterns(rom, Sonic2Constants.ART_NEM_FONT_STUFF_ADDR, "FontStuff");
+            menuBoxPatterns = PatternDecompressor.nemesis(rom, Sonic2Constants.ART_NEM_MENU_BOX_ADDR, "MenuBox");
+            levelSelectPicsPatterns = PatternDecompressor.nemesis(rom, Sonic2Constants.ART_NEM_LEVEL_SELECT_PICS_ADDR, "LevelSelectPics");
+            fontPatterns = PatternDecompressor.nemesis(rom, Sonic2Constants.ART_NEM_FONT_STUFF_ADDR, "FontStuff");
 
             LOGGER.info("Loaded patterns: MenuBox=" + (menuBoxPatterns != null ? menuBoxPatterns.length : 0) +
                     ", LevelSelectPics=" + (levelSelectPicsPatterns != null ? levelSelectPicsPatterns.length : 0) +
@@ -128,39 +130,12 @@ public class LevelSelectDataLoader {
             dataLoaded = true;
             return true;
 
-        } catch (Exception e) {
-            LOGGER.warning("Failed to load level select data: " + e.getMessage());
-            e.printStackTrace();
+        } catch (RuntimeException e) {
+            LOGGER.log(Level.WARNING, "Failed to load level select data", e);
             return false;
         }
     }
 
-    /**
-     * Loads Nemesis-compressed patterns from ROM.
-     */
-    private Pattern[] loadNemesisPatterns(Rom rom, int address, String name) {
-        try {
-            // Read enough compressed data (8KB should be plenty)
-            byte[] compressed = rom.readBytes(address, 8192);
-            try (ByteArrayInputStream bais = new ByteArrayInputStream(compressed);
-                 ReadableByteChannel channel = Channels.newChannel(bais)) {
-                byte[] decompressed = NemesisReader.decompress(channel);
-                int patternCount = decompressed.length / Pattern.PATTERN_SIZE_IN_ROM;
-                Pattern[] patterns = new Pattern[patternCount];
-                for (int i = 0; i < patternCount; i++) {
-                    patterns[i] = new Pattern();
-                    byte[] subArray = Arrays.copyOfRange(decompressed,
-                            i * Pattern.PATTERN_SIZE_IN_ROM,
-                            (i + 1) * Pattern.PATTERN_SIZE_IN_ROM);
-                    patterns[i].fromSegaFormat(subArray);
-                }
-                return patterns;
-            }
-        } catch (IOException e) {
-            LOGGER.warning("Failed to load " + name + " patterns: " + e.getMessage());
-            return new Pattern[0];
-        }
-    }
 
     /**
      * Combines loaded patterns into a VRAM-style array for easy access.
@@ -309,7 +284,7 @@ public class LevelSelectDataLoader {
 
             LOGGER.info("Loaded 4 menu palette lines from ROM at 0x" +
                     Integer.toHexString(Sonic2Constants.PAL_MENU_ADDR));
-        } catch (Exception e) {
+        } catch (IOException | RuntimeException e) {
             LOGGER.warning("Failed to load menu palettes from ROM: " + e.getMessage());
             menuPalettes = new Palette[0];
         }
@@ -334,7 +309,7 @@ public class LevelSelectDataLoader {
             }
 
             LOGGER.info("Loaded 15 icon palettes");
-        } catch (Exception e) {
+        } catch (IOException | RuntimeException e) {
             LOGGER.warning("Failed to load icon palettes: " + e.getMessage());
             iconPalettes = new Palette[0];
         }

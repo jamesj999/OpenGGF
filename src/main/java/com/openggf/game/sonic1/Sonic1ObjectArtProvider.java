@@ -5,8 +5,7 @@ import com.openggf.data.RomByteReader;
 import com.openggf.game.GameServices;
 import com.openggf.game.ObjectArtProvider;
 import com.openggf.game.sonic1.objects.bosses.Sonic1BossMappings;
-import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
-import com.openggf.game.sonic2.objects.badniks.AnimalType;
+import com.openggf.level.objects.AnimalType;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
@@ -3191,6 +3190,26 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         )));
 
         return frames;
+    }
+
+    @Override
+    public void registerLevelTileArt(Level level, int zoneIndex) {
+        registerPlatformSheet(level, zoneIndex);
+        registerCollapsingLedgeSheet(level, zoneIndex);
+        registerMzBrickSheet(level, zoneIndex);
+        registerLargeGrassyPlatformSheet(level, zoneIndex);
+        registerLavaWallSheet(level, zoneIndex);
+        registerFloatingBlockSheet(level, zoneIndex);
+        registerCirclingPlatformSheet(level, zoneIndex);
+        registerStaircaseSheet(level, zoneIndex);
+        registerElevatorSheet(level, zoneIndex);
+        if (zoneIndex == Sonic1Constants.ZONE_SYZ) {
+            registerSpinningLightSheet(level);
+            registerBossBlockSheet(level);
+        }
+        if (zoneIndex == Sonic1Constants.ZONE_LZ) {
+            registerSbz3BigDoorSheet(level, zoneIndex);
+        }
     }
 
     /**
@@ -7501,7 +7520,7 @@ public class Sonic1ObjectArtProvider implements ObjectArtProvider {
         // S1 explosion has 5 frames (vs S2's 7); frames 5-6 will be no-ops (graceful bounds check).
         ObjectSpriteSheet explosionSheet = sheets.get(ObjectArtKeys.EXPLOSION);
         if (explosionSheet != null) {
-            registerSheet(Sonic2ObjectArtKeys.BOSS_EXPLOSION,
+            registerSheet(ObjectArtKeys.BOSS_EXPLOSION,
                     explosionSheet);
         }
     }

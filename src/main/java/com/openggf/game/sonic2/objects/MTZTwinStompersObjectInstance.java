@@ -4,7 +4,7 @@ import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.debug.DebugOverlayManager;
 import com.openggf.debug.DebugOverlayToggle;
-import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
@@ -51,9 +51,8 @@ import java.util.List;
 public class MTZTwinStompersObjectInstance extends AbstractObjectInstance
         implements SolidObjectProvider, SolidObjectListener {
 
-    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
-            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
+    private static final boolean DEBUG_VIEW_ENABLED = staticDebugViewEnabled();
+    private static final DebugOverlayManager OVERLAY_MANAGER = staticDebugOverlay();
 
     // Obj64_Properties flat byte array (s2.asm:52214-52220)
     // Accessed as a3 = Properties + byteOffset, then 3 sequential reads: (a3)+, (a3)+, (a3)+
@@ -120,8 +119,6 @@ public class MTZTwinStompersObjectInstance extends AbstractObjectInstance
     private int extension;             // objoff_3A: current extension amount (0 to maxTravel)
     private int timer;                 // objoff_36: countdown timer
 
-    private ObjectSpawn dynamicSpawn;
-
     public MTZTwinStompersObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
 
@@ -162,7 +159,7 @@ public class MTZTwinStompersObjectInstance extends AbstractObjectInstance
         extension = 0;
         timer = 0;
 
-        dynamicSpawn = spawn;
+        updateDynamicSpawn(baseX, currentY);
     }
 
     @Override
@@ -174,12 +171,6 @@ public class MTZTwinStompersObjectInstance extends AbstractObjectInstance
     public int getY() {
         return currentY;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn;
-    }
-
     @Override
     public SolidObjectParams getSolidParams() {
         // s2.asm:52260-52267: d1 = width_pixels + $B, d2 = objoff_2E, d3 = objoff_2E + 1
@@ -188,7 +179,8 @@ public class MTZTwinStompersObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Crush detection is handled automatically by the engine's SolidContacts collision
         // resolution, matching the ROM's SolidObject routine (s2.asm:35336-35361).
         // When the player is standing on the ground (ySpeed==0, not airborne) and overlaps
@@ -202,7 +194,8 @@ public class MTZTwinStompersObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) return;
 
         // Despawn check: s2.asm:52269-52273
@@ -219,7 +212,7 @@ public class MTZTwinStompersObjectInstance extends AbstractObjectInstance
         }
         // Mode 0 is just rts (no movement)
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(baseX, currentY);
     }
 
     /**
@@ -287,7 +280,7 @@ public class MTZTwinStompersObjectInstance extends AbstractObjectInstance
      * art_tile = make_art_tile(ArtTile_ArtKos_LevelArt, 1, 0) => palette line 1.
      */
     private void renderUsingLevelArt() {
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = services().graphicsManager();
         SpriteMappingFrame frame = (mappingFrame == 0) ? FRAME_LARGE : FRAME_SMALL;
         List<SpriteMappingPiece> pieces = frame.pieces();
 
@@ -309,16 +302,6 @@ public class MTZTwinStompersObjectInstance extends AbstractObjectInstance
                         descIndex |= (finalPalette & 0x3) << 13;
                         graphicsManager.renderPattern(new PatternDesc(descIndex), drawX, drawY);
                     });
-        }
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn.y() != currentY) {
-            dynamicSpawn = new ObjectSpawn(
-                    baseX, currentY,
-                    spawn.objectId(), spawn.subtype(),
-                    spawn.renderFlags(), spawn.respawnTracked(),
-                    spawn.rawYWord());
         }
     }
 

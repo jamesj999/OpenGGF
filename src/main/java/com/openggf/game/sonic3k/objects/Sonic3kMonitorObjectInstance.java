@@ -1,24 +1,34 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameAudioProfile;
 import com.openggf.audio.GameSound;
-import com.openggf.game.GameServices;
-import com.openggf.game.sonic2.objects.ExplosionObjectInstance;
-import com.openggf.game.sonic2.objects.ObjectAnimationState;
+import com.openggf.game.PlayableEntity;
+import com.openggf.level.objects.ExplosionObjectInstance;
+import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
-import com.openggf.level.objects.*;
+import com.openggf.level.objects.AbstractMonitorObjectInstance;
+import com.openggf.level.objects.ObjectManager;
+import com.openggf.level.objects.ObjectRenderManager;
+import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.ObjectSpriteSheet;
+import com.openggf.level.objects.SolidContact;
+import com.openggf.level.objects.SolidObjectListener;
+import com.openggf.level.objects.SolidObjectParams;
+import com.openggf.level.objects.SolidObjectProvider;
+import com.openggf.level.objects.SubpixelMotion;
+import com.openggf.level.objects.TouchResponseListener;
+import com.openggf.level.objects.TouchResponseProvider;
+import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpriteMappingPiece;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import com.openggf.sprites.playable.ShieldType;
+import com.openggf.game.ShieldType;
 
 import java.util.List;
 import java.util.logging.Logger;
@@ -35,7 +45,7 @@ import java.util.logging.Logger;
  * <p>
  * Reference: docs/skdisasm/sonic3k.asm lines 40442-40995
  */
-public class Sonic3kMonitorObjectInstance extends AbstractObjectInstance
+public class Sonic3kMonitorObjectInstance extends AbstractMonitorObjectInstance
         implements TouchResponseProvider, TouchResponseListener,
         SolidObjectProvider, SolidObjectListener {
     private static final Logger LOGGER = Logger.getLogger(Sonic3kMonitorObjectInstance.class.getName());
@@ -44,11 +54,6 @@ public class Sonic3kMonitorObjectInstance extends AbstractObjectInstance
     private static final int SOLID_WIDTH = 0x19;
     private static final int SOLID_D2 = 0x10;
     private static final int SOLID_D3 = 0x11;
-
-    // Icon rising physics (same as S1/S2: Pow_Move)
-    private static final int ICON_INITIAL_VELOCITY = -0x300;
-    private static final int ICON_RISE_ACCEL = 0x18;
-    private static final int ICON_WAIT_FRAMES = 0x1D;
 
     // Map_Monitor frame 11 = broken shell
     private static final int BROKEN_FRAME = 0x0B;
@@ -76,13 +81,7 @@ public class Sonic3kMonitorObjectInstance extends AbstractObjectInstance
     private boolean revealed;
     private final SubpixelMotion.State motion;
 
-    // Icon rising state (inline PowerUp object)
-    private boolean iconActive;
-    private int iconSubY;
-    private int iconVelY;
-    private int iconWaitFrames;
-    private boolean effectApplied;
-    private AbstractPlayableSprite effectTarget;
+    // (Icon rising state is managed by AbstractMonitorObjectInstance)
 
     public Sonic3kMonitorObjectInstance(ObjectSpawn spawn) {
         super(spawn, "Monitor");
@@ -90,14 +89,14 @@ public class Sonic3kMonitorObjectInstance extends AbstractObjectInstance
         this.motion = new SubpixelMotion.State(spawn.x(), spawn.y(), 0, 0, 0, 0);
 
         // Check persistence: if previously broken, spawn as broken shell
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         boolean previouslyBroken = objectManager != null && objectManager.isRemembered(spawn);
         this.broken = previouslyBroken;
 
         // Initialize animation: animId = subtype
         int initialAnim = type.animId;
         int initialFrame = broken ? BROKEN_FRAME : 0;
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         this.animationState = new ObjectAnimationState(
                 renderManager != null ? renderManager.getMonitorAnimations() : null,
                 initialAnim,
@@ -149,7 +148,8 @@ public class Sonic3kMonitorObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (revealed && !broken) {
             updateRevealed();
         }
@@ -188,7 +188,8 @@ public class Sonic3kMonitorObjectInstance extends AbstractObjectInstance
      * ROM: Touch_Monitor (sonic3k.asm ~line 20800)
      */
     @Override
-    public void onTouchResponse(AbstractPlayableSprite player, TouchResponseResult result, int frameCounter) {
+    public void onTouchResponse(PlayableEntity playerEntity, TouchResponseResult result, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (broken || player == null) {
             return;
         }
@@ -223,7 +224,7 @@ public class Sonic3kMonitorObjectInstance extends AbstractObjectInstance
         broken = true;
 
         // Mark as broken in persistence table
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null) {
             objectManager.markRemembered(spawn);
         }
@@ -231,61 +232,26 @@ public class Sonic3kMonitorObjectInstance extends AbstractObjectInstance
         mappingFrame = BROKEN_FRAME;
 
         // Initialize icon rising
-        iconActive = true;
-        iconSubY = posY() << 8;
-        iconVelY = ICON_INITIAL_VELOCITY;
-        iconWaitFrames = 0;
-        effectApplied = false;
-        effectTarget = player;
+        startIconRise(posY(), player);
 
         // Spawn explosion
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager != null && objectManager != null
                 && renderManager.getExplosionRenderer() != null) {
             objectManager.addDynamicObject(
                     new ExplosionObjectInstance(0x27, posX(), posY(), renderManager));
         }
         // ROM: Obj_Explosion loc_1E61A plays sfx_Break ($3D)
-        AudioManager.getInstance().playSfx(Sonic3kSfx.BREAK.id);
-    }
-
-    /**
-     * Update the rising icon and apply power-up effect when it reaches the top.
-     * ROM: Pow_Move, Pow_ChkX
-     */
-    private void updateIcon() {
-        if (!iconActive) {
-            return;
-        }
-        if (iconVelY < 0) {
-            // Rising phase
-            iconSubY += iconVelY;
-            iconVelY += ICON_RISE_ACCEL;
-            if (iconVelY >= 0) {
-                iconVelY = 0;
-                iconWaitFrames = ICON_WAIT_FRAMES;
-                if (!effectApplied && effectTarget != null) {
-                    applyMonitorEffect(effectTarget);
-                    effectApplied = true;
-                    effectTarget = null;
-                }
-            }
-            return;
-        }
-
-        // Waiting phase
-        if (iconWaitFrames > 0) {
-            iconWaitFrames--;
-            return;
-        }
-        iconActive = false;
+        services().playSfx(Sonic3kSfx.BREAK.id);
     }
 
     /**
      * Apply the monitor's power-up effect.
      * ROM: Pow_ChkX branch table (sonic3k.asm ~line 40780)
      */
-    private void applyMonitorEffect(AbstractPlayableSprite player) {
+    @Override
+    protected void applyPowerup(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (type) {
             case EGGMAN, EGGMAN_2 -> {
                 // Eggman monitor hurts the player
@@ -295,37 +261,37 @@ public class Sonic3kMonitorObjectInstance extends AbstractObjectInstance
                 }
             }
             case ONE_UP -> {
-                GameServices.gameState().addLife();
-                AudioManager.getInstance().playMusic(Sonic3kMusic.EXTRA_LIFE.id);
+                services().gameState().addLife();
+                services().playMusic(Sonic3kMusic.EXTRA_LIFE.id);
             }
             case RINGS -> {
                 player.addRings(RING_MONITOR_REWARD);
-                AudioManager.getInstance().playSfx(GameSound.RING);
+                services().playSfx(GameSound.RING);
             }
             case SPEED_SHOES -> {
                 player.giveSpeedShoes();
-                GameAudioProfile audioProfile = AudioManager.getInstance().getAudioProfile();
+                GameAudioProfile audioProfile = services().audioManager().getAudioProfile();
                 if (audioProfile != null) {
-                    AudioManager.getInstance().playMusic(audioProfile.getSpeedShoesOnCommandId());
+                    services().playMusic(audioProfile.getSpeedShoesOnCommandId());
                 }
             }
             case FIRE_SHIELD -> {
                 player.giveShield(ShieldType.FIRE);
-                AudioManager.getInstance().playSfx(GameSound.FIRE_SHIELD);
+                services().playSfx(GameSound.FIRE_SHIELD);
             }
             case LIGHTNING_SHIELD -> {
                 player.giveShield(ShieldType.LIGHTNING);
-                AudioManager.getInstance().playSfx(GameSound.LIGHTNING_SHIELD);
+                services().playSfx(GameSound.LIGHTNING_SHIELD);
             }
             case BUBBLE_SHIELD -> {
                 player.giveShield(ShieldType.BUBBLE);
-                AudioManager.getInstance().playSfx(GameSound.BUBBLE_SHIELD);
+                services().playSfx(GameSound.BUBBLE_SHIELD);
             }
             case INVINCIBILITY -> {
                 // Skip invincibility if player is already Super Sonic
                 if (!player.isSuperSonic()) {
                     player.giveInvincibility();
-                    AudioManager.getInstance().playMusic(Sonic3kMusic.INVINCIBILITY.id);
+                    services().playMusic(Sonic3kMusic.INVINCIBILITY.id);
                 }
             }
             case SUPER -> {
@@ -338,7 +304,7 @@ public class Sonic3kMonitorObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         PatternSpriteRenderer renderer = renderManager != null ? renderManager.getMonitorRenderer() : null;
         boolean hasRenderer = renderer != null && renderer.isReady();
 
@@ -433,7 +399,8 @@ public class Sonic3kMonitorObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (broken) {
             return false;
         }
@@ -450,7 +417,8 @@ public class Sonic3kMonitorObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Solid contact for standing/edge checks; no additional behavior needed.
     }
 

@@ -1,12 +1,12 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.physics.TrigLookupTable;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -74,11 +74,12 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         updatePlayer(player, PLAYER_SLOT_MAIN, true);
-        var sidekicks = SpriteManager.getInstance().getSidekicks();
+        var sidekicks = services().sidekicks();
         if (!sidekicks.isEmpty()) {
-            updatePlayer(sidekicks.getFirst(), PLAYER_SLOT_SIDEKICK, false);
+            updatePlayer((AbstractPlayableSprite) sidekicks.getFirst(), PLAYER_SLOT_SIDEKICK, false);
         }
         updateCameraLock(player);
     }
@@ -179,7 +180,7 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
         player.setAnimationId(Sonic3kAnimationIds.WALK);
 
         if (mainPlayer) {
-            Camera camera = Camera.getInstance();
+            Camera camera = services().camera();
             camera.setMinX((short) CAMERA_LOCK_X);
             camera.setMaxX((short) CAMERA_LOCK_X);
             cameraLockTimer = CAMERA_LOCK_TIMER;
@@ -204,7 +205,7 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
 
         int progressWord = progressWord(progressValue);
         if (progressWord >= 0x400) {
-            Camera camera = Camera.getInstance();
+            Camera camera = services().camera();
             camera.setMinX((short) CAMERA_RELEASE_MIN_X);
             camera.setMaxX((short) CAMERA_RELEASE_MAX_X);
         }
@@ -289,7 +290,7 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
             return;
         }
 
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         cameraLockTimer--;
         if (cameraLockTimer == 0) {
             camera.setMinX((short) CAMERA_RELEASE_MIN_X);
@@ -327,7 +328,8 @@ public class AizHollowTreeObjectInstance extends AbstractObjectInstance {
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (timer2EWord != 0 && eventsFg4 == 0) {
                 setDestroyed(true);
                 return;

@@ -1,18 +1,17 @@
 package com.openggf.game.sonic2.objects;
+import com.openggf.level.objects.BoxObjectInstance;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.debug.DebugOverlayManager;
 import com.openggf.debug.DebugOverlayToggle;
-import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.sprites.animation.SpriteAnimationProfile;
 import com.openggf.sprites.animation.ScriptedVelocityAnimationProfile;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import com.openggf.sprites.managers.SpriteManager;
 
 import java.util.List;
 
@@ -51,9 +50,8 @@ public class ForcedSpinObjectInstance extends BoxObjectInstance {
     private static final int[] WIDTH_TABLE = {0x20, 0x40, 0x80, 0x100};
 
     // Debug state
-    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
-            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
+    private static final boolean DEBUG_VIEW_ENABLED = staticDebugViewEnabled();
+    private static final DebugOverlayManager OVERLAY_MANAGER = staticDebugOverlay();
 
     // Debug colors
     private static final float ENABLE_R = 0.0f;
@@ -92,7 +90,8 @@ public class ForcedSpinObjectInstance extends BoxObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (player == null) {
             return;
         }
@@ -107,8 +106,8 @@ public class ForcedSpinObjectInstance extends BoxObjectInstance {
         checkPlayerCrossing(player, true);
 
         // Check for sidekick(s) if present
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
-            checkPlayerCrossing(sidekick, false);
+        for (PlayableEntity sidekick : services().sidekicks()) {
+            checkPlayerCrossing((AbstractPlayableSprite) sidekick, false);
         }
     }
 
@@ -134,7 +133,7 @@ public class ForcedSpinObjectInstance extends BoxObjectInstance {
         }
 
         // Initialize sidekick state similarly if present
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+        for (PlayableEntity sidekick : services().sidekicks()) {
             int sidekickX = sidekick.getCentreX();
             int sidekickY = sidekick.getCentreY();
             if (verticalMode) {
@@ -305,10 +304,7 @@ public class ForcedSpinObjectInstance extends BoxObjectInstance {
      */
     private void playRollSound() {
         try {
-            AudioManager audioManager = AudioManager.getInstance();
-            if (audioManager != null) {
-                audioManager.playSfx(GameSound.ROLLING);
-            }
+            services().playSfx(GameSound.ROLLING);
         } catch (Exception e) {
             // Don't let audio failure break game logic
         }

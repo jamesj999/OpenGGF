@@ -4,13 +4,13 @@ import com.openggf.Engine;
 import com.openggf.graphics.HScrollBuffer;
 import com.openggf.graphics.ParallaxShaderProgram;
 import com.openggf.graphics.QuadRenderer;
+import com.openggf.util.FboHelper;
 
 import java.io.IOException;
 import java.util.logging.Logger;
 
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL13.*;
-import static org.lwjgl.opengl.GL14.GL_DEPTH_COMPONENT16;
 import static org.lwjgl.opengl.GL30.*;
 
 /**
@@ -41,6 +41,7 @@ public class SpecialStageBackgroundRenderer {
     public static final int H32_OFFSET = (SCREEN_WIDTH - H32_WIDTH) / 2; // 32 pixels
 
     // OpenGL resources
+    private FboHelper.FboHandle fboHandle;
     private int fboId = -1;
     private int fboTextureId = -1;
     private int fboDepthId = -1;
@@ -55,7 +56,7 @@ public class SpecialStageBackgroundRenderer {
 
     // State
     private boolean initialized = false;
-    private final int[] savedViewport = new int[4];
+    private int[] savedViewport;
 
     /**
      * Initialize the renderer with FBO and shader.
@@ -92,43 +93,10 @@ public class SpecialStageBackgroundRenderer {
      * Create the framebuffer object for tile rendering.
      */
     private void createFBO() {
-        // Generate FBO
-        fboId = glGenFramebuffers();
-
-        // Generate texture for color attachment
-        fboTextureId = glGenTextures();
-
-        glBindTexture(GL_TEXTURE_2D, fboTextureId);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, FBO_WIDTH, FBO_HEIGHT, 0,
-                GL_RGBA, GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        // Use REPEAT for seamless horizontal wrapping
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glBindTexture(GL_TEXTURE_2D, 0);
-
-        // Generate depth buffer (optional, but good practice)
-        fboDepthId = glGenRenderbuffers();
-
-        glBindRenderbuffer(GL_RENDERBUFFER, fboDepthId);
-        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, FBO_WIDTH, FBO_HEIGHT);
-        glBindRenderbuffer(GL_RENDERBUFFER, 0);
-
-        // Attach to FBO
-        glBindFramebuffer(GL_FRAMEBUFFER, fboId);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-                GL_TEXTURE_2D, fboTextureId, 0);
-        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
-                GL_RENDERBUFFER, fboDepthId);
-
-        // Check FBO completeness
-        int status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-        if (status != GL_FRAMEBUFFER_COMPLETE) {
-            LOGGER.severe("Special stage background FBO creation failed with status: " + status);
-        }
-
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        fboHandle = FboHelper.createWithDepth(FBO_WIDTH, FBO_HEIGHT, GL_REPEAT);
+        fboId = fboHandle.fboId();
+        fboTextureId = fboHandle.textureId();
+        fboDepthId = fboHandle.depthId();
         LOGGER.fine("Created FBO " + FBO_WIDTH + "x" + FBO_HEIGHT + " for special stage background");
     }
 
@@ -172,7 +140,7 @@ public class SpecialStageBackgroundRenderer {
             return;
 
         // Save current viewport to restore later (must query actual GL state)
-        glGetIntegerv(GL_VIEWPORT, savedViewport);
+        savedViewport = FboHelper.saveViewport();
 
         // Bind FBO
         glBindFramebuffer(GL_FRAMEBUFFER, fboId);
@@ -206,7 +174,7 @@ public class SpecialStageBackgroundRenderer {
         }
 
         // Restore viewport
-        glViewport(savedViewport[0], savedViewport[1], savedViewport[2], savedViewport[3]);
+        FboHelper.restoreViewport(savedViewport);
     }
 
     /**
@@ -338,18 +306,11 @@ public class SpecialStageBackgroundRenderer {
             shader = null;
         }
         quadRenderer.cleanup();
-        if (fboId > 0) {
-            glDeleteFramebuffers(fboId);
-            fboId = -1;
-        }
-        if (fboTextureId > 0) {
-            glDeleteTextures(fboTextureId);
-            fboTextureId = -1;
-        }
-        if (fboDepthId > 0) {
-            glDeleteRenderbuffers(fboDepthId);
-            fboDepthId = -1;
-        }
+        FboHelper.destroy(fboHandle);
+        fboHandle = null;
+        fboId = -1;
+        fboTextureId = -1;
+        fboDepthId = -1;
         initialized = false;
         LOGGER.info("SpecialStageBackgroundRenderer cleaned up");
     }

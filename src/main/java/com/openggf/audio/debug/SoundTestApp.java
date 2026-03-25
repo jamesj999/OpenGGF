@@ -55,6 +55,8 @@ import java.util.Map;
 import java.util.NavigableSet;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Lightweight console-driven sound test runner for SMPS tracks.
@@ -73,6 +75,7 @@ import java.util.TreeSet;
  * - Esc: quit
  */
 public final class SoundTestApp {
+    private static final Logger LOGGER = Logger.getLogger(SoundTestApp.class.getName());
 
     private SoundTestApp() {
     }
@@ -677,7 +680,7 @@ public final class SoundTestApp {
                             "Export Complete", JOptionPane.INFORMATION_MESSAGE);
                     });
                 } catch (Exception ex) {
-                    ex.printStackTrace();
+                    LOGGER.log(Level.WARNING, "Failed to export audio", ex);
                     SwingUtilities.invokeLater(() -> {
                         frame.setEnabled(true);
                         updateLabel();

@@ -1,18 +1,19 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.Sprite;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.ArrayList;
@@ -56,17 +57,17 @@ public class RexonBadnikInstance extends AbstractBadnikInstance
 
     private State state;
     private int patrolTimer;
-    private int xSubpixel;
+    private final SubpixelMotion.State motionState;
     private boolean xFlipFlag;
     private final List<RexonHeadObjectInstance> heads = new ArrayList<>();
 
-    public RexonBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Rexon");
+    public RexonBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Rexon", Sonic2BadnikConfig.DESTRUCTION);
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         this.xVelocity = X_VELOCITY;
         this.patrolTimer = PATROL_TIMER;
-        this.xSubpixel = 0;
+        this.motionState = new SubpixelMotion.State(spawn.x(), spawn.y(), 0, 0, 0, 0);
         this.state = State.WAIT_FOR_PLAYER;
 
         // Initial flip from spawn
@@ -75,7 +76,8 @@ public class RexonBadnikInstance extends AbstractBadnikInstance
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
             case WAIT_FOR_PLAYER -> updatePatrol(player);
             case READY_TO_CREATE -> createHeads();
@@ -101,10 +103,10 @@ public class RexonBadnikInstance extends AbstractBadnikInstance
         }
 
         // Apply velocity (8.8 fixed point)
-        int xPos32 = (currentX << 8) | (xSubpixel & 0xFF);
-        xPos32 += xVelocity;
-        currentX = xPos32 >> 8;
-        xSubpixel = xPos32 & 0xFF;
+        motionState.x = currentX;
+        motionState.xVel = xVelocity;
+        SubpixelMotion.moveX(motionState);
+        currentX = motionState.x;
     }
 
     /**
@@ -152,7 +154,6 @@ public class RexonBadnikInstance extends AbstractBadnikInstance
             int headIndex = i * 2;  // 0, 2, 4, 6, 8
             RexonHeadObjectInstance head = new RexonHeadObjectInstance(
                     spawn,
-                    levelManager,
                     this,
                     currentX,
                     currentY,
@@ -160,7 +161,7 @@ public class RexonBadnikInstance extends AbstractBadnikInstance
                     xFlipFlag
             );
             heads.add(head);
-            levelManager.getObjectManager().addDynamicObject(head);
+            services().objectManager().addDynamicObject(head);
         }
 
         // Set up head chain linking (s2.asm:73786-73795)
@@ -207,7 +208,7 @@ public class RexonBadnikInstance extends AbstractBadnikInstance
     }
 
     private AbstractPlayableSprite getPlayer() {
-        SpriteManager spriteManager = SpriteManager.getInstance();
+        var spriteManager = services().spriteManager();
         if (spriteManager == null) {
             return null;
         }
@@ -248,7 +249,8 @@ public class RexonBadnikInstance extends AbstractBadnikInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Standard solid collision - no special behavior needed
     }
 
@@ -259,19 +261,12 @@ public class RexonBadnikInstance extends AbstractBadnikInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.REXON);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.REXON);
+        if (renderer == null) return;
 
         // Body uses frame 2 (s2.asm:73691)
         renderer.drawFrameIndex(2, currentX, currentY, xFlipFlag, false);

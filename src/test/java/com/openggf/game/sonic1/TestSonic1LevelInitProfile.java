@@ -1,7 +1,10 @@
 package com.openggf.game.sonic1;
 
 import com.openggf.game.InitStep;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.StaticFixup;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import java.util.List;
 import static org.junit.Assert.*;
@@ -9,6 +12,16 @@ import static org.junit.Assert.*;
 public class TestSonic1LevelInitProfile {
 
     private final Sonic1LevelInitProfile profile = new Sonic1LevelInitProfile();
+
+    @Before
+    public void setUp() {
+        RuntimeManager.createGameplay();
+    }
+
+    @After
+    public void tearDown() {
+        RuntimeManager.destroyCurrent();
+    }
 
     @Test
     public void teardownHasExpectedSteps() {

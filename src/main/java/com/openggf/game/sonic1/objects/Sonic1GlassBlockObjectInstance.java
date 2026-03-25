@@ -1,15 +1,13 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.PlayableEntity;
 
-import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.Sonic1SwitchManager;
 import com.openggf.game.OscillationManager;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
@@ -93,7 +91,6 @@ public class Sonic1GlassBlockObjectInstance extends AbstractObjectInstance
     private static final int TYPE4_LOWER_SPEED = 2;
 
     // --- Object state ---
-    private final LevelManager levelManager;
 
     // Whether this is the tall variant (subtypes 0-2) or short (subtypes 3-4)
     private final boolean isTall;
@@ -135,11 +132,9 @@ public class Sonic1GlassBlockObjectInstance extends AbstractObjectInstance
     // The spawned reflection child (for cleanup)
     private Sonic1GlassReflectionInstance reflectionChild;
 
-    private ObjectSpawn dynamicSpawn;
-
-    public Sonic1GlassBlockObjectInstance(ObjectSpawn spawn, LevelManager levelManager) {
+    public Sonic1GlassBlockObjectInstance(ObjectSpawn spawn) {
         super(spawn, "MzGlassBlock");
-        this.levelManager = levelManager;
+        
 
         int subtype = spawn.subtype() & 0xFF;
         this.fullSubtype = subtype;
@@ -165,7 +160,7 @@ public class Sonic1GlassBlockObjectInstance extends AbstractObjectInstance
         this.type4Activated = false;
         this.playerStanding = false;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
 
         // Spawn reflection child
         spawnReflection();
@@ -180,14 +175,9 @@ public class Sonic1GlassBlockObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
     @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
-    @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         playerStanding = isPlayerRiding();
 
         // Apply subtype movement (modifies glassDist)
@@ -197,19 +187,13 @@ public class Sonic1GlassBlockObjectInstance extends AbstractObjectInstance
         // From disassembly loc_B5EE: move.w objoff_30(a0),d1 / sub.w d0,d1 / move.w d1,obY(a0)
         y = baseY - glassDist;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.MZ_GLASS_BLOCK);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.MZ_GLASS_BLOCK);
+        if (renderer == null) return;
 
         renderer.drawFrameIndex(blockFrame, x, y, false, false);
     }
@@ -241,12 +225,14 @@ public class Sonic1GlassBlockObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Standing state is managed via isPlayerRiding() check in update()
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed();
     }
 
@@ -413,7 +399,7 @@ public class Sonic1GlassBlockObjectInstance extends AbstractObjectInstance
         if (!type4Activated) {
             // Check switch state: the high nybble indexes into f_switch
             int switchIndex = (fullSubtype >> 4) & 0x0F;
-            if (Sonic1SwitchManager.getInstance().isPressed(switchIndex)) {
+            if (services().gameService(Sonic1SwitchManager.class).isPressed(switchIndex)) {
                 type4Activated = true;
             }
         }
@@ -442,7 +428,7 @@ public class Sonic1GlassBlockObjectInstance extends AbstractObjectInstance
      * Subtype gets addq.b #8 then andi.b #$F.
      */
     private void spawnReflection() {
-        var objectManager = levelManager.getObjectManager();
+        var objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -456,19 +442,11 @@ public class Sonic1GlassBlockObjectInstance extends AbstractObjectInstance
     }
 
     /**
-     * Check if any player is riding this block, via ObjectManager.
-     */
-    private boolean isPlayerRiding() {
-        var objectManager = levelManager.getObjectManager();
-        return objectManager != null && objectManager.isAnyPlayerRiding(this);
-    }
-
-    /**
      * Check if the object is within out-of-range distance from camera using given X.
      * Matches the S1 out_of_range macro.
      */
     private boolean isOnScreenX(int objectX, int range) {
-        var camera = Camera.getInstance();
+        var camera = services().camera();
         if (camera == null) {
             return true;
         }
@@ -476,17 +454,5 @@ public class Sonic1GlassBlockObjectInstance extends AbstractObjectInstance
         int camRounded = (camera.getX() - 128) & 0xFF80;
         int distance = (objRounded - camRounded) & 0xFFFF;
         return distance <= (128 + 320 + 192);
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = new ObjectSpawn(
-                    x, y,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
     }
 }

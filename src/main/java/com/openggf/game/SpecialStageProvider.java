@@ -130,6 +130,22 @@ public interface SpecialStageProvider extends MiniGameProvider {
     // ==================== Debug Methods ====================
 
     /**
+     * Debug: advance to the next stage within the current set.
+     * Only meaningful for games with multi-stage special stage sets (e.g., S3K).
+     */
+    default void debugNextStage() {
+        // No-op by default.
+    }
+
+    /**
+     * Debug: toggle between layout sets (e.g., S3 vs SK in S3K).
+     * Only meaningful for games with multiple layout sets.
+     */
+    default void debugToggleLayoutSet() {
+        // No-op by default.
+    }
+
+    /**
      * Checks if gameplay debug movement mode is active.
      * When enabled, directional input moves the special-stage player directly.
      *

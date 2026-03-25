@@ -1,8 +1,9 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -85,7 +86,8 @@ public class MTZLongPlatformCogInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         int d0;
         if (standalone) {
             // Routine 6 (loc_26EC2): read MTZ_Platform_Cog_X
@@ -101,28 +103,20 @@ public class MTZLongPlatformCogInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         PatternSpriteRenderer renderer = null;
         if (renderManager != null) {
             renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.MTZ_COG);
         }
         if (renderer != null && renderer.isReady()) {
             renderer.drawFrameIndex(mappingFrame, x, y, xFlip, false);
-        } else {
-            appendDebug(commands);
         }
     }
 
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         // Draw small cross at cog position
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.9f, 0.6f, 0.2f, x - 8, y, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.9f, 0.6f, 0.2f, x + 8, y, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.9f, 0.6f, 0.2f, x, y - 8, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.9f, 0.6f, 0.2f, x, y + 8, 0, 0));
+        ctx.drawCross(x, y, 8, 0.9f, 0.6f, 0.2f);
     }
 
     private static ObjectSpawn createSpawn(int x, int y) {

@@ -1,16 +1,15 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.PlayableEntity;
 
-import com.openggf.camera.Camera;
 import com.openggf.game.sonic1.Sonic1SwitchManager;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.game.OscillationManager;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.PlatformBobHelper;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
@@ -57,12 +56,8 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
     // From disassembly: move.b #4,obPriority(a0)
     private static final int PRIORITY = 4;
 
-    // Nudge physics: move.w #$400,d1
-    private static final int NUDGE_AMPLITUDE = 0x400;
-    // From disassembly: cmpi.b #$40,objoff_38(a0)
-    private static final int NUDGE_MAX_ANGLE = 0x40;
-    // From disassembly: addq.b #4,objoff_38(a0) / subq.b #4,objoff_38(a0)
-    private static final int NUDGE_ANGLE_STEP = 4;
+    // Nudge physics handled by PlatformBobHelper (step=4, maxAngle=0x40, amplitude >>6)
+    // ROM: move.w #$400,d1; muls.w d1,d0; swap d0 ≡ sinHex(angle) >> 6
 
     // Type 03: move.w #30,objoff_3A(a0)
     private static final int FALL_STAND_DELAY = 30;
@@ -86,7 +81,6 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
     // v_oscillate+$E -> data offset 0x0C (oscillator 3: freq=2, amp=0x30)
     private static final int OSC_GLOBAL = 0x0C;
 
-    private final LevelManager levelManager;
     private final int zoneIndex;
 
     // Dynamic position
@@ -102,8 +96,8 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
     // Movement subtype (low nybble of obSubtype)
     private int moveType;
 
-    // Nudge angle (objoff_38): 0 = no nudge, increases to $40 while stood on
-    private int nudgeAngle;
+    // Nudge displacement: sine-based vertical bob when player stands on platform
+    private final PlatformBobHelper bobHelper = new PlatformBobHelper();
 
     // Timer (objoff_3A): multi-purpose timer for types 03, 04, 07
     private int timer;
@@ -127,12 +121,10 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
     // This happens after type 04 timer expires and detaches the player.
     private boolean inFallingRoutine;
 
-    private ObjectSpawn dynamicSpawn;
-
-    public Sonic1PlatformObjectInstance(ObjectSpawn spawn, LevelManager levelManager) {
+    public Sonic1PlatformObjectInstance(ObjectSpawn spawn) {
         super(spawn, "Platform");
-        this.levelManager = levelManager;
-        this.zoneIndex = levelManager.getRomZoneId();
+        
+        this.zoneIndex = services().romZoneId();
 
         this.baseX = spawn.x();
         this.baseY = spawn.y();
@@ -154,7 +146,6 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
         // Disasm: cmpi.b #$A,d0 compares full byte after SLZ override.
         this.mappingFrame = effectiveSubtype == 0x0A ? 1 : 0;
 
-        this.nudgeAngle = 0;
         this.timer = 0;
         this.yVelocity = 0;
         this.yFrac = 0;
@@ -165,7 +156,7 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
         this.cachedOscillator = 0x00;
         this.inFallingRoutine = false;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -177,30 +168,15 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
     @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
-    @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Check if player is standing on us via ObjectManager
         playerStanding = isPlayerRiding();
 
-        if (inFallingRoutine) {
-            // Routine 8 (Plat_Action): nudge angle is frozen — no increment/decrement.
-            // Only Plat_Move and Plat_Nudge execute.
-        } else if (playerStanding) {
-            // Routine 4 (Plat_Action2): increment nudge angle toward max (addq.b #4,objoff_38)
-            if (nudgeAngle < NUDGE_MAX_ANGLE) {
-                nudgeAngle += NUDGE_ANGLE_STEP;
-            }
-        } else {
-            // Routine 2 (Plat_Solid): decrement nudge angle toward 0 (subq.b #4,objoff_38)
-            if (nudgeAngle > 0) {
-                nudgeAngle -= NUDGE_ANGLE_STEP;
-            }
+        if (!inFallingRoutine) {
+            // Routine 2/4: update bob angle (frozen in routine 8 / Plat_Action)
+            bobHelper.update(playerStanding);
         }
 
         // Apply movement
@@ -209,19 +185,13 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
         // Apply nudge (sine-based vertical offset)
         applyNudge();
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.PLATFORM);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.PLATFORM);
+        if (renderer == null) return;
 
         renderer.drawFrameIndex(mappingFrame, x, y, false, false);
     }
@@ -237,12 +207,14 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Standing state is managed via isPlayerRiding() check in update()
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed();
     }
 
@@ -258,14 +230,11 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
     }
 
     /**
-     * Nudge: CalcSine(objoff_38) * $400 >> 16, added to workingY.
+     * Nudge: sinHex(bobAngle) >> 6, added to workingY.
      * Creates a downward spring effect when player stands on the platform.
      */
     private void applyNudge() {
-        int sineValue = calcSine(nudgeAngle);
-        // muls.w d1,d0 / swap d0 = (sine * $400) >> 16
-        int nudgeOffset = (sineValue * NUDGE_AMPLITUDE) >> 16;
-        y = workingY + nudgeOffset;
+        y = workingY + bobHelper.getOffset();
     }
 
     /**
@@ -397,7 +366,7 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
                     player.setAir(true);
                     // bclr #3,obStatus(a1) - clear player standing-on-object
                     // bclr #3,obStatus(a0) - clear object standing flag
-                    var objectManager = levelManager.getObjectManager();
+                    var objectManager = services().objectManager();
                     if (objectManager != null) {
                         objectManager.clearRidingObject(player);
                     }
@@ -450,7 +419,7 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
 
         // Check switch state: lsr.w #4,d0 / tst.b (a2,d0.w)
         int switchIndex = (spawn.subtype() >> 4) & 0x0F;
-        if (Sonic1SwitchManager.getInstance().isPressed(switchIndex)) {
+        if (services().gameService(Sonic1SwitchManager.class).isPressed(switchIndex)) {
             timer = SWITCH_DELAY;
         }
     }
@@ -473,21 +442,13 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
     }
 
     /**
-     * Check if any player is riding this platform, via ObjectManager.
-     */
-    private boolean isPlayerRiding() {
-        var objectManager = levelManager.getObjectManager();
-        return objectManager != null && objectManager.isAnyPlayerRiding(this);
-    }
-
-    /**
      * Object 18 uses DeleteObject once the faller passes v_limitbtm2+$E0.
      * Keep the spawn suppressed until it exits the placement window, matching
      * ROM-style "don't instantly respawn in place" behavior.
      */
     private void destroyWithWindowGatedRespawn() {
-        if (!isDestroyed() && levelManager != null) {
-            var objectManager = levelManager.getObjectManager();
+        if (!isDestroyed() ) {
+            var objectManager = services().objectManager();
             if (objectManager != null) {
                 objectManager.removeFromActiveSpawns(spawn);
             }
@@ -499,7 +460,7 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
      * Get the level's bottom boundary (v_limitbtm2 equivalent).
      */
     private int getBottomBoundary() {
-        var camera = Camera.getInstance();
+        var camera = services().camera();
         return camera != null ? camera.getMaxY() : 0x700;
     }
 
@@ -509,7 +470,7 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
      * against 128+320+192 = 640.
      */
     private boolean isOnScreenX(int objectX, int range) {
-        var camera = Camera.getInstance();
+        var camera = services().camera();
         if (camera == null) {
             return true;
         }
@@ -518,28 +479,5 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
         int distance = (objRounded - camRounded) & 0xFFFF;
         // out_of_range: cmpi.w #128+320+192,d0 / bhi.s exit
         return distance <= (128 + 320 + 192);
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = new ObjectSpawn(
-                    x, y,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
-    }
-
-    /**
-     * Mega Drive CalcSine for angles 0 to $40 (0 to 90 degrees).
-     * Returns 8.8 fixed-point value: 0 at angle 0, 256 ($100) at angle $40.
-     */
-    private static int calcSine(int angle) {
-        if (angle <= 0) return 0;
-        if (angle > NUDGE_MAX_ANGLE) angle = NUDGE_MAX_ANGLE;
-        double radians = (angle * Math.PI) / (2.0 * NUDGE_MAX_ANGLE);
-        return (int) (Math.sin(radians) * 256);
     }
 }

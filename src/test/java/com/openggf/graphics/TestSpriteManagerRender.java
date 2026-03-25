@@ -1,6 +1,10 @@
 package com.openggf.graphics;
 
+import com.openggf.game.GameServices;
+import com.openggf.game.RuntimeManager;
 import com.openggf.physics.Direction;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
 import com.openggf.level.LevelManager;
@@ -18,11 +22,22 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 public class TestSpriteManagerRender {
+
+    @Before
+    public void setUp() {
+        RuntimeManager.createGameplay();
+    }
+
+    @After
+    public void tearDown() {
+        RuntimeManager.destroyCurrent();
+    }
+
     @Test
     public void testBucketOrderingAndNonPlayablePlacement() {
         List<String> drawOrder = new ArrayList<>();
-        SpriteManager spriteManager = SpriteManager.getInstance();
-        SpriteManager renderManager = SpriteManager.getInstance();
+        SpriteManager spriteManager = GameServices.sprites();
+        SpriteManager renderManager = GameServices.sprites();
 
         TestPlayableSprite highBucket = new TestPlayableSprite("high", drawOrder);
         highBucket.setPriorityBucket(3);
@@ -56,10 +71,39 @@ public class TestSpriteManagerRender {
     }
 
     @Test
+    public void testSidekickDrawnBeforeMainPlayer() {
+        List<String> drawOrder = new ArrayList<>();
+        SpriteManager spriteManager = GameServices.sprites();
+
+        // Add main first, then sidekick — same bucket and priority
+        TestPlayableSprite main = new TestPlayableSprite("main", drawOrder);
+        main.setPriorityBucket(2);
+        main.setHighPriority(false);
+
+        TestPlayableSprite sidekick = new TestPlayableSprite("sidekick", drawOrder);
+        sidekick.setCpuControlled(true);
+        sidekick.setPriorityBucket(2);
+        sidekick.setHighPriority(false);
+
+        spriteManager.addSprite(main);
+        spriteManager.addSprite(sidekick);
+
+        try {
+            spriteManager.drawLowPriority();
+            // VDP draws lower-indexed sprites on top; painter's algorithm means
+            // the sprite drawn LAST appears in front. Sidekick must draw first.
+            assertEquals(List.of("sidekick", "main"), drawOrder);
+        } finally {
+            spriteManager.removeSprite(main.getCode());
+            spriteManager.removeSprite(sidekick.getCode());
+        }
+    }
+
+    @Test
     public void testSonic2SidekickSuppressionZones() throws Exception {
         List<String> drawOrder = new ArrayList<>();
-        SpriteManager spriteManager = SpriteManager.getInstance();
-        LevelManager levelManager = LevelManager.getInstance();
+        SpriteManager spriteManager = GameServices.sprites();
+        LevelManager levelManager = GameServices.level();
 
         int originalZone = levelManager.getCurrentZone();
 

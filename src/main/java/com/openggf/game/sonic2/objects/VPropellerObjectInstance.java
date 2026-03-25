@@ -1,14 +1,12 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.constants.Sonic2AudioConstants;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -108,7 +106,8 @@ public class VPropellerObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: ObjB4_Main
         // 1. Animate sprite (Ani_objB4: duration=1, frames 0,1,2, loop)
         updateAnimation();
@@ -117,7 +116,7 @@ public class VPropellerObjectInstance extends AbstractObjectInstance
         // ROM: move.b (Vint_runcount+3).w,d0 / andi.b #$1F,d0 / bne.s +
         //      moveq #signextendB(SndID_Helicopter),d0 / jsrto JmpTo_PlaySoundLocal
         if ((frameCounter & SOUND_INTERVAL_MASK) == 0) {
-            AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_HELICOPTER);
+            services().playSfx(Sonic2AudioConstants.SFX_HELICOPTER);
         }
 
         // 3. MarkObjGone - standard despawn handled by engine's object placement system
@@ -125,14 +124,8 @@ public class VPropellerObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.WFZ_VPROPELLER);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.WFZ_VPROPELLER);
+        if (renderer == null) return;
 
         int frame = ANIM_FRAMES[animFrameIndex];
         // ROM: bclr #render_flags.y_flip clears the flip, so the sprite is never actually

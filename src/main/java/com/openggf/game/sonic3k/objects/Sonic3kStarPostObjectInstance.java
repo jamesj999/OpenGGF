@@ -1,13 +1,11 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.BonusStageType;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.CheckpointState;
-import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectManager;
@@ -153,7 +151,7 @@ public class Sonic3kStarPostObjectInstance extends AbstractObjectInstance {
 
         // Init routine (loc_2CFC0):
         // Check respawn table and compare subtype against Last_star_post_hit
-        var checkpointState = LevelManager.getInstance().getCheckpointState();
+        var checkpointState = services().checkpointState();
         if (checkpointState != null && checkpointState.getLastCheckpointIndex() >= this.checkpointIndex) {
             // loc_2D008: already activated - set anim 2 (spinning)
             this.activated = true;
@@ -170,7 +168,8 @@ public class Sonic3kStarPostObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // loc_2D012: main routine - check collision if not activated
         if (!activated && player != null) {
             checkActivation(player);
@@ -184,7 +183,7 @@ public class Sonic3kStarPostObjectInstance extends AbstractObjectInstance {
      * ROM lines 61601-61657.
      */
     private void checkActivation(AbstractPlayableSprite player) {
-        var checkpointState = LevelManager.getInstance().getCheckpointState();
+        var checkpointState = services().checkpointState();
         if (checkpointState == null) {
             return;
         }
@@ -244,7 +243,7 @@ public class Sonic3kStarPostObjectInstance extends AbstractObjectInstance {
 
         // 1. ROM: moveq #signextendB(sfx_Starpost),d0 / jsr (Play_SFX).l
         try {
-            AudioManager.getInstance().playSfx(Sonic3kSfx.STARPOST.id);
+            services().playSfx(Sonic3kSfx.STARPOST.id);
         } catch (Exception e) {
             // Don't let audio failure break game logic
         }
@@ -276,7 +275,7 @@ public class Sonic3kStarPostObjectInstance extends AbstractObjectInstance {
      * ROM: AllocateObject, set routine=6, center at (x, y-0x14), mapping_frame=2, lifetime=0x20.
      */
     private void spawnStarChild() {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null) {
             objectManager.addDynamicObject(new Sonic3kStarPostStarChild(this));
         }
@@ -287,11 +286,11 @@ public class Sonic3kStarPostObjectInstance extends AbstractObjectInstance {
      * S3K requires 20 rings (not 50 like S2).
      */
     private boolean shouldSpawnBonusStars(AbstractPlayableSprite player) {
-        var checkpointState = LevelManager.getInstance().getCheckpointState();
+        var checkpointState = services().checkpointState();
         if (checkpointState instanceof CheckpointState cs && cs.isUsedForSpecialStage()) {
             return false;
         }
-        int emeralds = GameServices.gameState().getEmeraldCount();
+        int emeralds = services().gameState().getEmeraldCount();
         if (emeralds >= 7) {
             return false;
         }
@@ -305,7 +304,7 @@ public class Sonic3kStarPostObjectInstance extends AbstractObjectInstance {
      * Star art variant is determined by ring count formula (loc_2D436).
      */
     private void spawnBonusStars(int ringCount) {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -325,7 +324,7 @@ public class Sonic3kStarPostObjectInstance extends AbstractObjectInstance {
      * Prevents bonus stars from respawning when returning from special stage.
      */
     public void markUsedForSpecialStage() {
-        var checkpointState = LevelManager.getInstance().getCheckpointState();
+        var checkpointState = services().checkpointState();
         if (checkpointState instanceof CheckpointState cs) {
             cs.markUsedForSpecialStage();
         }
@@ -382,7 +381,7 @@ public class Sonic3kStarPostObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             appendFallbackBox(commands);
             return;

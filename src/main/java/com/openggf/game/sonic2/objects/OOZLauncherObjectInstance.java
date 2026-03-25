@@ -1,6 +1,6 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
@@ -8,7 +8,6 @@ import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -21,7 +20,6 @@ import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpriteMappingPiece;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -124,7 +122,8 @@ public class OOZLauncherObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -150,7 +149,7 @@ public class OOZLauncherObjectInstance extends AbstractObjectInstance
         savedSonicAnim = player.getAnimationId();
         savedSonicYVel = player.getYSpeed();
 
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+        for (PlayableEntity sidekick : services().sidekicks()) {
             savedTailsAnim = sidekick.getAnimationId();
             savedTailsYVel = sidekick.getYSpeed();
         }
@@ -160,13 +159,14 @@ public class OOZLauncherObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (broken || !contact.standing()) {
             return;
         }
 
         // Determine which player is contacting
-        boolean isSidekick = SpriteManager.getInstance().getSidekicks().contains(player);
+        boolean isSidekick = services().sidekicks().contains(player);
 
         // Check if standing player is rolling (ROM: cmpi.b #AniIDSonAni_Roll,objoff_32)
         int savedAnim = isSidekick ? savedTailsAnim : savedSonicAnim;
@@ -210,7 +210,7 @@ public class OOZLauncherObjectInstance extends AbstractObjectInstance
 
         // Play smash sound
         try {
-            AudioManager.getInstance().playSfx(Sonic2Sfx.SLOW_SMASH.id);
+            services().playSfx(Sonic2Sfx.SLOW_SMASH.id);
         } catch (Exception e) {
             // Don't let audio failure break game logic
         }
@@ -220,8 +220,8 @@ public class OOZLauncherObjectInstance extends AbstractObjectInstance
      * Spawn 16 fragment pieces with velocities from ROM table (ROM: JmpTo2_BreakObjectToPieces).
      */
     private void spawnFragments() {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectManager objectManager = services().objectManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (objectManager == null || renderManager == null) {
             return;
         }
@@ -269,8 +269,8 @@ public class OOZLauncherObjectInstance extends AbstractObjectInstance
         sonicLauncherState = processLauncherState(player, sonicLauncherState);
 
         // Process Tails
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
-            tailsLauncherState = processLauncherState(sidekick, tailsLauncherState);
+        for (PlayableEntity sidekick : services().sidekicks()) {
+            tailsLauncherState = processLauncherState((AbstractPlayableSprite) sidekick, tailsLauncherState);
         }
 
         // Delete when both states are 0 (ROM: beq.w JmpTo3_MarkObjGone3)
@@ -316,7 +316,7 @@ public class OOZLauncherObjectInstance extends AbstractObjectInstance
         // ROM: Skip Tails if flying (CPU routine 4)
         // The engine doesn't expose Tails CPU routine directly, but this check
         // prevents capturing Tails while they're in flight mode
-        if (SpriteManager.getInstance().getSidekicks().contains(player)
+        if (services().sidekicks().contains(player)
                 && player.getAir() && !player.getRolling()) {
             return 0;
         }
@@ -353,7 +353,7 @@ public class OOZLauncherObjectInstance extends AbstractObjectInstance
 
         // Play roll sound (ROM: move.w #SndID_Roll,d0; jsr PlaySound)
         try {
-            AudioManager.getInstance().playSfx(Sonic2Sfx.ROLL.id);
+            services().playSfx(Sonic2Sfx.ROLL.id);
         } catch (Exception e) {
             // Don't let audio failure break game logic
         }
@@ -392,7 +392,7 @@ public class OOZLauncherObjectInstance extends AbstractObjectInstance
     }
 
     private boolean isPlayerOnScreen(AbstractPlayableSprite player) {
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         int px = player.getCentreX();
         int py = player.getCentreY();
         int cx = camera.getX();
@@ -411,7 +411,8 @@ public class OOZLauncherObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !broken;
     }
 
@@ -435,7 +436,7 @@ public class OOZLauncherObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
@@ -516,7 +517,8 @@ public class OOZLauncherObjectInstance extends AbstractObjectInstance
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (isDestroyed()) {
                 return;
             }
@@ -531,7 +533,7 @@ public class OOZLauncherObjectInstance extends AbstractObjectInstance
             currentY = subY >> 8;
 
             // ROM: btst #render_flags.on_screen; beq JmpTo26_DeleteObject
-            int cameraY = Camera.getInstance().getY();
+            int cameraY = services().camera().getY();
             if (currentY > cameraY + 224 + 32) {
                 setDestroyed(true);
             }

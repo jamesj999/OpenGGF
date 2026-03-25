@@ -1,9 +1,9 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.game.sonic2.objects.ObjectAnimationState;
+import com.openggf.game.PlayableEntity;
+import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -18,8 +18,6 @@ import java.util.List;
  * Follows parent position and shows expressions based on hit state.
  */
 public class CPZBossRobotnik extends AbstractObjectInstance {
-
-    private final LevelManager levelManager;
     private final Sonic2CPZBossInstance mainBoss;
 
     private int x;
@@ -30,9 +28,8 @@ public class CPZBossRobotnik extends AbstractObjectInstance {
 
     private ObjectAnimationState animationState;
 
-    public CPZBossRobotnik(ObjectSpawn spawn, LevelManager levelManager, Sonic2CPZBossInstance mainBoss) {
+    public CPZBossRobotnik(ObjectSpawn spawn, Sonic2CPZBossInstance mainBoss) {
         super(spawn, "CPZ Boss Robotnik");
-        this.levelManager = levelManager;
         this.mainBoss = mainBoss;
         this.x = spawn.x();
         this.y = spawn.y();
@@ -45,7 +42,8 @@ public class CPZBossRobotnik extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -87,7 +85,7 @@ public class CPZBossRobotnik extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = levelManager != null ? levelManager.getObjectRenderManager() : null;
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

@@ -1,17 +1,15 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -76,8 +74,6 @@ public class BarrierObjectInstance extends AbstractObjectInstance implements Sol
     private boolean wasMovingUp; // Previous frame's movingUp state for detection boundary calculation
     private boolean xFlip;
 
-    private ObjectSpawn dynamicSpawn;
-
     public BarrierObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
         init();
@@ -92,14 +88,9 @@ public class BarrierObjectInstance extends AbstractObjectInstance implements Sol
     public int getY() {
         return y;
     }
-
     @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
-    @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Calculate detection boundaries using PREVIOUS frame's movingUp state
         // ROM behavior: detection boundaries are calculated using routine_secondary from the previous frame,
         // then routine_secondary is cleared to 0, then character detection is performed.
@@ -129,8 +120,8 @@ public class BarrierObjectInstance extends AbstractObjectInstance implements Sol
         checkCharacter(player, detectLeft, detectRight, detectTop, detectBottom);
 
         // Check sidekick(s) if present
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
-            checkCharacter(sidekick, detectLeft, detectRight, detectTop, detectBottom);
+        for (PlayableEntity sidekick : services().sidekicks()) {
+            checkCharacter((AbstractPlayableSprite) sidekick, detectLeft, detectRight, detectTop, detectBottom);
         }
 
         // Update position based on movement state
@@ -158,7 +149,7 @@ public class BarrierObjectInstance extends AbstractObjectInstance implements Sol
         // Save current movingUp state for next frame's detection boundary calculation
         wasMovingUp = movingUp;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -199,14 +190,8 @@ public class BarrierObjectInstance extends AbstractObjectInstance implements Sol
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.BARRIER);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.BARRIER);
+        if (renderer == null) return;
         // mappingFrame is the subtype (0=HTZ, 1=MTZ, 2=CPZ/DEZ, 3=ARZ)
         renderer.drawFrameIndex(mappingFrame, x, y, xFlip, false);
     }
@@ -227,12 +212,14 @@ public class BarrierObjectInstance extends AbstractObjectInstance implements Sol
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Solid collision is handled by ObjectManager
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed();
     }
 
@@ -269,19 +256,6 @@ public class BarrierObjectInstance extends AbstractObjectInstance implements Sol
             rightBoundary = x + X_RIGHT_OFFSET + X_FLIP_RIGHT_ADD;
         }
 
-        refreshDynamicSpawn();
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = new ObjectSpawn(
-                    x,
-                    y,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
+        updateDynamicSpawn(x, y);
     }
 }

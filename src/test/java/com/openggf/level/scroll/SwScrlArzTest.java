@@ -1,5 +1,8 @@
 package com.openggf.level.scroll;
+import com.openggf.game.RuntimeManager;
+import com.openggf.game.sonic2.scroll.SwScrlArz;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -17,9 +20,15 @@ public class SwScrlArzTest {
 
     @Before
     public void setUp() {
+        RuntimeManager.createGameplay();
         // Create handler with null tables (uses hardcoded row heights)
         handler = new SwScrlArz(null);
         horizScrollBuf = new int[224];
+    }
+
+    @After
+    public void tearDown() {
+        RuntimeManager.destroyCurrent();
     }
 
     @Test

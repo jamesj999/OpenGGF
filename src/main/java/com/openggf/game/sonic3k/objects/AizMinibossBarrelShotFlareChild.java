@@ -1,8 +1,8 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -52,7 +52,8 @@ public class AizMinibossBarrelShotFlareChild extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (anchor == null || anchor.isDestroyed()) {
             setDestroyed(true);
             return;
@@ -89,7 +90,7 @@ public class AizMinibossBarrelShotFlareChild extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager rm = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager rm = services().renderManager();
         if (rm == null) {
             return;
         }

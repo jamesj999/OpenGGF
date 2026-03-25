@@ -4,7 +4,9 @@ import org.junit.Before;
 import org.junit.Test;
 import com.openggf.camera.Camera;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.TestObjectServices;
 import com.openggf.sprites.playable.Sonic;
+import com.openggf.tests.TestEnvironment;
 
 import static org.junit.Assert.*;
 
@@ -14,9 +16,11 @@ public class TestAizPlaneIntroInstance {
 
     @Before
     public void setUp() {
-        Camera.resetInstance();
+        TestEnvironment.resetAll();
+        Camera.getInstance().resetState();
         intro = new AizPlaneIntroInstance(
                 new ObjectSpawn(0x60, 0x30, 0, 0, 0, false, 0));
+        intro.setServices(new TestObjectServices().withCamera(Camera.getInstance()));
     }
 
     @Test

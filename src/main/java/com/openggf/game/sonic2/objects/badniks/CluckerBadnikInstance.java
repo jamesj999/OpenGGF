@@ -1,11 +1,13 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
-import com.openggf.level.objects.ObjectRenderManager;
+
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -106,8 +108,8 @@ public class CluckerBadnikInstance extends AbstractBadnikInstance {
     private static final int[] ANIM_FIRE = {10, 11};
     private static final int ANIM_FIRE_DURATION = 3;
 
-    public CluckerBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Clucker");
+    public CluckerBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Clucker", Sonic2BadnikConfig.DESTRUCTION);
         this.currentX = spawn.x();
         this.currentY = spawn.y();
 
@@ -124,7 +126,8 @@ public class CluckerBadnikInstance extends AbstractBadnikInstance {
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
             case CHECK_DISTANCE -> updateCheckDistance(player);
             case RISING -> updateRising();
@@ -254,7 +257,7 @@ public class CluckerBadnikInstance extends AbstractBadnikInstance {
                 false,
                 !facingLeft);
 
-        LevelManager.getInstance().getObjectManager().addDynamicObject(projectile);
+        services().objectManager().addDynamicObject(projectile);
     }
 
     /**
@@ -303,19 +306,12 @@ public class CluckerBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.CLUCKER);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.CLUCKER);
+        if (renderer == null) return;
 
         // Sprite art default faces left. Flip when facing right (x_flip set).
         renderer.drawFrameIndex(animFrame, currentX, currentY, !facingLeft, false);

@@ -20,7 +20,7 @@ public class Sonic1SpecialStageRendererTest {
 
     @Before
     public void setUp() {
-        GraphicsManager.resetInstance();
+        GraphicsManager.getInstance().resetState();
         graphicsManager = GraphicsManager.getInstance();
         graphicsManager.initHeadless();
         renderer = new Sonic1SpecialStageRenderer(graphicsManager);
@@ -55,7 +55,7 @@ public class Sonic1SpecialStageRendererTest {
         if (graphicsManager != null) {
             graphicsManager.cleanup();
         }
-        GraphicsManager.resetInstance();
+        GraphicsManager.getInstance().resetState();
     }
 
     @Test

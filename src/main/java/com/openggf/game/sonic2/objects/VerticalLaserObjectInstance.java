@@ -1,11 +1,10 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -76,7 +75,8 @@ public class VerticalLaserObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ObjB7_Init runs on first frame (routine 0 -> routine 2)
         if (!initialized) {
             initialized = true;
@@ -131,16 +131,8 @@ public class VerticalLaserObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance() != null
-                ? LevelManager.getInstance().getObjectRenderManager()
-                : null;
-        if (renderManager == null) {
-            appendDebugBox(commands);
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.WFZ_VERTICAL_LASER);
-        if (renderer == null || !renderer.isReady()) {
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.WFZ_VERTICAL_LASER);
+        if (renderer == null) {
             appendDebugBox(commands);
             return;
         }

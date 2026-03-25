@@ -55,7 +55,7 @@ public class TestAizPostSwapDiagnostic {
 
     @Test
     public void scanAfterTerrainSwap() throws Exception {
-        Level level = LevelManager.getInstance().getCurrentLevel();
+        Level level = GameServices.level().getCurrentLevel();
         if (!(level instanceof Sonic3kLevel sonic3kLevel)) {
             System.out.println("Not a Sonic3kLevel, skipping");
             return;
@@ -186,7 +186,7 @@ public class TestAizPostSwapDiagnostic {
      */
     @Test
     public void scanLoadedLevelWithPalAiz() throws Exception {
-        Level level = LevelManager.getInstance().getCurrentLevel();
+        Level level = GameServices.level().getCurrentLevel();
         Rom rom = GameServices.rom().getRom();
 
         System.out.println("=== LOADED LEVEL STATE (entry 0, no overlay) ===");

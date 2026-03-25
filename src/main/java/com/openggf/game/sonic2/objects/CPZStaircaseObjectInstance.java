@@ -1,11 +1,11 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.MultiPieceSolidProvider;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
@@ -75,9 +75,6 @@ public class CPZStaircaseObjectInstance extends AbstractObjectInstance
     private int lastTopContactFrame = -2;
     private int lastBottomContactFrame = -2;
 
-    // Dynamic spawn for position tracking
-    private ObjectSpawn dynamicSpawn;
-
     public CPZStaircaseObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
         this.baseX = spawn.x();
@@ -106,7 +103,7 @@ public class CPZStaircaseObjectInstance extends AbstractObjectInstance
         // Apply initial staircase interpolation
         applyStaircaseInterpolation();
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(baseX, baseY + yOffsets[0]);
     }
 
     @Override
@@ -118,12 +115,6 @@ public class CPZStaircaseObjectInstance extends AbstractObjectInstance
     public int getY() {
         return baseY;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     // MultiPieceSolidProvider implementation
 
     @Override
@@ -167,12 +158,13 @@ public class CPZStaircaseObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed();
     }
 
     @Override
-    public void onPieceContact(int pieceIndex, AbstractPlayableSprite player,
+    public void onPieceContact(int pieceIndex, PlayableEntity playerEntity,
                                SolidContact contact, int frameCounter) {
         // Track contact from any piece by recording the frame number.
         // Since solidObjectManager.update() runs AFTER objectManager.update(),
@@ -187,7 +179,8 @@ public class CPZStaircaseObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Aggregate contact callback - also tracked via onPieceContact
         if (contact.standing() || contact.touchTop()) {
             lastTopContactFrame = frameCounter;
@@ -198,7 +191,8 @@ public class CPZStaircaseObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Check contact from the PREVIOUS frame, since solidObjectManager.update()
         // runs AFTER objectManager.update() in the game loop.
         boolean touchTop = (frameCounter - lastTopContactFrame) <= 1;
@@ -215,7 +209,7 @@ public class CPZStaircaseObjectInstance extends AbstractObjectInstance
         // Apply staircase interpolation to all pieces
         applyStaircaseInterpolation();
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(baseX, baseY + yOffsets[0]);
     }
 
     /**
@@ -337,18 +331,9 @@ public class CPZStaircaseObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            appendDebug(commands);
-            return;
-        }
-
         // Use the dedicated CPZ Stair Block renderer (NOT cpzPlatformRenderer which is Obj19)
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.CPZ_STAIR_BLOCK);
-        if (renderer == null || !renderer.isReady()) {
-            appendDebug(commands);
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.CPZ_STAIR_BLOCK);
+        if (renderer == null) return;
 
         // Calculate checkerboard oscillation for states 2, 6 (wait at bottom with countdown)
         // Disassembly: lsr.b #2,d0 / andi.b #1,d0 - toggles every 4 frames
@@ -376,22 +361,8 @@ public class CPZStaircaseObjectInstance extends AbstractObjectInstance
         }
     }
 
-    private void refreshDynamicSpawn() {
-        // Track the position of the first piece for riding calculations
-        int pieceY = baseY + yOffsets[0];
-        if (dynamicSpawn == null || dynamicSpawn.y() != pieceY) {
-            dynamicSpawn = new ObjectSpawn(
-                    baseX,
-                    pieceY,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
-    }
-
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         // Debug rendering - draw rectangles for each piece
         for (int i = 0; i < NUM_PIECES; i++) {
             int pieceIndex = xFlip ? (NUM_PIECES - 1 - i) : i;
@@ -403,17 +374,11 @@ public class CPZStaircaseObjectInstance extends AbstractObjectInstance
             int top = pieceY - PIECE_TOP_HEIGHT;
             int bottom = pieceY + PIECE_BOTTOM_HEIGHT;
 
-            appendLine(commands, left, top, right, top);
-            appendLine(commands, right, top, right, bottom);
-            appendLine(commands, right, bottom, left, bottom);
-            appendLine(commands, left, bottom, left, top);
+            ctx.drawLine(left, top, right, top, 0.6f, 0.8f, 0.3f);
+            ctx.drawLine(right, top, right, bottom, 0.6f, 0.8f, 0.3f);
+            ctx.drawLine(right, bottom, left, bottom, 0.6f, 0.8f, 0.3f);
+            ctx.drawLine(left, bottom, left, top, 0.6f, 0.8f, 0.3f);
         }
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.6f, 0.8f, 0.3f, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.6f, 0.8f, 0.3f, x2, y2, 0, 0));
-    }
 }

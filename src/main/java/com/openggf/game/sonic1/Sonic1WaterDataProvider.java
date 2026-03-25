@@ -1,5 +1,6 @@
 package com.openggf.game.sonic1;
 
+import com.openggf.data.PaletteLoader;
 import com.openggf.data.Rom;
 import com.openggf.game.DynamicWaterHandler;
 import com.openggf.game.PlayerCharacter;
@@ -25,8 +26,6 @@ import java.util.logging.Logger;
  */
 public class Sonic1WaterDataProvider implements WaterDataProvider {
     private static final Logger LOGGER = Logger.getLogger(Sonic1WaterDataProvider.class.getName());
-
-    private static final int PALETTE_SIZE_BYTES = 128; // 64 colors * 2 bytes per color
 
     // Water heights from LZWaterFeatures.asm WaterHeight table (lines 49-52)
     private static final int[] LZ_HEIGHTS = {
@@ -75,23 +74,14 @@ public class Sonic1WaterDataProvider implements WaterDataProvider {
 
         try {
             // Load the 4-line zone underwater palette (128 bytes)
-            byte[] paletteData = rom.readBytes(zoneUnderwaterAddr, PALETTE_SIZE_BYTES);
-            Palette[] palettes = new Palette[4];
-            for (int i = 0; i < 4; i++) {
-                byte[] lineData = new byte[32];
-                System.arraycopy(paletteData, i * 32, lineData, 0, 32);
-                palettes[i] = new Palette();
-                palettes[i].fromSegaFormat(lineData);
-            }
+            Palette[] palettes = PaletteLoader.loadFullPalette(rom, zoneUnderwaterAddr);
 
             // Load Sonic's underwater palette (32 bytes = 1 palette line) into line 0.
             // In S1, the Sonic underwater palette replaces palette line 0 (the sprite
             // palette line containing Sonic's colors). The zone underwater palette at
             // destinationPaletteLine=0 covers all 4 lines, then the Sonic-specific
             // palette overwrites line 0 with Sonic's underwater colors.
-            byte[] sonicPalData = rom.readBytes(sonicUnderwaterAddr, 32);
-            palettes[0] = new Palette();
-            palettes[0].fromSegaFormat(sonicPalData);
+            palettes[0] = PaletteLoader.loadPaletteLine(rom, sonicUnderwaterAddr);
 
             return palettes;
         } catch (Exception e) {

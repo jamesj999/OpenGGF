@@ -1,15 +1,14 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.audio.GameSound;
-import com.openggf.game.GameStateManager;
-import com.openggf.game.sonic2.objects.ObjectAnimationState;
-import com.openggf.game.sonic2.objects.SpringHelper;
+import com.openggf.level.objects.ObjectAnimationState;
+import com.openggf.level.objects.SpringHelper;
+import com.openggf.level.objects.SpringBounceHelper;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -94,7 +93,7 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
 
         // ROM: Reverse_gravity_flag swaps UP↔DOWN during init (sonic3k.asm:47622-47627)
         int type = (spawn.subtype() >> 3) & 0xE;
-        if (GameStateManager.getInstance().isReverseGravityActive()) {
+        if (services().gameState().isReverseGravityActive()) {
             if (type == TYPE_UP) {
                 type = TYPE_DOWN;
             } else if (type == TYPE_DOWN) {
@@ -108,7 +107,8 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (player == null) {
             return;
         }
@@ -168,7 +168,7 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
             player.setXSpeed((short) 0);
         }
 
-        player.setSpringing(15);
+        player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
         trigger(player);
     }
 
@@ -182,7 +182,7 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
         // ROM negates strength for down springs (positive = down)
         int yVel = -getStrength();
         // S3K-specific: red down spring velocity cap at $D00
-        if (yVel == 0x1000) {
+        if (yVel == -SpringBounceHelper.STRENGTH_RED) {
             yVel = 0x0D00;
         }
         player.setYSpeed((short) yVel);
@@ -195,7 +195,7 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
             player.setXSpeed((short) 0);
         }
 
-        player.setSpringing(15);
+        player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
         trigger(player);
     }
 
@@ -232,7 +232,7 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
             player.setYSpeed((short) 0);
         }
 
-        // ROM: Control lock 16 frames
+        // ROM: control lock 16 frames
         player.setSpringing(16);
 
         trigger(player);
@@ -264,7 +264,7 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
         player.setDirection(xStrength < 0 ? Direction.LEFT : Direction.RIGHT);
         player.setAir(true);
         player.setGSpeed((short) 0);
-        player.setSpringing(15);
+        player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
 
         trigger(player);
     }
@@ -313,16 +313,15 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
         SpringHelper.applyCollisionLayerBits(player, subtype);
 
         try {
-            if (AudioManager.getInstance() != null) {
-                AudioManager.getInstance().playSfx(GameSound.SPRING);
-            }
+            services().playSfx(GameSound.SPRING);
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic
         }
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // S3K horizontal approach detection (sonic3k.asm sub_2326C)
         if (springType == TYPE_HORIZONTAL && player != null && animationState.getAnimId() == ANIM_IDLE) {
             checkHorizontalApproach(player);
@@ -380,7 +379,7 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
      * ROM: Obj_Spring_Strengths: dc.w -$1000, -$A00
      */
     private int getStrength() {
-        return redSpring ? -0x1000 : -0x0A00;
+        return SpringBounceHelper.strength(redSpring);
     }
 
     private boolean isFlippedHorizontal() {
@@ -388,7 +387,8 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return true;
     }
 
@@ -432,7 +432,7 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

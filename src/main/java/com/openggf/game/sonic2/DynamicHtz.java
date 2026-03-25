@@ -6,7 +6,7 @@ import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
 import com.openggf.level.Pattern;
-import com.openggf.level.scroll.SwScrlHtz;
+import com.openggf.game.sonic2.scroll.SwScrlHtz;
 import com.openggf.tools.NemesisReader;
 
 import java.io.IOException;

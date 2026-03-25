@@ -6,7 +6,6 @@ import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseListener;
 import com.openggf.level.objects.TouchResponseProvider;
@@ -14,6 +13,7 @@ import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.debug.DebugColor;
 import java.util.List;
@@ -103,7 +103,6 @@ public class Sonic1CaterkillerBodyInstance extends AbstractObjectInstance
     // Per-segment ring buffer (objoff_2C+0..15). Child segments read from this.
     private final byte[] ringBuffer = new byte[16];
 
-    private final LevelManager levelManager;
 
     /**
      * Creates a Caterkiller body segment.
@@ -122,8 +121,7 @@ public class Sonic1CaterkillerBodyInstance extends AbstractObjectInstance
             CaterkillerParentState parentState,
             int x, int y, boolean facingLeft,
             boolean isAnimated, int segmentIndex,
-            int ringBufferStart,
-            LevelManager levelManager) {
+            int ringBufferStart) {
         super(new ObjectSpawn(x, y, 0x78, 0, 0, false, 0), "CaterkillerBody");
         this.head = head;
         this.parentState = parentState;
@@ -132,7 +130,7 @@ public class Sonic1CaterkillerBodyInstance extends AbstractObjectInstance
         this.facingLeft = facingLeft;
         this.isAnimatedSegment = isAnimated;
         this.ringBufferIndex = ringBufferStart;
-        this.levelManager = levelManager;
+        
         this.destroyed = false;
         this.fragmenting = false;
         this.xSubpixel = 0;
@@ -150,7 +148,8 @@ public class Sonic1CaterkillerBodyInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (destroyed) {
             return;
         }
@@ -388,7 +387,8 @@ public class Sonic1CaterkillerBodyInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onTouchResponse(AbstractPlayableSprite player, TouchResponseResult result, int frameCounter) {
+    public void onTouchResponse(PlayableEntity playerEntity, TouchResponseResult result, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (destroyed || fragmenting) {
             return;
         }
@@ -437,15 +437,8 @@ public class Sonic1CaterkillerBodyInstance extends AbstractObjectInstance
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.CATERKILLER);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.CATERKILLER);
+        if (renderer == null) return;
 
         int frame = getMappingFrame();
         // S1: default art faces left. hFlip when facing right (obStatus bit 0 set).

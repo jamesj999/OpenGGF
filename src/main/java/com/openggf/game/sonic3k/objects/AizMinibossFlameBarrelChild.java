@@ -1,8 +1,8 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.boss.AbstractBossChild;
 import com.openggf.level.objects.boss.AbstractBossInstance;
@@ -80,7 +80,8 @@ public class AizMinibossFlameBarrelChild extends AbstractBossChild {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (!shouldUpdate(frameCounter)) {
             return;
         }
@@ -197,15 +198,15 @@ public class AizMinibossFlameBarrelChild extends AbstractBossChild {
     }
 
     private void spawnShot(AizMinibossBarrelShotChild.Mode mode) {
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        var objectManager = services().objectManager();
+        if (objectManager == null) {
             return;
         }
         // ROM ChildObjDat_6909A / ChildObjDat_690A8 spawn a short muzzle-flare child
         // alongside the main shot object.
-        levelManager.getObjectManager().addDynamicObject(
+        objectManager.addDynamicObject(
                 new AizMinibossBarrelShotFlareChild(this));
-        levelManager.getObjectManager().addDynamicObject(
+        objectManager.addDynamicObject(
                 new AizMinibossBarrelShotChild(parent, barrelIndex << 1, currentX, currentY + 4, mode));
     }
 
@@ -234,7 +235,7 @@ public class AizMinibossFlameBarrelChild extends AbstractBossChild {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager rm = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager rm = services().renderManager();
         if (rm == null) {
             return;
         }

@@ -2,251 +2,43 @@ package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.graphics.GLCommand;
-import com.openggf.graphics.RenderPriority;
-import com.openggf.audio.AudioManager;
-import com.openggf.level.LevelManager;
+import com.openggf.level.objects.AbstractSpikeObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
-import com.openggf.level.objects.SolidContact;
-import com.openggf.level.objects.SolidObjectListener;
-import com.openggf.level.objects.SolidObjectParams;
-import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
 
-public class SpikeObjectInstance extends BoxObjectInstance implements SolidObjectProvider, SolidObjectListener {
-    private static final int[] WIDTH_PIXELS = {
-            0x10, 0x20, 0x30, 0x40,
-            0x10, 0x10, 0x10, 0x10
-    };
-    private static final int[] Y_RADIUS = {
-            0x10, 0x10, 0x10, 0x10,
-            0x10, 0x20, 0x30, 0x40
-    };
-    private static final int SPIKE_RETRACT_STEP = 0x800;
-    private static final int SPIKE_RETRACT_MAX = 0x2000;
-    private static final int SPIKE_RETRACT_DELAY = 60;
-
-    private final int baseX;
-    private final int baseY;
-    private int currentX;
-    private int currentY;
-    private int retractOffset;
-    private int retractState;
-    private int retractTimer;
-    private ObjectSpawn dynamicSpawn;
+public class SpikeObjectInstance extends AbstractSpikeObjectInstance {
 
     public SpikeObjectInstance(ObjectSpawn spawn, String name) {
-        super(spawn, name, 8, 8, 1.0f, 0.2f, 0.2f, false);
-        this.baseX = spawn.x();
-        this.baseY = spawn.y();
-        this.currentX = baseX;
-        this.currentY = baseY;
-        this.dynamicSpawn = spawn;
-    }
-
-    @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
-        if (player == null) {
-            return;
-        }
-        if (!shouldHurt(contact)) {
-            return;
-        }
-        // Check invulnerability BEFORE doing anything - allows walking on spikes when
-        // invulnerable
-        if (player.getInvulnerable()) {
-            return;
-        }
-        // ROM: Hurt_Sidekick - CPU Tails only gets knockback, no ring scatter or death
-        if (player.isCpuControlled()) {
-            player.applyHurt(currentX);
-            return;
-        }
-        boolean hadRings = player.getRingCount() > 0;
-        if (hadRings && !player.hasShield()) {
-            LevelManager.getInstance().spawnLostRings(player, frameCounter);
-        }
-        player.applyHurtOrDeath(currentX, true, hadRings);
-    }
-
-    @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
-        moveSpikes();
-        updateDynamicSpawn();
-    }
-
-    @Override
-    protected int getHalfWidth() {
-        return getEntryValue(WIDTH_PIXELS);
-    }
-
-    @Override
-    protected int getHalfHeight() {
-        return getEntryValue(Y_RADIUS);
-    }
-
-    private int getEntryValue(int[] table) {
-        int entry = (spawn.subtype() >> 4) & 0xF;
-        if (entry < 0) {
-            entry = 0;
-        }
-        if (entry >= table.length) {
-            entry = table.length - 1;
-        }
-        return table[entry];
-    }
-
-    @Override
-    public SolidObjectParams getSolidParams() {
-        int widthPixels = getEntryValue(WIDTH_PIXELS);
-        int yRadius = getEntryValue(Y_RADIUS);
-        int d1 = widthPixels + 0x0B;
-        int d2 = yRadius;
-        int d3 = yRadius + 1;
-        return new SolidObjectParams(d1, d2, d3);
-    }
-
-    private boolean shouldHurt(SolidContact contact) {
-        if (isSideways()) {
-            return contact.touchSide();
-        }
-        if (isUpsideDown()) {
-            return contact.touchBottom();
-        }
-        return contact.standing();
-    }
-
-    private boolean isSideways() {
-        int entry = (spawn.subtype() >> 4) & 0xF;
-        return entry >= 4;
-    }
-
-    private boolean isUpsideDown() {
-        return (spawn.renderFlags() & 0x2) != 0;
-    }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn;
-    }
-
-    @Override
-    public int getX() {
-        return currentX;
-    }
-
-    @Override
-    public int getY() {
-        return currentY;
-    }
-
-    @Override
-    public int getPriorityBucket() {
-        return RenderPriority.clamp(4);
+        super(spawn, name);
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
-            super.appendRenderCommands(commands);
             return;
         }
-        int frameIndex = (spawn.subtype() >> 4) & 0xF;
-        if (frameIndex < 0) {
-            frameIndex = 0;
-        }
-        if (frameIndex > 7) {
-            frameIndex = 7;
-        }
+        int frameIndex = Math.clamp((spawn.subtype() >> 4) & 0xF, 0, 7);
         boolean sideways = frameIndex >= 4;
         boolean hFlip = (spawn.renderFlags() & 0x1) != 0;
         boolean vFlip = (spawn.renderFlags() & 0x2) != 0;
 
         PatternSpriteRenderer renderer = renderManager.getSpikeRenderer(sideways);
-        if (renderer == null || !renderer.isReady()) {
-            super.appendRenderCommands(commands);
-            return;
-        }
-        renderer.drawFrameIndex(frameIndex, currentX, currentY, hFlip, vFlip);
-    }
-
-    private void moveSpikes() {
-        int behavior = spawn.subtype() & 0xF;
-        switch (behavior) {
-            case 1 -> moveSpikesVertical();
-            case 2 -> moveSpikesHorizontal();
-            default -> {
-                currentX = baseX;
-                currentY = baseY;
-            }
+        if (renderer != null && renderer.isReady()) {
+            renderer.drawFrameIndex(frameIndex, currentX, currentY, hFlip, vFlip);
         }
     }
 
-    private void moveSpikesVertical() {
-        moveSpikesDelay();
-        int offsetPixels = retractOffset >> 8;
-        currentX = baseX;
-        currentY = baseY + offsetPixels;
-    }
-
-    private void moveSpikesHorizontal() {
-        moveSpikesDelay();
-        int offsetPixels = retractOffset >> 8;
-        currentX = baseX + offsetPixels;
-        currentY = baseY;
-    }
-
-    private void moveSpikesDelay() {
-        if (retractTimer > 0) {
-            retractTimer--;
-            if (retractTimer == 0) {
-                playSpikeMoveSfx();
-            }
-            return;
-        }
-
-        if (retractState != 0) {
-            retractOffset -= SPIKE_RETRACT_STEP;
-            if (retractOffset < 0) {
-                retractOffset = 0;
-                retractState = 0;
-                retractTimer = SPIKE_RETRACT_DELAY;
-            }
-            return;
-        }
-
-        retractOffset += SPIKE_RETRACT_STEP;
-        if (retractOffset >= SPIKE_RETRACT_MAX) {
-            retractOffset = SPIKE_RETRACT_MAX;
-            retractState = 1;
-            retractTimer = SPIKE_RETRACT_DELAY;
-        }
-    }
-
-    private void updateDynamicSpawn() {
-        if (dynamicSpawn.x() == currentX && dynamicSpawn.y() == currentY) {
-            return;
-        }
-        dynamicSpawn = new ObjectSpawn(
-                currentX,
-                currentY,
-                spawn.objectId(),
-                spawn.subtype(),
-                spawn.renderFlags(),
-                spawn.respawnTracked(),
-                spawn.rawYWord());
-    }
-
-    private void playSpikeMoveSfx() {
+    @Override
+    protected void playSpikeMoveSfx() {
         if (!isOnScreen()) {
             return;
         }
         try {
-            AudioManager.getInstance().playSfx(Sonic2Sfx.SPIKES_MOVE.id);
+            services().playSfx(Sonic2Sfx.SPIKES_MOVE.id);
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic.
         }

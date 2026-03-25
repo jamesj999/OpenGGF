@@ -58,6 +58,19 @@ public final class SmpsSequencerConfig {
         MOD_Z80
     }
 
+    // -----------------------------------------------------------------------
+    // Default constants shared across all three games (S1, S2, S3K)
+    // -----------------------------------------------------------------------
+
+    /** Default tempo modulation base (0x100). Same for S1, S2, and S3K. */
+    public static final int DEFAULT_TEMPO_MOD_BASE = 0x100;
+
+    /** Default FM channel order: DAC(0x16), FM1-FM6. Same for S1, S2, and S3K. */
+    public static final int[] DEFAULT_FM_CHANNEL_ORDER = { 0x16, 0, 1, 2, 4, 5, 6 };
+
+    /** Default PSG channel order: PSG1(0x80), PSG2(0xA0), PSG3(0xC0). Same for S1, S2, and S3K. */
+    public static final int[] DEFAULT_PSG_CHANNEL_ORDER = { 0x80, 0xA0, 0xC0 };
+
     private final Map<Integer, Integer> speedUpTempos;
     private final int tempoModBase;
     private final int[] fmChannelOrder;
@@ -111,85 +124,6 @@ public final class SmpsSequencerConfig {
         this.fadeOutSteps = b.fadeOutSteps;
         this.fadeInSteps = b.fadeInSteps;
         this.fadeInDelay = b.fadeInDelay;
-    }
-
-    /**
-     * Constructor with all options including tempo mode, coord flag overrides, and modulation settings.
-     * @deprecated Use {@link Builder} instead.
-     */
-    @Deprecated(forRemoval = true)
-    public SmpsSequencerConfig(
-            Map<Integer, Integer> speedUpTempos,
-            int tempoModBase,
-            int[] fmChannelOrder,
-            int[] psgChannelOrder,
-            TempoMode tempoMode,
-            Map<Integer, Integer> coordFlagParamOverrides,
-            boolean applyModOnNote,
-            boolean halveModSteps,
-            Set<Integer> extraTrkEndFlags,
-            boolean relativePointers,
-            boolean tempoOnFirstTick) {
-        Objects.requireNonNull(speedUpTempos, "speedUpTempos");
-        Objects.requireNonNull(fmChannelOrder, "fmChannelOrder");
-        Objects.requireNonNull(psgChannelOrder, "psgChannelOrder");
-        Objects.requireNonNull(tempoMode, "tempoMode");
-        this.speedUpTempos = Collections.unmodifiableMap(new HashMap<>(speedUpTempos));
-        this.tempoModBase = tempoModBase;
-        this.fmChannelOrder = Arrays.copyOf(fmChannelOrder, fmChannelOrder.length);
-        this.psgChannelOrder = Arrays.copyOf(psgChannelOrder, psgChannelOrder.length);
-        this.tempoMode = tempoMode;
-        this.coordFlagParamOverrides = (coordFlagParamOverrides != null)
-                ? Collections.unmodifiableMap(new HashMap<>(coordFlagParamOverrides))
-                : Collections.emptyMap();
-        this.applyModOnNote = applyModOnNote;
-        this.halveModSteps = halveModSteps;
-        this.extraTrkEndFlags = (extraTrkEndFlags != null)
-                ? Collections.unmodifiableSet(extraTrkEndFlags)
-                : Collections.emptySet();
-        this.relativePointers = relativePointers;
-        this.tempoOnFirstTick = tempoOnFirstTick;
-        // Defaults for S3K-specific fields (S1/S2 compatible)
-        this.volMode = VolMode.ALGO;
-        this.psgEnvCmd80 = PsgEnvCmd80.HOLD;
-        this.noteOnPrevent = NoteOnPrevent.REST;
-        this.delayFreq = DelayFreq.RESET;
-        this.coordFlagHandler = null;
-        this.modAlgo = ModAlgo.MOD_68K;
-        this.fadeOutDelay = 3;
-        this.fadeOutSteps = 0x28;
-        this.fadeInSteps = 0x28;
-        this.fadeInDelay = 2;
-    }
-
-    /**
-     * Constructor without modulation/track-end overrides. Defaults to S2 behavior.
-     * @deprecated Use {@link Builder} instead.
-     */
-    @Deprecated(forRemoval = true)
-    public SmpsSequencerConfig(
-            Map<Integer, Integer> speedUpTempos,
-            int tempoModBase,
-            int[] fmChannelOrder,
-            int[] psgChannelOrder,
-            TempoMode tempoMode,
-            Map<Integer, Integer> coordFlagParamOverrides) {
-        this(speedUpTempos, tempoModBase, fmChannelOrder, psgChannelOrder,
-                tempoMode, coordFlagParamOverrides, true, true, null, false, false);
-    }
-
-    /**
-     * Backward-compatible constructor. Defaults to OVERFLOW tempo mode and no coord flag overrides.
-     * @deprecated Use {@link Builder} instead.
-     */
-    @Deprecated(forRemoval = true)
-    public SmpsSequencerConfig(
-            Map<Integer, Integer> speedUpTempos,
-            int tempoModBase,
-            int[] fmChannelOrder,
-            int[] psgChannelOrder) {
-        this(speedUpTempos, tempoModBase, fmChannelOrder, psgChannelOrder,
-                TempoMode.OVERFLOW2, null);
     }
 
     public Map<Integer, Integer> getSpeedUpTempos() {
@@ -322,11 +256,11 @@ public final class SmpsSequencerConfig {
      * Use this for S3K and other configs that need the new fields.
      */
     public static final class Builder {
-        // Required
+        // Required (defaults reference shared constants)
         private Map<Integer, Integer> speedUpTempos = Collections.emptyMap();
-        private int tempoModBase = 0x100;
-        private int[] fmChannelOrder = { 0x16, 0, 1, 2, 4, 5, 6 };
-        private int[] psgChannelOrder = { 0x80, 0xA0, 0xC0 };
+        private int tempoModBase = DEFAULT_TEMPO_MOD_BASE;
+        private int[] fmChannelOrder = DEFAULT_FM_CHANNEL_ORDER;
+        private int[] psgChannelOrder = DEFAULT_PSG_CHANNEL_ORDER;
 
         // S2-compatible defaults
         private TempoMode tempoMode = TempoMode.OVERFLOW2;

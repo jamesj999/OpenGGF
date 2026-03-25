@@ -1,11 +1,11 @@
 package com.openggf.game.sonic3k.objects.badniks;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -90,8 +90,8 @@ public final class MonkeyDudeBadnikInstance extends AbstractS3kBadnikInstance {
     private int[] frames = WAIT_FRAMES_SEQ;
     private int[] delays = WAIT_DELAYS;
 
-    public MonkeyDudeBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, "MonkeyDude", levelManager,
+    public MonkeyDudeBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "MonkeyDude",
                 Sonic3kObjectArtKeys.MONKEY_DUDE, COLLISION_SIZE_INDEX, PRIORITY_BUCKET);
 
         // ROM init:
@@ -109,7 +109,8 @@ public final class MonkeyDudeBadnikInstance extends AbstractS3kBadnikInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (destroyed) {
             return;
         }
@@ -230,7 +231,7 @@ public final class MonkeyDudeBadnikInstance extends AbstractS3kBadnikInstance {
     }
 
     private void throwCoconut() {
-        AudioManager.getInstance().playSfx(Sonic3kSfx.MISSILE_THROW.id);
+        services().playSfx(Sonic3kSfx.MISSILE_THROW.id);
 
         int xVel = facingLeft ? -PROJECTILE_X_VEL : PROJECTILE_X_VEL;
         int tipX = armSegmentX[ARM_SEGMENT_COUNT - 1];
@@ -295,10 +296,10 @@ public final class MonkeyDudeBadnikInstance extends AbstractS3kBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed || levelManager == null) {
+        if (destroyed) {
             return;
         }
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }

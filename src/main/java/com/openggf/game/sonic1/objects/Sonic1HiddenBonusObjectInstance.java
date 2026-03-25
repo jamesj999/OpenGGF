@@ -1,15 +1,12 @@
 package com.openggf.game.sonic1.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
-import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -67,7 +64,8 @@ public class Sonic1HiddenBonusObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
             case WAITING -> updateWaiting(player);
             case DISPLAYING -> updateDisplaying();
@@ -106,7 +104,7 @@ public class Sonic1HiddenBonusObjectInstance extends AbstractObjectInstance {
         }
 
         // ROM: tst.b (f_bigring).w / bne.s .chkdel
-        if (GameServices.gameState().isBigRingCollected()) {
+        if (services().gameState().isBigRingCollected()) {
             checkOutOfRange();
             return;
         }
@@ -148,7 +146,7 @@ public class Sonic1HiddenBonusObjectInstance extends AbstractObjectInstance {
 
         // Play bonus sound: sfx_Bonus = 0xC9
         try {
-            AudioManager.getInstance().playSfx(Sonic1Sfx.HIDDEN_BONUS.id);
+            services().playSfx(Sonic1Sfx.HIDDEN_BONUS.id);
         } catch (Exception e) {
             // Don't let audio failure break game logic
         }
@@ -157,7 +155,7 @@ public class Sonic1HiddenBonusObjectInstance extends AbstractObjectInstance {
         if (subtype >= 0 && subtype < BONUS_POINTS.length) {
             int points = BONUS_POINTS[subtype];
             if (points > 0) {
-                GameServices.gameState().addScore(points);
+                services().gameState().addScore(points);
             }
         }
     }
@@ -194,14 +192,8 @@ public class Sonic1HiddenBonusObjectInstance extends AbstractObjectInstance {
         if (state != State.DISPLAYING) {
             return;
         }
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.HIDDEN_BONUS);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.HIDDEN_BONUS);
+        if (renderer == null) return;
         renderer.drawFrameIndex(frameIndex, spawn.x(), spawn.y(), false, false);
     }
 

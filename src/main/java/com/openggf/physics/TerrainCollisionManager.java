@@ -32,6 +32,10 @@ public class TerrainCollisionManager {
 		return pooledResults;
 	}
 
+	public void resetState() {
+		java.util.Arrays.fill(pooledResults, null);
+	}
+
 	public static synchronized TerrainCollisionManager getInstance() {
 		if (instance == null) {
 			instance = new TerrainCollisionManager();

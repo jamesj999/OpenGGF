@@ -1,14 +1,13 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.MultiPieceSolidProvider;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
@@ -104,9 +103,6 @@ public class Sonic1StaircaseObjectInstance extends AbstractObjectInstance
     private int lastTopContactFrame = -2;
     private int lastBottomContactFrame = -2;
 
-    // Dynamic spawn for position tracking
-    private ObjectSpawn dynamicSpawn;
-
     public Sonic1StaircaseObjectInstance(ObjectSpawn spawn) {
         super(spawn, "Staircase");
         this.baseX = spawn.x();
@@ -129,7 +125,7 @@ public class Sonic1StaircaseObjectInstance extends AbstractObjectInstance
             pieceToOffset[i] = startOffset + (i * direction);
         }
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(baseX, baseY + yOffsets[0]);
     }
 
     @Override
@@ -141,12 +137,6 @@ public class Sonic1StaircaseObjectInstance extends AbstractObjectInstance
     public int getY() {
         return baseY;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     // MultiPieceSolidProvider implementation
 
     @Override
@@ -184,12 +174,13 @@ public class Sonic1StaircaseObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed();
     }
 
     @Override
-    public void onPieceContact(int pieceIndex, AbstractPlayableSprite player,
+    public void onPieceContact(int pieceIndex, PlayableEntity playerEntity,
                                SolidContact contact, int frameCounter) {
         if (contact.standing() || contact.touchTop()) {
             lastTopContactFrame = frameCounter;
@@ -200,7 +191,7 @@ public class Sonic1StaircaseObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact,
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact,
                                int frameCounter) {
         if (contact.standing() || contact.touchTop()) {
             lastTopContactFrame = frameCounter;
@@ -211,7 +202,8 @@ public class Sonic1StaircaseObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Decode contact from the previous frame
         boolean touchTop = (frameCounter - lastTopContactFrame) <= 1;
         boolean touchBottom = (frameCounter - lastBottomContactFrame) <= 1;
@@ -224,7 +216,7 @@ public class Sonic1StaircaseObjectInstance extends AbstractObjectInstance
             default -> {} // Subtypes 4-7 unused in SLZ placement data
         }
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(baseX, baseY + yOffsets[0]);
     }
 
     /**
@@ -384,15 +376,8 @@ public class Sonic1StaircaseObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.SLZ_STAIRCASE);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.SLZ_STAIRCASE);
+        if (renderer == null) return;
 
         // Render all 4 pieces at their computed positions
         for (int i = 0; i < NUM_PIECES; i++) {
@@ -415,7 +400,7 @@ public class Sonic1StaircaseObjectInstance extends AbstractObjectInstance
         if (isDestroyed()) {
             return false;
         }
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         if (camera == null) {
             return true;
         }
@@ -423,19 +408,6 @@ public class Sonic1StaircaseObjectInstance extends AbstractObjectInstance
         int camRounded = (camera.getX() - 128) & 0xFF80;
         int distance = (objRounded - camRounded) & 0xFFFF;
         return distance <= (128 + 320 + 192);
-    }
-
-    private void refreshDynamicSpawn() {
-        int pieceY = baseY + yOffsets[0];
-        if (dynamicSpawn == null || dynamicSpawn.y() != pieceY) {
-            dynamicSpawn = new ObjectSpawn(
-                    baseX, pieceY,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
     }
 
     @Override

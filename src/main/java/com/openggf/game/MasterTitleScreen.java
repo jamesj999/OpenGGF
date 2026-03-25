@@ -1,6 +1,6 @@
 package com.openggf.game;
 
-import com.openggf.Control.InputHandler;
+import com.openggf.control.InputHandler;
 import com.openggf.Engine;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;

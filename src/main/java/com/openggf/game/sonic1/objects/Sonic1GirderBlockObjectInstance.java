@@ -1,13 +1,12 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
@@ -104,9 +103,6 @@ public class Sonic1GirderBlockObjectInstance extends AbstractObjectInstance
     // Delay countdown (gird_delay = objoff_3A) — frames to wait before next movement starts
     private int delay;
 
-    // Dynamic spawn for position tracking
-    private ObjectSpawn dynamicSpawn;
-
     public Sonic1GirderBlockObjectInstance(ObjectSpawn spawn) {
         super(spawn, "Girder");
 
@@ -121,7 +117,7 @@ public class Sonic1GirderBlockObjectInstance extends AbstractObjectInstance
         this.movePhase = 0;
         applyPhaseSettings();
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -133,14 +129,9 @@ public class Sonic1GirderBlockObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
     @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
-    @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Gird_Action (routine 2):
         // First check delay, then SpeedToPos + duration countdown
         if (delay > 0) {
@@ -148,7 +139,7 @@ public class Sonic1GirderBlockObjectInstance extends AbstractObjectInstance
             delay--;
             if (delay > 0) {
                 // Still waiting; skip movement but still provide solidity
-                refreshDynamicSpawn();
+                updateDynamicSpawn(x, y);
                 return;
             }
             // Delay just hit zero — fall through to begin movement
@@ -164,20 +155,14 @@ public class Sonic1GirderBlockObjectInstance extends AbstractObjectInstance
             advancePhase();
         }
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
         // tst.b obRender(a0) / bpl.s .chkdel — only render when on-screen (bit 7 set)
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.SBZ_GIRDER);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.SBZ_GIRDER);
+        if (renderer == null) return;
 
         // Single mapping frame (frame 0), no flip
         renderer.drawFrameIndex(0, x, y, false, false);
@@ -204,12 +189,14 @@ public class Sonic1GirderBlockObjectInstance extends AbstractObjectInstance
     // ---- SolidObjectListener ----
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // No special contact behavior; solidity is handled by the engine's SolidContacts system
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed();
     }
 
@@ -312,7 +299,7 @@ public class Sonic1GirderBlockObjectInstance extends AbstractObjectInstance
      * Matches the S1 out_of_range macro behavior.
      */
     private boolean isInRange(int objectX) {
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         if (camera == null) {
             return true;
         }
@@ -320,17 +307,5 @@ public class Sonic1GirderBlockObjectInstance extends AbstractObjectInstance
         int camRounded = (camera.getX() - 128) & 0xFF80;
         int distance = (objRounded - camRounded) & 0xFFFF;
         return distance <= (128 + 320 + 192);
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = new ObjectSpawn(
-                    x, y,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
     }
 }

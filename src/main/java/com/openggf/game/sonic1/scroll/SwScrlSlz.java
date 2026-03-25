@@ -1,6 +1,6 @@
 package com.openggf.game.sonic1.scroll;
 
-import com.openggf.level.scroll.ZoneScrollHandler;
+import com.openggf.level.scroll.AbstractZoneScrollHandler;
 import static com.openggf.level.scroll.M68KMath.*;
 
 /**
@@ -28,14 +28,10 @@ import static com.openggf.level.scroll.M68KMath.*;
  * <p>The main Deform_SLZ routine tiles this 68-entry buffer across the screen
  * at 16-line intervals, indexed by the BG Y scroll position.
  */
-public class SwScrlSlz implements ZoneScrollHandler {
+public class SwScrlSlz extends AbstractZoneScrollHandler {
 
     private static final int SCROLL_BUFFER_SIZE = 68;
     private static final int LINES_PER_GROUP = 16;
-
-    private int minScrollOffset;
-    private int maxScrollOffset;
-    private short vscrollFactorBG;
 
     // Persistent BG camera (16.16 fixed point)
     private long bgXPos;
@@ -68,8 +64,7 @@ public class SwScrlSlz implements ZoneScrollHandler {
             init(cameraX, cameraY);
         }
 
-        minScrollOffset = Integer.MAX_VALUE;
-        maxScrollOffset = Integer.MIN_VALUE;
+        resetScrollTracking();
 
         int deltaX = cameraX - lastCameraX;
         int deltaY = cameraY - lastCameraY;
@@ -194,28 +189,4 @@ public class SwScrlSlz implements ZoneScrollHandler {
         }
     }
 
-    private void trackOffset(short fgScroll, short bgScroll) {
-        int offset = bgScroll - fgScroll;
-        if (offset < minScrollOffset) {
-            minScrollOffset = offset;
-        }
-        if (offset > maxScrollOffset) {
-            maxScrollOffset = offset;
-        }
-    }
-
-    @Override
-    public short getVscrollFactorBG() {
-        return vscrollFactorBG;
-    }
-
-    @Override
-    public int getMinScrollOffset() {
-        return minScrollOffset;
-    }
-
-    @Override
-    public int getMaxScrollOffset() {
-        return maxScrollOffset;
-    }
 }

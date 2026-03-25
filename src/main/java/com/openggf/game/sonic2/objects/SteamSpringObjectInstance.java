@@ -1,13 +1,13 @@
 package com.openggf.game.sonic2.objects;
+import com.openggf.game.PlayableEntity;
+import com.openggf.level.objects.SpringHelper;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -16,6 +16,7 @@ import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
+import com.openggf.level.objects.SpringBounceHelper;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.Direction;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -43,7 +44,7 @@ public class SteamSpringObjectInstance extends AbstractObjectInstance
         implements SolidObjectProvider, SolidObjectListener {
 
     // ROM: move.w #-$A00,y_vel(a1) at loc_26798
-    private static final int SPRING_VELOCITY = -0xA00;
+    private static final int SPRING_VELOCITY = SpringBounceHelper.STRENGTH_YELLOW;
 
     // ROM: move.w #$3B,objoff_32(a0) - wait timer (59 frames)
     private static final int WAIT_TIMER = 0x3B;
@@ -73,9 +74,6 @@ public class SteamSpringObjectInstance extends AbstractObjectInstance
     private int timer;           // objoff_32: countdown timer for wait states
     private int state;           // routine_secondary / 2
 
-    // Dynamic spawn for solid collision (Y position changes)
-    private ObjectSpawn dynamicSpawn;
-
     public SteamSpringObjectInstance(ObjectSpawn spawn) {
         // ROM: move.w y_pos(a0),objoff_34(a0) stores original Y
         // ROM: addi.w #$10,y_pos(a0) shifts visible position down 16px
@@ -84,18 +82,19 @@ public class SteamSpringObjectInstance extends AbstractObjectInstance
         this.yOffset = INITIAL_Y_OFFSET;
         this.timer = 0;
         this.state = STATE_WAIT_BEFORE_RISE;
-        updateDynamicSpawn();
+        updateDynamicSpawn(spawn.x(), baseY + yOffset);
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
             case STATE_WAIT_BEFORE_RISE -> updateWaitBeforeRise();
             case STATE_RISING -> updateRising();
             case STATE_WAIT_BEFORE_SINK -> updateWaitBeforeSink();
             case STATE_SINKING -> updateSinking();
         }
-        updateDynamicSpawn();
+        updateDynamicSpawn(spawn.x(), baseY + yOffset);
     }
 
     // ROM: routine_secondary == 0 (loc_266C6)
@@ -147,11 +146,7 @@ public class SteamSpringObjectInstance extends AbstractObjectInstance
      * First puff at x+0x28, second at x-0x28 (with x_flip).
      */
     private void spawnSteamPuffs() {
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null) {
-            return;
-        }
-        ObjectManager objectManager = levelManager.getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -179,7 +174,8 @@ public class SteamSpringObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (player == null || !contact.standing()) {
             return;
         }
@@ -216,7 +212,7 @@ public class SteamSpringObjectInstance extends AbstractObjectInstance
         player.setSpindash(false);
 
         player.setGSpeed((short) 0);
-        player.setSpringing(15);
+        player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
 
         // ROM: move.b subtype(a0),d0 / bpl.s + / move.w #0,x_vel(a1)
         // Subtype bit 7: if set, clear X velocity
@@ -254,9 +250,7 @@ public class SteamSpringObjectInstance extends AbstractObjectInstance
 
         // ROM: move.w #SndID_Spring,d0 / jmp (PlaySound).l
         try {
-            if (AudioManager.getInstance() != null) {
-                AudioManager.getInstance().playSfx(GameSound.SPRING);
-            }
+            services().playSfx(GameSound.SPRING);
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic
         }
@@ -274,32 +268,11 @@ public class SteamSpringObjectInstance extends AbstractObjectInstance
         // ROM: y_pos = objoff_34 + objoff_36 (base + offset)
         return baseY + yOffset;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn;
-    }
-
-    private void updateDynamicSpawn() {
-        int currentY = baseY + yOffset;
-        if (dynamicSpawn != null && dynamicSpawn.y() == currentY) {
-            return;
-        }
-        dynamicSpawn = new ObjectSpawn(
-                spawn.x(),
-                currentY,
-                spawn.objectId(),
-                spawn.subtype(),
-                spawn.renderFlags(),
-                spawn.respawnTracked(),
-                spawn.rawYWord());
-    }
-
     // --- Rendering ---
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager != null) {
             PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.MTZ_STEAM_PISTON);
             if (renderer != null && renderer.isReady()) {

@@ -1,12 +1,14 @@
 package com.openggf.game.sonic2.objects;
+import com.openggf.game.PlayableEntity;
+import com.openggf.level.objects.SpringHelper;
+import com.openggf.level.objects.BoxObjectInstance;
+import com.openggf.level.objects.ObjectAnimationState;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.*;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.Direction;
@@ -111,7 +113,7 @@ public class SpringboardObjectInstance extends BoxObjectInstance
     public SpringboardObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name, COLLISION_HALF_WIDTH, COLLISION_HEIGHT, 1.0f, 0.85f, 0.1f, false);
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         this.animationState = new ObjectAnimationState(
                 renderManager != null ? renderManager.getAnimations(Sonic2ObjectArtKeys.ANIM_SPRINGBOARD) : null,
                 ANIM_IDLE,
@@ -128,7 +130,8 @@ public class SpringboardObjectInstance extends BoxObjectInstance
      * ROM: loc_2641E is called when p1_standing_bit is set in object's status.
      */
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (player == null || !contact.standing()) {
             return;
         }
@@ -235,7 +238,7 @@ public class SpringboardObjectInstance extends BoxObjectInstance
 
         // ROM: loc_264BC - Set player to airborne state
         player.setAir(true);
-        player.setSpringing(15);
+        player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
 
         // ROM: move.b #0,spindash_flag(a1) - Clear spindash flag
         player.setSpindash(false);
@@ -276,9 +279,7 @@ public class SpringboardObjectInstance extends BoxObjectInstance
 
         // ROM: loc_26546 - Play spring sound
         try {
-            if (AudioManager.getInstance() != null) {
-                AudioManager.getInstance().playSfx(GameSound.SPRING);
-            }
+            services().playSfx(GameSound.SPRING);
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic
         }
@@ -307,7 +308,8 @@ public class SpringboardObjectInstance extends BoxObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: Obj40_Main calls AnimateSprite before collision check
         animationState.update();
         mappingFrame = animationState.getMappingFrame();
@@ -384,7 +386,7 @@ public class SpringboardObjectInstance extends BoxObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             super.appendRenderCommands(commands);
             return;

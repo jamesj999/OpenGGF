@@ -1,5 +1,6 @@
 package com.openggf.tests;
 
+import com.openggf.game.GameServices;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.tests.rules.RequiresRom;
@@ -59,7 +60,7 @@ public class TestS1Ghz3BridgeDropStability {
                 .startPosition(START_X, START_Y)
                 .build();
 
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = GameServices.level().getObjectManager();
         if (objectManager != null) {
             objectManager.reset(fixture.camera().getX());
         }

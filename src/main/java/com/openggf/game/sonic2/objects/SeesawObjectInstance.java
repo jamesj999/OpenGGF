@@ -1,12 +1,12 @@
 package com.openggf.game.sonic2.objects;
+import com.openggf.level.objects.BoxObjectInstance;
 
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.*;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -126,7 +126,7 @@ public class SeesawObjectInstance extends BoxObjectInstance
         );
 
         // Register the ball with ObjectManager
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null) {
             objectManager.addDynamicObject(ball);
         }
@@ -136,7 +136,8 @@ public class SeesawObjectInstance extends BoxObjectInstance
      * Called when player has solid contact with the seesaw.
      */
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (player == null) {
             return;
         }
@@ -180,7 +181,7 @@ public class SeesawObjectInstance extends BoxObjectInstance
      */
     private boolean isMainCharacter(AbstractPlayableSprite player) {
         // If player is not any sidekick, they're the main character
-        return !SpriteManager.getInstance().getSidekicks().contains(player);
+        return !services().sidekicks().contains(player);
     }
 
     /**
@@ -262,7 +263,8 @@ public class SeesawObjectInstance extends BoxObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Spawn ball on first update
         ensureBallSpawned();
 
@@ -277,7 +279,7 @@ public class SeesawObjectInstance extends BoxObjectInstance
             // player parameter is always the main character
             int p1Vel = (player != null) ? player.getYSpeed() : 0;
             int p2Vel = 0;
-            for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+            for (PlayableEntity sidekick : services().sidekicks()) {
                 p2Vel = Math.max(p2Vel, sidekick.getYSpeed());
             }
 
@@ -441,15 +443,8 @@ public class SeesawObjectInstance extends BoxObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.SEESAW);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.SEESAW);
+        if (renderer == null) return;
 
         boolean vFlip = (spawn.renderFlags() & 0x2) != 0;
 

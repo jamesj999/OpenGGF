@@ -1,4 +1,5 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
@@ -6,16 +7,16 @@ import com.openggf.game.sonic1.Sonic1ConveyorState;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectManager;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
+import com.openggf.level.objects.SubpixelMotion;
+import com.openggf.level.objects.WaypointPathFollower;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -204,6 +205,9 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
     private int velY;                // Y velocity (obVelY)
     private int xFrac;               // X subpixel fractional (obX+2 low word)
     private int yFrac;               // Y subpixel fractional (obY+2 low word)
+
+    /** Reusable state for SubpixelMotion calls (avoids per-frame allocation). */
+    private final SubpixelMotion.State motion = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
     private int baseX;               // base X for out_of_range check (objoff_30)
 
     // Animation state
@@ -219,9 +223,6 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
     // Spawner mode state
     private int spawnerSlotIndex;    // v_obj63 slot index (objoff_2F & 0x7F)
     private boolean spawnerDone;
-
-    // Dynamic spawn for position updates
-    private ObjectSpawn dynamicSpawn;
 
     /**
      * Creates a spin conveyor object instance.
@@ -269,21 +270,14 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
 
             // Check f_conveyrev at init time
             // From disassembly: tst.b (f_conveyrev).w / beq.s loc_16356
-            Sonic1ConveyorState conveyorState = Sonic1ConveyorState.getInstance();
+            Sonic1ConveyorState conveyorState = services().gameService(Sonic1ConveyorState.class);
             if (conveyorState.isReversed()) {
                 // From disassembly: move.b #1,objoff_3B(a0) / neg.b objoff_3A(a0)
                 this.waypointStep = -WAYPOINT_STEP;
 
                 // Advance to next waypoint in reverse direction
-                int nextIdx = currentWaypointIdx + waypointStep;
-                if (nextIdx < 0 || nextIdx >= waypointCount) {
-                    if (nextIdx < 0) {
-                        nextIdx = waypointCount - WAYPOINT_STEP;
-                    } else {
-                        nextIdx = 0;
-                    }
-                }
-                currentWaypointIdx = nextIdx;
+                currentWaypointIdx = WaypointPathFollower.wrapWaypointIndex(
+                        currentWaypointIdx + waypointStep, waypointCount, WAYPOINT_STEP);
             }
 
             // Set initial target from current waypoint
@@ -324,7 +318,7 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
             changeDirection();
         }
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -344,14 +338,9 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
     @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
-    @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (mode) {
             case SPAWNER -> updateSpawner();
             case PLATFORM -> updatePlatform(frameCounter, player);
@@ -391,7 +380,7 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
         }
         spawnerDone = true;
 
-        Sonic1ConveyorState conveyorState = Sonic1ConveyorState.getInstance();
+        Sonic1ConveyorState conveyorState = services().gameService(Sonic1ConveyorState.class);
         if (conveyorState.testAndSetSpawned(spawnerSlotIndex)) {
             // Already spawned - delete self
             setDestroyed(true);
@@ -405,8 +394,7 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
         }
         int[][] positionData = ALL_SPAWN_DATA[spawnerSlotIndex];
 
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             setDestroyed(true);
             return;
         }
@@ -418,14 +406,20 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
         //   move.w  (a2)+,obY(a1)
         //   move.w  (a2)+,d0
         //   move.b  d0,obSubtype(a1)
-        for (int[] entry : positionData) {
-            int childX = entry[0];
-            int childY = entry[1];
-            int childSubtype = entry[2];
+        // Set construction context so children can call services() in their constructors.
+        setConstructionContext(services());
+        try {
+            for (int[] entry : positionData) {
+                int childX = entry[0];
+                int childY = entry[1];
+                int childSubtype = entry[2];
 
-            Sonic1SpinConveyorObjectInstance child =
-                    new Sonic1SpinConveyorObjectInstance(childX, childY, childSubtype);
-            levelManager.getObjectManager().addDynamicObject(child);
+                Sonic1SpinConveyorObjectInstance child =
+                        new Sonic1SpinConveyorObjectInstance(childX, childY, childSubtype);
+                services().objectManager().addDynamicObject(child);
+            }
+        } finally {
+            clearConstructionContext();
         }
 
         // Spawner itself is consumed after spawning
@@ -487,7 +481,7 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
             applyConveyorMovement();
         }
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -562,40 +556,13 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
      * Advances to the next waypoint and recalculates velocity.
      * Also updates animation: at waypoint 0 -> .still, at waypoint 2 -> .spin.
      * <p>
-     * From disassembly (matching loc_16456 through loc_16480):
-     * <pre>
-     *   moveq   #0,d1
-     *   move.b  objoff_38(a0),d1        ; current waypoint offset
-     *   add.b   objoff_3A(a0),d1        ; advance by step
-     *   cmp.b   objoff_39(a0),d1        ; past end? (unsigned)
-     *   blo.s   loc_16456               ; no -> use new index
-     *   move.b  d1,d0
-     *   moveq   #0,d1
-     *   tst.b   d0                      ; check if negative (underflow)
-     *   bpl.s   loc_16456               ; positive -> use 0
-     *   move.b  objoff_39(a0),d1        ; negative -> wrap to last
-     *   subq.b  #4,d1
-     * loc_16456:
-     *   move.b  d1,objoff_38(a0)
-     *   ... update target X/Y from waypoint table ...
-     *   tst.w   d1 / bne.s -> at waypoint 0: set obAnim to 1 (.still)
-     *   cmpi.w  #8,d1 / bne.s -> at waypoint 2: set obAnim to 0 (.spin)
-     *   bsr.w   LCon_ChangeDir
-     * </pre>
+     * From disassembly (matching loc_16456 through loc_16480).
+     *
+     * @see WaypointPathFollower#wrapWaypointIndex
      */
     private void advanceWaypoint() {
-        int nextIdx = currentWaypointIdx + waypointStep;
-
-        // Wrap logic matching disassembly unsigned byte comparison
-        if (nextIdx < 0 || nextIdx >= waypointCount) {
-            if (nextIdx < 0) {
-                // Underflow: wrap to last waypoint
-                nextIdx = waypointCount - WAYPOINT_STEP;
-            } else {
-                // Overflow: wrap to first waypoint
-                nextIdx = 0;
-            }
-        }
+        int nextIdx = WaypointPathFollower.wrapWaypointIndex(
+                currentWaypointIdx + waypointStep, waypointCount, WAYPOINT_STEP);
 
         currentWaypointIdx = nextIdx;
 
@@ -636,83 +603,19 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
 
     /**
      * LCon_ChangeDir: Calculates velocity components to move from current
-     * position toward the target waypoint.
-     * <p>
-     * Algorithm: Determine which axis has the greater absolute distance.
-     * The dominant axis gets a fixed speed of $100 (256 subpixels/frame).
-     * The minor axis gets a proportionally scaled speed via 68000 signed division.
-     * The division remainder initializes the subpixel fractional accumulator.
+     * position toward the target waypoint using the shared dominant-axis algorithm.
      * <p>
      * From disassembly LCon_ChangeDir (shared with LZ Conveyor, lines 226-280
-     * in docs/s1disasm/_incObj/63 LZ Conveyor.asm):
-     * <pre>
-     *   d0 = |obX - targetX|, d2 = signed X speed (+-$100 toward target)
-     *   d1 = |obY - targetY|, d3 = signed Y speed (+-$100 toward target)
-     *   if |deltaY| >= |deltaX|:
-     *       velX = -((obX-targetX) &lt;&lt; 8) / |deltaY|, velY = d3
-     *       xFrac = division remainder, yFrac = 0
-     *   else:
-     *       velY = -((obY-targetY) &lt;&lt; 8) / |deltaX|, velX = d2
-     *       yFrac = division remainder, xFrac = 0
-     * </pre>
+     * in docs/s1disasm/_incObj/63 LZ Conveyor.asm).
+     *
+     * @see WaypointPathFollower#calculateWaypointVelocity
      */
     private void changeDirection() {
-        // d0 = obX - targetX; d2 = -$100 initially
-        int deltaX = (short) (x - targetX);
-        int absDeltaX = Math.abs(deltaX);
-        int speedDirX = -MOVE_SPEED; // d2 starts as -$100
-        if (deltaX < 0) {
-            // bcc not taken -> neg.w d0, neg.w d2
-            speedDirX = MOVE_SPEED;
-        }
-
-        // d1 = obY - targetY; d3 = -$100 initially
-        int deltaY = (short) (y - targetY);
-        int absDeltaY = Math.abs(deltaY);
-        int speedDirY = -MOVE_SPEED; // d3 starts as -$100
-        if (deltaY < 0) {
-            // bcc not taken -> neg.w d1, neg.w d3
-            speedDirY = MOVE_SPEED;
-        }
-
-        // cmp.w d0,d1 / blo.s -> if absDeltaY < absDeltaX, X-dominant
-        if (absDeltaY < absDeltaX) {
-            // X-dominant: X gets fixed speed, Y is proportional
-            velX = speedDirX;
-            xFrac = 0;
-
-            int signedDeltaY = (short) (y - targetY);
-            if (signedDeltaY == 0) {
-                velY = 0;
-                yFrac = 0;
-            } else {
-                // ext.l d1 / asl.l #8,d1 / divs.w d0,d1 / neg.w d1
-                int numerator = signedDeltaY << 8;
-                int quotient = numerator / absDeltaX;
-                int remainder = numerator % absDeltaX;
-                velY = (short) (-quotient);
-                // swap d1 / move.w d1,obY+2(a0) — remainder initializes yFrac
-                yFrac = (short) remainder & 0xFFFF;
-            }
-        } else {
-            // Y-dominant: Y gets fixed speed, X is proportional
-            velY = speedDirY;
-            yFrac = 0;
-
-            int signedDeltaX = (short) (x - targetX);
-            if (signedDeltaX == 0) {
-                velX = 0;
-                xFrac = 0;
-            } else {
-                // ext.l d0 / asl.l #8,d0 / divs.w d1,d0 / neg.w d0
-                int numerator = signedDeltaX << 8;
-                int quotient = numerator / absDeltaY;
-                int remainder = numerator % absDeltaY;
-                velX = (short) (-quotient);
-                // swap d0 / move.w d0,obX+2(a0) — remainder initializes xFrac
-                xFrac = (short) remainder & 0xFFFF;
-            }
-        }
+        var vel = WaypointPathFollower.calculateWaypointVelocity(x, y, targetX, targetY, MOVE_SPEED);
+        velX = vel.xVel();
+        velY = vel.yVel();
+        xFrac = vel.xSub();
+        yFrac = vel.ySub();
     }
 
     /**
@@ -731,17 +634,12 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
      * </pre>
      */
     private void applySpeedToPos() {
-        // X: 32-bit position = (x << 16) | xFrac
-        long xPos32 = ((long) x << 16) | (xFrac & 0xFFFF);
-        xPos32 += (long) (short) velX << 8;
-        x = (int) (xPos32 >> 16);
-        xFrac = (int) (xPos32 & 0xFFFF);
-
-        // Y: 32-bit position = (y << 16) | yFrac
-        long yPos32 = ((long) y << 16) | (yFrac & 0xFFFF);
-        yPos32 += (long) (short) velY << 8;
-        y = (int) (yPos32 >> 16);
-        yFrac = (int) (yPos32 & 0xFFFF);
+        motion.x = x; motion.y = y;
+        motion.xSub = xFrac; motion.ySub = yFrac;
+        motion.xVel = velX; motion.yVel = velY;
+        SubpixelMotion.speedToPos(motion);
+        x = motion.x; y = motion.y;
+        xFrac = motion.xSub; yFrac = motion.ySub;
     }
 
     /**
@@ -756,7 +654,7 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
      * </pre>
      */
     private void detachRidingPlayer(AbstractPlayableSprite player) {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null && objectManager.isAnyPlayerRiding(this)) {
             objectManager.clearRidingObject(player);
         }
@@ -772,16 +670,9 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
         // Uses same art as Object 0x69 spinner: Map_Spin, ArtTile_SBZ_Spinning_Platform, palette 0
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.SBZ_SPINNING_PLATFORM);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.SBZ_SPINNING_PLATFORM);
+        if (renderer == null) return;
 
         // Extract flip flags from the current raw animation frame byte.
         // AnimateSprite Anim_Next: bits 5-6 encode hFlip/vFlip
@@ -820,12 +711,14 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return mode == Mode.PLATFORM && solidActive;
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Standard SolidObject handling via the engine's SolidContacts system.
         // The disassembly uses SolidObject (not PlatformObject), which provides
         // top, left, right, and bottom collision. The engine handles this automatically.
@@ -858,7 +751,7 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
      * Matches the S1 out_of_range.s macro with objoff_30 as the reference X.
      */
     private boolean isBaseXOnScreen(int objectX) {
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         if (camera == null) {
             return true;
         }
@@ -903,17 +796,5 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
                 mappingFrame,
                 state);
         ctx.drawWorldLabel(x, y - SOLID_PARAMS.groundHalfHeight() - 8, 0, label, DebugColor.CYAN);
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = new ObjectSpawn(
-                    x, y,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
     }
 }

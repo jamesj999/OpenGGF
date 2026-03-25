@@ -1,12 +1,18 @@
 package com.openggf.game.sonic2.events;
 
 import com.openggf.camera.Camera;
+import com.openggf.audio.AudioManager;
+import com.openggf.data.Rom;
 import com.openggf.game.GameServices;
+import com.openggf.game.GameStateManager;
 import com.openggf.level.LevelManager;
+import com.openggf.level.ParallaxManager;
+import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
+import java.io.IOException;
 import java.util.logging.Logger;
 
 /**
@@ -31,7 +37,35 @@ public abstract class Sonic2ZoneEvents {
      * than caching the reference, so it survives singleton replacement.
      */
     protected Camera camera() {
-        return Camera.getInstance();
+        return GameServices.camera();
+    }
+
+    protected LevelManager levelManager() {
+        return GameServices.level();
+    }
+
+    protected AudioManager audio() {
+        return GameServices.audio();
+    }
+
+    protected GameStateManager gameState() {
+        return GameServices.gameState();
+    }
+
+    protected WaterSystem waterSystem() {
+        return GameServices.water();
+    }
+
+    protected ParallaxManager parallax() {
+        return GameServices.parallax();
+    }
+
+    protected SpriteManager spriteManager() {
+        return GameServices.sprites();
+    }
+
+    protected Rom rom() throws IOException {
+        return GameServices.rom().getRom();
     }
 
     /** Reset event state for a new level load. */
@@ -53,7 +87,7 @@ public abstract class Sonic2ZoneEvents {
 
     /** Spawn a dynamic object into the level. */
     protected void spawnObject(ObjectInstance object) {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = levelManager();
         if (lm.getObjectManager() != null) {
             lm.getObjectManager().addDynamicObject(object);
         }
@@ -65,8 +99,10 @@ public abstract class Sonic2ZoneEvents {
      */
     protected static void loadBossPalette(int paletteLine, int romAddr) {
         try {
-            byte[] paletteData = GameServices.rom().getRom().readBytes(romAddr, PALETTE_LINE_SIZE);
-            LevelManager.getInstance().updatePalette(paletteLine, paletteData);
+            Rom rom = GameServices.rom().getRom();
+            LevelManager levelManager = GameServices.level();
+            byte[] paletteData = rom.readBytes(romAddr, PALETTE_LINE_SIZE);
+            levelManager.updatePalette(paletteLine, paletteData);
         } catch (Exception e) {
             LOGGER.warning("Failed to load boss palette from ROM offset 0x" +
                     Integer.toHexString(romAddr) + ": " + e.getMessage());
@@ -74,7 +110,7 @@ public abstract class Sonic2ZoneEvents {
     }
 
     protected void setSidekickBounds(Integer minX, Integer maxX, Integer maxY) {
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+        for (AbstractPlayableSprite sidekick : spriteManager().getSidekicks()) {
             if (sidekick.getCpuController() != null) {
                 sidekick.getCpuController().setLevelBounds(minX, maxX, maxY);
             }

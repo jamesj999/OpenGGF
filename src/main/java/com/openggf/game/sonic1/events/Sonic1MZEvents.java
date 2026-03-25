@@ -1,6 +1,5 @@
 package com.openggf.game.sonic1.events;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic1.objects.bosses.Sonic1MZBossInstance;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.audio.Sonic1Music;
@@ -249,17 +248,17 @@ class Sonic1MZEvents extends Sonic1ZoneEvents {
         }
 
         // ROM: Spawn boss object at boss_mz_x + $1F0, boss_mz_y + $1C
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = levelManager();
         if (lm != null && lm.getObjectManager() != null) {
             ObjectSpawn bossSpawn = new ObjectSpawn(
                     BOSS_MZ_X + 0x1F0, BOSS_MZ_Y + 0x1C,
                     Sonic1ObjectIds.MZ_BOSS, 0, 0, false, 0);
-            Sonic1MZBossInstance boss = new Sonic1MZBossInstance(bossSpawn, lm);
+            Sonic1MZBossInstance boss = new Sonic1MZBossInstance(bossSpawn);
             lm.getObjectManager().addDynamicObject(boss);
         }
 
         // ROM: bgm_Boss — play boss music
-        AudioManager.getInstance().playMusic(Sonic1Music.BOSS.id);
+        audio().playMusic(Sonic1Music.BOSS.id);
 
         // f_lockscreen = 1.
         // ROM: f_lockscreen limits Sonic's movement range (01 Sonic.asm:824-834) but
@@ -267,7 +266,7 @@ class Sonic1MZEvents extends Sonic1ZoneEvents {
         // ($1800 from LevelSizeArray). DLE_MZ3end ratchets v_limitleft2 forward each
         // frame. Camera settles at v_limitright2 naturally with no visible snap.
         // The Java equivalent is isBossFightActive() gating doLevelBoundary's RIGHT_EXTRA.
-        GameServices.gameState().setCurrentBossId(Sonic1ObjectIds.MZ_BOSS);
+        gameState().setCurrentBossId(Sonic1ObjectIds.MZ_BOSS);
         eventRoutine += 2; // advance to DLE_MZ3end
     }
 

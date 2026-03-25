@@ -1,6 +1,7 @@
 package com.openggf.game.sonic1.objects.bosses;
 
 import com.openggf.game.sonic1.constants.Sonic1Constants;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.LevelManager;
@@ -11,7 +12,8 @@ import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.objects.boss.AbstractBossChild;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import com.openggf.game.sonic2.objects.BossExplosionObjectInstance;
+import com.openggf.game.sonic1.audio.Sonic1Sfx;
+import com.openggf.level.objects.boss.BossExplosionObjectInstance;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -37,7 +39,6 @@ public class FZPlasmaLauncher extends AbstractBossChild implements SolidObjectPr
     // SolidObject params: d1=$13, d2=8, d3=$11
     private static final SolidObjectParams SOLID_PARAMS = new SolidObjectParams(0x13, 8, 0x11);
 
-    private final LevelManager levelManager;
 
     // State: 0 = idle (Generator), 1 = spawning balls, 2 = waiting for balls
     private int launcherState;
@@ -54,9 +55,9 @@ public class FZPlasmaLauncher extends AbstractBossChild implements SolidObjectPr
     private final List<FZPlasmaBall> activeBalls = new ArrayList<>();
     private boolean explodedOnDefeat;
 
-    public FZPlasmaLauncher(Sonic1FZBossInstance parent, LevelManager levelManager) {
+    public FZPlasmaLauncher(Sonic1FZBossInstance parent) {
         super(parent, "FZ Plasma Launcher", 3, Sonic1ObjectIds.BOSS_PLASMA);
-        this.levelManager = levelManager;
+        
         this.currentX = LAUNCHER_X;
         this.currentY = LAUNCHER_Y;
         this.launcherState = 0;
@@ -76,7 +77,8 @@ public class FZPlasmaLauncher extends AbstractBossChild implements SolidObjectPr
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (!beginUpdate(frameCounter)) return;
 
         Sonic1FZBossInstance fzParent = (Sonic1FZBossInstance) parent;
@@ -102,10 +104,10 @@ public class FZPlasmaLauncher extends AbstractBossChild implements SolidObjectPr
         // ROM: cmpi.b #6,objoff_34(a1) — if boss defeated, become explosion
         if (fzParent.isBossDefeated()) {
             if (!explodedOnDefeat) {
-                ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
-                if (renderManager != null && levelManager.getObjectManager() != null) {
-                    levelManager.getObjectManager().addDynamicObject(
-                            new BossExplosionObjectInstance(currentX, currentY, renderManager));
+                ObjectRenderManager renderManager = services().renderManager();
+                if (renderManager != null && services().objectManager() != null) {
+                    services().objectManager().addDynamicObject(
+                            new BossExplosionObjectInstance(currentX, currentY, renderManager, Sonic1Sfx.BOSS_EXPLOSION.id));
                 }
                 explodedOnDefeat = true;
             }
@@ -130,7 +132,7 @@ public class FZPlasmaLauncher extends AbstractBossChild implements SolidObjectPr
         // Spawn 4 balls
         activeBalls.clear();
         activeBallCount = 4;
-        var objectManager = levelManager.getObjectManager();
+        var objectManager = services().objectManager();
 
         for (int i = 0; i < 4; i++) {
             // ROM: Target X calculation
@@ -138,7 +140,7 @@ public class FZPlasmaLauncher extends AbstractBossChild implements SolidObjectPr
             int targetX = Sonic1Constants.BOSS_FZ_X + 0x128 + (i * -0x4F);
             targetX += (random & 0x1F) - 0x10;
 
-            FZPlasmaBall ball = new FZPlasmaBall(this, levelManager, LAUNCHER_X, LAUNCHER_Y, targetX);
+            FZPlasmaBall ball = new FZPlasmaBall(this, LAUNCHER_X, LAUNCHER_Y, targetX);
             activeBalls.add(ball);
             if (objectManager != null) {
                 objectManager.addDynamicObject(ball);
@@ -193,7 +195,7 @@ public class FZPlasmaLauncher extends AbstractBossChild implements SolidObjectPr
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) return;
 
         PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.FZ_PLASMA_LAUNCHER);

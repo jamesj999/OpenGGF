@@ -1,14 +1,13 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
-import com.openggf.camera.Camera;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.PatternDesc;
 import com.openggf.level.objects.*;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -187,7 +186,8 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -218,9 +218,8 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
                     collapsed = true;
                     parentY = spawn.y();
                     if (player != null) {
-                        LevelManager manager = LevelManager.getInstance();
-                        if (manager != null && manager.getObjectManager() != null) {
-                            manager.getObjectManager().clearRidingObject(player);
+                        if (services().objectManager() != null) {
+                            services().objectManager().clearRidingObject(player);
                         }
                         player.setAir(true);
                         player.setOnObject(false);
@@ -252,9 +251,8 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
             return; // ROM: parent is invisible during fragment-fall; fragments handle rendering
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null || config == null) {
-            appendDebug(commands);
             return;
         }
 
@@ -265,7 +263,6 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
             // OOZ/MCZ use dedicated art
             PatternSpriteRenderer renderer = renderManager.getRenderer(config.artKey());
             if (renderer == null || !renderer.isReady()) {
-                appendDebug(commands);
                 return;
             }
             renderer.drawFrameIndex(mappingFrame, spawn.x(), spawn.y(), hFlip, vFlip);
@@ -286,7 +283,8 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: Obj1F_Main — standing_mask bits set stood_on_flag.
         // Using the callback (like S1/S3K) instead of polling ensures the flag
         // is set on the same frame the player lands, matching ROM timing.
@@ -296,7 +294,8 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !collapsed && !isDestroyed();
     }
 
@@ -314,9 +313,8 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
     }
 
     private void initZoneConfig() {
-        LevelManager manager = LevelManager.getInstance();
-        final int zoneIndex = (manager != null && manager.getCurrentLevel() != null)
-                ? manager.getCurrentLevel().getZoneIndex()
+        final int zoneIndex = (services().currentLevel() != null)
+                ? services().currentLevel().getZoneIndex()
                 : -1;
 
         config = switch (zoneIndex) {
@@ -334,11 +332,10 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
     }
 
     private boolean isPlayerStanding() {
-        LevelManager manager = LevelManager.getInstance();
-        if (manager == null || manager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return false;
         }
-        return manager.getObjectManager().isAnyPlayerRiding(this);
+        return services().objectManager().isAnyPlayerRiding(this);
     }
 
     private void collapse() {
@@ -354,15 +351,14 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
         mappingFrame = 1;  // Show collapsed appearance
 
         // Play collapse sound
-        AudioManager.getInstance().playSfx(Sonic2Sfx.SMASH.id);
+        services().playSfx(Sonic2Sfx.SMASH.id);
 
         // Spawn visual-only fragments (they do NOT provide collision)
         spawnFragments();
 
         // Mark as remembered to prevent respawn (ROM-accurate behavior)
-        LevelManager manager = LevelManager.getInstance();
-        if (manager != null && manager.getObjectManager() != null) {
-            manager.getObjectManager().markRemembered(spawn);
+        if (services().objectManager() != null) {
+            services().objectManager().markRemembered(spawn);
         }
 
         LOGGER.fine(() -> String.format("CollapsingPlatform at (%d,%d) collapsed, spawning %d fragments",
@@ -370,8 +366,8 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
     }
 
     private void spawnFragments() {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectManager objectManager = services().objectManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (objectManager == null) {
             return;
         }
@@ -393,7 +389,7 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
         // ARZ uses level art tiles at specific indices from obj1F_d.asm
         // basePatternIndex = 0 because level patterns start at index 0
         SpriteMappingFrame frame = (mappingFrame == 0) ? ARZ_FRAME_INTACT : ARZ_FRAME_COLLAPSED;
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = services().graphicsManager();
         List<SpriteMappingPiece> pieces = frame.pieces();
 
         // Draw in reverse order (Painter's Algorithm) - first piece in list appears on top
@@ -421,7 +417,8 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
         }
     }
 
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         if (config == null) {
             return;
         }
@@ -438,17 +435,10 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
         float g = 0.4f;
         float b = collapsed ? 0.2f : 0.6f;
 
-        appendLine(commands, left, top, right, top, r, g, b);
-        appendLine(commands, right, top, right, bottom, r, g, b);
-        appendLine(commands, right, bottom, left, bottom, r, g, b);
-        appendLine(commands, left, bottom, left, top, r, g, b);
-    }
-
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2, float r, float g, float b) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x2, y2, 0, 0));
+        ctx.drawLine(left, top, right, top, r, g, b);
+        ctx.drawLine(right, top, right, bottom, r, g, b);
+        ctx.drawLine(right, bottom, left, bottom, r, g, b);
+        ctx.drawLine(left, bottom, left, top, r, g, b);
     }
 
     /**
@@ -463,20 +453,11 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
      * Each fragment uses static_mappings mode where the mappings pointer points to a
      * single sprite piece. The piece's x/y offsets provide visual displacement.
      */
-    public static class CollapsingPlatformFragmentInstance extends AbstractObjectInstance {
+    public static class CollapsingPlatformFragmentInstance extends AbstractFallingFragment {
 
-        // Gravity from ObjectMoveAndFall (s2.asm line 29950)
-        private static final int GRAVITY = 0x38;
-
-        private int currentX;
-        private int currentY;
-        private int subY;     // 8.8 fixed point for sub-pixel Y
-        private int yVel = 0; // 8.8 fixed point velocity
-        private int delayCounter;
         private final int fragmentIndex;
         private final ZoneConfig config;
         private final ObjectRenderManager renderManager;
-        private boolean falling = false;
 
         // Inherited from parent (per disassembly: render_flags copied from parent to fragment)
         private final boolean hFlip;
@@ -489,33 +470,13 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
         public CollapsingPlatformFragmentInstance(int parentX, int parentY, int delay, int fragmentIndex,
                                                    ZoneConfig config, ObjectRenderManager renderManager,
                                                    boolean hFlip, boolean vFlip) {
-            super(new ObjectSpawn(parentX, parentY, 0x1F, 0, 0, false, 0), "CollapsingPlatformFragment");
+            super(new ObjectSpawn(parentX + computeOffsetX(config, fragmentIndex, hFlip),
+                            parentY + computeOffsetY(config, fragmentIndex, vFlip),
+                            0x1F, 0, 0, false, 0),
+                    "CollapsingPlatformFragment", delay, 4);
 
-            // Get piece offset from config
-            int offsetX = 0;
-            int offsetY = 0;
-            if (config != null && config.pieceOffsets() != null &&
-                    fragmentIndex < config.pieceOffsets().length) {
-                offsetX = config.pieceOffsets()[fragmentIndex][0];
-                offsetY = config.pieceOffsets()[fragmentIndex][1];
-            }
-
-            // Apply flip to offset if needed
-            if (hFlip) {
-                offsetX = -offsetX;
-            }
-            if (vFlip) {
-                offsetY = -offsetY;
-            }
-
-            this.pieceOffsetX = offsetX;
-            this.pieceOffsetY = offsetY;
-
-            // Fragment position is parent position + piece offset
-            this.currentX = parentX + offsetX;
-            this.currentY = parentY + offsetY;
-            this.subY = currentY << 8;
-            this.delayCounter = delay;
+            this.pieceOffsetX = computeOffsetX(config, fragmentIndex, hFlip);
+            this.pieceOffsetY = computeOffsetY(config, fragmentIndex, vFlip);
             this.fragmentIndex = fragmentIndex;
             this.config = config;
             this.renderManager = renderManager;
@@ -523,44 +484,22 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
             this.vFlip = vFlip;
         }
 
-        @Override
-        public int getX() {
-            return currentX;
+        private static int computeOffsetX(ZoneConfig config, int fragmentIndex, boolean hFlip) {
+            int offsetX = 0;
+            if (config != null && config.pieceOffsets() != null &&
+                    fragmentIndex < config.pieceOffsets().length) {
+                offsetX = config.pieceOffsets()[fragmentIndex][0];
+            }
+            return hFlip ? -offsetX : offsetX;
         }
 
-        @Override
-        public int getY() {
-            return currentY;
-        }
-
-        @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
-            if (isDestroyed()) {
-                return;
+        private static int computeOffsetY(ZoneConfig config, int fragmentIndex, boolean vFlip) {
+            int offsetY = 0;
+            if (config != null && config.pieceOffsets() != null &&
+                    fragmentIndex < config.pieceOffsets().length) {
+                offsetY = config.pieceOffsets()[fragmentIndex][1];
             }
-
-            if (delayCounter > 0) {
-                // Still waiting before falling
-                delayCounter--;
-                return;
-            }
-
-            // Start falling
-            falling = true;
-
-            // Apply gravity
-            yVel += GRAVITY;
-
-            // Update position
-            subY += yVel;
-            currentY = subY >> 8;
-
-            // Check if off-screen (destroy if too far below camera)
-            Camera camera = Camera.getInstance();
-            int screenHeight = 224;
-            if (currentY > camera.getY() + screenHeight + 64) {
-                setDestroyed(true);
-            }
+            return vFlip ? -offsetY : offsetY;
         }
 
         @Override
@@ -590,23 +529,18 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
             // Each fragment draws only its corresponding piece from that frame
             int frameIndex = 1;
 
-            // Render at parent position (currentX/currentY minus offset) because
+            // Render at parent position (getX()/getY() minus offset) because
             // the piece renderer will add the piece offset
-            int renderX = currentX - pieceOffsetX;
-            int renderY = currentY - pieceOffsetY;
+            int renderX = getX() - pieceOffsetX;
+            int renderY = getY() - pieceOffsetY;
 
             renderer.drawFramePieceByIndex(frameIndex, fragmentIndex, renderX, renderY, hFlip, vFlip);
-        }
-
-        @Override
-        public int getPriorityBucket() {
-            return RenderPriority.clamp(4);
         }
 
         /**
          * Render an ARZ fragment using level patterns.
          * Each fragment renders its corresponding piece from ARZ_FRAME_COLLAPSED.
-         * Since currentX/currentY already include the piece offset, we need to
+         * Since getX()/getY() already include the piece offset, we need to
          * subtract it before passing to the renderer (which will add it back).
          */
         private void renderArzFragment() {
@@ -615,12 +549,12 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
             }
 
             SpriteMappingPiece piece = ARZ_FRAME_COLLAPSED.pieces().get(fragmentIndex);
-            GraphicsManager graphicsManager = GraphicsManager.getInstance();
+            GraphicsManager graphicsManager = services().graphicsManager();
 
-            // Render at parent position (currentX/currentY minus offset) because
+            // Render at parent position (getX()/getY() minus offset) because
             // SpritePieceRenderer will add the piece offset
-            int renderX = currentX - pieceOffsetX;
-            int renderY = currentY - pieceOffsetY;
+            int renderX = getX() - pieceOffsetX;
+            int renderY = getY() - pieceOffsetY;
 
             SpritePieceRenderer.renderPieces(
                     List.of(piece),
@@ -644,9 +578,8 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
         }
 
         private void appendDebugFragment(List<GLCommand> commands) {
-            // Fragment position already includes piece offset (set in constructor)
-            int renderX = currentX;
-            int renderY = currentY;
+            int renderX = getX();
+            int renderY = getY();
 
             int size = 12;  // Approximate piece size for debug
             int left = renderX - size;
@@ -654,10 +587,9 @@ public class CollapsingPlatformObjectInstance extends AbstractObjectInstance
             int top = renderY - size;
             int bottom = renderY + size;
 
-            float alpha = falling ? 0.7f : 1.0f;
-            float r = 0.6f * alpha;
-            float g = 0.3f * alpha;
-            float b = 0.1f * alpha;
+            float r = 0.42f;
+            float g = 0.21f;
+            float b = 0.07f;
 
             // Draw a small square for the fragment
             commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,

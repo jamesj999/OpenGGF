@@ -1,12 +1,12 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
-import com.openggf.graphics.FadeManager;
+import com.openggf.level.objects.AbstractResultsScreen;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Pattern;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpriteSheet;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -124,7 +124,7 @@ public class ResultsScreenObjectInstance extends AbstractResultsScreen {
         // Update total
         totalBonus += totalIncrement;
 
-        return new TallyResult(anyRemaining, totalIncrement);
+        return tallyResult(anyRemaining, totalIncrement);
     }
 
     @Override
@@ -136,19 +136,14 @@ public class ResultsScreenObjectInstance extends AbstractResultsScreen {
         LOGGER.info("Results screen complete, starting fade to black");
 
         // Start fade to black, then transition to next level when fade completes
-        FadeManager fadeManager = FadeManager.getInstance();
+        var fadeManager = services().fadeManager();
         fadeManager.startFadeToBlack(() -> {
             // Mark this object as done
             setDestroyed(true);
 
             // Use existing LevelManager helper to advance to next act
-            LevelManager levelManager = LevelManager.getInstance();
-            if (levelManager != null) {
-                try {
-                    levelManager.advanceToNextLevel();
-                } catch (java.io.IOException e) {
-                    LOGGER.severe("Failed to load next level: " + e.getMessage());
-                }
+            if (services().currentLevel() != null) {
+                services().advanceToNextLevel();
             }
 
             // Keep transition atomic: once the new level is loaded, immediately
@@ -159,17 +154,11 @@ public class ResultsScreenObjectInstance extends AbstractResultsScreen {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         if (camera == null) {
             return;
         }
-
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null) {
-            return;
-        }
-
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
@@ -276,7 +265,7 @@ public class ResultsScreenObjectInstance extends AbstractResultsScreen {
             clearBonusValue(patterns, Sonic2Constants.RESULTS_BONUS_DIGIT_GROUP_TILES * 3);
         }
 
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = services().graphicsManager();
         renderer.updatePatternRange(graphicsManager, 0, Sonic2Constants.RESULTS_BONUS_DIGIT_TILES);
 
         lastTimeBonus = timeBonus;
@@ -335,7 +324,7 @@ public class ResultsScreenObjectInstance extends AbstractResultsScreen {
      * Fallback placeholder rendering when ROM art is not available.
      */
     private void appendPlaceholderRenderCommands(List<GLCommand> commands) {
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         if (camera == null) {
             return;
         }
@@ -379,5 +368,23 @@ public class ResultsScreenObjectInstance extends AbstractResultsScreen {
 
     public boolean isPerfect() {
         return perfectBonus;
+    }
+
+    @Override
+    protected void playTickSound() {
+        try {
+            services().playSfx(Sonic2Sfx.BLIP.id);
+        } catch (Exception e) {
+            // Ignore audio errors
+        }
+    }
+
+    @Override
+    protected void playTallyEndSound() {
+        try {
+            services().playSfx(Sonic2Sfx.TALLY_END.id);
+        } catch (Exception e) {
+            // Ignore audio errors
+        }
     }
 }

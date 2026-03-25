@@ -1,12 +1,14 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+
 import com.openggf.level.ParallaxManager;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -45,8 +47,8 @@ public class BalkiryBadnikInstance extends AbstractBadnikInstance {
     private int subPixelX;
     private int subPixelY;
 
-    public BalkiryBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Balkiry");
+    public BalkiryBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Balkiry", Sonic2BadnikConfig.DESTRUCTION);
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         this.subPixelX = 0;
@@ -69,7 +71,8 @@ public class BalkiryBadnikInstance extends AbstractBadnikInstance {
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: JmpTo26_ObjectMove - apply velocity to position (subpixel precision)
         // x_pos += x_vel (as 16.16 fixed point)
         subPixelX += xVelocity;
@@ -81,7 +84,7 @@ public class BalkiryBadnikInstance extends AbstractBadnikInstance {
         subPixelY &= 0xFF;
 
         // ROM: loc_36776 - add Tornado_Velocity_X/Y to position
-        ParallaxManager pm = ParallaxManager.getInstance();
+        ParallaxManager pm = services().parallaxManager();
         currentX += pm.getTornadoVelocityX();
         currentY += pm.getTornadoVelocityY();
     }
@@ -108,7 +111,7 @@ public class BalkiryBadnikInstance extends AbstractBadnikInstance {
                 spawn.rawYWord());
 
         BalkiryJetObjectInstance jet = new BalkiryJetObjectInstance(jetSpawn, this);
-        levelManager.getObjectManager().addDynamicObject(jet);
+        services().objectManager().addDynamicObject(jet);
     }
 
     @Override
@@ -130,19 +133,12 @@ public class BalkiryBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.BALKIRY);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.BALKIRY);
+        if (renderer == null) return;
 
         // Balkiry art faces left by default (flies left), hFlip when facing right
         renderer.drawFrameIndex(animFrame, currentX, currentY, !facingLeft, false);

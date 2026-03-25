@@ -1,7 +1,7 @@
 package com.openggf.game.sonic2.objects;
 
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
@@ -96,13 +96,13 @@ public class BubbleGeneratorObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: Check if generator is above water (only spawn when underwater)
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager != null && levelManager.getCurrentLevel() != null) {
-            WaterSystem waterSystem = WaterSystem.getInstance();
-            int zoneId = levelManager.getCurrentLevel().getZoneIndex();
-            int actId = levelManager.getCurrentAct();
+        if (services().currentLevel() != null) {
+            WaterSystem waterSystem = services().waterSystem();
+            int zoneId = services().currentLevel().getZoneIndex();
+            int actId = services().currentAct();
 
             if (waterSystem.hasWater(zoneId, actId)) {
                 int waterY = waterSystem.getWaterLevelY(zoneId, actId);
@@ -179,8 +179,7 @@ public class BubbleGeneratorObjectInstance extends AbstractObjectInstance {
      * ROM: loc_1FA2A (lines 44870-44919)
      */
     private void spawnNextBubble() {
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
@@ -234,7 +233,7 @@ public class BubbleGeneratorObjectInstance extends AbstractObjectInstance {
 
         int wobbleAngle = random.nextInt(256);
         BubbleObjectInstance bubble = new BubbleObjectInstance(spawnX, spawnY, bubbleSize, wobbleAngle);
-        levelManager.getObjectManager().addDynamicObject(bubble);
+        services().objectManager().addDynamicObject(bubble);
 
         // ROM: Decrement bubble counter
         // subq.b #1,objoff_34(a0) / bpl.s loc_1FAC2

@@ -1,14 +1,13 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.audio.Sonic2Music;
+import com.openggf.game.sonic2.audio.Sonic2Sfx;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
-import com.openggf.game.sonic2.objects.ObjectAnimationState;
-import com.openggf.game.GameServices;
+import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.boss.AbstractBossInstance;
@@ -101,8 +100,8 @@ public class Sonic2CPZBossInstance extends AbstractBossInstance {
     private int mappingFrame;
     private ObjectAnimationState animationState;
 
-    public Sonic2CPZBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "CPZ Boss");
+    public Sonic2CPZBossInstance(ObjectSpawn spawn) {
+        super(spawn, "CPZ Boss");
     }
 
     @Override
@@ -169,7 +168,8 @@ public class Sonic2CPZBossInstance extends AbstractBossInstance {
     }
 
     @Override
-    protected void updateBossLogic(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateBossLogic(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         lookAtPlayer(player);
 
         switch (state.routine) {
@@ -270,7 +270,7 @@ public class Sonic2CPZBossInstance extends AbstractBossInstance {
                 state.yVel -= 8;
             } else if (defeatTimer == 0x30) {
                 state.yVel = 0;
-                AudioManager.getInstance().playMusic(Sonic2Music.CHEMICAL_PLANT.id);
+                services().playMusic(Sonic2Music.CHEMICAL_PLANT.id);
             } else if (defeatTimer >= 0x38) {
                 state.routine = MAIN_RETREAT;
             }
@@ -284,7 +284,7 @@ public class Sonic2CPZBossInstance extends AbstractBossInstance {
         status2 |= STATUS2_RETREAT;
         state.xVel = MAIN_RETREAT_XVEL;
         state.yVel = MAIN_RETREAT_YVEL;
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         if (camera != null) {
             if (camera.getMaxX() < MAIN_RETREAT_CAMERA_MAX_X) {
                 camera.setMaxX((short) (camera.getMaxX() + 2));
@@ -327,7 +327,7 @@ public class Sonic2CPZBossInstance extends AbstractBossInstance {
         if (robotnik != null) {
             robotnik.setDestroyed(true);
         }
-        GameServices.gameState().setCurrentBossId(0);
+        services().gameState().setCurrentBossId(0);
         setDestroyed(true);
     }
 
@@ -342,51 +342,51 @@ public class Sonic2CPZBossInstance extends AbstractBossInstance {
     // ========================================================================
 
     private void spawnRobotnik() {
-        if (levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
         ObjectSpawn robotnikSpawn = new ObjectSpawn(state.x, state.y, Sonic2ObjectIds.CPZ_BOSS, 0, state.renderFlags, false, 0);
-        robotnik = new CPZBossRobotnik(robotnikSpawn, levelManager, this);
-        levelManager.getObjectManager().addDynamicObject(robotnik);
+        robotnik = new CPZBossRobotnik(robotnikSpawn, this);
+        services().objectManager().addDynamicObject(robotnik);
     }
 
     private void spawnFlame() {
         if ((spawn.subtype() & 0x80) != 0) {
             return;
         }
-        if (levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
         ObjectSpawn flameSpawn = new ObjectSpawn(state.x, state.y, Sonic2ObjectIds.CPZ_BOSS, 0, state.renderFlags, false, 0);
-        flame = new CPZBossFlame(flameSpawn, levelManager, this);
-        levelManager.getObjectManager().addDynamicObject(flame);
+        flame = new CPZBossFlame(flameSpawn, this);
+        services().objectManager().addDynamicObject(flame);
     }
 
     private void spawnPump() {
-        if (levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
         ObjectSpawn pumpSpawn = new ObjectSpawn(state.x, state.y, Sonic2ObjectIds.CPZ_BOSS, 0, state.renderFlags, false, 0);
-        pump = new CPZBossPump(pumpSpawn, levelManager, this);
-        levelManager.getObjectManager().addDynamicObject(pump);
+        pump = new CPZBossPump(pumpSpawn, this);
+        services().objectManager().addDynamicObject(pump);
     }
 
     private void spawnContainer() {
-        if (levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
         ObjectSpawn containerSpawn = new ObjectSpawn(state.x, state.y, Sonic2ObjectIds.CPZ_BOSS, 0, state.renderFlags, false, 0);
-        container = new CPZBossContainer(containerSpawn, levelManager, this);
-        levelManager.getObjectManager().addDynamicObject(container);
+        container = new CPZBossContainer(containerSpawn, this);
+        services().objectManager().addDynamicObject(container);
     }
 
     private void spawnPipe() {
-        if (levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
         ObjectSpawn pipeSpawn = new ObjectSpawn(state.x, state.y, Sonic2ObjectIds.CPZ_BOSS, 0, state.renderFlags, false, 0);
-        currentPipe = new CPZBossPipe(pipeSpawn, levelManager, this);
-        levelManager.getObjectManager().addDynamicObject(currentPipe);
+        currentPipe = new CPZBossPipe(pipeSpawn, this);
+        services().objectManager().addDynamicObject(currentPipe);
     }
 
     // ========================================================================
@@ -533,7 +533,7 @@ public class Sonic2CPZBossInstance extends AbstractBossInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = levelManager != null ? levelManager.getObjectRenderManager() : null;
+        ObjectRenderManager renderManager = services() != null ? services().renderManager() : null;
         if (renderManager == null) {
             return;
         }
@@ -558,10 +558,20 @@ public class Sonic2CPZBossInstance extends AbstractBossInstance {
 
     @Override
     protected boolean isOnScreen() {
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         int screenX = state.x - camera.getX();
         int screenY = state.y - camera.getY();
         return screenX >= -64 && screenX <= camera.getWidth() + 64
                 && screenY >= -64 && screenY <= camera.getHeight() + 64;
+    }
+
+    @Override
+    protected int getBossHitSfxId() {
+        return Sonic2Sfx.BOSS_HIT.id;
+    }
+
+    @Override
+    protected int getBossExplosionSfxId() {
+        return Sonic2Sfx.BOSS_EXPLOSION.id;
     }
 }

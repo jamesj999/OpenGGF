@@ -2,9 +2,9 @@ package com.openggf.game.sonic1.objects;
 
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.Sonic1SwitchManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectManager;
@@ -271,7 +271,8 @@ public class Sonic1StomperDoorObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Save X before movement for SolidObject platform delta
         int prevX = x;
 
@@ -309,7 +310,7 @@ public class Sonic1StomperDoorObjectInstance extends AbstractObjectInstance
         if (!active) {
             // lea (f_switch).w,a2 / btst #0,(a2,d0.w) / beq.s .loc_15DC2
             if (switchIndex >= 0) {
-                Sonic1SwitchManager switches = Sonic1SwitchManager.getInstance();
+                Sonic1SwitchManager switches = services().gameService(Sonic1SwitchManager.class);
                 if ((switches.getRaw(switchIndex) & 0x01) != 0) {
                     // move.b #1,sto_active(a0)
                     active = true;
@@ -505,13 +506,13 @@ public class Sonic1StomperDoorObjectInstance extends AbstractObjectInstance
         if (!active) {
             // Check switch
             if (switchIndex >= 0) {
-                Sonic1SwitchManager switches = Sonic1SwitchManager.getInstance();
+                Sonic1SwitchManager switches = services().gameService(Sonic1SwitchManager.class);
                 if ((switches.getRaw(switchIndex) & 0x01) != 0) {
                     active = true;
                     // bset #0,2(a2,d0.w) — set respawn flag so this door won't
                     // reappear at its original position if the player leaves and
                     // returns. Equivalent to ROM v_objstate respawn bit.
-                    ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+                    ObjectManager objectManager = services().objectManager();
                     if (objectManager != null) {
                         objectManager.markRemembered(getSpawn());
                     }
@@ -580,7 +581,7 @@ public class Sonic1StomperDoorObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
@@ -615,7 +616,8 @@ public class Sonic1StomperDoorObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // The object is always solid when visible/active
         return true;
     }
@@ -623,7 +625,8 @@ public class Sonic1StomperDoorObjectInstance extends AbstractObjectInstance
     // ---- SolidObjectListener ----
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // SolidObject handles the collision response; no extra per-contact behavior needed.
     }
 

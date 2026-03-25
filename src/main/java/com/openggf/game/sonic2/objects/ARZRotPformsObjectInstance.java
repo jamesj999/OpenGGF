@@ -1,18 +1,12 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.sonic2.S2SpriteDataLoader;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
-import com.openggf.game.GameServices;
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.data.Rom;
-import com.openggf.data.RomByteReader;
-import com.openggf.debug.DebugOverlayManager;
-import com.openggf.debug.DebugOverlayToggle;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.PatternDesc;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.MultiPieceSolidProvider;
@@ -25,8 +19,8 @@ import com.openggf.level.render.SpriteMappingPiece;
 import com.openggf.level.render.SpritePieceRenderer;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.util.LazyMappingHolder;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -85,13 +79,7 @@ public class ARZRotPformsObjectInstance extends AbstractObjectInstance
             new SolidObjectParams(PLATFORM_HALF_WIDTH, PLATFORM_TOP_HEIGHT, PLATFORM_BOTTOM_HEIGHT);
 
     // Static mapping data
-    private static List<SpriteMappingFrame> mappings;
-    private static boolean mappingsLoadAttempted;
-
-    // Debug state (cached for performance)
-    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
-            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
+    private static final LazyMappingHolder MAPPINGS = new LazyMappingHolder();
 
     // Position state
     private final int initialX;
@@ -159,7 +147,8 @@ public class ARZRotPformsObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -284,35 +273,32 @@ public class ARZRotPformsObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed();
     }
 
     @Override
-    public void onPieceContact(int pieceIndex, AbstractPlayableSprite player,
+    public void onPieceContact(int pieceIndex, PlayableEntity playerEntity,
                                SolidContact contact, int frameCounter) {
         // No special handling needed for piece contact
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // No special handling needed for solid contact
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ensureMappingsLoaded();
-
-        // Draw debug collision boxes when F1 debug view is enabled
-        if (isDebugViewEnabled()) {
-            appendDebug(commands);
-        }
-
-        if (mappings == null || mappings.isEmpty()) {
+        List<SpriteMappingFrame> mappings = MAPPINGS.get(
+                Sonic2Constants.MAP_UNC_OBJ83_ADDR, S2SpriteDataLoader::loadMappingFrames, "Obj83");
+        if (mappings.isEmpty()) {
             return;
         }
 
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = services().graphicsManager();
         boolean hFlip = (spawn.renderFlags() & 0x1) != 0;
         boolean vFlip = (spawn.renderFlags() & 0x2) != 0;
 
@@ -365,32 +351,11 @@ public class ARZRotPformsObjectInstance extends AbstractObjectInstance
         return RenderPriority.clamp(4);  // Priority 4 from disassembly
     }
 
-    private static void ensureMappingsLoaded() {
-        if (mappingsLoadAttempted) {
-            return;
-        }
-        mappingsLoadAttempted = true;
-
-        LevelManager manager = LevelManager.getInstance();
-        if (manager == null || manager.getGame() == null) {
-            return;
-        }
-
-        try {
-            Rom rom = manager.getGame().getRom();
-            RomByteReader reader = RomByteReader.fromRom(rom);
-            mappings = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ83_ADDR);
-            LOGGER.fine("Loaded " + mappings.size() + " Obj83 mapping frames");
-        } catch (IOException | RuntimeException e) {
-            LOGGER.warning("Failed to load Obj83 mappings: " + e.getMessage());
-        }
-    }
-
-
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         // Draw center point (yellow)
-        appendLine(commands, initialX - 4, initialY, initialX + 4, initialY, 1.0f, 1.0f, 0.0f);
-        appendLine(commands, initialX, initialY - 4, initialX, initialY + 4, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(initialX - 4, initialY, initialX + 4, initialY, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(initialX, initialY - 4, initialX, initialY + 4, 1.0f, 1.0f, 0.0f);
 
         // Draw platform collision boxes
         for (int i = 0; i < NUM_PLATFORMS; i++) {
@@ -400,31 +365,21 @@ public class ARZRotPformsObjectInstance extends AbstractObjectInstance
             int bottom = platformY[i] + PLATFORM_BOTTOM_HEIGHT;
 
             // Green for platforms
-            appendLine(commands, left, top, right, top, 0.0f, 1.0f, 0.0f);  // Top edge (standing surface)
-            appendLine(commands, right, top, right, bottom, 0.3f, 0.7f, 0.3f);
-            appendLine(commands, right, bottom, left, bottom, 0.3f, 0.7f, 0.3f);
-            appendLine(commands, left, bottom, left, top, 0.3f, 0.7f, 0.3f);
+            ctx.drawLine(left, top, right, top, 0.0f, 1.0f, 0.0f);  // Top edge (standing surface)
+            ctx.drawLine(right, top, right, bottom, 0.3f, 0.7f, 0.3f);
+            ctx.drawLine(right, bottom, left, bottom, 0.3f, 0.7f, 0.3f);
+            ctx.drawLine(left, bottom, left, top, 0.3f, 0.7f, 0.3f);
 
             // Center cross in red
-            appendLine(commands, platformX[i] - 2, platformY[i], platformX[i] + 2, platformY[i], 1.0f, 0.0f, 0.0f);
-            appendLine(commands, platformX[i], platformY[i] - 2, platformX[i], platformY[i] + 2, 1.0f, 0.0f, 0.0f);
+            ctx.drawLine(platformX[i] - 2, platformY[i], platformX[i] + 2, platformY[i], 1.0f, 0.0f, 0.0f);
+            ctx.drawLine(platformX[i], platformY[i] - 2, platformX[i], platformY[i] + 2, 1.0f, 0.0f, 0.0f);
         }
 
         // Draw chain link positions (small cyan crosses)
         for (int i = 0; i < TOTAL_CHAIN_LINKS; i++) {
-            appendLine(commands, chainX[i] - 2, chainY[i], chainX[i] + 2, chainY[i], 0.0f, 1.0f, 1.0f);
-            appendLine(commands, chainX[i], chainY[i] - 2, chainX[i], chainY[i] + 2, 0.0f, 1.0f, 1.0f);
+            ctx.drawLine(chainX[i] - 2, chainY[i], chainX[i] + 2, chainY[i], 0.0f, 1.0f, 1.0f);
+            ctx.drawLine(chainX[i], chainY[i] - 2, chainX[i], chainY[i] + 2, 0.0f, 1.0f, 1.0f);
         }
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2, float r, float g, float b) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x2, y2, 0, 0));
-    }
-
-    private boolean isDebugViewEnabled() {
-        return DEBUG_VIEW_ENABLED && OVERLAY_MANAGER.isEnabled(DebugOverlayToggle.OVERLAY);
-    }
 }

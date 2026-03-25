@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.sonic2.objects.badniks.GrounderBadnikInstance;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
@@ -117,7 +118,8 @@ public class GrounderWallInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Wait for parent's activation flag
         if (!activated) {
             if (parent == null || parent.isActivated()) {
@@ -148,14 +150,7 @@ public class GrounderWallInstance extends AbstractObjectInstance {
 
     @Override
     public ObjectSpawn getSpawn() {
-        return new ObjectSpawn(
-                currentX,
-                currentY,
-                spawn.objectId(),
-                spawn.subtype(),
-                spawn.renderFlags(),
-                spawn.respawnTracked(),
-                spawn.rawYWord());
+        return buildSpawnAt(currentX, currentY);
     }
 
     @Override
@@ -175,7 +170,7 @@ public class GrounderWallInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = services().graphicsManager();
 
         for (int i = WALL_PIECES.size() - 1; i >= 0; i--) {
             SpriteMappingPiece piece = WALL_PIECES.get(i);
@@ -201,5 +196,4 @@ public class GrounderWallInstance extends AbstractObjectInstance {
         }
     }
 }
-
 

@@ -1,8 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.audio.AudioManager;
-import com.openggf.camera.Camera;
-import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
@@ -10,13 +8,10 @@ import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -144,7 +139,8 @@ public class S3kSignpostInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -165,7 +161,7 @@ public class S3kSignpostInstance extends AbstractObjectInstance {
     private void updateInit(AbstractPlayableSprite player) {
         activeSignpost = this;
 
-        Camera camera = Camera.getInstance();
+        var camera = services().camera();
         worldY = camera.getY() - 0x20;
 
         // Select animation based on player character
@@ -177,7 +173,7 @@ public class S3kSignpostInstance extends AbstractObjectInstance {
         sparkleCounter = 0;
 
         try {
-            AudioManager.getInstance().playSfx(Sonic3kSfx.SIGNPOST.id);
+            services().playSfx(Sonic3kSfx.SIGNPOST.id);
         } catch (Exception e) {
             LOG.fine("Could not play signpost SFX: " + e.getMessage());
         }
@@ -222,7 +218,7 @@ public class S3kSignpostInstance extends AbstractObjectInstance {
         checkBumpFromBelow(player);
 
         // Wall bounce
-        Camera camera = Camera.getInstance();
+        var camera = services().camera();
         int camX = camera.getX();
         if (worldX > camX + WALL_RIGHT_MARGIN) {
             xVel = -Math.abs(xVel);
@@ -289,12 +285,12 @@ public class S3kSignpostInstance extends AbstractObjectInstance {
         yVel = -0x200;
 
         try {
-            AudioManager.getInstance().playSfx(Sonic3kSfx.SIGNPOST.id);
+            services().playSfx(Sonic3kSfx.SIGNPOST.id);
         } catch (Exception e) {
             LOG.fine("Could not play signpost bump SFX: " + e.getMessage());
         }
 
-        GameServices.gameState().addScore(100);
+        services().gameState().addScore(100);
         bumpCooldown = BUMP_COOLDOWN;
         LOG.fine("S3K Signpost bumped! xVel=" + xVel);
     }
@@ -354,7 +350,8 @@ public class S3kSignpostInstance extends AbstractObjectInstance {
 
         // ROM line 176215: st (Ctrl_2_locked).w — lock sidekick input
         // Also apply Set_PlayerEndingPose equivalent so Tails does a victory pose
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+        for (PlayableEntity sidekickEntity : services().sidekicks()) {
+            AbstractPlayableSprite sidekick = (AbstractPlayableSprite) sidekickEntity;
             sidekick.setObjectControlled(true);
             sidekick.setControlLocked(true);
             sidekick.setXSpeed((short) 0);
@@ -415,15 +412,12 @@ public class S3kSignpostInstance extends AbstractObjectInstance {
 
     private PatternSpriteRenderer getEndSignRenderer() {
         try {
-            LevelManager lm = LevelManager.getInstance();
-            if (lm != null) {
-                ObjectRenderManager orm = lm.getObjectRenderManager();
-                if (orm != null) {
-                    return orm.getRenderer(Sonic3kObjectArtKeys.END_SIGN);
-                }
+            var renderManager = services().renderManager();
+            if (renderManager != null) {
+                return renderManager.getRenderer(Sonic3kObjectArtKeys.END_SIGN);
             }
-        } catch (Exception ignored) {
-            // Render manager unavailable (e.g. headless test)
+        } catch (Exception e) {
+            LOG.fine(() -> "S3kSignpostInstance.getEndSignRenderer: " + e.getMessage());
         }
         return null;
     }
@@ -444,7 +438,7 @@ public class S3kSignpostInstance extends AbstractObjectInstance {
 
     private PlayerCharacter getPlayerCharacter() {
         try {
-            return Sonic3kLevelEventManager.getInstance().getPlayerCharacter();
+            return ((Sonic3kLevelEventManager) services().levelEventProvider()).getPlayerCharacter();
         } catch (Exception e) {
             return PlayerCharacter.SONIC_AND_TAILS;
         }

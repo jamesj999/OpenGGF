@@ -1,18 +1,12 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.PlayableEntity;
 
-import com.openggf.camera.Camera;
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.debug.DebugOverlayManager;
-import com.openggf.debug.DebugOverlayToggle;
-import com.openggf.game.GameServices;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -65,11 +59,6 @@ public class Sonic1SpikedBallChainObjectInstance extends AbstractObjectInstance
     // LZ parent collision type: move.b #$8B,obColType(a0)
     // Only the end ball hurts in LZ — HURT ($80) + size index $0B
     private static final int LZ_PARENT_COLLISION_TYPE = 0x8B;
-
-    // Debug state
-    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
-            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
 
     // Zone variant
     private final boolean isLZ;
@@ -186,7 +175,8 @@ public class Sonic1SpikedBallChainObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -235,18 +225,8 @@ public class Sonic1SpikedBallChainObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(artKey);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
-
-        if (isDebugViewEnabled()) {
-            appendDebug(commands);
-        }
+        PatternSpriteRenderer renderer = getRenderer(artKey);
+        if (renderer == null) return;
 
         // Render all chain elements (innermost first for correct layering)
         for (int i = elementCount - 1; i >= 0; i--) {
@@ -305,7 +285,7 @@ public class Sonic1SpikedBallChainObjectInstance extends AbstractObjectInstance
     }
 
     private boolean isOrigXOnScreen() {
-        var camera = Camera.getInstance();
+        var camera = services().camera();
         if (camera == null) {
             return true;
         }
@@ -317,34 +297,25 @@ public class Sonic1SpikedBallChainObjectInstance extends AbstractObjectInstance
 
     // ---- Debug rendering ----
 
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         // Draw pivot point (yellow cross)
-        appendLine(commands, origX - 4, origY, origX + 4, origY, 1.0f, 1.0f, 0.0f);
-        appendLine(commands, origX, origY - 4, origX, origY + 4, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(origX - 4, origY, origX + 4, origY, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(origX, origY - 4, origX, origY + 4, 1.0f, 1.0f, 0.0f);
 
         // Draw each element position
         for (int i = 0; i < elementCount; i++) {
             boolean harmful = elementColType[i] != 0;
             float r = harmful ? 1.0f : 0.0f;
             float g = harmful ? 0.0f : 1.0f;
-            appendLine(commands, elementX[i] - 3, elementY[i], elementX[i] + 3, elementY[i], r, g, 0.0f);
-            appendLine(commands, elementX[i], elementY[i] - 3, elementX[i], elementY[i] + 3, r, g, 0.0f);
+            ctx.drawLine(elementX[i] - 3, elementY[i], elementX[i] + 3, elementY[i], r, g, 0.0f);
+            ctx.drawLine(elementX[i], elementY[i] - 3, elementX[i], elementY[i] + 3, r, g, 0.0f);
         }
 
         // Draw line from pivot to parent element (outermost)
         int parentIdx = elementCount - 1;
-        appendLine(commands, origX, origY, elementX[parentIdx], elementY[parentIdx], 0.5f, 0.5f, 0.5f);
+        ctx.drawLine(origX, origY, elementX[parentIdx], elementY[parentIdx], 0.5f, 0.5f, 0.5f);
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2,
-                            float r, float g, float b) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x2, y2, 0, 0));
-    }
 
-    private boolean isDebugViewEnabled() {
-        return DEBUG_VIEW_ENABLED && OVERLAY_MANAGER.isEnabled(DebugOverlayToggle.OVERLAY);
-    }
 }

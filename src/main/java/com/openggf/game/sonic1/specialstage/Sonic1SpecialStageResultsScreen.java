@@ -1,6 +1,5 @@
 package com.openggf.game.sonic1.specialstage;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.data.Rom;
 import com.openggf.data.RomManager;
@@ -16,12 +15,9 @@ import com.openggf.level.objects.ObjectSpriteSheet;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpriteMappingPiece;
-import com.openggf.tools.NemesisReader;
+import com.openggf.util.PatternDecompressor;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.nio.channels.Channels;
-import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -238,7 +234,7 @@ public final class Sonic1SpecialStageResultsScreen implements ResultsScreen {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        Camera camera = Camera.getInstance();
+        Camera camera = GameServices.camera();
         if (camera == null) {
             return;
         }
@@ -289,11 +285,11 @@ public final class Sonic1SpecialStageResultsScreen implements ResultsScreen {
             Rom rom = romManager.getRom();
 
             // Load title card patterns (Nem_TitleCard) -> VRAM $580+
-            Pattern[] titleCardPatterns = loadNemesisPatterns(rom,
+            Pattern[] titleCardPatterns = PatternDecompressor.nemesis(rom,
                     Sonic1Constants.ART_NEM_TITLE_CARD_ADDR, "TitleCard");
 
             // Load HUD text patterns (Nem_Hud: SCORE/TIME/RINGS labels) -> VRAM $6CA+
-            Pattern[] hudTextPatterns = loadNemesisPatterns(rom,
+            Pattern[] hudTextPatterns = PatternDecompressor.nemesis(rom,
                     Sonic1Constants.ART_NEM_HUD_ADDR, "HUDText");
 
             // Load HUD digit patterns (uncompressed, for number rendering)
@@ -362,7 +358,7 @@ public final class Sonic1SpecialStageResultsScreen implements ResultsScreen {
     }
 
     private void loadEmeraldArt(Rom rom) {
-        Pattern[] emeraldPatterns = loadNemesisPatterns(rom,
+        Pattern[] emeraldPatterns = PatternDecompressor.nemesis(rom,
                 Sonic1Constants.ART_NEM_SS_RESULT_EM_ADDR, "SSResultEmerald");
         if (emeraldPatterns.length == 0) {
             LOGGER.warning("Failed to load SS results emerald art");
@@ -675,29 +671,6 @@ public final class Sonic1SpecialStageResultsScreen implements ResultsScreen {
 
     // ===== ROM art loading helpers =====
 
-    private Pattern[] loadNemesisPatterns(Rom rom, int address, String name) {
-        try {
-            byte[] compressed = rom.readBytes(address, 8192);
-            try (ByteArrayInputStream bais = new ByteArrayInputStream(compressed);
-                 ReadableByteChannel channel = Channels.newChannel(bais)) {
-                byte[] decompressed = NemesisReader.decompress(channel);
-                int count = decompressed.length / Pattern.PATTERN_SIZE_IN_ROM;
-                Pattern[] patterns = new Pattern[count];
-                for (int i = 0; i < count; i++) {
-                    patterns[i] = new Pattern();
-                    byte[] sub = Arrays.copyOfRange(decompressed,
-                            i * Pattern.PATTERN_SIZE_IN_ROM,
-                            (i + 1) * Pattern.PATTERN_SIZE_IN_ROM);
-                    patterns[i].fromSegaFormat(sub);
-                }
-                return patterns;
-            }
-        } catch (IOException e) {
-            LOGGER.warning("Failed to load " + name + " patterns: " + e.getMessage());
-            return new Pattern[0];
-        }
-    }
-
     private Pattern[] loadUncompressedPatterns(Rom rom, int address, int size, String name) {
         try {
             byte[] data = rom.readBytes(address, size);
@@ -902,7 +875,7 @@ public final class Sonic1SpecialStageResultsScreen implements ResultsScreen {
 
     private void playTickSound() {
         try {
-            AudioManager.getInstance().playSfx(Sonic1Sfx.SWITCH.id);
+            GameServices.audio().playSfx(Sonic1Sfx.SWITCH.id);
         } catch (Exception ignored) {
             // Audio failure should not affect results flow.
         }
@@ -910,7 +883,7 @@ public final class Sonic1SpecialStageResultsScreen implements ResultsScreen {
 
     private void playTallyEndSound() {
         try {
-            AudioManager.getInstance().playSfx(Sonic1Sfx.TALLY.id);
+            GameServices.audio().playSfx(Sonic1Sfx.TALLY.id);
         } catch (Exception ignored) {
             // Audio failure should not affect results flow.
         }

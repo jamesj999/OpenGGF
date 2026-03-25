@@ -1,13 +1,13 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+import com.openggf.level.objects.AbstractFallingFragment;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -192,7 +192,8 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Solid during normal, collapsing, AND solid-stay states.
         // ROM: loc_205DE still calls SolidObjectTopSloped2 after fragments spawn.
         return state < 3;
@@ -208,7 +209,8 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
     // ===== SolidObjectListener =====
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (contact.standing() && state == 0) {
             // Player stepped on: set trigger flag (ROM: $3A)
             triggered = true;
@@ -219,7 +221,8 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
     // ===== Update =====
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
             case 0 -> {
                 // Normal: just check if triggered via onSolidContact
@@ -284,7 +287,7 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
         // Play collapse SFX
         if (isOnScreen()) {
             try {
-                AudioManager.getInstance().playSfx(Sonic3kSfx.COLLAPSE.id);
+                services().playSfx(Sonic3kSfx.COLLAPSE.id);
             } catch (Exception e) {
                 // Prevent audio failure from breaking game logic
             }
@@ -326,9 +329,9 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
 
     private void markRemembered() {
         try {
-            LevelManager lm = LevelManager.getInstance();
-            if (lm != null && lm.getObjectManager() != null) {
-                lm.getObjectManager().markRemembered(spawn);
+            var objectManager = services().objectManager();
+            if (objectManager != null) {
+                objectManager.markRemembered(spawn);
             }
         } catch (Exception e) {
             // Safe fallback for test environments
@@ -377,29 +380,19 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
 
     // ===== Helpers =====
 
-    private static ObjectRenderManager getRenderManager() {
-        try {
-            LevelManager lm = LevelManager.getInstance();
-            return lm != null ? lm.getObjectRenderManager() : null;
-        } catch (Exception e) {
-            return null;
-        }
-    }
+    // Uses inherited getRenderManager() from AbstractObjectInstance
 
-    private static ZoneConfig resolveConfig() {
+    private ZoneConfig resolveConfig() {
         try {
-            LevelManager lm = LevelManager.getInstance();
-            if (lm != null) {
-                int zone = lm.getCurrentZone();
-                int act = lm.getCurrentAct();
-                if (zone == Sonic3kZoneIds.ZONE_AIZ) {
-                    return act == 0 ? AIZ1_CONFIG : AIZ2_CONFIG;
-                }
-                if (zone == Sonic3kZoneIds.ZONE_ICZ) {
-                    return ICZ_CONFIG;
-                }
-                LOG.warning("CollapsingPlatform: unknown zone 0x" + Integer.toHexString(zone) + ", defaulting to AIZ1 config");
+            int zone = services().romZoneId();
+            int act = services().currentAct();
+            if (zone == Sonic3kZoneIds.ZONE_AIZ) {
+                return act == 0 ? AIZ1_CONFIG : AIZ2_CONFIG;
             }
+            if (zone == Sonic3kZoneIds.ZONE_ICZ) {
+                return ICZ_CONFIG;
+            }
+            LOG.warning("CollapsingPlatform: unknown zone 0x" + Integer.toHexString(zone) + ", defaulting to AIZ1 config");
         } catch (Exception e) {
             LOG.fine("Could not resolve zone config: " + e.getMessage());
         }
@@ -417,13 +410,8 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
      * <p>
      * ROM: loc_205CE (fragment routine in Obj_CollapsingPlatform).
      */
-    public static class CollapsingPlatformFragment extends AbstractObjectInstance {
+    public static class CollapsingPlatformFragment extends AbstractFallingFragment {
 
-        private int x;
-        private int y;
-        private int velY;
-        private int yFrac;
-        private int delayTimer;
         private final int fragmentFrameIndex;
         private final int pieceIndex;
         private final String artKey;
@@ -433,67 +421,21 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
                                           int fragmentFrameIndex, int pieceIndex,
                                           int delay, String artKey, boolean hFlip) {
             super(new ObjectSpawn(parentX, parentY, Sonic3kObjectIds.COLLAPSING_PLATFORM,
-                    0, hFlip ? 1 : 0, false, 0), "PlatformFragment");
-            this.x = parentX;
-            this.y = parentY;
+                    0, hFlip ? 1 : 0, false, 0), "PlatformFragment", delay, PRIORITY);
             this.fragmentFrameIndex = fragmentFrameIndex;
             this.pieceIndex = pieceIndex;
-            this.delayTimer = delay;
             this.artKey = artKey;
             this.hFlip = hFlip;
         }
 
         @Override
-        public int getX() {
-            return x;
-        }
-
-        @Override
-        public int getY() {
-            return y;
-        }
-
-        @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
-            if (delayTimer > 0) {
-                delayTimer--;
-                return;
-            }
-
-            // Apply gravity and move
-            velY += GRAVITY;
-            int y32 = (y << 16) | (yFrac & 0xFFFF);
-            y32 += ((int) (short) velY) << 8;
-            y = y32 >> 16;
-            yFrac = y32 & 0xFFFF;
-
-            // Destroy when far offscreen
-            if (!isOnScreen(128)) {
-                setDestroyed(true);
-            }
-        }
-
-        @Override
         public void appendRenderCommands(List<GLCommand> commands) {
-            ObjectRenderManager renderManager = getRenderManager();
-            if (renderManager == null) {
+            PatternSpriteRenderer renderer = getRenderer(artKey);
+            if (renderer == null) {
                 return;
             }
 
-            PatternSpriteRenderer renderer = renderManager.getRenderer(artKey);
-            if (renderer != null && renderer.isReady()) {
-                renderer.drawFramePieceByIndex(fragmentFrameIndex, pieceIndex, x, y, hFlip, false);
-            }
-        }
-
-        @Override
-        public int getPriorityBucket() {
-            return RenderPriority.clamp(PRIORITY);
-        }
-
-        @Override
-        public boolean isPersistent() {
-            return !isDestroyed();
+            renderer.drawFramePieceByIndex(fragmentFrameIndex, pieceIndex, getX(), getY(), hFlip, false);
         }
     }
 }

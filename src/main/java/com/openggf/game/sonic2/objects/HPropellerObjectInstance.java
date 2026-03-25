@@ -2,16 +2,14 @@ package com.openggf.game.sonic2.objects;
 
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.OscillationManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import com.openggf.debug.DebugColor;
@@ -173,7 +171,8 @@ public class HPropellerObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Only check players in WFZ mode (routine 2 = ObjB5_Main)
         // ROM order: player push check THEN animation update
         if (routineMode == ROUTINE_WFZ_MAIN) {
@@ -282,8 +281,8 @@ public class HPropellerObjectInstance extends AbstractObjectInstance {
         }
 
         // Check sidekick(s)
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
-            checkAndPushPlayer(sidekick);
+        for (PlayableEntity sidekick : services().sidekicks()) {
+            checkAndPushPlayer((AbstractPlayableSprite) sidekick);
         }
     }
 
@@ -375,14 +374,8 @@ public class HPropellerObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.WFZ_HPROPELLER);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.WFZ_HPROPELLER);
+        if (renderer == null) return;
 
         renderer.drawFrameIndex(mappingFrame, spawn.x(), spawn.y(), false, false);
     }

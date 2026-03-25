@@ -10,6 +10,7 @@ import com.openggf.level.animation.AnimatedPaletteManager;
 
 import java.util.ArrayList;
 import java.util.List;
+import com.openggf.game.GameServices;
 
 /**
  * Applies Sonic 3&amp;K palette cycling for supported zones.
@@ -280,7 +281,7 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
         void tick(Level level, GraphicsManager gm) {
             // ROM: AIZ1_Resize routine 0 (line 38873-38877) clears the flag once
             // when Camera X >= 0x1000. It never re-sets it.
-            if (introFlag && (Camera.getInstance().getX() & 0xFFFF) >= 0x1000) {
+            if (introFlag && (GameServices.camera().getX() & 0xFFFF) >= 0x1000) {
                 introFlag = false;
             }
 
@@ -353,7 +354,7 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
             // ROM gates this with tst.b (Palette_cycle_counters+$00) / bne.s skip.
             // During intro, byte is non-zero (emerald palette occupies palette 3).
             // We use isLevelStarted() as an equivalent gate.
-            if (Camera.getInstance().isLevelStarted()) {
+            if (GameServices.camera().isLevelStarted()) {
                 // counter2 may carry a value from intro mode (wraps at 0x3C)
                 // that exceeds secondaryData bounds (0x30). Re-wrap first.
                 if (counter2 >= 0x30) {
@@ -401,7 +402,7 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
                 timer--;
             } else {
                 timer = 5;
-                int cameraX = Camera.getInstance().getX() & 0xFFFF;
+                int cameraX = GameServices.camera().getX() & 0xFFFF;
 
                 // Cycle A: water → palette 3, colors 12-15
                 int d0 = counter0 & 0x18;
@@ -469,7 +470,7 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
                 timer--;
             } else {
                 timer = 1;
-                int cameraX = Camera.getInstance().getX() & 0xFFFF;
+                int cameraX = GameServices.camera().getX() & 0xFFFF;
 
                 int d0 = counter;
                 counter += 2;
@@ -558,7 +559,7 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
         private void tickCaveLighting(Level level) {
             // HCZ1_Resize secondary behavior: per-frame camera-dependent palette mutation.
             // Palette[3] colors 8-10 = Normal_palette_line_4+$10 (3 words = 3 colors)
-            Camera cam = Camera.getInstance();
+            Camera cam = GameServices.camera();
             int cameraX = cam.getX() & 0xFFFF;
             int cameraY = cam.getY() & 0xFFFF;
 

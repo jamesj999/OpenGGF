@@ -1,10 +1,12 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
-import com.openggf.level.objects.ObjectRenderManager;
+
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -73,8 +75,8 @@ public class FlasherBadnikInstance extends AbstractBadnikInstance {
     private int animationDelayCounter;
     private int animationIndex;
 
-    public FlasherBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Flasher");
+    public FlasherBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Flasher", Sonic2BadnikConfig.DESTRUCTION);
         this.state = State.WAITING;
         this.stateTimer = WAIT_TIMER_INIT;
         this.xPosFixed = currentX << 8;
@@ -88,7 +90,8 @@ public class FlasherBadnikInstance extends AbstractBadnikInstance {
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
             case WAITING -> updateWaiting();
             case FLYING -> updateFlying();
@@ -131,7 +134,7 @@ public class FlasherBadnikInstance extends AbstractBadnikInstance {
         }
 
         if (flightCounter < 0) {
-            destroyed = true;
+            setDestroyed(true);
             setDestroyed(true); // ObjA3: delete if objoff_2A wrapped negative
             return;
         }
@@ -249,7 +252,7 @@ public class FlasherBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public int getCollisionFlags() {
-        if (destroyed) {
+        if (isDestroyed()) {
             return 0;
         }
         int category = electrified ? 0x80 : 0x00;
@@ -268,19 +271,12 @@ public class FlasherBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.FLASHER);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.FLASHER);
+        if (renderer == null) return;
 
         // ObjA3 uses x_flip = 0 while moving left, x_flip = 1 while moving right.
         renderer.drawFrameIndex(animFrame, currentX, currentY, !facingLeft, false);

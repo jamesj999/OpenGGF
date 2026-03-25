@@ -1,12 +1,10 @@
 package com.openggf.game.sonic1.objects.bosses;
 
-import com.openggf.audio.AudioManager;
-import com.openggf.camera.Camera;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectManager;
@@ -17,7 +15,6 @@ import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.ArrayList;
@@ -104,14 +101,12 @@ public class Sonic1FalseFloorInstance extends AbstractObjectInstance
     private int solidOffsetX = 0;
 
     private final List<FalseFloorBlock> childBlocks = new ArrayList<>();
-    private ObjectSpawn dynamicSpawn;
-
-    public Sonic1FalseFloorInstance(ObjectSpawn spawn, LevelManager levelManager) {
+    public Sonic1FalseFloorInstance(ObjectSpawn spawn) {
         super(spawn, "FalseFloor");
         this.currentX = MASTER_X;
         this.currentY = MASTER_Y;
         this.currentHalfWidth = 0x80;
-        refreshDynamicSpawn();
+        updateDynamicSpawn(currentX, currentY);
     }
 
     /**
@@ -132,19 +127,14 @@ public class Sonic1FalseFloorInstance extends AbstractObjectInstance
     public int getY() {
         return currentY;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public boolean isPersistent() {
         return true;
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -161,9 +151,9 @@ public class Sonic1FalseFloorInstance extends AbstractObjectInstance
     private void updateInit() {
         currentX = MASTER_X;
         currentY = MASTER_Y;
-        refreshDynamicSpawn();
+        updateDynamicSpawn(currentX, currentY);
 
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -227,11 +217,11 @@ public class Sonic1FalseFloorInstance extends AbstractObjectInstance
     // ---- Routine 6: Cleanup ----
     // ROM: bclr #3,obStatus(a0); bclr #3,(v_player+obStatus).w; bra DeleteObject
     private void updateCleanup(AbstractPlayableSprite player) {
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager != null) {
             objectManager.clearRidingObject(player);
 
-            for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+            for (PlayableEntity sidekick : services().sidekicks()) {
                 objectManager.clearRidingObject(sidekick);
             }
         }
@@ -291,21 +281,15 @@ public class Sonic1FalseFloorInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed() && (routine == ROUTINE_SOLID_WAITING || routine == ROUTINE_DISINTEGRATING);
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Handled by ObjectManager
-    }
-
-    private void refreshDynamicSpawn() {
-        dynamicSpawn = new ObjectSpawn(
-                currentX, currentY,
-                spawn.objectId(), spawn.subtype(),
-                spawn.renderFlags(), spawn.respawnTracked(),
-                spawn.rawYWord());
     }
 
     // =========================================================================
@@ -371,7 +355,8 @@ public class Sonic1FalseFloorInstance extends AbstractObjectInstance
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (isDestroyed() || broken) {
                 return;
             }
@@ -384,7 +369,7 @@ public class Sonic1FalseFloorInstance extends AbstractObjectInstance
         private void breakApart() {
             broken = true;
 
-            ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+            ObjectManager objectManager = services().objectManager();
             if (objectManager == null) {
                 setDestroyed(true);
                 return;
@@ -404,7 +389,7 @@ public class Sonic1FalseFloorInstance extends AbstractObjectInstance
             }
 
             // ROM: move.w #sfx_WallSmash,d0; jsr (QueueSound2).l
-            AudioManager.getInstance().playSfx(Sonic1Sfx.WALL_SMASH.id);
+            services().playSfx(Sonic1Sfx.WALL_SMASH.id);
 
             setDestroyed(true);
         }
@@ -415,7 +400,7 @@ public class Sonic1FalseFloorInstance extends AbstractObjectInstance
                 return;
             }
 
-            ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+            ObjectRenderManager renderManager = services().renderManager();
             if (renderManager != null) {
                 PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.SBZ2_FALSE_FLOOR);
                 if (renderer != null && renderer.isReady()) {
@@ -477,7 +462,8 @@ public class Sonic1FalseFloorInstance extends AbstractObjectInstance
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             if (isDestroyed()) {
                 return;
             }
@@ -488,10 +474,8 @@ public class Sonic1FalseFloorInstance extends AbstractObjectInstance
             subY += yVel;
             currentY = subY >> 8;
 
-            // Delete when off-screen (below camera + margin)
-            Camera camera = Camera.getInstance();
-            int screenBottom = camera.getY() + 224 + 64;
-            if (currentY > screenBottom) {
+            // Delete when off-screen (beyond camera viewport + margin)
+            if (!isOnScreen(48)) {
                 setDestroyed(true);
             }
         }
@@ -502,7 +486,7 @@ public class Sonic1FalseFloorInstance extends AbstractObjectInstance
                 return;
             }
 
-            ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+            ObjectRenderManager renderManager = services().renderManager();
             if (renderManager != null) {
                 PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.SBZ2_FALSE_FLOOR);
                 if (renderer != null && renderer.isReady()) {

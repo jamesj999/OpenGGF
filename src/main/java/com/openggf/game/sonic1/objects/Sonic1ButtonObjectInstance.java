@@ -1,16 +1,14 @@
 package com.openggf.game.sonic1.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.Sonic1SwitchManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
@@ -99,8 +97,9 @@ public class Sonic1ButtonObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
-        Sonic1SwitchManager switches = Sonic1SwitchManager.getInstance();
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
+        Sonic1SwitchManager switches = services().gameService(Sonic1SwitchManager.class);
 
         // Default to unpressed frame
         // bclr #0,obFrame(a0)
@@ -126,7 +125,7 @@ public class Sonic1ButtonObjectInstance extends AbstractObjectInstance
                 // First press: play switch sound
                 // move.w #sfx_Switch,d0 / jsr (QueueSound2).l
                 try {
-                    AudioManager.getInstance().playSfx(Sonic1Sfx.SWITCH.id);
+                    services().playSfx(Sonic1Sfx.SWITCH.id);
                 } catch (Exception e) {
                     // Prevent audio failure from breaking game logic
                 }
@@ -157,7 +156,8 @@ public class Sonic1ButtonObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Track whether player is standing on button
         // The SolidObject subroutine sets obSolid when player stands on top
         playerStanding = contact.standing();
@@ -171,8 +171,7 @@ public class Sonic1ButtonObjectInstance extends AbstractObjectInstance
      * rectangle centered around the button (offset by -16x, -8y).
      */
     private boolean checkMZBlockContact() {
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return false;
         }
 
@@ -194,7 +193,7 @@ public class Sonic1ButtonObjectInstance extends AbstractObjectInstance
         int blockHalfWidth = 0x10;
         int blockHalfHeight = 0x10;
 
-        Collection<ObjectInstance> activeObjects = levelManager.getObjectManager().getActiveObjects();
+        Collection<ObjectInstance> activeObjects = services().objectManager().getActiveObjects();
         for (ObjectInstance obj : activeObjects) {
             ObjectSpawn objSpawn = obj.getSpawn();
             if (objSpawn == null || objSpawn.objectId() != ID_PUSH_BLOCK) {
@@ -233,7 +232,8 @@ public class Sonic1ButtonObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return true;
     }
 
@@ -248,7 +248,8 @@ public class Sonic1ButtonObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public int getTopLandingHalfWidth(AbstractPlayableSprite player, int collisionHalfWidth) {
+    public int getTopLandingHalfWidth(PlayableEntity playerEntity, int collisionHalfWidth) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM uses obActWid ($10) for Solid_Landed / SolidObject_InsideTop,
         // not the collision halfWidth ($1B).
         return ACTIVE_WIDTH;
@@ -261,15 +262,8 @@ public class Sonic1ButtonObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.BUTTON);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.BUTTON);
+        if (renderer == null) return;
 
         renderer.drawFrameIndex(currentFrame, spawn.x(), adjustedY, false, false);
     }
@@ -286,7 +280,7 @@ public class Sonic1ButtonObjectInstance extends AbstractObjectInstance
         ctx.drawRect(x, y, SOLID_HALF_WIDTH, SOLID_HALF_HEIGHT, r, g, b);
 
         // Label with switch info
-        Sonic1SwitchManager switches = Sonic1SwitchManager.getInstance();
+        Sonic1SwitchManager switches = services().gameService(Sonic1SwitchManager.class);
         String state = switches.isPressed(switchIndex) ? "ON" : "OFF";
         ctx.drawWorldLabel(x, y - 12, 0,
                 String.format("SW%d.b%d=%s", switchIndex, switchBit, state),

@@ -1,6 +1,6 @@
 package com.openggf.game.sonic2;
 
-import com.openggf.game.ZoneRegistry;
+import com.openggf.game.AbstractZoneRegistry;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.level.LevelData;
 
@@ -10,23 +10,7 @@ import java.util.List;
  * Zone registry for Sonic the Hedgehog 2.
  * Defines all 11 zones with their acts, names, and music.
  */
-public class Sonic2ZoneRegistry implements ZoneRegistry {
-    private static final Sonic2ZoneRegistry INSTANCE = new Sonic2ZoneRegistry();
-
-    // Zone structure: outer list = zones, inner list = acts
-    private final List<List<LevelData>> zones = List.of(
-            List.of(LevelData.EMERALD_HILL_1, LevelData.EMERALD_HILL_2),
-            List.of(LevelData.CHEMICAL_PLANT_1, LevelData.CHEMICAL_PLANT_2),
-            List.of(LevelData.AQUATIC_RUIN_1, LevelData.AQUATIC_RUIN_2),
-            List.of(LevelData.CASINO_NIGHT_1, LevelData.CASINO_NIGHT_2),
-            List.of(LevelData.HILL_TOP_1, LevelData.HILL_TOP_2),
-            List.of(LevelData.MYSTIC_CAVE_1, LevelData.MYSTIC_CAVE_2),
-            List.of(LevelData.OIL_OCEAN_1, LevelData.OIL_OCEAN_2),
-            List.of(LevelData.METROPOLIS_1, LevelData.METROPOLIS_2, LevelData.METROPOLIS_3),
-            List.of(LevelData.SKY_CHASE),
-            List.of(LevelData.WING_FORTRESS),
-            List.of(LevelData.DEATH_EGG)
-    );
+public class Sonic2ZoneRegistry extends AbstractZoneRegistry {
 
     // Zone names for title cards
     private static final String[] ZONE_NAMES = {
@@ -58,32 +42,27 @@ public class Sonic2ZoneRegistry implements ZoneRegistry {
             Sonic2Music.DEATH_EGG.id        // Death Egg
     };
 
+    private static final Sonic2ZoneRegistry INSTANCE = new Sonic2ZoneRegistry();
+
     private Sonic2ZoneRegistry() {
+        // Zone structure: outer list = zones, inner list = acts
+        super(List.of(
+                List.of(LevelData.EMERALD_HILL_1, LevelData.EMERALD_HILL_2),
+                List.of(LevelData.CHEMICAL_PLANT_1, LevelData.CHEMICAL_PLANT_2),
+                List.of(LevelData.AQUATIC_RUIN_1, LevelData.AQUATIC_RUIN_2),
+                List.of(LevelData.CASINO_NIGHT_1, LevelData.CASINO_NIGHT_2),
+                List.of(LevelData.HILL_TOP_1, LevelData.HILL_TOP_2),
+                List.of(LevelData.MYSTIC_CAVE_1, LevelData.MYSTIC_CAVE_2),
+                List.of(LevelData.OIL_OCEAN_1, LevelData.OIL_OCEAN_2),
+                List.of(LevelData.METROPOLIS_1, LevelData.METROPOLIS_2, LevelData.METROPOLIS_3),
+                List.of(LevelData.SKY_CHASE),
+                List.of(LevelData.WING_FORTRESS),
+                List.of(LevelData.DEATH_EGG)
+        ), ZONE_NAMES);
     }
 
     public static Sonic2ZoneRegistry getInstance() {
         return INSTANCE;
-    }
-
-    @Override
-    public int getZoneCount() {
-        return zones.size();
-    }
-
-    @Override
-    public int getActCount(int zoneIndex) {
-        if (zoneIndex < 0 || zoneIndex >= zones.size()) {
-            return 0;
-        }
-        return zones.get(zoneIndex).size();
-    }
-
-    @Override
-    public String getZoneName(int zoneIndex) {
-        if (zoneIndex < 0 || zoneIndex >= ZONE_NAMES.length) {
-            return "UNKNOWN";
-        }
-        return ZONE_NAMES[zoneIndex];
     }
 
     @Override
@@ -97,19 +76,6 @@ public class Sonic2ZoneRegistry implements ZoneRegistry {
         }
         LevelData level = acts.get(actIndex);
         return new int[]{level.getStartXPos(), level.getStartYPos()};
-    }
-
-    @Override
-    public List<LevelData> getLevelDataForZone(int zoneIndex) {
-        if (zoneIndex < 0 || zoneIndex >= zones.size()) {
-            return List.of();
-        }
-        return zones.get(zoneIndex);
-    }
-
-    @Override
-    public List<List<LevelData>> getAllZones() {
-        return zones;
     }
 
     @Override

@@ -1,13 +1,12 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -16,6 +15,7 @@ import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -252,14 +252,16 @@ public class CorkFloorObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !broken; // Only solid while intact
     }
 
     // ===== SolidObjectListener =====
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (player == null || broken) {
             return;
         }
@@ -294,7 +296,8 @@ public class CorkFloorObjectInstance extends AbstractObjectInstance
     // ===== Update =====
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (broken) {
             return; // Already broken, nothing to do
         }
@@ -379,7 +382,7 @@ public class CorkFloorObjectInstance extends AbstractObjectInstance
         // ROM: move.w #sfx_Collapse,d0 / jsr (PlaySfx).l
         if (isOnScreen()) {
             try {
-                AudioManager.getInstance().playSfx(Sonic3kSfx.COLLAPSE.id);
+                services().playSfx(Sonic3kSfx.COLLAPSE.id);
             } catch (Exception e) {
                 // Prevent audio failure from breaking game logic
             }
@@ -483,19 +486,11 @@ public class CorkFloorObjectInstance extends AbstractObjectInstance
 
     // ===== Helpers =====
 
-    private static ObjectRenderManager getRenderManager() {
-        try {
-            LevelManager lm = LevelManager.getInstance();
-            return lm != null ? lm.getObjectRenderManager() : null;
-        } catch (Exception e) {
-            return null;
-        }
-    }
+    // Uses inherited getRenderManager() from AbstractObjectInstance
 
-    private static ObjectManager getObjectManager() {
+    private ObjectManager getObjectManager() {
         try {
-            LevelManager lm = LevelManager.getInstance();
-            return lm != null ? lm.getObjectManager() : null;
+            return services().objectManager();
         } catch (Exception e) {
             return null;
         }
@@ -505,27 +500,24 @@ public class CorkFloorObjectInstance extends AbstractObjectInstance
      * Resolves zone configuration based on current level.
      * ROM: Obj_CorkFloor uses a zone-indexed jump table (sonic3k.asm:58420).
      */
-    private static ZoneConfig resolveConfig(int subtype) {
+    private ZoneConfig resolveConfig(int subtype) {
         try {
-            LevelManager lm = LevelManager.getInstance();
-            if (lm != null) {
-                int zone = lm.getCurrentZone();
-                int act = lm.getCurrentAct();
-                return switch (zone) {
-                    case Sonic3kZoneIds.ZONE_AIZ -> act == 0 ? AIZ1_CONFIG : AIZ2_CONFIG;
-                    case Sonic3kZoneIds.ZONE_CNZ -> CNZ_CONFIG;
-                    case Sonic3kZoneIds.ZONE_FBZ -> FBZ_CONFIG;
-                    case Sonic3kZoneIds.ZONE_ICZ ->
-                        // ROM: btst #4,subtype(a0) selects between two ICZ variants
-                        (subtype & 0x10) != 0 ? ICZ_SMALL_CONFIG : ICZ_CONFIG;
-                    case Sonic3kZoneIds.ZONE_LBZ -> LBZ_CONFIG;
-                    default -> {
-                        LOG.warning("CorkFloor: unknown zone 0x" + Integer.toHexString(zone)
-                                + ", defaulting to AIZ1 config");
-                        yield AIZ1_CONFIG;
-                    }
-                };
-            }
+            int zone = services().romZoneId();
+            int act = services().currentAct();
+            return switch (zone) {
+                case Sonic3kZoneIds.ZONE_AIZ -> act == 0 ? AIZ1_CONFIG : AIZ2_CONFIG;
+                case Sonic3kZoneIds.ZONE_CNZ -> CNZ_CONFIG;
+                case Sonic3kZoneIds.ZONE_FBZ -> FBZ_CONFIG;
+                case Sonic3kZoneIds.ZONE_ICZ ->
+                    // ROM: btst #4,subtype(a0) selects between two ICZ variants
+                    (subtype & 0x10) != 0 ? ICZ_SMALL_CONFIG : ICZ_CONFIG;
+                case Sonic3kZoneIds.ZONE_LBZ -> LBZ_CONFIG;
+                default -> {
+                    LOG.warning("CorkFloor: unknown zone 0x" + Integer.toHexString(zone)
+                            + ", defaulting to AIZ1 config");
+                    yield AIZ1_CONFIG;
+                }
+            };
         } catch (Exception e) {
             LOG.fine("Could not resolve zone config: " + e.getMessage());
         }
@@ -582,7 +574,8 @@ public class CorkFloorObjectInstance extends AbstractObjectInstance
         }
 
         @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
             // Apply velocity with gravity using SubpixelMotion
             motionState.x = currentX;
             motionState.y = currentY;

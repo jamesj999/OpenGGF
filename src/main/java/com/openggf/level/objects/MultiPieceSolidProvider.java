@@ -1,6 +1,6 @@
 package com.openggf.level.objects;
 
-import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 /**
  * Interface for solid objects that consist of multiple collision pieces.
@@ -50,7 +50,7 @@ public interface MultiPieceSolidProvider extends SolidObjectProvider {
      * @param contact the contact details (standing, side, ceiling, etc.)
      * @param frameCounter current frame number
      */
-    default void onPieceContact(int pieceIndex, AbstractPlayableSprite player,
+    default void onPieceContact(int pieceIndex, PlayableEntity player,
                                 SolidContact contact, int frameCounter) {
         // Default no-op - objects can override to track piece-specific contact
     }

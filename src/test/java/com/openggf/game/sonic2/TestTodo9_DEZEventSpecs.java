@@ -1,9 +1,16 @@
 package com.openggf.game.sonic2;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic2.events.Sonic2DEZEvents;
+import com.openggf.level.objects.ObjectServices;
+import com.openggf.level.objects.TestObjectServices;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+
+import java.lang.reflect.Field;
 
 import static org.junit.Assert.*;
 
@@ -31,10 +38,44 @@ public class TestTodo9_DEZEventSpecs {
 
     @Before
     public void setUp() {
-        Camera.resetInstance();
-        cam = Camera.getInstance();
+        RuntimeManager.createGameplay();
+        GameServices.camera().resetState();
+        cam = GameServices.camera();
         events = new Sonic2DEZEvents();
         events.init(0);
+        // Set construction context so that any objects spawned by event updates
+        // (e.g., Silver Sonic) can call services() during their constructor.
+        setConstructionContext(new TestObjectServices());
+    }
+
+    @After
+    public void tearDown() {
+        clearConstructionContext();
+        RuntimeManager.destroyCurrent();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void setConstructionContext(ObjectServices services) {
+        try {
+            Field field = com.openggf.level.objects.AbstractObjectInstance.class
+                    .getDeclaredField("CONSTRUCTION_CONTEXT");
+            field.setAccessible(true);
+            ((ThreadLocal<Object>) field.get(null)).set(services);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void clearConstructionContext() {
+        try {
+            Field field = com.openggf.level.objects.AbstractObjectInstance.class
+                    .getDeclaredField("CONSTRUCTION_CONTEXT");
+            field.setAccessible(true);
+            ((ThreadLocal<Object>) field.get(null)).remove();
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**

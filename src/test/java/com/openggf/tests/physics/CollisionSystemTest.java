@@ -1,6 +1,8 @@
 package com.openggf.tests.physics;
 
+import com.openggf.game.GameServices;
 import com.openggf.physics.*;
+import com.openggf.tests.TestEnvironment;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -20,8 +22,9 @@ public class CollisionSystemTest {
 
     @Before
     public void setUp() {
-        CollisionSystem.resetInstance();
-        collisionSystem = CollisionSystem.getInstance();
+        TestEnvironment.resetAll();
+        GameServices.collision().resetState();
+        collisionSystem = GameServices.collision();
         trace = new RecordingCollisionTrace();
         collisionSystem.setTrace(trace);
     }
@@ -36,33 +39,11 @@ public class CollisionSystemTest {
 
     @Test
     public void testNoOpTraceIsDefault() {
-        CollisionSystem.resetInstance();
-        CollisionSystem fresh = CollisionSystem.getInstance();
+        GameServices.collision().resetState();
+        CollisionSystem fresh = GameServices.collision();
 
         assertNotNull(fresh.getTrace());
         assertEquals(NoOpCollisionTrace.INSTANCE, fresh.getTrace());
-    }
-
-    @Test
-    public void testUnifiedPipelineDisabledByDefault() {
-        assertFalse(collisionSystem.isUnifiedPipelineEnabled());
-    }
-
-    @Test
-    public void testShadowModeDisabledByDefault() {
-        assertFalse(collisionSystem.isShadowModeEnabled());
-    }
-
-    @Test
-    public void testPipelineCanBeEnabled() {
-        collisionSystem.setUnifiedPipelineEnabled(true);
-        assertTrue(collisionSystem.isUnifiedPipelineEnabled());
-    }
-
-    @Test
-    public void testShadowModeCanBeEnabled() {
-        collisionSystem.setShadowModeEnabled(true);
-        assertTrue(collisionSystem.isShadowModeEnabled());
     }
 
     @Test
@@ -444,17 +425,17 @@ public class CollisionSystemTest {
     }
 
     @Test
-    public void testSingletonReset() {
-        CollisionSystem first = CollisionSystem.getInstance();
-        CollisionSystem.resetInstance();
-        CollisionSystem second = CollisionSystem.getInstance();
-        assertNotSame("After reset, new instance should be created", first, second);
+    public void testResetStateDoesNotChangeInstance() {
+        CollisionSystem first = GameServices.collision();
+        first.resetState();
+        CollisionSystem second = GameServices.collision();
+        assertSame("resetState() should not change instance", first, second);
     }
 
     @Test
-    public void testSingletonSameInstance() {
-        CollisionSystem first = CollisionSystem.getInstance();
-        CollisionSystem second = CollisionSystem.getInstance();
+    public void testSameInstanceReturned() {
+        CollisionSystem first = GameServices.collision();
+        CollisionSystem second = GameServices.collision();
         assertSame("Without reset, same instance should be returned", first, second);
     }
 }

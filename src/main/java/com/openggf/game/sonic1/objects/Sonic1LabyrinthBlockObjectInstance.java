@@ -1,19 +1,18 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
-import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TrigLookupTable;
@@ -128,10 +127,8 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
     // Y velocity for falling/rising types
     private int yVelocity;
 
-    // Sub-pixel accumulator for SpeedToPos Y
-    private int ySubpixel;
-
-    private ObjectSpawn dynamicSpawn;
+    // 16.16 subpixel state for SpeedToPos Y position updates.
+    private final SubpixelMotion.State fallMotion = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
 
     public Sonic1LabyrinthBlockObjectInstance(ObjectSpawn spawn) {
         super(spawn, "LabyrinthBlock");
@@ -160,7 +157,6 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
         this.sinkAngle = 0;
         this.solidContactResult = 0;
         this.yVelocity = 0;
-        this.ySubpixel = 0;
 
         // andi.b #$F,d0 -> moveType = low nybble
         this.moveType = fullSubtype & 0x0F;
@@ -170,7 +166,7 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
         // cmpi.b #7,d0 / beq.s LBlk_Action (subtype 7 -> no untouched flag)
         this.untouched = (moveType != 0 && moveType != 7);
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -182,14 +178,9 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
     @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
-    @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // LBlk_Action: save X on stack, dispatch movement, then SolidObject + sink effect
         int prevX = x;
 
@@ -201,19 +192,13 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
         // loc_12180: Gradual sink effect for untouched blocks while Sonic stands on them
         applySinkEffect();
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.LZ_LABYRINTH_BLOCK);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.LZ_LABYRINTH_BLOCK);
+        if (renderer == null) return;
         renderer.drawFrameIndex(mappingFrame, x, y, false, false);
     }
 
@@ -234,7 +219,8 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Store the contact result for type 05 checking
         // ROM: move.b d4,objoff_3F(a0)
         // d4 from SolidObject: 1 = side contact (pushing), -1 = top (standing), 0 = none
@@ -248,7 +234,8 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed();
     }
 
@@ -367,7 +354,7 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
             // addq.w #1,d1 / add.w d1,obY(a0) — adjust by (distance + 1)
             y += floor.distance() + 1;
             yVelocity = 0;
-            ySubpixel = 0;
+            fallMotion.ySub = 0;
             moveType = 0x00; // become stationary
         }
     }
@@ -400,7 +387,7 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
             // sub.w d1,obY(a0) — note: subtract because ceiling distance is negative
             y -= ceiling.distance();
             yVelocity = 0;
-            ySubpixel = 0;
+            fallMotion.ySub = 0;
             moveType = 0x00; // become stationary
         }
     }
@@ -575,15 +562,14 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
 
     /**
      * SpeedToPos for Y axis — applies yVelocity to y position using 16.16 fixed-point.
-     * Matches ROM SpeedToPos: ext.l dY / asl.l #8,dY / add.l dY,obY(a0)
+     * Delegates to {@link SubpixelMotion#speedToPosY(SubpixelMotion.State)}.
      */
     private void applySpeedToPosY() {
         if (yVelocity == 0) return;
-        int yPos32 = (y << 16) | (ySubpixel & 0xFFFF);
-        int vel32 = (int) (short) yVelocity;
-        yPos32 += vel32 << 8;
-        y = yPos32 >> 16;
-        ySubpixel = yPos32 & 0xFFFF;
+        fallMotion.y = y;
+        fallMotion.yVel = yVelocity;
+        SubpixelMotion.speedToPosY(fallMotion);
+        y = fallMotion.y;
     }
 
     /**
@@ -591,25 +577,13 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
      * Equivalent to ROM's move.w (v_waterpos1).w,d0.
      */
     private int getWaterLevel() {
-        LevelManager lm = LevelManager.getInstance();
-        if (lm == null || lm.getCurrentLevel() == null) {
+        if (services().currentLevel() == null) {
             return 0;
         }
-        WaterSystem waterSystem = WaterSystem.getInstance();
-        int zoneId = lm.getFeatureZoneId();
-        int actId = lm.getFeatureActId();
+        var waterSystem = services().waterSystem();
+        int zoneId = services().featureZoneId();
+        int actId = services().featureActId();
         return waterSystem.getVisualWaterLevelY(zoneId, actId);
-    }
-
-    /**
-     * Check if any player is riding this object, via ObjectManager.
-     * Matches ROM's btst #3,obStatus(a0).
-     */
-    private boolean isPlayerRiding() {
-        LevelManager lm = LevelManager.getInstance();
-        if (lm == null) return false;
-        var objectManager = lm.getObjectManager();
-        return objectManager != null && objectManager.isAnyPlayerRiding(this);
     }
 
     /**
@@ -617,7 +591,7 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
      * Matches ROM's out_of_range.w macro.
      */
     private boolean isInRange(int objectX) {
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         if (camera == null) {
             return true;
         }
@@ -625,17 +599,5 @@ public class Sonic1LabyrinthBlockObjectInstance extends AbstractObjectInstance
         int camRounded = (camera.getX() - 128) & 0xFF80;
         int distance = (objRounded - camRounded) & 0xFFFF;
         return distance <= (128 + 320 + 192);
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = new ObjectSpawn(
-                    x, y,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
     }
 }

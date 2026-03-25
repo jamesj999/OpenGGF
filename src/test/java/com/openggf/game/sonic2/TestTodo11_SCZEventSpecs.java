@@ -1,8 +1,11 @@
 package com.openggf.game.sonic2;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic2.events.Sonic2SCZEvents;
-import com.openggf.level.scroll.SwScrlScz;
+import com.openggf.game.sonic2.scroll.SwScrlScz;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -39,11 +42,17 @@ public class TestTodo11_SCZEventSpecs {
 
     @Before
     public void setUp() {
-        Camera.resetInstance();
-        cam = Camera.getInstance();
+        RuntimeManager.createGameplay();
+        GameServices.camera().resetState();
+        cam = GameServices.camera();
         scrollHandler = new SwScrlScz();
         scrollHandler.init();
         scrollBuf = new int[224];
+    }
+
+    @After
+    public void tearDown() {
+        RuntimeManager.destroyCurrent();
     }
 
     /**

@@ -1,19 +1,13 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.debug.DebugOverlayManager;
-import com.openggf.debug.DebugOverlayToggle;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
-import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.ButtonVineTriggerManager;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
@@ -69,11 +63,6 @@ public class MCZBridgeObjectInstance extends AbstractObjectInstance
     // Width for on-screen culling (128 pixels = 0x80)
     private static final int WIDTH_PIXELS = 0x80;
 
-    // Debug state
-    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
-            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
-
     // State variables
     private final int switchId;         // ButtonVine trigger ID
     private int mappingFrame;           // Current display frame (0-4)
@@ -103,7 +92,8 @@ public class MCZBridgeObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -126,7 +116,7 @@ public class MCZBridgeObjectInstance extends AbstractObjectInstance
 
                 // Play door slam sound if on screen
                 if (isOnScreen(WIDTH_PIXELS)) {
-                    AudioManager.getInstance().playSfx(Sonic2Sfx.DOOR_SLAM.id);
+                    services().playSfx(Sonic2Sfx.DOOR_SLAM.id);
                 }
             }
         }
@@ -162,7 +152,8 @@ public class MCZBridgeObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Only solid when fully closed (frame 0)
         // When not frame 0, returning false causes SolidContacts to auto-drop standing players
         return !isDestroyed() && mappingFrame == 0;
@@ -171,27 +162,16 @@ public class MCZBridgeObjectInstance extends AbstractObjectInstance
     // SolidObjectListener implementation
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // No special handling needed
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        // Draw debug overlay
-        if (isDebugViewEnabled()) {
-            appendDebug(commands);
-        }
-
         // Get renderer from art provider
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.MCZ_BRIDGE);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.MCZ_BRIDGE);
+        if (renderer == null) return;
 
         // Render the current frame at object position
         renderer.drawFrameIndex(mappingFrame, getX(), getY(), false, false);
@@ -202,13 +182,14 @@ public class MCZBridgeObjectInstance extends AbstractObjectInstance
         return RenderPriority.clamp(4);
     }
 
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         int x = getX();
         int y = getY();
 
         // Draw object center (yellow cross)
-        appendLine(commands, x - 4, y, x + 4, y, 1.0f, 1.0f, 0.0f);
-        appendLine(commands, x, y - 4, x, y + 4, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(x - 4, y, x + 4, y, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(x, y - 4, x, y + 4, 1.0f, 1.0f, 0.0f);
 
         // Draw solid collision bounds (green box) only when solid (frame 0)
         if (mappingFrame == 0) {
@@ -221,21 +202,11 @@ public class MCZBridgeObjectInstance extends AbstractObjectInstance
             int top = y - airHalfHeight;
             int bottom = y + groundHalfHeight;
 
-            appendLine(commands, left, top, right, top, 0.0f, 1.0f, 0.0f);
-            appendLine(commands, right, top, right, bottom, 0.0f, 0.7f, 0.0f);
-            appendLine(commands, right, bottom, left, bottom, 0.0f, 0.7f, 0.0f);
-            appendLine(commands, left, bottom, left, top, 0.0f, 0.7f, 0.0f);
+            ctx.drawLine(left, top, right, top, 0.0f, 1.0f, 0.0f);
+            ctx.drawLine(right, top, right, bottom, 0.0f, 0.7f, 0.0f);
+            ctx.drawLine(right, bottom, left, bottom, 0.0f, 0.7f, 0.0f);
+            ctx.drawLine(left, bottom, left, top, 0.0f, 0.7f, 0.0f);
         }
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2, float r, float g, float b) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x2, y2, 0, 0));
-    }
-
-    private boolean isDebugViewEnabled() {
-        return DEBUG_VIEW_ENABLED && OVERLAY_MANAGER.isEnabled(DebugOverlayToggle.OVERLAY);
-    }
 }

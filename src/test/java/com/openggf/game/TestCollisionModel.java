@@ -2,7 +2,7 @@ package com.openggf.game;
 
 import com.openggf.game.sonic1.Sonic1GameModule;
 import com.openggf.game.sonic2.Sonic2GameModule;
-import com.openggf.game.sonic2.objects.SpringHelper;
+import com.openggf.level.objects.SpringHelper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

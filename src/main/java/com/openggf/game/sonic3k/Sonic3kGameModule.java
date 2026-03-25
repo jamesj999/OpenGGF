@@ -7,12 +7,12 @@ import com.openggf.data.RomByteReader;
 import com.openggf.game.sonic3k.audio.Sonic3kAudioProfile;
 import com.openggf.game.CanonicalAnimation;
 import com.openggf.game.CrossGameFeatureProvider;
-import com.openggf.game.DebugModeProvider;
 import com.openggf.game.DonorCapabilities;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.game.DebugOverlayProvider;
 import com.openggf.game.GameModule;
+import com.openggf.game.GameServices;
 import com.openggf.game.LevelEventProvider;
 import com.openggf.game.LevelInitProfile;
 import com.openggf.game.PhysicsProvider;
@@ -20,9 +20,7 @@ import com.openggf.game.WaterDataProvider;
 import com.openggf.game.LevelState;
 import com.openggf.game.ObjectArtProvider;
 import com.openggf.game.RespawnState;
-import com.openggf.game.RomOffsetProvider;
 import com.openggf.game.ScrollHandlerProvider;
-import com.openggf.game.ZoneArtProvider;
 import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.game.ZoneRegistry;
 import com.openggf.game.CheckpointState;
@@ -31,16 +29,23 @@ import com.openggf.game.TitleCardProvider;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.game.SpecialStageProvider;
+import com.openggf.game.sonic3k.events.S3kSeamlessMutationExecutor;
 import com.openggf.game.sonic3k.objects.Sonic3kObjectRegistry;
 import com.openggf.game.sonic3k.scroll.Sonic3kScrollHandlerProvider;
 import com.openggf.game.sonic3k.specialstage.Sonic3kSpecialStageProvider;
 import com.openggf.game.sonic3k.titlecard.Sonic3kTitleCardManager;
+import com.openggf.game.GameId;
 import com.openggf.game.OscillationManager;
+import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRegistry;
 import com.openggf.level.objects.PlaneSwitcherConfig;
 import com.openggf.level.objects.TouchResponseTable;
+import com.openggf.sprites.art.SpriteArtSet;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.SuperStateController;
+
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * GameModule for Sonic 3 &amp; Knuckles.
@@ -49,6 +54,7 @@ import com.openggf.sprites.playable.SuperStateController;
  * Phase 1: terrain/collision only. Objects, rings, and zone features are deferred.
  */
 public class Sonic3kGameModule implements GameModule {
+    private static final Logger LOGGER = Logger.getLogger(Sonic3kGameModule.class.getName());
     private final GameAudioProfile audioProfile = new Sonic3kAudioProfile();
     private Sonic3kScrollHandlerProvider scrollHandlerProvider;
     private Sonic3kLevelEventManager levelEventManager;
@@ -62,12 +68,16 @@ public class Sonic3kGameModule implements GameModule {
     }
 
     @Override
+    public GameId getGameId() {
+        return GameId.S3K;
+    }
+
+    @Override
     public Game createGame(Rom rom) {
         try {
             return new Sonic3k(rom);
         } catch (java.io.IOException e) {
-            java.util.logging.Logger.getLogger(Sonic3kGameModule.class.getName())
-                    .severe("Failed to create S3K game: " + e.getMessage());
+            LOGGER.severe("Failed to create S3K game: " + e.getMessage());
             return null;
         }
     }
@@ -141,22 +151,7 @@ public class Sonic3kGameModule implements GameModule {
     }
 
     @Override
-    public RomOffsetProvider getRomOffsetProvider() {
-        return null;
-    }
-
-    @Override
-    public DebugModeProvider getDebugModeProvider() {
-        return null;
-    }
-
-    @Override
     public DebugOverlayProvider getDebugOverlayProvider() {
-        return null;
-    }
-
-    @Override
-    public ZoneArtProvider getZoneArtProvider() {
         return null;
     }
 
@@ -194,12 +189,37 @@ public class Sonic3kGameModule implements GameModule {
     }
 
     @Override
+    public SpriteArtSet loadTailsTailArt() {
+        try {
+            Rom rom = GameServices.rom().getRom();
+            Sonic3kPlayerArt s3kArt = new Sonic3kPlayerArt(RomByteReader.fromRom(rom));
+            return s3kArt.loadTailsTail();
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Failed to load S3K tails tail art", e);
+            return SpriteArtSet.EMPTY;
+        }
+    }
+
+    @Override
     public SuperStateController createSuperStateController(
             AbstractPlayableSprite player) {
         if (CrossGameFeatureProvider.isActive()) {
             return CrossGameFeatureProvider.getInstance().createSuperStateController(player);
         }
         return new Sonic3kSuperStateController(player);
+    }
+
+    @Override
+    public void applySeamlessMutation(LevelManager levelManager, String mutationKey) {
+        S3kSeamlessMutationExecutor.apply(levelManager, mutationKey);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public <T> T getGameService(Class<T> type) {
+        if (type == Sonic3kLevelEventManager.class) return (T) Sonic3kLevelEventManager.getInstance();
+        if (type == Sonic3kTitleCardManager.class) return (T) Sonic3kTitleCardManager.getInstance();
+        return null;
     }
 
     @Override

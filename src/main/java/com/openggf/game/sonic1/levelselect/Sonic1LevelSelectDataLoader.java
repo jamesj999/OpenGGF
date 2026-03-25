@@ -9,6 +9,7 @@ import com.openggf.level.Pattern;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -86,9 +87,8 @@ public class Sonic1LevelSelectDataLoader {
 
             dataLoaded = true;
             return true;
-        } catch (Exception e) {
-            LOGGER.warning("Failed to load Sonic 1 level select data: " + e.getMessage());
-            e.printStackTrace();
+        } catch (IOException | RuntimeException e) {
+            LOGGER.log(Level.WARNING, "Failed to load Sonic 1 level select data", e);
             return false;
         }
     }

@@ -25,54 +25,16 @@ import com.openggf.game.sonic1.objects.bosses.Sonic1SYZBossInstance;
 import com.openggf.game.sonic1.objects.bosses.Sonic1FZBossInstance;
 import com.openggf.game.sonic1.objects.bosses.Sonic1FalseFloorInstance;
 import com.openggf.game.sonic1.objects.bosses.Sonic1ScrapEggmanInstance;
-import com.openggf.level.LevelManager;
-import com.openggf.level.objects.ObjectFactory;
-import com.openggf.level.objects.ObjectInstance;
-import com.openggf.level.objects.ObjectRegistry;
-import com.openggf.level.objects.ObjectSpawn;
-import com.openggf.level.objects.PlaceholderObjectInstance;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.logging.Logger;
+import com.openggf.level.objects.AbstractObjectRegistry;
 
 /**
  * Object registry for Sonic the Hedgehog 1.
  * Uses factory-based registration following the Sonic 2 pattern.
  */
-public class Sonic1ObjectRegistry implements ObjectRegistry {
-    private static final Logger LOGGER = Logger.getLogger(Sonic1ObjectRegistry.class.getName());
-
-    private final Map<Integer, ObjectFactory> factories = new HashMap<>();
-    private boolean loaded;
-
-    private final ObjectFactory defaultFactory = (spawn, registry) ->
-            new PlaceholderObjectInstance(spawn, registry.getPrimaryName(spawn.objectId()));
+public class Sonic1ObjectRegistry extends AbstractObjectRegistry {
 
     @Override
-    public ObjectInstance create(ObjectSpawn spawn) {
-        ensureLoaded();
-        int id = spawn.objectId();
-        ObjectFactory factory = factories.getOrDefault(id, defaultFactory);
-        return factory.create(spawn, this);
-    }
-
-    @Override
-    public void reportCoverage(List<ObjectSpawn> spawns) {
-        // No-op for now
-    }
-
-    private void ensureLoaded() {
-        if (loaded) {
-            return;
-        }
-        loaded = true;
-        registerDefaultFactories();
-        LOGGER.fine("Sonic1ObjectRegistry loaded with " + factories.size() + " factories.");
-    }
-
-    private void registerDefaultFactories() {
+    protected void registerDefaultFactories() {
         factories.put(Sonic1ObjectIds.BREAKABLE_POLE,
                 (spawn, registry) -> new Sonic1PoleThatBreaksObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.FLAPPING_DOOR,
@@ -100,46 +62,46 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
         factories.put(Sonic1ObjectIds.GIANT_RING,
                 (spawn, registry) -> new Sonic1GiantRingObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.PLATFORM,
-                (spawn, registry) -> new Sonic1PlatformObjectInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic1PlatformObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.COLLAPSING_LEDGE,
-                (spawn, registry) -> new Sonic1CollapsingLedgeObjectInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic1CollapsingLedgeObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.BREAKABLE_WALL,
                 (spawn, registry) -> new Sonic1BreakableWallObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.EDGE_WALLS,
                 (spawn, registry) -> new Sonic1EdgeWallObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.CHOPPER,
-                (spawn, registry) -> new Sonic1ChopperBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic1ChopperBadnikInstance(spawn));
         factories.put(Sonic1ObjectIds.JAWS,
-                (spawn, registry) -> new Sonic1JawsBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic1JawsBadnikInstance(spawn));
         factories.put(Sonic1ObjectIds.BURROBOT,
-                (spawn, registry) -> new Sonic1BurrobotBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic1BurrobotBadnikInstance(spawn));
         factories.put(Sonic1ObjectIds.BUZZ_BOMBER,
-                (spawn, registry) -> new Sonic1BuzzBomberBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic1BuzzBomberBadnikInstance(spawn));
         factories.put(Sonic1ObjectIds.CRABMEAT,
-                (spawn, registry) -> new Sonic1CrabmeatBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic1CrabmeatBadnikInstance(spawn));
         factories.put(Sonic1ObjectIds.MOTOBUG,
-                (spawn, registry) -> new Sonic1MotobugBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic1MotobugBadnikInstance(spawn));
         factories.put(Sonic1ObjectIds.NEWTRON,
-                (spawn, registry) -> new Sonic1NewtronBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic1NewtronBadnikInstance(spawn));
         factories.put(Sonic1ObjectIds.CATERKILLER,
-                (spawn, registry) -> new Sonic1CaterkillerBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic1CaterkillerBadnikInstance(spawn));
         factories.put(Sonic1ObjectIds.BATBRAIN,
-                (spawn, registry) -> new Sonic1BatbrainBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic1BatbrainBadnikInstance(spawn));
         factories.put(Sonic1ObjectIds.YADRIN,
-                (spawn, registry) -> new Sonic1YadrinBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic1YadrinBadnikInstance(spawn));
         factories.put(Sonic1ObjectIds.ROLLER,
-                (spawn, registry) -> new Sonic1RollerBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic1RollerBadnikInstance(spawn));
         factories.put(Sonic1ObjectIds.BUMPER,
                 (spawn, registry) -> new Sonic1BumperObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.FLOATING_BLOCK,
                 (spawn, registry) -> new Sonic1FloatingBlockObjectInstance(spawn,
-                        LevelManager.getInstance().getRomZoneId()));
+                        currentRomZoneId()));
         factories.put(Sonic1ObjectIds.HARPOON,
                 (spawn, registry) -> new Sonic1HarpoonObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.SPIKED_POLE_HELIX,
                 (spawn, registry) -> new Sonic1SpikedPoleHelixObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.SWINGING_PLATFORM,
-                (spawn, registry) -> new Sonic1SwingingPlatformObjectInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic1SwingingPlatformObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.MZ_BRICK,
                 (spawn, registry) -> new Sonic1MzBrickObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.SMASH_BLOCK,
@@ -151,7 +113,7 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
         factories.put(Sonic1ObjectIds.BUTTON,
                 (spawn, registry) -> new Sonic1ButtonObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.MZ_GLASS_BLOCK,
-                (spawn, registry) -> new Sonic1GlassBlockObjectInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic1GlassBlockObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.LAVA_BALL_MAKER,
                 (spawn, registry) -> new Sonic1LavaBallMakerObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.LAVA_GEYSER_MAKER,
@@ -163,7 +125,7 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
         factories.put(Sonic1ObjectIds.LAVA_WALL,
                 (spawn, registry) -> new Sonic1LavaWallObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.MZ_LARGE_GRASSY_PLATFORM,
-                (spawn, registry) -> new Sonic1LargeGrassyPlatformObjectInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic1LargeGrassyPlatformObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.BURNING_GRASS,
                 (spawn, registry) -> new Sonic1GrassFireObjectInstance(
                         spawn.x(), spawn.y(), 0, null, null, spawn.subtype() == 0));
@@ -175,12 +137,12 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
                 (spawn, registry) -> new Sonic1HiddenBonusObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.COLLAPSING_FLOOR,
                 (spawn, registry) -> new Sonic1CollapsingFloorObjectInstance(
-                        spawn, LevelManager.getInstance().getRomZoneId()));
+                        spawn, currentRomZoneId()));
         factories.put(Sonic1ObjectIds.MOVING_BLOCK,
-                (spawn, registry) -> new Sonic1MovingBlockObjectInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic1MovingBlockObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.SPIKED_BALL_CHAIN,
                 (spawn, registry) -> new Sonic1SpikedBallChainObjectInstance(spawn,
-                        LevelManager.getInstance().getRomZoneId()));
+                        currentRomZoneId()));
         factories.put(Sonic1ObjectIds.BIG_SPIKED_BALL,
                 (spawn, registry) -> new Sonic1BigSpikedBallObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.SLZ_ELEVATOR,
@@ -206,7 +168,7 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
         factories.put(Sonic1ObjectIds.SBZ_SPINNING_PLATFORM,
                 (spawn, registry) -> new Sonic1SpinPlatformObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.SBZ_VANISHING_PLATFORM,
-                (spawn, registry) -> new Sonic1VanishingPlatformObjectInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic1VanishingPlatformObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.PYLON,
                 (spawn, registry) -> new Sonic1PylonObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.FAN,
@@ -214,9 +176,9 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
         factories.put(Sonic1ObjectIds.SEESAW,
                 (spawn, registry) -> new Sonic1SeesawObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.BOMB,
-                (spawn, registry) -> new Sonic1BombBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic1BombBadnikInstance(spawn));
         factories.put(Sonic1ObjectIds.ORBINAUT,
-                (spawn, registry) -> new Sonic1OrbinautBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic1OrbinautBadnikInstance(spawn));
         factories.put(Sonic1ObjectIds.FLAMETHROWER,
                 (spawn, registry) -> new Sonic1FlamethrowerObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.ELECTROCUTER,
@@ -228,10 +190,10 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
         factories.put(Sonic1ObjectIds.GIRDER,
                 (spawn, registry) -> new Sonic1GirderBlockObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.BALL_HOG,
-                (spawn, registry) -> new Sonic1BallHogBadnikInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic1BallHogBadnikInstance(spawn));
         factories.put(Sonic1ObjectIds.SBZ_STOMPER_DOOR,
                 (spawn, registry) -> new Sonic1StomperDoorObjectInstance(spawn,
-                        LevelManager.getInstance().getRomZoneId()));
+                        currentRomZoneId()));
         factories.put(Sonic1ObjectIds.JUNCTION,
                 (spawn, registry) -> new Sonic1JunctionObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.RUNNING_DISC,
@@ -241,21 +203,21 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
         factories.put(Sonic1ObjectIds.TELEPORTER,
                 (spawn, registry) -> new Sonic1TeleporterObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.GHZ_BOSS,
-                (spawn, registry) -> new Sonic1GHZBossInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic1GHZBossInstance(spawn));
         factories.put(Sonic1ObjectIds.MZ_BOSS,
-                (spawn, registry) -> new Sonic1MZBossInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic1MZBossInstance(spawn));
         factories.put(Sonic1ObjectIds.SYZ_BOSS,
-                (spawn, registry) -> new Sonic1SYZBossInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic1SYZBossInstance(spawn));
         factories.put(Sonic1ObjectIds.LZ_BOSS,
-                (spawn, registry) -> new Sonic1LZBossInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic1LZBossInstance(spawn));
         factories.put(Sonic1ObjectIds.SLZ_BOSS,
-                (spawn, registry) -> new Sonic1SLZBossInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic1SLZBossInstance(spawn));
         factories.put(Sonic1ObjectIds.SYZ_BOSS_BLOCK,
                 (spawn, registry) -> new Sonic1BossBlockInstance(spawn.subtype()));
         factories.put(Sonic1ObjectIds.BOSS_FIRE,
                 (spawn, registry) -> new Sonic1BossFireInstance(spawn));
         factories.put(Sonic1ObjectIds.FZ_BOSS,
-                (spawn, registry) -> new Sonic1FZBossInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic1FZBossInstance(spawn));
         factories.put(Sonic1ObjectIds.END_SONIC,
                 (spawn, registry) -> new Sonic1EndingSonicObjectInstance(spawn.x(), spawn.y()));
         factories.put(Sonic1ObjectIds.END_CHAOS,
@@ -271,9 +233,9 @@ public class Sonic1ObjectRegistry implements ObjectRegistry {
             return new Sonic1EggPrisonObjectInstance(spawn);
         });
         factories.put(Sonic1ObjectIds.SCRAP_EGGMAN,
-                (spawn, registry) -> new Sonic1ScrapEggmanInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic1ScrapEggmanInstance(spawn));
         factories.put(Sonic1ObjectIds.FALSE_FLOOR,
-                (spawn, registry) -> new Sonic1FalseFloorInstance(spawn, LevelManager.getInstance()));
+                (spawn, registry) -> new Sonic1FalseFloorInstance(spawn));
     }
 
     @Override

@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k;
 
+import com.openggf.data.PaletteLoader;
 import com.openggf.data.Rom;
 import com.openggf.game.DynamicWaterHandler;
 import com.openggf.game.PlayerCharacter;
@@ -32,7 +33,7 @@ import java.util.logging.Logger;
 public class Sonic3kWaterDataProvider implements WaterDataProvider {
     private static final Logger LOGGER = Logger.getLogger(Sonic3kWaterDataProvider.class.getName());
 
-    private static final int PALETTE_SIZE_BYTES = 128; // 4 palette lines x 32 bytes each
+    private static final int PALETTE_SIZE_BYTES = 128; // 4 palette lines x 32 bytes each (used for padding)
 
     /**
      * Water palette IDs from LoadWaterPalette (sonic3k.asm:9817).
@@ -134,13 +135,7 @@ public class Sonic3kWaterDataProvider implements WaterDataProvider {
             }
 
             // Split into 4 palette lines (32 bytes each = 16 colors)
-            Palette[] palettes = new Palette[4];
-            for (int i = 0; i < 4; i++) {
-                byte[] lineData = new byte[32];
-                System.arraycopy(paletteData, i * 32, lineData, 0, 32);
-                palettes[i] = new Palette();
-                palettes[i].fromSegaFormat(lineData);
-            }
+            Palette[] palettes = PaletteLoader.fromBytes(paletteData);
 
             // Knuckles palette patch: overwrite colors 2-4 of palette line 0
             // with zone-specific data from Pal_WaterKnux (sonic3k.asm:9872)

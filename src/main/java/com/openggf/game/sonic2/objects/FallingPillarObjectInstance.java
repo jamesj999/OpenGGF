@@ -1,14 +1,12 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.camera.Camera;
-import com.openggf.data.Rom;
-import com.openggf.data.RomByteReader;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.S2SpriteDataLoader;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.PatternDesc;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
@@ -24,8 +22,8 @@ import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
 
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.util.LazyMappingHolder;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -66,8 +64,7 @@ public class FallingPillarObjectInstance extends AbstractObjectInstance
 
     private static final byte[] SHAKE_OFFSETS = { 0, 1, -1, 1, 0, -1, 0, 1 };
 
-    private static List<SpriteMappingFrame> mappings;
-    private static boolean mappingLoadAttempted;
+    private static final LazyMappingHolder MAPPINGS = new LazyMappingHolder();
 
     private final boolean isChild;
     private int x;
@@ -78,7 +75,6 @@ public class FallingPillarObjectInstance extends AbstractObjectInstance
     private int yVel;
     private int mappingFrame;
     private int yFixed;
-    private ObjectSpawn dynamicSpawn;
     private FallingPillarObjectInstance childInstance;
     private boolean childSpawned;
 
@@ -104,7 +100,7 @@ public class FallingPillarObjectInstance extends AbstractObjectInstance
             this.routineSecondary = 0;
         }
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     public FallingPillarObjectInstance createChild() {
@@ -121,12 +117,6 @@ public class FallingPillarObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     public FallingPillarObjectInstance getChildInstance() {
         return childInstance;
     }
@@ -141,22 +131,19 @@ public class FallingPillarObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (!isChild && !childSpawned) {
             spawnChild();
         }
         if (isChild) {
             updateChild(player);
         }
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     private void spawnChild() {
-        LevelManager manager = LevelManager.getInstance();
-        if (manager == null) {
-            return;
-        }
-        ObjectManager objectManager = manager.getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
@@ -216,7 +203,7 @@ public class FallingPillarObjectInstance extends AbstractObjectInstance
         }
 
         // Off-screen cleanup
-        int cameraMaxY = Camera.getInstance().getMaxY();
+        int cameraMaxY = services().camera().getMaxY();
         if (y > cameraMaxY + OFFSCREEN_Y_MARGIN) {
             setDestroyed(true);
         }
@@ -224,9 +211,9 @@ public class FallingPillarObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ensureMappingsLoaded();
-        if (mappings == null || mappings.isEmpty()) {
-            appendDebug(commands);
+        List<SpriteMappingFrame> mappings = MAPPINGS.get(
+                Sonic2Constants.MAP_UNC_OBJ23_ADDR, S2SpriteDataLoader::loadMappingFrames, "Obj23");
+        if (mappings.isEmpty()) {
             return;
         }
 
@@ -237,14 +224,13 @@ public class FallingPillarObjectInstance extends AbstractObjectInstance
 
         SpriteMappingFrame mapping = mappings.get(frame);
         if (mapping == null || mapping.pieces().isEmpty()) {
-            appendDebug(commands);
             return;
         }
 
         boolean hFlip = (spawn.renderFlags() & 0x1) != 0;
         boolean vFlip = (spawn.renderFlags() & 0x2) != 0;
 
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = services().graphicsManager();
         List<SpriteMappingPiece> pieces = mapping.pieces();
         for (int i = pieces.size() - 1; i >= 0; i--) {
             SpriteMappingPiece piece = pieces.get(i);
@@ -297,47 +283,18 @@ public class FallingPillarObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed();
     }
 
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = new ObjectSpawn(
-                    x,
-                    y,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
-    }
-
-    private static void ensureMappingsLoaded() {
-        if (mappingLoadAttempted) {
-            return;
-        }
-        mappingLoadAttempted = true;
-        LevelManager manager = LevelManager.getInstance();
-        if (manager == null || manager.getGame() == null) {
-            return;
-        }
-        try {
-            Rom rom = manager.getGame().getRom();
-            RomByteReader reader = RomByteReader.fromRom(rom);
-            mappings = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ23_ADDR);
-            LOGGER.fine("Loaded " + mappings.size() + " Obj23 mapping frames");
-        } catch (IOException | RuntimeException e) {
-            LOGGER.warning("Failed to load Obj23 mappings: " + e.getMessage());
-        }
-    }
-
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         int halfWidth = isChild ? CHILD_HALF_WIDTH : TOP_HALF_WIDTH;
         int halfHeight = isChild ? CHILD_HALF_HEIGHT : TOP_HALF_HEIGHT;
         int left = x - halfWidth;
@@ -345,16 +302,10 @@ public class FallingPillarObjectInstance extends AbstractObjectInstance
         int top = y - halfHeight;
         int bottom = y + halfHeight;
 
-        appendLine(commands, left, top, right, top);
-        appendLine(commands, right, top, right, bottom);
-        appendLine(commands, right, bottom, left, bottom);
-        appendLine(commands, left, bottom, left, top);
+        ctx.drawLine(left, top, right, top, 0.6f, 0.4f, 0.2f);
+        ctx.drawLine(right, top, right, bottom, 0.6f, 0.4f, 0.2f);
+        ctx.drawLine(right, bottom, left, bottom, 0.6f, 0.4f, 0.2f);
+        ctx.drawLine(left, bottom, left, top, 0.6f, 0.4f, 0.2f);
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.6f, 0.4f, 0.2f, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.6f, 0.4f, 0.2f, x2, y2, 0, 0));
-    }
 }

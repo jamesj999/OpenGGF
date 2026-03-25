@@ -4,10 +4,11 @@ import com.openggf.audio.GameAudioProfile;
 import com.openggf.data.Game;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
-import com.openggf.game.sonic2.Sonic2PhysicsProvider;
+import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRegistry;
 import com.openggf.level.objects.PlaneSwitcherConfig;
 import com.openggf.level.objects.TouchResponseTable;
+import com.openggf.sprites.art.SpriteArtSet;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.SuperStateController;
 
@@ -151,15 +152,19 @@ public interface GameModule {
      *
      * @return the ROM offset provider
      */
-    RomOffsetProvider getRomOffsetProvider();
+    default RomOffsetProvider getRomOffsetProvider() {
+        return NoOpRomOffsetProvider.INSTANCE;
+    }
 
     /**
      * Returns the debug mode provider for this game.
      * Provides game-specific debug modes and controls.
      *
-     * @return the debug mode provider, or null if no game-specific debug modes
+     * @return the debug mode provider
      */
-    DebugModeProvider getDebugModeProvider();
+    default DebugModeProvider getDebugModeProvider() {
+        return NoOpDebugModeProvider.INSTANCE;
+    }
 
     /**
      * Returns the debug overlay provider for this game.
@@ -173,9 +178,11 @@ public interface GameModule {
      * Returns the zone art provider for this game.
      * Provides zone-specific art configurations for objects.
      *
-     * @return the zone art provider, or null if no zone-specific art
+     * @return the zone art provider
      */
-    ZoneArtProvider getZoneArtProvider();
+    default ZoneArtProvider getZoneArtProvider() {
+        return NoOpZoneArtProvider.INSTANCE;
+    }
 
     /**
      * Returns the object art provider for this game.
@@ -213,11 +220,9 @@ public interface GameModule {
      * Provides per-character physics profiles, modifier rules (water/speed shoes),
      * and feature flags (spindash availability).
      *
-     * @return the physics provider (defaults to Sonic 2 provider for backward compatibility)
+     * @return the physics provider
      */
-    default PhysicsProvider getPhysicsProvider() {
-        return new Sonic2PhysicsProvider();
-    }
+    PhysicsProvider getPhysicsProvider();
 
     /**
      * Creates a Super Sonic state controller for the given player sprite.
@@ -298,14 +303,13 @@ public interface GameModule {
     }
 
     /**
-     * Returns whether this game uses Sonic 2-style inline parallax scroll handlers.
-     * Only Sonic 2 loads zone-specific ParallaxTables-based handlers directly.
-     * Other games use the ScrollHandlerProvider path exclusively.
+     * Loads the separate Tails tail appendage art set (Obj05).
+     * Only meaningful when {@link #hasSeparateTailsTailArt()} returns true.
      *
-     * @return true if inline parallax handlers should be loaded
+     * @return the tail art set, or {@link SpriteArtSet#EMPTY} if not available
      */
-    default boolean hasInlineParallaxHandlers() {
-        return false;
+    default SpriteArtSet loadTailsTailArt() {
+        return SpriteArtSet.EMPTY;
     }
 
     /**
@@ -339,6 +343,18 @@ public interface GameModule {
         return false;
     }
 
+    /**
+     * Returns whether sidekick characters should be suppressed in the given zone.
+     * Some zones (e.g., S2 Sky Chase, Wing Fortress, Death Egg) have no sidekick
+     * during gameplay.
+     *
+     * @param zoneId the current zone index
+     * @return true if sidekicks should be hidden and inactive
+     */
+    default boolean isSidekickSuppressedForZone(int zoneId) {
+        return false;
+    }
+
     /** Returns the ROM-derived level initialization profile for this game. */
     default LevelInitProfile getLevelInitProfile() {
         return AbstractLevelInitProfile.EMPTY;
@@ -358,13 +374,44 @@ public interface GameModule {
         return null;
     }
 
-    /** Returns the GameId for this module. Default derives from getIdentifier(). */
-    default GameId getGameId() {
-        return switch (getIdentifier()) {
-            case "Sonic1" -> GameId.S1;
-            case "Sonic2" -> GameId.S2;
-            case "Sonic3k" -> GameId.S3K;
-            default -> throw new IllegalStateException("Unknown module: " + getIdentifier());
-        };
+    /**
+     * Applies a seamless mutation to the given level manager using the provided key.
+     * Called when a seamless zone transition requires applying level data mutations.
+     *
+     * <p>Default implementation is a no-op for games without seamless mutations.
+     *
+     * @param levelManager the level manager to apply the mutation to
+     * @param mutationKey  the key identifying which mutation to apply
+     */
+    default void applySeamlessMutation(LevelManager levelManager, String mutationKey) {
+        // No-op for games without seamless mutations
+    }
+
+    /**
+     * Returns a game-specific service by type, or null if not registered.
+     * Used to expose game-specific singletons (e.g., Sonic1SwitchManager,
+     * Sonic2SpecialStageManager) to object code via
+     * {@link com.openggf.level.objects.ObjectServices#gameService(Class)}.
+     *
+     * @param type the service class
+     * @param <T>  the service type
+     * @return the service instance, or null
+     */
+    default <T> T getGameService(Class<T> type) { return null; }
+
+    /** Returns the GameId for this module. */
+    GameId getGameId();
+
+    /**
+     * Resolves a canonical animation to this game's native animation ID.
+     * Used by game-agnostic code (sidekick controller) to avoid hardcoding
+     * game-specific animation IDs.
+     *
+     * @param canonical the cross-game animation identifier
+     * @return the native animation ID, or -1 if not supported
+     */
+    default int resolveAnimationId(CanonicalAnimation canonical) {
+        DonorCapabilities donor = getDonorCapabilities();
+        return donor != null ? donor.resolveNativeId(canonical) : -1;
     }
 }

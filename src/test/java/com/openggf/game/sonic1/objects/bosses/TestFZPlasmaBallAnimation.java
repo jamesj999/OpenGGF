@@ -12,7 +12,7 @@ public class TestFZPlasmaBallAnimation {
     @Test
     public void chasePhaseUsesDisassemblyShortAnimationSequence() throws Exception {
         // Spawn at the launcher Y so the ball has enough chase frames before delete at boss_fz_y+$D0.
-        FZPlasmaBall ball = new FZPlasmaBall(null, null, 0x2500, 0x53C, 0x2500);
+        FZPlasmaBall ball = new FZPlasmaBall(null,  0x2500, 0x53C, 0x2500);
 
         int safety = 0;
         while (!readBooleanField(ball, "hasCollision") && safety < 500) {

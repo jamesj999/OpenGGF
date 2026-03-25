@@ -1,6 +1,7 @@
 package com.openggf.sprites.playable;
 
-import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
+import com.openggf.game.CanonicalAnimation;
+import com.openggf.game.GameModuleRegistry;
 import com.openggf.physics.Direction;
 
 /**
@@ -11,7 +12,7 @@ public class TailsRespawnStrategy implements SidekickRespawnStrategy {
 
     private static final int RESPAWN_Y_OFFSET = 192;
     private static final int MAX_FLY_ACCEL = 12;
-    private static final int FLY_ANIM_ID = Sonic2AnimationIds.FLY.id();
+    private final int flyAnimId;
     private static final int FOLLOW_DELAY_FRAMES = 17;
     private static final int FLY_LAND_BLOCKERS = 0xD2;
 
@@ -19,6 +20,7 @@ public class TailsRespawnStrategy implements SidekickRespawnStrategy {
 
     public TailsRespawnStrategy(SidekickCpuController controller) {
         this.controller = controller;
+        this.flyAnimId = GameModuleRegistry.getCurrent().resolveAnimationId(CanonicalAnimation.FLY);
     }
 
     @Override
@@ -33,7 +35,7 @@ public class TailsRespawnStrategy implements SidekickRespawnStrategy {
         sidekick.setHurt(false);
         sidekick.setSpindash(false);
         sidekick.setSpindashCounter((short) 0);
-        sidekick.setForcedAnimationId(FLY_ANIM_ID);
+        sidekick.setForcedAnimationId(flyAnimId);
         sidekick.setControlLocked(true);
         sidekick.setObjectControlled(true);
         return true;
@@ -42,7 +44,7 @@ public class TailsRespawnStrategy implements SidekickRespawnStrategy {
     @Override
     public boolean updateApproaching(AbstractPlayableSprite sidekick, AbstractPlayableSprite leader,
                                      int frameCounter) {
-        sidekick.setForcedAnimationId(FLY_ANIM_ID);
+        sidekick.setForcedAnimationId(flyAnimId);
         sidekick.setControlLocked(true);
         sidekick.setObjectControlled(true);
 

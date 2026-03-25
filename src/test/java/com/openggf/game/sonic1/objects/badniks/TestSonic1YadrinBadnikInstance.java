@@ -15,7 +15,7 @@ public class TestSonic1YadrinBadnikInstance {
     @Test
     public void collisionFlagsUseSpecialCategory() {
         Sonic1YadrinBadnikInstance yadrin = new Sonic1YadrinBadnikInstance(
-                new ObjectSpawn(160, 100, 0x50, 0, 0, false, 0), null);
+                new ObjectSpawn(160, 100, 0x50, 0, 0, false, 0));
 
         assertEquals(0x40, yadrin.getCollisionFlags() & 0xC0);
     }
@@ -23,7 +23,7 @@ public class TestSonic1YadrinBadnikInstance {
     @Test
     public void rollingTopHitHurtsWithoutDestroyingBadnik() {
         Sonic1YadrinBadnikInstance yadrin = new Sonic1YadrinBadnikInstance(
-                new ObjectSpawn(160, 100, 0x50, 0, 0, false, 0), null);
+                new ObjectSpawn(160, 100, 0x50, 0, 0, false, 0));
         YadrinTestPlayableSprite player = new YadrinTestPlayableSprite();
         player.setRolling(true);
         player.setCentreX((short) 160);

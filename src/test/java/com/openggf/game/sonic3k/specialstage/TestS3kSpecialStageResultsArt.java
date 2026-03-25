@@ -6,9 +6,12 @@ import com.openggf.data.RomManager;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
 import com.openggf.game.PlayerCharacter;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArt;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.level.Pattern;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
 import java.io.File;
@@ -22,6 +25,16 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
 public class TestS3kSpecialStageResultsArt {
+
+    @Before
+    public void setUp() {
+        RuntimeManager.createGameplay();
+    }
+
+    @After
+    public void tearDown() {
+        RuntimeManager.destroyCurrent();
+    }
 
     @Test
     public void specialStageHudInitialTilesMatchHudDrawInitialSequence() throws Exception {

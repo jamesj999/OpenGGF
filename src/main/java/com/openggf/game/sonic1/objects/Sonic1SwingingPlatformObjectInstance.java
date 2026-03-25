@@ -1,19 +1,13 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.PlayableEntity;
 
-import com.openggf.camera.Camera;
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.debug.DebugOverlayManager;
-import com.openggf.debug.DebugOverlayToggle;
-import com.openggf.game.GameServices;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.game.OscillationManager;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
@@ -64,11 +58,6 @@ public class Sonic1SwingingPlatformObjectInstance extends AbstractObjectInstance
         GIANT_BALL    // Giant ball — GHZ subtype $1X
     }
 
-    // Debug state
-    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
-            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
-
     // Position state (anchor/pivot point)
     private final int baseX;  // swing_origX = objoff_3A
     private final int baseY;  // swing_origY = objoff_38
@@ -99,13 +88,10 @@ public class Sonic1SwingingPlatformObjectInstance extends AbstractObjectInstance
     // obColType for touch collision (SBZ=$86, Giant Ball=$81, 0=no touch collision)
     private final int collisionType;
 
-    // Dynamic spawn for position tracking
-    private ObjectSpawn dynamicSpawn;
-
-    public Sonic1SwingingPlatformObjectInstance(ObjectSpawn spawn, LevelManager levelManager) {
+    public Sonic1SwingingPlatformObjectInstance(ObjectSpawn spawn) {
         super(spawn, "SwingingPlatform");
 
-        int zoneIndex = levelManager.getRomZoneId();
+        int zoneIndex = services().romZoneId();
         int subtype = spawn.subtype() & 0xFF;
         this.chainCount = subtype & 0x0F;
         boolean isGiantBall = (subtype & 0x10) != 0;
@@ -227,7 +213,7 @@ public class Sonic1SwingingPlatformObjectInstance extends AbstractObjectInstance
         this.x = baseX;
         this.y = baseY;
         updatePositions();
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -239,19 +225,14 @@ public class Sonic1SwingingPlatformObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
     @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
-    @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
         updatePositions();
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -316,19 +297,8 @@ public class Sonic1SwingingPlatformObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(artKey);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
-
-        // Draw debug overlay
-        if (isDebugViewEnabled()) {
-            appendDebug(commands);
-        }
+        PatternSpriteRenderer renderer = getRenderer(artKey);
+        if (renderer == null) return;
 
         // Render anchor at pivot point (frame 2)
         renderer.drawFrameIndex(2, baseX, baseY, false, false);
@@ -366,13 +336,15 @@ public class Sonic1SwingingPlatformObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // SBZ spiked ball and GHZ giant ball are NOT solid (they hurt on touch)
         return isSolid && !isDestroyed();
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Standing state managed by ObjectManager
     }
 
@@ -399,7 +371,7 @@ public class Sonic1SwingingPlatformObjectInstance extends AbstractObjectInstance
 
     private boolean isBaseXOnScreen() {
         int objectX = baseX;
-        var camera = Camera.getInstance();
+        var camera = services().camera();
         if (camera == null) {
             return true;
         }
@@ -409,29 +381,18 @@ public class Sonic1SwingingPlatformObjectInstance extends AbstractObjectInstance
         return distance <= (128 + 320 + 192);
     }
 
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = new ObjectSpawn(
-                    x, y,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
-    }
-
     // ---- Debug rendering ----
 
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         // Draw pivot point (yellow cross)
-        appendLine(commands, baseX - 4, baseY, baseX + 4, baseY, 1.0f, 1.0f, 0.0f);
-        appendLine(commands, baseX, baseY - 4, baseX, baseY + 4, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(baseX - 4, baseY, baseX + 4, baseY, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(baseX, baseY - 4, baseX, baseY + 4, 1.0f, 1.0f, 0.0f);
 
         // Draw chain link positions (cyan)
         for (int i = 0; i < chainDistances.length; i++) {
-            appendLine(commands, linkX[i] - 2, linkY[i], linkX[i] + 2, linkY[i], 0.0f, 1.0f, 1.0f);
-            appendLine(commands, linkX[i], linkY[i] - 2, linkX[i], linkY[i] + 2, 0.0f, 1.0f, 1.0f);
+            ctx.drawLine(linkX[i] - 2, linkY[i], linkX[i] + 2, linkY[i], 0.0f, 1.0f, 1.0f);
+            ctx.drawLine(linkX[i], linkY[i] - 2, linkX[i], linkY[i] + 2, 0.0f, 1.0f, 1.0f);
         }
 
         // Draw collision box (green for solid platforms, red for harmful objects)
@@ -441,25 +402,15 @@ public class Sonic1SwingingPlatformObjectInstance extends AbstractObjectInstance
         int right = x + halfWidth;
         int top = y - halfHeight;
         int bottom = y + halfHeight;
-        appendLine(commands, left, top, right, top, r, g, 0.0f);
-        appendLine(commands, right, top, right, bottom, r, g, 0.0f);
-        appendLine(commands, right, bottom, left, bottom, r, g, 0.0f);
-        appendLine(commands, left, bottom, left, top, r, g, 0.0f);
+        ctx.drawLine(left, top, right, top, r, g, 0.0f);
+        ctx.drawLine(right, top, right, bottom, r, g, 0.0f);
+        ctx.drawLine(right, bottom, left, bottom, r, g, 0.0f);
+        ctx.drawLine(left, bottom, left, top, r, g, 0.0f);
 
         // Draw platform center (red cross)
-        appendLine(commands, x - 4, y, x + 4, y, 1.0f, 0.0f, 0.0f);
-        appendLine(commands, x, y - 4, x, y + 4, 1.0f, 0.0f, 0.0f);
+        ctx.drawLine(x - 4, y, x + 4, y, 1.0f, 0.0f, 0.0f);
+        ctx.drawLine(x, y - 4, x, y + 4, 1.0f, 0.0f, 0.0f);
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2,
-                            float r, float g, float b) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x2, y2, 0, 0));
-    }
 
-    private boolean isDebugViewEnabled() {
-        return DEBUG_VIEW_ENABLED && OVERLAY_MANAGER.isEnabled(DebugOverlayToggle.OVERLAY);
-    }
 }

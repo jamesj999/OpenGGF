@@ -1,10 +1,12 @@
 package com.openggf.game.sonic2.objects.badniks;
 
+import com.openggf.game.PlayableEntity;
+import com.openggf.level.objects.AbstractBadnikInstance;
+
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
-import com.openggf.level.objects.ObjectRenderManager;
+
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.camera.Camera;
@@ -71,8 +73,8 @@ public class WhispBadnikInstance extends AbstractBadnikInstance {
     private int xVelFixed;
     private int yVelFixed;
 
-    public WhispBadnikInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Whisp");
+    public WhispBadnikInstance(ObjectSpawn spawn) {
+        super(spawn, "Whisp", Sonic2BadnikConfig.DESTRUCTION);
         this.state = State.INIT;
         this.timer = 0;
         this.attacksRemaining = MAX_ATTACKS;
@@ -89,7 +91,8 @@ public class WhispBadnikInstance extends AbstractBadnikInstance {
     }
 
     @Override
-    protected void updateMovement(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateMovement(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
             case INIT -> updateInit();
             case WAIT_ONSCREEN -> updateWaitOnscreen();
@@ -115,7 +118,7 @@ public class WhispBadnikInstance extends AbstractBadnikInstance {
      * When visible, decrement attacks and start chase (matching loc_36970 flow).
      */
     private void updateWaitOnscreen() {
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         int screenX = currentX - camera.getX();
         int screenY = currentY - camera.getY();
 
@@ -237,19 +240,12 @@ public class WhispBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (destroyed) {
+        if (isDestroyed()) {
             return;
         }
 
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.WHISP);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.WHISP);
+        if (renderer == null) return;
 
         // Render current animation frame
         // Art faces right by default; flip when facing left

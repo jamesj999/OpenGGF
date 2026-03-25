@@ -18,7 +18,7 @@ package com.openggf.game.sonic1.titlecard;
  * SLIDE_IN -> DISPLAY -> SLIDE_OUT -> COMPLETE
  * </pre>
  *
- * <p>Control is released at the start of SLIDE_OUT, allowing the player to move
+ * <p>control is released at the start of SLIDE_OUT, allowing the player to move
  * while the elements slide off-screen over the visible level.
  */
 public enum Sonic1TitleCardState {

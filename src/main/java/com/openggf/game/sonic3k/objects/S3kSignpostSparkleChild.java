@@ -1,13 +1,14 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.rings.RingManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
+import java.util.logging.Logger;
 
 /**
  * Short-lived sparkle effect spawned by the S3K signpost during its fall.
@@ -16,6 +17,8 @@ import java.util.List;
  * Plays through 4 animation frames then self-destructs.
  */
 public class S3kSignpostSparkleChild extends AbstractObjectInstance {
+
+    private static final Logger LOG = Logger.getLogger(S3kSignpostSparkleChild.class.getName());
 
     private static final int FRAME_DELAY = 4;
     private static final int TOTAL_FRAMES = 4;
@@ -42,7 +45,8 @@ public class S3kSignpostSparkleChild extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         animTimer++;
         if (animTimer >= FRAME_DELAY) {
             animTimer = 0;
@@ -57,17 +61,14 @@ public class S3kSignpostSparkleChild extends AbstractObjectInstance {
     public void appendRenderCommands(List<GLCommand> commands) {
         // Try to use RingManager's sparkle frames if available
         try {
-            LevelManager lm = LevelManager.getInstance();
-            if (lm != null) {
-                RingManager ringManager = lm.getRingManager();
-                if (ringManager != null) {
-                    int startIdx = ringManager.getSparkleStartIndex();
-                    ringManager.drawFrameIndex(startIdx + animFrame, worldX, worldY);
-                    return;
-                }
+            RingManager ringManager = services().ringManager();
+            if (ringManager != null) {
+                int startIdx = ringManager.getSparkleStartIndex();
+                ringManager.drawFrameIndex(startIdx + animFrame, worldX, worldY);
+                return;
             }
-        } catch (Exception ignored) {
-            // Fall through to placeholder
+        } catch (Exception e) {
+            LOG.fine(() -> "S3kSignpostSparkleChild.appendRenderCommands: " + e.getMessage());
         }
 
         // Placeholder: small diamond shape

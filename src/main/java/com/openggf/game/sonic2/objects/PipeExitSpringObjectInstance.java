@@ -1,12 +1,14 @@
 package com.openggf.game.sonic2.objects;
+import com.openggf.game.PlayableEntity;
+import com.openggf.level.objects.SpringHelper;
+import com.openggf.level.objects.BoxObjectInstance;
+import com.openggf.level.objects.ObjectAnimationState;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.physics.Direction;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -14,6 +16,7 @@ import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
+import com.openggf.level.objects.SpringBounceHelper;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -62,7 +65,7 @@ public class PipeExitSpringObjectInstance extends BoxObjectInstance
         this.fullStrength = (spawn.subtype() & 0x02) == 0;
         this.mappingFrame = 0;
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         this.animationState = new ObjectAnimationState(
                 renderManager != null ? renderManager.getAnimations(Sonic2ObjectArtKeys.ANIM_PIPE_EXIT_SPRING) : null,
                 ANIM_IDLE,
@@ -70,7 +73,8 @@ public class PipeExitSpringObjectInstance extends BoxObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (player == null) {
             return;
         }
@@ -113,7 +117,7 @@ public class PipeExitSpringObjectInstance extends BoxObjectInstance
             player.setXSpeed((short) 0);
         }
 
-        player.setSpringing(15);
+        player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
 
         // ROM: move.b #AniIDSonAni_Spring,anim(a1) - Set Spring animation first
         player.setAnimationId(Sonic2AnimationIds.SPRING);
@@ -151,9 +155,7 @@ public class PipeExitSpringObjectInstance extends BoxObjectInstance
     private void trigger() {
         animationState.setAnimId(ANIM_TRIGGERED);
         try {
-            if (AudioManager.getInstance() != null) {
-                AudioManager.getInstance().playSfx(GameSound.SPRING);
-            }
+            services().playSfx(GameSound.SPRING);
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic
         }
@@ -165,7 +167,7 @@ public class PipeExitSpringObjectInstance extends BoxObjectInstance
      * - Reduced strength: -$A80 (lower bounce)
      */
     private int getStrength() {
-        return fullStrength ? -0x1000 : -0x0A80;
+        return fullStrength ? SpringBounceHelper.STRENGTH_RED : -0x0A80;
     }
 
     /**
@@ -174,7 +176,8 @@ public class PipeExitSpringObjectInstance extends BoxObjectInstance
      * and allows Sonic to pass through when the spring is raised out of the way.
      */
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: cmpi.b #1,mapping_frame(a0) / beq.s loc_29648
         // Skip collision when spring is in raised position (frames 1 and 2)
         // Both frames have Y offset -32 (raised 16 pixels higher than normal)
@@ -201,7 +204,8 @@ public class PipeExitSpringObjectInstance extends BoxObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: loc_29648 - Check if player is in the tube below the spring
         // If so, play the raised animation to move the spring out of the way
         if (player != null && isPlayerInTubeBelow(player)) {
@@ -243,7 +247,7 @@ public class PipeExitSpringObjectInstance extends BoxObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             super.appendRenderCommands(commands);
             return;

@@ -2,6 +2,7 @@ package com.openggf.game.sonic1.specialstage;
 
 import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
+import com.openggf.game.RuntimeManager;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -15,6 +16,7 @@ public class Sonic1SpecialStageResultsScreenTest {
 
     @Before
     public void setUp() {
+        RuntimeManager.createGameplay();
         gameState = GameServices.gameState();
         gameState.configureSpecialStageProgress(6, 6);
         gameState.resetSession();
@@ -23,6 +25,7 @@ public class Sonic1SpecialStageResultsScreenTest {
     @After
     public void tearDown() {
         gameState.resetSession();
+        RuntimeManager.destroyCurrent();
     }
 
     @Test

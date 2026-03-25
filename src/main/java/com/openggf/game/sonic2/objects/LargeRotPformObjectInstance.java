@@ -1,20 +1,14 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.data.Rom;
-import com.openggf.data.RomByteReader;
 import com.openggf.game.sonic2.S2SpriteDataLoader;
-import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.OscillationManager;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
-import com.openggf.debug.DebugOverlayManager;
-import com.openggf.debug.DebugOverlayToggle;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.PatternDesc;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -27,8 +21,8 @@ import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpritePieceRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.util.LazyMappingHolder;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -85,13 +79,7 @@ public class LargeRotPformObjectInstance extends AbstractObjectInstance
     private static final int OSC_CENTER_HALF = 0x1C;
 
     // Static mapping data loaded from ROM
-    private static List<SpriteMappingFrame> mappings;
-    private static boolean mappingsLoadAttempted;
-
-    // Debug state
-    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
-            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
+    private static final LazyMappingHolder MAPPINGS = new LazyMappingHolder();
 
     // Instance state
     private final int baseX;       // objoff_34 - original X position
@@ -107,9 +95,6 @@ public class LargeRotPformObjectInstance extends AbstractObjectInstance
     // Current position (updated each frame from oscillation)
     private int x;
     private int y;
-
-    // Dynamic spawn for moving solid collision
-    private ObjectSpawn dynamicSpawn;
 
     // Collision params (null for indent subtype)
     private final SolidObjectParams solidParams;
@@ -162,14 +147,9 @@ public class LargeRotPformObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
     @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
-    @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -232,19 +212,7 @@ public class LargeRotPformObjectInstance extends AbstractObjectInstance
         y = baseY + d2;
 
         if (!isIndent) {
-            refreshDynamicSpawn();
-        }
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = new ObjectSpawn(
-                    x, y,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
+            updateDynamicSpawn(x, y);
         }
     }
 
@@ -263,23 +231,19 @@ public class LargeRotPformObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed() && !isIndent;
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // No special handling needed
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ensureMappingsLoaded();
-
-        if (isDebugViewEnabled()) {
-            appendDebug(commands);
-        }
-
         if (isIndent) {
             renderIndent(commands);
         } else {
@@ -292,7 +256,9 @@ public class LargeRotPformObjectInstance extends AbstractObjectInstance
      * These frames reference patterns from the zone's level art (ArtTile_ArtKos_LevelArt = tile 0).
      */
     private void renderLevelArt(List<GLCommand> commands) {
-        if (mappings == null || mappingFrame >= mappings.size()) {
+        List<SpriteMappingFrame> mappings = MAPPINGS.get(
+                Sonic2Constants.MAP_UNC_OBJ6E_ADDR, S2SpriteDataLoader::loadMappingFrames, "Obj6E");
+        if (mappings.isEmpty() || mappingFrame >= mappings.size()) {
             return;
         }
 
@@ -301,7 +267,7 @@ public class LargeRotPformObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = services().graphicsManager();
 
         SpritePieceRenderer.renderPieces(
                 frame.pieces(),
@@ -327,7 +293,7 @@ public class LargeRotPformObjectInstance extends AbstractObjectInstance
      * Uses art_tile = make_art_tile(ArtTile_ArtNem_MtzWheelIndent, 3, 0) = tile 0x3F0, palette 3.
      */
     private void renderIndent(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
@@ -343,32 +309,10 @@ public class LargeRotPformObjectInstance extends AbstractObjectInstance
         return RenderPriority.clamp(priority);
     }
 
-    // Mapping loading from ROM
-
-    private static void ensureMappingsLoaded() {
-        if (mappingsLoadAttempted) {
-            return;
-        }
-        mappingsLoadAttempted = true;
-
-        LevelManager manager = LevelManager.getInstance();
-        if (manager == null || manager.getGame() == null) {
-            return;
-        }
-
-        try {
-            Rom rom = manager.getGame().getRom();
-            RomByteReader reader = RomByteReader.fromRom(rom);
-            mappings = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ6E_ADDR);
-            LOGGER.fine("Loaded " + mappings.size() + " Obj6E mapping frames");
-        } catch (IOException | RuntimeException e) {
-            LOGGER.warning("Failed to load Obj6E mappings: " + e.getMessage());
-        }
-    }
-
     // Debug rendering
 
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         if (!isIndent && solidParams != null) {
             int left = x - solidParams.halfWidth();
             int right = x + solidParams.halfWidth();
@@ -376,28 +320,17 @@ public class LargeRotPformObjectInstance extends AbstractObjectInstance
             int bottom = y + solidParams.groundHalfHeight();
 
             // Green box for collision bounds
-            appendLine(commands, left, top, right, top, 0.0f, 1.0f, 0.0f);
-            appendLine(commands, right, top, right, bottom, 0.3f, 0.7f, 0.3f);
-            appendLine(commands, right, bottom, left, bottom, 0.3f, 0.7f, 0.3f);
-            appendLine(commands, left, bottom, left, top, 0.3f, 0.7f, 0.3f);
+            ctx.drawLine(left, top, right, top, 0.0f, 1.0f, 0.0f);
+            ctx.drawLine(right, top, right, bottom, 0.3f, 0.7f, 0.3f);
+            ctx.drawLine(right, bottom, left, bottom, 0.3f, 0.7f, 0.3f);
+            ctx.drawLine(left, bottom, left, top, 0.3f, 0.7f, 0.3f);
         }
 
         // Center cross (yellow for base position, red for current)
-        appendLine(commands, baseX - 3, baseY, baseX + 3, baseY, 1.0f, 1.0f, 0.0f);
-        appendLine(commands, baseX, baseY - 3, baseX, baseY + 3, 1.0f, 1.0f, 0.0f);
-        appendLine(commands, x - 2, y, x + 2, y, 1.0f, 0.0f, 0.0f);
-        appendLine(commands, x, y - 2, x, y + 2, 1.0f, 0.0f, 0.0f);
+        ctx.drawLine(baseX - 3, baseY, baseX + 3, baseY, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(baseX, baseY - 3, baseX, baseY + 3, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(x - 2, y, x + 2, y, 1.0f, 0.0f, 0.0f);
+        ctx.drawLine(x, y - 2, x, y + 2, 1.0f, 0.0f, 0.0f);
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2,
-                            float r, float g, float b) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x2, y2, 0, 0));
-    }
-
-    private boolean isDebugViewEnabled() {
-        return DEBUG_VIEW_ENABLED && OVERLAY_MANAGER.isEnabled(DebugOverlayToggle.OVERLAY);
-    }
 }

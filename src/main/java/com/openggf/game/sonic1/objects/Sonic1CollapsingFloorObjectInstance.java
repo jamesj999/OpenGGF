@@ -1,6 +1,6 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.PlayableEntity;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
@@ -8,7 +8,7 @@ import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
+import com.openggf.level.objects.AbstractFallingFragment;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectManager;
@@ -19,6 +19,7 @@ import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -120,18 +121,14 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
     // Collapse flag (cflo_collapse_flag = objoff_3A): set when player activates collapse
     private boolean collapseFlag;
 
-    // Velocity for fragment falling (routine 6: ObjectFall)
-    private int velY;
-    private int yFrac;
+    // 16.16 fall state for ObjectFall (routine 6). y is synced to/from motion.y.
+    private final SubpixelMotion.State fallMotion = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
 
     // Whether fragments have been spawned
     private boolean fragmented;
 
     // X-flip state (obRender bit 0). Can change dynamically for subtype bit 7 objects.
     private boolean hFlip;
-
-    // Dynamic spawn for updated position tracking
-    private ObjectSpawn dynamicSpawn;
 
     public Sonic1CollapsingFloorObjectInstance(ObjectSpawn spawn, int zoneIndex) {
         super(spawn, "CollapsingFloor");
@@ -153,7 +150,7 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
 
         // Skip init routine, start at routine 2 (CFlo_Touch)
         this.routine = 2;
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -165,14 +162,9 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
     @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
-    @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (routine) {
             case 2 -> updateTouch(player);
             case 4 -> updateCollapse(player);
@@ -180,7 +172,7 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
             case 8 -> destroyWithWindowGatedRespawn();
             default -> { }
         }
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -220,7 +212,7 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
 
         // Subtype bit 7: X-flip to face the player
         if ((subtype & 0x80) != 0 && player != null) {
-            ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+            ObjectManager objectManager = services().objectManager();
             if (objectManager != null && objectManager.isAnyPlayerRiding(this)) {
                 // bclr #0,obRender(a0) - default to no flip
                 hFlip = false;
@@ -303,7 +295,7 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
             // loc_8402: WalkOff with collapse flag set
             collapseDelay--;
 
-            ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+            ObjectManager objectManager = services().objectManager();
             boolean playerRiding = objectManager != null && player != null
                     && objectManager.isAnyPlayerRiding(this);
 
@@ -366,12 +358,12 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
         // This causes routine 6 (CFlo_Display) to run the WalkOff path (loc_8402)
         // which keeps the player supported on the first fragment until delay expires.
 
-        ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+        ObjectManager objectManager = services().objectManager();
         if (objectManager == null) {
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
@@ -399,26 +391,17 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
         }
 
         // Play collapse sound: move.w #sfx_Collapse,d0 / jmp (QueueSound2).l
-        AudioManager.getInstance().playSfx(Sonic1Sfx.COLLAPSE.id);
+        services().playSfx(Sonic1Sfx.COLLAPSE.id);
     }
 
     /**
      * ObjectFall subroutine: applies gravity to Y velocity and updates position.
-     * <p>
-     * From _incObj/sub ObjectFall.asm:
-     * <pre>
-     *     move.w obVelY(a0),d0
-     *     addi.w #$38,obVelY(a0)
-     *     ext.l  d0 / asl.l #8,d0 / add.l d0,d3
-     * </pre>
+     * Delegates to {@link SubpixelMotion#objectFall(SubpixelMotion.State, int)}.
      */
     private void applyObjectFall() {
-        int y32 = (y << 16) | (yFrac & 0xFFFF);
-        int vy32 = (int) (short) velY;
-        velY += GRAVITY;
-        y32 += vy32 << 8;
-        y = y32 >> 16;
-        yFrac = y32 & 0xFFFF;
+        fallMotion.y = y;
+        SubpixelMotion.objectFall(fallMotion, GRAVITY);
+        y = fallMotion.y;
     }
 
     /**
@@ -427,7 +410,7 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
      */
     private void destroyWithWindowGatedRespawn() {
         if (!isDestroyed()) {
-            ObjectManager objectManager = LevelManager.getInstance().getObjectManager();
+            ObjectManager objectManager = services().objectManager();
             if (objectManager != null) {
                 objectManager.removeFromActiveSpawns(spawn);
             }
@@ -437,7 +420,7 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         if (renderManager == null) {
             return;
         }
@@ -483,7 +466,8 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return false;
         }
@@ -496,7 +480,8 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (routine == 2 && contact.standing()) {
             // Player stepped on floor: transition to routine 4 (CFlo_Collapse)
             // From disassembly: addq.b #2,obRoutine(a0) in PlatformObject
@@ -515,7 +500,7 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
     }
 
     private boolean isOnScreenX(int objectX, int range) {
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         if (camera == null) {
             return true;
         }
@@ -523,18 +508,6 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
         int camRounded = (camera.getX() - 128) & 0xFF80;
         int distance = (objRounded - camRounded) & 0xFFFF;
         return distance <= (128 + 320 + 192);
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = new ObjectSpawn(
-                    x, y,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
     }
 
     /**
@@ -551,13 +524,8 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
      *   <li>Falls via ObjectFall when delay reaches 0</li>
      * </ul>
      */
-    public static class CollapsingFloorFragmentInstance extends AbstractObjectInstance {
+    public static class CollapsingFloorFragmentInstance extends AbstractFallingFragment {
 
-        private int x;
-        private int y;
-        private int velY;
-        private int yFrac;
-        private int collapseDelay;
         private final int smashFrameIndex;
         private final int pieceIndex;
         private final boolean hFlip;
@@ -567,54 +535,11 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
                                                int smashFrameIndex, int pieceIndex,
                                                int delay, boolean hFlip, String artKey) {
             super(new ObjectSpawn(parentX, parentY, Sonic1ObjectIds.COLLAPSING_FLOOR,
-                    0, 0, false, 0), "CFloFragment");
-            this.x = parentX;
-            this.y = parentY;
+                    0, 0, false, 0), "CFloFragment", delay, PRIORITY);
             this.smashFrameIndex = smashFrameIndex;
             this.pieceIndex = pieceIndex;
-            this.collapseDelay = delay;
             this.hFlip = hFlip;
             this.artKey = artKey;
-        }
-
-        @Override
-        public int getX() {
-            return x;
-        }
-
-        @Override
-        public int getY() {
-            return y;
-        }
-
-        @Override
-        public void update(int frameCounter, AbstractPlayableSprite player) {
-            if (isDestroyed()) {
-                return;
-            }
-
-            if (collapseDelay > 0) {
-                // Count down delay before falling
-                collapseDelay--;
-                return;
-            }
-
-            // CFlo_TimeZero: ObjectFall
-            int y32 = (y << 16) | (yFrac & 0xFFFF);
-            int vy32 = (int) (short) velY;
-            velY += GRAVITY;
-            y32 += vy32 << 8;
-            y = y32 >> 16;
-            yFrac = y32 & 0xFFFF;
-
-            // tst.b obRender(a0) / bpl.s CFlo_Delete - delete when offscreen
-            Camera cam = Camera.getInstance();
-            if (cam != null) {
-                int screenY = y - cam.getY();
-                if (screenY > 224 + 0x80) {
-                    setDestroyed(true);
-                }
-            }
         }
 
         @Override
@@ -622,26 +547,12 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
             if (isDestroyed()) {
                 return;
             }
-            ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-            if (renderManager == null) {
-                return;
-            }
-            PatternSpriteRenderer renderer = renderManager.getRenderer(artKey);
-            if (renderer == null || !renderer.isReady()) {
+            PatternSpriteRenderer renderer = getRenderer(artKey);
+            if (renderer == null) {
                 return;
             }
 
-            renderer.drawFramePieceByIndex(smashFrameIndex, pieceIndex, x, y, hFlip, false);
-        }
-
-        @Override
-        public int getPriorityBucket() {
-            return RenderPriority.clamp(PRIORITY);
-        }
-
-        @Override
-        public boolean isPersistent() {
-            return !isDestroyed();
+            renderer.drawFramePieceByIndex(smashFrameIndex, pieceIndex, getX(), getY(), hFlip, false);
         }
     }
 }

@@ -2,13 +2,12 @@ package com.openggf.game.sonic1.objects.badniks;
 
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import java.util.List;
 
@@ -48,7 +47,8 @@ public class Sonic1BuzzBomberMissileDissolveInstance extends AbstractObjectInsta
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         frameTimer--;
         if (frameTimer <= 0) {
             frameTimer = FRAME_DURATION;
@@ -80,15 +80,8 @@ public class Sonic1BuzzBomberMissileDissolveInstance extends AbstractObjectInsta
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.BUZZ_BOMBER_MISSILE_DISSOLVE);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.BUZZ_BOMBER_MISSILE_DISSOLVE);
+        if (renderer == null) return;
 
         renderer.drawFrameIndex(animFrame, currentX, currentY, false, false);
     }

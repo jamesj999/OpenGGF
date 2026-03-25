@@ -1,14 +1,12 @@
 package com.openggf.game.sonic1.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -127,18 +125,12 @@ public class Sonic1SeesawBallObjectInstance extends AbstractObjectInstance
 
     @Override
     public ObjectSpawn getSpawn() {
-        return new ObjectSpawn(
-                xPos >> 16,
-                yPos >> 16,
-                spawn.objectId(),
-                spawn.subtype(),
-                spawn.renderFlags(),
-                spawn.respawnTracked(),
-                spawn.rawYWord());
+        return buildSpawnAt(xPos >> 16, yPos >> 16);
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
             case RESTING -> updateResting();
             case FLYING -> updateFlying();
@@ -408,10 +400,7 @@ public class Sonic1SeesawBallObjectInstance extends AbstractObjectInstance
 
         // move.w #sfx_Spring,d0 / jsr (QueueSound2).l
         try {
-            AudioManager audioManager = AudioManager.getInstance();
-            if (audioManager != null) {
-                audioManager.playSfx(Sonic1Sfx.SPRING.id);
-            }
+            services().playSfx(Sonic1Sfx.SPRING.id);
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic
         }
@@ -445,15 +434,8 @@ public class Sonic1SeesawBallObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.SLZ_SEESAW_BALL);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.SLZ_SEESAW_BALL);
+        if (renderer == null) return;
 
         // Frame 1 (silver) is the default; original ROM uses obFrame=1 set in See_Spikeball
         renderer.drawFrameIndex(displayFrame, xPos >> 16, yPos >> 16, false, false);

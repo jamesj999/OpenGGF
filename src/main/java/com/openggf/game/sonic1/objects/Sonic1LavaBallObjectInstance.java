@@ -1,15 +1,13 @@
 package com.openggf.game.sonic1.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -245,13 +243,12 @@ public class Sonic1LavaBallObjectInstance extends AbstractObjectInstance
 
         // Determine art key based on current zone
         // ROM: cmpi.b #id_SLZ,(v_zone).w / bne.s .notSLZ
-        LevelManager lm = LevelManager.getInstance();
-        int zoneIndex = (lm != null) ? lm.getRomZoneId() : Sonic1Constants.ZONE_MZ;
+        int zoneIndex = services().romZoneId();
         this.artKey = (zoneIndex == Sonic1Constants.ZONE_SLZ)
                 ? ObjectArtKeys.SLZ_FIREBALL : ObjectArtKeys.MZ_FIREBALL;
 
         // Play fireball sound: move.w #sfx_Fireball,d0 / jsr (QueueSound2).l
-        AudioManager.getInstance().playSfx(SFX_FIREBALL);
+        services().playSfx(SFX_FIREBALL);
     }
 
     // ========================================================================
@@ -259,7 +256,8 @@ public class Sonic1LavaBallObjectInstance extends AbstractObjectInstance
     // ========================================================================
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (inCollisionAnim) {
             // Collision animation plays one frame then afRoutine increments obRoutine -> delete.
             // ROM: afRoutine adds 2 to obRoutine, making it 4 = LBall_Delete -> bra.w DeleteObject
@@ -495,15 +493,8 @@ public class Sonic1LavaBallObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(artKey);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(artKey);
+        if (renderer == null) return;
 
         int frameIndex;
         boolean hFlip = false;

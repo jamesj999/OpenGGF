@@ -1,17 +1,12 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.camera.Camera;
-import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
-import com.openggf.debug.DebugOverlayManager;
-import com.openggf.debug.DebugOverlayToggle;
-import com.openggf.game.GameServices;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.TrigLookupTable;
@@ -69,11 +64,6 @@ public class Sonic1RunningDiscObjectInstance extends AbstractObjectInstance {
     private static final int SMALL_SPOT_DISTANCE = 0x10;
     private static final int SMALL_RADIUS = 0x38;
 
-    // Debug state
-    private static final boolean DEBUG_VIEW_ENABLED = SonicConfigurationService.getInstance()
-            .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-    private static final DebugOverlayManager OVERLAY_MANAGER = GameServices.debugOverlay();
-
     // disc_origX = objoff_32, disc_origY = objoff_30
     private final int origX;
     private final int origY;
@@ -97,9 +87,6 @@ public class Sonic1RunningDiscObjectInstance extends AbstractObjectInstance {
 
     // disc_sonic_attached = objoff_3A: whether Sonic is currently attached
     private boolean sonicAttached;
-
-    // Dynamic spawn for position tracking
-    private ObjectSpawn dynamicSpawn;
 
     public Sonic1RunningDiscObjectInstance(ObjectSpawn spawn) {
         super(spawn, "RunningDisc");
@@ -136,7 +123,7 @@ public class Sonic1RunningDiscObjectInstance extends AbstractObjectInstance {
 
         // Calculate initial spot position
         updateSpotPosition();
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -157,14 +144,9 @@ public class Sonic1RunningDiscObjectInstance extends AbstractObjectInstance {
     public int getY() {
         return y;
     }
-
     @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
-    @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -172,7 +154,7 @@ public class Sonic1RunningDiscObjectInstance extends AbstractObjectInstance {
         // Disc_Action: bsr.w Disc_MoveSonic / bsr.w Disc_MoveSpot / bra.w Disc_ChkDel
         updateSonicAttachment(player);
         updateSpotPosition();
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -362,18 +344,8 @@ public class Sonic1RunningDiscObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.SBZ_RUNNING_DISC);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
-
-        if (isDebugViewEnabled()) {
-            appendDebug(commands);
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.SBZ_RUNNING_DISC);
+        if (renderer == null) return;
 
         // Render the spot at current position (single frame: frame 0)
         renderer.drawFrameIndex(0, x, y, false, false);
@@ -398,7 +370,7 @@ public class Sonic1RunningDiscObjectInstance extends AbstractObjectInstance {
      * {@code out_of_range.s} macro applied to disc_origX.
      */
     private boolean isOrigXOnScreen() {
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         if (camera == null) {
             return true;
         }
@@ -409,52 +381,31 @@ public class Sonic1RunningDiscObjectInstance extends AbstractObjectInstance {
         return distance <= (128 + 320 + 192);
     }
 
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = new ObjectSpawn(
-                    x, y,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
-    }
-
     // ---- Debug rendering ----
 
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         // Draw origin anchor point (yellow cross)
-        appendLine(commands, origX - 4, origY, origX + 4, origY, 1.0f, 1.0f, 0.0f);
-        appendLine(commands, origX, origY - 4, origX, origY + 4, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(origX - 4, origY, origX + 4, origY, 1.0f, 1.0f, 0.0f);
+        ctx.drawLine(origX, origY - 4, origX, origY + 4, 1.0f, 1.0f, 0.0f);
 
         // Draw detection radius (magenta box)
         int left = origX - detectionRadius;
         int right = origX + detectionRadius;
         int top = origY - detectionRadius;
         int bottom = origY + detectionRadius;
-        appendLine(commands, left, top, right, top, 1.0f, 0.0f, 1.0f);
-        appendLine(commands, right, top, right, bottom, 1.0f, 0.0f, 1.0f);
-        appendLine(commands, right, bottom, left, bottom, 1.0f, 0.0f, 1.0f);
-        appendLine(commands, left, bottom, left, top, 1.0f, 0.0f, 1.0f);
+        ctx.drawLine(left, top, right, top, 1.0f, 0.0f, 1.0f);
+        ctx.drawLine(right, top, right, bottom, 1.0f, 0.0f, 1.0f);
+        ctx.drawLine(right, bottom, left, bottom, 1.0f, 0.0f, 1.0f);
+        ctx.drawLine(left, bottom, left, top, 1.0f, 0.0f, 1.0f);
 
         // Draw line from origin to current spot position (cyan)
-        appendLine(commands, origX, origY, x, y, 0.0f, 1.0f, 1.0f);
+        ctx.drawLine(origX, origY, x, y, 0.0f, 1.0f, 1.0f);
 
         // Draw spot center (red cross)
-        appendLine(commands, x - 4, y, x + 4, y, 1.0f, 0.0f, 0.0f);
-        appendLine(commands, x, y - 4, x, y + 4, 1.0f, 0.0f, 0.0f);
+        ctx.drawLine(x - 4, y, x + 4, y, 1.0f, 0.0f, 0.0f);
+        ctx.drawLine(x, y - 4, x, y + 4, 1.0f, 0.0f, 0.0f);
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2,
-                            float r, float g, float b) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                r, g, b, x2, y2, 0, 0));
-    }
 
-    private boolean isDebugViewEnabled() {
-        return DEBUG_VIEW_ENABLED && OVERLAY_MANAGER.isEnabled(DebugOverlayToggle.OVERLAY);
-    }
 }

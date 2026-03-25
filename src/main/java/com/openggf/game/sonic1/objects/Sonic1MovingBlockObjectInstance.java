@@ -1,20 +1,19 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.PlayableEntity;
 
-import com.openggf.camera.Camera;
 import com.openggf.game.sonic1.Sonic1SwitchManager;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.game.OscillationManager;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
@@ -124,8 +123,8 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
 
     // Y velocity for type 06 (falling)
     private int yVelocity;
-    // Sub-pixel accumulator for SpeedToPos Y (type 06)
-    private int ySubpixel;
+    // 16.16 subpixel state for SpeedToPos Y position updates during falling.
+    private final SubpixelMotion.State fallMotion = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
 
     // Type 0A state: timer countdown at endpoint (objoff_34)
     private int shuttleTimer;
@@ -135,11 +134,9 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
     // Which art key to use for this zone
     private final String artKey;
 
-    private ObjectSpawn dynamicSpawn;
-
-    public Sonic1MovingBlockObjectInstance(ObjectSpawn spawn, LevelManager levelManager) {
+    public Sonic1MovingBlockObjectInstance(ObjectSpawn spawn) {
         super(spawn, "MovingBlock");
-        this.zoneIndex = levelManager.getRomZoneId();
+        this.zoneIndex = services().romZoneId();
 
         int fullSubtype = spawn.subtype() & 0xFF;
 
@@ -161,14 +158,13 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
 
         this.playerStanding = false;
         this.yVelocity = 0;
-        this.ySubpixel = 0;
         this.shuttleTimer = 0;
         this.shuttleReturning = false;
 
         // Select art key based on zone
         this.artKey = selectArtKey(fullSubtype);
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -202,14 +198,9 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
     @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
-    @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         playerStanding = isPlayerRiding();
 
         // MBlock_StandOn (routine 4): ExitPlatform, save X, move, MvSonicOnPtfm2
@@ -217,19 +208,13 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
         // Both call MBlock_Move then check deletion.
         applyMovement();
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(artKey);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(artKey);
+        if (renderer == null) return;
 
         renderer.drawFrameIndex(mappingFrame, x, y, false, false);
     }
@@ -245,12 +230,14 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Standing state managed via isPlayerRiding() in update()
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed();
     }
 
@@ -421,7 +408,7 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
             // Hit floor — snap to surface and stop
             y += floor.distance();
             yVelocity = 0;
-            ySubpixel = 0;
+            fallMotion.ySub = 0;
             moveType = 0x00;
         }
     }
@@ -445,7 +432,7 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
      */
     private void moveType07SwitchActivated() {
         // f_switch+2 = switch index 2
-        if (Sonic1SwitchManager.getInstance().isPressed(2)) {
+        if (services().gameService(Sonic1SwitchManager.class).isPressed(2)) {
             // subq.b #3,obSubtype(a0) — type 7 becomes type 4 (wait-for-stand)
             moveType = 0x04;
         }
@@ -554,24 +541,14 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
 
     /**
      * SpeedToPos for Y axis — applies yVelocity to y position using 16.16 fixed-point.
+     * Delegates to {@link SubpixelMotion#speedToPosY(SubpixelMotion.State)}.
      */
     private void applySpeedToPosY() {
         if (yVelocity == 0) return;
-        int yPos32 = (y << 16) | (ySubpixel & 0xFFFF);
-        int vel32 = (int) (short) yVelocity;
-        yPos32 += vel32 << 8;
-        y = yPos32 >> 16;
-        ySubpixel = yPos32 & 0xFFFF;
-    }
-
-    /**
-     * Check if any player is riding this platform, via ObjectManager.
-     */
-    private boolean isPlayerRiding() {
-        LevelManager lm = LevelManager.getInstance();
-        if (lm == null) return false;
-        var objectManager = lm.getObjectManager();
-        return objectManager != null && objectManager.isAnyPlayerRiding(this);
+        fallMotion.y = y;
+        fallMotion.yVel = yVelocity;
+        SubpixelMotion.speedToPosY(fallMotion);
+        y = fallMotion.y;
     }
 
     /**
@@ -579,7 +556,7 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
      * Matches the S1 out_of_range macro behavior.
      */
     private boolean isInRange(int objectX) {
-        var camera = Camera.getInstance();
+        var camera = services().camera();
         if (camera == null) {
             return true;
         }
@@ -587,17 +564,5 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
         int camRounded = (camera.getX() - 128) & 0xFF80;
         int distance = (objRounded - camRounded) & 0xFFFF;
         return distance <= (128 + 320 + 192);
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = new ObjectSpawn(
-                    x, y,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
     }
 }

@@ -1,5 +1,7 @@
 package com.openggf.tests;
 
+import com.openggf.game.RuntimeManager;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
@@ -38,17 +40,16 @@ public class TestHTZBossTouchResponse {
 
     @Before
     public void setUp() throws Exception {
+        RuntimeManager.createGameplay();
         touchTable = mock(TouchResponseTable.class);
         when(touchTable.getWidthRadius(HTZ_BOSS_SIZE_INDEX)).thenReturn(32);
         when(touchTable.getHeightRadius(HTZ_BOSS_SIZE_INDEX)).thenReturn(32);
 
         objectManager = new ObjectManager(List.of(), new NoOpObjectRegistry(), 0, null, touchTable);
 
-        LevelManager levelManager = mock(LevelManager.class);
+
         boss = new Sonic2HTZBossInstance(
-                new ObjectSpawn(HTZ_BOSS_X, HTZ_BOSS_Y, Sonic2ObjectIds.HTZ_BOSS, 0, 0, false, 0),
-                levelManager
-        );
+                new ObjectSpawn(HTZ_BOSS_X, HTZ_BOSS_Y, Sonic2ObjectIds.HTZ_BOSS, 0, 0, false, 0));
 
         player = mock(AbstractPlayableSprite.class);
         when(player.getCentreX()).thenReturn((short) (HTZ_BOSS_X + 8));
@@ -63,6 +64,11 @@ public class TestHTZBossTouchResponse {
         when(player.getRingCount()).thenReturn(0);
         when(player.getXSpeed()).thenReturn((short) 0x200);
         when(player.getYSpeed()).thenReturn((short) -0x300);
+    }
+
+    @After
+    public void tearDown() {
+        RuntimeManager.destroyCurrent();
     }
 
     @Test

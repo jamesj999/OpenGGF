@@ -33,6 +33,8 @@ public final class Sonic1SwitchManager {
         return instance;
     }
 
+    /** @deprecated Use {@link #resetState()} for test teardown. */
+    @Deprecated
     public static void resetInstance() {
         instance = null;
     }
@@ -88,6 +90,10 @@ public final class Sonic1SwitchManager {
             return switchState[switchIndex];
         }
         return 0;
+    }
+
+    public void resetState() {
+        reset();
     }
 
     /**

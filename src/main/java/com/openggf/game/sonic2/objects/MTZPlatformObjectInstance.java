@@ -1,10 +1,11 @@
 package com.openggf.game.sonic2.objects;
 
+import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
 import com.openggf.game.OscillationManager;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -78,8 +79,6 @@ public class MTZPlatformObjectInstance extends AbstractObjectInstance
     // Contact tracking
     private int lastContactFrame = -2;
 
-    private ObjectSpawn dynamicSpawn;
-
     public MTZPlatformObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
         init();
@@ -94,12 +93,6 @@ public class MTZPlatformObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public SolidObjectParams getSolidParams() {
         // From disassembly line 53930-53937:
@@ -116,26 +109,29 @@ public class MTZPlatformObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed();
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (contact.standing() || contact.touchTop()) {
             lastContactFrame = frameCounter;
         }
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         applyMovement(frameCounter);
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         PatternSpriteRenderer renderer = null;
 
         if (renderManager != null) {
@@ -147,8 +143,6 @@ public class MTZPlatformObjectInstance extends AbstractObjectInstance
             // in Sonic2ObjectArt.createCPZStairBlockMappings(). Multiple Obj6B instances are
             // placed at the same location with different subtypes to create the multi-block effect.
             renderer.drawFrameIndex(2, x, y, xFlip, false);
-        } else {
-            appendDebug(commands);
         }
     }
 
@@ -196,7 +190,7 @@ public class MTZPlatformObjectInstance extends AbstractObjectInstance
         yVel = 0;
         bounceAccel = 0;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -269,7 +263,7 @@ public class MTZPlatformObjectInstance extends AbstractObjectInstance
         yVel += 8;
         x = baseX;
 
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         int maxY = camera != null ? camera.getMaxY() + 224 : baseY + 500;
 
         if (y > maxY) {
@@ -352,40 +346,22 @@ public class MTZPlatformObjectInstance extends AbstractObjectInstance
         }
     }
 
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = new ObjectSpawn(
-                    x,
-                    y,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
-    }
-
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         int halfWidth = widthPixels + 0x0B;
         int left = x - halfWidth;
         int right = x + halfWidth;
         int top = y - yRadius;
         int bottom = y + yRadius + 1;
 
-        appendLine(commands, left, top, right, top);
-        appendLine(commands, right, top, right, bottom);
-        appendLine(commands, right, bottom, left, bottom);
-        appendLine(commands, left, bottom, left, top);
+        ctx.drawLine(left, top, right, top, 0.6f, 0.8f, 0.2f);
+        ctx.drawLine(right, top, right, bottom, 0.6f, 0.8f, 0.2f);
+        ctx.drawLine(right, bottom, left, bottom, 0.6f, 0.8f, 0.2f);
+        ctx.drawLine(left, bottom, left, top, 0.6f, 0.8f, 0.2f);
 
         // Draw center cross
-        appendLine(commands, x - 4, y, x + 4, y);
-        appendLine(commands, x, y - 4, x, y + 4);
+        ctx.drawLine(x - 4, y, x + 4, y, 0.6f, 0.8f, 0.2f);
+        ctx.drawLine(x, y - 4, x, y + 4, 0.6f, 0.8f, 0.2f);
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.6f, 0.8f, 0.2f, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.6f, 0.8f, 0.2f, x2, y2, 0, 0));
-    }
 }

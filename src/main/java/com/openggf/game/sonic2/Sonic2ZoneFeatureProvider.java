@@ -4,27 +4,30 @@ import com.openggf.camera.Camera;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.ZoneFeatureProvider;
+import com.openggf.game.ZoneFeatureRenderer;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.CPZPylonObjectInstance;
 import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
 import com.openggf.graphics.GraphicsManager;
+import com.openggf.graphics.ShaderProgram;
 import com.openggf.level.LevelManager;
 import com.openggf.level.Pattern;
 import com.openggf.level.WaterSystem;
-import com.openggf.level.bumpers.CNZBumperDataLoader;
-import com.openggf.level.bumpers.CNZBumperManager;
-import com.openggf.level.bumpers.CNZBumperSpawn;
+import com.openggf.game.sonic2.bumpers.CNZBumperDataLoader;
+import com.openggf.game.sonic2.bumpers.CNZBumperManager;
+import com.openggf.game.sonic2.bumpers.CNZBumperSpawn;
+import com.openggf.game.sonic2.slotmachine.CNZSlotMachineManager;
+import com.openggf.game.sonic2.slotmachine.CNZSlotMachineRenderer;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
-import com.openggf.level.slotmachine.CNZSlotMachineManager;
-import com.openggf.level.slotmachine.CNZSlotMachineRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import com.openggf.game.GameServices;
 
 /**
  * Zone feature provider for Sonic 2.
@@ -44,10 +47,12 @@ import java.util.logging.Logger;
  */
 public class Sonic2ZoneFeatureProvider implements ZoneFeatureProvider {
     private static final Logger LOGGER = Logger.getLogger(Sonic2ZoneFeatureProvider.class.getName());
+    private static final String CNZ_SLOTS_SHADER_PATH = "shaders/shader_cnz_slots.glsl";
 
     private CNZBumperManager cnzBumperManager;
     private CNZSlotMachineManager cnzSlotMachineManager;
     private CNZSlotMachineRenderer cnzSlotMachineRenderer;
+    private ShaderProgram cnzSlotsShaderProgram;
     private ObjectInstance cpzPylon;
     private WaterSurfaceManager waterSurfaceManager;
     private int currentZone = -1;
@@ -114,10 +119,22 @@ public class Sonic2ZoneFeatureProvider implements ZoneFeatureProvider {
     private void initCNZSlotMachine(Rom rom) {
         cnzSlotMachineManager = new CNZSlotMachineManager();
 
-        // Initialize the visual renderer
+        // Initialize the visual renderer (owned by this provider, not GraphicsManager)
+        if (cnzSlotMachineRenderer == null) {
+            cnzSlotMachineRenderer = new CNZSlotMachineRenderer();
+        }
         GraphicsManager graphicsManager = GraphicsManager.getInstance();
-        cnzSlotMachineRenderer = graphicsManager.getCnzSlotMachineRenderer();
-        if (cnzSlotMachineRenderer != null && !graphicsManager.isHeadlessMode()) {
+        if (!graphicsManager.isHeadlessMode()) {
+            // Lazily initialize the shader
+            if (cnzSlotsShaderProgram == null && graphicsManager.isGlInitialized()) {
+                try {
+                    cnzSlotsShaderProgram = new ShaderProgram(
+                            ShaderProgram.FULLSCREEN_VERTEX_SHADER, CNZ_SLOTS_SHADER_PATH);
+                    cnzSlotMachineRenderer.setShader(cnzSlotsShaderProgram);
+                } catch (Exception e) {
+                    LOGGER.log(Level.WARNING, "Failed to load CNZ slot shader", e);
+                }
+            }
             cnzSlotMachineRenderer.init(rom);
         }
 
@@ -145,6 +162,14 @@ public class Sonic2ZoneFeatureProvider implements ZoneFeatureProvider {
         return cnzSlotMachineRenderer;
     }
 
+    @Override
+    public ZoneFeatureRenderer getFeatureRenderer() {
+        if (cnzSlotMachineRenderer != null) {
+            return cnzSlotMachineRenderer;
+        }
+        return ZoneFeatureRenderer.NONE;
+    }
+
     /**
      * Initializes the CPZ pylon decorative object.
      * The pylon is not loaded from level object data - it is created automatically
@@ -159,7 +184,7 @@ public class Sonic2ZoneFeatureProvider implements ZoneFeatureProvider {
             cpzPylon = new CPZPylonObjectInstance(spawn, "CPZPylon");
 
             // Add to ObjectManager's dynamic objects list
-            LevelManager levelManager = LevelManager.getInstance();
+            LevelManager levelManager = GameServices.level();
             if (levelManager != null && levelManager.getObjectManager() != null) {
                 levelManager.getObjectManager().addDynamicObject(cpzPylon);
                 LOGGER.info("Initialized CPZ pylon");
@@ -279,7 +304,14 @@ public class Sonic2ZoneFeatureProvider implements ZoneFeatureProvider {
     public void reset() {
         cnzBumperManager = null;
         cnzSlotMachineManager = null;
-        cnzSlotMachineRenderer = null;
+        if (cnzSlotMachineRenderer != null) {
+            cnzSlotMachineRenderer.cleanup();
+            cnzSlotMachineRenderer = null;
+        }
+        if (cnzSlotsShaderProgram != null) {
+            cnzSlotsShaderProgram.cleanup();
+            cnzSlotsShaderProgram = null;
+        }
         cpzPylon = null;
         waterSurfaceManager = null;
         currentZone = -1;
@@ -301,12 +333,17 @@ public class Sonic2ZoneFeatureProvider implements ZoneFeatureProvider {
 
     @Override
     public int getWaterLevel(int zoneIndex, int actIndex) {
-        return WaterSystem.getInstance().getWaterLevelY(zoneIndex, actIndex);
+        return GameServices.water().getWaterLevelY(zoneIndex, actIndex);
     }
 
     @Override
     public boolean bgWrapsHorizontally() {
         return true;
+    }
+
+    @Override
+    public boolean isForceBlackBackdrop() {
+        return currentZone == Sonic2ZoneConstants.ROM_ZONE_MCZ;
     }
 
     // Intentionally no public accessors for bumper system.

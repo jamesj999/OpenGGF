@@ -1,9 +1,9 @@
 package com.openggf.game.sonic2.specialstage;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 
 import java.util.logging.Logger;
+import com.openggf.game.GameServices;
 
 /**
  * Special Stage emerald object (Obj59 in disassembly).
@@ -238,7 +238,7 @@ public class Sonic2SpecialStageEmerald extends Sonic2SpecialStageObject {
 
         // At anim 3+: Fade out music
         if (anim >= 3 && !musicFaded) {
-            AudioManager.getInstance().fadeOutMusic();
+            GameServices.audio().fadeOutMusic();
             musicFaded = true;
             LOGGER.fine("Emerald at anim " + anim + ", fading music");
         }
@@ -267,7 +267,7 @@ public class Sonic2SpecialStageEmerald extends Sonic2SpecialStageObject {
     private void updateCollecting() {
         // Play emerald jingle once
         if (!emeraldAwarded) {
-            AudioManager.getInstance().playMusic(Sonic2Music.GOT_EMERALD.id);
+            GameServices.audio().playMusic(Sonic2Music.GOT_EMERALD.id);
             emeraldAwarded = true;
             phase = EmeraldPhase.COLLECTED;
             phaseTimer = COLLECT_COUNTDOWN;

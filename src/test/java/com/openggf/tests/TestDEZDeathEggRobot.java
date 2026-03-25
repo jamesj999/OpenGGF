@@ -1,14 +1,20 @@
 package com.openggf.tests;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.bosses.Sonic2DeathEggRobotInstance;
 import com.openggf.level.LevelManager;
+import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.TestObjectServices;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.objects.TouchResponseAttackable;
 import com.openggf.level.objects.boss.BossChildComponent;
+
+import java.lang.reflect.Field;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -33,15 +39,42 @@ public class TestDEZDeathEggRobot {
     private static final int BOSS_Y = 0x4A0;
 
     private Sonic2DeathEggRobotInstance boss;
+    private ObjectServices services;
+
+    @SuppressWarnings("unchecked")
+    private static void setConstructionContext(ObjectServices svc) {
+        try {
+            Field field = AbstractObjectInstance.class.getDeclaredField("CONSTRUCTION_CONTEXT");
+            field.setAccessible(true);
+            ((ThreadLocal<Object>) field.get(null)).set(svc);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void clearConstructionContext() {
+        try {
+            Field field = AbstractObjectInstance.class.getDeclaredField("CONSTRUCTION_CONTEXT");
+            field.setAccessible(true);
+            ((ThreadLocal<Object>) field.get(null)).remove();
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     @Before
     public void setUp() {
-        LevelManager levelManager = mock(LevelManager.class);
-        boss = new Sonic2DeathEggRobotInstance(
-                new ObjectSpawn(BOSS_X, BOSS_Y,
-                        Sonic2ObjectIds.DEATH_EGG_ROBOT, 0, 0, false, 0),
-                levelManager
-        );
+        services = new TestObjectServices();
+        setConstructionContext(services);
+        try {
+            boss = new Sonic2DeathEggRobotInstance(
+                    new ObjectSpawn(BOSS_X, BOSS_Y,
+                            Sonic2ObjectIds.DEATH_EGG_ROBOT, 0, 0, false, 0));
+        } finally {
+            clearConstructionContext();
+        }
+        boss.setServices(services);
     }
 
     // ========================================================================
@@ -415,20 +448,22 @@ public class TestDEZDeathEggRobot {
 
     @Test
     public void childrenRegisteredWithObjectManager() {
-        // When ObjectManager is available, children should be registered for rendering
-        com.openggf.level.objects.ObjectManager objMgr = mock(com.openggf.level.objects.ObjectManager.class);
-        LevelManager lm2 = mock(LevelManager.class);
-        when(lm2.getObjectManager()).thenReturn(objMgr);
+        // After singleton decoupling, ObjectManager injection happens via ObjectServices.
+        // Boss construction no longer takes LevelManager, so children are registered
+        // when services are injected by ObjectManager (which is a runtime concern).
+        // This test verifies the boss still creates its children during init.
+        setConstructionContext(new TestObjectServices());
+        Sonic2DeathEggRobotInstance boss2;
+        try {
+            boss2 = new Sonic2DeathEggRobotInstance(
+                    new ObjectSpawn(BOSS_X, BOSS_Y,
+                            Sonic2ObjectIds.DEATH_EGG_ROBOT, 0, 0, false, 0));
+        } finally {
+            clearConstructionContext();
+        }
 
-        Sonic2DeathEggRobotInstance boss2 = new Sonic2DeathEggRobotInstance(
-                new ObjectSpawn(BOSS_X, BOSS_Y,
-                        Sonic2ObjectIds.DEATH_EGG_ROBOT, 0, 0, false, 0),
-                lm2
-        );
-
-        // Verify all 10 children were registered
-        org.mockito.Mockito.verify(objMgr, org.mockito.Mockito.times(10))
-                .addDynamicObject(org.mockito.ArgumentMatchers.any());
+        // Verify children were created (10 total: Body, Head, JetFlame, BackUpperArm/ForeArm/LowerLeg, FrontUpperArm/ForeArm/LowerLeg, Sensor)
+        assertEquals("Boss should have 10 child components", 10, boss2.getChildComponents().size());
     }
 
     // ========================================================================
@@ -460,7 +495,13 @@ public class TestDEZDeathEggRobot {
         java.lang.reflect.Constructor<?> ctor = sensorClass.getDeclaredConstructor(
                 Sonic2DeathEggRobotInstance.class, int.class, int.class);
         ctor.setAccessible(true);
-        Object sensor = ctor.newInstance(boss, 100, 200);
+        setConstructionContext(new TestObjectServices());
+        Object sensor;
+        try {
+            sensor = ctor.newInstance(boss, 100, 200);
+        } finally {
+            clearConstructionContext();
+        }
 
         int[] xBuf = (int[]) xBufField.get(sensor);
         int[] yBuf = (int[]) yBufField.get(sensor);

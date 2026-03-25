@@ -2,6 +2,7 @@ package com.openggf.game.sonic1.objects;
 
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.objects.LavaMarkerObjectInstance;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
@@ -105,7 +106,8 @@ public class Sonic1LavaTagObjectInstance extends AbstractObjectInstance implemen
     // ========================================================================
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM LTag_ChkDel (Routine 2) only performs off-screen culling via MarkObjGone.
         // The ObjectManager.Placement system handles this automatically,
         // so no explicit logic is needed here.

@@ -5,23 +5,23 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_SHIFT;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_CONTROL;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_SHIFT;
 
-import com.openggf.Control.InputHandler;
+import com.openggf.control.InputHandler;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.CollisionModel;
-import com.openggf.game.GameServices;
+import com.openggf.game.GameStateManager;
 import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.camera.Camera;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
+import com.openggf.game.GameModuleRegistry;
 import com.openggf.level.LevelManager;
 import com.openggf.physics.Direction;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.SensorConfiguration;
 import com.openggf.sprites.Sprite;
-import com.openggf.sprites.playable.GroundMode;
+import com.openggf.game.GroundMode;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -227,7 +227,7 @@ public class SpriteManager {
 
 		// Give all chaos emeralds (debug)
 		if (giveEmeraldsPressed) {
-			var gsm = GameServices.gameState();
+			var gsm = GameStateManager.getInstance();
 			if (!gsm.hasAllEmeralds()) {
 				for (int i = 0; i < gsm.getChaosEmeraldCount(); i++) {
 					gsm.markEmeraldCollected(i);
@@ -592,12 +592,33 @@ public class SpriteManager {
 		}
 		nonPlayableSprites.clear();
 
+		// Two-pass bucketing: sidekicks first (drawn behind), then main player
+		// (drawn on top). On the VDP, lower sprite indices have higher priority
+		// and appear in front. Sonic occupies slot 0 and Tails slot 1, so Sonic
+		// must be drawn last in painter's-algorithm order.
 		Collection<Sprite> sprites = getAllSprites();
 		for (Sprite sprite : sprites) {
 			if (isSuppressedSidekickSprite(sprite)) {
 				continue;
 			}
+			if (sprite instanceof AbstractPlayableSprite playable && playable.isCpuControlled()) {
+				int bucket = RenderPriority.clamp(playable.getPriorityBucket());
+				int idx = bucket - RenderPriority.MIN;
+				if (playable.isHighPriority()) {
+					highPriorityBuckets[idx].add(sprite);
+				} else {
+					lowPriorityBuckets[idx].add(sprite);
+				}
+			}
+		}
+		for (Sprite sprite : sprites) {
+			if (isSuppressedSidekickSprite(sprite)) {
+				continue;
+			}
 			if (sprite instanceof AbstractPlayableSprite playable) {
+				if (playable.isCpuControlled()) {
+					continue; // already added in first pass
+				}
 				int bucket = RenderPriority.clamp(playable.getPriorityBucket());
 				int idx = bucket - RenderPriority.MIN;
 				if (playable.isHighPriority()) {
@@ -637,9 +658,7 @@ public class SpriteManager {
 	private boolean isCpuSidekickSuppressed() {
 		LevelManager lm = getLevelManager();
 		if (lm == null) return false;
-		if (lm.getCurrentZone() == Sonic2ZoneConstants.ZONE_SCZ
-				|| lm.getCurrentZone() == Sonic2ZoneConstants.ZONE_WFZ
-				|| lm.getCurrentZone() == Sonic2ZoneConstants.ZONE_DEZ) return true;
+		if (GameModuleRegistry.getCurrent().isSidekickSuppressedForZone(lm.getCurrentZone())) return true;
 		if (AizPlaneIntroInstance.isSidekickSuppressed()) return true;
 		return false;
 	}

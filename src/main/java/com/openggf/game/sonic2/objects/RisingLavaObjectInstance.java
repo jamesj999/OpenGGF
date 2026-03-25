@@ -3,10 +3,8 @@ package com.openggf.game.sonic2.objects;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.sonic2.Sonic2LevelEventManager;
-import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
-import com.openggf.camera.Camera;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
@@ -14,6 +12,7 @@ import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.objects.SlopedSolidProvider;
+import com.openggf.game.DamageCause;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -128,9 +127,6 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
     private final boolean routeEnabled;
     private int currentY;
 
-    /** Dynamic spawn for Y position updates. */
-    private ObjectSpawn dynamicSpawn;
-
     /** Cached frame counter from last update for use in onSolidContact. */
     private int lastFrameCounter;
 
@@ -145,9 +141,10 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
         // Get width from table (subtype is index)
         int widthIndex = Math.min(subtype, SUBTYPE_WIDTHS.length - 1);
         this.widthPixels = SUBTYPE_WIDTHS[widthIndex];
-        this.routeEnabled = isEnabledForCurrentRoute(subtype, Camera.getInstance().getY());
+        var cameraInst = services().camera();
+        this.routeEnabled = isEnabledForCurrentRoute(subtype, cameraInst != null ? cameraInst.getY() : 0);
 
-        updateDynamicSpawn();
+        updateDynamicSpawn(baseX, currentY);
     }
 
     /**
@@ -171,7 +168,8 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
     // ========================================================================
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (!routeEnabled) {
             return;
         }
@@ -183,10 +181,10 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
         // y_pos = objoff_32 + Camera_BG_Y_offset (ONLY bgYOffset, no shake)
         // Ripple shake is a global screen-space effect applied via Camera shake offsets,
         // so objects don't add it to their world positions.
-        int bgYOffset = Sonic2LevelEventManager.getInstance().getCameraBgYOffset();
+        int bgYOffset = ((Sonic2LevelEventManager) services().levelEventProvider()).getCameraBgYOffset();
         currentY = baseY + bgYOffset;
 
-        updateDynamicSpawn();
+        updateDynamicSpawn(baseX, currentY);
 
         // Note: Hurt check for subtype 6 is handled in onSolidContact callback
         // when the player is standing on this platform
@@ -203,16 +201,16 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
 
         // ROM: Hurt_Sidekick - CPU Tails only gets knockback, no ring scatter or death
         if (player.isCpuControlled()) {
-            player.applyHurt(getX(), AbstractPlayableSprite.DamageCause.FIRE);
+            player.applyHurt(getX(), DamageCause.FIRE);
             return;
         }
         // Check if player has rings
         boolean hadRings = player.getRingCount() > 0;
         if (hadRings && !player.hasShield()) {
-            LevelManager.getInstance().spawnLostRings(player, lastFrameCounter);
+            services().spawnLostRings(player, lastFrameCounter);
         }
         // Apply hurt - lava uses DamageCause.FIRE for fire shield immunity
-        player.applyHurtOrDeath(getX(), AbstractPlayableSprite.DamageCause.FIRE, hadRings);
+        player.applyHurtOrDeath(getX(), DamageCause.FIRE, hadRings);
     }
 
     // ========================================================================
@@ -228,25 +226,6 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
     public int getY() {
         return currentY;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn;
-    }
-
-    private void updateDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.y() != currentY) {
-            dynamicSpawn = new ObjectSpawn(
-                    baseX,
-                    currentY,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
-    }
-
     // ========================================================================
     // SolidObjectProvider Implementation
     // ========================================================================
@@ -297,7 +276,8 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (!routeEnabled) {
             return false;
         }
@@ -306,7 +286,7 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
         // Only solid when HTZ earthquake sequence is active.
         // Uses the HTZ-specific flag which stays on during delay periods,
         // unlike the general Screen_Shaking_Flag which gets cleared.
-        return GameServices.gameState().isHtzScreenShakeActive();
+        return services().gameState().isHtzScreenShakeActive();
     }
 
     @Override
@@ -336,7 +316,8 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
     // ========================================================================
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: Subtypes 4 and 6 fall through to Obj30_HurtSupportedPlayers (s2.asm:49151).
         // Subtype 4 uses jsrto (JSR) for DropOnFloor at line 49149, so execution returns
         // and falls directly into the hurt routine. Subtype 6 has an explicit bra.s to it.
@@ -364,13 +345,13 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
         }
 
         // Invisible during normal gameplay - only render in debug mode
-        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        SonicConfigurationService config = config();
         if (!config.getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED)) {
             return;
         }
 
         // Only render when HTZ earthquake is active
-        if (!GameServices.gameState().isHtzScreenShakeActive()) {
+        if (!services().gameState().isHtzScreenShakeActive()) {
             return;
         }
 

@@ -1,12 +1,12 @@
 package com.openggf.game.sonic2.objects.badniks;
 
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -24,7 +24,7 @@ public class SpikerDrillObjectInstance extends AbstractObjectInstance implements
     private int currentX;
     private int currentY;
     private int yVelocity;
-    private int ySubpixel;
+    private final SubpixelMotion.State motionState;
     private boolean hFlip;
     private final boolean vFlip;
 
@@ -36,11 +36,12 @@ public class SpikerDrillObjectInstance extends AbstractObjectInstance implements
         this.vFlip = yFlip;
         // ROM: if y_flip set, velocity stays +2 (down). Otherwise it's negated.
         this.yVelocity = yFlip ? Y_VELOCITY : -Y_VELOCITY;
-        this.ySubpixel = 0;
+        this.motionState = new SubpixelMotion.State(x, y, 0, 0, 0, this.yVelocity);
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (!isOnScreenX(128)) {
             setDestroyed(true);
             return;
@@ -48,10 +49,10 @@ public class SpikerDrillObjectInstance extends AbstractObjectInstance implements
 
         hFlip = !hFlip; // bchg #render_flags.x_flip, render_flags(a0)
 
-        int yPos32 = (currentY << 8) | (ySubpixel & 0xFF);
-        yPos32 += yVelocity;
-        currentY = yPos32 >> 8;
-        ySubpixel = yPos32 & 0xFF;
+        motionState.y = currentY;
+        motionState.yVel = yVelocity;
+        SubpixelMotion.moveSprite2(motionState);
+        currentY = motionState.y;
     }
 
     @Override
@@ -66,14 +67,7 @@ public class SpikerDrillObjectInstance extends AbstractObjectInstance implements
 
     @Override
     public ObjectSpawn getSpawn() {
-        return new ObjectSpawn(
-                currentX,
-                currentY,
-                spawn.objectId(),
-                spawn.subtype(),
-                spawn.renderFlags(),
-                spawn.respawnTracked(),
-                spawn.rawYWord());
+        return buildSpawnAt(currentX, currentY);
     }
 
     @Override
@@ -97,15 +91,8 @@ public class SpikerDrillObjectInstance extends AbstractObjectInstance implements
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.SPIKER);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.SPIKER);
+        if (renderer == null) return;
 
         renderer.drawFrameIndex(4, currentX, currentY, hFlip, vFlip);
     }

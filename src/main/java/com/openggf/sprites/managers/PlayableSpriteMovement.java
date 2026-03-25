@@ -1,7 +1,7 @@
 package com.openggf.sprites.managers;
 
 import com.openggf.game.GameModuleRegistry;
-import com.openggf.game.GameServices;
+import com.openggf.game.GameStateManager;
 import com.openggf.game.LevelEventProvider;
 import com.openggf.game.PhysicsFeatureSet;
 
@@ -17,18 +17,16 @@ import com.openggf.physics.SensorResult;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
-import com.openggf.game.sonic2.objects.SkidDustObjectInstance;
+import com.openggf.level.objects.SkidDustObjectInstance;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import com.openggf.sprites.playable.ShieldType;
+import com.openggf.game.ShieldType;
 import com.openggf.sprites.playable.SecondaryAbility;
 import com.openggf.sprites.animation.ScriptedVelocityAnimationProfile;
 import com.openggf.sprites.animation.SpriteAnimationProfile;
-import com.openggf.sprites.playable.GroundMode;
-import com.openggf.game.sonic2.objects.ShieldObjectInstance;
+import com.openggf.game.GroundMode;
 import com.openggf.game.sonic3k.objects.FireShieldObjectInstance;
 import com.openggf.game.sonic3k.objects.LightningShieldObjectInstance;
 import com.openggf.game.sonic3k.objects.BubbleShieldObjectInstance;
-import com.openggf.game.sonic3k.objects.InstaShieldObjectInstance;
 
 /**
  * ROM-accurate movement handler for playable sprites.
@@ -70,6 +68,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 	private final CollisionSystem collisionSystem = CollisionSystem.getInstance();
 	private final AudioManager audioManager = AudioManager.getInstance();
+	private final GameStateManager gameState = GameStateManager.getInstance();
 
 	// Cached speed constants (don't change with speed shoes)
 	private final short slopeRunning;
@@ -99,6 +98,14 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		slopeRollingUp = sprite.getSlopeRollingUp();
 		slopeRollingDown = sprite.getSlopeRollingDown();
 		rollDecel = sprite.getRollDecel();
+	}
+
+	private Camera camera() {
+		return sprite.currentCamera();
+	}
+
+	private LevelManager levelManager() {
+		return sprite.currentLevelManager();
 	}
 
 	/**
@@ -391,7 +398,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 		// ROM: Reset_Player_Position_Array before setting scroll delay
 		sprite.resetPositionHistory();
-		Camera camera = Camera.getInstance();
+		Camera camera = camera();
 		if (camera != null && camera.getFocusedSprite() == sprite) {
 			camera.setHorizScrollDelay(32 - ((spindashGSpeed - 0x800) >> 7));
 		}
@@ -569,7 +576,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	/** ROM: Sonic_InstaShield (sonic3k.asm:23473-23479) */
 	private void activateInstaShield() {
 		sprite.setDoubleJumpFlag(1);
-		InstaShieldObjectInstance instaShield = sprite.getInstaShieldObject();
+		var instaShield = sprite.getInstaShieldObject();
 		if (instaShield != null) {
 			instaShield.triggerAttack();
 		}
@@ -583,12 +590,12 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		sprite.setYSpeed((short) 0);
 		// ROM: Reset_Player_Position_Array then set H_scroll_frame_offset = $2000
 		sprite.resetPositionHistory();
-		Camera camera = Camera.getInstance();
+		Camera camera = camera();
 		if (camera != null && camera.getFocusedSprite() == sprite) {
 			camera.setHorizScrollDelay(32);
 		}
 		audioManager.playSfx(GameSound.FIRE_ATTACK);
-		ShieldObjectInstance shield = sprite.getShieldObject();
+		var shield = sprite.getShieldObject();
 		if (shield instanceof FireShieldObjectInstance fire) fire.setAnimation(1);
 	}
 
@@ -596,7 +603,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	private void lightningShieldJump() {
 		sprite.setYSpeed((short) -0x580);
 		audioManager.playSfx(GameSound.LIGHTNING_ATTACK);
-		ShieldObjectInstance shield = sprite.getShieldObject();
+		var shield = sprite.getShieldObject();
 		if (shield instanceof LightningShieldObjectInstance lightning) lightning.triggerSparks();
 	}
 
@@ -606,7 +613,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		sprite.setGSpeed((short) 0);
 		sprite.setYSpeed((short) 0x800);
 		audioManager.playSfx(GameSound.BUBBLE_ATTACK);
-		ShieldObjectInstance shield = sprite.getShieldObject();
+		var shield = sprite.getShieldObject();
 		if (shield instanceof BubbleShieldObjectInstance bubble) bubble.setAnimation(1);
 	}
 
@@ -646,7 +653,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		short runDecel = sprite.getRunDecel();
 		short friction = sprite.getFriction();
 		short max = sprite.getMax();
-		Camera camera = Camera.getInstance();
+		Camera camera = camera();
 
 		// Move lock - skip input processing but still apply friction
 		// ROM: When move_lock is active, branches to Obj01_ResetScr which continues
@@ -799,7 +806,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	/** Sonic_RollSpeed: Roll deceleration and velocity conversion (s2.asm:36666) */
 	private void doRollSpeed() {
 		short gSpeed = sprite.getGSpeed();
-		Camera.getInstance().easeYBiasToDefault();
+		camera().easeYBiasToDefault();
 
 		// ROM: tst.b (f_slidemode).w / bne.w loc_131CC (s1.asm:602-603)
 		// When sliding, skip input and friction — go straight to velocity conversion.
@@ -886,7 +893,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			}
 		}
 
-		Camera.getInstance().easeYBiasToDefault();
+		camera().easeYBiasToDefault();
 
 		// Air drag near apex (-1024 <= ySpeed < 0)
 		if (ySpeed < 0 && ySpeed >= -1024) {
@@ -929,7 +936,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		if (sprite.isObjectControlled()) {
 			return;
 		}
-		Camera camera = Camera.getInstance();
+		Camera camera = camera();
 		if (camera == null) return;
 
 		// ROM uses center coordinates for x_pos, so boundary offsets are calibrated for center
@@ -950,7 +957,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 		int leftBoundary = minX + LEFT_OFFSET;
 		int rightBoundary = maxX + SCREEN_WIDTH - SONIC_WIDTH;
-		if (!GameServices.gameState().isBossFightActive()) {
+		if (!gameState.isBossFightActive()) {
 			rightBoundary += RIGHT_EXTRA;
 		}
 
@@ -1495,7 +1502,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			sprite.setY((short) (sprite.getY() + sprite.getRollHeightAdjustment()));
 		}
 		audioManager.playSfx(GameSound.BUBBLE_ATTACK);
-		ShieldObjectInstance shield = sprite.getShieldObject();
+		var shield = sprite.getShieldObject();
 		if (shield instanceof BubbleShieldObjectInstance bubble) bubble.setAnimation(2);
 	}
 
@@ -1767,7 +1774,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		sprite.setGSpeed((short) 0);
 		sprite.setXSpeed((short) 0);
 
-		Camera camera = Camera.getInstance();
+		Camera camera = camera();
 		if (camera != null && sprite.getY() > camera.getY() + camera.getHeight() + 256) {
 			sprite.startDeathCountdown();
 		}
@@ -1778,8 +1785,8 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 				// instead of causing a level reset
 				sprite.getCpuController().despawn();
 			} else {
-				GameServices.gameState().loseLife();
-				LevelManager.getInstance().requestRespawn();
+				gameState.loseLife();
+				levelManager().requestRespawn();
 			}
 		}
 	}
@@ -1877,7 +1884,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 	private boolean hasEnoughHeadroom(int hexAngle) {
 		int terrainDistance = getTerrainHeadroomDistance(hexAngle);
-		var objectManager = LevelManager.getInstance().getObjectManager();
+		var objectManager = levelManager().getObjectManager();
 		int objectDistance = (objectManager != null) ? objectManager.getHeadroomDistance(sprite, hexAngle) : Integer.MAX_VALUE;
 		return Math.min(terrainDistance, objectDistance) >= 6;
 	}
@@ -1918,12 +1925,12 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	}
 
 	private boolean hasObjectSupport() {
-		var objectManager = LevelManager.getInstance().getObjectManager();
+		var objectManager = levelManager().getObjectManager();
 		return objectManager != null && (objectManager.isRidingObject(sprite) || objectManager.hasStandingContact(sprite));
 	}
 
 	private void clearRidingObject() {
-		var objectManager = LevelManager.getInstance().getObjectManager();
+		var objectManager = levelManager().getObjectManager();
 		if (objectManager != null) objectManager.clearRidingObject(sprite);
 	}
 
@@ -2018,7 +2025,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	 */
 	private void checkObjectEdgeBalance() {
 		// Get the object the sprite is standing on
-		var objectManager = LevelManager.getInstance().getObjectManager();
+		var objectManager = levelManager().getObjectManager();
 		if (objectManager == null) {
 			return;
 		}

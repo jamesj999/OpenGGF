@@ -4,11 +4,14 @@ import org.junit.Before;
 import org.junit.Test;
 import com.openggf.camera.Camera;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
+
+import com.openggf.level.objects.TestObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.level.objects.boss.AbstractBossInstance;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
+import com.openggf.tests.TestEnvironment;
 
 import java.util.List;
 
@@ -21,7 +24,8 @@ public class TestAizMinibossBarrelShotChild {
 
     @Before
     public void setUp() {
-        Camera.resetInstance();
+        TestEnvironment.resetAll();
+        Camera.getInstance().resetState();
         Camera camera = Camera.getInstance();
         camera.setX((short) 0);
         camera.setY((short) 0);
@@ -32,6 +36,7 @@ public class TestAizMinibossBarrelShotChild {
     public void simpleModeNeverBecomesHazardousAndSelfDeletes() {
         AizMinibossBarrelShotChild shot = new AizMinibossBarrelShotChild(
                 parent, 0, 100, 100, AizMinibossBarrelShotChild.Mode.SIMPLE);
+        shot.setServices(new TestObjectServices().withCamera(Camera.getInstance()));
 
         for (int i = 0; i < 250 && !shot.isDestroyed(); i++) {
             shot.update(i, null);
@@ -45,6 +50,7 @@ public class TestAizMinibossBarrelShotChild {
     public void advancedNonCollidingModeNeverSetsCollisionFlags() {
         AizMinibossBarrelShotChild shot = new AizMinibossBarrelShotChild(
                 parent, 0, 100, 100, AizMinibossBarrelShotChild.Mode.ADVANCED_NON_COLLIDING);
+        shot.setServices(new TestObjectServices().withCamera(Camera.getInstance()));
 
         for (int i = 0; i < 220 && !shot.isDestroyed(); i++) {
             shot.update(i, null);
@@ -56,6 +62,7 @@ public class TestAizMinibossBarrelShotChild {
     public void advancedCollidingModeEventuallyEntersHazardPhase() {
         AizMinibossBarrelShotChild shot = new AizMinibossBarrelShotChild(
                 parent, 0, 100, 100, AizMinibossBarrelShotChild.Mode.ADVANCED_COLLIDING);
+        shot.setServices(new TestObjectServices().withCamera(Camera.getInstance()));
 
         boolean sawCollision = false;
         for (int i = 0; i < 260 && !shot.isDestroyed(); i++) {
@@ -72,6 +79,7 @@ public class TestAizMinibossBarrelShotChild {
     @Test
     public void flameChildTracksParentOffsetsAndFlip() {
         AizMinibossFlameChild flame = new AizMinibossFlameChild(parent, -0x64, 4, 0);
+        flame.setServices(new TestObjectServices().withCamera(Camera.getInstance()));
 
         flame.update(0, null);
         assertEquals(parent.getX() - 0x64, flame.getX());
@@ -83,7 +91,8 @@ public class TestAizMinibossBarrelShotChild {
 
     private static final class DummyBoss extends AbstractBossInstance {
         private DummyBoss() {
-            super(new ObjectSpawn(0x1200, 0x300, 0x91, 0, 0, false, 0), LevelManager.getInstance(), "DummyBoss");
+            super(new ObjectSpawn(0x1200, 0x300, 0x91, 0, 0, false, 0), "DummyBoss");
+            setServices(new TestObjectServices().withCamera(Camera.getInstance()));
             state.x = 0x1200;
             state.y = 0x300;
             state.xFixed = state.x << 16;
@@ -97,7 +106,7 @@ public class TestAizMinibossBarrelShotChild {
         }
 
         @Override
-        protected void updateBossLogic(int frameCounter, AbstractPlayableSprite player) {
+        protected void updateBossLogic(int frameCounter, PlayableEntity player) {
             // No-op test stub.
         }
 
@@ -122,8 +131,18 @@ public class TestAizMinibossBarrelShotChild {
         }
 
         @Override
-        public void onPlayerAttack(AbstractPlayableSprite player, TouchResponseResult result) {
+        public void onPlayerAttack(PlayableEntity player, TouchResponseResult result) {
             // No-op test stub.
+        }
+
+        @Override
+        protected int getBossHitSfxId() {
+            return 0;
+        }
+
+        @Override
+        protected int getBossExplosionSfxId() {
+            return 0;
         }
     }
 }

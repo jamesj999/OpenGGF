@@ -1,4 +1,5 @@
 package com.openggf.game.sonic2.objects;
+import com.openggf.level.objects.InvincibilityStarsObjectInstance;
 
 import org.junit.Test;
 

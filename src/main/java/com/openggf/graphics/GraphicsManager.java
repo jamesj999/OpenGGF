@@ -10,8 +10,6 @@ import com.openggf.level.render.BackgroundRenderer;
 
 import static com.openggf.level.LevelConstants.*;
 
-import com.openggf.level.slotmachine.CNZSlotMachineRenderer;
-
 import org.lwjgl.system.MemoryUtil;
 
 import static org.lwjgl.opengl.GL11.*;
@@ -62,10 +60,8 @@ public class GraphicsManager {
 	private static final String WATER_SHADER_PATH = "shaders/shader_water.glsl";
 	private static final String TILEMAP_SHADER_PATH = "shaders/shader_tilemap.glsl";
 	private static final String BASIC_VERTEX_SHADER_PATH = "shaders/shader_basic.vert";
-	private static final String FULLSCREEN_VERTEX_SHADER_PATH = "shaders/shader_fullscreen.vert";
 	private static final String DEBUG_VERTEX_SHADER_PATH = "shaders/shader_debug_color.vert";
 	private static final String INSTANCED_VERTEX_SHADER_PATH = "shaders/shader_instanced.vert";
-	private static final String CNZ_SLOTS_SHADER_PATH = "shaders/shader_cnz_slots.glsl";
 	private static final String SPRITE_PRIORITY_SHADER_PATH = "shaders/shader_sprite_priority.glsl";
 
 	// Sprite priority rendering for ROM-accurate sprite-to-tile layering
@@ -83,10 +79,6 @@ public class GraphicsManager {
 
 	// Fade manager for screen transitions
 	private FadeManager fadeManager;
-
-	// CNZ slot machine renderer
-	private ShaderProgram cnzSlotsShaderProgram;
-	private CNZSlotMachineRenderer cnzSlotMachineRenderer;
 
 	// Unified UI render pipeline for overlay + fade ordering
 	private UiRenderPipeline uiRenderPipeline;
@@ -166,7 +158,7 @@ public class GraphicsManager {
 		this.currentShaderProgram = this.defaultShaderProgram; // Start with default
 		this.shaderProgram = this.currentShaderProgram; // Compatibility
 		this.debugShaderProgram = new ShaderProgram(DEBUG_VERTEX_SHADER_PATH, DEBUG_SHADER_PATH);
-		this.fadeShaderProgram = new ShaderProgram(FULLSCREEN_VERTEX_SHADER_PATH, FADE_SHADER_PATH);
+		this.fadeShaderProgram = new ShaderProgram(ShaderProgram.FULLSCREEN_VERTEX_SHADER, FADE_SHADER_PATH);
 		this.shadowShaderProgram = new ShaderProgram(BASIC_VERTEX_SHADER_PATH, SHADOW_SHADER_PATH);
 		this.shadowShaderProgram.cacheUniformLocations();
 		this.tilemapGpuRenderer = new TilemapGpuRenderer();
@@ -174,12 +166,10 @@ public class GraphicsManager {
 		this.instancedPatternRenderer = new InstancedPatternRenderer();
 		this.instancedPatternRenderer.init(INSTANCED_VERTEX_SHADER_PATH, pixelShaderPath, WATER_SHADER_PATH);
 
-		// Initialize fade manager with shader
-		this.fadeManager = FadeManager.getInstance();
+		// Initialize fade manager with shader — get from RuntimeManager if available, else singleton
+		com.openggf.game.GameRuntime rt = com.openggf.game.RuntimeManager.getCurrent();
+		this.fadeManager = rt != null ? rt.getFadeManager() : FadeManager.getInstance();
 		this.fadeManager.setFadeShader(this.fadeShaderProgram);
-
-		// CNZ slot machine renderer - shader is loaded lazily when needed
-		this.cnzSlotMachineRenderer = new CNZSlotMachineRenderer();
 
 		// Initialize unified UI render pipeline
 		this.uiRenderPipeline = new UiRenderPipeline(this);
@@ -233,7 +223,8 @@ public class GraphicsManager {
 	 */
 	private Camera getCamera() {
 		if (camera == null) {
-			camera = Camera.getInstance();
+			com.openggf.game.GameRuntime rt2 = com.openggf.game.RuntimeManager.getCurrent();
+			camera = rt2 != null ? rt2.getCamera() : Camera.getInstance();
 		}
 		return camera;
 	}
@@ -340,6 +331,25 @@ public class GraphicsManager {
 			return;
 		}
 		patternAtlas.updatePattern(pattern, patternId);
+	}
+
+	/**
+	 * Re-uploads only the patterns whose indices are set in the dirty BitSet.
+	 * Used by MutableLevel dirty-region processing to incrementally update
+	 * the GPU pattern atlas after editor mutations.
+	 *
+	 * @param dirtyIndices BitSet of pattern indices that changed
+	 * @param level the current level (provides pattern data)
+	 */
+	public void reuploadDirtyPatterns(java.util.BitSet dirtyIndices,
+									  com.openggf.level.Level level) {
+		if (headlessMode || !glInitialized) return;
+		for (int i = dirtyIndices.nextSetBit(0); i >= 0;
+			 i = dirtyIndices.nextSetBit(i + 1)) {
+			if (i < level.getPatternCount()) {
+				updatePatternTexture(level.getPattern(i), i);
+			}
+		}
 	}
 
 	/**
@@ -986,12 +996,6 @@ public class GraphicsManager {
 		if (shadowShaderProgram != null) {
 			shadowShaderProgram.cleanup();
 		}
-		if (cnzSlotsShaderProgram != null) {
-			cnzSlotsShaderProgram.cleanup();
-		}
-		if (cnzSlotMachineRenderer != null) {
-			cnzSlotMachineRenderer.cleanup();
-		}
 		BatchedPatternRenderer existingBatch = BatchedPatternRenderer.getInstanceIfInitialized();
 		if (existingBatch != null) {
 			existingBatch.cleanup();
@@ -1060,8 +1064,11 @@ public class GraphicsManager {
 	}
 
 	/**
-	 * Reset the singleton instance. Used for testing.
+	 * @deprecated Use {@link #resetState()} for test teardown.
+	 * This method destroys the singleton; resetState() clears
+	 * state in-place, avoiding stale reference issues.
 	 */
+	@Deprecated
 	public static synchronized void resetInstance() {
 		if (graphicsManager != null) {
 			graphicsManager.cleanup();
@@ -1214,7 +1221,8 @@ public class GraphicsManager {
 	 */
 	public FadeManager getFadeManager() {
 		if (fadeManager == null) {
-			fadeManager = FadeManager.getInstance();
+			com.openggf.game.GameRuntime rt = com.openggf.game.RuntimeManager.getCurrent();
+			fadeManager = rt != null ? rt.getFadeManager() : FadeManager.getInstance();
 			if (fadeShaderProgram != null) {
 				fadeManager.setFadeShader(fadeShaderProgram);
 			}
@@ -1227,22 +1235,6 @@ public class GraphicsManager {
 	 */
 	public boolean isGlInitialized() {
 		return glInitialized;
-	}
-
-	/**
-	 * Get the CNZ slot machine renderer for visual display.
-	 * Lazily initializes the shader on first access.
-	 */
-	public CNZSlotMachineRenderer getCnzSlotMachineRenderer() {
-		if (cnzSlotMachineRenderer != null && cnzSlotsShaderProgram == null && glInitialized) {
-			try {
-				cnzSlotsShaderProgram = new ShaderProgram(FULLSCREEN_VERTEX_SHADER_PATH, CNZ_SLOTS_SHADER_PATH);
-				cnzSlotMachineRenderer.setShader(cnzSlotsShaderProgram);
-			} catch (Exception e) {
-				System.err.println("Failed to load CNZ slot shader: " + e.getMessage());
-			}
-		}
-		return cnzSlotMachineRenderer;
 	}
 
 	/**

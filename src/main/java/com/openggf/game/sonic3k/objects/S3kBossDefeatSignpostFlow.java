@@ -1,7 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.camera.Camera;
-import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.graphics.GLCommand;
@@ -61,7 +60,7 @@ public class S3kBossDefeatSignpostFlow extends AbstractObjectInstance {
         this.timer = FADE_TIMER;
 
         // Signal that the end-of-level sequence is active
-        GameServices.gameState().setEndOfLevelActive(true);
+        services().gameState().setEndOfLevelActive(true);
         LOG.fine("S3K defeat flow started — WAIT_FADE, timer=" + timer);
     }
 
@@ -81,7 +80,8 @@ public class S3kBossDefeatSignpostFlow extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -113,14 +113,14 @@ public class S3kBossDefeatSignpostFlow extends AbstractObjectInstance {
     private void updateSpawnSignpost() {
         // Clear boss flag and boss ID so level events resume normal behavior
         try {
-            Sonic3kAIZEvents events = Sonic3kLevelEventManager.getInstance().getAizEvents();
+            Sonic3kAIZEvents events = ((Sonic3kLevelEventManager) services().levelEventProvider()).getAizEvents();
             if (events != null) {
                 events.setBossFlag(false);
             }
         } catch (Exception e) {
             LOG.fine("Could not clear boss flag: " + e.getMessage());
         }
-        GameServices.gameState().setCurrentBossId(0);
+        services().gameState().setCurrentBossId(0);
 
         // Spawn signpost above camera
         S3kSignpostInstance signpost = new S3kSignpostInstance(signpostX, apparentAct);
@@ -145,7 +145,7 @@ public class S3kBossDefeatSignpostFlow extends AbstractObjectInstance {
     // =========================================================================
 
     private void updateAwaitResults() {
-        if (!GameServices.gameState().isEndOfLevelActive()) {
+        if (!services().gameState().isEndOfLevelActive()) {
             phase = Phase.AWAIT_ACT_TRANSITION;
             LOG.fine("S3K defeat flow AWAIT_RESULTS -> AWAIT_ACT_TRANSITION");
         }
@@ -156,7 +156,7 @@ public class S3kBossDefeatSignpostFlow extends AbstractObjectInstance {
     // =========================================================================
 
     private void updateAwaitActTransition() {
-        if (GameServices.gameState().isEndOfLevelFlag()) {
+        if (services().gameState().isEndOfLevelFlag()) {
             setDestroyed(true);
             LOG.fine("S3K defeat flow complete — destroyed");
         }

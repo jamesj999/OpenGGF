@@ -1,14 +1,11 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
-import com.openggf.game.GameServices;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.boss.AbstractBossInstance;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -73,8 +70,6 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
     private static final int FLAMETHROWER_DURATION = 60;
     /** Flamethrower spawn timing (ROM: cmpi.b #-$18,objoff_3E(a0)) = -24 */
     private static final int FLAMETHROWER_SPAWN_TIME = -24;
-    /** Defeat countdown initial value (ROM: move.w #$B3,(Boss_Countdown).w) */
-    private static final int DEFEAT_TIMER_START = 0xB3;
     /** Defeat flee threshold (ROM: cmpi.w #-$3C,(Boss_Countdown).w) */
     private static final int DEFEAT_FLEE_TIME = -0x3C;
 
@@ -118,8 +113,8 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
     private int flameAnimIndex;   // index into FLAME_FRAMES/FLAME_DURATIONS
     private int flameAnimTimer;
 
-    public Sonic2HTZBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "HTZ Boss");
+    public Sonic2HTZBossInstance(ObjectSpawn spawn) {
+        super(spawn, "HTZ Boss");
     }
 
     @Override
@@ -161,7 +156,8 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
     }
 
     @Override
-    protected void updateBossLogic(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateBossLogic(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         currentFrameCounter = frameCounter;
 
         // Update eye animation (ROM: Boss_AnimationArray cycles frames 2,3 with delay 6)
@@ -306,7 +302,7 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
             if (getCustomFlag(OBJOFF_LAVA_SPAWNED) == 0) {
                 setCustomFlag(OBJOFF_LAVA_SPAWNED, 1);
                 spawnLavaBalls();
-                AudioManager.getInstance().playSfx(Sonic2Sfx.ARROW_FIRING.id);
+                services().playSfx(Sonic2Sfx.ARROW_FIRING.id);
             }
         }
 
@@ -363,15 +359,15 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
             // ROM: Boss_defeated_flag is set once when flee starts.
             if (!defeatFleeStarted) {
                 defeatFleeStarted = true;
-                GameServices.gameState().setCurrentBossId(0);
-                AudioManager.getInstance().playMusic(Sonic2Music.HILL_TOP.id);
+                services().gameState().setCurrentBossId(0);
+                services().playMusic(Sonic2Music.HILL_TOP.id);
             }
 
             // Flee - sink into lava
             state.y += 2;
             state.yFixed = state.y << 16;
 
-            Camera camera = Camera.getInstance();
+            Camera camera = services().camera();
             if (camera.getMaxX() < 0x3160) {
                 camera.setMaxX((short) (camera.getMaxX() + 2));
                 return;
@@ -472,7 +468,7 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
      * ROM: s2.asm:63730-63752
      */
     private void spawnFlamethrower() {
-        if (levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
@@ -486,7 +482,7 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
         );
 
         childComponents.add(flamethrower);
-        levelManager.getObjectManager().addDynamicObject(flamethrower);
+        services().objectManager().addDynamicObject(flamethrower);
     }
 
     /**
@@ -494,7 +490,7 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
      * ROM: s2.asm:63900-64006
      */
     private void spawnLavaBalls() {
-        if (levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
@@ -509,7 +505,7 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
                 leftSide
         );
         childComponents.add(leftBall);
-        levelManager.getObjectManager().addDynamicObject(leftBall);
+        services().objectManager().addDynamicObject(leftBall);
 
         // Spawn right ball
         HTZBossLavaBall rightBall = new HTZBossLavaBall(
@@ -520,7 +516,7 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
                 leftSide
         );
         childComponents.add(rightBall);
-        levelManager.getObjectManager().addDynamicObject(rightBall);
+        services().objectManager().addDynamicObject(rightBall);
     }
 
     /**
@@ -528,17 +524,16 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
      * ROM: Obj52_CreateSmoke (s2.asm:64116-64135)
      */
     private void spawnDefeatSmoke() {
-        if (levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
 
         HTZBossSmokeParticle smoke = new HTZBossSmokeParticle(
                 state.x,
-                state.y - 0x28,
-                levelManager
+                state.y - 0x28
         );
 
-        levelManager.getObjectManager().addDynamicObject(smoke);
+        services().objectManager().addDynamicObject(smoke);
     }
 
     // Note: The ROM does NOT spawn an EggPrison from the HTZ boss code.
@@ -590,16 +585,9 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(
+        PatternSpriteRenderer renderer = getRenderer(
                 Sonic2ObjectArtKeys.HTZ_BOSS);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        if (renderer == null) return;
 
         // Determine flip based on which side the boss is on
         // Left side = flipped (facing right), right side = not flipped (facing left)
@@ -629,5 +617,15 @@ public class Sonic2HTZBossInstance extends AbstractBossInstance {
                 renderer.drawFrameIndex(flameFrame, state.x, state.y, flipped, false);
             }
         }
+    }
+
+    @Override
+    protected int getBossHitSfxId() {
+        return Sonic2Sfx.BOSS_HIT.id;
+    }
+
+    @Override
+    protected int getBossExplosionSfxId() {
+        return Sonic2Sfx.BOSS_EXPLOSION.id;
     }
 }

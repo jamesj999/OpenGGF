@@ -6,6 +6,7 @@ import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 import com.openggf.game.sonic1.objects.Sonic1PushBlockObjectInstance;
+import com.openggf.game.GameServices;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.sprites.playable.Sonic;
@@ -104,7 +105,7 @@ public class TestHeadlessMZ2PushBlockGap {
     }
 
     private Sonic1PushBlockObjectInstance findNearestPushBlock(Sonic sprite) {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.level();
         if (lm == null || lm.getObjectManager() == null) return null;
 
         Collection<ObjectInstance> objects = lm.getObjectManager().getActiveObjects();

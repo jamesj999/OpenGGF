@@ -1,7 +1,6 @@
 package com.openggf.game.sonic1.audio;
 
-import com.openggf.audio.AudioManager;
-import com.openggf.audio.GameAudioProfile;
+import com.openggf.audio.AbstractAudioProfile;
 import com.openggf.audio.GameSound;
 import com.openggf.audio.smps.SmpsLoader;
 import com.openggf.audio.smps.SmpsSequencerConfig;
@@ -16,7 +15,7 @@ import java.util.Map;
  * Sonic 1 audio profile. Provides SMPS loader, sequencer config, and
  * game-specific sound ID mappings for the Sonic 1 68000 sound driver.
  */
-public class Sonic1AudioProfile implements GameAudioProfile {
+public class Sonic1AudioProfile extends AbstractAudioProfile {
 
     /**
      * GameSound to Sonic 1 SFX ID mappings.
@@ -54,6 +53,10 @@ public class Sonic1AudioProfile implements GameAudioProfile {
         // GameSound.ERROR - no direct S1 equivalent
         // GameSound.CASINO_BONUS - CNZ-specific, not in S1
         SOUND_MAP = Collections.unmodifiableMap(map);
+    }
+
+    public Sonic1AudioProfile() {
+        super(SOUND_MAP);
     }
 
     @Override
@@ -97,28 +100,18 @@ public class Sonic1AudioProfile implements GameAudioProfile {
     }
 
     @Override
-    public boolean handleSystemCommand(int soundId, AudioManager manager) {
-        if (soundId == Sonic1SmpsConstants.CMD_FADE_OUT) {
-            manager.fadeOutMusic();
-            return true;
-        } else if (soundId == Sonic1SmpsConstants.CMD_STOP_ALL) {
-            manager.stopMusic();
-            return true;
-        } else if (soundId == Sonic1SmpsConstants.CMD_SEGA) {
-            // SEGA PCM sample - only used on title screen, not yet implemented
-            return true;
-        }
-        return false;
+    protected int getFadeOutCommandId() {
+        return Sonic1SmpsConstants.CMD_FADE_OUT;
     }
 
-    /**
-     * Returns the GameSound to SFX ID mapping for Sonic 1.
-     * Used by the game class to configure AudioManager's sound map.
-     *
-     * @return unmodifiable map of GameSound enum values to Sonic 1 SFX IDs
-     */
-    public Map<GameSound, Integer> getSoundMap() {
-        return SOUND_MAP;
+    @Override
+    protected int getStopAllCommandId() {
+        return Sonic1SmpsConstants.CMD_STOP_ALL;
+    }
+
+    @Override
+    protected int getSegaCommandId() {
+        return Sonic1SmpsConstants.CMD_SEGA;
     }
 
     /**
@@ -127,6 +120,7 @@ public class Sonic1AudioProfile implements GameAudioProfile {
      * @param soundId any sound ID in the 0x81-0xE4 range
      * @return priority value from the ROM priority table
      */
+    @Override
     public int getSfxPriority(int soundId) {
         return Sonic1SmpsConstants.getSfxPriority(soundId);
     }

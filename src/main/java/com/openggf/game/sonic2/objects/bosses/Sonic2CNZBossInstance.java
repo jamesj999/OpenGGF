@@ -1,15 +1,13 @@
 package com.openggf.game.sonic2.objects.bosses;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.game.sonic2.audio.Sonic2Music;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.events.Sonic2CNZEvents;
-import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.boss.AbstractBossInstance;
@@ -156,16 +154,16 @@ public class Sonic2CNZBossInstance extends AbstractBossInstance {
     /**
      * Creates the main CNZ boss (generic factory path, no event handler reference).
      */
-    public Sonic2CNZBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        this(spawn, levelManager, null);
+    public Sonic2CNZBossInstance(ObjectSpawn spawn) {
+        this(spawn, null);
     }
 
     /**
      * Creates the main CNZ boss with a reference to the zone event handler
      * for boss defeat callbacks.
      */
-    public Sonic2CNZBossInstance(ObjectSpawn spawn, LevelManager levelManager, Sonic2CNZEvents cnzEvents) {
-        super(spawn, levelManager, "CNZ Boss");
+    public Sonic2CNZBossInstance(ObjectSpawn spawn, Sonic2CNZEvents cnzEvents) {
+        super(spawn, "CNZ Boss");
         this.cnzEvents = cnzEvents;
     }
 
@@ -263,13 +261,14 @@ public class Sonic2CNZBossInstance extends AbstractBossInstance {
     }
 
     @Override
-    protected void updateBossLogic(int frameCounter, AbstractPlayableSprite player) {
+    protected void updateBossLogic(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         lastFrameCounter = frameCounter;
 
         // ROM: loc_31A04 - Zap SFX tick every 32 frames when collision is active
         if (bossCollisionRoutine != COLLISION_OFF) {
             if ((frameCounter & 0x1F) == 0) {
-                AudioManager.getInstance().playSfx(Sonic2Sfx.CNZ_BOSS_ZAP.id);
+                services().playSfx(Sonic2Sfx.CNZ_BOSS_ZAP.id);
             }
         }
 
@@ -554,7 +553,7 @@ public class Sonic2CNZBossInstance extends AbstractBossInstance {
         } else if (bossCountdown == 0x18) {
             state.yVel = 0;
             // Play level music and load animal PLCs
-            AudioManager.getInstance().playMusic(Sonic2Music.CASINO_NIGHT.id);
+            services().playMusic(Sonic2Music.CASINO_NIGHT.id);
         } else if (bossCountdown >= 0x20) {
             state.routine = ROUTINE_FLEE;
         }
@@ -569,12 +568,12 @@ public class Sonic2CNZBossInstance extends AbstractBossInstance {
         state.xVel = VELOCITY_FLEE_X;
         state.yVel = VELOCITY_FLEE_Y;
 
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         if (camera.getMaxX() < CAMERA_MAX_X_TARGET) {
             camera.setMaxXTarget((short) (camera.getMaxX() + 2));
         } else if (!isOnScreen()) {
             // Clear boss ID so palette cycling stops
-            GameServices.gameState().setCurrentBossId(0);
+            services().gameState().setCurrentBossId(0);
             setDestroyed(true);
         }
 
@@ -679,14 +678,14 @@ public class Sonic2CNZBossInstance extends AbstractBossInstance {
      * objoff_28 (ballRiseOffset) during attach phase.
      */
     private void spawnElectricBall() {
-        if (levelManager.getObjectManager() == null) {
+        if (services().objectManager() == null) {
             return;
         }
         // ROM: move.b #4,boss_subtype(a1) / move.l a0,objoff_34(a1)
         // The spawn coordinates are informational - ball uses parent position directly
         ObjectSpawn ballSpawn = new ObjectSpawn(state.x, state.y, Sonic2ObjectIds.CNZ_BOSS, 4, 0, false, 0);
-        CNZBossElectricBall ball = new CNZBossElectricBall(ballSpawn, levelManager, this);
-        levelManager.getObjectManager().addDynamicObject(ball);
+        CNZBossElectricBall ball = new CNZBossElectricBall(ballSpawn, this);
+        services().objectManager().addDynamicObject(ball);
     }
 
     // ========================================================================
@@ -762,8 +761,8 @@ public class Sonic2CNZBossInstance extends AbstractBossInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = levelManager != null
-                ? levelManager.getObjectRenderManager() : null;
+        ObjectRenderManager renderManager = services() != null
+                ? services().renderManager() : null;
         if (renderManager == null) {
             return;
         }
@@ -840,10 +839,20 @@ public class Sonic2CNZBossInstance extends AbstractBossInstance {
 
     @Override
     protected boolean isOnScreen() {
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         int screenX = state.x - camera.getX();
         int screenY = state.y - camera.getY();
         return screenX >= -64 && screenX <= camera.getWidth() + 64
                 && screenY >= -64 && screenY <= camera.getHeight() + 64;
+    }
+
+    @Override
+    protected int getBossHitSfxId() {
+        return Sonic2Sfx.BOSS_HIT.id;
+    }
+
+    @Override
+    protected int getBossExplosionSfxId() {
+        return Sonic2Sfx.BOSS_EXPLOSION.id;
     }
 }

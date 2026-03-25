@@ -1,15 +1,13 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.ButtonVineTriggerManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2AudioConstants;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
@@ -99,7 +97,8 @@ public class ButtonObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: move.b #0,mapping_frame(a0) - reset to unpressed each frame
         mappingFrame = FRAME_UNPRESSED;
 
@@ -117,7 +116,7 @@ public class ButtonObjectInstance extends AbstractObjectInstance
             // ROM: tst.b (a3) / bne.s + / move.w #SndID_Blip,d0 / jsr (PlaySound).l
             // Sound plays only when entire trigger byte is zero (no bits set by any source)
             if (!ButtonVineTriggerManager.testAny(switchId)) {
-                AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_BLIP);
+                services().playSfx(Sonic2AudioConstants.SFX_BLIP);
             }
 
             // ROM: bset d3,(a3) - set the trigger bit
@@ -152,7 +151,8 @@ public class ButtonObjectInstance extends AbstractObjectInstance
     // ========================================================================================
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (contact.standing()) {
             lastStandingFrame = frameCounter;
         }
@@ -164,13 +164,8 @@ public class ButtonObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.BUTTON);
-        if (renderer != null && renderer.isReady()) {
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.BUTTON);
+        if (renderer != null) {
             renderer.drawFrameIndex(mappingFrame, spawn.x(), adjustedY, false, false);
         }
     }

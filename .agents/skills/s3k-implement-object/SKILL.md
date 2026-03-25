@@ -1,7 +1,7 @@
 ---
-name: s3k-implement-object
-description: "Implement a Sonic 3 & Knuckles object or badnik with complete ROM accuracy. This skill guides complete implementation including art, animation, sound effects, all subtypes, and cross-validation against the Sonic 3&K disassembly."
+title: Implement Sonic 3&K Object/Badnik
 ---
+
 # Implement Sonic 3&K Object/Badnik
 
 Implement a Sonic 3 & Knuckles object or badnik with complete ROM accuracy. This skill guides complete implementation including art, animation, sound effects, all subtypes, and cross-validation against the Sonic 3&K disassembly.
@@ -37,7 +37,7 @@ The same ID can mean different objects depending on the zone set. For example, 0
 
 Delegate multiple agents to explore the disassembly. **Include this instruction in each agent prompt:**
 
-> Use the s3k-disasm-guide skill (`.agents/skills/s3k-disasm-guide/SKILL.md`) for reference on disassembly structure, label conventions, RomOffsetFinder commands, and object system patterns.
+> Use the s3k-disasm-guide skill (`.agents/skills/s3k-disasm-guide/skill.md`) for reference on disassembly structure, label conventions, RomOffsetFinder commands, and object system patterns.
 
 Agents should:
 
@@ -60,7 +60,7 @@ Agents should:
    - All subtypes and their behaviors (from `subtype` byte interpretation)
    - Movement physics (velocities, timers, ranges)
    - Collision handling (`collision_flags` = type + size index)
-   - Shield reactions (`shield_reaction` byte â€” S3K-specific)
+   - Shield reactions (`shield_reaction` byte — S3K-specific)
    - Character-specific behavior (check for `character_id` comparisons)
    - Animation sequences and frame timing from Anim file
    - Sound effects triggered (search for `sfx` or sound command references)
@@ -90,29 +90,16 @@ Agents should:
 
 #### 2.1 Constants (if needed)
 
-Add ROM address to `Sonic3kConstants.java`. If this file does not exist, create it following `Sonic2Constants.java`:
+Add ROM address to `Sonic3kConstants.java`:
 
 ```java
-package com.openggf.sonic.game.sonic3k.constants;
-
-public final class Sonic3kConstants {
-    private Sonic3kConstants() {}
-
-    // Object art ROM addresses
-    public static final int ART_KOSM_OBJECTNAME_ADDR = 0xXXXXX;
-}
+public static final int ART_KOSM_OBJECTNAME_ADDR = 0xXXXXX;
 ```
 
-Add to `Sonic3kObjectIds.java`. If this file does not exist, create it following `Sonic2ObjectIds.java`:
+Add to `Sonic3kObjectIds.java`:
 
 ```java
-package com.openggf.sonic.game.sonic3k.constants;
-
-public final class Sonic3kObjectIds {
-    private Sonic3kObjectIds() {}
-
-    public static final int OBJECT_NAME = 0xXX;
-}
+public static final int OBJECT_NAME = 0xXX;
 ```
 
 #### 2.2 Art Loading
@@ -127,6 +114,17 @@ Key differences from S2:
 - Use `safeLoadNemesisPatterns()` for `ArtNem_` data
 
 **PLC-loaded art:** Some objects use art loaded by zone PLCs at runtime rather than at level load. If the object's art comes from a zone PLC (e.g., PLC 0x0B for AIZ1 objects), it may need runtime PLC application for act transitions or boss arenas. See the **`s3k-plc-system`** skill for PLC system docs. Use `RomOffsetFinder plc <name>` to inspect PLC contents from the CLI. The ObjectDiscoveryTool checklist shows PLC IDs per object.
+
+**Standalone PLC decompression (preferred for dedicated object art):** When an object's art comes from a PLC but shouldn't overwrite level pattern buffer tiles (common for boss art, shared art), use `PlcParser.decompressAll()` to get standalone `Pattern[]` arrays:
+```java
+PlcDefinition plc = Sonic3kPlcLoader.parsePlc(rom, PLC_ID);
+List<Pattern[]> artArrays = PlcParser.decompressAll(rom, plc);
+ObjectSpriteSheet sheet = new ObjectSpriteSheet(
+    artArrays.get(entryIndex),
+    S3kSpriteDataLoader.loadMappingFrames(reader, mappingAddr),
+    paletteIndex, 1);
+```
+This avoids VRAM overlap conflicts where PLC art tiles overlap with spike/spring/other object tiles. See `plc-system` skill for the full standalone vs level-buffer comparison.
 
 ##### For level-art objects (art loaded by PLCs or level init):
 
@@ -171,7 +169,7 @@ Create the instance class following existing Sonic 2 patterns but in the Sonic 3
 
 ##### Pattern 1: Simple Object
 ```java
-package com.openggf.sonic.game.sonic3k.objects;
+package com.openggf.game.sonic3k.objects;
 
 public class ObjectNameObjectInstance extends AbstractObjectInstance
         implements SolidObjectProvider, SolidObjectListener {
@@ -181,7 +179,7 @@ public class ObjectNameObjectInstance extends AbstractObjectInstance
 
 ##### Pattern 2: Badnik (Enemy with AI)
 ```java
-package com.openggf.sonic.game.sonic3k.objects.badniks;
+package com.openggf.game.sonic3k.objects.badniks;
 
 public class ObjectNameBadnikInstance extends AbstractBadnikInstance {
     @Override
@@ -202,7 +200,7 @@ public class ObjectNameBadnikInstance extends AbstractBadnikInstance {
 ```
 
 ##### Pattern 3: Boss
-**Use the dedicated `/s3k-implement-boss` skill** (`.agents/skills/s3k-implement-boss/SKILL.md`) for boss implementations.
+**Use the dedicated `/s3k-implement-boss` skill** (`.agents/skills/s3k-implement-boss/skill.md`) for boss implementations.
 
 **Detect a boss when:**
 - Object label contains `Miniboss` or `EndBoss`
@@ -210,7 +208,95 @@ public class ObjectNameBadnikInstance extends AbstractBadnikInstance {
 - Has camera lock and arena setup behavior
 - Spawned by zone screen events
 
-#### 2.4 Implementation Requirements
+#### 2.4 Reusable Engine Utilities
+
+**IMPORTANT: Before writing any physics, movement, or collision code, check these existing utilities. Do NOT reimplement functionality that already exists.**
+
+##### Movement & Physics
+
+| Utility | Location | Use When |
+|---------|----------|----------|
+| `SubpixelMotion.moveSprite(state, gravity)` | `com.openggf.level.objects.SubpixelMotion` | 16:8 fixed-point position update with gravity (ROM's `MoveSprite`). Create a `SubpixelMotion.State` field, sync before call, read back after. |
+| `SubpixelMotion.moveSprite2(state)` | `com.openggf.level.objects.SubpixelMotion` | Same without gravity (ROM's `MoveSprite2`). |
+| `SubpixelMotion.moveX(state)` | `com.openggf.level.objects.SubpixelMotion` | X-only movement. |
+| `SwingMotion.update()` | `com.openggf.physics.SwingMotion` | Object oscillates/bobs/swings (ROM's `Swing_UpAndDown`). Returns `Result(velocity, directionDown, directionChanged)`. |
+| `PatrolMovementHelper` | `com.openggf.level.objects.PatrolMovementHelper` | Left-right patrol with turn-at-edge detection. |
+| `PlatformBobHelper` | `com.openggf.level.objects.PlatformBobHelper` | Sine-based standing-nudge displacement for platforms. |
+| `ObjectTerrainUtils.checkFloorDist()` | `com.openggf.physics` | Single-point floor/ceiling/wall detection for objects (not player sensors). Returns distance + angle. |
+| `TrigLookupTable.calcAngle()` / `sinHex()` / `cosHex()` | `com.openggf.physics` | ROM-accurate angle calculation and trig. Used for projectile deflection, circular motion. |
+
+##### Base Classes
+
+| Base Class | Location | Use When |
+|------------|----------|----------|
+| `AbstractBadnikInstance` | `com.openggf.level.objects` | All badniks. Provides touch response, destruction with `DestructionEffects`, debug rendering. Objects receive `ObjectServices` via injection — use `services()` to access camera, audio, level, game state. |
+| `AbstractS3kBadnikInstance` | `game.sonic3k.objects.badniks` | S3K-specific badnik base. Extends `AbstractObjectInstance` directly with S3K-specific conveniences (`moveWithVelocity()`). |
+| `AbstractProjectileInstance` | `com.openggf.level.objects` | Fire-and-forget projectiles. Handles motion, gravity, off-screen destroy, HURT collision. |
+| `S3kBadnikProjectileInstance` | `game.sonic3k.objects.badniks` | S3K-specific reusable projectile with shield deflection. |
+| `AbstractSpikeObjectInstance` | `com.openggf.level.objects` | Spike objects with retract/extend behavior. S3K subclass adds push mode. |
+| `AbstractMonitorObjectInstance` | `com.openggf.level.objects` | Monitor objects. Shared icon-rise physics. Override `applyPowerup()`. |
+| `GravityDebrisChild` | `com.openggf.level.objects` | Debris/fragment children with gravity. Override `appendRenderCommands()`. |
+
+##### Collision & Touch Response
+
+| Pattern | When to Use |
+|---------|-------------|
+| `TouchResponseAttackable` + `TouchResponseProvider` | Destroyable enemies (head segments, normal badniks). Player jump/roll destroys them. |
+| `TouchResponseProvider` only (no `Attackable`) | Non-destroyable hazards (body segments, spikes, projectiles). Return `0x80 \| sizeIndex` from `getCollisionFlags()` for HURT category. |
+| `DestructionEffects.destroyBadnik()` | Explosion + animal + points on badnik defeat. |
+| `SpringBounceHelper` | `com.openggf.level.objects.SpringBounceHelper` — shared spring bounce physics. |
+| `BoxObjectInstance` | Invisible trigger zones with debug visualization (extends for AutoSpin-style triggers). |
+
+##### Player State Manipulation
+
+**Force roll pattern** (used by AutoSpin, ForcedSpin, and tunnel triggers):
+```java
+if (!player.getRolling()) {
+    player.setRolling(true);
+    player.setY((short) (player.getY() + player.getRollHeightAdjustment()));
+    SpriteAnimationProfile profile = player.getAnimationProfile();
+    if (profile instanceof ScriptedVelocityAnimationProfile vp) {
+        player.setAnimationId(vp.getRollAnimId());
+        player.setAnimationFrameIndex(0);
+        player.setAnimationTick(0);
+    }
+    services().audioManager().playSfx(GameSound.ROLLING);
+}
+```
+
+**Pinball mode** (`player.setPinballMode(true)`) — prevents rolling from clearing on landing.
+
+##### Rendering & Animation
+
+| Utility | Use When |
+|---------|----------|
+| `getRenderer(artKey)` | Static method on `AbstractObjectInstance`. Returns ready `PatternSpriteRenderer` or null. |
+| `AnimationTimer` | `com.openggf.util.AnimationTimer` — cyclic frame animation timer. |
+| `LazyMappingHolder` | `com.openggf.util.LazyMappingHolder` — lazy-loading holder for sprite mappings. |
+| `PatternDecompressor` | `com.openggf.util.PatternDecompressor` — bytes→Pattern[] conversion. |
+| `S3kSpriteDataLoader.loadMappingFrames()` | Parse S3K mappings from ROM. Prefer over hardcoded mappings. |
+
+Renderer keys are defined in `Sonic3kObjectArtKeys` and registered in `Sonic3kPlcArtRegistry`.
+
+##### Object Lifecycle
+
+| Utility | Use When |
+|---------|----------|
+| `buildSpawnAt(x, y)` | Inherited from `AbstractObjectInstance`. Use in `getSpawn()` overrides instead of constructing `new ObjectSpawn(...)` manually. |
+| `isPlayerRiding()` | Inherited from `AbstractObjectInstance`. Safe null-check chain for platform riding detection. |
+| `isOnScreen(margin)` | Inherited from `AbstractObjectInstance`. Off-screen visibility check. |
+| `DebugRenderContext` | `com.openggf.debug.DebugRenderContext` — use for `appendDebugRenderCommands()`. |
+
+##### Child Object Spawning
+
+Prefer `spawnChild()` for runtime-spawned children (body segments, projectiles, explosions):
+```java
+ChildObject child = spawnChild(() -> new ChildObject(spawn, params));
+```
+
+Legacy pattern (still works): `services().objectManager().addDynamicObject(childInstance)`.
+
+#### 2.5 Implementation Requirements
 
 **Engine Extensions**: If the ROM uses functionality that the engine doesn't expose, **you MUST extend the engine** rather than working around it or documenting it as a limitation.
 
@@ -222,7 +308,7 @@ Never accept "engine limitation" as a reason for incomplete behavior.
 private static final int X_VELOCITY = 0x100;
 ```
 
-**S3K field name mapping**: When translating disassembly, use these S3Kâ†’engine mappings:
+**S3K field name mapping**: When translating disassembly, use these S3K→engine mappings:
 | S3K Field | Engine Method/Field |
 |-----------|-------------------|
 | `x_pos` | `getX()` / `setX()` (center coords) |
@@ -265,7 +351,7 @@ int configBits = subtype & 0x0F;
 
 **Sound effects**: Use constants from `Sonic3kAudioProfile.java` (create if needed):
 ```java
-AudioManager.getInstance().playSfx(Sonic3kAudioProfile.SFX_SPRING);
+services().audioManager().playSfx(Sonic3kAudioProfile.SFX_SPRING);
 ```
 
 **Debug visualization**: Implement when debug enabled:
@@ -277,7 +363,7 @@ public void appendDebugRenderCommands(List<GLCommand> commands) {
 }
 ```
 
-#### 2.5 Factory Registration
+#### 2.6 Factory Registration
 
 Register in `Sonic3kObjectRegistry`:
 
@@ -289,7 +375,7 @@ registerFactory(Sonic3kObjectIds.OBJECT_NAME,
 For badniks:
 ```java
 registerFactory(Sonic3kObjectIds.OBJECT_NAME,
-    (spawn, registry) -> new ObjectNameBadnikInstance(spawn, levelManager));
+    (spawn, registry) -> new ObjectNameBadnikInstance(spawn));
 ```
 
 ### Phase 3: Code Quality
@@ -307,7 +393,7 @@ Ensure the implementation:
 
 Delegate to a review agent to cross-validate against the disassembly. **Include this instruction in the agent prompt:**
 
-> Use the s3k-disasm-guide skill (`.agents/skills/s3k-disasm-guide/SKILL.md`) for reference on disassembly structure, label conventions, and object system patterns.
+> Use the s3k-disasm-guide skill (`.agents/skills/s3k-disasm-guide/skill.md`) for reference on disassembly structure, label conventions, and object system patterns.
 
 ```
 Review the implementation of [ObjectName] against the Sonic 3&K disassembly.
@@ -385,8 +471,8 @@ Once cross-validation is confirmed bug-free:
 
 | Purpose | Location |
 |---------|----------|
-| **Disassembly guide** | `.agents/skills/s3k-disasm-guide/SKILL.md` |
-| **Boss skill** | `.agents/skills/s3k-implement-boss/SKILL.md` |
+| **Disassembly guide** | `.agents/skills/s3k-disasm-guide/skill.md` |
+| **Boss skill** | `.agents/skills/s3k-implement-boss/skill.md` |
 | Zone set enum | `src/.../game/sonic3k/constants/S3kZoneSet.java` |
 | Object IDs | `src/.../game/sonic3k/constants/Sonic3kObjectIds.java` |
 | ROM offsets | `src/.../game/sonic3k/constants/Sonic3kConstants.java` |
@@ -394,7 +480,7 @@ Once cross-validation is confirmed bug-free:
 | Art loader | `src/.../game/sonic3k/Sonic3kObjectArt.java` |
 | Art keys | `src/.../game/sonic3k/Sonic3kObjectArtKeys.java` |
 | Art provider | `src/.../game/sonic3k/Sonic3kObjectArtProvider.java` |
-| Audio profile | `src/.../game/sonic3k/audio/Sonic3kAudioProfile.java` (to be created) |
+| Audio profile | `src/.../game/sonic3k/audio/Sonic3kAudioProfile.java` |
 | Base badnik | `src/.../game/sonic2/objects/badniks/AbstractBadnikInstance.java` (shared) |
 | Disassembly main | `docs/skdisasm/sonic3k.asm` |
 | Disassembly constants | `docs/skdisasm/sonic3k.constants.asm` |
@@ -431,4 +517,3 @@ Butterdroid, Chainspike, Cluckoid, Dragonfly, Fireworm, Iwamodoki, Madmole, Mush
 | Object IDs file | `Sonic3kObjectIds.java` | `Sonic2ObjectIds.java` | `Sonic1ObjectIds.java` |
 | Registry | `Sonic3kObjectRegistry.java` | `Sonic2ObjectRegistry.java` | `Sonic1ObjectRegistry.java` |
 | Art infrastructure | Established (`Sonic3kObjectArt/Provider/Keys`) | Fully established | May need creating |
-

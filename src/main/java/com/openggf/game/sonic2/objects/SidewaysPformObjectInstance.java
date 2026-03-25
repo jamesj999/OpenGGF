@@ -1,12 +1,13 @@
 package com.openggf.game.sonic2.objects;
 
+import com.openggf.game.PlayableEntity;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.sonic2.S2SpriteDataLoader;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
+import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
-import com.openggf.level.LevelManager;
 import com.openggf.level.PatternDesc;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -79,8 +80,6 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
     // Zone-specific rendering: MCZ uses level art, CPZ uses dedicated stair block art
     private final boolean isMcz;
 
-    private ObjectSpawn dynamicSpawn;
-
     /**
      * Creates a new SidewaysPform instance.
      *
@@ -90,8 +89,7 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
     public SidewaysPformObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
         this.isChild = false;
-        LevelManager lm = LevelManager.getInstance();
-        this.isMcz = lm != null && lm.getRomZoneId() == Sonic2Constants.ZONE_MYSTIC_CAVE;
+        this.isMcz = services().currentLevel() != null && services().romZoneId() == Sonic2Constants.ZONE_MYSTIC_CAVE;
         init();
     }
 
@@ -120,12 +118,6 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
-    @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
     @Override
     public SolidObjectParams getSolidParams() {
         return new SolidObjectParams(HALF_WIDTH, HALF_HEIGHT, HALF_HEIGHT);
@@ -137,19 +129,22 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed();
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Platform state is driven via ObjectManager standing checks.
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         applyMovement();
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -166,7 +161,7 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
      * art_tile = make_art_tile(ArtTile_ArtNem_CPZStairBlock, 3, 1)
      */
     private void appendRenderCpz(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
+        ObjectRenderManager renderManager = services().renderManager();
         PatternSpriteRenderer renderer = null;
 
         if (renderManager != null) {
@@ -176,8 +171,6 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
         if (renderer != null && renderer.isReady()) {
             // Frame 0 is the 48x16 platform
             renderer.drawFrameIndex(0, x, y, false, false);
-        } else {
-            appendDebug(commands);
         }
     }
 
@@ -190,18 +183,16 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
         ensureMczMappingsLoaded();
 
         if (mczMappings == null || mczMappings.isEmpty()) {
-            appendDebug(commands);
             return;
         }
 
         // Frame 0 is the 48x16 platform
         SpriteMappingFrame frame = mczMappings.get(0);
         if (frame == null || frame.pieces().isEmpty()) {
-            appendDebug(commands);
             return;
         }
 
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = services().graphicsManager();
         SpritePieceRenderer.renderPieces(
                 frame.pieces(),
                 x, y,
@@ -226,14 +217,8 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
             return;
         }
         mczMappingsLoadAttempted = true;
-
-        LevelManager manager = LevelManager.getInstance();
-        if (manager == null || manager.getGame() == null) {
-            return;
-        }
-
         try {
-            RomByteReader reader = RomByteReader.fromRom(manager.getGame().getRom());
+            RomByteReader reader = RomByteReader.fromRom(staticRomManager().getRom());
             mczMappings = S2SpriteDataLoader.loadMappingFrames(reader, Sonic2Constants.MAP_UNC_OBJ15_MCZ_ADDR);
             LOGGER.fine("Loaded " + mczMappings.size() + " MCZ SidewaysPform mapping frames");
         } catch (IOException | RuntimeException e) {
@@ -262,7 +247,7 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
         // Direction: subtype 0x0C starts moving left (direction=1), others start moving right
         direction = (spawn.subtype() == 0x0C) ? 1 : 0;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
 
         // Create child platform if needed
         if (totalChildren > 0 && !isChild) {
@@ -289,7 +274,7 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
         // Only the parent of subtype 0x0C gets direction=1; child is fresh allocation
         direction = 0;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     private void createChildPlatform(int childXOffset) {
@@ -305,13 +290,17 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
         );
 
         // Create child platform and register it
-        SidewaysPformObjectInstance child = new SidewaysPformObjectInstance(
-                childSpawn, name + "_child", this);
+        setConstructionContext(services());
+        try {
+            SidewaysPformObjectInstance child = new SidewaysPformObjectInstance(
+                    childSpawn, name + "_child", this);
 
-        // Add child to object manager
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager != null && levelManager.getObjectManager() != null) {
-            levelManager.getObjectManager().addDynamicObject(child);
+            // Add child to object manager
+            if (services().objectManager() != null) {
+                services().objectManager().addDynamicObject(child);
+            }
+        } finally {
+            clearConstructionContext();
         }
     }
 
@@ -378,39 +367,21 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
         };
     }
 
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = new ObjectSpawn(
-                    x,
-                    y,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
-    }
-
-    private void appendDebug(List<GLCommand> commands) {
+    @Override
+    public void appendDebugRenderCommands(DebugRenderContext ctx) {
         int left = x - HALF_WIDTH;
         int right = x + HALF_WIDTH;
         int top = y - HALF_HEIGHT;
         int bottom = y + HALF_HEIGHT;
 
-        appendLine(commands, left, top, right, top);
-        appendLine(commands, right, top, right, bottom);
-        appendLine(commands, right, bottom, left, bottom);
-        appendLine(commands, left, bottom, left, top);
+        ctx.drawLine(left, top, right, top, 0.4f, 0.8f, 0.6f);
+        ctx.drawLine(right, top, right, bottom, 0.4f, 0.8f, 0.6f);
+        ctx.drawLine(right, bottom, left, bottom, 0.4f, 0.8f, 0.6f);
+        ctx.drawLine(left, bottom, left, top, 0.4f, 0.8f, 0.6f);
 
         // Draw center cross
-        appendLine(commands, x - 4, y, x + 4, y);
-        appendLine(commands, x, y - 4, x, y + 4);
+        ctx.drawLine(x - 4, y, x + 4, y, 0.4f, 0.8f, 0.6f);
+        ctx.drawLine(x, y - 4, x, y + 4, 0.4f, 0.8f, 0.6f);
     }
 
-    private void appendLine(List<GLCommand> commands, int x1, int y1, int x2, int y2) {
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.4f, 0.8f, 0.6f, x1, y1, 0, 0));
-        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID,
-                0.4f, 0.8f, 0.6f, x2, y2, 0, 0));
-    }
 }

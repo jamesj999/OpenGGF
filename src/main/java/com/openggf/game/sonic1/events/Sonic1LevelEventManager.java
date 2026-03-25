@@ -6,6 +6,7 @@ import com.openggf.game.sonic1.Sonic1LoopManager;
 import com.openggf.game.sonic1.scroll.Sonic1ZoneConstants;
 import com.openggf.level.LevelManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.GameServices;
 
 /**
  * Sonic 1 implementation of dynamic level events.
@@ -163,7 +164,7 @@ public class Sonic1LevelEventManager extends AbstractLevelEventManager {
                 // Transition to SBZ3 (our engine: zone SBZ, act 2)
                 sbz3TransitionRequested = true;
                 player.setControlLocked(true);
-                LevelManager.getInstance().requestZoneAndAct(
+                levelManager().requestZoneAndAct(
                         Sonic1ZoneConstants.ZONE_SBZ, 2);
                 return true;
             }

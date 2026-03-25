@@ -12,8 +12,11 @@ public final class Sonic3kObjectIds {
     public static final int AIZ1_TREE = 0x09;
     public static final int AIZ1_ZIPLINE_PEG = 0x0A;
     public static final int AIZ_GIANT_RIDE_VINE = 0x0C;
+    public static final int BREAKABLE_WALL = 0x0D;
     public static final int TWISTED_RAMP = 0x0E;
+    public static final int AUTO_SPIN = 0x26;
     public static final int CORK_FLOOR = 0x2A;
+    public static final int AIZ_FALLING_LOG = 0x2D;
     public static final int INVISIBLE_BLOCK = 0x28;
     public static final int FLOATING_PLATFORM = 0x51;
     public static final int STAR_POST = 0x34;
@@ -22,6 +25,7 @@ public final class Sonic3kObjectIds {
     public static final int BLOOMINATOR = 0x8C;
     public static final int RHINOBOT = 0x8D;
     public static final int MONKEY_DUDE = 0x8E;
+    public static final int CATERKILLER_JR = 0x8F;
     public static final int STILL_SPRITE = 0x2F;
     public static final int ANIMATED_STILL_SPRITE = 0x30;
     public static final int HIDDEN_MONITOR = 0x80;

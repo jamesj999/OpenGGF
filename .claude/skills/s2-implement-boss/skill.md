@@ -9,7 +9,7 @@ $ARGUMENTS: Boss name or zone (e.g., "EHZ boss", "Chemical Plant boss", "0x56")
 ## Related Skills
 
 - **s2disasm-guide** (`.claude/skills/s2disasm-guide/skill.md`) - Disassembly navigation, label conventions, RomOffsetFinder
-- **s2-implement-object** (`.claude/skills/s2-implement-object/skill.md`) - For non-boss Sonic 2 objects and badniks
+- **s2-implement-object** (`.claude/skills/s2-implement-object/skill.md`) - For non-boss Sonic 2 objects and badniks. **Section 2.4 lists all reusable engine utilities** — check it before writing movement, collision, or rendering code.
 
 ## Key Differences: Bosses vs Regular Objects
 
@@ -131,7 +131,7 @@ private void updateZONE() {
 **Boss instance template:**
 
 ```java
-package com.openggf.sonic.game.sonic2.objects.bosses;
+package com.openggf.game.sonic2.objects.bosses;
 
 public class Sonic2ZoneBossInstance extends AbstractBossInstance {
 
@@ -146,8 +146,8 @@ public class Sonic2ZoneBossInstance extends AbstractBossInstance {
     private static final int MAIN_START_X = 0xXXXX;
     private static final int MAIN_START_Y = 0xXXXX;
 
-    public Sonic2ZoneBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Zone Boss");
+    public Sonic2ZoneBossInstance(ObjectSpawn spawn) {
+        super(spawn, "Zone Boss");
     }
 
     @Override

@@ -1,7 +1,7 @@
 package com.openggf.game.sonic1.objects;
 
 import com.openggf.camera.Camera;
-import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.credits.Sonic1CreditsMappings;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -88,7 +88,7 @@ public class Sonic1TryAgainEggmanObjectInstance extends AbstractObjectInstance {
         this.textRenderer = textRenderer;
 
         // Routine 0: EEgg_Main
-        int emeraldCount = GameServices.gameState().getEmeraldCount();
+        int emeraldCount = services().gameState().getEmeraldCount();
 
         if (emeraldCount >= TOTAL_EMERALDS) {
             // All emeralds: use "END" animation (anim 2)
@@ -106,7 +106,8 @@ public class Sonic1TryAgainEggmanObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;
         }
@@ -191,7 +192,7 @@ public class Sonic1TryAgainEggmanObjectInstance extends AbstractObjectInstance {
             return;
         }
         // Screen-space rendering: convert to world coords by adding camera position
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         int worldX = SCREEN_X + camera.getX();
         int worldY = SCREEN_Y + camera.getY();
         renderer.drawFrameIndex(frameId, worldX, worldY, false, false);

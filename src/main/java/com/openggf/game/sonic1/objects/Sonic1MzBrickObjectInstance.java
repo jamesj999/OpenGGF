@@ -2,17 +2,17 @@ package com.openggf.game.sonic1.objects;
 
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.OscillationManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
@@ -92,11 +92,8 @@ public class Sonic1MzBrickObjectInstance extends AbstractObjectInstance
     // Y velocity for type 3 falling (obVelY, in subpixels where 256 = 1px)
     private int yVelocity;
 
-    // Fractional Y accumulator for 16.16 fixed-point position during falling (SpeedToPos)
-    private int ySubpixel;
-
-    // Dynamic spawn for position updates
-    private ObjectSpawn dynamicSpawn;
+    // 16.16 subpixel state for SpeedToPos Y position updates during falling.
+    private final SubpixelMotion.State fallMotion = new SubpixelMotion.State(0, 0, 0, 0, 0, 0);
 
     public Sonic1MzBrickObjectInstance(ObjectSpawn spawn) {
         super(spawn, "MzBrick");
@@ -109,9 +106,8 @@ public class Sonic1MzBrickObjectInstance extends AbstractObjectInstance
         this.behaviorType = this.subtype & 0x07;
 
         this.yVelocity = 0;
-        this.ySubpixel = 0;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -123,14 +119,9 @@ public class Sonic1MzBrickObjectInstance extends AbstractObjectInstance
     public int getY() {
         return y;
     }
-
     @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
-    @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // From disassembly: tst.b obRender(a0) / bpl.s .chkdel
         // Only process behavior when on-screen (render flag bit 7 set)
         if (!isOnScreen(128)) {
@@ -146,7 +137,7 @@ public class Sonic1MzBrickObjectInstance extends AbstractObjectInstance
             default -> { /* Types 5-7 not used in MZ placements */ }
         }
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     /**
@@ -237,12 +228,10 @@ public class Sonic1MzBrickObjectInstance extends AbstractObjectInstance
      */
     private void updateFalling() {
         // SpeedToPos: Y position update using 16.16 fixed point
-        // move.l obY(a0),d3 / ext.l d0 / asl.l #8,d0 / add.l d0,d3 / move.l d3,obY(a0)
-        int yPos32 = (y << 16) | (ySubpixel & 0xFFFF);
-        int vel32 = (int) (short) yVelocity;
-        yPos32 += vel32 << 8;
-        y = yPos32 >> 16;
-        ySubpixel = yPos32 & 0xFFFF;
+        fallMotion.y = y;
+        fallMotion.yVel = yVelocity;
+        SubpixelMotion.speedToPosY(fallMotion);
+        y = fallMotion.y;
 
         // addi.w #$18,obVelY(a0)
         yVelocity = (short) (yVelocity + FALL_GRAVITY);
@@ -259,7 +248,7 @@ public class Sonic1MzBrickObjectInstance extends AbstractObjectInstance
         // Floor hit: d1 < 0 (negative distance means collision)
         // add.w d1,obY(a0) - snap to floor
         y += result.distance();
-        ySubpixel = 0;
+        fallMotion.ySub = 0;
 
         // clr.w obVelY(a0)
         yVelocity = 0;
@@ -303,14 +292,8 @@ public class Sonic1MzBrickObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.MZ_BRICK);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.MZ_BRICK);
+        if (renderer == null) return;
         renderer.drawFrameIndex(0, x, y, false, false);
     }
 
@@ -320,14 +303,16 @@ public class Sonic1MzBrickObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public int getTopLandingHalfWidth(AbstractPlayableSprite player, int collisionHalfWidth) {
+    public int getTopLandingHalfWidth(PlayableEntity playerEntity, int collisionHalfWidth) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM uses obActWid ($10) for Solid_Landed / SolidObject_InsideTop,
         // not the collision halfWidth ($1B).
         return ACTIVE_WIDTH;
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Standard solid collision handled by ObjectManager
     }
 
@@ -359,17 +344,5 @@ public class Sonic1MzBrickObjectInstance extends AbstractObjectInstance
             default -> String.format("MZBrick:T%d", behaviorType);
         };
         ctx.drawWorldLabel(x, y, -2, typeLabel, DebugColor.CYAN);
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = new ObjectSpawn(
-                    x, y,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
     }
 }

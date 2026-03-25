@@ -1,23 +1,17 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.audio.AudioManager;
-import com.openggf.camera.Camera;
 import com.openggf.data.Rom;
-import com.openggf.data.RomByteReader;
 import com.openggf.game.GameModuleRegistry;
-import com.openggf.game.GameServices;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.PlayerCharacter;
-import com.openggf.game.sonic2.objects.AbstractResultsScreen;
+import com.openggf.level.objects.AbstractResultsScreen;
 import com.openggf.game.sonic3k.Sonic3kObjectArt;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.titlecard.Sonic3kTitleCardManager;
-import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.tools.NemesisReader;
 import com.openggf.graphics.GLCommand;
-import com.openggf.graphics.GraphicsManager;
-import com.openggf.level.LevelManager;
 import com.openggf.level.Pattern;
 import com.openggf.level.objects.ObjectSpriteSheet;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -237,7 +231,7 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
     // ---- Bonus calculation ----
 
     private void calculateBonuses() {
-        var levelGamestate = LevelManager.getInstance().getLevelGamestate();
+        var levelGamestate = services().levelGamestate();
         int elapsedSeconds = (levelGamestate != null) ? levelGamestate.getElapsedSeconds() : 0;
 
         // Pause the timer (ROM line 62550)
@@ -288,7 +282,8 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
      * queue each frame until all children are off-screen, THEN transitions.
      */
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         this.playerRef = player;
         this.frameCounter = frameCounter;
         stateTimer++;
@@ -362,7 +357,7 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
         if (!musicPlayed && stateTimer == MUSIC_TRIGGER_FRAME) {
             musicPlayed = true;
             try {
-                AudioManager.getInstance().playMusic(Sonic3kMusic.ACT_CLEAR.id);
+                services().playMusic(Sonic3kMusic.ACT_CLEAR.id);
             } catch (Exception e) {
                 // Ignore audio errors
             }
@@ -399,7 +394,7 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
         TallyResult result = performTallyStep();
 
         if (result.totalIncrement() > 0) {
-            GameServices.gameState().addScore(result.totalIncrement());
+            services().gameState().addScore(result.totalIncrement());
         }
 
         // ROM uses global frame counter for tick timing (line 62652-62654)
@@ -423,7 +418,7 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
     @Override
     protected void playTickSound() {
         try {
-            AudioManager.getInstance().playSfx(Sonic3kSfx.SWITCH.id);
+            services().playSfx(Sonic3kSfx.SWITCH.id);
         } catch (Exception e) {
             // Ignore audio errors
         }
@@ -432,7 +427,7 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
     @Override
     protected void playTallyEndSound() {
         try {
-            AudioManager.getInstance().playSfx(Sonic3kSfx.REGISTER.id);
+            services().playSfx(Sonic3kSfx.REGISTER.id);
         } catch (Exception e) {
             // Ignore audio errors
         }
@@ -440,7 +435,7 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
 
     private void fadeOutMusic() {
         try {
-            AudioManager.getInstance().fadeOutMusic();
+            services().fadeOutMusic();
         } catch (Exception e) {
             // Ignore audio errors
         }
@@ -456,14 +451,15 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
             playerRef.setObjectControlled(false);
         }
         // Unlock sidekick(s) — ROM: Ctrl_2_locked cleared at level transition
-        for (AbstractPlayableSprite sidekick : SpriteManager.getInstance().getSidekicks()) {
+        for (PlayableEntity sidekickEntity : services().sidekicks()) {
+            AbstractPlayableSprite sidekick = (AbstractPlayableSprite) sidekickEntity;
             sidekick.setControlLocked(false);
             sidekick.setObjectControlled(false);
         }
         // Restore camera bounds from level data (boss arena locked the boundaries)
-        Camera cam = Camera.getInstance();
+        var cam = services().camera();
         cam.setFrozen(false);
-        var level = LevelManager.getInstance().getCurrentLevel();
+        var level = services().currentLevel();
         if (level != null) {
             cam.setMinX((short) level.getMinX());
             cam.setMaxX((short) level.getMaxX());
@@ -471,17 +467,17 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
             cam.setMaxY((short) level.getMaxY());
         }
 
-        int zone = LevelManager.getInstance().getRomZoneId();
+        int zone = services().romZoneId();
 
         // Act 2, Sky Sanctuary ($A), or LRZ boss ($16): set End_of_level_flag
         // ROM lines 62694-62705
         boolean isAct2OrSpecial = (act != 0) || (zone == 0x0A) || (zone == 0x16);
 
-        GameServices.gameState().setEndOfLevelActive(false);
+        services().gameState().setEndOfLevelActive(false);
 
         // Always set endOfLevelFlag so S3kBossDefeatSignpostFlow can self-destruct
         // and release camera boundaries. For act 2 this also triggers the zone transition.
-        GameServices.gameState().setEndOfLevelFlag(true);
+        services().gameState().setEndOfLevelFlag(true);
 
         if (!isAct2OrSpecial) {
             // Act 1: transition to act 2 (ROM lines 62708-62720)
@@ -492,14 +488,14 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
             var zoneRegistry = GameModuleRegistry.getCurrent().getZoneRegistry();
             int act2MusicId = zoneRegistry.getMusicId(zone, 1);
             if (act2MusicId >= 0) {
-                try { AudioManager.getInstance().playMusic(act2MusicId); } catch (Exception e) { /* ignore */ }
+                try { services().playMusic(act2MusicId); } catch (Exception e) { /* ignore */ }
             }
 
             // Show act 2 title card (except SOZ zone $8 and DEZ zone $B)
             // ROM lines 62713-62720
             boolean skipTitleCard = (zone == 0x08) || (zone == 0x0B);
             if (!skipTitleCard) {
-                Sonic3kTitleCardManager.getInstance().initializeInLevel(zone, 1);
+                services().titleCardProvider().initializeInLevel(zone, 1);
             }
         }
 
@@ -519,8 +515,8 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
 
     private void loadArt() {
         try {
-            var rom = GameServices.rom().getRom();
-            RomByteReader reader = RomByteReader.fromRom(rom);
+            var rom = services().rom();
+            var reader = services().romReader();
             Sonic3kObjectArt objectArt = new Sonic3kObjectArt(null, reader);
 
             combinedPatterns = objectArt.loadResultsArt(character, act);
@@ -554,7 +550,6 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
             LOG.warning("Failed to load results screen art: " + e.getMessage());
         }
     }
-
 
     /**
      * Loads HUD text tiles from ArtNem_RingHUDText and places them at the correct
@@ -594,7 +589,7 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
 
     private void ensureArtCached() {
         if (artCached || !artLoaded || renderer == null) return;
-        GraphicsManager gm = GraphicsManager.getInstance();
+        var gm = services().graphicsManager();
         if (gm == null) return;
         renderer.ensurePatternsCached(gm, PATTERN_BASE);
         artCached = true;
@@ -608,7 +603,7 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
         ensureArtCached();
         if (!renderer.isReady()) return;
 
-        Camera camera = Camera.getInstance();
+        var camera = services().camera();
         if (camera == null) return;
 
         int baseX = camera.getX();

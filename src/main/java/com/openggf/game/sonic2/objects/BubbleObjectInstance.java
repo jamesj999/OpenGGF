@@ -1,13 +1,11 @@
 package com.openggf.game.sonic2.objects;
 
-import com.openggf.audio.AudioManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -117,7 +115,8 @@ public class BubbleObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (breathed) {
             setDestroyed(true);
             return;
@@ -143,11 +142,10 @@ public class BubbleObjectInstance extends AbstractObjectInstance {
         // Check if reached water surface (bubble pops)
         // Use getFeatureZoneId/ActId to match the keys WaterSystem stores configs
         // under (important for S1 SBZ3 which remaps from LZ).
-        LevelManager levelManager = LevelManager.getInstance();
-        if (levelManager != null && levelManager.getCurrentLevel() != null) {
-            WaterSystem waterSystem = WaterSystem.getInstance();
-            int zoneId = levelManager.getFeatureZoneId();
-            int actId = levelManager.getFeatureActId();
+        if (services().currentLevel() != null) {
+            WaterSystem waterSystem = services().waterSystem();
+            int zoneId = services().featureZoneId();
+            int actId = services().featureActId();
 
             if (waterSystem.hasWater(zoneId, actId)) {
                 int waterY = waterSystem.getWaterLevelY(zoneId, actId);
@@ -221,7 +219,7 @@ public class BubbleObjectInstance extends AbstractObjectInstance {
 
             // Play inhaling sound
             try {
-                AudioManager.getInstance().playSfx(Sonic2Sfx.INHALING_BUBBLE.id);
+                services().playSfx(Sonic2Sfx.INHALING_BUBBLE.id);
             } catch (Exception e) {
                 // Don't let audio failure break game logic
             }
@@ -237,15 +235,8 @@ public class BubbleObjectInstance extends AbstractObjectInstance {
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic2ObjectArtKeys.BUBBLES);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic2ObjectArtKeys.BUBBLES);
+        if (renderer == null) return;
 
         // Clamp frame to valid range (0-5 for visual bubbles)
         int frameToRender = Math.min(mappingFrame, 5);

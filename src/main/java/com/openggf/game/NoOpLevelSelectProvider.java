@@ -1,6 +1,6 @@
 package com.openggf.game;
 
-import com.openggf.Control.InputHandler;
+import com.openggf.control.InputHandler;
 
 /**
  * No-op implementation of {@link LevelSelectProvider} for games without level select.

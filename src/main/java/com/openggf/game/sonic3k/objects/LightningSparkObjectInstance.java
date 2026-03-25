@@ -5,9 +5,11 @@ import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Pattern;
 import com.openggf.level.PatternDesc;
 import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.sprites.animation.SpriteAnimationScript;
 import com.openggf.sprites.animation.SpriteAnimationSet;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.game.PlayableEntity;
 
 import java.util.List;
 
@@ -89,7 +91,8 @@ public class LightningSparkObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         life++;
         if (life >= MAX_LIFE) {
             setDestroyed(true);
@@ -114,7 +117,7 @@ public class LightningSparkObjectInstance extends AbstractObjectInstance {
         // Frame 2 = empty (invisible flash frame)
         if (currentMappingFrame >= 2) return;
 
-        GraphicsManager gfx = GraphicsManager.getInstance();
+        GraphicsManager gfx = services().graphicsManager();
         ensureSparkTilesCached(gfx);
 
         if (currentMappingFrame == 0) {

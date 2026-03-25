@@ -1,13 +1,12 @@
 package com.openggf.game.sonic1.objects;
+import com.openggf.game.PlayableEntity;
 
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
@@ -230,7 +229,8 @@ public class Sonic1LavaWallObjectInstance extends AbstractObjectInstance
     // ========================================================================
 
     @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (routine) {
             case 0 -> updateInit();
             case 4 -> updateProximityCheck(player);
@@ -249,13 +249,12 @@ public class Sonic1LavaWallObjectInstance extends AbstractObjectInstance
     private void updateInit() {
         if (!childSpawned) {
             childSpawned = true;
-            LevelManager levelManager = LevelManager.getInstance();
-            if (levelManager != null && levelManager.getObjectManager() != null) {
+            if (services().objectManager() != null) {
                 ObjectSpawn trailSpawn = new ObjectSpawn(
                         currentX - TRAIL_X_OFFSET, currentY,
                         0x4E, spawn.subtype(), 0, false, 0);
                 Sonic1LavaWallObjectInstance trail = new Sonic1LavaWallObjectInstance(trailSpawn, this);
-                levelManager.getObjectManager().addDynamicObject(trail);
+                services().objectManager().addDynamicObject(trail);
             }
         }
         // addq.b #4,obRoutine(a0) -> routine 0 + 4 = 4
@@ -419,7 +418,7 @@ public class Sonic1LavaWallObjectInstance extends AbstractObjectInstance
      * and compare distance against 128+320+192.
      */
     private boolean isWithinOutOfRangeWindow(int objectX) {
-        Camera camera = Camera.getInstance();
+        Camera camera = services().camera();
         if (camera == null) {
             return true;
         }
@@ -445,13 +444,15 @@ public class Sonic1LavaWallObjectInstance extends AbstractObjectInstance
     }
 
     @Override
-    public boolean isSolidFor(AbstractPlayableSprite player) {
+    public boolean isSolidFor(PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Solid in routines 2 (active) and 4 (proximity check)
         return role == Role.MAIN && (routine == 2 || routine == 4);
     }
 
     @Override
-    public void onSolidContact(AbstractPlayableSprite player, SolidContact contact, int frameCounter) {
+    public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // The ROM saves/restores obRoutine around SolidObject to prevent routine changes.
         // Our SolidContacts system doesn't modify routine, so no special handling needed.
         // The solid collision itself (pushing player, blocking) is handled by the engine.
@@ -485,15 +486,8 @@ public class Sonic1LavaWallObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.MZ_LAVA_WALL);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.MZ_LAVA_WALL);
+        if (renderer == null) return;
 
         renderer.drawFrameIndex(displayFrame, currentX, currentY, false, false);
     }

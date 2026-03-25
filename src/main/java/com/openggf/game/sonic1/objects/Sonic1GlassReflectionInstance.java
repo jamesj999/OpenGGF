@@ -1,12 +1,11 @@
 package com.openggf.game.sonic1.objects;
 
 import com.openggf.game.OscillationManager;
+import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
-import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -63,8 +62,6 @@ public class Sonic1GlassReflectionInstance extends AbstractObjectInstance {
     // glass_dist: synced from parent each frame
     private int glassDist;
 
-    private ObjectSpawn dynamicSpawn;
-
     Sonic1GlassReflectionInstance(ObjectSpawn parentSpawn,
                                   Sonic1GlassBlockObjectInstance parent,
                                   int reflectSubtype,
@@ -79,7 +76,7 @@ public class Sonic1GlassReflectionInstance extends AbstractObjectInstance {
         this.glassDist = parent.getGlassDist();
         this.y = baseY - glassDist;
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -91,14 +88,9 @@ public class Sonic1GlassReflectionInstance extends AbstractObjectInstance {
     public int getY() {
         return y;
     }
-
     @Override
-    public ObjectSpawn getSpawn() {
-        return dynamicSpawn != null ? dynamicSpawn : spawn;
-    }
-
-    @Override
-    public void update(int frameCounter, AbstractPlayableSprite player) {
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Check if parent is destroyed -> self-destruct
         if (parent.isDestroyed()) {
             setDestroyed(true);
@@ -117,19 +109,13 @@ public class Sonic1GlassReflectionInstance extends AbstractObjectInstance {
         // Apply Glass_Types movement using reflection subtype
         applyReflectionMovement();
 
-        refreshDynamicSpawn();
+        updateDynamicSpawn(x, y);
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = LevelManager.getInstance().getObjectRenderManager();
-        if (renderManager == null) {
-            return;
-        }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(ObjectArtKeys.MZ_GLASS_BLOCK);
-        if (renderer == null || !renderer.isReady()) {
-            return;
-        }
+        PatternSpriteRenderer renderer = getRenderer(ObjectArtKeys.MZ_GLASS_BLOCK);
+        if (renderer == null) return;
 
         renderer.drawFrameIndex(SHINE_FRAME, x, y, false, false);
     }
@@ -192,17 +178,5 @@ public class Sonic1GlassReflectionInstance extends AbstractObjectInstance {
 
         // loc_B5EE: move.w objoff_30(a0),d1 / sub.w d0,d1 / move.w d1,obY(a0)
         y = baseY - d0;
-    }
-
-    private void refreshDynamicSpawn() {
-        if (dynamicSpawn == null || dynamicSpawn.x() != x || dynamicSpawn.y() != y) {
-            dynamicSpawn = new ObjectSpawn(
-                    x, y,
-                    spawn.objectId(),
-                    spawn.subtype(),
-                    spawn.renderFlags(),
-                    spawn.respawnTracked(),
-                    spawn.rawYWord());
-        }
     }
 }

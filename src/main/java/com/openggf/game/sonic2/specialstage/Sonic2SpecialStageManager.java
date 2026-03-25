@@ -3,7 +3,6 @@ package com.openggf.game.sonic2.specialstage;
 import com.openggf.game.SpecialStageDebugProvider;
 import com.openggf.game.GameServices;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
@@ -507,7 +506,7 @@ public class Sonic2SpecialStageManager {
         // Set up music fade callback for when checkpoint fails
         checkpoint.setOnMusicFadeRequested(() -> {
             // Fade out the special stage music gradually (preserves any SFX playing)
-            AudioManager.getInstance().fadeOutMusic();
+            GameServices.audio().fadeOutMusic();
             LOGGER.info("Music fade requested - fading special stage music");
         });
 
@@ -633,11 +632,11 @@ public class Sonic2SpecialStageManager {
 
         if (result == Sonic2SpecialStageCheckpoint.Result.FAILED) {
             // Play error sound for failure (SndID_Error = $ED)
-            AudioManager.getInstance().playSfx(GameSound.ERROR);
+            GameServices.audio().playSfx(GameSound.ERROR);
             LOGGER.info("Checkpoint FAILED: needed " + ringRequirement + ", had " + ringsCollected);
         } else {
             // Play checkpoint sound for success
-            AudioManager.getInstance().playSfx(GameSound.CHECKPOINT);
+            GameServices.audio().playSfx(GameSound.CHECKPOINT);
             LOGGER.info("Checkpoint PASSED: needed " + ringRequirement + ", had " + ringsCollected);
 
             // Update ring requirement for next checkpoint (for "rings to go" display)
@@ -1208,18 +1207,18 @@ public class Sonic2SpecialStageManager {
             Sonic2SpecialStageRing ring = (Sonic2SpecialStageRing) obj;
             ring.collect();
             objectManager.collectRing();
-            AudioManager.getInstance().playSfx(GameSound.RING);
+            GameServices.audio().playSfx(GameSound.RING);
             LOGGER.fine("Collected ring! Total: " + objectManager.getRingsCollected());
         } else if (obj.isBomb()) {
             Sonic2SpecialStageBomb bomb = (Sonic2SpecialStageBomb) obj;
             bomb.explode();
             player.triggerHit();
             // Original game plays SndID_SlowSmash for bomb explosion
-            AudioManager.getInstance().playSfx(GameSound.SLOW_SMASH);
+            GameServices.audio().playSfx(GameSound.SLOW_SMASH);
             // Ring spill sound plays when rings are actually lost
             int ringsLost = objectManager.loseRingsFromBombHit();
             if (ringsLost > 0) {
-                AudioManager.getInstance().playSfx(GameSound.RING_SPILL);
+                GameServices.audio().playSfx(GameSound.RING_SPILL);
             }
             LOGGER.fine("Hit bomb! Lost " + ringsLost + " rings. Remaining: " +
                     objectManager.getRingsCollected());
@@ -1894,7 +1893,7 @@ public class Sonic2SpecialStageManager {
      */
     public void reset() {
         // Stop any playing music when resetting
-        AudioManager.getInstance().stopMusic();
+        GameServices.audio().stopMusic();
 
         initialized = false;
         currentStage = 0;
