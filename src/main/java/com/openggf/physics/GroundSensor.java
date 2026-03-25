@@ -80,6 +80,26 @@ public class GroundSensor extends Sensor {
         }
     }
 
+    /**
+     * Scan using explicit world-space offsets and direction instead of deriving them
+     * from the sprite's current ground mode. This is used for ROM-accurate helper
+     * routines like {@code CalcRoomInFront}, which probe from predicted world
+     * coordinates rather than reusing the rotated push sensor layout.
+     */
+    SensorResult scanWorld(Direction globalDirection,
+                           short worldOffsetX,
+                           short worldOffsetY,
+                           short dx,
+                           short dy,
+                           int solidityBit) {
+        short originalX = (short) (sprite.getCentreX() + worldOffsetX + dx);
+        short originalY = (short) (sprite.getCentreY() + worldOffsetY + dy);
+        if (globalDirection == Direction.UP || globalDirection == Direction.DOWN) {
+            return scanVertical(originalX, originalY, solidityBit, globalDirection);
+        }
+        return scanHorizontal(originalX, originalY, solidityBit, globalDirection);
+    }
+
     // ========================================
     // VERTICAL SCANNING (Floor/Ceiling)
     // ========================================

@@ -27,6 +27,7 @@ public class CollisionSystem {
     private static CollisionSystem bootstrapInstance;
 
     private final TerrainCollisionManager terrainCollisionManager;
+    private final GroundSensor calcRoomProbe = new GroundSensor(null, Direction.DOWN, (byte) 0, (byte) 0, true);
     private ObjectManager objectManager;
 
     // Trace for debugging/testing - defaults to no-op
@@ -209,11 +210,6 @@ public class CollisionSystem {
             return;
         }
 
-        Sensor[] pushSensors = sprite.getPushSensors();
-        if (pushSensors == null) {
-            return;
-        }
-
         int angle = sprite.getAngle() & 0xFF;
         short gSpeed = sprite.getGSpeed();
         int angleCheck = (angle + 0x40) & 0xFF;
@@ -221,22 +217,10 @@ public class CollisionSystem {
             return;
         }
 
-        int sensorIndex = gSpeed >= 0 ? 1 : 0;
-        Sensor sensor = pushSensors[sensorIndex];
         short predictedDx = (short) (((sprite.getXSubpixel() & 0xFF) + sprite.getXSpeed()) >> 8);
         short predictedDy = (short) (((sprite.getYSubpixel() & 0xFF) + sprite.getYSpeed()) >> 8);
-
-        int wallRotation = (gSpeed < 0) ? 0x40 : 0xC0;
-        int wallRotatedAngle = (angle + wallRotation) & 0xFF;
-        short dynamicYOffset = (short) (((wallRotatedAngle & 0x38) == 0) ? 8 : 0);
-
-        boolean wasActive = sensor.isActive();
-        sensor.setActive(true);
-        byte savedSensorY = sensor.getY();
-        sensor.setOffset(sensor.getX(), (byte) 0);
-        SensorResult result = sensor.scan(predictedDx, (short) (predictedDy + dynamicYOffset));
-        sensor.setOffset(sensor.getX(), savedSensorY);
-        sensor.setActive(wasActive);
+        CalcRoomInFrontProbe probe = describeCalcRoomInFrontProbe(angle, gSpeed);
+        SensorResult result = scanCalcRoomInFront(sprite, probe, predictedDx, predictedDy);
 
         if (result == null || result.distance() >= 0) {
             return;
@@ -263,6 +247,35 @@ public class CollisionSystem {
             default -> {
             }
         }
+    }
+
+    static CalcRoomInFrontProbe describeCalcRoomInFrontProbe(int angle, short gSpeed) {
+        int rotation = (gSpeed < 0) ? 0x40 : 0xC0;
+        int rotatedAngle = (angle + rotation) & 0xFF;
+        int mode = (rotatedAngle + 0x20) & 0xC0;
+        short dynamicYOffset = (short) (((mode == 0x40 || mode == 0xC0) && (rotatedAngle & 0x38) == 0) ? 8 : 0);
+
+        return switch (mode) {
+            case 0x00 -> new CalcRoomInFrontProbe(mode, rotatedAngle, Direction.DOWN, (short) 0, (short) 10, dynamicYOffset);
+            case 0x40 -> new CalcRoomInFrontProbe(mode, rotatedAngle, Direction.LEFT, (short) -10, (short) 0, dynamicYOffset);
+            case 0x80 -> new CalcRoomInFrontProbe(mode, rotatedAngle, Direction.UP, (short) 0, (short) -10, dynamicYOffset);
+            default -> new CalcRoomInFrontProbe(mode, rotatedAngle, Direction.RIGHT, (short) 10, (short) 0, dynamicYOffset);
+        };
+    }
+
+    private SensorResult scanCalcRoomInFront(AbstractPlayableSprite sprite,
+                                             CalcRoomInFrontProbe probe,
+                                             short predictedDx,
+                                             short predictedDy) {
+        calcRoomProbe.sprite = sprite;
+        int solidityBit = sprite.getLrbSolidBit();
+        return calcRoomProbe.scanWorld(
+                probe.globalDirection(),
+                probe.offsetX(),
+                probe.offsetY(),
+                predictedDx,
+                (short) (predictedDy + probe.dynamicYOffset()),
+                solidityBit);
     }
 
     public void resolveGroundAttachment(AbstractPlayableSprite sprite,
@@ -296,6 +309,20 @@ public class CollisionSystem {
         }
 
         if (distance < 0) {
+            if (sprite.getGroundMode() == GroundMode.RIGHTWALL) {
+                if (distance < -14) {
+                    if (isZoneActZero(sprite)) {
+                        sprite.setAngle((byte) 0xC0);
+                        sprite.setRightWallPenetrationTimer(3);
+                    }
+                    return;
+                }
+                if (sprite.getRightWallPenetrationTimer() > 0) {
+                    sprite.setRightWallPenetrationTimer(sprite.getRightWallPenetrationTimer() - 1);
+                    sprite.setAngle((byte) 0xC0);
+                    return;
+                }
+            }
             if (distance >= -14) {
                 moveForSensorResult(sprite, selectedResult);
             }
@@ -315,6 +342,16 @@ public class CollisionSystem {
         }
 
         moveForSensorResult(sprite, selectedResult);
+    }
+
+    private boolean isZoneActZero(AbstractPlayableSprite sprite) {
+        if (sprite == null) {
+            return false;
+        }
+        var levelManager = sprite.currentLevelManager();
+        return levelManager != null
+                && levelManager.getCurrentZone() == 0
+                && levelManager.getCurrentAct() == 0;
     }
 
     private int getTerrainHeadroomDistance(AbstractPlayableSprite sprite, int hexAngle) {
@@ -574,5 +611,13 @@ public class CollisionSystem {
             case LEFT -> sprite.setX((short) (sprite.getX() - distance));
             case RIGHT -> sprite.setX((short) (sprite.getX() + distance));
         }
+    }
+
+    static record CalcRoomInFrontProbe(int mode,
+                                       int rotatedAngle,
+                                       Direction globalDirection,
+                                       short offsetX,
+                                       short offsetY,
+                                       short dynamicYOffset) {
     }
 }
