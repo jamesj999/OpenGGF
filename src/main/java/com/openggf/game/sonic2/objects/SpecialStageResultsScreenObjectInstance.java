@@ -1,9 +1,11 @@
 package com.openggf.game.sonic2.objects;
 
+import com.openggf.audio.AudioManager;
+import com.openggf.game.GameServices;
+import com.openggf.game.GameStateManager;
+import com.openggf.game.ResultsScreen;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
-import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
-import com.openggf.level.objects.AbstractResultsScreen;
 import com.openggf.game.sonic2.specialstage.Sonic2SpecialStageConstants;
 import com.openggf.game.sonic2.specialstage.Sonic2SpecialStageDataLoader;
 import com.openggf.game.sonic2.specialstage.Sonic2SpecialStageManager;
@@ -14,7 +16,6 @@ import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Palette;
 import com.openggf.level.Pattern;
 import com.openggf.level.PatternDesc;
-import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.util.PatternDecompressor;
 
 import java.io.IOException;
@@ -36,8 +37,23 @@ import java.util.logging.Logger;
  * <p>
  * Based on Obj6F from s2.asm.
  */
-public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScreen {
+public class SpecialStageResultsScreenObjectInstance implements ResultsScreen {
     private static final Logger LOGGER = Logger.getLogger(SpecialStageResultsScreenObjectInstance.class.getName());
+
+    // State machine constants (inlined from AbstractResultsScreen — this screen
+    // is a standalone overlay managed by GameLoop, not a level object)
+    private static final int STATE_SLIDE_IN = 0;
+    private static final int STATE_PRE_TALLY_DELAY = 1;
+    private static final int STATE_TALLY = 2;
+    private static final int STATE_WAIT = 3;
+    private static final int STATE_EXIT = 4;
+
+    // Movement speed from s2.asm Obj34_MoveTowardsTargetPosition: moveq #$10,d0
+    private static final int SLIDE_SPEED_PIXELS_PER_FRAME = 16;
+
+    // Screen dimensions
+    private static final int SCREEN_WIDTH = 320;
+    private static final int SCREEN_CENTER_X = SCREEN_WIDTH / 2;
 
     // Y positions for text elements (screen coordinates, Y increases downward)
     // From Obj6F_SubObjectMetaData in s2.asm
@@ -113,6 +129,14 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
     private static final int PATTERN_BASE = 0x40000;   // High ID to avoid conflicts (0x30000 used by water surface)
     private static final int SOURCE_DIGITS_PATTERN_BASE = 0x41000;  // Separate base for preserved source digits
 
+    // State tracking
+    private int state = STATE_SLIDE_IN;
+    private int stateTimer = 0;
+    private int frameCounter = 0;
+    private int totalFrames = 0;
+    private int slideProgress = 0;
+    private boolean complete = false;
+
     // Input data
     private final int ringsCollected;
     private final boolean gotEmerald;
@@ -161,7 +185,6 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
 
     public SpecialStageResultsScreenObjectInstance(int ringsCollected, boolean gotEmerald,
                                                     int stageIndex, int totalEmeraldCount) {
-        super("ss_results_screen");
         this.ringsCollected = ringsCollected;
         this.gotEmerald = gotEmerald;
         this.stageIndex = stageIndex;
@@ -190,7 +213,7 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
      */
     private void loadArt() {
         try {
-            RomManager romManager = staticRomManager();
+            RomManager romManager = RomManager.getInstance();
             if (!romManager.isRomAvailable()) {
                 LOGGER.warning("ROM not available for results art loading");
                 return;
@@ -215,7 +238,7 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
 
             // Load special stage results art from DataLoader
             Pattern[] resultsArtPatterns = null;
-            Sonic2SpecialStageManager manager = services().gameService(Sonic2SpecialStageManager.class);
+            Sonic2SpecialStageManager manager = Sonic2SpecialStageManager.getInstance();
             if (manager != null) {
                 Sonic2SpecialStageDataLoader dataLoader = manager.getDataLoader();
                 if (dataLoader != null) {
@@ -464,7 +487,7 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
             return;
         }
 
-        GraphicsManager graphicsManager = services().graphicsManager();
+        GraphicsManager graphicsManager = GraphicsManager.getInstance();
         if (graphicsManager == null) {
             LOGGER.warning("ensureArtCached: GraphicsManager is null");
             return;
@@ -543,7 +566,7 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
         }
 
         // Re-cache the updated patterns to GPU
-        GraphicsManager graphicsManager = services().graphicsManager();
+        GraphicsManager graphicsManager = GraphicsManager.getInstance();
         if (graphicsManager != null) {
             // Re-cache ring bonus digit patterns (offset 8-15)
             for (int i = 0; i < DIGITS_PER_VALUE; i++) {
@@ -627,28 +650,25 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
         }
     }
 
-    @Override
-    protected int getSlideDuration() {
-        return Sonic2SpecialStageConstants.RESULTS_SLIDE_DURATION;
+    // ── State machine (inlined from AbstractResultsScreen) ─────────────
+
+    private void updateSlideIn() {
+        slideProgress = Math.min(stateTimer, Sonic2SpecialStageConstants.RESULTS_SLIDE_DURATION);
+        if (stateTimer >= Sonic2SpecialStageConstants.RESULTS_SLIDE_DURATION) {
+            state = STATE_PRE_TALLY_DELAY;
+            stateTimer = 0;
+        }
     }
 
-    @Override
-    protected int getWaitDuration() {
-        return Sonic2SpecialStageConstants.RESULTS_WAIT_DURATION;
+    private void updatePreTallyDelay() {
+        // ROM: $B4 (180) frame delay before tally starts
+        if (stateTimer >= 180) {
+            state = STATE_TALLY;
+            stateTimer = 0;
+        }
     }
 
-    @Override
-    protected int getTallyTickInterval() {
-        return Sonic2SpecialStageConstants.RESULTS_TALLY_TICK_INTERVAL;
-    }
-
-    @Override
-    protected int getTallyDecrement() {
-        return Sonic2SpecialStageConstants.RESULTS_TALLY_DECREMENT;
-    }
-
-    @Override
-    protected TallyResult performTallyStep() {
+    private void updateTally() {
         boolean anyRemaining = false;
         int totalIncrement = 0;
 
@@ -660,38 +680,56 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
             anyRemaining = true;
         }
 
-        // Decrement emerald bonus (still uses standard decrement logic)
-        int[] emeraldResult = decrementBonus(emeraldBonus);
-        emeraldBonus = emeraldResult[0];
-        totalIncrement += emeraldResult[1];
-        if (emeraldResult[1] > 0) anyRemaining = true;
+        // Decrement emerald bonus
+        int decrement = Math.min(Sonic2SpecialStageConstants.RESULTS_TALLY_DECREMENT, emeraldBonus);
+        if (decrement > 0) {
+            emeraldBonus -= decrement;
+            totalIncrement += decrement;
+            anyRemaining = true;
+        }
 
         // Update total
         totalBonus += totalIncrement;
 
-        return tallyResult(anyRemaining, totalIncrement);
-    }
+        if (totalIncrement > 0) {
+            GameServices.gameState().addScore(totalIncrement);
+        }
 
-    @Override
-    protected void onExitReady() {
-        // If all 7 emeralds collected, start Super Sonic message sequence
-        if (totalEmeraldCount >= 7 && gotEmerald) {
-            state = STATE_SUPER_SONIC_DISPLAY;
+        // Play tick sound every N frames while tallying
+        if (anyRemaining && (stateTimer % Sonic2SpecialStageConstants.RESULTS_TALLY_TICK_INTERVAL) == 0) {
+            playTickSound();
+        }
+
+        // Check if tally complete
+        if (!anyRemaining) {
+            playTallyEndSound();
+            state = STATE_WAIT;
             stateTimer = 0;
-            superMsgTimer = 0;
-        } else {
-            complete = true;
         }
     }
 
+    private void updateWait() {
+        if (stateTimer >= Sonic2SpecialStageConstants.RESULTS_WAIT_DURATION) {
+            state = STATE_EXIT;
+            // If all 7 emeralds collected, start Super Sonic message sequence
+            if (totalEmeraldCount >= 7 && gotEmerald) {
+                state = STATE_SUPER_SONIC_DISPLAY;
+                stateTimer = 0;
+                superMsgTimer = 0;
+            } else {
+                complete = true;
+            }
+        }
+    }
+
+    // ── Update / render ─────────────────────────────────────────────────
+
     @Override
-    public void update(int frameCounter, PlayableEntity playerEntity) {
-        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
+    public void update(int frameCounter, Object context) {
         this.frameCounter = frameCounter;
         stateTimer++;
         totalFrames++;
 
-        // Handle Super Sonic message state directly (parent's switch doesn't handle states > 3)
         if (state == STATE_SUPER_SONIC_DISPLAY) {
             updateSuperSonicMessages();
             return;
@@ -701,7 +739,6 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
             return;
         }
 
-        // Handle normal states via parent
         switch (state) {
             case STATE_SLIDE_IN -> updateSlideIn();
             case STATE_PRE_TALLY_DELAY -> updatePreTallyDelay();
@@ -724,9 +761,8 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
     }
 
     @Override
-    protected void updateWait() {
-        // Normal wait state only - Super Sonic states are now handled in update()
-        super.updateWait();
+    public boolean isComplete() {
+        return complete;
     }
 
     @Override
@@ -734,7 +770,7 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
         // Ensure art is cached for rendering
         ensureArtCached();
 
-        GraphicsManager graphicsManager = services().graphicsManager();
+        GraphicsManager graphicsManager = GraphicsManager.getInstance();
         if (graphicsManager == null) {
             return;
         }
@@ -926,7 +962,7 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
             return;
         }
 
-        GraphicsManager graphicsManager = services().graphicsManager();
+        GraphicsManager graphicsManager = GraphicsManager.getInstance();
         if (graphicsManager == null) {
             return;
         }
@@ -1056,7 +1092,7 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
         };
 
         for (int i = 0; i < 7; i++) {
-            boolean hasThisEmerald = services().gameState().hasEmerald(i);
+            boolean hasThisEmerald = GameServices.gameState().hasEmerald(i);
 
             if (hasThisEmerald) {
                 // ROM-accurate flash: display on odd frames only (btst #0)
@@ -1088,7 +1124,7 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
         };
 
         for (int i = 0; i < 7; i++) {
-            boolean hasThisEmerald = services().gameState().hasEmerald(i);
+            boolean hasThisEmerald = GameServices.gameState().hasEmerald(i);
 
             if (hasThisEmerald) {
                 // ROM-accurate flash: display on odd frames only (btst #0)
@@ -1121,7 +1157,7 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
             return;
         }
 
-        GraphicsManager graphicsManager = services().graphicsManager();
+        GraphicsManager graphicsManager = GraphicsManager.getInstance();
         if (graphicsManager == null) {
             return;
         }
@@ -1161,22 +1197,56 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
         }
     }
 
-    @Override
-    protected void playTickSound() {
+    private void playTickSound() {
         try {
-            services().playSfx(Sonic2Sfx.BLIP.id);
+            GameServices.audio().playSfx(Sonic2Sfx.BLIP.id);
         } catch (Exception e) {
             // Ignore audio errors
         }
     }
 
-    @Override
-    protected void playTallyEndSound() {
+    private void playTallyEndSound() {
         try {
-            services().playSfx(Sonic2Sfx.TALLY_END.id);
+            GameServices.audio().playSfx(Sonic2Sfx.TALLY_END.id);
         } catch (Exception e) {
             // Ignore audio errors
         }
+    }
+
+    // ── Slide animation helpers ─────────────────────────────────────────
+
+    private float getSlideAlpha() {
+        return (float) slideProgress / Sonic2SpecialStageConstants.RESULTS_SLIDE_DURATION;
+    }
+
+    /**
+     * Calculate remaining offset for an element sliding in from off-screen.
+     * Uses ROM-accurate 16 pixels/frame speed.
+     */
+    private int getSlideOffset(int startOffset) {
+        int pixelsMoved = totalFrames * SLIDE_SPEED_PIXELS_PER_FRAME;
+        return Math.max(0, startOffset - pixelsMoved);
+    }
+
+    // ── Placeholder rendering helpers ───────────────────────────────────
+
+    private void renderPlaceholderBox(List<GLCommand> commands, int x, int y, int width, int height,
+            float r, float g, float b) {
+        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID, r, g, b, x, y, 0, 0));
+        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID, r, g, b, x + width, y, 0, 0));
+        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID, r, g, b, x, y + height, 0, 0));
+        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID, r, g, b, x + width, y + height, 0, 0));
+        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID, r, g, b, x, y, 0, 0));
+        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID, r, g, b, x, y + height, 0, 0));
+        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID, r, g, b, x + width, y, 0, 0));
+        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID, r, g, b, x + width, y + height, 0, 0));
+    }
+
+    private void renderPlaceholderText(List<GLCommand> commands, int x, int y,
+            String text, float r, float g, float b) {
+        int width = text.length() * 6;
+        int height = 12;
+        renderPlaceholderBox(commands, x - width / 2, y, width, height, r, g, b);
     }
 
     // Getters for testing
@@ -1184,5 +1254,6 @@ public class SpecialStageResultsScreenObjectInstance extends AbstractResultsScre
     public int getEmeraldBonus() { return emeraldBonus; }
     public int getTotalBonus() { return totalBonus; }
     public boolean didGetEmerald() { return gotEmerald; }
+    public int getState() { return state; }
 }
 

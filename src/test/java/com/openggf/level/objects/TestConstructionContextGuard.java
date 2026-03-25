@@ -31,6 +31,15 @@ class TestConstructionContextGuard {
             "DefaultPowerUpSpawner.java"
     );
 
+    /**
+     * Known violations in non-object files that create objects requiring services.
+     * Each entry is "SimpleFileName.java:ClassName" (the created class).
+     * These are pre-existing bugs — remove entries as they are fixed.
+     */
+    private static final Set<String> KNOWN_NON_OBJECT_VIOLATIONS = Set.of(
+            // (empty — all known violations fixed)
+    );
+
     /** File name patterns for registry/factory files (invoked under CONSTRUCTION_CONTEXT). */
     private static final Set<String> REGISTRY_FILES = Set.of(
             "Sonic1ObjectRegistry.java",
@@ -168,11 +177,15 @@ class TestConstructionContextGuard {
     }
 
     /**
-     * Scans for {@code new FooInstance(...)} in non-constructor methods of object classes,
+     * Scans for {@code new FooInstance(...)} in non-constructor methods,
      * where Foo's constructor calls services(), and the call site lacks context wrapping.
+     * <p>
+     * Scans both the object packages (where objects live) AND their parent game packages
+     * (where providers/managers may create objects outside the ObjectManager path).
      */
     private void findUnsafeNewCallSites(Path srcRoot, Set<String> servicesInConstructor,
                                          List<String> violations) throws IOException {
+        // Object packages: scan object-extending files for child creation
         String[] objectPackages = {
                 "com/openggf/game/sonic1/objects",
                 "com/openggf/game/sonic2/objects",
@@ -188,6 +201,32 @@ class TestConstructionContextGuard {
                       .forEach(file -> {
                           try {
                               scanFileForUnsafeNew(file, srcRoot, servicesInConstructor, violations);
+                          } catch (IOException e) {
+                              // skip
+                          }
+                      });
+            }
+        }
+
+        // Parent game packages: scan ANY file that creates objects requiring services.
+        // This catches providers/managers that bypass ObjectManager.
+        String[] gamePackages = {
+                "com/openggf/game/sonic1",
+                "com/openggf/game/sonic2",
+                "com/openggf/game/sonic3k",
+                "com/openggf/game"
+        };
+
+        for (String pkg : gamePackages) {
+            Path pkgDir = srcRoot.resolve(pkg);
+            if (!Files.isDirectory(pkgDir)) continue;
+
+            // Only scan direct children (not sub-packages, which are covered above)
+            try (var stream = Files.list(pkgDir)) {
+                stream.filter(p -> p.toString().endsWith(".java"))
+                      .forEach(file -> {
+                          try {
+                              scanNonObjectFileForUnsafeNew(file, srcRoot, servicesInConstructor, violations);
                           } catch (IOException e) {
                               // skip
                           }
@@ -304,6 +343,53 @@ class TestConstructionContextGuard {
             }
         }
         return false;
+    }
+
+    /**
+     * Scans a non-object file (provider, manager, etc.) for {@code new FooInstance(...)}
+     * where Foo's constructor calls services(). These files don't extend AbstractObjectInstance,
+     * so they can't use setConstructionContext/spawnChild — any such creation is a bug
+     * unless the class has been refactored to not need services().
+     */
+    private void scanNonObjectFileForUnsafeNew(Path file, Path srcRoot,
+                                                Set<String> servicesInConstructor,
+                                                List<String> violations) throws IOException {
+        String fileName = file.getFileName().toString();
+        if (ALLOWED_CREATORS.contains(fileName) || REGISTRY_FILES.contains(fileName)) return;
+        if (fileName.startsWith("Test")) return;
+
+        String content = Files.readString(file);
+
+        // Skip files that extend object base — those are handled by scanFileForUnsafeNew
+        if (extendsObjectBase(content)) return;
+
+        String[] lines = content.split("\n");
+        for (int i = 0; i < lines.length; i++) {
+            String trimmed = lines[i].trim();
+            if (trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*")) continue;
+
+            Matcher newMatch = NEW_OBJECT.matcher(trimmed);
+            while (newMatch.find()) {
+                String createdClass = newMatch.group(1);
+                if (createdClass.contains(".")) {
+                    createdClass = createdClass.substring(createdClass.lastIndexOf('.') + 1);
+                }
+
+                if (!servicesInConstructor.contains(createdClass)) continue;
+
+                // Check known violations
+                String key = fileName + ":" + createdClass;
+                if (KNOWN_NON_OBJECT_VIOLATIONS.contains(key)) continue;
+
+                // Non-object files have no setConstructionContext available,
+                // so any creation of a services-requiring object is a violation.
+                String relativePath = srcRoot.relativize(file).toString().replace('\\', '/');
+                violations.add(String.format(
+                        "%s:%d — new %s() created outside object system; class constructor calls services() " +
+                        "but creator has no ObjectServices to inject",
+                        relativePath, i + 1, newMatch.group(1)));
+            }
+        }
     }
 
     private Path findSourceRoot() {

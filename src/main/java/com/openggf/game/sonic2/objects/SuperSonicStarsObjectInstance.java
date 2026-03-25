@@ -26,7 +26,7 @@ import java.util.List;
  */
 public class SuperSonicStarsObjectInstance extends AbstractObjectInstance {
     private final AbstractPlayableSprite player;
-    private final PatternSpriteRenderer renderer;
+    private PatternSpriteRenderer renderer;
 
     /** Speed threshold for triggering the star animation (|gSpeed| >= 0x800). */
     private static final int SPEED_THRESHOLD = 0x800;
@@ -51,13 +51,8 @@ public class SuperSonicStarsObjectInstance extends AbstractObjectInstance {
     public SuperSonicStarsObjectInstance(AbstractPlayableSprite player) {
         super(null, "SuperSonicStars");
         this.player = player;
-
-        ObjectRenderManager renderManager = services().renderManager();
-        if (renderManager != null) {
-            this.renderer = renderManager.getSuperSonicStarsRenderer();
-        } else {
-            this.renderer = null;
-        }
+        // Renderer is resolved lazily in appendRenderCommands — ObjectServices is not
+        // available at construction time when created outside ObjectManager.
     }
 
     @Override
@@ -115,7 +110,18 @@ public class SuperSonicStarsObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (renderer == null || player == null || !visible) {
+        if (player == null || !visible) {
+            return;
+        }
+
+        // Lazy-resolve renderer (services() not available during construction)
+        if (renderer == null) {
+            ObjectRenderManager renderManager = services().renderManager();
+            if (renderManager != null) {
+                renderer = renderManager.getSuperSonicStarsRenderer();
+            }
+        }
+        if (renderer == null) {
             return;
         }
 
