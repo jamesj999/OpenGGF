@@ -761,7 +761,11 @@ public class LevelDebugRenderer {
                 && ctx.overlayManager().isEnabled(DebugOverlayToggle.OBJECT_DEBUG)) {
             reusableDebugCtx.clear();
             for (ObjectInstance instance : objectManager.getActiveObjects()) {
-                if (!isInCameraFrustum(instance.getX(), instance.getY(), 64)) {
+                ObjectSpawn spawn = instance.getSpawn();
+                if (spawn == null) {
+                    continue;
+                }
+                if (!isInCameraFrustum(spawn.x(), spawn.y(), 64)) {
                     continue;
                 }
                 instance.appendDebugRenderCommands(reusableDebugCtx);

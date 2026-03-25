@@ -25,6 +25,8 @@ import com.openggf.sprites.playable.SonicRespawnStrategy;
 import com.openggf.sprites.playable.Tails;
 import com.openggf.sprites.playable.SidekickCpuController;
 import com.openggf.debug.playback.PlaybackDebugManager;
+import com.openggf.data.RomManager;
+import com.openggf.game.sonic3k.objects.AizIntroArtLoader;
 
 import java.io.IOException;
 import java.nio.IntBuffer;
@@ -346,6 +348,7 @@ public class Engine {
 		// Create the gameplay runtime before any manager access.
 		// During this transitional period, createGameplay() wraps existing singletons.
 		runtime = com.openggf.game.RuntimeManager.createGameplay();
+		graphicsManager.rebindRuntimeFadeManager();
 		this.camera = runtime.getCamera();
 		this.spriteManager = runtime.getSpriteManager();
 		this.levelManager = runtime.getLevelManager();
@@ -470,8 +473,24 @@ public class Engine {
 			masterTitleScreen = null;
 		}
 
+		// Bootstrap title-screen mode runs before gameplay runtime/module/ROM state is
+		// fully established. Tear down that bootstrap-era state so the selected game
+		// starts from a clean runtime/render/ROM baseline instead of inheriting caches.
+		resetForGameplayFromMasterTitle();
+
 		// Phase 2: load ROM, sprites, audio, level
 		initializeGame();
+	}
+
+	private void resetForGameplayFromMasterTitle() {
+		com.openggf.game.RuntimeManager.destroyCurrent();
+		RomManager.getInstance().close();
+		GameModuleRegistry.reset();
+		AudioManager.getInstance().resetState();
+		CrossGameFeatureProvider.getInstance().resetState();
+		GameServices.debugOverlay().resetState();
+		RenderContext.reset();
+		AizIntroArtLoader.reset();
 	}
 
 	private void reshape(int width, int height) {

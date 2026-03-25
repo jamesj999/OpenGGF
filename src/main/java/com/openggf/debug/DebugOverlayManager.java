@@ -129,6 +129,9 @@ public class DebugOverlayManager {
 
     public void resetState() {
         states.clear();
+        for (DebugOverlayToggle toggle : DebugOverlayToggle.values()) {
+            states.put(toggle, toggle.defaultEnabled());
+        }
         pendingObjectDebugText = List.of();
     }
 
