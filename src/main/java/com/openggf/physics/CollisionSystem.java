@@ -209,6 +209,10 @@ public class CollisionSystem {
         if (sprite == null || sprite.isTunnelMode() || sprite.isStickToConvex()) {
             return;
         }
+        var levelManager = sprite.currentLevelManager();
+        if (levelManager == null || levelManager.getCurrentLevel() == null) {
+            return;
+        }
 
         int angle = sprite.getAngle() & 0xFF;
         short gSpeed = sprite.getGSpeed();
