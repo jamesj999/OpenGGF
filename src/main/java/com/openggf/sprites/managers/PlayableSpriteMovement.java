@@ -63,9 +63,9 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	// Controlled roll deceleration: derived per-frame from sprite.getRunDecel() >> 2
 	// (s1:01 Sonic.asm:595-601 — rollDecel = decel/4 = $80/4 = $20)
 
-	private final CollisionSystem collisionSystem = CollisionSystem.getInstance();
+	private final CollisionSystem bootstrapCollisionSystem;
 	private final AudioManager audioManager = AudioManager.getInstance();
-	private final GameStateManager gameState = GameStateManager.getInstance();
+	private final GameStateManager bootstrapGameState;
 
 	// Cached speed constants (don't change with speed shoes)
 	private final short slopeRunning;
@@ -87,8 +87,12 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	private boolean inputRawLeft, inputRawRight;
 	private boolean wasCrouching;
 
-	public PlayableSpriteMovement(AbstractPlayableSprite sprite) {
+	public PlayableSpriteMovement(AbstractPlayableSprite sprite,
+			CollisionSystem collisionSystem,
+			GameStateManager gameState) {
 		super(sprite);
+		this.bootstrapCollisionSystem = collisionSystem;
+		this.bootstrapGameState = gameState;
 		slopeRunning = sprite.getSlopeRunning();
 		minStartRollSpeed = sprite.getMinStartRollSpeed();
 		maxRoll = sprite.getMaxRoll();
@@ -97,12 +101,26 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		rollDecel = sprite.getRollDecel();
 	}
 
+	public PlayableSpriteMovement(AbstractPlayableSprite sprite) {
+		this(sprite, CollisionSystem.getInstance(), GameStateManager.getInstance());
+	}
+
 	private Camera camera() {
 		return sprite.currentCamera();
 	}
 
 	private LevelManager levelManager() {
 		return sprite.currentLevelManager();
+	}
+
+	private CollisionSystem collisionSystem() {
+		CollisionSystem current = sprite.currentCollisionSystem();
+		return current != null ? current : bootstrapCollisionSystem;
+	}
+
+	private GameStateManager gameState() {
+		GameStateManager current = sprite.currentGameState();
+		return current != null ? current : bootstrapGameState;
 	}
 
 	/**
@@ -461,11 +479,11 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	private boolean doJump() {
 		int hexAngle = sprite.getAngle() & 0xFF;
 
-		if (!hasEnoughHeadroom(hexAngle)) {
+		if (!collisionSystem().hasEnoughHeadroom(sprite, hexAngle)) {
 			return false;
 		}
 
-		clearRidingObject();
+		collisionSystem().clearRidingObject(sprite);
 		boolean wasRolling = sprite.getRolling();
 
 		// Apply jump velocity based on terrain angle
@@ -642,7 +660,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		if (sprite.isSliding()) {
 			sprite.setGSpeed(gSpeed);
 			calculateXYFromGSpeed();
-			doWallCollisionGround();
+			collisionSystem().resolveGroundWallCollision(sprite);
 			return;
 		}
 
@@ -758,7 +776,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 		sprite.setGSpeed(gSpeed);
 		calculateXYFromGSpeed();
-		doWallCollisionGround();
+		collisionSystem().resolveGroundWallCollision(sprite);
 	}
 
 	/** Sonic_Roll / SonicKnux_Roll: Check if should start rolling.
@@ -816,7 +834,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			xVel = (short) Math.max(-0x1000, Math.min(0x1000, xVel));
 			sprite.setXSpeed(xVel);
 			sprite.setYSpeed(yVel);
-			doWallCollisionGround();
+			collisionSystem().resolveGroundWallCollision(sprite);
 			return;
 		}
 
@@ -860,7 +878,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 		sprite.setXSpeed(xVel);
 		sprite.setYSpeed(yVel);
-		doWallCollisionGround();
+		collisionSystem().resolveGroundWallCollision(sprite);
 	}
 
 	// ========================================
@@ -954,7 +972,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 		int leftBoundary = minX + LEFT_OFFSET;
 		int rightBoundary = maxX + SCREEN_WIDTH - SONIC_WIDTH;
-		if (!gameState.isBossFightActive()) {
+		if (!gameState().isBossFightActive()) {
 			rightBoundary += RIGHT_EXTRA;
 		}
 
@@ -995,76 +1013,11 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 	/** AnglePos: Ground terrain collision (s2.asm:42534) */
 	private void doAnglePos() {
-		if (sprite.isOnObject()) {
-			// ROM: AnglePos sets Primary/Secondary_Angle to 0 but does NOT modify angle(a0)
-			// Preserve the player's angle for smooth transitions when stepping off objects
-			return;
-		}
-
-		updateGroundMode();
-
-		SensorResult[] groundResult = collisionSystem.terrainProbes(sprite, sprite.getGroundSensors(), "ground");
-		SensorResult leftSensor = groundResult[0];
-		SensorResult rightSensor = groundResult[1];
-		SensorResult selectedResult = selectSensorWithAngle(rightSensor, leftSensor);
-
-		if (selectedResult == null) {
-			// ROM's FindFloor/FindWall always return a distance (never null).
-			// Our sensors can return null at ground-mode transitions on tight
-			// curves. When stick_to_convex is set (e.g. Running Disc), the ROM
-			// would hit the >14px threshold path and stay grounded (S1 AnglePos
-			// loc_146CC: tst.b stick_to_convex / bne.s snap). Match that here.
-			if (sprite.isStickToConvex()) {
-				return;
-			}
-			if (!hasObjectSupport()) {
-				sprite.setAir(true);
-				sprite.setPushing(false);
-			}
-			return;
-		}
-
-		byte distance = selectedResult.distance();
-		if (distance == 0) {
-			// ROM: mode is determined ONCE at the start of AnglePos, not updated again
-			return;
-		}
-
-		if (distance < 0) {
-			if (distance >= -14) {
-				moveForSensorResult(selectedResult);
-			}
-			// ROM: mode is determined ONCE at the start of AnglePos, not updated again
-			return;
-		}
-
-		// Positive distance threshold:
-		// S1 ROM: fixed 14px threshold (cmpi.w #$E,d1)
-		// S2/S3K ROM: speed-dependent = min(|vel_pixels| + 4, 14)
 		PhysicsFeatureSet featureSet = sprite.getPhysicsFeatureSet();
-		int positiveThreshold;
-		if (featureSet != null && featureSet.fixedAnglePosThreshold()) {
-			positiveThreshold = 14;
-		} else {
-			int speedPixels = getSpeedForThreshold();
-			positiveThreshold = Math.min(speedPixels + 4, 14);
-		}
-
-		if (distance > positiveThreshold) {
-			if (sprite.isStickToConvex()) {
-				moveForSensorResult(selectedResult);
-				// ROM: mode is determined ONCE at the start of AnglePos, not updated again
-				return;
-			}
-			if (!hasObjectSupport()) {
-				sprite.setAir(true);
-				sprite.setPushing(false);
-			}
-			return;
-		}
-
-		moveForSensorResult(selectedResult);
-		// ROM: mode is determined ONCE at the start of AnglePos, not updated again
+		int positiveThreshold = (featureSet != null && featureSet.fixedAnglePosThreshold())
+				? 14
+				: Math.min(getSpeedForThreshold() + 4, 14);
+		collisionSystem().resolveGroundAttachment(sprite, positiveThreshold, this::hasObjectSupport);
 	}
 
 	/** Sonic_SlopeRepel: Slip/fall check (s2.asm:37432) */
@@ -1073,7 +1026,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		// Object tops should not trigger terrain slope slip logic.
 		// If this runs while standing on an object, it can incorrectly flip
 		// the player to airborne and drop jump inputs for that frame.
-		if (sprite.isOnObject() || hasObjectSupport()) return;
+		if (sprite.isOnObject() || collisionSystem().hasObjectSupport(sprite)) return;
 
 		int moveLock = sprite.getMoveLockTimer();
 		if (moveLock > 0) {
@@ -1091,94 +1044,15 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 	/** Sonic_DoLevelCollision: Full airborne collision (s2.asm:37540) */
 	private void doLevelCollision() {
-		int quadrant = TrigLookupTable.calcMovementQuadrant(sprite.getXSpeed(), sprite.getYSpeed());
-		switch (quadrant) {
-			case 0x00 -> doLevelCollisionDown();
-			case 0x40 -> doLevelCollisionLeft();
-			case 0x80 -> doLevelCollisionUp();
-			case 0xC0 -> doLevelCollisionRight();
-		}
-	}
-
-	private void doLevelCollisionDown() {
-		doWallCheckBoth();
-		SensorResult[] groundResult = collisionSystem.terrainProbes(sprite, sprite.getGroundSensors(), "ground");
-		doTerrainCollisionAir(groundResult);
-	}
-
-	private void doLevelCollisionLeft() {
-		if (doWallCheck(0)) return;
-		SensorResult[] ceilingResult = collisionSystem.terrainProbes(sprite, sprite.getCeilingSensors(), "ceiling");
-		if (!doCeilingCollisionInternal(ceilingResult)) {
-			SensorResult[] groundResult = collisionSystem.terrainProbes(sprite, sprite.getGroundSensors(), "ground");
-			doTerrainCollisionAir(groundResult);
-		}
-	}
-
-	private void doLevelCollisionUp() {
-		doWallCheckBoth();
-		SensorResult[] ceilingResult = collisionSystem.terrainProbes(sprite, sprite.getCeilingSensors(), "ceiling");
-		doCeilingCollision(ceilingResult);
-	}
-
-	private void doLevelCollisionRight() {
-		if (doWallCheck(1)) return;
-		SensorResult[] ceilingResult = collisionSystem.terrainProbes(sprite, sprite.getCeilingSensors(), "ceiling");
-		if (!doCeilingCollisionInternal(ceilingResult)) {
-			SensorResult[] groundResult = collisionSystem.terrainProbes(sprite, sprite.getGroundSensors(), "ground");
-			doTerrainCollisionAir(groundResult);
-		}
-	}
-
-	/** Check both walls (quadrants 0x00, 0x80) */
-	private void doWallCheckBoth() {
-		Sensor[] pushSensors = sprite.getPushSensors();
-		if (pushSensors == null) return;
-
-		for (int i = 0; i < 2; i++) {
-			Sensor sensor = pushSensors[i];
-			SensorResult result = sensor.scan((short) 0, (short) 0);
-			if (result != null && result.distance() < 0) {
-				moveForSensorResult(result);
-				sprite.setXSpeed((short) 0);
-			}
-		}
-	}
-
-	/** Check single wall, returns true if hit (quadrants 0x40, 0xC0) */
-	private boolean doWallCheck(int sensorIndex) {
-		Sensor[] pushSensors = sprite.getPushSensors();
-		if (pushSensors == null) return false;
-
-		Sensor sensor = pushSensors[sensorIndex];
-		SensorResult result = sensor.scan((short) 0, (short) 0);
-
-		if (result != null && result.distance() < 0) {
-			moveForSensorResult(result);
-			sprite.setXSpeed((short) 0);
-			sprite.setGSpeed(sprite.getYSpeed());
-			return true;
-		}
-		return false;
-	}
-
-	/** Ceiling collision internal - returns whether ceiling was hit */
-	private boolean doCeilingCollisionInternal(SensorResult[] results) {
-		SensorResult lowestResult = findLowestSensorResult(results);
-		if (lowestResult == null || lowestResult.distance() >= 0) return false;
-
-		// ROM: Always correct position when penetrating ceiling (distance < 0)
-		moveForSensorResult(lowestResult);
-
-		// ROM: Only reset velocity when moving upward (ySpeed < 0)
-		if (sprite.getYSpeed() < 0) {
-			sprite.setYSpeed((short) 0);
-		}
-		return true;
+		collisionSystem().resolveAirCollision(sprite, this::calculateLanding);
 	}
 
 	/** Obj01_CheckWallsOnGround: Ground wall collision (s2.asm:36486) */
 	private void doWallCollisionGround() {
+		if (collisionSystem() != null) {
+			collisionSystem().resolveGroundWallCollision(sprite);
+			return;
+		}
 		// S1 roll tunnels: suppress push sensor wall check to prevent false
 		// detections against the narrow tunnel walls. S1's ROM has no separate
 		// ground wall check (01 Sonic.asm: Sonic_MdNormal has no CalcRoomInFront).
@@ -1308,68 +1182,6 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 				sprite.setGSpeed((short) 0);
 				sprite.setPushing(true);
 				break;
-		}
-	}
-
-	/** Airborne landing check */
-	private void doTerrainCollisionAir(SensorResult[] results) {
-		// ROM: Sonic_HitFloor (s2.asm:37641-37643) - skip floor check entirely
-		// when moving upward. tst.w y_vel(a0) / bmi.s return_1AFE6
-		// Same in S1: 01 Sonic.asm Sonic_Floor loc_136B4
-		if (sprite.getYSpeed() < 0) {
-			return;
-		}
-
-		SensorResult lowestResult = findLowestSensorResult(results);
-		if (lowestResult == null || lowestResult.distance() >= 0) {
-			return;
-		}
-
-		short ySpeedPixels = (short) (sprite.getYSpeed() >> 8);
-		short threshold = (short) (-(ySpeedPixels + 8));
-		boolean canLand = (results[0] != null && results[0].distance() >= threshold)
-		               || (results[1] != null && results[1].distance() >= threshold);
-
-		if (canLand) {
-			moveForSensorResult(lowestResult);
-			// ROM checks bit 0 (odd = flagged tile) - use floor cardinal (0x00) for flagged tiles
-			// See s2.asm:43636 - floor check explicitly uses #0
-			if ((lowestResult.angle() & 0x01) != 0) {
-				sprite.setAngle((byte) 0x00);
-			} else {
-				sprite.setAngle(lowestResult.angle());
-			}
-			calculateLanding(sprite);
-			updateGroundMode();
-		}
-	}
-
-	/** Ceiling collision with potential landing */
-	private void doCeilingCollision(SensorResult[] results) {
-		SensorResult lowestResult = findLowestSensorResult(results);
-		if (lowestResult == null || lowestResult.distance() >= 0) return;
-
-		// ROM: Always correct position when penetrating ceiling (distance < 0)
-		moveForSensorResult(lowestResult);
-
-		int ceilingAngle = lowestResult.angle() & 0xFF;
-		boolean canLandOnCeiling = ((ceilingAngle + 0x20) & 0x40) != 0;
-
-		if (canLandOnCeiling) {
-			// ROM checks bit 0 (odd = flagged tile) - use ceiling cardinal (0x80) for flagged tiles
-			// See s2.asm:43928 - ceiling check explicitly uses #$80
-			if ((lowestResult.angle() & 0x01) != 0) {
-				sprite.setAngle((byte) 0x80);
-			} else {
-				sprite.setAngle(lowestResult.angle());
-			}
-			sprite.setAir(false);
-			short gSpeed = sprite.getYSpeed();
-			if ((ceilingAngle & 0x80) != 0) gSpeed = (short) -gSpeed;
-			sprite.setGSpeed(gSpeed);
-			updateGroundMode();
-		} else {
-			sprite.setYSpeed((short) 0);
 		}
 	}
 
@@ -1529,127 +1341,6 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	}
 
 	// ========================================
-	// SENSOR/ANGLE HELPERS
-	// ========================================
-
-	/**
-	 * Sonic_Angle: Select best ground sensor (s2.asm:42649)
-	 *
-	 * ROM logic: Start with secondary sensor, switch to primary only if primary is closer.
-	 * Which sensor is primary/secondary depends on ground mode:
-	 * - GROUND/CEILING: Right=Primary, Left=Secondary
-	 * - RIGHTWALL/LEFTWALL: Left(Top)=Primary, Right(Bottom)=Secondary
-	 */
-	private SensorResult selectSensorWithAngle(SensorResult rightSensor, SensorResult leftSensor) {
-		if (rightSensor == null && leftSensor == null) return null;
-		if (rightSensor == null) { applyAngleFromSensor(leftSensor.angle()); return leftSensor; }
-		if (leftSensor == null) { applyAngleFromSensor(rightSensor.angle()); return rightSensor; }
-
-		// Determine primary/secondary based on ground mode
-		// GROUND/CEILING: Right is Primary (scanned first), Left is Secondary
-		// RIGHTWALL/LEFTWALL: Left (now Top) is Primary, Right (now Bottom) is Secondary
-		GroundMode mode = sprite.getGroundMode();
-		boolean leftIsPrimary = (mode == GroundMode.RIGHTWALL || mode == GroundMode.LEFTWALL);
-
-		SensorResult primary = leftIsPrimary ? leftSensor : rightSensor;
-		SensorResult secondary = leftIsPrimary ? rightSensor : leftSensor;
-
-		// ROM prefers secondary; only use primary if primary distance < secondary distance
-		SensorResult selected = primary.distance() < secondary.distance() ? primary : secondary;
-		applyAngleFromSensor(selected.angle());
-		return selected;
-	}
-
-	/**
-	 * Apply angle from terrain sensor with game-specific snapping logic.
-	 *
-	 * S1 (Sonic_Angle in s1disasm/_incObj/Sonic AnglePos.asm:164-183):
-	 *   - Flagged angles (odd): cardinal snap from current angle
-	 *   - Non-flagged angles: directly apply sensor angle (no diff check)
-	 *
-	 * S2/S3K (Sonic_Angle in s2.asm:42649-42674):
-	 *   - Flagged angles (odd): cardinal snap from current angle
-	 *   - Non-flagged angles: apply directly only if diff < 0x20,
-	 *     otherwise cardinal snap (prevents jarring jumps on convex surfaces)
-	 */
-	private void applyAngleFromSensor(byte sensorAngle) {
-		// Flagged angles (odd) snap to cardinal using current angle (both S1 and S2)
-		if ((sensorAngle & 0x01) != 0) {
-			sprite.setAngle((byte) ((sprite.getAngle() + 0x20) & 0xC0));
-			return;
-		}
-
-		// S2/S3K: large-diff cardinal snap (s2.asm:42658-42664)
-		// S1 lacks this check — directly applies sensor angle
-		PhysicsFeatureSet featureSet = sprite.getPhysicsFeatureSet();
-		if (featureSet == null || featureSet.angleDiffCardinalSnap()) {
-			int currentAngle = sprite.getAngle() & 0xFF;
-			int newAngle = sensorAngle & 0xFF;
-			int diff = Math.abs(newAngle - currentAngle);
-			if (diff > 0x80) diff = 0x100 - diff;
-
-			if (diff >= 0x20) {
-				// ROM uses CURRENT angle to determine cardinal snap direction (s2.asm:42670)
-				sprite.setAngle((byte) ((currentAngle + 0x20) & 0xC0));
-				return;
-			}
-		}
-
-		sprite.setAngle(sensorAngle);
-	}
-
-	/** ROM-accurate ground mode from angle (s2.asm:42551) */
-	private void updateGroundMode() {
-		int angle = sprite.getAngle() & 0xFF;
-		boolean angleIsNegative = angle >= 0x80;
-		int sumWith20 = (angle + 0x20) & 0xFF;
-		boolean sumIsNegative = sumWith20 >= 0x80;
-
-		int result = (angleIsNegative == sumIsNegative) ? (angle + 0x1F) & 0xFF : sumWith20;
-		int modeBits = result & 0xC0;
-
-		GroundMode newMode = switch (modeBits) {
-			case 0x00 -> GroundMode.GROUND;
-			case 0x40 -> GroundMode.LEFTWALL;
-			case 0x80 -> GroundMode.CEILING;
-			default   -> GroundMode.RIGHTWALL;
-		};
-
-		if (newMode != sprite.getGroundMode()) {
-			sprite.setGroundMode(newMode);
-		}
-	}
-
-	private byte getCardinalAngleForGroundMode() {
-		return switch (sprite.getGroundMode()) {
-			case GROUND -> (byte) 0x00;
-			case RIGHTWALL -> (byte) 0xC0;
-			case CEILING -> (byte) 0x80;
-			case LEFTWALL -> (byte) 0x40;
-		};
-	}
-
-	private SensorResult findLowestSensorResult(SensorResult[] results) {
-		SensorResult lowest = null;
-		for (SensorResult result : results) {
-			if (result != null && (lowest == null || result.distance() < lowest.distance())) {
-				lowest = result;
-			}
-		}
-		return lowest;
-	}
-
-	private void moveForSensorResult(SensorResult result) {
-		byte distance = result.distance();
-		switch (result.direction()) {
-			case UP -> sprite.setY((short) (sprite.getY() - distance));
-			case DOWN -> sprite.setY((short) (sprite.getY() + distance));
-			case LEFT -> sprite.setX((short) (sprite.getX() - distance));
-			case RIGHT -> sprite.setX((short) (sprite.getX() + distance));
-		}
-	}
-
-	// ========================================
 	// UTILITY HELPERS
 	// ========================================
 
@@ -1782,7 +1473,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 				// instead of causing a level reset
 				sprite.getCpuController().despawn();
 			} else {
-				gameState.loseLife();
+				gameState().loseLife();
 				levelManager().requestRespawn();
 			}
 		}
@@ -1861,6 +1552,63 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		sprite.setYSpeed((short) ((gSpeed * TrigLookupTable.sinHex(hexAngle)) >> 8));
 	}
 
+	// Legacy test hooks now delegate to the authoritative CollisionSystem path.
+	private void updateGroundMode() {
+		int angle = sprite.getAngle() & 0xFF;
+		boolean angleIsNegative = angle >= 0x80;
+		int sumWith20 = (angle + 0x20) & 0xFF;
+		boolean sumIsNegative = sumWith20 >= 0x80;
+		int result = (angleIsNegative == sumIsNegative) ? (angle + 0x1F) & 0xFF : sumWith20;
+		int modeBits = result & 0xC0;
+
+		GroundMode newMode = switch (modeBits) {
+			case 0x00 -> GroundMode.GROUND;
+			case 0x40 -> GroundMode.LEFTWALL;
+			case 0x80 -> GroundMode.CEILING;
+			default -> GroundMode.RIGHTWALL;
+		};
+
+		if (newMode != sprite.getGroundMode()) {
+			sprite.setGroundMode(newMode);
+		}
+	}
+
+	private void doTerrainCollisionAir(SensorResult[] ignored) {
+		SensorResult lowestResult = null;
+		for (SensorResult result : ignored) {
+			if (result != null && (lowestResult == null || result.distance() < lowestResult.distance())) {
+				lowestResult = result;
+			}
+		}
+		if (sprite.getYSpeed() < 0 || lowestResult == null || lowestResult.distance() >= 0) {
+			return;
+		}
+
+		short ySpeedPixels = (short) (sprite.getYSpeed() >> 8);
+		short threshold = (short) (-(ySpeedPixels + 8));
+		boolean canLand = (ignored[0] != null && ignored[0].distance() >= threshold)
+				|| (ignored[1] != null && ignored[1].distance() >= threshold);
+		if (!canLand) {
+			return;
+		}
+
+		byte distance = lowestResult.distance();
+		switch (lowestResult.direction()) {
+			case UP -> sprite.setY((short) (sprite.getY() - distance));
+			case DOWN -> sprite.setY((short) (sprite.getY() + distance));
+			case LEFT -> sprite.setX((short) (sprite.getX() - distance));
+			case RIGHT -> sprite.setX((short) (sprite.getX() + distance));
+		}
+
+		if ((lowestResult.angle() & 0x01) != 0) {
+			sprite.setAngle((byte) 0x00);
+		} else {
+			sprite.setAngle(lowestResult.angle());
+		}
+		calculateLanding(sprite);
+		updateGroundMode();
+	}
+
 	/**
 	 * ROM-accurate speed threshold for ground attachment (s2.asm:42727, 42794, 42861).
 	 * Uses X velocity for GROUND/CEILING modes, Y velocity for wall modes.
@@ -1880,55 +1628,15 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	}
 
 	private boolean hasEnoughHeadroom(int hexAngle) {
-		int terrainDistance = getTerrainHeadroomDistance(hexAngle);
-		var objectManager = levelManager().getObjectManager();
-		int objectDistance = (objectManager != null) ? objectManager.getHeadroomDistance(sprite, hexAngle) : Integer.MAX_VALUE;
-		return Math.min(terrainDistance, objectDistance) >= 6;
-	}
-
-	private int getTerrainHeadroomDistance(int hexAngle) {
-		int overheadAngle = (hexAngle + 0x80) & 0xFF;
-		int quadrant = (overheadAngle + 0x20) & 0xC0;
-
-		// ROM's CalcRoomOverHead (s2.asm:43537-43553) uses:
-		// - lrb_solid_bit for all headroom checks (NOT top_solid_bit)
-		// - Vertical sensors (FindFloor) for floor/ceiling modes
-		// - Horizontal sensors (FindWall) for wall modes
-		Sensor[] pushSensors = sprite.getPushSensors();
-		Sensor[] sensors = switch (quadrant) {
-			case 0x00 -> sprite.getCeilingSensors();      // Floor: vertical UP
-			case 0x40 -> pushSensors != null ? new Sensor[] { pushSensors[0] } : sprite.getCeilingSensors();  // Left wall: horizontal LEFT
-			case 0x80 -> sprite.getCeilingSensors();      // Ceiling: vertical UP
-			case 0xC0 -> pushSensors != null ? new Sensor[] { pushSensors[1] } : sprite.getCeilingSensors();  // Right wall: horizontal RIGHT
-			default -> null;
-		};
-
-		if (sensors == null) return Integer.MAX_VALUE;
-
-		// Note: Ceiling sensors (Direction.UP) and push sensors (Direction.LEFT/RIGHT)
-		// already use lrb_solid_bit by default (GroundSensor.java:48-50)
-		int minDistance = Integer.MAX_VALUE;
-		for (Sensor sensor : sensors) {
-			boolean wasActive = sensor.isActive();
-			sensor.setActive(true);
-			SensorResult result = sensor.scan();
-			sensor.setActive(wasActive);
-			if (result != null) {
-				int clearance = Math.max(result.distance(), 0);
-				minDistance = Math.min(minDistance, clearance);
-			}
-		}
-		return minDistance;
+		return collisionSystem().hasEnoughHeadroom(sprite, hexAngle);
 	}
 
 	private boolean hasObjectSupport() {
-		var objectManager = levelManager().getObjectManager();
-		return objectManager != null && (objectManager.isRidingObject(sprite) || objectManager.hasStandingContact(sprite));
+		return collisionSystem().hasObjectSupport(sprite);
 	}
 
 	private void clearRidingObject() {
-		var objectManager = levelManager().getObjectManager();
-		if (objectManager != null) objectManager.clearRidingObject(sprite);
+		collisionSystem().clearRidingObject(sprite);
 	}
 
 	private int getDuckAnimId() {

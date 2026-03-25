@@ -23,6 +23,7 @@ import com.openggf.debug.DebugOverlayToggle;
 import com.openggf.debug.PerformanceProfiler;
 import com.openggf.level.objects.HudRenderManager;
 import com.openggf.graphics.GLCommand;
+import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.PatternAtlas;
 import com.openggf.audio.AudioManager;
 import com.openggf.graphics.GraphicsManager;
@@ -33,7 +34,9 @@ import com.openggf.graphics.RenderPriority;
 import com.openggf.graphics.PatternRenderCommand;
 import com.openggf.graphics.RenderContext;
 import com.openggf.level.render.BackgroundRenderer;
+import com.openggf.level.objects.DefaultObjectServices;
 import com.openggf.level.objects.ObjectManager;
+import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseTable;
@@ -104,10 +107,10 @@ public class LevelManager {
     }
 
     private final GraphicsManager graphicsManager = GraphicsManager.getInstance();
-    private SpriteManager spriteManager = SpriteManager.getInstance();
-    private CollisionSystem collisionSystem = CollisionSystem.getInstance();
-    private WaterSystem waterSystem = WaterSystem.getInstance();
-    private GameStateManager gameState = GameStateManager.getInstance();
+    private SpriteManager spriteManager;
+    private CollisionSystem collisionSystem;
+    private WaterSystem waterSystem;
+    private GameStateManager gameState;
     private final SonicConfigurationService configService = SonicConfigurationService.getInstance();
     private final DebugOverlayManager overlayManager = GameServices.debugOverlay();
     private LevelDebugRenderer debugRenderer;
@@ -138,7 +141,7 @@ public class LevelManager {
     private boolean verticalWrapEnabled = false;
 
     // Background rendering support
-    private ParallaxManager parallaxManager = ParallaxManager.getInstance();
+    private ParallaxManager parallaxManager;
     private boolean useShaderBackground = true; // Feature flag for shader background
 
 
@@ -147,7 +150,7 @@ public class LevelManager {
     private final int cachedScreenHeight = configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
 
     // Camera reference for frustum culling
-    private Camera camera = Camera.getInstance();
+    private Camera camera;
 
     // Pre-allocated viewport buffer to avoid per-frame int[4] allocations inside GL commands
     private final int[] viewportBuffer = new int[4];
@@ -482,7 +485,8 @@ public class LevelManager {
      * Zone list is lazily initialized from the current GameModule's ZoneRegistry.
      */
     protected LevelManager() {
-        // Zones are loaded from ZoneRegistry in refreshZoneList()
+        this(Camera.getInstance(), SpriteManager.getInstance(), ParallaxManager.getInstance(),
+                CollisionSystem.getInstance(), WaterSystem.getInstance(), GameStateManager.getInstance());
     }
 
     /**
@@ -491,11 +495,14 @@ public class LevelManager {
      * instead of reading from singletons.
      */
     public LevelManager(Camera camera, SpriteManager spriteManager,
-                        ParallaxManager parallaxManager, CollisionSystem collisionSystem) {
+                        ParallaxManager parallaxManager, CollisionSystem collisionSystem,
+                        WaterSystem waterSystem, GameStateManager gameState) {
         this.camera = camera;
         this.spriteManager = spriteManager;
         this.parallaxManager = parallaxManager;
         this.collisionSystem = collisionSystem;
+        this.waterSystem = waterSystem;
+        this.gameState = gameState;
     }
 
     /**
@@ -705,7 +712,10 @@ public class LevelManager {
                 gameModule.createObjectRegistry(),
                 gameModule.getPlaneSwitcherObjectId(),
                 gameModule.getPlaneSwitcherConfig(),
-                touchResponseTable);
+                touchResponseTable,
+                graphicsManager,
+                camera,
+                buildObjectServices());
         // Wire up CollisionSystem with ObjectManager for unified collision pipeline
         collisionSystem.setObjectManager(objectManager);
 
@@ -1339,7 +1349,7 @@ public class LevelManager {
                     OBJECT_PATTERN_BASE, objectEndIndex - OBJECT_PATTERN_BASE, "Objects");
             }
 
-            hudRenderManager = new HudRenderManager(graphicsManager);
+            hudRenderManager = new HudRenderManager(graphicsManager, camera, gameState);
             hudRenderManager.setHudPalettes(provider.getHudTextPaletteLine(), provider.getHudFlashPaletteLine());
             hudRenderManager.setHudFlashMode(provider.getHudFlashMode());
             // Wire up HUD to unified UI render pipeline
@@ -2185,12 +2195,14 @@ public class LevelManager {
 
     /** Fast cached getter for layer pixel width (avoids per-call getLayerWidthBlocks). */
     private int getCachedLayerWidthPx(byte layer) {
-        return layer == 0 ? cachedFgWidthPx : cachedBgWidthPx;
+        int cached = layer == 0 ? cachedFgWidthPx : cachedBgWidthPx;
+        return cached > 0 ? cached : getLayerLevelWidthPx(layer);
     }
 
     /** Fast cached getter for layer pixel height (avoids per-call getLayerHeightBlocks). */
     private int getCachedLayerHeightPx(byte layer) {
-        return layer == 0 ? cachedFgHeightPx : cachedBgHeightPx;
+        int cached = layer == 0 ? cachedFgHeightPx : cachedBgHeightPx;
+        return cached > 0 ? cached : getLayerLevelHeightPx(layer);
     }
 
     private Block getBlockAtPosition(byte layer, int x, int y) {
@@ -2274,6 +2286,9 @@ public class LevelManager {
 
         int levelWidth = getCachedLayerWidthPx(layer);
         int levelHeight = getCachedLayerHeightPx(layer);
+        if (levelWidth <= 0 || levelHeight <= 0) {
+            return null;
+        }
 
         // Wrap X (always wraps)
         int wrappedX = ((x % levelWidth) + levelWidth) % levelWidth;
@@ -2334,8 +2349,11 @@ public class LevelManager {
             return null;
         }
 
-        int levelWidth = cachedFgWidthPx;
-        int levelHeight = cachedFgHeightPx;
+        int levelWidth = getCachedLayerWidthPx((byte) 0);
+        int levelHeight = getCachedLayerHeightPx((byte) 0);
+        if (levelWidth <= 0 || levelHeight <= 0) {
+            return null;
+        }
         int wrappedX = ((x % levelWidth) + levelWidth) % levelWidth;
         int wrappedY = y;
         if (verticalWrapEnabled) {
@@ -3225,7 +3243,10 @@ public class LevelManager {
                 gameModule.createObjectRegistry(),
                 gameModule.getPlaneSwitcherObjectId(),
                 gameModule.getPlaneSwitcherConfig(),
-                touchResponseTable);
+                touchResponseTable,
+                graphicsManager,
+                camera,
+                buildObjectServices());
         collisionSystem.setObjectManager(objectManager);
         objectManager.reset(cameraX);
 
@@ -3242,6 +3263,15 @@ public class LevelManager {
         for (AbstractPlayableSprite sidekick : spriteManager.getSidekicks()) {
             reregisterPlayerDynamicObjects(sidekick);
         }
+    }
+
+    private ObjectServices buildObjectServices() {
+        GameRuntime runtime = RuntimeManager.getCurrent();
+        if (runtime != null) {
+            return new DefaultObjectServices(runtime);
+        }
+        return new DefaultObjectServices(this, camera, gameState, spriteManager,
+                FadeManager.getInstance(), waterSystem, parallaxManager);
     }
 
     private void reregisterPlayerDynamicObjects(Sprite sprite) {
@@ -3404,6 +3434,10 @@ public class LevelManager {
      * @return the singleton LevelManager instance
      */
     public static synchronized LevelManager getInstance() {
+        GameRuntime runtime = RuntimeManager.getCurrent();
+        if (runtime != null) {
+            return runtime.getLevelManager();
+        }
         if (levelManager == null) {
             levelManager = new LevelManager();
         }

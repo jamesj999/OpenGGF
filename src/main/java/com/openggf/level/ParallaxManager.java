@@ -5,6 +5,7 @@ import com.openggf.data.Rom;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameModule;
 import com.openggf.game.GameServices;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.ScrollHandlerProvider;
 import com.openggf.level.scroll.ZoneScrollHandler;
 
@@ -55,13 +56,17 @@ public class ParallaxManager {
     private int cachedBgCameraX = Integer.MIN_VALUE;
     private int cachedBgPeriodWidth = 512;
 
-    private static ParallaxManager instance;
+    private static ParallaxManager bootstrapInstance;
 
     public static synchronized ParallaxManager getInstance() {
-        if (instance == null) {
-            instance = new ParallaxManager();
+        var runtime = RuntimeManager.getCurrent();
+        if (runtime != null) {
+            return runtime.getParallaxManager();
         }
-        return instance;
+        if (bootstrapInstance == null) {
+            bootstrapInstance = new ParallaxManager();
+        }
+        return bootstrapInstance;
     }
 
     /**

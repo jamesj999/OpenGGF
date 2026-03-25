@@ -24,7 +24,7 @@ public abstract class AbstractLevelEventManager implements LevelEventProvider {
      * than caching the reference, so it survives singleton replacement.
      */
     protected Camera camera() {
-        return Camera.getInstance();
+        return GameServices.camera();
     }
 
     /**
@@ -32,7 +32,7 @@ public abstract class AbstractLevelEventManager implements LevelEventProvider {
      * than caching the reference, so it survives state resets cleanly.
      */
     protected LevelManager levelManager() {
-        return LevelManager.getInstance();
+        return GameServices.level();
     }
 
     // Current zone and act

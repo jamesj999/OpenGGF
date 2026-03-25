@@ -9,7 +9,9 @@ import com.openggf.control.InputHandler;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.CollisionModel;
+import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.camera.Camera;
@@ -38,10 +40,9 @@ import java.util.Map;
  * 
  */
 public class SpriteManager {
-	private final SonicConfigurationService configService = SonicConfigurationService
-			.getInstance();
+	private final SonicConfigurationService configService;
 
-	private static SpriteManager spriteManager;
+	private static SpriteManager bootstrapInstance;
 
 	private Map<String, Sprite> sprites;
 
@@ -80,7 +81,12 @@ public class SpriteManager {
 	private boolean inputSuppressed;
 	private boolean playbackInputSuppressed;
 
-	private SpriteManager() {
+	public SpriteManager() {
+		this(SonicConfigurationService.getInstance());
+	}
+
+	public SpriteManager(SonicConfigurationService configService) {
+		this.configService = configService;
 		sprites = new HashMap<String, Sprite>();
 		for (int i = 0; i < BUCKET_COUNT; i++) {
 			lowPriorityBuckets[i] = new ArrayList<>();
@@ -227,7 +233,7 @@ public class SpriteManager {
 
 		// Give all chaos emeralds (debug)
 		if (giveEmeraldsPressed) {
-			var gsm = GameStateManager.getInstance();
+			var gsm = currentGameStateManager();
 			if (!gsm.hasAllEmeralds()) {
 				for (int i = 0; i < gsm.getChaosEmeraldCount(); i++) {
 					gsm.markEmeraldCollected(i);
@@ -553,7 +559,7 @@ public class SpriteManager {
 	 * caller must disable it after drawing).
 	 */
 	private boolean enableVerticalWrapIfNeeded() {
-		Camera camera = Camera.getInstance();
+		Camera camera = currentCamera();
 		if (camera.isVerticalWrapEnabled()) {
 			GraphicsManager.getInstance().enableVerticalWrapAdjust(
 					Camera.VERTICAL_WRAP_RANGE, camera.getY());
@@ -634,9 +640,20 @@ public class SpriteManager {
 
 	private LevelManager getLevelManager() {
 		if (levelManager == null) {
-			levelManager = LevelManager.getInstance();
+			var runtime = RuntimeManager.getCurrent();
+			levelManager = runtime != null ? runtime.getLevelManager() : LevelManager.getInstance();
 		}
 		return levelManager;
+	}
+
+	private Camera currentCamera() {
+		var runtime = RuntimeManager.getCurrent();
+		return runtime != null ? runtime.getCamera() : Camera.getInstance();
+	}
+
+	private GameStateManager currentGameStateManager() {
+		var runtime = RuntimeManager.getCurrent();
+		return runtime != null ? runtime.getGameState() : GameStateManager.getInstance();
 	}
 
 	/**
@@ -765,9 +782,13 @@ public class SpriteManager {
 	}
 
 	public synchronized static SpriteManager getInstance() {
-		if (spriteManager == null) {
-			spriteManager = new SpriteManager();
+		var runtime = RuntimeManager.getCurrent();
+		if (runtime != null) {
+			return runtime.getSpriteManager();
 		}
-		return spriteManager;
+		if (bootstrapInstance == null) {
+			bootstrapInstance = new SpriteManager();
+		}
+		return bootstrapInstance;
 	}
 }

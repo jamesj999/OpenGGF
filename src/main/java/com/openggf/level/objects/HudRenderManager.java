@@ -46,8 +46,8 @@ public class HudRenderManager {
     // Let's assume we can draw direct patterns to screen coordinates.
 
     private final GraphicsManager graphicsManager;
-    private final Camera camera = Camera.getInstance();
-    private final GameStateManager gameState = GameStateManager.getInstance();
+    private final Camera camera;
+    private final GameStateManager gameState;
     private int digitPatternIndex;
     private int textPatternIndex;
 
@@ -74,8 +74,10 @@ public class HudRenderManager {
 
     private HudFlashMode flashMode = HudFlashMode.PALETTE_SWAP;
 
-    public HudRenderManager(GraphicsManager graphicsManager) {
+    public HudRenderManager(GraphicsManager graphicsManager, Camera camera, GameStateManager gameState) {
         this.graphicsManager = graphicsManager;
+        this.camera = camera;
+        this.gameState = gameState;
     }
 
     /**
