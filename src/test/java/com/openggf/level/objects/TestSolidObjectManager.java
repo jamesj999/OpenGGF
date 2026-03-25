@@ -1,8 +1,11 @@
 package com.openggf.level.objects;
 
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import com.openggf.game.GameModule;
 import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic1.Sonic1GameModule;
 import com.openggf.game.sonic1.objects.Sonic1CollapsingLedgeObjectInstance;
 import com.openggf.graphics.GLCommand;
@@ -18,6 +21,17 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 public class TestSolidObjectManager {
+
+    @Before
+    public void setUp() {
+        RuntimeManager.createGameplay();
+    }
+
+    @After
+    public void tearDown() {
+        RuntimeManager.destroyCurrent();
+    }
+
     @Test
     public void testStandingContactOnFlatObject() {
         SolidObjectParams params = new SolidObjectParams(16, 8, 8);

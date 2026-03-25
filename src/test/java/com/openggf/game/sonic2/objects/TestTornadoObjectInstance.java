@@ -9,6 +9,7 @@ import org.junit.Before;
 import org.junit.Test;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.level.LevelManager;
@@ -31,6 +32,7 @@ public class TestTornadoObjectInstance {
 
     @Before
     public void setUp() {
+        RuntimeManager.createGameplay();
         previousModule = GameModuleRegistry.getCurrent();
         GameModuleRegistry.setCurrent(new Sonic2GameModule());
         GameServices.camera().resetState();
@@ -44,6 +46,7 @@ public class TestTornadoObjectInstance {
         GameServices.sprites().resetState();
         GameServices.level().resetState();
         GameModuleRegistry.setCurrent(previousModule);
+        RuntimeManager.destroyCurrent();
     }
 
     @Test
@@ -139,7 +142,10 @@ public class TestTornadoObjectInstance {
     private static TornadoObjectInstance createTornado(int x, int y, int subtype) {
         ObjectSpawn spawn = new ObjectSpawn(x, y, Sonic2ObjectIds.TORNADO, subtype, 0, false, 0);
         TornadoObjectInstance t = new TornadoObjectInstance(spawn);
-        t.setServices(new TestObjectServices());
+        t.setServices(new TestObjectServices()
+                .withCamera(GameServices.camera())
+                .withParallaxManager(GameServices.parallax())
+                .withSpriteManager(GameServices.sprites()));
         return t;
     }
 

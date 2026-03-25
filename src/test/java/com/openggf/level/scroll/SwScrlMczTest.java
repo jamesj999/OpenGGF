@@ -1,11 +1,11 @@
 package com.openggf.level.scroll;
 
+import com.openggf.game.RuntimeManager;
+import org.junit.After;
 import org.junit.Before;
 import com.openggf.game.sonic2.scroll.ParallaxTables;
 import com.openggf.game.sonic2.scroll.SwScrlMcz;
 import org.junit.Test;
-import com.openggf.game.sonic2.scroll.ParallaxTables;
-import com.openggf.game.sonic2.scroll.SwScrlMcz;
 
 import java.io.IOException;
 import com.openggf.game.sonic2.scroll.ParallaxTables;
@@ -43,9 +43,15 @@ public class SwScrlMczTest {
 
     @Before
     public void setUp() throws IOException {
+        RuntimeManager.createGameplay();
         mockRom = new MockMczRom();
         ParallaxTables tables = new ParallaxTables(mockRom);
         handler = new SwScrlMcz(tables);
+    }
+
+    @After
+    public void tearDown() {
+        RuntimeManager.destroyCurrent();
     }
 
     // ==================== Row Heights Table Tests ====================

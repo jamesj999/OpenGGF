@@ -2,9 +2,12 @@ package com.openggf.game.sonic3k.events;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic3k.Sonic3kLoadBootstrap;
 import com.openggf.level.LevelManager;
 import com.openggf.level.SeamlessLevelTransitionRequest;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
@@ -13,6 +16,16 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 public class TestSonic3kAIZEvents {
+
+    @Before
+    public void setUp() {
+        RuntimeManager.createGameplay();
+    }
+
+    @After
+    public void tearDown() {
+        RuntimeManager.destroyCurrent();
+    }
 
     @Test
     public void initWithIntroSkipDoesNotSpawnIntroObject() {

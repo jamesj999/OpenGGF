@@ -2,6 +2,7 @@ package com.openggf.game.sonic2;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic2.events.Sonic2DEZEvents;
 import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.TestObjectServices;
@@ -37,6 +38,7 @@ public class TestTodo9_DEZEventSpecs {
 
     @Before
     public void setUp() {
+        RuntimeManager.createGameplay();
         GameServices.camera().resetState();
         cam = GameServices.camera();
         events = new Sonic2DEZEvents();
@@ -49,6 +51,7 @@ public class TestTodo9_DEZEventSpecs {
     @After
     public void tearDown() {
         clearConstructionContext();
+        RuntimeManager.destroyCurrent();
     }
 
     @SuppressWarnings("unchecked")

@@ -1,5 +1,8 @@
 package com.openggf.level.objects;
 
+import com.openggf.game.RuntimeManager;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import com.openggf.graphics.GLCommand;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -15,6 +18,17 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 public class TestObjectManagerLifecycle {
+
+    @Before
+    public void setUp() {
+        RuntimeManager.createGameplay();
+    }
+
+    @After
+    public void tearDown() {
+        RuntimeManager.destroyCurrent();
+    }
+
     @Test
     public void testPersistentObjectsRemainActive() {
         ObjectSpawn persistentSpawn = new ObjectSpawn(0, 0, 0x01, 0, 0, false, 0);

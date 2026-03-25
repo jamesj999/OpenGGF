@@ -228,6 +228,9 @@ public class TestObjectServices implements ObjectServices {
 
     @Override
     public List<PlayableEntity> sidekicks() {
+        if (sidekicks.isEmpty() && spriteManager != null) {
+            return List.copyOf(spriteManager.getSidekicks());
+        }
         return sidekicks;
     }
 

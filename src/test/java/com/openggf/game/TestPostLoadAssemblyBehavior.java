@@ -2,9 +2,11 @@ package com.openggf.game;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic1.Sonic1LevelInitProfile;
 import com.openggf.game.sonic2.Sonic2LevelInitProfile;
 import com.openggf.game.sonic3k.Sonic3kLevelInitProfile;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -23,7 +25,13 @@ public class TestPostLoadAssemblyBehavior {
 
     @Before
     public void resetCamera() {
+        RuntimeManager.createGameplay();
         GameServices.camera().resetState();
+    }
+
+    @After
+    public void tearDown() {
+        RuntimeManager.destroyCurrent();
     }
 
     // ========== Checkpoint Resume: Context Snapshot Round-Trip ==========

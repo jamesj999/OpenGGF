@@ -1,6 +1,7 @@
 package com.openggf.game;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.RuntimeManager;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -16,6 +17,7 @@ public class TestGameStateManager {
 
     @Before
     public void setUp() {
+        RuntimeManager.createGameplay();
         gsm = GameServices.gameState();
         // Reset to defaults before each test
         gsm.configureSpecialStageProgress(7, 7);
@@ -27,6 +29,7 @@ public class TestGameStateManager {
         // Restore singleton to clean defaults so other tests are not affected
         gsm.configureSpecialStageProgress(7, 7);
         gsm.resetSession();
+        RuntimeManager.destroyCurrent();
     }
 
     @Test

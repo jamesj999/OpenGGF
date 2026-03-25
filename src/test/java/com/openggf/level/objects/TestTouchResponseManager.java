@@ -1,7 +1,9 @@
 package com.openggf.level.objects;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import com.openggf.game.RuntimeManager;
 import com.openggf.graphics.GLCommand;
 import org.mockito.Mockito;
 import com.openggf.game.DamageCause;
@@ -25,6 +27,7 @@ public class TestTouchResponseManager {
 
     @Before
     public void setUp() {
+        RuntimeManager.createGameplay();
         // Use Mockito to mock TouchResponseTable since its constructor reads from ROM
         table = Mockito.mock(TouchResponseTable.class);
         objectManager = new ObjectManager(List.of(), new ObjectRegistry() {
@@ -56,6 +59,11 @@ public class TestTouchResponseManager {
         when(player.getInvulnerable()).thenReturn(false);
         when(player.getDead()).thenReturn(false);
         when(player.getRingCount()).thenReturn(0);
+    }
+
+    @After
+    public void tearDown() {
+        RuntimeManager.destroyCurrent();
     }
 
     // ==================== Overlap Detection Tests ====================

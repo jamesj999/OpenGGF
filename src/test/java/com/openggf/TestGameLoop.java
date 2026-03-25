@@ -5,6 +5,7 @@ import org.junit.Before;
 import org.junit.Test;
 import com.openggf.control.InputHandler;
 import com.openggf.game.GameMode;
+import com.openggf.game.RuntimeManager;
 
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
@@ -21,6 +22,7 @@ public class TestGameLoop {
 
     @Before
     public void setUp() {
+        RuntimeManager.createGameplay();
         mockInputHandler = mock(InputHandler.class);
         gameLoop = new GameLoop(mockInputHandler);
     }
@@ -28,6 +30,7 @@ public class TestGameLoop {
     @After
     public void tearDown() {
         gameLoop = null;
+        RuntimeManager.destroyCurrent();
     }
 
     // ==================== Initialization Tests ====================

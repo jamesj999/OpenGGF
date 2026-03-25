@@ -2,7 +2,9 @@ package com.openggf.game.sonic2;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic2.events.Sonic2WFZEvents;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -41,10 +43,16 @@ public class TestTodo12_WFZEventSpecs {
 
     @Before
     public void setUp() {
+        RuntimeManager.createGameplay();
         GameServices.camera().resetState();
         cam = GameServices.camera();
         events = new Sonic2WFZEvents();
         events.init(0);
+    }
+
+    @After
+    public void tearDown() {
+        RuntimeManager.destroyCurrent();
     }
 
     /**

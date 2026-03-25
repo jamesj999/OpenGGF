@@ -1,9 +1,11 @@
 package com.openggf.tests;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic2.Sonic2LevelEventManager;
 import com.openggf.game.sonic2.objects.RisingLavaObjectInstance;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -27,12 +29,18 @@ public class TestHTZRisingLavaDisassemblyParity {
 
     @Before
     public void setUp() throws Exception {
+        RuntimeManager.createGameplay();
         resetSonic2LevelEventManagerSingleton();
         GameServices.camera().resetState();
         GameServices.gameState().resetSession();
 
         camera = GameServices.camera();
         levelEvents = Sonic2LevelEventManager.getInstance();
+    }
+
+    @After
+    public void tearDown() {
+        RuntimeManager.destroyCurrent();
     }
 
     @Test
@@ -82,7 +90,8 @@ public class TestHTZRisingLavaDisassemblyParity {
     @Test
     public void obj30Subtype6And8FollowRouteSplitAt380() {
         GameServices.gameState().setHtzScreenShakeActive(true);
-        ObjectServices services = new TestObjectServices().withCamera(camera);
+        ObjectServices services = new TestObjectServices().withCamera(camera)
+                .withGameState(GameServices.gameState());
 
         camera.setY((short) 0x200); // top route
         setConstructionContext(services);

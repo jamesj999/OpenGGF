@@ -1,10 +1,12 @@
 package com.openggf.tests;
 
 import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic1.Sonic1GameModule;
 import com.openggf.game.sonic2.Sonic2GameModule;
 
@@ -14,10 +16,16 @@ import static org.junit.Assert.assertTrue;
 
 public class TestSpecialStageModuleConfig {
 
+    @Before
+    public void setUp() {
+        RuntimeManager.createGameplay();
+    }
+
     @After
     public void tearDown() {
         GameModuleRegistry.reset();
         GameServices.gameState().resetSession();
+        RuntimeManager.destroyCurrent();
     }
 
     @Test

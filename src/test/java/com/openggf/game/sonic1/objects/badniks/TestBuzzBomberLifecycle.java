@@ -1,9 +1,11 @@
 package com.openggf.game.sonic1.objects.badniks;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
+import com.openggf.game.RuntimeManager;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectInstance;
@@ -125,8 +127,13 @@ public class TestBuzzBomberLifecycle {
 
     @Before
     public void setUp() {
-        // Ensure Camera singleton exists with clean state (screen 320×224 from config)
+        RuntimeManager.createGameplay();
         GameServices.camera().resetState();
+    }
+
+    @After
+    public void tearDown() {
+        RuntimeManager.destroyCurrent();
     }
 
     /**

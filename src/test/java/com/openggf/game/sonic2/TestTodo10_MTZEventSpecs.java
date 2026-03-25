@@ -2,6 +2,7 @@ package com.openggf.game.sonic2;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic2.events.Sonic2MTZEvents;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectServices;
@@ -65,6 +66,7 @@ public class TestTodo10_MTZEventSpecs {
 
     @Before
     public void setUp() {
+        RuntimeManager.createGameplay();
         GameServices.camera().resetState();
         cam = GameServices.camera();
         setConstructionContext(new TestObjectServices());
@@ -75,6 +77,7 @@ public class TestTodo10_MTZEventSpecs {
     @After
     public void tearDown() {
         clearConstructionContext();
+        RuntimeManager.destroyCurrent();
     }
 
     /**

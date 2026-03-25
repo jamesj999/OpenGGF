@@ -1,5 +1,7 @@
 package com.openggf.tests;
 
+import com.openggf.game.RuntimeManager;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
@@ -38,6 +40,7 @@ public class TestHTZBossTouchResponse {
 
     @Before
     public void setUp() throws Exception {
+        RuntimeManager.createGameplay();
         touchTable = mock(TouchResponseTable.class);
         when(touchTable.getWidthRadius(HTZ_BOSS_SIZE_INDEX)).thenReturn(32);
         when(touchTable.getHeightRadius(HTZ_BOSS_SIZE_INDEX)).thenReturn(32);
@@ -61,6 +64,11 @@ public class TestHTZBossTouchResponse {
         when(player.getRingCount()).thenReturn(0);
         when(player.getXSpeed()).thenReturn((short) 0x200);
         when(player.getYSpeed()).thenReturn((short) -0x300);
+    }
+
+    @After
+    public void tearDown() {
+        RuntimeManager.destroyCurrent();
     }
 
     @Test

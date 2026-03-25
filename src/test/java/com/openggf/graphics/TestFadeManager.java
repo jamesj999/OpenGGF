@@ -1,12 +1,25 @@
 package com.openggf.graphics;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.RuntimeManager;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
 public class TestFadeManager {
+
+    @Before
+    public void setUp() {
+        RuntimeManager.createGameplay();
+    }
+
+    @After
+    public void tearDown() {
+        RuntimeManager.destroyCurrent();
+    }
 
     /**
      * Number of update frames for a standard fade to complete.

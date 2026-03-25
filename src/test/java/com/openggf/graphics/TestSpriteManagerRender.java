@@ -1,7 +1,10 @@
 package com.openggf.graphics;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.RuntimeManager;
 import com.openggf.physics.Direction;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
 import com.openggf.level.LevelManager;
@@ -19,6 +22,17 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 public class TestSpriteManagerRender {
+
+    @Before
+    public void setUp() {
+        RuntimeManager.createGameplay();
+    }
+
+    @After
+    public void tearDown() {
+        RuntimeManager.destroyCurrent();
+    }
+
     @Test
     public void testBucketOrderingAndNonPlayablePlacement() {
         List<String> drawOrder = new ArrayList<>();

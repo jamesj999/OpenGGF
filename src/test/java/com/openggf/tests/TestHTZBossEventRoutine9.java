@@ -1,9 +1,11 @@
 package com.openggf.tests;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic2.Sonic2LevelEventManager;
 
 import java.lang.reflect.Field;
@@ -20,6 +22,7 @@ public class TestHTZBossEventRoutine9 {
 
     @Before
     public void setUp() throws Exception {
+        RuntimeManager.createGameplay();
         resetSonic2LevelEventManagerSingleton();
         GameServices.camera().resetState();
         GameServices.gameState().resetSession();
@@ -28,6 +31,11 @@ public class TestHTZBossEventRoutine9 {
         levelEvents = Sonic2LevelEventManager.getInstance();
         levelEvents.initLevel(Sonic2LevelEventManager.ZONE_HTZ, 1); // HTZ Act 2
         levelEvents.setEventRoutine(18); // Routine 9
+    }
+
+    @After
+    public void tearDown() {
+        RuntimeManager.destroyCurrent();
     }
 
     @Test

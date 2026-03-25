@@ -1,8 +1,10 @@
 package com.openggf.tests.graphics;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import com.openggf.game.GameServices;
+import com.openggf.game.RuntimeManager;
 import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.FadeManager.FadeState;
 import com.openggf.graphics.FadeManager.FadeType;
@@ -25,8 +27,14 @@ public class FadeManagerTest {
 
     @Before
     public void setUp() {
+        RuntimeManager.createGameplay();
         GameServices.fade().resetState();
         fadeManager = GameServices.fade();
+    }
+
+    @After
+    public void tearDown() {
+        RuntimeManager.destroyCurrent();
     }
 
     // === Initial State Tests ===
