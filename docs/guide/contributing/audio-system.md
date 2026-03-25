@@ -9,21 +9,22 @@ bugs or improve SMPS accuracy.
 ROM data
   |
   v
-SmpsLoader          Parses music/SFX from ROM using pointer tables.
-  |                 Produces SmpsMusic/SmpsSfx with channel assignments
-  |                 and sequence data.
+SmpsLoader          Per-game loaders (Sonic2SmpsLoader, etc.) parse
+  |                 music/SFX from ROM using pointer tables. Produces
+  |                 SmpsMusic/SmpsSfx with channel assignments and
+  |                 sequence data.
   v
 SmpsSequencer       Processes sequence commands each frame.
   |                 Manages channel state, tempo, loops, modulation.
   |                 Produces register writes.
   |
-  +---> YM2612      FM synthesis (6 channels). Software emulation based
+  +---> Ym2612Chip  FM synthesis (6 channels). Software emulation based
   |                 on Genesis Plus GX reference core.
   |
-  +---> SN76489     PSG (4 channels: 3 tone + 1 noise). Software emulation
+  +---> PsgChip     PSG (4 channels: 3 tone + 1 noise). Software emulation
   |                 based on SMS Power documentation.
   |
-  +---> DacPlayer   PCM drum samples. Reads raw sample data from ROM,
+  +---> DacData     PCM drum samples. Manages sample data from ROM,
   |                 applies correct playback rate.
   |
   v

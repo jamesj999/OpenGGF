@@ -115,8 +115,8 @@ to the object's routine.
 
 The `data/` package contains decompression implementations for every compression type used
 by the games (Kosinski, Nemesis, Enigma, Saxman, KosinskiM). When the engine loads
-compressed data from the ROM, it goes through `ResourceLoader`, which selects the correct
-decompressor based on the compression type.
+compressed data from the ROM, it goes through `ResourceLoader` (in `level/resources/`),
+which selects the correct decompressor based on the compression type.
 
 ### SmpsSequencer = Z80 Sound Driver
 
@@ -131,9 +131,9 @@ to the YM2612 and SN76489 emulation cores.
 | A specific object's behavior | `game/<game>/objects/` -- search for the object name or hex ID |
 | A ROM address | `game/<game>/constants/` -- search for a keyword |
 | How level data is loaded | `game/<game>/Sonic*.java` (the main game class) |
-| How collision works | `physics/` -- `CollisionDetector`, `SolidObjectHelper` |
+| How collision works | `physics/` -- `CollisionSystem`, `TerrainCollisionManager` |
 | How rendering works | `graphics/` -- but you rarely need to touch this |
-| How audio works | `audio/` -- `SmpsSequencer`, `YM2612`, `SN76489` |
+| How audio works | `audio/` -- `SmpsSequencer`, `Ym2612Chip`, `PsgChip` |
 | How the camera moves | `camera/` |
 | How player physics work | `physics/` and `sprites/playable/` |
 | Zone-specific events | `game/<game>/events/` |

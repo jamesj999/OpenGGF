@@ -336,7 +336,7 @@ services().playSfx(Sonic2Sfx.PRE_ARROW_FIRING.id);
 
 This goes through the audio system:
 1. `Sonic2SmpsConstants` holds the SFX pointer table address in the ROM.
-2. `SmpsLoader` reads the pointer at index ($DB - SFX base ID) to find the SMPS data.
+2. `Sonic2SmpsLoader` reads the pointer at index ($DB - SFX base ID) to find the SMPS data.
 3. `SmpsSequencer` plays the sound using the parsed SMPS header and sequence data.
 
 ### Step 3: Verify
@@ -355,7 +355,7 @@ For any sound effect or music track:
 1. Find the `SndID_` constant in the disassembly's constants file to get the hex ID.
 2. Search the engine's SFX/music enum for the same hex value.
 3. Trace through `SmpsConstants` to find the pointer table address, and through
-   `SmpsLoader` to see how the data is parsed.
+   the game's `SmpsLoader` subclass to see how the data is parsed.
 
 ---
 
