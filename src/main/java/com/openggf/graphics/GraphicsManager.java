@@ -222,9 +222,14 @@ public class GraphicsManager {
 	 * This avoids triggering Camera singleton initialization during GraphicsManager construction.
 	 */
 	private Camera getCamera() {
-		if (camera == null) {
-			com.openggf.game.GameRuntime rt2 = com.openggf.game.RuntimeManager.getCurrent();
-			camera = rt2 != null ? rt2.getCamera() : Camera.getInstance();
+		com.openggf.game.GameRuntime rt2 = com.openggf.game.RuntimeManager.getCurrent();
+		if (rt2 != null) {
+			Camera runtimeCamera = rt2.getCamera();
+			if (camera != runtimeCamera) {
+				camera = runtimeCamera;
+			}
+		} else if (camera == null) {
+			camera = Camera.getInstance();
 		}
 		return camera;
 	}
@@ -1230,6 +1235,27 @@ public class GraphicsManager {
 			}
 		}
 		return fadeManager;
+	}
+
+	/**
+	 * Rebinds fade-related references to the current runtime's FadeManager.
+	 *
+	 * <p>This is required after gameplay runtime creation because GraphicsManager may
+	 * have been initialized earlier against the bootstrap FadeManager. If the UI
+	 * pipeline keeps updating that stale instance while GameLoop starts fades on the
+	 * runtime instance, callbacks never complete.
+	 */
+	public void rebindRuntimeFadeManager() {
+		com.openggf.game.GameRuntime rt = com.openggf.game.RuntimeManager.getCurrent();
+		FadeManager reboundFade = rt != null ? rt.getFadeManager() : FadeManager.getInstance();
+		this.fadeManager = reboundFade;
+		this.camera = rt != null ? rt.getCamera() : Camera.getInstance();
+		if (fadeShaderProgram != null) {
+			reboundFade.setFadeShader(fadeShaderProgram);
+		}
+		if (uiRenderPipeline != null) {
+			uiRenderPipeline.setFadeManager(reboundFade);
+		}
 	}
 
 	/**

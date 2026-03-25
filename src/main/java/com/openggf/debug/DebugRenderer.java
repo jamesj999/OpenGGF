@@ -31,8 +31,6 @@ public class DebugRenderer {
 	private static DebugRenderer debugRenderer;
 	// private final GraphicsManager graphicsManager = GraphicsManager
 	// .getInstance();
-	private final SpriteManager spriteManager = SpriteManager.getInstance();
-	private final LevelManager levelManager = LevelManager.getInstance();
         private final SonicConfigurationService configService = SonicConfigurationService
                         .getInstance();
         private final DebugOverlayManager overlayManager = GameServices.debugOverlay();
@@ -71,9 +69,6 @@ public class DebugRenderer {
         private int viewportHeight = baseHeight;
         private double scaleX = 1.0;
         private double scaleY = 1.0;
-
-	private String sonicCode = configService
-			.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
 
 	/**
 	 * Eagerly initializes the glyph batch renderer.
@@ -123,7 +118,7 @@ public class DebugRenderer {
                         renderOverlayShortcuts(false);
                 }
 
-                Sprite sprite = spriteManager.getSprite(sonicCode);
+                Sprite sprite = getSpriteManager().getSprite(getMainCharacterCode());
                 AbstractPlayableSprite playable = null;
                 if (sprite != null) {
                         int ringCount = 0;
@@ -225,7 +220,7 @@ public class DebugRenderer {
                         return;
                 }
                 ObjectRegistry registry = GameModuleRegistry.getCurrent().createObjectRegistry();
-                java.util.Collection<ObjectSpawn> spawns = levelManager.getActiveObjectSpawns();
+                java.util.Collection<ObjectSpawn> spawns = getLevelManager().getActiveObjectSpawns();
                 if (registry == null || spawns.isEmpty()) {
                         return;
                 }
@@ -274,8 +269,8 @@ public class DebugRenderer {
                         return;
                 }
                 int planeSwitcherObjectId = GameModuleRegistry.getCurrent().getPlaneSwitcherObjectId();
-                if (levelManager.getGameModule() != null) {
-                        planeSwitcherObjectId = levelManager.getGameModule().getPlaneSwitcherObjectId();
+                if (getLevelManager().getGameModule() != null) {
+                        planeSwitcherObjectId = getLevelManager().getGameModule().getPlaneSwitcherObjectId();
                 }
                 for (ObjectSpawn spawn : spawns) {
                         if (spawn.objectId() != planeSwitcherObjectId) {
@@ -342,7 +337,7 @@ public class DebugRenderer {
                 if (!glyphBatch.isBatchActive()) {
                         return;
                 }
-                Sprite sprite = spriteManager.getSprite(sonicCode);
+                Sprite sprite = getSpriteManager().getSprite(getMainCharacterCode());
                 if (!(sprite instanceof AbstractPlayableSprite playable)) {
                         return;
                 }
@@ -504,7 +499,7 @@ public class DebugRenderer {
         }
 
         private void renderTouchResponsePanel(AbstractPlayableSprite sprite) {
-                ObjectManager manager = levelManager.getObjectManager();
+                ObjectManager manager = getLevelManager().getObjectManager();
                 if (manager == null || !glyphBatch.isBatchActive()) {
                         return;
                 }
@@ -701,6 +696,18 @@ public class DebugRenderer {
 
         private char formatPriority(boolean highPriority) {
                 return ObjectManager.formatPlaneSwitcherPriority(highPriority);
+        }
+
+        private SpriteManager getSpriteManager() {
+                return SpriteManager.getInstance();
+        }
+
+        private LevelManager getLevelManager() {
+                return LevelManager.getInstance();
+        }
+
+        private String getMainCharacterCode() {
+                return configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         }
 
         private String formatTouchCategory(TouchCategory category) {
