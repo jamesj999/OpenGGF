@@ -260,11 +260,15 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     }
 
     /**
-     * Adds a dynamically-created object to the level's object manager.
-     * Sets the construction context so the child's constructor can use {@link #services()}.
+     * Adds an already-constructed object to the level's object manager.
+     * <p>
+     * <b>Does NOT set {@link #CONSTRUCTION_CONTEXT}.</b> If the object's constructor
+     * needs {@link #services()}, use {@link #spawnChild(java.util.function.Supplier)}
+     * instead, which wraps construction with the ThreadLocal context.
+     * <p>
      * Safe to call in test environments where LevelManager may not be initialized.
      *
-     * @param object the object instance to spawn
+     * @param object the already-constructed object instance to spawn
      */
     protected void spawnDynamicObject(AbstractObjectInstance object) {
         try {

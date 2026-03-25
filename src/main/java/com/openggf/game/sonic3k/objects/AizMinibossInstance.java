@@ -392,7 +392,8 @@ public class AizMinibossInstance extends AbstractBossInstance {
 
             // apparentAct = 0: AIZ miniboss ends act 1 (ROM's Apparent_act is 0 here,
             // even though the engine reloaded act 2 resources for the fire terrain swap)
-            S3kBossDefeatSignpostFlow defeatFlow = new S3kBossDefeatSignpostFlow(
+            // Use spawnChild() so CONSTRUCTION_CONTEXT is set — the constructor calls services()
+            spawnChild(() -> new S3kBossDefeatSignpostFlow(
                     state.x, 0,
                     () -> {
                         // AfterBoss_AIZ2: restore fire palette to palette line 1.
@@ -409,8 +410,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
                             LOG.fine(() -> "AizMinibossInstance.updateDefeated: " + e.getMessage());
                         }
                     }
-            );
-            spawnDynamicObject(defeatFlow);
+            ));
         }
     }
 
