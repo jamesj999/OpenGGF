@@ -2,15 +2,314 @@
 
 All notable changes to the sonic-engine project are documented in this file.
 
-## Unreleased
+## v0.5 (Unreleased)
 
-Changes on `develop` since `v0.4.20260304`:
+Analysis range: `v0.4.20260304..HEAD` on `develop` (`1976` commits, `1805` non-merge commits,
+`1135` files changed, `103473` insertions, `23226` deletions). Net code growth is ~80,200 lines.
 
-- Fixed GitHub builds and native-image metadata after the package/project rename to `com.openggf` / `OpenGGF`.
-- Improved test robustness when ROM files are missing and increased a regression test timeout for GitHub Actions.
-- Fixed Sonic 1 drowning visuals: breathing air bubble animation frames and countdown number positioning.
-- Corrected Sonic 2 water configuration so Hill Top Zone no longer reports water.
-- Additional small bug fixes and cleanup.
+A primarily architectural release. The engine internals have been restructured to prepare for level
+editor support, safe runtime teardown, and future multi-instance play-testing. Sonic 3 & Knuckles
+gameplay coverage has advanced significantly within Angel Island Zone (miniboss completion, signpost,
+results screen, special stages) but AIZ2 is not yet completable — the Flying Battery event, AIZ2
+boss, and AIZ-to-HCZ transition remain to be implemented before release.
+
+### Architectural Overhaul: Two-Tier Service Architecture
+
+The engine's object model has been fundamentally restructured from direct singleton access to a
+two-tier dependency injection pattern.
+
+- **GameServices** (global tier): facade over ROM, graphics, audio, camera, level, fade, and
+  configuration singletons. Accessed anywhere via `GameServices.camera()`, `GameServices.audio()`, etc.
+- **ObjectServices** (context tier): injected into every game object at spawn time via
+  `ObjectManager`. Provides camera, game state, zone features, sidekick access, and level queries
+  scoped to the object's lifecycle. Accessed via `services()` within any `AbstractObjectInstance`.
+- **ThreadLocal construction context**: `ObjectServices` is available during object construction
+  without requiring constructor parameters, via a `ThreadLocal` injection pattern.
+- **Migration scope**: 105 Sonic 2 object files, 50 Sonic 1 object files, 25 Sonic 3K object files,
+  and 6 game-agnostic base classes migrated from `getInstance()` / `LevelManager.getInstance()` to
+  `services()` or `GameServices` as appropriate. All singleton `.getInstance()` calls removed from
+  object classes.
+- **NoOp sentinels**: null-returning provider methods replaced with NoOp sentinel objects across
+  the provider interfaces (zone features, physics, water, scroll handlers), eliminating null checks
+  throughout the object layer.
+- **GameId enum**: replaced string-based game identification with type-safe `GameId` enum throughout
+  `CrossGameFeatureProvider` and module detection.
+
+### Architectural Overhaul: GameRuntime and Singleton Lifecycle
+
+- **GameRuntime**: introduced `GameRuntime` as the explicit owner of all mutable gameplay state.
+  `ObjectServices` is backed by the runtime instance rather than global singletons.
+- **resetState() lifecycle**: all singletons (`Camera`, `RomManager`, `GraphicsManager`,
+  `AudioManager`, `CollisionSystem`, `CrossGameFeatureProvider`, `DebugOverlayManager`,
+  `SonicConfigurationService`, `Sonic1ConveyorState`, `Sonic1SwitchManager`,
+  `TerrainCollisionManager`) now implement `resetState()` for clean teardown without destroying
+  the singleton instance. `resetInstance()` deprecated across the board.
+- **Generation counter**: `GameContext` tracks a generation counter for stale reference detection.
+- **SingletonResetExtension**: JUnit 5 extension with `@FullReset` annotation for automated
+  per-test singleton reset, replacing manual `resetInstance()` boilerplate across 35+ test classes.
+- **GameRuntime lifecycle wired into test harness**: `resetPerTest()` now creates/destroys
+  `GameRuntime` for CI stability.
+
+### Architectural Overhaul: LevelManager Decomposition
+
+`LevelManager` (previously the largest class in the engine) has been broken into focused components:
+
+- **LevelTilemapManager**: extracted ~18 methods and ~22 fields for tilemap rendering, chunk
+  lookup, and tile-level queries.
+- **LevelTransitionCoordinator**: extracted ~43 methods and ~25 fields for act transitions,
+  seamless level mutation, title cards, results screens, and game mode flow.
+- **LevelDebugRenderer**: extracted ~12 methods and ~14 fields for collision overlay, sensor
+  display, camera bounds, and other debug visualizations.
+- **LevelGeometry** and **LevelDebugContext** records introduced as data carriers between the
+  decomposed components.
+- Game-specific art dispatching extracted from `LevelManager` into per-game modules.
+
+### Architectural Overhaul: Cross-Game Abstraction Hardening
+
+Systematic removal of game-specific coupling from the engine core:
+
+- **PlayableEntity interface**: extracted from `AbstractPlayableSprite` to decouple `level.objects`
+  from `sprites.playable`. Includes `isOnObject()`, `getAnimationId()`, and all methods needed
+  by game objects to interact with the player.
+- **PowerUpSpawner interface**: breaks `sprites.playable` dependency on `level.objects` for
+  monitor/power-up spawning.
+- **DamageCause**, **GroundMode**, **ShieldType** relocated from `sprites.playable` to `game`
+  package for cross-game reuse.
+- **SecondaryAbility enum**: replaced `instanceof Tails` checks throughout the codebase.
+- **CanonicalAnimation enum** and **AnimationTranslator**: cross-game animation vocabulary
+  enabling bidirectional sprite donation between any pair of games.
+- **DonorCapabilities interface**: each `GameModule` declares its donation capabilities (S1, S2,
+  S3K all implemented), replacing hardcoded branches in `CrossGameFeatureProvider`.
+- S1 wired as donor for forward donation into S2/S3K games.
+- CNZ slot machine renderer moved to `ZoneFeatureProvider`; seamless mutation moved to
+  `GameModule`; Tails tail art loading moved to `GameModule`; sidekick zone suppression moved
+  from hardcoded S2 IDs to `GameModule`.
+- 11 cross-game classes relocated from `sonic2` to generic packages; 5 cross-game dependency
+  classes decoupled.
+
+### Common Code Extraction (Phase 1-5)
+
+A systematic 5-phase refactoring pass eliminated structural duplication across all three games:
+
+- **Phase 1 — Common utilities**: `SubpixelMotion` (16.16 fixed-point gravity helpers),
+  `AnimationTimer` (cyclic frame animation), `FboHelper` (centralised FBO creation),
+  `PatternDecompressor.nemesis()` (eliminated private Nemesis copies), `refreshDynamicSpawn()`
+  extracted into `AbstractObjectInstance`, `isOnScreen(margin)` guard migrated across all objects,
+  `buildSpawnAt()` helper and `getRenderer()` helper inherited by all object classes.
+- **Phase 2 — Base class extraction**: `AbstractMonitorObjectInstance`, `AbstractSpikeObjectInstance`
+  (S2/S3K), `AbstractProjectileInstance` (S1 missiles), `AbstractPointsObjectInstance`,
+  `AbstractFallingFragment` (collapsing platforms), `AbstractSoundTestCatalog`,
+  `AbstractAudioProfile`, `AbstractObjectRegistry`, `AbstractZoneRegistry`,
+  `AbstractZoneScrollHandler` (~20 scroll handlers migrated), `AbstractLevelInitProfile`
+  (with `buildCoreSteps()`), `AniPlcScriptState` and `AniPlcParser` extracted from pattern
+  animators.
+- **Phase 3 — Behavior helpers**: S1 badnik migration to shared destruction config, shared ring/object
+  placement record parsers, shared title card sprite rendering utility, shared S1 Eggman boss
+  methods extracted into base class.
+- **Phase 4 — Gravity and debris**: `GravityDebrisChild`, `PlatformBobHelper` (3 platform objects
+  migrated), `ObjectFall()` method in `SubpixelMotion`.
+- **Phase 5 — Cleanup**: shared constants, `loadArtTiles` path, shader path standardization,
+  `ParallaxShaderProgram` extends `ShaderProgram` (deleted lifecycle duplication).
+- **Debug render migration**: all S1, S2, and S3K objects migrated from legacy
+  `appendDebug`/`appendLine` API to `DebugRenderContext`.
+
+### MutableLevel (Level Editor Foundation)
+
+- **MutableLevel**: a new level data abstraction supporting snapshot, mutation, and dirty-region
+  tracking. Wraps the read-only level data and provides `setChunkDesc()`, `getGridSide()`,
+  `saveState()`/`restoreState()` for undo/redo support.
+- **Block**: added `saveState()`/`restoreState()` and `setChunkDesc()` for chunk-level mutation.
+- **Dirty-region processing pipeline**: `processDirtyRegions()` wired into `LevelFrameStep` for
+  efficient per-frame GPU updates of only the modified tile regions.
+- MutableLevel preserves game-specific overrides and `ringSpriteSheet` across mutations.
+- Round-trip and integration tests verify snapshot fidelity and mutation correctness.
+
+### Sonic 3 & Knuckles Expansion
+
+#### AIZ Miniboss Completion
+- AIZ miniboss defeat flow fully implemented: `S3kBossDefeatSignpostFlow` reusable sequence,
+  staggered explosions with `S3kBossExplosionController`, per-explosion `sfx_Explode`.
+- Knuckles napalm attack: `AizMinibossNapalmController` and `AizMinibossNapalmProjectile` with
+  launch/drop/explode lifecycle, gated to Knuckles-only appearance.
+- AIZ2 dynamic resize state machine for correct camera boundaries during miniboss spawn.
+
+#### Signpost and Results Screen
+- `S3kSignpostInstance` with 5-state machine (idle/spin/slowdown/sparkle/done), stub and sparkle
+  children, `PLC_EndSignStuff` art loading from ROM.
+- `S3kHiddenMonitorInstance` with signpost interaction.
+- Results screen: full state machine with tally, element system rendering, art loading from ROM,
+  act display via `Apparent_act`, exit timing, control lock, victory pose, and Tails-specific
+  victory animation.
+- End-of-level flag and `endOfLevelActive` state wired through defeat flow.
+
+#### Blue Ball Special Stages (WIP)
+- Blue Ball special stage implemented (work in progress): gameplay, rendering, HUD, banner,
+  ring animation, emerald collection, exit sequence.
+- `SSEntryRing` art, animation, and special stage entry sequence from giant rings.
+- Special stage results screen with art loading.
+- Tails P2 support in special stages with tails sprite and delayed jump.
+- Player returns to big ring location after special stage (not checkpoint).
+
+#### Per-Character Physics
+- Per-character physics profiles for Sonic, Tails, and Knuckles (speed, acceleration, jump height).
+- Super spindash speed table and slope sprite selection fixes.
+- Ducking while moving at slow speeds (S3K-specific behavior).
+
+#### Palette and Visual Systems
+- Palette cycling implemented for all remaining zones: HCZ, CNZ, ICZ, LBZ, LRZ, BPZ, CGZ, EMZ
+  (plus existing AIZ).
+- Per-frame palette mutation system for AIZ1 hollow tree reveal (`palette[2][15]`).
+- AIZ fire curtain overlay with cached BG descriptors and fire palette fixes, looping linger and
+  graceful scroll-off.
+- Heat haze deformation applied to AIZ2 background layer.
+- HUD text loaded from ROM; digit rendering uses mapping frames (not tile indices).
+
+#### New Objects and Badniks
+- `BreakableWall` (0x0D), `CorkFloor`, `FloatingPlatform`, `CaterkillerJr` (with body segment
+  despawn), `AutoSpin`, `Falling Log`, `InvisibleBlock`, `StarPost`, `TwistedRamp`.
+- HCZ water surface object.
+- All zone badnik entries populated in `Sonic3kPlcArtRegistry`.
+- Initial badnik implementations wired into object system.
+
+#### Audio
+- Music tempo scaling and all-spheres SFX fix.
+- Ring collection sound alternates left/right channels.
+- Correct SFX: `sfx_Death` for normal hurt (not `sfx_SpikeHit`), jump SFX fix.
+- S3K tumble frame base corrected to `0x31` (not S2's `0x5F`).
+
+#### Miscellaneous S3K Fixes
+- VDP priority bit correctly extracted in S3K sprite mapping loader.
+- Collapsing platforms stay solid during fragment phase (S2/S3K).
+- Shield re-registration after act transition; StarPost bonus stage routing fix.
+- AIZ1 level bounds use normal `LevelSizes` entry.
+- Prevented OOM in S3K DPLC frame loading by parsing only 1P entries (combined mapping table fix).
+- SONIC art address corrected; camera bounds restored after transition.
+- Lightning shield sparks rendered directly instead of via DPLC.
+
+### Insta-Shield Implementation
+
+Full S3K insta-shield ability implemented with ROM parity:
+- ROM constants, art key, and art loading (including cross-game donation path).
+- Activation via `tryShieldAbility()` with character gating (Sonic only, not Tails/Knuckles).
+- Hitbox expansion in `TouchResponses` for the active insta-shield frames.
+- Persistent `InstaShieldObjectInstance` lifecycle (survives level transitions).
+- DPLC cache invalidation on seamless level transitions.
+- Lazy art initialization to handle sprite-before-level-load ordering.
+- Half-arc animation bug fix (prevented double-update per frame).
+
+### Multi-Sidekick System
+
+- Comma-separated sidekick config enables spawning multiple sidekicks (e.g. `"sonic,tails"`).
+- `SidekickRespawnStrategy` interface extracted with `TailsRespawnStrategy` and per-character
+  `requiresPhysics()` (Sonic walk-in vs Tails fly-in).
+- Parallel sidekick respawn via effective leader reference.
+- Virtual pattern ID range validation in `PatternAtlas` for safe multi-bank allocation.
+- Sidekick DPLC banks placed in dedicated `0x30000+` range, capped at `0x800` limit with bank
+  sharing on overflow.
+- Sidekick rendered behind main player to match VDP sprite priority order.
+- Leader reference preserved across `reset()` — sidekicks no longer become permanently idle.
+- Directional input maintained during approach phase.
+- Slot reclamation added to `PatternAtlas` for efficient VRAM management.
+
+### Tails AI Improvements
+
+- Comprehensive Tails CPU AI rework:
+  - WFZ/DEZ/SCZ now suppress the CPU sidekick in gameplay and rendering.
+  - Tails switches to FLYING when Sonic dies instead of despawning.
+  - Respawn uses ROM's 64-frame gate plus A/B/C/Start bypass, blocking on object-control,
+    air, roll-jump, underwater, and prevent-respawn conditions.
+  - Manual P2 override for gameplay and special stages.
+  - PANIC mode reworked to use `move_lock` + frame-counter timing.
+  - Flying/despawn reworked with on-screen checks, water clamp, exact landing criteria.
+  - Boss/event updates wired for EHZ2, HTZ2, MCZ2, CNZ2, CPZ2, ARZ2, and MTZ3.
+  - Special-stage Tails uses its own replay buffer + P2 takeover path.
+
+### Rendering Pipeline Improvements
+
+- **PatternAtlas slot reclamation**: freed VRAM slots can be reused by new pattern uploads.
+- **Batched DPLC atlas updates**: `DynamicPatternBank` batches multiple pattern updates per frame
+  instead of individual uploads.
+- **Virtual pattern ID validation**: range checks prevent silent VRAM corruption from out-of-bounds
+  pattern references.
+- **FboHelper**: centralised FBO creation utility, migrated 4 renderer files.
+- **writeQuad()** extracted from `BatchedPatternRenderer` for reuse.
+- Fail-fast on shader compilation/linking errors with GL resource cleanup.
+
+### Logging and Error Handling
+
+- 22 `e.printStackTrace()` calls migrated to structured `java.util.logging`.
+- 28 swallowed exceptions in S3K code replaced with `LOG.fine()`.
+- Production `System.out.println` calls replaced with `LOGGER.fine()`.
+- Remaining logging gaps fixed across 6 files.
+
+### Performance
+
+- Batched DPLC atlas updates in `DynamicPatternBank`.
+- Cached `LevelManager` reference in `DefaultObjectServices` (eliminates per-call singleton lookup).
+- Per-frame `ObjectSpawn` allocation eliminated in `AbstractBadnikInstance`.
+- Pre-allocated debug overlay lists, collision/sensor/camera bounds command lists.
+- Reduced per-frame allocations in collision, rendering, and audio hot paths.
+- Batched glyph rendering for debug text.
+
+### Sonic 1 Fixes
+
+- Drowning visuals: breathing air bubble animation frames and countdown number positioning corrected.
+- LZ credits demo spike collision fix and frame tick ordering unification.
+- Yadrin top-hit behaviour and underwater palette/animation fixes for LZ.
+- Minor LZ fix for jumping while sliding.
+- GHZ bridge collision fix with corresponding tests.
+- Monitor collision fix (particularly when in a tree).
+
+### Sonic 2 Fixes
+
+- HTZ water configuration corrected (Hill Top Zone no longer reports water).
+- Collapsing platforms in MCZ stay solid during fragment phase.
+- Special stage results screen decoupled from object system.
+- S2/S3K collapsing platforms remain solid during fragment phase.
+
+### Cross-Game Feature Donation Enhancements
+
+- S1 wired as donor for forward donation into S2/S3K (previously only S2/S3K could donate).
+- `DonorCapabilities` interface replaces hardcoded game-specific branches.
+- `CanonicalAnimation` enum provides a game-neutral animation vocabulary for cross-game translation.
+- `AnimationTranslator` handles bidirectional profile translation between any pair of games.
+- Spindash speed table sourced from donor `PhysicsFeatureSet`.
+- Cross-game art keys promoted to `ObjectArtKeys` for game-agnostic constant references.
+- Import leak cleanup: removed cross-game S2 animation ID imports from game-agnostic sidekick code.
+
+### Test and Quality
+
+- `SingletonResetExtension` and `@FullReset` for automated per-test singleton lifecycle.
+- `GameRuntime` lifecycle wired into 35 test classes with optimized Surefire configuration.
+- Multi-sidekick integration smoke tests.
+- Insta-shield test suite: gating, hitbox expansion, and visual frame-by-frame capture.
+- MutableLevel round-trip and integration tests.
+- S3K results screen tally mechanics unit tests.
+- S3K registry coverage tests for all zones.
+- Per-character respawn strategy unit tests.
+- Migration guard scanner for detecting `getInstance()` / `GameServices` violations in object code.
+- Annotated guard tests for services() migration completeness.
+- AudioManager.resetState() field-clearing verification.
+
+### Documentation
+
+- Comprehensive user guide for three audiences (players, developers, contributors).
+- OpenSMPSDeck music tracker design spec and implementation plan.
+- Rendering pipeline improvements spec and plan.
+- Unified execution roadmap and Phase 0+1 implementation plan.
+- GameRuntime architecture spec and implementation plan.
+- Two-tier service architecture design spec and implementation plan.
+- MutableLevel (Phase 3) spec and implementation plan.
+- Insta-shield design spec and implementation plan.
+- Multi-sidekick daisy chain design spec and implementation plan.
+- Cross-game bidirectional animation donation design spec and implementation plan.
+- Game-specific leak fixes spec and plan.
+- Services migration cleanup design spec and implementation plan.
+- Architectural fixes design spec, implementation plan, and review passes.
+- Singleton lifecycle documentation.
+- Phase 4 common refactoring design spec (5 phases, 25 patterns) and implementation plan (21 tasks).
+- Virtual pattern IDs and multi-sidekick system documented in AGENTS.md.
+- Known discrepancies documentation for multi-sidekick rendering.
 
 ## v0.4.20260304 (Released 2026-03-04)
 

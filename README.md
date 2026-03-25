@@ -21,6 +21,14 @@ modding and customisation.
 > or other copyrighted game data are included in this repository. Users must supply their own
 > legally obtained ROM files to use this software.
 
+## User Guide
+
+A comprehensive user guide is available in [`docs/guide/`](docs/guide/index.md), covering:
+
+- **Players:** [Getting started](docs/guide/playing/getting-started.md), [controls](docs/guide/playing/controls.md), [configuration](docs/guide/playing/configuration.md), [game status](docs/guide/playing/game-status.md), and [troubleshooting](docs/guide/playing/troubleshooting.md).
+- **Contributors:** [Dev setup](docs/guide/contributing/dev-setup.md), [architecture overview](docs/guide/contributing/architecture.md), [adding zones](docs/guide/contributing/adding-zones.md), [adding bosses](docs/guide/contributing/adding-bosses.md), [audio system](docs/guide/contributing/audio-system.md), and [testing](docs/guide/contributing/testing.md).
+- **Cross-referencers:** [68000 primer](docs/guide/cross-referencing/68000-primer.md), [mapping exercises](docs/guide/cross-referencing/mapping-exercises.md), [per-game notes](docs/guide/cross-referencing/per-game-notes.md), and [tooling](docs/guide/cross-referencing/tooling.md).
+
 ## Configuration
 
 The engine currently makes limited use of `config.json` to hold some basic configurations. Change
@@ -85,7 +93,7 @@ sound driver.
 |------|--------|
 | Sonic the Hedgehog (S1) | Broadly playable. All 7 zones, 6 bosses, special stages, title screen, ending/credits. |
 | Sonic the Hedgehog 2 (S2) | Most complete. All zones, 9 bosses (including both DEZ bosses), special stages, Tails AI, credits/ending. |
-| Sonic 3 & Knuckles (S3K) | Early. Angel Island Zone with intro cutscene, gameplay objects, miniboss, water system, and fire transition. |
+| Sonic 3 & Knuckles (S3K) | Progressing. Angel Island Zone playable with intro cutscene, miniboss fight (with defeat flow and signpost), results screen, Blue Ball special stages (WIP), palette cycling for all zones, per-character physics, insta-shield, and 10+ gameplay objects. |
 
 Work is ongoing across all three games. See CHANGELOG.md for detailed progress.
 
@@ -165,13 +173,43 @@ behaviour.
 
 ## Releases
 
-### Post-v0.4 Updates (Unreleased)
+### v0.5 (Unreleased, in progress on `develop`)
 
-A small batch of fixes has landed on `develop` since the `v0.4.20260304` release:
+A primarily architectural release. The engine internals have been restructured to prepare for level
+editor support, safe runtime teardown, and multi-instance play-testing, while Sonic 3 & Knuckles
+gameplay coverage has expanded within Angel Island Zone. AIZ2 completion (boss, Flying Battery event,
+HCZ transition) is the remaining gate before release.
 
-- GitHub build and native-image metadata fixes following the project rename to `com.openggf` / `OpenGGF`.
-- Test robustness improvements for missing ROM files and CI timeout tuning.
-- Minor gameplay fixes including Sonic 1 drowning visual corrections and Sonic 2 water configuration cleanup.
+- **Two-tier service architecture:** all 180+ game object classes migrated from direct singleton
+  access to a two-tier dependency injection pattern (`GameServices` global facade + `ObjectServices`
+  context-scoped injection). NoOp sentinels replace null checks throughout.
+- **GameRuntime:** explicit runtime object owns all mutable gameplay state, with `resetState()`
+  lifecycle on all singletons. Enables safe editor mode enter/exit and level rebuilds.
+- **LevelManager decomposition:** the engine's largest class broken into `LevelTilemapManager`,
+  `LevelTransitionCoordinator`, and `LevelDebugRenderer` with ~73 methods extracted.
+- **MutableLevel:** snapshot, mutation, and dirty-region tracking for level tile data — the
+  foundation for the upcoming level editor's undo/redo and real-time tile editing.
+- **Common code extraction (5 phases):** 15+ abstract base classes, 10+ shared utilities, and
+  systematic deduplication across all three games, including `SubpixelMotion`, `AnimationTimer`,
+  `FboHelper`, `AbstractMonitorObjectInstance`, `AbstractSpikeObjectInstance`,
+  `AbstractZoneScrollHandler`, and more.
+- **Sonic 3&K** expands with AIZ miniboss completion (defeat flow, napalm attack, staggered
+  explosions), signpost and results screen, Blue Ball special stages (WIP), per-character physics
+  profiles, palette cycling for all zones, 10+ new objects, and insta-shield implementation.
+- **Insta-shield** fully implemented with ROM parity: activation, hitbox expansion, persistent
+  lifecycle, cross-game donation, and DPLC cache management.
+- **Multi-sidekick system** with configurable sidekick chains, per-character respawn strategies,
+  virtual VRAM bank allocation, and VDP-accurate sprite priority ordering.
+- **Tails AI rework:** ROM-accurate respawn gating, PANIC mode rewrite, flying/despawn
+  improvements, P2 manual override, and per-zone boss/event wiring.
+- **Cross-game donation** now bidirectional: S1 can donate into S2/S3K, with `DonorCapabilities`
+  interface, `CanonicalAnimation` vocabulary, and `AnimationTranslator` for any game pair.
+- **Rendering pipeline:** PatternAtlas slot reclamation, batched DPLC updates, virtual pattern ID
+  validation, and fail-fast shader error handling.
+- Comprehensive user guide, 15+ design specs and implementation plans, and broad test coverage
+  improvements including automated singleton lifecycle testing.
+
+See CHANGELOG.md for full details.
 
 ### v0.4.20260304 (Released 2026-03-04)
 
