@@ -63,6 +63,7 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
 
     // Formation animation: mapping frames 0-7, delay=4 game frames per anim frame
     // ROM: AniRaw_SSEntryRing anim 0: dc.b 4, 0, 0, 1, 2, 3, 4, 5, 6, 7, $F8, $0C
+    // ROM Animate_Raw uses down-counter: delay N means N+1 game frames per anim frame
     private static final int FORMATION_DELAY = 4;
     private static final int[] FORMATION_FRAMES = {0, 0, 1, 2, 3, 4, 5, 6, 7};
 
@@ -71,15 +72,22 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
     private static final int IDLE_DELAY = 6;
     private static final int[] IDLE_FRAMES = {10, 9, 8, 11};
 
+    // ROM collision gate: mapping_frame must be >= 8 for collision to be active.
+    // Formation frames are 0-7, idle frames are 8-11. This is the definitive guard
+    // matching sonic3k.asm line 128261: cmpi.b #8,mapping_frame(a0) / blo.s locret_61708
+    private static final int COLLISION_FRAME_THRESHOLD = 8;
+
     // Ring award when all emeralds already collected
     private static final int RING_REWARD = 50;
 
     /** Object states matching ROM routine progression. */
     private enum State {
-        /** Formation animation playing, collision disabled. */
-        FORMING,
-        /** Idle animation, collision active. */
-        IDLE,
+        /**
+         * Main state: ring animates (formation then idle) and checks collision.
+         * Matches ROM's SSEntryRing_Main (routine 2) which handles BOTH formation
+         * and idle via Animate_Raw + mapping_frame >= 8 gate.
+         */
+        MAIN,
         /** Player touched ring, flash animation playing, awaiting deletion mark. */
         ENTERED,
         /** Ring marked for deletion by flash (bit 5 in ROM). */
@@ -91,7 +99,12 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
 
     private State state;
 
-    /** Game frame counter for animation timing. */
+    /**
+     * Animation down-counter matching ROM's Animate_Raw.
+     * Starts at the delay value and decrements each frame.
+     * When it underflows below 0, reload from current delay and advance frame.
+     * This gives delay+1 game frames per animation frame (ROM-accurate).
+     */
     private int animTimer;
 
     /** Current index into the active animation frame array. */
@@ -99,6 +112,9 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
 
     /** Current mapping frame to display. */
     private int mappingFrame;
+
+    /** Which animation is active: formation (false) or idle (true). */
+    private boolean inIdleAnim;
 
     public Sonic3kSSEntryRingObjectInstance(ObjectSpawn spawn) {
         super(spawn, "SSEntryRing");
@@ -112,7 +128,15 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
             return;
         }
 
-        this.state = State.FORMING;
+        // ROM: SSEntryRing_Init sets up animation pointer then falls through to
+        // SSEntryRing_Main. Animation starts with formation (anim 0).
+        // Timer initialised to 0 matching ROM's Animate_Raw: anim_frame_timer is cleared
+        // by SetUp_ObjAttributes, so the first Animate_Raw call immediately underflows
+        // (subq.b #1 → $FF), advancing to read the second frame byte.
+        // FORMATION_FRAMES[0] is the "initial frame" shown before the first update;
+        // the first advance reads FORMATION_FRAMES[1].
+        this.state = State.MAIN;
+        this.inIdleAnim = false;
         this.animTimer = 0;
         this.animIndex = 0;
         this.mappingFrame = FORMATION_FRAMES[0];
@@ -122,8 +146,7 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
     public void update(int frameCounter, PlayableEntity playerEntity) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
-            case FORMING -> updateFormation(player);
-            case IDLE -> updateIdle(player);
+            case MAIN -> updateMain(player);
             case ENTERED -> { /* Ring continues displaying; flash controls deletion */ }
             case MARKED_DELETE -> {
                 // ROM restores palette + reloads ArtKosM_BadnikExplosion here because
@@ -134,37 +157,81 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
         }
     }
 
-    private void updateFormation(AbstractPlayableSprite player) {
-        animTimer++;
-        if (animTimer >= FORMATION_DELAY) {
-            animTimer = 0;
+    /**
+     * Combined formation + idle handler matching ROM's SSEntryRing_Main.
+     * <p>
+     * ROM flow (sonic3k.asm line 128257-128269):
+     * <ol>
+     *   <li>{@code jsr (Animate_Raw).l} — advance animation</li>
+     *   <li>{@code cmpi.b #8,mapping_frame(a0) / blo.s locret} — gate collision on frame number</li>
+     *   <li>{@code jsr (Check_PlayerInRange).l} — manual range check</li>
+     * </ol>
+     * <p>
+     * ROM also calls {@code Obj_WaitOffscreen} before this routine, which prevents
+     * ALL processing while the ring is off-screen. We replicate this by skipping
+     * the entire update when the ring is not visible.
+     */
+    private void updateMain(AbstractPlayableSprite player) {
+        // ROM: Obj_WaitOffscreen — skip all processing while off-screen.
+        // This prevents the formation animation from advancing before the player
+        // can see the ring, ensuring the full grow-in is always visible.
+        if (!isOnScreen(OFFSCREEN_MARGIN)) {
+            return;
+        }
+
+        // ROM: jsr (Animate_Raw).l — advance animation using down-counter
+        advanceAnimation();
+
+        // ROM: cmpi.b #8,mapping_frame(a0) / blo.s locret_61708
+        // If ring hasn't finished forming (mapping_frame < 8), don't allow collision.
+        if (mappingFrame < COLLISION_FRAME_THRESHOLD) {
+            return;
+        }
+
+        // ROM: Check_PlayerInRange — manual range collision
+        if (player != null) {
+            checkCollision(player);
+        }
+    }
+
+    /** Margin for on-screen check matching ROM's Obj_WaitOffscreen tolerance. */
+    private static final int OFFSCREEN_MARGIN = 128;
+
+    /**
+     * Advances animation matching ROM's Animate_Raw down-counter pattern.
+     * Timer starts at delay value, decrements each frame. When it underflows
+     * below 0, the delay is reloaded and the frame index advances.
+     * This gives delay+1 game frames per animation frame (ROM-accurate).
+     */
+    private void advanceAnimation() {
+        animTimer--;
+        if (animTimer >= 0) {
+            return; // Still counting down — hold current frame
+        }
+
+        // Timer underflowed: advance to next frame
+        if (!inIdleAnim) {
+            // Currently in formation animation
             animIndex++;
             if (animIndex >= FORMATION_FRAMES.length) {
-                state = State.IDLE;
+                // Formation complete → transition to idle animation
+                // ROM: $F8,$0C command jumps to idle animation data
+                inIdleAnim = true;
                 animIndex = 0;
-                animTimer = 0;
+                animTimer = IDLE_DELAY;
                 mappingFrame = IDLE_FRAMES[0];
                 return;
             }
-        }
-        mappingFrame = FORMATION_FRAMES[animIndex];
-    }
-
-    private void updateIdle(AbstractPlayableSprite player) {
-        // Advance idle animation
-        animTimer++;
-        if (animTimer >= IDLE_DELAY) {
-            animTimer = 0;
+            animTimer = FORMATION_DELAY;
+            mappingFrame = FORMATION_FRAMES[animIndex];
+        } else {
+            // Currently in idle animation (looping)
             animIndex++;
             if (animIndex >= IDLE_FRAMES.length) {
-                animIndex = 0;
+                animIndex = 0; // ROM: $FC = loop to start
             }
-        }
-        mappingFrame = IDLE_FRAMES[animIndex];
-
-        // Check collision with player (ROM: mapping_frame >= 8 check)
-        if (player != null) {
-            checkCollision(player);
+            animTimer = IDLE_DELAY;
+            mappingFrame = IDLE_FRAMES[animIndex];
         }
     }
 
@@ -327,5 +394,22 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
     @Override
     public boolean shouldStayActiveWhenRemembered() {
         return state == State.ENTERED;
+    }
+
+    // --- Package-visible accessors for testing ---
+
+    /** Returns the current mapping frame index (for verifying animation state). */
+    int getMappingFrame() {
+        return mappingFrame;
+    }
+
+    /** Returns true if the ring is in formation (mapping_frame < 8, collision disabled). */
+    boolean isForming() {
+        return state == State.MAIN && mappingFrame < COLLISION_FRAME_THRESHOLD;
+    }
+
+    /** Returns true if the ring is in the main state (formation or idle). */
+    boolean isMainState() {
+        return state == State.MAIN;
     }
 }
