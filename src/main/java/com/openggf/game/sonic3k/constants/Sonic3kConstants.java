@@ -572,6 +572,58 @@ public class Sonic3kConstants {
     public static final int ART_UNC_AIZ2_FIRST_TREE_SIZE = 0x460;
     public static final int ART_UNC_AIZ2_FIRST_TREE_DEST_TILE = 0x0CA;
 
+    // ===== Title Screen Art (Kosinski compressed, S3 lock-on data) =====
+    // Sonic animation frames — frames 1-7 share Sonic1 art with different palettes/mappings
+    public static final int ART_KOS_TITLE_SONIC1_ADDR = 0x350D26;   // ArtKos_S3TitleSonic1 (frames 1-7)
+    public static final int ART_KOS_TITLE_SONIC8_ADDR = 0x351C86;   // ArtKos_S3TitleSonic8
+    public static final int ART_KOS_TITLE_SONIC9_ADDR = 0x3542E6;   // ArtKos_S3TitleSonic9
+    public static final int ART_KOS_TITLE_SONIC_A_ADDR = 0x3565E6;  // ArtKos_S3TitleSonicA
+    public static final int ART_KOS_TITLE_SONIC_B_ADDR = 0x357AC6;  // ArtKos_S3TitleSonicB
+    public static final int ART_KOS_TITLE_SONIC_C_ADDR = 0x358DE6;  // ArtKos_S3TitleSonicC
+    public static final int ART_KOS_TITLE_SONIC_D_ADDR = 0x359FC6;  // ArtKos_S3TitleSonicD (final frame)
+
+    // Title screen sprite art (Nemesis compressed)
+    public static final int ART_NEM_TITLE_BANNER_ADDR = 0x35026C;       // ArtNem_Title_S3Banner (VRAM $A000, tile $500)
+    public static final int ART_NEM_TITLE_SCREEN_TEXT_ADDR = 0x4D2A;     // ArtNem_TitleScreenText (VRAM $D000, tile $680)
+    public static final int ART_NEM_TITLE_SONIC_SPRITES_ADDR = 0x2C49CC; // ArtNem_Title_SonicSprites (VRAM $8000, tile $400)
+    public static final int ART_NEM_TITLE_AND_KNUCKLES_ADDR = 0xD6498;   // ArtNem_Title_ANDKnuckles (VRAM $9800, tile $4C0)
+
+    // Title screen Enigma plane mappings (S3 lock-on data)
+    public static final int MAP_ENI_TITLE_SONIC1_ADDR = 0x34F6A0;  // MapEni_S3TitleSonic1
+    public static final int MAP_ENI_TITLE_SONIC2_ADDR = 0x34F75C;  // MapEni_S3TitleSonic2
+    public static final int MAP_ENI_TITLE_SONIC3_ADDR = 0x34F81E;  // MapEni_S3TitleSonic3
+    public static final int MAP_ENI_TITLE_SONIC4_ADDR = 0x34F8E2;  // MapEni_S3TitleSonic4
+    public static final int MAP_ENI_TITLE_SONIC5_ADDR = 0x34F9A6;  // MapEni_S3TitleSonic5
+    public static final int MAP_ENI_TITLE_SONIC6_ADDR = 0x34FA6A;  // MapEni_S3TitleSonic6
+    public static final int MAP_ENI_TITLE_SONIC7_ADDR = 0x34FB30;  // MapEni_S3TitleSonic7
+    public static final int MAP_ENI_TITLE_SONIC8_ADDR = 0x34FC2E;  // MapEni_S3TitleSonic8
+    public static final int MAP_ENI_TITLE_SONIC9_ADDR = 0x34FD18;  // MapEni_S3TitleSonic9
+    public static final int MAP_ENI_TITLE_SONIC_A_ADDR = 0x34FDE6; // MapEni_S3TitleSonicA
+    public static final int MAP_ENI_TITLE_SONIC_B_ADDR = 0x34FEAA; // MapEni_S3TitleSonicB
+    public static final int MAP_ENI_TITLE_SONIC_C_ADDR = 0x34FF48; // MapEni_S3TitleSonicC
+    public static final int MAP_ENI_TITLE_SONIC_D_ADDR = 0x350018; // MapEni_S3TitleSonicD (final frame)
+    public static final int MAP_ENI_TITLE_BG_ADDR = 0x350112;      // MapEni_S3TitleBg (Plane B background)
+
+    // Title screen palettes (uncompressed, in S&K code section)
+    public static final int PAL_TITLE_TRANSITION_ADDR = 0x459C;     // Pal_Title (112 bytes, 7 colors x 8 steps)
+    public static final int PAL_TITLE_TRANSITION_SIZE = 112;
+    public static final int PAL_TITLE_SONIC1_ADDR = 0x460C;         // Pal_TitleSonic1 (read 64 bytes for 2 palette lines)
+    // Palettes 2-B are contiguous at 32-byte intervals: 0x462C, 0x464C, ...
+    public static final int PAL_TITLE_SONIC_D_ADDR = 0x47AC;        // Pal_TitleSonicD (128 bytes = 4 palette lines)
+    public static final int PAL_TITLE_SONIC_D_SIZE = 128;
+    public static final int PAL_TITLE_WATER_ROT_ADDR = 0x4904;      // Pal_TitleWaterRot (32 bytes, banner palette cycling)
+    public static final int PAL_TITLE_WATER_ROT_SIZE = 32;
+
+    // Title screen Enigma mapping sizes (for read buffer allocation)
+    public static final int MAP_ENI_TITLE_READ_SIZE = 1024;
+
+    // Title screen VRAM tile constants (from sonic3k.constants.asm)
+    public static final int VRAM_TITLE_BUFFER = 0x0300;          // ArtTile_Title_Buffer (double-buffer)
+    public static final int VRAM_TITLE_MISC = 0x0400;            // ArtTile_Title_Misc (Sonic sprites)
+    public static final int VRAM_TITLE_AND_KNUCKLES = 0x04C0;    // ArtTile_Title_ANDKnuckles
+    public static final int VRAM_TITLE_BANNER = 0x0500;          // ArtTile_Title_Banner
+    public static final int VRAM_TITLE_MENU = 0x0680;            // ArtTile_Title_Menu
+
     // ===== Title Card Art (KosinskiM compressed) =====
     // Shared art loaded to VRAM $500+
     public static final int ART_KOSM_TITLE_CARD_RED_ACT_ADDR = 0x0D6F28;   // Red banner + ACT text
