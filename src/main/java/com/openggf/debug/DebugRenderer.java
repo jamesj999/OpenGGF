@@ -31,8 +31,8 @@ public class DebugRenderer {
 	private static DebugRenderer debugRenderer;
 	// private final GraphicsManager graphicsManager = GraphicsManager
 	// .getInstance();
-	private final SpriteManager spriteManager = GameServices.sprites();
-	private final LevelManager levelManager = GameServices.level();
+	private final SpriteManager spriteManager = SpriteManager.getInstance();
+	private final LevelManager levelManager = LevelManager.getInstance();
         private final SonicConfigurationService configService = SonicConfigurationService
                         .getInstance();
         private final DebugOverlayManager overlayManager = GameServices.debugOverlay();

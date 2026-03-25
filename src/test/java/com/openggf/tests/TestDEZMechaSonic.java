@@ -5,11 +5,12 @@ import org.junit.Test;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.bosses.Sonic2MechaSonicInstance;
 import com.openggf.level.LevelManager;
+import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRegistry;
-import com.openggf.level.objects.DefaultObjectServices;
-import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.ObjectServices;
+import com.openggf.level.objects.TestObjectServices;
 import com.openggf.level.objects.TouchResponseTable;
 
 import java.lang.reflect.Field;
@@ -40,7 +41,7 @@ public class TestDEZMechaSonic {
 
     @Before
     public void setUp() {
-        DefaultObjectServices services = new DefaultObjectServices();
+        ObjectServices services = new TestObjectServices();
         setConstructionContext(services);
         try {
             boss = new Sonic2MechaSonicInstance(
@@ -53,7 +54,7 @@ public class TestDEZMechaSonic {
     }
 
     @SuppressWarnings("unchecked")
-    private static void setConstructionContext(DefaultObjectServices services) {
+    private static void setConstructionContext(ObjectServices services) {
         try {
             Field field = com.openggf.level.objects.AbstractObjectInstance.class
                     .getDeclaredField("CONSTRUCTION_CONTEXT");
@@ -226,11 +227,7 @@ public class TestDEZMechaSonic {
         when(touchTable.getWidthRadius(COLLISION_STANDING)).thenReturn(16);
         when(touchTable.getHeightRadius(COLLISION_STANDING)).thenReturn(27);
 
-        ObjectManager objectManager = new ObjectManager(
-                List.of(), new NoOpObjectRegistry(), 0, null, touchTable);
-
-
-        setConstructionContext(new DefaultObjectServices());
+        setConstructionContext(new TestObjectServices());
         Sonic2MechaSonicInstance testBoss;
         try {
             testBoss = new Sonic2MechaSonicInstance(

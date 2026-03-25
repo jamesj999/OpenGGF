@@ -1,5 +1,15 @@
 package com.openggf.game;
 
+import com.openggf.camera.Camera;
+import com.openggf.graphics.FadeManager;
+import com.openggf.level.LevelManager;
+import com.openggf.level.ParallaxManager;
+import com.openggf.level.WaterSystem;
+import com.openggf.physics.CollisionSystem;
+import com.openggf.physics.TerrainCollisionManager;
+import com.openggf.sprites.managers.SpriteManager;
+import com.openggf.timer.TimerManager;
+
 /**
  * Static holder for the current {@link GameRuntime}.
  * <p>
@@ -45,7 +55,20 @@ public final class RuntimeManager {
      * @return the newly created runtime
      */
     public static synchronized GameRuntime createGameplay() {
-        GameRuntime runtime = GameRuntime.createFromSingletons();
+        Camera camera = Camera.getInstance();
+        TimerManager timers = TimerManager.getInstance();
+        GameStateManager gameState = GameStateManager.getInstance();
+        FadeManager fadeManager = FadeManager.getInstance();
+        WaterSystem waterSystem = WaterSystem.getInstance();
+        ParallaxManager parallaxManager = ParallaxManager.getInstance();
+        TerrainCollisionManager terrainCollisionManager = TerrainCollisionManager.getInstance();
+        CollisionSystem collisionSystem = CollisionSystem.getInstance();
+        SpriteManager spriteManager = SpriteManager.getInstance();
+        LevelManager levelManager = LevelManager.getInstance();
+
+        GameRuntime runtime = new GameRuntime(camera, timers, gameState, fadeManager,
+                waterSystem, parallaxManager, terrainCollisionManager,
+                collisionSystem, spriteManager, levelManager);
         current = runtime;
         return runtime;
     }

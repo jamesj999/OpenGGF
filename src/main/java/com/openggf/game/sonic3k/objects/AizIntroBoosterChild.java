@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import java.util.logging.Logger;
 import com.openggf.camera.Camera;
@@ -78,7 +77,7 @@ public class AizIntroBoosterChild {
         int renderX = currentX;
         int renderY = currentY;
         try {
-            Camera camera = GameServices.camera();
+            Camera camera = Camera.getInstance();
             renderX += camera.getX() - 128;
             renderY += camera.getY() - 128;
         } catch (Exception e) {

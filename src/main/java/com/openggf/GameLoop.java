@@ -61,10 +61,13 @@ public class GameLoop {
     private static final Logger LOGGER = Logger.getLogger(GameLoop.class.getName());
 
     private final SonicConfigurationService configService = SonicConfigurationService.getInstance();
-    private SpriteManager spriteManager = GameServices.sprites();
-    private Camera camera = GameServices.camera();
-    private TimerManager timerManager = GameServices.timers();
-    private LevelManager levelManager = GameServices.level();
+    private SpriteManager spriteManager = SpriteManager.getInstance();
+    private Camera camera = Camera.getInstance();
+    private TimerManager timerManager = TimerManager.getInstance();
+    private LevelManager levelManager = LevelManager.getInstance();
+    private GameStateManager gameState = GameStateManager.getInstance();
+    private FadeManager fadeManager = FadeManager.getInstance();
+    private WaterSystem waterSystem = WaterSystem.getInstance();
     private final PerformanceProfiler profiler = PerformanceProfiler.getInstance();
     private final PlaybackDebugManager playbackDebugManager = PlaybackDebugManager.getInstance();
 
@@ -130,6 +133,9 @@ public class GameLoop {
             this.camera = runtime.getCamera();
             this.timerManager = runtime.getTimers();
             this.levelManager = runtime.getLevelManager();
+            this.gameState = runtime.getGameState();
+            this.fadeManager = runtime.getFadeManager();
+            this.waterSystem = runtime.getWaterSystem();
         }
     }
 
@@ -466,7 +472,7 @@ public class GameLoop {
             }
 
             // Check for transition requests that need fade-to-black
-            FadeManager fadeManager = GameServices.fade();
+            FadeManager fadeManager = this.fadeManager;
             if (!fadeManager.isActive()) {
                 if (levelManager.consumeRespawnRequest()) {
                     startRespawnFade();
@@ -712,7 +718,7 @@ public class GameLoop {
         }
 
         // Don't start another fade if one is already in progress
-        FadeManager fadeManager = GameServices.fade();
+        FadeManager fadeManager = this.fadeManager;
         if (fadeManager.isActive()) {
             return;
         }
@@ -724,7 +730,7 @@ public class GameLoop {
 
         // Mark emerald as collected now (so it shows in results screen)
         if (emeraldCollected) {
-            GameStateManager gsm = GameServices.gameState();
+            GameStateManager gsm = this.gameState;
             gsm.markEmeraldCollected(ssStageIndex);
             LOGGER.info("DEBUG: Collected emerald " + (ssStageIndex + 1) + "! Total: " + gsm.getEmeraldCount());
         }
@@ -755,7 +761,7 @@ public class GameLoop {
             return;
         }
 
-        FadeManager fadeManager = GameServices.fade();
+        FadeManager fadeManager = this.fadeManager;
         boolean screenAlreadyFaded = false;
         boolean fadeFromBlack = false;
 
@@ -799,7 +805,7 @@ public class GameLoop {
         AudioManager.getInstance().fadeOutMusic();
 
         // Determine which stage to enter
-        GameStateManager gsm = GameServices.gameState();
+        GameStateManager gsm = this.gameState;
         final int stageIndex = gsm.consumeCurrentSpecialStageIndexAndAdvance();
 
         if (screenAlreadyFaded) {
@@ -852,9 +858,9 @@ public class GameLoop {
 
             // Reveal the special stage
             if (fadeFromBlack) {
-                GameServices.fade().startFadeFromBlack(null);
+                fadeManager.startFadeFromBlack(null);
             } else {
-                GameServices.fade().startFadeFromWhite(null);
+                fadeManager.startFadeFromWhite(null);
             }
 
             LOGGER.info("Entered Special Stage " + (stageIndex + 1) + " (H32 mode: 256x224)");
@@ -875,7 +881,7 @@ public class GameLoop {
         }
 
         // Check if the SS manager pre-started a fade (S1: concurrent fade during exit spin)
-        FadeManager fadeManager = GameServices.fade();
+        FadeManager fadeManager = this.fadeManager;
         boolean fadeAlreadyWhite = (fadeManager.getState() == FadeManager.FadeState.HOLD_WHITE);
 
         if (!fadeAlreadyWhite && fadeManager.isActive()) {
@@ -891,7 +897,7 @@ public class GameLoop {
 
         // Mark emerald as collected now (so it shows in results screen)
         if (emeraldCollected) {
-            GameStateManager gsm = GameServices.gameState();
+            GameStateManager gsm = this.gameState;
             gsm.markEmeraldCollected(ssStageIndex);
             LOGGER.info("Collected emerald " + (ssStageIndex + 1) + "! Total: " + gsm.getEmeraldCount());
         }
@@ -924,7 +930,7 @@ public class GameLoop {
         resultsFrameCounter = 0;
 
         // Create results screen with current emerald count via provider
-        int totalEmeralds = GameServices.gameState().getEmeraldCount();
+        int totalEmeralds = gameState.getEmeraldCount();
         resultsScreen = ssProvider.createResultsScreen(
                 ssRingsCollected, ssEmeraldCollected, ssStageIndex, totalEmeralds);
 
@@ -940,7 +946,7 @@ public class GameLoop {
         }
 
         // Start fade-from-white to reveal the results screen
-        GameServices.fade().startFadeFromWhite(null);
+        fadeManager.startFadeFromWhite(null);
 
         LOGGER.info("Entered Special Stage Results Screen (rings=" + ssRingsCollected +
                 ", emerald=" + ssEmeraldCollected + ")");
@@ -957,7 +963,7 @@ public class GameLoop {
         }
 
         // Don't start another fade if one is already in progress
-        FadeManager fadeManager = GameServices.fade();
+        FadeManager fadeManager = this.fadeManager;
         if (fadeManager.isActive()) {
             return;
         }
@@ -996,7 +1002,7 @@ public class GameLoop {
                 gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);
             }
 
-            GameServices.fade().startFadeFromWhite(null);
+            fadeManager.startFadeFromWhite(null);
 
             LOGGER.info("Exited Results Screen, loaded starting level (no previous level)");
             return;
@@ -1027,7 +1033,7 @@ public class GameLoop {
         // Reveal the title card by fading from white (the screen is currently white
         // from exitResultsScreen()'s fade-to-white). Without this, the white overlay
         // persists indefinitely because completeFade() sees no new fade was started.
-        GameServices.fade().startFadeFromWhite(null);
+        fadeManager.startFadeFromWhite(null);
 
         LOGGER.info("Exited Results Screen, entering Title Card for zone " + zoneIndex + " act " + actIndex);
     }
@@ -1237,7 +1243,7 @@ public class GameLoop {
      * and transitions to the game-specific title screen.
      */
     private void exitMasterTitleScreen(MasterTitleScreen masterScreen) {
-        FadeManager fadeManager = GameServices.fade();
+        FadeManager fadeManager = this.fadeManager;
         if (fadeManager.isActive()) {
             return;
         }
@@ -1269,7 +1275,7 @@ public class GameLoop {
             currentGameMode = GameMode.LEVEL;
         }
 
-        GameServices.fade().startFadeFromBlack(null);
+        fadeManager.startFadeFromBlack(null);
 
         LOGGER.info("Exited master title screen, now in mode: " + currentGameMode);
     }
@@ -1339,7 +1345,7 @@ public class GameLoop {
         }
 
         // Don't start another fade if one is already in progress
-        FadeManager fadeManager = GameServices.fade();
+        FadeManager fadeManager = this.fadeManager;
         if (fadeManager.isActive()) {
             return;
         }
@@ -1416,7 +1422,7 @@ public class GameLoop {
                 gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);
             }
 
-            GameServices.fade().startFadeFromBlack(null);
+            fadeManager.startFadeFromBlack(null);
             LOGGER.info("Title screen -> EHZ Act 1");
         }
     }
@@ -1491,7 +1497,7 @@ public class GameLoop {
         }
 
         // Don't start another fade if one is already in progress
-        FadeManager fadeManager = GameServices.fade();
+        FadeManager fadeManager = this.fadeManager;
         if (fadeManager.isActive()) {
             return;
         }
@@ -1530,7 +1536,7 @@ public class GameLoop {
         }
 
         // Start fade-from-black to reveal the level select
-        GameServices.fade().startFadeFromBlack(null);
+        fadeManager.startFadeFromBlack(null);
 
         LOGGER.info("Entered Level Select screen");
     }
@@ -1545,7 +1551,7 @@ public class GameLoop {
         }
 
         // Don't start another fade if one is already in progress
-        FadeManager fadeManager = GameServices.fade();
+        FadeManager fadeManager = this.fadeManager;
         if (fadeManager.isActive()) {
             return;
         }
@@ -1582,7 +1588,7 @@ public class GameLoop {
             AudioManager.getInstance().fadeOutMusic();
 
             // Start fade-to-black, then load level
-            GameServices.fade().startFadeToBlack(() -> {
+            fadeManager.startFadeToBlack(() -> {
                 doExitLevelSelectToZone(zone, act);
             });
 
@@ -1611,7 +1617,7 @@ public class GameLoop {
         }
 
         // Start fade-from-black to reveal the title card
-        GameServices.fade().startFadeFromBlack(null);
+        fadeManager.startFadeFromBlack(null);
 
         LOGGER.info("Loaded zone " + zone + " act " + act + " from level select");
     }
@@ -1648,7 +1654,7 @@ public class GameLoop {
         AudioManager.getInstance().fadeOutMusic();
 
         // Start fade-to-black, then respawn when complete
-        GameServices.fade().startFadeToBlack(() -> {
+        fadeManager.startFadeToBlack(() -> {
             doRespawn();
         });
     }
@@ -1661,7 +1667,7 @@ public class GameLoop {
         levelManager.loadCurrentLevel();
 
         // Start fade-from-black to reveal the title card
-        GameServices.fade().startFadeFromBlack(null);
+        fadeManager.startFadeFromBlack(null);
 
         LOGGER.info("Respawned player, entering title card");
     }
@@ -1676,7 +1682,7 @@ public class GameLoop {
         AudioManager.getInstance().fadeOutMusic();
 
         // Start fade-to-black, then load next act when complete
-        GameServices.fade().startFadeToBlack(() -> {
+        fadeManager.startFadeToBlack(() -> {
             doNextAct();
         });
     }
@@ -1692,7 +1698,7 @@ public class GameLoop {
         }
 
         // Start fade-from-black to reveal the title card
-        GameServices.fade().startFadeFromBlack(null);
+        fadeManager.startFadeFromBlack(null);
 
         LOGGER.info("Loaded next act");
     }
@@ -1707,7 +1713,7 @@ public class GameLoop {
         AudioManager.getInstance().fadeOutMusic();
 
         // Start fade-to-black, then load next zone when complete
-        GameServices.fade().startFadeToBlack(() -> {
+        fadeManager.startFadeToBlack(() -> {
             doNextZone();
         });
     }
@@ -1723,7 +1729,7 @@ public class GameLoop {
         }
 
         // Start fade-from-black to reveal the title card
-        GameServices.fade().startFadeFromBlack(null);
+        fadeManager.startFadeFromBlack(null);
 
         LOGGER.info("Loaded next zone");
     }
@@ -1736,7 +1742,7 @@ public class GameLoop {
 
         AudioManager.getInstance().fadeOutMusic();
 
-        GameServices.fade().startFadeToBlack(() -> {
+        fadeManager.startFadeToBlack(() -> {
             doZoneAct(zone, act);
         });
     }
@@ -1751,7 +1757,7 @@ public class GameLoop {
             throw new RuntimeException("Failed to load zone " + zone + " act " + act, e);
         }
 
-        GameServices.fade().startFadeFromBlack(null);
+        fadeManager.startFadeFromBlack(null);
 
         LOGGER.info("Loaded zone " + zone + " act " + act);
     }
@@ -1948,7 +1954,7 @@ public class GameLoop {
     private void startEndingFade() {
         LOGGER.info("Starting fade-to-white for ending sequence");
         AudioManager.getInstance().fadeOutMusic();
-        GameServices.fade().startFadeToWhite(this::doEnterEnding);
+        fadeManager.startFadeToWhite(this::doEnterEnding);
     }
 
     /**
@@ -1974,7 +1980,7 @@ public class GameLoop {
         // Reveal the ending scene. Only start our own fade if the provider didn't
         // already start one during initialize() (e.g., S1 credits starts its own
         // fade-from-black with a state-advancing callback that must not be overwritten).
-        FadeManager fadeManager = GameServices.fade();
+        FadeManager fadeManager = this.fadeManager;
         if (!fadeManager.isActive()) {
             // Screen is currently white from startEndingFade's fade-to-white.
             // ROM: Normal_palette starts all $0EEE (white), display enabled.
@@ -2184,7 +2190,7 @@ public class GameLoop {
                 // starts at a lamppost where water has risen to 0x0308 with routine 1.
                 int featureZone = levelManager.getFeatureZoneId();
                 int featureAct = levelManager.getFeatureActId();
-                WaterSystem waterSystem = GameServices.water();
+                WaterSystem waterSystem = this.waterSystem;
                 waterSystem.setWaterLevelDirect(featureZone, featureAct,
                         Sonic1CreditsDemoData.LZ_LAMP_WATER_HEIGHT);
                 waterSystem.setWaterLevelTarget(featureZone, featureAct,
@@ -2273,7 +2279,7 @@ public class GameLoop {
 
         AudioManager.getInstance().fadeOutMusic();
 
-        FadeManager fadeManager = GameServices.fade();
+        FadeManager fadeManager = this.fadeManager;
         if (!fadeManager.isActive()) {
             fadeManager.startFadeToBlack(this::doExitEndingToTitleScreen);
         } else {
@@ -2297,7 +2303,7 @@ public class GameLoop {
             titleScreen.initialize();
         }
 
-        GameServices.fade().startFadeFromBlack(null);
+        fadeManager.startFadeFromBlack(null);
         LOGGER.info("Ending -> Title Screen");
     }
 

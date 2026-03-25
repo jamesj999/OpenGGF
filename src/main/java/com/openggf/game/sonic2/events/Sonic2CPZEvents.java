@@ -47,7 +47,7 @@ public class Sonic2CPZEvents extends Sonic2ZoneEvents {
         final int WATER_TARGET_Y = 0x508;
         var player = camera().getFocusedSprite();
         if (player != null && player.getX() >= WATER_RISE_TRIGGER_X) {
-            GameServices.water().setWaterLevelTarget(
+            waterSystem().setWaterLevelTarget(
                     ZONE_ID_CPZ_ROM, 1, WATER_TARGET_Y);
             cpzWaterTriggered = true;
         }
@@ -71,8 +71,8 @@ public class Sonic2CPZEvents extends Sonic2ZoneEvents {
                     setSidekickBounds(0x2A20, 0x2A20, null);
                     eventRoutine += 2;
                     bossSpawnDelay = 0;
-                    GameServices.audio().fadeOutMusic();
-                    GameServices.gameState().setCurrentBossId(1);
+                    audio().fadeOutMusic();
+                    gameState().setCurrentBossId(1);
                 }
             }
             case 4 -> {
@@ -83,7 +83,7 @@ public class Sonic2CPZEvents extends Sonic2ZoneEvents {
                 if (bossSpawnDelay >= 0x5A) {
                     spawnCPZBoss();
                     eventRoutine += 2;
-                    GameServices.audio().playMusic(Sonic2Music.BOSS.id);
+                    audio().playMusic(Sonic2Music.BOSS.id);
                 }
             }
             case 6 -> {

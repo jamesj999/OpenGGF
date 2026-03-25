@@ -117,7 +117,7 @@ class Sonic1EndingEvents extends Sonic1ZoneEvents {
             int sonicY = player.getCentreY() & 0xFFFF;
             Sonic1EndingSonicObjectInstance endSonic =
                     new Sonic1EndingSonicObjectInstance(sonicX, sonicY);
-            ObjectManager om = GameServices.level().getObjectManager();
+            ObjectManager om = levelManager().getObjectManager();
             if (om != null) {
                 om.addDynamicObject(endSonic);
             }

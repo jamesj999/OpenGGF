@@ -5,7 +5,7 @@ import org.junit.Test;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.DefaultObjectServices;
+import com.openggf.level.objects.TestObjectServices;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRegistry;
@@ -67,7 +67,7 @@ public class TestSonic1LavaGeyserOutOfRange {
     public void makerDeletesWhenXIsOutOfRange() {
         ObjectSpawn farSpawn = new ObjectSpawn(0x3E8, 0x700, 0x4C, 1, 0, false, 0);
         Sonic1LavaGeyserMakerObjectInstance maker = new Sonic1LavaGeyserMakerObjectInstance(farSpawn);
-        maker.setServices(new DefaultObjectServices());
+        maker.setServices(new TestObjectServices());
 
         maker.update(1, null);
 
@@ -79,7 +79,7 @@ public class TestSonic1LavaGeyserOutOfRange {
         ObjectSpawn bodySpawn = new ObjectSpawn(0x180, 0x700, 0x4D, 0, 0, false, 0);
         Sonic1LavaGeyserObjectInstance body = new Sonic1LavaGeyserObjectInstance(
                 bodySpawn, Sonic1LavaGeyserObjectInstance.Role.BODY, null, null, false);
-        body.setServices(new DefaultObjectServices());
+        body.setServices(new TestObjectServices());
 
         assertTrue("Body piece should remain persistent when X is in range, even if Y is off-screen",
                 body.isPersistent());

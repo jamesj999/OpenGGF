@@ -84,9 +84,9 @@ public class Sonic2CNZEvents extends Sonic2ZoneEvents {
                     eventRoutine += 2;
                     bossSpawnDelay = 0;
                     // ROM: Fade out music
-                    GameServices.audio().fadeOutMusic();
+                    audio().fadeOutMusic();
                     // ROM: Set Current_Boss_ID to 6 (CNZ boss ID in BossCollision_Index)
-                    GameServices.gameState().setCurrentBossId(6);
+                    gameState().setCurrentBossId(6);
 
                     // ROM: Load CNZ boss palette (Pal_CNZ_B to palette line 1)
                     // This palette contains the electricity effect colors
@@ -109,7 +109,7 @@ public class Sonic2CNZEvents extends Sonic2ZoneEvents {
                     spawnCNZBoss();
                     eventRoutine += 2;
                     // Start boss music
-                    GameServices.audio().playMusic(Sonic2Music.BOSS.id);
+                    audio().playMusic(Sonic2Music.BOSS.id);
                 }
             }
             case 6 -> {
@@ -166,7 +166,7 @@ public class Sonic2CNZEvents extends Sonic2ZoneEvents {
      * - Offset $C50 (3152): x = 3152 % 256 = 80, y = 3152 / 256 = 12
      */
     private void placeCNZArenaWalls() {
-        LevelManager levelManager = GameServices.level();
+        LevelManager levelManager = levelManager();
         Level level = levelManager.getCurrentLevel();
         if (level == null) {
             return;
@@ -214,7 +214,7 @@ public class Sonic2CNZEvents extends Sonic2ZoneEvents {
      * This allows Sonic to exit the arena to the right after defeating the boss.
      */
     private void removeCNZArenaWalls() {
-        LevelManager levelManager = GameServices.level();
+        LevelManager levelManager = levelManager();
         Level level = levelManager.getCurrentLevel();
         if (level == null || cnzRightWallX < 0) {
             return;

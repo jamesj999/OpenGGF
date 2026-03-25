@@ -3,7 +3,7 @@ package com.openggf.tests;
 import org.junit.Before;
 import org.junit.Test;
 import com.openggf.game.sonic2.objects.bosses.Sonic2DEZEggmanInstance;
-import com.openggf.level.objects.DefaultObjectServices;
+import com.openggf.level.objects.TestObjectServices;
 
 import java.lang.reflect.Field;
 
@@ -33,7 +33,7 @@ public class TestDEZEggman {
     @Before
     public void setUp() {
         eggman = new Sonic2DEZEggmanInstance(SPAWN_X, SPAWN_Y);
-        eggman.setServices(new DefaultObjectServices());
+        eggman.setServices(new TestObjectServices());
     }
 
     // ========================================================================

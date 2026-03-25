@@ -3,7 +3,8 @@ package com.openggf.game.sonic2;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.events.Sonic2DEZEvents;
-import com.openggf.level.objects.DefaultObjectServices;
+import com.openggf.level.objects.ObjectServices;
+import com.openggf.level.objects.TestObjectServices;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -42,7 +43,7 @@ public class TestTodo9_DEZEventSpecs {
         events.init(0);
         // Set construction context so that any objects spawned by event updates
         // (e.g., Silver Sonic) can call services() during their constructor.
-        setConstructionContext(new DefaultObjectServices());
+        setConstructionContext(new TestObjectServices());
     }
 
     @After
@@ -51,7 +52,7 @@ public class TestTodo9_DEZEventSpecs {
     }
 
     @SuppressWarnings("unchecked")
-    private static void setConstructionContext(DefaultObjectServices services) {
+    private static void setConstructionContext(ObjectServices services) {
         try {
             Field field = com.openggf.level.objects.AbstractObjectInstance.class
                     .getDeclaredField("CONSTRUCTION_CONTEXT");

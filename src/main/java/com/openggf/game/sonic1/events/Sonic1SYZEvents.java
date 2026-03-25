@@ -108,7 +108,7 @@ class Sonic1SYZEvents extends Sonic1ZoneEvents {
         camera().setMaxYTarget((short) BOSS_SYZ_Y);
 
         // ROM: Spawn boss object
-        LevelManager lm = GameServices.level();
+        LevelManager lm = levelManager();
         if (lm != null && lm.getObjectManager() != null) {
             // Create boss at spawn position (boss_syz_x + $1B0, boss_syz_y + $E)
             ObjectSpawn bossSpawn = new ObjectSpawn(
@@ -119,10 +119,10 @@ class Sonic1SYZEvents extends Sonic1ZoneEvents {
         }
 
         // ROM: QueueSound1 bgm_Boss
-        GameServices.audio().playMusic(Sonic1Music.BOSS.id);
+        audio().playMusic(Sonic1Music.BOSS.id);
 
         // ROM: f_lockscreen = 1 — gates the 64px right boundary extension in Sonic_LevelBound. Does NOT modify v_limitleft2 or v_limitright2; camera scrolls within natural level boundaries.
-        GameServices.gameState().setCurrentBossId(0x75);
+        gameState().setCurrentBossId(0x75);
         eventRoutine += 2; // advance to DLE_SYZ3end
     }
 

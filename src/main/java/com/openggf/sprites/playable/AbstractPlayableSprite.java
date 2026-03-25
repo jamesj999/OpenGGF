@@ -16,6 +16,10 @@ import com.openggf.game.PowerUpSpawner;
 import com.openggf.game.GroundMode;
 import com.openggf.game.ShieldType;
 import com.openggf.game.DamageCause;
+import com.openggf.game.GameStateManager;
+import com.openggf.game.LevelState;
+import com.openggf.game.RuntimeManager;
+import com.openggf.timer.TimerManager;
 
 import com.openggf.audio.GameAudioProfile;
 
@@ -24,6 +28,7 @@ import java.util.logging.Logger;
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.level.LevelManager;
+import com.openggf.level.WaterSystem;
 import com.openggf.physics.Direction;
 import com.openggf.physics.Sensor;
 import com.openggf.physics.TrigLookupTable;
@@ -490,7 +495,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 // Clear speed shoes
                 if (this.speedShoes) {
                         this.speedShoes = false;
-                        GameServices.timers().removeTimerForCode("SpeedShoes-" + getCode());
+                        currentTimerManager().removeTimerForCode("SpeedShoes-" + getCode());
                         defineSpeeds(); // Reset speeds to default
                 }
                 // Clear Super state
@@ -513,7 +518,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 }
                 this.speedShoes = false;
                 // Cancel any active speed shoes timer
-                GameServices.timers().removeTimerForCode("SpeedShoes-" + getCode());
+                currentTimerManager().removeTimerForCode("SpeedShoes-" + getCode());
                 this.invincibleFrames = 0;
                 this.invulnerableFrames = 0;
                 this.invincibleFrames = 0;
@@ -662,7 +667,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 this.speedShoes = true;
                 // Register speed shoes timer using the existing timer framework
                 // Duration is 1200 frames (20 seconds @ 60fps) per SPG Sonic 2
-                GameServices.timers().registerTimer(
+                currentTimerManager().registerTimer(
                                 new SpeedShoesTimer("SpeedShoes-" + getCode(), this));
         }
 
@@ -708,6 +713,40 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 return superSonic;
         }
 
+        public final Camera currentCamera() {
+                var runtime = RuntimeManager.getCurrent();
+                return runtime != null ? runtime.getCamera() : Camera.getInstance();
+        }
+
+        public final LevelManager currentLevelManager() {
+                var runtime = RuntimeManager.getCurrent();
+                return runtime != null ? runtime.getLevelManager() : LevelManager.getInstance();
+        }
+
+        public final LevelState currentLevelState() {
+                LevelManager levelManager = currentLevelManager();
+                return levelManager != null ? levelManager.getLevelGamestate() : null;
+        }
+
+        public final TimerManager currentTimerManager() {
+                var runtime = RuntimeManager.getCurrent();
+                return runtime != null ? runtime.getTimers() : TimerManager.getInstance();
+        }
+
+        public final GameStateManager currentGameState() {
+                var runtime = RuntimeManager.getCurrent();
+                return runtime != null ? runtime.getGameState() : GameStateManager.getInstance();
+        }
+
+        public final AudioManager currentAudioManager() {
+                return AudioManager.getInstance();
+        }
+
+        public final WaterSystem currentWaterSystem() {
+                var runtime = RuntimeManager.getCurrent();
+                return runtime != null ? runtime.getWaterSystem() : WaterSystem.getInstance();
+        }
+
         /**
          * Returns this character's secondary (double-jump) ability.
          * ROM: character_id determines Sonic=insta-shield, Tails=fly, Knuckles=glide.
@@ -722,19 +761,19 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         public int getRingCount() {
-                var levelState = GameServices.level().getLevelGamestate();
+                var levelState = currentLevelState();
                 return levelState != null ? levelState.getRings() : 0;
         }
 
         public void setRingCount(int ringCount) {
-                var levelState = GameServices.level().getLevelGamestate();
+                var levelState = currentLevelState();
                 if (levelState != null) {
                         levelState.setRings(ringCount);
                 }
         }
 
         public void addRings(int delta) {
-                var levelState = GameServices.level().getLevelGamestate();
+                var levelState = currentLevelState();
                 if (levelState != null) {
                         levelState.addRings(delta);
                 }
@@ -905,7 +944,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                         doubleJumpFlag = 0;
                         // S1 ROM parity (Sonic_ResetOnFloor):
                         // move.w #0,(v_itembonus).w ; clear enemy/block score chain.
-                        GameServices.gameState().resetItemBonus();
+                        currentGameState().resetItemBonus();
                 }
                 this.air = air;
                 // SPG: Push sensor Y offset changes based on air state
@@ -1237,7 +1276,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                                 if (shieldObject != null) {
                                         shieldObject.setVisible(true);
                                 }
-                                AudioManager audioManager = AudioManager.getInstance();
+                                AudioManager audioManager = currentAudioManager();
                                 GameAudioProfile audioProfile = audioManager.getAudioProfile();
                                 if (audioProfile != null) {
                                         audioManager.endMusicOverride(audioProfile.getInvincibilityMusicId());
@@ -1342,7 +1381,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                         setXSpeed((short) (0x200 * dir));
                         setYSpeed((short) -0x400);
                 }
-                AudioManager.getInstance().playSfx(resolveDamageSound(cause));
+                currentAudioManager().playSfx(resolveDamageSound(cause));
                 return true;
         }
 
@@ -1419,7 +1458,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 drownPreDeathTimer = 120;
                 // Lock camera - prevent following the sinking player
                 if (!cpuControlled) {
-                        GameServices.camera().setFrozen(true);
+                        currentCamera().setFrozen(true);
                 }
                 // ROM order: resume zone music first, then play drown SFX.
                 // playMusic() replaces the SMPS driver, so any SFX queued on the
@@ -1428,7 +1467,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 if (controller.getDrowning() != null) {
                         controller.getDrowning().onDrown();
                 }
-                AudioManager.getInstance().playSfx(GameSound.DROWN);
+                currentAudioManager().playSfx(GameSound.DROWN);
                 return true;
         }
 
@@ -1462,7 +1501,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 // Lock camera when dying - prevent following the falling corpse
                 // Only freeze camera for the main player, not for CPU sidekick
                 if (!cpuControlled) {
-                        GameServices.camera().setFrozen(true);
+                        currentCamera().setFrozen(true);
                 }
                 setInvulnerableFrames(0);
                 setInvincibleFrames(0);
@@ -1478,7 +1517,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 setHighPriority(true);
                 GameSound sound = resolveDamageSound(cause);
                 if (sound != null) {
-                        AudioManager.getInstance().playSfx(sound);
+                        currentAudioManager().playSfx(sound);
                 }
                 return true;
         }
@@ -2766,7 +2805,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 //   beq.s   loc_F6DE         ; Skip splash if y_vel is now 0
                 if (ySpeed != 0) {
                         // Play splash sound
-                        AudioManager.getInstance().playSfx(GameSound.SPLASH);
+                        currentAudioManager().playSfx(GameSound.SPLASH);
 
                         // Spawn splash object at water surface
                         spawnSplash();
@@ -2817,7 +2856,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 }
 
                 // Play splash sound
-                AudioManager.getInstance().playSfx(GameSound.SPLASH);
+                currentAudioManager().playSfx(GameSound.SPLASH);
 
                 // Spawn splash object at water surface
                 spawnSplash();

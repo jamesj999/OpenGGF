@@ -1,6 +1,5 @@
 package com.openggf.game.sonic1.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.game.sonic1.objects.badniks.Sonic1BallHogBadnikInstance;
 import com.openggf.game.sonic1.objects.badniks.Sonic1BombBadnikInstance;
@@ -26,7 +25,6 @@ import com.openggf.game.sonic1.objects.bosses.Sonic1SYZBossInstance;
 import com.openggf.game.sonic1.objects.bosses.Sonic1FZBossInstance;
 import com.openggf.game.sonic1.objects.bosses.Sonic1FalseFloorInstance;
 import com.openggf.game.sonic1.objects.bosses.Sonic1ScrapEggmanInstance;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectRegistry;
 
 /**
@@ -97,7 +95,7 @@ public class Sonic1ObjectRegistry extends AbstractObjectRegistry {
                 (spawn, registry) -> new Sonic1BumperObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.FLOATING_BLOCK,
                 (spawn, registry) -> new Sonic1FloatingBlockObjectInstance(spawn,
-                        GameServices.level().getRomZoneId()));
+                        currentRomZoneId()));
         factories.put(Sonic1ObjectIds.HARPOON,
                 (spawn, registry) -> new Sonic1HarpoonObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.SPIKED_POLE_HELIX,
@@ -139,12 +137,12 @@ public class Sonic1ObjectRegistry extends AbstractObjectRegistry {
                 (spawn, registry) -> new Sonic1HiddenBonusObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.COLLAPSING_FLOOR,
                 (spawn, registry) -> new Sonic1CollapsingFloorObjectInstance(
-                        spawn, GameServices.level().getRomZoneId()));
+                        spawn, currentRomZoneId()));
         factories.put(Sonic1ObjectIds.MOVING_BLOCK,
                 (spawn, registry) -> new Sonic1MovingBlockObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.SPIKED_BALL_CHAIN,
                 (spawn, registry) -> new Sonic1SpikedBallChainObjectInstance(spawn,
-                        GameServices.level().getRomZoneId()));
+                        currentRomZoneId()));
         factories.put(Sonic1ObjectIds.BIG_SPIKED_BALL,
                 (spawn, registry) -> new Sonic1BigSpikedBallObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.SLZ_ELEVATOR,
@@ -195,7 +193,7 @@ public class Sonic1ObjectRegistry extends AbstractObjectRegistry {
                 (spawn, registry) -> new Sonic1BallHogBadnikInstance(spawn));
         factories.put(Sonic1ObjectIds.SBZ_STOMPER_DOOR,
                 (spawn, registry) -> new Sonic1StomperDoorObjectInstance(spawn,
-                        GameServices.level().getRomZoneId()));
+                        currentRomZoneId()));
         factories.put(Sonic1ObjectIds.JUNCTION,
                 (spawn, registry) -> new Sonic1JunctionObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.RUNNING_DISC,

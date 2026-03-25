@@ -182,6 +182,23 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
         return lm != null ? lm.getObjectManager() : null;
     }
 
+    /**
+     * Static accessor for LevelManager, usable from object helper methods that are
+     * invoked outside a live object-services context.
+     */
+    protected static LevelManager staticLevelManager() {
+        return LevelManager.getInstance();
+    }
+
+    /**
+     * Static accessor for RingManager, usable from constructors/static helpers while
+     * keeping singleton access out of leaf-class bytecode.
+     */
+    protected static com.openggf.level.rings.RingManager staticRingManager() {
+        LevelManager lm = staticLevelManager();
+        return lm != null ? lm.getRingManager() : null;
+    }
+
     public void setDestroyed(boolean destroyed) {
         this.destroyed = destroyed;
     }
@@ -258,7 +275,7 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
         } catch (IllegalStateException e) {
             // Fallback for test environments or objects not managed by ObjectManager
             try {
-                LevelManager lm = GameServices.level();
+                LevelManager lm = staticLevelManager();
                 if (lm != null && lm.getObjectManager() != null) {
                     lm.getObjectManager().addDynamicObject(object);
                 }
@@ -318,7 +335,7 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
      * Returns the ObjectRenderManager, or null if not available.
      */
     protected static ObjectRenderManager getRenderManager() {
-        LevelManager lm = GameServices.level();
+        LevelManager lm = staticLevelManager();
         return (lm != null) ? lm.getObjectRenderManager() : null;
     }
 

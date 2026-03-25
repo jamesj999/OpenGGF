@@ -4,12 +4,12 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import com.openggf.camera.Camera;
-import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
-import com.openggf.level.objects.DefaultObjectServices;
+import com.openggf.level.objects.TestObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.tests.TestEnvironment;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
@@ -36,22 +36,23 @@ public class SwScrlAizTest {
 
     @Before
     public void setUp() {
+        TestEnvironment.resetAll();
         handler = new SwScrlAiz();
-        GameServices.camera().setLevelStarted(true);
+        Camera.getInstance().setLevelStarted(true);
         Sonic3kLevelEventManager.getInstance().resetState();
         resetIntroScrollState();
     }
 
     @After
     public void tearDown() {
-        GameServices.camera().setLevelStarted(true);
+        Camera.getInstance().setLevelStarted(true);
         Sonic3kLevelEventManager.getInstance().resetState();
         resetIntroScrollState();
     }
 
     @Test
     public void introModeMatchesApplyDeformationForCameraSource() {
-        GameServices.camera().setLevelStarted(false);
+        Camera.getInstance().setLevelStarted(false);
         int[] buffer = new int[VISIBLE_LINES];
         int cameraX = 0x400;
         int cameraY = 0x3C0;
@@ -81,7 +82,7 @@ public class SwScrlAizTest {
 
     @Test
     public void normalModeUsesPerBandParallaxAndHalfVerticalCamera() {
-        GameServices.camera().setLevelStarted(true);
+        Camera.getInstance().setLevelStarted(true);
         int[] buffer = new int[VISIBLE_LINES];
         int cameraX = 0x200;
         int cameraY = 0x80;
@@ -131,7 +132,7 @@ public class SwScrlAizTest {
 
     @Test
     public void mountainBandsUseCorrectMultipliers() {
-        GameServices.camera().setLevelStarted(true);
+        Camera.getInstance().setLevelStarted(true);
         int[] buffer = new int[VISIBLE_LINES];
         // cameraX=0x1400: relative=256, base=256*2048=524288 (base>>16=8)
         // cameraY=640: bgY=320, which skips bands 0-2 fully and part of band 3
@@ -270,7 +271,7 @@ public class SwScrlAizTest {
 
     @Test
     public void aiz2UsesScatteredSpeedParallaxWithDifferentBands() {
-        GameServices.camera().setLevelStarted(true);
+        Camera.getInstance().setLevelStarted(true);
         int[] buffer = new int[VISIBLE_LINES];
         int cameraX = 0x2000;
         int cameraY = 0x80;
@@ -330,7 +331,7 @@ public class SwScrlAizTest {
 
     @Test
     public void aiz2DiffersFromAiz1AtSamePosition() {
-        GameServices.camera().setLevelStarted(true);
+        Camera.getInstance().setLevelStarted(true);
         int cameraX = 0x2000;
         int cameraY = 0x80;
 
@@ -355,7 +356,7 @@ public class SwScrlAizTest {
 
     @Test
     public void postBurnFineHazeUsesAiz2ForegroundDeltaTable() {
-        GameServices.camera().setLevelStarted(true);
+        Camera.getInstance().setLevelStarted(true);
         int[] buffer = new int[VISIBLE_LINES];
         int cameraX = 0x2E20;
         int cameraY = 0x180;
@@ -471,7 +472,7 @@ public class SwScrlAizTest {
     private void activateIntroScrollState() {
         AizPlaneIntroInstance intro = new AizPlaneIntroInstance(
                 new ObjectSpawn(0x60, 0x30, 0, 0, 0, false, 0));
-        intro.setServices(new DefaultObjectServices());
+        intro.setServices(new TestObjectServices().withCamera(Camera.getInstance()));
         // First update: routine 0 → init (resets introScrollOffset to 0, advances to routine 2)
         intro.update(0, null);
         // Second update: scrollVelocity runs before routine 2, sets introScrollOffset < 0

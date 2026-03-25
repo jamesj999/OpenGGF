@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.objects.badniks.CaterkillerJrHeadInstance;
 import com.openggf.game.sonic3k.objects.badniks.MonkeyDudeBadnikInstance;
 import com.openggf.game.sonic3k.constants.S3kZoneSet;
@@ -130,7 +129,7 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
     }
 
     private S3kZoneSet getCurrentZoneSet() {
-        int romZoneId = GameServices.level().getRomZoneId();
+        int romZoneId = currentRomZoneId();
         if (romZoneId < 0) {
             return S3kZoneSet.S3KL;
         }

@@ -1,5 +1,7 @@
 package com.openggf.level.objects;
 
+import com.openggf.level.LevelManager;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,6 +55,16 @@ public abstract class AbstractObjectRegistry implements ObjectRegistry {
      */
     protected void registerFactory(int objectId, ObjectFactory factory) {
         factories.put(objectId, factory);
+    }
+
+    /**
+     * Returns the ROM zone id for the currently loaded level, or -1 when no level
+     * is active yet. Centralized here so per-game registries don't need their own
+     * direct LevelManager singleton lookups.
+     */
+    protected int currentRomZoneId() {
+        LevelManager levelManager = LevelManager.getInstance();
+        return levelManager != null ? levelManager.getRomZoneId() : -1;
     }
 
     /**

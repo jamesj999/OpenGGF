@@ -2,6 +2,7 @@ package com.openggf.tests.physics;
 
 import com.openggf.game.GameServices;
 import com.openggf.physics.*;
+import com.openggf.tests.TestEnvironment;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -21,6 +22,7 @@ public class CollisionSystemTest {
 
     @Before
     public void setUp() {
+        TestEnvironment.resetAll();
         GameServices.collision().resetState();
         collisionSystem = GameServices.collision();
         trace = new RecordingCollisionTrace();

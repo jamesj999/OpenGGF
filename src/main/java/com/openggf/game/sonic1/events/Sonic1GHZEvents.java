@@ -153,15 +153,15 @@ class Sonic1GHZEvents extends Sonic1ZoneEvents {
         ObjectSpawn bossSpawn = new ObjectSpawn(
                 bossSpawnX, bossSpawnY,
                 Sonic1ObjectIds.GHZ_BOSS, 0, 0, false, 0);
-        LevelManager lm = GameServices.level();
+        LevelManager lm = levelManager();
         Sonic1GHZBossInstance boss = new Sonic1GHZBossInstance(bossSpawn);
         if (lm.getObjectManager() != null) {
             lm.getObjectManager().addDynamicObject(boss);
         }
-        GameServices.audio().playMusic(Sonic1Music.BOSS.id);
+        audio().playMusic(Sonic1Music.BOSS.id);
 
         // ROM: f_lockscreen = 1 — gates the 64px right boundary extension in Sonic_LevelBound. Does NOT modify v_limitleft2 or v_limitright2; camera continues scrolling within natural level boundaries. setBossId() is the Java equivalent.
-        GameServices.gameState().setCurrentBossId(Sonic1ObjectIds.GHZ_BOSS);
+        gameState().setCurrentBossId(Sonic1ObjectIds.GHZ_BOSS);
         eventRoutine += 2; // advance to DLE_GHZ3end
     }
 

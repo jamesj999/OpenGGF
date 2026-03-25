@@ -1,6 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.GameServices;
+import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.physics.Direction;
@@ -139,7 +139,7 @@ final class AizVineHandleLogic {
         player.setControlLocked(true);
         player.setRenderFlips(player.getDirection() == Direction.LEFT, false);
         playerState.grabFlag = 1;
-        GameServices.audio().playSfx(Sonic3kSfx.GRAB.id);
+        AudioManager.getInstance().playSfx(Sonic3kSfx.GRAB.id);
     }
 
     private static boolean canGrab(State handle, AbstractPlayableSprite player) {

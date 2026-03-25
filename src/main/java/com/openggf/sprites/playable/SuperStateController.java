@@ -2,7 +2,6 @@ package com.openggf.sprites.playable;
 
 import com.openggf.data.RomByteReader;
 import com.openggf.game.CrossGameFeatureProvider;
-import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.LevelState;
 import com.openggf.game.PhysicsProfile;
@@ -105,7 +104,7 @@ public abstract class SuperStateController {
                 }
             }
         }
-        Level level = GameServices.level().getCurrentLevel();
+        Level level = player.currentLevelManager().getCurrentLevel();
         if (level == null) return null;
         Palette p = level.getPalette(logicalLine);
         return p != null ? new PaletteTarget(p, logicalLine) : null;
@@ -158,7 +157,7 @@ public abstract class SuperStateController {
 
     private boolean canTransform() {
         if (player.isSuperSonic()) return false;
-        if (!GameServices.gameState().hasAllEmeralds()) return false;
+        if (!player.currentGameState().hasAllEmeralds()) return false;
         if (player.getRingCount() < getMinRingsToTransform()) return false;
         if (player.getDead() || player.isHurt() || player.isDebugMode()) return false;
         if (player.isObjectControlled()) return false;
@@ -193,7 +192,7 @@ public abstract class SuperStateController {
         // When the signpost/egg prison clears the timer, Super Sonic reverts.
         // Do NOT use player.isObjectControlled() - many objects (CPZ pipes, grabbers)
         // set that flag temporarily, causing false detransformation.
-        LevelState levelState = GameServices.level().getLevelGamestate();
+        LevelState levelState = player.currentLevelState();
         if (levelState != null && levelState.isTimerPaused()) {
             revertToNormal();
             return;

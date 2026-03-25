@@ -5,7 +5,6 @@ import com.openggf.game.sonic1.Sonic1SwitchManager;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectManager;

@@ -45,7 +45,7 @@ public class Sonic2ARZEvents extends Sonic2ZoneEvents {
                     setSidekickBounds((int) camera().getX(), null, 0x400);
                     eventRoutine += 2;
                     // ROM: move.b #4,(Current_Boss_ID).w
-                    GameServices.gameState().setCurrentBossId(4);
+                    gameState().setCurrentBossId(4);
                     // ROM: LoadPLC for ARZ boss art (handled elsewhere)
                 }
             }
@@ -59,7 +59,7 @@ public class Sonic2ARZEvents extends Sonic2ZoneEvents {
                     eventRoutine += 2;
                     bossSpawnDelay = 0;
                     // ROM: Fade out music
-                    GameServices.audio().fadeOutMusic();
+                    audio().fadeOutMusic();
                     // ROM: Spawn ARZ boss (obj89) - this is where the boss is created!
                     spawnARZBoss();
                 }
@@ -75,7 +75,7 @@ public class Sonic2ARZEvents extends Sonic2ZoneEvents {
                 if (bossSpawnDelay >= 0x5A) {
                     eventRoutine += 2;
                     // Start boss music
-                    GameServices.audio().playMusic(Sonic2Music.BOSS.id);
+                    audio().playMusic(Sonic2Music.BOSS.id);
                 }
             }
             case 6 -> {

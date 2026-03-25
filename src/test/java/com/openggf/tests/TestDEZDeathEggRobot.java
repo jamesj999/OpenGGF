@@ -7,9 +7,9 @@ import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.bosses.Sonic2DeathEggRobotInstance;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.DefaultObjectServices;
 import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.TestObjectServices;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.objects.TouchResponseAttackable;
 import com.openggf.level.objects.boss.BossChildComponent;
@@ -39,7 +39,7 @@ public class TestDEZDeathEggRobot {
     private static final int BOSS_Y = 0x4A0;
 
     private Sonic2DeathEggRobotInstance boss;
-    private DefaultObjectServices services;
+    private ObjectServices services;
 
     @SuppressWarnings("unchecked")
     private static void setConstructionContext(ObjectServices svc) {
@@ -65,7 +65,7 @@ public class TestDEZDeathEggRobot {
 
     @Before
     public void setUp() {
-        services = new DefaultObjectServices();
+        services = new TestObjectServices();
         setConstructionContext(services);
         try {
             boss = new Sonic2DeathEggRobotInstance(
@@ -452,7 +452,7 @@ public class TestDEZDeathEggRobot {
         // Boss construction no longer takes LevelManager, so children are registered
         // when services are injected by ObjectManager (which is a runtime concern).
         // This test verifies the boss still creates its children during init.
-        setConstructionContext(new DefaultObjectServices());
+        setConstructionContext(new TestObjectServices());
         Sonic2DeathEggRobotInstance boss2;
         try {
             boss2 = new Sonic2DeathEggRobotInstance(
@@ -495,7 +495,7 @@ public class TestDEZDeathEggRobot {
         java.lang.reflect.Constructor<?> ctor = sensorClass.getDeclaredConstructor(
                 Sonic2DeathEggRobotInstance.class, int.class, int.class);
         ctor.setAccessible(true);
-        setConstructionContext(new DefaultObjectServices());
+        setConstructionContext(new TestObjectServices());
         Object sensor;
         try {
             sensor = ctor.newInstance(boss, 100, 200);

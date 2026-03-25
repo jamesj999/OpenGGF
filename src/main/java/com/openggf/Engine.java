@@ -51,10 +51,10 @@ public class Engine {
 	private static final Logger LOGGER = Logger.getLogger(Engine.class.getName());
 	public static final String RESOURCES_SHADERS_PIXEL_SHADER_GLSL = "shaders/shader_the_hedgehog.glsl";
 	private final SonicConfigurationService configService = SonicConfigurationService.getInstance();
-	private SpriteManager spriteManager = GameServices.sprites();
+	private SpriteManager spriteManager = SpriteManager.getInstance();
 	private final GraphicsManager graphicsManager = GraphicsManager.getInstance();
 
-	private Camera camera = GameServices.camera();
+	private Camera camera = Camera.getInstance();
 	// Lazy-initialized: DebugRenderer.<clinit> references java.awt.Color which
 	// is unavailable in GraalVM native-image builds.
 	private DebugRenderer debugRenderer;
@@ -79,7 +79,7 @@ public class Engine {
 
 	private boolean debugViewEnabled = configService.getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
 
-	private LevelManager levelManager = GameServices.level();
+	private LevelManager levelManager = LevelManager.getInstance();
 
 	// The gameplay runtime — set during initializeGame()
 	private com.openggf.game.GameRuntime runtime;

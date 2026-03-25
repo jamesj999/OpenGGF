@@ -660,7 +660,7 @@ public class RingManager {
         private final RingRenderer renderer;
         private final TouchResponseTable touchResponseTable;
         private final AudioManager audioManager = AudioManager.getInstance();
-        private final Camera camera = GameServices.camera();
+        private final Camera camera = Camera.getInstance();
         private final LostRing[] ringPool = new LostRing[MAX_LOST_RINGS];
         private int activeRingCount = 0;
         private int nextId;

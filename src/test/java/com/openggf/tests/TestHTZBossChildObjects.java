@@ -12,10 +12,11 @@ import com.openggf.game.sonic2.objects.bosses.HTZBossSmokeParticle;
 import com.openggf.game.sonic2.objects.bosses.LavaBubbleObjectInstance;
 import com.openggf.game.sonic2.objects.bosses.Sonic2HTZBossInstance;
 import com.openggf.level.LevelManager;
-import com.openggf.level.objects.DefaultObjectServices;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.ObjectServices;
+import com.openggf.level.objects.TestObjectServices;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.ObjectTerrainUtils;
@@ -54,8 +55,6 @@ public class TestHTZBossChildObjects {
         levelManagerField.setAccessible(true);
         originalLevelManager = (LevelManager) levelManagerField.get(null);
         originalRuntime = RuntimeManager.getCurrent();
-        // Clear runtime so GameServices.level() falls back to LevelManager.getInstance()
-        // which we mock via reflection below
         RuntimeManager.setCurrent(null);
         mockLevelManager = mock(LevelManager.class);
     }
@@ -68,6 +67,7 @@ public class TestHTZBossChildObjects {
 
     @Test
     public void lavaBubbleUsesSolRendererAndFireFrames() throws Exception {
+        ObjectServices services = services();
 
         ObjectRenderManager renderManager = mock(ObjectRenderManager.class);
         PatternSpriteRenderer renderer = mock(PatternSpriteRenderer.class);
@@ -79,7 +79,7 @@ public class TestHTZBossChildObjects {
         levelManagerField.set(null, mockLevelManager);
 
         LavaBubbleObjectInstance bubble = new LavaBubbleObjectInstance(100, 200);
-        bubble.setServices(new DefaultObjectServices());
+        bubble.setServices(services);
         assertEquals(Sonic2ObjectIds.LAVA_BUBBLE, bubble.getSpawn().objectId());
 
         bubble.appendRenderCommands(new ArrayList<>());
@@ -103,6 +103,7 @@ public class TestHTZBossChildObjects {
 
     @Test
     public void flamethrowerUsesHtzChildTileBaseOffset() throws Exception {
+        ObjectServices services = services();
 
         ObjectRenderManager renderManager = mock(ObjectRenderManager.class);
         PatternSpriteRenderer renderer = mock(PatternSpriteRenderer.class);
@@ -115,9 +116,9 @@ public class TestHTZBossChildObjects {
 
         Sonic2HTZBossInstance parent = new Sonic2HTZBossInstance(
                 new ObjectSpawn(0x3040, 0x0580, Sonic2ObjectIds.HTZ_BOSS, 0, 0, false, 0));
-        parent.setServices(new DefaultObjectServices());
+        parent.setServices(services);
         HTZBossFlamethrower flamethrower = new HTZBossFlamethrower(parent, 0x3040, 0x0564, false);
-        flamethrower.setServices(new DefaultObjectServices());
+        flamethrower.setServices(services);
 
         flamethrower.appendRenderCommands(new ArrayList<>());
         verify(renderer).drawPatternIndex(eq(0xC1), eq(0x2FCC), eq(0x0560), eq(0));
@@ -125,6 +126,7 @@ public class TestHTZBossChildObjects {
 
     @Test
     public void lavaBallUsesHtzChildTileBaseOffsetBeforeLanding() throws Exception {
+        ObjectServices services = services();
 
         ObjectRenderManager renderManager = mock(ObjectRenderManager.class);
         PatternSpriteRenderer renderer = mock(PatternSpriteRenderer.class);
@@ -137,9 +139,9 @@ public class TestHTZBossChildObjects {
 
         Sonic2HTZBossInstance parent = new Sonic2HTZBossInstance(
                 new ObjectSpawn(0x3040, 0x0580, Sonic2ObjectIds.HTZ_BOSS, 0, 0, false, 0));
-        parent.setServices(new DefaultObjectServices());
+        parent.setServices(services);
         HTZBossLavaBall lavaBall = new HTZBossLavaBall(parent, 0x3040, 0x0580, true, false);
-        lavaBall.setServices(new DefaultObjectServices());
+        lavaBall.setServices(services);
 
         lavaBall.appendRenderCommands(new ArrayList<>());
         verify(renderer).drawPatternIndex(eq(0xC3), eq(0x3038), eq(0x0578), eq(0));
@@ -150,6 +152,7 @@ public class TestHTZBossChildObjects {
 
     @Test
     public void lavaBallTransformsToGroundFireWhenLandingOnSurface() throws Exception {
+        ObjectServices services = services();
 
         ObjectManager objectManager = mock(ObjectManager.class);
         when(mockLevelManager.getObjectManager()).thenReturn(objectManager);
@@ -157,9 +160,9 @@ public class TestHTZBossChildObjects {
 
         Sonic2HTZBossInstance parent = new Sonic2HTZBossInstance(
                 new ObjectSpawn(0x3040, 0x0580, Sonic2ObjectIds.HTZ_BOSS, 0, 0, false, 0));
-        parent.setServices(new DefaultObjectServices());
+        parent.setServices(services);
         HTZBossLavaBall lavaBall = new HTZBossLavaBall(parent, 0x3040, 0x0580, true, false);
-        lavaBall.setServices(new DefaultObjectServices());
+        lavaBall.setServices(services);
         parent.getState().lastUpdatedFrame = 1;
 
         try (MockedStatic<ObjectTerrainUtils> terrain = mockStatic(ObjectTerrainUtils.class)) {
@@ -175,16 +178,17 @@ public class TestHTZBossChildObjects {
 
     @Test
     public void htzBossHazardsAreTouchResponseProviders() {
+        ObjectServices services = services();
         Sonic2HTZBossInstance parent = new Sonic2HTZBossInstance(
                 new ObjectSpawn(0x3040, 0x0580, Sonic2ObjectIds.HTZ_BOSS, 0, 0, false, 0));
-        parent.setServices(new DefaultObjectServices());
+        parent.setServices(services);
 
         HTZBossFlamethrower flamethrower = new HTZBossFlamethrower(parent, 0x3040, 0x0564, false);
-        flamethrower.setServices(new DefaultObjectServices());
+        flamethrower.setServices(services);
         HTZBossLavaBall lavaBall = new HTZBossLavaBall(parent, 0x3040, 0x0580, true, false);
-        lavaBall.setServices(new DefaultObjectServices());
+        lavaBall.setServices(services);
         LavaBubbleObjectInstance bubble = new LavaBubbleObjectInstance(0x3040, 0x0580);
-        bubble.setServices(new DefaultObjectServices());
+        bubble.setServices(services);
 
         assertTrue(flamethrower instanceof TouchResponseProvider);
         assertTrue(lavaBall instanceof TouchResponseProvider);
@@ -193,5 +197,9 @@ public class TestHTZBossChildObjects {
         assertEquals(0, flamethrower.getCollisionProperty());
         assertEquals(0, lavaBall.getCollisionProperty());
         assertEquals(0, bubble.getCollisionProperty());
+    }
+
+    private TestObjectServices services() {
+        return new TestObjectServices().withLevelManager(mockLevelManager);
     }
 }

@@ -1,7 +1,7 @@
 package com.openggf.sprites.managers;
 
 import com.openggf.game.GameModuleRegistry;
-import com.openggf.game.GameServices;
+import com.openggf.game.GameStateManager;
 import com.openggf.game.LevelEventProvider;
 import com.openggf.game.PhysicsFeatureSet;
 
@@ -66,8 +66,9 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	// Controlled roll deceleration: derived per-frame from sprite.getRunDecel() >> 2
 	// (s1:01 Sonic.asm:595-601 — rollDecel = decel/4 = $80/4 = $20)
 
-	private final CollisionSystem collisionSystem = GameServices.collision();
+	private final CollisionSystem collisionSystem = CollisionSystem.getInstance();
 	private final AudioManager audioManager = AudioManager.getInstance();
+	private final GameStateManager gameState = GameStateManager.getInstance();
 
 	// Cached speed constants (don't change with speed shoes)
 	private final short slopeRunning;
@@ -97,6 +98,14 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		slopeRollingUp = sprite.getSlopeRollingUp();
 		slopeRollingDown = sprite.getSlopeRollingDown();
 		rollDecel = sprite.getRollDecel();
+	}
+
+	private Camera camera() {
+		return sprite.currentCamera();
+	}
+
+	private LevelManager levelManager() {
+		return sprite.currentLevelManager();
 	}
 
 	/**
@@ -389,7 +398,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 		// ROM: Reset_Player_Position_Array before setting scroll delay
 		sprite.resetPositionHistory();
-		Camera camera = GameServices.camera();
+		Camera camera = camera();
 		if (camera != null && camera.getFocusedSprite() == sprite) {
 			camera.setHorizScrollDelay(32 - ((spindashGSpeed - 0x800) >> 7));
 		}
@@ -581,7 +590,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		sprite.setYSpeed((short) 0);
 		// ROM: Reset_Player_Position_Array then set H_scroll_frame_offset = $2000
 		sprite.resetPositionHistory();
-		Camera camera = GameServices.camera();
+		Camera camera = camera();
 		if (camera != null && camera.getFocusedSprite() == sprite) {
 			camera.setHorizScrollDelay(32);
 		}
@@ -644,7 +653,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		short runDecel = sprite.getRunDecel();
 		short friction = sprite.getFriction();
 		short max = sprite.getMax();
-		Camera camera = GameServices.camera();
+		Camera camera = camera();
 
 		// Move lock - skip input processing but still apply friction
 		// ROM: When move_lock is active, branches to Obj01_ResetScr which continues
@@ -797,7 +806,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	/** Sonic_RollSpeed: Roll deceleration and velocity conversion (s2.asm:36666) */
 	private void doRollSpeed() {
 		short gSpeed = sprite.getGSpeed();
-		GameServices.camera().easeYBiasToDefault();
+		camera().easeYBiasToDefault();
 
 		// ROM: tst.b (f_slidemode).w / bne.w loc_131CC (s1.asm:602-603)
 		// When sliding, skip input and friction — go straight to velocity conversion.
@@ -884,7 +893,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			}
 		}
 
-		GameServices.camera().easeYBiasToDefault();
+		camera().easeYBiasToDefault();
 
 		// Air drag near apex (-1024 <= ySpeed < 0)
 		if (ySpeed < 0 && ySpeed >= -1024) {
@@ -927,7 +936,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		if (sprite.isObjectControlled()) {
 			return;
 		}
-		Camera camera = GameServices.camera();
+		Camera camera = camera();
 		if (camera == null) return;
 
 		// ROM uses center coordinates for x_pos, so boundary offsets are calibrated for center
@@ -948,7 +957,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 		int leftBoundary = minX + LEFT_OFFSET;
 		int rightBoundary = maxX + SCREEN_WIDTH - SONIC_WIDTH;
-		if (!GameServices.gameState().isBossFightActive()) {
+		if (!gameState.isBossFightActive()) {
 			rightBoundary += RIGHT_EXTRA;
 		}
 
@@ -1765,7 +1774,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		sprite.setGSpeed((short) 0);
 		sprite.setXSpeed((short) 0);
 
-		Camera camera = GameServices.camera();
+		Camera camera = camera();
 		if (camera != null && sprite.getY() > camera.getY() + camera.getHeight() + 256) {
 			sprite.startDeathCountdown();
 		}
@@ -1776,8 +1785,8 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 				// instead of causing a level reset
 				sprite.getCpuController().despawn();
 			} else {
-				GameServices.gameState().loseLife();
-				GameServices.level().requestRespawn();
+				gameState.loseLife();
+				levelManager().requestRespawn();
 			}
 		}
 	}
@@ -1875,7 +1884,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 	private boolean hasEnoughHeadroom(int hexAngle) {
 		int terrainDistance = getTerrainHeadroomDistance(hexAngle);
-		var objectManager = GameServices.level().getObjectManager();
+		var objectManager = levelManager().getObjectManager();
 		int objectDistance = (objectManager != null) ? objectManager.getHeadroomDistance(sprite, hexAngle) : Integer.MAX_VALUE;
 		return Math.min(terrainDistance, objectDistance) >= 6;
 	}
@@ -1916,12 +1925,12 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	}
 
 	private boolean hasObjectSupport() {
-		var objectManager = GameServices.level().getObjectManager();
+		var objectManager = levelManager().getObjectManager();
 		return objectManager != null && (objectManager.isRidingObject(sprite) || objectManager.hasStandingContact(sprite));
 	}
 
 	private void clearRidingObject() {
-		var objectManager = GameServices.level().getObjectManager();
+		var objectManager = levelManager().getObjectManager();
 		if (objectManager != null) objectManager.clearRidingObject(sprite);
 	}
 
@@ -2016,7 +2025,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	 */
 	private void checkObjectEdgeBalance() {
 		// Get the object the sprite is standing on
-		var objectManager = GameServices.level().getObjectManager();
+		var objectManager = levelManager().getObjectManager();
 		if (objectManager == null) {
 			return;
 		}

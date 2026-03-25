@@ -24,7 +24,15 @@ public abstract class AbstractLevelEventManager implements LevelEventProvider {
      * than caching the reference, so it survives singleton replacement.
      */
     protected Camera camera() {
-        return GameServices.camera();
+        return Camera.getInstance();
+    }
+
+    /**
+     * Returns the current LevelManager singleton. Always call this accessor rather
+     * than caching the reference, so it survives state resets cleanly.
+     */
+    protected LevelManager levelManager() {
+        return LevelManager.getInstance();
     }
 
     // Current zone and act
@@ -305,7 +313,7 @@ public abstract class AbstractLevelEventManager implements LevelEventProvider {
      * Wraps {@code objectManager.addDynamicObject()}.
      */
     protected void spawnObject(ObjectInstance object) {
-        LevelManager lm = GameServices.level();
+        LevelManager lm = levelManager();
         if (lm.getObjectManager() != null) {
             lm.getObjectManager().addDynamicObject(object);
         }
@@ -323,7 +331,7 @@ public abstract class AbstractLevelEventManager implements LevelEventProvider {
      * The checkpoint is cleared automatically by the transition.
      */
     protected void transitionToZone(int zone, int act) {
-        GameServices.level().requestZoneAndAct(zone, act);
+        levelManager().requestZoneAndAct(zone, act);
     }
 
     // =========================================================================

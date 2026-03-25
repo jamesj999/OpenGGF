@@ -1,13 +1,15 @@
 package com.openggf.game.sonic1.objects;
 
+import com.openggf.tests.TestEnvironment;
+import org.junit.Before;
 import org.junit.Test;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.DefaultObjectServices;
 import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
+import com.openggf.level.objects.TestObjectServices;
 
 import java.lang.reflect.Field;
 
@@ -16,6 +18,11 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public class TestSonic1SmashBlockObjectInstance {
+
+    @Before
+    public void setUp() {
+        TestEnvironment.resetAll();
+    }
 
     @SuppressWarnings("unchecked")
     private static void setConstructionContext(ObjectServices svc) {
@@ -40,7 +47,8 @@ public class TestSonic1SmashBlockObjectInstance {
     }
 
     private Sonic1SmashBlockObjectInstance createBlock(int x, int y) {
-        DefaultObjectServices services = new DefaultObjectServices();
+        ObjectServices services = new TestObjectServices()
+                .withGameState(GameServices.gameState());
         setConstructionContext(services);
         try {
             Sonic1SmashBlockObjectInstance block = new Sonic1SmashBlockObjectInstance(

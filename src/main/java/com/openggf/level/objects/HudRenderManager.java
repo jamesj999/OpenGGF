@@ -3,6 +3,7 @@ package com.openggf.level.objects;
 import com.openggf.game.GameServices;
 
 import com.openggf.game.LevelState;
+import com.openggf.game.GameStateManager;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.PatternDesc;
 import com.openggf.camera.Camera;
@@ -45,7 +46,8 @@ public class HudRenderManager {
     // Let's assume we can draw direct patterns to screen coordinates.
 
     private final GraphicsManager graphicsManager;
-    private final Camera camera = GameServices.camera();
+    private final Camera camera = Camera.getInstance();
+    private final GameStateManager gameState = GameStateManager.getInstance();
     private int digitPatternIndex;
     private int textPatternIndex;
 
@@ -204,7 +206,7 @@ public class HudRenderManager {
         } else {
             // Normal gameplay: Draw Score
             drawHudString(16, 8, "SCORE", hudPatternDesc);
-            drawScore(GameServices.gameState().getScore());
+            drawScore(gameState.getScore());
 
             // Draw Time
             boolean flashTime = levelGamestate.shouldFlashTimer();
@@ -213,7 +215,7 @@ public class HudRenderManager {
         }
 
         drawCores(levelGamestate.getRings(), levelGamestate.getFlashCycle());
-        drawLives(GameServices.gameState().getLives());
+        drawLives(gameState.getLives());
     }
 
     private void drawTimeLabel(boolean flashTime, boolean flashCycle) {

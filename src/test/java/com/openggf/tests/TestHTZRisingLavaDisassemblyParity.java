@@ -7,9 +7,9 @@ import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.Sonic2LevelEventManager;
 import com.openggf.game.sonic2.objects.RisingLavaObjectInstance;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.DefaultObjectServices;
 import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.TestObjectServices;
 
 import java.lang.reflect.Field;
 
@@ -82,7 +82,7 @@ public class TestHTZRisingLavaDisassemblyParity {
     @Test
     public void obj30Subtype6And8FollowRouteSplitAt380() {
         GameServices.gameState().setHtzScreenShakeActive(true);
-        DefaultObjectServices services = new DefaultObjectServices();
+        ObjectServices services = new TestObjectServices().withCamera(camera);
 
         camera.setY((short) 0x200); // top route
         setConstructionContext(services);

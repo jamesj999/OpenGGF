@@ -2,7 +2,6 @@ package com.openggf.game;
 
 import com.openggf.data.Rom;
 import com.openggf.game.sonic2.Sonic2GameModule;
-import com.openggf.game.GameServices;
 
 import java.util.logging.Logger;
 
@@ -48,7 +47,7 @@ public final class GameModuleRegistry {
         if (module != null) {
             LOGGER.info("Setting game module: " + module.getIdentifier());
             current = module;
-            GameServices.gameState().configureSpecialStageProgress(
+            GameStateManager.getInstance().configureSpecialStageProgress(
                     module.getSpecialStageCycleCount(),
                     module.getChaosEmeraldCount());
         }

@@ -26,8 +26,8 @@ public class TestGameRuntime {
     }
 
     @Test
-    public void createFromSingletons_allManagersNonNull() {
-        GameRuntime runtime = GameRuntime.createFromSingletons();
+    public void createGameplay_allManagersNonNull() {
+        GameRuntime runtime = RuntimeManager.createGameplay();
         assertNotNull("camera", runtime.getCamera());
         assertNotNull("timers", runtime.getTimers());
         assertNotNull("gameState", runtime.getGameState());
@@ -41,8 +41,8 @@ public class TestGameRuntime {
     }
 
     @Test
-    public void createFromSingletons_wrapsExistingSingletons() {
-        GameRuntime runtime = GameRuntime.createFromSingletons();
+    public void createGameplay_wrapsExistingSingletons() {
+        GameRuntime runtime = RuntimeManager.createGameplay();
         assertSame(Camera.getInstance(), runtime.getCamera());
         assertSame(LevelManager.getInstance(), runtime.getLevelManager());
         assertSame(SpriteManager.getInstance(), runtime.getSpriteManager());
@@ -59,6 +59,14 @@ public class TestGameRuntime {
     public void runtimeManager_getCurrent_returnsNullBeforeCreate() {
         RuntimeManager.setCurrent(null);
         assertNull(RuntimeManager.getCurrent());
+    }
+
+    @Test
+    public void gameServices_runtimeOwnedAccessors_throwWhenRuntimeMissing() {
+        RuntimeManager.setCurrent(null);
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class, GameServices::camera);
+        assertTrue(ex.getMessage().contains("GameServices.camera() requires an active GameRuntime"));
     }
 
     @Test
@@ -82,7 +90,7 @@ public class TestGameRuntime {
 
     @Test
     public void destroy_doesNotThrow() {
-        GameRuntime runtime = GameRuntime.createFromSingletons();
+        GameRuntime runtime = RuntimeManager.createGameplay();
         // Should not throw — exercises the reverse-order teardown
         runtime.destroy();
     }

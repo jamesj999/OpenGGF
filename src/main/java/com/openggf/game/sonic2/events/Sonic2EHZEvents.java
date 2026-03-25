@@ -54,12 +54,12 @@ public class Sonic2EHZEvents extends Sonic2ZoneEvents {
                     camera().setMaxX((short) 0x2940);
                     setSidekickBounds(0x28F0, 0x2940, null);
                     // Mark boss fight active when camera locks (enables tight boundary)
-                    GameServices.gameState().setCurrentBossId(Sonic2ObjectIds.EHZ_BOSS);
+                    gameState().setCurrentBossId(Sonic2ObjectIds.EHZ_BOSS);
                     eventRoutine += 2;
                     bossSpawnDelay = 0;
                     // ROM: Start music fade-out (s2.asm:20404)
                     // Fade runs during the 90-frame spawn delay
-                    GameServices.audio().fadeOutMusic();
+                    audio().fadeOutMusic();
                 }
             }
             case 4 -> {
@@ -74,7 +74,7 @@ public class Sonic2EHZEvents extends Sonic2ZoneEvents {
                     spawnEHZBoss();
                     eventRoutine += 2;
                     // Start boss music
-                    GameServices.audio().playMusic(Sonic2Music.BOSS.id);
+                    audio().playMusic(Sonic2Music.BOSS.id);
                 }
             }
             case 6 -> {

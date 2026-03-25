@@ -24,15 +24,15 @@ import com.openggf.level.WaterSystem;
 import com.openggf.level.rings.RingManager;
 import com.openggf.sprites.managers.SpriteManager;
 import java.io.IOException;
+import java.util.Objects;
 import java.util.List;
 
 /**
  * Production implementation of {@link ObjectServices} backed by {@link GameRuntime}.
  * A single instance is held by {@link ObjectManager} and shared across all objects.
  *
- * <p>The preferred constructor accepts a {@link GameRuntime} reference so that
- * every method reads from the runtime container. The no-arg constructor is
- * provided for test contexts where a runtime may not yet be available.</p>
+ * <p>The constructor accepts a {@link GameRuntime} reference so that
+ * every runtime-owned method reads from the runtime container.</p>
  */
 public class DefaultObjectServices implements ObjectServices {
 
@@ -45,20 +45,11 @@ public class DefaultObjectServices implements ObjectServices {
      * Primary constructor backed by a GameRuntime.
      */
     public DefaultObjectServices(GameRuntime runtime) {
-        this.runtime = runtime;
-    }
-
-    /**
-     * No-arg constructor for test contexts that mock singletons via reflection.
-     * Falls back to singleton getInstance() calls (not RuntimeManager) so that
-     * test code that reflectively replaces the singleton static field still works.
-     */
-    public DefaultObjectServices() {
-        this.runtime = null;
+        this.runtime = Objects.requireNonNull(runtime, "runtime");
     }
 
     private LevelManager lm() {
-        return runtime != null ? runtime.getLevelManager() : LevelManager.getInstance();
+        return runtime.getLevelManager();
     }
 
     // ── Level state ─────────────────────────────────────────────────────
@@ -127,32 +118,32 @@ public class DefaultObjectServices implements ObjectServices {
 
     @Override
     public Camera camera() {
-        return runtime != null ? runtime.getCamera() : Camera.getInstance();
+        return runtime.getCamera();
     }
 
     @Override
     public GameStateManager gameState() {
-        return runtime != null ? runtime.getGameState() : GameStateManager.getInstance();
+        return runtime.getGameState();
     }
 
     @Override
     public SpriteManager spriteManager() {
-        return runtime != null ? runtime.getSpriteManager() : SpriteManager.getInstance();
+        return runtime.getSpriteManager();
     }
 
     @Override
     public FadeManager fadeManager() {
-        return runtime != null ? runtime.getFadeManager() : FadeManager.getInstance();
+        return runtime.getFadeManager();
     }
 
     @Override
     public WaterSystem waterSystem() {
-        return runtime != null ? runtime.getWaterSystem() : WaterSystem.getInstance();
+        return runtime.getWaterSystem();
     }
 
     @Override
     public ParallaxManager parallaxManager() {
-        return runtime != null ? runtime.getParallaxManager() : ParallaxManager.getInstance();
+        return runtime.getParallaxManager();
     }
 
     // ── Engine globals (not runtime-owned) ──────────────────────────────
@@ -205,8 +196,7 @@ public class DefaultObjectServices implements ObjectServices {
 
     @Override
     public List<PlayableEntity> sidekicks() {
-        SpriteManager sm = runtime != null ? runtime.getSpriteManager() : SpriteManager.getInstance();
-        return List.copyOf(sm.getSidekicks());
+        return List.copyOf(runtime.getSpriteManager().getSidekicks());
     }
 
     // ── Lost rings ──────────────────────────────────────────────────────

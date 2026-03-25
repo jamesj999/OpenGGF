@@ -1,6 +1,5 @@
 package com.openggf.level.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -32,7 +31,7 @@ public class SignpostSparkleObjectInstance extends AbstractObjectInstance {
         this.worldY = y;
 
         // Try to get actual sparkle frame info from RingManager
-        RingManager ringManager = GameServices.level().getRingManager();
+        RingManager ringManager = staticRingManager();
         if (ringManager != null) {
             int count = ringManager.getSparkleFrameCount();
             if (count > 0) {
@@ -56,7 +55,7 @@ public class SignpostSparkleObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        RingManager ringManager = GameServices.level().getRingManager();
+        RingManager ringManager = staticRingManager();
         if (ringManager == null) {
             return;
         }

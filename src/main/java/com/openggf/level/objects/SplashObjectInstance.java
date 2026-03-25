@@ -1,8 +1,6 @@
 package com.openggf.level.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.physics.Direction;
@@ -89,7 +87,7 @@ public class SplashObjectInstance extends AbstractObjectInstance {
      * @return A new splash object, or null if renderer is not available
      */
     public static SplashObjectInstance create(PlayableEntity player, int waterY) {
-        LevelManager levelManager = GameServices.level();
+        var levelManager = staticLevelManager();
         if (levelManager == null) {
             return null;
         }

@@ -3,15 +3,15 @@ package com.openggf.game.sonic3k.objects;
 import org.junit.Before;
 import org.junit.Test;
 import com.openggf.camera.Camera;
-import com.openggf.game.GameServices;
 import com.openggf.graphics.GLCommand;
 
-import com.openggf.level.objects.DefaultObjectServices;
+import com.openggf.level.objects.TestObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.level.objects.boss.AbstractBossInstance;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.game.PlayableEntity;
+import com.openggf.tests.TestEnvironment;
 
 import java.util.List;
 
@@ -24,8 +24,9 @@ public class TestAizMinibossBarrelShotChild {
 
     @Before
     public void setUp() {
-        GameServices.camera().resetState();
-        Camera camera = GameServices.camera();
+        TestEnvironment.resetAll();
+        Camera.getInstance().resetState();
+        Camera camera = Camera.getInstance();
         camera.setX((short) 0);
         camera.setY((short) 0);
         parent = new DummyBoss();
@@ -35,7 +36,7 @@ public class TestAizMinibossBarrelShotChild {
     public void simpleModeNeverBecomesHazardousAndSelfDeletes() {
         AizMinibossBarrelShotChild shot = new AizMinibossBarrelShotChild(
                 parent, 0, 100, 100, AizMinibossBarrelShotChild.Mode.SIMPLE);
-        shot.setServices(new DefaultObjectServices());
+        shot.setServices(new TestObjectServices().withCamera(Camera.getInstance()));
 
         for (int i = 0; i < 250 && !shot.isDestroyed(); i++) {
             shot.update(i, null);
@@ -49,7 +50,7 @@ public class TestAizMinibossBarrelShotChild {
     public void advancedNonCollidingModeNeverSetsCollisionFlags() {
         AizMinibossBarrelShotChild shot = new AizMinibossBarrelShotChild(
                 parent, 0, 100, 100, AizMinibossBarrelShotChild.Mode.ADVANCED_NON_COLLIDING);
-        shot.setServices(new DefaultObjectServices());
+        shot.setServices(new TestObjectServices().withCamera(Camera.getInstance()));
 
         for (int i = 0; i < 220 && !shot.isDestroyed(); i++) {
             shot.update(i, null);
@@ -61,7 +62,7 @@ public class TestAizMinibossBarrelShotChild {
     public void advancedCollidingModeEventuallyEntersHazardPhase() {
         AizMinibossBarrelShotChild shot = new AizMinibossBarrelShotChild(
                 parent, 0, 100, 100, AizMinibossBarrelShotChild.Mode.ADVANCED_COLLIDING);
-        shot.setServices(new DefaultObjectServices());
+        shot.setServices(new TestObjectServices().withCamera(Camera.getInstance()));
 
         boolean sawCollision = false;
         for (int i = 0; i < 260 && !shot.isDestroyed(); i++) {
@@ -78,7 +79,7 @@ public class TestAizMinibossBarrelShotChild {
     @Test
     public void flameChildTracksParentOffsetsAndFlip() {
         AizMinibossFlameChild flame = new AizMinibossFlameChild(parent, -0x64, 4, 0);
-        flame.setServices(new DefaultObjectServices());
+        flame.setServices(new TestObjectServices().withCamera(Camera.getInstance()));
 
         flame.update(0, null);
         assertEquals(parent.getX() - 0x64, flame.getX());
@@ -91,7 +92,7 @@ public class TestAizMinibossBarrelShotChild {
     private static final class DummyBoss extends AbstractBossInstance {
         private DummyBoss() {
             super(new ObjectSpawn(0x1200, 0x300, 0x91, 0, 0, false, 0), "DummyBoss");
-            setServices(new DefaultObjectServices());
+            setServices(new TestObjectServices().withCamera(Camera.getInstance()));
             state.x = 0x1200;
             state.y = 0x300;
             state.xFixed = state.x << 16;

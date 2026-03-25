@@ -38,6 +38,7 @@ public class ObjectManager {
     private final Placement placement;
     private final ObjectRegistry registry;
     private final GraphicsManager graphicsManager = GraphicsManager.getInstance();
+    private final Camera camera = Camera.getInstance();
     private final Map<ObjectSpawn, ObjectInstance> activeObjects = new IdentityHashMap<>();
     private final List<ObjectInstance> dynamicObjects = new ArrayList<>();
     private final List<ObjectInstance> pendingDynamicAdditions = new ArrayList<>();
@@ -100,6 +101,10 @@ public class ObjectManager {
         if (touchResponses != null) {
             touchResponses.reset();
         }
+    }
+
+    ObjectServices services() {
+        return objectServices;
     }
 
     /**
@@ -607,14 +612,12 @@ public class ObjectManager {
      * on the "wrong side" of a wrap boundary render at correct screen positions.
      */
     private void enableVerticalWrapIfNeeded() {
-        Camera camera = GameServices.camera();
         if (camera.isVerticalWrapEnabled()) {
             graphicsManager.enableVerticalWrapAdjust(Camera.VERTICAL_WRAP_RANGE, camera.getY());
         }
     }
 
     private void updateCameraBounds() {
-        Camera camera = GameServices.camera();
         int left = camera.getX();
         int top = camera.getY();
         int right = left + camera.getWidth();
@@ -1558,7 +1561,7 @@ public class ObjectManager {
             if (hadRings && !player.hasShield()) {
                 // Escape hatch: LevelManager.spawnLostRings needs concrete type for RingManager
                 if (player instanceof AbstractPlayableSprite aps) {
-                    com.openggf.game.GameServices.level().spawnLostRings(aps, currentFrameCounter);
+                    LevelManager.getInstance().spawnLostRings(aps, currentFrameCounter);
                 }
             }
             player.applyHurtOrDeath(sourceX, cause, hadRings);

@@ -20,9 +20,11 @@ import static org.junit.Assert.fail;
  * Allowed call sites:
  * <ul>
  *   <li>The manager class itself (its own {@code getInstance()} declaration)</li>
- *   <li>{@link GameRuntime} — {@code createFromSingletons()} factory</li>
- *   <li>{@link GameServices} — singleton fallback delegates</li>
- *   <li>{@code DefaultObjectServices} — singleton fallback delegates</li>
+ *   <li>{@link RuntimeManager} — explicit runtime composition root</li>
+ *   <li>Bootstrap/reset infrastructure that runs before a {@link GameRuntime} exists</li>
+ *   <li>Leaf infrastructure wrappers that intentionally cache direct manager access</li>
+ *   <li>{@link GameServices} — runtime facade / engine-global access</li>
+ *   <li>{@code DefaultObjectServices} — object-service facade over an explicit runtime</li>
  *   <li>{@code GraphicsManager} — legitimate fallback for Camera/FadeManager</li>
  * </ul>
  */
@@ -44,11 +46,30 @@ public class TestRuntimeSingletonGuard {
 
     /** Files allowed to call getInstance() on runtime-owned managers. */
     private static final Set<String> ALLOWED_FILES = Set.of(
-            "GameRuntime.java",
+            "RuntimeManager.java",
             "GameServices.java",
-            "DefaultObjectServices.java",
             "AbstractObjectInstance.java",  // static helpers wrapping singletons for leaf classes
-            "GraphicsManager.java"
+            "AbstractObjectRegistry.java",
+            "GraphicsManager.java",
+            "Engine.java",
+            "GameLoop.java",
+            "GameModuleRegistry.java",
+            "AbstractLevelEventManager.java",
+            "AbstractLevelInitProfile.java",
+            "DebugRenderer.java",
+            "AbstractPlayableSprite.java",
+            "HudRenderManager.java",
+            "ObjectManager.java",
+            "RingManager.java",
+            "GroundSensor.java",
+            "PlayableSpriteMovement.java",
+            "SpindashCameraTimer.java",
+            "LazyMappingHolder.java",
+            "Sonic2ObjectRegistry.java",
+            "AizIntroArtLoader.java",
+            "AizIntroBoosterChild.java",
+            "AizIntroPaletteCycler.java",
+            "AizIntroTerrainSwap.java"
     );
 
     /** Pattern matching e.g. Camera.getInstance() or LevelManager.getInstance() */

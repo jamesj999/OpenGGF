@@ -26,6 +26,16 @@ public final class GameServices {
     private GameServices() {
     }
 
+    private static GameRuntime requireRuntime(String accessor) {
+        GameRuntime rt = RuntimeManager.getCurrent();
+        if (rt == null) {
+            throw new IllegalStateException(
+                    "GameServices." + accessor + "() requires an active GameRuntime. "
+                    + "Create one via RuntimeManager.createGameplay() before accessing runtime-owned managers.");
+        }
+        return rt;
+    }
+
     // ── Runtime-owned managers (delegate to RuntimeManager) ──────────────
 
     /**
@@ -33,13 +43,11 @@ public final class GameServices {
      * Object instances should use {@code services().camera()} instead.
      */
     public static Camera camera() {
-        GameRuntime rt = RuntimeManager.getCurrent();
-        return rt != null ? rt.getCamera() : Camera.getInstance();
+        return requireRuntime("camera").getCamera();
     }
 
     public static LevelManager level() {
-        GameRuntime rt = RuntimeManager.getCurrent();
-        return rt != null ? rt.getLevelManager() : LevelManager.getInstance();
+        return requireRuntime("level").getLevelManager();
     }
 
     /**
@@ -47,43 +55,35 @@ public final class GameServices {
      * Object instances should use {@code services().gameState()} instead.
      */
     public static GameStateManager gameState() {
-        GameRuntime rt = RuntimeManager.getCurrent();
-        return rt != null ? rt.getGameState() : GameStateManager.getInstance();
+        return requireRuntime("gameState").getGameState();
     }
 
     public static TimerManager timers() {
-        GameRuntime rt = RuntimeManager.getCurrent();
-        return rt != null ? rt.getTimers() : TimerManager.getInstance();
+        return requireRuntime("timers").getTimers();
     }
 
     public static FadeManager fade() {
-        GameRuntime rt = RuntimeManager.getCurrent();
-        return rt != null ? rt.getFadeManager() : FadeManager.getInstance();
+        return requireRuntime("fade").getFadeManager();
     }
 
     public static SpriteManager sprites() {
-        GameRuntime rt = RuntimeManager.getCurrent();
-        return rt != null ? rt.getSpriteManager() : SpriteManager.getInstance();
+        return requireRuntime("sprites").getSpriteManager();
     }
 
     public static CollisionSystem collision() {
-        GameRuntime rt = RuntimeManager.getCurrent();
-        return rt != null ? rt.getCollisionSystem() : CollisionSystem.getInstance();
+        return requireRuntime("collision").getCollisionSystem();
     }
 
     public static TerrainCollisionManager terrainCollision() {
-        GameRuntime rt = RuntimeManager.getCurrent();
-        return rt != null ? rt.getTerrainCollisionManager() : TerrainCollisionManager.getInstance();
+        return requireRuntime("terrainCollision").getTerrainCollisionManager();
     }
 
     public static ParallaxManager parallax() {
-        GameRuntime rt = RuntimeManager.getCurrent();
-        return rt != null ? rt.getParallaxManager() : ParallaxManager.getInstance();
+        return requireRuntime("parallax").getParallaxManager();
     }
 
     public static WaterSystem water() {
-        GameRuntime rt = RuntimeManager.getCurrent();
-        return rt != null ? rt.getWaterSystem() : WaterSystem.getInstance();
+        return requireRuntime("water").getWaterSystem();
     }
 
     // ── Engine globals (stay as direct singleton calls) ──────────────────

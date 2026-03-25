@@ -1,6 +1,5 @@
 package com.openggf.level.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
@@ -39,10 +38,7 @@ public class ShieldObjectInstance extends AbstractObjectInstance implements Powe
     public ShieldObjectInstance(PlayableEntity player) {
         super(null, "Shield");
         this.player = player;
-        ObjectRenderManager renderManager = null;
-        if (GameServices.level() != null) {
-            renderManager = GameServices.level().getObjectRenderManager();
-        }
+        ObjectRenderManager renderManager = getRenderManager();
         if (renderManager != null) {
             this.renderer = renderManager.getShieldRenderer();
             // Detect S1 vs S2 from sheet frame count: S1 has 4 frames, S2 has 6

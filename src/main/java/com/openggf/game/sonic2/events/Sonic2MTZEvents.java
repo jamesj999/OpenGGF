@@ -75,11 +75,11 @@ public class Sonic2MTZEvents extends Sonic2ZoneEvents {
                     setSidekickBounds(0x2AB0, 0x2AB0, null);
                     eventRoutine += 2;
                     // ROM: move.w #$E2,d0 / jsr (PlayMusic).l  (MusID_FadeOut)
-                    GameServices.audio().fadeOutMusic();
+                    audio().fadeOutMusic();
                     // ROM: clr.b (Boss_spawn_delay).w
                     bossSpawnDelay = 0;
                     // ROM: move.b #7,(Current_Boss_ID).w
-                    GameServices.gameState().setCurrentBossId(MTZ_BOSS_ID);
+                    gameState().setCurrentBossId(MTZ_BOSS_ID);
                     // ROM: moveq #PLCID_MtzBoss,d0 / jsr (LoadPLC).l
                     // PLC loading handled by art system
                 }
@@ -99,7 +99,7 @@ public class Sonic2MTZEvents extends Sonic2ZoneEvents {
                     spawnMTZBoss();
                     eventRoutine += 2;
                     // ROM: move.w #$8C,d0 / jsr (PlayMusic).l  (MusID_Boss)
-                    GameServices.audio().playMusic(Sonic2Music.BOSS.id);
+                    audio().playMusic(Sonic2Music.BOSS.id);
                 }
             }
             case 8 -> {

@@ -1,16 +1,21 @@
 package com.openggf.game.sonic3k.events;
 
 import com.openggf.camera.Camera;
+import com.openggf.audio.AudioManager;
 import com.openggf.data.Rom;
 import com.openggf.game.GameServices;
+import com.openggf.game.GameStateManager;
 import com.openggf.game.sonic3k.Sonic3kLevel;
 import com.openggf.game.sonic3k.Sonic3kPlcLoader;
 import com.openggf.level.resources.PlcParser.PlcDefinition;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
+import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.ObjectInstance;
+import com.openggf.sprites.managers.SpriteManager;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -46,6 +51,30 @@ public abstract class Sonic3kZoneEvents {
         return GameServices.camera();
     }
 
+    protected LevelManager levelManager() {
+        return GameServices.level();
+    }
+
+    protected Rom rom() throws IOException {
+        return GameServices.rom().getRom();
+    }
+
+    protected AudioManager audio() {
+        return GameServices.audio();
+    }
+
+    protected GameStateManager gameState() {
+        return GameServices.gameState();
+    }
+
+    protected WaterSystem waterSystem() {
+        return GameServices.water();
+    }
+
+    protected SpriteManager spriteManager() {
+        return GameServices.sprites();
+    }
+
     /** Reset event state for a new level load. */
     public void init(int act) {
         eventRoutine = 0;
@@ -65,7 +94,7 @@ public abstract class Sonic3kZoneEvents {
 
     /** Spawn a dynamic object into the level. */
     protected void spawnObject(ObjectInstance object) {
-        LevelManager lm = GameServices.level();
+        LevelManager lm = levelManager();
         if (lm.getObjectManager() != null) {
             lm.getObjectManager().addDynamicObject(object);
         }
@@ -77,8 +106,10 @@ public abstract class Sonic3kZoneEvents {
      */
     protected static void loadPalette(int paletteLine, int romAddr) {
         try {
-            byte[] paletteData = GameServices.rom().getRom().readBytes(romAddr, PALETTE_LINE_SIZE);
-            GameServices.level().updatePalette(paletteLine, paletteData);
+            Rom rom = GameServices.rom().getRom();
+            LevelManager levelManager = GameServices.level();
+            byte[] paletteData = rom.readBytes(romAddr, PALETTE_LINE_SIZE);
+            levelManager.updatePalette(paletteLine, paletteData);
         } catch (Exception e) {
             LOGGER.warning("Failed to load palette from ROM offset 0x" +
                     Integer.toHexString(romAddr) + ": " + e.getMessage());

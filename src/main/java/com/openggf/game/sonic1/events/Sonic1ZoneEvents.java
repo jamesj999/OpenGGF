@@ -1,7 +1,10 @@
 package com.openggf.game.sonic1.events;
 
 import com.openggf.camera.Camera;
+import com.openggf.audio.AudioManager;
 import com.openggf.game.GameServices;
+import com.openggf.game.GameStateManager;
+import com.openggf.level.LevelManager;
 
 /**
  * Base class for Sonic 1 per-zone dynamic level events.
@@ -20,6 +23,18 @@ abstract class Sonic1ZoneEvents {
      */
     protected Camera camera() {
         return GameServices.camera();
+    }
+
+    protected LevelManager levelManager() {
+        return GameServices.level();
+    }
+
+    protected AudioManager audio() {
+        return GameServices.audio();
+    }
+
+    protected GameStateManager gameState() {
+        return GameServices.gameState();
     }
 
     /** Reset event state for a new level. */

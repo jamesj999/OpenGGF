@@ -40,6 +40,10 @@ public final class S3kSeamlessMutationExecutor {
     private S3kSeamlessMutationExecutor() {
     }
 
+    private static Rom rom() throws IOException {
+        return GameServices.rom().getRom();
+    }
+
     public static void apply(LevelManager levelManager, String mutationKey) {
         if (mutationKey == null || mutationKey.isBlank() || levelManager == null) {
             return;
@@ -58,7 +62,7 @@ public final class S3kSeamlessMutationExecutor {
         }
 
         try {
-            Rom rom = GameServices.rom().getRom();
+            Rom rom = rom();
             if (rom == null) {
                 return;
             }

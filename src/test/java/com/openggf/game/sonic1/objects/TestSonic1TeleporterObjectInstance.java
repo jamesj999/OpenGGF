@@ -2,8 +2,8 @@ package com.openggf.game.sonic1.objects;
 
 import org.junit.Test;
 import com.openggf.game.sonic1.constants.Sonic1AnimationIds;
-import com.openggf.level.objects.DefaultObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.TestObjectServices;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -59,7 +59,7 @@ public class TestSonic1TeleporterObjectInstance {
     private static Sonic1TeleporterObjectInstance createTeleporter(int subtype, int renderFlags, int x, int y) {
         Sonic1TeleporterObjectInstance instance = new Sonic1TeleporterObjectInstance(
                 new ObjectSpawn(x, y, 0x72, subtype, renderFlags, false, 0));
-        instance.setServices(new DefaultObjectServices());
+        instance.setServices(new TestObjectServices());
         return instance;
     }
 

@@ -1,8 +1,6 @@
 package com.openggf.level.objects;
 
-import com.openggf.game.GameServices;
 import com.openggf.graphics.GLCommand;
-import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.physics.Direction;
@@ -101,8 +99,9 @@ public class SkidDustObjectInstance extends AbstractObjectInstance {
      * @return A new skid dust object, or null if renderer is not available
      */
     public static SkidDustObjectInstance create(PlayableEntity player) {
-        LevelManager levelManager = GameServices.level();
-        if (levelManager == null || levelManager.getObjectManager() == null) {
+        var objectManager = staticObjectManager();
+        var levelManager = staticLevelManager();
+        if (levelManager == null || objectManager == null) {
             return null;
         }
 
@@ -140,7 +139,10 @@ public class SkidDustObjectInstance extends AbstractObjectInstance {
     public static void spawn(PlayableEntity player) {
         SkidDustObjectInstance dust = create(player);
         if (dust != null) {
-            GameServices.level().getObjectManager().addDynamicObject(dust);
+            ObjectManager objectManager = staticObjectManager();
+            if (objectManager != null) {
+                objectManager.addDynamicObject(dust);
+            }
         }
     }
 }

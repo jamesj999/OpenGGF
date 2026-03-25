@@ -98,7 +98,7 @@ class TestObjectServicesConstructionContext {
         }
 
         // Now set instance-level services (different instance)
-        ObjectServices instanceServices = new DefaultObjectServices();
+        ObjectServices instanceServices = new TestObjectServices();
         obj.setServices(instanceServices);
 
         // Instance field should take priority over (now-cleared) context

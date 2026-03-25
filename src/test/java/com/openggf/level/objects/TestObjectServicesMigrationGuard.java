@@ -3,7 +3,6 @@ package com.openggf.level.objects;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.*;
 import java.util.*;
 import java.util.stream.Stream;
@@ -172,6 +171,43 @@ class TestObjectServicesMigrationGuard {
 
         if (!msg.isEmpty()) {
             fail(msg.toString());
+        }
+    }
+
+    @Test
+    void objectPackages_shouldNotReferenceGameServicesInSource() throws IOException {
+        Path srcMain = Path.of("src/main/java");
+        if (!Files.isDirectory(srcMain)) {
+            return;
+        }
+
+        List<String> violations = new ArrayList<>();
+        for (String pkg : OBJECT_PACKAGES) {
+            Path pkgDir = srcMain.resolve(pkg);
+            if (!Files.isDirectory(pkgDir)) continue;
+
+            try (Stream<Path> files = Files.walk(pkgDir)) {
+                files.filter(path -> path.toString().endsWith(".java"))
+                        .forEach(path -> {
+                            try {
+                                String className = srcMain.relativize(path).toString()
+                                        .replace('\\', '/').replace(".java", "").replace('/', '.');
+                                if (PERMANENT_EXCEPTIONS.contains(className)) {
+                                    return;
+                                }
+                                String content = Files.readString(path);
+                                if (content.contains("GameServices.")) {
+                                    violations.add(className);
+                                }
+                            } catch (IOException ignored) {
+                            }
+                        });
+            }
+        }
+
+        if (!violations.isEmpty()) {
+            fail("Object packages must not reference GameServices directly:\n  "
+                    + String.join("\n  ", new TreeSet<>(violations)));
         }
     }
 

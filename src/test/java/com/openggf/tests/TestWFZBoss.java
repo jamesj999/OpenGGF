@@ -6,11 +6,11 @@ import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.bosses.Sonic2WFZBossInstance;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.AbstractObjectInstance;
-import com.openggf.level.objects.DefaultObjectServices;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectRegistry;
 import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.TestObjectServices;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.lang.reflect.Field;
@@ -38,7 +38,7 @@ public class TestWFZBoss {
 
     @Before
     public void setUp() {
-        DefaultObjectServices services = new DefaultObjectServices();
+        ObjectServices services = new TestObjectServices();
         setConstructionContext(services);
         try {
             boss = new Sonic2WFZBossInstance(

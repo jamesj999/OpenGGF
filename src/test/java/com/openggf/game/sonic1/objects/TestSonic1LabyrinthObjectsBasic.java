@@ -5,9 +5,9 @@ import com.openggf.game.sonic1.objects.badniks.Sonic1OrbinautBadnikInstance;
 import org.junit.Assert;
 import org.junit.Test;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
-import com.openggf.level.objects.DefaultObjectServices;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.TestObjectServices;
 import java.lang.reflect.Field;
 
 import static org.junit.Assert.assertEquals;
@@ -29,7 +29,7 @@ public class TestSonic1LabyrinthObjectsBasic {
     public void flappingDoorSolidityDependsOnPlayerSideWhenClosed() throws Exception {
         Sonic1FlappingDoorObjectInstance door = new Sonic1FlappingDoorObjectInstance(
                 new ObjectSpawn(200, 128, Sonic1ObjectIds.FLAPPING_DOOR, 1, 0, false, 0));
-        door.setServices(new DefaultObjectServices());
+        door.setServices(new TestObjectServices());
         TestPlayableSprite player = new TestPlayableSprite();
 
         setPrivateInt(door, "flapWait", 999);
@@ -49,7 +49,7 @@ public class TestSonic1LabyrinthObjectsBasic {
     public void flappingDoorClosingAnimationHoldsFullyClosedFrame() throws Exception {
         Sonic1FlappingDoorObjectInstance door = new Sonic1FlappingDoorObjectInstance(
                 new ObjectSpawn(200, 128, Sonic1ObjectIds.FLAPPING_DOOR, 1, 0, false, 0));
-        door.setServices(new DefaultObjectServices());
+        door.setServices(new TestObjectServices());
 
         // Keep flap toggle inactive so we only validate animation script looping.
         setPrivateInt(door, "flapWait", 999);
@@ -89,10 +89,10 @@ public class TestSonic1LabyrinthObjectsBasic {
     public void burrobotAndOrbinautCanUpdateWithoutPlayerOrLevelManager() {
         Sonic1BurrobotBadnikInstance burrobot = new Sonic1BurrobotBadnikInstance(
                 new ObjectSpawn(256, 256, Sonic1ObjectIds.BURROBOT, 0, 0, false, 0));
-        burrobot.setServices(new DefaultObjectServices());
+        burrobot.setServices(new TestObjectServices());
         Sonic1OrbinautBadnikInstance orbinaut = new Sonic1OrbinautBadnikInstance(
                 new ObjectSpawn(512, 192, Sonic1ObjectIds.ORBINAUT, 0, 0, false, 0));
-        orbinaut.setServices(new DefaultObjectServices());
+        orbinaut.setServices(new TestObjectServices());
 
         burrobot.update(1, null);
         burrobot.update(2, null);

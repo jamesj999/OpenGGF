@@ -164,7 +164,7 @@ public class Sonic1LevelEventManager extends AbstractLevelEventManager {
                 // Transition to SBZ3 (our engine: zone SBZ, act 2)
                 sbz3TransitionRequested = true;
                 player.setControlLocked(true);
-                GameServices.level().requestZoneAndAct(
+                levelManager().requestZoneAndAct(
                         Sonic1ZoneConstants.ZONE_SBZ, 2);
                 return true;
             }

@@ -63,28 +63,6 @@ public final class GameRuntime {
         this.levelManager = levelManager;
     }
 
-    /**
-     * Transitional factory: captures all 10 managers from their current
-     * {@code getInstance()} singletons. Used during the migration period
-     * before singletons are removed.
-     */
-    static GameRuntime createFromSingletons() {
-        Camera camera = Camera.getInstance();
-        TimerManager timers = TimerManager.getInstance();
-        GameStateManager gameState = GameStateManager.getInstance();
-        FadeManager fadeManager = FadeManager.getInstance();
-        WaterSystem waterSystem = WaterSystem.getInstance();
-        ParallaxManager parallaxManager = ParallaxManager.getInstance();
-        TerrainCollisionManager terrainCollisionManager = TerrainCollisionManager.getInstance();
-        CollisionSystem collisionSystem = CollisionSystem.getInstance();
-        SpriteManager spriteManager = SpriteManager.getInstance();
-        LevelManager levelManager = LevelManager.getInstance();
-
-        return new GameRuntime(camera, timers, gameState, fadeManager,
-                waterSystem, parallaxManager, terrainCollisionManager,
-                collisionSystem, spriteManager, levelManager);
-    }
-
     // ── Getters ──────────────────────────────────────────────────────────
 
     public Camera getCamera() { return camera; }

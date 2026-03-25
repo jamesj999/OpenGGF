@@ -45,7 +45,7 @@ public class GroundSensor extends Sensor {
     private static LevelManager getLevelManager() {
         LevelManager override = overrideLevelManager;
         if (override != null) return override;
-        if (cachedLevelManager == null) cachedLevelManager = com.openggf.game.GameServices.level();
+        if (cachedLevelManager == null) cachedLevelManager = LevelManager.getInstance();
         return cachedLevelManager;
     }
 

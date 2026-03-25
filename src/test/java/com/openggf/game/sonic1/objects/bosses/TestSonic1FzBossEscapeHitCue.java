@@ -3,7 +3,7 @@ package com.openggf.game.sonic1.objects.bosses;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import org.junit.Test;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
-import com.openggf.level.objects.DefaultObjectServices;
+import com.openggf.level.objects.TestObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchCategory;
 import com.openggf.level.objects.TouchResponseResult;
@@ -21,7 +21,7 @@ public class TestSonic1FzBossEscapeHitCue {
     public void escapeHitClearsCollisionFlagsAndEnablesDamagedCue() throws Exception {
         Sonic1FZBossInstance boss = new Sonic1FZBossInstance(
                 new ObjectSpawn(0, 0, Sonic1ObjectIds.FZ_BOSS, 0, 0, false, 0));
-        boss.setServices(new DefaultObjectServices());
+        boss.setServices(new TestObjectServices());
 
         BossStateContext state = (BossStateContext) getFieldValue(boss, "state");
         state.routineSecondary = 14; // STATE_FINAL_FLIGHT
@@ -47,7 +47,7 @@ public class TestSonic1FzBossEscapeHitCue {
     public void damagedCuePersistsAfterEscapeHitTimerEnds() throws Exception {
         Sonic1FZBossInstance boss = new Sonic1FZBossInstance(
                 new ObjectSpawn(0, 0, Sonic1ObjectIds.FZ_BOSS, 0, 0, false, 0));
-        boss.setServices(new DefaultObjectServices());
+        boss.setServices(new TestObjectServices());
 
         BossStateContext state = (BossStateContext) getFieldValue(boss, "state");
         state.routineSecondary = 14; // STATE_FINAL_FLIGHT

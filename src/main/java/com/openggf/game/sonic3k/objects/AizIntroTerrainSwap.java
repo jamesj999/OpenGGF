@@ -1,7 +1,7 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.data.Rom;
-import com.openggf.game.GameServices;
+import com.openggf.data.RomManager;
 import com.openggf.game.sonic3k.Sonic3kLevel;
 import com.openggf.game.sonic3k.Sonic3kPlcLoader;
 import com.openggf.level.resources.PlcParser.PlcDefinition;
@@ -64,7 +64,7 @@ public final class AizIntroTerrainSwap {
             return;
         }
 
-        LevelManager levelManager = GameServices.level();
+        LevelManager levelManager = LevelManager.getInstance();
         Level level = levelManager.getCurrentLevel();
         if (!(level instanceof Sonic3kLevel sonic3kLevel)) {
             return;
@@ -86,7 +86,7 @@ public final class AizIntroTerrainSwap {
     }
 
     static synchronized boolean applyMainLevelOverlays() {
-        LevelManager levelManager = GameServices.level();
+        LevelManager levelManager = LevelManager.getInstance();
         Level level = levelManager.getCurrentLevel();
         if (!(level instanceof Sonic3kLevel sonic3kLevel)) {
             return false;
@@ -130,7 +130,7 @@ public final class AizIntroTerrainSwap {
      */
     private static List<Sonic3kPlcLoader.TileRange> applyZoneArtOverlays(Sonic3kLevel level) {
         try {
-            Rom rom = GameServices.rom().getRom();
+            Rom rom = RomManager.getInstance().getRom();
             PlcDefinition plc = Sonic3kPlcLoader.parsePlc(rom, 0x0B);
             return Sonic3kPlcLoader.applyToLevel(plc, level);
         } catch (IOException e) {
@@ -140,7 +140,7 @@ public final class AizIntroTerrainSwap {
     }
 
     private static OverlayData loadOverlayData() throws IOException {
-        Rom rom = GameServices.rom().getRom();
+        Rom rom = RomManager.getInstance().getRom();
         ResourceLoader loader = new ResourceLoader(rom);
 
         int baseEntryAddr = Sonic3kConstants.LEVEL_LOAD_BLOCK_ADDR;

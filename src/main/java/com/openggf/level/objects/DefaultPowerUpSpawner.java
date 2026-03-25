@@ -10,8 +10,6 @@ import com.openggf.game.sonic3k.objects.BubbleShieldObjectInstance;
 import com.openggf.game.sonic3k.objects.FireShieldObjectInstance;
 import com.openggf.game.sonic3k.objects.InstaShieldObjectInstance;
 import com.openggf.game.sonic3k.objects.LightningShieldObjectInstance;
-import com.openggf.game.GameServices;
-import com.openggf.level.LevelManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.physics.Direction;
 import com.openggf.sprites.managers.SpindashDustController;
@@ -35,9 +33,11 @@ public class DefaultPowerUpSpawner implements PowerUpSpawner {
     private static final Logger LOGGER = Logger.getLogger(DefaultPowerUpSpawner.class.getName());
 
     private final ObjectManager objectManager;
+    private final ObjectServices services;
 
     public DefaultPowerUpSpawner(ObjectManager objectManager) {
         this.objectManager = objectManager;
+        this.services = objectManager != null ? objectManager.services() : null;
     }
 
     @Override
@@ -87,20 +87,22 @@ public class DefaultPowerUpSpawner implements PowerUpSpawner {
             return;
         }
 
-        LevelManager levelManager = GameServices.level();
-        if (levelManager == null) {
+        if (services == null) {
             return;
         }
 
-        var level = levelManager.getCurrentLevel();
+        var level = services.currentLevel();
         if (level == null) {
             return;
         }
 
         // Get water level from WaterSystem
         // Use getVisualWaterLevelY so splash appears at the oscillating water surface (CPZ2)
-        var waterSystem = GameServices.water();
-        int waterY = waterSystem.getVisualWaterLevelY(level.getZoneIndex(), levelManager.getCurrentAct());
+        WaterSystem waterSystem = services != null ? services.waterSystem() : null;
+        if (waterSystem == null) {
+            return;
+        }
+        int waterY = waterSystem.getVisualWaterLevelY(level.getZoneIndex(), services.currentAct());
 
         // S2/S3K: use dust/splash renderer from SpindashDustController
         if (player instanceof AbstractPlayableSprite aps) {

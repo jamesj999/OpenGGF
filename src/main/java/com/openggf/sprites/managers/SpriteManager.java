@@ -9,7 +9,7 @@ import com.openggf.control.InputHandler;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.CollisionModel;
-import com.openggf.game.GameServices;
+import com.openggf.game.GameStateManager;
 import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.camera.Camera;
@@ -227,7 +227,7 @@ public class SpriteManager {
 
 		// Give all chaos emeralds (debug)
 		if (giveEmeraldsPressed) {
-			var gsm = GameServices.gameState();
+			var gsm = GameStateManager.getInstance();
 			if (!gsm.hasAllEmeralds()) {
 				for (int i = 0; i < gsm.getChaosEmeraldCount(); i++) {
 					gsm.markEmeraldCollected(i);
@@ -553,7 +553,7 @@ public class SpriteManager {
 	 * caller must disable it after drawing).
 	 */
 	private boolean enableVerticalWrapIfNeeded() {
-		Camera camera = GameServices.camera();
+		Camera camera = Camera.getInstance();
 		if (camera.isVerticalWrapEnabled()) {
 			GraphicsManager.getInstance().enableVerticalWrapAdjust(
 					Camera.VERTICAL_WRAP_RANGE, camera.getY());
@@ -634,7 +634,7 @@ public class SpriteManager {
 
 	private LevelManager getLevelManager() {
 		if (levelManager == null) {
-			levelManager = GameServices.level();
+			levelManager = LevelManager.getInstance();
 		}
 		return levelManager;
 	}

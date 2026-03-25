@@ -1,6 +1,5 @@
 package com.openggf.physics;
 
-import com.openggf.game.GameServices;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -29,7 +28,7 @@ public class CollisionSystem {
     private CollisionTrace trace = NoOpCollisionTrace.INSTANCE;
 
     private CollisionSystem() {
-        this.terrainCollisionManager = GameServices.terrainCollision();
+        this.terrainCollisionManager = TerrainCollisionManager.getInstance();
     }
 
     public static synchronized CollisionSystem getInstance() {
