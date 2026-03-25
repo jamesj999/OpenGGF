@@ -27,12 +27,15 @@ Many tests require ROM files to load level data, object art, or audio. These tes
 **skip gracefully** when ROMs are absent, so CI and contributors without ROMs can still
 run the rest of the suite.
 
-The convention is to check for ROM availability at the start of the test:
+The convention is to check for ROM availability using `RomTestUtils`:
 
 ```java
+import static com.openggf.tests.RomTestUtils.ensureRomAvailable;
+
 @Test
 void testEHZCollision() {
-    if (!RomDetector.isAvailable(GameId.SONIC_2)) {
+    File romFile = ensureRomAvailable();
+    if (romFile == null) {
         return;  // Skip: ROM not present
     }
     // ... test logic
@@ -56,19 +59,15 @@ frame-stepping controls.
 @Test
 void testPlayerLandsOnGround() {
     HeadlessTestFixture fixture = HeadlessTestFixture.builder()
-            .game(GameId.SONIC_2)
-            .zone(ZoneId.EHZ)
-            .act(0)
+            .withZoneAndAct(ZONE_EHZ, 0)
+            .startPosition((short) 0x100, (short) 0x200)
             .build();
 
-    // Place the player at a known position
-    fixture.teleportPlayer(0x100, 0x200);
-
     // Step 60 frames (1 second at 60fps)
-    fixture.stepFrames(60);
+    fixture.stepIdleFrames(60);
 
     // Assert the player landed on the ground
-    AbstractPlayableSprite player = fixture.getPlayer();
+    AbstractPlayableSprite player = fixture.sprite();
     assertTrue(player.isOnGround());
     assertTrue(player.getY() > 0x200);  // Fell from starting position
 }
@@ -77,19 +76,21 @@ void testPlayerLandsOnGround() {
 ### Setting Up Specific Scenarios
 
 ```java
-// Teleport and snap camera
-fixture.teleportPlayer(0x500, 0x300);
-fixture.getCamera().setX(0x500 - 160);  // Center camera on player
-fixture.getCamera().setY(0x300 - 112);
-fixture.getCamera().updatePosition(true);  // Snap (no smooth scroll)
+// Set up fixture with specific start position
+HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+        .withZoneAndAct(ZONE_HTZ, act)
+        .startPosition((short) 0x500, (short) 0x300)
+        .build();
 
-// Initialize level events for a specific zone
-LevelEventManager.getInstance().initLevel(ZONE_HTZ, act);
+// Snap camera to player
+fixture.camera().setX(0x500 - 160);
+fixture.camera().setY(0x300 - 112);
+fixture.camera().updatePosition(true);  // Snap (no smooth scroll)
 
 // Step frames with per-frame inspection
 for (int i = 0; i < 120; i++) {
-    fixture.stepFrame();
-    if (fixture.getPlayer().getX() >= targetX) {
+    fixture.stepFrame(false, false, false, false, false);  // no input
+    if (fixture.sprite().getX() >= targetX) {
         break;
     }
 }
@@ -138,19 +139,17 @@ the original game for specific scenarios.
 @Test
 void testRollingDownSlope() {
     HeadlessTestFixture fixture = HeadlessTestFixture.builder()
-            .game(GameId.SONIC_2)
-            .zone(ZoneId.EHZ)
-            .act(0)
+            .withZoneAndAct(ZONE_EHZ, 0)
+            .startPosition((short) 0x800, (short) 0x340)
             .build();
 
-    // Place player on a known slope
-    fixture.teleportPlayer(0x800, 0x340);
-    fixture.getPlayer().setGroundSpeed(0x200);  // Initial speed
+    // Set initial speed
+    fixture.sprite().setGroundSpeed(0x200);
 
-    fixture.stepFrames(30);
+    fixture.stepIdleFrames(30);
 
     // Player should have accelerated down the slope
-    int speed = fixture.getPlayer().getGroundSpeed();
+    int speed = fixture.sprite().getGroundSpeed();
     assertTrue(speed > 0x200, "Player should accelerate on downhill slope");
 }
 ```
@@ -160,15 +159,18 @@ void testRollingDownSlope() {
 ```java
 @Test
 void testWallCollisionAtSpeed() {
-    // Place player running at high speed toward a wall
-    fixture.teleportPlayer(wallX - 100, wallY);
-    fixture.getPlayer().setGroundSpeed(0xC00);  // 12 pixels/frame
+    HeadlessTestFixture fixture = HeadlessTestFixture.builder()
+            .withZoneAndAct(ZONE_EHZ, 0)
+            .startPosition((short) (wallX - 100), (short) wallY)
+            .build();
 
-    fixture.stepFrames(30);
+    fixture.sprite().setGroundSpeed(0xC00);  // 12 pixels/frame
+
+    fixture.stepIdleFrames(30);
 
     // Player should stop at the wall, not pass through
-    assertTrue(fixture.getPlayer().getX() <= wallX);
-    assertEquals(0, fixture.getPlayer().getGroundSpeed());
+    assertTrue(fixture.sprite().getX() <= wallX);
+    assertEquals(0, fixture.sprite().getGroundSpeed());
 }
 ```
 
@@ -204,7 +206,7 @@ state management.
 
 - **Keep tests independent.** Tests run in parallel across multiple JVM forks. Do not
   depend on state from another test.
-- **Skip gracefully without ROMs.** Always check `RomDetector.isAvailable()` before
+- **Skip gracefully without ROMs.** Always check `RomTestUtils.ensureRomAvailable()` before
   loading ROM data. Never let a test fail just because a ROM is absent.
 - **Use constants from the disassembly.** When asserting positions or velocities, use the
   same hex values that appear in the ASM. This makes it easier to trace failures back to

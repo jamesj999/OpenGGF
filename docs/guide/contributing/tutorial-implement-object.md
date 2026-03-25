@@ -642,7 +642,7 @@ When implementing a new object:
 5. **Implement the main loop in `update()`.** This is the code that runs every frame.
 6. **Implement rendering.** Use `getRenderer(artKey)` and `drawFrameIndex()`.
 7. **Wire collision if needed.** Implement `TouchResponseProvider` for harmful objects,
-   or use `SolidObjectHelper` for solid platforms.
+   or implement `SolidObjectProvider` for solid platforms.
 8. **Test manually, then write automated tests.**
 
 The [Object Checklists](../../OBJECT_CHECKLIST.md) show which objects are implemented and

@@ -37,28 +37,28 @@ com.openggf/
       ObjectManager.java          -- Active object tracking, spawn/despawn
       ObjectServices.java         -- Contextual services available to objects
       ObjectSpawn.java            -- Data record: x, y, objectId, subtype, flags
+    render/                  -- Sprite rendering (PatternSpriteRenderer)
+    resources/               -- Resource loading and decompression orchestration
 
   physics/                   -- Physics and collision
-    CollisionDetector.java   -- Player/object terrain checks
-    SolidObjectHelper.java   -- Solid object push/stand/land logic
-    ObjectTerrainUtils.java  -- Wall/floor/ceiling distance checks
+    CollisionSystem.java        -- Player/object terrain checks
+    TerrainCollisionManager.java -- Terrain collision orchestration
+    ObjectTerrainUtils.java      -- Wall/floor/ceiling distance checks
 
   sprites/                   -- Sprite system
     playable/                -- Player character classes
     animation/               -- Animation controller
     art/                     -- Sprite art set, DPLC handling
-    render/                  -- Pattern sprite renderer
 
   graphics/                  -- GPU rendering pipeline
     PatternAtlas.java        -- Tile texture atlas
-    TilemapRenderer.java     -- Background plane rendering
+    TilemapGpuRenderer.java  -- Background plane rendering
     GLCommand.java           -- Render command interface
 
   audio/                     -- Sound system
-    smps/                    -- SMPS sequencer, channel state
-    ym2612/                  -- FM synthesis
-    sn76489/                 -- PSG synthesis
-    dac/                     -- DAC sample playback
+    smps/                    -- SMPS sequencer, channel state, DAC data
+    synth/                   -- FM synthesis (Ym2612Chip), PSG (PsgChip)
+    driver/                  -- Sound driver orchestration
 
   camera/                    -- Camera position, boundaries, shake
   data/                      -- ROM reading, decompression (Kosinski, Nemesis, etc.)
@@ -140,7 +140,7 @@ The migration is ongoing. As a contributor, be aware that:
 Each game defines a `LevelInitProfile`: a declarative sequence of initialization steps
 that run when a level loads. This replaced a monolithic `loadLevel()` method.
 
-The steps (13 in total, defined by the `InitStep` enum) include:
+The steps (13 in total, defined by the `InitStep` record) include:
 
 1. Load level layout data
 2. Decompress tile art
@@ -233,12 +233,13 @@ objects or zones rarely need to interact with it directly.
 
 The audio system reimplements the SMPS (Sample Music Playback System) sound driver:
 
-1. **SmpsLoader** parses music and SFX data from the ROM using pointer tables.
+1. **AbstractSmpsLoader** (with per-game subclasses like `Sonic2SmpsLoader`) parses music
+   and SFX data from the ROM using pointer tables.
 2. **SmpsSequencer** processes sequence commands each frame: note on/off, volume changes,
    tempo, loops, modulation.
-3. **YM2612** produces FM synthesis audio from register writes.
-4. **SN76489** produces PSG audio (square waves and noise).
-5. **DacPlayer** handles PCM drum sample playback.
+3. **Ym2612Chip** produces FM synthesis audio from register writes.
+4. **PsgChip** produces PSG audio (square waves and noise).
+5. **DacData** manages PCM drum sample data and playback rates.
 
 Each game has a `SmpsSequencerConfig` that captures driver differences:
 - **Tempo mode:** S3K uses OVERFLOW (overflow = skip), S2 uses OVERFLOW2 (overflow = tick).
