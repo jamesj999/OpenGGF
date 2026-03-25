@@ -37,74 +37,115 @@ A smaller number of fully coherent zones, cutscenes, and gameplay flows is more 
 
 Each release should have a narrow theme, explicit exit criteria, and documentation that matches reality.
 
-## Proposed Priorities
+## v0.5 Retrospective (2026-03-25)
 
-## v0.5 Theme: S3K Expansion and Shared-System Hardening
+### What the roadmap asked for
 
-This should be the next major focus.
+v0.5 was themed **"S3K Expansion and Shared-System Hardening"** with four priority areas:
+S3K zone breadth, S3K runtime resource parity, shared load/lifecycle architecture, and release/CI
+hygiene.
+
+### What actually happened
+
+The release skewed heavily architectural. 1,805 commits delivered:
+
+**Delivered against v0.5 goals:**
+- S3K object coverage is clearly broader: AIZ miniboss defeat flow completed, signpost and results
+  screen, Blue Ball special stages (WIP), insta-shield, ~10 new objects, per-character physics,
+  palette cycling for all zones.
+- S3K PLC art registry populated for all zone badniks; DPLC and mapping table fixes.
+- Shared systems hardened significantly (see below).
+- Release metadata, CI, user guide, and docs all aligned.
+
+**Not delivered against v0.5 goals:**
+- No second playable S3K zone. AIZ2 itself is incomplete: missing the Flying Battery event, the
+  AIZ2 boss fight, and the AIZ-to-HCZ transition. HCZ has palette cycling and a water surface
+  object but no scroll handler, events, or playable object set.
+- No new S3K scroll handlers beyond `SwScrlAiz`.
+- No zone-specific event scripting beyond AIZ.
+
+**Delivered ahead of schedule (v0.6/v0.7 items):**
+- **Two-tier service architecture**: all 180+ object classes migrated from singleton access to
+  `GameServices`/`ObjectServices` injection with NoOp sentinels. This was not in any roadmap
+  milestone.
+- **GameRuntime**: explicit mutable state owner with `resetState()` lifecycle on all singletons.
+  Enables safe editor mode enter/exit. This is v0.6 editor foundation work.
+- **LevelManager decomposition**: the engine's largest class broken into three focused components.
+  This is the kind of separation the v0.6 tooling theme requires.
+- **MutableLevel**: snapshot, mutation, and dirty-region tracking for level data. This is
+  directly v0.6 level editor foundation.
+- **Common code extraction (5 phases)**: 15+ abstract base classes, 10+ shared utilities,
+  systematic deduplication. This makes the engine materially easier to extend (v0.6 exit criterion).
+- **User guide**: comprehensive contributor documentation (v0.6 goal).
+- **Cross-game abstraction**: `PlayableEntity`, `DonorCapabilities`, `CanonicalAnimation`,
+  `AnimationTranslator`, bidirectional donation. More cross-game maturity than the roadmap
+  anticipated at any milestone.
+- **Multi-sidekick system** and **Tails AI rework**: these are v0.7 "close gameplay gaps" items.
+- **Insta-shield**: a complete new gameplay mechanic with ROM parity.
+
+### Assessment
+
+The shared-system hardening goal was exceeded. The S3K expansion goal was partially met for AIZ
+depth but missed on zone breadth. The release pulled forward substantial v0.6 editor foundation
+and v0.7 gameplay gap work that was not originally planned for v0.5.
+
+The remaining v0.5 S3K work (complete AIZ2, begin HCZ) carries forward as the immediate priority.
+
+---
+
+## Proposed Priorities (Updated 2026-03-25)
+
+## v0.5 Remaining: Complete AIZ
+
+Before tagging v0.5, the following must land:
+
+1. **Flying Battery event/cutscene** at end of AIZ2.
+2. **AIZ2 boss fight** (Eggman flame-craft).
+3. **AIZ-to-HCZ zone transition** (bridge burn, waterfall drop).
+
+These three items close AIZ as the first fully playable S3K zone from intro cutscene to zone
+transition. This is the minimum bar for the v0.5 exit criteria.
+
+## v0.6 Theme: S3K Zone Breadth and Level Editor
+
+The v0.6 scope now combines the remaining S3K zone expansion (originally v0.5) with the tooling
+foundation theme (originally v0.6), since much of the editor foundation was already delivered.
 
 ### Primary Goals
 
-- Expand Sonic 3 & Knuckles beyond the current AIZ-heavy slice.
-- Harden the systems that S3K stresses hardest: PLC/art loading, level bootstrap/init, zone events, water, and object registration.
-- Keep Sonic 1 and Sonic 2 in maintenance mode unless shared-engine work requires changes there.
+- Expand S3K beyond AIZ: bring up HCZ and at least one additional zone to playable status.
+- Deliver a functional level editor prototype using the MutableLevel, GameRuntime, and
+  LevelManager decomposition foundations already in place.
+- Continue improving S3K runtime resource parity for non-AIZ zones.
 
 ### Priority Areas
 
-#### 1. Sonic 3 & Knuckles Zone Breadth
+#### 1. S3K Zone Expansion (carried from v0.5)
 
-- Add dedicated scroll handlers for more S3K zones.
-- Implement more S3K objects, badniks, and boss scaffolding.
-- Improve zone-specific event scripting beyond the current AIZ concentration.
-- Reduce "loads but is not truly playable" scenarios.
+- HCZ scroll handlers, zone events, objects, and boss scaffolding.
+- At least one more zone (CNZ or MHZ) with scroll handler and basic playability.
+- S3K zone-specific event managers beyond AIZ.
 
-#### 2. S3K Runtime Resource Parity
+#### 2. Level Editor Prototype
 
-- Continue improving PLC parity and dynamic art loading.
-- Reduce remaining resource-reference warnings and dynamic art mismatches.
-- Tighten object art/mapping loading so S3K implementations rely less on temporary bridges and special cases.
+- Wire MutableLevel into an interactive editing mode with tile placement.
+- Implement enter/exit play-testing using GameRuntime snapshot/restore.
+- Basic undo/redo using MutableLevel's saveState/restoreState.
 
-#### 3. Shared Load and Lifecycle Architecture
+#### 3. S3K Runtime Resource Parity (continued)
 
-- Continue pushing level initialization through `LevelInitProfile`.
-- Keep test teardown and runtime init flow aligned with the ROM-oriented model.
-- Move more cross-game behavior behind providers instead of conditional logic in top-level engine flow.
+- PLC and dynamic art loading improvements for HCZ and beyond.
+- Reduce resource-reference warnings for non-AIZ zones.
 
-#### 4. Release and CI Hygiene
+#### 4. ROM/Disassembly Tooling
 
-- Keep docs, version numbers, tags, and release notes in sync.
-- Improve ROM-optional test behavior for contributors and CI.
-- Make regression failures easier to diagnose and less sensitive to environment issues.
-
-### Suggested Exit Criteria for v0.5
-
-- Sonic 3 & Knuckles has at least one additional zone or gameplay slice that feels meaningfully beyond bootstrap status.
-- S3K object and scroll-handler coverage is clearly broader than in `v0.4`.
-- Major shared-system work for S3K no longer feels provisional.
-- CI, release metadata, and top-level docs remain aligned throughout development.
-
-## v0.6 Theme: Tooling and Modding Foundations
-
-Once S3K is less fragile, the next logical investment is tooling.
-
-### Primary Goals
-
-- Build the foundation for a usable level editor.
-- Improve ROM/disassembly tooling integration.
-- Make engine data flows easier to inspect, validate, and modify safely.
-
-### Priority Areas
-
-- Level editor foundation work.
-- Better authoring and inspection workflows around objects, level data, mappings, and PLC data.
-- Clearer separation between engine logic and editable content/configuration.
-- More contributor-facing documentation for adding objects, bosses, and game-module features.
+- Better authoring and inspection workflows around objects, level data, and PLC data.
 
 ### Suggested Exit Criteria for v0.6
 
-- The project has a real editor/tooling foundation, not just design notes.
-- Common reverse-engineering and parity workflows are easier to repeat.
-- The engine is materially easier to extend without deep familiarity with every subsystem.
+- At least two S3K zones are playable from start to zone transition.
+- The level editor supports basic tile editing with undo/redo and play-test round-trips.
+- S3K object coverage is broad enough that non-AIZ zones feel populated, not empty.
 
 ## v0.7 Theme: Completion, Polish, and Parity Closure
 
@@ -118,7 +159,7 @@ This release should focus on reducing obvious gaps rather than introducing new s
 
 ### Priority Areas
 
-- Remaining high-value S3K gameplay gaps.
+- Remaining high-value S3K gameplay gaps (additional zones, bosses, special stage polish).
 - Special stage polish where current support exists but parity is incomplete.
 - Final parity passes on transitions, boss sequences, and edge-case object behavior.
 - Documentation cleanup around what is complete, partial, or intentionally deferred.
@@ -146,6 +187,5 @@ These are all valid ideas, but they should not outrank the current roadmap theme
 
 ## Short Version
 
-If the project needs a single sentence roadmap:
-
-`v0.5` should make Sonic 3 & Knuckles materially deeper and more stable, `v0.6` should make the engine meaningfully easier to inspect and edit, and `v0.7` should focus on completion and parity closure rather than new strategic scope.
+Complete AIZ2 for v0.5. Then `v0.6` expands S3K zone breadth and delivers a level editor prototype,
+`v0.7` focuses on completion and parity closure.
