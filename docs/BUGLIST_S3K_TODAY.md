@@ -9,7 +9,7 @@ Last updated: 2026-03-25
 - [ ] AIZ water rendering: no water surface sprites are visible.
 - [ ] AIZ water effects: Act 1 has no water effect before the fire sequence, while post-fire shows the wavy effect. Verify which state is ROM-accurate.
 - [ ] S3K invincibility: no invincibility sprite is rendered. This may be intentional for now, but it should be tracked explicitly.
-- [x] AIZ loop before the hollow log: weird physics behavior occurs on the loop. **(Fixed: restore ROM-aligned ground wall collision guard when no level is loaded so shared collision logic no longer regresses tests)**
+- [x] AIZ loop before the hollow log: weird physics behavior occurs on the loop. **(Fixed: corrected shared loop wall probing to match `skdisasm` `CalcRoomInFront`, and restored the `Player_WalkVertR` right-wall penetration behavior needed for clean loop traversal; covered by a headless AIZ1 regression test)**
 - [ ] AIZ1 mid-act transition: weird snapping/teleportation occurs after the transition once the player goes past the first set of spikes.
 - [x] Regression: S3K big rings no longer send the player to a special stage. **(Fixed: FadeManager identity mismatch after master title screen exit)**
 - [ ] S3K big rings should only be interactable after their initial growing animation finishes.
