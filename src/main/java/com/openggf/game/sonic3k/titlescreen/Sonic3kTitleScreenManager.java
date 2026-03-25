@@ -8,6 +8,9 @@ import com.openggf.game.TitleScreenProvider;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.audio.Sonic3kSmpsConstants;
+import com.openggf.Engine;
+import com.openggf.GameLoop;
+import com.openggf.audio.AudioManager;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Palette;
@@ -82,7 +85,11 @@ public class Sonic3kTitleScreenManager implements TitleScreenProvider {
         WHITE_FLASH,
         /** Banner bounce + menu selection. */
         INTERACTIVE,
-        /** Start pressed, ready to exit. */
+        /** Fade to black before exiting (handles fade ourselves since
+         *  FadeManager instance may differ between GameLoop and UiRenderPipeline
+         *  after the RuntimeManager singleton migration). */
+        FADE_OUT,
+        /** Fade complete, ready to exit. */
         EXITING
     }
 
@@ -122,6 +129,9 @@ public class Sonic3kTitleScreenManager implements TitleScreenProvider {
 
     /** Duration of the white flash (frames). */
     private static final int WHITE_FLASH_DURATION = 8;
+
+    /** Duration of the exit fade-to-black (frames, ~21 = standard Mega Drive fade). */
+    private static final int EXIT_FADE_DURATION = 21;
 
     /**
      * SonicFrameIndex table: animation frame indices to advance through.
@@ -366,6 +376,7 @@ public class Sonic3kTitleScreenManager implements TitleScreenProvider {
             case SONIC_ANIMATION -> updateSonicAnimation(input);
             case WHITE_FLASH -> updateWhiteFlash(input);
             case INTERACTIVE -> updateInteractive(input);
+            case FADE_OUT -> updateFadeOut();
             case EXITING -> { }
         }
         frameCounter++;
@@ -394,7 +405,9 @@ public class Sonic3kTitleScreenManager implements TitleScreenProvider {
             case SEGA_FADE_IN, SEGA_HOLD, PAL_TRANSITION, SONIC_ANIMATION ->
                     drawAnimationPhase(gm);
             case WHITE_FLASH -> drawWhiteFlash(gm);
-            case INTERACTIVE, EXITING -> drawInteractivePhase(gm);
+            case INTERACTIVE -> drawInteractivePhase(gm);
+            case FADE_OUT -> drawFadeOut(gm);
+            case EXITING -> { /* Screen is black, GameLoop handles transition */ }
         }
     }
 
@@ -426,6 +439,14 @@ public class Sonic3kTitleScreenManager implements TitleScreenProvider {
         musicPlaying = false;
         segaSoundPlayed = false;
         spritesInitialized = false;
+
+        // Cancel any stale FadeManager overlay. The GameLoop's exitTitleScreen()
+        // uses fadeManager.startFadeToBlack() with a callback to doExitTitleScreen(),
+        // which calls this reset(). After the callback, FadeManager.completeFade()
+        // would persist the black overlay indefinitely (holdDuration = MAX_VALUE).
+        // Cancelling here clears the overlay so the level can render.
+        GameServices.fade().cancel();
+
         LOGGER.info("S3K title screen reset to inactive");
     }
 
@@ -603,6 +624,44 @@ public class Sonic3kTitleScreenManager implements TitleScreenProvider {
         }
     }
 
+    /**
+     * Updates the exit fade-to-black phase.
+     *
+     * <p>We handle the full exit transition ourselves rather than relying on
+     * the GameLoop's {@code exitTitleScreen()} → FadeManager → callback chain,
+     * because the upstream RuntimeManager singleton migration can cause the
+     * FadeManager instance in GameLoop to differ from the one that the
+     * UiRenderPipeline updates, preventing the fade callback from ever firing.
+     *
+     * <p>When our visual fade completes, we directly reset, set the game mode
+     * to LEVEL, and load the first zone.
+     */
+    private void updateFadeOut() {
+        phaseTimer++;
+        if (phaseTimer >= EXIT_FADE_DURATION) {
+            LOGGER.info("S3K title screen exit fade complete, loading level");
+
+            // Reset title screen state
+            state = State.INACTIVE;
+            phase = Phase.EXITING;
+            spritesInitialized = false;
+
+            // Cancel any stale FadeManager overlays
+            GameServices.fade().cancel();
+
+            // Transition directly to LEVEL mode and load the first zone
+            try {
+                Engine engine = Engine.getInstance();
+                if (engine != null) {
+                    engine.getGameLoop().setGameMode(com.openggf.game.GameMode.LEVEL);
+                }
+                GameServices.level().loadZoneAndAct(0, 0);
+            } catch (Exception e) {
+                LOGGER.severe("Failed to load level after title screen: " + e.getMessage());
+            }
+        }
+    }
+
     private void updateInteractive(InputHandler input) {
         int jumpKey = configService.getInt(SonicConfiguration.JUMP);
         int upKey = configService.getInt(SonicConfiguration.UP);
@@ -620,11 +679,15 @@ public class Sonic3kTitleScreenManager implements TitleScreenProvider {
             GameServices.audio().playSfx(Sonic3kSfx.SWITCH.id);
         }
 
-        // Start pressed - exit
+        // Start pressed - begin exit fade
         if (input.isKeyPressed(jumpKey)) {
-            phase = Phase.EXITING;
-            state = State.EXITING;
-            LOGGER.info("S3K title screen exiting (menu selection: " + menuSelection + ")");
+            phase = Phase.FADE_OUT;
+            phaseTimer = 0;
+            // State stays ACTIVE during our fade — we only set EXITING once
+            // the visual fade is complete, so the GameLoop's exitTitleScreen()
+            // finds the screen already black and can transition immediately.
+            AudioManager.getInstance().fadeOutMusic();
+            LOGGER.info("S3K title screen starting exit fade (menu selection: " + menuSelection + ")");
             return;
         }
 
@@ -1058,6 +1121,26 @@ public class Sonic3kTitleScreenManager implements TitleScreenProvider {
                     GLCommand.CommandType.RECTI, -1,
                     GLCommand.BlendType.ONE_MINUS_SRC_ALPHA,
                     1.0f, 1.0f, 1.0f, flashAlpha,
+                    0, 0, SCREEN_WIDTH, SCREEN_HEIGHT
+            ));
+        }
+    }
+
+    /**
+     * Draws the exit fade-to-black: renders the interactive scene with a
+     * progressively opaque black overlay.
+     */
+    private void drawFadeOut(GraphicsManager gm) {
+        // Draw the interactive scene underneath
+        drawInteractivePhase(gm);
+
+        // Black overlay, fading in
+        float fadeAlpha = (float) phaseTimer / EXIT_FADE_DURATION;
+        if (fadeAlpha > 0.0f) {
+            gm.registerCommand(new GLCommand(
+                    GLCommand.CommandType.RECTI, -1,
+                    GLCommand.BlendType.ONE_MINUS_SRC_ALPHA,
+                    0.0f, 0.0f, 0.0f, Math.min(1.0f, fadeAlpha),
                     0, 0, SCREEN_WIDTH, SCREEN_HEIGHT
             ));
         }
