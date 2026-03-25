@@ -49,6 +49,18 @@ public final class S3kSpriteDataLoader {
     public static List<SpriteMappingFrame> loadMappingFrames(RomByteReader reader, int mappingAddr) {
         int offsetTableSize = reader.readU16BE(mappingAddr);
         int frameCount = offsetTableSize / 2;
+        return loadMappingFrames(reader, mappingAddr, frameCount);
+    }
+
+    /**
+     * Loads S3K mapping frames with an explicit frame count instead of reading it from the first word.
+     *
+     * @param reader ROM byte reader
+     * @param mappingAddr ROM address of mapping table
+     * @param frameCount number of frames to read
+     * @return list of mapping frames
+     */
+    public static List<SpriteMappingFrame> loadMappingFrames(RomByteReader reader, int mappingAddr, int frameCount) {
         List<SpriteMappingFrame> frames = new ArrayList<>(frameCount);
         for (int i = 0; i < frameCount; i++) {
             int frameAddr = mappingAddr + reader.readU16BE(mappingAddr + i * 2);
