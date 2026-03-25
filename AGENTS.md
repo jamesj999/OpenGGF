@@ -7,7 +7,7 @@ OpenGGF is an open-source, Java-based game engine for research and preservation 
 3.  Provide modern tooling such as a level editor and an open framework for modding and customisation.
 
 ## Current Status
-The project is in an **alpha** state. Core systems are functional with 962 passing tests. Recent consolidation work has unified several subsystems (ObjectManager, RingManager, SpriteManager, per-sprite controllers) to reduce complexity while maintaining ROM accuracy. All three games (Sonic 1, Sonic 2, Sonic 3&K) are supported with game-specific modules, level loading, objects, audio, and scroll handlers.
+The project is in an **alpha** state. Core systems are functional with extensive passing tests. A major architectural modernization has replaced pervasive singleton coupling with a two-tier service architecture (`GameServices` + `ObjectServices`), decomposed the monolithic `LevelManager` into focused subsystems, and extracted 50+ shared base classes and utility helpers to eliminate cross-game duplication. All three games (Sonic 1, Sonic 2, Sonic 3&K) are supported with game-specific modules, level loading, objects, audio, and scroll handlers. A `MutableLevel` abstraction provides the foundation for a planned level editor.
 
 ### Rendering
 *   **Status:** ✅ Functional.
@@ -52,18 +52,18 @@ The project is in an **alpha** state. Core systems are functional with 962 passi
 
 ## Key information
 *   **Entry point:** `com.openggf.Engine` (declared in the manifest). A `main` method creates a GLFW window with a manual timing game loop.
-*   **Build:** `mvn package`. Tests can be run with `mvn test` (JUnit 4).
+*   **Build:** `mvn package`. Tests can be run with `mvn test` (JUnit 4 + JUnit 5).
 *   **Maven output for agents:** `.mvn/extensions.xml` installs Maven Silent Extension (MSE) and `.mvn/maven.config` enables `-Dmse=relaxed` by default for all repo-local Maven commands. Use `-Dmse=off` when full Maven logs are required for debugging.
 *   **Run:** `java -jar target/sonic-engine-0.4.prerelease-jar-with-dependencies.jar`.
 *   **ROM Requirement:** The engine now supports Sonic 1, Sonic 2, and Sonic 3&K modules. Keep the relevant ROM in the project root (typically gitignored): `Sonic The Hedgehog 2 (W) (REV01) [!].gen`, `Sonic The Hedgehog (W) (REV01) [!].gen`, and `Sonic and Knuckles & Sonic 3 (W) [!].gen`. S3K-focused tests should pass `-Ds3k.rom.path="Sonic and Knuckles & Sonic 3 (W) [!].gen"` when needed.
-*   **Important packages** under `src/main/java/uk/co/jamesj999/sonic`:
-    *   `Control` – input handling
+*   **Important packages** under `src/main/java/com/openggf`:
+    *   `control` – input handling
     *   `camera` – camera logic
     *   `configuration` – game settings via `SonicConfiguration` and `SonicConfigurationService`
-    *   `audio` – SMPS driver, YM2612 FM synthesis, SN76489 PSG, sequencer, DAC playback
+    *   `audio` – SMPS driver, YM2612 FM synthesis, SN76489 PSG, sequencer, DAC playback, `AbstractAudioProfile`, `AbstractSmpsLoader`
     *   `data` – ROM loading (`Rom`, `RomManager`, `RomByteReader`), game interface, art providers
     *   `debug` – debug overlay (`DebugRenderer`), enabled via the `DEBUG_VIEW_ENABLED` configuration flag
-    *   `game` – core game-agnostic interfaces, providers, and `GameServices` façade
+    *   `game` – core game-agnostic interfaces, providers, `GameServices` façade, `GameRuntime`, `RuntimeManager`, `PlayableEntity`, `DamageCause`, `AbstractZoneRegistry`
     *   `game.sonic1` – Sonic 1 game module, zone registry, level events, objects, badniks, bosses, scroll handlers, audio, title screen, special stage
     *   `game.sonic2` – Sonic 2-specific implementations
     *   `game.sonic2.objects` – object factories and instance classes
@@ -72,16 +72,17 @@ The project is in an **alpha** state. Core systems are functional with 962 passi
     *   `game.sonic3k` – Sonic 3&K game module, level loading, and bootstrap logic
     *   `game.sonic3k.constants` – Sonic 3&K ROM offsets and table metadata
     *   `graphics` – GL wrappers and render managers
-    *   `level` – level structures (patterns, blocks, chunks, collision)
-    *   `level.objects` – unified `ObjectManager` with placement, collision, touch response
+    *   `level` – level structures (patterns, blocks, chunks, collision), `MutableLevel`, `AbstractLevel`, `LevelTilemapManager`, `LevelTransitionCoordinator`, `LevelDebugRenderer`
+    *   `level.objects` – unified `ObjectManager` with placement, collision, touch response; `ObjectServices` interface and `DefaultObjectServices`; shared base classes (`AbstractBadnikInstance`, `AbstractSpikeObjectInstance`, `AbstractMonitorObjectInstance`, `AbstractProjectileInstance`, etc.); utility helpers (`SubpixelMotion`, `PatrolMovementHelper`, `PlatformBobHelper`, `DestructionEffects`, etc.)
+    *   `level.scroll` – `AbstractZoneScrollHandler` and per-zone scroll handlers
     *   `level.rings` – unified `RingManager` with placement, rendering, lost rings
     *   `level.bumpers` – unified `CNZBumperManager` for Casino Night Zone
     *   `physics` – sensors, terrain collision, and unified `CollisionSystem`
     *   `sprites` – sprite classes, including playable character logic
-    *   `sprites.playable` – `PlayableSpriteController` coordinates movement, animation, drowning
+    *   `sprites.playable` – `PlayableSpriteController` coordinates movement, animation, drowning; implements `PlayableEntity`
     *   `timer` – utility timers for events
     *   `tools` – decompression utilities (Kosinski, Nemesis, Enigma, Saxman, DCM), `LevelDataFactory`, `ObjectDiscoveryTool`, disassembly tools
-*   **Tests:** Live under `src/test/java/uk/co/jamesj999/sonic/tests` and cover ROM loading, decompression, and collision.
+*   **Tests:** Live under `src/test/java/com/openggf/tests` and cover ROM loading, decompression, collision, singleton lifecycle, and services migration.
 
 ## Headless Testing with HeadlessTestRunner
 
@@ -94,8 +95,18 @@ runner.stepFrame(up, down, left, right, jump);  // Simulate one frame
 runner.stepIdleFrames(5);                        // Step multiple idle frames
 ```
 
-### Critical Setup Requirements
-1. **Reset singletons:** `GraphicsManager.resetInstance()`, `Camera.resetInstance()`
+### Preferred: Automated Singleton Reset
+Use `@ExtendWith(SingletonResetExtension.class)` or the `@FullReset` annotation for automated singleton teardown between tests. These call `resetState()` on all singletons.
+
+```java
+@ExtendWith(SingletonResetExtension.class)
+class MyTest {
+    @Test void testSomething() { /* singletons auto-reset */ }
+}
+```
+
+### Manual Setup (Legacy)
+1. **Reset singletons:** `GraphicsManager.getInstance().resetState()`, `Camera.getInstance().resetState()` (use `resetState()`, NOT the deprecated `resetInstance()`)
 2. **Initialize headless graphics:** `GraphicsManager.getInstance().initHeadless()`
 3. **Create and register playable sprite first:** add the main sprite to `SpriteManager` and set camera focus before `loadZoneAndAct(...)` (required by current `LevelManager` load path)
 4. **Load level:** `LevelManager.getInstance().loadZoneAndAct(zone, act)`
@@ -104,22 +115,69 @@ runner.stepIdleFrames(5);                        // Step multiple idle frames
 
 See `TestHeadlessWallCollision.java` for a complete example.
 
-## Core Services Façade
+### Test Infrastructure
+| Class | Purpose |
+|-------|---------|
+| `SingletonResetExtension` | JUnit 5 extension for automated singleton teardown |
+| `@FullReset` | Annotation triggering full engine reset |
+| `StubObjectServices` | Test double for `ObjectServices` |
+| `TestObjectServicesMigrationGuard` | Scanner-based guard preventing singleton access in migrated objects |
+| `TestNoServicesInObjectConstructors` | Ensures objects don't call `services()` during construction |
 
-Access core singletons through `GameServices` instead of direct `getInstance()` calls:
+## Two-Tier Service Architecture
+
+### Tier 1: `GameServices` (Static Facade)
+
+Access core managers through `GameServices` instead of direct `getInstance()` calls. Used by non-object code (managers, event handlers, controllers):
 ```java
+GameServices.camera()       // Camera
+GameServices.level()        // LevelManager
 GameServices.gameState()    // GameStateManager - score, lives, emeralds
+GameServices.audio()        // AudioManager
 GameServices.timers()       // TimerManager - event timing
 GameServices.rom()          // RomManager - ROM data access
-GameServices.debugOverlay() // DebugOverlayManager - debug rendering
+GameServices.sprites()      // SpriteManager
+GameServices.fade()         // FadeManager
+GameServices.collision()    // CollisionSystem
+GameServices.parallax()     // ParallaxManager
+GameServices.water()        // WaterSystem
+GameServices.debugOverlay() // DebugOverlayManager
 ```
+
+### Tier 2: `ObjectServices` (Per-Object Injection)
+
+All `AbstractObjectInstance` subclasses receive `ObjectServices` via injection at construction time. **Never call `getInstance()` from object code** — use `services()` instead:
+```java
+// Inside any object:
+services().objectManager()        // ObjectManager
+services().renderManager()        // ObjectRenderManager
+services().audioManager()         // AudioManager
+services().camera()               // Camera
+services().gameState()            // GameStateManager
+services().zoneFeatureProvider()  // ZoneFeatureProvider
+```
+
+### GameRuntime
+`GameRuntime` (`com.openggf.game`) is the explicit runtime object owning all mutable gameplay state. `RuntimeManager` manages its lifecycle. Enables safe editor mode enter/exit, level rebuilds, and undo/redo.
 
 ## Consolidated Subsystems
 
 Several manager classes have been consolidated to reduce complexity:
 
+### LevelManager Decomposition
+`LevelManager` has been decomposed into focused subsystems:
+- `LevelManager` – Thin coordinator, level load orchestration
+- `LevelTilemapManager` – Tilemap loading, chunk/block management, VRAM upload
+- `LevelTransitionCoordinator` – Act transitions, seamless loading, warp sequences
+- `LevelDebugRenderer` – All debug overlay rendering (collision, chunks, paths)
+- `LevelGeometry` *(record)* – Immutable level dimension/boundary data
+- `LevelDebugContext` *(record)* – Snapshot of debug state for rendering
+
+### MutableLevel
+`MutableLevel` (`com.openggf.level`) provides snapshot + mutation + dirty-region tracking for level tile data. Foundation for the planned level editor. Dirty regions processed per-frame via `LevelFrameStep.processDirtyRegions()`.
+
 ### Object System (`ObjectManager`)
-Contains all object-related functionality as inner classes:
+Contains all object-related functionality as inner classes. Injects `ObjectServices` into all objects at construction:
 - `ObjectManager.Placement` – Spawn windowing, remembered objects
 - `ObjectManager.SolidContacts` – Riding, landing, ceiling, side collision
 - `ObjectManager.TouchResponses` – Enemy bounce, hurt, category detection
@@ -131,7 +189,7 @@ Contains all object-related functionality as inner classes:
 - `LostRingPool` – Lost ring physics and collection
 
 ### Per-Sprite Controller (`PlayableSpriteController`)
-Owned by `AbstractPlayableSprite`, coordinates:
+Owned by `AbstractPlayableSprite` (which implements `PlayableEntity`), coordinates:
 - `PlayableSpriteMovement` – Physics and movement
 - `PlayableSpriteAnimation` – Animation state
 - `SpindashDustController` – Spindash dust effects
@@ -139,7 +197,7 @@ Owned by `AbstractPlayableSprite`, coordinates:
 
 ### Sonic 2 Level Animation (`Sonic2LevelAnimationManager`)
 Implements both `AnimatedPatternManager` and `AnimatedPaletteManager` via:
-- `Sonic2PatternAnimator` – Animated tile scripts
+- `Sonic2PatternAnimator` – Animated tile scripts (uses extracted `AniPlcParser`/`AniPlcScriptState`)
 - `Sonic2PaletteCycler` – Zone-specific palette cycling
 
 ### CNZ Bumpers (`CNZBumperManager`)
@@ -255,23 +313,45 @@ GameModuleRegistry.detectAndSetModule(rom);
 - Current known limitation:
   - `validateResourceReferences()` may still log high chunk pattern references in some S3K acts (`maxChunkPatternIndex > patternCount`), indicating dynamic art/PLC parity is still incomplete.
 - Regression tests to keep:
-  - `TestS3kAiz1SpawnStability`
+  - `TestS3kAiz1SkipHeadless`
   - `TestSonic3kLevelLoading`
   - `TestSonic3kBootstrapResolver`
   - `TestSonic3kDecodingUtils`
 
 ## Object & Badnik System
 
-Game objects use a factory pattern with game-specific registries.
+Game objects use a factory pattern with game-specific registries. All objects receive `ObjectServices` at construction via `ObjectManager` injection.
 
 ### Key Classes
 | Class | Purpose |
 |-------|---------|
-| `ObjectManager` | Unified manager with Placement, SolidContacts, TouchResponses, PlaneSwitchers |
-| `Sonic2ObjectRegistry` | Factory registry for Sonic 2 objects |
-| `Sonic2ObjectRegistryData` | Static name mappings for object IDs |
-| `AbstractBadnikInstance` | Base class for enemy AI with collision handling |
+| `ObjectManager` | Unified manager with Placement, SolidContacts, TouchResponses, PlaneSwitchers; injects `ObjectServices` into all objects |
+| `ObjectServices` | Per-object service interface (camera, audio, level, game state) |
+| `DefaultObjectServices` | Concrete `ObjectServices` implementation backed by `GameRuntime` |
+| `AbstractObjectRegistry` | Shared base for `Sonic1ObjectRegistry`, `Sonic2ObjectRegistry`, `Sonic3kObjectRegistry` |
+| `AbstractBadnikInstance` | Base class for enemy AI (`com.openggf.level.objects` — game-agnostic) |
 | `ObjectFactory` | Functional interface for object creation |
+
+### Service Access in Objects
+```java
+// CORRECT — use injected services:
+services().audioManager().playSfx(sfxId);
+services().camera().getX();
+PatternSpriteRenderer renderer = getRenderer(artKey);  // static method on AbstractObjectInstance
+
+// WRONG — do NOT use singletons in objects:
+AudioManager.getInstance().playSfx(sfxId);  // PROHIBITED
+```
+
+### Child Object Spawning
+```java
+// CORRECT — use spawnChild() helper:
+ChildObject child = spawnChild(() -> new ChildObject(spawn, params));
+
+// Legacy pattern (still works but prefer spawnChild):
+ObjectManager om = services().objectManager();
+om.addDynamicObject(childInstance);
+```
 
 ### Adding New Objects
 1. Add object ID to `Sonic2ObjectIds.java`
@@ -279,6 +359,27 @@ Game objects use a factory pattern with game-specific registries.
 3. Register factory in `Sonic2ObjectRegistry.registerDefaultFactories()`
 4. For solid objects, collision is handled automatically via `ObjectManager.SolidContacts`
 5. For enemies, touch response is handled via `ObjectManager.TouchResponses`
+
+### Shared Base Classes (in `level.objects`)
+| Base Class | Purpose |
+|------------|---------|
+| `AbstractBadnikInstance` | All badniks — touch response, destruction via `DestructionEffects` |
+| `AbstractSpikeObjectInstance` | Spike objects with retract/extend behavior |
+| `AbstractMonitorObjectInstance` | Monitor objects — shared icon-rise physics |
+| `AbstractPointsObjectInstance` | Floating score popups |
+| `AbstractProjectileInstance` | Fire-and-forget projectiles |
+| `AbstractFallingFragment` | Collapsing platform fragment physics |
+| `GravityDebrisChild` | Debris children with gravity |
+
+### Shared Utilities (in `level.objects`)
+| Utility | Purpose |
+|---------|---------|
+| `SubpixelMotion` | 16:8 fixed-point position updates (moveSprite, moveSprite2, moveX) |
+| `PatrolMovementHelper` | Left-right patrol with edge detection |
+| `PlatformBobHelper` | Sine-based platform bobbing |
+| `SpringBounceHelper` | Shared spring bounce physics |
+| `DestructionEffects` | Badnik explosion + animal + score |
+| `WaypointPathFollower` | Conveyor/path-following objects |
 
 ### Game-Specific Art Loading
 
@@ -472,7 +573,7 @@ Verified offsets are automatically added as runtime anchors during a session. To
 
 ### Programmatic Usage
 
-The tools in `com.openggf.sonic.tools.disasm` can also be used programmatically:
+The tools in `com.openggf.tools.disasm` can also be used programmatically:
 
 ```java
 // Sonic 2 (default profile)
@@ -519,6 +620,6 @@ exporter.exportAsJavaConstants(batch, "", new PrintWriter(System.out), s1);
     *   **Block:** A 128x128 pixel area, composed of Chunks.
 *   **Dependencies:** Running the engine requires LWJGL (OpenGL, OpenAL, GLFW bindings) and JOML (math library), already declared as dependencies in `pom.xml`.
 *   **Debug:** `DEBUG_VIEW_ENABLED` (true by default) overlays sensor and collision info during gameplay.
-*   **Level Loading:** Performed by `LevelManager`, which reads from the ROM through classes in `com.openggf.sonic.data`.
+*   **Level Loading:** Performed by `LevelManager`, which reads from the ROM through classes in `com.openggf.data`.
 *   **Conditional Tests**: `TestCollisionLogic` uses `Assume.assumeTrue` to skip when a ROM file is not present. This is a known and accepted conditional skip, not a hard `@Ignore`.
 *   **File Endings**: Ensure all source code files end with a newline character.

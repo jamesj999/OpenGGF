@@ -83,9 +83,9 @@ public static final int OBJECT_NAME = 0xXX;
 
 **PLC note:** S1 loads object art via ArtLoadCues (PLCs) during level init. The shared `PlcParser` utility handles parsing. See `plc-system` skill. Use `RomOffsetFinder plc <name>` to inspect PLC contents from the CLI. The ObjectDiscoveryTool checklist shows PLC IDs per object. For dedicated object art that shouldn't overwrite level pattern tiles, use standalone decompression: `PlcParser.decompressAll(rom, plc)` returns independent `Pattern[]` arrays per PLC entry.
 
-**S1 art infrastructure exists:** `Sonic1ObjectArt.java`, `Sonic1ObjectArtKeys.java`, and `Sonic1ObjectArtProvider.java` are established. Follow the existing pattern:
+**S1 art infrastructure exists:** `Sonic1ObjectArt.java` and `Sonic1ObjectArtProvider.java` are established. Art keys use the shared `ObjectArtKeys` class (`com.openggf.level.objects.ObjectArtKeys`). Follow the existing pattern:
 
-1. **Add art key** to `Sonic1ObjectArtKeys.java`:
+1. **Add art key** to `ObjectArtKeys.java`:
    ```java
    public static final String OBJECT_NAME = "objectname";
    ```
@@ -118,7 +118,7 @@ Create the instance class following existing Sonic 2 patterns but in the Sonic 1
 
 ##### Pattern 1: Simple Object
 ```java
-package com.openggf.sonic.game.sonic1.objects;
+package com.openggf.game.sonic1.objects;
 
 public class ObjectNameObjectInstance extends AbstractObjectInstance
         implements SolidObjectProvider, SolidObjectListener {
@@ -128,7 +128,7 @@ public class ObjectNameObjectInstance extends AbstractObjectInstance
 
 ##### Pattern 2: Badnik (Enemy with AI)
 ```java
-package com.openggf.sonic.game.sonic1.objects.badniks;
+package com.openggf.game.sonic1.objects.badniks;
 
 public class ObjectNameBadnikInstance extends AbstractBadnikInstance {
     @Override
@@ -178,7 +178,7 @@ public class ObjectNameBadnikInstance extends AbstractBadnikInstance {
 
 | Base Class | Location | Use When |
 |------------|----------|----------|
-| `AbstractBadnikInstance` | `com.openggf.level.objects` | All badniks (enemies). Provides touch response, destruction with `DestructionEffects`, debug rendering. S1 badniks pass S1-specific `DestructionConfig`. |
+| `AbstractBadnikInstance` | `com.openggf.level.objects` | All badniks (enemies). Provides touch response, destruction with `DestructionEffects`, debug rendering. S1 badniks pass S1-specific `DestructionConfig`. Objects receive `ObjectServices` via injection — use `services()` to access camera, audio, level, game state. |
 | `AbstractProjectileInstance` | `com.openggf.level.objects` | Fire-and-forget projectiles (missiles, fireballs). Handles motion, gravity, off-screen destroy, HURT collision. |
 | `AbstractMonitorObjectInstance` | `com.openggf.level.objects` | Monitor objects. Shared icon-rise physics and state machine. Override `applyPowerup()`. |
 | `AbstractPointsObjectInstance` | `com.openggf.level.objects` | Floating score popups. Shared rise-and-fade physics. Override `getFrameForScore()`. |
@@ -197,7 +197,7 @@ public class ObjectNameBadnikInstance extends AbstractBadnikInstance {
 
 | Utility | Use When |
 |---------|----------|
-| `getRenderer(artKey)` | Inherited from `AbstractObjectInstance`. Returns ready `PatternSpriteRenderer` or null. Use instead of manually calling `LevelManager.getInstance().getObjectRenderManager()`. |
+| `getRenderer(artKey)` | Static method on `AbstractObjectInstance`. Returns ready `PatternSpriteRenderer` or null. Use instead of manual render manager access. |
 | `AnimationTimer` | `com.openggf.util.AnimationTimer` — cyclic frame animation timer. |
 | `LazyMappingHolder` | `com.openggf.util.LazyMappingHolder` — lazy-loading holder for sprite mappings. |
 | `PatternDecompressor` | `com.openggf.util.PatternDecompressor` — bytes→Pattern[] conversion. |
@@ -247,7 +247,7 @@ int configBits = subtype & 0x0F;
 
 **Sound effects**: Use constants from `Sonic1AudioProfile.java`:
 ```java
-AudioManager.getInstance().playSfx(Sonic1AudioProfile.SFX_SPRING);
+services().audioManager().playSfx(Sonic1AudioProfile.SFX_SPRING);
 ```
 
 Key Sonic 1 SFX IDs:

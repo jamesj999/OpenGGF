@@ -121,7 +121,7 @@ Create the instance class following existing patterns. **Choose the appropriate 
 For objects that exist as a single collision/render entity:
 
 ```java
-package com.openggf.sonic.game.sonic2.objects;
+package com.openggf.game.sonic2.objects;
 
 public class ObjectNameObjectInstance extends AbstractObjectInstance
         implements SolidObjectProvider, SolidObjectListener {
@@ -169,12 +169,9 @@ public class ObjectNameObjectInstance extends AbstractObjectInstance
         implements SolidObjectProvider {
 
     private void spawnChildren() {
-        ObjectManager manager = LevelManager.getInstance().getObjectManager();
-
-        // Create child with its own spawn data
+        // Preferred: use spawnChild() helper (inherited from AbstractObjectInstance)
         ObjectSpawn childSpawn = new ObjectSpawn(childX, childY, objectId, childSubtype, ...);
-        ChildObjectInstance child = new ChildObjectInstance(childSpawn, "ChildName");
-        manager.addDynamicObject(child);  // Child becomes independent
+        ChildObjectInstance child = spawnChild(() -> new ChildObjectInstance(childSpawn, "ChildName"));
     }
 }
 ```
@@ -194,9 +191,9 @@ public class ObjectNameObjectInstance extends AbstractObjectInstance
 For enemies with touch response and destruction behavior:
 
 ```java
-package com.openggf.sonic.game.sonic2.objects.badniks;
+package com.openggf.game.sonic2.objects.badniks;
 
-import com.openggf.game.sonic2.objects.badniks.AbstractBadnikInstance;
+import com.openggf.level.objects.AbstractBadnikInstance;
 
 public class ObjectNameBadnikInstance extends AbstractBadnikInstance {
     @Override
@@ -265,7 +262,7 @@ Bosses differ significantly from regular objects:
 
 | Base Class | Location | Use When |
 |------------|----------|----------|
-| `AbstractBadnikInstance` | `com.openggf.level.objects` | All badniks. Provides touch response, destruction with `DestructionEffects`, debug rendering. S2 badniks pass `Sonic2BadnikConfig.DESTRUCTION`. |
+| `AbstractBadnikInstance` | `com.openggf.level.objects` | All badniks. Provides touch response, destruction with `DestructionEffects`, debug rendering. S2 badniks pass `Sonic2BadnikConfig.DESTRUCTION`. Objects receive `ObjectServices` via injection — use `services()` to access camera, audio, level, game state. |
 | `AbstractProjectileInstance` | `com.openggf.level.objects` | Fire-and-forget projectiles. Handles motion, gravity, off-screen destroy, HURT collision. |
 | `AbstractSpikeObjectInstance` | `com.openggf.level.objects` | Spike objects with retract/extend behavior. |
 | `AbstractMonitorObjectInstance` | `com.openggf.level.objects` | Monitor objects. Shared icon-rise physics. Override `applyPowerup()`. |
@@ -285,7 +282,8 @@ Bosses differ significantly from regular objects:
 
 | Utility | Use When |
 |---------|----------|
-| `getRenderer(artKey)` | Inherited from `AbstractObjectInstance`. Returns ready `PatternSpriteRenderer` or null. Use instead of manually calling `LevelManager.getInstance().getObjectRenderManager()`. |
+| `getRenderer(artKey)` | Inherited from `AbstractObjectInstance`. Returns ready `PatternSpriteRenderer` or null. Use instead of manual render manager access. |
+| `services().renderManager()` | Returns `ObjectRenderManager` for manual render control when needed. |
 | `AnimationTimer` | `com.openggf.util.AnimationTimer` — cyclic frame animation timer. |
 | `LazyMappingHolder` | `com.openggf.util.LazyMappingHolder` — lazy-loading holder for sprite mappings. |
 | `PatternDecompressor` | `com.openggf.util.PatternDecompressor` — bytes→Pattern[] conversion. |
@@ -331,7 +329,7 @@ int configBits = subtype & 0x0F;
 
 **Sound effects**: Use constants from `Sonic2AudioConstants.java`:
 ```java
-AudioManager.getInstance().playSfx(Sonic2AudioConstants.SFX_SPRING);
+services().audioManager().playSfx(Sonic2AudioConstants.SFX_SPRING);
 ```
 
 Reference `Sonic2SmpsLoader` for SFX name → ID mapping:
@@ -366,7 +364,7 @@ registerFactory(Sonic2ObjectIds.OBJECT_NAME,
 For badniks:
 ```java
 registerFactory(Sonic2ObjectIds.OBJECT_NAME,
-    (spawn, registry) -> new ObjectNameBadnikInstance(spawn, levelManager));
+    (spawn, registry) -> new ObjectNameBadnikInstance(spawn));
 ```
 
 ### Phase 3: Code Quality
@@ -446,7 +444,7 @@ Once cross-validation is confirmed bug-free:
 | Art loader | `src/.../game/sonic2/Sonic2ObjectArt.java` |
 | Art provider | `src/.../game/sonic2/Sonic2ObjectArtProvider.java` |
 | Registry | `src/.../game/sonic2/objects/Sonic2ObjectRegistry.java` |
-| Base badnik | `src/.../game/sonic2/objects/badniks/AbstractBadnikInstance.java` |
+| Base badnik | `src/.../level/objects/AbstractBadnikInstance.java` |
 | SFX mapping | `src/.../game/sonic2/audio/smps/Sonic2SmpsLoader.java` |
 | SFX constants | `src/.../game/sonic2/constants/Sonic2AudioConstants.java` |
 | Disassembly | `docs/s2disasm/` |

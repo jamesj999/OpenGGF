@@ -1,6 +1,5 @@
 ---
-name: plc-system
-description: Cross-game Pattern Load Cue (PLC) system reference — shared binary format, PlcParser API, per-game integration
+title: Cross-Game Pattern Load Cue (PLC) System
 ---
 
 # Cross-Game Pattern Load Cue (PLC) System
@@ -25,12 +24,12 @@ VRAM destination stores `tile_index * 32`. To recover tile index: `vramDest / 32
 | Game | Constant | Address | Entry Count |
 |------|----------|---------|-------------|
 | S1 | `Sonic1Constants.ART_LOAD_CUES_ADDR` | `0x01DD86` | ~16 PLC IDs |
-| S2 | `Sonic2Constants.ART_LOAD_CUES_ADDR` | TBD (see Future Path below) | ~67 PLC IDs |
+| S2 | `Sonic2Constants.ART_LOAD_CUES_ADDR` | `0x42660` | ~67 PLC IDs |
 | S3K | `Sonic3kConstants.OFFS_PLC_ADDR` | `0x09238C` | 124 PLC IDs (0x00-0x7B) |
 
 ## PlcParser API
 
-Located in `resources.com.openggf.level.PlcParser`.
+Located in `com.openggf.level.resources.PlcParser`.
 
 ### Records
 - `PlcParser.PlcEntry(int romAddr, int tileIndex)` -- single PLC entry
@@ -41,8 +40,42 @@ Located in `resources.com.openggf.level.PlcParser`.
 // Parse a PLC definition from any game's ROM
 PlcParser.PlcDefinition parse(Rom rom, int tableAddr, int plcId)
 
-// Convert entries to LoadOps for LevelResourcePlan
+// Convert entries to LoadOps for LevelResourcePlan (writes to level pattern buffer)
 List<LoadOp> toPatternOps(PlcParser.PlcDefinition definition)
+
+// --- Standalone decompression (no level buffer involvement) ---
+
+// Decompress a single entry into standalone Pattern[] (no VRAM conflicts)
+Pattern[] decompressEntry(Rom rom, PlcEntry entry)
+
+// Batch decompress all entries into List<Pattern[]> (one array per entry)
+List<Pattern[]> decompressAll(Rom rom, PlcDefinition definition)
+
+// Decompress a single entry into raw bytes (for level buffer application)
+byte[] decompressEntryRaw(Rom rom, PlcEntry entry)
+```
+
+### Standalone vs Level-Buffer Decompression
+
+PLCs can be used in two ways:
+
+| Mode | Method | Use Case |
+|------|--------|----------|
+| **Level buffer** | `toPatternOps()` / `decompressEntryRaw()` | Level init, act transitions — writes into shared level pattern buffer |
+| **Standalone** | `decompressEntry()` / `decompressAll()` | Object/boss art — returns independent `Pattern[]` arrays |
+
+**Why standalone matters:** On real hardware, boss PLCs intentionally overwrite existing VRAM tiles (e.g., boss fire art at 0x0482 overwrites spike/spring art at 0x0494). The ROM restores the overwritten art after the boss is defeated. Standalone decompression avoids this conflict entirely by keeping art in separate `Pattern[]` arrays, paired with mappings to create `ObjectSpriteSheet` instances.
+
+**Pattern for standalone PLC art loading:**
+```java
+PlcDefinition plc = PlcParser.parse(rom, tableAddr, plcId);
+List<Pattern[]> artArrays = PlcParser.decompressAll(rom, plc);
+
+// Pair each entry's patterns with its mappings
+ObjectSpriteSheet sheet = new ObjectSpriteSheet(
+    artArrays.get(entryIndex),
+    S3kSpriteDataLoader.loadMappingFrames(reader, mappingAddr),
+    paletteIndex, 1);
 ```
 
 ## Per-Game Integration
@@ -56,14 +89,15 @@ PLCs are parsed during level loading in `Sonic1.readPatternLoadCues()` via `PlcP
 - **Pre-decompression:** `Sonic3kPlcLoader.preDecompress()` for hitch-free transitions (AIZ intro)
 - See `s3k-plc-system` skill for S3K-specific PLC ID catalog and runtime patterns
 
-### S2 (Future)
-S2 has ArtLoadCues in ROM (~67 PLC IDs). Currently hardcoded in `Sonic2ObjectArt` with `ART_NEM_*` constants. Future refactor will use `PlcParser` -- see S2 PLC future path documentation.
+### S2 (Level Init)
+S2 ArtLoadCues are parsed via `Sonic2PlcLoader.java`, which uses `PlcParser.parse()` with `Sonic2Constants.ART_LOAD_CUES_ADDR`. Zone-specific PLCs are loaded during level init. S2 can also use `PlcParser.decompressEntry()` for standalone boss/object art loading.
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
 | `level/resources/PlcParser.java` | Shared PLC format parser |
+| `game/sonic2/Sonic2PlcLoader.java` | S2-specific PLC parsing via `PlcParser` |
 | `game/sonic3k/Sonic3kPlcLoader.java` | S3K-specific PLC application, GPU refresh |
 | `game/sonic1/Sonic1.java` | S1 PLC parsing via `PlcParser` |
 | `game/sonic1/Sonic1Level.java` | S1 pattern loading from PLC entries |

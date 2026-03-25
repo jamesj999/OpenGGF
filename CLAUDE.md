@@ -63,38 +63,85 @@ Game selection: `--game s1`, `--game s2` (default), or `--game s3k`. Auto-detect
 
 **PLC cross-referencing:** Search results for art labels automatically show which PLCs reference that art. Use `plc <name>` to display all art entries within a specific PLC definition.
 
-See `com.openggf.sonic.tools.disasm` package for programmatic API.
+See `com.openggf.tools.disasm` package for programmatic API.
 
 ## Architecture
 
 ### Entry Point
 `com.openggf.Engine` - GLFW window with manual timing loop (`display()` -> `update()` -> `draw()`).
 
-### Core Managers (Singleton Pattern via `getInstance()`)
-- **LevelManager** - Level loading, rendering, zone/act management
+### Two-Tier Service Architecture
+
+The engine uses a **two-tier service model** that separates global access from per-object context:
+
+**Tier 1: `GameServices` (static facade)** — Global access for managers and non-object code:
+```java
+GameServices.camera()       // Camera
+GameServices.level()        // LevelManager
+GameServices.gameState()    // GameStateManager - score, lives, emeralds
+GameServices.audio()        // AudioManager - SMPS driver
+GameServices.timers()       // TimerManager - event timing
+GameServices.rom()          // RomManager - ROM data access
+GameServices.sprites()      // SpriteManager
+GameServices.fade()         // FadeManager - screen transitions
+GameServices.collision()    // CollisionSystem
+GameServices.parallax()     // ParallaxManager
+GameServices.water()        // WaterSystem
+GameServices.debugOverlay() // DebugOverlayManager
+```
+
+**Tier 2: `ObjectServices` (injected per-object)** — Context-specific services for game objects:
+```java
+// Inside any AbstractObjectInstance subclass:
+services().objectManager()        // ObjectManager
+services().renderManager()        // ObjectRenderManager
+services().audioManager()         // AudioManager
+services().camera()               // Camera
+services().gameState()            // GameStateManager
+services().zoneFeatureProvider()  // ZoneFeatureProvider
+```
+
+Objects receive `ObjectServices` via injection at construction time (ThreadLocal context set by `ObjectManager`). **Never call `getInstance()` from object code** — use `services()` instead. `GameServices` is for non-object code (managers, event handlers, controllers).
+
+### GameRuntime
+
+`GameRuntime` (`com.openggf.game`) is the explicit runtime object that will own all mutable gameplay state. `RuntimeManager` manages its lifecycle. This is the foundation for safe editor mode enter/exit, level rebuilds, and undo/redo. Currently `GameRuntime` coordinates singleton `resetState()` calls; the long-term goal is for it to own the state directly.
+
+### Core Managers
+- **LevelManager** - Thin coordinator after decomposition (see below)
 - **SpriteManager** - All game sprites, input handling, render bucketing
 - **GraphicsManager** - OpenGL rendering, shader management
 - **AudioManager** - SMPS audio driver, YM2612/PSG synthesis
 - **Camera** - Camera position tracking
 
-### Core Services Facade
-```java
-GameServices.gameState()    // GameStateManager - score, lives, emeralds
-GameServices.timers()       // TimerManager - event timing
-GameServices.rom()          // RomManager - ROM data access
-GameServices.debugOverlay() // DebugOverlayManager - debug rendering
-```
+### LevelManager Decomposition
+
+`LevelManager` has been decomposed into focused subsystems:
+
+| Class | Responsibility |
+|-------|----------------|
+| `LevelManager` | Thin coordinator, level load orchestration |
+| `LevelTilemapManager` | Tilemap loading, chunk/block management, VRAM upload |
+| `LevelTransitionCoordinator` | Act transitions, seamless loading, warp sequences |
+| `LevelDebugRenderer` | All debug overlay rendering (collision, chunks, paths) |
+| `LevelGeometry` *(record)* | Immutable level dimension/boundary data |
+| `LevelDebugContext` *(record)* | Snapshot of debug state for rendering |
+
+### MutableLevel
+
+`MutableLevel` (`com.openggf.level`) provides snapshot + mutation + dirty-region tracking for level tile data. Foundation for the planned level editor. Uses `Block.saveState()/restoreState()` for undo/redo. Dirty regions are processed per-frame via `LevelFrameStep.processDirtyRegions()`.
 
 ### Key Packages
 | Package | Purpose |
 |---------|---------|
-| `sprites.playable` | Sonic/Tails player logic, physics |
+| `sprites.playable` | Sonic/Tails player logic, physics; `PlayableEntity` interface |
 | `physics` | Terrain collision, sensors |
-| `level` | Level structures, rendering, scrolling |
-| `level.objects` | Game object management, rendering, factories |
-| `audio` | SMPS driver, YM2612/PSG chip emulation |
+| `level` | Level structures, rendering, scrolling, `MutableLevel`, `AbstractLevel` |
+| `level.objects` | Game object management, `ObjectServices`, shared base classes, utility helpers |
+| `level.scroll` | `AbstractZoneScrollHandler` and per-zone scroll handlers |
+| `audio` | SMPS driver, YM2612/PSG chip emulation, `AbstractAudioProfile`, `AbstractSmpsLoader` |
 | `data` | ROM loading/reading (`Rom`, `RomManager`, `RomByteReader`), `Game`/`GameFactory`, art provider interfaces |
-| `game` | Core game-agnostic interfaces and providers |
+| `game` | Core game-agnostic interfaces, providers, `GameServices`, `GameRuntime`, `PlayableEntity`, `DamageCause` |
 | `game.sonic2` | Sonic 2-specific implementations |
 | `game.sonic2.objects` | Object factories, instance classes, badnik AI |
 | `game.sonic2.constants` | ROM offsets, object IDs, audio constants |
@@ -105,15 +152,15 @@ GameServices.debugOverlay() // DebugOverlayManager - debug rendering
 
 ### Consolidated Subsystems
 
-**ObjectManager** inner classes: `Placement` (spawn windowing), `SolidContacts` (riding/landing/ceiling/side collision), `TouchResponses` (enemy bounce/hurt), `PlaneSwitchers` (plane switching logic).
+**ObjectManager** inner classes: `Placement` (spawn windowing), `SolidContacts` (riding/landing/ceiling/side collision), `TouchResponses` (enemy bounce/hurt), `PlaneSwitchers` (plane switching logic). Injects `ObjectServices` into all objects at construction time.
 
 **RingManager** inner classes: `RingPlacement` (collection state, sparkle, spawning), `RingRenderer` (cached pattern rendering), `LostRingPool` (lost ring physics).
 
 **PlayableSpriteController** coordinates: `PlayableSpriteMovement` (physics), `PlayableSpriteAnimation` (animation state), `SpindashDustController`, `DrowningController`.
 
-**CollisionSystem** (`com.openggf.sonic.physics`) - Unified collision orchestration: terrain probes via `TerrainCollisionManager`, solid object resolution via `ObjectManager.SolidContacts`, post-resolution ground mode/headroom checks. Supports trace recording via `CollisionTrace`.
+**CollisionSystem** (`com.openggf.physics`) - Unified collision orchestration: terrain probes via `TerrainCollisionManager`, solid object resolution via `ObjectManager.SolidContacts`, post-resolution ground mode/headroom checks. Supports trace recording via `CollisionTrace`.
 
-**UiRenderPipeline** (`com.openggf.sonic.graphics.pipeline`) - Render ordering: Scene -> HUD overlay -> Fade pass. `Engine.display()` uses it for screen transitions.
+**UiRenderPipeline** (`com.openggf.graphics.pipeline`) - Render ordering: Scene -> HUD overlay -> Fade pass. `Engine.display()` uses it for screen transitions.
 
 **Sonic2LevelAnimationManager** - Implements `AnimatedPatternManager` and `AnimatedPaletteManager` (pattern animation scripts + zone-specific palette cycling).
 
@@ -129,7 +176,7 @@ GameServices.debugOverlay() // DebugOverlayManager - debug rendering
 
 ## Level Resource Overlay System
 
-Some zones share level resources with overlays (e.g., HTZ shares base data with EHZ, then applies HTZ-specific pattern/block overlays). Implemented in `com.openggf.sonic.level.resources`:
+Some zones share level resources with overlays (e.g., HTZ shares base data with EHZ, then applies HTZ-specific pattern/block overlays). Implemented in `com.openggf.level.resources`:
 
 - `LoadOp` - Single load operation (ROM address, compression, dest offset)
 - `LevelResourcePlan` - Lists of LoadOps for patterns, blocks, chunks, collision
@@ -213,11 +260,15 @@ The setters `setTopSolidBit()`/`setLrbSolidBit()` on `AbstractPlayableSprite` si
 
 ### Physics Tests
 
-Tests in `src/test/java/uk/co/jamesj999/sonic/game/`: `TestPhysicsProfile`, `TestPhysicsProfileRegression`, `TestSpindashGating`, `TestCollisionModel`.
+Tests in `src/test/java/com/openggf/game/`: `TestPhysicsProfile`, `TestPhysicsProfileRegression`, `TestSpindashGating`, `TestCollisionModel`.
 
 ## Object & Badnik System
 
-Objects use a factory pattern with game-specific registries. `ObjectRegistry` creates `ObjectInstance` from `ObjectSpawn`. Factories registered via `AbstractObjectRegistry` subclasses.
+Objects use a factory pattern with game-specific registries. `ObjectRegistry` creates `ObjectInstance` from `ObjectSpawn`. Factories registered via `AbstractObjectRegistry` subclasses (`Sonic1ObjectRegistry`, `Sonic2ObjectRegistry`, `Sonic3kObjectRegistry`).
+
+**Service injection:** All objects receive `ObjectServices` at construction via `ObjectManager`. Inside any object, call `services()` to access camera, audio, level, game state, and zone features. **Never use `getInstance()` in object code.**
+
+**Child spawning:** Use `spawnChild(() -> new ChildObject(spawn, params))` instead of manually calling `ObjectManager.addDynamicObject()`.
 
 Badniks extend `AbstractBadnikInstance` (`com.openggf.level.objects` — game-agnostic) which provides touch response collision, destruction behavior via `DestructionEffects`, and movement/animation framework. Subclasses implement `updateMovement()` and `getCollisionSizeIndex()`.
 
@@ -275,8 +326,8 @@ Critical constraints for current S3K support:
 **Keep these S3K tests green:**
 - `com.openggf.tests.TestS3kAiz1SkipHeadless`
 - `com.openggf.tests.TestSonic3kLevelLoading`
-- `sonic3k.com.openggf.game.TestSonic3kBootstrapResolver`
-- `sonic3k.com.openggf.game.TestSonic3kDecodingUtils`
+- `com.openggf.game.sonic3k.TestSonic3kBootstrapResolver`
+- `com.openggf.game.sonic3k.TestSonic3kDecodingUtils`
 
 ## Audio Engine
 
@@ -294,11 +345,20 @@ runner.stepFrame(up, down, left, right, jump);
 runner.stepIdleFrames(5);
 ```
 
-**Setup order is critical** - see `TestHeadlessWallCollision.java` for a complete example. Key pitfalls:
-- Reset singletons first (`GraphicsManager.resetInstance()`, `Camera.resetInstance()`)
+**Preferred test setup:** Use `@ExtendWith(SingletonResetExtension.class)` or `@FullReset` annotation for automated singleton teardown between tests. The extension calls `resetState()` on all singletons.
+
+**Manual setup (legacy)** - see `TestHeadlessWallCollision.java` for a complete example. Key pitfalls:
+- Reset singletons first using `resetState()` (NOT the deprecated `resetInstance()`)
 - Call `GroundSensor.setLevelManager()` AFTER loading a level (static field)
 - Call `Camera.updatePosition(true)` AFTER level load (bounds set during load)
 - Failing to reset Camera can leave `frozen=true` from death sequences
+
+**Test infrastructure classes:**
+- `SingletonResetExtension` — JUnit 5 extension for automated singleton teardown
+- `@FullReset` — Annotation triggering full engine reset
+- `StubObjectServices` — Test double for `ObjectServices`
+- `TestObjectServicesMigrationGuard` — Scanner-based guard preventing singleton regression in objects
+- `TestNoServicesInObjectConstructors` — Ensures objects don't call `services()` during construction
 
 ## Coordinate System & Rendering
 
@@ -345,7 +405,7 @@ Documented in **[docs/KNOWN_DISCREPANCIES.md](docs/KNOWN_DISCREPANCIES.md)**: Gl
 
 ## Special Stage Implementation
 
-Key files in `com.openggf.sonic.game.sonic2.specialstage`: `Sonic2SpecialStageManager` (main coordinator), `Sonic2TrackAnimator` (segment sequencing), `Sonic2TrackFrameDecoder` (bitstream decoder), `Sonic2SpecialStageDataLoader`, `Sonic2SpecialStageConstants`.
+Key files in `com.openggf.game.sonic2.specialstage`: `Sonic2SpecialStageManager` (main coordinator), `Sonic2TrackAnimator` (segment sequencing), `Sonic2TrackFrameDecoder` (bitstream decoder), `Sonic2SpecialStageDataLoader`, `Sonic2SpecialStageConstants`.
 
 **Track frame format:** Each of 56 frames is a compressed bitstream: bitflags (1 bit/tile: 0=RLE fill, 1=UNC unique), UNC LUT, RLE LUT. Only UNC tiles get `flip_x` (0x0800) toggled on flip. VDP plane is 128 cells wide as 4x32 strips - flipping reverses within each strip.
 

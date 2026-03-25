@@ -140,7 +140,7 @@ When implementing S3K objects, bosses, or badniks, **always check for existing u
 | `ObjectTerrainUtils` | `com.openggf.physics` | `ObjCheckFloorDist` etc. | `checkFloorDist(x, y, yRadius)`, `checkCeilingDist()`, `checkLeftWallDist()`, `checkRightWallDist()` |
 | `TrigLookupTable` | `com.openggf.physics` | `CalcAngle`, `GetSineCosine` | `calcAngle(dx, dy)`, `sinHex(angle)`, `cosHex(angle)` |
 
-**Subpixel movement** (ROM's `MoveSprite` / `MoveSprite2`) — `AbstractS3kBadnikInstance.moveWithVelocity()` provides the standard 24-bit position arithmetic. Non-badnik objects should replicate the same 8-line pattern inline.
+**Subpixel movement** (ROM's `MoveSprite` / `MoveSprite2`) — use `SubpixelMotion` utility (`com.openggf.level.objects`). `AbstractS3kBadnikInstance.moveWithVelocity()` also provides the standard 24-bit position arithmetic.
 
 ### Collision & Touch Response
 
@@ -166,4 +166,9 @@ When implementing S3K objects, bosses, or badniks, **always check for existing u
 
 ### Child Object Spawning
 
-Use `ObjectManager.addDynamicObject()` for runtime children (body segments, projectiles, explosions). If called during the update loop, additions are queued and flushed after the frame.
+Prefer `spawnChild()` for runtime children (body segments, projectiles, explosions):
+```java
+ChildObject child = spawnChild(() -> new ChildObject(spawn, params));
+```
+
+Legacy pattern (still works): `services().objectManager().addDynamicObject(childInstance)`. If called during the update loop, additions are queued and flushed after the frame.

@@ -131,7 +131,7 @@ private void updateZONE() {
 **Boss instance template:**
 
 ```java
-package com.openggf.sonic.game.sonic2.objects.bosses;
+package com.openggf.game.sonic2.objects.bosses;
 
 public class Sonic2ZoneBossInstance extends AbstractBossInstance {
 
@@ -146,8 +146,8 @@ public class Sonic2ZoneBossInstance extends AbstractBossInstance {
     private static final int MAIN_START_X = 0xXXXX;
     private static final int MAIN_START_Y = 0xXXXX;
 
-    public Sonic2ZoneBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Zone Boss");
+    public Sonic2ZoneBossInstance(ObjectSpawn spawn) {
+        super(spawn, "Zone Boss");
     }
 
     @Override

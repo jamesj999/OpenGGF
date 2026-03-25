@@ -186,7 +186,7 @@ xSub = xPos24 & 0xFF;
 Create the boss class in the S3K objects package:
 
 ```java
-package com.openggf.sonic.game.sonic3k.objects.bosses;
+package com.openggf.game.sonic3k.objects.bosses;
 
 public class Sonic3kZoneBossInstance extends AbstractBossInstance {
 
@@ -199,8 +199,8 @@ public class Sonic3kZoneBossInstance extends AbstractBossInstance {
     private static final int BOSS_START_X = 0xXXXX;
     private static final int BOSS_START_Y = 0xXXXX;
 
-    public Sonic3kZoneBossInstance(ObjectSpawn spawn, LevelManager levelManager) {
-        super(spawn, levelManager, "Zone Boss");
+    public Sonic3kZoneBossInstance(ObjectSpawn spawn) {
+        super(spawn, "Zone Boss");
     }
 
     @Override
@@ -257,7 +257,7 @@ For visual-only children that share the parent's object slot:
 For children with separate behavior/collision:
 ```java
 private void spawnChildComponents() {
-    ObjectManager manager = LevelManager.getInstance().getObjectManager();
+    ObjectManager manager = services().objectManager();
 
     BossChildInstance child = new BossChildInstance(this, xOffset, yOffset);
     manager.addDynamicObject(child);

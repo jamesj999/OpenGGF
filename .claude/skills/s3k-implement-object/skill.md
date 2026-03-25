@@ -165,7 +165,7 @@ Create the instance class following existing Sonic 2 patterns but in the Sonic 3
 
 ##### Pattern 1: Simple Object
 ```java
-package com.openggf.sonic.game.sonic3k.objects;
+package com.openggf.game.sonic3k.objects;
 
 public class ObjectNameObjectInstance extends AbstractObjectInstance
         implements SolidObjectProvider, SolidObjectListener {
@@ -175,7 +175,7 @@ public class ObjectNameObjectInstance extends AbstractObjectInstance
 
 ##### Pattern 2: Badnik (Enemy with AI)
 ```java
-package com.openggf.sonic.game.sonic3k.objects.badniks;
+package com.openggf.game.sonic3k.objects.badniks;
 
 public class ObjectNameBadnikInstance extends AbstractBadnikInstance {
     @Override
@@ -225,7 +225,7 @@ public class ObjectNameBadnikInstance extends AbstractBadnikInstance {
 
 | Base Class | Location | Use When |
 |------------|----------|----------|
-| `AbstractBadnikInstance` | `com.openggf.level.objects` | All badniks. Provides touch response, destruction with `DestructionEffects`, debug rendering. |
+| `AbstractBadnikInstance` | `com.openggf.level.objects` | All badniks. Provides touch response, destruction with `DestructionEffects`, debug rendering. Objects receive `ObjectServices` via injection — use `services()` to access camera, audio, level, game state. |
 | `AbstractS3kBadnikInstance` | `game.sonic3k.objects.badniks` | S3K-specific badnik base. Extends `AbstractObjectInstance` directly with S3K-specific conveniences (`moveWithVelocity()`). |
 | `AbstractProjectileInstance` | `com.openggf.level.objects` | Fire-and-forget projectiles. Handles motion, gravity, off-screen destroy, HURT collision. |
 | `S3kBadnikProjectileInstance` | `game.sonic3k.objects.badniks` | S3K-specific reusable projectile with shield deflection. |
@@ -256,7 +256,7 @@ if (!player.getRolling()) {
         player.setAnimationFrameIndex(0);
         player.setAnimationTick(0);
     }
-    AudioManager.getInstance().playSfx(GameSound.ROLLING);
+    services().audioManager().playSfx(GameSound.ROLLING);
 }
 ```
 
@@ -266,7 +266,7 @@ if (!player.getRolling()) {
 
 | Utility | Use When |
 |---------|----------|
-| `getRenderer(artKey)` | Inherited from `AbstractObjectInstance`. Returns ready `PatternSpriteRenderer` or null. Use instead of manually calling `LevelManager.getInstance().getObjectRenderManager()`. |
+| `getRenderer(artKey)` | Static method on `AbstractObjectInstance`. Returns ready `PatternSpriteRenderer` or null. |
 | `AnimationTimer` | `com.openggf.util.AnimationTimer` — cyclic frame animation timer. |
 | `LazyMappingHolder` | `com.openggf.util.LazyMappingHolder` — lazy-loading holder for sprite mappings. |
 | `PatternDecompressor` | `com.openggf.util.PatternDecompressor` — bytes→Pattern[] conversion. |
@@ -285,11 +285,12 @@ Renderer keys are defined in `Sonic3kObjectArtKeys` and registered in `Sonic3kPl
 
 ##### Child Object Spawning
 
-Use `ObjectManager.addDynamicObject()` for runtime-spawned children (body segments, projectiles, explosions):
+Prefer `spawnChild()` for runtime-spawned children (body segments, projectiles, explosions):
 ```java
-ObjectManager om = levelManager.getObjectManager();
-if (om != null) om.addDynamicObject(childInstance);
+ChildObject child = spawnChild(() -> new ChildObject(spawn, params));
 ```
+
+Legacy pattern (still works): `services().objectManager().addDynamicObject(childInstance)`.
 
 #### 2.5 Implementation Requirements
 
@@ -346,7 +347,7 @@ int configBits = subtype & 0x0F;
 
 **Sound effects**: Use constants from `Sonic3kAudioProfile.java` (create if needed):
 ```java
-AudioManager.getInstance().playSfx(Sonic3kAudioProfile.SFX_SPRING);
+services().audioManager().playSfx(Sonic3kAudioProfile.SFX_SPRING);
 ```
 
 **Debug visualization**: Implement when debug enabled:
@@ -370,7 +371,7 @@ registerFactory(Sonic3kObjectIds.OBJECT_NAME,
 For badniks:
 ```java
 registerFactory(Sonic3kObjectIds.OBJECT_NAME,
-    (spawn, registry) -> new ObjectNameBadnikInstance(spawn, levelManager));
+    (spawn, registry) -> new ObjectNameBadnikInstance(spawn));
 ```
 
 ### Phase 3: Code Quality
