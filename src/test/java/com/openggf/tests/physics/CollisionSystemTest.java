@@ -6,6 +6,7 @@ import com.openggf.tests.TestEnvironment;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.lang.reflect.Method;
 import java.util.List;
 
 import static org.junit.Assert.*;
@@ -437,5 +438,80 @@ public class CollisionSystemTest {
         CollisionSystem first = GameServices.collision();
         CollisionSystem second = GameServices.collision();
         assertSame("Without reset, same instance should be returned", first, second);
+    }
+
+    @Test
+    public void testCalcRoomInFrontProbeOnFloorMovingRightUsesRightWallProbe() {
+        Object probe = describeCalcRoomInFrontProbe(0x00, (short) 0x400);
+
+        assertEquals("Expected right-wall mode dispatch", 0xC0, readProbeInt(probe, "mode"));
+        assertEquals(Direction.RIGHT, readProbeDirection(probe, "globalDirection"));
+        assertEquals(10, readProbeInt(probe, "offsetX"));
+        assertEquals(0, readProbeInt(probe, "offsetY"));
+        assertEquals(8, readProbeInt(probe, "dynamicYOffset"));
+    }
+
+    @Test
+    public void testCalcRoomInFrontProbeOnRightWallMovingUpUsesCeilingProbe() {
+        Object probe = describeCalcRoomInFrontProbe(0xC0, (short) 0x400);
+
+        assertEquals("Expected ceiling-mode dispatch from right wall", 0x80, readProbeInt(probe, "mode"));
+        assertEquals(Direction.UP, readProbeDirection(probe, "globalDirection"));
+        assertEquals(0, readProbeInt(probe, "offsetX"));
+        assertEquals(-10, readProbeInt(probe, "offsetY"));
+        assertEquals(0, readProbeInt(probe, "dynamicYOffset"));
+    }
+
+    @Test
+    public void testCalcRoomInFrontProbeOnCeilingMovingLeftUsesRightWallProbe() {
+        Object probe = describeCalcRoomInFrontProbe(0x80, (short) -0x400);
+
+        assertEquals("Expected right-wall mode dispatch from ceiling", 0xC0, readProbeInt(probe, "mode"));
+        assertEquals(Direction.RIGHT, readProbeDirection(probe, "globalDirection"));
+        assertEquals(10, readProbeInt(probe, "offsetX"));
+        assertEquals(0, readProbeInt(probe, "offsetY"));
+        assertEquals(8, readProbeInt(probe, "dynamicYOffset"));
+    }
+
+    @Test
+    public void testCalcRoomInFrontProbeOnLeftWallMovingDownUsesCeilingProbe() {
+        Object probe = describeCalcRoomInFrontProbe(0x40, (short) -0x400);
+
+        assertEquals("Expected ceiling-mode dispatch from left wall", 0x80, readProbeInt(probe, "mode"));
+        assertEquals(Direction.UP, readProbeDirection(probe, "globalDirection"));
+        assertEquals(0, readProbeInt(probe, "offsetX"));
+        assertEquals(-10, readProbeInt(probe, "offsetY"));
+        assertEquals(0, readProbeInt(probe, "dynamicYOffset"));
+    }
+
+    private static Object describeCalcRoomInFrontProbe(int angle, short gSpeed) {
+        try {
+            Method method = CollisionSystem.class.getDeclaredMethod(
+                    "describeCalcRoomInFrontProbe", int.class, short.class);
+            method.setAccessible(true);
+            return method.invoke(null, angle, gSpeed);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Failed to invoke describeCalcRoomInFrontProbe", e);
+        }
+    }
+
+    private static int readProbeInt(Object probe, String accessor) {
+        try {
+            Method method = probe.getClass().getDeclaredMethod(accessor);
+            method.setAccessible(true);
+            return ((Number) method.invoke(probe)).intValue();
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Failed reading probe accessor " + accessor, e);
+        }
+    }
+
+    private static Direction readProbeDirection(Object probe, String accessor) {
+        try {
+            Method method = probe.getClass().getDeclaredMethod(accessor);
+            method.setAccessible(true);
+            return (Direction) method.invoke(probe);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Failed reading probe accessor " + accessor, e);
+        }
     }
 }

@@ -306,6 +306,12 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          */
         protected short lookDelayCounter = 0;
 
+        /**
+         * ROM: player byte at $41(a0), used by Player_WalkVertR as a short-lived
+         * countdown after deep right-wall penetration in zone/act 0.
+         */
+        protected int rightWallPenetrationTimer = 0;
+
         private PlayerSpriteRenderer spriteRenderer;
         private int mappingFrame = 0;
         private int animationFrameCount = 0;
@@ -548,6 +554,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 this.tunnelMode = false;
                 this.spindash = false;
                 this.lookDelayCounter = 0;
+                this.rightWallPenetrationTimer = 0;
                 this.pushing = false;
                 this.skidding = false;
                 this.skidDustTimer = 0;
@@ -1569,6 +1576,14 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          */
         public void setLookDelayCounter(short lookDelayCounter) {
                 this.lookDelayCounter = lookDelayCounter;
+        }
+
+        public int getRightWallPenetrationTimer() {
+                return rightWallPenetrationTimer;
+        }
+
+        public void setRightWallPenetrationTimer(int rightWallPenetrationTimer) {
+                this.rightWallPenetrationTimer = Math.max(0, rightWallPenetrationTimer);
         }
 
         public boolean isForceInputRight() {
