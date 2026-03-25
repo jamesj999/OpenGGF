@@ -318,15 +318,6 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
         active = false;
     }
 
-    /** @deprecated Use {@link #resetState()} for test teardown. */
-    @Deprecated
-    public static synchronized void resetInstance() {
-        if (instance != null) {
-            instance.close();
-            instance = null;
-        }
-    }
-
     /**
      * Loads insta-shield art tiles, mappings, DPLCs, and animations from the S3K donor ROM.
      * Only runs when the donor is S3K; silently skips for S2 donors.

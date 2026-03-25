@@ -4,6 +4,7 @@ import com.openggf.audio.GameAudioProfile;
 import com.openggf.data.Game;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
+import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.game.sonic2.constants.Sonic2ObjectConstants;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.credits.Sonic2EndingProvider;
@@ -67,6 +68,11 @@ public class Sonic2GameModule implements GameModule {
     @Override
     public String getIdentifier() {
         return "Sonic2";
+    }
+
+    @Override
+    public int getTailsTailVramBase() {
+        return Sonic2Constants.ART_TILE_TAILS_TAILS;
     }
 
     @Override

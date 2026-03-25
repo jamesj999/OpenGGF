@@ -170,17 +170,5 @@ public class RomManager implements AutoCloseable {
         initialized = false;
     }
 
-    /**
-     * @deprecated For test teardown, prefer calling {@link #close()} on the instance.
-     * This method remains functional for ROM switching but should not
-     * be used for inter-test cleanup.
-     */
-    @Deprecated
-    public static synchronized void resetInstance() {
-        if (instance != null) {
-            instance.close();
-            instance = null;
-        }
-    }
 }
 

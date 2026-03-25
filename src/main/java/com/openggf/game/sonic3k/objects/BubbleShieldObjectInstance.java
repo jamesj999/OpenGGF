@@ -89,6 +89,11 @@ public class BubbleShieldObjectInstance extends ShieldObjectInstance {
         }
     }
 
+    @Override
+    public void onAbilityActivated(int actionId) {
+        setAnimation(actionId);
+    }
+
     private void initAnimation(int animId) {
         currentAnimId = animId;
         frameIndex = 0;

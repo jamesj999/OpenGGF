@@ -196,7 +196,7 @@ public class TestActTransitionHeadless {
 
         // Position the live camera at X=5000, well past the level start.
         // If rebuildManagersForActTransition uses the stale cached camera
-        // field (which may hold X=0 after Camera.resetInstance()), the
+        // field (which may hold X=0 after Camera.resetState()), the
         // spawn window would be [−128, 640] and no objects near X=5000
         // would be active. The correct behavior uses the live camera so
         // the spawn window is [4872, 5640].

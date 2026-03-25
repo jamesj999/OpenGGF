@@ -91,6 +91,11 @@ public class FireShieldObjectInstance extends ShieldObjectInstance {
         }
     }
 
+    @Override
+    public void onAbilityActivated(int actionId) {
+        setAnimation(1);
+    }
+
     private void initAnimation(int animId) {
         currentAnimId = animId;
         frameIndex = 0;

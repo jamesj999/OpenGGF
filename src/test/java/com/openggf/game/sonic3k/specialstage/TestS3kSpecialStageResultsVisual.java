@@ -89,7 +89,7 @@ public class TestS3kSpecialStageResultsVisual {
             // Full GL teardown required here: prior tests (e.g. headless mode) leave the singleton
             // in an incompatible state. resetState() only clears per-level resources; this GPU test
             // needs shaders and the tilemap renderer fully re-initialized for correct pixel rendering.
-            GraphicsManager.resetInstance(); // intentional: full GL teardown needed, not resetState()
+            GraphicsManager.destroyForReinit(); // full GL teardown needed, not resetState()
             GameServices.camera().resetState();
 
             GraphicsManager gm = GraphicsManager.getInstance();

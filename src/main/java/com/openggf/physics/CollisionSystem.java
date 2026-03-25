@@ -40,21 +40,12 @@ public class CollisionSystem {
 
     /**
      * Resets mutable state without destroying the singleton instance.
-     * Preferred over {@link #resetInstance()} — cached references remain valid.
+     * Cached references held by other classes remain valid.
      */
     public void resetState() {
         terrainCollisionManager.resetState();
         objectManager = null;
         trace = NoOpCollisionTrace.INSTANCE;
-    }
-
-    /**
-     * @deprecated Use {@link #resetState()} instead to avoid invalidating
-     *             cached references held by other classes.
-     */
-    @Deprecated
-    public static synchronized void resetInstance() {
-        instance = null;
     }
 
     public void setObjectManager(ObjectManager objectManager) {

@@ -1064,12 +1064,14 @@ public class GraphicsManager {
 	}
 
 	/**
-	 * @deprecated Use {@link #resetState()} for test teardown.
-	 * This method destroys the singleton; resetState() clears
-	 * state in-place, avoiding stale reference issues.
+	 * Destroys the singleton and releases all GL resources (shaders, FBOs, atlas).
+	 * The next call to {@link #getInstance()} will create a fresh instance.
+	 * <p>
+	 * Use this only when full GL re-initialization is required (e.g. GPU tests
+	 * that need clean shader/tilemap state). For normal test teardown, prefer
+	 * {@link #resetState()} which preserves cached references.
 	 */
-	@Deprecated
-	public static synchronized void resetInstance() {
+	public static synchronized void destroyForReinit() {
 		if (graphicsManager != null) {
 			graphicsManager.cleanup();
 			graphicsManager = null;

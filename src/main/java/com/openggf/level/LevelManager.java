@@ -45,7 +45,6 @@ import com.openggf.physics.CollisionSystem;
 import com.openggf.physics.Direction;
 import com.openggf.sprites.Sprite;
 import com.openggf.sprites.art.SpriteArtSet;
-import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.game.PowerUpObject;
 import com.openggf.level.objects.DefaultPowerUpSpawner;
 import com.openggf.sprites.managers.SpindashDustController;
@@ -1253,13 +1252,14 @@ public class LevelManager {
                 return;
             }
         } else {
-            // S2: Obj05 uses same mappings/DPLCs/art as Tails but at a different VRAM base
+            // Non-S3K: Obj05 uses same mappings/DPLCs/art as Tails but at a different VRAM base.
+            // The base is provided by the game module (e.g. S2: 0x07B0).
             tailsArt = new SpriteArtSet(
                     artSet.artTiles(),
                     artSet.mappingFrames(),
                     artSet.dplcFrames(),
                     artSet.paletteIndex(),
-                    Sonic2Constants.ART_TILE_TAILS_TAILS,
+                    gameModule.getTailsTailVramBase(),
                     artSet.frameDelay(),
                     artSet.bankSize(),
                     null,
@@ -3086,8 +3086,8 @@ public class LevelManager {
             return;
         }
 
-        // Use fresh Camera singleton (the cached field can go stale after
-        // Camera.resetInstance() in test teardown or level reload)
+        // Use fresh Camera reference (the cached field can go stale after
+        // Camera.resetState() in test teardown or level reload)
         Camera cam = camera;
 
         // Suppress music reload if requested (ROM: music continues through transition)

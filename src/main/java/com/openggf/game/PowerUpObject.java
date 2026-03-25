@@ -17,4 +17,22 @@ public interface PowerUpObject {
 
     /** Shows or hides the visual representation without destroying the object. */
     void setVisible(boolean visible);
+
+    /**
+     * Notifies this power-up that the player activated its secondary ability.
+     * <p>
+     * Elemental shields override this to trigger their attack animation/effect:
+     * <ul>
+     *   <li>Fire shield: dash animation (actionId=1)</li>
+     *   <li>Lightning shield: spark particles (actionId=1)</li>
+     *   <li>Bubble shield: bounce animation (actionId=1 for slam, actionId=2 for ground bounce)</li>
+     * </ul>
+     * <p>
+     * Non-elemental power-ups (standard shield, invincibility) ignore this call.
+     *
+     * @param actionId the ability action identifier (1=primary, 2=secondary/variant)
+     */
+    default void onAbilityActivated(int actionId) {
+        // Default no-op for non-elemental power-ups
+    }
 }

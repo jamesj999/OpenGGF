@@ -219,11 +219,11 @@ public class TestGraphicsManagerHeadless {
     // ==================== Singleton Reset Tests ====================
 
     @Test
-    public void testResetInstanceCreatesNewInstance() {
+    public void testDestroyForReinitCreatesNewInstance() {
         GraphicsManager first = GraphicsManager.getInstance();
         first.setHeadlessMode(true);
 
-        GraphicsManager.resetInstance();
+        GraphicsManager.destroyForReinit();
 
         GraphicsManager second = GraphicsManager.getInstance();
         assertFalse("New instance should have default headless mode", second.isHeadlessMode());
