@@ -37,6 +37,7 @@ public class Sonic3kPlayerArt {
     private SpriteArtSet cachedSuperSonic;
     private SpriteArtSet cachedTails;
     private SpriteArtSet cachedTailsTail;
+    private SpriteArtSet cachedKnuckles;
 
     public Sonic3kPlayerArt(RomByteReader reader) {
         this.reader = reader;
@@ -50,6 +51,7 @@ public class Sonic3kPlayerArt {
         return switch (normalized) {
             case "sonic" -> loadSonic();
             case "tails" -> loadTails();
+            case "knuckles" -> loadKnuckles();
             default -> null;
         };
     }
@@ -209,6 +211,71 @@ public class Sonic3kPlayerArt {
                 animationProfile,
                 animationSet);
         return cachedTails;
+    }
+
+    /**
+     * Loads Knuckles sprite art, mappings, DPLCs, and animations from S3K ROM.
+     *
+     * <p>Unlike Sonic/Tails, Knuckles uses a single contiguous art block
+     * (no extra art split) and standalone mapping/DPLC tables (not combined 1P+2P).
+     * The animation scripts are loaded from AniKnuckles_ (37 entries).
+     */
+    public SpriteArtSet loadKnuckles() throws IOException {
+        if (cachedKnuckles != null) {
+            return cachedKnuckles;
+        }
+
+        // Single contiguous art block — no extra art split like Sonic/Tails
+        Pattern[] allTiles = loadArtTiles(
+                Sonic3kConstants.ART_UNC_KNUCKLES_ADDR,
+                Sonic3kConstants.ART_UNC_KNUCKLES_SIZE);
+
+        // Standalone mapping/DPLC tables (NOT combined 1P+2P) — standard parser works
+        List<SpriteMappingFrame> mappingFrames = loadMappingFrames(Sonic3kConstants.MAP_KNUCKLES_ADDR);
+        List<SpriteDplcFrame> dplcFrames = loadDplcFrames(Sonic3kConstants.DPLC_KNUCKLES_ADDR);
+
+        int bankSize = resolveBankSize(dplcFrames, mappingFrames);
+        SpriteAnimationSet animationSet = loadKnucklesAnimations();
+
+        // Knuckles uses the same animation ID slot layout as Sonic (WALK=0x00, RUN=0x01, etc.)
+        // but with his own animation scripts loaded from AniKnuckles_
+        SpriteAnimationProfile animationProfile = new ScriptedVelocityAnimationProfile()
+                .setIdleAnimId(Sonic3kAnimationIds.WAIT)
+                .setWalkAnimId(Sonic3kAnimationIds.WALK)
+                .setRunAnimId(Sonic3kAnimationIds.RUN)
+                .setRollAnimId(Sonic3kAnimationIds.ROLL)
+                .setRoll2AnimId(Sonic3kAnimationIds.ROLL2)
+                .setPushAnimId(Sonic3kAnimationIds.PUSH)
+                .setDuckAnimId(Sonic3kAnimationIds.DUCK)
+                .setLookUpAnimId(Sonic3kAnimationIds.LOOK_UP)
+                .setSpindashAnimId(Sonic3kAnimationIds.SPINDASH)
+                .setSpringAnimId(Sonic3kAnimationIds.SPRING)
+                .setDeathAnimId(Sonic3kAnimationIds.DEATH)
+                .setDrownAnimId(Sonic3kAnimationIds.DROWN)
+                .setHurtAnimId(Sonic3kAnimationIds.HURT)
+                .setSkidAnimId(Sonic3kAnimationIds.SKID)
+                .setAirAnimId(Sonic3kAnimationIds.WALK)
+                .setBalanceAnimId(Sonic3kAnimationIds.BALANCE)
+                .setBalance2AnimId(Sonic3kAnimationIds.BALANCE2)
+                .setBalance3AnimId(Sonic3kAnimationIds.BALANCE3)
+                .setBalance4AnimId(Sonic3kAnimationIds.BALANCE4)
+                .setWalkSpeedThreshold(0x40)
+                .setRunSpeedThreshold(0x600)
+                .setFallbackFrame(0)
+                .setAnglePreAdjust(true)       // S3K shared subq.b #1,d0
+                .setTumbleFrameBase(0x31);     // S3K shared Anim_Tumble
+
+        cachedKnuckles = new SpriteArtSet(
+                allTiles,
+                mappingFrames,
+                dplcFrames,
+                0,                                 // paletteIndex
+                Sonic3kConstants.ART_TILE_KNUCKLES,
+                1,                                 // frameDelay
+                bankSize,
+                animationProfile,
+                animationSet);
+        return cachedKnuckles;
     }
 
     /**
@@ -412,6 +479,19 @@ public class Sonic3kPlayerArt {
         SpriteAnimationSet set = new SpriteAnimationSet();
         int base = Sonic3kConstants.TAILS_ANIM_DATA_ADDR;
         int count = Sonic3kConstants.TAILS_ANIM_SCRIPT_COUNT;
+
+        for (int i = 0; i < count; i++) {
+            int scriptAddr = base + reader.readU16BE(base + i * 2);
+            SpriteAnimationScript script = parseAnimationScript(scriptAddr);
+            set.addScript(i, script);
+        }
+        return set;
+    }
+
+    private SpriteAnimationSet loadKnucklesAnimations() {
+        SpriteAnimationSet set = new SpriteAnimationSet();
+        int base = Sonic3kConstants.KNUCKLES_ANIM_DATA_ADDR;
+        int count = Sonic3kConstants.KNUCKLES_ANIM_SCRIPT_COUNT;
 
         for (int i = 0; i < count; i++) {
             int scriptAddr = base + reader.readU16BE(base + i * 2);

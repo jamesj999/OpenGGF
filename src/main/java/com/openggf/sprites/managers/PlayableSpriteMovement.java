@@ -12,6 +12,7 @@ import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.physics.CollisionSystem;
 import com.openggf.physics.Direction;
+import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.Sensor;
 import com.openggf.physics.SensorResult;
 import com.openggf.physics.TrigLookupTable;
@@ -167,6 +168,12 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		// so it should only block left/right movement.
 		boolean moveLocked = sprite.getMoveLockTimer() > 0;
 
+		// Clear stale forced animation when move lock expires (e.g., glide landing crouch)
+		if (!moveLocked && sprite.getForcedAnimationId() >= 0
+				&& sprite.getDoubleJumpFlag() == 0 && !sprite.getAir()) {
+			sprite.setForcedAnimationId(-1);
+		}
+
 		// obj_control bit 0 - when an object (flipper, etc.) has partial control
 		// This blocks ALL input including jumping
 		boolean objControlLocked = sprite.isControlLocked();
@@ -245,6 +252,16 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			sprite.setOnObject(true);
 		}
 
+		// ROM: Knuckles_Glide dispatch — intercepts normal mode when in glide states
+		int glideState = sprite.getDoubleJumpFlag();
+		if (glideState >= 3 && glideState <= 5
+				&& sprite.getSecondaryAbility() == SecondaryAbility.GLIDE) {
+			updateKnucklesGlide();
+			// Direction is managed by glide code, not updateFacingDirection
+			sprite.updateSensors(originalX, originalY);
+			return;
+		}
+
 		// Mode dispatch (ROM: Obj01_MdNormal_Checks)
 		if (sprite.getAir()) {
 			modeAirborne();
@@ -254,8 +271,22 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			modeNormal();
 		}
 
-		updateFacingDirection();
+		// ROM: Knuckles_Glide manages direction itself via setGlideAnimation();
+		// don't let the normal facing direction logic override it.
+		if (!isInGlideDirectionControl()) {
+			updateFacingDirection();
+		}
 		sprite.updateSensors(originalX, originalY);
+	}
+
+	/** Returns true when the glide state machine owns direction control. */
+	private boolean isInGlideDirectionControl() {
+		if (sprite.getSecondaryAbility() != SecondaryAbility.GLIDE) {
+			return false;
+		}
+		int state = sprite.getDoubleJumpFlag();
+		// States 1 (gliding), 3 (sliding), 4 (wall climb) manage direction themselves
+		return state == 1 || state == 3 || state == 4;
 	}
 
 	// ========================================
@@ -306,6 +337,27 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		short originalX = sprite.getX();
 		short originalY = sprite.getY();
 
+		// Knuckles glide states 1-2 use custom physics
+		int glideState = sprite.getDoubleJumpFlag();
+		boolean inGlide = (glideState == 1 || glideState == 2)
+				&& sprite.getSecondaryAbility() == SecondaryAbility.GLIDE;
+
+		if (inGlide && glideState == 1) {
+			// Active glide — custom physics replace normal airborne
+			updateKnucklesGlide();
+			// updateGliding() may have changed state (e.g., released jump → state 2)
+			if (sprite.getDoubleJumpFlag() != 1) {
+				// State changed during update (e.g., entered fall-from-glide)
+				// Continue with normal airborne physics for this frame
+			} else {
+				doLevelBoundary();
+				sprite.move(sprite.getXSpeed(), sprite.getYSpeed());
+				// ROM: Knux_DoLevelCollision_CheckRet — custom collision for glide
+				doGlideCollision();
+				return;
+			}
+		}
+
 		// ROM hurt routine (routine 4) skips both Sonic_JumpHeight and
 		// Sonic_ChgJumpDir — only applies gravity + collision.
 		if (!sprite.isHurt()) {
@@ -335,7 +387,25 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 		sprite.returnAngleToZero();
 		sprite.updateSensors(originalX, originalY);
+		boolean wasAirBeforeCollision = sprite.getAir();
 		doLevelCollision();
+
+		// ROM: Knuckles_Fall_From_Glide landing (sonic3k.asm:30913-30940).
+		// When landing from fall-from-glide state (2), zero velocities,
+		// play landing SFX, set move_lock, and show crouching pose.
+		if (inGlide && glideState == 2 && wasAirBeforeCollision && !sprite.getAir()) {
+			sprite.setGSpeed((short) 0);
+			sprite.setXSpeed((short) 0);
+			sprite.setYSpeed((short) 0);
+			audioManager.playSfx(GameSound.GLIDE_LAND);
+			int hexAngle = sprite.getAngle() & 0xFF;
+			int adjusted = (hexAngle + 0x20) & 0xC0;
+			if (adjusted == 0) {
+				// Flat surface: crouch with move_lock
+				sprite.setMoveLockTimer(0x0F);
+				sprite.setForcedAnimationId(0x23);  // GLIDE_SLIDE (crouching frame)
+			}
+		}
 	}
 
 	// ========================================
@@ -564,24 +634,32 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			return false;
 		}
 
-		// ROM (sonic3k.asm:23411-23453): Elemental shield abilities
+		// ROM: Sonic_ShieldMoves is only reached by Sonic (character_id == 0).
+		// Tails uses Tails_JumpHeight → flight. Knuckles uses Knux_JumpHeight → glide.
+		// Neither Tails nor Knuckles ever reaches the shield ability code.
 		ShieldType shield = sprite.getShieldType();
-		if (hasElemental && shield != null) {
-			switch (shield) {
-				case FIRE -> fireShieldDash();
-				case LIGHTNING -> lightningShieldJump();
-				case BUBBLE -> bubbleShieldBounce();
-				default -> { return false; } // BASIC shield: no ability
+		if (sprite.getSecondaryAbility() == SecondaryAbility.INSTA_SHIELD) {
+			// Sonic: elemental shield abilities OR insta-shield
+			if (hasElemental && shield != null) {
+				switch (shield) {
+					case FIRE -> fireShieldDash();
+					case LIGHTNING -> lightningShieldJump();
+					case BUBBLE -> bubbleShieldBounce();
+					default -> { return false; } // BASIC shield: no ability
+				}
+				sprite.setDoubleJumpFlag(1);
+				return true;
 			}
-			sprite.setDoubleJumpFlag(1);
-			return true;
+			if (hasInsta && shield == null) {
+				activateInstaShield();
+				return true;
+			}
 		}
 
-		// ROM (sonic3k.asm:23473-23479): Insta-shield (no shield equipped)
-		// ROM (sonic3k.asm:20614-20615): character_id == 0 — gated by SecondaryAbility
-		if (hasInsta && shield == null
-				&& sprite.getSecondaryAbility() == SecondaryAbility.INSTA_SHIELD) {
-			activateInstaShield();
+		// ROM (sonic3k.asm:32539-32586): Knuckles glide activation
+		// Activates regardless of shield — shields provide passive protection only
+		if (sprite.getSecondaryAbility() == SecondaryAbility.GLIDE) {
+			activateGlide();
 			return true;
 		}
 
@@ -630,6 +708,598 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		audioManager.playSfx(GameSound.BUBBLE_ATTACK);
 		var shield = sprite.getShieldObject();
 		if (shield != null) shield.onAbilityActivated(1);
+	}
+
+	// ========================================
+	// KNUCKLES GLIDE / WALL CLIMB
+	// ========================================
+
+	/**
+	 * ROM: Knux_Test_For_Glide (sonic3k.asm:32560-32586).
+	 * Initiates glide from airborne state.
+	 */
+	private void activateGlide() {
+		// Clear rolling state and set glide radii (0x0A x 0x0A)
+		sprite.setRolling(false);
+		sprite.setRollingJump(false);
+		sprite.applyCustomRadii(10, 10);
+
+		// Add 0x200 to y_vel, cap at 0 if negative result
+		int newYVel = sprite.getYSpeed() + 0x200;
+		if (newYVel < 0) {
+			newYVel = 0;
+		}
+		sprite.setYSpeed((short) newYVel);
+
+		// Set horizontal velocity: 0x400 in facing direction
+		int xDir = (sprite.getDirection() == Direction.RIGHT) ? 1 : -1;
+		sprite.setXSpeed((short) (0x400 * xDir));
+		sprite.setGSpeed((short) 0x400);
+
+		// Store initial direction in doubleJumpProperty
+		// 0x00 = facing right, 0x80 (-128) = facing left
+		byte dirProp = (sprite.getDirection() == Direction.RIGHT) ? (byte) 0 : (byte) -128;
+		sprite.setDoubleJumpProperty(dirProp);
+
+		sprite.setDoubleJumpFlag(1);
+		sprite.setAngle((byte) 0);
+
+		// Set glide animation — uses the standard walk anim slot
+		// which Knuckles' animation table maps to glide frames
+		setGlideAnimation();
+	}
+
+	/**
+	 * ROM: Knuckles_Glide (sonic3k.asm:30687-30733).
+	 * Called each frame while doubleJumpFlag >= 1 and in air.
+	 * Handles the glide state machine dispatch.
+	 */
+	private void updateKnucklesGlide() {
+		int state = sprite.getDoubleJumpFlag();
+		switch (state) {
+			case 1 -> updateGliding();
+			case 2 -> {} // Falling from glide — normal airborne physics apply
+			case 3 -> updateSliding();
+			case 4 -> updateWallClimb();
+			case 5 -> updateLedgeClimb();
+		}
+	}
+
+	/**
+	 * ROM: Knuckles_Move_Glide (sonic3k.asm:31598-31717).
+	 * Active glide physics — acceleration, turning, gravity balance.
+	 */
+	private void updateGliding() {
+		// Check for jump button release → fall from glide
+		boolean holdingJump = inputJump;
+		if (!holdingJump) {
+			enterFallFromGlide();
+			return;
+		}
+
+		// Accelerate glide speed
+		int gSpeed = sprite.getGSpeed() & 0xFFFF;
+		if (gSpeed < 0x400) {
+			// Low speed: accelerate by 8
+			gSpeed += 8;
+		} else if (gSpeed < 0x1800) {
+			// Medium speed: accelerate by 4 (only if not turning)
+			byte prop = sprite.getDoubleJumpProperty();
+			if ((prop & 0x7F) == 0) {
+				gSpeed += 4;
+			}
+		}
+		sprite.setGSpeed((short) gSpeed);
+
+		// Handle turning based on left/right input
+		byte prop = sprite.getDoubleJumpProperty();
+		if (inputLeft) {
+			if (prop != (byte) 0x80) {
+				prop = (byte) (prop < 0 ? -prop : prop);  // make positive if negative
+				prop = (byte) (prop + 2);
+			}
+		} else if (inputRight) {
+			if (prop != 0) {
+				prop = (byte) (prop > 0 ? -prop : prop);  // make negative if positive
+				prop = (byte) (prop + 2);
+			}
+		} else {
+			// No input: decay turn toward center
+			int absProp = prop & 0x7F;
+			if (absProp != 0) {
+				prop = (byte) (prop + 2);
+			}
+		}
+		sprite.setDoubleJumpProperty(prop);
+
+		// Calculate x velocity from angle and ground speed
+		// ROM: GetSineCosine then muls.w ground_vel, asr.l #8
+		int angle = prop & 0xFF;
+		int cosVal = TrigLookupTable.cosHex(angle);
+		int xVel = (cosVal * gSpeed) >> 8;
+		sprite.setXSpeed((short) xVel);
+
+		// Gravity balance: converge y_vel toward ~0x80
+		int yVel = sprite.getYSpeed();
+		if (yVel >= 0x80) {
+			// Falling fast: reduce by 0x20 (parachute effect)
+			sprite.setYSpeed((short) (yVel - 0x20));
+		} else {
+			// Falling slow or rising: add gravity 0x20
+			sprite.setYSpeed((short) (yVel + 0x20));
+		}
+
+		// Collision is checked after doLevelCollision() in modeAirborne
+		setGlideAnimation();
+	}
+
+	/**
+	 * ROM: sonic3k.asm:30712-30729. Player released jump button during glide.
+	 * Transitions to fall state (doubleJumpFlag = 2).
+	 */
+	private void enterFallFromGlide() {
+		sprite.setDoubleJumpFlag(2);
+
+		// Face the direction of movement
+		if (sprite.getXSpeed() >= 0) {
+			sprite.setDirection(Direction.RIGHT);
+		} else {
+			sprite.setDirection(Direction.LEFT);
+		}
+
+		// Divide X velocity by 4
+		sprite.setXSpeed((short) (sprite.getXSpeed() >> 2));
+
+		// Restore default radii and release direct frame control
+		sprite.restoreDefaultRadii();
+		sprite.setObjectMappingFrameControl(false);
+
+		// Set fall-from-glide animation (GLIDE_DROP = 0x21)
+		sprite.setForcedAnimationId(0x21);
+	}
+
+	/**
+	 * ROM: Knux_Gliding_HitFloor (sonic3k.asm:30736-30769).
+	 * Called when ground sensors detect floor contact during glide.
+	 */
+	private void glideHitFloor() {
+		// Face the direction of movement
+		if (sprite.getXSpeed() >= 0) {
+			sprite.setDirection(Direction.RIGHT);
+		} else {
+			sprite.setDirection(Direction.LEFT);
+		}
+
+		int hexAngle = sprite.getAngle() & 0xFF;
+		int adjustedAngle = (hexAngle + 0x20) & 0xC0;
+
+		if (adjustedAngle != 0) {
+			// Non-flat surface: land normally
+			sprite.setXSpeed((short) sprite.getGSpeed());
+			sprite.setYSpeed((short) 0);
+			sprite.restoreDefaultRadii();
+			sprite.setObjectMappingFrameControl(false);
+			sprite.setDoubleJumpFlag(0);
+			sprite.setDoubleJumpProperty((byte) 0);
+			sprite.setForcedAnimationId(-1);
+			sprite.setAir(false);
+			sprite.setJumping(false);
+			return;
+		}
+
+		// Flat surface: land first (setAir clears glide state), then enter sliding.
+		// Order matters: setAir(false) triggers landing cleanup that clears
+		// doubleJumpFlag, so sliding state must be set up AFTER.
+		sprite.setAir(false);
+		sprite.setJumping(false);
+		// Now re-enter sliding state on top of the clean landing state
+		sprite.setDoubleJumpFlag(3);
+		sprite.applyCustomRadii(10, 10);
+		sprite.setObjectMappingFrameControl(true);
+		sprite.setMappingFrame(0xCC);  // ROM: sliding mapping frame
+		sprite.setForcedAnimationId(-1);
+		audioManager.playSfx(GameSound.GLIDE_LAND);
+	}
+
+	/**
+	 * ROM: Knuckles_Sliding (sonic3k.asm:30946-31014).
+	 * Ground slide after glide — continues while jump button is held,
+	 * decelerating x_vel by 0x20 per frame. Stops immediately when
+	 * button released or velocity crosses zero.
+	 */
+	private void updateSliding() {
+		// ROM: Check if A/B/C button is held. If not → .getUp
+		if (!inputJump) {
+			slideGetUp();
+			return;
+		}
+
+		// Decelerate x_vel by 0x20 toward zero
+		int xVel = sprite.getXSpeed();
+		if (xVel < 0) {
+			// Going left: add 0x20
+			xVel += 0x20;
+			if (xVel >= 0) {
+				// Velocity crossed zero → .getUp
+				slideGetUp();
+				return;
+			}
+		} else if (xVel > 0) {
+			// Going right: subtract 0x20
+			xVel -= 0x20;
+			if (xVel <= 0) {
+				// Velocity crossed zero → .getUp
+				slideGetUp();
+				return;
+			}
+		} else {
+			// Already zero → .getUp
+			slideGetUp();
+			return;
+		}
+
+		sprite.setXSpeed((short) xVel);
+
+		// Continue sliding: move and snap to floor
+		sprite.move(sprite.getXSpeed(), (short) 0);
+	}
+
+	/**
+	 * ROM: Knuckles_Sliding .getUp (sonic3k.asm:30969-30989).
+	 * Exits sliding state — zeroes velocity, restores default radii,
+	 * sets GLIDE_LAND animation, applies move_lock.
+	 */
+	private void slideGetUp() {
+		sprite.setGSpeed((short) 0);
+		sprite.setXSpeed((short) 0);
+		sprite.setYSpeed((short) 0);
+
+		// Adjust Y position for radii change (current→default)
+		int radiusDiff = sprite.getYRadius() - sprite.getStandYRadius();
+		sprite.setY((short) (sprite.getY() + radiusDiff));
+
+		sprite.restoreDefaultRadii();
+		sprite.setObjectMappingFrameControl(false);
+		sprite.setDoubleJumpFlag(0);
+		sprite.setDoubleJumpProperty((byte) 0);
+
+		// ROM: move.w #$F,move_lock — 15-frame input lock
+		sprite.setMoveLockTimer(0x0F);
+		// ROM: move.b #$22,anim — GLIDE_LAND animation (brief get-up/crouch pose)
+		sprite.setForcedAnimationId(0x22);
+	}
+
+	/**
+	 * Clears any lingering glide animation state.
+	 * Called when transitioning out of all glide states to normal gameplay.
+	 */
+	private void clearGlideAnimationState() {
+		sprite.setObjectMappingFrameControl(false);
+		sprite.setForcedAnimationId(-1);
+		sprite.setDoubleJumpFlag(0);
+		sprite.setDoubleJumpProperty((byte) 0);
+	}
+
+	/**
+	 * ROM: Knuckles_Wall_Climb (sonic3k.asm:31074-31434).
+	 * Wall climbing state after grabbing a wall during glide.
+	 * Knuckles moves up/down on the wall with input, or jumps away.
+	 * Animation cycles through frames 0xB7-0xBC every 4 frames of movement.
+	 */
+	private void updateWallClimb() {
+		// Maintain X position against wall
+		sprite.setX(sprite.getWallClimbX());
+
+		int climbAnimDelta = 0;  // +1 = forward (climbing up), -1 = backward (climbing down)
+
+		if (inputUp) {
+			// Climbing up: check wall distance at the top to detect ledge
+			boolean facingRight = sprite.getDirection() == Direction.RIGHT;
+			int probeY = sprite.getCentreY() - 11;
+			var wallResult = getWallDistance(probeY, facingRight);
+
+			if (wallResult != null && wallResult.distance() >= 4) {
+				// Wall gone above — climb up over ledge
+				enterLedgeClimb();
+				return;
+			}
+
+			if (wallResult != null && wallResult.distance() != 0) {
+				// Small dip in wall — don't move
+			} else {
+				// Check ceiling clearance
+				var ceilResult = ObjectTerrainUtils.checkCeilingDist(
+						sprite.getCentreX(), sprite.getCentreY(), sprite.getYRadius());
+				if (ceilResult != null && ceilResult.distance() < 0) {
+					// Bumping ceiling — push out
+					sprite.setY((short) (sprite.getY() - ceilResult.distance()));
+				} else {
+					sprite.setY((short) (sprite.getY() - 1));
+				}
+				climbAnimDelta = 1;
+			}
+		} else if (inputDown) {
+			// Climbing down: check wall distance at the bottom
+			boolean facingRight = sprite.getDirection() == Direction.RIGHT;
+			int probeY = sprite.getCentreY() + 11;
+			var wallResult = getWallDistance(probeY, facingRight);
+
+			if (wallResult != null && wallResult.distance() != 0) {
+				// Climbed off bottom of wall — let go
+				letGoOfWall();
+				return;
+			}
+
+			// Check floor clearance
+			var floorResult = ObjectTerrainUtils.checkFloorDist(
+					sprite.getCentreX(), sprite.getCentreY() + sprite.getYRadius());
+			if (floorResult != null && floorResult.distance() <= 0) {
+				// Reached floor
+				sprite.setY((short) (sprite.getY() + floorResult.distance()));
+				exitWallClimbToGround();
+				return;
+			}
+			sprite.setY((short) (sprite.getY() + 1));
+			climbAnimDelta = -1;
+		}
+
+		// ROM: Animation frame cycling (sonic3k.asm:31384-31404)
+		// Animate every 4 frames when moving, using double_jump_property as timer
+		if (climbAnimDelta != 0) {
+			byte timer = (byte) (sprite.getDoubleJumpProperty() - 1);
+			if (timer < 0) {
+				timer = 3;
+				// Advance mapping frame
+				int frame = sprite.getMappingFrame() + climbAnimDelta;
+				// Wrap within range 0xB7-0xBC
+				if (frame < 0xB7) frame = 0xBC;
+				if (frame > 0xBC) frame = 0xB7;
+				sprite.setMappingFrame(frame);
+			}
+			sprite.setDoubleJumpProperty(timer);
+		}
+
+		// ROM: Check for jump button to jump away (sonic3k.asm:31410-31434)
+		if (inputJumpPress) {
+			sprite.restoreDefaultRadii();
+			sprite.setObjectMappingFrameControl(false);
+			sprite.setDoubleJumpFlag(0);
+			sprite.setDoubleJumpProperty((byte) 0);
+			sprite.setForcedAnimationId(-1);
+
+			// ROM: bchg #Status_Facing — flip direction (jump AWAY from wall)
+			boolean wasFacingRight = sprite.getDirection() == Direction.RIGHT;
+			sprite.setDirection(wasFacingRight ? Direction.LEFT : Direction.RIGHT);
+
+			// ROM: y_vel = -$380, x_vel = $400 (toward new facing direction)
+			int dir = wasFacingRight ? -1 : 1;
+			sprite.setXSpeed((short) (0x400 * dir));
+			sprite.setYSpeed((short) -0x380);
+			sprite.setAir(true);
+			sprite.setJumping(true);
+			sprite.setRolling(true);
+			sprite.applyRollingRadii(true);
+			audioManager.playSfx(GameSound.JUMP);
+			return;
+		}
+	}
+
+	/** Probes wall distance at a given Y position in the facing direction. */
+	private com.openggf.physics.TerrainCheckResult getWallDistance(int probeY, boolean facingRight) {
+		int probeX = facingRight
+				? sprite.getCentreX() + sprite.getXRadius()
+				: sprite.getCentreX() - sprite.getXRadius();
+		return facingRight
+				? ObjectTerrainUtils.checkRightWallDist(probeX, probeY)
+				: ObjectTerrainUtils.checkLeftWallDist(probeX, probeY);
+	}
+
+	/** ROM: Knuckles_LetGoOfWall (sonic3k.asm:31449-31461) — drop off bottom of wall. */
+	private void letGoOfWall() {
+		sprite.setDoubleJumpFlag(2);
+		sprite.restoreDefaultRadii();
+		sprite.setObjectMappingFrameControl(false);
+		sprite.setForcedAnimationId(0x21);  // GLIDE_DROP
+	}
+
+	/** Transition from wall climb to standing on ground (reached floor while climbing down). */
+	private void exitWallClimbToGround() {
+		sprite.setGSpeed((short) 0);
+		sprite.setXSpeed((short) 0);
+		sprite.setYSpeed((short) 0);
+		sprite.restoreDefaultRadii();
+		sprite.setObjectMappingFrameControl(false);
+		sprite.setDoubleJumpFlag(0);
+		sprite.setDoubleJumpProperty((byte) 0);
+		sprite.setForcedAnimationId(-1);
+		sprite.setAir(false);
+		sprite.setJumping(false);
+	}
+
+	/** ROM: Knuckles_ClimbUp (sonic3k.asm:31437-31446) — initiate ledge climb. */
+	private void enterLedgeClimb() {
+		sprite.setDoubleJumpFlag(5);
+		sprite.setDoubleJumpProperty((byte) 0);
+		doLedgeClimbAnimation();
+	}
+
+	/** ROM: Knuckles_ClimbLedge_Frames (sonic3k.asm:31503-31509) */
+	private static final int[][] LEDGE_CLIMB_FRAMES = {
+		// { mapping_frame, x_delta, y_delta, timer }
+		{ 0xBD,  3,  -3, 6 },
+		{ 0xBE,  8, -10, 6 },
+		{ 0xBF, -8, -12, 6 },
+		{ 0xD2,  8,  -5, 6 },
+	};
+
+	/**
+	 * ROM: Knuckles_DoLedgeClimbingAnimation (sonic3k.asm:31467-31496).
+	 * Advances through the ledge climb frame table one entry at a time.
+	 */
+	private void doLedgeClimbAnimation() {
+		int index = (sprite.getDoubleJumpProperty() & 0xFF) / 4;
+		if (index >= LEDGE_CLIMB_FRAMES.length) {
+			// Animation complete — exit to standing
+			exitWallClimbToGround();
+			return;
+		}
+
+		int[] entry = LEDGE_CLIMB_FRAMES[index];
+		sprite.setMappingFrame(entry[0]);
+
+		// X delta is negated when facing left
+		int xDelta = entry[1];
+		if (sprite.getDirection() == Direction.LEFT) {
+			xDelta = -xDelta;
+		}
+		sprite.setX((short) (sprite.getX() + xDelta));
+		sprite.setY((short) (sprite.getY() + entry[2]));
+
+		sprite.setDoubleJumpProperty((byte) (sprite.getDoubleJumpProperty() + 4));
+	}
+
+	/**
+	 * ROM: Knuckles_Climb_Ledge (sonic3k.asm:31437).
+	 * Called each frame while in state 5 — advances the ledge climb animation.
+	 */
+	private void updateLedgeClimb() {
+		int index = (sprite.getDoubleJumpProperty() & 0xFF) / 4;
+		if (index >= LEDGE_CLIMB_FRAMES.length) {
+			exitWallClimbToGround();
+			return;
+		}
+		doLedgeClimbAnimation();
+	}
+
+	/**
+	 * ROM: Knux_DoLevelCollision_CheckRet (sonic3k.asm:32625-32684).
+	 * Custom collision for glide state — probes walls and floor directly
+	 * using ObjectTerrainUtils rather than the generic airborne collision.
+	 */
+	private void doGlideCollision() {
+		int cx = sprite.getCentreX();
+		int cy = sprite.getCentreY();
+		int xRad = sprite.getXRadius();
+		int yRad = sprite.getYRadius();
+
+		// Check wall in movement direction
+		// Save the movement direction BEFORE zeroing velocity (needed by glideHitWall)
+		int xVel = sprite.getXSpeed();
+		boolean movingRight = xVel >= 0;
+
+		if (xVel > 0) {
+			var result = ObjectTerrainUtils.checkRightWallDist(cx + xRad, cy);
+			if (result != null && result.distance() < 0) {
+				sprite.setX((short) (sprite.getX() + result.distance()));
+				sprite.setXSpeed((short) 0);
+				glideHitWall(movingRight);
+				return;
+			}
+		} else if (xVel < 0) {
+			var result = ObjectTerrainUtils.checkLeftWallDist(cx - xRad, cy);
+			if (result != null && result.distance() < 0) {
+				sprite.setX((short) (sprite.getX() - result.distance()));
+				sprite.setXSpeed((short) 0);
+				glideHitWall(movingRight);
+				return;
+			}
+		}
+
+		// Check floor (only when descending or level)
+		if (sprite.getYSpeed() >= 0) {
+			var result = ObjectTerrainUtils.checkFloorDist(cx, cy + yRad);
+			if (result != null && result.distance() < 0) {
+				sprite.setY((short) (sprite.getY() + result.distance()));
+				sprite.setAngle(result.angle());
+				sprite.setYSpeed((short) 0);
+				glideHitFloor();
+				return;
+			}
+		}
+
+		// Check opposite wall too (ROM checks both walls in some quadrants)
+		if (xVel <= 0) {
+			var result = ObjectTerrainUtils.checkRightWallDist(cx + xRad, cy);
+			if (result != null && result.distance() < 0) {
+				sprite.setX((short) (sprite.getX() + result.distance()));
+			}
+		}
+		if (xVel >= 0) {
+			var result = ObjectTerrainUtils.checkLeftWallDist(cx - xRad, cy);
+			if (result != null && result.distance() < 0) {
+				sprite.setX((short) (sprite.getX() - result.distance()));
+			}
+		}
+	}
+
+	/**
+	 * ROM: Knuckles_Gliding_HitWall (sonic3k.asm:30772-30827).
+	 * Transitions to wall climb state when hitting a wall during glide.
+	 * @param wasMovingRight the movement direction at the time of wall contact
+	 *                       (before x velocity was zeroed by collision)
+	 */
+	private void glideHitWall(boolean wasMovingRight) {
+		// Face toward the wall (use saved direction since xSpeed is already zeroed)
+		sprite.setDirection(wasMovingRight ? Direction.RIGHT : Direction.LEFT);
+
+		audioManager.playSfx(GameSound.GRAB);
+
+		// Zero all velocities
+		sprite.setGSpeed((short) 0);
+		sprite.setXSpeed((short) 0);
+		sprite.setYSpeed((short) 0);
+
+		// Enter wall climb state
+		sprite.setDoubleJumpFlag(4);
+		sprite.setDoubleJumpProperty((byte) 3);  // ROM: double_jump_property = 3
+
+		// Record wall X position
+		sprite.setWallClimbX(sprite.getX());
+
+		// Wall climb animation — mapping frame 0xB7
+		sprite.setForcedAnimationId(-1);  // Let object mapping frame control take over
+		sprite.setObjectMappingFrameControl(true);
+		sprite.setMappingFrame(0xB7);
+	}
+
+	// Wall climb boundary checking is now integrated into updateWallClimb()
+	// using ObjectTerrainUtils for wall/floor/ceiling probing.
+
+	/** ROM: RawAni_Knuckles_GlideTurn (sonic3k.asm:31584-31593) */
+	private static final int[] GLIDE_TURN_FRAMES = {
+		0xC0, 0xC1, 0xC2, 0xC3, 0xC4, 0xC3, 0xC2, 0xC1
+	};
+
+	/**
+	 * ROM: Knuckles_Set_Gliding_Animation (sonic3k.asm:31560-31581).
+	 * Directly sets mapping_frame from a lookup table based on glide turn angle.
+	 * Does NOT use the scripted animation system.
+	 */
+	private void setGlideAnimation() {
+		// Enable direct mapping frame control (bypasses animation manager)
+		sprite.setObjectMappingFrameControl(true);
+		sprite.setPushing(false);
+
+		// ROM: bclr #Status_Facing — always face RIGHT during glide
+		sprite.setDirection(Direction.RIGHT);
+
+		// Calculate frame index from double_jump_property:
+		// ROM: moveq #0,d0; move.b double_jump_property,d0; addi.b #$10,d0; lsr.w #5,d0
+		int prop = sprite.getDoubleJumpProperty() & 0xFF;
+		int index = ((prop + 0x10) & 0xFF) >> 5;
+		if (index >= GLIDE_TURN_FRAMES.length) {
+			index = 0;
+		}
+
+		int frame = GLIDE_TURN_FRAMES[index];
+
+		// ROM: If frame == $C4, set facing LEFT and use $C0 with h-flip instead
+		if (frame == 0xC4) {
+			sprite.setDirection(Direction.LEFT);
+			frame = 0xC0;
+		}
+
+		sprite.setMappingFrame(frame);
 	}
 
 	// ========================================

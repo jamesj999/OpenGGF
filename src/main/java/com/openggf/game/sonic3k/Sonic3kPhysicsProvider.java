@@ -21,6 +21,9 @@ public class Sonic3kPhysicsProvider implements PhysicsProvider {
         if ("tails".equalsIgnoreCase(characterType)) {
             return PhysicsProfile.SONIC_2_TAILS;
         }
+        // ROM: Knuckles_Init (sonic3k.asm:30361-30363) uses identical base constants
+        // to Sonic ($600/$C/$80). Knuckles' unique physics (glide, wall climb) are
+        // handled in the movement code, not the profile.
         return PhysicsProfile.SONIC_2_SONIC;
     }
 

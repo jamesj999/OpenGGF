@@ -189,16 +189,34 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
      * @return the donor's character palette, or null if unavailable
      */
     public Palette loadCharacterPalette() {
+        return loadCharacterPalette(null);
+    }
+
+    /**
+     * Loads the character palette from the donor ROM.
+     * Knuckles uses a separate palette (Pal_Knuckles); Sonic/Tails share one.
+     *
+     * @param characterCode the character code ("sonic", "tails", "knuckles"), or null for default
+     * @return the donor's character palette, or null if unavailable
+     */
+    public Palette loadCharacterPalette(String characterCode) {
         if (donorReader == null) {
             return null;
         }
         int paletteAddr;
+        int paletteSize = Palette.PALETTE_SIZE_IN_ROM;
         if (donorGameId == GameId.S3K) {
-            paletteAddr = Sonic3kConstants.SONIC_PALETTE_ADDR;
+            if ("knuckles".equalsIgnoreCase(characterCode)) {
+                // Pal_Knuckles: 32 bytes (1 palette line)
+                paletteAddr = Sonic3kConstants.KNUCKLES_PALETTE_ADDR;
+                paletteSize = 32;
+            } else {
+                paletteAddr = Sonic3kConstants.SONIC_PALETTE_ADDR;
+            }
         } else {
             paletteAddr = Sonic2Constants.SONIC_TAILS_PALETTE_ADDR;
         }
-        byte[] data = donorReader.slice(paletteAddr, Palette.PALETTE_SIZE_IN_ROM);
+        byte[] data = donorReader.slice(paletteAddr, paletteSize);
         Palette palette = new Palette();
         palette.fromSegaFormat(data);
         return palette;
