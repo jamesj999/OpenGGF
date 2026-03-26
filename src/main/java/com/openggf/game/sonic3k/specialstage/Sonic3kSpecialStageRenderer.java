@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k.specialstage;
 
+import com.openggf.game.PlayerCharacter;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.PatternDesc;
 
@@ -672,10 +673,22 @@ public class Sonic3kSpecialStageRenderer {
         long swapped = player.getJumpHeight() >> 16;
         int jumpYOffset = (int)(swapped * 32 / 0x58);
 
-        // Render Sonic first (behind Tails — Tails is closer to camera)
+        // Render main player character
         renderPlayerSprite(player, PLAYER_SCREEN_CENTER_X, 160 + jumpYOffset);
 
-        // Render Tails on top (closer to camera, lower on screen)
+        // Render tails appendage on main player when Tails is the main character
+        if (manager.getPlayerCharacter() == PlayerCharacter.TAILS_ALONE
+                && tailsTailsPatternBase > 0 && tailsTailsMappingData != null) {
+            int ttFrame = manager.getTailsTailsMappingFrame();
+            if (ttFrame >= 0 && ttFrame < tailsTailsMappingFrameCount
+                    && ttFrame * 2 + 1 < tailsTailsMappingData.length) {
+                renderCharacterSprite(tailsTailsMappingData, tailsTailsMappingFrameCount,
+                        tailsTailsPatternBase, 0, ttFrame,
+                        PLAYER_SCREEN_CENTER_X, 160 + jumpYOffset);
+            }
+        }
+
+        // Render Tails sidekick on top (closer to camera, lower on screen)
         // ROM: Tails at $38=-0x20 (closer to camera in Z), rendered lower on screen
         if (manager.isTailsEnabled() && tailsPatternBase > 0 && tailsMappingData != null) {
             renderTailsSprite(manager, PLAYER_SCREEN_CENTER_X, 172);

@@ -2,6 +2,8 @@ package com.openggf.game.sonic3k.specialstage;
 
 import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
+import com.openggf.game.PlayerCharacter;
+import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GraphicsManager;
@@ -111,6 +113,8 @@ public class Sonic3kSpecialStageManager {
     private int p2HeldButtons;
     /** Whether Tails P2 is active (Sonic & Tails mode). */
     private boolean tailsEnabled = true;
+    /** Current player character selection (resolved from config on init). */
+    private PlayerCharacter playerCharacter = PlayerCharacter.SONIC_AND_TAILS;
 
     // Debug state
     private boolean spriteDebugMode;
@@ -147,6 +151,11 @@ public class Sonic3kSpecialStageManager {
         this.exitSpinStarted = false;
         this.palFadeDelay = 0;
         this.musicSpedUp = false;
+
+        // Resolve character from configuration
+        this.playerCharacter = Sonic3kLevelEventManager.getInstance().getPlayerCharacter();
+        this.tailsEnabled = (playerCharacter == PlayerCharacter.SONIC_AND_TAILS);
+
         this.bannerPhase = 0;
         this.bannerTimer = 0;
         this.bannerOffset = 0;
@@ -176,6 +185,11 @@ public class Sonic3kSpecialStageManager {
         tailsAI.initialize();
         tailsAnimTimer = 0;
         tailsMappingFrame = 0;
+        tailsJumping = 0;
+        tailsJumpHeight = 0;
+        tailsJumpVelocity = 0;
+        tailsTailsAnimTimer = 0;
+        tailsTailsMappingFrame = 1;
     }
 
     /** Pattern ID base for special stage art (avoids conflicts with level patterns). */
@@ -316,15 +330,25 @@ public class Sonic3kSpecialStageManager {
         byte[] bgMap = dataLoader.getBgEnigmaMap();
         renderer.setBgMapData(bgMap);
 
-        // Load Sonic mapping + DPLC data for sprite rendering
-        // Map_SStageSonic and PLC_SStageSonic are in the same include file,
-        // immediately after ArtUnc_SStageSonic in ROM.
-        // The file contains: 12 mapping frame offsets (24 bytes),
-        // then 12 DPLC frame offsets (24 bytes), then the frame data.
-        long sonicMapAddr = Sonic3kSpecialStageRomOffsets.ART_UNC_SONIC
-                + Sonic3kSpecialStageRomOffsets.ART_UNC_SONIC_SIZE;
-        byte[] sonicMapData = rom.readBytes(sonicMapAddr, 400);
-        renderer.setSonicMappingData(sonicMapData, sonicMapData);
+        // Load player mapping + DPLC data for sprite rendering.
+        // Mapping/DPLC data immediately follows the uncompressed art in ROM.
+        long playerMapAddr;
+        switch (playerCharacter) {
+            case KNUCKLES:
+                playerMapAddr = Sonic3kSpecialStageRomOffsets.ART_UNC_KNUCKLES
+                        + Sonic3kSpecialStageRomOffsets.ART_UNC_KNUCKLES_SIZE;
+                break;
+            case TAILS_ALONE:
+                playerMapAddr = Sonic3kSpecialStageRomOffsets.ART_UNC_TAILS
+                        + Sonic3kSpecialStageRomOffsets.ART_UNC_TAILS_SIZE;
+                break;
+            default:
+                playerMapAddr = Sonic3kSpecialStageRomOffsets.ART_UNC_SONIC
+                        + Sonic3kSpecialStageRomOffsets.ART_UNC_SONIC_SIZE;
+                break;
+        }
+        byte[] playerMapData = rom.readBytes(playerMapAddr, 400);
+        renderer.setSonicMappingData(playerMapData, playerMapData);
 
         // Load banner mapping data (Map_GetBlueSpheres at ROM 0x8F5E, ~76 bytes)
         byte[] bannerMapData = rom.readBytes(0x8F5E, 76);
@@ -344,7 +368,7 @@ public class Sonic3kSpecialStageManager {
         }
         nextBase += emeraldPatterns.length;
 
-        // Load Tails art (uncompressed, from S3 Lockon ROM half)
+        // Load Tails sidekick body art (only for Sonic & Tails mode)
         if (tailsEnabled) {
             byte[] tailsArtData = dataLoader.getTailsArt();
             int tailsPatternCount = tailsArtData.length / Pattern.PATTERN_SIZE_IN_ROM;
@@ -362,13 +386,15 @@ public class Sonic3kSpecialStageManager {
             }
             nextBase += tailsPatterns.length;
 
-            // Load Tails mapping data (follows art in Lockon ROM)
+            // Load Tails sidekick mapping data (follows art in Lockon ROM)
             long tailsMapAddr = Sonic3kSpecialStageRomOffsets.ART_UNC_TAILS
                     + Sonic3kSpecialStageRomOffsets.ART_UNC_TAILS_SIZE;
             byte[] tailsMapData = rom.readBytes(tailsMapAddr, 400);
             renderer.setTailsMappingData(tailsMapData, tailsMapData);
+        }
 
-            // Load Tails' tails art (separate sprite)
+        // Load tails appendage art (needed for sidekick Tails or Tails as main player)
+        if (tailsEnabled || playerCharacter == PlayerCharacter.TAILS_ALONE) {
             byte[] tailsTailsArtData = dataLoader.getTailsTailsArt();
             int ttPatternCount = tailsTailsArtData.length / Pattern.PATTERN_SIZE_IN_ROM;
             Pattern[] ttPatterns = new Pattern[ttPatternCount];
@@ -385,7 +411,7 @@ public class Sonic3kSpecialStageManager {
             }
             nextBase += ttPatterns.length;
 
-            // Load Tails' tails mapping (follows tails tails art in Lockon ROM)
+            // Load tails appendage mapping (follows tails tails art in Lockon ROM)
             long ttMapAddr = Sonic3kSpecialStageRomOffsets.ART_UNC_TAILS_TAILS
                     + Sonic3kSpecialStageRomOffsets.ART_UNC_TAILS_TAILS_SIZE;
             byte[] ttMapData = rom.readBytes(ttMapAddr, 300);
@@ -403,7 +429,8 @@ public class Sonic3kSpecialStageManager {
         // skMode=true would be for S&K standalone or super emerald stages.
         // Use SK palettes for stages 8+ (S&K layout set)
         boolean skPalettes = currentStage >= 8;
-        palette.initialize(dataLoader, currentStage & 7, false, skPalettes);
+        palette.initialize(dataLoader, currentStage & 7,
+                playerCharacter == PlayerCharacter.KNUCKLES, skPalettes);
         com.openggf.level.Palette[] palLines = palette.getPalettes();
         for (int i = 0; i < palLines.length; i++) {
             if (palLines[i] != null) {
@@ -422,7 +449,18 @@ public class Sonic3kSpecialStageManager {
      * Load player art based on current character.
      */
     private Pattern[] loadPlayerArt() throws IOException {
-        byte[] artData = dataLoader.getSonicArt();
+        byte[] artData;
+        switch (playerCharacter) {
+            case KNUCKLES:
+                artData = dataLoader.getKnucklesArt();
+                break;
+            case TAILS_ALONE:
+                artData = dataLoader.getTailsArt();
+                break;
+            default:
+                artData = dataLoader.getSonicArt();
+                break;
+        }
         // Convert raw uncompressed art to Pattern array
         int patternCount = artData.length / Pattern.PATTERN_SIZE_IN_ROM;
         Pattern[] patterns = new Pattern[patternCount];
@@ -505,7 +543,10 @@ public class Sonic3kSpecialStageManager {
             if (frameIdx >= animTable.length) frameIdx = animTable.length - 1;
             tailsMappingFrame = animTable[frameIdx];
 
-            // Tails tails animation — independent spinning cycle
+        }
+
+        // Tails appendage animation — runs for sidekick or Tails as main player
+        if (tailsEnabled || playerCharacter == PlayerCharacter.TAILS_ALONE) {
             // ROM: adds 0x2AAA + velocity to 16-bit timer, advances frame on overflow
             tailsTailsAnimTimer = (tailsTailsAnimTimer + 0x2AAA + Math.max(0, player.getVelocity())) & 0xFFFF;
             if (tailsTailsAnimTimer < 0x2AAA + Math.max(0, player.getVelocity())) {
@@ -989,6 +1030,10 @@ public class Sonic3kSpecialStageManager {
 
     public boolean isTailsEnabled() {
         return tailsEnabled;
+    }
+
+    public PlayerCharacter getPlayerCharacter() {
+        return playerCharacter;
     }
 
     public long getTailsJumpHeight() {
