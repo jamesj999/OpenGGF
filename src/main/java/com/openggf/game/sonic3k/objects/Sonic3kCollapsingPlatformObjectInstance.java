@@ -199,13 +199,6 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
         return state < 3;
     }
 
-    @Override
-    public boolean shouldStayActiveWhenRemembered() {
-        // Platform must remain in the active set during the solid-stay phase so
-        // SolidContacts can keep repositioning the player on the invisible parent.
-        return state < 3;
-    }
-
     // ===== SolidObjectListener =====
 
     @Override
@@ -320,22 +313,13 @@ public class Sonic3kCollapsingPlatformObjectInstance extends AbstractObjectInsta
             spawnDynamicObject(fragment);
         }
 
-        // Mark remembered so platform doesn't respawn when player returns
-        markRemembered();
+        // ROM uses Delete_Current_Sprite (not Remember_Sprite), so the platform
+        // respawns when the player scrolls away and returns. The Placement system
+        // handles this: state 3's setDestroyed cleans up the falling parent, and
+        // the destroyedInWindow latch clears once the spawn leaves the window.
 
         // Do NOT release the player here - they continue riding the invisible solid
         // platform until solidStayTimer expires (handled in state 2 update).
-    }
-
-    private void markRemembered() {
-        try {
-            var objectManager = services().objectManager();
-            if (objectManager != null) {
-                objectManager.markRemembered(spawn);
-            }
-        } catch (Exception e) {
-            // Safe fallback for test environments
-        }
     }
 
     // ===== Rendering =====

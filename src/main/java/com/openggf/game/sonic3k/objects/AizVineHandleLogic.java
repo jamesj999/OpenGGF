@@ -44,6 +44,8 @@ final class AizVineHandleLogic {
     static final class PlayerState {
         int grabFlag;
         int releaseDelay;
+        /** True while the player hasn't released jump since grabbing. */
+        boolean jumpHeldSinceGrab;
     }
 
     static final class State {
@@ -139,6 +141,7 @@ final class AizVineHandleLogic {
         player.setControlLocked(true);
         player.setRenderFlips(player.getDirection() == Direction.LEFT, false);
         playerState.grabFlag = 1;
+        playerState.jumpHeldSinceGrab = player.isJumpPressed();
         AudioManager.getInstance().playSfx(Sonic3kSfx.GRAB.id);
     }
 
@@ -186,7 +189,13 @@ final class AizVineHandleLogic {
             return;
         }
 
-        if (player.isJumpPressed()) {
+        // ROM uses jpadpress1 (edge-detected new press), not jpadhold1.
+        // Wait for the player to release jump before recognising a new press.
+        if (playerState.jumpHeldSinceGrab) {
+            if (!player.isJumpPressed()) {
+                playerState.jumpHeldSinceGrab = false;
+            }
+        } else if (player.isJumpPressed()) {
             clearPlayerControl(player);
             playerState.grabFlag = 0;
             playerState.releaseDelay = RELEASE_DELAY;
@@ -269,6 +278,12 @@ final class AizVineHandleLogic {
         player.setForcedAnimationId(-1);
         player.setControlLocked(false);
         player.setObjectControlled(false);
+        // Suppress the stale jump press to prevent immediate ability activation
+        // (insta-shield / glide). While object-controlled, PlayableSpriteMovement
+        // doesn't run, so its jumpPrevious field is stale. Without suppression the
+        // edge detector sees a false "new press" on the release frame, which
+        // satisfies the double-jump condition and fires the ability instantly.
+        player.suppressNextJumpPress();
     }
 
     private static int angleByte(int angleWord) {

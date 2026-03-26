@@ -97,12 +97,12 @@ public class AizGiantRideVineObjectInstance extends AbstractObjectInstance {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         updateSegmentsFromGlobalAngle(frameCounter);
         updateHandle(player);
-
-        // ROM cull path in loc_22442/loc_2245C.
-        int coarse = (currentX & 0xFF80) - services().camera().getX();
-        if ((coarse < 0 || coarse > 0x280) && !AizVineHandleLogic.anyGrabbed(handle)) {
-            setDestroyed(true);
-        }
+        // Off-screen lifecycle is handled by the Placement system: non-persistent
+        // objects are unloaded when the spawn leaves the window and respawned on
+        // re-entry.  The ROM's Delete_Current_Sprite immediately clears the respawn
+        // bit, but our setDestroyed() latches until the spawn leaves the window,
+        // which can prevent respawn when the vine's cull range is narrower than
+        // the Placement window.
     }
 
     @Override
