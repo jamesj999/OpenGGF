@@ -18,6 +18,10 @@
 -- Output directory (relative to BizHawk working dir)
 local OUTPUT_DIR = "trace_output/"
 
+-- Headless mode: skip rendering for maximum speed, auto-exit when done.
+-- Enable when running via CLI: EmuHawk.exe --chromeless --lua ... --movie ... rom.gen
+local HEADLESS = true
+
 -- S1 REV01 68K RAM addresses (mainmemory domain = $FF0000 base stripped)
 local ADDR_GAME_MODE       = 0xF600
 local ADDR_CTRL1_LOCKED    = 0xF604
@@ -273,6 +277,10 @@ local function on_frame_end()
         close_files()
         started = false
         finished = true
+        if HEADLESS then
+            print("Headless mode: exiting.")
+            client.exit()
+        end
         return
     end
 
@@ -322,6 +330,11 @@ end
 
 -- Create output directory at load time (avoids cmd.exe pause during gameplay)
 os.execute("mkdir \"" .. OUTPUT_DIR .. "\" 2>NUL")
+
+-- Skip rendering for max speed in headless mode
+if HEADLESS then
+    client.invisibleemulation(true)
+end
 
 event.onframeend(on_frame_end, "S1TraceRecorder")
 print("S1 Trace Recorder loaded. Waiting for level gameplay (Game_Mode=0x0C, controls unlocked)...")
