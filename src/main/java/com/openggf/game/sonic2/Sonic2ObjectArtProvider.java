@@ -195,6 +195,9 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
         hudLivesPatterns = artData.getHudLivesPatterns();
         hudLivesNumbers = artData.getHudLivesNumbers();
 
+        // Cross-game: override lives icon with donor character art (e.g., Knuckles from S3K)
+        overrideLivesArtFromDonor();
+
         LOGGER.info("Sonic2ObjectArtProvider loaded for zone " + zoneIndex +
                 " with " + rendererKeys.size() + " renderers (PLC-driven)");
     }
@@ -332,6 +335,38 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
     @Override
     public Pattern[] getHudLivesNumbers() {
         return hudLivesNumbers;
+    }
+
+    /**
+     * When cross-game features are active and the character is Knuckles,
+     * loads the Knuckles life icon from the S3K donor ROM to replace the
+     * S2 Sonic life icon.
+     */
+    private void overrideLivesArtFromDonor() {
+        if (!com.openggf.game.CrossGameFeatureProvider.isActive()) {
+            return;
+        }
+        String mainChar = com.openggf.configuration.SonicConfigurationService.getInstance()
+                .getString(com.openggf.configuration.SonicConfiguration.MAIN_CHARACTER_CODE);
+        if (!"knuckles".equalsIgnoreCase(mainChar)) {
+            return;
+        }
+        // Load Knuckles life icon from donor S3K ROM
+        String donorId = com.openggf.game.CrossGameFeatureProvider.getInstance().getDonorGameId();
+        if (!"s3k".equals(donorId)) {
+            return;
+        }
+        try {
+            com.openggf.data.Rom donorRom = com.openggf.data.RomManager.getInstance().getSecondaryRom("s3k");
+            Pattern[] knuxLife = com.openggf.util.PatternDecompressor.nemesis(donorRom,
+                    com.openggf.game.sonic3k.constants.Sonic3kConstants.ART_NEM_KNUCKLES_LIFE_ICON_ADDR);
+            if (knuxLife != null && knuxLife.length > 0) {
+                hudLivesPatterns = knuxLife;
+                LOGGER.info("Overrode lives icon with Knuckles art from S3K donor (" + knuxLife.length + " tiles)");
+            }
+        } catch (Exception e) {
+            LOGGER.warning("Failed to load Knuckles life icon from donor: " + e.getMessage());
+        }
     }
 
     @Override
