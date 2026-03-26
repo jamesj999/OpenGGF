@@ -121,6 +121,10 @@ public class Sonic3kConstants {
     // Character palette addresses
     public static int SONIC_PALETTE_ADDR = 0x0A8A3C;  // Pal_SonicTails (64 bytes)
     public static int KNUCKLES_PALETTE_ADDR = 0x0A8AFC; // Pal_Knuckles (32 bytes)
+    // S2-compatible Knuckles palette for "Knuckles in Sonic 2" lock-on.
+    // Indices 2-5 have Knuckles' reds; indices 0-1 and 6-15 are identical
+    // to S2's Pal_SonicTails, so title cards, badniks, etc. are unaffected.
+    public static final int KNUCKLES_S2_PALETTE_ADDR = 0x060BEA;
 
     // Pal_WaterKnux - Knuckles water palette patch (42 bytes = 7 zones x 6 bytes)
     // 6 bytes per zone (3 Mega Drive colors), written to Water_palette+$04 (colors 2-4 of line 0)

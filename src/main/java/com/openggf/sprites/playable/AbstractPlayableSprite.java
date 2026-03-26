@@ -2075,7 +2075,12 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 if (physicsFeatureSet != null && physicsFeatureSet.instaShieldEnabled()
                         && getSecondaryAbility() == SecondaryAbility.INSTA_SHIELD) {
                         if (instaShieldObject == null && powerUpSpawner != null) {
-                                instaShieldObject = powerUpSpawner.createInstaShield(this);
+                                try {
+                                        instaShieldObject = powerUpSpawner.createInstaShield(this);
+                                } catch (IllegalStateException e) {
+                                        // Services not yet available (e.g., prepareForLevel before ObjectManager).
+                                        // Deferred to tickStatus() where ObjectManager context is active.
+                                }
                         }
                         // Registration deferred to tickStatus() to avoid double-add
                         // when resolvePhysicsProfile() and tickStatus() both run on the same frame

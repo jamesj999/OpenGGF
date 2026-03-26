@@ -361,11 +361,56 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
             Pattern[] knuxLife = com.openggf.util.PatternDecompressor.nemesis(donorRom,
                     com.openggf.game.sonic3k.constants.Sonic3kConstants.ART_NEM_KNUCKLES_LIFE_ICON_ADDR);
             if (knuxLife != null && knuxLife.length > 0) {
+                // Remap pixel indices from S3K palette layout to S2-compatible layout.
+                // Both palettes have the same colors but at different indices.
+                remapPaletteIndices(knuxLife);
                 hudLivesPatterns = knuxLife;
                 LOGGER.info("Overrode lives icon with Knuckles art from S3K donor (" + knuxLife.length + " tiles)");
             }
         } catch (Exception e) {
             LOGGER.warning("Failed to load Knuckles life icon from donor: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Remaps pixel palette indices in tile art from S3K's palette layout to the
+     * S2-compatible Knuckles palette layout. The same colors exist in both
+     * palettes but at different positions.
+     *
+     * <p>S3K Pal_Knuckles → S2-compatible (0x060BEA) index mapping, derived by
+     * matching color values between the two palettes:
+     * <pre>
+     *  S3K  Color   S2-compat
+     *  [0]  0x0000  [0]   transparent
+     *  [1]  0x0EEE  [6]   white
+     *  [2]  0x064E  [5]   bright red
+     *  [3]  0x020C  [3]   medium red
+     *  [4]  0x0206  [2]   dark red
+     *  [5]  0x0080  [4]   green
+     *  [6]  0x000E  [12]  red (shoes)
+     *  [7]  0x0008  [13]  dark red (shoes)
+     *  [8]  0x00AE  [14]  orange
+     *  [9]  0x008E  [15]  dark orange
+     *  [10] 0x08AE  [10]  skin
+     *  [11] 0x046A  [11]  dark skin
+     *  [12] 0x0ECC  [7]   (approx gray)
+     *  [13] 0x0CAA  [8]   (approx gray)
+     *  [14] 0x0866  [9]   (approx dark gray)
+     *  [15] 0x0222  [1]   (approx black)
+     * </pre>
+     */
+    private static final int[] S3K_TO_S2_PALETTE_REMAP = {
+        0, 6, 5, 3, 2, 4, 12, 13, 14, 15, 10, 11, 7, 8, 9, 1
+    };
+
+    private void remapPaletteIndices(Pattern[] tiles) {
+        for (Pattern tile : tiles) {
+            for (int y = 0; y < Pattern.PATTERN_HEIGHT; y++) {
+                for (int x = 0; x < Pattern.PATTERN_WIDTH; x++) {
+                    int oldIdx = tile.getPixel(x, y) & 0x0F;
+                    tile.setPixel(x, y, (byte) S3K_TO_S2_PALETTE_REMAP[oldIdx]);
+                }
+            }
         }
     }
 

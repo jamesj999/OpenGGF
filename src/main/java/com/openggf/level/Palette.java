@@ -100,6 +100,19 @@ public class Palette {
         return PALETTE_SIZE;
     }
 
+    /**
+     * Copies color entries from another palette into this one for the given
+     * index range (inclusive). Used for cross-game donation to merge character
+     * colors into a host palette without overwriting universal colors.
+     */
+    public void mergeColorsFrom(Palette source, int fromIndex, int toIndex) {
+        for (int i = fromIndex; i <= toIndex && i < PALETTE_SIZE; i++) {
+            colors[i].r = source.colors[i].r;
+            colors[i].g = source.colors[i].g;
+            colors[i].b = source.colors[i].b;
+        }
+    }
+
     // Retrieve color by index
     public Color getColor(int index) {
         if (index >= PALETTE_SIZE) {
