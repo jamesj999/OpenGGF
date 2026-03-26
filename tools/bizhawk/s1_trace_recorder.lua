@@ -140,8 +140,6 @@ end
 -----------------
 
 local function open_files()
-    os.execute("mkdir \"" .. OUTPUT_DIR .. "\" 2>NUL")
-
     physics_file = io.open(OUTPUT_DIR .. "physics.csv", "w")
     aux_file = io.open(OUTPUT_DIR .. "aux_state.jsonl", "w")
 
@@ -301,7 +299,10 @@ local function on_frame_end()
         air and 1 or 0,
         rolling and 1 or 0,
         ground_mode))
-    physics_file:flush()
+    -- Flush periodically instead of every frame to reduce I/O overhead
+    if trace_frame % 60 == 0 then
+        physics_file:flush()
+    end
 
     check_mode_changes(status)
     prev_status = status
@@ -310,13 +311,19 @@ local function on_frame_end()
         write_state_snapshot()
     end
 
-    scan_objects()
+    -- Scan objects every 4 frames (reduces 63-slot reads from ~190/frame to ~47/frame)
+    if trace_frame % 4 == 0 then
+        scan_objects()
+    end
 
     trace_frame = trace_frame + 1
 end
 
+-- Create output directory at load time (avoids cmd.exe pause during gameplay)
+os.execute("mkdir \"" .. OUTPUT_DIR .. "\" 2>NUL")
+
 event.onframeend(on_frame_end, "S1TraceRecorder")
-print("S1 Trace Recorder loaded. Waiting for level gameplay to begin...")
+print("S1 Trace Recorder loaded. Waiting for level gameplay (Game_Mode=0x0C, controls unlocked)...")
 
 event.onexit(function()
     if started then
