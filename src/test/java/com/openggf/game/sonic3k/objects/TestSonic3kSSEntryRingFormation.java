@@ -6,6 +6,7 @@ import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TestObjectServices;
+import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.tests.TestEnvironment;
 import org.junit.After;
 import org.junit.Before;
@@ -14,6 +15,7 @@ import org.junit.Test;
 import java.lang.reflect.Field;
 
 import static org.junit.Assert.*;
+import static org.mockito.Mockito.*;
 
 /**
  * Verifies that the S3K big ring (Obj_SSEntryRing) is NOT interactable
@@ -169,6 +171,64 @@ public class TestSonic3kSSEntryRingFormation {
         assertTrue("Ring should still be forming after 1 on-screen frame", ring.isForming());
     }
 
+    /**
+     * Core test: a player standing inside the collision box must NOT trigger
+     * the ring during the entire 40-frame formation period.
+     * <p>
+     * This exercises the full collision path (player present, alive, not in
+     * debug mode, centre within SSEntry_Range box) and verifies the ROM's
+     * {@code cmpi.b #8,mapping_frame(a0) / blo.s locret} gate blocks it.
+     */
+    @Test
+    public void playerInsideCollisionBoxCannotTriggerDuringFormation() {
+        Sonic3kSSEntryRingObjectInstance ring = createRing(0);
+        AbstractPlayableSprite player = createMockPlayerAt(RING_X, RING_Y);
+
+        // Step through every frame of formation with the player overlapping
+        for (int frame = 1; frame <= FORMATION_TOTAL_FRAMES; frame++) {
+            ring.update(frame, player);
+            assertTrue("Ring should still be forming at frame " + frame
+                            + " (mapping_frame=" + ring.getMappingFrame() + ")",
+                    ring.isForming());
+            assertTrue("Ring should remain in MAIN state at frame " + frame,
+                    ring.isMainState());
+            assertFalse("Ring should not be destroyed during formation at frame " + frame,
+                    ring.isDestroyed());
+        }
+    }
+
+    /**
+     * After the 40-frame formation completes, a player inside the collision
+     * box MUST trigger the ring. Uses the "all emeralds collected" path
+     * (awards 50 rings and destroys) to avoid needing camera/flash services.
+     */
+    @Test
+    public void playerInsideCollisionBoxTriggerAfterFormation() {
+        // Set up all-emeralds path so onTouched() takes the simple destroy route
+        gameState.configureSpecialStageProgress(7, 7);
+        for (int i = 0; i < 7; i++) {
+            gameState.markEmeraldCollected(i);
+        }
+        assertTrue("Precondition: all emeralds collected", gameState.hasAllEmeralds());
+
+        Sonic3kSSEntryRingObjectInstance ring = createRing(0);
+        AbstractPlayableSprite player = createMockPlayerAt(RING_X, RING_Y);
+
+        // Advance through entire formation
+        for (int frame = 1; frame <= FORMATION_TOTAL_FRAMES; frame++) {
+            ring.update(frame, player);
+        }
+        assertTrue("Ring should still be forming after exactly FORMATION_TOTAL_FRAMES",
+                ring.isForming());
+
+        // One more frame transitions to idle (mapping_frame >= 8) → collision fires
+        ring.update(FORMATION_TOTAL_FRAMES + 1, player);
+        assertFalse("Ring should no longer be forming", ring.isForming());
+        // With all emeralds, onTouched awards 50 rings and destroys the ring
+        assertTrue("Ring should be destroyed after player triggered it",
+                ring.isDestroyed());
+    }
+
     @Test
     public void collectedRingIsDestroyedImmediately() {
         // Mark bit 3 as collected
@@ -219,6 +279,21 @@ public class TestSonic3kSSEntryRingFormation {
     // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
+
+    /**
+     * Creates a Mockito mock of {@link AbstractPlayableSprite} positioned at
+     * the given centre coordinates. The mock is alive (not dead), not in debug
+     * mode, and has a no-op {@code addRings} to allow the all-emeralds path.
+     */
+    private AbstractPlayableSprite createMockPlayerAt(int cx, int cy) {
+        AbstractPlayableSprite player = mock(AbstractPlayableSprite.class);
+        when(player.getCentreX()).thenReturn((short) cx);
+        when(player.getCentreY()).thenReturn((short) cy);
+        when(player.getDead()).thenReturn(false);
+        when(player.isDebugMode()).thenReturn(false);
+        // addRings is void — Mockito defaults to no-op, no stub needed
+        return player;
+    }
 
     private Sonic3kSSEntryRingObjectInstance createRing(int subtype) {
         setConstructionContext(services);

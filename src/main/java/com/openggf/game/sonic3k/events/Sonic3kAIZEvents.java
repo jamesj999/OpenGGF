@@ -166,6 +166,13 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     // --- AIZ2 Dynamic_resize_routine state ---
     /** ROM: Dynamic_resize_routine equivalent for act 2. */
     private int aiz2ResizeRoutine;
+    /**
+     * ROM equivalent: {@code Apparent_zone_and_act == AIZ2}.
+     * True when the player entered AIZ2 directly (level select / death restart),
+     * false when arriving through the AIZ1 fire transition.
+     * Controls whether the miniboss area is skipped in SonicResize1/KnuxResize1.
+     */
+    private boolean enteredAsAct2;
 
     // --- Boss / fire transition state ---
     /** One-shot guard for AIZ2 resize boss spawn. */
@@ -316,6 +323,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         appliedTreeRevealChunkCopiesMask = 0;
         minibossSpawned = false;
         aiz2ResizeRoutine = 0;
+        enteredAsAct2 = false;
         eventsFg5 = false;
         bossFlag = false;
         act2TransitionRequested = false;
@@ -863,9 +871,14 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         camera().setMaxY((short) AIZ2_DEFAULT_MAX_Y);
         aiz2ResizeRoutine = 4;
         // ROM: if Apparent_zone_and_act == AIZ2, skip the miniboss path.
-        // When we're in update(act=1), we're definitively on act 2.
-        camera().setMinX((short) AIZ2_SONIC_RESIZE2_LOCK_X);
-        aiz2ResizeRoutine = 6; // skip SonicResize2 (miniboss area)
+        // Only skip when the player entered AIZ2 directly (level select / death
+        // restart) — the miniboss has already been defeated in that scenario.
+        // When arriving through the AIZ1 fire transition, the miniboss hasn't
+        // been fought yet, so we must go through SonicResize2.
+        if (enteredAsAct2) {
+            camera().setMinX((short) AIZ2_SONIC_RESIZE2_LOCK_X);
+            aiz2ResizeRoutine = 6; // skip SonicResize2 (miniboss area)
+        }
     }
 
     /** ROM: AIZ2_SonicResize2 — continuous maxY + miniboss spawn. */
@@ -945,8 +958,11 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         camera().setMaxY((short) AIZ2_DEFAULT_MAX_Y);
         aiz2ResizeRoutine = 0x14;
         // ROM: if Apparent_zone_and_act == AIZ2, skip the miniboss path.
-        camera().setMinX((short) AIZ2_KNUX_RESIZE2_LOCK_X);
-        aiz2ResizeRoutine = 0x16; // skip KnuxResize2 (miniboss area)
+        // Same gate as SonicResize1 — only skip when entered AIZ2 directly.
+        if (enteredAsAct2) {
+            camera().setMinX((short) AIZ2_KNUX_RESIZE2_LOCK_X);
+            aiz2ResizeRoutine = 0x16; // skip KnuxResize2 (miniboss area)
+        }
     }
 
     /** ROM: AIZ2_KnuxResize2 — continuous maxY + miniboss spawn. */
@@ -1236,6 +1252,9 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         }
         PendingFireSequence pending = pendingFireSequence;
         if (pending == null) {
+            // No pending fire sequence → entered AIZ2 directly (level select,
+            // death restart).  ROM: Apparent_zone_and_act == AIZ2 here.
+            enteredAsAct2 = true;
             postFireHazeActive = true;
             return;
         }

@@ -371,4 +371,81 @@ public class TestSonic3kAIZEvents {
         assertTrue("Expected WaitFire to switch to the $200 source strip", sawAiz2SourceStrip);
         assertFalse("Curtain should eventually clear after AIZ2 WaitFire", act2Events.getFireCurtainRenderState(224).active());
     }
+
+    /**
+     * When arriving at AIZ2 through the AIZ1 fire transition, SonicResize1
+     * must NOT skip the miniboss path (SonicResize2). The ROM gates this on
+     * Apparent_zone_and_act != AIZ2 — during the fire transition, the apparent
+     * zone is still AIZ1.
+     *
+     * This was the root cause of the "AIZ1 mid-act transition snapping" bug:
+     * unconditionally setting Camera_min_X_pos = $F50 at cameraX >= $2E0
+     * snapped the player to the miniboss arena immediately after the spikes.
+     */
+    @Test
+    public void aiz2FromFireTransitionDoesNotSkipMinibossPath() {
+        GameServices.level().resetState();
+        Camera camera = GameServices.camera();
+
+        // Simulate arrival from AIZ1 fire transition: run act 1 fire sequence
+        camera.setX((short) 0x2F10);
+        camera.setY((short) 0x0200);
+        var act1Events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
+        act1Events.init(0);
+        act1Events.setEventsFg5(true);
+        for (int i = 0; i < 320 && !act1Events.isAct2TransitionRequested(); i++) {
+            act1Events.update(0, i);
+        }
+        assertTrue("Fire transition should have requested act 2", act1Events.isAct2TransitionRequested());
+
+        // Begin act 2 with pending fire sequence (came from fire transition)
+        var act2Events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
+        act2Events.init(1);
+
+        // Simulate player past the first spikes — cameraX just past $2E0
+        camera.setX((short) 0x0300);
+        camera.setY((short) 0x0200);
+        camera.setMinX((short) 0);
+
+        // Run update to trigger SonicResize1
+        // Wait for the fire curtain to clear first so resize runs
+        for (int i = 0; i < 240; i++) {
+            act2Events.update(1, i);
+        }
+
+        // minX must NOT have been snapped to $F50 (the miniboss lock)
+        int minX = camera.getMinX() & 0xFFFF;
+        assertTrue("Camera minX should NOT be locked to miniboss area ($F50) after fire transition, was 0x"
+                + Integer.toHexString(minX),
+                minX < 0x0F50);
+    }
+
+    /**
+     * When entering AIZ2 directly (level select / death restart), SonicResize1
+     * SHOULD skip the miniboss path because the miniboss has already been defeated.
+     * ROM: Apparent_zone_and_act == AIZ2 → skip to SonicResize3.
+     */
+    @Test
+    public void aiz2DirectEntrySkipsMinibossPath() {
+        GameServices.level().resetState();
+        Camera camera = GameServices.camera();
+
+        // Direct entry: no pending fire sequence
+        Sonic3kAIZEvents.resetGlobalState();
+        var events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
+        events.init(1);  // Act 2 directly, no fire transition
+
+        // Camera past $2E0 (first spikes area)
+        camera.setX((short) 0x0300);
+        camera.setY((short) 0x0200);
+        camera.setMinX((short) 0);
+
+        // Run update to trigger SonicResize1
+        events.update(1, 0);
+
+        // minX SHOULD be set to $F50 (skipping miniboss area)
+        int minX = camera.getMinX() & 0xFFFF;
+        assertEquals("Camera minX should be locked to $F50 for direct AIZ2 entry",
+                0x0F50, minX);
+    }
 }
