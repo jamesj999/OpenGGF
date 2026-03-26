@@ -998,6 +998,25 @@ public class Sonic3kConstants {
     // AfterBoss_AIZ2 loads first 32 bytes into palette line 1 via PalLoad_Line1
     public static final int PAL_AIZ_FIRE_ADDR = 0x0A8BDC;
 
+    // ===== Level Select Screen =====
+    // Art (Nemesis compressed, reuses S2 menu infrastructure at S3K ROM offsets)
+    public static final int ART_NEM_S22P_OPTIONS_ADDR = 0xCA5E0;   // Font art (Nemesis)
+    public static final int ART_NEM_S2_MENU_BOX_ADDR = 0x2C3AF2;   // Menu box borders (Nemesis)
+    public static final int ART_NEM_S2_LEVEL_SELECT_PICS_ADDR = 0x2C3B72; // Zone preview icons (Nemesis)
+    public static final int ART_UNC_SONICMILES_ADDR = 0xAA57C;     // SONICMILES background anim (Uncompressed)
+    public static final int ART_UNC_SONICMILES_SIZE = 1280;         // 40 tiles x 32 bytes
+
+    // Mappings (Enigma compressed)
+    public static final int MAP_ENI_S2_LEV_SEL_ADDR = 0x20731A;    // Main screen layout
+    public static final int MAP_ENI_S22P_OPTIONS_ADDR = 0xCAB54;    // Background layout (Plane B, 2P Options)
+    public static final int MAP_ENI_S2_LEV_SEL_ICON_ADDR = 0x20746E; // Icon box mappings
+
+    // Palettes (uncompressed)
+    public static final int PAL_S2_MENU_ADDR = 0xA8A7C;            // Menu palette (4 lines, 128B)
+    public static final int PAL_S2_MENU_SIZE = 128;
+    public static final int PAL_S2_LEVEL_ICONS_ADDR = 0x2070BC;    // 15 icon palettes (480B)
+    public static final int PAL_S2_LEVEL_ICONS_SIZE = 480;
+
     private static boolean scanned = false;
 
     public static boolean isScanned() {
