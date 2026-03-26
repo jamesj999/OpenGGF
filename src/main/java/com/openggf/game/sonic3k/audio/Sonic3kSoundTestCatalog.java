@@ -17,4 +17,19 @@ public final class Sonic3kSoundTestCatalog extends AbstractSoundTestCatalog {
     public static Sonic3kSoundTestCatalog getInstance() {
         return INSTANCE;
     }
+
+    public static boolean isMusicId(int id) {
+        return INSTANCE.lookupTitle(id) != null;
+    }
+
+    public static boolean isSfxId(int id) {
+        return id >= Sonic3kSfx.ID_BASE && id <= Sonic3kSfx.ID_MAX;
+    }
+
+    /**
+     * S3K sound test values map directly to sound IDs (no offset).
+     */
+    public static int toSoundId(int soundTestValue) {
+        return soundTestValue & 0xFF;
+    }
 }

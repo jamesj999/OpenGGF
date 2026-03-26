@@ -35,7 +35,9 @@ import com.openggf.game.sonic3k.scroll.Sonic3kScrollHandlerProvider;
 import com.openggf.game.sonic3k.specialstage.Sonic3kSpecialStageProvider;
 import com.openggf.game.sonic3k.titlecard.Sonic3kTitleCardManager;
 import com.openggf.game.sonic3k.titlescreen.Sonic3kTitleScreenManager;
+import com.openggf.game.LevelSelectProvider;
 import com.openggf.game.TitleScreenProvider;
+import com.openggf.game.sonic3k.levelselect.Sonic3kLevelSelectManager;
 import com.openggf.game.GameId;
 import com.openggf.game.OscillationManager;
 import com.openggf.level.LevelManager;
@@ -150,6 +152,11 @@ public class Sonic3kGameModule implements GameModule {
     @Override
     public TitleScreenProvider getTitleScreenProvider() {
         return Sonic3kTitleScreenManager.getInstance();
+    }
+
+    @Override
+    public LevelSelectProvider getLevelSelectProvider() {
+        return Sonic3kLevelSelectManager.getInstance();
     }
 
     @Override
