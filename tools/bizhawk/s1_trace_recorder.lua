@@ -119,12 +119,13 @@ local function hex(val, width)
     return string.format("%0" .. width .. "X", val)
 end
 
--- Get ground mode from angle (derived from angle quadrant)
+-- Get ground mode from angle (offset quadrants matching ROM thresholds).
+-- Floor wraps: 0xE0-0xFF and 0x00-0x1F are both mode 0.
 local function angle_to_ground_mode(angle)
-    if angle >= 0x00 and angle <= 0x3F then return 0 end
-    if angle >= 0x40 and angle <= 0x7F then return 1 end
-    if angle >= 0x80 and angle <= 0xBF then return 2 end
-    return 3
+    if angle <= 0x1F or angle >= 0xE0 then return 0 end   -- floor
+    if angle >= 0x20 and angle <= 0x5F then return 1 end   -- right wall
+    if angle >= 0x60 and angle <= 0x9F then return 2 end   -- ceiling
+    return 3                                                 -- left wall
 end
 
 -- Write a JSONL line to aux file

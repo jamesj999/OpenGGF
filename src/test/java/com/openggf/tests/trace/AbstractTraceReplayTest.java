@@ -85,9 +85,13 @@ public abstract class AbstractTraceReplayTest {
                         i, bk2Input, expected.input()));
                 }
 
+                // ROM stores centre coordinates at $D008/$D00C. The engine constructor
+                // receives these as xPixel/yPixel (top-left alias), so getX()/getY()
+                // returns the same value the ROM stores. getCentreX() would add
+                // half-dimensions, creating a constant offset.
                 var sprite = fixture.sprite();
                 binder.compareFrame(expected,
-                    sprite.getCentreX(), sprite.getCentreY(),
+                    sprite.getX(), sprite.getY(),
                     sprite.getXSpeed(), sprite.getYSpeed(), sprite.getGSpeed(),
                     sprite.getAngle(),
                     sprite.getAir(), sprite.getRolling(),

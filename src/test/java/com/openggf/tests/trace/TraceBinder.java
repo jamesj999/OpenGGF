@@ -46,16 +46,20 @@ public class TraceBinder {
         fields.put("g_speed", compareNumeric("g_speed", expected.gSpeed(), actualGSpeed,
             tolerances.speedWarn(), tolerances.speedError(), tolerances.speedSignChangeIsError()));
 
-        // Angle comparison
-        fields.put("angle", compareNumeric("angle",
+        // Angle comparison (circular: 0xFC and 0x04 are 8 apart, not 248)
+        fields.put("angle", compareAngle("angle",
             expected.angle() & 0xFF, actualAngle & 0xFF,
-            tolerances.angleWarn(), tolerances.angleError(), false));
+            tolerances.angleWarn(), tolerances.angleError()));
 
         // Boolean/enum flags: any mismatch is ERROR
         fields.put("air", compareFlag("air", expected.air(), actualAir));
         fields.put("rolling", compareFlag("rolling", expected.rolling(), actualRolling));
+
+        // Derive ground_mode from angle using ROM thresholds, since the Lua script's
+        // CSV value may have been computed with incorrect quadrant boundaries.
+        int expectedGroundMode = deriveGroundMode(expected.angle() & 0xFF);
         fields.put("ground_mode", compareEnum("ground_mode",
-            expected.groundMode(), actualGroundMode));
+            expectedGroundMode, actualGroundMode));
 
         FrameComparison result = new FrameComparison(expected.frame(), fields);
         allComparisons.add(result);
@@ -115,6 +119,28 @@ public class TraceBinder {
         return new FieldComparison(name,
             String.valueOf(expected), String.valueOf(actual),
             Severity.ERROR, Math.abs(expected - actual));
+    }
+
+    private FieldComparison compareAngle(String name, int expected, int actual,
+            int warn, int error) {
+        // Circular distance on a 256-unit ring
+        int rawDelta = Math.abs(expected - actual);
+        int delta = Math.min(rawDelta, 256 - rawDelta);
+
+        Severity severity = tolerances.classify(delta, warn, error);
+        return new FieldComparison(name,
+            formatHex(expected), formatHex(actual), severity, delta);
+    }
+
+    /**
+     * Derive ground mode from angle using ROM quadrant thresholds.
+     * Floor wraps: 0xE0-0xFF and 0x00-0x1F are both mode 0.
+     */
+    static int deriveGroundMode(int angle) {
+        if (angle <= 0x1F || angle >= 0xE0) return 0;  // floor
+        if (angle <= 0x5F) return 1;                     // right wall
+        if (angle <= 0x9F) return 2;                     // ceiling
+        return 3;                                         // left wall
     }
 
     private static String formatHex(int value) {
