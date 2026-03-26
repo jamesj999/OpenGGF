@@ -27,7 +27,85 @@ Many tests require ROM files to load level data, object art, or audio. These tes
 **skip gracefully** when ROMs are absent, so CI and contributors without ROMs can still
 run the rest of the suite.
 
-The convention is to check for ROM availability using `RomTestUtils`:
+### `@RequiresRom` Annotation (Preferred)
+
+The preferred approach is to annotate the test class with `@RequiresRom` and declare which
+game's ROM is needed. The test infrastructure handles ROM loading, game module detection,
+and environment reset automatically. When the ROM is absent, the entire class is skipped.
+
+**JUnit 5 (Jupiter):**
+
+```java
+import com.openggf.tests.rules.RequiresRom;
+import com.openggf.tests.rules.RequiresRomCondition;
+import com.openggf.tests.rules.SonicGame;
+import org.junit.jupiter.api.extension.ExtendWith;
+
+@RequiresRom(SonicGame.SONIC_2)
+@ExtendWith(RequiresRomCondition.class)
+class TestMyFeature {
+
+    @Test
+    void testSomething() {
+        // ROM is loaded, game module configured, environment reset —
+        // just write your test logic
+    }
+}
+```
+
+**JUnit 4:**
+
+```java
+import com.openggf.tests.rules.RequiresRom;
+import com.openggf.tests.rules.RequiresRomRule;
+import com.openggf.tests.rules.SonicGame;
+
+@RequiresRom(SonicGame.SONIC_2)
+public class TestMyFeature {
+    @Rule
+    public RequiresRomRule romRule = new RequiresRomRule();
+
+    @Test
+    public void testSomething() {
+        Rom rom = romRule.rom();  // Access the loaded ROM
+        // ...
+    }
+}
+```
+
+Available game values: `SonicGame.SONIC_1`, `SonicGame.SONIC_2`, `SonicGame.SONIC_3K`.
+
+The annotation system provides several benefits over manual checks:
+- **Automatic environment reset** — `TestEnvironment.resetAll()` runs before each test.
+- **ROM caching** — ROMs are loaded once per JVM and shared across all tests via `RomCache`.
+- **Clean skip reporting** — JUnit reports skipped tests with a clear reason rather than
+  silently passing.
+- **Game module setup** — `GameModuleRegistry.detectAndSetModule()` is called automatically.
+
+### `@RequiresGameModule` (No Real ROM)
+
+For tests that need a game module configured but don't need real ROM data (e.g., testing
+logic that only depends on which game is active):
+
+```java
+@RequiresGameModule(SonicGame.SONIC_2)
+public class TestGameSpecificLogic {
+    @Rule
+    public RequiresRomRule romRule = new RequiresRomRule();
+
+    @Test
+    public void testSomething() {
+        // Game module is set, but no ROM loaded
+    }
+}
+```
+
+Note: `@RequiresRom` and `@RequiresGameModule` are mutually exclusive on the same class.
+
+### Legacy: `RomTestUtils` (Manual Check)
+
+Older tests use `RomTestUtils` to check for ROM availability inline. This still works but
+is not recommended for new tests:
 
 ```java
 import static com.openggf.tests.RomTestUtils.ensureRomAvailable;
@@ -42,9 +120,21 @@ void testEHZCollision() {
 }
 ```
 
-For S3K tests, the ROM path can also be specified via system property:
+### ROM Path Configuration
+
+ROM files are found automatically by filename in the working directory. You can also
+specify paths via system properties or environment variables:
+
 ```bash
+# System properties
+mvn test -Dsonic1.rom.path="path/to/sonic1.gen"
+mvn test -Dsonic2.rom.path="path/to/sonic2.gen"
 mvn test -Ds3k.rom.path="Sonic and Knuckles & Sonic 3 (W) [!].gen"
+
+# Environment variables
+export SONIC_1_ROM_PATH="path/to/sonic1.gen"
+export SONIC_2_ROM_PATH="path/to/sonic2.gen"
+export SONIC_3K_ROM_PATH="path/to/s3k.gen"
 ```
 
 ## HeadlessTestFixture
@@ -206,8 +296,8 @@ state management.
 
 - **Keep tests independent.** Tests run in parallel across multiple JVM forks. Do not
   depend on state from another test.
-- **Skip gracefully without ROMs.** Always check `RomTestUtils.ensureRomAvailable()` before
-  loading ROM data. Never let a test fail just because a ROM is absent.
+- **Skip gracefully without ROMs.** Use `@RequiresRom` to gate ROM-dependent tests.
+  Never let a test fail just because a ROM is absent.
 - **Use constants from the disassembly.** When asserting positions or velocities, use the
   same hex values that appear in the ASM. This makes it easier to trace failures back to
   the source.
