@@ -52,15 +52,15 @@ public class Sonic3kSpecialStagePalette {
             palettes[i] = mainPalettes[i];
         }
 
-        // Knuckles: overwrite palette line 0 with Knux-specific colors
+        // Knuckles: patch colors 8-15 of palette line 0 with Knux-specific colors.
+        // ROM: lea (Target_palette+$10).w,a2 — copies 8 words starting at color 8.
+        // This replaces Sonic's blue body colors (indices 8-11) with Knuckles' reds.
         if (isKnuckles) {
             byte[] knuxPatch = dataLoader.getKnuxPalettePatch();
             if (knuxPatch != null) {
-                Palette knuxPalette = new Palette();
                 for (int c = 0; c < 8 && (c * 2 + 1) < knuxPatch.length; c++) {
-                    knuxPalette.colors[c].fromSegaFormat(knuxPatch, c * 2);
+                    palettes[0].colors[c + 8].fromSegaFormat(knuxPatch, c * 2);
                 }
-                palettes[0] = knuxPalette;
             }
         }
 
