@@ -74,6 +74,7 @@ local SNAPSHOT_INTERVAL = 60
 -----------------
 
 local started = false
+local finished = false   -- once true, never re-arm
 local trace_frame = 0
 local bk2_frame_offset = 0
 local start_x = 0
@@ -253,6 +254,7 @@ local function on_frame_end()
     local ctrl_locked = mainmemory.read_u8(ADDR_CTRL1_LOCKED)
 
     if not started then
+        if finished then return end
         if game_mode == GAMEMODE_LEVEL and ctrl_locked == 0 then
             started = true
             bk2_frame_offset = emu.framecount()
@@ -271,6 +273,7 @@ local function on_frame_end()
         write_metadata()
         close_files()
         started = false
+        finished = true
         return
     end
 
