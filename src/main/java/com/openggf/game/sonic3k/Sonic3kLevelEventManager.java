@@ -60,7 +60,20 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
 
     @Override
     public PlayerCharacter getPlayerCharacter() {
-        // Defaults to Sonic+Tails until character selection screen is implemented.
+        // Resolve from config — matches ROM's Player_mode variable
+        String mainChar = com.openggf.configuration.SonicConfigurationService.getInstance()
+                .getString(com.openggf.configuration.SonicConfiguration.MAIN_CHARACTER_CODE);
+        if ("knuckles".equalsIgnoreCase(mainChar)) {
+            return PlayerCharacter.KNUCKLES;
+        } else if ("tails".equalsIgnoreCase(mainChar)) {
+            return PlayerCharacter.TAILS_ALONE;
+        }
+        // Check for sidekick config to distinguish SONIC_ALONE vs SONIC_AND_TAILS
+        String sidekick = com.openggf.configuration.SonicConfigurationService.getInstance()
+                .getString(com.openggf.configuration.SonicConfiguration.SIDEKICK_CHARACTER_CODE);
+        if (sidekick == null || sidekick.isBlank()) {
+            return PlayerCharacter.SONIC_ALONE;
+        }
         return PlayerCharacter.SONIC_AND_TAILS;
     }
 

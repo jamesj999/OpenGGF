@@ -30,11 +30,27 @@ public record PhysicsModifiers(
             0.5f,       // waterDecelMul
             0.5f,       // waterFrictionMul
             0.5f,       // waterMaxMul
-            (short) 0x380, // waterJump (absolute)
+            (short) 0x380, // waterJump (absolute — Sonic/Tails)
             (short) 0x28,  // waterGravityReduction (normal airborne: $38-$28=$10)
             (short) 0x20,  // waterHurtGravityReduction (hurt: $30-$20=$10; s2.asm:37802, s1:01 Sonic.asm:1410)
             2.0f,       // shoesAccelMul
             1.0f,       // shoesDecelMul (unchanged)
+            2.0f,       // shoesFrictionMul
+            2.0f        // shoesMaxMul
+    );
+
+    /** Knuckles: lower underwater jump ($300 vs Sonic's $380).
+     *  ROM: Knux_Jump (sonic3k.asm:32457) move.w #$300,d2 */
+    public static final PhysicsModifiers KNUCKLES = new PhysicsModifiers(
+            0.5f,       // waterAccelMul
+            0.5f,       // waterDecelMul
+            0.5f,       // waterFrictionMul
+            0.5f,       // waterMaxMul
+            (short) 0x300, // waterJump — Knuckles underwater jump
+            (short) 0x28,  // waterGravityReduction
+            (short) 0x20,  // waterHurtGravityReduction
+            2.0f,       // shoesAccelMul
+            1.0f,       // shoesDecelMul
             2.0f,       // shoesFrictionMul
             2.0f        // shoesMaxMul
     );

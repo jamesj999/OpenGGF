@@ -72,6 +72,30 @@ public record PhysicsProfile(
             (short) 14     // rollYRadius
     );
 
+    // S3K Knuckles (lower jump than Sonic: $600 vs $680)
+    // ROM: Knux_Jump (sonic3k.asm:32454) move.w #$600,d2
+    // All other values identical to Sonic's canonical profile.
+    public static final PhysicsProfile SONIC_3K_KNUCKLES = new PhysicsProfile(
+            (short) 12,    // runAccel (0x0C)
+            (short) 128,   // runDecel (0x80)
+            (short) 12,    // friction (0x0C)
+            (short) 1536,  // max (0x600)
+            (short) 1536,  // jump (0x600) — lower than Sonic's 0x680
+            (short) 32,    // slopeRunning
+            (short) 20,    // slopeRollingUp
+            (short) 80,    // slopeRollingDown
+            (short) 32,    // rollDecel
+            (short) 128,   // minStartRollSpeed
+            (short) 128,   // minRollSpeed
+            (short) 4096,  // maxRoll
+            (short) 28,    // rollHeight
+            (short) 38,    // runHeight
+            (short) 9,     // standXRadius
+            (short) 19,    // standYRadius (0x13)
+            (short) 7,     // rollXRadius
+            (short) 14     // rollYRadius
+    );
+
     // S3K Super Sonic (higher speeds: max=0xA00, accel=0x30, decel=0x100)
     public static final PhysicsProfile SONIC_3K_SUPER_SONIC = new PhysicsProfile(
             (short) 0x30,  // runAccel

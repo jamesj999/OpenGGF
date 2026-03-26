@@ -16,19 +16,27 @@ import com.openggf.game.PhysicsProvider;
  */
 public class Sonic3kPhysicsProvider implements PhysicsProvider {
 
+    // Cache character type for modifier resolution
+    private String lastCharacterType = "sonic";
+
     @Override
     public PhysicsProfile getProfile(String characterType) {
+        lastCharacterType = characterType;
         if ("tails".equalsIgnoreCase(characterType)) {
             return PhysicsProfile.SONIC_2_TAILS;
         }
-        // ROM: Knuckles_Init (sonic3k.asm:30361-30363) uses identical base constants
-        // to Sonic ($600/$C/$80). Knuckles' unique physics (glide, wall climb) are
-        // handled in the movement code, not the profile.
+        if ("knuckles".equalsIgnoreCase(characterType)) {
+            // ROM: Knux_Jump (sonic3k.asm:32454) move.w #$600,d2 — lower jump than Sonic
+            return PhysicsProfile.SONIC_3K_KNUCKLES;
+        }
         return PhysicsProfile.SONIC_2_SONIC;
     }
 
     @Override
     public PhysicsModifiers getModifiers() {
+        if ("knuckles".equalsIgnoreCase(lastCharacterType)) {
+            return PhysicsModifiers.KNUCKLES;
+        }
         return PhysicsModifiers.STANDARD;
     }
 

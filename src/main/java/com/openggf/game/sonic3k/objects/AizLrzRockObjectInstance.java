@@ -220,6 +220,12 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
                 contactPushingActive = true;
             }
         }
+        // ROM: Knuckles can break side walls on ANY side contact (including airborne).
+        // The pushing flag is only set for grounded contacts, but the SolidObjectFull
+        // routine registers side contact for airborne sprites via touchSide.
+        if (contact.touchSide() && knucklesOnly) {
+            playerPushingSide = true;
+        }
 
         // Bottom break: player hits from below (not applicable for knucklesOnlyStanding variant)
         // ROM (loc_1FF48): breaks on ANY bottom contact - no spin check.
