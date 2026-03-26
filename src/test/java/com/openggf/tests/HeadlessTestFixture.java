@@ -1,6 +1,8 @@
 package com.openggf.tests;
 
 import com.openggf.camera.Camera;
+import com.openggf.debug.playback.Bk2Movie;
+import com.openggf.debug.playback.Bk2MovieLoader;
 import com.openggf.game.GameRuntime;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
@@ -14,6 +16,7 @@ import com.openggf.sprites.playable.Sonic;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Path;
 
 /**
  * Builder-pattern test fixture that encapsulates the per-test boilerplate
@@ -47,6 +50,11 @@ public final class HeadlessTestFixture {
 
     public void stepIdleFrames(int count) {
         runner.stepIdleFrames(count);
+    }
+
+    /** Step one frame using input from the loaded BK2 recording. Returns the input mask used. */
+    public int stepFrameFromRecording() {
+        return runner.stepFrameFromRecording();
     }
 
     /** Returns the playable sprite managed by this fixture. */
@@ -83,6 +91,8 @@ public final class HeadlessTestFixture {
         private int act = -1;
         private short startX;
         private short startY;
+        private Bk2Movie bk2Movie;
+        private int bk2FrameOffset;
 
         private Builder() {}
 
@@ -100,6 +110,16 @@ public final class HeadlessTestFixture {
         public Builder startPosition(short x, short y) {
             this.startX = x;
             this.startY = y;
+            return this;
+        }
+
+        public Builder withRecording(Path bk2Path) throws IOException {
+            this.bk2Movie = new Bk2MovieLoader().load(bk2Path);
+            return this;
+        }
+
+        public Builder withRecordingStartFrame(int bk2FrameOffset) {
+            this.bk2FrameOffset = bk2FrameOffset;
             return this;
         }
 
@@ -149,6 +169,11 @@ public final class HeadlessTestFixture {
             // 9. Get runtime and create runner
             GameRuntime runtime = RuntimeManager.getCurrent();
             HeadlessTestRunner runner = new HeadlessTestRunner(sprite);
+
+            // 10. Wire BK2 recording if provided
+            if (bk2Movie != null) {
+                runner.setBk2Movie(bk2Movie, bk2FrameOffset);
+            }
 
             return new HeadlessTestFixture(runtime, runner, sprite);
         }
