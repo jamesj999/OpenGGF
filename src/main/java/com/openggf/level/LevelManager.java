@@ -1384,6 +1384,8 @@ public class LevelManager {
                             graphicsManager.cachePatternTexture(hudLives[i], livesBaseIndex + i);
                         }
                         hudRenderManager.setLivesPatternIndex(livesBaseIndex, hudLives.length);
+                        // Cross-game: S3K life icon uses palette 0 for all tiles
+                        hudRenderManager.setLivesNameUsesIconPalette(CrossGameFeatureProvider.isActive());
 
                         int livesNumbersBaseIndex = livesBaseIndex + hudLives.length;
                         Pattern[] hudLivesNumbers = provider.getHudLivesNumbers();

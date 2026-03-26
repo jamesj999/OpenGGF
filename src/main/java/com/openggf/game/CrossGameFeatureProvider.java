@@ -224,6 +224,40 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
         return palette;
     }
 
+    /**
+     * Returns a palette compatible with the HOST game's palette line 0 layout,
+     * but with the donor character's colors. For Knuckles donated from S3K into S2,
+     * this returns the S2-compatible Knuckles palette (0x060BEA) which has Knuckles'
+     * reds at indices 2-5 but keeps S2's universal colors at indices 6-15.
+     *
+     * @param characterCode character code
+     * @return host-compatible palette, or null if not applicable
+     */
+    public Palette loadHostCompatiblePalette(String characterCode) {
+        if (donorReader == null || donorGameId != GameId.S3K) {
+            return null;
+        }
+        if (!"knuckles".equalsIgnoreCase(characterCode)) {
+            return null;
+        }
+        // Use the S2-compatible Knuckles palette from the S3K ROM
+        byte[] data = donorReader.slice(Sonic3kConstants.KNUCKLES_S2_PALETTE_ADDR,
+                Palette.PALETTE_SIZE_IN_ROM);
+        Palette palette = new Palette();
+        palette.fromSegaFormat(data);
+        // Index 4 in the S2-compat palette is green (0x0080, Knuckles' shoe detail).
+        // The S3K life icon "K.T.E." text pixels remap to this index and show green.
+        // Replace with orange/gold (matching S2's index 14 = 0x00AE) so the HUD
+        // text is readable. The player sprite uses the donor context palette (not
+        // this one) so Knuckles' in-game green is unaffected.
+        Palette.Color gold = palette.getColor(14); // 0x00AE orange
+        Palette.Color idx4 = palette.getColor(4);
+        idx4.r = gold.r;
+        idx4.g = gold.g;
+        idx4.b = gold.b;
+        return palette;
+    }
+
     public RenderContext getDonorRenderContext() {
         return donorRenderContext;
     }

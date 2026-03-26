@@ -71,6 +71,9 @@ public class HudRenderManager {
     // Icon/flash palette and HUD text palette — configurable per game
     private PatternDesc iconPatternDesc = new PatternDesc(0x8000); // default: Priority 1, Pal 0
     private PatternDesc hudPatternDesc = new PatternDesc(0xA000);  // default: Priority 1, Pal 1
+    /** When true, lives name tiles use iconPatternDesc (pal 0) instead of hudPatternDesc (pal 1).
+     *  Set when donor life icon art is active — S3K art uses palette 0 for all tiles. */
+    private boolean livesNameUsesIconPalette;
 
     private HudFlashMode flashMode = HudFlashMode.PALETTE_SWAP;
 
@@ -90,6 +93,12 @@ public class HudRenderManager {
     public void setHudPalettes(int textPalLine, int flashPalLine) {
         this.hudPatternDesc = new PatternDesc(0x8000 | (textPalLine << 13));
         this.iconPatternDesc = new PatternDesc(0x8000 | (flashPalLine << 13));
+    }
+
+    /** When set, lives name tiles render with palette 0 (icon) instead of palette 1 (HUD text).
+     *  Used when donor life icon art (S3K) replaces host art — S3K tiles use palette 0 for all. */
+    public void setLivesNameUsesIconPalette(boolean value) {
+        this.livesNameUsesIconPalette = value;
     }
 
     public void setHudFlashMode(HudFlashMode mode) {
@@ -328,42 +337,34 @@ public class HudRenderManager {
         int baseX = 16;
         int baseY = 200;
 
-        // Draw Icon (Sonic) - Palette 0 (iconPatternDesc)
+        // Draw Icon - Palette 0 (iconPatternDesc)
         // 16x16 icon composed of 4 tiles in column-major order (0,1,2,3)
-        // Top-Left (0)
         renderSafe(livesPatternIndex + 0, iconPatternDesc, baseX + camX, baseY + camY);
-        // Bottom-Left (1)
         renderSafe(livesPatternIndex + 1, iconPatternDesc, baseX + camX, baseY + camY + 8);
-        // Top-Right (2)
         renderSafe(livesPatternIndex + 2, iconPatternDesc, baseX + camX + 8, baseY + camY);
-        // Bottom-Right (3)
         renderSafe(livesPatternIndex + 3, iconPatternDesc, baseX + camX + 8, baseY + camY + 8);
 
-        // Draw Name "SONIC"
-        // S: 4
-        // O: 5 (Left), 7 (Right)
-        // N: 8 (Left), 10 (Right)
-        // I: 11 (Left), 12 (Right)
-        // C: 13
+        // Draw character name — S2 native uses hudPatternDesc (pal 1, yellow),
+        // but donor art from S3K uses iconPatternDesc (pal 0) for all tiles.
+        PatternDesc nameDesc = livesNameUsesIconPalette ? iconPatternDesc : hudPatternDesc;
 
         int drawX = baseX + 16;
 
-        // S (8px)
-        renderSafe(livesPatternIndex + 4, hudPatternDesc, drawX + camX, baseY + camY);
+        renderSafe(livesPatternIndex + 4, nameDesc, drawX + camX, baseY + camY);
         drawX += 8;
 
         // O (16px)
-        renderSafe(livesPatternIndex + 6, hudPatternDesc, drawX + camX, baseY + camY);
-        renderSafe(livesPatternIndex + 9, hudPatternDesc, drawX + camX + 8, baseY + camY);
+        renderSafe(livesPatternIndex + 6, nameDesc, drawX + camX, baseY + camY);
+        renderSafe(livesPatternIndex + 9, nameDesc, drawX + camX + 8, baseY + camY);
         drawX += 8;
 
         // N I-l(16px)
-        renderSafe(livesPatternIndex + 8, hudPatternDesc, drawX + camX, baseY + camY);
-        renderSafe(livesPatternIndex + 10, hudPatternDesc, drawX + camX + 8, baseY + camY);
+        renderSafe(livesPatternIndex + 8, nameDesc, drawX + camX, baseY + camY);
+        renderSafe(livesPatternIndex + 10, nameDesc, drawX + camX + 8, baseY + camY);
         drawX += 16;
 
         // I-r C(8px)
-        renderSafe(livesPatternIndex + 11, hudPatternDesc, drawX + camX, baseY + camY);
+        renderSafe(livesPatternIndex + 11, nameDesc, drawX + camX, baseY + camY);
 
         // NEW LINE for X and Numbers
         int line2Y = baseY + 8; // Next line
@@ -374,8 +375,8 @@ public class HudRenderManager {
 
         // Draw "X"
         // X: 5 (Left), 7 (Right) (Swapped with O)
-        renderSafe(livesPatternIndex + 5, iconPatternDesc, xDrawX + camX, line2Y + camY); // X Left
-        renderSafe(livesPatternIndex + 7, iconPatternDesc, xDrawX + camX + 8, line2Y + camY); // X Right
+        renderSafe(livesPatternIndex + 5, iconPatternDesc, xDrawX + camX, line2Y + camY);
+        renderSafe(livesPatternIndex + 7, iconPatternDesc, xDrawX + camX + 8, line2Y + camY);
 
         // Gap after X
         int numDrawX = xDrawX + 16 + 8; // 16 for X + 8 gap

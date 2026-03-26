@@ -147,6 +147,20 @@ public class Sonic2Level extends AbstractLevel {
             }
         }
 
+        // "Knuckles in Sonic 2" lock-on: replace palette line 0 with the
+        // S2-compatible Knuckles palette from the S3K ROM (0x060BEA).
+        // Only indices 2-5 differ (Knuckles' reds vs Sonic's blues);
+        // indices 0-1 and 6-15 are identical to S2's Pal_SonicTails.
+        if (com.openggf.game.CrossGameFeatureProvider.isActive()) {
+            String mainChar = com.openggf.configuration.SonicConfigurationService.getInstance()
+                    .getString(com.openggf.configuration.SonicConfiguration.MAIN_CHARACTER_CODE);
+            Palette hostPal = com.openggf.game.CrossGameFeatureProvider.getInstance()
+                    .loadHostCompatiblePalette(mainChar);
+            if (hostPal != null) {
+                palettes[0] = hostPal;
+            }
+        }
+
         if (graphicsMan.isGlInitialized()) {
             for (int i = 0; i < palettes.length; i++) {
                 graphicsMan.cachePaletteTexture(palettes[i], i);
