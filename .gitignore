@@ -29,7 +29,8 @@ docs/audio-debug/
 docs/archive/
 
 # Debug tools (uncompiled standalone scripts)
-tools/
+tools/*
+!tools/bizhawk/
 
 # Screenshots (keep locally)
 docs/screenshots/
