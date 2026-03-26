@@ -2035,7 +2035,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                         if (provider == null) {
                                 return;
                         }
-                        String charType = (this instanceof Tails) ? "tails" : "sonic";
+                        String charType;
+                        if (this instanceof Tails) charType = "tails";
+                        else if (this instanceof Knuckles) charType = "knuckles";
+                        else charType = "sonic";
                         PhysicsProfile profile = provider.getProfile(charType);
                         if (profile != null) {
                                 this.physicsProfile = profile;
