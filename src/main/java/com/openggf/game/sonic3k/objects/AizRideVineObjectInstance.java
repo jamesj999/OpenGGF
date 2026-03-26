@@ -125,12 +125,8 @@ public class AizRideVineObjectInstance extends AbstractObjectInstance {
         updateSegments();
         updateHandle(player);
         updateDynamicSpawn(currentX, currentY);
-
-        // ROM cull path in loc_21F38/loc_21F52.
-        int coarse = (currentX & 0xFF80) - services().camera().getX();
-        if ((coarse < 0 || coarse > 0x280) && !AizVineHandleLogic.anyGrabbed(handle)) {
-            setDestroyed(true);
-        }
+        // Off-screen lifecycle is handled by the Placement system (see comment in
+        // AizGiantRideVineObjectInstance).
     }
 
     @Override
