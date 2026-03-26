@@ -118,7 +118,9 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
 
         // Create donor render context for palette isolation
         donorRenderContext = RenderContext.getOrCreateDonor(donorGameId);
-        Palette charPalette = loadCharacterPalette();
+        String mainChar = com.openggf.configuration.SonicConfigurationService.getInstance()
+                .getString(com.openggf.configuration.SonicConfiguration.MAIN_CHARACTER_CODE);
+        Palette charPalette = loadCharacterPalette(mainChar);
         if (charPalette != null) {
             donorRenderContext.setPalette(0, charPalette);
         }
