@@ -8,6 +8,7 @@ import com.openggf.data.Rom;
 import com.openggf.data.RomManager;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.graphics.GLCommand;
@@ -141,7 +142,9 @@ public class TestS3kSpecialStageResultsVisual {
         }
         glfwTerminate();
         GraphicsManager.getInstance().resetState();
-        GameServices.camera().resetState();
+        if (RuntimeManager.getCurrent() != null) {
+            GameServices.camera().resetState();
+        }
     }
 
     /**

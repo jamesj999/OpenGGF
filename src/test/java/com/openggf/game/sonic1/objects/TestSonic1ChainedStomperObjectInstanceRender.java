@@ -1,6 +1,8 @@
 package com.openggf.game.sonic1.objects;
 
+import com.openggf.game.GameRuntime;
 import com.openggf.game.ObjectArtProvider;
+import com.openggf.game.RuntimeManager;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -31,9 +33,12 @@ import static org.junit.Assert.assertTrue;
 public class TestSonic1ChainedStomperObjectInstanceRender {
     private Field levelManagerField;
     private LevelManager originalLevelManager;
+    private GameRuntime originalRuntime;
 
     @Before
     public void setUp() throws Exception {
+        originalRuntime = RuntimeManager.getCurrent();
+        RuntimeManager.setCurrent(null);
         levelManagerField = LevelManager.class.getDeclaredField("levelManager");
         levelManagerField.setAccessible(true);
         originalLevelManager = (LevelManager) levelManagerField.get(null);
@@ -42,6 +47,7 @@ public class TestSonic1ChainedStomperObjectInstanceRender {
     @After
     public void tearDown() throws Exception {
         levelManagerField.set(null, originalLevelManager);
+        RuntimeManager.setCurrent(originalRuntime);
     }
 
     @Test
