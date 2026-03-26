@@ -940,8 +940,28 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 		sprite.setXSpeed((short) xVel);
 
-		// Continue sliding: move and snap to floor
+		// ROM .continueSliding (sonic3k.asm:30992-31020):
+		// Move horizontally, then snap to floor. If floor distance >= 14,
+		// Knuckles has slid off a ledge → enter fall state.
 		sprite.move(sprite.getXSpeed(), (short) 0);
+
+		// Probe floor distance and snap
+		var floorResult = ObjectTerrainUtils.checkFloorDist(
+				sprite.getCentreX(), sprite.getCentreY() + sprite.getYRadius());
+		if (floorResult != null) {
+			if (floorResult.distance() >= 14) {
+				// Slid off a ledge — enter fall state
+				sprite.setDoubleJumpFlag(2);
+				sprite.restoreDefaultRadii();
+				sprite.setObjectMappingFrameControl(false);
+				sprite.setForcedAnimationId(0x21);  // GLIDE_DROP
+				sprite.setAir(true);
+				return;
+			}
+			// Snap to floor and update angle
+			sprite.setY((short) (sprite.getY() + floorResult.distance()));
+			sprite.setAngle(floorResult.angle());
+		}
 	}
 
 	/**
