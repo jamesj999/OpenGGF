@@ -45,7 +45,7 @@ These toggle visual debug information drawn over the game scene. They require
 | Key | Action |
 |-----|--------|
 | D | Toggle free-fly debug mode (move camera freely with arrow keys) |
-| C | Teleport to the last activated checkpoint |
+| C | Teleport to the last checkpoint (furthest 'right') in this act. |
 
 ## Super Sonic / Emerald Debug
 
