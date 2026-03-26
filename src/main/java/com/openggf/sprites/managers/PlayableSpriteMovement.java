@@ -1948,8 +1948,11 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		}
 
 		// Bubble shield bounce check (s3.asm:21849-21859 Player_TouchFloor tail)
+		// ROM: Only Sonic (character_id 0) can trigger this — Knuckles/Tails have
+		// separate jump code that never sets doubleJumpFlag via bubbleShieldBounce.
 		PhysicsFeatureSet fs = sprite.getPhysicsFeatureSet();
-		if (fs != null && fs.elementalShieldsEnabled() && savedDoubleJumpFlag != 0) {
+		if (fs != null && fs.elementalShieldsEnabled() && savedDoubleJumpFlag != 0
+				&& sprite.getSecondaryAbility() == SecondaryAbility.INSTA_SHIELD) {
 			if (sprite.hasShield() && sprite.getShieldType() == ShieldType.BUBBLE) {
 				applyBubbleShieldBounce(sprite);
 			}
