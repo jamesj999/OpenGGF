@@ -182,6 +182,12 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
         // ROM: jsr (Animate_Raw).l — advance animation using down-counter
         advanceAnimation();
 
+        // ROM: tst.w (Debug_placement_mode).w / bne.s locret_61708
+        // ROM explicitly disables big ring collision in debug mode.
+        if (player != null && player.isDebugMode()) {
+            return;
+        }
+
         // ROM: cmpi.b #8,mapping_frame(a0) / blo.s locret_61708
         // If ring hasn't finished forming (mapping_frame < 8), don't allow collision.
         if (mappingFrame < COLLISION_FRAME_THRESHOLD) {
@@ -272,6 +278,10 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
      * </ul>
      */
     private void onTouched(AbstractPlayableSprite player) {
+        LOGGER.fine(() -> String.format(
+                "SSEntryRing #%d TOUCHED at (%d,%d) — mappingFrame=%d, inIdleAnim=%b, player(%d,%d)",
+                bitIndex, spawn.x(), spawn.y(), mappingFrame, inIdleAnim,
+                player.getCentreX(), player.getCentreY()));
         var gameState = services().gameState();
 
         // Play sfx_BigRing ($B3) — always plays on touch
