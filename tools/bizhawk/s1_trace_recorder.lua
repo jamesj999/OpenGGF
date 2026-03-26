@@ -208,16 +208,16 @@ local function write_state_snapshot()
         ctrl_lock > 0 and "true" or "false",
         anim_id,
         status,
-        (bit.band(status, STATUS_ON_OBJECT) ~= 0) and "true" or "false",
-        (bit.band(status, STATUS_PUSHING) ~= 0) and "true" or "false",
-        (bit.band(status, STATUS_UNDERWATER) ~= 0) and "true" or "false",
-        (bit.band(status, STATUS_ROLL_JUMP) ~= 0) and "true" or "false"
+        ((status & STATUS_ON_OBJECT) ~= 0) and "true" or "false",
+        ((status & STATUS_PUSHING) ~= 0) and "true" or "false",
+        ((status & STATUS_UNDERWATER) ~= 0) and "true" or "false",
+        ((status & STATUS_ROLL_JUMP) ~= 0) and "true" or "false"
     ))
 end
 
 local function check_mode_changes(status)
-    local was_air = bit.band(prev_status, STATUS_IN_AIR) ~= 0
-    local is_air = bit.band(status, STATUS_IN_AIR) ~= 0
+    local was_air = (prev_status & STATUS_IN_AIR) ~= 0
+    local is_air = (status & STATUS_IN_AIR) ~= 0
     if was_air ~= is_air then
         write_aux(string.format(
             '{"frame":%d,"event":"mode_change","field":"air","from":%d,"to":%d}',
@@ -225,8 +225,8 @@ local function check_mode_changes(status)
         write_state_snapshot()
     end
 
-    local was_rolling = bit.band(prev_status, STATUS_ROLLING) ~= 0
-    local is_rolling = bit.band(status, STATUS_ROLLING) ~= 0
+    local was_rolling = (prev_status & STATUS_ROLLING) ~= 0
+    local is_rolling = (status & STATUS_ROLLING) ~= 0
     if was_rolling ~= is_rolling then
         write_aux(string.format(
             '{"frame":%d,"event":"mode_change","field":"rolling","from":%d,"to":%d}',
@@ -282,8 +282,8 @@ local function on_frame_end()
     local angle = mainmemory.read_u8(PLAYER_BASE + OFF_ANGLE)
     local status = mainmemory.read_u8(PLAYER_BASE + OFF_STATUS)
 
-    local air = bit.band(status, STATUS_IN_AIR) ~= 0
-    local rolling = bit.band(status, STATUS_ROLLING) ~= 0
+    local air = (status & STATUS_IN_AIR) ~= 0
+    local rolling = (status & STATUS_ROLLING) ~= 0
     local ground_mode = air and 0 or angle_to_ground_mode(angle)
 
     local joy = joypad.get(1)
