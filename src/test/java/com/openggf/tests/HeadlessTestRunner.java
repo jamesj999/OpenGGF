@@ -129,11 +129,14 @@ public class HeadlessTestRunner {
      * Sets the BK2 movie for recording playback.
      *
      * @param movie          The parsed BK2 movie
-     * @param bk2FrameOffset The BK2 frame number (1-based line) where playback begins
+     * @param bk2FrameOffset The 0-based emulation frame index where trace recording began
+     *                       (from BizHawk's emu.framecount() in the Lua script).
+     *                       This is a direct index into the movie's frame list, NOT a
+     *                       1-based BK2 line number.
      */
     public void setBk2Movie(Bk2Movie movie, int bk2FrameOffset) {
         this.bk2Movie = movie;
-        this.bk2StartIndex = movie.bk2FrameToIndex(bk2FrameOffset);
+        this.bk2StartIndex = bk2FrameOffset;
         this.currentBk2Index = bk2StartIndex;
     }
 
