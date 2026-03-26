@@ -131,17 +131,26 @@ Key addresses to read from 68000 RAM (to be verified against s1disasm before imp
 
 Object table: `$D000`-`$DFFF`, 64-byte entries. Type byte at offset 0 of each slot.
 
+### BizHawk API Usage
+
+- **Memory reads:** `mainmemory.read_u16_be(addr)` / `mainmemory.read_s16_be(addr)` for 16-bit values, `mainmemory.read_u8(addr)` / `mainmemory.read_s8(addr)` for bytes. Genesis 68000 is big-endian. The `mainmemory` domain maps to 68K RAM starting at `$FF0000`, so RAM address `$F600` is read as `mainmemory.read_u8(0xF600)`.
+- **Frame callback:** `event.onframeend(callback)` — runs after emulation completes each frame, so all RAM state is settled.
+- **Frame count:** `emu.framecount()` — global frame counter for BK2 offset recording.
+- **Input:** `joypad.get(1)` — returns a table of button states for controller 1 (e.g. `{Up=true, B=true}`).
+- **File I/O:** Standard Lua `io.open()` / `file:write()` / `file:close()`.
+
 ### Script Flow
 
-1. Open output files (physics.csv, aux_state.jsonl)
+1. Open output files (physics.csv, aux_state.jsonl) via `io.open()`
 2. Write CSV header
-3. Register `emu.registerafter` callback for each frame:
+3. Register `event.onframeend()` callback:
    a. **Pre-start:** Check `Game_Mode == 0x0C` AND `Ctrl_1_Locked == 0`. When both true:
       - Record `bk2_frame_offset = emu.framecount()`
       - Record `start_x`, `start_y`
       - Mark trace as started
    b. **Recording:** Each frame after start:
-      - Read all RAM fields
+      - Read all RAM fields via `mainmemory.read_*_be()` functions
+      - Convert `joypad.get(1)` button table to bitmask
       - Write CSV row to `physics.csv`
       - Compare status flags against previous frame; write `mode_change` events to aux on change
       - Every 60 frames: write `state_snapshot` to aux with extended state
