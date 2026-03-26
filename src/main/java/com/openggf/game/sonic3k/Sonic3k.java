@@ -282,8 +282,15 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, DynamicSta
         // Get palette address
         int levelPaletteAddr = getLevelPaletteAddr(paletteIndex);
 
-        // Character palette
-        int characterPaletteAddr = Sonic3kConstants.SONIC_PALETTE_ADDR;
+        // Character palette — Knuckles uses Pal_Knuckles, Sonic/Tails share Pal_SonicTails
+        String mainCharCode = SonicConfigurationService.getInstance()
+                .getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        int characterPaletteAddr;
+        if ("knuckles".equalsIgnoreCase(mainCharCode)) {
+            characterPaletteAddr = Sonic3kConstants.KNUCKLES_PALETTE_ADDR;
+        } else {
+            characterPaletteAddr = Sonic3kConstants.SONIC_PALETTE_ADDR;
+        }
 
         // Load objects and rings
         RomByteReader romReader = RomByteReader.fromRom(rom);

@@ -20,6 +20,7 @@ import com.openggf.level.LevelManager;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.KnucklesRespawnStrategy;
+import com.openggf.sprites.playable.Knuckles;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.sprites.playable.SonicRespawnStrategy;
 import com.openggf.sprites.playable.Tails;
@@ -383,6 +384,8 @@ public class Engine {
 		AbstractPlayableSprite mainSprite;
 		if ("tails".equalsIgnoreCase(mainCode)) {
 			mainSprite = new Tails(mainCode, (short) 100, (short) 624);
+		} else if ("knuckles".equalsIgnoreCase(mainCode)) {
+			mainSprite = new Knuckles(mainCode, (short) 100, (short) 624);
 		} else {
 			mainSprite = new Sonic(mainCode, (short) 100, (short) 624);
 		}
@@ -406,6 +409,8 @@ public class Engine {
 				AbstractPlayableSprite sidekick;
 				if ("tails".equalsIgnoreCase(charName)) {
 					sidekick = new Tails(code, (short) spawnX, (short) (mainSprite.getY() + 4));
+				} else if ("knuckles".equalsIgnoreCase(charName)) {
+					sidekick = new Knuckles(code, (short) spawnX, (short) (mainSprite.getY() + 4));
 				} else {
 					sidekick = new Sonic(code, (short) spawnX, (short) (mainSprite.getY() + 4));
 				}

@@ -171,11 +171,25 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         protected boolean jumping = false;
 
         /**
-         * ROM: $2F double_jump_flag. 0=available, 1=used.
-         * Prevents shield abilities from triggering more than once per jump.
+         * ROM: $2F double_jump_flag. For Sonic: 0=available, 1=used.
+         * For Knuckles: 0=available, 1=gliding, 2=falling from glide,
+         * 3=sliding on ground, 4=wall climbing, 5=climbing ledge.
          * Reset on landing and on damage.
          */
         protected int doubleJumpFlag = 0;
+
+        /**
+         * ROM: double_jump_property(a0). For Knuckles glide: angle byte controlling
+         * glide direction. 0x00 = facing right, 0x80 (-128) = facing left.
+         * Updated per-frame based on left/right input during glide.
+         */
+        protected byte doubleJumpProperty = 0;
+
+        /**
+         * X position when Knuckles grabbed a wall during glide (ROM: x_pos+2).
+         * Used by wall climb to maintain horizontal position against the wall.
+         */
+        protected short wallClimbX = 0;
 
         /**
          * Whether this sprite is standing on a solid object (platform, moving block).
@@ -539,6 +553,9 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 this.air = false;
                 this.jumping = false;
                 this.doubleJumpFlag = 0;
+                this.doubleJumpProperty = 0;
+                this.objectMappingFrameControl = false;
+                this.forcedAnimationId = -1;
                 this.onObject = false;
                 this.sliding = false;
                 this.stickToConvex = false;
@@ -954,7 +971,16 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 // Clear jumping flag and double-jump flag when landing
                 if (!air && this.air) {
                         jumping = false;
+                        // Restore standing radii if coming out of a glide state
+                        // (glide uses custom 10x10 radii that won't be restored by
+                        // setRolling(false) since rolling was already false)
+                        if (doubleJumpFlag > 0 && !rolling) {
+                                applyStandingRadii(false);
+                                objectMappingFrameControl = false;
+                                forcedAnimationId = -1;
+                        }
                         doubleJumpFlag = 0;
+                        doubleJumpProperty = 0;
                         // S1 ROM parity (Sonic_ResetOnFloor):
                         // move.w #0,(v_itembonus).w ; clear enemy/block score chain.
                         currentGameState().resetItemBonus();
@@ -986,6 +1012,22 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
 
         public void setDoubleJumpFlag(int doubleJumpFlag) {
                 this.doubleJumpFlag = doubleJumpFlag;
+        }
+
+        public byte getDoubleJumpProperty() {
+                return doubleJumpProperty;
+        }
+
+        public void setDoubleJumpProperty(byte doubleJumpProperty) {
+                this.doubleJumpProperty = doubleJumpProperty;
+        }
+
+        public short getWallClimbX() {
+                return wallClimbX;
+        }
+
+        public void setWallClimbX(short wallClimbX) {
+                this.wallClimbX = wallClimbX;
         }
 
         public boolean isOnObject() {
@@ -1378,6 +1420,9 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
 
                 hurt = true;
                 doubleJumpFlag = 0;
+                doubleJumpProperty = 0;
+                objectMappingFrameControl = false;
+                forcedAnimationId = -1;
                 setInvulnerableFrames(0x78); // Set invulnerability immediately (ROM: s2.asm line 84954)
                 setSpringing(0);
                 setSpindash(false);
@@ -2401,6 +2446,10 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 return yRadius;
         }
 
+        public short getStandYRadius() {
+                return standYRadius;
+        }
+
         /**
          * Apply standing hitbox radii (y_radius=19, x_radius=9).
          * ROM: Used when unrolling or landing.
@@ -2417,6 +2466,22 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          */
         public void applyRollingRadii(boolean adjustY) {
                 setCollisionRadii(rollXRadius, rollYRadius, adjustY);
+        }
+
+        /**
+         * Apply custom collision radii (e.g., Knuckles glide: 10x10).
+         * ROM: Knux_Test_For_Glide sets y_radius=x_radius=$0A.
+         */
+        public void applyCustomRadii(int newXRadius, int newYRadius) {
+                setCollisionRadii((short) newXRadius, (short) newYRadius, false);
+        }
+
+        /**
+         * Restore standing collision radii (default_y_radius, default_x_radius).
+         * ROM: Knuckles uses this when exiting glide/climb states.
+         */
+        public void restoreDefaultRadii() {
+                setCollisionRadii(standXRadius, standYRadius, false);
         }
 
         protected void setCollisionRadii(short newXRadius, short newYRadius, boolean adjustY) {

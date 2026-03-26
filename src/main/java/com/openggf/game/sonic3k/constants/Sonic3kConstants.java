@@ -232,6 +232,8 @@ public class Sonic3kConstants {
     public static final int PLC_ENTRY_SIZE = 6; // 4-byte ROM addr + 2-byte VRAM dest
 
     public static final int ART_NEM_SONIC_LIFE_ICON_ADDR = 0x190D34;
+    public static final int ART_NEM_KNUCKLES_LIFE_ICON_ADDR = 0x190E4C; // ArtNem_KnucklesLifeIcon
+    public static final int ART_NEM_TAILS_LIFE_ICON_ADDR = 0x15CFFE;   // ArtNem_TailsLifeIcon (S3 portion)
     public static final int ART_NEM_MONITORS_ADDR = 0x190F4A;
     public static final int ART_NEM_EXPLOSION_ADDR = 0x19200A;
     public static final int ART_NEM_BUBBLES_ADDR = 0x191B46;
@@ -444,6 +446,27 @@ public class Sonic3kConstants {
     public static final int ART_UNC_TAILS_TAIL_SIZE = 0x1160;   // 4,448 bytes = 139 tiles
     public static final int MAP_TAILS_TAIL_ADDR = 0x344BB8;
     public static final int DPLC_TAILS_TAIL_ADDR = 0x344D74;
+
+    // ===== Knuckles Player Sprite Art =====
+    // ArtUnc_Knux - Main Knuckles body art (uncompressed, S&K ROM portion)
+    // Split/sk.txt: 0x1200E0 to 0x140060
+    public static final int ART_UNC_KNUCKLES_ADDR = 0x1200E0;
+    public static final int ART_UNC_KNUCKLES_SIZE = 0x1FF80;    // 130,944 bytes = 4092 tiles
+
+    // Map_Knuckles - Knuckles body mappings (6-byte pieces, standalone 251-entry table)
+    // Unlike Sonic/Tails, Knuckles maps are NOT combined 1P+2P.
+    public static final int MAP_KNUCKLES_ADDR = 0x14A8D6;
+
+    // PLC_Knuckles - Knuckles body dynamic pattern load cues (standalone 251-entry table)
+    public static final int DPLC_KNUCKLES_ADDR = 0x14BD0A;
+
+    // ArtTile_Player_1 - VRAM base tile for Knuckles (same as Sonic — single-player uses one slot)
+    public static final int ART_TILE_KNUCKLES = ART_TILE_SONIC; // 0x0680
+
+    // AniKnuckles_ - Animation script table (37 entries: 0x00-0x24)
+    // Separate from AniSonic_ — Knuckles has his own animation frame data
+    public static final int KNUCKLES_ANIM_DATA_ADDR = 0x017EF4;
+    public static final int KNUCKLES_ANIM_SCRIPT_COUNT = 37;
 
     // ===== Animated palette cycling data (AnPal tables) =====
     // AIZ1 waterfall (palette 2, colors 11-14): 4 frames x 8 bytes = 32 bytes

@@ -53,6 +53,8 @@ public class Sonic3kAudioProfile extends AbstractAudioProfile {
         map.put(GameSound.LIGHTNING_ATTACK, Sonic3kSfx.ELECTRIC_ATTACK.id);
         map.put(GameSound.BUBBLE_ATTACK, Sonic3kSfx.BUBBLE_ATTACK.id);
         map.put(GameSound.INSTA_SHIELD, Sonic3kSfx.INSTA_SHIELD.id);
+        map.put(GameSound.GRAB, Sonic3kSfx.GRAB.id);
+        map.put(GameSound.GLIDE_LAND, Sonic3kSfx.GLIDE_LAND.id);
         SOUND_MAP = Collections.unmodifiableMap(map);
     }
 

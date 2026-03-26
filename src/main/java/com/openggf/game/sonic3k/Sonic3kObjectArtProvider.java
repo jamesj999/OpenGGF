@@ -160,8 +160,9 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         hudTextPatterns = loadHudTextFromNemesis(rom);
         LOG.info("Loaded " + (hudTextPatterns != null ? hudTextPatterns.length : 0) + " HUD text patterns");
 
-        // Lives icon - Nemesis compressed
-        hudLivesPatterns = PatternDecompressor.nemesis(rom, Sonic3kConstants.ART_NEM_SONIC_LIFE_ICON_ADDR);
+        // Lives icon - Nemesis compressed, character-specific
+        int livesIconAddr = resolveLifeIconAddr();
+        hudLivesPatterns = PatternDecompressor.nemesis(rom, livesIconAddr);
         LOG.info("Loaded " + (hudLivesPatterns != null ? hudLivesPatterns.length : 0) + " HUD lives icon patterns");
 
         // Lives digits (0-9) - uncompressed
@@ -169,6 +170,21 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
                 Sonic3kConstants.ART_UNC_LIVES_DIGITS_ADDR,
                 Sonic3kConstants.ART_UNC_LIVES_DIGITS_SIZE);
         LOG.info("Loaded " + (hudLivesNumbers != null ? hudLivesNumbers.length : 0) + " HUD lives digit patterns");
+    }
+
+    /**
+     * Returns the ROM address for the character-specific life icon art.
+     * ROM: PLC_01 (Sonic), PLC_05 (Knuckles), PLC_07 (Tails).
+     */
+    private int resolveLifeIconAddr() {
+        String mainChar = com.openggf.configuration.SonicConfigurationService.getInstance()
+                .getString(com.openggf.configuration.SonicConfiguration.MAIN_CHARACTER_CODE);
+        if ("knuckles".equalsIgnoreCase(mainChar)) {
+            return Sonic3kConstants.ART_NEM_KNUCKLES_LIFE_ICON_ADDR;
+        } else if ("tails".equalsIgnoreCase(mainChar)) {
+            return Sonic3kConstants.ART_NEM_TAILS_LIFE_ICON_ADDR;
+        }
+        return Sonic3kConstants.ART_NEM_SONIC_LIFE_ICON_ADDR;
     }
 
     private Pattern[] loadUncompressedPatterns(Rom rom, int addr, int size) throws IOException {
