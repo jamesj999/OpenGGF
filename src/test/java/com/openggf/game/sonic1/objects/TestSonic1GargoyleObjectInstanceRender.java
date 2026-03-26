@@ -1,6 +1,8 @@
 package com.openggf.game.sonic1.objects;
 
+import com.openggf.game.GameRuntime;
 import com.openggf.game.ObjectArtProvider;
+import com.openggf.game.RuntimeManager;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -30,17 +32,22 @@ public class TestSonic1GargoyleObjectInstanceRender {
 
     private Field levelManagerField;
     private LevelManager originalLevelManager;
+    private GameRuntime originalRuntime;
 
     @Before
     public void setUp() throws Exception {
         levelManagerField = LevelManager.class.getDeclaredField("levelManager");
         levelManagerField.setAccessible(true);
         originalLevelManager = (LevelManager) levelManagerField.get(null);
+        // Clear any leaked GameRuntime so LevelManager.getInstance() uses the static field
+        originalRuntime = RuntimeManager.getCurrent();
+        RuntimeManager.setCurrent(null);
     }
 
     @After
     public void tearDown() throws Exception {
         levelManagerField.set(null, originalLevelManager);
+        RuntimeManager.setCurrent(originalRuntime);
     }
 
     @Test

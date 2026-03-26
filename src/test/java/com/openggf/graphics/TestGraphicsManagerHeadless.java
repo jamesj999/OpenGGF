@@ -41,14 +41,16 @@ public class TestGraphicsManagerHeadless {
     @Before
     public void setUp() {
         assumeTrue("LWJGL natives not available", lwjglAvailable);
-        // Reset the singleton to get a fresh instance for each test
-        GraphicsManager.getInstance().resetState();
+        // Destroy and recreate the singleton to get a truly fresh instance.
+        // resetState() preserves headlessMode, which causes test ordering
+        // failures when a prior test enables headless mode on the singleton.
+        GraphicsManager.destroyForReinit();
         graphicsManager = GraphicsManager.getInstance();
     }
 
     @After
     public void tearDown() {
-        GraphicsManager.getInstance().resetState();
+        GraphicsManager.destroyForReinit();
     }
 
     // ==================== Headless Mode Flag Tests ====================

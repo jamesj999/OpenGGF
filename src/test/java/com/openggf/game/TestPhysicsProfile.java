@@ -261,7 +261,7 @@ public class TestPhysicsProfile {
         var provider = new Sonic3kPhysicsProvider();
         assertSame("S3K sonic", PhysicsProfile.SONIC_2_SONIC, provider.getProfile("sonic"));
         assertSame("S3K tails", PhysicsProfile.SONIC_2_TAILS, provider.getProfile("tails"));
-        assertSame("S3K knuckles", PhysicsProfile.SONIC_2_SONIC, provider.getProfile("knuckles"));
+        assertSame("S3K knuckles", PhysicsProfile.SONIC_3K_KNUCKLES, provider.getProfile("knuckles"));
     }
 
     @Test
