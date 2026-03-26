@@ -114,22 +114,51 @@ A single Lua script targeting Sonic 1 REV01: `s1_trace_recorder.lua`. No multi-g
 
 ### S1 REV01 RAM Addresses
 
-Key addresses to read from 68000 RAM (to be verified against s1disasm before implementation):
+Verified against SPG Sonic 1 REV01 overlay script (`docs/SPGSonic1Rev01Overlay.lua`). All addresses are 68K RAM (`$FFxxxx`); BizHawk `mainmemory` strips the `$FF` prefix.
+
+**System state:**
 
 | Address | Size | Field |
 |---------|------|-------|
 | `$F600` | byte | `Game_Mode` (0x0C = level gameplay) |
 | `$F604` | byte | `Ctrl_1_Locked` (0 = control granted) |
 | `$F602` | word | `Ctrl_1` (current input state) |
-| `$D010` | word | Player X position (centre) |
-| `$D014` | word | Player Y position (centre) |
-| `$D020` | word | Player X velocity |
-| `$D022` | word | Player Y velocity |
-| `$D024` | word | Player inertia (ground speed) |
-| `$D026` | byte | Player angle |
-| `$D001` | byte | Player status (bit flags: air, rolling, etc.) |
 
-Object table: `$D000`-`$DFFF`, 64-byte entries. Type byte at offset 0 of each slot.
+**Player object (base `$D000`, 64-byte SST slot):**
+
+| Offset | Size | Field | Notes |
+|--------|------|-------|-------|
+| `+$08` | word | X position (whole) | Centre X |
+| `+$0A` | byte | X subpixel | |
+| `+$0C` | word | Y position (whole) | Centre Y |
+| `+$0E` | byte | Y subpixel | |
+| `+$10` | byte+byte | X velocity | `+$10` = whole (signed), `+$11` = subpixel |
+| `+$12` | byte+byte | Y velocity | `+$12` = whole (signed), `+$13` = subpixel |
+| `+$14` | byte+byte | Ground speed (inertia) | `+$14` = whole (signed), `+$15` = subpixel |
+| `+$16` | sbyte | Radius Y | Signed |
+| `+$17` | sbyte | Radius X | Signed |
+| `+$1A` | byte | Animation frame (display) | |
+| `+$1B` | byte | Animation frame (internal) | |
+| `+$1C` | byte | Animation ID | |
+| `+$1E` | byte | Animation frame timer | |
+| `+$22` | byte | Status flags | See below |
+| `+$26` | byte | Angle | 0x00-0xFF |
+| `+$38` | byte | Stick-to-convex flag | |
+| `+$3E` | word | Control lock timer | |
+
+**Status flag bits (`+$22`):**
+
+| Bit | Field |
+|-----|-------|
+| 0 | Facing left |
+| 1 | In air |
+| 2 | Spinning/rolling |
+| 3 | On object |
+| 4 | Roll-jumping |
+| 5 | Pushing |
+| 6 | Underwater |
+
+**Object table:** `$D000`-`$DFFF`, 64-byte (`$40`) entries. Object ID at offset `+$00` of each slot.
 
 ### BizHawk API Usage
 
