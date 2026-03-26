@@ -1,6 +1,8 @@
 package com.openggf.tests.trace;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -10,6 +12,7 @@ import java.util.Map;
 public class TraceBinder {
 
     private final ToleranceConfig tolerances;
+    private final List<FrameComparison> allComparisons = new ArrayList<>();
 
     public TraceBinder(ToleranceConfig tolerances) {
         this.tolerances = tolerances;
@@ -54,7 +57,16 @@ public class TraceBinder {
         fields.put("ground_mode", compareEnum("ground_mode",
             expected.groundMode(), actualGroundMode));
 
-        return new FrameComparison(expected.frame(), fields);
+        FrameComparison result = new FrameComparison(expected.frame(), fields);
+        allComparisons.add(result);
+        return result;
+    }
+
+    /**
+     * Build a divergence report from all comparisons accumulated so far.
+     */
+    public DivergenceReport buildReport() {
+        return new DivergenceReport(allComparisons);
     }
 
     /**
