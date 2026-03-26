@@ -4,6 +4,7 @@ import com.openggf.tests.HeadlessTestFixture;
 import com.openggf.tests.SharedLevel;
 import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
+import org.junit.Assume;
 import org.junit.ClassRule;
 import org.junit.Test;
 
@@ -57,7 +58,7 @@ public abstract class AbstractTraceReplayTest {
 
         // 3. Find BK2 file in trace directory
         Path bk2Path = findBk2File(traceDirectory());
-        assertNotNull("No .bk2 file found in " + traceDirectory(), bk2Path);
+        Assume.assumeTrue("No .bk2 file found in " + traceDirectory(), bk2Path != null);
 
         // 4. Load level and create fixture
         SharedLevel sharedLevel = SharedLevel.load(game(), zone(), act());

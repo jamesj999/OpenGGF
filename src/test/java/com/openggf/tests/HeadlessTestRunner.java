@@ -156,11 +156,18 @@ public class HeadlessTestRunner {
         Bk2FrameInput frameInput = bk2Movie.getFrame(currentBk2Index);
         int mask = frameInput.p1InputMask();
 
+        // BK2 separates directional inputs (p1InputMask) from action buttons (p1ActionMask).
+        // The jump/A/B/C buttons are in the action mask, so OR the jump bit into the
+        // returned mask to ensure trace input validation sees the complete input state.
+        if (frameInput.p1ActionMask() != 0) {
+            mask |= AbstractPlayableSprite.INPUT_JUMP;
+        }
+
         boolean up    = (mask & AbstractPlayableSprite.INPUT_UP) != 0;
         boolean down  = (mask & AbstractPlayableSprite.INPUT_DOWN) != 0;
         boolean left  = (mask & AbstractPlayableSprite.INPUT_LEFT) != 0;
         boolean right = (mask & AbstractPlayableSprite.INPUT_RIGHT) != 0;
-        boolean jump  = (mask & AbstractPlayableSprite.INPUT_JUMP) != 0 || frameInput.p1ActionMask() != 0;
+        boolean jump  = (mask & AbstractPlayableSprite.INPUT_JUMP) != 0;
 
         stepFrame(up, down, left, right, jump);
         currentBk2Index++;
