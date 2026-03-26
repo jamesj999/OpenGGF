@@ -1,0 +1,13 @@
+{
+  "game": "s1",
+  "zone": "ghz",
+  "act": 1,
+  "bk2_frame_offset": 0,
+  "trace_frame_count": 1,
+  "start_x": "0x0050",
+  "start_y": "0x03B0",
+  "recording_date": "2026-03-26",
+  "lua_script_version": "1.0",
+  "rom_checksum": "placeholder",
+  "notes": "Placeholder - replace with real BizHawk recording"
+}
