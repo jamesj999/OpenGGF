@@ -113,6 +113,9 @@ local trace_frame = 0
 local bk2_frame_offset = 0
 local start_x = 0
 local start_y = 0
+local start_zone_id = 0
+local start_zone_name = "unknown"
+local start_act = 0
 
 local prev_status = 0
 local prev_ctrl_lock = 0
@@ -133,14 +136,12 @@ local function read_speed(base, offset)
     return mainmemory.read_s16_be(base + offset)
 end
 
--- Convert joypad.get() table to engine input bitmask
-local function joypad_to_mask(joy)
-    local mask = 0
-    if joy["Up"]    then mask = mask + INPUT_UP end
-    if joy["Down"]  then mask = mask + INPUT_DOWN end
-    if joy["Left"]  then mask = mask + INPUT_LEFT end
-    if joy["Right"] then mask = mask + INPUT_RIGHT end
-    if joy["A"] or joy["B"] or joy["C"] then mask = mask + INPUT_JUMP end
+-- Convert raw ROM joypad byte (v_jpadhold1) to engine input bitmask.
+-- ROM bits: 0=Up 1=Down 2=Left 3=Right 4=B 5=C 6=A 7=Start
+-- Bits 0-3 already match INPUT_UP/DOWN/LEFT/RIGHT; collapse A/B/C to JUMP.
+local function rom_joypad_to_mask(raw)
+    local mask = raw & 0x0F                        -- directions (bits 0-3)
+    if (raw & 0x70) ~= 0 then mask = mask + INPUT_JUMP end  -- A|B|C -> JUMP
     return mask
 end
 
@@ -185,16 +186,13 @@ local function open_files()
 end
 
 local function write_metadata()
-    local zone_id = mainmemory.read_u8(ADDR_ZONE)
-    local act_id = mainmemory.read_u8(ADDR_ACT)
-    local zone_name = ZONE_NAMES[zone_id] or string.format("unknown_%02x", zone_id)
-
+    -- Use zone/act captured at recording start (not current RAM which may have advanced)
     local meta_file = io.open(OUTPUT_DIR .. "metadata.json", "w")
     meta_file:write("{\n")
     meta_file:write('  "game": "s1",\n')
-    meta_file:write('  "zone": "' .. zone_name .. '",\n')
-    meta_file:write('  "zone_id": ' .. zone_id .. ',\n')
-    meta_file:write('  "act": ' .. (act_id + 1) .. ',\n')
+    meta_file:write('  "zone": "' .. start_zone_name .. '",\n')
+    meta_file:write('  "zone_id": ' .. start_zone_id .. ',\n')
+    meta_file:write('  "act": ' .. (start_act + 1) .. ',\n')
     meta_file:write('  "bk2_frame_offset": ' .. bk2_frame_offset .. ',\n')
     meta_file:write('  "trace_frame_count": ' .. trace_frame .. ',\n')
     meta_file:write('  "start_x": "0x' .. hex(start_x) .. '",\n')
@@ -207,7 +205,7 @@ local function write_metadata()
     meta_file:write("}\n")
     meta_file:close()
     print(string.format("Metadata written. Zone: %s Act %d, Trace frames: %d",
-        zone_name, act_id + 1, trace_frame))
+        start_zone_name, start_act + 1, trace_frame))
 end
 
 local function close_files()
@@ -347,12 +345,14 @@ local function on_frame_end()
             start_x = mainmemory.read_u16_be(PLAYER_BASE + OFF_X_POS)
             start_y = mainmemory.read_u16_be(PLAYER_BASE + OFF_Y_POS)
 
+            -- Capture zone/act NOW at start, not at end when RAM may have advanced
+            start_zone_id = mainmemory.read_u8(ADDR_ZONE)
+            start_act = mainmemory.read_u8(ADDR_ACT)
+            start_zone_name = ZONE_NAMES[start_zone_id] or string.format("unknown_%02x", start_zone_id)
+
             open_files()
-            local zone_id = mainmemory.read_u8(ADDR_ZONE)
-            local act_id = mainmemory.read_u8(ADDR_ACT)
-            local zone_name = ZONE_NAMES[zone_id] or string.format("unknown_%02x", zone_id)
             print(string.format("Trace recording started at BizHawk frame %d, zone %s act %d, pos (%04X, %04X)",
-                bk2_frame_offset, zone_name, act_id + 1, start_x, start_y))
+                bk2_frame_offset, start_zone_name, start_act + 1, start_x, start_y))
         end
         return
     end
@@ -393,8 +393,10 @@ local function on_frame_end()
     local rolling = (status & STATUS_ROLLING) ~= 0
     local ground_mode = air and 0 or angle_to_ground_mode(angle)
 
-    local joy = joypad.get(1)
-    local input_mask = joypad_to_mask(joy)
+    -- Read held input directly from RAM (works during movie playback;
+    -- joypad.get() returns physical controller state which is zero in headless)
+    local raw_input = mainmemory.read_u8(0xF604)  -- v_jpadhold1
+    local input_mask = rom_joypad_to_mask(raw_input)
 
     -- Format helper for unsigned 16-bit hex
     local function uhex(val)
