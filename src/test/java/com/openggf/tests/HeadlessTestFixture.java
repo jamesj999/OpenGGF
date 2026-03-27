@@ -197,11 +197,20 @@ public final class HeadlessTestFixture {
             // 8. Initialize level events via production path
             GameServices.level().initLevelEventsForLevel();
 
-            // 9. Get runtime and create runner
+            // 9. Initial ground snap — ROM runs terrain probes during title card
+            //    frames (~120 frames) which snap the player to ground and set the
+            //    correct terrain angle. Tests skip the title card, so do one probe
+            //    to establish ground attachment. Uses threshold=14 (S1 always uses
+            //    14; S2/S3K at speed=0 would use min(0+4,14)=4, but 14 is safe for
+            //    a static snap at spawn).
+            GameServices.collision().resolveGroundAttachment(
+                    sprite, 14, () -> false);
+
+            // 10. Get runtime and create runner
             GameRuntime runtime = RuntimeManager.getCurrent();
             HeadlessTestRunner runner = new HeadlessTestRunner(sprite);
 
-            // 10. Wire BK2 recording if provided
+            // 11. Wire BK2 recording if provided
             if (bk2Movie != null) {
                 runner.setBk2Movie(bk2Movie, bk2FrameOffset);
             }

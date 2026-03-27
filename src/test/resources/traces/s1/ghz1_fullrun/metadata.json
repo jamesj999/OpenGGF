@@ -1,13 +1,15 @@
 {
   "game": "s1",
   "zone": "ghz",
+  "zone_id": 0,
   "act": 1,
   "bk2_frame_offset": 840,
   "trace_frame_count": 3905,
   "start_x": "0x0050",
   "start_y": "0x03B0",
-  "recording_date": "2026-03-26",
-  "lua_script_version": "1.0",
+  "recording_date": "2026-03-27",
+  "lua_script_version": "2.0",
+  "csv_version": 2,
   "rom_checksum": "",
   "notes": ""
 }
