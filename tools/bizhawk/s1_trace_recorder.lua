@@ -22,14 +22,20 @@
 -- Output directory (relative to BizHawk working dir)
 local OUTPUT_DIR = "trace_output/"
 
--- Headless mode: skip rendering for maximum speed, auto-exit when done.
+-- Headless mode: run at maximum speed, auto-exit when done.
 -- Enable when running via CLI: EmuHawk.exe --chromeless --lua ... --movie ... rom.gen
 local HEADLESS = true
 
+-- Movie frame limit: set to 0 for automatic detection from movie.length().
+-- When the BK2 movie ends but game_mode is still 0x0C (e.g. waiting for
+-- results screen), the emulator would loop forever. This safety limit
+-- ensures the script finalises and exits.
+local MOVIE_FRAME_SAFETY_MARGIN = 30   -- frames past movie end before auto-exit
+
 -- S1 REV01 68K RAM addresses (mainmemory domain = $FF0000 base stripped)
 local ADDR_GAME_MODE       = 0xF600
-local ADDR_CTRL1_LOCKED    = 0xF604
-local ADDR_CTRL1           = 0xF602
+local ADDR_CTRL1           = 0xF604   -- byte: v_jpadhold1 (raw held input)
+local ADDR_CTRL1_DUP       = 0xF602   -- byte: v_jpadhold2 (game-logic copy, zeroed when locked)
 local ADDR_RING_COUNT      = 0xFE20   -- word: ring count (BCD)
 local ADDR_CAMERA_X        = 0xF700   -- long: v_screenposx (camera X pixel:sub)
 local ADDR_CAMERA_Y        = 0xF704   -- long: v_screenposy (camera Y pixel:sub)
@@ -335,12 +341,22 @@ end
 
 local function on_frame_end()
     local game_mode = mainmemory.read_u8(ADDR_GAME_MODE)
-    local ctrl_locked = mainmemory.read_u8(ADDR_CTRL1_LOCKED)
 
     if not started then
         if finished then return end
-        if game_mode == GAMEMODE_LEVEL and ctrl_locked == 0 then
+        -- Start when: level gameplay active AND player control lock timer is 0.
+        -- The control lock timer (obCtrlLock, word at $D03E) is set during the title
+        -- card and counts down to 0 when Sonic can first move. Using the player object's
+        -- lock timer is correct; the old v_jpadhold1 check waited for "no buttons held"
+        -- which delayed recording if the player was already pressing a direction.
+        local ctrl_lock_timer = mainmemory.read_u16_be(PLAYER_BASE + OFF_CTRL_LOCK)
+        if game_mode == GAMEMODE_LEVEL and ctrl_lock_timer == 0 then
             started = true
+            -- emu.framecount() returns the frame that just completed. Since we
+            -- skip the detection frame (return below without recording), frame 0
+            -- is recorded one emu.frameadvance() later. BK2 input for that frame
+            -- is at index emu.framecount() (not -1), because the advance runs
+            -- one more frame before on_frame_end() captures frame 0.
             bk2_frame_offset = emu.framecount()
             start_x = mainmemory.read_u16_be(PLAYER_BASE + OFF_X_POS)
             start_y = mainmemory.read_u16_be(PLAYER_BASE + OFF_Y_POS)
@@ -351,23 +367,39 @@ local function on_frame_end()
             start_zone_name = ZONE_NAMES[start_zone_id] or string.format("unknown_%02x", start_zone_id)
 
             open_files()
+            -- Write metadata immediately so it exists even if the process is killed
+            write_metadata()
             print(string.format("Trace recording started at BizHawk frame %d, zone %s act %d, pos (%04X, %04X)",
                 bk2_frame_offset, start_zone_name, start_act + 1, start_x, start_y))
+            if movie.isloaded() then
+                print(string.format("Movie length: %d frames", movie.length()))
+            end
         end
+        -- Return without recording frame 0. The next emu.frameadvance() runs
+        -- one frame of movement, and the NEXT on_frame_end() call writes
+        -- frame 0 with post-movement state. This avoids a "dead frame"
+        -- where input is present but speeds are 0 (ROM hasn't processed
+        -- Sonic's movement yet on the frame where controls first unlock).
         return
     end
 
     if game_mode ~= GAMEMODE_LEVEL then
         print("Left level gameplay at trace frame " .. trace_frame .. ". Finalising.")
-        write_metadata()
-        close_files()
-        started = false
         finished = true
-        if HEADLESS then
-            print("Headless mode: exiting.")
-            client.exit()
-        end
         return
+    end
+
+    -- Safety: detect when the BK2 movie has finished playback.
+    -- BizHawk pauses the emulator when a movie ends; the main while loop
+    -- calls client.unpause() so we still get here.
+    if HEADLESS and movie.isloaded() then
+        if movie.mode() == "FINISHED" then
+            print(string.format(
+                "Movie playback finished at trace frame %d (emu frame %d). Finalising.",
+                trace_frame, emu.framecount()))
+            finished = true
+            return
+        end
     end
 
     -- Primary physics state
@@ -418,9 +450,14 @@ local function on_frame_end()
         camera_x, camera_y,
         rings,
         status))
-    -- Flush periodically instead of every frame to reduce I/O overhead
+    -- Flush periodically instead of every frame to reduce I/O overhead.
+    -- Also update metadata every 300 frames (~5 sec) so a killed process
+    -- still has a valid (if slightly stale) metadata.json.
     if trace_frame % 60 == 0 then
         physics_file:flush()
+    end
+    if trace_frame % 300 == 0 then
+        write_metadata()
     end
 
     check_mode_changes(status)
@@ -440,18 +477,53 @@ end
 -- Create output directory at load time (avoids cmd.exe pause during gameplay)
 os.execute("mkdir \"" .. OUTPUT_DIR .. "\" 2>NUL")
 
--- Skip rendering for max speed in headless mode
+-- Run at maximum speed in headless mode.
+-- emu.limitframerate(false) removes the 60fps cap.
+-- client.speedmode(6400) sets emulator speed to 6400% as backup.
+-- invisibleemulation(true) skips rendering for additional speedup.
+-- Set HEADLESS_VISIBLE = true to keep the window visible for progress feedback.
+local HEADLESS_VISIBLE = false
 if HEADLESS then
-    client.invisibleemulation(true)
+    emu.limitframerate(false)
+    client.speedmode(6400)
+    if not HEADLESS_VISIBLE then
+        client.invisibleemulation(true)
+    end
 end
 
-event.onframeend(on_frame_end, "S1TraceRecorder")
+-- Main loop using explicit frame-advance.
+-- This pattern keeps the script in control of the event loop so we can:
+--   1. Detect movie-end pauses (BizHawk pauses when a movie finishes)
+--   2. Cleanly flush and close all files BEFORE calling client.exit()
+-- The onframeend callback pattern doesn't work because callbacks stop
+-- firing when BizHawk pauses, and client.exit() can kill the process
+-- before file I/O completes.
 print("S1 Trace Recorder v2.0 loaded. Waiting for level gameplay (Game_Mode=0x0C, controls unlocked)...")
 
-event.onexit(function()
-    if started then
+while true do
+    on_frame_end()
+
+    -- If recording is done, finalise files and exit from INSIDE the loop.
+    -- Code after the loop may never execute because client.exit() kills
+    -- the process immediately.
+    if finished then
+        print("Recording complete. Writing final output...")
+        if physics_file then physics_file:flush() end
         write_metadata()
         close_files()
-        print("Script exiting. Trace finalised at frame " .. trace_frame)
+        print(string.format("Trace finalised: %s act %d, %d frames.",
+            start_zone_name, start_act + 1, trace_frame))
+        if HEADLESS then
+            client.exit()
+        end
+        break
     end
-end, "S1TraceRecorderExit")
+
+    -- If paused (e.g. BizHawk pauses on movie end), unpause so we get
+    -- another iteration to detect the FINISHED state and exit cleanly.
+    if client.ispaused() then
+        client.unpause()
+    end
+
+    emu.frameadvance()
+end

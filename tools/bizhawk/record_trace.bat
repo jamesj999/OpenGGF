@@ -1,11 +1,16 @@
 @echo off
-REM Record a BizHawk trace for Sonic 1 GHZ Act 1.
+REM Record a BizHawk trace for any Sonic 1 zone/act.
+REM The Lua script auto-detects zone and act from RAM.
 REM
 REM Usage:  record_trace.bat <rom_path> <bk2_path>
-REM Example: record_trace.bat "Sonic The Hedgehog (W) (REV01) [!].gen" "Movie\ghz1_fullrun.bk2"
+REM Example: record_trace.bat "Sonic The Hedgehog (W) (REV01) [!].gen" "Movies\s1-mz1.bk2"
 REM
-REM Output goes to: trace_output\ (next to this script, or BizHawk working dir)
+REM Output goes to: <bizhawk_dir>\Lua\trace_output\
+REM   (BizHawk sets the Lua working directory to its Lua\ folder)
+REM
 REM BizHawk path can be overridden with BIZHAWK_EXE env var.
+REM To see the emulator window during recording, edit HEADLESS_VISIBLE in
+REM s1_trace_recorder.lua (set to true).
 
 setlocal
 
@@ -14,11 +19,18 @@ if "%BIZHAWK_EXE%"=="" set "BIZHAWK_EXE=C:\Users\farre\Downloads\_Sorted\Emulato
 
 set "LUA_SCRIPT=%~dp0s1_trace_recorder.lua"
 
+REM Derive BizHawk directory from EXE path for output location
+for %%I in ("%BIZHAWK_EXE%") do set "BIZHAWK_DIR=%%~dpI"
+set "OUTPUT_DIR=%BIZHAWK_DIR%Lua\trace_output"
+
 if "%~1"=="" (
     echo Usage: %~nx0 ^<rom_path^> ^<bk2_path^>
     echo.
     echo   rom_path   Path to Sonic 1 REV01 ROM
     echo   bk2_path   Path to BK2 movie file
+    echo.
+    echo The script auto-detects zone and act from the game's RAM.
+    echo Output is written to: %OUTPUT_DIR%\
     exit /b 1
 )
 if "%~2"=="" (
@@ -33,7 +45,7 @@ echo === BizHawk Trace Recorder ===
 echo ROM:    %ROM_PATH%
 echo Movie:  %BK2_PATH%
 echo Lua:    %LUA_SCRIPT%
-echo Output: trace_output\
+echo Output: %OUTPUT_DIR%\
 echo.
 echo Starting BizHawk in headless mode...
 
@@ -46,9 +58,13 @@ if %ERRORLEVEL% neq 0 (
 
 echo.
 echo === Trace recording complete ===
-if exist "trace_output\metadata.json" (
+if exist "%OUTPUT_DIR%\metadata.json" (
     echo Output files:
-    dir /b trace_output\
+    dir /b "%OUTPUT_DIR%\"
+    echo.
+    REM Show metadata summary
+    type "%OUTPUT_DIR%\metadata.json"
 ) else (
-    echo WARNING: No trace output found. Check BizHawk console for errors.
+    echo WARNING: No trace output found in %OUTPUT_DIR%\
+    echo Check BizHawk Lua console for errors.
 )
