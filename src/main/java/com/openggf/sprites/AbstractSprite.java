@@ -17,8 +17,10 @@ public abstract class AbstractSprite implements Sprite {
 	protected short xPixel;
 	protected short yPixel;
 
-	protected byte xSubpixel;
-	protected byte ySubpixel;
+	// ROM uses 16:16 fixed-point (16-bit subpixel). Storing full 16-bit fraction
+	// to prevent cumulative carry errors vs the ROM's 32-bit position arithmetic.
+	protected short xSubpixel;
+	protected short ySubpixel;
 
 	protected int width;
 	protected int height;
@@ -82,10 +84,12 @@ public abstract class AbstractSprite implements Sprite {
 	public final void setX(short x) {
 		if (x < 0) {
 			this.xPixel = 0;
+			this.xSubpixel = 0; // Boundary clamp: full reset
 		} else {
 			this.xPixel = x;
+			// ROM-accurate: move.w to x_pos does not touch x_sub.
+			// Subpixel fraction is preserved across position updates.
 		}
-		this.xSubpixel = 0;
 	}
 
 	public final short getY() {
@@ -120,7 +124,8 @@ public abstract class AbstractSprite implements Sprite {
 
 	public final void setY(short y) {
 		this.yPixel = y;
-		this.ySubpixel = 0;
+		// ROM-accurate: move.w to y_pos does not touch y_sub.
+		// Subpixel fraction is preserved across position updates.
 	}
 
 	/**
@@ -143,32 +148,22 @@ public abstract class AbstractSprite implements Sprite {
 	}
 
 	public final void move(short xSpeed, short ySpeed) {
-		/*
-		 * Speeds are provied in subpixels, need to convert current
-		 * Pixel/Subpixel values to subpixels, add our speeds and convert back.
-		 */
-		long xTotal = (xPixel * 256) + (xSubpixel & 0xFF);
-		long yTotal = (yPixel * 256) + (ySubpixel & 0xFF);
+		// ROM-accurate 16:16 fixed-point position update (SpeedToPos).
+		// ROM: move.l obX(a0),d2 — loads 32-bit value (pixel:16 | subpixel:16)
+		//      ext.l d0 / asl.l #8,d0 — velocity * 256, sign-extended to 32-bit
+		//      add.l d0,d2 — 32-bit add preserving all 16 subpixel bits
+		//      move.l d2,obX(a0) — stores back full 32-bit value
+		int xPos = (xPixel << 16) | (xSubpixel & 0xFFFF);
+		int yPos = (yPixel << 16) | (ySubpixel & 0xFFFF);
 
-		xTotal += xSpeed;
-		yTotal += ySpeed;
+		xPos += (int) xSpeed << 8;
+		yPos += (int) ySpeed << 8;
 
-		// ROM-accurate: 68000 asr.l #8 rounds toward negative infinity
-		// Java / rounds toward zero, which causes drift when moving left/up
-		short updatedXPixel = (short) (xTotal >> 8);
-		short updatedYPixel = (short) (yTotal >> 8);
+		xPixel = (short) (xPos >> 16);
+		xSubpixel = (short) (xPos & 0xFFFF);
 
-		byte updatedXSubpixel = (byte) (xTotal & 0xFF);
-		byte updatedYSubpixel = (byte) (yTotal & 0xFF);
-
-		xPixel = updatedXPixel;
-		xSubpixel = updatedXSubpixel;
-
-		// ROM: Y is signed 16-bit — sprites can have negative Y (above camera view).
-		// Camera handles its own Y clamping via minY; sprites are not restricted.
-		yPixel = updatedYPixel;
-		ySubpixel = updatedYSubpixel;
-
+		yPixel = (short) (yPos >> 16);
+		ySubpixel = (short) (yPos & 0xFFFF);
 	}
 
 	public int getWidth() {
@@ -191,12 +186,32 @@ public abstract class AbstractSprite implements Sprite {
 		return gravity;
 	}
 
+	/**
+	 * Returns the high 8 bits of the 16-bit subpixel fraction.
+	 * This is the portion that corresponds to 1/256 pixel units
+	 * (the same units as velocity). Callers using {@code & 0xFF}
+	 * get the same value as before the 16:16 upgrade.
+	 */
 	public byte getXSubpixel() {
-		return xSubpixel;
+		return (byte) (xSubpixel >> 8);
 	}
 
+	/**
+	 * Returns the high 8 bits of the 16-bit subpixel fraction.
+	 * @see #getXSubpixel()
+	 */
 	public byte getYSubpixel() {
-		return ySubpixel;
+		return (byte) (ySubpixel >> 8);
+	}
+
+	/** Returns the full 16-bit subpixel value (for diagnostic comparison). */
+	public int getXSubpixelRaw() {
+		return xSubpixel & 0xFFFF;
+	}
+
+	/** Returns the full 16-bit subpixel value (for diagnostic comparison). */
+	public int getYSubpixelRaw() {
+		return ySubpixel & 0xFFFF;
 	}
 
 	public Sensor[] getPushSensors() {

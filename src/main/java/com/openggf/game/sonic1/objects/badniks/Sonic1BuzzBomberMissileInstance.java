@@ -36,8 +36,12 @@ public class Sonic1BuzzBomberMissileInstance extends AbstractObjectInstance
     // Size 7: width=$06 (6px), height=$06 (6px)
     private static final int COLLISION_SIZE_INDEX = 0x07;
 
-    // Flare countdown: objoff_32 = $E (14 frames before flare animation starts)
-    private static final int FLARE_COUNTDOWN = 0x0E;
+    // Flare countdown: objoff_32 = $E (14), but the ROM missile runs on its creation
+    // frame within the same ExecuteObjects pass (slot M > parent slot N), decrementing
+    // the timer from $E to $D immediately. The engine uses deferred addition
+    // (ObjectManager.pendingDynamicAdditions), so the missile's first update() is the
+    // NEXT frame. Pre-decrement to $D to compensate for the missed creation-frame tick.
+    private static final int FLARE_COUNTDOWN = 0x0D;
 
     // Flare animation: speed=7 means each frame shows for 8 game frames, 2 frames total = 16 frames
     private static final int FLARE_ANIM_SPEED = 8;
@@ -100,8 +104,11 @@ public class Sonic1BuzzBomberMissileInstance extends AbstractObjectInstance
         this.collisionEnabled = false;
     }
 
+    private int updateCount; // temp diagnostic
+
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        updateCount++;
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Msl_ChkCancel: if parent Buzz Bomber was destroyed, delete missile
         if (parent != null && parent.isDestroyed()) {

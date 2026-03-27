@@ -1,5 +1,4 @@
 package com.openggf.game.sonic1.objects.badniks;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 
 import com.openggf.level.objects.AbstractBadnikInstance;
@@ -67,7 +66,6 @@ public class Sonic1BuzzBomberBadnikInstance extends AbstractBadnikInstance {
     private int buzzStatus;
     private int renderedFrame; // Actual frame index for rendering (includes wing cycle)
     private int wingTimer;     // Per-object animation timer (matches ROM's obTimeFrame)
-
     public Sonic1BuzzBomberBadnikInstance(ObjectSpawn spawn) {
         super(spawn, "BuzzBomber");
         this.currentX = spawn.x();
@@ -131,7 +129,17 @@ public class Sonic1BuzzBomberBadnikInstance extends AbstractBadnikInstance {
 
         // Check proximity to Sonic (only if buzzStatus == 0 = normal)
         if (buzzStatus == STATUS_NORMAL && player != null) {
-            int dx = Math.abs(player.getCentreX() - currentX);
+            // ROM: .chknearsonic reads Sonic's post-physics X from (v_player+obX).
+            // Engine: objects run BEFORE player physics (step 2 vs step 3), so
+            // getCentreX() returns the pre-physics position (1 frame behind ROM).
+            // However, the engine also spawns objects 1 frame late (placement uses
+            // pre-camera X in step 2, while ROM's ObjPosLoad uses post-camera X
+            // after DeformLayers). The BB has 1 fewer movement by any given frame.
+            // These two offsets cancel: using the raw pre-physics position (no
+            // prediction) makes the BB detect Sonic 1 update later, compensating
+            // for the 1-frame spawn delay.
+            int playerX = player.getCentreX();
+            int dx = Math.abs(playerX - currentX);
             if (dx < SONIC_PROXIMITY && isOnScreenX()) {
                 // Near Sonic: stop and prepare to fire
                 buzzStatus = STATUS_NEAR_SONIC;

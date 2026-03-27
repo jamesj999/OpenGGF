@@ -75,14 +75,19 @@ public final class LevelFrameStep {
 
         // 2. Object positions — must update BEFORE player physics so
         //    SolidContacts sees new positions (fixes 1-frame platform lag).
+        //    Touch responses are deferred to run inside tickPlayablePhysics (step 3),
+        //    after handleMovement but before post-movement solid contacts. This matches
+        //    the ROM's order where ReactToItem runs during Sonic's slot within
+        //    ExecuteObjects, after his physics but before other objects' solid checks.
         //    NOTE: In the ROM, Sonic (slot 0) runs first within ExecuteObjects,
         //    so objects see his post-physics position. Our engine separates
         //    physics from objects, creating an ordering difference. To compensate,
         //    SolidContacts applies a velocity offset to the player position for
         //    contact classification, simulating the ROM's post-physics check.
-        wrapper.wrap("objects", levelManager::updateObjectPositions);
+        wrapper.wrap("objects", levelManager::updateObjectPositionsWithoutTouches);
 
         // 3. Sprite / player physics update (caller-provided).
+        //    Touch responses run per-player inside tickPlayablePhysics.
         wrapper.wrap("physics", spriteUpdate);
 
         // 4. Dynamic level events — boss arenas, boundary changes, zone transitions.
@@ -96,6 +101,14 @@ public final class LevelFrameStep {
             camera.updateBoundaryEasing();
             camera.updatePosition();
         });
+
+        // 5b. Post-camera placement catch-up — extend the spawn window with the
+        //     post-camera position. ROM: ObjPosLoad runs after DeformLayers
+        //     (camera update), so spawns see the updated camera. When the camera
+        //     crosses a chunk boundary between step 2 and step 5, this catches
+        //     spawns that the pre-camera placement missed. No-op when the camera
+        //     chunk hasn't changed.
+        levelManager.postCameraObjectPlacementSync();
 
         // 6. Level scroll / parallax / animation update.
         wrapper.wrap("level", levelManager::update);

@@ -221,10 +221,18 @@ public class CollisionSystem {
             return;
         }
 
-        short predictedDx = (short) (((sprite.getXSubpixel() & 0xFF) + sprite.getXSpeed()) >> 8);
-        short predictedDy = (short) (((sprite.getYSubpixel() & 0xFF) + sprite.getYSpeed()) >> 8);
+        // ROM-accurate 32-bit prediction (Sonic_WalkSpeed / CalcRoomInFront):
+        // ROM loads full 32-bit position (pixel:16 | sub:16) and adds velocity*256.
+        // Uses full 16-bit subpixel to prevent carry errors vs ROM's arithmetic.
+        int xPos32 = (sprite.getX() << 16) | (sprite.getXSubpixelRaw());
+        int yPos32 = (sprite.getY() << 16) | (sprite.getYSubpixelRaw());
+        int predictedX = (xPos32 + ((int) sprite.getXSpeed() << 8)) >> 16;
+        int predictedY = (yPos32 + ((int) sprite.getYSpeed() << 8)) >> 16;
+        short predictedDx = (short) (predictedX - sprite.getX());
+        short predictedDy = (short) (predictedY - sprite.getY());
         CalcRoomInFrontProbe probe = describeCalcRoomInFrontProbe(angle, gSpeed);
         SensorResult result = scanCalcRoomInFront(sprite, probe, predictedDx, predictedDy);
+
 
         if (result == null || result.distance() >= 0) {
             return;
@@ -256,14 +264,21 @@ public class CollisionSystem {
     static CalcRoomInFrontProbe describeCalcRoomInFrontProbe(int angle, short gSpeed) {
         int rotation = (gSpeed < 0) ? 0x40 : 0xC0;
         int rotatedAngle = (angle + rotation) & 0xFF;
-        int mode = (rotatedAngle + 0x20) & 0xC0;
-        short dynamicYOffset = (short) (((mode == 0x40 || mode == 0xC0) && (rotatedAngle & 0x38) == 0) ? 8 : 0);
 
-        return switch (mode) {
-            case 0x00 -> new CalcRoomInFrontProbe(mode, rotatedAngle, Direction.DOWN, (short) 0, (short) 10, dynamicYOffset);
-            case 0x40 -> new CalcRoomInFrontProbe(mode, rotatedAngle, Direction.LEFT, (short) -10, (short) 0, dynamicYOffset);
-            case 0x80 -> new CalcRoomInFrontProbe(mode, rotatedAngle, Direction.UP, (short) 0, (short) -10, dynamicYOffset);
-            default -> new CalcRoomInFrontProbe(mode, rotatedAngle, Direction.RIGHT, (short) 10, (short) 0, dynamicYOffset);
+        // ROM probe direction: Sonic_WalkSpeed (S1) and CalcRoomInFront (S2) both use
+        // the asymmetric quadrant rounding from AnglePos for dispatching the sensor probe.
+        // This differs from the simple (angle+0x20)&0xC0 used for velocity adjustment
+        // at the call site (loc_1300C / s2.asm).
+        // Key difference: at rotated angle 0xA0, simple gives 0xC0 (RIGHT) but ROM gives
+        // 0x80 (UP). Using simple causes false wall detections on steep slopes.
+        int probeMode = anglePosQuadrant(rotatedAngle);
+        short dynamicYOffset = (short) (((probeMode == 0x40 || probeMode == 0xC0) && (rotatedAngle & 0x38) == 0) ? 8 : 0);
+
+        return switch (probeMode) {
+            case 0x00 -> new CalcRoomInFrontProbe(probeMode, rotatedAngle, Direction.DOWN, (short) 0, (short) 10, dynamicYOffset);
+            case 0x40 -> new CalcRoomInFrontProbe(probeMode, rotatedAngle, Direction.LEFT, (short) -10, (short) 0, dynamicYOffset);
+            case 0x80 -> new CalcRoomInFrontProbe(probeMode, rotatedAngle, Direction.UP, (short) 0, (short) -10, dynamicYOffset);
+            default -> new CalcRoomInFrontProbe(probeMode, rotatedAngle, Direction.RIGHT, (short) 10, (short) 0, dynamicYOffset);
         };
     }
 
@@ -294,7 +309,14 @@ public class CollisionSystem {
         SensorResult[] groundResult = terrainProbes(sprite, sprite.getGroundSensors(), "ground");
         SensorResult leftSensor = groundResult[0];
         SensorResult rightSensor = groundResult[1];
+
         SensorResult selectedResult = selectSensorWithAngle(sprite, rightSensor, leftSensor);
+
+        // Refresh ground mode after the angle has been updated by selectSensorWithAngle.
+        // The initial updateGroundMode (line 292) uses the PREVIOUS frame's end-angle for
+        // sensor configuration. This second call uses the NEW angle from terrain probes,
+        // matching the ROM's end-of-frame ground mode calculation.
+        updateGroundMode(sprite);
 
         if (selectedResult == null) {
             if (sprite.isStickToConvex()) {
@@ -405,7 +427,7 @@ public class CollisionSystem {
                 SensorResult[] ceilingResult = terrainProbes(sprite, sprite.getCeilingSensors(), "ceiling");
                 if (!doCeilingCollisionInternal(sprite, ceilingResult)) {
                     SensorResult[] groundResult = terrainProbes(sprite, sprite.getGroundSensors(), "ground");
-                    doTerrainCollisionAir(sprite, groundResult, landingHandler);
+                    doTerrainCollisionAirDirect(sprite, groundResult, landingHandler);
                 }
             }
             case 0x80 -> {
@@ -420,7 +442,7 @@ public class CollisionSystem {
                 SensorResult[] ceilingResult = terrainProbes(sprite, sprite.getCeilingSensors(), "ceiling");
                 if (!doCeilingCollisionInternal(sprite, ceilingResult)) {
                     SensorResult[] groundResult = terrainProbes(sprite, sprite.getGroundSensors(), "ground");
-                    doTerrainCollisionAir(sprite, groundResult, landingHandler);
+                    doTerrainCollisionAirDirect(sprite, groundResult, landingHandler);
                 }
             }
             default -> {
@@ -428,6 +450,11 @@ public class CollisionSystem {
         }
     }
 
+    /**
+     * Air terrain landing with the speed-dependent threshold check.
+     * ROM: only quadrant 0x00 applies this threshold (sonic.asm / s2.asm).
+     * Quadrants 0x40 and 0xC0 use {@link #doTerrainCollisionAirDirect} instead.
+     */
     private void doTerrainCollisionAir(AbstractPlayableSprite sprite,
                                        SensorResult[] results,
                                        Consumer<AbstractPlayableSprite> landingHandler) {
@@ -446,15 +473,42 @@ public class CollisionSystem {
                 || (results[1] != null && results[1].distance() >= threshold);
 
         if (canLand) {
-            moveForSensorResult(sprite, lowestResult);
-            if ((lowestResult.angle() & 0x01) != 0) {
-                sprite.setAngle((byte) 0x00);
-            } else {
-                sprite.setAngle(lowestResult.angle());
-            }
-            landingHandler.accept(sprite);
-            updateGroundMode(sprite);
+            landOnFloor(sprite, lowestResult, landingHandler);
         }
+    }
+
+    /**
+     * Air terrain landing WITHOUT the speed-dependent threshold check.
+     * ROM: quadrants 0x40 and 0xC0 skip the threshold — they land whenever
+     * d1 < 0 (floor detected above Sonic's foot sensors).
+     */
+    private void doTerrainCollisionAirDirect(AbstractPlayableSprite sprite,
+                                              SensorResult[] results,
+                                              Consumer<AbstractPlayableSprite> landingHandler) {
+        if (sprite.getYSpeed() < 0) {
+            return;
+        }
+
+        SensorResult lowestResult = findLowestSensorResult(results);
+        if (lowestResult == null || lowestResult.distance() >= 0) {
+            return;
+        }
+
+        // No threshold check — land immediately if any floor found (d1 < 0).
+        landOnFloor(sprite, lowestResult, landingHandler);
+    }
+
+    /** Shared landing logic: snap to floor surface, set angle, invoke landing handler. */
+    private void landOnFloor(AbstractPlayableSprite sprite, SensorResult result,
+                             Consumer<AbstractPlayableSprite> landingHandler) {
+        moveForSensorResult(sprite, result);
+        if ((result.angle() & 0x01) != 0) {
+            sprite.setAngle((byte) 0x00);
+        } else {
+            sprite.setAngle(result.angle());
+        }
+        landingHandler.accept(sprite);
+        updateGroundMode(sprite);
     }
 
     private void doCeilingCollision(AbstractPlayableSprite sprite, SensorResult[] results) {
@@ -578,12 +632,13 @@ public class CollisionSystem {
     }
 
     private void updateGroundMode(AbstractPlayableSprite sprite) {
+        // ROM dispatch (both S1 and S2):
+        //   0x40 → WalkVertL (probes LEFT)  → LEFTWALL
+        //   0x80 → WalkCeiling              → CEILING
+        //   0xC0 → WalkVertR (probes RIGHT) → RIGHTWALL
+        //   else → WalkSpeed (floor)         → GROUND
         int angle = sprite.getAngle() & 0xFF;
-        boolean angleIsNegative = angle >= 0x80;
-        int sumWith20 = (angle + 0x20) & 0xFF;
-        boolean sumIsNegative = sumWith20 >= 0x80;
-        int result = (angleIsNegative == sumIsNegative) ? (angle + 0x1F) & 0xFF : sumWith20;
-        int modeBits = result & 0xC0;
+        int modeBits = anglePosQuadrant(angle);
 
         GroundMode newMode = switch (modeBits) {
             case 0x00 -> GroundMode.GROUND;
@@ -594,6 +649,50 @@ public class CollisionSystem {
 
         if (newMode != sprite.getGroundMode()) {
             sprite.setGroundMode(newMode);
+        }
+    }
+
+    /**
+     * ROM-accurate ground mode quadrant from Sonic_AnglePos.
+     *
+     * <p>Both S1 (Sonic AnglePos.asm:8-42) and S2 (s2.asm:42572-42591) use identical logic
+     * with asymmetric rounding at exact boundary angles 0x20 and 0xA0, where the simplified
+     * {@code (angle + 0x20) & 0xC0} gives wrong results:
+     * <ul>
+     *   <li>Angle 0x20: simplified → 0x40 (LEFTWALL), ROM → 0x00 (GROUND)</li>
+     *   <li>Angle 0xA0: simplified → 0xC0 (RIGHTWALL), ROM → 0x80 (CEILING)</li>
+     * </ul>
+     *
+     * <p>The ROM reloads the raw angle and branches on the sign of (angle + 0x20):
+     * <ul>
+     *   <li>Positive path (bit 7 clear): adds 0x1F (rounds boundary toward previous quadrant)</li>
+     *   <li>Negative path (bit 7 set): subtracts 1 for angles ≥ 0x80, then adds 0x20</li>
+     * </ul>
+     *
+     * <p><b>Note:</b> Used for both Sonic_AnglePos ground mode dispatch AND the probe
+     * direction in Sonic_WalkSpeed / CalcRoomInFront. The velocity adjustment direction
+     * at the call site (loc_1300C) uses the simple {@code (angle + 0x20) & 0xC0} separately.
+     *
+     * @param angle raw sprite angle (0x00-0xFF)
+     * @return quadrant bits: 0x00 (GROUND), 0x40 (LEFTWALL), 0x80 (CEILING), 0xC0 (RIGHTWALL)
+     */
+    static int anglePosQuadrant(int angle) {
+        angle &= 0xFF;
+        int check = (angle + 0x20) & 0xFF;
+        if ((check & 0x80) != 0) {
+            // Negative path: (angle + 0x20) has bit 7 set
+            int d0 = angle;
+            if ((angle & 0x80) != 0) {
+                d0 = (d0 - 1) & 0xFF;
+            }
+            return (d0 + 0x20) & 0xC0;
+        } else {
+            // Positive path: (angle + 0x20) has bit 7 clear
+            int d0 = angle;
+            if ((angle & 0x80) != 0) {
+                d0 = (d0 + 1) & 0xFF;
+            }
+            return (d0 + 0x1F) & 0xC0;
         }
     }
 
@@ -608,12 +707,15 @@ public class CollisionSystem {
     }
 
     private void moveForSensorResult(AbstractPlayableSprite sprite, SensorResult result) {
+        // ROM-accurate: collision adjustment uses add.w/sub.w on pixel position,
+        // preserving subpixel fraction. Using shiftX/shiftY instead of setX/setY
+        // to avoid zeroing accumulated subpixels.
         byte distance = result.distance();
         switch (result.direction()) {
-            case UP -> sprite.setY((short) (sprite.getY() - distance));
-            case DOWN -> sprite.setY((short) (sprite.getY() + distance));
-            case LEFT -> sprite.setX((short) (sprite.getX() - distance));
-            case RIGHT -> sprite.setX((short) (sprite.getX() + distance));
+            case UP -> sprite.shiftY(-distance);
+            case DOWN -> sprite.shiftY(distance);
+            case LEFT -> sprite.shiftX(-distance);
+            case RIGHT -> sprite.shiftX(distance);
         }
     }
 

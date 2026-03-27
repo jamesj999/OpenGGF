@@ -45,6 +45,19 @@ public record TraceFrame(
     }
 
     /**
+     * Returns true if this frame has identical physics state to another frame.
+     * Used to detect lag frames (consecutive frames with no state change).
+     * Compares all state fields except frame number and input.
+     */
+    public boolean stateEquals(TraceFrame other) {
+        return this.x == other.x && this.y == other.y
+            && this.xSpeed == other.xSpeed && this.ySpeed == other.ySpeed
+            && this.gSpeed == other.gSpeed && this.angle == other.angle
+            && this.air == other.air && this.rolling == other.rolling
+            && this.groundMode == other.groundMode;
+    }
+
+    /**
      * Parse a hex string as a signed 16-bit value.
      * Handles both positive ("0380") and negative ("FC00" -> -1024) values.
      */

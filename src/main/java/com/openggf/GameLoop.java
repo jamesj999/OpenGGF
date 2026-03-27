@@ -2092,6 +2092,7 @@ public class GameLoop {
         if (!endingProvider.isScrollFrozen()) {
             camera.updateBoundaryEasing();
             camera.updatePosition();
+            levelManager.postCameraObjectPlacementSync();
             levelManager.update();
         }
 

@@ -3,6 +3,7 @@ package com.openggf.sprites.playable;
 import com.openggf.camera.Camera;
 import com.openggf.game.AnimationId;
 import com.openggf.game.CanonicalAnimation;
+import com.openggf.game.CollisionModel;
 import com.openggf.game.CrossGameFeatureProvider;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
@@ -1426,7 +1427,22 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 setInvulnerableFrames(0x78); // Set invulnerability immediately (ROM: s2.asm line 84954)
                 setSpringing(0);
                 setSpindash(false);
+
+                // ROM: Sonic_ResetOnFloor adjusts Y when transitioning from rolling to standing.
+                // s1.asm: "subq.w #5,obY(a0)" — subtracts radius diff from y_pos word only,
+                // preserving the subpixel fraction. This keeps feet at the same position when
+                // yRadius changes from 14 (rolling) to 19 (standing).
+                //
+                // Use setY() (not setCentreY) to modify only yPixel and preserve ySubpixel,
+                // matching the ROM's word-only modification. getRollHeightAdjustment() returns
+                // the full height difference (e.g. 10 for Sonic), which when subtracted from
+                // yPixel produces the same centreY shift as the ROM's radius-based subtraction.
+                boolean wasRolling = getRolling();
                 setRolling(false);
+                if (wasRolling) {
+                        setY((short) (getY() - getRollHeightAdjustment()));
+                }
+
                 setCrouching(false);
                 setAir(true);
                 setGSpeed((short) 0);
@@ -2046,6 +2062,16 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                         }
                         this.physicsModifiers = provider.getModifiers();
                         this.physicsFeatureSet = provider.getFeatureSet();
+
+                        // S1 (UNIFIED collision) uses d5=$D for ALL terrain probes.
+                        // After Sonic1Level.convertS1BlockData() maps S1→S2 chunk format,
+                        // S1's raw bit 13 → S2 bit 12, S1's raw bit 14 → S2 bit 13.
+                        // Default topSolidBit=0x0C (bit 12) is already correct for floor.
+                        // Default lrbSolidBit=0x0D (bit 13) stays for ceiling/wall probes:
+                        // although S1 ROM uses d5=$D for all probes, the conversion maps
+                        // S1 solidity types so that top-solid (type 1) only sets bit 12
+                        // and lrb-solid (type 2) only sets bit 13. Using 0x0D for
+                        // ceiling/wall means top-solid-only tiles remain one-way platforms.
 
                         // S3K init override: Character_Speeds table provides different init-time
                         // values that persist until the first water or speed shoes event.

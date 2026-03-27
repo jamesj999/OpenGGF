@@ -300,7 +300,10 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 		if (doCheckSpindash()) return;
 		if (inputJumpPress && doJump()) {
-			modeAirborne();
+			// ROM: Sonic_Jump uses addq.l #4,sp to pop the return address,
+			// skipping the rest of Obj01_MdNormal (SlopeResist, Move,
+			// SpeedToPos, AnglePos, SlopeRepel). Air physics and position
+			// update begin on the next frame when modeAirborne() runs.
 			return;
 		}
 
@@ -320,7 +323,10 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		short originalY = sprite.getY();
 
 		if (!sprite.getPinballMode() && inputJumpPress && doJump()) {
-			modeAirborne();
+			// ROM: Sonic_Jump uses addq.l #4,sp to pop the return address,
+			// skipping the rest of Obj01_MdRoll (RollRepel, RollSpeed,
+			// SpeedToPos, AnglePos, SlopeRepel). Air physics and position
+			// update begin on the next frame when modeAirborne() runs.
 			return;
 		}
 
@@ -553,7 +559,9 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			return false;
 		}
 
+		// ROM: bclr #sta_onObj,obStatus(a0) — clear riding/on-object state before jump
 		collisionSystem().clearRidingObject(sprite);
+		sprite.setOnObject(false);
 		boolean wasRolling = sprite.getRolling();
 
 		// Apply jump velocity based on terrain angle
@@ -1387,7 +1395,12 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			if (inputRight) {
 				if (gSpeed < 0) {
 					gSpeed += runDecel;
-					if (gSpeed > 0) gSpeed = (short) 128;
+					// ROM: add.w d4,d0 / bcc.s ... / move.w #$80,d0
+					// 68000 carry flag is SET when the unsigned add overflows (e.g.
+					// 0xFF80+0x80=0x10000), which happens when the result is zero
+					// or positive. BCC (branch if carry clear) is NOT taken, so
+					// the reset to 0x80 executes for both gSpeed==0 and gSpeed>0.
+					if (gSpeed >= 0) gSpeed = (short) 128;
 					if (isOnFlatGround() && gSpeed < -SKID_SPEED_THRESHOLD) {
 						handleSkid();
 					}
@@ -1601,8 +1614,10 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		camera().easeYBiasToDefault();
 
 		// Air drag near apex (-1024 <= ySpeed < 0)
+		// ROM: asr.w #5,d1 — arithmetic shift right rounds toward -∞.
+		// Java /32 truncates toward zero, giving wrong drag for negative xSpeed.
 		if (ySpeed < 0 && ySpeed >= -1024) {
-			int drag = xSpeed / 32;
+			int drag = xSpeed >> 5;
 			if (drag != 0) {
 				int newXSpeed = xSpeed - drag;
 				if ((xSpeed > 0 && newXSpeed < 0) || (xSpeed < 0 && newXSpeed > 0)) {
@@ -1647,8 +1662,10 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		// ROM uses center coordinates for x_pos, so boundary offsets are calibrated for center
 		final int SCREEN_WIDTH = 320, SONIC_WIDTH = 24, LEFT_OFFSET = 16, RIGHT_EXTRA = 64;
 
-		// Use center X to match ROM's x_pos (not top-left getX())
-		int xTotal = (sprite.getCentreX() * 256) + (sprite.getXSubpixel() & 0xFF) + sprite.getXSpeed();
+		// ROM: move.l obX(a0),d1 / ext.l d0 / asl.l #8,d0 / add.l d0,d1 / swap d1
+		// Uses 32-bit position (pixel:16 | subpixel:16) + velocity << 8.
+		// The subpixel byte is in bits 8-15 of xSubpixel (high byte of low word).
+		int xTotal = (sprite.getCentreX() * 256) + ((sprite.getXSubpixel() >> 8) & 0xFF) + sprite.getXSpeed();
 		int predictedX = xTotal >> 8;
 
 		int minX = camera.getMinX();
@@ -2285,12 +2302,14 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			return;
 		}
 
+		// ROM-accurate: collision adjustment uses add.w/sub.w on pixel position,
+		// preserving subpixel fraction. Using shiftX/shiftY instead of setX/setY.
 		byte distance = lowestResult.distance();
 		switch (lowestResult.direction()) {
-			case UP -> sprite.setY((short) (sprite.getY() - distance));
-			case DOWN -> sprite.setY((short) (sprite.getY() + distance));
-			case LEFT -> sprite.setX((short) (sprite.getX() - distance));
-			case RIGHT -> sprite.setX((short) (sprite.getX() + distance));
+			case UP -> sprite.shiftY(-distance);
+			case DOWN -> sprite.shiftY(distance);
+			case LEFT -> sprite.shiftX(-distance);
+			case RIGHT -> sprite.shiftX(distance);
 		}
 
 		if ((lowestResult.angle() & 0x01) != 0) {
