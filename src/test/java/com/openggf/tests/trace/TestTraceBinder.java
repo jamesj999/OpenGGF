@@ -8,7 +8,7 @@ public class TestTraceBinder {
 
     @Test
     public void testExactMatchReturnsNoError() {
-        TraceFrame frame = new TraceFrame(0, 0x0000,
+        TraceFrame frame = TraceFrame.of(0, 0x0000,
             (short) 0x0050, (short) 0x03B0,
             (short) 0x0000, (short) 0x0000, (short) 0x0000,
             (byte) 0x00, false, false, 0);
@@ -25,7 +25,7 @@ public class TestTraceBinder {
 
     @Test
     public void testPositionDivergenceWarning() {
-        TraceFrame frame = new TraceFrame(0, 0x0000,
+        TraceFrame frame = TraceFrame.of(0, 0x0000,
             (short) 0x0050, (short) 0x03B0,
             (short) 0x0000, (short) 0x0000, (short) 0x0000,
             (byte) 0x00, false, false, 0);
@@ -43,7 +43,7 @@ public class TestTraceBinder {
 
     @Test
     public void testPositionDivergenceError() {
-        TraceFrame frame = new TraceFrame(0, 0x0000,
+        TraceFrame frame = TraceFrame.of(0, 0x0000,
             (short) 0x0050, (short) 0x03B0,
             (short) 0x0000, (short) 0x0000, (short) 0x0000,
             (byte) 0x00, false, false, 0);
@@ -60,7 +60,7 @@ public class TestTraceBinder {
 
     @Test
     public void testAirFlagMismatchIsError() {
-        TraceFrame frame = new TraceFrame(0, 0x0000,
+        TraceFrame frame = TraceFrame.of(0, 0x0000,
             (short) 0x0050, (short) 0x03B0,
             (short) 0x0000, (short) 0x0000, (short) 0x0000,
             (byte) 0x00, false, false, 0);
@@ -77,7 +77,7 @@ public class TestTraceBinder {
 
     @Test
     public void testSpeedSignChangeIsError() {
-        TraceFrame frame = new TraceFrame(0, 0x0000,
+        TraceFrame frame = TraceFrame.of(0, 0x0000,
             (short) 0x0050, (short) 0x03B0,
             (short) 0x0010, (short) 0x0000, (short) 0x0010,
             (byte) 0x00, false, false, 0);
@@ -95,7 +95,7 @@ public class TestTraceBinder {
     @Test
     public void testInputValidationMatch() {
         TraceBinder binder = new TraceBinder(ToleranceConfig.DEFAULT);
-        TraceFrame frame = new TraceFrame(0, 0x0008,
+        TraceFrame frame = TraceFrame.of(0, 0x0008,
             (short) 0, (short) 0, (short) 0, (short) 0, (short) 0,
             (byte) 0, false, false, 0);
         assertTrue(binder.validateInput(frame, 0x0008));
@@ -104,7 +104,7 @@ public class TestTraceBinder {
     @Test
     public void testInputValidationMismatch() {
         TraceBinder binder = new TraceBinder(ToleranceConfig.DEFAULT);
-        TraceFrame frame = new TraceFrame(0, 0x0008,
+        TraceFrame frame = TraceFrame.of(0, 0x0008,
             (short) 0, (short) 0, (short) 0, (short) 0, (short) 0,
             (byte) 0, false, false, 0);
         assertFalse(binder.validateInput(frame, 0x0004));
