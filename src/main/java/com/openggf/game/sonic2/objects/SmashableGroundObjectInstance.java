@@ -82,6 +82,8 @@ public class SmashableGroundObjectInstance extends BoxObjectInstance
     private boolean player1WasRolling;
     private boolean player2WasRolling;
 
+    private boolean persistenceChecked;
+
     public SmashableGroundObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name, HALF_WIDTH, 0x20, 0.6f, 0.5f, 0.3f, false);
 
@@ -105,7 +107,13 @@ public class SmashableGroundObjectInstance extends BoxObjectInstance
         this.mappingFrame = FRAME_BY_STATE[stateIndex];
         this.broken = false;
         this.savedChainCounter = 0;
+    }
 
+    private void ensureInitialized() {
+        if (persistenceChecked) {
+            return;
+        }
+        persistenceChecked = true;
         // Check persistence: if already broken (remembered), stay destroyed
         ObjectManager objectManager = services().objectManager();
         if (objectManager != null && objectManager.isRemembered(spawn)) {
@@ -116,6 +124,7 @@ public class SmashableGroundObjectInstance extends BoxObjectInstance
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (broken) {
             return;

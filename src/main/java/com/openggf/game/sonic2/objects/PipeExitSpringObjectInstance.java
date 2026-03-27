@@ -55,8 +55,9 @@ public class PipeExitSpringObjectInstance extends BoxObjectInstance
     private static final int PROXIMITY_Y_BELOW = 0x30;  // 48 pixels below spring
 
     private final boolean fullStrength;
-    private final ObjectAnimationState animationState;
+    private ObjectAnimationState animationState;
     private int mappingFrame;
+    private boolean initialized;
 
     public PipeExitSpringObjectInstance(ObjectSpawn spawn, String name) {
         // ROM: width_pixels = 0x10 (16), priority = 1
@@ -64,6 +65,13 @@ public class PipeExitSpringObjectInstance extends BoxObjectInstance
         // ROM: bit 1 of subtype: 0=full strength (-$1000), 1=reduced (-$A80)
         this.fullStrength = (spawn.subtype() & 0x02) == 0;
         this.mappingFrame = 0;
+    }
+
+    private void ensureInitialized() {
+        if (initialized) {
+            return;
+        }
+        initialized = true;
 
         ObjectRenderManager renderManager = services().renderManager();
         this.animationState = new ObjectAnimationState(
@@ -205,6 +213,7 @@ public class PipeExitSpringObjectInstance extends BoxObjectInstance
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: loc_29648 - Check if player is in the tube below the spring
         // If so, play the raised animation to move the spring out of the way

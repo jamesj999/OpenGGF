@@ -144,14 +144,14 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
     // This is separate from solidState (obSolid) — the block remains solid while airborne.
     private boolean airborne;
 
-    // Zone/act info cached on construction
-    private final int zoneIndex;
-    private final int actIndex;
-    private final boolean isLZ;
-    private final boolean isMZ;
+    // Zone/act info cached on first update
+    private int zoneIndex;
+    private int actIndex;
+    private boolean isLZ;
+    private boolean isMZ;
 
     // Art key for rendering (MZ vs LZ)
-    private final String artKey;
+    private String artKey;
 
     // Frame counter when push sound was last triggered.
     // ROM's SMPS driver uses f_push_playing flag: sfx_Push is ignored while already
@@ -163,6 +163,8 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
     // Last X position where a geyser maker was spawned (prevents repeated spawns)
     private int lastGeyserSpawnX = Integer.MIN_VALUE;
 
+    private boolean initialized;
+
     public Sonic1PushBlockObjectInstance(ObjectSpawn spawn) {
         super(spawn, "PushBlock");
 
@@ -170,14 +172,6 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
         this.spawnY = spawn.y();
         this.x = spawn.x();
         this.y = spawn.y();
-
-        this.zoneIndex = services().romZoneId();
-        this.actIndex = services().currentAct();
-        this.isLZ = (zoneIndex == Sonic1Constants.ZONE_LZ);
-        this.isMZ = (zoneIndex == Sonic1Constants.ZONE_MZ);
-
-        // Art key depends on zone
-        this.artKey = isLZ ? ObjectArtKeys.LZ_PUSH_BLOCK : ObjectArtKeys.MZ_PUSH_BLOCK;
 
         // PushB_Var: subtype*2 indexes into width/frame pairs
         // dc.b $10, 0    ; subtype 0: single block
@@ -204,6 +198,19 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
         updateDynamicSpawn(x, y);
     }
 
+    private void ensureInitialized() {
+        if (initialized) return;
+        initialized = true;
+
+        this.zoneIndex = services().romZoneId();
+        this.actIndex = services().currentAct();
+        this.isLZ = (zoneIndex == Sonic1Constants.ZONE_LZ);
+        this.isMZ = (zoneIndex == Sonic1Constants.ZONE_MZ);
+
+        // Art key depends on zone
+        this.artKey = isLZ ? ObjectArtKeys.LZ_PUSH_BLOCK : ObjectArtKeys.MZ_PUSH_BLOCK;
+    }
+
     @Override
     public int getX() {
         return x;
@@ -215,6 +222,7 @@ public class Sonic1PushBlockObjectInstance extends AbstractObjectInstance
     }
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (routine) {
             case 2 -> updateActive(frameCounter, player);

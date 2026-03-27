@@ -100,7 +100,7 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
     private static final int TYPE0A_DELAY = 300;
 
     // Zone IDs for art selection
-    private final int zoneIndex;
+    private int zoneIndex;
 
     // Dynamic position
     private int x;
@@ -132,11 +132,12 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
     private boolean shuttleReturning;
 
     // Which art key to use for this zone
-    private final String artKey;
+    private String artKey;
+
+    private boolean initialized;
 
     public Sonic1MovingBlockObjectInstance(ObjectSpawn spawn) {
         super(spawn, "MovingBlock");
-        this.zoneIndex = services().romZoneId();
 
         int fullSubtype = spawn.subtype() & 0xFF;
 
@@ -161,10 +162,16 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
         this.shuttleTimer = 0;
         this.shuttleReturning = false;
 
-        // Select art key based on zone
-        this.artKey = selectArtKey(fullSubtype);
-
         updateDynamicSpawn(x, y);
+    }
+
+    private void ensureInitialized() {
+        if (initialized) return;
+        initialized = true;
+
+        this.zoneIndex = services().romZoneId();
+        // Select art key based on zone
+        this.artKey = selectArtKey(spawn.subtype() & 0xFF);
     }
 
     /**
@@ -200,6 +207,7 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
     }
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         playerStanding = isPlayerRiding();
 

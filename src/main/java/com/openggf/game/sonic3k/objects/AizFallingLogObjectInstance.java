@@ -62,8 +62,9 @@ public class AizFallingLogObjectInstance extends AbstractObjectInstance {
     private final int phaseOffset;  // $34(a0): added to frame counter before masking
     private final int spawnX;
     private final int spawnY;
-    private final String logArtKey;
-    private final String splashArtKey;
+    private String logArtKey;
+    private String splashArtKey;
+    private boolean initialized;
 
     public AizFallingLogObjectInstance(ObjectSpawn spawn) {
         super(spawn, "AIZFallingLog");
@@ -80,23 +81,6 @@ public class AizFallingLogObjectInstance extends AbstractObjectInstance {
         // Phase offset: high nibble shifted left by max(periodIndex - 3, 0)
         int shift = Math.max(periodIndex - 3, 0);
         this.phaseOffset = ((subtype >> 4) & 0x0F) << shift;
-
-        // Act-dependent art keys
-        // Act 1: ArtTile_AIZFallingLog, palette 2 for both
-        // Act 2: ArtTile_AIZMisc2, palette 2 for log, palette 3 for splash
-        int act = 0;
-        try {
-            act = services().currentAct();
-        } catch (Exception e) {
-            LOG.fine(() -> "AizFallingLogObjectInstance.<init>: " + e.getMessage());
-        }
-        if (act == 0) {
-            logArtKey = Sonic3kObjectArtKeys.AIZ1_FALLING_LOG;
-            splashArtKey = Sonic3kObjectArtKeys.AIZ1_FALLING_LOG_SPLASH;
-        } else {
-            logArtKey = Sonic3kObjectArtKeys.AIZ2_FALLING_LOG;
-            splashArtKey = Sonic3kObjectArtKeys.AIZ2_FALLING_LOG_SPLASH;
-        }
     }
 
     /**
@@ -122,8 +106,32 @@ public class AizFallingLogObjectInstance extends AbstractObjectInstance {
         return false;
     }
 
+    private void ensureInitialized() {
+        if (initialized) {
+            return;
+        }
+        initialized = true;
+        // Act-dependent art keys
+        // Act 1: ArtTile_AIZFallingLog, palette 2 for both
+        // Act 2: ArtTile_AIZMisc2, palette 2 for log, palette 3 for splash
+        int act = 0;
+        try {
+            act = services().currentAct();
+        } catch (Exception e) {
+            LOG.fine(() -> "AizFallingLogObjectInstance.ensureInitialized: " + e.getMessage());
+        }
+        if (act == 0) {
+            logArtKey = Sonic3kObjectArtKeys.AIZ1_FALLING_LOG;
+            splashArtKey = Sonic3kObjectArtKeys.AIZ1_FALLING_LOG_SPLASH;
+        } else {
+            logArtKey = Sonic3kObjectArtKeys.AIZ2_FALLING_LOG;
+            splashArtKey = Sonic3kObjectArtKeys.AIZ2_FALLING_LOG_SPLASH;
+        }
+    }
+
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) return;
 

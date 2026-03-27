@@ -60,12 +60,20 @@ public class Sonic1LamppostObjectInstance extends AbstractObjectInstance {
     private int mappingFrame;
     private boolean activated;
     private boolean twirlActive;
+    private boolean initialized;
 
     public Sonic1LamppostObjectInstance(ObjectSpawn spawn) {
         super(spawn, "Lamppost");
         // obSubtype bits 0-6 = lamppost number, bit 7 = camera lock flag
         this.checkpointIndex = spawn.subtype() & 0x7F;
         this.cameraLockFlag = (spawn.subtype() & 0x80) != 0;
+    }
+
+    private void ensureInitialized() {
+        if (initialized) {
+            return;
+        }
+        initialized = true;
 
         // Lamp_Main: check if already visited
         var checkpointState = services().checkpointState();
@@ -82,6 +90,7 @@ public class Sonic1LamppostObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (activated || player == null) {
             return; // Lamp_Finish: rts

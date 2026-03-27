@@ -37,7 +37,8 @@ public class TippingFloorObjectInstance extends AbstractObjectInstance
     private static final int ROUTINE_DELAY = 2;
     private static final int ROUTINE_MAIN = 4;
 
-    private final ObjectAnimationState animationState;
+    private ObjectAnimationState animationState;
+    private boolean animInitialized;
     private int routine = ROUTINE_DELAY;
     private int mappingFrame = 0;
 
@@ -61,7 +62,13 @@ public class TippingFloorObjectInstance extends AbstractObjectInstance
         int durationValue = ((spawn.subtype() >> 4) & 0x0F) + 0x10;
         this.durationInitial = durationValue - 1;  // ROM subtracts 1 before storing
         this.durationCurrent = durationValue - 1;
+    }
 
+    private void ensureInitialized() {
+        if (animInitialized) {
+            return;
+        }
+        animInitialized = true;
         ObjectRenderManager renderManager = services().renderManager();
         this.animationState = new ObjectAnimationState(
                 renderManager != null ? renderManager.getAnimations(Sonic2ObjectArtKeys.ANIM_TIPPING_FLOOR) : null,
@@ -71,6 +78,7 @@ public class TippingFloorObjectInstance extends AbstractObjectInstance
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (routine) {
             case ROUTINE_DELAY -> updateDelay(frameCounter);

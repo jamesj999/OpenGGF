@@ -59,7 +59,7 @@ public class Sonic1SpringObjectInstance extends AbstractObjectInstance
     private final int springType;
     private final boolean yellow;
     private final int strength;
-    private final ObjectAnimationState animationState;
+    private ObjectAnimationState animationState;
     private int mappingFrame;
 
     public Sonic1SpringObjectInstance(ObjectSpawn spawn) {
@@ -82,7 +82,12 @@ public class Sonic1SpringObjectInstance extends AbstractObjectInstance
 
         // Initial mapping frame: 0 = idle for both vertical and horizontal sheets
         this.mappingFrame = 0;
+    }
 
+    private void ensureInitialized() {
+        if (animationState != null) {
+            return;
+        }
         ObjectRenderManager renderManager = services().renderManager();
         this.animationState = new ObjectAnimationState(
                 renderManager != null ? renderManager.getSpringAnimations() : null,
@@ -92,6 +97,7 @@ public class Sonic1SpringObjectInstance extends AbstractObjectInstance
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         animationState.update();
         mappingFrame = animationState.getMappingFrame();

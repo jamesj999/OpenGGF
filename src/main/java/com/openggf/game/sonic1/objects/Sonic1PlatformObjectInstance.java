@@ -81,7 +81,7 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
     // v_oscillate+$E -> data offset 0x0C (oscillator 3: freq=2, amp=0x30)
     private static final int OSC_GLOBAL = 0x0C;
 
-    private final int zoneIndex;
+    private int zoneIndex;
 
     // Dynamic position
     private int x;
@@ -121,30 +121,16 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
     // This happens after type 04 timer expires and detaches the player.
     private boolean inFallingRoutine;
 
+    private boolean initialized;
+
     public Sonic1PlatformObjectInstance(ObjectSpawn spawn) {
         super(spawn, "Platform");
-        
-        this.zoneIndex = services().romZoneId();
 
         this.baseX = spawn.x();
         this.baseY = spawn.y();
         this.workingY = spawn.y();
         this.x = spawn.x();
         this.y = spawn.y();
-
-        // SLZ forces subtype 3 (fall-when-stood-on) regardless of placed subtype.
-        // Disasm: move.b #3,obSubtype(a0) — overwrites full byte before frame selection.
-        int effectiveSubtype;
-        if (zoneIndex == Sonic1Constants.ZONE_SLZ) {
-            effectiveSubtype = 3;
-        } else {
-            effectiveSubtype = spawn.subtype() & 0xFF;
-        }
-        this.moveType = effectiveSubtype & 0x0F;
-
-        // Frame selection: full effective subtype == 0x0A uses frame 1 (large column), others use frame 0.
-        // Disasm: cmpi.b #$A,d0 compares full byte after SLZ override.
-        this.mappingFrame = effectiveSubtype == 0x0A ? 1 : 0;
 
         this.timer = 0;
         this.yVelocity = 0;
@@ -159,6 +145,27 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
         updateDynamicSpawn(x, y);
     }
 
+    private void ensureInitialized() {
+        if (initialized) return;
+        initialized = true;
+
+        this.zoneIndex = services().romZoneId();
+
+        // SLZ forces subtype 3 (fall-when-stood-on) regardless of placed subtype.
+        // Disasm: move.b #3,obSubtype(a0) — overwrites full byte before frame selection.
+        int effectiveSubtype;
+        if (zoneIndex == Sonic1Constants.ZONE_SLZ) {
+            effectiveSubtype = 3;
+        } else {
+            effectiveSubtype = spawn.subtype() & 0xFF;
+        }
+        this.moveType = effectiveSubtype & 0x0F;
+
+        // Frame selection: full effective subtype == 0x0A uses frame 1 (large column), others use frame 0.
+        // Disasm: cmpi.b #$A,d0 compares full byte after SLZ override.
+        this.mappingFrame = effectiveSubtype == 0x0A ? 1 : 0;
+    }
+
     @Override
     public int getX() {
         return x;
@@ -170,6 +177,7 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
     }
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Check if player is standing on us via ObjectManager
         playerStanding = isPlayerRiding();

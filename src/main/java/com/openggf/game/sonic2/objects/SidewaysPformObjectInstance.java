@@ -78,7 +78,8 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
     private boolean isChild;
 
     // Zone-specific rendering: MCZ uses level art, CPZ uses dedicated stair block art
-    private final boolean isMcz;
+    private boolean isMcz;
+    private boolean initialized;
 
     /**
      * Creates a new SidewaysPform instance.
@@ -89,8 +90,6 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
     public SidewaysPformObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
         this.isChild = false;
-        this.isMcz = services().currentLevel() != null && services().romZoneId() == Sonic2Constants.ZONE_MYSTIC_CAVE;
-        init();
     }
 
     /**
@@ -140,8 +139,18 @@ public class SidewaysPformObjectInstance extends AbstractObjectInstance
         // Platform state is driven via ObjectManager standing checks.
     }
 
+    private void ensureInitialized() {
+        if (initialized) {
+            return;
+        }
+        initialized = true;
+        this.isMcz = services().currentLevel() != null && services().romZoneId() == Sonic2Constants.ZONE_MYSTIC_CAVE;
+        init();
+    }
+
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         applyMovement();
         updateDynamicSpawn(x, y);

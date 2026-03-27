@@ -67,37 +67,51 @@ public class Sonic1SwingingPlatformObjectInstance extends AbstractObjectInstance
     private int y;
 
     // Zone variant and configuration
-    private final ZoneVariant variant;
+    private ZoneVariant variant;
     private final int chainCount;     // Number of chain segments (bits 0-3 of subtype)
-    private final int halfWidth;      // obActWid
-    private final int halfHeight;     // obHeight
-    private final boolean isSolid;    // Whether this variant is top-solid
-    private final int priority;       // obPriority
+    private int halfWidth;      // obActWid
+    private int halfHeight;     // obHeight
+    private boolean isSolid;    // Whether this variant is top-solid
+    private int priority;       // obPriority
 
     // Chain link positions (one entry per chain link, including platform at end)
     // Index 0..chainCount-1 = chain links from anchor down, last entry = platform itself
-    private final int[] chainDistances;
-    private final int[] linkX;
-    private final int[] linkY;
+    private int[] chainDistances;
+    private int[] linkX;
+    private int[] linkY;
     // Frame index per link: 0=platform, 1=chain, 2=anchor
-    private final int[] linkFrame;
+    private int[] linkFrame;
 
     // Art key for this variant
-    private final String artKey;
+    private String artKey;
 
     // obColType for touch collision (SBZ=$86, Giant Ball=$81, 0=no touch collision)
-    private final int collisionType;
+    private int collisionType;
+
+    private boolean initialized;
 
     public Sonic1SwingingPlatformObjectInstance(ObjectSpawn spawn) {
         super(spawn, "SwingingPlatform");
 
-        int zoneIndex = services().romZoneId();
         int subtype = spawn.subtype() & 0xFF;
         this.chainCount = subtype & 0x0F;
-        boolean isGiantBall = (subtype & 0x10) != 0;
 
         this.baseX = spawn.x();
         this.baseY = spawn.y();
+
+        // Calculate initial positions
+        this.x = baseX;
+        this.y = baseY;
+        updateDynamicSpawn(x, y);
+    }
+
+    private void ensureInitialized() {
+        if (initialized) return;
+        initialized = true;
+
+        int zoneIndex = services().romZoneId();
+        int subtype = spawn.subtype() & 0xFF;
+        boolean isGiantBall = (subtype & 0x10) != 0;
 
         // Determine zone variant
         // Disasm: cmpi.b #id_SBZ,(v_zone).w
@@ -209,11 +223,7 @@ public class Sonic1SwingingPlatformObjectInstance extends AbstractObjectInstance
             }
         }
 
-        // Calculate initial positions
-        this.x = baseX;
-        this.y = baseY;
         updatePositions();
-        updateDynamicSpawn(x, y);
     }
 
     @Override
@@ -227,6 +237,7 @@ public class Sonic1SwingingPlatformObjectInstance extends AbstractObjectInstance
     }
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;

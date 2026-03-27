@@ -64,7 +64,7 @@ public class Sonic1MonitorObjectInstance extends AbstractMonitorObjectInstance
     private static final int ICON_FRAME_OFFSET = 2;
 
     private final MonitorType type;
-    private final ObjectAnimationState animationState;
+    private ObjectAnimationState animationState;
     private boolean broken;
     private int mappingFrame;
 
@@ -80,6 +80,15 @@ public class Sonic1MonitorObjectInstance extends AbstractMonitorObjectInstance
     public Sonic1MonitorObjectInstance(ObjectSpawn spawn) {
         super(spawn, "Monitor");
         this.type = MonitorType.fromSubtype(spawn.subtype());
+
+        this.currentY = spawn.y();
+        this.yFixed = spawn.y() << 8;
+    }
+
+    private void ensureInitialized() {
+        if (animationState != null) {
+            return;
+        }
 
         // Check persistence: if previously broken, spawn as broken shell
         ObjectManager objectManager = services().objectManager();
@@ -98,9 +107,6 @@ public class Sonic1MonitorObjectInstance extends AbstractMonitorObjectInstance
         if (broken) {
             effectApplied = true;
         }
-
-        this.currentY = spawn.y();
-        this.yFixed = spawn.y() << 8;
     }
 
     @Override
@@ -110,6 +116,7 @@ public class Sonic1MonitorObjectInstance extends AbstractMonitorObjectInstance
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (falling) {
             updateFalling();

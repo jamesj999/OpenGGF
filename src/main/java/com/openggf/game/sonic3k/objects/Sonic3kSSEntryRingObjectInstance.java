@@ -98,6 +98,7 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
     private final int bitIndex;
 
     private State state;
+    private boolean initialized;
 
     /**
      * Animation down-counter matching ROM's Animate_Raw.
@@ -120,21 +121,7 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
         super(spawn, "SSEntryRing");
         this.bitIndex = spawn.subtype();
 
-        // ROM pre-check: if already collected, delete immediately
-        var gameState = services().gameState();
-        if (gameState.isSpecialRingCollected(bitIndex)) {
-            setDestroyed(true);
-            this.state = State.MARKED_DELETE;
-            return;
-        }
-
-        // ROM: SSEntryRing_Init sets up animation pointer then falls through to
-        // SSEntryRing_Main. Animation starts with formation (anim 0).
-        // Timer initialised to 0 matching ROM's Animate_Raw: anim_frame_timer is cleared
-        // by SetUp_ObjAttributes, so the first Animate_Raw call immediately underflows
-        // (subq.b #1 → $FF), advancing to read the second frame byte.
-        // FORMATION_FRAMES[0] is the "initial frame" shown before the first update;
-        // the first advance reads FORMATION_FRAMES[1].
+        // Default to MAIN state; ensureInitialized will check collection status
         this.state = State.MAIN;
         this.inIdleAnim = false;
         this.animTimer = 0;
@@ -142,8 +129,22 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
         this.mappingFrame = FORMATION_FRAMES[0];
     }
 
+    private void ensureInitialized() {
+        if (initialized) {
+            return;
+        }
+        initialized = true;
+        // ROM pre-check: if already collected, delete immediately
+        var gameState = services().gameState();
+        if (gameState.isSpecialRingCollected(bitIndex)) {
+            setDestroyed(true);
+            this.state = State.MARKED_DELETE;
+        }
+    }
+
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (state) {
             case MAIN -> updateMain(player);

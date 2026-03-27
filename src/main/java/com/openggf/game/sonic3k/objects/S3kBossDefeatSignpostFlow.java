@@ -41,6 +41,7 @@ public class S3kBossDefeatSignpostFlow extends AbstractObjectInstance {
     private final int signpostX;
     private final int apparentAct;
     private final Runnable zoneCleanupCallback;
+    private boolean initialized;
 
     /**
      * Creates the defeat-to-signpost flow orchestrator.
@@ -58,10 +59,6 @@ public class S3kBossDefeatSignpostFlow extends AbstractObjectInstance {
         this.zoneCleanupCallback = zoneCleanupCallback;
         this.phase = Phase.WAIT_FADE;
         this.timer = FADE_TIMER;
-
-        // Signal that the end-of-level sequence is active
-        services().gameState().setEndOfLevelActive(true);
-        LOG.fine("S3K defeat flow started — WAIT_FADE, timer=" + timer);
     }
 
     @Override
@@ -79,8 +76,19 @@ public class S3kBossDefeatSignpostFlow extends AbstractObjectInstance {
         return true;
     }
 
+    private void ensureInitialized() {
+        if (initialized) {
+            return;
+        }
+        initialized = true;
+        // Signal that the end-of-level sequence is active
+        services().gameState().setEndOfLevelActive(true);
+        LOG.fine("S3K defeat flow started — WAIT_FADE, timer=" + timer);
+    }
+
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;

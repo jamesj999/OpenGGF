@@ -73,11 +73,19 @@ public class BreakableBlockObjectInstance extends BoxObjectInstance
     private final int halfWidth;
     private boolean broken;
     private boolean playerWasRolling;
+    private boolean initialized;
 
     public BreakableBlockObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name, resolveHalfWidth(), HALF_HEIGHT, 0.6f, 0.6f, 0.8f, false);
         this.halfWidth = resolveHalfWidth();
         this.broken = false;
+    }
+
+    private void ensureInitialized() {
+        if (initialized) {
+            return;
+        }
+        initialized = true;
 
         // Check persistence: if already broken, stay broken
         ObjectManager objectManager = services().objectManager();
@@ -89,6 +97,7 @@ public class BreakableBlockObjectInstance extends BoxObjectInstance
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (broken) {
             return;

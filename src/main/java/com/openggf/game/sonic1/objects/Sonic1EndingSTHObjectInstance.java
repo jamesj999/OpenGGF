@@ -59,23 +59,31 @@ public class Sonic1EndingSTHObjectInstance extends AbstractObjectInstance {
     // State
     // ========================================================================
 
-    private final PatternSpriteRenderer renderer;
+    private PatternSpriteRenderer renderer;
     private int routine;
     private int screenX;
     private int timer;
 
     public Sonic1EndingSTHObjectInstance() {
         super(null, "EndSTH");
-        ObjectRenderManager renderManager = services().renderManager();
-        this.renderer = renderManager != null ? renderManager.getRenderer(ObjectArtKeys.END_STH) : null;
 
         // Routine 0: ESth_Main — initialize
         this.screenX = INITIAL_SCREEN_X;
         this.routine = 2; // Advance immediately (ROM falls through)
     }
 
+    private void ensureRenderer() {
+        if (renderer == null) {
+            ObjectRenderManager renderManager = services().renderManager();
+            if (renderManager != null) {
+                renderer = renderManager.getRenderer(ObjectArtKeys.END_STH);
+            }
+        }
+    }
+
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureRenderer();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;

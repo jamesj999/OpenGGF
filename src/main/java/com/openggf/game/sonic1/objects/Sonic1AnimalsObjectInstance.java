@@ -88,8 +88,8 @@ public class Sonic1AnimalsObjectInstance extends AbstractObjectInstance {
         }
     }
 
-    private final PatternSpriteRenderer zoneAnimalRenderer;
-    private final PatternSpriteRenderer endingAnimalRenderer;
+    private PatternSpriteRenderer zoneAnimalRenderer;
+    private PatternSpriteRenderer endingAnimalRenderer;
     private final int subtype;
 
     private int currentX;
@@ -113,14 +113,22 @@ public class Sonic1AnimalsObjectInstance extends AbstractObjectInstance {
     private boolean hFlip = true;
     private boolean endingMode;
 
+    private boolean initialized;
+
     public Sonic1AnimalsObjectInstance(ObjectSpawn spawn) {
         super(spawn, "Animals");
-        ObjectRenderManager renderManager = services().renderManager();
-        this.zoneAnimalRenderer = renderManager != null ? renderManager.getAnimalRenderer() : null;
-        this.endingAnimalRenderer = renderManager != null ? renderManager.getRenderer(ObjectArtKeys.ANIMAL_ENDING) : null;
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         this.subtype = spawn.subtype() & 0xFF;
+    }
+
+    private void ensureInitialized() {
+        if (initialized) return;
+        initialized = true;
+
+        ObjectRenderManager renderManager = services().renderManager();
+        this.zoneAnimalRenderer = renderManager != null ? renderManager.getAnimalRenderer() : null;
+        this.endingAnimalRenderer = renderManager != null ? renderManager.getRenderer(ObjectArtKeys.ANIMAL_ENDING) : null;
 
         if (isEndingSubtype(subtype)) {
             initialiseEndingSubtype(subtype);
@@ -170,6 +178,7 @@ public class Sonic1AnimalsObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (routine) {
             case 0x02 -> updateRoutine912A(frameCounter);

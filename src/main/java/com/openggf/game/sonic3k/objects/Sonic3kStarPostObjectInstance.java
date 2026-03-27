@@ -143,12 +143,25 @@ public class Sonic3kStarPostObjectInstance extends AbstractObjectInstance {
     private int animFrameIndex;
     private boolean activated;
     private boolean starActive;
+    private boolean initialized;
 
     public Sonic3kStarPostObjectInstance(ObjectSpawn spawn) {
         super(spawn, "StarPost");
         this.checkpointIndex = spawn.subtype() & 0x7F;
         this.cameraLockFlag = (spawn.subtype() & 0x80) != 0;
 
+        this.animId = ANIM_IDLE;
+        this.mappingFrame = FRAME_RED_BALL;
+        this.animTimer = 0;
+        this.animFrameIndex = 0;
+        this.starActive = false;
+    }
+
+    private void ensureInitialized() {
+        if (initialized) {
+            return;
+        }
+        initialized = true;
         // Init routine (loc_2CFC0):
         // Check respawn table and compare subtype against Last_star_post_hit
         var checkpointState = services().checkpointState();
@@ -157,18 +170,12 @@ public class Sonic3kStarPostObjectInstance extends AbstractObjectInstance {
             this.activated = true;
             this.animId = ANIM_SPINNING;
             this.mappingFrame = FRAME_RED_BALL;
-        } else {
-            // loc_2D012: not yet activated - falls through to main routine
-            this.animId = ANIM_IDLE;
-            this.mappingFrame = FRAME_RED_BALL;
         }
-        this.animTimer = 0;
-        this.animFrameIndex = 0;
-        this.starActive = false;
     }
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // loc_2D012: main routine - check collision if not activated
         if (!activated && player != null) {
