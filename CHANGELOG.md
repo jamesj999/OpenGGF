@@ -251,6 +251,71 @@ Full S3K insta-shield ability implemented with ROM parity:
 - Reduced per-frame allocations in collision, rendering, and audio hot paths.
 - Batched glyph rendering for debug text.
 
+### BizHawk Trace Replay Testing
+
+A new automated accuracy verification system that records per-frame physics state from the real ROM
+running in BizHawk emulator, then replays the same inputs through the engine and compares every
+field frame-by-frame.
+
+- **Lua trace recorder** (`tools/bizhawk/`): BizHawk Lua script that captures player position,
+  speed, angle, ground mode, air/rolling flags, and controller input every frame during a BK2
+  movie playback. Outputs `metadata.json`, `physics.csv`, and `aux_state.jsonl`.
+- **Trace replay test infrastructure** (`tests.trace` package): `TraceData` loader, `TraceFrame`
+  parser, `TraceBinder` per-frame comparator with configurable tolerances, `DivergenceReport`
+  with JSON output and context windows, lag frame detection for VBlank sync.
+- **`AbstractTraceReplayTest`**: base class for trace replay tests with graceful skip when ROM,
+  BK2, or trace data files are absent. Subclasses only specify game/zone/act/path.
+- **First trace: S1 GHZ1** full-run recording (3,905 frames): passes with 0 errors, 6 warnings.
+- **Buzz Bomber proximity fix**: removed overcorrecting player position prediction from the
+  proximity detection check. The engine's 1-frame late spawn (pre-camera X vs ROM's post-camera X)
+  and the pre-physics player position naturally cancel, placing the Buzz Bomber at the correct
+  stop position without prediction.
+- **Post-camera object placement sync**: `LevelFrameStep` now runs a post-camera placement
+  catch-up pass after the camera update, closing the spawn timing gap when the camera crosses a
+  chunk boundary between object placement (step 2) and camera update (step 5).
+
+#### Physics Accuracy Fixes (discovered via trace replay)
+
+- **16:16 fixed-point subpixel positions**: `AbstractSprite.move()` upgraded from 16:8 to 16:16
+  fixed-point arithmetic, matching the ROM's 32-bit `move.l obX(a0),d2` / `asl.l #8,d0` /
+  `add.l d0,d2` position update. `xSubpixel`/`ySubpixel` widened from `byte` to `short`.
+  `setX()`/`setY()` no longer zero the subpixel fraction (ROM's `move.w` to x_pos doesn't
+  touch x_sub). Collision adjustments use new `shiftX()`/`shiftY()` to preserve subpixel.
+- **GroundMode enum order fix**: `LEFTWALL` and `RIGHTWALL` were swapped; corrected to match
+  ROM's quadrant assignment (0x40 = LEFTWALL, 0xC0 = RIGHTWALL).
+- **CalcRoomInFront probe quadrant**: wall probe now uses `anglePosQuadrant()` (asymmetric
+  rounding matching ROM's AnglePos dispatch) instead of `(angle+0x20)&0xC0`. Fixes false wall
+  detections at steep slope angles (e.g. rotated angle 0xA0).
+- **CalcRoomInFront 32-bit prediction**: probe prediction uses full 16-bit subpixel, matching
+  ROM's 32-bit position arithmetic.
+- **Air collision landing split**: separated `doTerrainCollisionAirDirect()` for movement
+  quadrants 0x40/0xC0 (land immediately when floor detected, no speed threshold) from
+  quadrant 0x00 (speed-dependent threshold). Matches ROM's per-quadrant landing logic.
+- **Double ground mode update**: second `updateGroundMode()` after `selectSensorWithAngle()`
+  uses the new angle from terrain probes, matching ROM's end-of-frame ground mode calculation.
+- **Arithmetic right shift for air drag**: `xSpeed / 32` changed to `xSpeed >> 5` to match
+  68000's `asr.w #5,d1` which rounds toward negative infinity (Java `/` truncates toward zero).
+- **Jump transition defers air physics**: on jump, air physics are deferred to the next frame
+  (ROM's `addq.l #4,sp` pops the return address, skipping the rest of ground movement).
+  `sprite.setOnObject(false)` now called before jump to match `bclr #sta_onObj`.
+- **BCC carry flag parity**: spindash release speed clamp `gSpeed > 0` changed to `gSpeed >= 0`
+  to match 68000's carry flag behavior (carry SET on unsigned overflow, BCC NOT taken for zero).
+- **`groundWallCollisionEnabled` feature flag**: new `PhysicsFeatureSet` field. S1 does not
+  call CalcRoomInFront during ground movement (no equivalent in `Sonic_MdNormal`); S2/S3K do.
+
+#### Object System Fixes (discovered via trace replay)
+
+- **Deterministic object iteration order**: active objects now sorted by spawn X position,
+  matching ROM's slot-order correlation with spawn-window entry order.
+- **Touch response timing**: `runTouchResponsesForPlayer()` extracted and called during the
+  player physics tick (after `handleMovement()`, before solid contacts), matching ROM's
+  ReactToItem timing within Sonic's ExecuteObjects slot.
+- **S1 UNIFIED collision model in SpriteManager**: pre-movement solid pass skipped for S1
+  (ROM processes all solid objects after Sonic's movement); post-movement pass with
+  `postMovement=true` disables velocity classification adjustment.
+- **SolidContacts post-movement parameter**: `updateSolidContacts()` gains `postMovement` and
+  `deferSideToPostMovement` flags to support the S1/S2 collision timing difference.
+
 ### Sonic 1 Fixes
 
 - Drowning visuals: breathing air bubble animation frames and countdown number positioning corrected.

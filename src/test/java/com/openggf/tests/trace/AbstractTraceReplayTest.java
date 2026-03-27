@@ -49,16 +49,25 @@ public abstract class AbstractTraceReplayTest {
 
     @Test
     public void replayMatchesTrace() throws Exception {
-        // 1. Load trace data
-        TraceData trace = TraceData.load(traceDirectory());
+        // 0. Skip if trace directory or required files are missing
+        Path traceDir = traceDirectory();
+        Assume.assumeTrue("Trace directory not found: " + traceDir,
+            Files.isDirectory(traceDir));
+        Assume.assumeTrue("metadata.json not found in " + traceDir,
+            Files.exists(traceDir.resolve("metadata.json")));
+        Assume.assumeTrue("physics.csv not found in " + traceDir,
+            Files.exists(traceDir.resolve("physics.csv")));
+
+        // 1. Find BK2 file in trace directory (check before loading trace data)
+        Path bk2Path = findBk2File(traceDir);
+        Assume.assumeTrue("No .bk2 file found in " + traceDir, bk2Path != null);
+
+        // 2. Load trace data
+        TraceData trace = TraceData.load(traceDir);
         TraceMetadata meta = trace.metadata();
 
-        // 2. Validate test configuration matches metadata
+        // 3. Validate test configuration matches metadata
         validateMetadata(meta);
-
-        // 3. Find BK2 file in trace directory
-        Path bk2Path = findBk2File(traceDirectory());
-        Assume.assumeTrue("No .bk2 file found in " + traceDirectory(), bk2Path != null);
 
         // 4. Load level and create fixture
         SharedLevel sharedLevel = SharedLevel.load(game(), zone(), act());
