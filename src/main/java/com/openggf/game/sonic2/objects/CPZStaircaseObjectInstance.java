@@ -69,11 +69,9 @@ public class CPZStaircaseObjectInstance extends AbstractObjectInstance
     // Y offsets for each piece (piece 0 is the "master", others interpolate from it)
     private final int[] yOffsets = new int[NUM_PIECES];
 
-    // Contact tracking - uses frame numbers because solidObjectManager.update() runs
-    // AFTER objectManager.update(), so contact flags are set after our update() runs.
-    // We check if contact was made in the PREVIOUS frame instead.
-    private int lastTopContactFrame = -2;
-    private int lastBottomContactFrame = -2;
+    // Contact tracking — simple flags set by callbacks, cleared each update().
+    private boolean contactTop;
+    private boolean contactBottom;
 
     public CPZStaircaseObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
@@ -166,37 +164,30 @@ public class CPZStaircaseObjectInstance extends AbstractObjectInstance
     @Override
     public void onPieceContact(int pieceIndex, PlayableEntity playerEntity,
                                SolidContact contact, int frameCounter) {
-        // Track contact from any piece by recording the frame number.
-        // Since solidObjectManager.update() runs AFTER objectManager.update(),
-        // contact is detected after our update() has already run this frame.
-        // Our update() checks if contact was made in the PREVIOUS frame.
         if (contact.standing() || contact.touchTop()) {
-            lastTopContactFrame = frameCounter;
+            contactTop = true;
         }
         if (contact.touchBottom()) {
-            lastBottomContactFrame = frameCounter;
+            contactBottom = true;
         }
     }
 
     @Override
     public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
-        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
-        // Aggregate contact callback - also tracked via onPieceContact
         if (contact.standing() || contact.touchTop()) {
-            lastTopContactFrame = frameCounter;
+            contactTop = true;
         }
         if (contact.touchBottom()) {
-            lastBottomContactFrame = frameCounter;
+            contactBottom = true;
         }
     }
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
-        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
-        // Check contact from the PREVIOUS frame, since solidObjectManager.update()
-        // runs AFTER objectManager.update() in the game loop.
-        boolean touchTop = (frameCounter - lastTopContactFrame) <= 1;
-        boolean touchBottom = (frameCounter - lastBottomContactFrame) <= 1;
+        boolean touchTop = contactTop;
+        boolean touchBottom = contactBottom;
+        contactTop = false;
+        contactBottom = false;
 
         // Run state machine
         switch (state) {

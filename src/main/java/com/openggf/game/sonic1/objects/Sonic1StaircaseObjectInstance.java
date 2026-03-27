@@ -99,9 +99,10 @@ public class Sonic1StaircaseObjectInstance extends AbstractObjectInstance
     // Per-piece assignment offsets (which yOffset index each piece reads)
     private final int[] pieceToOffset = new int[NUM_PIECES];
 
-    // Contact tracking (same frame-delay approach as CPZ staircase)
-    private int lastTopContactFrame = -2;
-    private int lastBottomContactFrame = -2;
+    // Contact tracking — simple flags set by callbacks, cleared each update().
+    // Matches ROM's objoff_36: set by Stair_Solid, read/cleared by Stair_Move.
+    private boolean contactTop;
+    private boolean contactBottom;
 
     public Sonic1StaircaseObjectInstance(ObjectSpawn spawn) {
         super(spawn, "Staircase");
@@ -152,7 +153,9 @@ public class Sonic1StaircaseObjectInstance extends AbstractObjectInstance
 
     @Override
     public int getPieceY(int pieceIndex) {
-        // Each piece reads from a different offset in the parent's Y offset array
+        // ROM: Stair_Move falls through into Stair_Solid (no rts between them),
+        // so ALL pieces (including the parent at piece 0) update their Y from
+        // the offset array. Each piece reads its assigned offset index.
         int offsetIndex = pieceToOffset[pieceIndex];
         return baseY + yOffsets[offsetIndex];
     }
@@ -183,10 +186,10 @@ public class Sonic1StaircaseObjectInstance extends AbstractObjectInstance
     public void onPieceContact(int pieceIndex, PlayableEntity playerEntity,
                                SolidContact contact, int frameCounter) {
         if (contact.standing() || contact.touchTop()) {
-            lastTopContactFrame = frameCounter;
+            contactTop = true;
         }
         if (contact.touchBottom()) {
-            lastBottomContactFrame = frameCounter;
+            contactBottom = true;
         }
     }
 
@@ -194,19 +197,21 @@ public class Sonic1StaircaseObjectInstance extends AbstractObjectInstance
     public void onSolidContact(PlayableEntity playerEntity, SolidContact contact,
                                int frameCounter) {
         if (contact.standing() || contact.touchTop()) {
-            lastTopContactFrame = frameCounter;
+            contactTop = true;
         }
         if (contact.touchBottom()) {
-            lastBottomContactFrame = frameCounter;
+            contactBottom = true;
         }
     }
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
-        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
-        // Decode contact from the previous frame
-        boolean touchTop = (frameCounter - lastTopContactFrame) <= 1;
-        boolean touchBottom = (frameCounter - lastBottomContactFrame) <= 1;
+        // Read and clear contact flags (set by callbacks since last update).
+        // ROM equivalent: Stair_Solid writes objoff_36, Stair_Move reads it.
+        boolean touchTop = contactTop;
+        boolean touchBottom = contactBottom;
+        contactTop = false;
+        contactBottom = false;
 
         // Run state machine (subtype & 0x07 dispatch)
         switch (state & 0x07) {
@@ -409,6 +414,10 @@ public class Sonic1StaircaseObjectInstance extends AbstractObjectInstance
         int distance = (objRounded - camRounded) & 0xFFFF;
         return distance <= (128 + 320 + 192);
     }
+
+    // Package-visible for testing
+    int getState() { return state; }
+    int getTimer() { return timer; }
 
     @Override
     public void appendDebugRenderCommands(DebugRenderContext ctx) {
