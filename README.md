@@ -93,7 +93,7 @@ sound driver.
 |------|--------|
 | Sonic the Hedgehog (S1) | Broadly playable. All 7 zones, 6 bosses, special stages, title screen, ending/credits. |
 | Sonic the Hedgehog 2 (S2) | Most complete. All zones, 9 bosses (including both DEZ bosses), special stages, Tails AI, credits/ending. |
-| Sonic 3 & Knuckles (S3K) | Progressing. Angel Island Zone playable with intro cutscene, miniboss fight (with defeat flow and signpost), results screen, Blue Ball special stages (WIP), palette cycling for all zones, per-character physics, insta-shield, and 10+ gameplay objects. |
+| Sonic 3 & Knuckles (S3K) | Progressing. Angel Island Zone playable with intro cutscene, miniboss fight (with defeat flow and signpost), results screen, Blue Ball special stages (WIP), palette cycling for all zones, per-character physics, insta-shield, title screen, level select, Knuckles playable with glide/climb, and 10+ gameplay objects. |
 
 Work is ongoing across all three games. See CHANGELOG.md for detailed progress.
 
@@ -193,9 +193,14 @@ HCZ transition) is the remaining gate before release.
   systematic deduplication across all three games, including `SubpixelMotion`, `AnimationTimer`,
   `FboHelper`, `AbstractMonitorObjectInstance`, `AbstractSpikeObjectInstance`,
   `AbstractZoneScrollHandler`, and more.
-- **Sonic 3&K** expands with AIZ miniboss completion (defeat flow, napalm attack, staggered
-  explosions), signpost and results screen, Blue Ball special stages (WIP), per-character physics
-  profiles, palette cycling for all zones, 10+ new objects, and insta-shield implementation.
+- **Knuckles** is now a playable character with full glide/climb state machine, ROM-accurate
+  jump height, wall grab, ledge climb, and sliding physics. Works in S3K natively and via
+  cross-game donation into S1/S2 with correct palette and HUD from the lock-on ROM.
+- **Sonic 3&K** expands with title screen (SEGA logo, Sonic morph animation, interactive menu),
+  level select screen (SONICMILES background, zone icons, sound test), AIZ miniboss completion
+  (defeat flow, napalm attack, staggered explosions), signpost and results screen, Blue Ball
+  special stages (WIP) with per-character art/palette, per-character physics profiles, palette
+  cycling for all zones, 10+ new objects, and insta-shield implementation.
 - **Insta-shield** fully implemented with ROM parity: activation, hitbox expansion, persistent
   lifecycle, cross-game donation, and DPLC cache management.
 - **Multi-sidekick system** with configurable sidekick chains, per-character respawn strategies,

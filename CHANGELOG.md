@@ -126,6 +126,89 @@ A systematic 5-phase refactoring pass eliminated structural duplication across a
 
 ### Sonic 3 & Knuckles Expansion
 
+#### Knuckles: Playable Character
+
+Knuckles is now a fully playable character with his complete S3K ability set, working natively
+in S3K and via cross-game donation into S1 and S2.
+
+- **Glide state machine**: glide activation on jump re-press with ROM-accurate turn physics
+  (sine/cosine velocity from `doubleJumpProperty` angle, gravity balance). Direct mapping frame
+  control using `RawAni_Knuckles_GlideTurn` table (frames 0xC0–0xC4).
+- **Floor landing and sliding**: flat surfaces enter sliding state with deceleration (0x20/frame
+  while jump held, matching ROM's `.continueSliding` routine). Slide follows terrain via
+  `ObjectTerrainUtils` floor probing, snapping Y position to surface with correct angle. Ledge
+  detection enters fall state when floor distance >= 14.
+- **Wall grab and climbing**: wall grab with climbing animation cycling (frames 0xB7–0xBC every
+  4 frames). Ledge climb using `Knuckles_ClimbLedge_Frames` table (4 keyframes with x/y deltas).
+  Wall jump away with facing flip and normal jump animation.
+- **Fall-from-glide landing**: ROM-accurate crouch pose with 15-frame `move_lock`.
+- **ROM-accurate jump height**: `PhysicsProfile.SONIC_3K_KNUCKLES` with jump velocity 0x600
+  (vs Sonic's 0x680), water jump 0x300 (vs 0x380), matching `Knux_Jump` in disassembly.
+- **Shield ability gating**: fire/lightning/bubble shield abilities gated to Sonic only per ROM;
+  Knuckles gets passive shield protection with glide as his secondary ability. Bubble shield
+  bounce correctly suppressed on glide landing (gates on `SecondaryAbility.INSTA_SHIELD`, not
+  `doubleJumpFlag` value).
+- **Knuckles palette**: `Pal_Knuckles` (0x0A8AFC) loaded for both native S3K and cross-game
+  donation. Cross-game palette fix ensures correct palette is loaded based on character config.
+- **Life icon art**: `ArtNem_KnucklesLifeIcon` (0x190E4C) with character-specific rendering.
+- **Sound effects**: GRAB and GLIDE_LAND SFX registered in S3K audio profile.
+- **Character detection fix**: `Sonic3kLevelEventManager.getPlayerCharacter()` now resolves from
+  config (was hardcoded to `SONIC_AND_TAILS`), enabling all character-gated object behaviour.
+- **AIZ rock breaking**: knucklesOnly rocks (subtype bit 7) now trigger on airborne side contacts
+  (jumping/gliding into them), not just grounded push.
+
+#### S2 Cross-Game Knuckles Support
+
+- **Lock-on palette**: "Knuckles in Sonic 2" palette loaded from S3K ROM at 0x060BEA. Only
+  indices 2–5 differ from S2's `Pal_SonicTails` (Knuckles' reds vs Sonic's blues); title cards,
+  badniks, and rings are unaffected. HUD text index 4 tweaked (green→orange) for readability.
+- **Lives icon**: `ArtNem_KnucklesLifeIcon` decompressed from S3K donor ROM with pixel index
+  remap from S3K palette layout to S2-compatible layout (`S3K_TO_S2_PALETTE_REMAP`).
+- **HUD rendering**: lives name tiles use palette 0 (no flash cycling) when donor art is active,
+  via `livesNameUsesIconPalette` flag in `HudRenderManager`.
+- **Palette utility**: `Palette.mergeColorsFrom()` added for targeted color range copying.
+
+#### Title Screen
+
+- Full S3 title screen implemented with 6-phase state machine: SEGA logo with palette fade,
+  12-frame Sonic morphing animation, white flash transition, and interactive menu with banner
+  bounce physics, sprite animations, and menu selection.
+- ROM data loading for 7 Kosinski art sets, 4 Nemesis sprite sets, 14 Enigma plane mappings.
+- Hardcoded sprite mapping frames for banner, &Knuckles text, menu text, Sonic finger/wink,
+  and Tails plane sprites (`Sonic3kTitleScreenMappings`).
+- FadeManager transition fix: title screen exit now renders fade-to-black internally to avoid
+  `GameLoop`/`UiRenderPipeline` FadeManager instance mismatch after `RuntimeManager` migration.
+
+#### Level Select Screen
+
+- ROM-accurate S3K level select matching the S3 disassembly menu infrastructure.
+- `Sonic3kLevelSelectConstants`: data tables (level order, mark table, switch table, icon table,
+  zone text, mapping offsets) from `s3.asm` with S&K zones replacing disabled/competition entries.
+- `Sonic3kLevelSelectDataLoader`: loads Nemesis art (font, menu box, icons), Enigma mappings
+  (screen layout, background, icons), uncompressed SONICMILES animation art, and palettes from ROM.
+  Builds screen layout in-memory with S3K zone names via the LEVELSELECT codepage.
+- `Sonic3kLevelSelectManager`: two-layer rendering (Plane B SONICMILES background + Plane A
+  foreground), input navigation with disabled-entry skipping, sound test (0x00–0xFF), selection
+  highlight, and zone icons.
+
+#### Special Stage Character Support
+
+- S3K Blue Ball special stages now dynamically resolve `PlayerCharacter` from config: Sonic &
+  Tails (with AI sidekick), Sonic alone, Tails alone (with spinning tails appendage), and
+  Knuckles (with correct palette patch to colors 8–15 per ROM's `Pal_SStage_Knux`).
+
+#### AIZ Object Lifecycle Fixes
+
+- **Vine dismount**: suppressed stale jump press on release to prevent immediate insta-shield
+  (Sonic) or glide (Knuckles) activation. Added edge detection so holding jump from the vine-
+  reaching jump doesn't cause immediate dismount.
+- **Vine respawn**: removed self-destruct cull checks from both vine objects. The vine's coarse
+  range was narrower than the Placement window, causing permanent respawn prevention via the
+  `destroyedInWindow` latch.
+- **Collapsing platform respawn**: removed `markRemembered()` call — ROM uses
+  `Delete_Current_Sprite` (allows respawn), not `Remember_Sprite`. Platforms now correctly
+  respawn when the player scrolls away and returns.
+
 #### AIZ Miniboss Completion
 - AIZ miniboss defeat flow fully implemented: `S3kBossDefeatSignpostFlow` reusable sequence,
   staggered explosions with `S3kBossExplosionController`, per-explosion `sfx_Explode`.
@@ -355,6 +438,10 @@ field frame-by-frame.
 - Migration guard scanner for detecting `getInstance()` / `GameServices` violations in object code.
 - Annotated guard tests for services() migration completeness.
 - AudioManager.resetState() field-clearing verification.
+- Fixed 7 test failures caused by leaked runtime state: updated S3K Knuckles physics assertion
+  to expect `SONIC_3K_KNUCKLES` profile (jump=0x600), saved/restored `RuntimeManager` in render
+  tests, guarded teardown camera calls with null checks, used `destroyForReinit()` for
+  `TestGraphicsManagerHeadless`.
 
 ### Documentation
 
