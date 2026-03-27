@@ -710,30 +710,41 @@ public class SpriteManager {
 										   boolean up, boolean down, boolean left, boolean right,
 										   boolean jump, boolean test, boolean speedUp, boolean slowDown,
 										   LevelManager levelManager, int frameCounter) {
-		// Pre-movement solid pass keeps riding/platform delta handling stable.
-		boolean wasRidingObject = levelManager.getObjectManager() != null
-				&& levelManager.getObjectManager().isRidingObject(playable);
-		applySolidContacts(levelManager, playable);
-		playable.getMovementManager().handleMovement(up, down, left, right, jump, test, speedUp, slowDown);
-		// Sonic 1 runs object SolidObject checks after Sonic movement in the object loop
-		// (ExecuteObjects iterates player first, then solid objects). Run a second pass for
-		// UNIFIED collision so top-landing resolves in the same frame.
-		if (shouldRunPostMovementSolidPass(playable, wasRidingObject)) {
-			applySolidContacts(levelManager, playable);
+		boolean isUnified = requiresPostMovementSolidPass(playable);
+		// For S1 UNIFIED: skip pre-movement solid pass. ROM processes all solid
+		// objects AFTER Sonic's movement (his slot runs first in ExecuteObjects),
+		// so only the post-movement pass is ROM-accurate. Running both creates
+		// double-correction artifacts.
+		// For S2/S3K: pre-movement solid pass is the only pass. The velocity
+		// classification adjustment compensates for the player's position not yet
+		// reflecting their velocity.
+		if (!isUnified) {
+			applySolidContacts(levelManager, playable, false, false);
 		}
-		// ROM order: Sonic moves first (Obj01), THEN plane switchers run (Obj03).
-		// This ensures plane switchers check the current frame's position/air state.
+		playable.getMovementManager().handleMovement(up, down, left, right, jump, test, speedUp, slowDown);
+		// ROM order: ReactToItem runs during each player's slot within ExecuteObjects,
+		// after their physics but before other objects' solid checks.
+		levelManager.applyTouchResponses(playable);
+		// S1 (UNIFIED): Post-movement solid pass matches ROM timing — solid objects
+		// check Sonic's position after he has moved in the ROM's ExecuteObjects loop.
+		// postMovement=true disables velocity classification adjustment.
+		if (isUnified) {
+			applySolidContacts(levelManager, playable, true, false);
+		}
 		levelManager.applyPlaneSwitchers(playable);
 		playable.getAnimationManager().update(frameCounter);
 		playable.tickStatus();
 		playable.endOfTick();
 	}
 
-	private static void applySolidContacts(LevelManager levelManager, AbstractPlayableSprite playable) {
+	private static void applySolidContacts(LevelManager levelManager, AbstractPlayableSprite playable,
+										   boolean postMovement, boolean deferSideToPostMovement) {
 		if (levelManager.getObjectManager() != null) {
-			levelManager.getObjectManager().updateSolidContacts(playable);
+			levelManager.getObjectManager().updateSolidContacts(playable, postMovement,
+					deferSideToPostMovement);
 		}
 	}
+
 
 	static boolean requiresPostMovementSolidPass(AbstractPlayableSprite playable) {
 		if (playable == null) {
@@ -743,9 +754,6 @@ public class SpriteManager {
 		return featureSet != null && featureSet.collisionModel() == CollisionModel.UNIFIED;
 	}
 
-	static boolean shouldRunPostMovementSolidPass(AbstractPlayableSprite playable, boolean wasRidingObject) {
-		return requiresPostMovementSolidPass(playable) && playable.getAir() && !wasRidingObject;
-	}
 
 	public static SensorConfiguration[][] createMovementMappingArray() {
 		SensorConfiguration[][] output = new SensorConfiguration[GroundMode.values().length][Direction.values().length];
@@ -756,7 +764,8 @@ public class SpriteManager {
 		output[GroundMode.GROUND.ordinal()][Direction.LEFT.ordinal()] = new SensorConfiguration((byte) -16, (byte) 0, false, Direction.LEFT);
 		output[GroundMode.GROUND.ordinal()][Direction.RIGHT.ordinal()] = new SensorConfiguration((byte) 16, (byte) 0, false, Direction.RIGHT);
 
-		// Right Wall
+		// Right Wall (0x40 quadrant): Sonic on right wall, surface to his RIGHT
+		// ROM's WalkVertR: probes right (a3=+$10), add.w d1,obX
 		output[GroundMode.RIGHTWALL.ordinal()][Direction.UP.ordinal()] = new SensorConfiguration((byte) -16, (byte) 0, false, Direction.LEFT);
 		output[GroundMode.RIGHTWALL.ordinal()][Direction.DOWN.ordinal()] = new SensorConfiguration((byte) 16, (byte) 0, false, Direction.RIGHT);
 		output[GroundMode.RIGHTWALL.ordinal()][Direction.LEFT.ordinal()] = new SensorConfiguration((byte) 0, (byte) 16, true, Direction.DOWN);
@@ -768,7 +777,8 @@ public class SpriteManager {
 		output[GroundMode.CEILING.ordinal()][Direction.LEFT.ordinal()] = new SensorConfiguration((byte) 16, (byte) 0, false, Direction.RIGHT);
 		output[GroundMode.CEILING.ordinal()][Direction.RIGHT.ordinal()] = new SensorConfiguration((byte) -16, (byte) 0, false, Direction.LEFT);
 
-		// Left Wall
+		// Left Wall (0xC0 quadrant): Sonic on left wall, surface to his LEFT
+		// ROM's WalkVertL: probes left (a3=-$10), sub.w d1,obX
 		output[GroundMode.LEFTWALL.ordinal()][Direction.UP.ordinal()] = new SensorConfiguration((byte) 16, (byte) 0, false, Direction.RIGHT);
 		output[GroundMode.LEFTWALL.ordinal()][Direction.DOWN.ordinal()] = new SensorConfiguration((byte) -16, (byte) 0, false, Direction.LEFT);
 		output[GroundMode.LEFTWALL.ordinal()][Direction.LEFT.ordinal()] = new SensorConfiguration((byte) 0, (byte) -16, true, Direction.UP);

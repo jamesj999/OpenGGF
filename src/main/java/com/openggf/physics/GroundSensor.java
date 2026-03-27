@@ -67,9 +67,15 @@ public class GroundSensor extends Sensor {
         short originalX = (short) (sprite.getCentreX() + getRotatedX() + dx);
         short originalY = (short) (sprite.getCentreY() + getRotatedY() + dy);
 
-        // Solidity bit: floor sensors (DOWN) use top_solid_bit, others use lrb_solid_bit
-        // ROM: AnglePos uses top_solid_bit; CalcRoomInFront/OverHead use lrb_solid_bit
-        int solidityBit = (direction == Direction.DOWN)
+        // Solidity bit selection must match the ROM's per-routine d5 register:
+        //   - Ground attachment (direction=DOWN, vertical scan): topSolidBit
+        //     (AnglePos WalkSpeed/WalkCeiling use d5=$C)
+        //   - Wall attachment (direction=DOWN, horizontal scan): lrbSolidBit
+        //     (AnglePos WalkVertL/WalkVertR use d5=$D)
+        //   - Ceiling sensors (direction=UP): lrbSolidBit (ceiling HIT, not attachment)
+        //   - Push sensors (direction=LEFT/RIGHT): lrbSolidBit (CalcRoomInFront)
+        // Combined: topSolidBit only when ground sensor (DOWN) doing a vertical scan.
+        int solidityBit = (direction == Direction.DOWN && config.vertical())
                 ? sprite.getTopSolidBit()
                 : sprite.getLrbSolidBit();
 
@@ -132,12 +138,23 @@ public class GroundSensor extends Sensor {
                                           int solidityBit, Direction direction, boolean isExtension) {
         ChunkDesc desc = getLevelManager().getChunkDescAt((byte) 0, checkX, checkY, sprite.isLoopLowPlane());
         SolidTile tile = getSolidTile(desc, solidityBit);
+
         if (tile == null) {
             return null;
         }
 
         byte metric = getHeightMetric(tile, desc, checkX, direction);
+
         if (metric == 0) {
+            if (isExtension) {
+                // ROM FindFloor2: when the tile IS solid but metric=0, the angle register
+                // d3 was already loaded from this tile (move.b (a4,d0.w),d3 runs before
+                // the metric check). The ROM branches to loc_1E88A (default distance)
+                // which returns d1=15-yInTile and d3=this tile's angle.
+                // Engine must return a result (not null) to preserve the extension tile's angle.
+                byte distance = calculateVerticalDistance((byte) 0, origY, checkY, direction);
+                return createResultWithDistance(tile, desc, distance, direction);
+            }
             return null;
         }
 
@@ -152,9 +169,13 @@ public class GroundSensor extends Sensor {
             int adjusted = metric + yInTile;
 
             if (adjusted >= 0) {
-                // Both passes: no collision in this tile, extend
-                // ROM FindFloor: bpl → loc_1E7E2 (extend)
-                // ROM FindFloor2: bpl → loc_1E88A (default distance)
+                if (isExtension) {
+                    // ROM FindFloor2: adjusted >= 0 → loc_1E88A (default distance).
+                    // d3 already holds this tile's angle from earlier load.
+                    byte distance = calculateVerticalDistance((byte) 0, origY, checkY, direction);
+                    return createResultWithDistance(tile, desc, distance, direction);
+                }
+                // ROM FindFloor (first pass): bpl → loc_1E7E2 (extend to next tile)
                 return null;
             }
 
@@ -277,7 +298,10 @@ public class GroundSensor extends Sensor {
         int metric = getWallMetric(tile, desc, y, direction);
 
         if (metric == 0) {
-            return wallResult1.set(WallScanState.EXTEND, 0, null, null);
+            // ROM: tile IS solid, angle register d3 loaded before metric check.
+            // Pass tile/desc so EXTEND handler can fall back to this tile's angle
+            // if the next tile has no collision (matching ROM d3 preservation).
+            return wallResult1.set(WallScanState.EXTEND, 0, tile, desc);
         }
 
         int xInTile = x & 0x0F;
@@ -299,8 +323,12 @@ public class GroundSensor extends Sensor {
         }
 
         // Standard case: calculate distance to wall surface
-        // ROM formula (s2.asm:43246-43250): distance = 15 - metric - xInTile
-        // For LEFT scans, xInTile is XORed, so: 15 - metric - (15 - origX) = origX - metric
+        // ROM FindWall: d1 = 15 - metric - xInTile (same formula for both directions)
+        // But the engine's getWallMetric already accounts for the ROM's d6-based h-flip toggle,
+        // and the engine doesn't XOR the x position like the ROM does for LEFTWALL.
+        // The combined effect of these two compensations means:
+        //   LEFT:  metric is negated by getWallMetric, x is raw → xInTile - metric
+        //   RIGHT: metric is raw, x is raw → 15 - metric - xInTile
         int distance = (direction == Direction.LEFT)
                 ? (xInTile - metric)
                 : (15 - metric - xInTile);
@@ -321,20 +349,25 @@ public class GroundSensor extends Sensor {
         int metric = getWallMetric(tile, desc, y, direction);
 
         if (metric == 0) {
+            // ROM: tile IS solid, d3 was loaded with this tile's angle before the metric
+            // check. Default distance path preserves the angle. Pass tile/desc so the
+            // caller can use this tile's angle as fallback (matching ROM d3 preservation).
             int dist = 15 - xAdjusted;
-            return wallResult2.set(WallScanState.FOUND, dist, null, null);
+            return wallResult2.set(WallScanState.FOUND, dist, tile, desc);
         }
 
         if (metric < 0) {
             if (metric + xAdjusted >= 0) {
+                // ROM: d3 already loaded before negative metric branch.
+                // Default distance path preserves angle — pass tile/desc.
                 int dist = 15 - xAdjusted;
-                return wallResult2.set(WallScanState.FOUND, dist, null, null);
+                return wallResult2.set(WallScanState.FOUND, dist, tile, desc);
             }
             int dist = -1 - xAdjusted;
             return wallResult2.set(WallScanState.FOUND, dist, tile, desc);
         }
 
-        // ROM formula: distance = 15 - metric - xInTile (or xInTile - metric for LEFT)
+        // ROM formula: same as evaluateWallTile (see comments there)
         int distance = (direction == Direction.LEFT)
                 ? (xInTile - metric)
                 : (15 - metric - xInTile);

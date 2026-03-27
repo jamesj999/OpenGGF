@@ -45,6 +45,8 @@ public abstract class Sensor {
         GroundMode mode = sprite.getGroundMode();
         switch (mode) {
             case RIGHTWALL -> {
+                // 0xC0 quadrant: ROM's WalkVertR — sensor at centreX + obHeight,
+                // scan right (a3=+$10). Surface is to Sonic's right.
                 short temp = xOffset;
                 xOffset = yOffset;
                 yOffset = temp;
@@ -53,6 +55,8 @@ public abstract class Sensor {
                 yOffset = (short) -yOffset;
             }
             case LEFTWALL -> {
+                // 0x40 quadrant: ROM's WalkVertL — sensor at centreX - obHeight,
+                // scan left (a3=-$10). Surface is to Sonic's left.
                 short temp = xOffset;
                 xOffset = (short) -yOffset;
                 yOffset = temp;

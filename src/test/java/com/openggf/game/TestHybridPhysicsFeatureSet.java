@@ -46,7 +46,8 @@ public class TestHybridPhysicsFeatureSet {
                 false,  // extendedEdgeBalance - S1
                 PhysicsFeatureSet.RING_FLOOR_CHECK_MASK_S1,  // ringFloorCheckMask - S1
                 null,  // superSpindashSpeedTable - not donated
-                (short) 0  // movingCrouchThreshold - not donated
+                (short) 0,  // movingCrouchThreshold - not donated
+                false  // groundWallCollisionEnabled - S1
         );
 
         // Verify spindash is enabled (donor contribution)

@@ -904,6 +904,17 @@ public class LevelManager {
     }
 
     /**
+     * Run touch responses for a single player. Called from tickPlayablePhysics
+     * after handleMovement but before post-movement solid contacts, matching
+     * the ROM's ReactToItem timing within ExecuteObjects.
+     */
+    public void applyTouchResponses(PlayableEntity player) {
+        if (objectManager != null) {
+            objectManager.runTouchResponsesForPlayer(player, frameCounter + 1);
+        }
+    }
+
+    /**
      * Advances object streaming/execution without any touch responses.
      * Used by non-interactive ending demo preroll phases so objects can become
      * visible and animate without hurting/collecting from the frozen player.
@@ -916,6 +927,26 @@ public class LevelManager {
             AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
             List<AbstractPlayableSprite> sidekicks = spriteManager.getSidekicks();
             objectManager.update(camera.getX(), playable, sidekicks, frameCounter + 1, false);
+        }
+    }
+
+    /**
+     * Post-camera object placement catch-up: runs the placement window update
+     * using the current (post-camera-update) camera position.
+     * <p>
+     * ROM parity: {@code ObjPosLoad} runs <b>after</b> {@code DeformLayers}
+     * (camera update), using the post-camera position. The main placement pass
+     * inside {@code ObjectManager.update()} uses the pre-camera position;
+     * this call closes the gap when the camera advance crosses a chunk boundary.
+     * <p>
+     * The Placement class short-circuits when the camera chunk hasn't changed,
+     * so this is a no-op on most frames. When the camera has crossed a chunk
+     * boundary, the placement's active set is updated to include newly-windowed
+     * spawns. On the next frame, {@code syncActiveSpawns()} creates instances.
+     */
+    public void postCameraObjectPlacementSync() {
+        if (objectManager != null) {
+            objectManager.postCameraPlacementUpdate(camera.getX());
         }
     }
 

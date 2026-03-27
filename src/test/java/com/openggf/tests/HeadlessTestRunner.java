@@ -179,6 +179,35 @@ public class HeadlessTestRunner {
     }
 
     /**
+     * Advances the BK2 movie by one frame without processing physics.
+     * Used for lag frames where the ROM didn't execute the main game loop,
+     * so the engine should not process physics either.
+     *
+     * @return The raw input mask for that frame (for trace input validation)
+     * @throws IllegalStateException if no BK2 movie is loaded or the movie is exhausted
+     */
+    public int skipFrameFromRecording() {
+        if (bk2Movie == null) {
+            throw new IllegalStateException("No BK2 movie loaded. Call setBk2Movie() first.");
+        }
+        if (currentBk2Index >= bk2Movie.getFrameCount()) {
+            throw new IllegalStateException(
+                    "BK2 movie exhausted at index " + currentBk2Index
+                    + " (movie has " + bk2Movie.getFrameCount() + " frames)");
+        }
+
+        Bk2FrameInput frameInput = bk2Movie.getFrame(currentBk2Index);
+        int mask = frameInput.p1InputMask();
+        if (frameInput.p1ActionMask() != 0) {
+            mask |= AbstractPlayableSprite.INPUT_JUMP;
+        }
+
+        // Advance BK2 index without calling stepFrame() — no physics processed.
+        currentBk2Index++;
+        return mask;
+    }
+
+    /**
      * Returns the number of BK2 recording frames remaining.
      *
      * @return Remaining frames, or 0 if no movie is loaded

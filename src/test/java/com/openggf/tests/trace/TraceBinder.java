@@ -55,11 +55,14 @@ public class TraceBinder {
         fields.put("air", compareFlag("air", expected.air(), actualAir));
         fields.put("rolling", compareFlag("rolling", expected.rolling(), actualRolling));
 
-        // Derive ground_mode from angle using ROM thresholds, since the Lua script's
-        // CSV value may have been computed with incorrect quadrant boundaries.
+        // Derive ground_mode from angle for BOTH sides. The ROM has no stored ground_mode
+        // variable; the Lua script and engine both compute it from angle. During airborne
+        // frames the engine doesn't call updateGroundMode(), so the stored value is stale.
+        // Deriving from angle makes the comparison symmetric and correct.
         int expectedGroundMode = deriveGroundMode(expected.angle() & 0xFF);
+        int derivedActualGroundMode = deriveGroundMode(actualAngle & 0xFF);
         fields.put("ground_mode", compareEnum("ground_mode",
-            expectedGroundMode, actualGroundMode));
+            expectedGroundMode, derivedActualGroundMode));
 
         FrameComparison result = new FrameComparison(expected.frame(), fields);
         allComparisons.add(result);

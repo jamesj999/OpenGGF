@@ -136,12 +136,17 @@ public class Sonic1SpringObjectInstance extends AbstractObjectInstance
      * - bset #1,obStatus(a1) — set airborne
      * - bclr #3,obStatus(a1) — clear standing on object
      * - move.b #id_Spring,obAnim(a1) — set Sonic animation to Spring (0x10)
+     * Note: ROM does NOT touch obInertia (g_speed) — it preserves the value
+     * set by Solid_ResetFloor (g_speed = x_speed at landing time).
      */
     private void applyUpSpring(AbstractPlayableSprite player) {
-        // Y positioning handled by ObjectManager collision resolution
+        // ROM: addq.w #8,obY(a1) — push Sonic down 8px from landing position.
+        // After Sonic_ResetOnFloor raised him by 5px (yRadius change from ball→standing),
+        // the net effect is +3px from the collision-resolved landing position.
+        player.setY((short) (player.getY() + 8));
         player.setYSpeed((short) strength);
         player.setAir(true);
-        player.setGSpeed((short) 0);
+        // ROM does NOT zero g_speed — it stays at x_speed from Solid_ResetFloor
         player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
 
         // Up spring sets Sonic's animation to Spring (id_Spring = 0x10)
@@ -157,6 +162,7 @@ public class Sonic1SpringObjectInstance extends AbstractObjectInstance
      * - bset #1,obStatus(a1) — set airborne
      * - bclr #3,obStatus(a1) — clear standing on object
      * - Does NOT set Sonic's animation (unlike up spring)
+     * - Does NOT touch obInertia (g_speed)
      */
     private void applyDownSpring(AbstractPlayableSprite player) {
         // ROM: subq.w #8,obY(a1) — push player up (away from spring face)
@@ -165,7 +171,7 @@ public class Sonic1SpringObjectInstance extends AbstractObjectInstance
         // ROM negates strength for down springs: positive = downward
         player.setYSpeed((short) -strength);
         player.setAir(true);
-        player.setGSpeed((short) 0);
+        // ROM does NOT zero g_speed
         player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
 
         // Down spring does NOT change Sonic's animation

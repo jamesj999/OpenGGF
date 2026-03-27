@@ -338,13 +338,11 @@ public class Sonic1MonitorObjectInstance extends AbstractMonitorObjectInstance
 
     @Override
     public boolean isSolidFor(PlayableEntity playerEntity) {
-        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
-        // ROM: Mon_SolidSides always runs when the monitor is intact.
-        // The rolling/velY check happens INSIDE Mon_Solid (after geometry
-        // detection), not as an external solid gate. This is implemented
-        // in resolveMonitorContact which checks rolling+velY after the
-        // touch response has had a chance to modify velY.
-        return !broken;
+        // ROM: Mon_Solid only calls Mon_SolidSides when ob2ndRout=0 (normal state).
+        // When ob2ndRout=4 (falling after hit from below), Mon_Solid runs ObjectFall
+        // + ObjFloorDist but does NOT call Mon_SolidSides — no solid collision.
+        // When broken, the monitor is in routine 6/8 which never calls solid checks.
+        return !broken && !falling;
     }
 
     @Override

@@ -50,29 +50,6 @@ public class TestSpriteManagerCollisionOrder {
     @Test
     public void testNullSpriteDoesNotUsePostMovementSolidPass() {
         assertFalse(SpriteManager.requiresPostMovementSolidPass(null));
-        assertFalse(SpriteManager.shouldRunPostMovementSolidPass(null, false));
-    }
-
-    @Test
-    public void testSonic1PostMovementPassRunsOnlyWhenAirborne() {
-        GameModuleRegistry.setCurrent(new Sonic1GameModule());
-        TestPlayableSprite sprite = new TestPlayableSprite();
-
-        sprite.setAir(false);
-        assertFalse(SpriteManager.shouldRunPostMovementSolidPass(sprite, false));
-
-        sprite.setAir(true);
-        assertTrue(SpriteManager.shouldRunPostMovementSolidPass(sprite, false));
-        assertFalse(SpriteManager.shouldRunPostMovementSolidPass(sprite, true));
-    }
-
-    @Test
-    public void testSonic2PostMovementPassNeverRuns() {
-        GameModuleRegistry.setCurrent(new Sonic2GameModule());
-        TestPlayableSprite sprite = new TestPlayableSprite();
-        sprite.setAir(true);
-
-        assertFalse(SpriteManager.shouldRunPostMovementSolidPass(sprite, false));
     }
 
     private static final class TestPlayableSprite extends AbstractPlayableSprite {

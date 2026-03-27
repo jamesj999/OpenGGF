@@ -159,11 +159,21 @@ public class ObjectManager {
         update(cameraX, player, sidekicks, touchFrameCounter, true);
     }
 
+    /**
+     * Run touch responses for a single player outside the main update loop.
+     * ROM order: ReactToItem runs during each player's slot within ExecuteObjects,
+     * after their physics but before other objects' solid checks.
+     */
+    public void runTouchResponsesForPlayer(PlayableEntity player, int touchFrameCounter) {
+        if (touchResponses == null) return;
+        touchResponses.debugState.setEnabled(
+                DebugOverlayManager.getInstance().isEnabled(DebugOverlayToggle.TOUCH_RESPONSE));
+        touchResponses.update(player, touchFrameCounter);
+    }
+
     public void update(int cameraX, PlayableEntity player, List<? extends PlayableEntity> sidekicks,
             int touchFrameCounter, boolean enableTouchResponses) {
         frameCounter++;
-        // ROM parity: object execution uses the previously streamed set, and object placement
-        // is updated after object execution/render preparation for the next frame.
         updateCameraBounds();
         syncActiveSpawns();
 
@@ -232,6 +242,31 @@ public class ObjectManager {
 
         // Stream object placement for the NEXT frame.
         placement.update(cameraX);
+    }
+
+    /**
+     * Extend the placement active set using the post-camera X position.
+     * <p>
+     * ROM parity: {@code ObjPosLoad} runs <b>after</b> {@code DeformLayers}
+     * (camera update), so it sees the camera's post-update position. The primary
+     * {@code placement.update()} inside {@link #update} uses the pre-camera
+     * position. When the camera advance crosses a 128px chunk boundary between
+     * those two positions, the post-camera spawn window is wider on the right
+     * side. Objects in that gap are delayed by one extra frame, breaking the
+     * engine's normal compensation (pipeline delay vs post-move touch check)
+     * and creating a 4px collision offset.
+     * <p>
+     * This method scans the gap region (between the old and new window right
+     * edges) and adds any eligible spawns to the active set, WITHOUT updating
+     * the placement's internal state (cursor, lastCameraChunk). This ensures
+     * that the primary placement pass in the next frame still processes the
+     * chunk boundary normally (including left-edge removal), while the gap
+     * spawns are already in the active set for {@code syncActiveSpawns()}.
+     *
+     * @param postCameraX camera X position after the camera update step
+     */
+    public void postCameraPlacementUpdate(int postCameraX) {
+        placement.extendForPostCamera(postCameraX);
     }
 
     public void applyPlaneSwitchers(PlayableEntity player) {
@@ -441,6 +476,21 @@ public class ObjectManager {
             cachedActiveObjects.clear();
             cachedActiveObjects.addAll(activeObjects.values());
             cachedActiveObjects.addAll(dynamicObjects);
+            // Sort by spawn X position to ensure deterministic iteration order.
+            // ROM processes objects in slot order, which correlates with spawn-window
+            // entry order (left-to-right as camera scrolls). Using spawn X as the
+            // sort key matches this behavior. Dynamic objects (null spawn) sort last.
+            cachedActiveObjects.sort((a, b) -> {
+                ObjectSpawn sa = a.getSpawn();
+                ObjectSpawn sb = b.getSpawn();
+                int xa = sa != null ? sa.x() : Integer.MAX_VALUE;
+                int xb = sb != null ? sb.x() : Integer.MAX_VALUE;
+                if (xa != xb) return Integer.compare(xa, xb);
+                // Tie-break by spawn Y for objects at the same X
+                int ya = sa != null ? sa.y() : Integer.MAX_VALUE;
+                int yb = sb != null ? sb.y() : Integer.MAX_VALUE;
+                return Integer.compare(ya, yb);
+            });
             activeObjectsCacheDirty = false;
         }
         return cachedActiveObjects;
@@ -562,7 +612,27 @@ public class ObjectManager {
      * This is called by the CollisionSystem as part of the unified collision pipeline.
      */
     public void updateSolidContacts(PlayableEntity player) {
-        solidContacts.update(player);
+        solidContacts.deferSideToPostMovement = false;
+        solidContacts.update(player, false);
+    }
+
+    /**
+     * Update solid contacts with an explicit post-movement flag. When {@code postMovement}
+     * is true, the velocity classification adjustment is skipped because the player's
+     * position already reflects their velocity (movement has already happened).
+     * <p>Used by the S1 UNIFIED model where solid objects run AFTER Sonic's movement,
+     * unlike S2/S3K where solid contacts run before movement.
+     *
+     * @param deferSideToPostMovement when true, side collision effects (speed zeroing,
+     *     position correction) are skipped in this pass because a post-movement pass will
+     *     handle them. This is used for the pre-movement pass in S1 UNIFIED, where the ROM
+     *     processes solid objects AFTER Sonic's movement — side collisions at the pre-movement
+     *     position are spurious.
+     */
+    public void updateSolidContacts(PlayableEntity player, boolean postMovement,
+                                     boolean deferSideToPostMovement) {
+        solidContacts.deferSideToPostMovement = deferSideToPostMovement;
+        solidContacts.update(player, postMovement);
     }
 
     /**
@@ -872,6 +942,46 @@ public class ObjectManager {
         private int toCoarseChunk(int cameraX) {
             return cameraX & CHUNK_MASK;
         }
+
+        /**
+         * Extend the active set for spawns visible with the post-camera position.
+         * <p>
+         * When the post-camera X is in a higher chunk than the last processed chunk,
+         * scans spawns in the gap between the old and new window right edges and
+         * adds eligible ones to the active set. Does NOT update lastCameraChunk
+         * or the cursor, preserving the primary placement pass's ability to
+         * process the chunk boundary normally on the next frame.
+         */
+        void extendForPostCamera(int postCameraX) {
+            return; // TEMP: disabled to test sort-only baseline
+            /*
+            int postChunk = toCoarseChunk(postCameraX);
+            if (postChunk <= lastCameraChunk) {
+                return; // Camera didn't advance to a new chunk
+            }
+            int oldWindowEnd = getWindowEnd(lastCameraX);
+            int newWindowEnd = postChunk + LOAD_AHEAD;
+            // Scan spawns from current cursor (everything before cursor is already processed)
+            // through the new window end.
+            for (int i = cursorIndex; i < spawns.size(); i++) {
+                int sx = spawns.get(i).x();
+                if (sx > newWindowEnd) {
+                    break;
+                }
+                if (sx > oldWindowEnd) {
+                    trySpawn(i);
+                }
+            }
+            */
+        }
+
+        /**
+         * Returns true if the given spawn index has the destroyedInWindow latch set.
+         */
+        boolean isDestroyedInWindow(int index) {
+            return index >= 0 && destroyedInWindow.get(index);
+        }
+
 
         private void clearDestroyedLatchOutsideWindow(int windowStart, int windowEnd) {
             // Clear destroyed-in-window latch once the spawn fully leaves the current stream window.
@@ -1231,7 +1341,9 @@ public class ObjectManager {
                 // ROM: Touch_CheckCollision uses x_pos(a1)/y_pos(a1) — the object's current
                 // position, not its spawn position. Use getX()/getY() which moving objects
                 // (badniks, projectiles, boss children) override to return current coords.
-                boolean overlap = isOverlapping(playerX, playerY, playerHeight, instance.getX(), instance.getY(), width, height, playerWidth);
+                int objX = instance.getX();
+                int objY = instance.getY();
+                boolean overlap = isOverlapping(playerX, playerY, playerHeight, objX, objY, width, height, playerWidth);
                 if (!isSidekick && debugState.isEnabled()) {
                     debugState.addHit(
                             new TouchResponseDebugHit(instance.getSpawn(), flags, sizeIndex, width, height, category, overlap));
@@ -1619,6 +1731,18 @@ public class ObjectManager {
         private short preContactYSpeed;
         private boolean preContactRolling;
 
+        // When true, the velocity classification adjustment in resolveContactInternal is
+        // skipped. Set when this pass runs AFTER movement (S1 UNIFIED post-movement pass),
+        // since the player's position already reflects their velocity.
+        private boolean postMovement;
+
+        // When true, this is a pre-movement pass for a game that will have a post-movement
+        // pass (S1 UNIFIED). Side collision effects (speed zeroing, position correction)
+        // should be deferred to the post-movement pass, because in the ROM, objects check
+        // Sonic's position AFTER he has moved (his slot runs first in ExecuteObjects).
+        // Standing/riding contacts still apply in pre-movement for platform delta tracking.
+        private boolean deferSideToPostMovement;
+
         SolidContacts(ObjectManager objectManager) {
             this.objectManager = objectManager;
         }
@@ -1901,7 +2025,8 @@ public class ObjectManager {
         // within the same frame. The sticky buffer and subpixel workarounds partially
         // compensate for this, but a full fix would require per-object inline resolution
         // integrated into the object update loop.
-        void update(PlayableEntity player) {
+        void update(PlayableEntity player, boolean postMovement) {
+            this.postMovement = postMovement;
             frameCounter++;
             if (player == null || objectManager == null || player.getDead()) {
                 if (player != null) ridingStates.remove(player);
@@ -1936,6 +2061,15 @@ public class ObjectManager {
             int ridingPieceIndex = state != null ? state.pieceIndex : -1;
             ObjectInstance dropOnFloorExclude = null;
 
+            // ROM: Sonic_Jump does "bclr #sta_onObj,obStatus(a0)" before any
+            // platform's SolidObject routine runs.  If the player is airborne,
+            // they must not be repositioned by a stale riding record.
+            if (ridingObject != null && player.getAir()) {
+                ridingStates.remove(player);
+                ridingObject = null;
+                ridingPieceIndex = -1;
+                player.setOnObject(false);
+            }
             if (ridingObject != null && ridingObject instanceof SolidObjectProvider provider) {
                 int currentX;
                 int currentY;
@@ -2341,11 +2475,17 @@ public class ObjectManager {
             boolean leftSide = playerCenterX <= anchorX;
             boolean movingInto = leftSide ? player.getXSpeed() > 0 : player.getXSpeed() < 0;
             boolean pushing = !player.getAir() && movingInto;
-            if (apply && movingInto) {
+            boolean skipMonitorSide = deferSideToPostMovement && player.getAir();
+            if (apply && movingInto && !skipMonitorSide) {
                 player.setXSpeed((short) 0);
                 player.setGSpeed((short) 0);
                 int pushDist = leftSide ? -absDistX : absDistX;
-                player.setCentreX((short) (playerCenterX + pushDist));
+                if (postMovement) {
+                    // ROM: sub.w d0,obX(a1) — pixel-only, subpixel preserved
+                    player.move((short) (pushDist * 256), (short) 0);
+                } else {
+                    player.setCentreX((short) (playerCenterX + pushDist));
+                }
             }
             return pushing ? SolidContact.SIDE_PUSH : SolidContact.SIDE_NO_PUSH;
         }
@@ -2458,8 +2598,12 @@ public class ObjectManager {
             // INCREASES absDistX (shifting Side→TopBottom), never when it
             // decreases it (TopBottom→Side), since we don't compensate
             // ySpeed/gravity which would offset the decrease in the ROM.
+            //
+            // Skip when postMovement=true (S1 UNIFIED post-movement pass):
+            // the player's position already reflects their velocity, so
+            // the adjustment would double-count and misclassify side contacts.
             int classifyAbsDistX = absDistX;
-            int velocityAdjustX = player.getXSpeed() >> 8;
+            int velocityAdjustX = postMovement ? 0 : (player.getXSpeed() >> 8);
             if (velocityAdjustX != 0) {
                 int adjustedRelX = relX + velocityAdjustX;
                 if (adjustedRelX >= 0 && adjustedRelX < halfWidth * 2) {
@@ -2552,45 +2696,53 @@ public class ObjectManager {
                     // This avoids false push-state while stepping across adjacent solid tops.
                     return SolidContact.SIDE_NO_PUSH;
                 }
-                // ROM: sub SolidObject.asm lines 173-190
+                // ROM: sub SolidObject.asm lines 173-196
                 // When d0==0 (distX==0), ROM branches to Solid_Centre which does
-                // "sub.w d0,obX(a1)" (no-op) — NO speed zeroing, NO position correction.
+                // "sub.w d0,obX(a1)" (no-op) — NO speed zeroing, NO position change.
                 // When d0!=0 AND movingInto, ROM hits Solid_Left which zeros obInertia
-                // and obVelX, then falls through to Solid_Centre which corrects position.
+                // and obVelX, then falls through to Solid_Centre (position correction).
                 // When d0!=0 AND NOT movingInto, ROM goes to Solid_Centre directly
                 // (position correction only, no speed zeroing).
-                if (apply) {
-                    boolean preserveEdgeMotion = preservesEdgeSubpixelMotion(instance);
-                    if (!preserveEdgeMotion && distX == 0) {
-                        // Engine addition: clear subpixels at exact edge contact on static
-                        // solids to prevent fractional accumulation causing 1px jitter.
-                        // Push-driven objects skip this to preserve ROM push cadence.
-                        player.setCentreX((short) playerCenterX);
-                        // ROM runs solid checks AFTER movement, so any penetration is
-                        // caught within the same frame. Our engine runs them BEFORE
-                        // movement, so gSpeed/xSpeed must also be zeroed when at the
-                        // exact edge and pressing into the object; otherwise gSpeed
-                        // accumulates across frames until xSpeed > 256 subpixels,
-                        // causing a 1px jitter every ~22 frames.
-                        if (movingInto) {
+                // deferSideToPostMovement: only defer when player is airborne.
+                // Airborne side collision is handled more accurately by post-movement pass
+                // (ROM processes objects after Sonic moves). Ground side collision keeps
+                // pre-movement behavior for wall alignment consistency.
+                boolean skipSideEffects = deferSideToPostMovement && player.getAir();
+                if (apply && !skipSideEffects) {
+                    if (postMovement) {
+                        // Post-movement pass (S1 UNIFIED): ROM-accurate behavior.
+                        // d0==0 → no speed zeroing, no position change.
+                        // d0!=0 → speed zeroing if movingInto, position correction
+                        // via pixel-only subtraction (preserves subpixels).
+                        if (distX != 0 && movingInto) {
                             player.setXSpeed((short) 0);
                             player.setGSpeed((short) 0);
                         }
-                    }
-                    if (distX != 0 && movingInto) {
-                        // ROM: Solid_Left (lines 185-187) — zero inertia and xvel
-                        player.setXSpeed((short) 0);
-                        player.setGSpeed((short) 0);
-                    }
-                    if (distX != 0) {
-                        if (preserveEdgeMotion) {
-                            // Push-driven objects rely on ROM-style pixel-word correction that
-                            // preserves subpixels (e.g. Sonic 1 PushBlock cadence).
+                        if (distX != 0) {
                             player.move((short) (-distX * 256), (short) 0);
-                        } else {
-                            // Static solids should snap to the resolved edge and clear subpixels,
-                            // otherwise fractional X carries forward and causes visible 1px jitter.
-                            player.setCentreX((short) (playerCenterX - distX));
+                        }
+                    } else {
+                        // Pre-movement pass (S2/S3K): compensate for batched processing architecture.
+                        // Push-driven objects (preserveSubpixels=true) skip the distX==0 block
+                        // to preserve ROM push cadence.
+                        boolean preserveSubpixels = preservesEdgeSubpixelMotion(instance);
+                        if (distX == 0 && !preserveSubpixels) {
+                            player.setCentreX((short) playerCenterX);
+                            if (movingInto) {
+                                player.setXSpeed((short) 0);
+                                player.setGSpeed((short) 0);
+                            }
+                        }
+                        if (distX != 0 && movingInto) {
+                            player.setXSpeed((short) 0);
+                            player.setGSpeed((short) 0);
+                        }
+                        if (distX != 0) {
+                            if (preserveSubpixels) {
+                                player.move((short) (-distX * 256), (short) 0);
+                            } else {
+                                player.setCentreX((short) (playerCenterX - distX));
+                            }
                         }
                     }
                 }
@@ -2601,6 +2753,7 @@ public class ObjectManager {
                 if (player.getYSpeed() < 0) {
                     return null;
                 }
+
 
                 if (topSolidOnly && player.getYSpeed() < 0) {
                     return null;
@@ -2652,23 +2805,22 @@ public class ObjectManager {
                     boolean leftSide = relX < halfWidth;
                     boolean movingInto = leftSide ? player.getXSpeed() > 0 : player.getXSpeed() < 0;
                     boolean pushing = !player.getAir() && movingInto;
-                    if (apply) {
-                        boolean preserveEdgeMotion = preservesEdgeSubpixelMotion(instance);
-                        if (!preserveEdgeMotion && distX == 0) {
-                            player.setCentreX((short) playerCenterX);
+                    boolean skipSquashSide = deferSideToPostMovement && player.getAir();
+                    if (apply && !skipSquashSide) {
+                        if (postMovement) {
+                            if (distX != 0 && movingInto) {
+                                player.setXSpeed((short) 0);
+                                player.setGSpeed((short) 0);
+                            }
+                            if (distX != 0) {
+                                player.move((short) (-distX * 256), (short) 0);
+                            }
+                        } else {
                             if (movingInto) {
                                 player.setXSpeed((short) 0);
                                 player.setGSpeed((short) 0);
                             }
-                        }
-                        if (distX != 0 && movingInto) {
-                            player.setXSpeed((short) 0);
-                            player.setGSpeed((short) 0);
-                        }
-                        if (distX != 0) {
-                            if (preserveEdgeMotion) {
-                                player.move((short) (-distX * 256), (short) 0);
-                            } else {
+                            if (distX != 0) {
                                 player.setCentreX((short) (playerCenterX - distX));
                             }
                         }

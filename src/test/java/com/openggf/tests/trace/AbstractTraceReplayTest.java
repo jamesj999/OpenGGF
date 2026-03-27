@@ -66,16 +66,26 @@ public abstract class AbstractTraceReplayTest {
             HeadlessTestFixture fixture = HeadlessTestFixture.builder()
                 .withSharedLevel(sharedLevel)
                 .startPosition(meta.startX(), meta.startY())
+                .startPositionIsCentre()
                 .withRecording(bk2Path)
                 .withRecordingStartFrame(meta.bk2FrameOffset())
                 .build();
 
             // 5. Run frame-by-frame comparison
             TraceBinder binder = new TraceBinder(tolerances());
+
             for (int i = 0; i < trace.frameCount(); i++) {
                 TraceFrame expected = trace.getFrame(i);
 
-                int bk2Input = fixture.stepFrameFromRecording();
+                // Lag frame detection: if the ROM state is identical to the previous
+                // frame, the main game loop didn't complete on this VBlank — skip
+                // engine physics to stay in sync.
+                int bk2Input;
+                if (trace.isLagFrame(i)) {
+                    bk2Input = fixture.skipFrameFromRecording();
+                } else {
+                    bk2Input = fixture.stepFrameFromRecording();
+                }
 
                 if (!binder.validateInput(expected, bk2Input)) {
                     fail(String.format(
@@ -85,13 +95,15 @@ public abstract class AbstractTraceReplayTest {
                         i, bk2Input, expected.input()));
                 }
 
-                // ROM stores centre coordinates at $D008/$D00C. The engine constructor
-                // receives these as xPixel/yPixel (top-left alias), so getX()/getY()
-                // returns the same value the ROM stores. getCentreX() would add
-                // half-dimensions, creating a constant offset.
+                // ROM stores centre coordinates at $D008/$D00C. With startPositionIsCentre(),
+                // the sprite's xPixel/yPixel are set to the correct top-left position,
+                // so getCentreX()/getCentreY() now return the actual ROM centre values.
                 var sprite = fixture.sprite();
+
+
+
                 binder.compareFrame(expected,
-                    sprite.getX(), sprite.getY(),
+                    sprite.getCentreX(), sprite.getCentreY(),
                     sprite.getXSpeed(), sprite.getYSpeed(), sprite.getGSpeed(),
                     sprite.getAngle(),
                     sprite.getAir(), sprite.getRolling(),

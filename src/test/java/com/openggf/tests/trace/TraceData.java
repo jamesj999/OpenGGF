@@ -57,6 +57,23 @@ public class TraceData {
         return eventsByFrame.getOrDefault(traceFrame, Collections.emptyList());
     }
 
+    /**
+     * Returns true if the given trace frame index represents a lag frame —
+     * a frame where the ROM did not process physics (the VBlank handler fired
+     * but the main game loop hadn't completed its tick yet).
+     *
+     * <p>Detected by comparing consecutive frames: if all physics state fields
+     * are identical (position, speed, angle, flags), the ROM didn't update
+     * state on that frame.
+     *
+     * @param traceFrame 0-based trace frame index
+     * @return true if this frame is a lag frame that should skip engine physics
+     */
+    public boolean isLagFrame(int traceFrame) {
+        if (traceFrame <= 0 || traceFrame >= frames.size()) return false;
+        return frames.get(traceFrame).stateEquals(frames.get(traceFrame - 1));
+    }
+
     public List<TraceEvent> getEventsInRange(int startFrame, int endFrame) {
         List<TraceEvent> result = new ArrayList<>();
         for (int f = startFrame; f <= endFrame; f++) {

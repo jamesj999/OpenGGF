@@ -57,6 +57,11 @@ public final class HeadlessTestFixture {
         return runner.stepFrameFromRecording();
     }
 
+    /** Advance BK2 by one frame without processing physics (for lag frames). Returns the input mask. */
+    public int skipFrameFromRecording() {
+        return runner.skipFrameFromRecording();
+    }
+
     /** Returns the playable sprite managed by this fixture. */
     public AbstractPlayableSprite sprite() {
         return sprite;
@@ -93,6 +98,7 @@ public final class HeadlessTestFixture {
         private short startY;
         private Bk2Movie bk2Movie;
         private int bk2FrameOffset;
+        private boolean startPositionIsCentre;
 
         private Builder() {}
 
@@ -110,6 +116,16 @@ public final class HeadlessTestFixture {
         public Builder startPosition(short x, short y) {
             this.startX = x;
             this.startY = y;
+            return this;
+        }
+
+        /**
+         * Treat start position as ROM centre coordinates (like $D008/$D00C).
+         * Uses setCentreX/Y after construction, matching
+         * LevelManager.spawnPlayerAtStartPosition() behaviour.
+         */
+        public Builder startPositionIsCentre() {
+            this.startPositionIsCentre = true;
             return this;
         }
 
@@ -153,6 +169,12 @@ public final class HeadlessTestFixture {
 
             // 4. Create sprite at start position
             Sonic sprite = new Sonic(charCode, startX, startY);
+            if (startPositionIsCentre) {
+                // ROM start coordinates are centre-based. setCentreX/Y adjusts xPixel
+                // to (x - width/2), matching LevelManager.spawnPlayerAtStartPosition().
+                sprite.setCentreX(startX);
+                sprite.setCentreY(startY);
+            }
 
             // 5. Register with SpriteManager
             GameServices.sprites().addSprite(sprite);
