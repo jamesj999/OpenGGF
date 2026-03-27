@@ -279,10 +279,9 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     protected boolean isInRange() {
         int objAligned = getX() & 0xFF80;
         int screenAligned = (cameraBounds.left() - 128) & 0xFF80;
-        int dist = objAligned - screenAligned;
-        // ROM uses unsigned bhi (branch if higher): out of range when dist > 640.
-        // In Java, handle unsigned comparison: dist must be in [0, 640].
-        return dist >= 0 && dist <= (128 + 320 + 192);
+        // ROM does a 16-bit sub.w followed by unsigned bhi, so preserve wrap semantics.
+        int dist = (objAligned - screenAligned) & 0xFFFF;
+        return dist <= (128 + 320 + 192);
     }
 
     /**
@@ -380,4 +379,3 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
         return (renderer != null && renderer.isReady()) ? renderer : null;
     }
 }
-
