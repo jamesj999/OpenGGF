@@ -47,7 +47,7 @@ public class MonitorObjectInstance extends AbstractMonitorObjectInstance impleme
     private static final int FALLING_GRAVITY = 0x38;        // Same gravity as other objects
 
     private final MonitorType type;
-    private final ObjectAnimationState animationState;
+    private ObjectAnimationState animationState;
     private boolean broken;
     private int mappingFrame;
     private AbstractPlayableSprite iconPlayer; // Preserved for rendering (effectTarget gets nulled)
@@ -58,22 +58,14 @@ public class MonitorObjectInstance extends AbstractMonitorObjectInstance impleme
     private int yFixed;
     private int currentY;
 
+    private boolean initialized;
+
     public MonitorObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
         this.type = MonitorType.fromSubtype(spawn.subtype());
+        this.broken = this.type == MonitorType.BROKEN;
 
-        // Check persistence: if remembered, spawn as broken
-        ObjectManager objectManager = services().objectManager();
-        boolean previouslyBroken = objectManager != null && objectManager.isRemembered(spawn);
-        this.broken = this.type == MonitorType.BROKEN || previouslyBroken;
-
-        int initialAnim = type.id;
         int initialFrame = broken ? BROKEN_FRAME : 0;
-        ObjectRenderManager renderManager = services().renderManager();
-        this.animationState = new ObjectAnimationState(
-                renderManager != null ? renderManager.getMonitorAnimations() : null,
-                initialAnim,
-                initialFrame);
         this.mappingFrame = initialFrame;
         if (broken) {
             effectApplied = true;
@@ -82,6 +74,30 @@ public class MonitorObjectInstance extends AbstractMonitorObjectInstance impleme
         // Initialize position tracking for falling behavior
         this.currentY = spawn.y();
         this.yFixed = spawn.y() << 8;
+    }
+
+    private void ensureInitialized() {
+        if (initialized) {
+            return;
+        }
+        initialized = true;
+
+        // Check persistence: if remembered, spawn as broken
+        ObjectManager objectManager = services().objectManager();
+        boolean previouslyBroken = objectManager != null && objectManager.isRemembered(spawn);
+        if (previouslyBroken && !broken) {
+            this.broken = true;
+            this.mappingFrame = BROKEN_FRAME;
+            effectApplied = true;
+        }
+
+        int initialAnim = type.id;
+        int initialFrame = broken ? BROKEN_FRAME : 0;
+        ObjectRenderManager renderManager = services().renderManager();
+        this.animationState = new ObjectAnimationState(
+                renderManager != null ? renderManager.getMonitorAnimations() : null,
+                initialAnim,
+                initialFrame);
     }
 
     @Override
@@ -93,6 +109,7 @@ public class MonitorObjectInstance extends AbstractMonitorObjectInstance impleme
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Handle falling state first (ROM: Obj26_Main routine_secondary check)
         if (falling) {

@@ -84,9 +84,17 @@ public class SignpostObjectInstance extends BoxObjectInstance {
     private int sparkleIndex = 0;
 
     private boolean resultsSpawned = false;
+    private boolean initialized;
 
     public SignpostObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name, 24, 40, 0.3f, 0.8f, 0.3f, false);
+    }
+
+    private void ensureInitialized() {
+        if (initialized) {
+            return;
+        }
+        initialized = true;
 
         // ROM: Obj0D_Init (s2.asm:34412-34418)
         // Signpost is disabled in Act 2+ except for MTZ Act 2
@@ -112,6 +120,7 @@ public class SignpostObjectInstance extends BoxObjectInstance {
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Don't update if destroyed (disabled in Act 2+)
         if (isDestroyed()) {

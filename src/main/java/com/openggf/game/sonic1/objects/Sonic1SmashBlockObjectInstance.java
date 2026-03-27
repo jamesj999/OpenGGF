@@ -106,6 +106,7 @@ public class Sonic1SmashBlockObjectInstance extends AbstractObjectInstance
 
     private final int frameIndex;
     private boolean broken;
+    private boolean initialized;
 
     // objoff_34: cached v_itembonus value at start of frame (before potential increment)
     private int cachedItemBonus;
@@ -116,7 +117,17 @@ public class Sonic1SmashBlockObjectInstance extends AbstractObjectInstance
         super(spawn, "SmashBlock");
         // From disassembly: move.b obSubtype(a0),obFrame(a0)
         this.frameIndex = spawn.subtype() & 0xFF;
+    }
 
+    /**
+     * Lazy initialization: check RememberState on first update.
+     * Moved out of constructor to avoid calling services() during construction.
+     */
+    private void ensureInitialized() {
+        if (initialized) {
+            return;
+        }
+        initialized = true;
         // RememberState: check if already broken
         ObjectManager objectManager = services().objectManager();
         if (objectManager != null && objectManager.isRemembered(spawn)) {
@@ -127,6 +138,7 @@ public class Sonic1SmashBlockObjectInstance extends AbstractObjectInstance
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (broken || player == null) {
             return;

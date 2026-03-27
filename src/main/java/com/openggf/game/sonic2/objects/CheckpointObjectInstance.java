@@ -61,11 +61,25 @@ public class CheckpointObjectInstance extends BoxObjectInstance {
     private int animFrameIndex;
     private boolean activated;
     private boolean dongleActive;
+    private boolean initialized;
 
     public CheckpointObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name, 8, 24, 0.25f, 0.9f, 0.35f, false);
         this.checkpointIndex = spawn.subtype() & 0x7F;
         this.cameraLockFlag = (spawn.subtype() & 0x80) != 0;
+
+        this.animId = ANIM_IDLE;
+        this.mappingFrame = FRAME_RED_BALL;
+        this.animTimer = 0;
+        this.animFrameIndex = 0;
+        this.dongleActive = false;
+    }
+
+    private void ensureInitialized() {
+        if (initialized) {
+            return;
+        }
+        initialized = true;
 
         // Check if already activated (respawn persistence)
         var checkpointState = services().checkpointState();
@@ -73,17 +87,12 @@ public class CheckpointObjectInstance extends BoxObjectInstance {
             this.activated = true;
             this.animId = ANIM_BLINKING;
             this.mappingFrame = FRAME_RED_BALL;
-        } else {
-            this.animId = ANIM_IDLE;
-            this.mappingFrame = FRAME_RED_BALL;
         }
-        this.animTimer = 0;
-        this.animFrameIndex = 0;
-        this.dongleActive = false;
     }
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (!activated && player != null) {
             checkActivation(player);

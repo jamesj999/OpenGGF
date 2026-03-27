@@ -124,7 +124,8 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
     private final int widthPixels;
     private final int baseY;
     private final int baseX;
-    private final boolean routeEnabled;
+    private boolean routeEnabled;
+    private boolean routeChecked;
     private int currentY;
 
     /** Cached frame counter from last update for use in onSolidContact. */
@@ -141,8 +142,6 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
         // Get width from table (subtype is index)
         int widthIndex = Math.min(subtype, SUBTYPE_WIDTHS.length - 1);
         this.widthPixels = SUBTYPE_WIDTHS[widthIndex];
-        var cameraInst = services().camera();
-        this.routeEnabled = isEnabledForCurrentRoute(subtype, cameraInst != null ? cameraInst.getY() : 0);
 
         updateDynamicSpawn(baseX, currentY);
     }
@@ -167,8 +166,18 @@ public class RisingLavaObjectInstance extends AbstractObjectInstance
     // Update Logic
     // ========================================================================
 
+    private void ensureInitialized() {
+        if (routeChecked) {
+            return;
+        }
+        routeChecked = true;
+        var cameraInst = services().camera();
+        this.routeEnabled = isEnabledForCurrentRoute(subtype, cameraInst != null ? cameraInst.getY() : 0);
+    }
+
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (!routeEnabled) {
             return;

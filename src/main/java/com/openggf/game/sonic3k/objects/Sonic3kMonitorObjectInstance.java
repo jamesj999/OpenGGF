@@ -73,9 +73,10 @@ public class Sonic3kMonitorObjectInstance extends AbstractMonitorObjectInstance
     private static final int Y_RADIUS = 0x10;
 
     private final MonitorType type;
-    private final ObjectAnimationState animationState;
+    private ObjectAnimationState animationState;
     private boolean broken;
     private int mappingFrame;
+    private boolean initialized;
 
     // "Revealed from hidden monitor" mode: pop up with velocity, fall with gravity
     private boolean revealed;
@@ -87,24 +88,6 @@ public class Sonic3kMonitorObjectInstance extends AbstractMonitorObjectInstance
         super(spawn, "Monitor");
         this.type = MonitorType.fromSubtype(spawn.subtype());
         this.motion = new SubpixelMotion.State(spawn.x(), spawn.y(), 0, 0, 0, 0);
-
-        // Check persistence: if previously broken, spawn as broken shell
-        ObjectManager objectManager = services().objectManager();
-        boolean previouslyBroken = objectManager != null && objectManager.isRemembered(spawn);
-        this.broken = previouslyBroken;
-
-        // Initialize animation: animId = subtype
-        int initialAnim = type.animId;
-        int initialFrame = broken ? BROKEN_FRAME : 0;
-        ObjectRenderManager renderManager = services().renderManager();
-        this.animationState = new ObjectAnimationState(
-                renderManager != null ? renderManager.getMonitorAnimations() : null,
-                initialAnim,
-                initialFrame);
-        this.mappingFrame = initialFrame;
-        if (broken) {
-            effectApplied = true;
-        }
     }
 
     /**
@@ -147,8 +130,34 @@ public class Sonic3kMonitorObjectInstance extends AbstractMonitorObjectInstance
         return true;
     }
 
+    private void ensureInitialized() {
+        if (initialized) {
+            return;
+        }
+        initialized = true;
+
+        // Check persistence: if previously broken, spawn as broken shell
+        ObjectManager objectManager = services().objectManager();
+        boolean previouslyBroken = objectManager != null && objectManager.isRemembered(spawn);
+        this.broken = previouslyBroken;
+
+        // Initialize animation: animId = subtype
+        int initialAnim = type.animId;
+        int initialFrame = broken ? BROKEN_FRAME : 0;
+        ObjectRenderManager renderManager = services().renderManager();
+        this.animationState = new ObjectAnimationState(
+                renderManager != null ? renderManager.getMonitorAnimations() : null,
+                initialAnim,
+                initialFrame);
+        this.mappingFrame = initialFrame;
+        if (broken) {
+            effectApplied = true;
+        }
+    }
+
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (revealed && !broken) {
             updateRevealed();

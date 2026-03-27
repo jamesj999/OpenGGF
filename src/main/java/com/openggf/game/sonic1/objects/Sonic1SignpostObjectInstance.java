@@ -115,9 +115,17 @@ public class Sonic1SignpostObjectInstance extends AbstractObjectInstance {
 
     // Walk-off state
     private boolean resultsSpawned;
+    private boolean initialized;
 
     public Sonic1SignpostObjectInstance(ObjectSpawn spawn) {
         super(spawn, "Signpost");
+    }
+
+    private void ensureInitialized() {
+        if (initialized) {
+            return;
+        }
+        initialized = true;
 
         // Signpost is disabled in act 3 (boss acts)
         // S1 only has signposts in acts 1 and 2 (indices 0 and 1)
@@ -133,6 +141,7 @@ public class Sonic1SignpostObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed() || player == null) {
             return;

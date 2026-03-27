@@ -223,6 +223,7 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
     // Spawner mode state
     private int spawnerSlotIndex;    // v_obj63 slot index (objoff_2F & 0x7F)
     private boolean spawnerDone;
+    private boolean initialized;     // lazy-init guard for services() deferral
 
     /**
      * Creates a spin conveyor object instance.
@@ -268,19 +269,7 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
             // From disassembly: move.b #4,objoff_3A(a0)
             this.waypointStep = WAYPOINT_STEP;
 
-            // Check f_conveyrev at init time
-            // From disassembly: tst.b (f_conveyrev).w / beq.s loc_16356
-            Sonic1ConveyorState conveyorState = services().gameService(Sonic1ConveyorState.class);
-            if (conveyorState.isReversed()) {
-                // From disassembly: move.b #1,objoff_3B(a0) / neg.b objoff_3A(a0)
-                this.waypointStep = -WAYPOINT_STEP;
-
-                // Advance to next waypoint in reverse direction
-                currentWaypointIdx = WaypointPathFollower.wrapWaypointIndex(
-                        currentWaypointIdx + waypointStep, waypointCount, WAYPOINT_STEP);
-            }
-
-            // Set initial target from current waypoint
+            // Set initial target from current waypoint (before potential reverse adjustment)
             // From disassembly loc_16356:
             //   move.w (a2,d1.w),objoff_34(a0)  ; target X
             //   move.w 2(a2,d1.w),objoff_36(a0) ; target Y
@@ -313,9 +302,6 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
             this.velY = 0;
             this.xFrac = 0;
             this.yFrac = 0;
-
-            // Calculate initial velocity toward target (bsr.w LCon_ChangeDir)
-            changeDirection();
         }
 
         updateDynamicSpawn(x, y);
@@ -329,6 +315,40 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
                 Sonic1ObjectIds.SBZ_SPIN_CONVEYOR, subtype, 0, false, 0));
     }
 
+    /**
+     * Lazy initialization: check f_conveyrev and finalize platform state on first update.
+     * Moved out of constructor to avoid calling services() during construction.
+     */
+    private void ensureInitialized() {
+        if (initialized) {
+            return;
+        }
+        initialized = true;
+        if (mode == Mode.PLATFORM) {
+            // Check f_conveyrev at init time
+            // From disassembly: tst.b (f_conveyrev).w / beq.s loc_16356
+            Sonic1ConveyorState conveyorState = services().gameService(Sonic1ConveyorState.class);
+            if (conveyorState.isReversed()) {
+                // From disassembly: move.b #1,objoff_3B(a0) / neg.b objoff_3A(a0)
+                this.waypointStep = -WAYPOINT_STEP;
+
+                // Advance to next waypoint in reverse direction
+                currentWaypointIdx = WaypointPathFollower.wrapWaypointIndex(
+                        currentWaypointIdx + waypointStep, waypointCount, WAYPOINT_STEP);
+
+                // Re-set target from adjusted waypoint
+                int wpArrayIdx = currentWaypointIdx / WAYPOINT_STEP;
+                if (wpArrayIdx >= 0 && wpArrayIdx < waypoints.length) {
+                    targetX = waypoints[wpArrayIdx][0];
+                    targetY = waypoints[wpArrayIdx][1];
+                }
+            }
+
+            // Calculate initial velocity toward target (bsr.w LCon_ChangeDir)
+            changeDirection();
+        }
+    }
+
     @Override
     public int getX() {
         return x;
@@ -340,6 +360,7 @@ public class Sonic1SpinConveyorObjectInstance extends AbstractObjectInstance
     }
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (mode) {
             case SPAWNER -> updateSpawner();

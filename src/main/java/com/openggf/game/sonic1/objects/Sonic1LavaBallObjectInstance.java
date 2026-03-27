@@ -187,7 +187,7 @@ public class Sonic1LavaBallObjectInstance extends AbstractObjectInstance
     private int collisionAnimTimer;
 
     /** Art key to use for rendering (zone-dependent: MZ_FIREBALL or SLZ_FIREBALL). */
-    private final String artKey;
+    private String artKey;
     /** Boss-spawned variant uses subtype word $00FF in ROM. */
     private final boolean bossDroppedVariant;
     /** Priority bucket can be elevated for boss-spawned lava. */
@@ -241,22 +241,28 @@ public class Sonic1LavaBallObjectInstance extends AbstractObjectInstance
         // Horizontal: H-flip for Type06 (moving left, velX < 0)
         this.statusHFlip = isHorizontal && (this.velX < 0);
 
-        // Determine art key based on current zone
-        // ROM: cmpi.b #id_SLZ,(v_zone).w / bne.s .notSLZ
-        int zoneIndex = services().romZoneId();
-        this.artKey = (zoneIndex == Sonic1Constants.ZONE_SLZ)
-                ? ObjectArtKeys.SLZ_FIREBALL : ObjectArtKeys.MZ_FIREBALL;
-
-        // Play fireball sound: move.w #sfx_Fireball,d0 / jsr (QueueSound2).l
-        services().playSfx(SFX_FIREBALL);
     }
 
     // ========================================================================
     // Update Logic
     // ========================================================================
 
+    private void ensureInitialized() {
+        if (artKey == null) {
+            // Determine art key based on current zone
+            // ROM: cmpi.b #id_SLZ,(v_zone).w / bne.s .notSLZ
+            int zoneIndex = services().romZoneId();
+            artKey = (zoneIndex == Sonic1Constants.ZONE_SLZ)
+                    ? ObjectArtKeys.SLZ_FIREBALL : ObjectArtKeys.MZ_FIREBALL;
+
+            // Play fireball sound: move.w #sfx_Fireball,d0 / jsr (QueueSound2).l
+            services().playSfx(SFX_FIREBALL);
+        }
+    }
+
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (inCollisionAnim) {
             // Collision animation plays one frame then afRoutine increments obRoutine -> delete.

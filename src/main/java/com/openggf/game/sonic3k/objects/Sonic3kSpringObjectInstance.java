@@ -82,25 +82,18 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
     private static final int HORIZ_DETECT_X = 0x28;
     private static final int HORIZ_DETECT_Y = 0x18;
 
-    private final int springType;
+    private int springType;
     private final boolean redSpring;
     private final ObjectAnimationState animationState;
     private int mappingFrame;
+    private boolean initialized;
 
     public Sonic3kSpringObjectInstance(ObjectSpawn spawn) {
         super(spawn, "Spring");
         this.redSpring = (spawn.subtype() & 0x02) == 0;
 
-        // ROM: Reverse_gravity_flag swaps UP↔DOWN during init (sonic3k.asm:47622-47627)
-        int type = (spawn.subtype() >> 3) & 0xE;
-        if (services().gameState().isReverseGravityActive()) {
-            if (type == TYPE_UP) {
-                type = TYPE_DOWN;
-            } else if (type == TYPE_DOWN) {
-                type = TYPE_UP;
-            }
-        }
-        this.springType = type;
+        // Base type from subtype bits (gravity swap deferred to ensureInitialized)
+        this.springType = (spawn.subtype() >> 3) & 0xE;
 
         this.mappingFrame = 0;
         this.animationState = new ObjectAnimationState(buildAnimationSet(), ANIM_IDLE, 0);
@@ -319,8 +312,24 @@ public class Sonic3kSpringObjectInstance extends AbstractObjectInstance
         }
     }
 
+    private void ensureInitialized() {
+        if (initialized) {
+            return;
+        }
+        initialized = true;
+        // ROM: Reverse_gravity_flag swaps UP<->DOWN during init (sonic3k.asm:47622-47627)
+        if (services().gameState().isReverseGravityActive()) {
+            if (springType == TYPE_UP) {
+                springType = TYPE_DOWN;
+            } else if (springType == TYPE_DOWN) {
+                springType = TYPE_UP;
+            }
+        }
+    }
+
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // S3K horizontal approach detection (sonic3k.asm sub_2326C)
         if (springType == TYPE_HORIZONTAL && player != null && animationState.getAnimId() == ANIM_IDLE) {

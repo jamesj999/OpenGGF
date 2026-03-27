@@ -82,7 +82,7 @@ public class Sonic1EndingSonicObjectInstance extends AbstractObjectInstance {
     // State
     // ========================================================================
 
-    private final PatternSpriteRenderer renderer;
+    private PatternSpriteRenderer renderer;
     private int currentX;
     private int currentY;
     private int routine;
@@ -102,12 +102,20 @@ public class Sonic1EndingSonicObjectInstance extends AbstractObjectInstance {
         super(null, "EndSonic");
         this.currentX = x;
         this.currentY = y;
-        ObjectRenderManager renderManager = services().renderManager();
-        this.renderer = renderManager != null ? renderManager.getRenderer(ObjectArtKeys.END_SONIC) : null;
+    }
+
+    private void ensureRenderer() {
+        if (renderer == null) {
+            ObjectRenderManager renderManager = services().renderManager();
+            if (renderManager != null) {
+                renderer = renderManager.getRenderer(ObjectArtKeys.END_SONIC);
+            }
+        }
     }
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureRenderer();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (routine) {
             case 0x00 -> updateMain();

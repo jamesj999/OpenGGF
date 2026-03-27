@@ -50,10 +50,11 @@ public class SpringObjectInstance extends BoxObjectInstance
     private static final int ANIM_DIAGONAL_TRIGGER = 5;
 
     private final boolean redSpring;
-    private final ObjectAnimationState animationState;
+    private ObjectAnimationState animationState;
     private final int idleAnimId;
     private final int triggeredAnimId;
     private int mappingFrame;
+    private boolean initialized;
 
     public SpringObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name, 8, 8, 1.0f, 0.85f, 0.1f, false);
@@ -62,6 +63,13 @@ public class SpringObjectInstance extends BoxObjectInstance
         this.idleAnimId = resolveIdleAnimId();
         this.triggeredAnimId = resolveTriggeredAnimId();
         this.mappingFrame = resolveIdleMappingFrame();
+    }
+
+    private void ensureInitialized() {
+        if (initialized) {
+            return;
+        }
+        initialized = true;
 
         ObjectRenderManager renderManager = services().renderManager();
         this.animationState = new ObjectAnimationState(
@@ -418,6 +426,7 @@ public class SpringObjectInstance extends BoxObjectInstance
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         animationState.update();
         mappingFrame = animationState.getMappingFrame();

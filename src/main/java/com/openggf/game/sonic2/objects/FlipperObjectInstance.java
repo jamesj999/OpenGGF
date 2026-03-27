@@ -56,7 +56,8 @@ public class FlipperObjectInstance extends BoxObjectInstance
     private static final int ANIM_HORIZONTAL_TRIGGER_LEFT = 3;
     private static final int ANIM_HORIZONTAL_TRIGGER_RIGHT = 4;
 
-    private final ObjectAnimationState animationState;
+    private ObjectAnimationState animationState;
+    private boolean animInitialized;
     private final int idleAnimId;
     private int mappingFrame;
     private int launchCooldown = 0;
@@ -77,12 +78,6 @@ public class FlipperObjectInstance extends BoxObjectInstance
         super(spawn, name, 8, 8, 0.8f, 0.4f, 0.2f, false);
         this.idleAnimId = isHorizontal() ? ANIM_HORIZONTAL_IDLE : ANIM_VERTICAL_IDLE;
         this.mappingFrame = isHorizontal() ? 4 : 0;
-
-        ObjectRenderManager renderManager = services().renderManager();
-        this.animationState = new ObjectAnimationState(
-                renderManager != null ? renderManager.getAnimations(Sonic2ObjectArtKeys.ANIM_FLIPPER) : null,
-                idleAnimId,
-                mappingFrame);
     }
 
     @Override
@@ -326,8 +321,21 @@ public class FlipperObjectInstance extends BoxObjectInstance
         return isFlippedHorizontal();
     }
 
+    private void ensureInitialized() {
+        if (animInitialized) {
+            return;
+        }
+        animInitialized = true;
+        ObjectRenderManager renderManager = services().renderManager();
+        this.animationState = new ObjectAnimationState(
+                renderManager != null ? renderManager.getAnimations(Sonic2ObjectArtKeys.ANIM_FLIPPER) : null,
+                idleAnimId,
+                mappingFrame);
+    }
+
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (launchCooldown > 0) {
             launchCooldown--;

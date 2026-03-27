@@ -61,7 +61,7 @@ public class Sonic1EndingEmeraldsObjectInstance extends AbstractObjectInstance {
     // State
     // ========================================================================
 
-    private final PatternSpriteRenderer renderer;
+    private PatternSpriteRenderer renderer;
     private final int frameId;
 
     private int origX;
@@ -90,16 +90,23 @@ public class Sonic1EndingEmeraldsObjectInstance extends AbstractObjectInstance {
         this.currentX = centerX;
         this.currentY = centerY;
 
-        ObjectRenderManager renderManager = services().renderManager();
-        this.renderer = renderManager != null ? renderManager.getRenderer(ObjectArtKeys.END_EMERALDS) : null;
-
         synchronized (ALL_EMERALDS) {
             ALL_EMERALDS.add(this);
         }
     }
 
+    private void ensureRenderer() {
+        if (renderer == null) {
+            ObjectRenderManager renderManager = services().renderManager();
+            if (renderManager != null) {
+                renderer = renderManager.getRenderer(ObjectArtKeys.END_EMERALDS);
+            }
+        }
+    }
+
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureRenderer();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;

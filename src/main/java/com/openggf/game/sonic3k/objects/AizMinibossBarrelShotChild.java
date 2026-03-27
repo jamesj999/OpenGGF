@@ -73,6 +73,7 @@ public class AizMinibossBarrelShotChild extends AbstractObjectInstance implement
     private int timer;
     private State state;
     private boolean vFlip;
+    private boolean needsInitSfx;
 
     public AizMinibossBarrelShotChild(AbstractBossInstance parent,
                                       int barrelSubtype,
@@ -97,16 +98,15 @@ public class AizMinibossBarrelShotChild extends AbstractObjectInstance implement
         this.timer = 0x60;
         this.state = State.PRELAUNCH;
         this.vFlip = false;
-
-        try {
-            services().playSfx(Sonic3kSfx.PROJECTILE.id);
-        } catch (Exception e) {
-            // Services may not be set during test construction
-        }
+        this.needsInitSfx = true;
     }
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        if (needsInitSfx) {
+            needsInitSfx = false;
+            services().playSfx(Sonic3kSfx.PROJECTILE.id);
+        }
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (parent == null || parent.isDestroyed() || parent.getState().defeated) {
             setDestroyed(true);

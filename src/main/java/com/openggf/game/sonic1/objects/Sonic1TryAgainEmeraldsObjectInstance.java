@@ -51,14 +51,15 @@ public class Sonic1TryAgainEmeraldsObjectInstance extends AbstractObjectInstance
     private final PatternSpriteRenderer renderer;
 
     /** Sub-emerald state arrays. */
-    private final int[] emeraldFrame;
-    private final int[] emeraldAngle;
-    private final int[] emeraldDelay;
-    private final int[] emeraldDelayInit;
-    private final int[] emeraldVelocity;
-    private final int[] emeraldX;
-    private final int[] emeraldY;
-    private final int count;
+    private int[] emeraldFrame;
+    private int[] emeraldAngle;
+    private int[] emeraldDelay;
+    private int[] emeraldDelayInit;
+    private int[] emeraldVelocity;
+    private int[] emeraldX;
+    private int[] emeraldY;
+    private int count;
+    private boolean initialized;
 
     /**
      * Creates the TRY AGAIN emerald display.
@@ -69,6 +70,17 @@ public class Sonic1TryAgainEmeraldsObjectInstance extends AbstractObjectInstance
     public Sonic1TryAgainEmeraldsObjectInstance(ObjectRenderManager renderManager) {
         super(null, "TryChaos");
         this.renderer = renderManager != null ? renderManager.getRenderer(ObjectArtKeys.END_EMERALDS) : null;
+    }
+
+    /**
+     * Lazy initialization: query game state for emerald data on first update.
+     * Moved out of constructor to avoid calling services() during construction.
+     */
+    private void ensureInitialized() {
+        if (initialized) {
+            return;
+        }
+        initialized = true;
 
         GameStateManager gsm = services().gameState();
         int emeraldCount = gsm.getEmeraldCount();
@@ -130,6 +142,7 @@ public class Sonic1TryAgainEmeraldsObjectInstance extends AbstractObjectInstance
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;

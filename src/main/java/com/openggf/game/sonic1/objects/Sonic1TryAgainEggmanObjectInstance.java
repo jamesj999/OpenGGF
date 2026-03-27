@@ -72,6 +72,7 @@ public class Sonic1TryAgainEggmanObjectInstance extends AbstractObjectInstance {
     private int animDelayCounter;
     private int frameId;
     private int juggleTimer;
+    private boolean initialized;
 
     /**
      * @param renderManager object render manager for art lookup
@@ -86,6 +87,17 @@ public class Sonic1TryAgainEggmanObjectInstance extends AbstractObjectInstance {
         this.renderer = renderManager != null ? renderManager.getRenderer(ObjectArtKeys.END_EGGMAN) : null;
         this.emeralds = emeralds;
         this.textRenderer = textRenderer;
+    }
+
+    /**
+     * Lazy initialization: query game state for emerald count and set up animation.
+     * Moved out of constructor to avoid calling services() during construction.
+     */
+    private void ensureInitialized() {
+        if (initialized) {
+            return;
+        }
+        initialized = true;
 
         // Routine 0: EEgg_Main
         int emeraldCount = services().gameState().getEmeraldCount();
@@ -107,6 +119,7 @@ public class Sonic1TryAgainEggmanObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (isDestroyed()) {
             return;

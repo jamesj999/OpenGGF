@@ -92,7 +92,7 @@ public class SpringboardObjectInstance extends BoxObjectInstance
     // ROM: loc_2641E checks player.x vs springboard.x ± 0x10
     private static final int POSITION_THRESHOLD = 0x10;
 
-    private final ObjectAnimationState animationState;
+    private ObjectAnimationState animationState;
     private int mappingFrame;
 
     /**
@@ -109,16 +109,24 @@ public class SpringboardObjectInstance extends BoxObjectInstance
      */
     private boolean launchSequenceActive;
     private AbstractPlayableSprite launchPlayer;
+    private boolean initialized;
 
     public SpringboardObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name, COLLISION_HALF_WIDTH, COLLISION_HEIGHT, 1.0f, 0.85f, 0.1f, false);
+        this.mappingFrame = 0;
+    }
+
+    private void ensureInitialized() {
+        if (initialized) {
+            return;
+        }
+        initialized = true;
 
         ObjectRenderManager renderManager = services().renderManager();
         this.animationState = new ObjectAnimationState(
                 renderManager != null ? renderManager.getAnimations(Sonic2ObjectArtKeys.ANIM_SPRINGBOARD) : null,
                 ANIM_IDLE,
                 0);
-        this.mappingFrame = 0;
     }
 
     /**
@@ -309,6 +317,7 @@ public class SpringboardObjectInstance extends BoxObjectInstance
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // ROM: Obj40_Main calls AnimateSprite before collision check
         animationState.update();

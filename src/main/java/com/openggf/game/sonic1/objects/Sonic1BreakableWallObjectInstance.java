@@ -83,6 +83,7 @@ public class Sonic1BreakableWallObjectInstance extends AbstractObjectInstance
 
     private final int frameIndex;
     private boolean broken;
+    private boolean initialized;
 
     // Cached Sonic speed for break check (smash_speed = objoff_30)
     private int cachedSonicSpeed;
@@ -91,6 +92,13 @@ public class Sonic1BreakableWallObjectInstance extends AbstractObjectInstance
         super(spawn, "SmashableWall");
         // From disassembly: move.b obSubtype(a0),obFrame(a0)
         this.frameIndex = spawn.subtype() & 0xFF;
+    }
+
+    private void ensureInitialized() {
+        if (initialized) {
+            return;
+        }
+        initialized = true;
 
         // RememberState: check if already broken
         ObjectManager objectManager = services().objectManager();
@@ -102,6 +110,7 @@ public class Sonic1BreakableWallObjectInstance extends AbstractObjectInstance
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (broken || player == null) {
             return;

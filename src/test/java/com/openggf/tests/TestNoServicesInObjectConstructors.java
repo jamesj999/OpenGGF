@@ -12,24 +12,24 @@ import java.util.stream.Stream;
 import static org.junit.Assert.fail;
 
 /**
- * Guards against the antipattern of creating objects with {@code new} then passing
- * them to {@code spawnDynamicObject()}, when the object's constructor calls
- * {@code services()}.
+ * Guards against calling {@code services()} in object constructors.
  * <p>
- * {@code spawnDynamicObject()} does NOT set the CONSTRUCTION_CONTEXT ThreadLocal,
- * so if the constructor calls {@code services()}, it will throw
- * {@code IllegalStateException} at runtime.
+ * {@code services()} depends on {@code ObjectServices} being injected, which
+ * happens AFTER construction when using {@code addDynamicObject()} or
+ * {@code spawnDynamicObject()}. Only {@code spawnChild()} and
+ * {@code setConstructionContext()} set the ThreadLocal BEFORE construction.
  * <p>
- * The safe pattern is {@code spawnChild(() -> new Foo(...))} which sets the
- * ThreadLocal before invoking the constructor.
+ * Rather than policing every call site, the safest rule is: <b>constructors
+ * must never call {@code services()}</b>. Defer to lazy init or the first
+ * {@code update()} call instead.
  * <p>
- * This test has two parts:
+ * This test has three parts:
  * <ol>
  *   <li>Detect {@code spawnDynamicObject(new X(...))} call sites — these are
  *       always suspicious and should use {@code spawnChild()} instead.</li>
- *   <li>Detect {@code services()} calls inside constructors — these are only
- *       safe when the object is created through ObjectManager or
- *       {@code spawnChild()}.</li>
+ *   <li>Hard-fail if any object constructor calls {@code services()}.</li>
+ *   <li>Detect {@code addDynamicObject(new X(...))} across all source where
+ *       the constructed class calls {@code services()} in its constructor.</li>
  * </ol>
  *
  * @see com.openggf.level.objects.AbstractObjectInstance#spawnDynamicObject
@@ -117,27 +117,23 @@ public class TestNoServicesInObjectConstructors {
     }
 
     /**
-     * Detects constructors that call services() in object classes.
-     * These are only safe when the object is created through ObjectManager
-     * (factory pattern) or spawnChild() (which sets CONSTRUCTION_CONTEXT).
+     * Hard-fails if any object constructor calls {@code services()}.
      * <p>
-     * This is a heuristic scan — it looks for services() calls between
-     * a constructor signature and its closing brace at the same indent level.
+     * Constructors run BEFORE {@code addDynamicObject()} or
+     * {@code spawnDynamicObject()} can inject {@code ObjectServices}.
+     * The only safe patterns are {@code spawnChild()} or
+     * {@code setConstructionContext()}, but both are easy to forget at
+     * call sites. The simplest universal rule: defer {@code services()}
+     * to lazy init or the first {@code update()} call.
      */
     @Test
-    public void constructors_callingServices_shouldBeDocumented() throws IOException {
+    public void constructors_mustNotCallServices() throws IOException {
         Path srcMain = Path.of("src/main/java");
         if (!Files.isDirectory(srcMain)) {
             return;
         }
 
-        // Heuristic: find "services()" calls that appear after a constructor
-        // declaration and before the next method/constructor declaration.
-        // This catches the common case without full AST parsing.
-        Pattern constructorPattern = Pattern.compile(
-                "(?:public|protected|private)?\\s+\\w+\\s*\\([^)]*\\)\\s*\\{");
-
-        List<String> classesWithServicesInConstructor = new ArrayList<>();
+        List<String> violations = new ArrayList<>();
 
         for (String pkg : OBJECT_PACKAGES) {
             Path pkgDir = srcMain.resolve(pkg);
@@ -151,31 +147,53 @@ public class TestNoServicesInObjectConstructors {
                                 String fileName = path.getFileName().toString();
                                 String className = fileName.replace(".java", "");
 
-                                // Find constructor(s) for this class
-                                Pattern ctorPattern = Pattern.compile(
-                                        "(?:public|protected|private)\\s+" + Pattern.quote(className)
-                                                + "\\s*\\([^)]*\\)\\s*\\{");
-                                Matcher ctorMatcher = ctorPattern.matcher(content);
+                                findServicesInConstructors(content, className, fileName, violations);
+                            } catch (IOException ignored) {
+                            }
+                        });
+            }
+        }
 
-                                while (ctorMatcher.find()) {
-                                    // Find the body of this constructor (simplistic: up to next
-                                    // method-level declaration or a reasonable chunk)
-                                    int start = ctorMatcher.end();
-                                    int braceDepth = 1;
-                                    int end = start;
-                                    while (end < content.length() && braceDepth > 0) {
-                                        char c = content.charAt(end);
-                                        if (c == '{') braceDepth++;
-                                        else if (c == '}') braceDepth--;
-                                        end++;
-                                    }
+        if (!violations.isEmpty()) {
+            fail("Object constructors must not call services(). "
+                    + "Defer to lazy init (ensureInitialized pattern) or first update() call.\n\n  "
+                    + String.join("\n  ", violations));
+        }
+    }
 
-                                    String ctorBody = content.substring(start, end);
-                                    if (ctorBody.contains("services()")) {
-                                        classesWithServicesInConstructor.add(
-                                                className + " — calls services() in constructor; "
-                                                        + "must be created via ObjectManager or spawnChild()");
-                                    }
+    /**
+     * Scans ALL source for {@code addDynamicObject(new X(...))} where X's
+     * constructor calls {@code services()}. This catches call sites outside
+     * the object packages (e.g. event managers, level controllers).
+     * <p>
+     * {@code addDynamicObject()} injects services AFTER construction, so
+     * if the constructor calls {@code services()}, it will crash.
+     */
+    @Test
+    public void addDynamicObject_shouldNotConstructObjectThatNeedsServicesInConstructor() throws IOException {
+        Path srcMain = Path.of("src/main/java");
+        if (!Files.isDirectory(srcMain)) {
+            return;
+        }
+
+        // Step 1: Build set of class names whose constructors call services()
+        Set<String> classesCallingServicesInCtor = new HashSet<>();
+        for (String pkg : OBJECT_PACKAGES) {
+            Path pkgDir = srcMain.resolve(pkg);
+            if (!Files.isDirectory(pkgDir)) continue;
+
+            try (Stream<Path> files = Files.walk(pkgDir)) {
+                files.filter(p -> p.toString().endsWith(".java"))
+                        .forEach(path -> {
+                            try {
+                                String content = Files.readString(path);
+                                String fileName = path.getFileName().toString();
+                                String className = fileName.replace(".java", "");
+
+                                List<String> dummy = new ArrayList<>();
+                                findServicesInConstructors(content, className, fileName, dummy);
+                                if (!dummy.isEmpty()) {
+                                    classesCallingServicesInCtor.add(className);
                                 }
                             } catch (IOException ignored) {
                             }
@@ -183,13 +201,72 @@ public class TestNoServicesInObjectConstructors {
             }
         }
 
-        // This is informational — just log them so developers know which classes
-        // require CONSTRUCTION_CONTEXT. The spawnDynamicObject test above catches
-        // the actual antipattern at the call site.
-        if (!classesWithServicesInConstructor.isEmpty()) {
-            System.out.println("Objects calling services() in constructor (require "
-                    + "ObjectManager or spawnChild() for construction):");
-            classesWithServicesInConstructor.forEach(c -> System.out.println("  " + c));
+        // Step 2: Scan ALL source for addDynamicObject(new X(...)) where X
+        // calls services() in its constructor
+        Pattern inlineNew = Pattern.compile(
+                "addDynamicObject\\(\\s*new\\s+(\\w+)\\s*\\(");
+
+        List<String> violations = new ArrayList<>();
+
+        try (Stream<Path> allFiles = Files.walk(srcMain)) {
+            allFiles.filter(p -> p.toString().endsWith(".java"))
+                    .forEach(path -> {
+                        try {
+                            String content = Files.readString(path);
+                            Matcher m = inlineNew.matcher(content);
+                            while (m.find()) {
+                                String className = m.group(1);
+                                if (classesCallingServicesInCtor.contains(className)) {
+                                    String fileName = path.getFileName().toString();
+                                    violations.add(fileName + ": addDynamicObject(new "
+                                            + className + "(...)) — " + className
+                                            + " calls services() in constructor. "
+                                            + "Remove services() from the constructor "
+                                            + "(use lazy init) or use spawnChild()");
+                                }
+                            }
+                        } catch (IOException ignored) {
+                        }
+                    });
+        }
+
+        if (!violations.isEmpty()) {
+            fail("addDynamicObject(new X(...)) where X calls services() in constructor.\n"
+                    + "addDynamicObject() injects services AFTER construction, "
+                    + "so services() will throw IllegalStateException.\n\n  "
+                    + String.join("\n  ", violations));
+        }
+    }
+
+    /**
+     * Finds {@code services()} calls inside constructors of the given class.
+     * Appends human-readable descriptions to the violations list.
+     */
+    private static void findServicesInConstructors(
+            String content, String className, String fileName,
+            List<String> violations) {
+        Pattern ctorPattern = Pattern.compile(
+                "(?:public|protected|private)\\s+" + Pattern.quote(className)
+                        + "\\s*\\([^)]*\\)\\s*\\{");
+        Matcher ctorMatcher = ctorPattern.matcher(content);
+
+        while (ctorMatcher.find()) {
+            int start = ctorMatcher.end();
+            int braceDepth = 1;
+            int end = start;
+            while (end < content.length() && braceDepth > 0) {
+                char c = content.charAt(end);
+                if (c == '{') braceDepth++;
+                else if (c == '}') braceDepth--;
+                end++;
+            }
+
+            String ctorBody = content.substring(start, end);
+            // Match unqualified services() — not obj.services()
+            if (Pattern.compile("(?<![.\\w])services\\(\\)").matcher(ctorBody).find()) {
+                violations.add(fileName + ": " + className
+                        + " calls services() in constructor");
+            }
         }
     }
 }
