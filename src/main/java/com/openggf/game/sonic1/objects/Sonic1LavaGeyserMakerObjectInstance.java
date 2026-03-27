@@ -256,7 +256,6 @@ public class Sonic1LavaGeyserMakerObjectInstance extends AbstractObjectInstance 
             Sonic1LavaGeyserObjectInstance geyser = new Sonic1LavaGeyserObjectInstance(
                     geyserSpawn, Sonic1LavaGeyserObjectInstance.Role.HEAD,
                     null, this, false);
-            geyser.initialize();
             services().objectManager().addDynamicObject(geyser);
         }
 

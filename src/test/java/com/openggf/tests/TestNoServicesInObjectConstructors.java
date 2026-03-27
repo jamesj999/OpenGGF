@@ -12,24 +12,20 @@ import java.util.stream.Stream;
 import static org.junit.Assert.fail;
 
 /**
- * Guards against calling {@code services()} in object constructors.
+ * Guards against calling {@code services()} before {@code ObjectServices}
+ * have been injected.
  * <p>
- * {@code services()} depends on {@code ObjectServices} being injected, which
- * happens AFTER construction when using {@code addDynamicObject()} or
- * {@code spawnDynamicObject()}. Only {@code spawnChild()} and
- * {@code setConstructionContext()} set the ThreadLocal BEFORE construction.
+ * {@code services()} depends on injection which happens AFTER construction
+ * when using {@code addDynamicObject()} or {@code spawnDynamicObject()}.
  * <p>
- * Rather than policing every call site, the safest rule is: <b>constructors
- * must never call {@code services()}</b>. Defer to lazy init or the first
- * {@code update()} call instead.
- * <p>
- * This test has three parts:
+ * Four guards:
  * <ol>
- *   <li>Detect {@code spawnDynamicObject(new X(...))} call sites — these are
- *       always suspicious and should use {@code spawnChild()} instead.</li>
+ *   <li>Detect {@code spawnDynamicObject(new X(...))} call sites.</li>
  *   <li>Hard-fail if any object constructor calls {@code services()}.</li>
- *   <li>Detect {@code addDynamicObject(new X(...))} across all source where
- *       the constructed class calls {@code services()} in its constructor.</li>
+ *   <li>Detect {@code addDynamicObject(new X(...))} where X's constructor
+ *       calls {@code services()}.</li>
+ *   <li>Detect method calls on freshly constructed objects before
+ *       registration, where the method calls {@code services()}.</li>
  * </ol>
  *
  * @see com.openggf.level.objects.AbstractObjectInstance#spawnDynamicObject
@@ -236,6 +232,191 @@ public class TestNoServicesInObjectConstructors {
                     + "so services() will throw IllegalStateException.\n\n  "
                     + String.join("\n  ", violations));
         }
+    }
+
+    /**
+     * Detects the pattern where a method is called on a freshly constructed
+     * object BEFORE it is passed to {@code addDynamicObject()} or
+     * {@code spawnDynamicObject()}, and that method calls {@code services()}.
+     * <p>
+     * Example of the dangerous pattern:
+     * <pre>
+     *   X obj = new X(...);
+     *   obj.initialize();              // CRASH — services not injected yet
+     *   manager.addDynamicObject(obj);
+     * </pre>
+     * <p>
+     * Field assignments ({@code obj.field = value}) are safe and ignored.
+     */
+    @Test
+    public void methodCallsBeforeRegistration_mustNotCallServices() throws IOException {
+        Path srcMain = Path.of("src/main/java");
+        if (!Files.isDirectory(srcMain)) {
+            return;
+        }
+
+        // Step 1: Build a map of className -> set of methods that call services()
+        Map<String, Set<String>> methodsCallingServices = new HashMap<>();
+        for (String pkg : OBJECT_PACKAGES) {
+            Path pkgDir = srcMain.resolve(pkg);
+            if (!Files.isDirectory(pkgDir)) continue;
+
+            try (Stream<Path> files = Files.walk(pkgDir)) {
+                files.filter(p -> p.toString().endsWith(".java"))
+                        .forEach(path -> {
+                            try {
+                                String content = Files.readString(path);
+                                String className = path.getFileName().toString().replace(".java", "");
+                                Set<String> methods = findMethodsCallingServices(content, className);
+                                if (!methods.isEmpty()) {
+                                    methodsCallingServices.put(className, methods);
+                                }
+                            } catch (IOException ignored) {
+                            }
+                        });
+            }
+        }
+
+        // Step 2: Scan ALL source for the pattern:
+        //   varName = new ClassName(...);
+        //   varName.method(...);
+        //   ... addDynamicObject(varName) or spawnDynamicObject(varName)
+        //
+        // We look for method calls (not field assignments) on a variable
+        // between its construction and registration.
+
+        // Match: ClassName varName = new ClassName(...)
+        // or:    var varName = new ClassName(...)
+        Pattern construction = Pattern.compile(
+                "(?:\\w+(?:<[^>]+>)?|var)\\s+(\\w+)\\s*=\\s*new\\s+(\\w+)\\s*\\(");
+        // Match: varName.methodName(
+        Pattern methodCall = Pattern.compile(
+                "(\\w+)\\.(\\w+)\\s*\\(");
+        // Match: addDynamicObject(varName) or spawnDynamicObject(varName)
+        Pattern registration = Pattern.compile(
+                "(?:addDynamicObject|spawnDynamicObject)\\s*\\(\\s*(\\w+)\\s*\\)");
+
+        List<String> violations = new ArrayList<>();
+
+        try (Stream<Path> allFiles = Files.walk(srcMain)) {
+            allFiles.filter(p -> p.toString().endsWith(".java"))
+                    .forEach(path -> {
+                        try {
+                            String content = Files.readString(path);
+                            String fileName = path.getFileName().toString();
+                            String[] lines = content.split("\n");
+
+                            // Track constructed-but-not-yet-registered variables
+                            // Key: varName, Value: className
+                            Map<String, String> pending = new HashMap<>();
+
+                            for (int i = 0; i < lines.length; i++) {
+                                String line = lines[i];
+
+                                // Check for construction
+                                Matcher ctorMatch = construction.matcher(line);
+                                while (ctorMatch.find()) {
+                                    pending.put(ctorMatch.group(1), ctorMatch.group(2));
+                                }
+
+                                // Check for registration — removes from pending
+                                Matcher regMatch = registration.matcher(line);
+                                while (regMatch.find()) {
+                                    pending.remove(regMatch.group(1));
+                                }
+
+                                // Check for method calls on pending objects
+                                Matcher callMatch = methodCall.matcher(line);
+                                while (callMatch.find()) {
+                                    String varName = callMatch.group(1);
+                                    String method = callMatch.group(2);
+                                    String className = pending.get(varName);
+                                    if (className != null) {
+                                        Set<String> dangerous = methodsCallingServices.get(className);
+                                        if (dangerous != null && dangerous.contains(method)) {
+                                            violations.add(fileName + ":" + (i + 1)
+                                                    + ": " + varName + "." + method
+                                                    + "() called before addDynamicObject — "
+                                                    + method + "() calls services() in "
+                                                    + className);
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (IOException ignored) {
+                        }
+                    });
+        }
+
+        if (!violations.isEmpty()) {
+            fail("Method calling services() invoked on object before registration.\n"
+                    + "addDynamicObject/spawnDynamicObject injects services AFTER "
+                    + "the call, so services() will throw IllegalStateException.\n"
+                    + "Move the method call after registration, or defer to "
+                    + "ensureInitialized() in update().\n\n  "
+                    + String.join("\n  ", violations));
+        }
+    }
+
+    /**
+     * Returns the set of non-constructor method names in a class that call
+     * {@code services()}, either directly or transitively through other
+     * methods in the same class.
+     */
+    private static Set<String> findMethodsCallingServices(String content, String className) {
+        // Parse all methods: name -> body
+        Map<String, String> methodBodies = new HashMap<>();
+        Pattern methodDecl = Pattern.compile(
+                "(?:public|protected|private|)\\s+"
+                        + "(?:static\\s+)?(?:final\\s+)?(?:synchronized\\s+)?"
+                        + "\\S+\\s+(\\w+)\\s*\\([^)]*\\)\\s*"
+                        + "(?:throws\\s+[^{]+)?\\{");
+
+        Matcher m = methodDecl.matcher(content);
+        while (m.find()) {
+            String methodName = m.group(1);
+            if (methodName.equals(className)) continue; // skip constructors
+
+            int start = m.end();
+            int braceDepth = 1;
+            int end = start;
+            while (end < content.length() && braceDepth > 0) {
+                char c = content.charAt(end);
+                if (c == '{') braceDepth++;
+                else if (c == '}') braceDepth--;
+                end++;
+            }
+            methodBodies.put(methodName, content.substring(start, end));
+        }
+
+        // Seed: methods that directly call services()
+        Pattern servicesCall = Pattern.compile("(?<![.\\w])services\\(\\)");
+        Set<String> callers = new HashSet<>();
+        for (var entry : methodBodies.entrySet()) {
+            if (servicesCall.matcher(entry.getValue()).find()) {
+                callers.add(entry.getKey());
+            }
+        }
+
+        // Transitive closure: methods that call methods already in the set
+        boolean changed = true;
+        while (changed) {
+            changed = false;
+            for (var entry : methodBodies.entrySet()) {
+                if (callers.contains(entry.getKey())) continue;
+                for (String caller : callers) {
+                    // Check if this method's body calls a known services-calling method
+                    if (Pattern.compile("(?<![.\\w])" + Pattern.quote(caller) + "\\s*\\(")
+                            .matcher(entry.getValue()).find()) {
+                        callers.add(entry.getKey());
+                        changed = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        return callers;
     }
 
     /**
