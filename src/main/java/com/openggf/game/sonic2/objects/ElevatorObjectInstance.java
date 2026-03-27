@@ -77,7 +77,7 @@ public class ElevatorObjectInstance extends BoxObjectInstance
     private boolean inverted;   // True if bit 3 of render flags is set (invert direction)
 
     // Contact tracking
-    private int lastContactFrame = -2;
+    private boolean contactStanding;
 
     public ElevatorObjectInstance(ObjectSpawn spawn, String name) {
         // Use platform half-width for debug box, cyan color
@@ -149,7 +149,7 @@ public class ElevatorObjectInstance extends BoxObjectInstance
     public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (contact.standing() || contact.touchTop()) {
-            lastContactFrame = frameCounter;
+            contactStanding = true;
         }
     }
 
@@ -159,7 +159,8 @@ public class ElevatorObjectInstance extends BoxObjectInstance
         // Apply velocity FIRST (matches ROM ObjectMove timing)
         applyVelocity();
 
-        boolean standing = (frameCounter - lastContactFrame) <= 1;
+        boolean standing = contactStanding;
+        contactStanding = false;
 
         switch (state) {
             case STATE_WAIT_FOR_CONTACT -> updateWaitForContact(standing);
