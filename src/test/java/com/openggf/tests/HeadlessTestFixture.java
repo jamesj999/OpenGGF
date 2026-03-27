@@ -9,6 +9,7 @@ import com.openggf.game.RuntimeManager;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.level.LevelManager;
+import com.openggf.level.objects.ObjectManager;
 import com.openggf.physics.GroundSensor;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -155,6 +156,14 @@ public final class HeadlessTestFixture {
                 } catch (IOException e) {
                     throw new UncheckedIOException(
                             "Failed to load zone " + zone + " act " + act, e);
+                }
+            } else {
+                // Re-wire CollisionSystem after per-test reset when using SharedLevel.
+                // resetPerTest() clears CollisionSystem.objectManager, but the SharedLevel
+                // path skips level reload (which normally restores the wiring).
+                ObjectManager om = GameServices.level().getObjectManager();
+                if (om != null) {
+                    GameServices.collision().setObjectManager(om);
                 }
             }
 
