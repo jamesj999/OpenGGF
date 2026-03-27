@@ -260,6 +260,32 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     }
 
     /**
+     * ROM-accurate out_of_range check (X-only, chunk-aligned).
+     * <p>
+     * Matches the S1/S2 {@code out_of_range} macro (Macros.asm):
+     * <pre>
+     *   move.w  obX(a0),d0
+     *   andi.w  #$FF80,d0           ; chunk-align object X
+     *   move.w  (v_screenposx).w,d1
+     *   subi.w  #128,d1
+     *   andi.w  #$FF80,d1           ; chunk-align (screenX - 128)
+     *   sub.w   d1,d0
+     *   cmpi.w  #128+320+192,d0     ; 640 = total range
+     *   bhi     exit
+     * </pre>
+     *
+     * @return true if object is within range (should NOT be deleted)
+     */
+    protected boolean isInRange() {
+        int objAligned = getX() & 0xFF80;
+        int screenAligned = (cameraBounds.left() - 128) & 0xFF80;
+        int dist = objAligned - screenAligned;
+        // ROM uses unsigned bhi (branch if higher): out of range when dist > 640.
+        // In Java, handle unsigned comparison: dist must be in [0, 640].
+        return dist >= 0 && dist <= (128 + 320 + 192);
+    }
+
+    /**
      * Adds an already-constructed object to the level's object manager.
      * <p>
      * <b>Does NOT set {@link #CONSTRUCTION_CONTEXT}.</b> If the object's constructor
