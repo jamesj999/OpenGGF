@@ -123,7 +123,7 @@ public class MTZLongPlatformObjectInstance extends AbstractObjectInstance
     private boolean xFlip;       // status.npc.x_flip
 
     // Standing detection
-    private int lastContactFrame = -2;
+    private boolean contactStanding;
 
     public MTZLongPlatformObjectInstance(ObjectSpawn spawn) {
         super(spawn, "MTZLongPlatform");
@@ -161,7 +161,7 @@ public class MTZLongPlatformObjectInstance extends AbstractObjectInstance
     public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (contact.standing() || contact.touchTop()) {
-            lastContactFrame = frameCounter;
+            contactStanding = true;
         }
     }
 
@@ -492,7 +492,8 @@ public class MTZLongPlatformObjectInstance extends AbstractObjectInstance
      */
     private void moveStepOnAdvance(int frameCounter) {
         // s2.asm lines 52676-52679: btst #p1_standing_bit,status(a0); beq +; addq.b #1,subtype
-        boolean standing = (frameCounter - lastContactFrame) <= 1;
+        boolean standing = contactStanding;
+        contactStanding = false;
         if (standing) {
             moveSubtype++;
         }

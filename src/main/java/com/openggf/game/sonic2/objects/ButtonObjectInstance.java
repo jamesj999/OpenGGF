@@ -74,7 +74,7 @@ public class ButtonObjectInstance extends AbstractObjectInstance
     private final int adjustedY;
 
     // Standing detection via SolidObjectListener callback
-    private int lastStandingFrame = -2;
+    private boolean contactStanding;
 
     // Current mapping frame (0=unpressed, 1=pressed)
     private int mappingFrame = FRAME_UNPRESSED;
@@ -104,10 +104,10 @@ public class ButtonObjectInstance extends AbstractObjectInstance
 
         // Determine if any player is currently standing on this button.
         // ROM: move.b status(a0),d0 / andi.b #standing_mask,d0 / bne.s +
-        // The onSolidContact callback sets lastStandingFrame when contact.standing() is true.
-        // We use the (frameCounter - lastStandingFrame <= 1) pattern because update()
-        // runs before collision resolution for the current frame.
-        boolean standing = (frameCounter - lastStandingFrame) <= 1;
+        // The onSolidContact callback sets contactStanding when contact.standing() is true.
+        // We read and clear the flag each frame in update().
+        boolean standing = contactStanding;
+        contactStanding = false;
 
         if (!standing) {
             // ROM: bclr d3,(a3) - clear the trigger bit when nobody is standing
@@ -154,7 +154,7 @@ public class ButtonObjectInstance extends AbstractObjectInstance
     public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (contact.standing()) {
-            lastStandingFrame = frameCounter;
+            contactStanding = true;
         }
     }
 

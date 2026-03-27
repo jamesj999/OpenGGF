@@ -92,7 +92,7 @@ public class NutObjectInstance extends AbstractObjectInstance
     private int p1Direction;
 
     // Player standing detection
-    private int lastContactFrame = -2;
+    private boolean contactStanding;
     private boolean playerStanding;
 
     // Subtype flags
@@ -155,14 +155,15 @@ public class NutObjectInstance extends AbstractObjectInstance
     public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (contact.standing() || contact.touchTop()) {
-            lastContactFrame = frameCounter;
+            contactStanding = true;
         }
     }
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
-        playerStanding = (frameCounter - lastContactFrame) <= 1;
+        playerStanding = contactStanding;
+        contactStanding = false;
 
         switch (routine) {
             case ROUTINE_MAIN -> updateMain(player);

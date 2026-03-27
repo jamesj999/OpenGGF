@@ -77,7 +77,7 @@ public class MTZPlatformObjectInstance extends AbstractObjectInstance
     private boolean xFlip;
 
     // Contact tracking
-    private int lastContactFrame = -2;
+    private boolean contactStanding;
 
     public MTZPlatformObjectInstance(ObjectSpawn spawn, String name) {
         super(spawn, name);
@@ -118,7 +118,7 @@ public class MTZPlatformObjectInstance extends AbstractObjectInstance
     public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (contact.standing() || contact.touchTop()) {
-            lastContactFrame = frameCounter;
+            contactStanding = true;
         }
     }
 
@@ -197,7 +197,8 @@ public class MTZPlatformObjectInstance extends AbstractObjectInstance
      * Applies movement based on movement type.
      */
     private void applyMovement(int frameCounter) {
-        boolean standing = (frameCounter - lastContactFrame) <= 1;
+        boolean standing = contactStanding;
+        contactStanding = false;
 
         switch (moveType) {
             case 0 -> { /* Stationary - no movement */ }
