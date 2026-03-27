@@ -189,15 +189,18 @@ public class Sonic1LavaGeyserObjectInstance extends AbstractObjectInstance
         this.behindPriority = behindPriority;
     }
 
+    private boolean initialized;
+
     /**
-     * Initializes this geyser piece. Called by GeyserMaker after construction
-     * to set up the full hierarchy (head -> body -> optional third body).
+     * Initializes this geyser piece. Deferred to first update() so that
+     * ObjectServices are available (injected by addDynamicObject).
      */
-    void initialize() {
+    private void ensureInitialized() {
+        if (initialized) return;
+        initialized = true;
         if (role == Role.HEAD) {
             initializeHead();
         }
-        // BODY and THIRD_BODY are initialized by the head's initializeHead()
     }
 
     private void initializeHead() {
@@ -269,6 +272,7 @@ public class Sonic1LavaGeyserObjectInstance extends AbstractObjectInstance
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        ensureInitialized();
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (pendingDelete) {
             setDestroyed(true);
