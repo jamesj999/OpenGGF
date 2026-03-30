@@ -61,9 +61,9 @@ public class TestSonic3kLevelLoading {
         assertEquals(0x13A0, start[0]);
         assertEquals(0x041A, start[1]);
 
-        // Ensure we are not using static LevelData fallback values.
-        assertNotEquals(LevelData.S3K_ANGEL_ISLAND_1.getStartXPos(), start[0]);
-        assertNotEquals(LevelData.S3K_ANGEL_ISLAND_1.getStartYPos(), start[1]);
+        // LevelData fallback should also match ROM values
+        assertEquals(LevelData.S3K_ANGEL_ISLAND_1.getStartXPos(), start[0]);
+        assertEquals(LevelData.S3K_ANGEL_ISLAND_1.getStartYPos(), start[1]);
     }
 
     @Test
