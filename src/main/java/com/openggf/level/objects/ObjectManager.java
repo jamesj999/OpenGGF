@@ -482,7 +482,11 @@ public class ObjectManager {
                         }
                         freeAllReservedChildSlots(oorSpawn);
                         placement.clearCounterForSpawn(oorSpawn);
-                        placement.removeFromActiveForUnload(oorSpawn);
+                        // ROM parity: mark dormant instead of removing from active.
+                        // The spawn stays in placement.active but syncActiveSpawnsLoad
+                        // skips dormant spawns. Only the cursor system clears dormant
+                        // when it naturally re-processes this position.
+                        placement.markDormant(oorSpawn);
                         instance.onUnload();
                         execOrder[currentExecSlot] = null;
                         instanceToSpawn.remove(instance);
@@ -1539,7 +1543,8 @@ public class ObjectManager {
         List<ObjectSpawn> sortedNewSpawns = new ArrayList<>();
         for (ObjectSpawn spawn : activeSpawns) {
             if (!activeObjects.containsKey(spawn)
-                    && !(placement.isRemembered(spawn) && !placement.isStayActive(spawn))) {
+                    && !(placement.isRemembered(spawn) && !placement.isStayActive(spawn))
+                    && !placement.isDormant(spawn)) {
                 sortedNewSpawns.add(spawn);
             }
         }
@@ -1666,6 +1671,18 @@ public class ObjectManager {
         private final BitSet stayActive = new BitSet();
         /** Tracks spawns destroyed while in the window - prevents respawn until they leave the window. */
         private final BitSet destroyedInWindow = new BitSet();
+        /**
+         * ROM parity: tracks spawns whose instance was deleted via out_of_range
+         * during ExecuteObjects but whose cursor position hasn't changed.
+         * In the ROM, DeleteObject zeroes the SST slot but ObjPosLoad's cursors
+         * are unaware. The spawn stays "between cursors" as a dead slot. It is
+         * NOT re-created until the cursor naturally retreats past it and then
+         * re-advances (via the backward/forward scan cycle).
+         * <p>
+         * syncActiveSpawnsLoad must skip dormant spawns — only the cursor system
+         * can clear dormant (when it re-processes the spawn position).
+         */
+        private final BitSet dormant = new BitSet();
         private int cursorIndex = 0;
         private int lastCameraX = Integer.MIN_VALUE;
         private int lastCameraChunk = Integer.MIN_VALUE;
@@ -1716,6 +1733,7 @@ public class ObjectManager {
             remembered.clear();
             stayActive.clear();
             destroyedInWindow.clear();
+            dormant.clear();
             cursorIndex = 0;
             leftCursorIndex = 0;
             lastCameraX = Integer.MIN_VALUE;
@@ -1731,6 +1749,7 @@ public class ObjectManager {
             remembered.clear();
             stayActive.clear();
             destroyedInWindow.clear();
+            dormant.clear();
             spawnToCounter.clear();
             cursorIndex = 0;
             leftCursorIndex = 0;
@@ -1936,6 +1955,24 @@ public class ObjectManager {
             active.remove(spawn);
         }
 
+        /**
+         * Marks a spawn as dormant after its instance was deleted via out_of_range.
+         * The spawn stays in {@code active} but syncActiveSpawnsLoad will skip it.
+         * Only the cursor system clears dormant when it naturally re-processes
+         * the spawn position (via forward/backward scan or cursor trim).
+         */
+        void markDormant(ObjectSpawn spawn) {
+            int index = getSpawnIndex(spawn);
+            if (index >= 0) {
+                dormant.set(index);
+            }
+        }
+
+        boolean isDormant(ObjectSpawn spawn) {
+            int index = getSpawnIndex(spawn);
+            return index >= 0 && dormant.get(index);
+        }
+
         private void spawnForward(int cameraX) {
             int spawnLimit = getWindowEnd(cameraX);
             // ROM parity: ObjPosLoad forward scan uses `bls` (branch if lower or same)
@@ -2014,6 +2051,9 @@ public class ObjectManager {
          * ROM: assigns d2 = fwdCounter, then fwdCounter++ for respawn-tracked.
          */
         private void spawnForwardEntry(int index) {
+            // Clear dormant: the cursor is re-scanning this position, matching
+            // ROM behavior where ObjPosLoad re-processes the spawn entry.
+            dormant.clear(index);
             ObjectSpawn spawn = spawns.get(index);
             if (spawn.respawnTracked()) {
                 int counter = fwdCounter & 0xFF;
@@ -2060,6 +2100,9 @@ public class ObjectManager {
                 if (destroyedInWindow.get(leftCursorIndex)) {
                     destroyedInWindow.clear(leftCursorIndex);
                 }
+                // Spawn leaving the cursor window — clear dormant so it can
+                // be normally re-loaded when the cursor re-enters this region.
+                dormant.clear(leftCursorIndex);
                 leftCursorIndex++;
             }
         }
@@ -2077,6 +2120,7 @@ public class ObjectManager {
                 if (leftEdge >= prev.x()) break;
                 // Retreat cursor
                 leftCursorIndex--;
+                dormant.clear(leftCursorIndex); // cursor re-processing this entry
                 if (prev.respawnTracked()) {
                     bwdCounter = (bwdCounter - 1) & 0xFF;
                     int counter = bwdCounter & 0xFF;
@@ -2135,6 +2179,9 @@ public class ObjectManager {
                 if (destroyedInWindow.get(cursorIndex)) {
                     destroyedInWindow.clear(cursorIndex);
                 }
+                // Spawn leaving the cursor window — clear dormant so it can
+                // be normally re-loaded when the cursor re-enters this region.
+                dormant.clear(cursorIndex);
             }
         }
 
