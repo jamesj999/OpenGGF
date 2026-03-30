@@ -1184,6 +1184,23 @@ public final class Sonic3kPlcArtRegistry {
                     null
             ));
         } else {
+            // AIZ Collapsing Log Bridge: art_tile = make_art_tile(ArtTile_AIZMisc2, 2, 0)
+            // ArtNem_AIZMisc2 is loaded by PLC_0C_0D (Act 2 objects)
+            levelArt.add(new LevelArtEntry(
+                    Sonic3kObjectArtKeys.AIZ_COLLAPSING_LOG_BRIDGE,
+                    Sonic3kConstants.MAP_AIZ_COLLAPSING_LOG_BRIDGE_ADDR,
+                    Sonic3kConstants.ARTTILE_AIZ_MISC2,
+                    2,
+                    null
+            ));
+            // AIZ Draw Bridge Fire: art_tile = make_art_tile(ArtTile_AIZMisc2, 2, 1)
+            levelArt.add(new LevelArtEntry(
+                    Sonic3kObjectArtKeys.AIZ_DRAW_BRIDGE_FIRE,
+                    Sonic3kConstants.MAP_AIZ_DRAW_BRIDGE_FIRE_ADDR,
+                    Sonic3kConstants.ARTTILE_AIZ_MISC2,
+                    2,
+                    null
+            ));
             levelArt.add(new LevelArtEntry(
                     Sonic3kObjectArtKeys.AIZ2_ROCK,
                     Sonic3kConstants.MAP_AIZ_ROCK2_ADDR,

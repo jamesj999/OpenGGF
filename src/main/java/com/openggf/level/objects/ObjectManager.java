@@ -1355,7 +1355,11 @@ public class ObjectManager {
                 buildingSet.add(instance);
                 // ROM touch checks run every frame for bosses. Most other objects are
                 // edge-triggered, but some special objects need per-frame polling behavior.
+                // ROM: Touch_ChkHurt runs every frame — no edge-triggering.
+                // HURT must be continuous so damage re-applies after i-frames expire
+                // while the player is still inside the hazard hitbox.
                 boolean shouldTrigger = category == TouchCategory.BOSS
+                        || category == TouchCategory.HURT
                         || provider.requiresContinuousTouchCallbacks()
                         || !overlappingSet.contains(instance);
                 if (shouldTrigger) {
@@ -1401,7 +1405,9 @@ public class ObjectManager {
                 }
 
                 buildingSet.add(instance);
+                // ROM: HURT is continuous (same as BOSS) — see processCollisionLoop comment
                 boolean shouldTrigger = category == TouchCategory.BOSS
+                        || category == TouchCategory.HURT
                         || provider.requiresContinuousTouchCallbacks()
                         || !overlappingSet.contains(instance);
                 if (shouldTrigger) {

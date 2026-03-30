@@ -363,7 +363,7 @@ public class S3kSignpostInstance extends AbstractObjectInstance {
         // Spawn the results screen — pass apparentAct (ROM's Apparent_act), not
         // LevelManager.getCurrentAct(). AIZ reloads act 2 resources mid-level which
         // changes LevelManager.currentAct to 1, but Apparent_act stays 0 until results exit.
-        spawnDynamicObject(new S3kResultsScreenObjectInstance(
+        spawnChild(() -> new S3kResultsScreenObjectInstance(
                 getPlayerCharacter(), apparentAct));
         LOG.fine("S3K Signpost RESULTS -> AFTER (results instance spawned)");
         state = State.AFTER;

@@ -1596,18 +1596,35 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		short max = sprite.getMax();
 
 		// Air control (skip if rolling jump)
-		// ROM behavior (s2.asm:36826-36840): ALWAYS apply acceleration and cap.
-		// Unlike ground movement, air control caps even high speeds from slopes/springs.
+		// S1/S2 (s1:01 Sonic.asm:736-750, s2.asm:36826-36840): unconditional cap at max.
+		// S3K (sonic3k.asm:23088-23121): preserves speeds already above max (undo+check).
+		PhysicsFeatureSet featureSet = sprite.getPhysicsFeatureSet();
+		boolean preserveSuperspeed = featureSet != null && featureSet.airSuperspeedPreserved();
 		if (!sprite.getRollingJump()) {
 			if (inputLeft) {
 				sprite.setDirection(Direction.LEFT);
-				xSpeed -= (2 * runAccel);
-				if (xSpeed < -max) xSpeed = (short) -max;
+				short accel = (short) (2 * runAccel);
+				short newSpeed = (short) (xSpeed - accel);
+				short negMax = (short) -max;
+				if (newSpeed > negMax) {
+					xSpeed = newSpeed;
+				} else if (preserveSuperspeed && xSpeed <= negMax) {
+					// S3K: already past max — preserve original (don't cap)
+				} else {
+					xSpeed = negMax;
+				}
 			}
 			if (inputRight) {
 				sprite.setDirection(Direction.RIGHT);
-				xSpeed += (2 * runAccel);
-				if (xSpeed > max) xSpeed = max;
+				short accel = (short) (2 * runAccel);
+				short newSpeed = (short) (xSpeed + accel);
+				if (newSpeed < max) {
+					xSpeed = newSpeed;
+				} else if (preserveSuperspeed && xSpeed >= max) {
+					// S3K: already past max — preserve original (don't cap)
+				} else {
+					xSpeed = max;
+				}
 			}
 		}
 
