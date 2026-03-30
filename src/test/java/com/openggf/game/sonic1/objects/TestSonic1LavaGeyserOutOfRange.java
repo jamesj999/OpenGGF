@@ -13,6 +13,7 @@ import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRegistry;
 import com.openggf.level.objects.ObjectSpawn;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
@@ -80,6 +81,42 @@ public class TestSonic1LavaGeyserOutOfRange {
         maker.update(1, null);
 
         assertTrue("Maker should delete when outside ROM out_of_range X window", maker.isDestroyed());
+    }
+
+    /**
+     * Regression: lavafall (subtype != 0) third piece must NOT re-run initializeHead().
+     * Without the fix, each frame's ensureInitialized() on the third piece would spawn
+     * another body + third piece, cascading exponentially and crashing the engine.
+     */
+    @Test
+    public void lavafallThirdPieceDoesNotCascadeSpawn() {
+        // Place camera so the geyser is in range
+        GameServices.camera().setX((short) 0x100);
+        GameServices.camera().setY((short) 0x300);
+
+        // Track all objects added via addDynamicObject
+        List<ObjectInstance> spawnedObjects = new ArrayList<>();
+        ObjectSpawn lavafallSpawn = new ObjectSpawn(0x180, 0x400, 0x4C, 1, 0, false, 0);
+        CountingMakerRegistry registry = new CountingMakerRegistry();
+        ObjectManager manager = new ObjectManager(List.of(lavafallSpawn), registry, 0, null, null);
+        manager.reset(0);
+
+        // Run enough frames for the maker to trigger and the geyser to initialize.
+        // Frame 0: maker spawns (routine 2, timer=0 → expires immediately)
+        // Frame 1: maker at routine 4 (ChkType) → routine 6 (lavafall)
+        // Frame 2: maker at routine 6 (MakeLava) → spawns LavaGeyser head
+        // Frame 3: LavaGeyser head initializeHead() → spawns body + third piece
+        // Frame 4+: if bug present, third piece would cascade-spawn more objects each frame
+        for (int i = 0; i < 10; i++) {
+            manager.update(0, null, null, i + 1);
+        }
+
+        // Count active objects: should be bounded. With the bug, this would be 20+
+        // and growing exponentially. Correct count: 1 maker + 1 head + 1 body + 1 third = 4
+        // (some may have been destroyed by now, but total should be small)
+        int totalObjects = manager.getActiveObjects().size();
+        assertTrue("Lavafall should not cascade-spawn objects (found " + totalObjects + ")",
+                totalObjects <= 6);
     }
 
     @Test
