@@ -52,9 +52,6 @@ public class Sonic1SpikeObjectInstance extends AbstractObjectInstance
     private static final int RETRACT_STEP = 0x800;    // addi.w #$800,objoff_34(a0)
     private static final int RETRACT_MAX = 0x2000;     // cmpi.w #$2000,objoff_34(a0)
     private static final int RETRACT_DELAY = 60;       // move.w #60,objoff_38(a0)
-    private static final int UPRIGHT_AIR_HALF_HEIGHT = 0x10; // d2 in Spik_Upright
-    private static final int LANDING_WINDOW = 0x10;          // cmpi.w #$10,d3 in SolidObject_TopBottom
-
     // From disassembly: move.b #4,obPriority(a0)
     private static final int PRIORITY = 4;
 
@@ -139,13 +136,11 @@ public class Sonic1SpikeObjectInstance extends AbstractObjectInstance
     @Override
     public SolidObjectParams getSolidParams() {
         if (isSideways()) {
-            // S1 SolidObject uses the d2 path for overlap in this code path, so keep
-            // effective half-height the same for air/ground here.
             int halfHeight = (frameIndex == 5) ? 4 : 0x14;
             return new SolidObjectParams(0x1B, halfHeight, halfHeight);
         }
-        // Spik_Upright: d1=obActWid+$B, d2=$10. Match ROM-effective overlap height.
-        return new SolidObjectParams(actWidth + 0x0B, 0x10, 0x10);
+        // Spik_Upright: d1=obActWid+$B, d2=$10, d3=$11. ROM-exact.
+        return new SolidObjectParams(actWidth + 0x0B, 0x10, 0x11);
     }
     @Override
     public int getX() {
@@ -203,9 +198,9 @@ public class Sonic1SpikeObjectInstance extends AbstractObjectInstance
             return false;
         }
 
-        int maxTop = player.getYRadius() + UPRIGHT_AIR_HALF_HEIGHT;
+        int maxTop = player.getYRadius() + 0x10; // d2 in Spik_Upright
         int relY = player.getCentreY() - currentY + 4 + maxTop;
-        if (relY < 0 || relY >= LANDING_WINDOW) {
+        if (relY < 0 || relY >= 0x10) {
             return false;
         }
 

@@ -3427,12 +3427,16 @@ public class ObjectManager {
                     // which re-samples the slope heightmap at the player's X each
                     // frame: surfaceY = obY - slopeSample; playerY = surfaceY - yRadius.
                     // Flat objects use MvSonicOnPtfm: y = obY - d3 - yRadius.
+                    // d3 is the GROUND half-height (walking), NOT d2 (air/jumping).
+                    // ROM: MvSonicOnPtfm uses d3 which was set by the caller before
+                    // SolidObject was called. For spikes d3=$11, push blocks d3=$11,
+                    // platforms d3=$10, etc.
                     int surfaceOffset;
                     if (ridingObject instanceof SlopedSolidProvider sloped) {
                         int slopeY = sampleSlopeY(player, currentX, params.halfWidth(), sloped);
-                        surfaceOffset = (slopeY != Integer.MIN_VALUE) ? slopeY : params.airHalfHeight();
+                        surfaceOffset = (slopeY != Integer.MIN_VALUE) ? slopeY : params.groundHalfHeight();
                     } else {
-                        surfaceOffset = params.airHalfHeight();
+                        surfaceOffset = params.groundHalfHeight();
                     }
                     int newCentreY = currentY + params.offsetY() - surfaceOffset - player.getYRadius();
                     int newY = newCentreY - (player.getHeight() / 2);
