@@ -85,6 +85,7 @@ public class Sonic3kObjectProfile implements GameObjectProfile {
                 0x09, // AIZ1Tree
                 0x0A, // AIZ1ZiplinePeg
                 0x0C, // AIZGiantRideVine
+                0x2C, // AIZCollapsingLogBridge
                 0x2D, // AIZFallingLog
                 0x35, // AIZForegroundPlant
                 0x8C, // Bloominator
