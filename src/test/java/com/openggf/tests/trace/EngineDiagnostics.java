@@ -10,6 +10,7 @@ package com.openggf.tests.trace;
  * @param standOnType   Object type ID at that slot (-1 = none)
  * @param rings         Engine's ring count
  * @param statusByte    Engine's player status flags byte
+ * @param cameraX       Engine's camera X position
  * @param solidEvent    Description of SolidContacts/touch event this frame, or empty
  */
 public record EngineDiagnostics(
@@ -18,10 +19,11 @@ public record EngineDiagnostics(
     int standOnType,
     int rings,
     int statusByte,
+    int cameraX,
     String solidEvent
 ) {
     /** No diagnostics available. */
-    public static final EngineDiagnostics EMPTY = new EngineDiagnostics(-1, -1, -1, -1, -1, "");
+    public static final EngineDiagnostics EMPTY = new EngineDiagnostics(-1, -1, -1, -1, -1, -1, "");
 
     /**
      * Format as a compact string for the context window.
@@ -41,6 +43,10 @@ public record EngineDiagnostics(
         if (statusByte >= 0) {
             if (!sb.isEmpty()) sb.append(' ');
             sb.append(String.format("st=%02X", statusByte));
+        }
+        if (cameraX >= 0) {
+            if (!sb.isEmpty()) sb.append(' ');
+            sb.append(String.format("cam=%04X", cameraX));
         }
         if (solidEvent != null && !solidEvent.isEmpty()) {
             if (!sb.isEmpty()) sb.append(' ');

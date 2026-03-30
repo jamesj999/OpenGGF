@@ -159,6 +159,7 @@ public abstract class AbstractTraceReplayTest {
                     engineDiag);
 
 
+
             }
 
             // 6. Build report
@@ -239,7 +240,10 @@ public abstract class AbstractTraceReplayTest {
         if (sprite.getRolling()) statusByte |= 0x04;
         if (sprite.isOnObject()) statusByte |= 0x08;
 
-        return new EngineDiagnostics(routine, standOnSlot, standOnType, rings, statusByte, "");
+        // Camera X for cross-reference with ROM trace
+        int camX = GameServices.camera() != null ? GameServices.camera().getX() : -1;
+
+        return new EngineDiagnostics(routine, standOnSlot, standOnType, rings, statusByte, camX, "");
     }
 
     private void writeReport(DivergenceReport report, TraceMetadata meta) {
