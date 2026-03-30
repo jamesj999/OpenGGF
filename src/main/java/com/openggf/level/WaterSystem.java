@@ -67,6 +67,11 @@ public class WaterSystem {
     // Dynamic water level state (for levels where water rises/falls)
     private final Map<String, DynamicWaterState> dynamicWaterStates = new HashMap<>();
 
+    // ROM: Water_entered_counter — incremented each time any player enters or exits water.
+    // Objects snapshot this value and compare each frame to detect water state changes.
+    // (sonic3k.constants.asm: Water_entered_counter)
+    private int waterEnteredCounter;
+
     /**
      * Water configuration for a specific zone/act.
      */
@@ -678,11 +683,29 @@ public class WaterSystem {
     }
 
     /**
+     * Returns the current water entered counter value.
+     * Objects snapshot this and compare each frame to detect water entry/exit.
+     * ROM: Water_entered_counter (sonic3k.constants.asm)
+     */
+    public int getWaterEnteredCounter() {
+        return waterEnteredCounter;
+    }
+
+    /**
+     * Increments the water entered counter.
+     * Called from player sprite when entering or exiting water.
+     */
+    public void incrementWaterEnteredCounter() {
+        waterEnteredCounter++;
+    }
+
+    /**
      * Reset all water configurations (for testing or level reload).
      */
     public void reset() {
         waterConfigs.clear();
         dynamicWaterStates.clear();
+        waterEnteredCounter = 0;
     }
 
     // =========================================================================

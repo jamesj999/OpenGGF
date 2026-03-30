@@ -1184,6 +1184,15 @@ public final class Sonic3kPlcArtRegistry {
                     null
             ));
         } else {
+            // AIZ Spiked Log: art_tile = make_art_tile(ArtTile_AIZMisc2, 2, 0)
+            // ArtNem_AIZMisc2 is loaded by PLC_0C_0D (Act 2 objects)
+            levelArt.add(new LevelArtEntry(
+                    Sonic3kObjectArtKeys.AIZ_SPIKED_LOG,
+                    Sonic3kConstants.MAP_AIZ_SPIKED_LOG_ADDR,
+                    Sonic3kConstants.ARTTILE_AIZ_MISC2,
+                    2,
+                    null
+            ));
             // AIZ Collapsing Log Bridge: art_tile = make_art_tile(ArtTile_AIZMisc2, 2, 0)
             // ArtNem_AIZMisc2 is loaded by PLC_0C_0D (Act 2 objects)
             levelArt.add(new LevelArtEntry(

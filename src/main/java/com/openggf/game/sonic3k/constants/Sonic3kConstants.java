@@ -163,6 +163,11 @@ public class Sonic3kConstants {
     public static final int MAP_AIZ_FALLING_LOG_SPLASH_ADDR = 0x22AEB0;  // Map_AIZFallingLogSplash (Act 1 splash, 4 frames)
     public static final int MAP_AIZ_FALLING_LOG_SPLASH_2_ADDR = 0x22AE40; // Map_AIZFallingLogSplash2 (Act 2 splash, 4 frames)
 
+    // ===== Spiked Log mappings (Obj_AIZSpikedLog, ID 0x2E) =====
+    // Map_AIZSpikedLog: 16 frames (rotating spiked log platform).
+    // art_tile = make_art_tile(ArtTile_AIZMisc2, 2, 0) → base tile 0x2E9, palette 2.
+    public static final int MAP_AIZ_SPIKED_LOG_ADDR = 0x22B0F0;
+
     // ===== Cork Floor mappings (Obj_CorkFloor, ID 0x2A) =====
     // Each zone has its own mapping table: frame 0 = intact, frame 1 = broken fragments.
     // Addresses derived from frame labels in LockOn Data.asm sequential includes.
