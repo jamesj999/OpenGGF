@@ -85,9 +85,14 @@ public class DivergenceReport {
         sb.append(String.format("%-6s", "Frame"));
 
         Set<String> fieldNames = new LinkedHashSet<>();
+        boolean hasDiagnostics = false;
         for (int i = start; i <= end; i++) {
             if (i < allComparisons.size()) {
-                fieldNames.addAll(allComparisons.get(i).fields().keySet());
+                FrameComparison fc = allComparisons.get(i);
+                fieldNames.addAll(fc.fields().keySet());
+                if (!fc.romDiagnostics().isEmpty() || !fc.engineDiagnostics().isEmpty()) {
+                    hasDiagnostics = true;
+                }
             }
         }
 
@@ -108,6 +113,15 @@ public class DivergenceReport {
                         comp.expected(), marker, comp.actual()));
                 } else {
                     sb.append(String.format(" | %-8s | %-8s", "?", "?"));
+                }
+            }
+            // Append diagnostic context on divergent frames
+            if (hasDiagnostics && fc.hasDivergence()) {
+                String romDiag = fc.romDiagnostics();
+                String engDiag = fc.engineDiagnostics();
+                if (!romDiag.isEmpty() || !engDiag.isEmpty()) {
+                    sb.append("\n       ROM: ").append(romDiag.isEmpty() ? "-" : romDiag);
+                    sb.append("\n       ENG: ").append(engDiag.isEmpty() ? "-" : engDiag);
                 }
             }
             sb.append("\n");

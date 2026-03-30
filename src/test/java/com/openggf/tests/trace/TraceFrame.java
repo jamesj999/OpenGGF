@@ -5,10 +5,12 @@ package com.openggf.tests.trace;
  * All values match the physics.csv format: positions and speeds are
  * 16-bit values as stored in 68K RAM.
  *
- * <p>Supports both v1 (11 columns) and v2 (18 columns) CSV formats.
- * v2 adds diagnostic fields: x_sub, y_sub, routine, camera_x, camera_y,
- * rings, status_byte. These are not compared by {@link TraceBinder} but
- * appear in divergence report context windows for debugging.
+ * <p>Supports v1 (11 columns), v2 (18 columns), v2.1 (19 columns), and
+ * v2.2 (20 columns) CSV formats. v2 adds diagnostic fields: x_sub, y_sub,
+ * routine, camera_x, camera_y, rings, status_byte. v2.1 adds v_framecount
+ * (ROM's Level_MainLoop counter). v2.2 adds stand_on_obj (SST slot index of
+ * object Sonic is riding on). These are not compared by {@link TraceBinder}
+ * but appear in divergence report context windows for debugging.
  */
 public record TraceFrame(
     int frame,
@@ -29,18 +31,22 @@ public record TraceFrame(
     int cameraX,
     int cameraY,
     int rings,
-    int statusByte
+    int statusByte,
+    // v2.1: ROM frame counter for cross-referencing engine vblaCounter
+    int vFrameCount,
+    // v2.2: SST slot index of object Sonic is standing on (0 = none, -1 = absent)
+    int standOnObj
 ) {
 
     /**
      * Convenience factory for tests: creates a TraceFrame with only the core 11 fields,
-     * setting all v2 diagnostic fields to defaults (-1 = absent).
+     * setting all v2/v2.1/v2.2 diagnostic fields to defaults (-1 = absent).
      */
     public static TraceFrame of(int frame, int input,
             short x, short y, short xSpeed, short ySpeed, short gSpeed,
             byte angle, boolean air, boolean rolling, int groundMode) {
         return new TraceFrame(frame, input, x, y, xSpeed, ySpeed, gSpeed, angle,
-            air, rolling, groundMode, 0, 0, -1, -1, -1, -1, -1);
+            air, rolling, groundMode, 0, 0, -1, -1, -1, -1, -1, -1, -1);
     }
 
     /** v1 column count (original format). */
@@ -49,19 +55,28 @@ public record TraceFrame(
     /** v2 column count (with diagnostic fields). */
     private static final int V2_COLUMNS = 18;
 
+    /** v2.1 column count (v2 + v_framecount). */
+    private static final int V21_COLUMNS = 19;
+
+    /** v2.2 column count (v2.1 + stand_on_obj). */
+    private static final int V22_COLUMNS = 20;
+
     /**
      * Parse a single CSV row (all values in hex).
-     * Accepts both v1 (11 columns) and v2 (18 columns) format.
+     * Accepts v1 (11), v2 (18), v2.1 (19), and v2.2 (20) column formats.
      *
      * <p>v1: frame,input,x,y,x_speed,y_speed,g_speed,angle,air,rolling,ground_mode
      * <p>v2: ...same 11...,x_sub,y_sub,routine,camera_x,camera_y,rings,status_byte
+     * <p>v2.1: ...same 18...,v_framecount
+     * <p>v2.2: ...same 19...,stand_on_obj
      */
     public static TraceFrame parseCsvRow(String line) {
         String[] parts = line.split(",", -1);
-        if (parts.length != V1_COLUMNS && parts.length != V2_COLUMNS) {
+        if (parts.length != V1_COLUMNS && parts.length != V2_COLUMNS
+                && parts.length != V21_COLUMNS && parts.length != V22_COLUMNS) {
             throw new IllegalArgumentException(
-                "Expected " + V1_COLUMNS + " or " + V2_COLUMNS
-                + " CSV columns, got " + parts.length + ": " + line);
+                "Expected " + V1_COLUMNS + ", " + V2_COLUMNS + ", " + V21_COLUMNS
+                + ", or " + V22_COLUMNS + " CSV columns, got " + parts.length + ": " + line);
         }
 
         int frame = Integer.parseInt(parts[0].trim(), 16);
@@ -78,7 +93,7 @@ public record TraceFrame(
 
         // v2 diagnostic fields (default to -1/0 when absent)
         int xSub = 0, ySub = 0, routine = -1, cameraX = -1, cameraY = -1;
-        int rings = -1, statusByte = -1;
+        int rings = -1, statusByte = -1, vFrameCount = -1, standOnObj = -1;
         if (parts.length >= V2_COLUMNS) {
             xSub = Integer.parseInt(parts[11].trim(), 16);
             ySub = Integer.parseInt(parts[12].trim(), 16);
@@ -88,10 +103,18 @@ public record TraceFrame(
             rings = Integer.parseInt(parts[16].trim(), 16);
             statusByte = Integer.parseInt(parts[17].trim(), 16);
         }
+        // v2.1: ROM frame counter
+        if (parts.length >= V21_COLUMNS) {
+            vFrameCount = Integer.parseInt(parts[18].trim(), 16);
+        }
+        // v2.2: standonobject — SST slot index Sonic is riding on (0 = none)
+        if (parts.length >= V22_COLUMNS) {
+            standOnObj = Integer.parseInt(parts[19].trim(), 16);
+        }
 
         return new TraceFrame(frame, input, x, y, xSpeed, ySpeed, gSpeed, angle,
             air, rolling, groundMode, xSub, ySub, routine, cameraX, cameraY,
-            rings, statusByte);
+            rings, statusByte, vFrameCount, standOnObj);
     }
 
     /** Whether this frame has v2 diagnostic data. */
@@ -113,13 +136,20 @@ public record TraceFrame(
     }
 
     /**
-     * Format the v2 diagnostic fields as a compact string for context windows.
+     * Format the v2/v2.1/v2.2 diagnostic fields as a compact string for context windows.
      * Returns empty string if no extended data is available.
      */
     public String formatDiagnostics() {
         if (!hasExtendedData()) return "";
-        return String.format("sub=(%04X,%04X) rtn=%02X cam=(%04X,%04X) rings=%d status=%02X",
+        String base = String.format("sub=(%04X,%04X) rtn=%02X cam=(%04X,%04X) rings=%d status=%02X",
             xSub, ySub, routine, cameraX, cameraY, rings, statusByte);
+        if (vFrameCount >= 0) {
+            base += String.format(" vfc=%04X", vFrameCount);
+        }
+        if (standOnObj >= 0) {
+            base += String.format(" onObj=%02X", standOnObj);
+        }
+        return base;
     }
 
     /**

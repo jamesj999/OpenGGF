@@ -29,6 +29,22 @@ public class TraceBinder {
             short actualXSpeed, short actualYSpeed, short actualGSpeed,
             byte actualAngle, boolean actualAir, boolean actualRolling,
             int actualGroundMode) {
+        return compareFrame(expected, actualX, actualY, actualXSpeed, actualYSpeed,
+            actualGSpeed, actualAngle, actualAir, actualRolling, actualGroundMode, null);
+    }
+
+    /**
+     * Compare a single frame with optional engine-side diagnostic context.
+     * The diagnostics are display-only (not compared for pass/fail) but appear
+     * in the context window alongside ROM trace diagnostics for cross-referencing.
+     */
+    public FrameComparison compareFrame(
+            TraceFrame expected,
+            short actualX, short actualY,
+            short actualXSpeed, short actualYSpeed, short actualGSpeed,
+            byte actualAngle, boolean actualAir, boolean actualRolling,
+            int actualGroundMode,
+            EngineDiagnostics engineDiag) {
 
         Map<String, FieldComparison> fields = new LinkedHashMap<>();
 
@@ -64,7 +80,12 @@ public class TraceBinder {
         fields.put("ground_mode", compareEnum("ground_mode",
             expectedGroundMode, derivedActualGroundMode));
 
-        FrameComparison result = new FrameComparison(expected.frame(), fields);
+        // Store diagnostic context (ROM trace + engine side) for the context window.
+        // These are NOT compared for pass/fail — they're for human debugging only.
+        String romDiag = expected.hasExtendedData() ? expected.formatDiagnostics() : "";
+        String engDiag = engineDiag != null ? engineDiag.format() : "";
+
+        FrameComparison result = new FrameComparison(expected.frame(), fields, romDiag, engDiag);
         allComparisons.add(result);
         return result;
     }
