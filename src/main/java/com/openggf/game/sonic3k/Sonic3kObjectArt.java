@@ -508,6 +508,17 @@ public class Sonic3kObjectArt {
         return buildLevelArtSheetFromRom(Sonic3kConstants.MAP_ICZ_COLLAPSING_BRIDGE_ADDR, 1, 2);
     }
 
+    // ===== AIZ Spiked Log sprite sheet (parsed from ROM) =====
+
+    /**
+     * Builds the AIZ Spiked Log sprite sheet (Map_AIZSpikedLog, 16 frames).
+     * art_tile = make_art_tile(ArtTile_AIZMisc2, 2, 0) → base tile 0x2E9, palette 2.
+     */
+    public ObjectSpriteSheet buildSpikedLogSheet() {
+        return buildLevelArtSheetFromRom(Sonic3kConstants.MAP_AIZ_SPIKED_LOG_ADDR,
+                Sonic3kConstants.ARTTILE_AIZ_MISC2, 2);
+    }
+
     // ===== AIZ Collapsing Log Bridge sprite sheets (parsed from ROM) =====
 
     /**

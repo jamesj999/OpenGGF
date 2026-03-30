@@ -2895,6 +2895,8 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          */
         protected void onEnterWater() {
                 LOGGER.fine("Player entered water");
+                // Increment global Water_entered_counter so objects can detect water transitions
+                WaterSystem.getInstance().incrementWaterEnteredCounter();
                 // S3K: water entry resets Character_Speeds init values to canonical
                 // (sonic3k.asm:22225-22227 sets absolute values, not relative to init)
                 clearInitOverride();
@@ -2943,6 +2945,8 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          */
         protected void onExitWater() {
                 LOGGER.fine("Player exited water");
+                // Increment global Water_entered_counter so objects can detect water transitions
+                WaterSystem.getInstance().incrementWaterEnteredCounter();
                 // S3K: water exit resets Character_Speeds init values to canonical
                 // (sonic3k.asm:22253-22255 sets absolute $600/$C/$80, not relative to init)
                 clearInitOverride();
