@@ -671,6 +671,48 @@ public class ObjectManager {
         placement.extendForPostCamera(postCameraX);
     }
 
+    /**
+     * Inline creation callback for ROM-accurate ObjPosLoad.
+     * Called during placement cursor advancement to create instances immediately.
+     */
+    private boolean inlineCreateObject(ObjectSpawn spawn, int counterValue) {
+        if (activeObjects.containsKey(spawn)) {
+            return true; // Already exists
+        }
+        int preSlot = allocateSlot();
+        if (preSlot < 0) {
+            return false; // FindFreeObj failure equivalent
+        }
+        AbstractObjectInstance.PRE_ALLOCATED_SLOT.set(preSlot);
+        AbstractObjectInstance.CONSTRUCTION_CONTEXT.set(objectServices);
+        try {
+            ObjectInstance instance = registry != null ? registry.create(spawn) : null;
+            if (instance != null) {
+                if (instance instanceof AbstractObjectInstance aoi) {
+                    aoi.setServices(objectServices);
+                    if (aoi.getSlotIndex() < 0) {
+                        aoi.setSlotIndex(preSlot);
+                    }
+                    if (counterValue >= 0) {
+                        aoi.setRespawnStateIndex(counterValue);
+                    }
+                } else {
+                    releaseSlot(preSlot);
+                }
+                activeObjects.put(spawn, instance);
+                bucketsDirty = true;
+                activeObjectsCacheDirty = true;
+                return true;
+            } else {
+                releaseSlot(preSlot);
+                return false;
+            }
+        } finally {
+            AbstractObjectInstance.CONSTRUCTION_CONTEXT.remove();
+            AbstractObjectInstance.PRE_ALLOCATED_SLOT.remove();
+        }
+    }
+
     public void applyPlaneSwitchers(PlayableEntity player) {
         // ROM: CPU Tails does not interact with plane switchers in 1P mode.
         // Only the main player triggers layer/priority changes.
@@ -1699,6 +1741,25 @@ public class ObjectManager {
          */
         private boolean lastScrollBackward;
 
+        /**
+         * Callback for inline instance creation during cursor advancement.
+         * ROM parity: ObjPosLoad creates objects immediately via FindFreeObj
+         * during cursor scans. This callback eliminates the 1-frame pipeline
+         * delay between cursor advancement and instance creation.
+         */
+        @FunctionalInterface
+        interface SpawnCallback {
+            /**
+             * @param spawn the spawn to create
+             * @param counterValue the counter assigned (-1 for non-tracked)
+             * @return true if created successfully (false = FindFreeObj failure → stop scan)
+             */
+            boolean tryCreate(ObjectSpawn spawn, int counterValue);
+        }
+
+        /** Set during updateAndLoad to enable inline creation. Null = deferred mode. */
+        private SpawnCallback inlineCallback;
+
         // ================================================================
         // S1 counter-based respawn state (ROM: v_objstate system)
         // ================================================================
@@ -1823,6 +1884,19 @@ public class ObjectManager {
 
             lastCameraX = cameraX;
             lastCameraChunk = cameraChunk;
+        }
+
+        /**
+         * ROM-accurate combined cursor advancement + inline instance creation.
+         * Eliminates the 1-frame pipeline delay between cursor scan and instance creation.
+         */
+        void updateAndLoad(int cameraX, SpawnCallback callback) {
+            this.inlineCallback = callback;
+            try {
+                update(cameraX);
+            } finally {
+                this.inlineCallback = null;
+            }
         }
 
         void update(int cameraX) {
@@ -2063,6 +2137,9 @@ public class ObjectManager {
                 // Non-tracked objects always spawn (ROM: loc_DA3C bpl → OPL_MakeItem)
                 if (!destroyedInWindow.get(index)) {
                     active.add(spawn);
+                    if (inlineCallback != null) {
+                        inlineCallback.tryCreate(spawn, -1);
+                    }
                 }
             }
         }
@@ -2214,6 +2291,12 @@ public class ObjectManager {
             }
             spawnToCounter.put(spawn, counter & 0xFF);
             active.add(spawn);
+            // ROM parity: inline instance creation during cursor scan.
+            // This eliminates the 1-frame pipeline delay between cursor
+            // advancement (placement.update) and instance creation (syncActiveSpawnsLoad).
+            if (inlineCallback != null) {
+                return inlineCallback.tryCreate(spawn, counter & 0xFF);
+            }
             return true;
         }
 
@@ -2271,12 +2354,18 @@ public class ObjectManager {
          * preserving the primary placement pass's ability to process the chunk
          * boundary normally on the next frame.
          */
-        void extendForPostCamera(int postCameraX) {
+        void extendForPostCamera(int postCameraX, SpawnCallback callback) {
             if (counterBasedRespawn) {
                 // ROM parity: S1's ObjPosLoad runs AFTER DeformLayers (camera).
-                // The primary placement.update() in step 2 is skipped for counter
-                // mode. This is the actual OPL processing using the post-camera X,
-                // which ensures counter values match the ROM exactly.
+                // Inline creation eliminates 1-frame pipeline delay.
+                updateAndLoad(postCameraX, callback);
+                return;
+            }
+            extendForPostCamera(postCameraX);
+        }
+
+        void extendForPostCamera(int postCameraX) {
+            if (counterBasedRespawn) {
                 update(postCameraX);
                 return;
             }
