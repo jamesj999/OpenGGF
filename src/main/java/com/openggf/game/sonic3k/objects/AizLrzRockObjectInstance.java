@@ -286,7 +286,12 @@ public class AizLrzRockObjectInstance extends AbstractObjectInstance
         //   4. Pushing + rolling + |x_vel| >= 0x480 -> break
         if ((behaviorBits & BIT_BREAK_SIDE) != 0 && playerPushingSide && player != null) {
             if (canSideBreak(player)) {
-                // ROM (sub_1FE34): restore saved velocity, shift player, clear pushing
+                // ROM (sub_1FE34): restore saved velocity, shift player, clear pushing.
+                // ROM's SolidObjectFull never clears rolling — the player stays rolling
+                // throughout. Our resolveContact clears it, so restore pre-contact state.
+                if (savedPreContactRolling) {
+                    player.setRolling(true);
+                }
                 player.setXSpeed((short) savedPreContactXSpeed);
                 int playerX = player.getCentreX();
                 if (playerX < currentX) {
