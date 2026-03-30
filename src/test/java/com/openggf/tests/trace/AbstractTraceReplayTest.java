@@ -1,5 +1,10 @@
 package com.openggf.tests.trace;
 
+import com.openggf.game.GameServices;
+import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.ObjectInstance;
+import com.openggf.level.objects.ObjectManager;
+import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.tests.HeadlessTestFixture;
 import com.openggf.tests.SharedLevel;
 import com.openggf.tests.rules.RequiresRomRule;
@@ -42,6 +47,9 @@ public abstract class AbstractTraceReplayTest {
         return ToleranceConfig.DEFAULT;
     }
 
+    /** Override to force a specific pre-trace oscillation frame count. Return -1 to use metadata. */
+    protected int overridePreTraceOscFrames() { return -1; }
+
     /** Override to change report output directory. */
     protected Path reportOutputDir() {
         return Path.of("target/trace-reports");
@@ -80,15 +88,45 @@ public abstract class AbstractTraceReplayTest {
                 .withRecordingStartFrame(meta.bk2FrameOffset())
                 .build();
 
+            // 4a. ROM parity: Initialize ObjectManager's frame counter to match
+            //     v_vbla_byte at trace start. The ROM's v_vbla_byte counts ALL
+            //     VBlanks since power-on. Objects with timing gates like
+            //     (v_vbla_byte + d7) & 7 (Batbrain drop check) depend on this.
+            //     The bk2FrameOffset equals v_vbla_byte at trace start.
+            //     ObjectManager.update() increments vblaCounter BEFORE passing
+            //     it to objects, so we initialize one below the offset so the
+            //     first increment lands on bk2FrameOffset exactly.
+            ObjectManager om = GameServices.level().getObjectManager();
+            if (om != null) {
+                om.initVblaCounter(meta.bk2FrameOffset() - 1);
+            }
+
+            // 4b. Pre-advance oscillation to match ROM phase.
+            //      The ROM runs OscillateNumDo during Level_MainLoop frames
+            //      that occur BEFORE the trace recording starts (between level
+            //      load and the Lua script trigger). The engine must advance
+            //      the oscillation by the same number of frames.
+            int preTraceOsc = overridePreTraceOscFrames() >= 0
+                    ? overridePreTraceOscFrames()
+                    : meta.preTraceOscillationFrames();
+            if (preTraceOsc > 0) {
+                for (int i = 0; i < preTraceOsc; i++) {
+                    // Use negative frame counters to avoid collisions with the
+                    // real frame counter that starts at 0 during the test loop.
+                    com.openggf.game.OscillationManager.update(-(preTraceOsc - i));
+                }
+            }
+
             // 5. Run frame-by-frame comparison
             TraceBinder binder = new TraceBinder(tolerances());
 
             for (int i = 0; i < trace.frameCount(); i++) {
                 TraceFrame expected = trace.getFrame(i);
 
-                // Lag frame detection: if the ROM state is identical to the previous
-                // frame, the main game loop didn't complete on this VBlank — skip
-                // engine physics to stay in sync.
+                // Lag frame detection: skip physics only for frames where the
+                // ROM truly didn't complete Level_MainLoop. The heuristic
+                // requires BOTH identical physics state AND non-zero speed/air,
+                // avoiding false positives when Sonic is standing still.
                 int bk2Input;
                 if (trace.isLagFrame(i)) {
                     bk2Input = fixture.skipFrameFromRecording();
@@ -109,14 +147,18 @@ public abstract class AbstractTraceReplayTest {
                 // so getCentreX()/getCentreY() now return the actual ROM centre values.
                 var sprite = fixture.sprite();
 
+                // Capture engine-side diagnostic state for context window
+                EngineDiagnostics engineDiag = captureEngineDiagnostics(sprite);
 
-
-                binder.compareFrame(expected,
+                var frameResult = binder.compareFrame(expected,
                     sprite.getCentreX(), sprite.getCentreY(),
                     sprite.getXSpeed(), sprite.getYSpeed(), sprite.getGSpeed(),
                     sprite.getAngle(),
                     sprite.getAir(), sprite.getRolling(),
-                    sprite.getGroundMode().ordinal());
+                    sprite.getGroundMode().ordinal(),
+                    engineDiag);
+
+
             }
 
             // 6. Build report
@@ -160,6 +202,44 @@ public abstract class AbstractTraceReplayTest {
                 .findFirst()
                 .orElse(null);
         }
+    }
+
+
+
+    /**
+     * Capture engine-side diagnostic state for the context window.
+     * These values are NOT compared for pass/fail — they appear alongside
+     * ROM trace diagnostics for human cross-referencing.
+     */
+    private EngineDiagnostics captureEngineDiagnostics(AbstractPlayableSprite sprite) {
+        // Routine: S1 uses 0=init, 2=control, 4=hurt, 6=death
+        int routine = sprite.isHurt() ? 0x04 : 0x02;
+
+        // Riding object: which SST slot is the player standing on?
+        int standOnSlot = -1;
+        int standOnType = -1;
+        ObjectManager om = GameServices.level() != null
+                ? GameServices.level().getObjectManager() : null;
+        if (om != null) {
+            ObjectInstance ridingObj = om.getRidingObject(sprite);
+            if (ridingObj instanceof AbstractObjectInstance aoi && aoi.getSlotIndex() >= 0) {
+                standOnSlot = aoi.getSlotIndex();
+                standOnType = aoi.getSpawn() != null ? aoi.getSpawn().objectId() : -1;
+            }
+        }
+
+        // Ring count
+        int rings = sprite.getRingCount();
+
+        // Status byte (replicate ROM's status encoding)
+        int statusByte = 0;
+        if (sprite.getDirection() == com.openggf.physics.Direction.LEFT)
+            statusByte |= 0x01;
+        if (sprite.getAir()) statusByte |= 0x02;
+        if (sprite.getRolling()) statusByte |= 0x04;
+        if (sprite.isOnObject()) statusByte |= 0x08;
+
+        return new EngineDiagnostics(routine, standOnSlot, standOnType, rings, statusByte, "");
     }
 
     private void writeReport(DivergenceReport report, TraceMetadata meta) {

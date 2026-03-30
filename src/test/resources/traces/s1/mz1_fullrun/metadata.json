@@ -7,9 +7,9 @@
   "trace_frame_count": 7936,
   "start_x": "0x0030",
   "start_y": "0x0266",
-  "recording_date": "2026-03-27",
-  "lua_script_version": "2.0",
-  "csv_version": 2,
+  "recording_date": "2026-03-30",
+  "lua_script_version": "2.2",
+  "csv_version": 4,
   "rom_checksum": "",
   "notes": ""
 }

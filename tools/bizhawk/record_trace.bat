@@ -15,7 +15,7 @@ REM s1_trace_recorder.lua (set to true).
 setlocal
 
 set "BIZHAWK_EXE=%BIZHAWK_EXE%"
-if "%BIZHAWK_EXE%"=="" set "BIZHAWK_EXE=C:\Users\farre\Downloads\_Sorted\Emulators\BizHawk-2.11-win-x64\EmuHawk.exe"
+if "%BIZHAWK_EXE%"=="" set "BIZHAWK_EXE=C:\Users\farre\IdeaProjects\sonic-engine\docs\BizHawk-2.11-win-x64\EmuHawk.exe"
 
 set "LUA_SCRIPT=%~dp0s1_trace_recorder.lua"
 

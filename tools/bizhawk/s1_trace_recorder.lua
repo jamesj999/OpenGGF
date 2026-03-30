@@ -13,6 +13,12 @@
 -- v2.0 changes: added subpixel, routine, camera, rings, status_byte columns
 -- to physics.csv for faster divergence debugging. Object proximity tracking
 -- logs nearby objects every frame instead of only new appearances every 4.
+-- v2.1 changes: scan all 128 SST slots (was 63), emit slot_dump events on
+-- object appearance for slot allocation comparison, add v_framecount to
+-- physics.csv and aux events for ROM↔engine frame cross-referencing.
+-- v2.2 changes: add standonobject (offset 0x3D) to physics.csv — which object
+-- slot Sonic is riding on. Add routine_change events to aux with full Sonic
+-- state + interacting object context (critical for hurt/bounce diagnosis).
 ------------------------------------------------------------------------------
 
 -----------------
@@ -61,11 +67,17 @@ local OFF_STATUS           = 0x22   -- byte: status flags
 local OFF_ROUTINE          = 0x24   -- byte: player movement routine
 local OFF_ANGLE            = 0x26   -- byte: terrain angle
 local OFF_STICK_CONVEX     = 0x38   -- byte
+local OFF_STAND_ON_OBJ     = 0x3D   -- byte: standonobject — SST index Sonic stands on (0=none)
 local OFF_CTRL_LOCK        = 0x3E   -- word: control lock timer
 
--- Player routine values (obRoutine / 2):
---   0 = init, 1 = normal/ground, 2 = air/jump, 3 = roll, 4 = hurt, 5 = death
--- The raw byte is the actual obRoutine value (0,2,4,6,8,0A).
+-- S1 Player routine values (obRoutine byte → table index):
+--   0 = Sonic_Main (init)
+--   2 = Sonic_Control (normal movement — handles ground, air, roll internally)
+--   4 = Sonic_Hurt (recoil after damage)
+--   6 = Sonic_Death
+--   8 = Sonic_ResetLevel
+-- NOTE: S1 has NO separate air/roll routines — Sonic_Control handles all of
+-- those internally. This differs from S2 which splits into separate routines.
 
 -- Status flag bits
 local STATUS_FACING_LEFT   = 0x01
@@ -76,10 +88,16 @@ local STATUS_ROLL_JUMP     = 0x10
 local STATUS_PUSHING       = 0x20
 local STATUS_UNDERWATER    = 0x40
 
--- Object table
+-- Object table (S1 SST: 128 slots of $40 bytes at $FFD000)
 local OBJ_TABLE_START      = 0xD000
 local OBJ_SLOT_SIZE        = 0x40
-local OBJ_SLOT_COUNT       = 63
+local OBJ_TOTAL_SLOTS      = 128  -- total SST slots (0-127)
+local OBJ_DYNAMIC_START    = 32   -- first dynamic slot (FindFreeObj starts here)
+local OBJ_DYNAMIC_COUNT    = 96   -- dynamic slots 32-127
+
+-- Frame counter (v_framecount at $FFFE02, word — increments each Level_MainLoop)
+-- NOTE: 0xFE0C is v_vbla_count (longword, VBlank interrupt counter — different!)
+local ADDR_FRAMECOUNT      = 0xFE02
 
 -- Genesis joypad bitmask (matching engine convention)
 local INPUT_UP    = 0x01
@@ -124,6 +142,7 @@ local start_zone_name = "unknown"
 local start_act = 0
 
 local prev_status = 0
+local prev_routine = 0
 local prev_ctrl_lock = 0
 
 -- Object tracking: slot -> last known type ID
@@ -185,9 +204,9 @@ local function open_files()
     physics_file = io.open(OUTPUT_DIR .. "physics.csv", "w")
     aux_file = io.open(OUTPUT_DIR .. "aux_state.jsonl", "w")
 
-    -- v2.0 header: original fields + subpixel, routine, camera, rings, status_byte
+    -- v2.2 header: v2.1 fields + stand_on_obj (which object slot Sonic is riding on)
     physics_file:write("frame,input,x,y,x_speed,y_speed,g_speed,angle,air,rolling,ground_mode,"
-        .. "x_sub,y_sub,routine,camera_x,camera_y,rings,status_byte\n")
+        .. "x_sub,y_sub,routine,camera_x,camera_y,rings,status_byte,v_framecount,stand_on_obj\n")
     physics_file:flush()
 end
 
@@ -204,8 +223,8 @@ local function write_metadata()
     meta_file:write('  "start_x": "0x' .. hex(start_x) .. '",\n')
     meta_file:write('  "start_y": "0x' .. hex(start_y) .. '",\n')
     meta_file:write('  "recording_date": "' .. os.date("%Y-%m-%d") .. '",\n')
-    meta_file:write('  "lua_script_version": "2.0",\n')
-    meta_file:write('  "csv_version": 2,\n')
+    meta_file:write('  "lua_script_version": "2.2",\n')
+    meta_file:write('  "csv_version": 4,\n')
     meta_file:write('  "rom_checksum": "",\n')
     meta_file:write('  "notes": ""\n')
     meta_file:write("}\n")
@@ -225,9 +244,27 @@ local function close_files()
     end
 end
 
--- Scan all object slots. Log appearances, disappearances, and proximity to player.
+-- Build a compact summary of ALL occupied dynamic slots (32-127).
+-- Returns a JSON array string: [[slot,typeId], ...] for each non-empty slot.
+local function build_slot_dump()
+    local entries = {}
+    for slot = OBJ_DYNAMIC_START, OBJ_TOTAL_SLOTS - 1 do
+        local addr = OBJ_TABLE_START + (slot * OBJ_SLOT_SIZE)
+        local obj_id = mainmemory.read_u8(addr)
+        if obj_id ~= 0 then
+            entries[#entries + 1] = string.format("[%d,\"0x%02X\"]", slot, obj_id)
+        end
+    end
+    return "[" .. table.concat(entries, ",") .. "]"
+end
+
+-- Scan all object slots (1-127). Log appearances, disappearances, proximity,
+-- and emit a full slot_dump when any dynamic object appears.
 local function scan_objects(player_x, player_y)
-    for slot = 1, OBJ_SLOT_COUNT do
+    local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
+    local any_appeared = false
+
+    for slot = 1, OBJ_TOTAL_SLOTS - 1 do
         local addr = OBJ_TABLE_START + (slot * OBJ_SLOT_SIZE)
         local obj_id = mainmemory.read_u8(addr)
 
@@ -238,15 +275,16 @@ local function scan_objects(player_x, player_y)
             local obj_x = mainmemory.read_u16_be(addr + OFF_X_POS)
             local obj_y = mainmemory.read_u16_be(addr + OFF_Y_POS)
             write_aux(string.format(
-                '{"frame":%d,"event":"object_appeared","slot":%d,"object_type":"0x%02X","x":"0x%04X","y":"0x%04X"}',
-                trace_frame, slot, obj_id, obj_x, obj_y))
+                '{"frame":%d,"vfc":%d,"event":"object_appeared","slot":%d,"object_type":"0x%02X","x":"0x%04X","y":"0x%04X"}',
+                trace_frame, vfc, slot, obj_id, obj_x, obj_y))
+            any_appeared = true
         end
 
         -- Object disappeared from this slot
         if obj_id == 0 and prev_id ~= 0 then
             write_aux(string.format(
-                '{"frame":%d,"event":"object_removed","slot":%d,"object_type":"0x%02X"}',
-                trace_frame, slot, prev_id))
+                '{"frame":%d,"vfc":%d,"event":"object_removed","slot":%d,"object_type":"0x%02X"}',
+                trace_frame, vfc, slot, prev_id))
         end
 
         -- Proximity check: log active objects near the player every frame.
@@ -261,13 +299,22 @@ local function scan_objects(player_x, player_y)
                 local obj_status = mainmemory.read_u8(addr + OFF_STATUS)
                 local obj_routine = mainmemory.read_u8(addr + OFF_ROUTINE)
                 write_aux(string.format(
-                    '{"frame":%d,"event":"object_near","slot":%d,"type":"0x%02X",'
+                    '{"frame":%d,"vfc":%d,"event":"object_near","slot":%d,"type":"0x%02X",'
                     .. '"x":"0x%04X","y":"0x%04X","routine":"0x%02X","status":"0x%02X"}',
-                    trace_frame, slot, obj_id, obj_x, obj_y, obj_routine, obj_status))
+                    trace_frame, vfc, slot, obj_id, obj_x, obj_y, obj_routine, obj_status))
             end
         end
 
         known_objects[slot] = obj_id
+    end
+
+    -- Emit a full dynamic-slot snapshot whenever any object appeared this frame.
+    -- This lets us compare the engine's slot allocation against ROM's FindFreeObj.
+    if any_appeared then
+        local dump = build_slot_dump()
+        write_aux(string.format(
+            '{"frame":%d,"vfc":%d,"event":"slot_dump","slots":%s}',
+            trace_frame, vfc, dump))
     end
 end
 
@@ -278,13 +325,15 @@ local function write_state_snapshot()
     local routine = mainmemory.read_u8(PLAYER_BASE + OFF_ROUTINE)
     local y_radius = mainmemory.read_s8(PLAYER_BASE + OFF_RADIUS_Y)
     local x_radius = mainmemory.read_s8(PLAYER_BASE + OFF_RADIUS_X)
+    local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
 
     write_aux(string.format(
-        '{"frame":%d,"event":"state_snapshot","control_locked":%s,"anim_id":%d,'
+        '{"frame":%d,"vfc":%d,"event":"state_snapshot","control_locked":%s,"anim_id":%d,'
         .. '"status_byte":"0x%02X","routine":"0x%02X","y_radius":%d,"x_radius":%d,'
         .. '"on_object":%s,"pushing":%s,"underwater":%s,'
         .. '"roll_jumping":%s}',
         trace_frame,
+        vfc,
         ctrl_lock > 0 and "true" or "false",
         anim_id,
         status,
@@ -298,13 +347,15 @@ local function write_state_snapshot()
     ))
 end
 
-local function check_mode_changes(status)
+local function check_mode_changes(status, routine)
+    local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
+
     local was_air = (prev_status & STATUS_IN_AIR) ~= 0
     local is_air = (status & STATUS_IN_AIR) ~= 0
     if was_air ~= is_air then
         write_aux(string.format(
-            '{"frame":%d,"event":"mode_change","field":"air","from":%d,"to":%d}',
-            trace_frame, was_air and 1 or 0, is_air and 1 or 0))
+            '{"frame":%d,"vfc":%d,"event":"mode_change","field":"air","from":%d,"to":%d}',
+            trace_frame, vfc, was_air and 1 or 0, is_air and 1 or 0))
         write_state_snapshot()
     end
 
@@ -312,16 +363,16 @@ local function check_mode_changes(status)
     local is_rolling = (status & STATUS_ROLLING) ~= 0
     if was_rolling ~= is_rolling then
         write_aux(string.format(
-            '{"frame":%d,"event":"mode_change","field":"rolling","from":%d,"to":%d}',
-            trace_frame, was_rolling and 1 or 0, is_rolling and 1 or 0))
+            '{"frame":%d,"vfc":%d,"event":"mode_change","field":"rolling","from":%d,"to":%d}',
+            trace_frame, vfc, was_rolling and 1 or 0, is_rolling and 1 or 0))
     end
 
     local was_on_obj = (prev_status & STATUS_ON_OBJECT) ~= 0
     local is_on_obj = (status & STATUS_ON_OBJECT) ~= 0
     if was_on_obj ~= is_on_obj then
         write_aux(string.format(
-            '{"frame":%d,"event":"mode_change","field":"on_object","from":%d,"to":%d}',
-            trace_frame, was_on_obj and 1 or 0, is_on_obj and 1 or 0))
+            '{"frame":%d,"vfc":%d,"event":"mode_change","field":"on_object","from":%d,"to":%d}',
+            trace_frame, vfc, was_on_obj and 1 or 0, is_on_obj and 1 or 0))
     end
 
     local ctrl_lock = mainmemory.read_u16_be(PLAYER_BASE + OFF_CTRL_LOCK)
@@ -329,10 +380,52 @@ local function check_mode_changes(status)
     local is_locked = ctrl_lock > 0
     if was_locked ~= is_locked then
         write_aux(string.format(
-            '{"frame":%d,"event":"mode_change","field":"control_locked","from":%d,"to":%d}',
-            trace_frame, was_locked and 1 or 0, is_locked and 1 or 0))
+            '{"frame":%d,"vfc":%d,"event":"mode_change","field":"control_locked","from":%d,"to":%d}',
+            trace_frame, vfc, was_locked and 1 or 0, is_locked and 1 or 0))
     end
     prev_ctrl_lock = ctrl_lock
+
+    -- Routine transition detection (S1 obRoutine raw values: 0=init, 2=control,
+    -- 4=hurt, 6=death, 8=reset).
+    -- Emit a rich event with full Sonic state and the object Sonic is standing on
+    -- (if any). Especially valuable for hurt transitions (2→4).
+    if routine ~= prev_routine then
+        local stand_on_obj = mainmemory.read_u8(PLAYER_BASE + OFF_STAND_ON_OBJ)
+        local sonic_x = mainmemory.read_u16_be(PLAYER_BASE + OFF_X_POS)
+        local sonic_y = mainmemory.read_u16_be(PLAYER_BASE + OFF_Y_POS)
+        local sonic_xvel = mainmemory.read_s16_be(PLAYER_BASE + OFF_X_VEL)
+        local sonic_yvel = mainmemory.read_s16_be(PLAYER_BASE + OFF_Y_VEL)
+        local sonic_inertia = mainmemory.read_s16_be(PLAYER_BASE + OFF_INERTIA)
+
+        -- If Sonic is standing on an object, read that object's type and position
+        local obj_context = ""
+        if stand_on_obj > 0 and stand_on_obj < OBJ_TOTAL_SLOTS then
+            local obj_addr = OBJ_TABLE_START + (stand_on_obj * OBJ_SLOT_SIZE)
+            local obj_id = mainmemory.read_u8(obj_addr)
+            local obj_x = mainmemory.read_u16_be(obj_addr + OFF_X_POS)
+            local obj_y = mainmemory.read_u16_be(obj_addr + OFF_Y_POS)
+            local obj_routine = mainmemory.read_u8(obj_addr + OFF_ROUTINE)
+            obj_context = string.format(
+                ',"stand_obj_slot":%d,"stand_obj_type":"0x%02X","stand_obj_x":"0x%04X",'
+                .. '"stand_obj_y":"0x%04X","stand_obj_routine":"0x%02X"',
+                stand_on_obj, obj_id, obj_x, obj_y, obj_routine)
+        end
+
+        write_aux(string.format(
+            '{"frame":%d,"vfc":%d,"event":"routine_change","from":"0x%02X","to":"0x%02X",'
+            .. '"sonic_x":"0x%04X","sonic_y":"0x%04X","x_vel":%d,"y_vel":%d,"inertia":%d,'
+            .. '"status":"0x%02X","stand_on_obj":%d%s}',
+            trace_frame, vfc, prev_routine, routine,
+            sonic_x, sonic_y, sonic_xvel, sonic_yvel, sonic_inertia,
+            status, stand_on_obj, obj_context))
+
+        -- On hurt/death transitions, also emit a full state snapshot for maximum context
+        -- S1: hurt=0x04, death=0x06. S2: hurt=0x08, death=0x0A.
+        if routine == 0x04 or routine == 0x06 then
+            write_state_snapshot()
+        end
+    end
+    prev_routine = routine
 end
 
 -----------------
@@ -436,9 +529,15 @@ local function on_frame_end()
         return val
     end
 
-    -- v2.0 CSV: original 11 fields + 6 new diagnostic fields
+    -- v_framecount: ROM's own frame counter (ticks each Level_MainLoop iteration)
+    local v_framecount = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
+
+    -- standonobject: SST slot index of object Sonic is standing on (0 = none)
+    local stand_on_obj = mainmemory.read_u8(PLAYER_BASE + OFF_STAND_ON_OBJ)
+
+    -- v2.2 CSV: v2.1 fields + stand_on_obj
     physics_file:write(string.format(
-        "%04X,%04X,%04X,%04X,%04X,%04X,%04X,%02X,%d,%d,%d,%04X,%04X,%02X,%04X,%04X,%04X,%02X\n",
+        "%04X,%04X,%04X,%04X,%04X,%04X,%04X,%02X,%d,%d,%d,%04X,%04X,%02X,%04X,%04X,%04X,%02X,%04X,%02X\n",
         trace_frame, input_mask, x, y,
         uhex(x_speed), uhex(y_speed), uhex(g_speed),
         angle,
@@ -449,7 +548,9 @@ local function on_frame_end()
         routine,
         camera_x, camera_y,
         rings,
-        status))
+        status,
+        v_framecount,
+        stand_on_obj))
     -- Flush periodically instead of every frame to reduce I/O overhead.
     -- Also update metadata every 300 frames (~5 sec) so a killed process
     -- still has a valid (if slightly stale) metadata.json.
@@ -460,7 +561,7 @@ local function on_frame_end()
         write_metadata()
     end
 
-    check_mode_changes(status)
+    check_mode_changes(status, routine)
     prev_status = status
 
     if trace_frame % SNAPSHOT_INTERVAL == 0 then
@@ -498,7 +599,7 @@ end
 -- The onframeend callback pattern doesn't work because callbacks stop
 -- firing when BizHawk pauses, and client.exit() can kill the process
 -- before file I/O completes.
-print("S1 Trace Recorder v2.0 loaded. Waiting for level gameplay (Game_Mode=0x0C, controls unlocked)...")
+print("S1 Trace Recorder v2.2 loaded. Waiting for level gameplay (Game_Mode=0x0C, controls unlocked)...")
 
 while true do
     on_frame_end()
