@@ -220,7 +220,10 @@ class TestSonic3kLevelLoading {
 
         Sonic3kZoneRegistry registry = Sonic3kZoneRegistry.getInstance();
         int[] startPos = registry.getStartPosition(zone, act);
-        assertTrue(startPos[0] != 0, label + ": start X should be non-zero");
+        // DDZ (Doomsday) has ROM-accurate start X=0
+        if (zone != Sonic3kZoneConstants.ZONE_DDZ) {
+            assertTrue(startPos[0] != 0, label + ": start X should be non-zero");
+        }
         assertTrue(startPos[1] != 0, label + ": start Y should be non-zero");
     }
 }

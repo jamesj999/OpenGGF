@@ -426,6 +426,15 @@ public interface GameModule {
      */
     default int resolveAnimationId(CanonicalAnimation canonical) {
         DonorCapabilities donor = getDonorCapabilities();
-        return donor != null ? donor.resolveNativeId(canonical) : -1;
+        if (donor == null) return -1;
+        int id = donor.resolveNativeId(canonical);
+        if (id >= 0) return id;
+        // Direct lookup failed — try the fallback chain (e.g. BUBBLE -> GET_AIR for S1)
+        java.util.Map<CanonicalAnimation, CanonicalAnimation> fallbacks = donor.getAnimationFallbacks();
+        CanonicalAnimation fallback = fallbacks.get(canonical);
+        if (fallback != null && fallback != canonical) {
+            return donor.resolveNativeId(fallback);
+        }
+        return -1;
     }
 }

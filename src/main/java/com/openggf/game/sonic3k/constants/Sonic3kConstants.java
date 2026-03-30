@@ -782,6 +782,15 @@ public class Sonic3kConstants {
     // Map_ICZCollapsingBridge - ICZ collapsing platform mappings (6 frames)
     public static final int MAP_ICZ_COLLAPSING_BRIDGE_ADDR = 0x21F2F2;
 
+    // ===== AIZ Collapsing Log Bridge Mappings (Object 0x2C) =====
+    // Verified by ROM binary pattern search, 2026-03-30
+
+    // Map_AIZCollapsingLogBridge - 3 frames: frame 0/1 = log segment, frame 2 = end segment with debris
+    public static final int MAP_AIZ_COLLAPSING_LOG_BRIDGE_ADDR = 0x02B070;
+
+    // Map_AIZDrawBridgeFire - 8 frames: frames 0-2 = bridge pieces, frames 3-7 = fire animation
+    public static final int MAP_AIZ_DRAW_BRIDGE_FIRE_ADDR = 0x02B092;
+
     // ===== Level Object Mappings (parsed at runtime by S3kSpriteDataLoader) =====
     // Verified by ROM binary pattern search for offset table fingerprints, 2026-02-17
 

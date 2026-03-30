@@ -508,6 +508,28 @@ public class Sonic3kObjectArt {
         return buildLevelArtSheetFromRom(Sonic3kConstants.MAP_ICZ_COLLAPSING_BRIDGE_ADDR, 1, 2);
     }
 
+    // ===== AIZ Collapsing Log Bridge sprite sheets (parsed from ROM) =====
+
+    /**
+     * Builds the AIZ Collapsing Log Bridge sprite sheet (Map_AIZCollapsingLogBridge, 3 frames).
+     * art_tile = make_art_tile(ArtTile_AIZMisc2, 2, 0) → base tile 0x2E9, palette 2.
+     */
+    public ObjectSpriteSheet buildCollapsingLogBridgeSheet() {
+        return buildLevelArtSheetFromRom(Sonic3kConstants.MAP_AIZ_COLLAPSING_LOG_BRIDGE_ADDR,
+                Sonic3kConstants.ARTTILE_AIZ_MISC2, 2);
+    }
+
+    /**
+     * Builds the AIZ Draw Bridge Fire sprite sheet (Map_AIZDrawBridgeFire, 8 frames).
+     * art_tile = make_art_tile(ArtTile_AIZMisc2, 2, 1) → base tile 0x2E9, palette 2.
+     * Note: fire animation frames (3-7) use palette 3 in the ROM via art_tile addition;
+     * piece-level palette in the mapping data handles this.
+     */
+    public ObjectSpriteSheet buildDrawBridgeFireSheet() {
+        return buildLevelArtSheetFromRom(Sonic3kConstants.MAP_AIZ_DRAW_BRIDGE_FIRE_ADDR,
+                Sonic3kConstants.ARTTILE_AIZ_MISC2, 2);
+    }
+
     // ===== AIZ/LRZ Rock sprite sheets (parsed from ROM) =====
 
     /**

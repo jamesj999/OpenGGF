@@ -127,7 +127,10 @@ public class ScriptedVelocityAnimationProfile implements SpriteAnimationProfile 
         if (sprite.isSliding() && !sprite.getAir() && slideAnimId >= 0) {
             return slideAnimId;
         }
-        if (sprite.getRolling()) {
+        // ROM: when flip_angle is non-zero, the walk animation handler shows
+        // tumble frames (Anim_Tumble). Objects like TwistedRamp set anim=0 (walk)
+        // + flip_angle to trigger this. Don't override with roll in that case.
+        if (sprite.getRolling() && sprite.getFlipAngle() == 0) {
             return rollAnimId;
         }
         if (sprite.getAir()) {

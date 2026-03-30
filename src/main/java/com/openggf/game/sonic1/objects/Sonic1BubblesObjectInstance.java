@@ -491,7 +491,7 @@ public class Sonic1BubblesObjectInstance extends AbstractObjectInstance {
         animateSprite();
 
         // out_of_range.w DeleteObject
-        if (!isOnScreen(128)) {
+        if (!isInRange()) {
             setDestroyed(true);
             return;
         }
@@ -505,7 +505,7 @@ public class Sonic1BubblesObjectInstance extends AbstractObjectInstance {
      * Check maker deletion when not in production.
      */
     private void checkMakerDeletion(int waterY) {
-        if (!isOnScreen(128)) {
+        if (!isInRange()) {
             setDestroyed(true);
         }
     }

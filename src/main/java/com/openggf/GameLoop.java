@@ -1058,8 +1058,10 @@ public class GameLoop {
 
             if (levelManager.hasBigRingReturnPosition()) {
                 // S3K big ring path: restore to ring location (ROM: Saved2_* variables)
-                playable.setX((short) levelManager.getBigRingReturnX());
-                playable.setY((short) levelManager.getBigRingReturnY());
+                // Saved coordinates are centre coordinates (ROM x_pos/y_pos), so use
+                // setCentreX/Y to correctly offset back to top-left pixel position.
+                playable.setCentreX((short) levelManager.getBigRingReturnX());
+                playable.setCentreY((short) levelManager.getBigRingReturnY());
                 camera.setX((short) levelManager.getBigRingReturnCameraX());
                 camera.setY((short) levelManager.getBigRingReturnCameraY());
                 camera.updatePosition(true);
