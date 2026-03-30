@@ -54,6 +54,14 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                 (spawn, registry) -> new AutoSpinObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.CORK_FLOOR,
                 (spawn, registry) -> new CorkFloorObjectInstance(spawn));
+        factories.put(Sonic3kObjectIds.AIZ_COLLAPSING_LOG_BRIDGE,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new AizCollapsingLogBridgeObjectInstance(spawn);
+                });
         factories.put(Sonic3kObjectIds.AIZ_FALLING_LOG,
                 (spawn, registry) -> {
                     S3kZoneSet zoneSet = getCurrentZoneSet();
