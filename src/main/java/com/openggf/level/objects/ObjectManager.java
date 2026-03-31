@@ -4364,17 +4364,12 @@ public class ObjectManager {
             if (configuredHalfWidth < collisionHalfWidth) {
                 // Provider explicitly set a narrower landing width
                 allowedHalfWidth = configuredHalfWidth;
-            } else if (!usesUnifiedCollisionModel(player)) {
-                // ROM: s2.asm:35345-35353 — S2/S3K landing check reloads width_pixels,
-                // which is narrower than collision halfWidth (collision = width_pixels + $B).
-                allowedHalfWidth = Math.max(0, collisionHalfWidth - 0x0B);
             } else {
-                // S1 unified: Solid_Landed always re-reads obActWid. Objects that
-                // use the +$B convention must override getTopLandingHalfWidth() to
-                // return the narrower obActWid value (see Sonic1ButtonObjectInstance,
-                // Sonic1MzBrickObjectInstance, Sonic1LargeGrassyPlatformObjectInstance).
-                // Objects that don't add +$B correctly use the full collision width.
-                allowedHalfWidth = collisionHalfWidth;
+                // ROM: Solid_Landed re-reads obActWid (= width_pixels), which is
+                // narrower than collision halfWidth (= width_pixels + $B). This applies
+                // to both S1 and S2/S3K — ALL games use the standard SolidObject
+                // convention where collision width = obActWid + $B.
+                allowedHalfWidth = Math.max(0, collisionHalfWidth - 0x0B);
             }
 
             // ROM: Solid_Landed checks: d1 = playerX + obActWid - objX,
