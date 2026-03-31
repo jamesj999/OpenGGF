@@ -3521,10 +3521,10 @@ public class ObjectManager {
                 int relX = player.getCentreX() - boundsX + ridingHalfWidth;
                 // ROM: ExitPlatform uses exact bounds (relX in [0, width*2)).
                 // The sticky buffer is for engine-side jitter compensation on moving
-                // platforms, but sloped solid objects use the ROM's exact bounds
-                // to match ExitPlatform's behavior precisely.
+                // platforms (S2/S3K), but S1 UNIFIED processes objects after movement
+                // so there's no jitter to compensate. Sloped objects also use exact bounds.
                 boolean isSloped = (ridingObject instanceof SlopedSolidProvider);
-                int stickyX = (!isSloped && provider.usesStickyContactBuffer()
+                int stickyX = (!isSloped && !postMovement && provider.usesStickyContactBuffer()
                         && ridingHalfWidth == halfWidth) ? 16 : 0;
                 int minRelX = -stickyX;
                 int maxRelXExclusive = (ridingHalfWidth * 2) + stickyX;
@@ -3582,6 +3582,10 @@ public class ObjectManager {
                 }
             }
 
+            // S1 UNIFIED: the riding section is the ExitPlatform equivalent. The ROM
+            // never re-runs Solid_ChkEnter for the standing object. Track the maintained
+            // object so we can skip it and preserve the riding state.
+            ObjectInstance ridingMaintained = postMovement ? ridingObject : null;
             ObjectInstance nextRidingObject = null;
             int nextRidingX = 0;
             int nextRidingY = 0;
@@ -3590,6 +3594,19 @@ public class ObjectManager {
                 // DropOnFloor detached the player from this object — don't re-land on it
                 // this frame. Terrain collision will handle the player next frame.
                 if (instance == dropOnFloorExclude) {
+                    continue;
+                }
+                // S1 UNIFIED: riding section already handled this via ExitPlatform.
+                // ROM returns d4=0; Solid_ChkEnter is never reached. Keep as standing
+                // and fire callback, but skip resolveContact which would misclassify as SIDE.
+                if (instance == ridingMaintained) {
+                    nextRidingObject = instance;
+                    nextRidingX = instance.getX();
+                    nextRidingY = instance.getY();
+                    nextRidingPieceIndex = -1;
+                    if (instance instanceof SolidObjectListener listener) {
+                        listener.onSolidContact(player, SolidContact.STANDING, frameCounter);
+                    }
                     continue;
                 }
                 if (!(instance instanceof SolidObjectProvider provider)) {
