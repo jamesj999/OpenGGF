@@ -269,6 +269,14 @@ public class Sonic1GrassFireObjectInstance extends AbstractObjectInstance
 
         Sonic1GrassFireObjectInstance child = new Sonic1GrassFireObjectInstance(
                 currentX, childBaseY, sinkOffset, slopeData, parentPlatform, false);
+        // ROM: FindNextFreeObj allocates a slot AFTER the current fire's slot.
+        int mySlot = getSlotIndex();
+        if (mySlot >= 0) {
+            int childSlot = services().objectManager().allocateSlotAfter(mySlot);
+            if (childSlot >= 0) {
+                child.setSlotIndex(childSlot);
+            }
+        }
         services().objectManager().addDynamicObject(child);
         children.add(child);
 
@@ -357,6 +365,18 @@ public class Sonic1GrassFireObjectInstance extends AbstractObjectInstance
     @Override
     public int getPriorityBucket() {
         return RenderPriority.clamp(PRIORITY);
+    }
+
+    /**
+     * ROM parity: GFire_Main (routine 0) for the walker (subtype 0) executes
+     * {@code beq.s loc_B238} which falls through directly to the movement code.
+     * The fire moves 1 pixel on its spawn frame. Without same-frame update, the
+     * engine's fire is 1 pixel behind the ROM every frame, delaying the touch
+     * response detection by 1 physics frame.
+     */
+    @Override
+    public boolean requiresSameFrameUpdate() {
+        return isWalker;
     }
 
     @Override

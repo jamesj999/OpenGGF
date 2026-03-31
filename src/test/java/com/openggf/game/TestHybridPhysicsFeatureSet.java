@@ -48,7 +48,8 @@ public class TestHybridPhysicsFeatureSet {
                 null,  // superSpindashSpeedTable - not donated
                 (short) 0,  // movingCrouchThreshold - not donated
                 false,  // groundWallCollisionEnabled - S1
-                false  // airSuperspeedPreserved - S1
+                false,  // airSuperspeedPreserved - S1
+                false   // slopeRepelChecksOnObject - S1
         );
 
         // Verify spindash is enabled (donor contribution)

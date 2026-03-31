@@ -30,4 +30,12 @@ public class TestS1Mz1TraceReplay extends AbstractTraceReplayTest {
     protected Path traceDirectory() {
         return Path.of("src/test/resources/traces/s1/mz1_fullrun");
     }
+
+    // Temporary: override to scan for best oscillation pre-advance value.
+    // Set via -Dosc.override=N system property, or -1 to use metadata.
+    @Override
+    protected int overridePreTraceOscFrames() {
+        String prop = System.getProperty("osc.override");
+        return prop != null ? Integer.parseInt(prop) : -1;
+    }
 }

@@ -706,10 +706,16 @@ public class SpriteManager {
 	 * @param levelManager the level manager
 	 * @param frameCounter the current frame number
 	 */
+	private static int tickDiagCount; // TEMPORARY
 	public static void tickPlayablePhysics(AbstractPlayableSprite playable,
 										   boolean up, boolean down, boolean left, boolean right,
 										   boolean jump, boolean test, boolean speedUp, boolean slowDown,
 										   LevelManager levelManager, int frameCounter) {
+		if (tickDiagCount++ < 3) {
+			System.err.printf("[TICK_PHYS] count=%d lm=%s om=%s%n",
+				tickDiagCount, levelManager != null ? "present" : "NULL",
+				levelManager != null && levelManager.getObjectManager() != null ? "present" : "NULL");
+		}
 		boolean isUnified = requiresPostMovementSolidPass(playable);
 		// For S1 UNIFIED: skip pre-movement solid pass. ROM processes all solid
 		// objects AFTER Sonic's movement (his slot runs first in ExecuteObjects),
@@ -729,7 +735,15 @@ public class SpriteManager {
 		// check Sonic's position after he has moved in the ROM's ExecuteObjects loop.
 		// postMovement=true disables velocity classification adjustment.
 		if (isUnified) {
+			// TEMPORARY: diagnostic for post-movement solid landing
+			boolean airBeforeSolid = playable.getAir();
+			int yBeforeSolid = playable.getCentreY();
 			applySolidContacts(levelManager, playable, true, false);
+			if (airBeforeSolid && !playable.getAir()) {
+				System.out.printf("POST_SOLID_LANDED: yBefore=0x%04X yAfter=0x%04X ySpd=0x%04X onObj=%b hurt=%b%n",
+					yBeforeSolid, playable.getCentreY(), playable.getYSpeed() & 0xFFFF,
+					playable.isOnObject(), playable.isHurt());
+			}
 		}
 		levelManager.applyPlaneSwitchers(playable);
 		playable.getAnimationManager().update(frameCounter);

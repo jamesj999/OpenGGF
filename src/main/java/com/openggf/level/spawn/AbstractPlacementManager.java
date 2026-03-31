@@ -18,6 +18,7 @@ public abstract class AbstractPlacementManager<T extends SpawnPoint> {
     private static final Logger LOGGER = Logger.getLogger(AbstractPlacementManager.class.getName());
 
     protected List<T> spawns;
+    private int identityMissCount;
     protected final Set<T> active = new LinkedHashSet<>();
     protected final Collection<T> activeUnmodifiable = Collections.unmodifiableCollection(active);
     protected final Map<T, Integer> spawnIndexMap = new IdentityHashMap<>();

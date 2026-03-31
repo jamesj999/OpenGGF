@@ -256,6 +256,14 @@ public class Sonic1LavaGeyserMakerObjectInstance extends AbstractObjectInstance 
             Sonic1LavaGeyserObjectInstance geyser = new Sonic1LavaGeyserObjectInstance(
                     geyserSpawn, Sonic1LavaGeyserObjectInstance.Role.HEAD,
                     null, this, false);
+            // ROM: FindNextFreeObj allocates slot after maker
+            int mySlot = getSlotIndex();
+            if (mySlot >= 0) {
+                int childSlot = services().objectManager().allocateSlotAfter(mySlot);
+                if (childSlot >= 0) {
+                    geyser.setSlotIndex(childSlot);
+                }
+            }
             services().objectManager().addDynamicObject(geyser);
         }
 

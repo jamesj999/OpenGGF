@@ -181,16 +181,29 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
 
         if (!initialized) {
             initialize();
-            return;
+            if (!initialized) {
+                return; // Still falling — ObjectFall not yet landed
+            }
+            // ROM fallthrough: Cat_Main does NOT have an rts after init.
+            // It falls through directly into Cat_Head, which dispatches to
+            // .wait (decrementing the timer on the init frame).
+            // Using sequential if-checks (not switch) so that when updateWait()
+            // transitions to STATE_MOVE, execution falls through to updateMove(),
+            // matching the ROM's .wait → .move → loc_16B02 fallthrough.
         }
 
         // Cat_Head: check if status bit 7 set (indicating body segment triggered fragmentation)
         // tst.b obStatus(a0) / bmi.w loc_16C96
         // In our implementation, this is handled via the destroyed flag
 
-        switch (secondaryState) {
-            case STATE_WAIT -> updateWait();
-            case STATE_MOVE -> updateMove();
+        // ROM uses jsr Cat_Index2(pc,d1.w) which dispatches to .wait or loc_16B02.
+        // .wait can fall through to .move, which falls through to loc_16B02.
+        // Use sequential if-checks so state transitions fall through naturally.
+        if (secondaryState == STATE_WAIT) {
+            updateWait();
+        }
+        if (secondaryState == STATE_MOVE) {
+            updateMove();
         }
     }
 
@@ -260,6 +273,13 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
         int ringBufIdx = 4;
         CaterkillerParentState parentState = this;
 
+        // ROM: Cat_Loop uses FindNextFreeObj (jsr (FindNextFreeObj).l) to
+        // allocate body segment slots sequentially AFTER the head's slot.
+        // This preserves slot locality (head=N, body1=N+1, body2=N+2, body3=N+3),
+        // keeping child slots out of the global pool and matching the ROM's
+        // slot assignment for subsequent objects.
+        int prevSlot = getSlotIndex();
+
         for (int i = 0; i < BODY_SEGMENT_COUNT; i++) {
             segX += spacing;
 
@@ -267,6 +287,15 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
                     this, parentState, segX, currentY, facingLeft,
                     isAnimated[i], i, ringBufIdx);
             bodySegments.add(body);
+
+            // Allocate slot after previous segment (FindNextFreeObj parity)
+            if (prevSlot >= 0) {
+                int localSlot = objectManager.allocateSlotAfter(prevSlot);
+                if (localSlot >= 0) {
+                    body.setSlotIndex(localSlot);
+                    prevSlot = localSlot;
+                }
+            }
             objectManager.addDynamicObject(body);
             parentState = body;
 
@@ -502,10 +531,12 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
     protected void destroyBadnik(PlayableEntity playerEntity) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         deleting = true;
+        // ROM parity: explosion inherits our slot (in-place obID change).
+        int mySlot = getSlotIndex();
+        setSlotIndex(-1);
         setDestroyed(true);
-        setDestroyed(true);
-        DestructionEffects.destroyBadnik(currentX, currentY, spawn, player, services(),
-                getDestructionConfig());
+        DestructionEffects.destroyBadnik(currentX, currentY, spawn, mySlot,
+                player, services(), getDestructionConfig());
         // Normal head destruction does not use fragment mode in S1; body segments delete.
         markBodySegmentsForDeletion();
     }

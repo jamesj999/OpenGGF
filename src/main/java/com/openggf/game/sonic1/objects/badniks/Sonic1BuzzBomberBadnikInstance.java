@@ -85,7 +85,7 @@ public class Sonic1BuzzBomberBadnikInstance extends AbstractBadnikInstance {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         switch (secondaryState) {
             case STATE_HOVER -> updateHover(player);
-            case STATE_FLY -> updateFly(player);
+            case STATE_FLY -> updateFly(player, frameCounter);
         }
     }
 
@@ -116,7 +116,7 @@ public class Sonic1BuzzBomberBadnikInstance extends AbstractBadnikInstance {
      * ob2ndRout=2 (.chknearsonic): Flying state.
      * Move horizontally, check proximity to Sonic.
      */
-    private void updateFly(AbstractPlayableSprite player) {
+    private void updateFly(AbstractPlayableSprite player, int frameCounter) {
         timeDelay--;
         if (timeDelay < 0) {
             // Timer expired: change direction
@@ -130,14 +130,12 @@ public class Sonic1BuzzBomberBadnikInstance extends AbstractBadnikInstance {
         // Check proximity to Sonic (only if buzzStatus == 0 = normal)
         if (buzzStatus == STATUS_NORMAL && player != null) {
             // ROM: .chknearsonic reads Sonic's post-physics X from (v_player+obX).
-            // Engine: objects run BEFORE player physics (step 2 vs step 3), so
-            // getCentreX() returns the pre-physics position (1 frame behind ROM).
-            // However, the engine also spawns objects 1 frame late (placement uses
-            // pre-camera X in step 2, while ROM's ObjPosLoad uses post-camera X
-            // after DeformLayers). The BB has 1 fewer movement by any given frame.
-            // These two offsets cancel: using the raw pre-physics position (no
-            // prediction) makes the BB detect Sonic 1 update later, compensating
-            // for the 1-frame spawn delay.
+            // In the ROM, Sonic's slot (index 0) runs his full physics (SpeedToPos +
+            // terrain collision) before other objects execute. Engine: objects run
+            // BEFORE player physics (step 2 vs step 3), but LevelManager pre-applies
+            // the player's velocity (SpeedToPos) before calling objectManager.update(),
+            // so getCentreX() already returns the predicted post-movement position.
+            // Do NOT add getXSpeed()>>8 again — that would double-count the velocity.
             int playerX = player.getCentreX();
             int dx = Math.abs(playerX - currentX);
             if (dx < SONIC_PROXIMITY && isOnScreenX()) {

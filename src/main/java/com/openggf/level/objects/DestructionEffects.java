@@ -46,7 +46,7 @@ public final class DestructionEffects {
      * Executes the standard badnik destruction sequence:
      * <ol>
      *   <li>Handle respawn tracking (mark remembered or remove from active spawns)</li>
-     *   <li>Spawn explosion</li>
+     *   <li>Spawn explosion (inheriting the badnik's slot for ROM parity)</li>
      *   <li>Optionally spawn animal</li>
      *   <li>Calculate and award chain score</li>
      *   <li>Optionally spawn points popup</li>
@@ -56,11 +56,14 @@ public final class DestructionEffects {
      * @param x            current X position of the destroyed badnik
      * @param y            current Y position of the destroyed badnik
      * @param spawn        the badnik's original spawn data
+     * @param badnikSlot   the SST slot index of the destroyed badnik, or -1 if unknown.
+     *                     When &ge; 0, the explosion inherits this slot to match the ROM's
+     *                     in-place obID change (see {@link ObjectManager#addDynamicObjectAtSlot}).
      * @param player       the player who destroyed the badnik (may be null)
      * @param services     injectable services handle
      * @param config       game-specific destruction configuration
      */
-    public static void destroyBadnik(int x, int y, ObjectSpawn spawn,
+    public static void destroyBadnik(int x, int y, ObjectSpawn spawn, int badnikSlot,
             PlayableEntity player, ObjectServices services,
             DestructionConfig config) {
 
@@ -75,12 +78,19 @@ public final class DestructionEffects {
         }
 
         // --- Spawn explosion ---
+        // ROM parity: the ROM changes the badnik's obID to ExplosionItem (0x27)
+        // in-place, keeping the same SST slot. We replicate this by spawning
+        // the explosion at the badnik's slot via addDynamicObjectAtSlot.
         ObjectRenderManager renderManager = services != null
                 ? services.renderManager() : null;
         if (objectManager != null && renderManager != null) {
             ExplosionObjectInstance explosion = new ExplosionObjectInstance(
                     0x27, x, y, renderManager);
-            objectManager.addDynamicObject(explosion);
+            if (badnikSlot >= 0) {
+                objectManager.addDynamicObjectAtSlot(explosion, badnikSlot);
+            } else {
+                objectManager.addDynamicObject(explosion);
+            }
         }
 
         // --- Optionally spawn animal ---
@@ -111,5 +121,15 @@ public final class DestructionEffects {
         if (services != null) {
             services.playSfx(config.sfxId());
         }
+    }
+
+    /**
+     * Backward-compatible overload that allocates a new slot for the explosion.
+     * Prefer the 7-arg variant with {@code badnikSlot} for ROM-accurate slot reuse.
+     */
+    public static void destroyBadnik(int x, int y, ObjectSpawn spawn,
+            PlayableEntity player, ObjectServices services,
+            DestructionConfig config) {
+        destroyBadnik(x, y, spawn, -1, player, services, config);
     }
 }

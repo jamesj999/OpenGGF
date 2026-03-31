@@ -313,9 +313,12 @@ public class Sonic1BallHogBadnikInstance extends AbstractObjectInstance
     private void destroyBadnik(PlayableEntity playerEntity) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         destroyed = true;
+        // ROM parity: explosion inherits our slot (in-place obID change).
+        int mySlot = getSlotIndex();
+        setSlotIndex(-1);
         setDestroyed(true);
-        DestructionEffects.destroyBadnik(currentX, currentY, spawn, player, services(),
-                Sonic1DestructionConfig.S1_DESTRUCTION_CONFIG);
+        DestructionEffects.destroyBadnik(currentX, currentY, spawn, mySlot,
+                player, services(), Sonic1DestructionConfig.S1_DESTRUCTION_CONFIG);
     }
 
     // --- Rendering ---

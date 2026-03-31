@@ -35,6 +35,11 @@ public class Sonic1ObjectRegistry extends AbstractObjectRegistry {
 
     @Override
     protected void registerDefaultFactories() {
+        // ROM parity: ring layout entries need phantom slot placeholders so that
+        // FindFreeObj/allocateSlot assigns the same slot numbers as the ROM.
+        // Ring behaviour (collection, rendering) is handled by RingManager.
+        factories.put(Sonic1ObjectIds.RING,
+                (spawn, registry) -> new Sonic1PhantomRingInstance(spawn));
         factories.put(Sonic1ObjectIds.BREAKABLE_POLE,
                 (spawn, registry) -> new Sonic1PoleThatBreaksObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.FLAPPING_DOOR,

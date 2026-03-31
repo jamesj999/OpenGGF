@@ -22,8 +22,19 @@ public record TraceMetadata(
     @JsonProperty("recording_date") String recordingDate,
     @JsonProperty("lua_script_version") String luaScriptVersion,
     @JsonProperty("rom_checksum") String romChecksum,
-    @JsonProperty("notes") String notes
+    @JsonProperty("notes") String notes,
+    @JsonProperty("pre_trace_osc_frames") Integer preTraceOscFrames
 ) {
+
+    /**
+     * Number of Level_MainLoop frames the ROM executed between OscillateNumInit
+     * and the first trace frame. The engine must pre-advance OscillationManager
+     * by this many updates to match the ROM's oscillation phase.
+     * Returns 0 if not specified in the metadata.
+     */
+    public int preTraceOscillationFrames() {
+        return preTraceOscFrames != null ? preTraceOscFrames : 0;
+    }
 
     /** Parse start_x hex string to short. */
     public short startX() {

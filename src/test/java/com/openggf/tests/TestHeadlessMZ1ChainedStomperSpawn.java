@@ -154,7 +154,9 @@ public class TestHeadlessMZ1ChainedStomperSpawn {
         int missingCount = 0;
         StringBuilder missing = new StringBuilder();
         for (ObjectSpawn spawn : om.getAllSpawns()) {
-            if (spawn.x() >= romBackward && spawn.x() <= romForward) {
+            // ROM: bls (Branch if Lower or Same) means objects at exactly the forward
+            // boundary are NOT spawned (windowEnd <= objectX → skip). Use strict less-than.
+            if (spawn.x() >= romBackward && spawn.x() < romForward) {
                 if (!om.getActiveSpawns().contains(spawn)) {
                     missingCount++;
                     missing.append(String.format("  id=0x%02X at (%d, %d)%n",

@@ -162,6 +162,9 @@ public class Sonic1MonitorObjectInstance extends AbstractMonitorObjectInstance
             int monitorY = currentY;
 
             if (playerCenterY - 0x10 >= monitorY) {
+                // TEMPORARY DIAGNOSTIC
+                System.err.printf("[MON_BELOW] x=0x%04X y=0x%04X playerX=0x%04X playerY=0x%04X ySpd=%d slot=%d%n",
+                        spawn.x(), currentY, player.getCentreX(), player.getCentreY(), player.getYSpeed(), getSlotIndex());
                 // Bounce player down: neg.w y_vel(a0)
                 player.setYSpeed((short) -player.getYSpeed());
 
@@ -195,6 +198,9 @@ public class Sonic1MonitorObjectInstance extends AbstractMonitorObjectInstance
             objectManager.markRemembered(spawn);
         }
 
+        // TEMPORARY DIAGNOSTIC
+        System.err.printf("[MON_BREAK] x=0x%04X y=0x%04X playerX=0x%04X playerY=0x%04X ySpd=%d slot=%d%n",
+                spawn.x(), currentY, player.getCentreX(), player.getCentreY(), player.getYSpeed(), getSlotIndex());
         // Bounce player: neg.w obVelY(a0)
         player.setYSpeed((short) -player.getYSpeed());
 

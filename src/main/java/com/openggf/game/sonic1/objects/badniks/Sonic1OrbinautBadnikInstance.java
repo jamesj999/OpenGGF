@@ -154,7 +154,16 @@ public class Sonic1OrbinautBadnikInstance extends AbstractBadnikInstance {
         spikes.add(new OrbSpikeObjectInstance(this, 0xC0));
 
         activeSpikes = spikes.size();
+        // ROM: Orb_Loop uses FindNextFreeObj, allocating consecutive slots
+        int prevSlot = getSlotIndex();
         for (OrbSpikeObjectInstance spike : spikes) {
+            if (prevSlot >= 0) {
+                int spikeSlot = services().objectManager().allocateSlotAfter(prevSlot);
+                if (spikeSlot >= 0) {
+                    spike.setSlotIndex(spikeSlot);
+                    prevSlot = spikeSlot;
+                }
+            }
             services().objectManager().addDynamicObject(spike);
         }
     }

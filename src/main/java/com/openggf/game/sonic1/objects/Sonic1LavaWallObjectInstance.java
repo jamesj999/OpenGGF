@@ -254,6 +254,14 @@ public class Sonic1LavaWallObjectInstance extends AbstractObjectInstance
                         currentX - TRAIL_X_OFFSET, currentY,
                         0x4E, spawn.subtype(), 0, false, 0);
                 Sonic1LavaWallObjectInstance trail = new Sonic1LavaWallObjectInstance(trailSpawn, this);
+                // ROM: FindNextFreeObj allocates slot after parent
+                int mySlot = getSlotIndex();
+                if (mySlot >= 0) {
+                    int childSlot = services().objectManager().allocateSlotAfter(mySlot);
+                    if (childSlot >= 0) {
+                        trail.setSlotIndex(childSlot);
+                    }
+                }
                 services().objectManager().addDynamicObject(trail);
             }
         }

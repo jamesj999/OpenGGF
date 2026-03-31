@@ -108,11 +108,21 @@ public abstract class AbstractBadnikInstance extends AbstractObjectInstance
 
     /**
      * Handles Badnik destruction: spawn explosion, animal, points, award score.
+     * <p>
+     * ROM parity: the explosion inherits this badnik's SST slot. In the ROM,
+     * destroying a badnik changes its obID in-place to ExplosionItem (0x27) —
+     * the slot is never freed and re-allocated. To prevent the engine from
+     * freeing the slot when this badnik is removed, we clear the slot index
+     * before marking destroyed. The explosion takes ownership of the slot.
      */
     protected void destroyBadnik(PlayableEntity player) {
+        int mySlot = getSlotIndex();
+        // Clear our slot index so ObjectManager.freeSlot() won't release it
+        // when this instance is removed. The explosion inherits the slot.
+        setSlotIndex(-1);
         setDestroyed(true);
-        DestructionEffects.destroyBadnik(currentX, currentY, spawn, player, services(),
-                getDestructionConfig());
+        DestructionEffects.destroyBadnik(currentX, currentY, spawn, mySlot,
+                player, services(), getDestructionConfig());
     }
 
     @Override

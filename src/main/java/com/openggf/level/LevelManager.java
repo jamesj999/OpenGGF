@@ -716,6 +716,22 @@ public class LevelManager {
                 graphicsManager,
                 camera,
                 buildObjectServices());
+
+        // S1 parity: counter-based respawn tracking DISABLED pending fix for
+        // load/unload/reload incompatibility. The counter system prevents respawns
+        // because forward and backward counters assign different respawn indices
+        // to the same object. The ROM doesn't have this issue because ObjPosLoad
+        // never unloads objects — they persist until their own code deletes them.
+        // S1 counter-based respawn tracking.
+        if (gameModule.getPhysicsProvider() != null
+                && gameModule.getPhysicsProvider().getFeatureSet() != null
+                && gameModule.getPhysicsProvider().getFeatureSet().collisionModel()
+                   == com.openggf.game.CollisionModel.UNIFIED) {
+            objectManager.enableCounterBasedRespawn();
+        } else {
+            objectManager.enforceSlotLimit();
+        }
+
         // Wire up CollisionSystem with ObjectManager for unified collision pipeline
         collisionSystem.setObjectManager(objectManager);
 
@@ -891,16 +907,18 @@ public class LevelManager {
      * </ol>
      */
     public void updateObjectPositions() {
-        // Update global oscillation values used by moving platforms, water surface, etc.
-        // Must run before objects so SwingingPlatform reads current oscillation values.
-        OscillationManager.update(frameCounter);
-
         if (objectManager != null) {
             Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
             AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
             List<AbstractPlayableSprite> sidekicks = spriteManager.getSidekicks();
             objectManager.update(camera.getX(), playable, sidekicks, frameCounter + 1);
         }
+
+        // ROM parity: OscillateNumDo runs AFTER ExecuteObjects in both S1
+        // (sonic.asm:3205→3223) and S2 (s2.asm:5091→5104). Objects must read
+        // the previous frame's oscillation values, then OscillateNumDo advances
+        // them for the next frame.
+        OscillationManager.update(frameCounter);
     }
 
     /**
@@ -920,14 +938,44 @@ public class LevelManager {
      * visible and animate without hurting/collecting from the frozen player.
      */
     public void updateObjectPositionsWithoutTouches() {
-        OscillationManager.update(frameCounter);
-
         if (objectManager != null) {
             Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
             AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
+
+            // ROM parity: In ExecuteObjects, Sonic (slot 0) runs his full physics
+            // (SpeedToPos + terrain collision) before other objects execute. Objects
+            // reading player.getCentreY() see his post-physics position. Our engine
+            // runs objects BEFORE player physics (step 2 before step 3) so that
+            // SolidContacts sees up-to-date object positions. To compensate, we
+            // pre-apply the player's velocity (SpeedToPos) so objects see the
+            // projected post-movement position. This is exact for airborne Sonic
+            // and within 0-2px for grounded (terrain snap not modelled here).
+            // The real physics in tickPlayablePhysics (step 3) overwrites position
+            // correctly, so the temporary pre-apply has no lasting effect.
+            short preAppliedXSpeed = 0, preAppliedYSpeed = 0;
+            if (playable != null) {
+                preAppliedXSpeed = playable.getXSpeed();
+                preAppliedYSpeed = playable.getYSpeed();
+                playable.move(preAppliedXSpeed, preAppliedYSpeed);
+            }
+
             List<AbstractPlayableSprite> sidekicks = spriteManager.getSidekicks();
             objectManager.update(camera.getX(), playable, sidekicks, frameCounter + 1, false);
+
+            // Restore the player's exact pre-move position. move(v) + move(-v) is
+            // an identity in 16:16 fixed-point arithmetic, so pixel and subpixel
+            // are both restored precisely.
+            if (playable != null) {
+                playable.move((short) -preAppliedXSpeed, (short) -preAppliedYSpeed);
+            }
         }
+
+        // ROM parity: OscillateNumDo runs AFTER ExecuteObjects in both S1
+        // (sonic.asm:3205→3223) and S2 (s2.asm:5091→5104). Objects must read
+        // the previous frame's oscillation values, then OscillateNumDo advances
+        // them for the next frame. Placing this call before objectManager.update()
+        // caused a 1-frame phase shift in oscillating platform positions.
+        OscillationManager.update(frameCounter);
     }
 
     /**
@@ -969,6 +1017,13 @@ public class LevelManager {
     public void update() {
         // NOTE: OscillationManager and objectManager are now updated via updateObjectPositions()
         // which is called earlier in GameLoop to fix platform riding sync (1-frame lag fix).
+
+        // Advance the frame counter. This drives OscillationManager dedup (via
+        // updateObjectPositionsWithoutTouches), ring/object frame tracking, and
+        // parallax animation timing. Must increment here (in the logic path)
+        // rather than in drawWithSpritePriority() so headless tests see the
+        // counter advance even when rendering is disabled.
+        frameCounter++;
 
         Sprite player = null;
         AbstractPlayableSprite playable = null;
@@ -1497,7 +1552,7 @@ public class LevelManager {
             return;
         }
 
-        frameCounter++;
+        // frameCounter is now incremented in update() — see comment there.
         if (animatedPatternManager != null) {
             animatedPatternManager.update();
         }
@@ -3280,6 +3335,14 @@ public class LevelManager {
                 graphicsManager,
                 camera,
                 buildObjectServices());
+        if (gameModule.getPhysicsProvider() != null
+                && gameModule.getPhysicsProvider().getFeatureSet() != null
+                && gameModule.getPhysicsProvider().getFeatureSet().collisionModel()
+                   == com.openggf.game.CollisionModel.UNIFIED) {
+            objectManager.enableCounterBasedRespawn();
+        } else {
+            objectManager.enforceSlotLimit();
+        }
         collisionSystem.setObjectManager(objectManager);
         objectManager.reset(cameraX);
 

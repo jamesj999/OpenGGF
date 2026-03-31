@@ -204,7 +204,7 @@ public class Sonic1 extends Game implements PlayerSpriteArtProvider, AnimatedPat
                 Sonic1Constants.COLLISION_ARRAY_NORMAL_ADDR,
                 Sonic1Constants.COLLISION_ARRAY_ROTATED_ADDR,
                 Sonic1Constants.ANGLE_MAP_ADDR,
-                objects, rings, ringSpriteSheet, boundaries);
+                allObjects, rings, ringSpriteSheet, boundaries);
     }
 
     @Override

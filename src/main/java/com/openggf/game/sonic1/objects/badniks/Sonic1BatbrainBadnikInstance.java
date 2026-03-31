@@ -106,7 +106,6 @@ public class Sonic1BatbrainBadnikInstance extends AbstractBadnikInstance {
     private int animTickCounter;    // Ticks within current animation
     private final SubpixelMotion.State motionState; // Subpixel position/velocity state
     private int targetY;            // objoff_36: Sonic's Y position when drop was initiated
-    private final int slotSalt;     // d7 proxy: randomization value derived from spawn position
 
     public Sonic1BatbrainBadnikInstance(ObjectSpawn spawn) {
         super(spawn, "Batbrain");
@@ -121,10 +120,6 @@ public class Sonic1BatbrainBadnikInstance extends AbstractBadnikInstance {
         this.yVelocity = 0;
         this.motionState = new SubpixelMotion.State(spawn.x(), spawn.y(), 0, 0, 0, 0);
         this.targetY = 0;
-        // d7 in the ROM is the object's RAM slot offset, which varies per spawn.
-        // We derive a deterministic salt from the spawn position to replicate
-        // the per-instance randomization.
-        this.slotSalt = (spawn.x() * 7 + spawn.y() * 13) & 0xFF;
     }
 
     @Override
@@ -194,8 +189,19 @@ public class Sonic1BatbrainBadnikInstance extends AbstractBadnikInstance {
         }
 
         // Randomized frame gate: (v_vbla_byte + d7) & 7 == 0
-        if (((frameCounter + slotSalt) & RANDOM_MASK) != 0) {
+        // d7 comes from ExecuteObjects' loop counter, NOT from the object's SST
+        // address. ExecuteObjects counts d7 from 127 down to 0 across all 128
+        // slots, so slot N sees d7 = 127 - N. Different slots fire their timing
+        // gates at different points in the 8-frame cycle.
+        int d7 = Math.max(0, 127 - getSlotIndex());
+        if (((frameCounter + d7) & RANDOM_MASK) != 0) {
             return;
+        }
+
+        // DIAG: Log when the Batbrain timing gate fires
+        if (spawn.x() == 0x0BA0) {
+            System.err.printf("[DIAG_BAT_DROP] vbla=%d slot=%d d7=%d x=0x%04X y=0x%04X sonicY=%d%n",
+                    frameCounter, getSlotIndex(), d7, currentX, currentY, sonicY);
         }
 
         // Drop initiated: save target Y, transition to drop state
@@ -245,6 +251,11 @@ public class Sonic1BatbrainBadnikInstance extends AbstractBadnikInstance {
 
         // Within $10 pixels of target: transition to horizontal flight
         if (distToTarget < HORIZONTAL_FLIGHT_THRESHOLD) {
+            // DIAG: log transition from drop to flight
+            if (spawn.x() == 0x0BA0) {
+                System.err.printf("[DIAG_BAT_TRANSITION] vbla=%d x=0x%04X y=0x%04X targetY=%d distToTarget=%d yVel=%d hSpeed=%d slot=%d%n",
+                        frameCounter, currentX, currentY, targetY, distToTarget, yVelocity, horizontalSpeed, getSlotIndex());
+            }
             xVelocity = horizontalSpeed;
             yVelocity = 0;
             setAnimation(ANIM_FLY);
@@ -277,6 +288,13 @@ public class Sonic1BatbrainBadnikInstance extends AbstractBadnikInstance {
      * </pre>
      */
     private void updateFlapSound(int frameCounter, AbstractPlayableSprite player) {
+        // DIAG: trace Batbrain position during flight for overlap analysis
+        if (spawn.x() == 0x0BA0 && frameCounter >= 4250 && frameCounter <= 4275) {
+            System.err.printf("[DIAG_BAT_FLY] vbla=%d x=0x%04X y=0x%04X xVel=%d yVel=%d preX=0x%04X preY=0x%04X slot=%d%n",
+                    frameCounter, currentX, currentY, xVelocity, yVelocity,
+                    getPreUpdateX(), getPreUpdateY(), getSlotIndex());
+        }
+
         // Play flapping sound every 16 frames
         if ((frameCounter & FLAP_SOUND_MASK) == 0) {
             services().playSfx(Sonic1Sfx.BASARAN_FLAP.id);
@@ -293,7 +311,10 @@ public class Sonic1BatbrainBadnikInstance extends AbstractBadnikInstance {
             // If Sonic is >= $80 pixels away, consider flying up
             if (absDx >= FLYUP_DISTANCE) {
                 // Randomized frame gate for transition
-                if (((frameCounter + slotSalt) & RANDOM_MASK) == 0) {
+                // d7 comes from ExecuteObjects' loop counter (same as dropcheck):
+                // slot N sees d7 = 127 - N.
+                int d7 = Math.max(0, 127 - getSlotIndex());
+                if (((frameCounter + d7) & RANDOM_MASK) == 0) {
                     state = STATE_FLY_UP;
                 }
             }
@@ -385,11 +406,18 @@ public class Sonic1BatbrainBadnikInstance extends AbstractBadnikInstance {
      */
     private void checkOffScreenDelete() {
         if (!isOnScreenX(160)) {
-            setDestroyed(true);
+            // ROM parity: .chkdel calls DeleteObject directly (clears the SST
+            // entry) WITHOUT clearing the respawn table bit. Since ObjPosLoad
+            // set bit 7 = 1 ("loaded"), this bit remains set, and ObjPosLoad
+            // will skip this spawn on future passes. The object permanently
+            // cannot respawn. This matches markRemembered() semantics: the
+            // placement system treats the spawn as destroyed and never re-
+            // creates it. Contrast with RememberState (isPersistent returning
+            // false) which DOES clear bit 7, allowing respawn on camera re-entry.
             setDestroyed(true);
             var objectManager = services() != null ? services().objectManager() : null;
             if (objectManager != null) {
-                objectManager.removeFromActiveSpawns(spawn);
+                objectManager.markRemembered(spawn);
             }
         }
     }
@@ -440,8 +468,25 @@ public class Sonic1BatbrainBadnikInstance extends AbstractBadnikInstance {
 
     @Override
     public boolean isPersistent() {
-        // RememberState: persists while on screen
-        return !isDestroyed() && isOnScreenX(160);
+        if (isDestroyed()) return false;
+
+        // ROM parity: in dropfly state below target Y, the ROM uses the
+        // .chkdel → DeleteObject path which permanently prevents respawning.
+        // The engine's syncActiveSpawns runs BEFORE object updates, so it
+        // would remove the Batbrain via the normal isPersistent()==false path
+        // (equivalent to RememberState, which allows respawning) before the
+        // Batbrain's own update can call checkOffScreenDelete → markRemembered.
+        //
+        // By returning true here, we keep the Batbrain alive so its next
+        // update can call checkOffScreenDelete, which calls markRemembered
+        // to permanently prevent respawning — matching ROM's DeleteObject.
+        if (state == STATE_DROP_FLY && (targetY - currentY) < 0) {
+            return true;
+        }
+
+        // All other states: RememberState semantics — persists while on screen,
+        // removed when off-screen (allowing respawn on camera re-entry).
+        return isOnScreenX(160);
     }
 
     @Override

@@ -27,7 +27,14 @@ import java.util.List;
 public class Sonic1RingArt {
 
     private static final int RING_PALETTE_INDEX = 1;
+    /** SynchroAnimate Sync2 timer: {@code move.b #8-1,(v_ani1_time).w} → 8 VBlanks/frame. */
     private static final int RING_FRAME_DELAY = 8;
+    /**
+     * Ani_Ring sparkle delay byte = 5 → AnimateSprite displays each frame for 6 VBlanks
+     * (timer counts 5→4→3→2→1→0→wrap). Different from the spin rate because sparkle
+     * uses per-object AnimateSprite, not the global SynchroAnimate.
+     */
+    private static final int SPARKLE_FRAME_DELAY = 6;
     private static final int SPIN_FRAME_COUNT = 4;
     private static final int SPARKLE_FRAME_COUNT = 4;
 
@@ -47,7 +54,7 @@ public class Sonic1RingArt {
         List<RingFrame> frames = buildRingFrames();
 
         cached = new RingSpriteSheet(patterns, frames, RING_PALETTE_INDEX, RING_FRAME_DELAY,
-                SPIN_FRAME_COUNT, SPARKLE_FRAME_COUNT);
+                SPARKLE_FRAME_DELAY, SPIN_FRAME_COUNT, SPARKLE_FRAME_COUNT);
         return cached;
     }
 
