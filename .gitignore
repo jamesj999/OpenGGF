@@ -66,4 +66,4 @@ target/trace-reports/
 /test-output-atlas.txt
 /mvn-test-output.txt
 /tmp_*.asm
-.aider*
+/docs/BizHawk-2.11-win-x64/*

@@ -78,6 +78,18 @@ public class Sonic1RingPlacement {
         return new Result(List.copyOf(rings), List.copyOf(remaining));
     }
 
+    /**
+     * Returns the (deltaX, deltaY) spacing for the given ring subtype.
+     * Used by the phantom ring system to compute child ring positions.
+     *
+     * @param subtype the ring object's subtype byte
+     * @return int array {deltaX, deltaY} in pixels
+     */
+    public static int[] getRingSpacing(int subtype) {
+        int patternIndex = (subtype >> 4) & 0x0F;
+        return RING_POS_DATA[patternIndex];
+    }
+
     private void expandRing(ObjectSpawn spawn, List<RingSpawn> out) {
         int subtype = spawn.subtype();
         int countMinusOne = subtype & 0x07;

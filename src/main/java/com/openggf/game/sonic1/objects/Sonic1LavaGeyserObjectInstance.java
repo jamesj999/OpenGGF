@@ -237,6 +237,15 @@ public class Sonic1LavaGeyserObjectInstance extends AbstractObjectInstance
             body.originY = this.originY + BODY_Y_OFFSET;
             body.columnAnimTimer = 7; // start with timer at 7 for immediate frame select
             body.columnAnimFrame = 0;
+            // ROM: FindNextFreeObj allocates slot after head
+            int prevSlot = getSlotIndex();
+            if (prevSlot >= 0) {
+                int childSlot = services().objectManager().allocateSlotAfter(prevSlot);
+                if (childSlot >= 0) {
+                    body.setSlotIndex(childSlot);
+                    prevSlot = childSlot;
+                }
+            }
             services().objectManager().addDynamicObject(body);
 
             // Lavafall: create third piece as independent HEAD at Y+0x100
@@ -258,6 +267,13 @@ public class Sonic1LavaGeyserObjectInstance extends AbstractObjectInstance
                 // prevent ensureInitialized() from re-running initializeHead(),
                 // which would cascade-spawn infinite children.
                 third.initialized = true;
+                // ROM: FindNextFreeObj allocates slot after body
+                if (prevSlot >= 0) {
+                    int thirdSlot = services().objectManager().allocateSlotAfter(prevSlot);
+                    if (thirdSlot >= 0) {
+                        third.setSlotIndex(thirdSlot);
+                    }
+                }
                 services().objectManager().addDynamicObject(third);
 
                 // move.b #0,obSubtype(a0) — clear head's subtype to 0
@@ -301,13 +317,12 @@ public class Sonic1LavaGeyserObjectInstance extends AbstractObjectInstance
             updateType01();
         }
 
-        // bsr.w SpeedToPos
-        ySubpixel += velY;
-        int yPixels = ySubpixel / 256;
-        if (yPixels != 0) {
-            currentY += yPixels;
-            ySubpixel -= yPixels * 256;
-        }
+        // bsr.w SpeedToPos — ROM-accurate 16.16 fixed-point arithmetic
+        int yVel32 = (int) (short) velY;
+        int y32 = (currentY << 16) | (ySubpixel & 0xFFFF);
+        y32 += yVel32 << 8;
+        currentY = y32 >> 16;
+        ySubpixel = y32 & 0xFFFF;
 
         // AnimateSprite (head animation)
         updateHeadAnimation();

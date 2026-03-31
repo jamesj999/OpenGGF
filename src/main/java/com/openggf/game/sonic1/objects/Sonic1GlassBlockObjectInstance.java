@@ -132,9 +132,9 @@ public class Sonic1GlassBlockObjectInstance extends AbstractObjectInstance
     // The spawned reflection child (for cleanup)
     private Sonic1GlassReflectionInstance reflectionChild;
 
+
     public Sonic1GlassBlockObjectInstance(ObjectSpawn spawn) {
         super(spawn, "MzGlassBlock");
-        
 
         int subtype = spawn.subtype() & 0xFF;
         this.fullSubtype = subtype;
@@ -162,7 +162,10 @@ public class Sonic1GlassBlockObjectInstance extends AbstractObjectInstance
 
         updateDynamicSpawn(x, y);
 
-        // Spawn reflection child
+        // ROM: Glass_Main .Repeat loop spawns reflection via FindNextFreeObj
+        // during the object's first routine (construction). The pre-allocated
+        // slot mechanism ensures the parent already has its slot assigned,
+        // so allocateSlotAfter() correctly gives the child a HIGHER slot.
         spawnReflection();
     }
 
@@ -178,6 +181,7 @@ public class Sonic1GlassBlockObjectInstance extends AbstractObjectInstance
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
+
         playerStanding = isPlayerRiding();
 
         // Apply subtype movement (modifies glassDist)
@@ -248,6 +252,31 @@ public class Sonic1GlassBlockObjectInstance extends AbstractObjectInstance
         }
         // out_of_range.w uses spawn X; checks d1 against #$2A0 (standard S1 range)
         return isOnScreenX(spawn.x(), 320);
+    }
+
+    /**
+     * ROM parity: When a glass block is unloaded (removed from active set),
+     * mark it as destroyed so the reflection child detects the parent's
+     * removal and self-destructs. In the ROM, the shared out_of_range check
+     * at the GlassBlock entry point applies to BOTH the block and its
+     * reflection independently, so both are deleted in the same frame.
+     * Without this, reflections "leak" — they persist after their parent
+     * is removed, occupying SST slots indefinitely.
+     */
+    @Override
+    public void onUnload() {
+        setDestroyed(true);
+        // ROM parity: In the ROM, the reflection (child object) has its own
+        // out_of_range check which fires during ExecuteObjects (before ObjPosLoad).
+        // Since the reflection shares the parent's X position, both go out of
+        // range on the same frame. The engine unloads the parent during the
+        // placement phase (syncActiveSpawnsUnload), but the reflection is a
+        // dynamic object that only self-destructs during the exec loop. By
+        // marking it destroyed here, the pre-load cleanup pass can free its
+        // slot immediately, matching the ROM's slot availability at FindFreeObj time.
+        if (reflectionChild != null && !reflectionChild.isDestroyed()) {
+            reflectionChild.setDestroyed(true);
+        }
     }
 
     /**
@@ -438,6 +467,14 @@ public class Sonic1GlassBlockObjectInstance extends AbstractObjectInstance
 
         reflectionChild = new Sonic1GlassReflectionInstance(
                 spawn, this, reflectSubtype, isTall);
+        // ROM: FindNextFreeObj allocates slot after glass block
+        int mySlot = getSlotIndex();
+        if (mySlot >= 0) {
+            int childSlot = objectManager.allocateSlotAfter(mySlot);
+            if (childSlot >= 0) {
+                reflectionChild.setSlotIndex(childSlot);
+            }
+        }
         objectManager.addDynamicObject(reflectionChild);
     }
 

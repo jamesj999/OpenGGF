@@ -73,7 +73,7 @@ public class Sonic1ObjectPlacement {
 
             int subtype = rom.readU8(cursor + 5);
 
-            spawns.add(new ObjectSpawn(x, y, objectId, subtype, renderFlags, respawnTracked, yWord));
+            spawns.add(new ObjectSpawn(x, y, objectId, subtype, renderFlags, respawnTracked, yWord, spawns.size()));
             cursor += RECORD_SIZE;
         }
 

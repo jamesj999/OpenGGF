@@ -18,6 +18,63 @@ public interface ObjectInstance {
         return getSpawn().y();
     }
 
+    /**
+     * Returns the object's X position as it was before the current frame's update loop.
+     * Used by touch response collision checks to match ROM ordering, where ReactToItem
+     * runs before ExecuteObjects — so objects are at pre-update positions during collision.
+     * <p>
+     * Defaults to current position. {@link AbstractObjectInstance} snapshots before updates.
+     */
+    default int getPreUpdateX() {
+        return getX();
+    }
+
+    /**
+     * Returns the object's Y position as it was before the current frame's update loop.
+     * @see #getPreUpdateX()
+     */
+    default int getPreUpdateY() {
+        return getY();
+    }
+
+    /**
+     * Snapshots the current position as the pre-update position.
+     * Called by ObjectManager before the object update loop each frame.
+     */
+    default void snapshotPreUpdatePosition() {
+        // Default no-op; AbstractObjectInstance provides implementation.
+    }
+
+    /**
+     * Returns true if this object needs to be updated on the same frame it was spawned.
+     * <p>
+     * ROM parity: In the ROM's ExecuteObjects, when an object at slot N creates a child
+     * at slot M > N, the child IS processed in the same pass. The engine queues children
+     * into pendingDynamicAdditions during the loop, so they miss the current frame.
+     * Objects that return true here get a follow-up update in the finally block.
+     * <p>
+     * Use sparingly — most objects work correctly with the default 1-frame delay.
+     * Only enable for objects whose position accuracy on the first frame matters
+     * (e.g., projectiles checked for collision on subsequent frames).
+     */
+    default boolean requiresSameFrameUpdate() {
+        return false;
+    }
+
+    /**
+     * Returns true if this object was spawned during the current frame's update loop
+     * and should be excluded from touch/hurt collision checks this frame.
+     * <p>
+     * ROM parity: In the ROM's ExecuteObjects, Sonic (slot 0) runs ReactToItem BEFORE
+     * objects at higher slots create children. So newly created children are never checked
+     * for touch collision on their spawning frame. The engine processes objects before
+     * player physics, so children that receive same-frame updates must be excluded from
+     * touch checks to match this behavior.
+     */
+    default boolean isSkipTouchThisFrame() {
+        return false;
+    }
+
     void update(int frameCounter, PlayableEntity player);
 
     void appendRenderCommands(List<GLCommand> commands);
@@ -52,6 +109,20 @@ public interface ObjectInstance {
      */
     default boolean shouldStayActiveWhenRemembered() {
         return false;
+    }
+
+    /**
+     * Returns the number of additional SST slots this object reserves for child
+     * sub-objects. These slots are allocated via FindFreeObj (not FindNextFreeObj)
+     * at spawn time, matching the ROM's object initialization.
+     * <p>
+     * ROM example: S1 ring objects (obj25) allocate 1 parent slot + N child slots
+     * for multi-ring layout entries.
+     *
+     * @return number of extra slots to allocate (default 0)
+     */
+    default int getReservedChildSlotCount() {
+        return 0;
     }
 
     /**

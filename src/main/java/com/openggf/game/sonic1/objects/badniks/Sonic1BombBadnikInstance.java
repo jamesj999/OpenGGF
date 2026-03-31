@@ -396,6 +396,14 @@ public class Sonic1BombBadnikInstance extends AbstractObjectInstance
         int fuseYSpeed = ceilingBomb ? -FUSE_Y_SPEED : FUSE_Y_SPEED;
         Sonic1BombFuseInstance fuse = new Sonic1BombFuseInstance(
                 currentX, currentY, facingLeft, ceilingBomb, FUSE_TIME, fuseYSpeed, this);
+        // ROM: FindNextFreeObj allocates slot after bomb
+        int mySlot = getSlotIndex();
+        if (mySlot >= 0) {
+            int childSlot = objectManager.allocateSlotAfter(mySlot);
+            if (childSlot >= 0) {
+                fuse.setSlotIndex(childSlot);
+            }
+        }
         objectManager.addDynamicObject(fuse);
     }
 

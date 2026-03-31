@@ -138,6 +138,21 @@ public class HeadlessTestRunner {
         this.bk2Movie = movie;
         this.bk2StartIndex = bk2FrameOffset;
         this.currentBk2Index = bk2StartIndex;
+
+        // ROM parity: v_vbla_byte counts ALL VBlanks since power-on, never
+        // resets. Objects with timing gates like (v_vbla_byte + d7) & 7 depend
+        // on the absolute mod-8 alignment. The bk2FrameOffset equals
+        // emu.framecount() at the trace start. ObjectManager.update()
+        // increments frameCounter BEFORE passing it to objects, so we
+        // initialise one below the offset so the first increment lands on the
+        // correct alignment: v_vbla_byte = bk2FrameOffset at the first game
+        // frame, and objects see frameCounter = bk2FrameOffset after the ++.
+        // TODO: Disabled until slot allocation matches ROM exactly. With correct
+        // vbla alignment, slot-dependent timing gates (e.g. Batbrain dropcheck)
+        // fire at the wrong frame because engine slots differ from ROM slots.
+        // Without init, accidental mod-8 alignment of frameCounter happens to
+        // match the first Batbrain encounter. See cascading slot issue analysis.
+        // levelManager.getObjectManager().initVblaCounter(bk2FrameOffset - 1);
     }
 
     /**
@@ -204,6 +219,12 @@ public class HeadlessTestRunner {
 
         // Advance BK2 index without calling stepFrame() — no physics processed.
         currentBk2Index++;
+
+        // ROM parity: v_vbla_byte increments in the VBlank handler even on lag
+        // frames. Objects that use timing gates like (v_vbla_byte + d7) & 7 are
+        // sensitive to this. Advance the ObjectManager's frame counter to keep
+        // it aligned with v_vbla_byte.
+        levelManager.getObjectManager().advanceVblaCounter();
         return mask;
     }
 

@@ -260,9 +260,28 @@ public class Sonic1LavaBallObjectInstance extends AbstractObjectInstance
         }
     }
 
+    /** Frame counter when this ball's first update ran. -1 = not yet updated. */
+    private int spawnFrameCounter = -1;
+    /** Number of updates this ball has received (lifetime counter). */
+    private int updateCount = 0;
+
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
         ensureInitialized();
+        updateCount++;
+        // TEMPORARY: Log spawn timing and per-frame trajectory for trace debugging
+        if (currentX == 0x0730) {
+            if (spawnFrameCounter == -1) {
+                spawnFrameCounter = frameCounter;
+                System.out.printf("LAVABALL_SPAWN: x=0x%04X y=0x%04X velY=0x%04X subtype=%d frame=%d%n",
+                    currentX, currentY, velY & 0xFFFF, currentSubtype, frameCounter);
+            }
+            // Log trajectory from update 25 onward (approaching collision zone)
+            if (updateCount >= 25 && updateCount <= 40) {
+                System.out.printf("LBALL_TRAJ: frame=%d upd=%d preY=0x%04X preSub=0x%04X velY=0x%04X%n",
+                    frameCounter, updateCount, currentY, ySubpixel & 0xFFFF, velY & 0xFFFF);
+            }
+        }
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (inCollisionAnim) {
             // Collision animation plays one frame then afRoutine increments obRoutine -> delete.
@@ -437,25 +456,29 @@ public class Sonic1LavaBallObjectInstance extends AbstractObjectInstance
     }
 
     /**
-     * Applies velocity to position (SpeedToPos equivalent).
-     * ROM SpeedToPos adds 16-bit velocity (in 1/256 pixel units) to 16.8 position.
+     * Applies velocity to position using ROM-accurate 16.16 fixed-point arithmetic.
+     * <p>ROM SpeedToPos: {@code ext.l d0 / asl.l #8,d0 / add.l d0,obY(a0)}
+     * <p>The ROM treats position as a 32-bit value: (pixel << 16) | subpixel.
+     * Velocity is sign-extended to 32 bits and shifted left 8 before adding.
+     * This naturally propagates carries/borrows between the fractional and
+     * integer parts, unlike Java integer division which truncates toward zero
+     * and produces incorrect results for negative velocities with non-zero
+     * fractional parts (e.g., velY=-0x318 gives -3px instead of ROM's -4px).
      */
     private void applyVelocity() {
-        // X movement
-        xSubpixel += velX;
-        int xPixels = xSubpixel / 256;
-        if (xPixels != 0) {
-            currentX += xPixels;
-            xSubpixel -= xPixels * 256;
-        }
+        // X: SpeedToPos 16.16 fixed-point
+        int xVel32 = (int) (short) velX;
+        int x32 = (currentX << 16) | (xSubpixel & 0xFFFF);
+        x32 += xVel32 << 8;
+        currentX = x32 >> 16;
+        xSubpixel = x32 & 0xFFFF;
 
-        // Y movement
-        ySubpixel += velY;
-        int yPixels = ySubpixel / 256;
-        if (yPixels != 0) {
-            currentY += yPixels;
-            ySubpixel -= yPixels * 256;
-        }
+        // Y: SpeedToPos 16.16 fixed-point
+        int yVel32 = (int) (short) velY;
+        int y32 = (currentY << 16) | (ySubpixel & 0xFFFF);
+        y32 += yVel32 << 8;
+        currentY = y32 >> 16;
+        ySubpixel = y32 & 0xFFFF;
     }
 
     /**
@@ -555,6 +578,15 @@ public class Sonic1LavaBallObjectInstance extends AbstractObjectInstance
     @Override
     public int getPriorityBucket() {
         return priorityBucket;
+    }
+
+    @Override
+    public boolean requiresSameFrameUpdate() {
+        // ROM: LBall_Main falls through to LBall_Action — the ball's first movement
+        // happens in the same ExecuteObjects pass as its creation by the maker.
+        // Without this, the ball is 1 frame behind the ROM, causing position-dependent
+        // collision differences (e.g., spurious hurt at MZ1 frame 1251).
+        return true;
     }
 
     @Override

@@ -110,7 +110,7 @@ public final class CommonPlacementParser {
             int objectId = rom.readU8(cursor + 4);
             int subtype = rom.readU8(cursor + 5);
 
-            spawns.add(new ObjectSpawn(x, y, objectId, subtype, renderFlags, respawnTracked, yWord));
+            spawns.add(new ObjectSpawn(x, y, objectId, subtype, renderFlags, respawnTracked, yWord, spawns.size()));
             cursor += OBJECT_RECORD_SIZE;
         }
 

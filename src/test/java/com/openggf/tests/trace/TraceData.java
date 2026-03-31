@@ -62,16 +62,32 @@ public class TraceData {
      * a frame where the ROM did not process physics (the VBlank handler fired
      * but the main game loop hadn't completed its tick yet).
      *
-     * <p>Detected by comparing consecutive frames: if all physics state fields
-     * are identical (position, speed, angle, flags), the ROM didn't update
-     * state on that frame.
+     * <p>Detection requires TWO conditions:
+     * <ol>
+     *   <li>All physics state fields are identical to the previous frame</li>
+     *   <li>Sonic has non-zero speed or is airborne — meaning physics SHOULD
+     *       have changed state if the game loop had run</li>
+     * </ol>
+     *
+     * <p>Without condition 2, frames where Sonic is standing still with zero
+     * speed are falsely classified as lag frames. The game loop DID run on
+     * those frames (advancing oscillation, objects, etc.) but Sonic's state
+     * was unchanged because he wasn't moving. Skipping those frames causes
+     * oscillation desync and cascading divergences.
      *
      * @param traceFrame 0-based trace frame index
      * @return true if this frame is a lag frame that should skip engine physics
      */
     public boolean isLagFrame(int traceFrame) {
         if (traceFrame <= 0 || traceFrame >= frames.size()) return false;
-        return frames.get(traceFrame).stateEquals(frames.get(traceFrame - 1));
+        TraceFrame current = frames.get(traceFrame);
+        TraceFrame previous = frames.get(traceFrame - 1);
+        if (!current.stateEquals(previous)) return false;
+        // If Sonic has any speed or is airborne, physics should have changed
+        // the state. Identical state with non-zero speed = real lag frame.
+        // Zero speed on ground = Sonic standing still, not a lag frame.
+        return current.xSpeed() != 0 || current.ySpeed() != 0
+            || current.gSpeed() != 0 || current.air();
     }
 
     public List<TraceEvent> getEventsInRange(int startFrame, int endFrame) {

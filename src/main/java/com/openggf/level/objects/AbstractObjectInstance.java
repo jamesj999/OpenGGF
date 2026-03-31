@@ -27,6 +27,19 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     static final ThreadLocal<ObjectServices> CONSTRUCTION_CONTEXT = new ThreadLocal<>();
 
     /**
+     * Pre-allocated slot index for the object being constructed.
+     * Set by {@link ObjectManager#syncActiveSpawnsLoad()} before calling the factory,
+     * consumed (and cleared) by the first {@code super()} call in the constructor.
+     * <p>
+     * This ensures the parent object already has its slot assigned when its constructor
+     * spawns children (e.g., GlassBlock's reflection). Without this, children would get
+     * LOWER slots than the parent (FindFreeObj starts from bit 0), but the ROM's
+     * FindNextFreeObj gives children HIGHER slots (scanning from the parent forward).
+     * Package-private: only {@link ObjectManager} should set this.
+     */
+    static final ThreadLocal<Integer> PRE_ALLOCATED_SLOT = new ThreadLocal<>();
+
+    /**
      * Cached camera bounds, updated once per frame by ObjectManager.
      * Avoids repeated Camera.getInstance() calls when checking visibility.
      */
@@ -38,9 +51,60 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     private ObjectSpawn dynamicSpawn;
     private ObjectServices services;
 
+    /**
+     * Pre-update position snapshot, saved by ObjectManager before the object update loop.
+     * Used by touch response collision checks to match ROM ordering (ReactToItem runs
+     * before ExecuteObjects in the ROM, so objects are at their pre-update positions
+     * during touch collision).
+     */
+    private int preUpdateX;
+    private int preUpdateY;
+    private boolean preUpdateValid;
+
+    /**
+     * Set when this object receives a same-frame update after being spawned mid-loop.
+     * While true, touch response collision checks skip this object (ROM parity:
+     * Sonic's ReactToItem at slot 0 runs before the parent creates this child).
+     * Cleared on the next call to {@link #snapshotPreUpdatePosition()}.
+     */
+    private boolean skipTouchThisFrame;
+
+    /**
+     * ROM parity: Object slot index matching the Mega Drive's Object Status Table.
+     * <p>
+     * In the ROM, ExecuteObjects processes slots 0-127 sequentially. The d7 register
+     * holds the loop counter: d7 = 127 for slot 0 (Sonic), d7 = 126 for slot 1, etc.
+     * Some objects (e.g. Batbrain/Basaran) use d7 for frame-based randomization gates:
+     * {@code (v_vbla_byte + d7) & 7 == 0}.
+     * <p>
+     * Assigned by {@link ObjectManager} when objects are created. -1 means unassigned
+     * (should not happen for objects created through ObjectManager).
+     */
+    private int slotIndex = -1;
+
+    /**
+     * ROM parity (S1): Index into the respawn state table (v_objstate+2).
+     * <p>
+     * In S1, ObjPosLoad assigns each remember-state object a counter-based index
+     * via {@code move.b d2,obRespawnNo(a1)}. When the object goes off-screen,
+     * RememberState clears bit 7 at this index, allowing respawn. When the object
+     * is destroyed (e.g. via .chkdel), the bit stays set, preventing respawn.
+     * <p>
+     * -1 means not tracked (non-remember-state object or S2/S3K mode).
+     */
+    private int respawnStateIndex = -1;
+
     protected AbstractObjectInstance(ObjectSpawn spawn, String name) {
         this.spawn = spawn;
         this.name = name;
+        // ROM parity: consume the pre-allocated slot so that getSlotIndex()
+        // returns the correct value if the constructor spawns children.
+        // Only the first super() call gets the slot; child constructors see null.
+        Integer preSlot = PRE_ALLOCATED_SLOT.get();
+        if (preSlot != null) {
+            this.slotIndex = preSlot;
+            PRE_ALLOCATED_SLOT.remove(); // Consume — only first constructor gets it
+        }
     }
 
     /**
@@ -73,6 +137,78 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
 
     public String getName() {
         return name;
+    }
+
+    @Override
+    public void snapshotPreUpdatePosition() {
+        // Guard: some dynamic objects (effects, projectiles) may have null spawn
+        if (getSpawn() == null) return;
+        preUpdateX = getX();
+        preUpdateY = getY();
+        preUpdateValid = true;
+        // Clear same-frame spawn flag: this object has survived one full frame
+        // and is now eligible for touch collision checks.
+        skipTouchThisFrame = false;
+    }
+
+    @Override
+    public int getPreUpdateX() {
+        return preUpdateValid ? preUpdateX : getX();
+    }
+
+    @Override
+    public int getPreUpdateY() {
+        return preUpdateValid ? preUpdateY : getY();
+    }
+
+    @Override
+    public boolean isSkipTouchThisFrame() {
+        return skipTouchThisFrame;
+    }
+
+    /**
+     * Marks this object as having received a same-frame update.
+     * Called by ObjectManager when processing pending children in the finally block.
+     */
+    public void setSkipTouchThisFrame(boolean skip) {
+        this.skipTouchThisFrame = skip;
+    }
+
+    /**
+     * Returns this object's slot index in the Object Status Table (0-127).
+     * <p>
+     * Use {@code 127 - getSlotIndex()} to compute the ROM's d7 register value
+     * for randomization gates.
+     *
+     * @return slot index, or -1 if not yet assigned
+     */
+    public int getSlotIndex() {
+        return slotIndex;
+    }
+
+    /**
+     * Assigns this object's slot index. Called by ObjectManager during object creation.
+     *
+     * @param index slot index (0-127 for ROM-matching slots, may exceed 127 for overflow)
+     */
+    public void setSlotIndex(int index) {
+        this.slotIndex = index;
+    }
+
+    /**
+     * Returns this object's respawn state table index (S1 counter-based system).
+     * @return respawn state index, or -1 if not tracked
+     */
+    public int getRespawnStateIndex() {
+        return respawnStateIndex;
+    }
+
+    /**
+     * Sets this object's respawn state table index (S1 counter-based system).
+     * Called by ObjectManager when creating objects during counter-based spawn.
+     */
+    public void setRespawnStateIndex(int index) {
+        this.respawnStateIndex = index;
     }
 
     /**
@@ -349,7 +485,8 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
      */
     protected ObjectSpawn buildSpawnAt(int x, int y) {
         return new ObjectSpawn(x, y, spawn.objectId(), spawn.subtype(),
-                spawn.renderFlags(), spawn.respawnTracked(), spawn.rawYWord());
+                spawn.renderFlags(), spawn.respawnTracked(), spawn.rawYWord(),
+                spawn.layoutIndex());
     }
 
     /**

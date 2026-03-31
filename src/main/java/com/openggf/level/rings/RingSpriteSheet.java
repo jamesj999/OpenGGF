@@ -14,15 +14,27 @@ public class RingSpriteSheet implements SpriteSheet<RingFrame> {
     private final List<RingFrame> frames;
     private final int paletteIndex;
     private final int frameDelay;
+    private final int sparkleFrameDelay;
     private final int spinFrameCount;
     private final int sparkleFrameCount;
 
     public RingSpriteSheet(Pattern[] patterns, List<RingFrame> frames, int paletteIndex, int frameDelay,
                            int spinFrameCount, int sparkleFrameCount) {
+        this(patterns, frames, paletteIndex, frameDelay, frameDelay, spinFrameCount, sparkleFrameCount);
+    }
+
+    /**
+     * @param frameDelay         VBlanks per spin animation frame (SynchroAnimate rate)
+     * @param sparkleFrameDelay  VBlanks per sparkle animation frame (AnimateSprite rate).
+     *                           In S1, spin uses 8 (timer=7) but sparkle uses 6 (Ani_Ring delay=5).
+     */
+    public RingSpriteSheet(Pattern[] patterns, List<RingFrame> frames, int paletteIndex, int frameDelay,
+                           int sparkleFrameDelay, int spinFrameCount, int sparkleFrameCount) {
         this.patterns = patterns;
         this.frames = frames;
         this.paletteIndex = paletteIndex;
         this.frameDelay = frameDelay;
+        this.sparkleFrameDelay = sparkleFrameDelay;
         int totalFrames = frames != null ? frames.size() : 0;
         int safeSpin = Math.max(0, Math.min(spinFrameCount, totalFrames));
         int safeSparkle = Math.max(0, Math.min(sparkleFrameCount, totalFrames - safeSpin));
@@ -60,6 +72,18 @@ public class RingSpriteSheet implements SpriteSheet<RingFrame> {
 
     public int getFrameDelay() {
         return frameDelay;
+    }
+
+    /**
+     * Returns the VBlanks-per-frame rate for sparkle animation.
+     * <p>
+     * In the ROM, the sparkle animation uses {@code AnimateSprite} with the
+     * {@code Ani_Ring} script, which has its own delay byte (5 in S1 = 6 VBlanks).
+     * This is different from the spin animation rate driven by {@code SynchroAnimate}
+     * (timer=7 in S1 = 8 VBlanks). When not explicitly set, defaults to {@link #getFrameDelay()}.
+     */
+    public int getSparkleFrameDelay() {
+        return sparkleFrameDelay;
     }
 
     public void cachePatterns(GraphicsManager graphicsManager, int basePatternIndex) {

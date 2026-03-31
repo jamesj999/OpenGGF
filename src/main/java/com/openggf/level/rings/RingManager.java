@@ -43,6 +43,7 @@ public class RingManager {
     private PatternSpriteRenderer.FrameBounds spinBounds;
     private final AttractedRing[] attractedRings;
 
+
     public RingManager(List<RingSpawn> spawns, RingSpriteSheet spriteSheet,
                        LevelManager levelManager, TouchResponseTable touchResponseTable) {
         this.placement = new RingPlacement(spawns);
@@ -118,6 +119,11 @@ public class RingManager {
             }
 
             placement.markCollected(index);
+            // DIAG: log ring collection for specific positions
+            if (ring.x() >= 0x0980 && ring.x() <= 0x09C0) {
+                System.err.printf("[DIAG_RING_MARK] frame=%d x=0x%04X y=0x%04X idx=%d%n",
+                        frameCounter, ring.x(), ring.y(), index);
+            }
             if (renderer.getSparkleFrameCount() > 0) {
                 placement.setSparkleStartFrame(index, frameCounter);
             }
@@ -191,7 +197,7 @@ public class RingManager {
             if (elapsed < 0) {
                 elapsed = 0;
             }
-            int sparkleFrameOffset = elapsed / renderer.getFrameDelay();
+            int sparkleFrameOffset = elapsed / renderer.getSparkleFrameDelay();
             if (sparkleFrameOffset >= renderer.getSparkleFrameCount()) {
                 placement.clearSparkle(index);
                 continue;
@@ -280,7 +286,7 @@ public class RingManager {
         if (elapsed < 0) {
             return true;
         }
-        int sparkleFrameOffset = elapsed / renderer.getFrameDelay();
+        int sparkleFrameOffset = elapsed / renderer.getSparkleFrameDelay();
         if (sparkleFrameOffset >= renderer.getSparkleFrameCount()) {
             placement.clearSparkle(index);
             return false;
@@ -296,12 +302,63 @@ public class RingManager {
         return placement.isCollected(index);
     }
 
+    /**
+     * Checks whether a ring at the given position has been collected.
+     * Used by the phantom ring countdown system to detect collection
+     * without any frame counter dependency.
+     */
+    public boolean isRingCollected(int x, int y) {
+        RingSpawn probe = new RingSpawn(x, y);
+        int index = placement.getSpawnIndex(probe);
+        return index >= 0 && placement.isCollected(index);
+    }
+
     public int getSparkleStartFrame(RingSpawn ring) {
         if (ring == null) {
             return -1;
         }
         int index = placement.getSpawnIndex(ring);
         return placement.getSparkleStartFrame(index);
+    }
+
+    /**
+     * ROM parity: checks whether a ring at the given position has been collected
+     * AND its sparkle animation has finished (equivalent to ROM's DeleteObject
+     * call at the end of Ring_Sparkle).
+     * <p>
+     * Used by the phantom ring system to free SST slots at the correct time,
+     * matching the ROM's slot lifecycle where a ring's slot is freed only after
+     * the sparkle animation completes.
+     *
+     * @param x            ring X position
+     * @param y            ring Y position
+     * @param frameCounter current frame counter
+     * @return true if the ring was collected and sparkle has finished
+     */
+    public boolean isCollectedAndSparkleDone(int x, int y, int frameCounter) {
+        RingSpawn probe = new RingSpawn(x, y);
+        int index = placement.getSpawnIndex(probe);
+        if (index < 0 || !placement.isCollected(index)) {
+            return false;
+        }
+        int sparkleStart = placement.getSparkleStartFrame(index);
+        if (sparkleStart < 0) {
+            // Sparkle already cleared (or no sparkle) — collection is done
+            return true;
+        }
+        if (renderer == null || renderer.getSparkleFrameCount() <= 0) {
+            return true;
+        }
+        int elapsed = frameCounter - sparkleStart;
+        // ROM parity: Ani_Ring sparkle uses its own delay byte (5 in S1 = 6 VBlanks/frame
+        // via AnimateSprite), distinct from SynchroAnimate's spin rate (8 VBlanks/frame).
+        // After sparkleFrameCount frames × sparkleDelay VBlanks, the afRoutine command
+        // fires but the ring still displays for one more frame (DisplaySprite runs).
+        // Ring_Delete runs on the NEXT frame, calling DeleteObject to free the SST slot.
+        // Total duration: sparkleFrameCount * sparkleDelay + 1.
+        int sparkleDelay = renderer.getSparkleFrameDelay();
+        int totalDuration = renderer.getSparkleFrameCount() * sparkleDelay + 1;
+        return elapsed >= totalDuration;
     }
 
     public PatternSpriteRenderer.FrameBounds getSpinBounds() {
@@ -328,6 +385,10 @@ public class RingManager {
 
     public int getFrameDelay() {
         return renderer != null ? renderer.getFrameDelay() : 1;
+    }
+
+    public int getSparkleFrameDelay() {
+        return renderer != null ? renderer.getSparkleFrameDelay() : 1;
     }
 
     public void drawFrameIndex(int frameIndex, int originX, int originY) {
@@ -644,6 +705,10 @@ public class RingManager {
         private int getFrameDelay() {
             return Math.max(1, spriteSheet.getFrameDelay());
         }
+
+        private int getSparkleFrameDelay() {
+            return Math.max(1, spriteSheet.getSparkleFrameDelay());
+        }
     }
 
     private static final class LostRingPool {
@@ -883,7 +948,7 @@ public class RingManager {
                 if (elapsed < 0) {
                     elapsed = 0;
                 }
-                int sparkleFrameOffset = elapsed / renderer.getFrameDelay();
+                int sparkleFrameOffset = elapsed / renderer.getSparkleFrameDelay();
                 if (sparkleFrameOffset >= renderer.getSparkleFrameCount()) {
                     ring.deactivate();
                     continue;

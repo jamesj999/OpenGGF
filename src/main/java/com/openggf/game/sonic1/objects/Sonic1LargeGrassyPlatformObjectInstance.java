@@ -214,6 +214,7 @@ public class Sonic1LargeGrassyPlatformObjectInstance extends AbstractObjectInsta
     public int getY() {
         return y;
     }
+
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
@@ -289,6 +290,14 @@ public class Sonic1LargeGrassyPlatformObjectInstance extends AbstractObjectInsta
     }
 
     @Override
+    public int getTopLandingHalfWidth(PlayableEntity playerEntity, int collisionHalfWidth) {
+        // ROM: Solid_Landed re-reads obActWid (= platformWidth) for the narrower
+        // landing check, NOT the collision halfWidth (= platformWidth + $B).
+        // This prevents false landings at the extended collision edges.
+        return platformWidth;
+    }
+
+    @Override
     public boolean isSolidFor(PlayableEntity playerEntity) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         return !isDestroyed();
@@ -361,7 +370,13 @@ public class Sonic1LargeGrassyPlatformObjectInstance extends AbstractObjectInsta
         }
 
         // move.w lgrass_origY(a0),d1 / sub.w d0,d1 / move.w d1,obY(a0)
-        y = baseY - d0;
+        int newY = baseY - d0;
+        // TEMPORARY: trace oscillation for the platform at x=0x0380
+        if (baseX == 0x0380 && newY >= 0x028E && newY <= 0x0295) {
+            System.out.printf("OSC_PLAT: baseY=0x%04X oscVal=%d(0x%02X) amp=%d d0=%d invert=%b newY=0x%04X%n",
+                baseY, oscValue, oscValue, amplitude, d0, invertOscillation, newY);
+        }
+        y = newY;
     }
 
     /**
@@ -443,6 +458,16 @@ public class Sonic1LargeGrassyPlatformObjectInstance extends AbstractObjectInsta
 
         walkerFire = new Sonic1GrassFireObjectInstance(
                 fireStartX, fireBaseY, sinkOffset, slopeData, this, true);
+        // ROM: FindNextFreeObj allocates a slot AFTER the platform's slot.
+        // This ensures the fire runs its first update in the same frame
+        // (its slot hasn't been processed yet in the ExecuteObjects loop).
+        int parentSlot = getSlotIndex();
+        if (parentSlot >= 0) {
+            int fireSlot = services().objectManager().allocateSlotAfter(parentSlot);
+            if (fireSlot >= 0) {
+                walkerFire.setSlotIndex(fireSlot);
+            }
+        }
         services().objectManager().addDynamicObject(walkerFire);
 
         // Register walker itself in children list for sink offset updates
@@ -527,5 +552,20 @@ public class Sonic1LargeGrassyPlatformObjectInstance extends AbstractObjectInsta
         // Sine of angle in range [0, $40] maps to [0, $100] (0.0 to 1.0 in 8.8)
         double radians = (angle & 0xFF) * Math.PI * 2.0 / 256.0;
         return (int) (Math.sin(radians) * 256) & 0xFFFF;
+    }
+
+    /**
+     * ROM parity: When a grassy platform is unloaded (removed from active set),
+     * ensure any fire children are cleaned up. The primary cleanup path is in
+     * {@link #isPersistent()} which calls {@link #cleanupFlames()} when the
+     * platform goes off-screen. This override provides a safety net for edge
+     * cases where the platform is removed via a different path (e.g., level
+     * transition, direct removal) without isPersistent() being called first.
+     */
+    @Override
+    public void onUnload() {
+        if (fireSpawned) {
+            cleanupFlames();
+        }
     }
 }

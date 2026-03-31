@@ -194,6 +194,13 @@ public class Sonic1ChainedStomperObjectInstance extends AbstractObjectInstance
     // Ceiling sub-object Y (routine 6: static display)
     private final int ceilingY;
 
+    // ROM: CStom_MakeParts creates 3 additional sub-objects (spike, chain, ceiling)
+    // via FindNextFreeObj, each occupying one SST slot.
+    private static final int CHILD_SLOT_COUNT = 3;
+
+    /** True once child slots have been allocated (second update, matching CStom_MakeParts). */
+    private boolean childSlotsAllocated;
+
     private final TouchRegion[] spikeTouchRegion = new TouchRegion[1];
 
     public Sonic1ChainedStomperObjectInstance(ObjectSpawn spawn) {
@@ -289,8 +296,27 @@ public class Sonic1ChainedStomperObjectInstance extends AbstractObjectInstance
         return y;
     }
     @Override
+    public int getReservedChildSlotCount() {
+        return CHILD_SLOT_COUNT;
+    }
+
+    @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
+
+        // ROM parity: CStom_MakeParts runs on the first ExecuteObjects pass.
+        // It calls FindNextFreeObj 3 times to allocate 3 child SST slots
+        // (spike, ceiling, chain). The engine doesn't render these as separate
+        // objects, but the slots must be occupied to keep the SST bitmap
+        // aligned with the ROM (affecting d7 timing gates for other objects).
+        if (!childSlotsAllocated) {
+            childSlotsAllocated = true;
+            var objectManager = services().objectManager();
+            if (objectManager != null && getSlotIndex() >= 0) {
+                objectManager.allocateChildSlotsAfter(spawn, CHILD_SLOT_COUNT, getSlotIndex());
+            }
+        }
+
         // Main block behavior: loc_B798 (routine 2)
         // bsr.w CStom_Types
         updateBehavior(frameCounter, player);
