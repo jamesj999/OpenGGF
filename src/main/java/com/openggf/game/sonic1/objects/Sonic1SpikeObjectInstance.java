@@ -112,6 +112,32 @@ public class Sonic1SpikeObjectInstance extends AbstractObjectInstance
         if (player.isHurt() || player.getDead()) {
             return;
         }
+
+        // ROM parity (Spik_Hurt): REWIND Sonic's Y position before applying hurt.
+        // The ROM undoes SpeedToPos by subtracting the current Y velocity from the
+        // position: obY_full -= (obVelY << 8). This returns Sonic to his pre-movement
+        // Y, preventing the spike from pushing Sonic downward into the spike surface.
+        // Without this, the spike hurt fires at the post-SpeedToPos position, which
+        // is deeper inside the spike collision box, causing a 7px Y divergence.
+        //   move.l obY(a0),d3
+        //   move.w obVelY(a0),d0
+        //   ext.l d0
+        //   asl.l #8,d0
+        //   sub.l d0,d3
+        //   move.l d3,obY(a0)
+        // ROM rewind: sub.l d0,d3 where d3=obY_full, d0=obVelY<<8
+        // This operates on the top-left Y (obY), not centre Y.
+        // The engine stores yPixel (top-left) + ySubpixel separately.
+        // Combine, subtract, split back. Use move() with negative velocity
+        // to replicate sub.l: move(-velX, -velY) reverses SpeedToPos.
+        if (player instanceof AbstractPlayableSprite aps) {
+            // Rewind Y: subtract the current velocity (which includes gravity
+            // added during ObjectMoveAndFall within the same frame).
+            short negYSpeed = (short) -aps.getYSpeed();
+            // Only rewind Y, not X — ROM only rewinds Y in Spik_Hurt.
+            aps.move((short) 0, negYSpeed);
+        }
+
         // S1 spike exception: unlike most hazards, spikes still hurt during post-hit
         // invulnerability frames (while still respecting invincibility power-up).
         if (player.isCpuControlled()) {

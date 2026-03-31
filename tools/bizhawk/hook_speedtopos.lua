@@ -23,7 +23,8 @@ local function readY()
     local cy = mainmemory.read_u16_be(PLAYER_BASE + 0x0C)
     local ysub = mainmemory.read_u16_be(PLAYER_BASE + 0x0E)
     local yvel = mainmemory.read_s16_be(PLAYER_BASE + 0x12)
-    return cy, ysub, yvel
+    local cx = mainmemory.read_u16_be(PLAYER_BASE + 0x08)
+    return cy, ysub, yvel, cx
 end
 
 -- Hook: just AFTER Y is written by ObjectMoveAndFall
@@ -43,12 +44,21 @@ event.onmemoryexecute(function()
 end, ADDR_OBJMOVEFALL_RTS)
 
 -- Hook: SpeedToPos (no gravity version) Y write
--- Find it: starts at 0x0DC6C, write Y at +0x26 = 0x0DC92
+-- Also log which SST slot is active (a0 register low bits → slot index)
 event.onmemoryexecute(function()
     if not active then return end
     local cy, ysub, yvel = readY()
-    log(string.format("  HOOK SpeedToPos_WriteY @0x%05X: cy=0x%04X ysub=0x%04X yvel=%d",
-        ADDR_SPEEDTOPOS_WRITE_Y, cy, ysub, yvel))
+    -- Read a0 register to identify which object is calling SpeedToPos
+    local a0 = emu.getregister("M68K A0") or 0
+    -- Strip to 16-bit RAM address (68K mirrors: $FFD000 or $FFFFD000)
+    local a0_16 = a0 % 0x10000
+    local slot = -1
+    if a0_16 >= 0xD000 and a0_16 < 0xE000 then
+        slot = (a0_16 - 0xD000) / 0x40
+    end
+    local cx2 = mainmemory.read_u16_be(PLAYER_BASE + 0x08)
+    log(string.format("  STP slot=%d cx=0x%04X cy=0x%04X yvel=%d",
+        slot, cx2, cy, yvel))
 end, ADDR_SPEEDTOPOS_WRITE_Y)
 
 print("Hooks registered. Waiting for frame " .. TARGET_EMU_FRAME)
