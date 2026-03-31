@@ -88,6 +88,14 @@ local STATUS_ROLL_JUMP     = 0x10
 local STATUS_PUSHING       = 0x20
 local STATUS_UNDERWATER    = 0x40
 
+-- ObjPosLoad cursor state (for ROM↔engine cursor comparison)
+local ADDR_OPL_ROUTINE     = 0xF76C   -- byte: v_opl_routine (0=OPL_Main, 2=OPL_Next)
+local ADDR_OPL_SCREEN      = 0xF76E   -- word: v_opl_screen (last processed camera chunk)
+local ADDR_OPL_DATA_FWD    = 0xF770   -- long: v_opl_data (forward cursor ROM pointer)
+local ADDR_OPL_DATA_BWD    = 0xF774   -- long: v_opl_data+4 (backward cursor ROM pointer)
+local ADDR_OBJSTATE         = 0xFC00   -- byte[192]: v_objstate array (verified from ROM lea instruction)
+-- v_objstate[0] = forward counter, v_objstate[1] = backward counter
+
 -- Object table (S1 SST: 128 slots of $40 bytes at $FFD000)
 local OBJ_TABLE_START      = 0xD000
 local OBJ_SLOT_SIZE        = 0x40
@@ -144,6 +152,7 @@ local start_act = 0
 local prev_status = 0
 local prev_routine = 0
 local prev_ctrl_lock = 0
+local prev_opl_screen = -1  -- track OPL chunk transitions
 
 -- Object tracking: slot -> last known type ID
 local known_objects = {}
@@ -571,6 +580,26 @@ local function on_frame_end()
     -- Object scanning: every frame for proximity, every 4 frames for full scan
     -- Proximity logging runs every frame so we never miss collision-relevant objects.
     scan_objects(x, y)
+
+    -- OPL cursor state: emit event on chunk transitions for ROM↔engine comparison.
+    -- v_opl_screen changes only when OPL_Next processes a new chunk.
+    local opl_screen = mainmemory.read_u16_be(ADDR_OPL_SCREEN)
+    if opl_screen ~= prev_opl_screen then
+        local fwd_ptr = mainmemory.read_u32_be(ADDR_OPL_DATA_FWD)
+        local bwd_ptr = mainmemory.read_u32_be(ADDR_OPL_DATA_BWD)
+        local fwd_counter = mainmemory.read_u8(ADDR_OBJSTATE)
+        local bwd_counter = mainmemory.read_u8(ADDR_OBJSTATE + 1)
+        local vfc = mainmemory.read_u16_be(ADDR_FRAMECOUNT)
+        local dir = "R"
+        if prev_opl_screen >= 0 and opl_screen < prev_opl_screen then
+            dir = "L"
+        end
+        write_aux(string.format(
+            '{"frame":%d,"vfc":%d,"event":"cursor_state","opl_screen":"0x%04X",'
+            .. '"fwd_ptr":"0x%08X","bwd_ptr":"0x%08X","fwd_ctr":%d,"bwd_ctr":%d,"dir":"%s"}',
+            trace_frame, vfc, opl_screen, fwd_ptr, bwd_ptr, fwd_counter, bwd_counter, dir))
+        prev_opl_screen = opl_screen
+    end
 
     trace_frame = trace_frame + 1
 end
