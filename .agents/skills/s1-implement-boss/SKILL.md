@@ -1,5 +1,6 @@
 ---
 title: Implement Sonic 1 Boss
+description: Guide for implementing Sonic 1 bosses with ROM-accurate behavior, arena setup, defeat flow, and disassembly cross-checks.
 ---
 
 # Implement Sonic 1 Boss

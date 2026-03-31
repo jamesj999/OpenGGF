@@ -1,5 +1,6 @@
 ---
 title: Implement Sonic 2 Boss
+description: Guide for implementing Sonic 2 bosses with ROM-accurate behavior, level-event integration, and disassembly cross-checks.
 ---
 
 # Implement Sonic 2 Boss

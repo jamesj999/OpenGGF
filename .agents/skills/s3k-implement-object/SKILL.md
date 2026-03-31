@@ -1,5 +1,6 @@
 ---
 title: Implement Sonic 3&K Object/Badnik
+description: Guide for implementing Sonic 3 and Knuckles objects and badniks with ROM-accurate art, behavior, and disassembly validation.
 ---
 
 # Implement Sonic 3&K Object/Badnik

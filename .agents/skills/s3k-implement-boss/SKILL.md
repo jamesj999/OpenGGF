@@ -1,5 +1,6 @@
 ---
 title: Implement Sonic 3&K Boss
+description: Guide for implementing Sonic 3 and Knuckles bosses with ROM-accurate behavior, arena setup, and disassembly cross-checks.
 ---
 
 # Implement Sonic 3&K Boss
