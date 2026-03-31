@@ -526,6 +526,16 @@ public class CollisionSystem {
         boolean canLand = (results[0] != null && results[0].distance() >= threshold)
                 || (results[1] != null && results[1].distance() >= threshold);
 
+        // TEMPORARY: diagnostics for hurt landing
+        if (sprite.isHurt() && sprite.getCentreY() >= 0x0248 && sprite.getCentreY() <= 0x0250) {
+            System.out.printf("CS_AIR_FLOOR: centreY=0x%04X ySpd=0x%04X yPix=%d thresh=%d " +
+                "s0=%s s1=%s lowest=%d canLand=%b angle=0x%02X%n",
+                sprite.getCentreY(), sprite.getYSpeed() & 0xFFFF, ySpeedPixels, threshold,
+                results[0] != null ? String.valueOf(results[0].distance()) : "null",
+                results[1] != null ? String.valueOf(results[1].distance()) : "null",
+                lowestResult.distance(), canLand, sprite.getAngle() & 0xFF);
+        }
+
         if (canLand) {
             landOnFloor(sprite, lowestResult, landingHandler);
         }
