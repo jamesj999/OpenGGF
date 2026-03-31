@@ -787,6 +787,12 @@ public class Sonic3kConstants {
     // Map_ICZCollapsingBridge - ICZ collapsing platform mappings (6 frames)
     public static final int MAP_ICZ_COLLAPSING_BRIDGE_ADDR = 0x21F2F2;
 
+    // ===== AIZ Flipping Bridge Mappings (Object 0x2B) =====
+    // Map_AIZFlippingBridge - 32 frames: frames 0-4 = flipping animation, frames 5-31 = flat walkable segment.
+    // In LockOn data region (S3 half). Verified by ROM binary pattern search, 2026-03-30.
+    // Note: first pointer entry != table size, so auto-detect frame count fails; use explicit count 32.
+    public static final int MAP_AIZ_FLIPPING_BRIDGE_ADDR = 0x22A310;
+
     // ===== AIZ Collapsing Log Bridge Mappings (Object 0x2C) =====
     // Verified by ROM binary pattern search, 2026-03-30
 
@@ -890,6 +896,14 @@ public class Sonic3kConstants {
     public static final int MAP_TECHNOSQUEEK_ADDR = 0x089B78;
     public static final int ART_KOSM_FBZ_BUTTON_ADDR = 0x165E80;
     public static final int MAP_BUTTON_ADDR = 0x02C71E;
+    public static final int MAP_LRZ_BUTTON_ADDR = 0x02C748;
+    public static final int MAP_HCZ_BUTTON_ADDR = 0x22BD1A;
+    public static final int MAP_CNZ_BUTTON_ADDR = 0x22BD4A;
+    public static final int ARTTILE_GRAY_BUTTON = 0x0456;
+    public static final int ARTTILE_HCZ_BUTTON = 0x0426;
+    public static final int ARTTILE_CNZ_BUTTON = 0x041A; // ArtTile_CNZMisc + $C9
+    public static final int ARTTILE_LRZ_MISC = 0x03A1;
+    public static final int ARTTILE_LRZ2_BUTTON = 0x0429; // ArtTile_LRZ2Misc + $1C
     public static final int ARTTILE_FBZ_SPIKES = 0x0200;
     public static final int ARTTILE_FBZ_BUTTON = 0x0500;
     public static final int ARTTILE_BLASTER = 0x0506;

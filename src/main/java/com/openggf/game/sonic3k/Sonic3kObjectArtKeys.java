@@ -48,6 +48,9 @@ public final class Sonic3kObjectArtKeys {
     // AIZ Spiked Log
     public static final String AIZ_SPIKED_LOG = "aiz_spiked_log";
 
+    // AIZ Flipping Bridge
+    public static final String AIZ_FLIPPING_BRIDGE = "aiz_flipping_bridge";
+
     // AIZ Collapsing Log Bridge / Draw Bridge Fire
     public static final String AIZ_COLLAPSING_LOG_BRIDGE = "aiz_collapsing_log_bridge";
     public static final String AIZ_DRAW_BRIDGE_FIRE = "aiz_draw_bridge_fire";
@@ -97,6 +100,13 @@ public final class Sonic3kObjectArtKeys {
     public static final String CNZ_CLAMER = "cnz_clamer";
     public static final String CNZ_CLAMER_SHOT = "cnz_clamer_shot";
     public static final String CNZ_BALLOON = "cnz_balloon";
+
+    // Button (zone-specific variants)
+    public static final String BUTTON = "button";            // Default (gray) - AIZ, MGZ, ICZ, LBZ, etc.
+    public static final String HCZ_BUTTON = "hcz_button";
+    public static final String CNZ_BUTTON = "cnz_button";
+    public static final String LRZ_BUTTON = "lrz_button";
+    public static final String LRZ2_BUTTON = "lrz2_button";
 
     // FBZ badniks
     public static final String FBZ_BLASTER = "fbz_blaster";

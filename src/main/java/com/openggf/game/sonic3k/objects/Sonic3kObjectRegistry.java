@@ -54,6 +54,14 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                 (spawn, registry) -> new AutoSpinObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.CORK_FLOOR,
                 (spawn, registry) -> new CorkFloorObjectInstance(spawn));
+        factories.put(Sonic3kObjectIds.AIZ_FLIPPING_BRIDGE,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new AizFlippingBridgeObjectInstance(spawn);
+                });
         factories.put(Sonic3kObjectIds.AIZ_COLLAPSING_LOG_BRIDGE,
                 (spawn, registry) -> {
                     S3kZoneSet zoneSet = getCurrentZoneSet();
@@ -82,6 +90,8 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                 (spawn, registry) -> new Sonic3kInvisibleBlockObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.FLOATING_PLATFORM,
                 (spawn, registry) -> new FloatingPlatformObjectInstance(spawn));
+        factories.put(Sonic3kObjectIds.BUTTON,
+                (spawn, registry) -> new Sonic3kButtonObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.STAR_POST,
                 (spawn, registry) -> new Sonic3kStarPostObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.STILL_SPRITE,
