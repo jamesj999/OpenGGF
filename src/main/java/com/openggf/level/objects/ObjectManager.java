@@ -713,6 +713,21 @@ public class ObjectManager {
         }
     }
 
+    /**
+     * Returns placement cursor diagnostics for ROM↔engine comparison.
+     * Only meaningful for S1 counter-based respawn mode.
+     */
+    public int[] getPlacementCursorState() {
+        if (!placement.isCounterBasedRespawn()) return null;
+        return new int[] {
+            placement.getCursorIndex(),
+            placement.getLeftCursorIndex(),
+            placement.getFwdCounter(),
+            placement.getBwdCounter(),
+            placement.getLastCameraChunk()
+        };
+    }
+
     public void applyPlaneSwitchers(PlayableEntity player) {
         // ROM: CPU Tails does not interact with plane switchers in 1P mode.
         // Only the main player triggers layer/priority changes.
@@ -2333,6 +2348,13 @@ public class ObjectManager {
         boolean isLastScrollBackward() {
             return lastScrollBackward;
         }
+
+        // Diagnostic accessors for cursor state comparison
+        int getCursorIndex() { return cursorIndex; }
+        int getLeftCursorIndex() { return leftCursorIndex; }
+        int getFwdCounter() { return fwdCounter; }
+        int getBwdCounter() { return bwdCounter; }
+        int getLastCameraChunk() { return lastCameraChunk; }
 
         private int toCoarseChunk(int cameraX) {
             return cameraX & CHUNK_MASK;

@@ -11,6 +11,10 @@ package com.openggf.tests.trace;
  * @param rings         Engine's ring count
  * @param statusByte    Engine's player status flags byte
  * @param cameraX       Engine's camera X position
+ * @param cursorIdx     Placement forward cursor index (-1 if not counter-based)
+ * @param leftCursorIdx Placement backward cursor index (-1 if not counter-based)
+ * @param fwdCtr        Forward counter value (-1 if not counter-based)
+ * @param bwdCtr        Backward counter value (-1 if not counter-based)
  * @param solidEvent    Description of SolidContacts/touch event this frame, or empty
  */
 public record EngineDiagnostics(
@@ -20,10 +24,14 @@ public record EngineDiagnostics(
     int rings,
     int statusByte,
     int cameraX,
+    int cursorIdx,
+    int leftCursorIdx,
+    int fwdCtr,
+    int bwdCtr,
     String solidEvent
 ) {
     /** No diagnostics available. */
-    public static final EngineDiagnostics EMPTY = new EngineDiagnostics(-1, -1, -1, -1, -1, -1, "");
+    public static final EngineDiagnostics EMPTY = new EngineDiagnostics(-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, "");
 
     /**
      * Format as a compact string for the context window.
@@ -47,6 +55,10 @@ public record EngineDiagnostics(
         if (cameraX >= 0) {
             if (!sb.isEmpty()) sb.append(' ');
             sb.append(String.format("cam=%04X", cameraX));
+        }
+        if (cursorIdx >= 0) {
+            if (!sb.isEmpty()) sb.append(' ');
+            sb.append(String.format("cur=%d/%d ctr=%d/%d", cursorIdx, leftCursorIdx, fwdCtr, bwdCtr));
         }
         if (solidEvent != null && !solidEvent.isEmpty()) {
             if (!sb.isEmpty()) sb.append(' ');

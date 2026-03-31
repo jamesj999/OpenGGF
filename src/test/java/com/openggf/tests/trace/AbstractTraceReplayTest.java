@@ -158,24 +158,8 @@ public abstract class AbstractTraceReplayTest {
                     sprite.getGroundMode().ordinal(),
                     engineDiag);
 
-                // DIAG: dump lava/spike objects at frame 4034 to compare with ROM
-                if (i == 4034 && om != null) {
-                    try {
-                        StringBuilder sb = new StringBuilder("=== Engine objects at frame 4034 ===\n");
-                        sb.append(String.format("Sonic: cx=%d cy=%d xspd=%d yspd=%d air=%b%n",
-                            sprite.getCentreX(), sprite.getCentreY(), sprite.getXSpeed(), sprite.getYSpeed(), sprite.getAir()));
-                        for (var obj : om.getActiveObjects()) {
-                            if (obj instanceof AbstractObjectInstance aoi && aoi.getSlotIndex() >= 32) {
-                                int id = aoi.getSpawn() != null ? aoi.getSpawn().objectId() : -1;
-                                if (id == 0x54 || id == 0x36 || id == 0x71 || id == 0x30) {
-                                    sb.append(String.format("  slot %d: 0x%02X x=%d y=%d%n",
-                                        aoi.getSlotIndex(), id, aoi.getX(), aoi.getY()));
-                                }
-                            }
-                        }
-                        Files.writeString(reportOutputDir().resolve("frame4034_diag.txt"), sb.toString());
-                    } catch (Exception e) { /* ignore */ }
-                }
+
+
             }
 
             // 6. Build report
@@ -259,7 +243,20 @@ public abstract class AbstractTraceReplayTest {
         // Camera X for cross-reference with ROM trace
         int camX = GameServices.camera() != null ? GameServices.camera().getX() : -1;
 
-        return new EngineDiagnostics(routine, standOnSlot, standOnType, rings, statusByte, camX, "");
+        // Placement cursor state for ROM↔engine comparison
+        int cursorIdx = -1, leftCursorIdx = -1, fwdCtr = -1, bwdCtr = -1;
+        if (om != null) {
+            int[] cursor = om.getPlacementCursorState();
+            if (cursor != null) {
+                cursorIdx = cursor[0];
+                leftCursorIdx = cursor[1];
+                fwdCtr = cursor[2];
+                bwdCtr = cursor[3];
+            }
+        }
+
+        return new EngineDiagnostics(routine, standOnSlot, standOnType, rings, statusByte, camX,
+                cursorIdx, leftCursorIdx, fwdCtr, bwdCtr, "");
     }
 
     private void writeReport(DivergenceReport report, TraceMetadata meta) {
