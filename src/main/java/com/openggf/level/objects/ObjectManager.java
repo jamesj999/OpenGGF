@@ -2718,7 +2718,11 @@ public class ObjectManager {
                     continue;
                 }
 
-                int flags = provider.getCollisionFlags();
+                // ROM parity: ReactToItem sees enemies at their pre-update collision type.
+                // Use pre-update flags when available to match ROM timing where
+                // ReactToItem runs before later objects update their collision state.
+                int preFlags = instance.getPreUpdateCollisionFlags();
+                int flags = (preFlags >= 0) ? preFlags : provider.getCollisionFlags();
                 if (flags == 0) {
                     continue; // Skip collision for objects with no collision flags
                 }
@@ -2746,7 +2750,6 @@ public class ObjectManager {
                 if (!overlap) {
                     continue;
                 }
-
                 buildingSet.add(instance);
                 // ROM touch checks run every frame for bosses. Most other objects are
                 // edge-triggered, but some special objects need per-frame polling behavior.
