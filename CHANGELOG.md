@@ -4,8 +4,8 @@ All notable changes to the sonic-engine project are documented in this file.
 
 ## v0.5 (Unreleased)
 
-Analysis range: `v0.4.20260304..HEAD` on `develop` (`1976` commits, `1805` non-merge commits,
-`1135` files changed, `103473` insertions, `23226` deletions). Net code growth is ~80,200 lines.
+Analysis range: `v0.4.20260304..HEAD` on `develop` (`2059` commits, `1887` non-merge commits,
+`1210` files changed, `219956` insertions, `24453` deletions). Net code growth is ~195,500 lines.
 
 A primarily architectural release. The engine internals have been restructured to prepare for level
 editor support, safe runtime teardown, and future multi-instance play-testing. Sonic 3 & Knuckles
@@ -208,6 +208,12 @@ in S3K and via cross-game donation into S1 and S2.
 - **Collapsing platform respawn**: removed `markRemembered()` call — ROM uses
   `Delete_Current_Sprite` (allows respawn), not `Remember_Sprite`. Platforms now correctly
   respawn when the player scrolls away and returns.
+- **Breakable boulders**: preserved rolling state when smashing AIZ/LRZ rocks from the side,
+  matching `SolidObjectFull` behaviour.
+- **Special stage return**: restored saved centre coordinates correctly on Blue Ball exit,
+  preventing the player from being embedded in the floor after returning from the big ring.
+- **Results screen spawn path**: signpost flow now uses `spawnChild()` for the results object,
+  preserving `ObjectServices` context and fixing the end-of-act bubble monitor crash.
 
 #### AIZ Miniboss Completion
 - AIZ miniboss defeat flow fully implemented: `S3kBossDefeatSignpostFlow` reusable sequence,
@@ -249,8 +255,11 @@ in S3K and via cross-game donation into S1 and S2.
 
 #### New Objects and Badniks
 - `BreakableWall` (0x0D), `CorkFloor`, `FloatingPlatform`, `CaterkillerJr` (with body segment
-  despawn), `AutoSpin`, `Falling Log`, `InvisibleBlock`, `StarPost`, `TwistedRamp`.
+  despawn), `AutoSpin`, `Falling Log`, `InvisibleBlock`, `StarPost`, `TwistedRamp`,
+  `AIZCollapsingLogBridge` (0x2C), `AIZSpikedLog` (0x2E), `AIZFlippingBridge` (0x2B), and the
+  zone-specific `Button` object (0x33).
 - HCZ water surface object.
+- `Sonic3kLevelTriggerManager` added for AIZ trigger state such as boss-driven burn activation.
 - All zone badnik entries populated in `Sonic3kPlcArtRegistry`.
 - Initial badnik implementations wired into object system.
 
@@ -349,6 +358,13 @@ field frame-by-frame.
 - **`AbstractTraceReplayTest`**: base class for trace replay tests with graceful skip when ROM,
   BK2, or trace data files are absent. Subclasses only specify game/zone/act/path.
 - **First trace: S1 GHZ1** full-run recording (3,905 frames): passes with 0 errors, 6 warnings.
+- **Second trace: S1 MZ1** full-run recording (7,936 frames): baseline added with
+  `TestS1Mz1TraceReplay`, regenerated GHZ1 traces, and ROM-verified zone/act metadata.
+- **Recorder/diagnostics upgrades**: trace format now captures subpixel position, player routine,
+  camera state, ring count, raw status, `v_framecount`, `standOnObj`, slot dumps, routine-change
+  events, and ObjPosLoad cursor state for direct ROM/engine comparison.
+- **Engine-side context windows**: divergence reports now include ROM and engine routine/object
+  diagnostics, riding-object context, and placement cursor counters to narrow parity failures.
 - **Buzz Bomber proximity fix**: removed overcorrecting player position prediction from the
   proximity detection check. The engine's 1-frame late spawn (pre-camera X vs ROM's post-camera X)
   and the pre-physics player position naturally cancel, placing the Buzz Bomber at the correct
@@ -356,6 +372,9 @@ field frame-by-frame.
 - **Post-camera object placement sync**: `LevelFrameStep` now runs a post-camera placement
   catch-up pass after the camera update, closing the spawn timing gap when the camera crosses a
   chunk boundary between object placement (step 2) and camera update (step 5).
+- **Placement parity narrowing**: S1 `out_of_range` timing, dormant-spawn handling, and
+  ObjPosLoad callback groundwork reduced the remaining MZ1 investigation to a terrain /
+  solid-contact parity problem rather than cursor drift.
 
 #### Physics Accuracy Fixes (discovered via trace replay)
 
@@ -385,6 +404,9 @@ field frame-by-frame.
   to match 68000's carry flag behavior (carry SET on unsigned overflow, BCC NOT taken for zero).
 - **`groundWallCollisionEnabled` feature flag**: new `PhysicsFeatureSet` field. S1 does not
   call CalcRoomInFront during ground movement (no equivalent in `Sonic_MdNormal`); S2/S3K do.
+- **Air-control superspeed preservation**: S3K now preserves airborne speeds already above
+  `topSpeed` after ramps and springs, while S1/S2 retain the original hard cap. `TwistedRamp`
+  tumble frames now remain visible while rolling.
 
 #### Object System Fixes (discovered via trace replay)
 
@@ -398,6 +420,26 @@ field frame-by-frame.
   `postMovement=true` disables velocity classification adjustment.
 - **SolidContacts post-movement parameter**: `updateSolidContacts()` gains `postMovement` and
   `deferSideToPostMovement` flags to support the S1/S2 collision timing difference.
+- **ROM-accurate `out_of_range` semantics**: `AbstractObjectInstance.isInRange()` now matches the
+  ROM's chunk-aligned X-only range check with 16-bit wraparound, and S1 now performs
+  out-of-range deletion during object execution rather than before it.
+- **Dormant spawn tracking**: objects deleted by S1 `out_of_range` stay dormant between ObjPosLoad
+  cursors until the cursor naturally re-processes them, preventing premature or missing reloads
+  during camera backtracking.
+- **Standing/contact parity fixes**: `MvSonicOnPtfm` now uses `groundHalfHeight` (`d3`) for
+  standing Y, HURT touch responses now remain continuous after invulnerability expires, and
+  staircase / MTZ platform / nut / button / elevator contact state now uses ROM-style boolean
+  latches instead of diverging frame counters.
+
+### Object Lifecycle Safety
+
+- Removed constructor-time `services()` usage from 38 object classes; all affected objects now
+  lazily initialize renderer and service-dependent state after `ObjectServices` injection.
+- `TestNoServicesInObjectConstructors` now hard-fails constructor-time service access, unsafe
+  `addDynamicObject(new X(...))` patterns, and pre-registration method calls that transitively
+  depend on injected services.
+- Sonic 1 lava geysers now defer initialization until first update, preventing pre-registration
+  crashes; the lavafall third piece also no longer cascade-spawns infinite children.
 
 ### Sonic 1 Fixes
 
@@ -407,6 +449,12 @@ field frame-by-frame.
 - Minor LZ fix for jumping while sliding.
 - GHZ bridge collision fix with corresponding tests.
 - Monitor collision fix (particularly when in a tree).
+- Bubble breathing now uses the fallback animation chain correctly, so grabbing an air bubble shows
+  the intended breathing animation instead of preserving the rolling/spinning pose.
+- SLZ staircase activation now uses ROM-style per-frame contact latches and has dedicated headless
+  regression coverage.
+- Bubble makers, push blocks, and related S1 objects now use ROM-accurate range semantics; spike
+  standing dimensions now match the ROM's `d2`/`d3` values, including sideways spike extension.
 
 ### Sonic 2 Fixes
 
@@ -414,6 +462,9 @@ field frame-by-frame.
 - Collapsing platforms in MCZ stay solid during fragment phase.
 - Special stage results screen decoupled from object system.
 - S2/S3K collapsing platforms remain solid during fragment phase.
+- CPZ staircase, MTZ platforms, nuts, buttons, and elevators now use boolean contact latches
+  instead of frame-counter comparisons, fixing activation regressions during title cards and
+  multi-sprite updates.
 
 ### Cross-Game Feature Donation Enhancements
 
@@ -438,6 +489,8 @@ field frame-by-frame.
 - Migration guard scanner for detecting `getInstance()` / `GameServices` violations in object code.
 - Annotated guard tests for services() migration completeness.
 - AudioManager.resetState() field-clearing verification.
+- Added `TestS1Mz1TraceReplay`, `TestSonic1StaircaseActivation`, `TestAbstractObjectInstanceRange`,
+  and expanded lava geyser / constructor-safety guard coverage.
 - Fixed 7 test failures caused by leaked runtime state: updated S3K Knuckles physics assertion
   to expect `SONIC_3K_KNUCKLES` profile (jump=0x600), saved/restored `RuntimeManager` in render
   tests, guarded teardown camera calls with null checks, used `destroyForReinit()` for
@@ -462,6 +515,8 @@ field frame-by-frame.
 - Phase 4 common refactoring design spec (5 phases, 25 patterns) and implementation plan (21 tasks).
 - Virtual pattern IDs and multi-sidekick system documented in AGENTS.md.
 - Known discrepancies documentation for multi-sidekick rendering.
+- Added the `s1-trace-replay` skill and refreshed skill descriptions for the parity-driven
+  object/boss/disassembly workflow docs.
 
 ## v0.4.20260304 (Released 2026-03-04)
 

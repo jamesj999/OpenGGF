@@ -26,7 +26,7 @@ modding and customisation.
 A comprehensive user guide is available in [`docs/guide/`](docs/guide/index.md), covering:
 
 - **Players:** [Getting started](docs/guide/playing/getting-started.md), [controls](docs/guide/playing/controls.md), [configuration](docs/guide/playing/configuration.md), [game status](docs/guide/playing/game-status.md), and [troubleshooting](docs/guide/playing/troubleshooting.md).
-- **Contributors:** [Dev setup](docs/guide/contributing/dev-setup.md), [architecture overview](docs/guide/contributing/architecture.md), [adding zones](docs/guide/contributing/adding-zones.md), [adding bosses](docs/guide/contributing/adding-bosses.md), [audio system](docs/guide/contributing/audio-system.md), and [testing](docs/guide/contributing/testing.md).
+- **Contributors:** [Dev setup](docs/guide/contributing/dev-setup.md), [architecture overview](docs/guide/contributing/architecture.md), [adding zones](docs/guide/contributing/adding-zones.md), [adding bosses](docs/guide/contributing/adding-bosses.md), [audio system](docs/guide/contributing/audio-system.md), [testing](docs/guide/contributing/testing.md), and [trace replay testing](docs/guide/contributing/trace-replay.md).
 - **Cross-referencers:** [68000 primer](docs/guide/cross-referencing/68000-primer.md), [mapping exercises](docs/guide/cross-referencing/mapping-exercises.md), [per-game notes](docs/guide/cross-referencing/per-game-notes.md), and [tooling](docs/guide/cross-referencing/tooling.md).
 
 ## Configuration
@@ -200,7 +200,9 @@ HCZ transition) is the remaining gate before release.
   level select screen (SONICMILES background, zone icons, sound test), AIZ miniboss completion
   (defeat flow, napalm attack, staggered explosions), signpost and results screen, Blue Ball
   special stages (WIP) with per-character art/palette, per-character physics profiles, palette
-  cycling for all zones, 10+ new objects, and insta-shield implementation.
+  cycling for all zones, 10+ new objects including AIZ collapsing/flipping bridges, spiked logs,
+  and zone-specific buttons, plus ongoing parity fixes for start positions, special-stage return,
+  and breakable rock behaviour.
 - **Insta-shield** fully implemented with ROM parity: activation, hitbox expansion, persistent
   lifecycle, cross-game donation, and DPLC cache management.
 - **Multi-sidekick system** with configurable sidekick chains, per-character respawn strategies,
@@ -213,7 +215,9 @@ HCZ transition) is the remaining gate before release.
   validation, and fail-fast shader error handling.
 - **BizHawk trace replay testing:** automated accuracy verification that records per-frame physics
   state from the real ROM in BizHawk emulator, then replays the same inputs through the engine and
-  compares every field. First trace (S1 GHZ1, 3,905 frames) passes with 0 errors.
+  compares every field. First trace (S1 GHZ1, 3,905 frames) passes with 0 errors; a second
+  baseline (S1 MZ1, 7,936 frames) is now in-tree with expanded recorder and divergence diagnostics
+  for ROM/engine parity investigation.
 - Comprehensive user guide, 15+ design specs and implementation plans, and broad test coverage
   improvements including automated singleton lifecycle testing.
 

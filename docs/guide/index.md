@@ -43,6 +43,7 @@ You want to add objects, bosses, zones, or engine improvements.
 - [Adding Zones](contributing/adding-zones.md) -- Bringing up a new zone
 - [Audio System](contributing/audio-system.md) -- SMPS driver, FM synthesis, PSG
 - [Testing](contributing/testing.md) -- Writing and running tests
+- [Trace Replay Testing](contributing/trace-replay.md) -- BizHawk recordings, replay tests, and divergence analysis
 
 ## Related Documents
 
