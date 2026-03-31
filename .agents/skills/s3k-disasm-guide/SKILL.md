@@ -1,5 +1,6 @@
 ---
 title: s3k-disasm Navigation Guide
+description: Reference for navigating the Sonic 3 and Knuckles disassembly, choosing S&K-side addresses, and using RomOffsetFinder with S3K data.
 ---
 
 # s3k-disasm Navigation Guide

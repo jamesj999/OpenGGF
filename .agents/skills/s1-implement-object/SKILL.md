@@ -1,5 +1,6 @@
 ---
 title: Implement Sonic 1 Object/Badnik
+description: Guide for implementing Sonic 1 objects and badniks with ROM-accurate art, behavior, subtypes, and disassembly validation.
 ---
 
 # Implement Sonic 1 Object/Badnik
