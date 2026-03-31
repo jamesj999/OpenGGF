@@ -145,6 +145,11 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	@Override
 	public void handleMovement(boolean up, boolean down, boolean left, boolean right, boolean jump, boolean testKey,
 			boolean speedUp, boolean slowDown) {
+		// TEMPORARY: check air state at entry for hurt landing diagnosis
+		if (sprite.isHurt() && sprite.getCentreY() >= 0x0248 && sprite.getCentreY() <= 0x0250) {
+			System.out.printf("HANDLE_MOVE_ENTRY: hurt=%b air=%b centreY=0x%04X ySpd=0x%04X onObj=%b%n",
+				sprite.isHurt(), sprite.getAir(), sprite.getCentreY(), sprite.getYSpeed() & 0xFFFF, sprite.isOnObject());
+		}
 		// Note: Raw input state for objects is now stored in SpriteManager BEFORE filtering,
 		// so objects can query button state even when control is locked (ROM: obj_control).
 		// The parameters here are already filtered by control lock state.
@@ -247,7 +252,12 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		// Recover transient desync where object contact exists but air flag is stale.
 		// This can happen around moving/sloped solids and causes jump presses to be
 		// evaluated in airborne mode for one frame.
-		if (sprite.getAir() && hasObjectSupport() && sprite.getYSpeed() >= 0) {
+		// S1 (UNIFIED): skip this recovery. The pre-movement solid pass is skipped for
+		// S1, so riding state from the previous frame hasn't been cleaned up yet.
+		// hasObjectSupport() would return true from stale riding data, incorrectly
+		// forcing Sonic to ground mode. The post-movement solid pass (step 4) handles
+		// the cleanup correctly for S1.
+		if (!isUnifiedCollision() && sprite.getAir() && hasObjectSupport() && sprite.getYSpeed() >= 0) {
 			sprite.setAir(false);
 			sprite.setOnObject(true);
 		}
@@ -262,13 +272,27 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			return;
 		}
 
+		// TEMPORARY: track air state before mode dispatch
+		boolean preDispatchAir = sprite.getAir();
+		boolean preDispatchHurt = sprite.isHurt();
+		int preDispatchY = sprite.getCentreY();
+
 		// Mode dispatch (ROM: Obj01_MdNormal_Checks)
+
+
 		if (sprite.getAir()) {
 			modeAirborne();
 		} else if (sprite.getRolling()) {
 			modeRoll();
 		} else {
 			modeNormal();
+		}
+
+		// TEMPORARY: detect unexpected air state change
+		if (preDispatchHurt && preDispatchAir && !sprite.getAir() && preDispatchY >= 0x0245 && preDispatchY <= 0x0250) {
+			System.out.printf("HURT_LANDED: preY=0x%04X postY=0x%04X ySpd=0x%04X gSpd=0x%04X angle=0x%02X onObj=%b%n",
+				preDispatchY, sprite.getCentreY(), sprite.getYSpeed() & 0xFFFF,
+				sprite.getGSpeed() & 0xFFFF, sprite.getAngle() & 0xFF, sprite.isOnObject());
 		}
 
 		// ROM: Knuckles_Glide manages direction itself via setGlideAnimation();
@@ -340,6 +364,8 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 	/** Obj01_MdAir/MdJump: Airborne state */
 	private void modeAirborne() {
+
+
 		short originalX = sprite.getX();
 		short originalY = sprite.getY();
 
@@ -371,7 +397,20 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			doChgJumpDir();
 		}
 		doLevelBoundary();
+
+		// TEMPORARY: diagnostics for frame 552 landing
+		int preMoveY = sprite.getCentreY();
+		int preMoveSub = sprite.getYSubpixelRaw();
+		short preMoveYSpd = sprite.getYSpeed();
+
 		doObjectMoveAndFall();
+
+		// TEMPORARY: diagnostics for frame 552 landing
+		if (sprite.isHurt() && preMoveY >= 0x0247 && preMoveY <= 0x024C) {
+			System.out.printf("HURT_MOVE_DIAG: preY=0x%04X preSub=0x%04X preYSpd=0x%04X → postY=0x%04X postSub=0x%04X postYSpd=0x%04X%n",
+				preMoveY, preMoveSub, preMoveYSpd & 0xFFFF,
+				sprite.getCentreY(), sprite.getYSubpixelRaw(), sprite.getYSpeed() & 0xFFFF);
+		}
 
 		// Underwater gravity reduction
 		// Normal airborne: net gravity = 0x38 - 0x28 = 0x10 (s2.asm:36170)
@@ -391,7 +430,13 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			sprite.setYSpeed((short) (sprite.getYSpeed() - reduction));
 		}
 
-		sprite.returnAngleToZero();
+		// ROM: Sonic_JumpAngle runs in Obj01_MdAir / MdJump but NOT in
+		// Obj01_Hurt (S1: 01 Sonic.asm:1410, S2: s2.asm:37806).
+		// The hurt routine uses a separate code path that skips angle
+		// return-to-zero, so the ground angle is preserved through recoil.
+		if (!sprite.isHurt()) {
+			sprite.returnAngleToZero();
+		}
 		sprite.updateSensors(originalX, originalY);
 		boolean wasAirBeforeCollision = sprite.getAir();
 		doLevelCollision();
@@ -564,11 +609,16 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		sprite.setOnObject(false);
 		boolean wasRolling = sprite.getRolling();
 
-		// Apply jump velocity based on terrain angle
-		int xJumpChange = (TrigLookupTable.sinHex(hexAngle) * sprite.getJump()) >> 8;
-		int yJumpChange = (TrigLookupTable.cosHex(hexAngle) * sprite.getJump()) >> 8;
+		// Apply jump velocity based on terrain angle.
+		// ROM: subi.b #$40,d0 / CalcSine / muls cos*jump>>8 add X / muls sin*jump>>8 add Y
+		// Using (angle-0x40) with CalcSine matches the ROM's arithmetic shift rounding
+		// for negative products. The previous approach of -cosHex(angle)*jump>>8 rounds
+		// differently: -(x>>8) != (-x)>>8 when x%256 != 0 (68000 ASR rounds toward -∞).
+		int adjustedAngle = (hexAngle - 0x40) & 0xFF;
+		int xJumpChange = (TrigLookupTable.cosHex(adjustedAngle) * sprite.getJump()) >> 8;
+		int yJumpChange = (TrigLookupTable.sinHex(adjustedAngle) * sprite.getJump()) >> 8;
 		sprite.setXSpeed((short) (sprite.getXSpeed() + xJumpChange));
-		sprite.setYSpeed((short) (sprite.getYSpeed() - yJumpChange));
+		sprite.setYSpeed((short) (sprite.getYSpeed() + yJumpChange));
 
 		sprite.setAir(true);
 		sprite.setPushing(false);
@@ -1747,10 +1797,11 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	/** Sonic_SlopeRepel: Slip/fall check (s2.asm:37432) */
 	private void doSlopeRepel() {
 		if (sprite.isStickToConvex()) return;
-		// Object tops should not trigger terrain slope slip logic.
-		// If this runs while standing on an object, it can incorrectly flip
-		// the player to airborne and drop jump inputs for that frame.
-		if (sprite.isOnObject() || collisionSystem().hasObjectSupport(sprite)) return;
+		// S2/S3K: btst #sta_onObj,status(a0) / bne.s return — skip when on object.
+		// S1: NO isOnObject check — slope repel applies even on object surfaces.
+		PhysicsFeatureSet fs = sprite.getPhysicsFeatureSet();
+		boolean checksOnObject = (fs == null || fs.slopeRepelChecksOnObject());
+		if (checksOnObject && (sprite.isOnObject() || collisionSystem().hasObjectSupport(sprite))) return;
 
 		int moveLock = sprite.getMoveLockTimer();
 		if (moveLock > 0) {
@@ -2315,6 +2366,17 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		short threshold = (short) (-(ySpeedPixels + 8));
 		boolean canLand = (ignored[0] != null && ignored[0].distance() >= threshold)
 				|| (ignored[1] != null && ignored[1].distance() >= threshold);
+
+		// TEMPORARY: diagnostics for frame 552 landing
+		if (sprite.isHurt() && sprite.getCentreY() >= 0x0248 && sprite.getCentreY() <= 0x0250) {
+			System.out.printf("AIR_FLOOR_DIAG: centreY=0x%04X ySpd=0x%04X ySpdPix=%d thresh=%d " +
+				"s0dist=%s s1dist=%s canLand=%b lowest=%d dir=%s%n",
+				sprite.getCentreY(), sprite.getYSpeed() & 0xFFFF, ySpeedPixels, threshold,
+				ignored[0] != null ? String.valueOf(ignored[0].distance()) : "null",
+				ignored[1] != null ? String.valueOf(ignored[1].distance()) : "null",
+				canLand, lowestResult.distance(), lowestResult.direction());
+		}
+
 		if (!canLand) {
 			return;
 		}
@@ -2358,6 +2420,11 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 
 	private boolean hasEnoughHeadroom(int hexAngle) {
 		return collisionSystem().hasEnoughHeadroom(sprite, hexAngle);
+	}
+
+	private boolean isUnifiedCollision() {
+		var fs = sprite.getPhysicsFeatureSet();
+		return fs != null && fs.collisionModel() == com.openggf.game.CollisionModel.UNIFIED;
 	}
 
 	private boolean hasObjectSupport() {
