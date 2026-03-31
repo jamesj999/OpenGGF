@@ -202,9 +202,6 @@ public class Sonic1PhantomRingInstance extends AbstractObjectInstance implements
             slotCountdown[index]--;
             if (slotCountdown[index] == 0) {
                 // Countdown expired — free the slot
-                int vbla = services().objectManager().getVblaCounter();
-                System.err.printf("[DIAG_RING_FREE] vbla=%d spawnX=0x%04X idx=%d slot=%d%n",
-                        vbla, spawn.x(), index, getSlotIndex());
                 freeRingSlot(index);
             }
             return;
@@ -212,10 +209,6 @@ public class Sonic1PhantomRingInstance extends AbstractObjectInstance implements
 
         // slotCountdown == -1: not yet collected. Check collection state.
         if (ringManager.isRingCollected(ringX, ringY)) {
-            // DIAG: detect false-positive ring collection
-            int vbla = services().objectManager().getVblaCounter();
-            System.err.printf("[DIAG_RING_COLLECT] vbla=%d x=0x%04X y=0x%04X spawnX=0x%04X idx=%d children=%d slot=%d%n",
-                    vbla, ringX, ringY, spawn.x(), index, childCount, getSlotIndex());
             if (SPARKLE_SLOT_COUNTDOWN <= 0) {
                 // Immediate release: free slot on detection frame
                 slotCountdown[index] = 0;
@@ -301,14 +294,6 @@ public class Sonic1PhantomRingInstance extends AbstractObjectInstance implements
         int baseX = spawn.x();
         int baseY = spawn.y();
         int count = 0;
-
-        // DIAG: check all phantom rings at critical vbla
-        int vbla = services() != null && services().objectManager() != null
-                ? services().objectManager().getVblaCounter() : -1;
-        if (vbla >= 4265 && vbla <= 4270 && baseX >= 0x0A00 && baseX <= 0x0D00) {
-            System.err.printf("[DIAG_PHANTOM_ACTIVE] vbla=%d slot=%d spawnX=0x%04X spawnY=0x%04X children=%d countdown=%s%n",
-                    vbla, getSlotIndex(), baseX, baseY, childCount, java.util.Arrays.toString(slotCountdown));
-        }
 
         // Count uncollected rings
         for (int i = 0; i <= childCount; i++) {

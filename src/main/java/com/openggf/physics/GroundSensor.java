@@ -111,20 +111,8 @@ public class GroundSensor extends Sensor {
     // ========================================
 
     private SensorResult scanVertical(short x, short y, int solidityBit, Direction direction) {
-        // DIAG: log floor scan at MZ1 position
-        boolean diagScan = direction == Direction.DOWN && y >= 0x0500 && y <= 0x050A
-                && x >= 0x0B20 && x <= 0x0B50;
-
         // Check current tile (ROM: FindFloor - first pass)
         SensorResult result = scanTileVertical(x, y, x, y, solidityBit, direction, false);
-        if (diagScan) {
-            try {
-                java.nio.file.Files.writeString(java.nio.file.Path.of("target/trace-reports/scan_detail.txt"),
-                    String.format("SCAN_VERT x=0x%04X y=0x%04X firstPass=%s%n",
-                        x & 0xFFFF, y & 0xFFFF, result != null ? "dist=" + result.distance() : "null"),
-                    java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
-            } catch (Exception e) { /* ignore */ }
-        }
         if (result != null) {
             return result;
         }
@@ -132,14 +120,6 @@ public class GroundSensor extends Sensor {
         // Extend to next tile in scan direction (ROM: FindFloor2 - second pass)
         short nextY = (short) (y + (direction == Direction.DOWN ? 16 : -16));
         result = scanTileVertical(x, y, x, nextY, solidityBit, direction, true);
-        if (diagScan) {
-            try {
-                java.nio.file.Files.writeString(java.nio.file.Path.of("target/trace-reports/scan_detail.txt"),
-                    String.format("  extension y=0x%04X result=%s%n",
-                        nextY & 0xFFFF, result != null ? "dist=" + result.distance() : "null"),
-                    java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
-            } catch (Exception e) { /* ignore */ }
-        }
         if (result != null) {
             return result;
         }
@@ -158,24 +138,6 @@ public class GroundSensor extends Sensor {
                                           int solidityBit, Direction direction, boolean isExtension) {
         ChunkDesc desc = getLevelManager().getChunkDescAt((byte) 0, checkX, checkY, sprite.isLoopLowPlane());
         SolidTile tile = getSolidTile(desc, solidityBit);
-
-        // DIAG: log tile details at MZ1 first-error position
-        if (direction == Direction.DOWN && checkY >= 0x04F0 && checkY <= 0x0520
-                && checkX >= 0x0B20 && checkX <= 0x0B50) {
-            try {
-                String descStr = desc != null
-                    ? String.format("chunkIdx=%d hFlip=%b vFlip=%b raw=0x%04X bit%d=%b",
-                        desc.getChunkIndex(), desc.getHFlip(), desc.getVFlip(),
-                        desc.get(), solidityBit, desc.isSolidityBitSet(solidityBit))
-                    : "null";
-                java.nio.file.Files.writeString(java.nio.file.Path.of("target/trace-reports/scan_detail.txt"),
-                    String.format("  TILE check=(0x%04X,0x%04X) isExt=%b desc=[%s] tile=%s solidBit=%d%n",
-                        checkX & 0xFFFF, checkY & 0xFFFF, isExtension, descStr,
-                        tile != null ? "id=" + tile.getIndex() : "null",
-                        solidityBit),
-                    java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
-            } catch (Exception e) { /* ignore */ }
-        }
 
         if (tile == null) {
             return null;

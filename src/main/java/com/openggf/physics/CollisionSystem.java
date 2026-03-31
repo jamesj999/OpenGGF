@@ -33,11 +33,6 @@ public class CollisionSystem {
     // Trace for debugging/testing - defaults to no-op
     private CollisionTrace trace = NoOpCollisionTrace.INSTANCE;
 
-    // TEMPORARY: diagnostic flag for trace debugging
-    public static boolean debugGroundAttachment;
-    // TEMPORARY: one-shot frame-targeted debug for angle investigation
-    public static int debugTargetFrame = -1;
-    public static int currentDebugFrame = -1;
 
     public CollisionSystem() {
         this(TerrainCollisionManager.getInstance());
@@ -306,11 +301,6 @@ public class CollisionSystem {
     public void resolveGroundAttachment(AbstractPlayableSprite sprite,
                                         int positiveThreshold,
                                         BooleanSupplier hasObjectSupport) {
-        // TEMPORARY: debug trace entry point
-        if (debugGroundAttachment) {
-            System.out.printf("GA_ENTRY: onObj=%b centreX=0x%04X centreY=0x%04X%n",
-                sprite.isOnObject(), sprite.getCentreX(), sprite.getCentreY());
-        }
         if (sprite.isOnObject()) {
             return;
         }
@@ -320,23 +310,6 @@ public class CollisionSystem {
         SensorResult[] groundResult = terrainProbes(sprite, sprite.getGroundSensors(), "ground");
         SensorResult leftSensor = groundResult[0];
         SensorResult rightSensor = groundResult[1];
-
-        // TEMPORARY: diagnostic dump for MZ1 trace debugging
-        boolean frameDebug = debugGroundAttachment || (debugTargetFrame >= 0 && currentDebugFrame == debugTargetFrame);
-        if (frameDebug) {
-            System.out.printf("GA_DIAG frame=%d: centreX=0x%04X centreY=0x%04X prevAngle=0x%02X mode=%s threshold=%d air=%b onObj=%b%n",
-                currentDebugFrame, sprite.getCentreX(), sprite.getCentreY(),
-                sprite.getAngle() & 0xFF, sprite.getGroundMode(),
-                positiveThreshold, sprite.getAir(), sprite.isOnObject());
-            if (leftSensor != null)
-                System.out.printf("  LEFT:  dist=%d angle=0x%02X tileId=%d dir=%s%n",
-                    leftSensor.distance(), leftSensor.angle() & 0xFF, leftSensor.tileId(), leftSensor.direction());
-            else System.out.println("  LEFT:  null");
-            if (rightSensor != null)
-                System.out.printf("  RIGHT: dist=%d angle=0x%02X tileId=%d dir=%s%n",
-                    rightSensor.distance(), rightSensor.angle() & 0xFF, rightSensor.tileId(), rightSensor.direction());
-            else System.out.println("  RIGHT: null");
-        }
 
         SensorResult selectedResult = selectSensorWithAngle(sprite, rightSensor, leftSensor);
 
@@ -442,35 +415,10 @@ public class CollisionSystem {
     public void resolveAirCollision(AbstractPlayableSprite sprite,
                                     Consumer<AbstractPlayableSprite> landingHandler) {
         int quadrant = TrigLookupTable.calcMovementQuadrant(sprite.getXSpeed(), sprite.getYSpeed());
-        // TEMPORARY: Diagnostic for hurt landing analysis
-        int cx = sprite.getCentreX(), cy = sprite.getCentreY();
-        if (sprite.isHurt() && cy >= 0x0248 && cy <= 0x0250) {
-            int moveAngle = TrigLookupTable.calcAngle(sprite.getXSpeed(), sprite.getYSpeed());
-            System.out.printf("AIR_COLL_HURT: cx=0x%04X cy=0x%04X xSpd=0x%04X ySpd=0x%04X moveAngle=0x%02X quadrant=0x%02X%n",
-                cx, cy, sprite.getXSpeed() & 0xFFFF, sprite.getYSpeed() & 0xFFFF, moveAngle, quadrant);
-        }
         switch (quadrant) {
             case 0x00 -> {
                 doWallCheckBoth(sprite);
                 SensorResult[] groundResult = terrainProbes(sprite, sprite.getGroundSensors(), "ground");
-                // DIAG: log floor probes at MZ1 first-error position
-                int fDiagCy = sprite.getCentreY(), fDiagCx = sprite.getCentreX();
-                if (fDiagCy >= 0x04E0 && fDiagCy <= 0x0500 && fDiagCx >= 0x0B20 && fDiagCx <= 0x0B50
-                        && sprite.getYSpeed() > 0x0400) {
-                    try {
-                        StringBuilder sb = new StringBuilder();
-                        sb.append(String.format("FLOOR cx=0x%04X cy=0x%04X yspd=0x%04X",
-                            fDiagCx & 0xFFFF, fDiagCy & 0xFFFF, sprite.getYSpeed() & 0xFFFF));
-                        for (int gi = 0; gi < groundResult.length; gi++) {
-                            SensorResult gr = groundResult[gi];
-                            sb.append(String.format(" s%d=%s", gi,
-                                gr != null ? gr.distance() + "@0x" + Integer.toHexString(gr.angle() & 0xFF) : "null"));
-                        }
-                        sb.append('\n');
-                        java.nio.file.Files.writeString(java.nio.file.Path.of("target/trace-reports/wall_probe.txt"),
-                            sb.toString(), java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
-                    } catch (Exception e) { /* ignore */ }
-                }
                 doTerrainCollisionAir(sprite, groundResult, landingHandler);
             }
             case 0x40 -> {
@@ -526,16 +474,6 @@ public class CollisionSystem {
         boolean canLand = (results[0] != null && results[0].distance() >= threshold)
                 || (results[1] != null && results[1].distance() >= threshold);
 
-        // TEMPORARY: diagnostics for hurt landing
-        if (sprite.isHurt() && sprite.getCentreY() >= 0x0248 && sprite.getCentreY() <= 0x0250) {
-            System.out.printf("CS_AIR_FLOOR: centreY=0x%04X ySpd=0x%04X yPix=%d thresh=%d " +
-                "s0=%s s1=%s lowest=%d canLand=%b angle=0x%02X%n",
-                sprite.getCentreY(), sprite.getYSpeed() & 0xFFFF, ySpeedPixels, threshold,
-                results[0] != null ? String.valueOf(results[0].distance()) : "null",
-                results[1] != null ? String.valueOf(results[1].distance()) : "null",
-                lowestResult.distance(), canLand, sprite.getAngle() & 0xFF);
-        }
-
         if (canLand) {
             landOnFloor(sprite, lowestResult, landingHandler);
         }
@@ -577,15 +515,6 @@ public class CollisionSystem {
 
     private void doCeilingCollision(AbstractPlayableSprite sprite, SensorResult[] results) {
         SensorResult lowestResult = findLowestSensorResult(results);
-        // TEMPORARY: diagnostic
-        int cx = sprite.getCentreX(), cy = sprite.getCentreY();
-        if (cx >= 0x033A && cx <= 0x0345 && cy >= 0x0230 && cy <= 0x0240) {
-            System.out.printf("CEIL_CHECK cx=0x%04X cy=0x%04X result0=%s result1=%s lowest=%s%n",
-                cx, cy,
-                results[0] != null ? "dist=" + results[0].distance() + " angle=0x" + Integer.toHexString(results[0].angle() & 0xFF) : "null",
-                results[1] != null ? "dist=" + results[1].distance() + " angle=0x" + Integer.toHexString(results[1].angle() & 0xFF) : "null",
-                lowestResult != null ? "dist=" + lowestResult.distance() + " angle=0x" + Integer.toHexString(lowestResult.angle() & 0xFF) : "null");
-        }
         if (lowestResult == null || lowestResult.distance() >= 0) {
             return;
         }
@@ -632,38 +561,10 @@ public class CollisionSystem {
             return;
         }
 
-        // DIAG: log wall probe when Sonic is near the MZ1 first-error position
-        int diagCx = sprite.getCentreX(), diagCy = sprite.getCentreY();
-        boolean diagMatch = diagCy >= 0x04E0 && diagCy <= 0x0520
-                && diagCx >= 0x0B20 && diagCx <= 0x0B50
-                && sprite.getYSpeed() > 0x0400;
-
         for (int i = 0; i < 2; i++) {
             SensorResult result = pushSensors[i].scan((short) 0, (short) 0);
 
-            if (diagMatch) {
-                try {
-                    String sensorName = (i == 0) ? "LEFT" : "RIGHT";
-                    String resultStr = result != null
-                        ? String.format("dist=%d angle=0x%02X", result.distance(), result.angle() & 0xFF)
-                        : "null";
-                    java.nio.file.Files.writeString(java.nio.file.Path.of("target/trace-reports/wall_probe.txt"),
-                        String.format("WALL cx=0x%04X cy=0x%04X xspd=0x%04X yspd=0x%04X sensor[%d]=%s: %s%n",
-                            diagCx & 0xFFFF, diagCy & 0xFFFF,
-                            sprite.getXSpeed() & 0xFFFF, sprite.getYSpeed() & 0xFFFF,
-                            i, sensorName, resultStr),
-                        java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
-                } catch (Exception e) { /* ignore */ }
-            }
-
             if (result != null && result.distance() < 0) {
-                if (diagMatch) {
-                    try {
-                        java.nio.file.Files.writeString(java.nio.file.Path.of("target/trace-reports/wall_probe.txt"),
-                            String.format("  -> WALL HIT: push X by %d%n", result.distance()),
-                            java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
-                    } catch (Exception e) { /* ignore */ }
-                }
                 moveForSensorResult(sprite, result);
                 sprite.setXSpeed((short) 0);
             }
@@ -706,16 +607,6 @@ public class CollisionSystem {
         SensorResult primary = leftIsPrimary ? leftSensor : rightSensor;
         SensorResult secondary = leftIsPrimary ? rightSensor : leftSensor;
         SensorResult selected = primary.distance() < secondary.distance() ? primary : secondary;
-        // TEMPORARY: log selection detail
-        boolean frameDebug = debugGroundAttachment || (debugTargetFrame >= 0 && currentDebugFrame == debugTargetFrame);
-        if (frameDebug) {
-            String priLabel = leftIsPrimary ? "LEFT" : "RIGHT";
-            String secLabel = leftIsPrimary ? "RIGHT" : "LEFT";
-            String winner = (selected == primary) ? priLabel : secLabel;
-            System.out.printf("  SELECT: pri=%s(dist=%d) sec=%s(dist=%d) → winner=%s angle=0x%02X%n",
-                priLabel, primary.distance(), secLabel, secondary.distance(),
-                winner, selected.angle() & 0xFF);
-        }
         applyAngleFromSensor(sprite, selected.angle());
         return selected;
     }

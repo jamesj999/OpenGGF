@@ -260,28 +260,9 @@ public class Sonic1LavaBallObjectInstance extends AbstractObjectInstance
         }
     }
 
-    /** Frame counter when this ball's first update ran. -1 = not yet updated. */
-    private int spawnFrameCounter = -1;
-    /** Number of updates this ball has received (lifetime counter). */
-    private int updateCount = 0;
-
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
         ensureInitialized();
-        updateCount++;
-        // TEMPORARY: Log spawn timing and per-frame trajectory for trace debugging
-        if (currentX == 0x0730) {
-            if (spawnFrameCounter == -1) {
-                spawnFrameCounter = frameCounter;
-                System.out.printf("LAVABALL_SPAWN: x=0x%04X y=0x%04X velY=0x%04X subtype=%d frame=%d%n",
-                    currentX, currentY, velY & 0xFFFF, currentSubtype, frameCounter);
-            }
-            // Log trajectory from update 25 onward (approaching collision zone)
-            if (updateCount >= 25 && updateCount <= 40) {
-                System.out.printf("LBALL_TRAJ: frame=%d upd=%d preY=0x%04X preSub=0x%04X velY=0x%04X%n",
-                    frameCounter, updateCount, currentY, ySubpixel & 0xFFFF, velY & 0xFFFF);
-            }
-        }
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (inCollisionAnim) {
             // Collision animation plays one frame then afRoutine increments obRoutine -> delete.

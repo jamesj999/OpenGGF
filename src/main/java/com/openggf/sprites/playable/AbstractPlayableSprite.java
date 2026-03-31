@@ -956,14 +956,6 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         public void setAir(boolean air) {
-                // TEMPORARY: trace who sets air=false
-                if (!air && this.air) {
-                        System.out.printf("SET_AIR_FALSE: centreY=0x%04X hurt=%b ySpd=0x%04X onObj=%b%n",
-                                getCentreY(), hurt, getYSpeed() & 0xFFFF, isOnObject());
-                        if (getCentreY() >= 0x0200 && getCentreY() <= 0x0280) {
-                                new Exception("SET_AIR_FALSE stacktrace").printStackTrace(System.out);
-                        }
-                }
                 // If landing from hurt state, clear hurt flag and high-priority rendering
                 // (invulnerableFrames already set in applyHurt() per ROM behavior)
                 if (!air && this.air && hurt) {
@@ -1936,19 +1928,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 return ySpeed;
         }
 
-        private static int yspd_call_count;
         public void setYSpeed(short ySpeed) {
-                yspd_call_count++;
-                // TEMPORARY: log first N calls and any sign flip
-                if (yspd_call_count <= 5 || (this.ySpeed > 0x0400 && ySpeed < 0)) {
-                    System.err.printf("[YSPD] #%d x=0x%04X old=%d(0x%04X) new=%d(0x%04X)%n",
-                            yspd_call_count, getCentreX(),
-                            this.ySpeed, this.ySpeed & 0xFFFF,
-                            ySpeed, ySpeed & 0xFFFF);
-                    if (this.ySpeed > 0x0400 && ySpeed < 0) {
-                        new Throwable().printStackTrace(System.err);
-                    }
-                }
                 this.ySpeed = ySpeed;
         }
 

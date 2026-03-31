@@ -94,18 +94,9 @@ public class Sonic1LavaBallMakerObjectInstance extends AbstractObjectInstance {
     // Update Logic
     // ========================================================================
 
-    /** Frame counter when this maker's first update ran. */
-    private int firstUpdateFrame = -1;
-
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
-        // TEMPORARY: Log maker timing for spawn offset debugging
-        if (firstUpdateFrame == -1 && spawn.x() == 0x0730) {
-            firstUpdateFrame = frameCounter;
-            System.out.printf("MAKER_INIT: x=0x%04X sub=0x%02X delay=%d timer=%d frame=%d%n",
-                spawn.x(), spawn.subtype(), spawnDelay, timer, frameCounter);
-        }
         // ROM: LavaM_MakeLava (Routine 2)
         // subq.b #1,obTimeFrame(a0) ; subtract 1 from time delay
         timer--;

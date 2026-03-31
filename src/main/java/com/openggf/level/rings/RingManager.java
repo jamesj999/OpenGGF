@@ -119,11 +119,6 @@ public class RingManager {
             }
 
             placement.markCollected(index);
-            // DIAG: log ring collection for specific positions
-            if (ring.x() >= 0x0980 && ring.x() <= 0x09C0) {
-                System.err.printf("[DIAG_RING_MARK] frame=%d x=0x%04X y=0x%04X idx=%d%n",
-                        frameCounter, ring.x(), ring.y(), index);
-            }
             if (renderer.getSparkleFrameCount() > 0) {
                 placement.setSparkleStartFrame(index, frameCounter);
             }

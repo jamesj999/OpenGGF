@@ -309,11 +309,6 @@ public class ObjectManager {
                 ObjectSpawn spawn = instanceToSpawn.get(instance);
                 if (spawn != null && !instance.isPersistent()
                         && isOutOfRangeS1(instance.getX(), cameraX)) {
-                    // DIAG: track PhantomRing unloads
-                    if (instance instanceof com.openggf.game.sonic1.objects.Sonic1PhantomRingInstance) {
-                        System.err.printf("[DIAG_PHANTOM] EXEC_OOR vbla=%d x=0x%04X getX=0x%04X cameraX=%d slot=%d%n",
-                                vblaCounter, spawn.x(), instance.getX(), cameraX, currentExecSlot + DYNAMIC_SLOT_BASE);
-                    }
                     int slotIndex = currentExecSlot + DYNAMIC_SLOT_BASE;
                     if (instance instanceof AbstractObjectInstance aoi
                             && aoi.getSlotIndex() == slotIndex) {
@@ -333,11 +328,6 @@ public class ObjectManager {
                 instance.update(vblaCounter, player);
 
                 if (instance.isDestroyed()) {
-                    // DIAG: track PhantomRing destruction
-                    if (instance instanceof com.openggf.game.sonic1.objects.Sonic1PhantomRingInstance && spawn != null) {
-                        System.err.printf("[DIAG_PHANTOM] DESTROYED vbla=%d x=0x%04X slot=%d%n",
-                                vblaCounter, spawn.x(), currentExecSlot + DYNAMIC_SLOT_BASE);
-                    }
                     int slotIndex = currentExecSlot + DYNAMIC_SLOT_BASE;
                     if (instance instanceof AbstractObjectInstance aoi3
                             && aoi3.getSlotIndex() == slotIndex) {
@@ -505,10 +495,6 @@ public class ObjectManager {
                     int slotIndex = currentExecSlot + DYNAMIC_SLOT_BASE;
                     if (instance instanceof AbstractObjectInstance aoi3
                             && aoi3.getSlotIndex() == slotIndex) {
-                        if (slotIndex == DYNAMIC_SLOT_BASE + 3) {
-                            System.err.printf("[SLOT3] EXEC_DESTROY %s x=0x%04X vbla=%d%n",
-                                    aoi3.getClass().getSimpleName(), aoi3.getX(), vblaCounter);
-                        }
                         releaseSlot(slotIndex);
                     }
                     instance.onUnload();
@@ -1027,18 +1013,6 @@ public class ObjectManager {
             return -1;
         }
         usedSlots.set(bit);
-        if (bit == 3) {
-            System.err.printf("[SLOT3] ALLOC bit=3 vbla=%d slots=%d%n", vblaCounter, usedSlots.cardinality());
-        }
-        // DIAG: log all allocations in the critical window
-        if (vblaCounter >= 2580 && vblaCounter <= 2660) {
-            System.err.printf("[DIAG_ALLOC] vbla=%d bit=%d (abs=%d) cardinality=%d%n",
-                    vblaCounter, bit, DYNAMIC_SLOT_BASE + bit, usedSlots.cardinality());
-            StackTraceElement[] st = Thread.currentThread().getStackTrace();
-            for (int si = 2; si < Math.min(st.length, 5); si++) {
-                System.err.printf("[DIAG_ALLOC]   at %s.%s:%d%n", st[si].getClassName(), st[si].getMethodName(), st[si].getLineNumber());
-            }
-        }
         return DYNAMIC_SLOT_BASE + bit;
     }
 
@@ -1067,19 +1041,6 @@ public class ObjectManager {
     private void releaseSlot(int slotIndex) {
         if (slotIndex >= DYNAMIC_SLOT_BASE && slotIndex < DYNAMIC_SLOT_BASE + DYNAMIC_SLOT_COUNT) {
             int bit = slotIndex - DYNAMIC_SLOT_BASE;
-            if (bit == 3) {
-                System.err.printf("[SLOT3] RELEASE bit=3 vbla=%d slots=%d%n", vblaCounter, usedSlots.cardinality());
-                // Print caller context
-                StackTraceElement[] st = Thread.currentThread().getStackTrace();
-                for (int si = 2; si < Math.min(st.length, 6); si++) {
-                    System.err.printf("[SLOT3]   at %s.%s:%d%n", st[si].getClassName(), st[si].getMethodName(), st[si].getLineNumber());
-                }
-            }
-            // DIAG: log all releases in the critical window
-            if (vblaCounter >= 2580 && vblaCounter <= 2660) {
-                System.err.printf("[DIAG_RELEASE] vbla=%d slot=%d (abs=%d) cardinality=%d%n",
-                        vblaCounter, bit, slotIndex, usedSlots.cardinality());
-            }
             usedSlots.clear(bit);
         }
     }
@@ -1442,20 +1403,10 @@ public class ObjectManager {
             boolean outOfRange = false;
 
             if ((removedFromPlacement || outOfRange) && !instance.isPersistent()) {
-                // DIAG: track PhantomRing unloads
-                if (instance instanceof com.openggf.game.sonic1.objects.Sonic1PhantomRingInstance) {
-                    System.err.printf("[DIAG_PHANTOM] SYNC_UNLOAD vbla=%d x=0x%04X getX=0x%04X cameraX=%d removed=%b oor=%b%n",
-                            vblaCounter, spawn.x(), instance.getX(), cameraX, removedFromPlacement, outOfRange);
-                }
                 // Release the SST slot so it can be reused by future objects
                 if (instance instanceof AbstractObjectInstance aoi) {
                     int slot = aoi.getSlotIndex();
                     if (slot >= 0) {
-                        if (slot == DYNAMIC_SLOT_BASE + 3) {
-                            System.err.printf("[SLOT3] UNLOAD %s id=%d x=0x%04X vbla=%d reason=%s%n",
-                                    aoi.getClass().getSimpleName(), spawn.objectId(), aoi.getX(),
-                                    vblaCounter, removedFromPlacement ? "removedFromPlacement" : "outOfRange");
-                        }
                         releaseSlot(slot);
                     }
                 }
@@ -3712,19 +3663,6 @@ public class ObjectManager {
                     contact = resolveContact(player, anchorX, anchorY, params.halfWidth(), halfHeight,
                             provider.isTopSolidOnly(), provider.hasMonitorSolidity(),
                             useStickyBuffer, instance, true);
-                }
-                // DIAG: log ALL solid contacts at MZ1 position
-                if (player.getCentreY() >= 0x04E0 && player.getCentreY() <= 0x04F5
-                        && player.getCentreX() >= 0x0B20 && player.getCentreX() <= 0x0B40) {
-                    try {
-                        int spawnId = (instance instanceof AbstractObjectInstance a && a.getSpawn() != null) ? a.getSpawn().objectId() : -1;
-                        java.nio.file.Files.writeString(java.nio.file.Path.of("target/trace-reports/spike_contact.txt"),
-                            String.format("SOLID: id=0x%02X pCY=0x%04X pCX=0x%04X objX=%d objY=%d contact=%s%n",
-                                spawnId, player.getCentreY() & 0xFFFF, player.getCentreX() & 0xFFFF,
-                                instance.getX(), instance.getY(),
-                                contact != null ? contact : "null"),
-                            java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
-                    } catch (Exception e) { /* ignore */ }
                 }
                 if (contact == null) {
                     continue;
