@@ -264,6 +264,26 @@ void testWallCollisionAtSpeed() {
 }
 ```
 
+## Trace Replay Tests
+
+Trace replay tests run a BK2 movie through the engine and compare each frame against a trace
+recorded from the original ROM in BizHawk. They are used for parity work where ordinary unit tests
+are too local to expose the real divergence.
+
+Current examples:
+
+- `TestS1Ghz1TraceReplay`
+- `TestS1Mz1TraceReplay`
+
+Run them with:
+
+```bash
+mvn test -Dtest=TestS1Ghz1TraceReplay,TestS1Mz1TraceReplay
+```
+
+For the full workflow, including recording traces and reading divergence reports, see
+[Trace Replay Testing](trace-replay.md).
+
 ## Visual Regression Tests
 
 Visual regression tests capture rendered frames and compare them against reference images.
@@ -308,3 +328,4 @@ state management.
 
 - [Dev Setup](dev-setup.md) -- Build and run configuration
 - [Tutorial: Implement an Object](tutorial-implement-object.md) -- Testing is step 7
+- [Trace Replay Testing](trace-replay.md) -- ROM-vs-engine parity workflow
