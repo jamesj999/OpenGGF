@@ -46,6 +46,17 @@ public interface ObjectInstance {
     }
 
     /**
+     * Returns the collision flags as they were before the current frame's object update.
+     * ROM parity: ReactToItem runs in Sonic's slot (slot 0) BEFORE other objects update,
+     * so it sees enemies at their previous frame's collision type. If an object activates
+     * its collision type during this frame's update (e.g., lava geyser becoming active),
+     * ReactToItem wouldn't see it. Default returns -1 (no snapshot, use current flags).
+     */
+    default int getPreUpdateCollisionFlags() {
+        return -1;
+    }
+
+    /**
      * Returns true if this object needs to be updated on the same frame it was spawned.
      * <p>
      * ROM parity: In the ROM's ExecuteObjects, when an object at slot N creates a child

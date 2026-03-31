@@ -80,6 +80,13 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     private boolean solidContactFirstFrame = true;
 
     /**
+     * Pre-update collision flags snapshot. ROM parity: ReactToItem runs before other
+     * objects update, so it sees enemies at their previous frame's collision type.
+     * -1 means no snapshot (use current flags).
+     */
+    private int preUpdateCollisionFlags = -1;
+
+    /**
      * ROM parity: Object slot index matching the Mega Drive's Object Status Table.
      * <p>
      * In the ROM, ExecuteObjects processes slots 0-127 sequentially. The d7 register
@@ -156,6 +163,11 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
         preUpdateX = getX();
         preUpdateY = getY();
         preUpdateValid = true;
+        // Snapshot collision flags for touch response timing parity.
+        // ROM: ReactToItem sees enemies at their pre-update collision type.
+        if (this instanceof TouchResponseProvider trp) {
+            preUpdateCollisionFlags = trp.getCollisionFlags();
+        }
         // Clear same-frame spawn flag: this object has survived one full frame
         // and is now eligible for touch collision checks.
         skipTouchThisFrame = false;
@@ -172,6 +184,11 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     @Override
     public int getPreUpdateY() {
         return preUpdateValid ? preUpdateY : getY();
+    }
+
+    @Override
+    public int getPreUpdateCollisionFlags() {
+        return preUpdateCollisionFlags;
     }
 
     @Override
