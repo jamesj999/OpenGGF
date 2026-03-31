@@ -145,11 +145,6 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	@Override
 	public void handleMovement(boolean up, boolean down, boolean left, boolean right, boolean jump, boolean testKey,
 			boolean speedUp, boolean slowDown) {
-		// TEMPORARY: check air state at entry for hurt landing diagnosis
-		if (sprite.isHurt() && sprite.getCentreY() >= 0x0248 && sprite.getCentreY() <= 0x0250) {
-			System.out.printf("HANDLE_MOVE_ENTRY: hurt=%b air=%b centreY=0x%04X ySpd=0x%04X onObj=%b%n",
-				sprite.isHurt(), sprite.getAir(), sprite.getCentreY(), sprite.getYSpeed() & 0xFFFF, sprite.isOnObject());
-		}
 		// Note: Raw input state for objects is now stored in SpriteManager BEFORE filtering,
 		// so objects can query button state even when control is locked (ROM: obj_control).
 		// The parameters here are already filtered by control lock state.
@@ -272,27 +267,13 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			return;
 		}
 
-		// TEMPORARY: track air state before mode dispatch
-		boolean preDispatchAir = sprite.getAir();
-		boolean preDispatchHurt = sprite.isHurt();
-		int preDispatchY = sprite.getCentreY();
-
 		// Mode dispatch (ROM: Obj01_MdNormal_Checks)
-
-
 		if (sprite.getAir()) {
 			modeAirborne();
 		} else if (sprite.getRolling()) {
 			modeRoll();
 		} else {
 			modeNormal();
-		}
-
-		// TEMPORARY: detect unexpected air state change
-		if (preDispatchHurt && preDispatchAir && !sprite.getAir() && preDispatchY >= 0x0245 && preDispatchY <= 0x0250) {
-			System.out.printf("HURT_LANDED: preY=0x%04X postY=0x%04X ySpd=0x%04X gSpd=0x%04X angle=0x%02X onObj=%b%n",
-				preDispatchY, sprite.getCentreY(), sprite.getYSpeed() & 0xFFFF,
-				sprite.getGSpeed() & 0xFFFF, sprite.getAngle() & 0xFF, sprite.isOnObject());
 		}
 
 		// ROM: Knuckles_Glide manages direction itself via setGlideAnimation();
@@ -398,19 +379,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		}
 		doLevelBoundary();
 
-		// TEMPORARY: diagnostics for frame 552 landing
-		int preMoveY = sprite.getCentreY();
-		int preMoveSub = sprite.getYSubpixelRaw();
-		short preMoveYSpd = sprite.getYSpeed();
-
 		doObjectMoveAndFall();
-
-		// TEMPORARY: diagnostics for frame 552 landing
-		if (sprite.isHurt() && preMoveY >= 0x0247 && preMoveY <= 0x024C) {
-			System.out.printf("HURT_MOVE_DIAG: preY=0x%04X preSub=0x%04X preYSpd=0x%04X → postY=0x%04X postSub=0x%04X postYSpd=0x%04X%n",
-				preMoveY, preMoveSub, preMoveYSpd & 0xFFFF,
-				sprite.getCentreY(), sprite.getYSubpixelRaw(), sprite.getYSpeed() & 0xFFFF);
-		}
 
 		// Underwater gravity reduction
 		// Normal airborne: net gravity = 0x38 - 0x28 = 0x10 (s2.asm:36170)
@@ -2366,16 +2335,6 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 		short threshold = (short) (-(ySpeedPixels + 8));
 		boolean canLand = (ignored[0] != null && ignored[0].distance() >= threshold)
 				|| (ignored[1] != null && ignored[1].distance() >= threshold);
-
-		// TEMPORARY: diagnostics for frame 552 landing
-		if (sprite.isHurt() && sprite.getCentreY() >= 0x0248 && sprite.getCentreY() <= 0x0250) {
-			System.out.printf("AIR_FLOOR_DIAG: centreY=0x%04X ySpd=0x%04X ySpdPix=%d thresh=%d " +
-				"s0dist=%s s1dist=%s canLand=%b lowest=%d dir=%s%n",
-				sprite.getCentreY(), sprite.getYSpeed() & 0xFFFF, ySpeedPixels, threshold,
-				ignored[0] != null ? String.valueOf(ignored[0].distance()) : "null",
-				ignored[1] != null ? String.valueOf(ignored[1].distance()) : "null",
-				canLand, lowestResult.distance(), lowestResult.direction());
-		}
 
 		if (!canLand) {
 			return;

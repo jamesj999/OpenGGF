@@ -371,11 +371,6 @@ public class Sonic1LargeGrassyPlatformObjectInstance extends AbstractObjectInsta
 
         // move.w lgrass_origY(a0),d1 / sub.w d0,d1 / move.w d1,obY(a0)
         int newY = baseY - d0;
-        // TEMPORARY: trace oscillation for the platform at x=0x0380
-        if (baseX == 0x0380 && newY >= 0x028E && newY <= 0x0295) {
-            System.out.printf("OSC_PLAT: baseY=0x%04X oscVal=%d(0x%02X) amp=%d d0=%d invert=%b newY=0x%04X%n",
-                baseY, oscValue, oscValue, amplitude, d0, invertOscillation, newY);
-        }
         y = newY;
     }
 

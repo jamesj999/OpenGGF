@@ -198,12 +198,6 @@ public class Sonic1BatbrainBadnikInstance extends AbstractBadnikInstance {
             return;
         }
 
-        // DIAG: Log when the Batbrain timing gate fires
-        if (spawn.x() == 0x0BA0) {
-            System.err.printf("[DIAG_BAT_DROP] vbla=%d slot=%d d7=%d x=0x%04X y=0x%04X sonicY=%d%n",
-                    frameCounter, getSlotIndex(), d7, currentX, currentY, sonicY);
-        }
-
         // Drop initiated: save target Y, transition to drop state
         // move.w d0,objoff_36(a0) - save Sonic's Y from earlier
         targetY = sonicY;
@@ -251,11 +245,6 @@ public class Sonic1BatbrainBadnikInstance extends AbstractBadnikInstance {
 
         // Within $10 pixels of target: transition to horizontal flight
         if (distToTarget < HORIZONTAL_FLIGHT_THRESHOLD) {
-            // DIAG: log transition from drop to flight
-            if (spawn.x() == 0x0BA0) {
-                System.err.printf("[DIAG_BAT_TRANSITION] vbla=%d x=0x%04X y=0x%04X targetY=%d distToTarget=%d yVel=%d hSpeed=%d slot=%d%n",
-                        frameCounter, currentX, currentY, targetY, distToTarget, yVelocity, horizontalSpeed, getSlotIndex());
-            }
             xVelocity = horizontalSpeed;
             yVelocity = 0;
             setAnimation(ANIM_FLY);
@@ -288,13 +277,6 @@ public class Sonic1BatbrainBadnikInstance extends AbstractBadnikInstance {
      * </pre>
      */
     private void updateFlapSound(int frameCounter, AbstractPlayableSprite player) {
-        // DIAG: trace Batbrain position during flight for overlap analysis
-        if (spawn.x() == 0x0BA0 && frameCounter >= 4250 && frameCounter <= 4275) {
-            System.err.printf("[DIAG_BAT_FLY] vbla=%d x=0x%04X y=0x%04X xVel=%d yVel=%d preX=0x%04X preY=0x%04X slot=%d%n",
-                    frameCounter, currentX, currentY, xVelocity, yVelocity,
-                    getPreUpdateX(), getPreUpdateY(), getSlotIndex());
-        }
-
         // Play flapping sound every 16 frames
         if ((frameCounter & FLAP_SOUND_MASK) == 0) {
             services().playSfx(Sonic1Sfx.BASARAN_FLAP.id);
