@@ -28,10 +28,12 @@ public record EngineDiagnostics(
     int leftCursorIdx,
     int fwdCtr,
     int bwdCtr,
-    String solidEvent
+    String solidEvent,
+    int xSub,
+    int ySub
 ) {
     /** No diagnostics available. */
-    public static final EngineDiagnostics EMPTY = new EngineDiagnostics(-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, "");
+    public static final EngineDiagnostics EMPTY = new EngineDiagnostics(-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, "", -1, -1);
 
     /**
      * Format as a compact string for the context window.
@@ -59,6 +61,10 @@ public record EngineDiagnostics(
         if (cursorIdx >= 0) {
             if (!sb.isEmpty()) sb.append(' ');
             sb.append(String.format("cur=%d/%d ctr=%d/%d", cursorIdx, leftCursorIdx, fwdCtr, bwdCtr));
+        }
+        if (xSub >= 0) {
+            if (!sb.isEmpty()) sb.append(' ');
+            sb.append(String.format("sub=(%04X,%04X)", xSub & 0xFFFF, ySub & 0xFFFF));
         }
         if (solidEvent != null && !solidEvent.isEmpty()) {
             if (!sb.isEmpty()) sb.append(' ');
