@@ -3713,6 +3713,19 @@ public class ObjectManager {
                             provider.isTopSolidOnly(), provider.hasMonitorSolidity(),
                             useStickyBuffer, instance, true);
                 }
+                // DIAG: log ALL solid contacts at MZ1 position
+                if (player.getCentreY() >= 0x04E0 && player.getCentreY() <= 0x04F5
+                        && player.getCentreX() >= 0x0B20 && player.getCentreX() <= 0x0B40) {
+                    try {
+                        int spawnId = (instance instanceof AbstractObjectInstance a && a.getSpawn() != null) ? a.getSpawn().objectId() : -1;
+                        java.nio.file.Files.writeString(java.nio.file.Path.of("target/trace-reports/spike_contact.txt"),
+                            String.format("SOLID: id=0x%02X pCY=0x%04X pCX=0x%04X objX=%d objY=%d contact=%s%n",
+                                spawnId, player.getCentreY() & 0xFFFF, player.getCentreX() & 0xFFFF,
+                                instance.getX(), instance.getY(),
+                                contact != null ? contact : "null"),
+                            java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+                    } catch (Exception e) { /* ignore */ }
+                }
                 if (contact == null) {
                     continue;
                 }
