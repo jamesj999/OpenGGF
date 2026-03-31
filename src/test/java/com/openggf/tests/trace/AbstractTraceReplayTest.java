@@ -101,6 +101,9 @@ public abstract class AbstractTraceReplayTest {
                 om.initVblaCounter(meta.bk2FrameOffset() - 1);
             }
 
+
+
+
             // 4b. Pre-advance oscillation to match ROM phase.
             //      The ROM runs OscillateNumDo during Level_MainLoop frames
             //      that occur BEFORE the trace recording starts (between level
