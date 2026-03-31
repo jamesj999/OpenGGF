@@ -223,6 +223,11 @@ public class ObjectManager {
         syncActiveSpawnsLoad();
         runExecLoop(cameraX, player);
 
+
+
+
+
+
         // Note: solidContacts.update() is now called during SpriteManager.update(),
         // after movement but before animation. This ensures pushing flag is set correctly
         // for both terrain and solid objects before animation resolves.

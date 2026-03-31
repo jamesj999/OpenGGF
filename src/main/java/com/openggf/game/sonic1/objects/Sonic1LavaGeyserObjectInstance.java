@@ -262,11 +262,7 @@ public class Sonic1LavaGeyserObjectInstance extends AbstractObjectInstance
                 third.originY = this.originY; // move.w objoff_30(a0),objoff_30(a1)
                 third.headAnimId = 2; // .end animation (set by .makelava since subtype=1)
                 third.velY = 0; // starts stationary, falls under gravity
-                // ROM: addq.b #2,obRoutine(a1) — third piece starts at routine 2
-                // (Geyser_Action), skipping Geyser_Main. Mark as initialized to
-                // prevent ensureInitialized() from re-running initializeHead(),
-                // which would cascade-spawn infinite children.
-                third.initialized = true;
+                // Don't call initialize() - manually configured, no child hierarchy
                 // ROM: FindNextFreeObj allocates slot after body
                 if (prevSlot >= 0) {
                     int thirdSlot = services().objectManager().allocateSlotAfter(prevSlot);
