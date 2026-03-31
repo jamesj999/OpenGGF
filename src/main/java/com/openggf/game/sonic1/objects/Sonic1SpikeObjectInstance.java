@@ -136,8 +136,9 @@ public class Sonic1SpikeObjectInstance extends AbstractObjectInstance
     @Override
     public SolidObjectParams getSolidParams() {
         if (isSideways()) {
-            int halfHeight = (frameIndex == 5) ? 4 : 0x14;
-            return new SolidObjectParams(0x1B, halfHeight, halfHeight);
+            // ROM: d2 = 4 (frame 5) or $14 (frame 1). d3 = d2 + 1 (addq.w #1,d3).
+            int d2 = (frameIndex == 5) ? 4 : 0x14;
+            return new SolidObjectParams(0x1B, d2, d2 + 1);
         }
         // Spik_Upright: d1=obActWid+$B, d2=$10, d3=$11. ROM-exact.
         return new SolidObjectParams(actWidth + 0x0B, 0x10, 0x11);
