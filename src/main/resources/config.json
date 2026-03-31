@@ -26,7 +26,7 @@
   "SPECIAL_STAGE_PLANE_DEBUG_KEY": 292,
   "PAUSE_KEY": 257,
   "FRAME_STEP_KEY": 81,
-  "PLAYBACK_MOVIE_PATH": "playback.bk2",
+  "PLAYBACK_MOVIE_PATH": "sonic1poo2.bk2",
   "PLAYBACK_TOGGLE_KEY": 66,
   "PLAYBACK_LOAD_KEY": 78,
   "PLAYBACK_PLAY_PAUSE_KEY": 77,
@@ -52,10 +52,11 @@
   "SONIC_1_ROM": "Sonic The Hedgehog (W) (REV01) [!].gen",
   "SONIC_2_ROM": "Sonic The Hedgehog 2 (W) (REV01) [!].gen",
   "SONIC_3K_ROM": "Sonic 3 & Knuckles (W) [!].gen",
-  "DEFAULT_ROM": "s1",
-  "TITLE_SCREEN_ON_STARTUP": true,
-  "LEVEL_SELECT_ON_STARTUP": false,
-  "MASTER_TITLE_SCREEN_ON_STARTUP": true,
+  "DEFAULT_ROM": "s3k",
+  "TITLE_SCREEN_ON_STARTUP": false,
+  "LEVEL_SELECT_ON_STARTUP": true,
+  "MASTER_TITLE_SCREEN_ON_STARTUP": false,
   "CROSS_GAME_FEATURES_ENABLED": false,
-  "CROSS_GAME_SOURCE": "s2"
+  "CROSS_GAME_SOURCE": "s3k",
+  "S3K_SKIP_INTROS": true
 }

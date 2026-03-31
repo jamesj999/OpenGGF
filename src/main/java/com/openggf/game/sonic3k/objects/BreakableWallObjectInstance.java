@@ -23,6 +23,7 @@ import com.openggf.physics.Direction;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.game.ShieldType;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
+import com.openggf.game.sonic3k.Sonic3kLevelTriggerManager;
 
 import java.util.List;
 import java.util.logging.Logger;
@@ -365,16 +366,10 @@ public class BreakableWallObjectInstance extends AbstractObjectInstance
 
     /**
      * Checks if Level_trigger_array[0] is active.
-     * ROM: tst.b (Level_trigger_array).w / beq.s
-     * Approximated via event routine progression (same as AizFallingLog).
+     * ROM: tst.b (Level_trigger_array).w / beq.s — always index 0, any bit set.
      */
     private boolean isTriggerActive() {
-        try {
-            Sonic3kLevelEventManager lem = (Sonic3kLevelEventManager) services().levelEventProvider();
-            return lem != null && lem.getEventRoutineFg() >= 2;
-        } catch (Exception e) {
-            return false;
-        }
+        return Sonic3kLevelTriggerManager.testAny(0);
     }
 
     // ===== Fragment spawning =====

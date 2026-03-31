@@ -16,11 +16,13 @@ public final class Sonic3kObjectIds {
     public static final int TWISTED_RAMP = 0x0E;
     public static final int AUTO_SPIN = 0x26;
     public static final int CORK_FLOOR = 0x2A;
+    public static final int AIZ_FLIPPING_BRIDGE = 0x2B;
     public static final int AIZ_COLLAPSING_LOG_BRIDGE = 0x2C;
     public static final int AIZ_FALLING_LOG = 0x2D;
     public static final int AIZ_SPIKED_LOG = 0x2E;
     public static final int INVISIBLE_BLOCK = 0x28;
     public static final int FLOATING_PLATFORM = 0x51;
+    public static final int BUTTON = 0x33;
     public static final int STAR_POST = 0x34;
     public static final int AIZ_FOREGROUND_PLANT = 0x35;
     public static final int SS_ENTRY_RING = 0x85;

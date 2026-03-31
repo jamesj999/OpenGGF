@@ -325,6 +325,15 @@ public final class Sonic3kPlcArtRegistry {
                 2,
                 null
         ));
+
+        // Button: ArtTile_HCZButton, palette 1
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.HCZ_BUTTON,
+                Sonic3kConstants.MAP_HCZ_BUTTON_ADDR,
+                Sonic3kConstants.ARTTILE_HCZ_BUTTON,
+                1,
+                null
+        ));
     }
 
     /**
@@ -415,6 +424,15 @@ public final class Sonic3kPlcArtRegistry {
                 2,
                 null
         ));
+
+        // Button: ArtTile_GrayButton, palette 0
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.BUTTON,
+                Sonic3kConstants.MAP_BUTTON_ADDR,
+                Sonic3kConstants.ARTTILE_GRAY_BUTTON,
+                0,
+                null
+        ));
     }
 
     /**
@@ -484,6 +502,15 @@ public final class Sonic3kPlcArtRegistry {
                 Sonic3kObjectArtKeys.BREAKABLE_WALL_CNZ,
                 Sonic3kConstants.MAP_CNZ_SOZ_BREAKABLE_WALL_ADDR,
                 Sonic3kConstants.ARTTILE_CNZ_MISC + 0xCF,
+                2,
+                null
+        ));
+
+        // Button: ArtTile_CNZMisc + $C9, palette 2
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.CNZ_BUTTON,
+                Sonic3kConstants.MAP_CNZ_BUTTON_ADDR,
+                Sonic3kConstants.ARTTILE_CNZ_BUTTON,
                 2,
                 null
         ));
@@ -605,6 +632,15 @@ public final class Sonic3kPlcArtRegistry {
                 2,
                 null
         ));
+
+        // Button: ArtTile_GrayButton, palette 0
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.BUTTON,
+                Sonic3kConstants.MAP_BUTTON_ADDR,
+                Sonic3kConstants.ARTTILE_GRAY_BUTTON,
+                0,
+                null
+        ));
     }
 
     /**
@@ -676,6 +712,15 @@ public final class Sonic3kPlcArtRegistry {
                 Sonic3kConstants.MAP_LBZ_BREAKABLE_WALL_ADDR,
                 Sonic3kConstants.ARTTILE_LBZ2_MISC,
                 1,
+                null
+        ));
+
+        // Button: ArtTile_GrayButton, palette 0
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.BUTTON,
+                Sonic3kConstants.MAP_BUTTON_ADDR,
+                Sonic3kConstants.ARTTILE_GRAY_BUTTON,
+                0,
                 null
         ));
     }
@@ -916,6 +961,27 @@ public final class Sonic3kPlcArtRegistry {
                 3,
                 null
         ));
+
+        // Button: act-specific art tile and palette
+        if (actIndex == 0) {
+            // LRZ Act 1: ArtTile_LRZMisc, palette 3
+            levelArt.add(new LevelArtEntry(
+                    Sonic3kObjectArtKeys.LRZ_BUTTON,
+                    Sonic3kConstants.MAP_LRZ_BUTTON_ADDR,
+                    Sonic3kConstants.ARTTILE_LRZ_MISC,
+                    3,
+                    null
+            ));
+        } else {
+            // LRZ Act 2: ArtTile_LRZ2Misc + $1C, palette 1
+            levelArt.add(new LevelArtEntry(
+                    Sonic3kObjectArtKeys.LRZ2_BUTTON,
+                    Sonic3kConstants.MAP_LRZ_BUTTON_ADDR,
+                    Sonic3kConstants.ARTTILE_LRZ2_BUTTON,
+                    1,
+                    null
+            ));
+        }
     }
 
     /**
@@ -1102,6 +1168,15 @@ public final class Sonic3kPlcArtRegistry {
                 null
         ));
 
+        // Button: ArtTile_GrayButton, palette 0
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.BUTTON,
+                Sonic3kConstants.MAP_BUTTON_ADDR,
+                Sonic3kConstants.ARTTILE_GRAY_BUTTON,
+                0,
+                null
+        ));
+
         // Falling Log: act-specific log body + splash mappings
         // Act 1: ArtTile_AIZFallingLog (0x03CF), palette 2 for both log and splash
         // Act 2: ArtTile_AIZMisc2 (0x02E9), palette 2 for log, palette 3 for splash
@@ -1192,6 +1267,15 @@ public final class Sonic3kPlcArtRegistry {
                     Sonic3kConstants.ARTTILE_AIZ_MISC2,
                     2,
                     null
+            ));
+            // AIZ Flipping Bridge: art_tile = make_art_tile(ArtTile_AIZMisc2, 2, 0)
+            // ArtNem_AIZMisc2 loaded by PLC_0C_0D. 32 frames, explicit count needed.
+            levelArt.add(new LevelArtEntry(
+                    Sonic3kObjectArtKeys.AIZ_FLIPPING_BRIDGE,
+                    -1,
+                    Sonic3kConstants.ARTTILE_AIZ_MISC2,
+                    2,
+                    "buildFlippingBridgeSheet"
             ));
             // AIZ Collapsing Log Bridge: art_tile = make_art_tile(ArtTile_AIZMisc2, 2, 0)
             // ArtNem_AIZMisc2 is loaded by PLC_0C_0D (Act 2 objects)

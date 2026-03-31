@@ -240,6 +240,8 @@ public class Sonic3kGameModule implements GameModule {
     public void onLevelLoad() {
         // Reset oscillation values used by moving platforms, etc.
         OscillationManager.reset();
+        // Reset button/trigger state for the new level
+        Sonic3kLevelTriggerManager.reset();
     }
 
     @Override

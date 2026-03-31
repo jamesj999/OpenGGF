@@ -717,6 +717,7 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
             case "buildAnimStillLrzD3Sheet" -> art.buildAnimStillLrzD3Sheet();
             case "buildAnimStillLrz2Sheet" -> art.buildAnimStillLrz2Sheet();
             case "buildAnimStillSozSheet" -> art.buildAnimStillSozSheet();
+            case "buildFlippingBridgeSheet" -> art.buildFlippingBridgeSheet();
             default -> {
                 LOG.warning("Unknown builder: " + builderName);
                 yield null;

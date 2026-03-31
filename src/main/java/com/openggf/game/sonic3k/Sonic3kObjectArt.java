@@ -508,6 +508,36 @@ public class Sonic3kObjectArt {
         return buildLevelArtSheetFromRom(Sonic3kConstants.MAP_ICZ_COLLAPSING_BRIDGE_ADDR, 1, 2);
     }
 
+    // ===== AIZ Flipping Bridge sprite sheet (parsed from ROM) =====
+
+    /**
+     * Builds the AIZ Flipping Bridge sprite sheet (Map_AIZFlippingBridge, 32 frames).
+     * art_tile = make_art_tile(ArtTile_AIZMisc2, 2, 0) → base tile 0x2E9, palette 2.
+     * <p>
+     * Note: The mapping's first pointer entry (0x78) doesn't equal the table size (0x40),
+     * so the auto-detect frame count method would compute 60 instead of 32. Uses explicit
+     * frame count.
+     */
+    public ObjectSpriteSheet buildFlippingBridgeSheet() {
+        if (reader == null) return null;
+        List<SpriteMappingFrame> frames = S3kSpriteDataLoader.loadMappingFrames(
+                reader, Sonic3kConstants.MAP_AIZ_FLIPPING_BRIDGE_ADDR, 32);
+        if (frames.isEmpty()) return null;
+
+        int minTile = Integer.MAX_VALUE;
+        int maxTile = Integer.MIN_VALUE;
+        for (SpriteMappingFrame frame : frames) {
+            for (SpriteMappingPiece piece : frame.pieces()) {
+                minTile = Math.min(minTile, piece.tileIndex());
+                int pieceTiles = piece.widthTiles() * piece.heightTiles();
+                maxTile = Math.max(maxTile, piece.tileIndex() + pieceTiles);
+            }
+        }
+        if (minTile == Integer.MAX_VALUE) return null;
+
+        return buildLevelArtSheet(Sonic3kConstants.ARTTILE_AIZ_MISC2, 2, frames, minTile, maxTile);
+    }
+
     // ===== AIZ Spiked Log sprite sheet (parsed from ROM) =====
 
     /**

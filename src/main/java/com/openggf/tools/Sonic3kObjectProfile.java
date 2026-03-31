@@ -66,6 +66,7 @@ public class Sonic3kObjectProfile implements GameObjectProfile {
             0x2A, // CorkFloor
             0x2F, // StillSprite
             0x30, // AnimatedStillSprite
+            0x33, // Button
             0x34, // StarPost
             0x51, // FloatingPlatform
             0x80, // HiddenMonitor
@@ -85,6 +86,7 @@ public class Sonic3kObjectProfile implements GameObjectProfile {
                 0x09, // AIZ1Tree
                 0x0A, // AIZ1ZiplinePeg
                 0x0C, // AIZGiantRideVine
+                0x2B, // AIZFlippingBridge
                 0x2C, // AIZCollapsingLogBridge
                 0x2D, // AIZFallingLog
                 0x2E, // AIZSpikedLog
