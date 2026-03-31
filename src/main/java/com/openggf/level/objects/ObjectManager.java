@@ -4246,9 +4246,9 @@ public class ObjectManager {
                 if (apply && !skipSideEffects) {
                     if (postMovement) {
                         // Post-movement pass (S1 UNIFIED): ROM-accurate behavior.
-                        // d0==0 → no speed zeroing, no position change.
-                        // d0!=0 → speed zeroing if movingInto, position correction
-                        // via pixel-only subtraction (preserves subpixels).
+                        // ROM: Solid_Left zeros speed BEFORE the airborne check.
+                        // Speed is zeroed when movingInto regardless of air state.
+                        // The airborne check only affects the PUSH flag, not speed.
                         if (distX != 0 && movingInto) {
                             player.setXSpeed((short) 0);
                             player.setGSpeed((short) 0);
