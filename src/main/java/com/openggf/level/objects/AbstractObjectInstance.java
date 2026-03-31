@@ -70,6 +70,16 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     private boolean skipTouchThisFrame;
 
     /**
+     * ROM parity: Objects skip SolidObject on their first frame because obRender bit 7
+     * (set by DisplaySprite) hasn't been set yet. The object's init routine sets
+     * obRender to 4 (no bit 7), then DisplaySprite sets bit 7 if on-screen. On the next
+     * frame, the routine checks bit 7 and proceeds with SolidObject.
+     * <p>
+     * This flag starts true and is cleared after the first {@link #snapshotPreUpdatePosition()}.
+     */
+    private boolean solidContactFirstFrame = true;
+
+    /**
      * ROM parity: Object slot index matching the Mega Drive's Object Status Table.
      * <p>
      * In the ROM, ExecuteObjects processes slots 0-127 sequentially. The d7 register
@@ -149,6 +159,9 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
         // Clear same-frame spawn flag: this object has survived one full frame
         // and is now eligible for touch collision checks.
         skipTouchThisFrame = false;
+        // Clear first-frame flag: object has completed one frame cycle.
+        // ROM: obRender bit 7 is now set by DisplaySprite, so SolidObject runs.
+        solidContactFirstFrame = false;
     }
 
     @Override
@@ -164,6 +177,11 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     @Override
     public boolean isSkipTouchThisFrame() {
         return skipTouchThisFrame;
+    }
+
+    @Override
+    public boolean isSkipSolidContactThisFrame() {
+        return solidContactFirstFrame;
     }
 
     /**

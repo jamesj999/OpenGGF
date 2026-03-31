@@ -75,6 +75,17 @@ public interface ObjectInstance {
         return false;
     }
 
+    /**
+     * Returns true if this object should skip SolidObject checks this frame.
+     * ROM parity: on the first frame of an object's existence, obRender bit 7
+     * is not yet set (DisplaySprite hasn't run), so the object's update skips
+     * the SolidObject call. See "tst.b obRender(a0) / bpl.s" pattern in many
+     * S1 objects (e.g., 46 MZ Bricks, 26 Monitor).
+     */
+    default boolean isSkipSolidContactThisFrame() {
+        return false;
+    }
+
     void update(int frameCounter, PlayableEntity player);
 
     void appendRenderCommands(List<GLCommand> commands);

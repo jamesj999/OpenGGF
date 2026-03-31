@@ -122,6 +122,7 @@ public abstract class AbstractTraceReplayTest {
 
             // 5. Run frame-by-frame comparison
             TraceBinder binder = new TraceBinder(tolerances());
+            int firstSubDivFrame = -1;
 
             for (int i = 0; i < trace.frameCount(); i++) {
                 TraceFrame expected = trace.getFrame(i);
@@ -161,6 +162,23 @@ public abstract class AbstractTraceReplayTest {
                     sprite.getGroundMode().ordinal(),
                     engineDiag);
 
+                // Track first subpixel divergence (before it becomes pixel-level)
+                if (firstSubDivFrame < 0 && expected.xSub() > 0) {
+                    int engXSub = sprite.getXSubpixelRaw();
+                    int romXSub = expected.xSub();
+                    int engYSub = sprite.getYSubpixelRaw();
+                    int romYSub = expected.ySub();
+                    if (engXSub != romXSub || engYSub != romYSub) {
+                        firstSubDivFrame = expected.frame();
+                        System.out.printf("FIRST SUB DIVERGENCE at frame %d: xsub ROM=0x%04X ENG=0x%04X " +
+                            "ysub ROM=0x%04X ENG=0x%04X cx=0x%04X cy=0x%04X xs=%d/%d ys=%d/%d air=%b/%b%n",
+                            expected.frame(), romXSub, engXSub, romYSub, engYSub,
+                            sprite.getCentreX(), sprite.getCentreY(),
+                            sprite.getXSpeed(), expected.xSpeed(),
+                            sprite.getYSpeed(), expected.ySpeed(),
+                            sprite.getAir(), expected.air());
+                    }
+                }
 
 
             }
@@ -258,8 +276,12 @@ public abstract class AbstractTraceReplayTest {
             }
         }
 
+        // Subpixels for cross-referencing with ROM trace sub=(xsub,ysub)
+        int xSub = sprite.getXSubpixelRaw();
+        int ySub = sprite.getYSubpixelRaw();
+
         return new EngineDiagnostics(routine, standOnSlot, standOnType, rings, statusByte, camX,
-                cursorIdx, leftCursorIdx, fwdCtr, bwdCtr, "");
+                cursorIdx, leftCursorIdx, fwdCtr, bwdCtr, "", xSub, ySub);
     }
 
     private void writeReport(DivergenceReport report, TraceMetadata meta) {

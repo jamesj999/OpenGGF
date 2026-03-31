@@ -3607,6 +3607,15 @@ public class ObjectManager {
                     continue;
                 }
 
+                // ROM parity: Objects skip SolidObject on their first frame because
+                // obRender bit 7 hasn't been set yet (DisplaySprite hasn't run).
+                // Exception: the currently-ridden object must not be skipped, since
+                // the ROM's ExitPlatform path (top of SolidObject) doesn't check
+                // obRender — it always processes the standing player.
+                if (instance.isSkipSolidContactThisFrame() && instance != ridingObject) {
+                    continue;
+                }
+
                 if (provider instanceof MultiPieceSolidProvider multiPiece) {
                     MultiPieceContactResult result = processMultiPieceCollision(
                             player, multiPiece, instance, frameCounter, provider.usesStickyContactBuffer());
@@ -3664,6 +3673,7 @@ public class ObjectManager {
                             provider.isTopSolidOnly(), provider.hasMonitorSolidity(),
                             useStickyBuffer, instance, true);
                 }
+
                 if (contact == null) {
                     continue;
                 }
@@ -3875,15 +3885,15 @@ public class ObjectManager {
                 distY = relY - (maxTop * 2);
             }
 
-            // SPG: Landing check - player Y relative to top of combined box must be < 16
-            // AND player X must be within monitor width + 4px margin on each side
-            // distY represents playerY - topCombinedBox when relY <= maxTop
+            // ROM: Mon_SolidSides checks cmpi.w #$10,d3 — relY < 16 means near-top zone
             boolean canLand = distY >= 0 && distY < 16;
 
-            // Check X margin for landing: player must be within halfWidth + 4 of center
-            // relX is already relative to left edge, so center-relative = relX - halfWidth
+            // ROM: Mon_SolidSides narrow top landing zone uses obActWid+4, NOT
+            // the full collision halfWidth. obActWid = halfWidth - $B (the $B comes
+            // from the "addi.w #$B,d1" that creates the collision box from obActWid).
+            // So the landing margin = (halfWidth - $B) + 4 = halfWidth - 7.
             int xFromCenter = relX - halfWidth;
-            int landingXMargin = halfWidth + 4;
+            int landingXMargin = halfWidth - 7;
             boolean withinLandingX = Math.abs(xFromCenter) <= landingXMargin;
 
             if (canLand && withinLandingX) {
@@ -4350,8 +4360,14 @@ public class ObjectManager {
                 allowedHalfWidth = collisionHalfWidth;
             }
 
+            // ROM: Solid_Landed checks: d1 = playerX + obActWid - objX,
+            // bmi.s Solid_Miss (d1 < 0), cmp.w d2,d1 / bhs.s Solid_Miss (d1 >= width*2).
+            // Range for d1: [0, allowedHalfWidth*2) — inclusive left, exclusive right.
+            // Using abs() would be symmetric and include the right boundary, causing
+            // false landings at the exact right edge.
             int xFromCenter = relX - collisionHalfWidth;
-            return Math.abs(xFromCenter) <= allowedHalfWidth;
+            int d1 = xFromCenter + allowedHalfWidth;
+            return d1 >= 0 && d1 < allowedHalfWidth * 2;
         }
 
         private boolean usesUnifiedCollisionModel(PlayableEntity player) {
