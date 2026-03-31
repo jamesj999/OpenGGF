@@ -80,6 +80,9 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
 
     // Platform surface half-height for solid collision
     private static final int HALF_HEIGHT = 0x08;
+    // ROM: MvSonicOnPtfm2 hardcodes "subi.w #9,d0" for riding Y snap.
+    // The standing calculation is objY - 9 - yRadius, NOT objY - HALF_HEIGHT - yRadius.
+    private static final int MV_SONIC_OFFSET = 9;
 
     // Type 01: move.w #$60,d1 — horizontal oscillation amplitude
     private static final int TYPE01_AMPLITUDE = 0x60;
@@ -229,7 +232,7 @@ public class Sonic1MovingBlockObjectInstance extends AbstractObjectInstance
 
     @Override
     public SolidObjectParams getSolidParams() {
-        return new SolidObjectParams(activeWidth, HALF_HEIGHT, HALF_HEIGHT);
+        return new SolidObjectParams(activeWidth, HALF_HEIGHT, MV_SONIC_OFFSET);
     }
 
     @Override
