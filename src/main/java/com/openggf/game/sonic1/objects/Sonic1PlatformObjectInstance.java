@@ -50,8 +50,8 @@ public class Sonic1PlatformObjectInstance extends AbstractObjectInstance
     // From disassembly: move.b #$20,obActWid(a0)
     private static final int HALF_WIDTH = 0x20;
 
-    // Platform surface height for SolidObjectParams (platform is thin)
-    private static final int HALF_HEIGHT = 0x08;
+    // MvSonicOnPtfm2 hardcodes "subi.w #9,d0" for the ground half-height.
+    private static final int HALF_HEIGHT = 9;
 
     // From disassembly: move.b #4,obPriority(a0)
     private static final int PRIORITY = 4;

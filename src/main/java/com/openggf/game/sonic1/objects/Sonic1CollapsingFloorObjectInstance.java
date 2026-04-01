@@ -64,9 +64,8 @@ public class Sonic1CollapsingFloorObjectInstance extends AbstractObjectInstance
     // From disassembly: move.w #$20,d1 (half-width for PlatformObject)
     private static final int PLATFORM_HALF_WIDTH = 0x20;
 
-    // PlatformObject applies subq.w #8,d0 to place the platform surface
-    // 8 pixels above the object's Y center. Model this as half-height = 8.
-    private static final int PLATFORM_HALF_HEIGHT = 0x08;
+    // MvSonicOnPtfm2 hardcodes "subi.w #9,d0" for the ground half-height.
+    private static final int PLATFORM_HALF_HEIGHT = 9;
 
     // From disassembly: move.b #$44,obActWid(a0)
     private static final int ACTIVE_WIDTH = 0x44;

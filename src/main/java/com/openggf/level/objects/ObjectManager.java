@@ -2718,9 +2718,13 @@ public class ObjectManager {
                     continue;
                 }
 
-                // ROM parity: ReactToItem sees enemies at their pre-update collision type.
-                // Use pre-update flags when available to match ROM timing where
-                // ReactToItem runs before later objects update their collision state.
+                // ROM parity: Objects on their first frame haven't had their position/flags
+                // snapshotted yet. In the ROM, these objects were created by a higher-slot
+                // maker that runs AFTER Sonic's ReactToItem — so they don't exist yet.
+                // Also use pre-update collision flags when available to match ROM timing.
+                if (instance.isSkipSolidContactThisFrame()) {
+                    continue;
+                }
                 int preFlags = instance.getPreUpdateCollisionFlags();
                 int flags = (preFlags >= 0) ? preFlags : provider.getCollisionFlags();
                 if (flags == 0) {
