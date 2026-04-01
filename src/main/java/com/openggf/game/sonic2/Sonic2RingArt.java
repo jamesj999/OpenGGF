@@ -20,6 +20,7 @@ public class Sonic2RingArt {
     private static final int RING_MAPPING_BASE_ADDR = 0x12382;
     private static final int RING_PALETTE_INDEX = 1;
     private static final int RING_FRAME_DELAY = 8;
+    private static final int SPARKLE_FRAME_DELAY = 8;
     private static final int RING_ANIMATION_FRAME_COUNT = 4; // Excludes pickup sparkle frames.
 
     private final Rom rom;
@@ -40,7 +41,7 @@ public class Sonic2RingArt {
         RingFrameSet frameSet = loadRingFrames();
 
         cached = new RingSpriteSheet(patterns, frameSet.frames(), RING_PALETTE_INDEX, RING_FRAME_DELAY,
-                frameSet.spinFrameCount(), frameSet.sparkleFrameCount());
+                SPARKLE_FRAME_DELAY, frameSet.spinFrameCount(), frameSet.sparkleFrameCount());
         return cached;
     }
 

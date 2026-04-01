@@ -32,6 +32,7 @@ public class Sonic3kRingArt {
 
     private static final int RING_PALETTE_INDEX = 1;
     private static final int RING_FRAME_DELAY = 8;
+    private static final int SPARKLE_FRAME_DELAY = 5;
     private static final int SPIN_FRAME_COUNT = 4;
     private static final int SPARKLE_FRAME_COUNT = 4;
     /** Number of 8x8 patterns used by ring sprite frames (tiles 0-13). */
@@ -53,7 +54,7 @@ public class Sonic3kRingArt {
         List<RingFrame> frames = buildRingFrames();
 
         cached = new RingSpriteSheet(patterns, frames, RING_PALETTE_INDEX, RING_FRAME_DELAY,
-                SPIN_FRAME_COUNT, SPARKLE_FRAME_COUNT);
+                SPARKLE_FRAME_DELAY, SPIN_FRAME_COUNT, SPARKLE_FRAME_COUNT);
         return cached;
     }
 
