@@ -90,8 +90,14 @@ public class TestHTZRisingLavaDisassemblyParity {
     @Test
     public void obj30Subtype6And8FollowRouteSplitAt380() {
         GameServices.gameState().setHtzScreenShakeActive(true);
-        ObjectServices services = new TestObjectServices().withCamera(camera)
-                .withGameState(GameServices.gameState());
+        // Wire in levelEvents so that update() can call getCameraBgYOffset() for
+        // enabled objects without hitting a NullPointerException.
+        ObjectServices services = new TestObjectServices() {
+            @Override
+            public com.openggf.game.LevelEventProvider levelEventProvider() {
+                return levelEvents;
+            }
+        }.withCamera(camera).withGameState(GameServices.gameState());
 
         camera.setY((short) 0x200); // top route
         setConstructionContext(services);
@@ -105,6 +111,9 @@ public class TestHTZRisingLavaDisassemblyParity {
         }
         subtype6Top.setServices(services);
         subtype8Top.setServices(services);
+        // update() triggers ensureInitialized(), which reads camera Y to set routeEnabled
+        subtype6Top.update(0, null);
+        subtype8Top.update(0, null);
         assertFalse(subtype6Top.isSolidFor(null));
         assertTrue(subtype8Top.isSolidFor(null));
 
@@ -120,6 +129,9 @@ public class TestHTZRisingLavaDisassemblyParity {
         }
         subtype6Bottom.setServices(services);
         subtype8Bottom.setServices(services);
+        // update() triggers ensureInitialized(), which reads camera Y to set routeEnabled
+        subtype6Bottom.update(0, null);
+        subtype8Bottom.update(0, null);
         assertTrue(subtype6Bottom.isSolidFor(null));
         assertFalse(subtype8Bottom.isSolidFor(null));
     }
