@@ -68,6 +68,17 @@ public abstract class AbstractObjectRegistry implements ObjectRegistry {
     }
 
     /**
+     * Returns the currently loaded {@link com.openggf.level.Level}, or {@code null} when
+     * no level is active yet. Centralized here so per-game registries don't need their
+     * own direct {@link LevelManager#getInstance()} calls (which are guarded by
+     * {@code TestRuntimeSingletonGuard}).
+     */
+    protected com.openggf.level.Level currentLevel() {
+        LevelManager levelManager = LevelManager.getInstance();
+        return levelManager != null ? levelManager.getCurrentLevel() : null;
+    }
+
+    /**
      * Lazily initialises the registry on first access.
      * Subclasses may override to perform additional setup (e.g. loading name tables)
      * but <em>must</em> call {@code super.ensureLoaded()} first.
