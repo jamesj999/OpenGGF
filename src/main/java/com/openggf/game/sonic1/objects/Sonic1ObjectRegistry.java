@@ -27,6 +27,12 @@ import com.openggf.game.sonic1.objects.bosses.Sonic1FZBossInstance;
 import com.openggf.game.sonic1.objects.bosses.Sonic1FalseFloorInstance;
 import com.openggf.game.sonic1.objects.bosses.Sonic1ScrapEggmanInstance;
 import com.openggf.level.objects.AbstractObjectRegistry;
+import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.rings.RingSpawn;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Object registry for Sonic the Hedgehog 1.
@@ -34,12 +40,10 @@ import com.openggf.level.objects.AbstractObjectRegistry;
  */
 public class Sonic1ObjectRegistry extends AbstractObjectRegistry {
 
-    private java.util.Map<com.openggf.level.objects.ObjectSpawn, java.util.List<com.openggf.level.rings.RingSpawn>> ringSpawnMapping =
-            java.util.Map.of();
+    private Map<ObjectSpawn, List<RingSpawn>> ringSpawnMapping = Map.of();
 
-    public void setRingSpawnMapping(
-            java.util.Map<com.openggf.level.objects.ObjectSpawn, java.util.List<com.openggf.level.rings.RingSpawn>> mapping) {
-        this.ringSpawnMapping = mapping != null ? mapping : java.util.Map.of();
+    public void setRingSpawnMapping(Map<ObjectSpawn, List<RingSpawn>> mapping) {
+        this.ringSpawnMapping = mapping != null ? mapping : Map.of();
     }
 
     /**
@@ -47,7 +51,7 @@ public class Sonic1ObjectRegistry extends AbstractObjectRegistry {
      * {@link Sonic1Level} via {@link #currentLevel()}. Falls back to the locally-set
      * mapping (e.g. for tests that construct the registry without a live level).
      */
-    private java.util.Map<com.openggf.level.objects.ObjectSpawn, java.util.List<com.openggf.level.rings.RingSpawn>> currentRingSpawnMapping() {
+    private Map<ObjectSpawn, List<RingSpawn>> currentRingSpawnMapping() {
         if (currentLevel() instanceof Sonic1Level s1Level) {
             return s1Level.getRingSpawnMapping();
         }
@@ -61,12 +65,10 @@ public class Sonic1ObjectRegistry extends AbstractObjectRegistry {
         // and manages its own sparkle countdown. Rendering/collection by RingManager.
         factories.put(Sonic1ObjectIds.RING,
                 (spawn, registry) -> {
-                    java.util.List<com.openggf.level.rings.RingSpawn> ringSpawns =
-                            currentRingSpawnMapping().get(spawn);
+                    List<RingSpawn> ringSpawns = currentRingSpawnMapping().get(spawn);
                     if (ringSpawns == null || ringSpawns.isEmpty()) {
                         // Fallback: single ring at spawn position
-                        ringSpawns = java.util.List.of(
-                                new com.openggf.level.rings.RingSpawn(spawn.x(), spawn.y()));
+                        ringSpawns = List.of(new RingSpawn(spawn.x(), spawn.y()));
                     }
                     return new Sonic1RingInstance(spawn, ringSpawns);
                 });

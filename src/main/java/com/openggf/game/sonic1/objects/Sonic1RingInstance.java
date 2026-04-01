@@ -28,19 +28,12 @@ public class Sonic1RingInstance extends AbstractObjectInstance implements TouchR
     /** S1 ring collision type: $47 = powerup category ($40) + size index 7. */
     public static final int RING_COLLISION_FLAGS = 0x47;
 
-    /**
-     * ROM parity: sparkle countdown from collection detection to slot release.
-     * S1: 4 sparkle frames × 6 VBlanks/frame + 1 Ring_Delete frame = 25.
-     */
-    private static final int SPARKLE_SLOT_COUNTDOWN = 25;
-
     private enum State { INIT, ANIMATE, SPARKLE }
 
     private final RingSpawn ringSpawn;
     private final List<RingSpawn> childRingSpawns;
 
     private State state;
-    private int sparkleCountdown;
 
     /**
      * Creates a parent ring instance from a layout entry.
@@ -81,12 +74,12 @@ public class Sonic1RingInstance extends AbstractObjectInstance implements TouchR
                 RingManager ringManager = services().ringManager();
                 if (ringManager != null && ringManager.isCollected(ringSpawn)) {
                     state = State.SPARKLE;
-                    sparkleCountdown = SPARKLE_SLOT_COUNTDOWN;
                 }
             }
             case SPARKLE -> {
-                sparkleCountdown--;
-                if (sparkleCountdown <= 0) {
+                RingManager ringManager = services().ringManager();
+                if (ringManager == null || ringManager.isCollectedAndSparkleDone(
+                        ringSpawn.x(), ringSpawn.y(), frameCounter)) {
                     setDestroyed(true);
                 }
             }
