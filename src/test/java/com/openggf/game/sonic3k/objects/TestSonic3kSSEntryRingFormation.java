@@ -235,6 +235,9 @@ public class TestSonic3kSSEntryRingFormation {
         gameState.markSpecialRingCollected(3);
 
         Sonic3kSSEntryRingObjectInstance ring = createRing(3);
+        // ensureInitialized() is called lazily on the first update(), not in the constructor.
+        // One update call triggers the collected-state check and sets destroyed=true.
+        ring.update(1, null);
         assertTrue("Collected ring should be immediately destroyed", ring.isDestroyed());
     }
 
