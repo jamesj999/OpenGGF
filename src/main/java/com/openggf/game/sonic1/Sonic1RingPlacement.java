@@ -51,10 +51,13 @@ public class Sonic1RingPlacement {
     /**
      * Result of extracting rings from the object list.
      *
-     * @param rings            expanded individual ring positions
-     * @param remainingObjects objects with ring entries removed
+     * @param rings              expanded individual ring positions for RingManager
+     * @param remainingObjects   all objects INCLUDING ring entries (0x25)
+     * @param ringSpawnMapping   maps each ring ObjectSpawn to its expanded RingSpawn positions
+     *                           (index 0 = parent position, 1..N = children)
      */
-    public record Result(List<RingSpawn> rings, List<ObjectSpawn> remainingObjects) {}
+    public record Result(List<RingSpawn> rings, List<ObjectSpawn> remainingObjects,
+                         java.util.Map<ObjectSpawn, List<RingSpawn>> ringSpawnMapping) {}
 
     /**
      * Separates ring objects from the full object list, expanding each ring
@@ -66,16 +69,21 @@ public class Sonic1RingPlacement {
     public Result extract(List<ObjectSpawn> allObjects) {
         List<RingSpawn> rings = new ArrayList<>();
         List<ObjectSpawn> remaining = new ArrayList<>();
+        java.util.Map<ObjectSpawn, List<RingSpawn>> mapping = new java.util.IdentityHashMap<>();
 
         for (ObjectSpawn spawn : allObjects) {
             if (spawn.objectId() == RING_OBJECT_ID) {
-                expandRing(spawn, rings);
-            } else {
-                remaining.add(spawn);
+                List<RingSpawn> expanded = new ArrayList<>();
+                expandRing(spawn, expanded);
+                rings.addAll(expanded);
+                mapping.put(spawn, List.copyOf(expanded));
             }
+            // All objects stay in the list (ring objects no longer removed)
+            remaining.add(spawn);
         }
 
-        return new Result(List.copyOf(rings), List.copyOf(remaining));
+        return new Result(List.copyOf(rings), List.copyOf(remaining),
+                java.util.Collections.unmodifiableMap(mapping));
     }
 
     /**
