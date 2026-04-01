@@ -159,7 +159,7 @@ public class TestSolidObjectManager {
     }
 
     @Test
-    public void testSonic1TopSolidLandsNearEdgeWithoutSidePriorityMiss() {
+    public void testSonic1TopSolidEdgeLandingZoneRejectionAndAcceptance() {
         GameModule previous = GameModuleRegistry.getCurrent();
         GameModuleRegistry.setCurrent(new Sonic1GameModule());
         try {
@@ -167,22 +167,40 @@ public class TestSolidObjectManager {
             TestSolidObject object = new TestSolidObject(100, 100, params, true);
             ObjectManager manager = buildManager(object);
 
-            TestPlayableSprite player = new TestPlayableSprite((short) 0, (short) 0);
-            player.setWidth(20);
-            player.setHeight(20);
-            player.setAir(true);
-            player.setYSpeed((short) 0x100);
-
-            // Near left edge (small absDistX), but within S1 top landing window.
-            player.setCentreX((short) (100 - params.halfWidth() + 5));
-            int maxTop = params.groundHalfHeight() + player.getYRadius();
+            // S1 uses obActWid = halfWidth - 0x0B = 21px as the top-landing half-width.
+            // Player at 5px inside the COLLISION edge (X = 100 - 32 + 5 = 73) is OUTSIDE
+            // the 21px landing zone (valid range: [79, 121]). Landing must fail.
+            TestPlayableSprite playerOutside = new TestPlayableSprite((short) 0, (short) 0);
+            playerOutside.setWidth(20);
+            playerOutside.setHeight(20);
+            playerOutside.setAir(true);
+            playerOutside.setYSpeed((short) 0x100);
+            int maxTop = params.groundHalfHeight() + playerOutside.getYRadius();
             int targetDistY = 10;
-            player.setCentreY((short) (100 - 4 - maxTop + targetDistY));
+            int centreY = 100 - 4 - maxTop + targetDistY;
+            playerOutside.setCentreX((short) (100 - params.halfWidth() + 5)); // X = 73
+            playerOutside.setCentreY((short) centreY);
 
-            manager.updateSolidContacts(player);
+            manager.updateSolidContacts(playerOutside);
 
-            assertTrue(player.isOnObject());
-            assertFalse(player.getAir());
+            assertFalse(playerOutside.isOnObject());
+            assertTrue(playerOutside.getAir());
+
+            // Player at 5px inside the LANDING ZONE edge (X = 100 - 21 + 5 = 84) is INSIDE
+            // the 21px landing zone. Landing must succeed.
+            int landingHalfWidth = params.halfWidth() - 0x0B; // 32 - 11 = 21
+            TestPlayableSprite playerInside = new TestPlayableSprite((short) 0, (short) 0);
+            playerInside.setWidth(20);
+            playerInside.setHeight(20);
+            playerInside.setAir(true);
+            playerInside.setYSpeed((short) 0x100);
+            playerInside.setCentreX((short) (100 - landingHalfWidth + 5)); // X = 84
+            playerInside.setCentreY((short) centreY);
+
+            manager.updateSolidContacts(playerInside);
+
+            assertTrue(playerInside.isOnObject());
+            assertFalse(playerInside.getAir());
         } finally {
             GameModuleRegistry.setCurrent(previous);
         }
