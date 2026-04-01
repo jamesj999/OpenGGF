@@ -2718,11 +2718,17 @@ public class ObjectManager {
                     continue;
                 }
 
-                // ROM parity: Objects on their first frame haven't had their position/flags
-                // snapshotted yet. In the ROM, these objects were created by a higher-slot
-                // maker that runs AFTER Sonic's ReactToItem — so they don't exist yet.
-                // Also use pre-update collision flags when available to match ROM timing.
+                // ROM parity: ReactToItem checks "tst.b obRender(a1) / bpl.s .next"
+                // for each object. If obRender bit 7 is clear (object not yet displayed
+                // by DisplaySprite), the entire object is skipped. This covers:
+                // (a) First-frame objects whose DisplaySprite hasn't run yet
+                // (b) Objects that were offscreen on the previous frame
+                // (c) Objects created by higher-slot makers that haven't run yet
+                // Use isOnScreen() as the engine's equivalent of obRender bit 7.
                 if (instance.isSkipSolidContactThisFrame()) {
+                    continue;
+                }
+                if (instance instanceof AbstractObjectInstance aoi && !aoi.isOnScreenForTouch()) {
                     continue;
                 }
                 int preFlags = instance.getPreUpdateCollisionFlags();
