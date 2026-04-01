@@ -88,7 +88,7 @@ public class Sonic1RingPlacement {
 
     /**
      * Returns the (deltaX, deltaY) spacing for the given ring subtype.
-     * Used by the phantom ring system to compute child ring positions.
+     * Used by Sonic1RingInstance to compute child ring positions.
      *
      * @param subtype the ring object's subtype byte
      * @return int array {deltaX, deltaY} in pixels

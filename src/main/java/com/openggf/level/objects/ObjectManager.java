@@ -1057,8 +1057,8 @@ public class ObjectManager {
 
     /**
      * Releases this object's own slot back to the pool while keeping the object
-     * alive. Used by phantom ring objects that need to continue monitoring children
-     * after their parent ring has been collected and its slot should be reusable.
+     * alive. Used by objects (e.g., ChainedStomper) that need to continue monitoring
+     * children after their parent slot should be reusable.
      * <p>
      * ROM parity: In the ROM, each ring calls DeleteObject individually after
      * Ring_Sparkle completes. The parent ring's SST slot is freed when collected,
@@ -1097,7 +1097,7 @@ public class ObjectManager {
      *
      * @param instance the object whose parent slot should be released
      */
-    public void releasePhantomParentSlot(AbstractObjectInstance instance) {
+    public void releaseParentSlot(AbstractObjectInstance instance) {
         int slot = instance.getSlotIndex();
         if (slot >= DYNAMIC_SLOT_BASE) {
             releaseSlot(slot);
@@ -1108,14 +1108,14 @@ public class ObjectManager {
     /**
      * Frees a reserved child slot for an object that used getReservedChildSlotCount().
      * <p>
-     * ROM parity: In S1, each child ring calls DeleteObject after Ring_Sparkle
+     * ROM parity: In S1, each child object calls DeleteObject after its sequence
      * completes, freeing its SST slot. This method replicates that slot release
-     * for the engine's phantom ring system.
+     * for objects using the reserved child slot mechanism (e.g., ChainedStomper).
      *
      * @param spawn the parent object's spawn (used as key for the child slot array)
      * @param index the child index (0-based) to free
      */
-    public void freePhantomChildSlot(ObjectSpawn spawn, int index) {
+    public void freeReservedChildSlot(ObjectSpawn spawn, int index) {
         int[] childSlots = reservedChildSlots.get(spawn);
         if (childSlots != null && index >= 0 && index < childSlots.length) {
             int slot = childSlots[index];
