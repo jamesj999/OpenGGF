@@ -301,6 +301,13 @@ public class CollisionSystem {
     public void resolveGroundAttachment(AbstractPlayableSprite sprite,
                                         int positiveThreshold,
                                         BooleanSupplier hasObjectSupport) {
+        // ROM: Sonic_AnglePos runs unconditionally — even when standing on an object.
+        // However, terrain floor snapping and angle updates conflict with the platform's
+        // own Y positioning (MvSonicOnPtfm). The ROM resolves this by running AnglePos
+        // first (probing terrain), then the platform overrides Y via MvSonicOnPtfm.
+        // The engine can't replicate this order (platform riding runs after physics).
+        // Skip the full terrain attachment when on an object — the platform handles Y,
+        // and the X carry comes from the riding deltaX mechanism.
         if (sprite.isOnObject()) {
             return;
         }
