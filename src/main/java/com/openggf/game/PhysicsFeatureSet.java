@@ -22,6 +22,15 @@ public record PhysicsFeatureSet(
         /** Bitmask for scattered ring floor-check frequency.
          *  S1: 0x03 (every 4 frames, andi.b #3,d0). S2/S3K: 0x07 (every 8 frames, andi.b #7,d0). */
         int ringFloorCheckMask,
+        /** Ring touch collision half-width in pixels.
+         *  S1/S2: 6 (obColType $47, size index $07). S3K: 8 (x_radius in Obj_Attracted_Ring). */
+        int ringCollisionWidth,
+        /** Ring touch collision half-height in pixels.
+         *  S1/S2: 6 (obColType $47, size index $07). S3K: 8 (y_radius in Obj_Attracted_Ring). */
+        int ringCollisionHeight,
+        /** Whether lightning shield ring attraction is active.
+         *  S3K: true. S1/S2: false (no elemental shields). */
+        boolean lightningShieldEnabled,
         /** Spindash speed table used when in Super/Hyper form.
          *  S3K: word_11D04 (sonic3k.asm:23743), higher speeds ($B00-$F00). S1/S2: null (use normal table). */
         short[] superSpindashSpeedTable,
@@ -53,13 +62,21 @@ public record PhysicsFeatureSet(
     /** S2/S3K: floor check every 8 frames (s2.asm:25067 / sonic3k.asm: andi.b #7,d0). */
     public static final int RING_FLOOR_CHECK_MASK_S2 = 0x07;
 
+    /** S1/S2: ring collision half-size 6px (obColType $47, size index $07). */
+    public static final int RING_COLLISION_SIZE_S1 = 6;
+    /** S1/S2: ring collision half-size 6px (obColType $47, size index $07). */
+    public static final int RING_COLLISION_SIZE_S2 = 6;
+    /** S3K: ring collision half-size 8px (x_radius/y_radius in Obj_Attracted_Ring). */
+    public static final int RING_COLLISION_SIZE_S3K = 8;
+
     /** Sonic 1: no spindash, single collision path, fixed AnglePos threshold, instant look scroll, water shimmer,
      *  always caps ground speed on input (s1disasm/_incObj/01 Sonic.asm:554-558),
      *  no angle diff cardinal snap (s1disasm Sonic_Angle directly applies sensor angle),
      *  simple edge balance: single animation, always faces edge (s1disasm/_incObj/01 Sonic.asm:354-375). */
     public static final PhysicsFeatureSet SONIC_1 = new PhysicsFeatureSet(
             false, null, CollisionModel.UNIFIED, true, LOOK_SCROLL_DELAY_NONE, true, true, false, false, false, false,
-            RING_FLOOR_CHECK_MASK_S1, null, (short) 0, true, false, false);
+            RING_FLOOR_CHECK_MASK_S1, RING_COLLISION_SIZE_S1, RING_COLLISION_SIZE_S1, false,
+            null, (short) 0, true, false, false);
 
     /** Sonic 2: spindash with standard speed table (s2.asm:37294), dual collision paths, delayed look scroll,
      *  preserves high ground speed on input (s2.asm:36610-36616),
@@ -68,7 +85,8 @@ public record PhysicsFeatureSet(
     public static final PhysicsFeatureSet SONIC_2 = new PhysicsFeatureSet(true, new short[]{
             0x0800, 0x0880, 0x0900, 0x0980, 0x0A00, 0x0A80, 0x0B00, 0x0B80, 0x0C00
     }, CollisionModel.DUAL_PATH, false, LOOK_SCROLL_DELAY_S2, false, false, false, false, true, true,
-            RING_FLOOR_CHECK_MASK_S2, null, (short) 0, true, false, true);
+            RING_FLOOR_CHECK_MASK_S2, RING_COLLISION_SIZE_S2, RING_COLLISION_SIZE_S2, false,
+            null, (short) 0, true, false, true);
 
     /** Sonic 3&K: spindash with same speed table as S2, dual collision paths, delayed look scroll,
      *  preserves high ground speed on input, elemental shields,
@@ -79,7 +97,8 @@ public record PhysicsFeatureSet(
     public static final PhysicsFeatureSet SONIC_3K = new PhysicsFeatureSet(true, new short[]{
             0x0800, 0x0880, 0x0900, 0x0980, 0x0A00, 0x0A80, 0x0B00, 0x0B80, 0x0C00
     }, CollisionModel.DUAL_PATH, false, LOOK_SCROLL_DELAY_S2, false, false, true, true, true, true,
-            RING_FLOOR_CHECK_MASK_S2, new short[]{
+            RING_FLOOR_CHECK_MASK_S2, RING_COLLISION_SIZE_S3K, RING_COLLISION_SIZE_S3K, true,
+            new short[]{
             0x0B00, 0x0B80, 0x0C00, 0x0C80, 0x0D00, 0x0D80, 0x0E00, 0x0E80, 0x0F00
     }, (short) 0x100, true, true, true);
 

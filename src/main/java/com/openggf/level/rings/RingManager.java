@@ -133,7 +133,7 @@ public class RingManager {
         if (physProvider != null) {
             featureSet = physProvider.getFeatureSet();
         }
-        if (featureSet != null && featureSet.elementalShieldsEnabled()
+        if (featureSet != null && featureSet.lightningShieldEnabled()
                 && player.getShieldType() == ShieldType.LIGHTNING) {
             int pcx = player.getCentreX();
             int pcy = player.getCentreY();
@@ -145,7 +145,8 @@ public class RingManager {
                 int dx = pcx - ring.x();
                 int dy = pcy - ring.y();
                 // ROM: box check — ±$40 from player centre, extended by ring half-width
-                int effectiveHalf = ATTRACT_BOX_HALF + RING_COLLISION_HALF;
+                int ringHalf = featureSet != null ? featureSet.ringCollisionWidth() : RING_COLLISION_HALF;
+                int effectiveHalf = ATTRACT_BOX_HALF + ringHalf;
                 if (Math.abs(dx) <= effectiveHalf && Math.abs(dy) <= effectiveHalf) {
                     placement.markCollected(index);
                     addAttractedRing(index, ring.x(), ring.y());
