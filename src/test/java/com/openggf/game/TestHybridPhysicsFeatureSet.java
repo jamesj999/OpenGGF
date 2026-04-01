@@ -45,7 +45,6 @@ public class TestHybridPhysicsFeatureSet {
                 false,  // angleDiffCardinalSnap - S1
                 false,  // extendedEdgeBalance - S1
                 PhysicsFeatureSet.RING_FLOOR_CHECK_MASK_S1,  // ringFloorCheckMask - S1
-                PhysicsFeatureSet.RING_SPARKLE_DELAY_S1,  // ringSparkleDelay - S1
                 null,  // superSpindashSpeedTable - not donated
                 (short) 0,  // movingCrouchThreshold - not donated
                 false,  // groundWallCollisionEnabled - S1
