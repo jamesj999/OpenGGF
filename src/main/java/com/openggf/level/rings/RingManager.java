@@ -126,8 +126,15 @@ public class RingManager {
             player.addRings(1);
         }
 
-        // Lightning shield ring attraction
-        if (player.getShieldType() == ShieldType.LIGHTNING) {
+        // Lightning shield ring attraction — S3K only
+        PhysicsFeatureSet featureSet = null;
+        PhysicsProvider physProvider = GameModuleRegistry.getCurrent() != null
+                ? GameModuleRegistry.getCurrent().getPhysicsProvider() : null;
+        if (physProvider != null) {
+            featureSet = physProvider.getFeatureSet();
+        }
+        if (featureSet != null && featureSet.elementalShieldsEnabled()
+                && player.getShieldType() == ShieldType.LIGHTNING) {
             int pcx = player.getCentreX();
             int pcy = player.getCentreY();
             for (RingSpawn ring : active) {
