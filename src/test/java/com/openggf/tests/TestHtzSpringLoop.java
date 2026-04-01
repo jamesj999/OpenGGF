@@ -87,6 +87,15 @@ public class TestHtzSpringLoop {
         // so objects near our test position are spawned
         GameServices.level().getObjectManager().reset(fixture.camera().getX());
 
+        // Allow the spawn window to populate: objects are marked active in the
+        // placement set by reset(), but syncActiveSpawnsLoad() only instantiates
+        // them during the first objectManager.update() call.  Without these idle
+        // frames the spring instances do not exist when Sonic approaches them,
+        // so the touch-response collision that triggers the spring bounce never fires.
+        // 5 frames is enough for spring instances to be created and run their first
+        // update, and for Sonic to settle onto the floor at the test position.
+        fixture.stepIdleFrames(5);
+
         // Log initial state
         logState("Initial");
 
