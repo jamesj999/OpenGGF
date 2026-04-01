@@ -45,6 +45,9 @@ public class TestHybridPhysicsFeatureSet {
                 false,  // angleDiffCardinalSnap - S1
                 false,  // extendedEdgeBalance - S1
                 PhysicsFeatureSet.RING_FLOOR_CHECK_MASK_S1,  // ringFloorCheckMask - S1
+                PhysicsFeatureSet.RING_COLLISION_SIZE_S1,  // ringCollisionWidth - S1
+                PhysicsFeatureSet.RING_COLLISION_SIZE_S1,  // ringCollisionHeight - S1
+                false,  // lightningShieldEnabled - S1 (no elemental shields)
                 null,  // superSpindashSpeedTable - not donated
                 (short) 0,  // movingCrouchThreshold - not donated
                 false,  // groundWallCollisionEnabled - S1
