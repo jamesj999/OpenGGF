@@ -1,5 +1,6 @@
 package com.openggf.tests;
 
+import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import org.junit.After;
 import org.junit.Before;
@@ -41,6 +42,9 @@ public class TestHTZBossTouchResponse {
     @Before
     public void setUp() throws Exception {
         RuntimeManager.createGameplay();
+        // Position camera at boss arena so isOnScreenForTouch() passes for the boss.
+        // The default camera bounds (x=0, width=320) exclude HTZ_BOSS_X=0x3040.
+        GameServices.camera().setX((short) HTZ_BOSS_X);
         touchTable = mock(TouchResponseTable.class);
         when(touchTable.getWidthRadius(HTZ_BOSS_SIZE_INDEX)).thenReturn(32);
         when(touchTable.getHeightRadius(HTZ_BOSS_SIZE_INDEX)).thenReturn(32);
