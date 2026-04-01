@@ -1347,11 +1347,19 @@ public class TestS1Ghz1Headless {
     }
 
     /**
-     * Regression: if air/onObject become transiently inconsistent while still
-     * supported by an object, jump input should still launch correctly.
+     * S1-specific behaviour: when air=true and onObject=true are transiently inconsistent,
+     * jump input is silently lost.
+     *
+     * In the S1 ROM, Sonic_MdJump (the airborne dispatcher) is invoked whenever air=true,
+     * and Sonic_Jump (which reads and acts on jump input) is only called from MdNormal and
+     * MdRoll. Therefore, holding jump while in this desync state dispatches to Sonic_MdJump
+     * and the jump button press is never processed — Sonic does NOT launch.
+     *
+     * The engine uses CollisionModel.UNIFIED (S1) which correctly replicates this behaviour.
+     * This test verifies that the engine does NOT allow a jump from the desync state.
      */
     @Test
-    public void testAirOnObjectDesyncStillAllowsJump() {
+    public void testAirOnObjectDesyncDoesNotAllowJumpInS1() {
         int objectX = COLLISION_TESTBED_X;
         int objectY = COLLISION_TESTBED_FLOOR_Y;
         int halfWidth = 0x50;
@@ -1380,14 +1388,16 @@ public class TestS1Ghz1Headless {
         }
         assertTrue("Sonic should land on the test object", landedOnObject);
 
-        // Inject the transient state observed around platform contact jitter.
+        // Inject the transient desync state: air=true while onObject=true.
         fixture.sprite().setAir(true);
         fixture.sprite().setOnObject(true);
         fixture.sprite().setYSpeed((short) 0);
 
+        // In S1 the ROM dispatches to Sonic_MdJump when air=true; Sonic_Jump is never
+        // reached, so the jump button is ignored and no upward velocity is applied.
         fixture.stepFrame(false, false, false, false, true);
-        assertTrue("Jump should still launch when object support exists", fixture.sprite().getAir());
-        assertTrue("Jump should apply upward velocity", fixture.sprite().getYSpeed() < 0);
+        assertFalse("Jump must NOT apply upward velocity from the air/onObject desync state in S1",
+                fixture.sprite().getYSpeed() < 0);
     }
 
     /**
