@@ -148,6 +148,26 @@ public interface ObjectInstance {
     }
 
     /**
+     * Returns true if ObjectManager should pre-allocate child slots for this object
+     * BEFORE {@code syncActiveSpawnsLoad} runs (i.e. before ObjPosLoad).
+     * <p>
+     * ROM parity: in S1, ring objects (obj25) run Ring_Main during ExecuteObjects
+     * BEFORE ObjPosLoad. Their child allocations via FindFreeObj therefore get lower
+     * slot numbers than objects loaded by ObjPosLoad in the same frame. Returning
+     * {@code true} here causes {@link #getReservedChildSlotCount()} slots to be
+     * reserved before ObjPosLoad, giving children the correct lower slot numbers.
+     * <p>
+     * Objects that self-allocate child slots from within their own {@code update()}
+     * (e.g. ChainedStomper via {@code allocateChildSlotsAfter}) should return
+     * {@code false} to avoid double-allocation.
+     *
+     * @return {@code false} by default (self-allocating objects keep current behavior)
+     */
+    default boolean needsPreAllocatedChildSlots() {
+        return false;
+    }
+
+    /**
      * Called when this object is being unloaded from the active object list.
      * Override to perform cleanup when the object goes off-screen or is removed.
      * Default implementation does nothing.

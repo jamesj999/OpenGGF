@@ -4,6 +4,7 @@ import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic1.Sonic1RingPlacement;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.rings.RingManager;
@@ -64,6 +65,16 @@ public class Sonic1RingInstance extends AbstractObjectInstance implements TouchR
     }
 
     @Override
+    public int getReservedChildSlotCount() {
+        return childRingSpawns.size();
+    }
+
+    @Override
+    public boolean needsPreAllocatedChildSlots() {
+        return !childRingSpawns.isEmpty();
+    }
+
+    @Override
     public void update(int frameCounter, PlayableEntity player) {
         switch (state) {
             case INIT -> {
@@ -97,11 +108,24 @@ public class Sonic1RingInstance extends AbstractObjectInstance implements TouchR
         int baseX = spawn.x();
         int baseY = spawn.y();
 
+        ObjectManager om = services().objectManager();
         for (int i = 0; i < childRingSpawns.size(); i++) {
             int childX = baseX + (i + 1) * dx;
             int childY = baseY + (i + 1) * dy;
             RingSpawn childRing = childRingSpawns.get(i);
-            spawnChild(() -> new Sonic1RingInstance(buildSpawnAt(childX, childY), childRing));
+            if (om != null) {
+                // ROM parity: ring children must occupy pre-allocated slot numbers
+                // (lower than ObjPosLoad objects loaded in the same frame).
+                // Use addDynamicObjectToReservedSlot() to place the child into the
+                // slot reserved by preAllocateReservedChildSlots().
+                // The child constructor doesn't need services() — ring children only
+                // use services() after construction, so it's safe to construct without
+                // CONSTRUCTION_CONTEXT. setServices() is called by addDynamicObjectToReservedSlot.
+                Sonic1RingInstance child = new Sonic1RingInstance(buildSpawnAt(childX, childY), childRing);
+                om.addDynamicObjectToReservedSlot(child, spawn, i);
+            } else {
+                spawnChild(() -> new Sonic1RingInstance(buildSpawnAt(childX, childY), childRing));
+            }
         }
     }
 

@@ -214,6 +214,9 @@ public class ObjectManager {
         // the parent's onUnload()). Free their slots before the load phase so
         // FindFreeObj sees the same available slots as the ROM's ObjPosLoad.
         cleanupDestroyedDynamicObjects();
+        if (counterBased) {
+            preAllocateReservedChildSlots();
+        }
         syncActiveSpawnsLoad();
         runExecLoop(cameraX, player);
 
@@ -1124,6 +1127,76 @@ public class ObjectManager {
                 childSlots[index] = -1; // Mark as freed
             }
         }
+    }
+
+    /**
+     * ROM parity: pre-allocate reserved child slots for objects that declare them.
+     * <p>
+     * In the ROM, ExecuteObjects runs BEFORE ObjPosLoad. Objects that allocate
+     * child slots via FindFreeObj during ExecuteObjects get lower slot numbers
+     * than objects loaded by ObjPosLoad in the same frame. This method restores
+     * that ordering by allocating child slots before syncActiveSpawnsLoad runs.
+     */
+    private void preAllocateReservedChildSlots() {
+        for (ObjectInstance inst : activeObjects.values()) {
+            if (!inst.needsPreAllocatedChildSlots()) {
+                continue;
+            }
+            int childCount = inst.getReservedChildSlotCount();
+            if (childCount > 0 && !reservedChildSlots.containsKey(inst.getSpawn())) {
+                allocateChildSlots(inst.getSpawn(), childCount);
+            }
+        }
+    }
+
+    /**
+     * Adds a dynamic child object using a pre-allocated reserved slot.
+     * <p>
+     * ROM parity: when ring parent objects spawn children during ExecuteObjects,
+     * those children must occupy the same slot numbers that were pre-allocated
+     * via {@link #preAllocateReservedChildSlots()} / {@link #allocateChildSlots}.
+     * This method places the child into the pre-allocated slot at {@code childIndex},
+     * replacing the phantom reservation with a real object.
+     *
+     * @param object      the child object to add
+     * @param parentSpawn the parent's spawn (key for the reserved slot table)
+     * @param childIndex  which reserved child slot to use (0-based)
+     */
+    public void addDynamicObjectToReservedSlot(ObjectInstance object, ObjectSpawn parentSpawn, int childIndex) {
+        int[] childSlots = reservedChildSlots.get(parentSpawn);
+        if (childSlots != null && childIndex >= 0 && childIndex < childSlots.length) {
+            int reservedSlot = childSlots[childIndex];
+            if (reservedSlot >= DYNAMIC_SLOT_BASE) {
+                if (object instanceof AbstractObjectInstance aoi) {
+                    aoi.setServices(objectServices);
+                    aoi.setSlotIndex(reservedSlot);
+                    // Slot is already marked used in usedSlots from pre-allocation;
+                    // no need to call allocateSlot() again.
+                }
+                // Mark slot as consumed in the reservation table so freeAllReservedChildSlots
+                // won't double-free this slot (the real child object now owns it).
+                childSlots[childIndex] = -1;
+                dynamicObjects.add(object);
+                if (updating) {
+                    int execIdx = reservedSlot - DYNAMIC_SLOT_BASE;
+                    if (execIdx >= 0 && execIdx < DYNAMIC_SLOT_COUNT && execIdx > currentExecSlot) {
+                        object.snapshotPreUpdatePosition();
+                        execOrder[execIdx] = object;
+                    }
+                }
+                bucketsDirty = true;
+                activeObjectsCacheDirty = true;
+                return;
+            }
+        }
+        // Fallback: no pre-allocated slot, use normal allocation.
+        // Record a consumed sentinel in the reservation table so that
+        // preAllocateReservedChildSlots() won't attempt to allocate phantom
+        // slots for this parent in subsequent frames.
+        if (childSlots == null) {
+            reservedChildSlots.put(parentSpawn, new int[]{-1});
+        }
+        addDynamicObject(object);
     }
 
     /**
