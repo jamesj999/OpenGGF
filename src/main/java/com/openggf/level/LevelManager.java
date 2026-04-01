@@ -952,8 +952,16 @@ public class LevelManager {
             // and within 0-2px for grounded (terrain snap not modelled here).
             // The real physics in tickPlayablePhysics (step 3) overwrites position
             // correctly, so the temporary pre-apply has no lasting effect.
+            //
+            // Skip when objectControlled: the ROM's Obj01_Control skips the entire
+            // physics routine (including SpeedToPos) when obj_control bit 7 is set,
+            // so objects that take control of the player (e.g., AIZ hollow tree)
+            // see the position the controlling object set — not a velocity-projected
+            // position. Applying velocity here would corrupt the controlled position,
+            // and the undo move(-v) would operate on a position the controlling
+            // object wrote, leaving a net offset each frame.
             short preAppliedXSpeed = 0, preAppliedYSpeed = 0;
-            if (playable != null) {
+            if (playable != null && !playable.isObjectControlled()) {
                 preAppliedXSpeed = playable.getXSpeed();
                 preAppliedYSpeed = playable.getYSpeed();
                 playable.move(preAppliedXSpeed, preAppliedYSpeed);
@@ -965,7 +973,13 @@ public class LevelManager {
             // Restore the player's exact pre-move position. move(v) + move(-v) is
             // an identity in 16:16 fixed-point arithmetic, so pixel and subpixel
             // are both restored precisely.
-            if (playable != null) {
+            // Only undo if we actually pre-applied (preAppliedXSpeed/YSpeed are both
+            // zero when skipped due to objectControlled). Also skip the undo if the
+            // player became objectControlled during the object update (e.g., hollow
+            // tree capture) — the controlling object set the authoritative position,
+            // and undoing the pre-apply would corrupt it.
+            if (playable != null && (preAppliedXSpeed != 0 || preAppliedYSpeed != 0)
+                    && !playable.isObjectControlled()) {
                 playable.move((short) -preAppliedXSpeed, (short) -preAppliedYSpeed);
             }
         }
