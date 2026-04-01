@@ -1,5 +1,6 @@
 package com.openggf.game.sonic1.objects;
 
+import com.openggf.game.sonic1.Sonic1Level;
 import com.openggf.game.sonic1.constants.Sonic1ObjectIds;
 import com.openggf.game.sonic1.objects.badniks.Sonic1BallHogBadnikInstance;
 import com.openggf.game.sonic1.objects.badniks.Sonic1BombBadnikInstance;
@@ -33,13 +34,42 @@ import com.openggf.level.objects.AbstractObjectRegistry;
  */
 public class Sonic1ObjectRegistry extends AbstractObjectRegistry {
 
+    private java.util.Map<com.openggf.level.objects.ObjectSpawn, java.util.List<com.openggf.level.rings.RingSpawn>> ringSpawnMapping =
+            java.util.Map.of();
+
+    public void setRingSpawnMapping(
+            java.util.Map<com.openggf.level.objects.ObjectSpawn, java.util.List<com.openggf.level.rings.RingSpawn>> mapping) {
+        this.ringSpawnMapping = mapping != null ? mapping : java.util.Map.of();
+    }
+
+    /**
+     * Returns the ring spawn mapping for the current level by reading from
+     * {@link Sonic1Level} via {@link #currentLevel()}. Falls back to the locally-set
+     * mapping (e.g. for tests that construct the registry without a live level).
+     */
+    private java.util.Map<com.openggf.level.objects.ObjectSpawn, java.util.List<com.openggf.level.rings.RingSpawn>> currentRingSpawnMapping() {
+        if (currentLevel() instanceof Sonic1Level s1Level) {
+            return s1Level.getRingSpawnMapping();
+        }
+        return ringSpawnMapping;
+    }
+
     @Override
     protected void registerDefaultFactories() {
-        // ROM parity: ring layout entries need phantom slot placeholders so that
-        // FindFreeObj/allocateSlot assigns the same slot numbers as the ROM.
-        // Ring behaviour (collection, rendering) is handled by RingManager.
+        // ROM parity: each ring layout entry becomes a real ring object that
+        // occupies a slot, spawns children via spawnChild (FindFreeObj equivalent),
+        // and manages its own sparkle countdown. Rendering/collection by RingManager.
         factories.put(Sonic1ObjectIds.RING,
-                (spawn, registry) -> new Sonic1PhantomRingInstance(spawn));
+                (spawn, registry) -> {
+                    java.util.List<com.openggf.level.rings.RingSpawn> ringSpawns =
+                            currentRingSpawnMapping().get(spawn);
+                    if (ringSpawns == null || ringSpawns.isEmpty()) {
+                        // Fallback: single ring at spawn position
+                        ringSpawns = java.util.List.of(
+                                new com.openggf.level.rings.RingSpawn(spawn.x(), spawn.y()));
+                    }
+                    return new Sonic1RingInstance(spawn, ringSpawns);
+                });
         factories.put(Sonic1ObjectIds.BREAKABLE_POLE,
                 (spawn, registry) -> new Sonic1PoleThatBreaksObjectInstance(spawn));
         factories.put(Sonic1ObjectIds.FLAPPING_DOOR,

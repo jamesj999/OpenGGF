@@ -198,13 +198,17 @@ public class Sonic1 extends Game implements PlayerSpriteArtProvider, AnimatedPat
                 " blocks=0x" + Integer.toHexString(blocksAddr) +
                 " rings=" + rings.size() + " objects=" + objects.size());
 
-        return new Sonic1Level(rom, zone, sonicPaletteId, adjustedPaletteId,
+        Sonic1Level level = new Sonic1Level(rom, zone, sonicPaletteId, adjustedPaletteId,
                 patternCues, chunksAddr, blocksAddr,
                 fgLayoutAddr, bgLayoutAddr, collisionIndexAddr,
                 Sonic1Constants.COLLISION_ARRAY_NORMAL_ADDR,
                 Sonic1Constants.COLLISION_ARRAY_ROTATED_ADDR,
                 Sonic1Constants.ANGLE_MAP_ADDR,
                 allObjects, rings, ringSpriteSheet, boundaries);
+        // Pass ring spawn mapping so Sonic1ObjectRegistry can create Sonic1RingInstance
+        // with the correct expanded ring positions when InitObjectManager runs.
+        level.setRingSpawnMapping(ringResult.ringSpawnMapping());
+        return level;
     }
 
     @Override

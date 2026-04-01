@@ -49,6 +49,9 @@ public class Sonic1Level extends AbstractLevel {
     private int fgMapWidth;
     private int fgMapHeight;
 
+    /** Maps each ring ObjectSpawn to its expanded RingSpawn positions. Used by Sonic1ObjectRegistry. */
+    private java.util.Map<ObjectSpawn, List<RingSpawn>> ringSpawnMapping = java.util.Map.of();
+
     public Sonic1Level(Rom rom,
                        int zoneIndex,
                        int sonicPaletteId,
@@ -140,6 +143,21 @@ public class Sonic1Level extends AbstractLevel {
             resolved = Sonic1Constants.LOOP_BLOCK_REMAP_TO;
         }
         return resolved;
+    }
+
+    /**
+     * Sets the mapping from ring ObjectSpawn entries to their expanded RingSpawn positions.
+     * Called from {@link Sonic1} after {@code Sonic1RingPlacement.extract()} runs.
+     */
+    public void setRingSpawnMapping(java.util.Map<ObjectSpawn, List<RingSpawn>> mapping) {
+        this.ringSpawnMapping = mapping != null ? mapping : java.util.Map.of();
+    }
+
+    /**
+     * Returns the ring spawn mapping, or an empty map if none was set.
+     */
+    public java.util.Map<ObjectSpawn, List<RingSpawn>> getRingSpawnMapping() {
+        return ringSpawnMapping;
     }
 
     // ===== Loading methods =====
