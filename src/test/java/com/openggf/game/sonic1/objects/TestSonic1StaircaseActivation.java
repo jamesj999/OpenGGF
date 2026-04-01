@@ -87,15 +87,21 @@ public class TestSonic1StaircaseActivation {
 
         int startY = fixture.sprite().getCentreY();
 
-        // Wait for activation (30 timer) + descent (128 frames) + margin
-        fixture.stepIdleFrames(200);
-
-        int endY = fixture.sprite().getCentreY();
-        int descent = endY - startY;
+        // Wait for activation (30 timer) + descent (128 frames) + margin.
+        // Track peak descent: Sonic rides the staircase down, then may fall off
+        // and land on terrain below, so final Y doesn't reflect the ride distance.
+        int maxDescent = 0;
+        for (int f = 0; f < 200; f++) {
+            fixture.stepFrame(false, false, false, false, false);
+            int descent = fixture.sprite().getCentreY() - startY;
+            if (descent > maxDescent) {
+                maxDescent = descent;
+            }
+        }
 
         assertTrue("Staircase should activate (state > 0, got " + staircase.getState() + ")",
                 staircase.getState() > 0);
-        assertTrue("Sonic should descend with staircase (expected >30px, got " + descent + "px)",
-                descent > 30);
+        assertTrue("Sonic should descend with staircase (expected >30px, got " + maxDescent + "px)",
+                maxDescent > 30);
     }
 }
