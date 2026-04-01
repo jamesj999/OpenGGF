@@ -214,12 +214,6 @@ public class ObjectManager {
         // the parent's onUnload()). Free their slots before the load phase so
         // FindFreeObj sees the same available slots as the ROM's ObjPosLoad.
         cleanupDestroyedDynamicObjects();
-        // ROM parity: Ring_Main allocates child ring slots during ExecuteObjects,
-        // BEFORE ObjPosLoad loads new objects. Pre-allocate here so child slots
-        // get lower numbers than objects loaded in syncActiveSpawnsLoad.
-        if (counterBased) {
-            preAllocatePhantomRingChildren();
-        }
         syncActiveSpawnsLoad();
         runExecLoop(cameraX, player);
 
@@ -450,8 +444,7 @@ public class ObjectManager {
         boolean objectsRemoved = false;
         boolean counterBased = placement.isCounterBasedRespawn();
         // Track objects processed by the slot-based loop so the fallback loop
-        // doesn't double-update objects that lost their slot mid-frame
-        // (e.g., PhantomRing releasing parent slot).
+        // doesn't double-update objects that lost their slot mid-frame.
         Set<ObjectInstance> processedInExecLoop = Collections.newSetFromMap(new IdentityHashMap<>());
         try {
             // ROM parity: Iterate slots in ascending order, matching ExecuteObjects.
@@ -539,8 +532,7 @@ public class ObjectManager {
                     continue;
                 }
                 // Skip objects already processed in the slot-based exec loop.
-                // This prevents double-updates when an object releases its slot
-                // mid-frame (e.g., PhantomRing releasing parent slot).
+                // This prevents double-updates when an object releases its slot mid-frame.
                 if (processedInExecLoop.contains(inst)) {
                     continue;
                 }
@@ -1095,18 +1087,15 @@ public class ObjectManager {
     }
 
     /**
-     * Releases a PhantomRing's parent slot when its sparkle countdown completes.
+     * Releases an object's parent slot independently from any child slots.
      * <p>
      * ROM parity: In S1, Ring_Delete → DeleteObject frees the parent ring's SST
      * slot independently from child rings. The parent and children are separate
-     * SST entries with independent lifecycles. The engine's PhantomRing system
-     * groups them under one object. This method releases the parent's slot when
-     * the parent ring's sparkle completes, matching the ROM's per-ring deletion.
-     * <p>
-     * The PhantomRing continues running (slotless) to manage remaining child
-     * countdowns. It self-destructs when all countdowns reach 0.
+     * SST entries with independent lifecycles. This method releases the parent's
+     * slot, allowing the object to continue running slotlessly to manage remaining
+     * child lifecycles.
      *
-     * @param instance the PhantomRing whose parent slot should be released
+     * @param instance the object whose parent slot should be released
      */
     public void releasePhantomParentSlot(AbstractObjectInstance instance) {
         int slot = instance.getSlotIndex();
@@ -1151,7 +1140,7 @@ public class ObjectManager {
      * @return the allocated slot indices (may contain -1 for failed allocations)
      */
     public int[] allocateChildSlots(ObjectSpawn spawn, int childCount) {
-        // Guard: if already allocated (e.g. by preAllocatePhantomRingChildren), return existing
+        // Guard: if already allocated, return existing
         int[] existing = reservedChildSlots.get(spawn);
         if (existing != null) {
             return existing;
@@ -1486,55 +1475,6 @@ public class ObjectManager {
         int screenRounded = (cameraX - 128) & 0xFF80;
         int distance = (objRounded - screenRounded) & 0xFFFF;
         return distance > 640;
-    }
-
-    /**
-     * ROM parity: Pre-allocate child slots for existing PhantomRing objects.
-     * <p>
-     * In the ROM, Ring_Main runs during ExecuteObjects BEFORE ObjPosLoad.
-     * When a ring layout entry is loaded by ObjPosLoad on frame N, Ring_Main
-     * allocates its child ring slots during frame N+1's ExecuteObjects — before
-     * ObjPosLoad loads any new objects on frame N+1. This means child ring slots
-     * occupy lower slot numbers than objects loaded the following frame.
-     * <p>
-     * In the engine, syncActiveSpawnsLoad (ObjPosLoad equivalent) runs BEFORE
-     * the exec loop (ExecuteObjects equivalent). Without pre-allocation, new
-     * objects from syncActiveSpawnsLoad would "steal" slots that Ring_Main would
-     * have claimed, shifting all subsequent slot assignments and breaking timing
-     * gates like (v_vbla_byte + d7) & 7.
-     * <p>
-     * This method scans existing active objects for PhantomRings that have pending
-     * child allocation and allocates their children before syncActiveSpawnsLoad
-     * runs, restoring correct slot ordering.
-     */
-    /**
-     * ROM parity: Pre-allocate child slots for PhantomRing objects.
-     * <p>
-     * In the ROM, Ring_Main runs during ExecuteObjects BEFORE ObjPosLoad.
-     * When a ring layout entry is loaded by ObjPosLoad on frame N, Ring_Main
-     * allocates its child ring slots during frame N+1's ExecuteObjects — before
-     * ObjPosLoad loads any new objects on frame N+1. This means child ring slots
-     * occupy lower slot numbers than objects loaded the following frame.
-     * <p>
-     * In the engine, syncActiveSpawnsLoad (ObjPosLoad equivalent) runs BEFORE
-     * the exec loop (ExecuteObjects equivalent). Without pre-allocation, new
-     * objects from syncActiveSpawnsLoad would "steal" slots that Ring_Main would
-     * have claimed, shifting all subsequent slot assignments and breaking timing
-     * gates like (v_vbla_byte + d7) & 7.
-     * <p>
-     * This method scans existing active objects for PhantomRings that have pending
-     * child allocation and allocates their children before syncActiveSpawnsLoad
-     * runs, restoring correct slot ordering.
-     */
-    private void preAllocatePhantomRingChildren() {
-        for (ObjectInstance inst : activeObjects.values()) {
-            if (inst instanceof com.openggf.game.sonic1.objects.Sonic1PhantomRingInstance phantom) {
-                int childCount = phantom.getReservedChildSlotCount();
-                if (childCount > 0 && !reservedChildSlots.containsKey(phantom.getSpawn())) {
-                    allocateChildSlots(phantom.getSpawn(), childCount);
-                }
-            }
-        }
     }
 
     /**
