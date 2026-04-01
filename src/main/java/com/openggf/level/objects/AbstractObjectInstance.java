@@ -409,12 +409,14 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     /**
      * ROM parity for ReactToItem: returns true if the object was on-screen
      * as of the pre-update snapshot (equivalent to obRender bit 7 from
-     * the previous frame's DisplaySprite). Uses pre-update position since
-     * that reflects where the object was when DisplaySprite last ran.
+     * the previous frame's DisplaySprite). Uses pre-update X position since
+     * the ROM's MarkObjGone / DisplaySprite only checks X distance from
+     * camera, not Y. Objects below the visible area (like lava surfaces)
+     * are still considered "on screen" if their X is within range.
      */
     public boolean isOnScreenForTouch() {
         if (!preUpdateValid) return false; // No snapshot → first frame, skip
-        return cameraBounds.contains(preUpdateX, preUpdateY);
+        return cameraBounds.containsX(preUpdateX);
     }
 
     /**
