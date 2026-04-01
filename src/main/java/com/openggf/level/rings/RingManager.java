@@ -306,7 +306,7 @@ public class RingManager {
 
     /**
      * Checks whether a ring at the given position has been collected.
-     * Used by the phantom ring countdown system to detect collection
+     * Used by Sonic1RingInstance to detect collection
      * without any frame counter dependency.
      */
     public boolean isRingCollected(int x, int y) {
@@ -328,7 +328,7 @@ public class RingManager {
      * AND its sparkle animation has finished (equivalent to ROM's DeleteObject
      * call at the end of Ring_Sparkle).
      * <p>
-     * Used by the phantom ring system to free SST slots at the correct time,
+     * Used by Sonic1RingInstance to free SST slots at the correct time,
      * matching the ROM's slot lifecycle where a ring's slot is freed only after
      * the sparkle animation completes.
      *

@@ -138,8 +138,8 @@ public interface ObjectInstance {
      * sub-objects. These slots are allocated via FindFreeObj (not FindNextFreeObj)
      * at spawn time, matching the ROM's object initialization.
      * <p>
-     * ROM example: S1 ring objects (obj25) allocate 1 parent slot + N child slots
-     * for multi-ring layout entries.
+     * ROM example: S1 ChainedStomper objects allocate 1 parent slot + N child slots
+     * for multi-segment layout entries.
      *
      * @return number of extra slots to allocate (default 0)
      */
