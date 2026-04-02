@@ -13,7 +13,6 @@ import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRegistry;
 import com.openggf.level.objects.ObjectSpawn;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
@@ -87,36 +86,49 @@ public class TestSonic1LavaGeyserOutOfRange {
      * Regression: lavafall (subtype != 0) third piece must NOT re-run initializeHead().
      * Without the fix, each frame's ensureInitialized() on the third piece would spawn
      * another body + third piece, cascading exponentially and crashing the engine.
+     *
+     * Tests the LavaGeyser HEAD directly with a live ObjectManager, bypassing the
+     * maker (which requires a non-null player sprite for proximity checks).
      */
     @Test
     public void lavafallThirdPieceDoesNotCascadeSpawn() {
-        // Place camera so the geyser is in range
         GameServices.camera().setX((short) 0x100);
         GameServices.camera().setY((short) 0x300);
 
-        // Track all objects added via addDynamicObject
-        List<ObjectInstance> spawnedObjects = new ArrayList<>();
-        ObjectSpawn lavafallSpawn = new ObjectSpawn(0x180, 0x400, 0x4C, 1, 0, false, 0);
+        // Build an ObjectManager with services wired back to itself so that
+        // services().objectManager().addDynamicObject() actually works.
         CountingMakerRegistry registry = new CountingMakerRegistry();
-        ObjectManager manager = new ObjectManager(List.of(lavafallSpawn), registry, 0, null, null);
-        manager.reset(0);
+        final ObjectManager[] managerRef = new ObjectManager[1];
+        TestObjectServices services = new TestObjectServices() {
+            @Override
+            public ObjectManager objectManager() {
+                return managerRef[0];
+            }
+        };
+        services.withCamera(GameServices.camera());
+        ObjectManager manager = new ObjectManager(
+                List.of(), registry, 0, null, null,
+                null, GameServices.camera(), services);
+        managerRef[0] = manager;
 
-        // Run enough frames for the maker to trigger and the geyser to initialize.
-        // Frame 0: maker spawns (routine 2, timer=0 → expires immediately)
-        // Frame 1: maker at routine 4 (ChkType) → routine 6 (lavafall)
-        // Frame 2: maker at routine 6 (MakeLava) → spawns LavaGeyser head
-        // Frame 3: LavaGeyser head initializeHead() → spawns body + third piece
-        // Frame 4+: if bug present, third piece would cascade-spawn more objects each frame
+        // Directly add a lavafall HEAD (subtype 1) — this is what the maker spawns.
+        // Its first update() calls initializeHead() which spawns body + third piece.
+        ObjectSpawn headSpawn = new ObjectSpawn(0x180, 0x400, 0x4D, 1, 0, false, 0);
+        Sonic1LavaGeyserObjectInstance head = new Sonic1LavaGeyserObjectInstance(
+                headSpawn, Sonic1LavaGeyserObjectInstance.Role.HEAD,
+                null, null, false);
+        manager.addDynamicObject(head);
+
+        // Run 10 frames. With the bug each frame adds 2+ objects exponentially.
+        // Without the bug: 1 head + 1 body + 1 third piece = 3 total children,
+        // and no further growth.
         for (int i = 0; i < 10; i++) {
             manager.update(0, null, null, i + 1);
         }
 
-        // Count active objects: should be bounded. With the bug, this would be 20+
-        // and growing exponentially. Correct count: 1 maker + 1 head + 1 body + 1 third = 4
-        // (some may have been destroyed by now, but total should be small)
         int totalObjects = manager.getActiveObjects().size();
-        assertTrue("Lavafall should not cascade-spawn objects (found " + totalObjects + ")",
-                totalObjects <= 6);
+        assertTrue("Lavafall should not cascade-spawn objects (found " + totalObjects
+                + ", expected <= 5)", totalObjects <= 5);
     }
 
     @Test
