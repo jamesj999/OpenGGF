@@ -1168,6 +1168,24 @@ public final class Sonic3kPlcArtRegistry {
                 null
         ));
 
+        // Disappearing Floor: parent overlay uses tile base 1, palette 2.
+        // Interleaved mapping tables require explicit frame count (custom builder).
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.AIZ_DISAPPEARING_FLOOR,
+                -1,
+                1,
+                2,
+                "buildDisappearingFloorSheet"
+        ));
+        // Disappearing Floor water border: ArtTile_AIZMisc2, palette 3.
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.AIZ_DISAPPEARING_FLOOR_BORDER,
+                -1,
+                Sonic3kConstants.ARTTILE_AIZ_MISC2,
+                3,
+                "buildDisappearingFloorBorderSheet"
+        ));
+
         // Button: ArtTile_GrayButton, palette 0
         levelArt.add(new LevelArtEntry(
                 Sonic3kObjectArtKeys.BUTTON,

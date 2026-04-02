@@ -538,6 +538,62 @@ public class Sonic3kObjectArt {
         return buildLevelArtSheet(Sonic3kConstants.ARTTILE_AIZ_MISC2, 2, frames, minTile, maxTile);
     }
 
+    // ===== AIZ Disappearing Floor sprite sheets (parsed from ROM) =====
+
+    /**
+     * Builds the AIZ Disappearing Floor parent sprite sheet (Map_AIZDisappearingFloor, 6 frames).
+     * art_tile = make_art_tile($001, 2, 0) → base tile 1, palette 2.
+     * <p>
+     * Note: Map_AIZDisappearingFloor and Map_AIZDisappearingFloor2 share a memory region
+     * (interleaved offset tables), so auto-detect frame count would fail. Uses explicit count 6.
+     */
+    public ObjectSpriteSheet buildDisappearingFloorSheet() {
+        if (reader == null) return null;
+        List<SpriteMappingFrame> frames = S3kSpriteDataLoader.loadMappingFrames(
+                reader, Sonic3kConstants.MAP_AIZ_DISAPPEARING_FLOOR_ADDR, 6);
+        if (frames.isEmpty()) return null;
+
+        int minTile = Integer.MAX_VALUE;
+        int maxTile = Integer.MIN_VALUE;
+        for (SpriteMappingFrame frame : frames) {
+            for (SpriteMappingPiece piece : frame.pieces()) {
+                minTile = Math.min(minTile, piece.tileIndex());
+                int pieceTiles = piece.widthTiles() * piece.heightTiles();
+                maxTile = Math.max(maxTile, piece.tileIndex() + pieceTiles);
+            }
+        }
+        if (minTile == Integer.MAX_VALUE) return null;
+
+        return buildLevelArtSheet(1, 2, frames, minTile, maxTile);
+    }
+
+    /**
+     * Builds the AIZ Disappearing Floor water border sprite sheet
+     * (Map_AIZDisappearingFloor2, 4 frames).
+     * art_tile = make_art_tile(ArtTile_AIZMisc2, 3, 0) → base tile 0x2E9, palette 3.
+     * <p>
+     * Interleaved with Map_AIZDisappearingFloor; uses explicit count 4.
+     */
+    public ObjectSpriteSheet buildDisappearingFloorBorderSheet() {
+        if (reader == null) return null;
+        List<SpriteMappingFrame> frames = S3kSpriteDataLoader.loadMappingFrames(
+                reader, Sonic3kConstants.MAP_AIZ_DISAPPEARING_FLOOR_BORDER_ADDR, 4);
+        if (frames.isEmpty()) return null;
+
+        int minTile = Integer.MAX_VALUE;
+        int maxTile = Integer.MIN_VALUE;
+        for (SpriteMappingFrame frame : frames) {
+            for (SpriteMappingPiece piece : frame.pieces()) {
+                minTile = Math.min(minTile, piece.tileIndex());
+                int pieceTiles = piece.widthTiles() * piece.heightTiles();
+                maxTile = Math.max(maxTile, piece.tileIndex() + pieceTiles);
+            }
+        }
+        if (minTile == Integer.MAX_VALUE) return null;
+
+        return buildLevelArtSheet(Sonic3kConstants.ARTTILE_AIZ_MISC2, 3, frames, minTile, maxTile);
+    }
+
     // ===== AIZ Spiked Log sprite sheet (parsed from ROM) =====
 
     /**

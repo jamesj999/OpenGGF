@@ -86,6 +86,14 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                     }
                     return new AizSpikedLogObjectInstance(spawn);
                 });
+        factories.put(Sonic3kObjectIds.AIZ_DISAPPEARING_FLOOR,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new AizDisappearingFloorObjectInstance(spawn);
+                });
         factories.put(Sonic3kObjectIds.INVISIBLE_BLOCK,
                 (spawn, registry) -> new Sonic3kInvisibleBlockObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.FLOATING_PLATFORM,

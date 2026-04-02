@@ -787,6 +787,14 @@ public class Sonic3kConstants {
     // Map_ICZCollapsingBridge - ICZ collapsing platform mappings (6 frames)
     public static final int MAP_ICZ_COLLAPSING_BRIDGE_ADDR = 0x21F2F2;
 
+    // ===== AIZ Disappearing Floor Mappings (Object 0x29) =====
+    // Map_AIZDisappearingFloor - 6 frames: parent visual overlay (frame 0 = invisible, 1-5 = crumbling)
+    // In LockOn data region (S3 half). Interleaved with Map_AIZDisappearingFloor2 offset table.
+    public static final int MAP_AIZ_DISAPPEARING_FLOOR_ADDR = 0x2294B4;
+
+    // Map_AIZDisappearingFloor2 - 4 frames: water border effect rendered around the platform
+    public static final int MAP_AIZ_DISAPPEARING_FLOOR_BORDER_ADDR = 0x2294C0;
+
     // ===== AIZ Flipping Bridge Mappings (Object 0x2B) =====
     // Map_AIZFlippingBridge - 32 frames: frames 0-4 = flipping animation, frames 5-31 = flat walkable segment.
     // In LockOn data region (S3 half). Verified by ROM binary pattern search, 2026-03-30.

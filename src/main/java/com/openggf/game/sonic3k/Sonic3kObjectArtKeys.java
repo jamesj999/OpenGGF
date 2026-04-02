@@ -55,6 +55,10 @@ public final class Sonic3kObjectArtKeys {
     public static final String AIZ_COLLAPSING_LOG_BRIDGE = "aiz_collapsing_log_bridge";
     public static final String AIZ_DRAW_BRIDGE_FIRE = "aiz_draw_bridge_fire";
 
+    // AIZ Disappearing Floor (visual overlay + water border)
+    public static final String AIZ_DISAPPEARING_FLOOR = "aiz_disappearing_floor";
+    public static final String AIZ_DISAPPEARING_FLOOR_BORDER = "aiz_disappearing_floor_border";
+
     // Cork Floor (zone-specific sheets)
     public static final String CORK_FLOOR_AIZ1 = "cork_floor_aiz1";
     public static final String CORK_FLOOR_AIZ2 = "cork_floor_aiz2";
