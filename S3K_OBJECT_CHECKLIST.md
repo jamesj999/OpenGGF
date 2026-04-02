@@ -1,12 +1,12 @@
 # Sonic 3&K Object Implementation Checklist
 
-Generated: 2026-03-27 20:59:52
+Generated: 2026-04-02 14:37:37
 
 ## Summary
 
 - **Total unique objects found:** 303
-- **Implemented:** 29 (9.6%)
-- **Unimplemented:** 274 (90.4%)
+- **Implemented:** 34 (11.2%)
+- **Unimplemented:** 269 (88.8%)
 
 ## Implemented Objects
 
@@ -37,8 +37,13 @@ Generated: 2026-03-27 20:59:52
 | 0x90 | AIZMinibossCutscene | 1 |  | AIZ1 |
 | 0x0D | BreakableWall | 170 |  | AIZ2, HCZ2, MGZ1, MGZ2, CNZ1, CNZ2, LBZ2, MHZ1, MHZ2, SOZ1, SOZ2, LRZ2 |
 | 0x26 | AutoSpin | 50 |  | AIZ2, HCZ1, FBZ1, FBZ2, ICZ2, SOZ1, SOZ2 |
+| 0x29 | AIZDisappearingFloor | 6 |  | AIZ2 |
+| 0x2B | AIZFlippingBridge | 2 |  | AIZ2 |
+| 0x2C | AIZCollapsingLogBridge | 7 |  | AIZ2 |
+| 0x2E | AIZSpikedLog | 4 |  | AIZ2 |
 | 0x2F | StillSprite | 939 |  | AIZ2, HCZ1, HCZ2, MGZ1, MGZ2, FBZ1, FBZ2, LBZ1, LBZ2, MHZ1, MHZ2, SOZ1, SOZ2, LRZ1, DEZ1, DEZ2 |
 | 0x30 | AnimatedStillSprite | 415 |  | AIZ2, SOZ1, SOZ2, LRZ1, LRZ2 |
+| 0x33 | Button | 37 |  | AIZ2, HCZ1, FBZ1, FBZ2, ICZ1, ICZ2, LRZ1, LRZ2 |
 | 0x80 | HiddenMonitor | 45 |  | AIZ2, HCZ1, MGZ1, CNZ1, CNZ2, FBZ1, ICZ2, LBZ1, MHZ1, SOZ1, LRZ1 |
 | 0x8F | CaterKillerJr | 14 |  | AIZ2 |
 
@@ -83,7 +88,6 @@ Generated: 2026-03-27 20:59:52
 | 0x2C | Object | LRZOrbitingSpikeBallV | 40 |  | LRZ2 |
 | 0xA9 | Badnik | TechnoSqueek | 39 |  | FBZ1, FBZ2 |
 | 0x6E | Object | InvisibleLavaBlock | 38 |  | LRZ1, LRZ2 |
-| 0x33 | Object | Button | 37 |  | AIZ2, HCZ1, FBZ1, FBZ2, ICZ1, ICZ2, LRZ1, LRZ2 |
 | 0x4D | Object | CNZBarberPoleSprite | 35 |  | CNZ1, CNZ2 |
 | 0x94 | Badnik | Skorp | 35 |  | SOZ1, SOZ2 |
 | 0x7B | Object | SSZCollapsingBridgeDiagonal | 35 |  | SSZ1 |
@@ -212,7 +216,6 @@ Generated: 2026-03-27 20:59:52
 | 0x75 | Object | SSZSwingingCarrier | 8 |  | SSZ1 |
 | 0x7C | Object | SSZCollapsingBridge | 8 |  | SSZ1 |
 | 0x7F | Object | SSZFloatingPlatform | 8 |  | SSZ1 |
-| 0x2C | Object | AIZCollapsingLogBridge | 7 |  | AIZ2 |
 | 0x94 | Badnik | Blastoid | 7 |  | HCZ1 |
 | 0x82 | Object | CutsceneKnuckles | 7 |  | HCZ2, CNZ2, LBZ1, LBZ2, MHZ1, MHZ2 |
 | 0x50 | Object | MGZTwistingLoop | 7 |  | MGZ1, MGZ2 |
@@ -229,7 +232,6 @@ Generated: 2026-03-27 20:59:52
 | 0x76 | Object | SSZRotatingPlatform | 7 |  | SSZ1 |
 | 0x4E | Object | DEZLiftPad | 7 |  | DEZ1 |
 | 0x57 | Object | DEZTunnelLauncher | 7 |  | DEZ1, DEZ2 |
-| 0x29 | Object | AIZDisappearingFloor | 6 |  | AIZ2 |
 | 0x3F | Object | HCZConveyorSpike | 6 |  | HCZ1 |
 | 0x5C | Object | MGZTopLauncher | 6 |  | MGZ1, MGZ2 |
 | 0x77 | Object | FBZRotatingPlatform | 6 |  | FBZ1 |
@@ -249,7 +251,6 @@ Generated: 2026-03-27 20:59:52
 | 0x74 | Object | SSZRetractingSpring | 5 |  | SSZ1 |
 | 0x7A | Object | SSZElevatorBar | 5 |  | SSZ1 |
 | 0x58 | Object | DEZGravitySwitch | 5 |  | DEZ2 |
-| 0x2E | Object | AIZSpikedLog | 4 |  | AIZ2 |
 | 0x6D | Object | HCZWaterSplash | 4 |  | HCZ2 |
 | 0xB3 | Object | ICZSegmentColumn | 4 |  | ICZ1, ICZ2 |
 | 0x1F | Object | LBZLoweringGrapple | 4 |  | LBZ2 |
@@ -266,7 +267,6 @@ Generated: 2026-03-27 20:59:52
 | 0x3B | Object | SOZLoopFallthrough | 3 |  | SOZ2 |
 | 0x25 | Object | LRZChainedPlatforms | 3 |  | LRZ2 |
 | 0x5C | Object | DEZGravityHub | 3 |  | DEZ2 |
-| 0x2B | Object | AIZFlippingBridge | 2 |  | AIZ2 |
 | 0x32 | Object | AIZDrawBridge | 2 |  | AIZ2 |
 | 0x92 | Boss | AIZEndBoss | 2 |  | AIZ2 |
 | 0x9A | Boss | HCZEndBoss | 2 |  | HCZ2 |
@@ -362,7 +362,7 @@ Total: 153 objects | Implemented: 23 | Unimplemented: 0
 
 #### Act 2
 
-Total: 751 objects | Implemented: 24 | Unimplemented: 8
+Total: 751 objects | Implemented: 29 | Unimplemented: 3
 
 **Badniks:**
 - [x] 0x8C Bloominator (x11) [0x00]
@@ -386,16 +386,16 @@ Total: 751 objects | Implemented: 24 | Unimplemented: 8
 - [x] 0x0E TwistedRamp (x2) [0x00]
 - [x] 0x26 AutoSpin (x8) [0x80, 0x84]
 - [x] 0x28 InvisibleBlock (x16) [7 subtypes]
-- [ ] 0x29 AIZDisappearingFloor (x6) [4 subtypes]
+- [x] 0x29 AIZDisappearingFloor (x6) [4 subtypes]
 - [x] 0x2A CorkFloor (x11) [0x00, 0x01]
-- [ ] 0x2B AIZFlippingBridge (x2) [0x52]
-- [ ] 0x2C AIZCollapsingLogBridge (x7) [0x08, 0x88]
+- [x] 0x2B AIZFlippingBridge (x2) [0x52]
+- [x] 0x2C AIZCollapsingLogBridge (x7) [0x08, 0x88]
 - [x] 0x2D AIZFallingLog (x1) [0x06]
-- [ ] 0x2E AIZSpikedLog (x4) [0x00]
+- [x] 0x2E AIZSpikedLog (x4) [0x00]
 - [x] 0x2F StillSprite (x16) [6 subtypes]
 - [x] 0x30 AnimatedStillSprite (x373) [0x00, 0x01]
 - [ ] 0x32 AIZDrawBridge (x2) [0x00]
-- [ ] 0x33 Button (x2) [0x10]
+- [x] 0x33 Button (x2) [0x10]
 - [x] 0x34 StarPost (x5) [5 subtypes]
 - [x] 0x51 FloatingPlatform (x26) [4 subtypes]
 - [x] 0x80 HiddenMonitor (x9) [6 subtypes]
@@ -406,7 +406,7 @@ Total: 751 objects | Implemented: 24 | Unimplemented: 8
 
 #### Act 1
 
-Total: 383 objects | Implemented: 11 | Unimplemented: 19
+Total: 383 objects | Implemented: 12 | Unimplemented: 18
 
 **Badniks:**
 - [ ] 0x94 Blastoid (x7) [5 subtypes]
@@ -427,7 +427,7 @@ Total: 383 objects | Implemented: 11 | Unimplemented: 19
 - [x] 0x26 AutoSpin (x8) [0x00, 0x04]
 - [x] 0x28 InvisibleBlock (x4) [4 subtypes]
 - [x] 0x2F StillSprite (x11) [5 subtypes]
-- [ ] 0x33 Button (x2) [0x20]
+- [x] 0x33 Button (x2) [0x20]
 - [x] 0x34 StarPost (x5) [5 subtypes]
 - [ ] 0x36 HCZBreakableBar (x6) [0x05, 0x15, 0x25]
 - [ ] 0x37 HCZWaterRush (x1) [0x00]
@@ -650,7 +650,7 @@ Total: 708 objects | Implemented: 10 | Unimplemented: 22
 
 #### Act 1
 
-Total: 420 objects | Implemented: 10 | Unimplemented: 29
+Total: 420 objects | Implemented: 11 | Unimplemented: 28
 
 **Badniks:**
 - [ ] 0xA8 Blaster (x10) [0x20, 0x08]
@@ -668,7 +668,7 @@ Total: 420 objects | Implemented: 10 | Unimplemented: 29
 - [x] 0x26 AutoSpin (x2) [0x04]
 - [x] 0x28 InvisibleBlock (x20) [4 subtypes]
 - [x] 0x2F StillSprite (x5) [0x28, 0x29, 0x2A]
-- [ ] 0x33 Button (x4) [0x20, 0x21, 0x22]
+- [x] 0x33 Button (x4) [0x20, 0x21, 0x22]
 - [x] 0x34 StarPost (x5) [5 subtypes]
 - [ ] 0x6A InvisibleHurtBlockH (x1) [0x71]
 - [ ] 0x6B InvisibleHurtBlockV (x16) [4 subtypes]
@@ -699,7 +699,7 @@ Total: 420 objects | Implemented: 10 | Unimplemented: 29
 
 #### Act 2
 
-Total: 440 objects | Implemented: 10 | Unimplemented: 27
+Total: 440 objects | Implemented: 11 | Unimplemented: 26
 
 **Badniks:**
 - [ ] 0xA8 Blaster (x14) [0x20, 0x30]
@@ -719,7 +719,7 @@ Total: 440 objects | Implemented: 10 | Unimplemented: 27
 - [x] 0x28 InvisibleBlock (x6) [0x61, 0x41, 0x17]
 - [x] 0x2A CorkFloor (x2) [0x10]
 - [x] 0x2F StillSprite (x9) [0x28, 0x29, 0x2C]
-- [ ] 0x33 Button (x16) [15 subtypes]
+- [x] 0x33 Button (x16) [15 subtypes]
 - [x] 0x34 StarPost (x6) [6 subtypes]
 - [ ] 0x3D RetractingSpring (x1) [0x04]
 - [ ] 0x6A InvisibleHurtBlockH (x2) [0x71]
@@ -748,7 +748,7 @@ Total: 440 objects | Implemented: 10 | Unimplemented: 27
 
 #### Act 1
 
-Total: 249 objects | Implemented: 7 | Unimplemented: 17
+Total: 249 objects | Implemented: 8 | Unimplemented: 16
 
 **Badniks:**
 - [ ] 0xAD Penguinator (x12) [0x30, 0x20]
@@ -761,7 +761,7 @@ Total: 249 objects | Implemented: 7 | Unimplemented: 17
 - [x] 0x07 Spring (x14) [4 subtypes]
 - [ ] 0x0F CollapsingBridge (x4) [4 subtypes]
 - [x] 0x28 InvisibleBlock (x1) [0x11]
-- [ ] 0x33 Button (x4) [4 subtypes]
+- [x] 0x33 Button (x4) [4 subtypes]
 - [x] 0x34 StarPost (x2) [0x01, 0x02]
 - [ ] 0x6A InvisibleHurtBlockH (x45) [10 subtypes]
 - [ ] 0x6B InvisibleHurtBlockV (x14) [5 subtypes]
@@ -780,7 +780,7 @@ Total: 249 objects | Implemented: 7 | Unimplemented: 17
 
 #### Act 2
 
-Total: 356 objects | Implemented: 10 | Unimplemented: 19
+Total: 356 objects | Implemented: 11 | Unimplemented: 18
 
 **Badniks:**
 - [ ] 0xAD Penguinator (x32) [0x10, 0x20, 0x40]
@@ -799,7 +799,7 @@ Total: 356 objects | Implemented: 10 | Unimplemented: 19
 - [x] 0x26 AutoSpin (x9) [0x00, 0x44]
 - [x] 0x28 InvisibleBlock (x1) [0x31]
 - [x] 0x2A CorkFloor (x35) [5 subtypes]
-- [ ] 0x33 Button (x5) [0x01, 0x02, 0x03]
+- [x] 0x33 Button (x5) [0x01, 0x02, 0x03]
 - [x] 0x34 StarPost (x4) [4 subtypes]
 - [ ] 0x6B InvisibleHurtBlockV (x5) [0x41, 0x61, 0x14]
 - [ ] 0x6C TensionBridge (x10) [0x0C, 0x8C]
@@ -1076,7 +1076,7 @@ Total: 490 objects | Implemented: 11 | Unimplemented: 23
 
 #### Act 1
 
-Total: 609 objects | Implemented: 12 | Unimplemented: 25
+Total: 609 objects | Implemented: 13 | Unimplemented: 24
 
 **Badniks:**
 - [ ] 0x99 Fireworm (x20) [0x00]
@@ -1112,7 +1112,7 @@ Total: 609 objects | Implemented: 12 | Unimplemented: 25
 - [x] 0x2F StillSprite (x117) [5 subtypes]
 - [x] 0x30 AnimatedStillSprite (x7) [0x02]
 - [ ] 0x31 LRZCollapsingBridge (x27) [0x00, 0x01, 0x02]
-- [ ] 0x33 Button (x3) [0x03, 0x0A, 0x0E]
+- [x] 0x33 Button (x3) [0x03, 0x0A, 0x0E]
 - [x] 0x34 StarPost (x6) [6 subtypes]
 - [ ] 0x6B InvisibleHurtBlockV (x10) [7 subtypes]
 - [ ] 0x6C TensionBridge (x1) [0x0E]
@@ -1123,7 +1123,7 @@ Total: 609 objects | Implemented: 12 | Unimplemented: 25
 
 #### Act 2
 
-Total: 455 objects | Implemented: 11 | Unimplemented: 21
+Total: 455 objects | Implemented: 12 | Unimplemented: 20
 
 **Badniks:**
 - [ ] 0x99 Fireworm (x9) [0x00]
@@ -1152,7 +1152,7 @@ Total: 455 objects | Implemented: 11 | Unimplemented: 21
 - [ ] 0x2D LRZSolidMovingPlatforms (x52) [10 subtypes]
 - [x] 0x30 AnimatedStillSprite (x6) [0x03]
 - [ ] 0x32 LRZTurbineSprites (x18) [0x00, 0x01]
-- [ ] 0x33 Button (x1) [0x05]
+- [x] 0x33 Button (x1) [0x05]
 - [x] 0x34 StarPost (x5) [5 subtypes]
 - [ ] 0x37 LRZSpikeBallLauncher (x9) [0x50, 0x70, 0x60]
 - [ ] 0x6B InvisibleHurtBlockV (x7) [5 subtypes]
