@@ -502,6 +502,12 @@ field frame-by-frame.
 - CPZ staircase, MTZ platforms, nuts, buttons, and elevators now use boolean contact latches
   instead of frame-counter comparisons, fixing activation regressions during title cards and
   multi-sprite updates.
+- Invincibility stars (Obj35) rewritten to match s2disasm: star 0 orbits at player's current
+  position with fast rotation ($12/frame), stars 1-3 trail behind via position history buffer
+  (3/6/9 frames behind) with slow rotation ($02/frame). Each star renders 2 sub-sprites at
+  180 degrees apart. Corrected orbit offset table (7 entries had wrong X values), animation
+  tables (parent uses byte_1DB82; trailing stars use per-star primary/secondary tables), and
+  direction-aware rotation (angle negated when facing left).
 
 ### Cross-Game Feature Donation Enhancements
 
