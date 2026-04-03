@@ -810,6 +810,15 @@ public class Sonic3kConstants {
     public static final int MAP_INSTA_SHIELD_ADDR = 0x01A0D0;
     public static final int DPLC_INSTA_SHIELD_ADDR = 0x01A154;
 
+    // ArtUnc_Invincibility - Invincibility Stars art (32 tiles, uncompressed)
+    // Verified by RomOffsetFinder, 2026-04-03
+    public static final int ART_UNC_INVINCIBILITY_ADDR = 0x18A204;
+    public static final int ART_UNC_INVINCIBILITY_SIZE = 0x400;     // 32 tiles × 32 bytes
+
+    // Map_Invincibility - 9 mapping frames for invincibility star sprites
+    // Verified by RomOffsetFinder, 2026-04-03
+    public static final int MAP_INVINCIBILITY_ADDR = 0x018AEA;
+
     // ===== Collapsing Platform Mappings (Object 0x04) =====
     // Verified by ROM binary pattern search for offset table fingerprints, 2026-02-17
 
