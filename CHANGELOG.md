@@ -303,6 +303,25 @@ Full S3K insta-shield ability implemented with ROM parity:
 - Directional input maintained during approach phase.
 - Slot reclamation added to `PatternAtlas` for efficient VRAM management.
 
+#### S3K Sidekick Knuckles Fixes
+
+- **VRAM isolation**: every sidekick now unconditionally gets its own isolated pattern bank in the
+  `SIDEKICK_PATTERN_BASE` (0x38000) range, eliminating sprite corruption when characters share
+  the same ART_TILE base (Knuckles and Sonic both use 0x0680 in S3K). Removed the name-based
+  `computeVramSlots` optimization that missed this collision.
+- **Palette isolation**: per-sidekick `RenderContext` palette blocks loaded via
+  `PlayerSpriteArtProvider.loadCharacterPalette()`. When a sidekick uses a different palette
+  than the main character (e.g. Knuckles' `Pal_Knuckles` vs Sonic's `Pal_SonicTails`), a
+  dedicated palette context is created so the sidekick renders with correct colors. Propagated
+  to spindash dust and Tails tail appendage sub-renderers.
+- **Knuckles glide-in respawn**: `KnucklesRespawnStrategy.requiresPhysics()` now returns
+  `true` during the drop phase so the physics pipeline applies gravity. Previously Knuckles
+  would hang in mid-air after the glide because `SpriteManager` skipped physics for all
+  `APPROACHING` strategies. `GLIDE_DROP` animation set during the glide approach phase.
+- **Palette texture resize safety**: `GraphicsManager.cachePaletteTexture()` now preserves
+  existing palette data when the texture grows to accommodate new contexts, preventing level
+  palette corruption on resize.
+
 ### Tails AI Improvements
 
 - Comprehensive Tails CPU AI rework:
