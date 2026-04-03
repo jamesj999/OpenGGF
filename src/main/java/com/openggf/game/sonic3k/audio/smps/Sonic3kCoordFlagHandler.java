@@ -455,10 +455,33 @@ public class Sonic3kCoordFlagHandler implements CoordFlagHandler {
     }
 
     private void handleContSfx(CoordFlagContext ctx, SmpsSequencer.Track t) {
-        // FC: Continuous SFX loop - functions like goto for SFX tracks
-        int newPos = ctx.readJumpPointer(t);
-        if (newPos != -1) {
-            t.pos = newPos;
+        // FC: cfLoopContinuousSFX - conditional loop for continuous SFX tracks.
+        // ROM (Z80 Sound Driver.asm lines 3712-3736):
+        //   If zContinuousSFXFlag != 0x80 → sound wasn't re-triggered, stop looping.
+        //   If flag == 0x80 → decrement zContSFXLoopCnt:
+        //     non-zero: jump to target (keep looping)
+        //     zero: clear flag, jump to target (one more loop, then stop next time)
+        int jumpTarget = ctx.readJumpPointer(t);
+
+        if (!ctx.isContinuousSfxFlagSet()) {
+            // Not re-triggered: clear state and skip the jump (track proceeds to end).
+            ctx.clearContinuousSfxId();
+            // ROM: inc de / ret — skip the 2-byte pointer (already consumed by readJumpPointer)
+            return;
+        }
+
+        // Re-triggered: decrement loop counter
+        boolean counterReachedZero = ctx.decrementContSfxLoopCnt();
+        if (counterReachedZero) {
+            // All tracks have passed their loop point for this cycle — clear flag.
+            // The jump still happens, but next time through the flag won't be set
+            // so the SFX will stop (unless re-triggered again by game code).
+            ctx.clearContinuousSfxFlag();
+        }
+
+        // Jump to loop target
+        if (jumpTarget != -1) {
+            t.pos = jumpTarget;
         } else {
             t.active = false;
         }

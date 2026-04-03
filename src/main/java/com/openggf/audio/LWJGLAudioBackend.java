@@ -386,8 +386,32 @@ public class LWJGLAudioBackend implements AudioBackend {
         int sfxPriority = (audioProfile != null) ? audioProfile.getSfxPriority(data.getId()) : 0x70;
         boolean specialSfx = (audioProfile != null) && audioProfile.isSpecialSfx(data.getId());
 
+        // --- Continuous SFX detection (Z80: zPlaySound_Bankswitch lines 1937-1965) ---
+        // If this SFX is continuous (S3K >= 0xBC) and the same one is already playing,
+        // extend playback (set the flag) instead of restarting from scratch.
+        boolean isContinuous = (audioProfile != null) && audioProfile.isContinuousSfx(data.getId());
+        int contTrackCount = data.getChannels() + data.getPsgChannels();
+        if (isContinuous) {
+            SmpsDriver targetDriver = null;
+            if (smpsDriver != null && currentStream == smpsDriver) {
+                targetDriver = smpsDriver;
+            } else {
+                synchronized (streamLock) {
+                    if (sfxStream instanceof SmpsDriver) {
+                        targetDriver = (SmpsDriver) sfxStream;
+                    }
+                }
+            }
+            if (targetDriver != null && targetDriver.extendContinuousSfx(data.getId(), contTrackCount)) {
+                return; // Extended existing playback — no new sequencer needed
+            }
+        }
+
         if (smpsDriver != null && currentStream == smpsDriver) {
             // Mix into current driver
+            if (isContinuous) {
+                smpsDriver.startContinuousSfx(data.getId(), contTrackCount);
+            }
             SmpsSequencer seq = new SmpsSequencer(data, dacData, smpsDriver, effectiveConfig);
             seq.setSampleRate(smpsDriver.getOutputSampleRate());
             seq.setFm6DacOff(fm6DacOff);
@@ -412,6 +436,9 @@ public class LWJGLAudioBackend implements AudioBackend {
                 }
                 sfxDriver.setOutputSampleRate(getSmpsOutputRate());
                 applyPsgNoiseConfig(sfxDriver);
+                if (isContinuous) {
+                    sfxDriver.startContinuousSfx(data.getId(), contTrackCount);
+                }
                 SmpsSequencer seq = new SmpsSequencer(data, dacData, sfxDriver, effectiveConfig);
                 seq.setSampleRate(sfxDriver.getOutputSampleRate());
                 seq.setFm6DacOff(fm6DacOff);
