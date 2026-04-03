@@ -68,14 +68,12 @@ public class GroundSensor extends Sensor {
         short originalY = (short) (sprite.getCentreY() + getRotatedY() + dy);
 
         // Solidity bit selection must match the ROM's per-routine d5 register:
-        //   - Ground attachment (direction=DOWN, vertical scan): topSolidBit
-        //     (AnglePos WalkSpeed/WalkCeiling use d5=$C)
-        //   - Wall attachment (direction=DOWN, horizontal scan): lrbSolidBit
-        //     (AnglePos WalkVertL/WalkVertR use d5=$D)
+        //   - Ground attachment (direction=DOWN): topSolidBit in ALL modes.
+        //     ROM: Player_AnglePos loads d5=top_solid_bit ONCE (line 18735)
+        //     and passes it to WalkSpeed, WalkVertL, WalkCeiling, WalkVertR.
         //   - Ceiling sensors (direction=UP): lrbSolidBit (ceiling HIT, not attachment)
         //   - Push sensors (direction=LEFT/RIGHT): lrbSolidBit (CalcRoomInFront)
-        // Combined: topSolidBit only when ground sensor (DOWN) doing a vertical scan.
-        int solidityBit = (direction == Direction.DOWN && config.vertical())
+        int solidityBit = (direction == Direction.DOWN)
                 ? sprite.getTopSolidBit()
                 : sprite.getLrbSolidBit();
 
