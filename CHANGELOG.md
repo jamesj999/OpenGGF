@@ -384,6 +384,11 @@ field frame-by-frame.
 - **Lua trace recorder** (`tools/bizhawk/`): BizHawk Lua script that captures player position,
   speed, angle, ground mode, air/rolling flags, and controller input every frame during a BK2
   movie playback. Outputs `metadata.json`, `physics.csv`, and `aux_state.jsonl`.
+- **stable-retro trace recorder** (`tools/retro/`): cross-platform Python equivalent of the
+  BizHawk Lua recorder, using stable-retro (Genesis Plus GX) for headless emulation. Produces
+  byte-identical output format (same CSV, JSONL, and metadata.json) consumed by the same Java
+  test infrastructure. Supports stable-retro BK2 replay, BizHawk BK2 parsing, savestate boot,
+  and credits demo recording. Enables trace generation on macOS and Linux without BizHawk.
 - **Trace replay test infrastructure** (`tests.trace` package): `TraceData` loader, `TraceFrame`
   parser, `TraceBinder` per-frame comparator with configurable tolerances, `DivergenceReport`
   with JSON output and context windows, lag frame detection for VBlank sync.

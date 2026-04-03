@@ -213,11 +213,13 @@ HCZ transition) is the remaining gate before release.
   interface, `CanonicalAnimation` vocabulary, and `AnimationTranslator` for any game pair.
 - **Rendering pipeline:** PatternAtlas slot reclamation, batched DPLC updates, virtual pattern ID
   validation, and fail-fast shader error handling.
-- **BizHawk trace replay testing:** automated accuracy verification that records per-frame physics
-  state from the real ROM in BizHawk emulator, then replays the same inputs through the engine and
-  compares every field. First trace (S1 GHZ1, 3,905 frames) passes with 0 errors; a second
-  baseline (S1 MZ1, 7,936 frames) is now in-tree with expanded recorder and divergence diagnostics
-  for ROM/engine parity investigation.
+- **Trace replay testing:** automated accuracy verification that records per-frame physics state
+  from the real ROM, then replays the same inputs through the engine and compares every field.
+  First trace (S1 GHZ1, 3,905 frames) passes with 0 errors; a second baseline (S1 MZ1, 7,936
+  frames) is now in-tree with expanded recorder and divergence diagnostics for ROM/engine parity
+  investigation. Supports both BizHawk (Windows, Lua) and **stable-retro** (cross-platform,
+  Python) as recording backends — both produce identical output consumed by the same Java test
+  infrastructure.
 - Comprehensive user guide, 15+ design specs and implementation plans, and broad test coverage
   improvements including automated singleton lifecycle testing.
 
