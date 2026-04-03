@@ -41,8 +41,9 @@ tools/*
 # Screenshots (keep locally)
 docs/screenshots/
 
-# Claude Code workspace
-.claude/
+# Claude Code workspace (keep skills tracked)
+.claude/*
+!.claude/skills/
 
 # Git worktrees
 .worktrees/
