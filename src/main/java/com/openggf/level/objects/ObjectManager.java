@@ -206,7 +206,14 @@ public class ObjectManager {
         }
         touchResponses.debugState.setEnabled(
                 DebugOverlayManager.getInstance().isEnabled(DebugOverlayToggle.TOUCH_RESPONSE));
-        touchResponses.update(player, touchFrameCounter);
+        // ROM: CPU sidekick uses separate overlap tracking and Hurt_Sidekick handler
+        // (knockback only, no ring scatter or death). Must dispatch to updateSidekick
+        // to avoid routing through the main player's applyHurtOrDeath path.
+        if (player.isCpuControlled()) {
+            touchResponses.updateSidekick(player, touchFrameCounter);
+        } else {
+            touchResponses.update(player, touchFrameCounter);
+        }
     }
 
     public void update(int cameraX, PlayableEntity player, List<? extends PlayableEntity> sidekicks,
