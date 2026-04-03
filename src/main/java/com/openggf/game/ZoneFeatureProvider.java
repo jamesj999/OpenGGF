@@ -114,6 +114,17 @@ public interface ZoneFeatureProvider {
     }
 
     /**
+     * Queues render commands for zone features that should appear after the background pass
+     * but before any foreground tiles (for example, AIZ2's split-rendered bombership strip).
+     *
+     * @param camera the camera for screen coordinates
+     * @param frameCounter current frame number for animation
+     */
+    default void renderAfterBackground(Camera camera, int frameCounter) {
+        // Default implementation does nothing
+    }
+
+    /**
      * Whether the foreground renderer should apply per-line heat haze deformation.
      * This is used for zone-specific post-processing effects such as AIZ fire haze.
      *

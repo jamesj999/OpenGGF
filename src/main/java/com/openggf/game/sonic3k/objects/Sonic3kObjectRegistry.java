@@ -160,6 +160,14 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                     }
                     return new AizMinibossInstance(spawn);
                 });
+        factories.put(Sonic3kObjectIds.AIZ_END_BOSS,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new AizEndBossInstance(spawn);
+                });
     }
 
     private S3kZoneSet getCurrentZoneSet() {

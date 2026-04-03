@@ -1602,6 +1602,10 @@ public class LevelManager {
         }
         profiler.endSection("render.bg");
 
+        if (zoneFeatureProvider != null) {
+            zoneFeatureProvider.renderAfterBackground(camera, frameCounter);
+        }
+
         // Draw Foreground (Layer 0) low-priority pass
         profiler.beginSection("render.fg");
         ensureForegroundTilemapData();

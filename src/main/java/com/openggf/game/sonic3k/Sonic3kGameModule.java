@@ -114,6 +114,11 @@ public class Sonic3kGameModule implements GameModule {
     }
 
     @Override
+    public int getCheckpointObjectId() {
+        return Sonic3kObjectIds.STAR_POST;
+    }
+
+    @Override
     public LevelEventProvider getLevelEventProvider() {
         if (levelEventManager == null) {
             levelEventManager = Sonic3kLevelEventManager.getInstance();

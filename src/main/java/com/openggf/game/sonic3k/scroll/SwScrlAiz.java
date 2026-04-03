@@ -113,6 +113,9 @@ public class SwScrlAiz extends AbstractZoneScrollHandler {
 
     /** Persistent wave accumulator (ROM: HScroll_table+$03C, advances $2000/frame). */
     private long waveAccum;
+    private short vscrollFactorFG;
+    private int shakeOffsetX;
+    private int shakeOffsetY;
 
     @Override
     public void update(int[] horizScrollBuf,
@@ -123,9 +126,15 @@ public class SwScrlAiz extends AbstractZoneScrollHandler {
         resetScrollTracking();
         hasPerColumnVScrollBG = false;
         Arrays.fill(perColumnVScrollBG, (short) 0);
+        vscrollFactorFG = (short) cameraY;
+        shakeOffsetX = 0;
+        shakeOffsetY = 0;
 
         short fgScroll = negWord(cameraX);
         Sonic3kAIZEvents aizEvents = resolveAizEvents();
+        if (aizEvents != null) {
+            shakeOffsetY = aizEvents.getScreenShakeOffsetY();
+        }
         FireCurtainRenderState curtainState = aizEvents != null
                 ? aizEvents.getFireCurtainRenderState(VISIBLE_LINES)
                 : FireCurtainRenderState.inactive();
@@ -159,18 +168,30 @@ public class SwScrlAiz extends AbstractZoneScrollHandler {
             } else if (actId > 0) {
                 // AIZ2_Deform: scattered-speed BG parallax with shake-compensated Y.
                 // BG vertical scroll = (cameraY - shake) / 2 + shake.
-                short shakeY = 0;
-                try { shakeY = GameServices.camera().getShakeOffsetY(); } catch (Exception e) {
-                    LOG.fine(() -> "SwScrlAiz.update: " + e.getMessage());
-                }
+                short shakeY = (short) shakeOffsetY;
                 vscrollFactorBG = (short) (asrWord(cameraY, 1) + shakeY);
-                computeAiz2Deform(horizScrollBuf, fgScroll, cameraX);
+                // ROM: AIZ2BGE_Normal applies a one-time BG Y offset when the
+                // battleship sequence approaches. Add it to the BG vertical scroll.
+                if (aizEvents != null && aizEvents.getBattleshipBgYOffset() != 0) {
+                    vscrollFactorBG = (short) (vscrollFactorBG + aizEvents.getBattleshipBgYOffset());
+                }
+                // During battleship auto-scroll, use the smooth (non-wrapping) X for
+                // BG parallax to avoid visible background jumps on camera wrap-back.
+                int bgDeformX = cameraX;
+                if (aizEvents != null && aizEvents.isBattleshipAutoScrollActive()) {
+                    bgDeformX = aizEvents.getBattleshipSmoothScrollX();
+                }
+                computeAiz2Deform(horizScrollBuf, fgScroll, bgDeformX);
             } else {
                 // AIZ1_Deform: multi-band BG parallax with per-band speeds.
                 // BG vertical scroll = camera Y / 2.
                 vscrollFactorBG = asrWord(cameraY, 1);
                 computeAiz1Deform(horizScrollBuf, fgScroll, bgSourceX, cameraY);
             }
+        }
+
+        if (shakeOffsetY != 0) {
+            vscrollFactorFG = (short) (cameraY + shakeOffsetY);
         }
 
         // Fine post-burn haze (AIZ2 style) is a subtle per-line FG deformation.
@@ -606,5 +627,20 @@ public class SwScrlAiz extends AbstractZoneScrollHandler {
             LOG.fine(() -> "SwScrlAiz.resolveAizEvents: " + e.getMessage());
             return null;
         }
+    }
+
+    @Override
+    public int getShakeOffsetX() {
+        return shakeOffsetX;
+    }
+
+    @Override
+    public int getShakeOffsetY() {
+        return shakeOffsetY;
+    }
+
+    @Override
+    public short getVscrollFactorFG() {
+        return vscrollFactorFG;
     }
 }

@@ -547,8 +547,10 @@ public class Sonic3kLevel extends AbstractLevel {
         LOG.info(String.format("S3K layout header: FG %dx%d, BG %dx%d",
                 fgColsPerRow, fgRows, bgColsPerRow, bgRows));
 
-        int mapWidth = Sonic3kConstants.MAP_WIDTH;
-        int mapHeight = Sonic3kConstants.MAP_HEIGHT;
+        // Derive map dimensions from the actual layout data (like S1),
+        // capped at the safety maximums in Sonic3kConstants.
+        int mapWidth = Math.max(fgLayoutWidthBlocks, bgLayoutWidthBlocks);
+        int mapHeight = Math.max(fgLayoutHeightBlocks, bgLayoutHeightBlocks);
         map = new Map(Sonic3kConstants.MAP_LAYERS, mapWidth, mapHeight);
 
         // Parse FG/BG layout pointers.

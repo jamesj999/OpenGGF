@@ -97,7 +97,8 @@ public class Sonic3kObjectProfile implements GameObjectProfile {
                 0x8E, // MonkeyDude
                 0x8F, // CaterKillerJr
                 0x90, // AIZMinibossCutscene
-                0x91  // AIZMiniboss
+                0x91, // AIZMiniboss
+                0x92  // AIZEndBoss
         ));
         S3KL_IMPLEMENTED_IDS = Set.copyOf(s3kl);
 

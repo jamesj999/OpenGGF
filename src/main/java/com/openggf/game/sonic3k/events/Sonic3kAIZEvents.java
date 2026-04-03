@@ -11,6 +11,11 @@ import com.openggf.game.sonic3k.Sonic3kLevel;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.graphics.GraphicsManager;
+import com.openggf.game.sonic3k.objects.AizBattleshipInstance;
+import com.openggf.game.sonic3k.objects.AizBgTreeSpawnerInstance;
+import com.openggf.game.sonic3k.objects.AizBombExplosionInstance;
+import com.openggf.game.sonic3k.objects.AizShipBombInstance;
+import com.openggf.game.sonic3k.objects.AizBossSmallInstance;
 import com.openggf.game.sonic3k.objects.AizHollowTreeObjectInstance;
 import com.openggf.game.sonic3k.objects.AizMinibossInstance;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
@@ -27,6 +32,7 @@ import com.openggf.level.WaterSystem;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
+import java.io.IOException;
 import java.util.logging.Logger;
 
 /**
@@ -58,6 +64,9 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
 
     /** PalPointers index for Pal_AIZFire (fire palette, 3 lines → palette 1-3). */
     private static final int PAL_POINTER_AIZ_FIRE_INDEX = 0x0B;
+
+    /** PalPointers index for Pal_AIZBoss (boss-area palette, 3 lines → palette 1-3). */
+    private static final int PAL_AIZ_BOSS_INDEX = 0x30;
 
     /** Camera X threshold for terrain swap (routine 2). Already handled by AizPlaneIntroInstance. */
     private static final int TERRAIN_SWAP_X = 0x1400;
@@ -154,6 +163,29 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     // Shared
     private static final int AIZ2_DEFAULT_MAX_Y = 0x0590;
 
+    // --- Battleship bombing sequence constants (sonic3k.asm AIZ2_ScreenEvent) ---
+    /** Auto-scroll speed during the bombing loop: 4 pixels/frame. */
+    private static final int BATTLESHIP_SCROLL_SPEED = 4;
+    /** Wrap boundary during bombing: camera X wraps back at $4440. ROM: Events_bg+$02 initial. */
+    private static final int BATTLESHIP_WRAP_X_BOMBING = 0x4440;
+    /**
+     * Wrap boundary after bombing. ROM uses $46C0 with $200 distance, landing at $44C0
+     * (before the forest). The ROM hides this seam via HInt screen-split. Without HInt,
+     * we use a tight $80 wrap within the uniform forest blocks (cols 140-143 are all
+     * E9/E8). Boundary $46C0 keeps the screen right edge at col 144.0 (last forest col
+     * is 143); wraps to $4640 (col 140.5, still forest). Small boss trigger $4670 fits.
+     */
+    private static final int BATTLESHIP_WRAP_X_POST_BOMBING = 0x46C0;
+    private static final int BATTLESHIP_WRAP_DIST_POST_BOMBING = 0x80;
+    /** Wrap distance during bombing: subtract $200 from all positions on wrap. */
+    private static final int BATTLESHIP_WRAP_DIST = 0x200;
+    /** Left clamp: player X must be >= camera X + $18 during auto-scroll. */
+    private static final int PLAYER_LEFT_MARGIN = 0x18;
+    /** Right clamp: player X must be <= camera X + $A0 during auto-scroll. */
+    private static final int PLAYER_RIGHT_MARGIN = 0xA0;
+    /** Camera max X to set when the small boss exits (end of sequence). */
+    private static final int BATTLESHIP_END_CAMERA_MAX_X = 0x6000;
+
     private final Sonic3kLoadBootstrap bootstrap;
     private boolean introSpawned;
     /** One-shot guard: once AIZ intro minX is locked at $1308, stop rewriting minX each frame. */
@@ -181,6 +213,42 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     private boolean eventsFg5;
     /** Boss_flag equivalent - set when boss is present, cleared on cleanup. */
     private boolean bossFlag;
+    // --- Battleship bombing sequence state ---
+    /** True while the battleship auto-scroll loop is active. */
+    private boolean battleshipAutoScrollActive;
+    /** True once the battleship object has been spawned (one-shot guard). */
+    private boolean battleshipSpawned;
+    /** True once the AIZ2 bombership 8x8/16x16 terrain overlays have been applied. */
+    private boolean battleshipTerrainLoaded;
+    /** Current wrap boundary for auto-scroll (changes after bombing completes). */
+    private int battleshipWrapX;
+    /**
+     * ROM: Screen_shake_flag — timed screen shake countdown. When positive,
+     * decrements each frame and applies Y offset from ScreenShakeArray.
+     * Set to $10 (16) on bomb impact.
+     */
+    private int screenShakeTimer;
+    /**
+     * ROM: Level_repeat_offset — set to $200 during a wrap frame, 0 otherwise.
+     * Active objects subtract this from their X each frame to stay in sync.
+     */
+    private int levelRepeatOffset;
+    /**
+     * ROM: AIZ2BGE_Normal BG camera Y adjustment applied when eventsFg5 triggers.
+     * Value is $A8 if Camera_Y_pos &lt; $400, or -$198 otherwise.
+     * Added to the BG vertical scroll factor by the scroll handler.
+     */
+    private int battleshipBgYOffset;
+    /**
+     * Cumulative scroll distance during the battleship sequence (never wraps).
+     * Used by the parallax scroll handler to compute smooth BG deformation
+     * even when the camera X wraps back by $200.
+     * ROM equivalent: in the ROM the camera never wraps back for the BG plane;
+     * instead, DrawTilesAsYouMove + Level_repeat_offset handle the FG tile columns.
+     */
+    private int battleshipSmoothScrollX;
+    /** Current vertical shake offset produced by {@link #screenShakeTimer}. */
+    private int screenShakeOffsetY;
     /** True after the act switch request has been sent to LevelManager. */
     private boolean act2TransitionRequested;
     /** True after in-place mutation stage has been requested. */
@@ -326,6 +394,15 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         enteredAsAct2 = false;
         eventsFg5 = false;
         bossFlag = false;
+        battleshipAutoScrollActive = false;
+        battleshipSpawned = false;
+        battleshipTerrainLoaded = false;
+        battleshipWrapX = BATTLESHIP_WRAP_X_BOMBING;
+        levelRepeatOffset = 0;
+        battleshipBgYOffset = 0;
+        battleshipSmoothScrollX = 0;
+        screenShakeTimer = 0;
+        screenShakeOffsetY = 0;
         act2TransitionRequested = false;
         fireTransitionMutationRequested = false;
         postFireHazeActive = false;
@@ -814,6 +891,14 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
             }
         }
 
+        // Battleship auto-scroll loop
+        if (battleshipAutoScrollActive) {
+            updateBattleshipAutoScroll();
+        }
+
+        // Timed screen shake (bomb impacts)
+        tickScreenShake();
+
         // ROM: AIZ2_Resize — dynamic boundary state machine (sonic3k.asm:39012)
         updateAiz2Resize();
     }
@@ -913,11 +998,17 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         if (camera().getX() < AIZ2_SONIC_RESIZE4_TRIGGER_X) {
             return;
         }
-        // TODO: load battleship art (Queue_Kos / Queue_Kos_Module + palette $30)
+        ensureBattleshipTerrainLoaded();
         eventsFg5 = true; // Signal to background event
+        // ROM: AIZ2BGE_Normal applies a one-time BG camera Y adjustment when eventsFg5 fires.
+        // If Camera_Y_pos < $400: add $A8; otherwise: add -$198.
+        // This shifts the background to show more sky before the bombing sequence.
+        int cameraY = camera().getY() & 0xFFFF;
+        battleshipBgYOffset = (cameraY < 0x400) ? 0xA8 : -0x198;
         aiz2ResizeRoutine = 0xA;
         LOG.info("AIZ2 Sonic resize4: battleship art trigger at X=0x"
-                + Integer.toHexString(camera().getX()));
+                + Integer.toHexString(camera().getX())
+                + ", bgYOffset=" + battleshipBgYOffset);
     }
 
     /** ROM: AIZ2_SonicResize5 — minY=$15A at camera X >= $3F00. */
@@ -943,8 +1034,8 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         if (camera().getX() < AIZ2_SONIC_RESIZE7_TRIGGER_X) {
             return;
         }
-        // Events_fg_4 signals AIZ2_ScreenEvent to start the battleship draw sequence.
-        // TODO: implement AIZ2_ScreenEvent handler
+        // Start the battleship bombing sequence: auto-scroll + spawn battleship
+        startBattleshipSequence();
         aiz2ResizeRoutine = 0x10; // SonicResizeEnd
     }
 
@@ -1000,13 +1091,17 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         if (camera().getX() < AIZ2_KNUX_RESIZE4_TRIGGER_X) {
             return;
         }
-        // TODO: load battleship art (Queue_Kos / Queue_Kos_Module + palette $30)
+        ensureBattleshipTerrainLoaded();
         camera().setMinX((short) AIZ2_KNUX_RESIZE4_TRIGGER_X);
         camera().setMaxYTarget((short) AIZ2_KNUX_RESIZE4_TARGET_MAX_Y);
         eventsFg5 = true;
+        // ROM: AIZ2BGE_Normal BG Y adjustment (same logic as Sonic path)
+        int cameraY = camera().getY() & 0xFFFF;
+        battleshipBgYOffset = (cameraY < 0x400) ? 0xA8 : -0x198;
         aiz2ResizeRoutine = 0x1A;
         LOG.info("AIZ2 Knux resize4: battleship art trigger at X=0x"
-                + Integer.toHexString(camera().getX()));
+                + Integer.toHexString(camera().getX())
+                + ", bgYOffset=" + battleshipBgYOffset);
     }
 
     /** ROM: AIZ2_KnuxResize5 — lock minX=$3F80 at camera X >= $3F80. */
@@ -1029,6 +1124,255 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         }
         LOG.info("AIZ2 resize: spawned miniboss at (0x" + Integer.toHexString(bossX)
                 + ", 0x" + Integer.toHexString(bossY) + ")");
+    }
+
+    // ===== Battleship bombing sequence =====
+
+    /**
+     * Starts the battleship bombing sequence: locks the camera, begins auto-scroll,
+     * and spawns the battleship object.
+     */
+    private void startBattleshipSequence() {
+        battleshipAutoScrollActive = true;
+        ensureBattleshipTerrainLoaded();
+        // ROM writes Pal_AIZBattleship to Normal_palette_line_2, which maps to
+        // engine palette index 1 (palette 0 is the character line).
+        loadPalette(1, Sonic3kConstants.PAL_AIZ_BATTLESHIP_ADDR);
+        // Lock camera to current X (player can only move within the visible screen)
+        int cameraX = camera().getX();
+        // Initialize smooth scroll counter at current camera position (never wraps)
+        battleshipSmoothScrollX = cameraX;
+        camera().setMinX((short) cameraX);
+        camera().setMaxX((short) cameraX);
+        // Lock player control during the bombing sequence
+        setTransitionControlLock(false); // Player can still run left/right
+
+        if (!battleshipSpawned) {
+            battleshipSpawned = true;
+            int baseSecondaryY = camera().getY() + 0x08F0;
+            ObjectSpawn shipSpawn = new ObjectSpawn(cameraX, baseSecondaryY, 0, 0, 0, false, 0);
+            AizBattleshipInstance ship = new AizBattleshipInstance(shipSpawn, baseSecondaryY);
+            var objManager = levelManager().getObjectManager();
+            if (objManager != null) {
+                objManager.addDynamicObject(ship);
+            }
+            LOG.info("AIZ2 battleship: spawned at cameraX=0x" + Integer.toHexString(cameraX));
+        }
+    }
+
+    private void ensureBattleshipTerrainLoaded() {
+        if (battleshipTerrainLoaded) {
+            return;
+        }
+        Level level = levelManager().getCurrentLevel();
+        if (!(level instanceof Sonic3kLevel sonic3kLevel)) {
+            return;
+        }
+
+        try {
+            ResourceLoader loader = new ResourceLoader(rom());
+            byte[] shipBlocks16x16 = loader.loadSingle(
+                    LoadOp.kosinskiBase(Sonic3kConstants.AIZ2_16X16_BOMBERSHIP_ADDR));
+            byte[] shipTiles8x8 = loader.loadSingle(
+                    LoadOp.kosinskiMBase(Sonic3kConstants.AIZ2_8X8_BOMBERSHIP_ADDR));
+
+            sonic3kLevel.applyChunkOverlay(
+                    shipBlocks16x16,
+                    Sonic3kConstants.AIZ2_16X16_BOMBERSHIP_DEST_OFFSET,
+                    false);
+            sonic3kLevel.applyPatternOverlay(
+                    shipTiles8x8,
+                    Sonic3kConstants.AIZ2_8X8_BOMBERSHIP_DEST_BYTES,
+                    false);
+            loadPaletteFromPalPointers(PAL_AIZ_BOSS_INDEX);
+            levelManager().invalidateAllTilemaps();
+            battleshipTerrainLoaded = true;
+
+            LOG.info("AIZ2 battleship: loaded terrain overlays (16x16="
+                    + shipBlocks16x16.length + " bytes, 8x8=" + shipTiles8x8.length
+                    + " bytes) and boss palette");
+        } catch (IOException e) {
+            LOG.warning("AIZ2 battleship: failed to load terrain overlays: " + e.getMessage());
+        }
+    }
+
+
+    /**
+     * Per-frame auto-scroll logic during the battleship bombing loop.
+     * ROM: AIZ2_ScreenEvent auto-scroll handler.
+     * Scrolls the camera right by {@link #BATTLESHIP_SCROLL_SPEED} pixels per frame
+     * and wraps everything back by {@link #BATTLESHIP_WRAP_DIST} when the camera
+     * reaches the wrap boundary.
+     */
+    private void updateBattleshipAutoScroll() {
+        Camera cam = camera();
+        int cameraX = cam.getX();
+
+        // Clear per-frame wrap offset (ROM: Level_repeat_offset)
+        levelRepeatOffset = 0;
+
+        // Smooth scroll counter increments every frame without wrapping.
+        // Used by the parallax scroll handler for continuous BG deformation.
+        battleshipSmoothScrollX += BATTLESHIP_SCROLL_SPEED;
+
+        // Auto-scroll right
+        int newCameraX = cameraX + BATTLESHIP_SCROLL_SPEED;
+        cam.setX((short) newCameraX);
+        cam.setMinX((short) newCameraX);
+        cam.setMaxX((short) newCameraX);
+
+        // Wrap-back: when camera reaches the wrap boundary, subtract $200 from
+        // ALL positions (camera, player, active objects) for seamless looping.
+        if (newCameraX >= battleshipWrapX) {
+            // Use shorter wrap distance in the post-bombing forest phase
+            int wrapDelta = (battleshipWrapX == BATTLESHIP_WRAP_X_BOMBING)
+                    ? BATTLESHIP_WRAP_DIST : BATTLESHIP_WRAP_DIST_POST_BOMBING;
+            levelRepeatOffset = wrapDelta;
+
+            cam.setX((short) (newCameraX - wrapDelta));
+            cam.setMinX((short) (newCameraX - wrapDelta));
+            cam.setMaxX((short) (newCameraX - wrapDelta));
+
+            // Wrap the player position
+            if (cam.getFocusedSprite() instanceof AbstractPlayableSprite player) {
+                player.setX((short) (player.getX() - wrapDelta));
+            }
+            // Wrap sidekick positions
+            for (AbstractPlayableSprite sidekick : spriteManager().getSidekicks()) {
+                sidekick.setX((short) (sidekick.getX() - wrapDelta));
+            }
+
+            // Wrap all active bombing-sequence objects (ROM: Level_repeat_offset)
+            var objManager = levelManager().getObjectManager();
+            if (objManager != null) {
+                for (var obj : objManager.getActiveObjects()) {
+                    if (obj instanceof AizShipBombInstance bomb) {
+                        bomb.applyWrapOffset(wrapDelta);
+                    } else if (obj instanceof AizBombExplosionInstance explosion) {
+                        explosion.applyWrapOffset(wrapDelta);
+                    }
+                }
+            }
+
+            LOG.fine("AIZ2 battleship: wrap-back at cameraX=0x"
+                    + Integer.toHexString(newCameraX));
+        }
+
+        // Clamp player X within camera bounds during auto-scroll
+        if (cam.getFocusedSprite() instanceof AbstractPlayableSprite player) {
+            int camX = cam.getX();
+            int minPlayerX = camX + PLAYER_LEFT_MARGIN;
+            int maxPlayerX = camX + PLAYER_RIGHT_MARGIN;
+            short playerX = player.getX();
+            if (playerX < minPlayerX) {
+                player.setX((short) minPlayerX);
+            } else if (playerX > maxPlayerX) {
+                player.setX((short) maxPlayerX);
+            }
+        }
+    }
+
+    /** ROM: Level_repeat_offset — non-zero on wrap frames, objects subtract this from X. */
+    public int getLevelRepeatOffset() {
+        return levelRepeatOffset;
+    }
+
+    /** True when the battleship auto-scroll loop is active. */
+    public boolean isBattleshipAutoScrollActive() {
+        return battleshipAutoScrollActive;
+    }
+
+    /**
+     * ROM: AIZ2BGE_Normal one-time BG Y adjustment ($A8 or -$198).
+     * Applied when eventsFg5 fires (resize4). The scroll handler adds this to vscrollFactorBG.
+     */
+    public int getBattleshipBgYOffset() {
+        return battleshipBgYOffset;
+    }
+
+    // ROM: ScreenShakeArray — signed byte offsets indexed by countdown value (15→0).
+    // Amplitude increases then decreases: ±1, ±1, ±2, ±2, ±3, ±3, ±4, ±4, ±5, ±5
+    private static final int[] SCREEN_SHAKE_ARRAY = {
+            1, -1, 1, -1, 2, -2, 2, -2, 3, -3, 3, -3, 4, -4, 4, -4, 5, -5, 5, -5
+    };
+
+    /**
+     * ROM: move.w #$10,(Screen_shake_flag).w — trigger timed screen shake.
+     * Called by bomb impact. Countdown applies Y offsets from ScreenShakeArray.
+     */
+    public void triggerScreenShake(int frames) {
+        screenShakeTimer = frames;
+    }
+
+    public int getScreenShakeOffsetY() {
+        return screenShakeOffsetY;
+    }
+
+    /**
+     * Ticks the screen shake countdown. Called each frame from {@link #updateAct2Continuation()}.
+     * Exposes the current ROM-style Y offset for the AIZ scroll handler.
+     */
+    private void tickScreenShake() {
+        if (screenShakeTimer <= 0) {
+            screenShakeOffsetY = 0;
+            return;
+        }
+        screenShakeTimer--;
+        screenShakeOffsetY = 0;
+        if (screenShakeTimer < SCREEN_SHAKE_ARRAY.length) {
+            screenShakeOffsetY = SCREEN_SHAKE_ARRAY[screenShakeTimer];
+        }
+    }
+
+    /**
+     * Returns the smooth (never-wrapping) scroll X for parallax during the bombing sequence.
+     * The parallax scroll handler should use this instead of camera.getX() to avoid
+     * visible background jumps when the camera wraps back by $200.
+     */
+    public int getBattleshipSmoothScrollX() {
+        return battleshipSmoothScrollX;
+    }
+
+    /**
+     * Called by {@link AizBattleshipInstance} when the ship has crossed the screen
+     * and all bombs have been dropped. Spawns the small Eggman craft.
+     */
+    public void onBattleshipComplete() {
+        // ROM: AIZ2SE_EndRefresh sets Events_bg+$02 = $46C0.
+        // This moves the wrap into the forested area right before the boss arena.
+        // In the ROM, the HInt screen-split hides the terrain seam at the wrap point;
+        // without it there's a slight visual discontinuity, but the loop location is correct.
+        battleshipWrapX = BATTLESHIP_WRAP_X_POST_BOMBING;
+
+        var objManager = levelManager().getObjectManager();
+        if (objManager != null) {
+            AizBossSmallInstance smallBoss = new AizBossSmallInstance();
+            objManager.addDynamicObject(smallBoss);
+
+            // ROM: Obj_AIZ2MakeTree - spawner for parallax background trees
+            AizBgTreeSpawnerInstance treeSpawner = new AizBgTreeSpawnerInstance();
+            objManager.addDynamicObject(treeSpawner);
+        }
+        LOG.info("AIZ2 battleship: bombing complete, wrap boundary now 0x"
+                + Integer.toHexString(battleshipWrapX)
+                + ", spawned small boss craft and tree spawner");
+    }
+
+    /**
+     * Called by {@link AizBossSmallInstance} when the small craft exits the screen.
+     * Stops auto-scroll, unlocks camera boundaries, allows the player to proceed
+     * to the end boss arena.
+     */
+    public void onBossSmallComplete() {
+        battleshipAutoScrollActive = false;
+
+        // Unlock camera: set maxX to end of level / boss arena
+        camera().setMaxX((short) BATTLESHIP_END_CAMERA_MAX_X);
+        // Release minX — keep it where it is so player can't go backwards,
+        // but don't force it to the current scroll position anymore.
+
+        LOG.info("AIZ2 battleship: small boss exited, camera unlocked to maxX=0x"
+                + Integer.toHexString(BATTLESHIP_END_CAMERA_MAX_X));
     }
 
     private void advanceFireRise(boolean allowInitialLerp) {
