@@ -10,6 +10,9 @@ import com.openggf.game.sonic3k.objects.BubbleShieldObjectInstance;
 import com.openggf.game.sonic3k.objects.FireShieldObjectInstance;
 import com.openggf.game.sonic3k.objects.InstaShieldObjectInstance;
 import com.openggf.game.sonic3k.objects.LightningShieldObjectInstance;
+import com.openggf.game.sonic3k.objects.Sonic3kInvincibilityStarsObjectInstance;
+import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.sonic3k.Sonic3kGameModule;
 import com.openggf.level.WaterSystem;
 import com.openggf.physics.Direction;
 import com.openggf.sprites.managers.SpindashDustController;
@@ -60,9 +63,14 @@ public class DefaultPowerUpSpawner implements PowerUpSpawner {
 
     @Override
     public PowerUpObject spawnInvincibilityStars(PlayableEntity player) {
-        InvincibilityStarsObjectInstance stars = new InvincibilityStarsObjectInstance(player);
+        AbstractObjectInstance stars;
+        if (GameModuleRegistry.getCurrent() instanceof Sonic3kGameModule) {
+            stars = new Sonic3kInvincibilityStarsObjectInstance(player);
+        } else {
+            stars = new InvincibilityStarsObjectInstance(player);
+        }
         objectManager.addDynamicObject(stars);
-        return stars;
+        return (PowerUpObject) stars;
     }
 
     @Override
