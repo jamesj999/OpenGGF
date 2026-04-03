@@ -126,6 +126,9 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         // Load shield art (DPLC-driven, same for all zones)
         loadShieldArt();
 
+        // Load invincibility star art (non-DPLC, same for all zones)
+        loadInvincibilityStarArt();
+
         // Get act index from LevelManager (available during level load)
         currentActIndex = GameServices.level().getCurrentAct();
         Sonic3kPlcArtRegistry.ZoneArtPlan plan =
@@ -721,6 +724,69 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         } catch (IOException e) {
             LOG.warning("Failed to load shield art: " + e.getMessage());
         }
+    }
+
+    /**
+     * Loads invincibility star art from ROM (uncompressed art + ROM-parsed mappings).
+     * ROM: ArtUnc_Invincibility binclude (32 tiles), Map_Invincibility (9 frames).
+     * No DPLCs — static tile assignment like explosion art.
+     */
+    private void loadInvincibilityStarArt() {
+        try {
+            Rom rom = GameServices.rom().getRom();
+            if (rom == null) {
+                return;
+            }
+            Pattern[] patterns = loadUncompressedPatterns(rom,
+                    Sonic3kConstants.ART_UNC_INVINCIBILITY_ADDR,
+                    Sonic3kConstants.ART_UNC_INVINCIBILITY_SIZE);
+
+            RomByteReader reader = RomByteReader.fromRom(rom);
+            List<SpriteMappingFrame> rawMappings =
+                    S3kSpriteDataLoader.loadMappingFrames(reader, Sonic3kConstants.MAP_INVINCIBILITY_ADDR);
+
+            // Normalize tile indices to 0-based (ROM mappings reference ArtTile_Shield = $079C)
+            List<SpriteMappingFrame> mappings = normalizeMappingTileIndices(rawMappings);
+
+            ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, mappings, 0, 1);
+            registerSheet(ObjectArtKeys.INVINCIBILITY_STARS, sheet);
+            LOG.info("Loaded S3K invincibility star art: " + patterns.length
+                    + " tiles, " + mappings.size() + " mapping frames");
+        } catch (Exception e) {
+            LOG.warning("Failed to load invincibility star art: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Normalizes mapping tile indices to be 0-based by subtracting the minimum
+     * tile index found across all pieces. Required when ROM mappings reference
+     * absolute VRAM tile positions (e.g. ArtTile_Shield = $079C).
+     */
+    private static List<SpriteMappingFrame> normalizeMappingTileIndices(List<SpriteMappingFrame> frames) {
+        int minTile = Integer.MAX_VALUE;
+        for (SpriteMappingFrame frame : frames) {
+            for (SpriteMappingPiece piece : frame.pieces()) {
+                if (piece.tileIndex() < minTile) {
+                    minTile = piece.tileIndex();
+                }
+            }
+        }
+        if (minTile == 0 || minTile == Integer.MAX_VALUE) {
+            return frames;
+        }
+        final int offset = minTile;
+        List<SpriteMappingFrame> normalized = new ArrayList<>(frames.size());
+        for (SpriteMappingFrame frame : frames) {
+            List<SpriteMappingPiece> pieces = new ArrayList<>(frame.pieces().size());
+            for (SpriteMappingPiece p : frame.pieces()) {
+                pieces.add(new SpriteMappingPiece(
+                        p.xOffset(), p.yOffset(), p.widthTiles(), p.heightTiles(),
+                        p.tileIndex() - offset, p.hFlip(), p.vFlip(),
+                        p.paletteIndex(), p.priority()));
+            }
+            normalized.add(new SpriteMappingFrame(pieces));
+        }
+        return normalized;
     }
 
     private void loadSingleShieldArt(RomByteReader reader, String key,
