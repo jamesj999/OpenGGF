@@ -262,6 +262,11 @@ in S3K and via cross-game donation into S1 and S2.
 - `Sonic3kLevelTriggerManager` added for AIZ trigger state such as boss-driven burn activation.
 - All zone badnik entries populated in `Sonic3kPlcArtRegistry`.
 - Initial badnik implementations wired into object system.
+- **Badnik destruction effects**: destroying S3K badniks now spawns animals and floating points
+  popups, matching S1/S2 behavior. Zone-specific animal pairs loaded from ROM per
+  `PLCLoad_Animals_Index` (all 13 zones mapped). Enemy score art parsed from `Map_EnemyScore`
+  (shared `ArtNem_EnemyPtsStarPost` blob). `Sonic3kPointsObjectInstance` provides S3K-specific
+  score-to-frame mapping.
 
 #### Audio
 - Music tempo scaling and all-spheres SFX fix.
