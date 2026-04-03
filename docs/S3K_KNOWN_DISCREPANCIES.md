@@ -95,8 +95,8 @@ Timer-driven routine transitions fire on the exact same frame as the ROM's `Obj_
 
 ## Immediate Art Loading
 
-**Location:** `AizPlaneIntroInstance.java`, `AizIntroPlaneChild.java`
-**ROM Reference:** `sonic3k.asm` `Queue_Kos_Module` calls at `loc_6777A`
+**Location:** `AizPlaneIntroInstance.java`, `AizIntroPlaneChild.java`, `AizIntroTerrainSwap.java`
+**ROM Reference:** `sonic3k.asm` `Queue_Kos_Module` calls at `loc_6777A`, `Kos_decomp_queue_count` gate in `AIZ1_Resize`
 
 ### Original Implementation
 
@@ -111,7 +111,7 @@ The ROM queues KosinskiM-compressed art for deferred DMA transfer during V-blank
     jsr     (Queue_Kos_Module).l
 ```
 
-This queues the decompression work to be spread across multiple V-blank intervals, avoiding frame drops from large decompressions.
+This queues the decompression work to be spread across multiple V-blank intervals, avoiding frame drops from large decompressions. Downstream, `AIZ1_Resize` routine 2 gates the transition to routine 4 (Y boundary unlock, dynamic maxY) on `Kos_decomp_queue_count` reaching 0 — the BG event handler stays in intro deformation mode until the queue drains.
 
 ### Our Implementation
 
@@ -122,15 +122,18 @@ byte[] planeArt = ResourceLoader.decompress(romAddr, CompressionType.KOSINSKI_MO
 graphicsManager.writePatterns(ART_TILE_AIZ_INTRO_PLANE, planeArt);
 ```
 
+Since there is no decompression queue to poll, the `AIZ1_Resize` routine 2→4 gate uses an `introWasPlayed` flag (from `Sonic3kAIZEvents.shouldSpawnIntro()`) instead of a queue count. When the intro was played, a 30-frame countdown simulates the queue drain delay. When the intro was skipped, `mainLevelPhaseActive` is set immediately — matching the ROM where `Kos_decomp_queue_count` is already 0 at level start.
+
 ### Rationale
 
 1. **No V-blank constraint** - The engine doesn't have a V-blank DMA budget. Decompression during init has no frame timing impact.
 2. **Art available before first draw** - Immediate loading guarantees patterns are ready when the object first renders, eliminating any possibility of a blank-frame glitch.
 3. **Simpler code path** - No deferred queue management needed.
+4. **Intro check is equivalent to queue count** - When the intro wasn't played, no Kos data was queued, so the count would be 0. Checking `introWasPlayed` produces the same result.
 
 ### Verification
 
-All art tiles are present from the first frame the object renders, matching the visual result of the ROM's queued loading (which also completes before the object's first visible frame in practice).
+All art tiles are present from the first frame the object renders. `TestS3kAiz1SkipHeadless` and `TestS3kAiz1LoopRegression` verify skip-intro correctly unlocks Y boundaries. `TestS3kAiz1SpindashLoopTraversal` verifies Sonic is not killed by premature pit death on the approach to the first loop.
 
 ---
 
@@ -173,3 +176,4 @@ for (int frame = 0; frame < frameCount; frame++) {
 ### Verification
 
 Every Knuckles animation frame displays the correct patterns at the correct positions, matching the ROM's per-frame DPLC result.
+
