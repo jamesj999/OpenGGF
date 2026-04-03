@@ -266,7 +266,12 @@ public class Sonic3kMonitorObjectInstance extends AbstractMonitorObjectInstance
                 // Eggman monitor hurts the player
                 // ROM: calls HurtCharacter — checks invincibility first
                 if (player.getInvincibleFrames() <= 0 && player.getInvulnerableFrames() <= 0) {
-                    player.applyHurtOrDeath(player.getCentreX(), false, player.getRingCount() > 0);
+                    // ROM: Hurt_Sidekick - CPU Tails only gets knockback, no ring scatter or death
+                    if (player.isCpuControlled()) {
+                        player.applyHurt(player.getCentreX());
+                    } else {
+                        player.applyHurtOrDeath(player.getCentreX(), false, player.getRingCount() > 0);
+                    }
                 }
             }
             case ONE_UP -> {
