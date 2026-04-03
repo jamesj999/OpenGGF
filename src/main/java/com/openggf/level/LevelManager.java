@@ -1318,6 +1318,14 @@ public class LevelManager {
         if (sidekickPalette == null) {
             return null;
         }
+        // Only create a separate context if the sidekick's palette actually
+        // differs from the main character's. Sonic and Tails share Pal_SonicTails
+        // in S3K — creating an unnecessary context would trigger a palette texture
+        // resize that wipes existing level palette data.
+        Palette mainPalette = artProvider.loadCharacterPalette(mainCharName);
+        if (mainPalette != null && sidekickPalette.dataEquals(mainPalette)) {
+            return null;
+        }
         GameId gameId = (GameModuleRegistry.getCurrent() != null)
                 ? GameModuleRegistry.getCurrent().getGameId()
                 : null;

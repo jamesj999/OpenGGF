@@ -444,6 +444,25 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     }
 
     /**
+     * ROM-accurate {@code ChkObjectVisible} check.
+     * <p>
+     * Returns true if the object position falls within the exact screen rectangle:
+     * {@code 0 <= (obX - cameraX) < 320} AND {@code 0 <= (obY - cameraY) < 224}.
+     * No margin, exclusive upper bounds (matching {@code bge.s .offscreen}).
+     * <p>
+     * Used by objects that call {@code ChkObjectVisible} in the ROM
+     * (lava ball maker, gargoyle, invisible barriers).
+     * <p>
+     * Reference: docs/s1disasm/_incObj/sub ChkObjectVisible.asm
+     */
+    protected boolean isChkObjectVisible() {
+        int dx = getX() - cameraBounds.left();
+        if (dx < 0 || dx >= 320) return false;
+        int dy = getY() - cameraBounds.top();
+        return dy >= 0 && dy < 224;
+    }
+
+    /**
      * ROM-accurate out_of_range check (X-only, chunk-aligned).
      * <p>
      * Matches the S1/S2 {@code out_of_range} macro (Macros.asm):
