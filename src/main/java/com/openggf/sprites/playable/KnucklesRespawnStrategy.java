@@ -1,6 +1,8 @@
 package com.openggf.sprites.playable;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.CanonicalAnimation;
+import com.openggf.game.GameModuleRegistry;
 import com.openggf.physics.Direction;
 
 /**
@@ -16,11 +18,27 @@ public class KnucklesRespawnStrategy implements SidekickRespawnStrategy {
     private static final int GLIDE_TIMEOUT_FRAMES = 180;
     private static final int SPAWN_Y_OFFSET = 192;
 
+    private final int glideAnimId;
+
     private int approachFrameCount;
     private boolean dropping;
 
     public KnucklesRespawnStrategy(SidekickCpuController controller) {
         // controller not currently used; accepted for API consistency with other strategies
+        var module = GameModuleRegistry.getCurrent();
+        this.glideAnimId = (module != null)
+                ? module.resolveAnimationId(CanonicalAnimation.GLIDE_DROP)
+                : -1;
+    }
+
+    @Override
+    public boolean requiresPhysics() {
+        return dropping;
+    }
+
+    /** Package-private: allows tests to trigger the drop phase directly. */
+    void triggerDrop() {
+        dropping = true;
     }
 
     @Override
@@ -57,6 +75,7 @@ public class KnucklesRespawnStrategy implements SidekickRespawnStrategy {
         sidekick.setXSpeed((short) 0);
         sidekick.setYSpeed((short) 0);
         sidekick.setGSpeed((short) 0);
+        sidekick.setForcedAnimationId(glideAnimId);
 
         return true;
     }
@@ -69,6 +88,7 @@ public class KnucklesRespawnStrategy implements SidekickRespawnStrategy {
         if (!dropping) {
             sidekick.setControlLocked(true);
             sidekick.setObjectControlled(true);
+            sidekick.setForcedAnimationId(glideAnimId);
 
             // Horizontal movement toward leader
             int sidekickCX = sidekick.getCentreX();
