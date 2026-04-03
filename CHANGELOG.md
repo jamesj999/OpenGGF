@@ -268,6 +268,14 @@ in S3K and via cross-game donation into S1 and S2.
   (shared `ArtNem_EnemyPtsStarPost` blob). `Sonic3kPointsObjectInstance` provides S3K-specific
   score-to-frame mapping.
 
+#### Spindash Dust
+- **S3K spindash dust**: implemented native `SpindashDustArtProvider` for Sonic 3&K. Art loaded
+  from ROM (`ArtUnc_DashDust` at 0x18A604, `Map_DashDust` at 0x18DF4, `DPLC_DashSplashDrown` at
+  0x18EE2). Uses virtual pattern base 0x34000 to avoid collision with ring tiles in the atlas.
+- **Multi-character dust isolation**: sidekick dust renderers now get isolated DPLC banks
+  (shifted into `SIDEKICK_PATTERN_BASE + 0x2000` range), preventing atlas corruption when
+  multiple characters spindash simultaneously.
+
 #### Audio
 - Music tempo scaling and all-spheres SFX fix.
 - Ring collection sound alternates left/right channels.
