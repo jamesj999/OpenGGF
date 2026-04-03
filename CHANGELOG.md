@@ -276,6 +276,16 @@ in S3K and via cross-game donation into S1 and S2.
   (shifted into `SIDEKICK_PATTERN_BASE + 0x2000` range), preventing atlas corruption when
   multiple characters spindash simultaneously.
 
+#### Invincibility Stars
+- **S3K invincibility stars**: `Sonic3kInvincibilityStarsObjectInstance` implements ROM-accurate
+  Obj_Invincibility (sonic3k.asm:33751) with 1 parent group + 3 trailing child groups.
+  Each group renders 2 sub-sprites at opposite positions on a 32-entry circular orbit table
+  (`byte_189A0`). Children trail via `PlayableEntity.getCentreX/Y(framesAgo)` at 3/6/9 frames
+  behind the player; parent orbits fast (9 entries/frame), children orbit slow (1 entry/frame).
+  Rotation reverses when facing left. Art loaded from ROM (`ArtUnc_Invincibility` at 0x18A204,
+  `Map_Invincibility` at 0x018AEA). `DefaultPowerUpSpawner` branches on `Sonic3kGameModule`
+  to create the S3K variant; S1/S2 `InvincibilityStarsObjectInstance` remains unchanged.
+
 #### Audio
 - Music tempo scaling and all-spheres SFX fix.
 - Ring collection sound alternates left/right channels.
