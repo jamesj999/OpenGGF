@@ -113,6 +113,12 @@ public class Sonic3kAudioProfile implements GameAudioProfile {
     }
 
     @Override
+    public boolean isContinuousSfx(int sfxId) {
+        // ROM: sfx__FirstContinuous = 0xBC (sfx_SlideSkidLoud)
+        return sfxId >= Sonic3kSfx.SLIDE_SKID_LOUD.id;
+    }
+
+    @Override
     public SpeedMode getSpeedMode() {
         return SpeedMode.FRAME_MULTIPLY;
     }

@@ -29,12 +29,78 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
     // Scratch buffer for read() to avoid per-frame allocations
     private final short[] scratchFrameBuf = new short[2];
 
+    // --- Continuous SFX state (Z80: zContinuousSFX, zContinuousSFXFlag, zContSFXLoopCnt) ---
+    // S3K continuous SFX (0xBC+) loop via the 0xFC coord flag (cfLoopContinuousSFX).
+    // When the same continuous SFX is re-triggered, the flag is set to extend playback
+    // instead of restarting. The loop counter tracks how many tracks still need to hit
+    // their loop point before the flag is consumed.
+    private int continuousSfxId;
+    private boolean continuousSfxFlag;
+    private int contSfxLoopCnt;
+
     public SmpsDriver() {
         super();
     }
 
     public SmpsDriver(double outputSampleRate) {
         super(outputSampleRate);
+    }
+
+    // --- Continuous SFX API ---
+
+    /**
+     * Attempt to extend a currently-playing continuous SFX instead of restarting it.
+     * ROM: when the same continuous SFX ID is re-triggered, set zContinuousSFXFlag = 0x80
+     * and refresh zContSFXLoopCnt, but do NOT restart the SFX.
+     *
+     * @param sfxId the SFX ID being triggered
+     * @param trackCount total FM+PSG track count for the SFX (from header byte 3)
+     * @return true if the SFX was extended (caller should skip creating a new sequencer)
+     */
+    public boolean extendContinuousSfx(int sfxId, int trackCount) {
+        synchronized (sequencersLock) {
+            if (continuousSfxId == sfxId && continuousSfxId != 0) {
+                continuousSfxFlag = true;
+                contSfxLoopCnt = trackCount;
+                return true;
+            }
+            return false;
+        }
+    }
+
+    /**
+     * Mark a new continuous SFX as starting playback.
+     * ROM: store SFX index in zContinuousSFX, clear zContinuousSFXFlag, set loop count.
+     */
+    public void startContinuousSfx(int sfxId, int trackCount) {
+        synchronized (sequencersLock) {
+            continuousSfxFlag = false;
+            continuousSfxId = sfxId;
+            contSfxLoopCnt = trackCount;
+        }
+    }
+
+    /** ROM: read zContinuousSFXFlag (0x80 when set). */
+    public boolean isContinuousSfxFlagSet() {
+        return continuousSfxFlag;
+    }
+
+    /** ROM: clear zContinuousSFX. */
+    public void clearContinuousSfxId() {
+        continuousSfxId = 0;
+    }
+
+    /** ROM: clear zContinuousSFXFlag. */
+    public void clearContinuousSfxFlag() {
+        continuousSfxFlag = false;
+    }
+
+    /**
+     * ROM: decrement zContSFXLoopCnt and return whether it reached zero.
+     * When zero, all tracks have passed their loop point for this extension cycle.
+     */
+    public boolean decrementContSfxLoopCnt() {
+        return --contSfxLoopCnt <= 0;
     }
 
     public void setRegion(SmpsSequencer.Region region) {
@@ -174,6 +240,9 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
             for (int i = 0; i < 4; i++)
                 psgLocks[i] = null;
             psgLatches.clear();
+            continuousSfxId = 0;
+            continuousSfxFlag = false;
+            contSfxLoopCnt = 0;
         }
         // Silence hardware (ROM: zFMSilenceAll + zPSGSilenceAll)
         silenceAll();
@@ -193,6 +262,9 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
                 releaseLocks(sfx);
                 sfxSequencers.remove(sfx);
             }
+            continuousSfxId = 0;
+            continuousSfxFlag = false;
+            contSfxLoopCnt = 0;
         }
     }
 

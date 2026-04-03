@@ -112,4 +112,29 @@ public interface CoordFlagContext {
 
     /** Stop DAC playback. */
     void stopDac();
+
+    // -----------------------------------------------------------------------
+    // Continuous SFX (S3K cfLoopContinuousSFX support)
+    // -----------------------------------------------------------------------
+
+    /** Returns true if the continuous SFX extension flag is set (Z80: zContinuousSFXFlag == 0x80). */
+    default boolean isContinuousSfxFlagSet() {
+        return false;
+    }
+
+    /** Clear the continuous SFX ID (Z80: zContinuousSFX = 0). */
+    default void clearContinuousSfxId() {
+    }
+
+    /** Clear the continuous SFX extension flag (Z80: zContinuousSFXFlag = 0). */
+    default void clearContinuousSfxFlag() {
+    }
+
+    /**
+     * Decrement the continuous SFX loop counter (Z80: zContSFXLoopCnt--).
+     * @return true if the counter reached zero (all tracks have looped)
+     */
+    default boolean decrementContSfxLoopCnt() {
+        return true;
+    }
 }

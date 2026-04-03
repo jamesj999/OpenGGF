@@ -1,5 +1,6 @@
 package com.openggf.audio.smps;
 
+import com.openggf.audio.driver.SmpsDriver;
 import com.openggf.audio.synth.VirtualSynthesizer;
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.AudioStream;
@@ -2523,6 +2524,28 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
     @Override
     public void stopDac() {
         synth.stopDac(this);
+    }
+
+    // --- Continuous SFX (delegate to SmpsDriver if available) ---
+
+    @Override
+    public boolean isContinuousSfxFlagSet() {
+        return (synth instanceof SmpsDriver d) && d.isContinuousSfxFlagSet();
+    }
+
+    @Override
+    public void clearContinuousSfxId() {
+        if (synth instanceof SmpsDriver d) d.clearContinuousSfxId();
+    }
+
+    @Override
+    public void clearContinuousSfxFlag() {
+        if (synth instanceof SmpsDriver d) d.clearContinuousSfxFlag();
+    }
+
+    @Override
+    public boolean decrementContSfxLoopCnt() {
+        return (synth instanceof SmpsDriver d) ? d.decrementContSfxLoopCnt() : true;
     }
 
     // -----------------------------------------------------------------------

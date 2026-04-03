@@ -71,6 +71,19 @@ public interface GameAudioProfile {
     }
 
     /**
+     * Returns true if the SFX ID is a continuous SFX (cfx_*).
+     *
+     * <p>Continuous SFX (S3K: 0xBC-0xDB) use a special looping mechanism in the
+     * Z80 sound driver. When re-triggered while already playing, the driver
+     * extends playback instead of restarting, producing seamless sustained sound.
+     * The 0xFC coord flag ({@code cfLoopContinuousSFX}) checks the extension flag
+     * to decide whether to loop or stop.
+     */
+    default boolean isContinuousSfx(int sfxId) {
+        return false;
+    }
+
+    /**
      * Returns true if the SFX ID is a "special" SFX class for this game profile.
      *
      * <p>Some drivers (notably Sonic 1 68k) route special SFX through dedicated
