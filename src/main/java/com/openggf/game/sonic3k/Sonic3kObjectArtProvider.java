@@ -9,6 +9,7 @@ import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
 import com.openggf.level.Pattern;
+import com.openggf.level.objects.AnimalType;
 import com.openggf.level.objects.HudRenderManager;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpriteSheet;
@@ -72,6 +73,31 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
     private Pattern[] hudLivesPatterns;
     private Pattern[] hudLivesNumbers;
 
+    // Zone-specific animal types (set per loadArtForZone call)
+    private int animalTypeA = AnimalType.FLICKY.ordinal();
+    private int animalTypeB = AnimalType.CHICKEN.ordinal();
+
+    /**
+     * S3K zone-to-animal mapping from PLCLoad_Animals_Index in sonic3k.asm.
+     * Each entry is {AnimalA, AnimalB} for that zone index.
+     */
+    private static final AnimalType[][] S3K_ZONE_ANIMALS = {
+            {AnimalType.FLICKY, AnimalType.CHICKEN},    // 0x00 AIZ
+            {AnimalType.RABBIT, AnimalType.SEAL},       // 0x01 HCZ
+            {AnimalType.FLICKY, AnimalType.CHICKEN},    // 0x02 MGZ
+            {AnimalType.RABBIT, AnimalType.FLICKY},     // 0x03 CNZ
+            {AnimalType.SQUIRREL, AnimalType.FLICKY},   // 0x04 FBZ
+            {AnimalType.PENGUIN, AnimalType.SEAL},       // 0x05 ICZ
+            {AnimalType.FLICKY, AnimalType.CHICKEN},    // 0x06 LBZ
+            {AnimalType.SQUIRREL, AnimalType.CHICKEN},  // 0x07 MHZ
+            {AnimalType.RABBIT, AnimalType.CHICKEN},    // 0x08 SOZ
+            {AnimalType.FLICKY, AnimalType.CHICKEN},    // 0x09 LRZ
+            {AnimalType.RABBIT, AnimalType.CHICKEN},    // 0x0A SSZ
+            {AnimalType.SQUIRREL, AnimalType.CHICKEN},  // 0x0B DEZ
+            {AnimalType.SQUIRREL, AnimalType.CHICKEN},  // 0x0C DDZ
+    };
+    private static final AnimalType[] DEFAULT_ANIMALS = {AnimalType.FLICKY, AnimalType.CHICKEN};
+
     @Override
     public void loadArtForZone(int zoneIndex) throws IOException {
         currentZoneIndex = zoneIndex;
@@ -94,6 +120,8 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         loadExplosionArt();
         loadMonitorArt();
         loadStarPostArt();
+        loadAnimalArt(zoneIndex);
+        loadPointsArt();
 
         // Load shield art (DPLC-driven, same for all zones)
         loadShieldArt();
@@ -526,6 +554,129 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
             LOG.warning("Failed to load star variant at 0x" + Integer.toHexString(kosmAddr)
                     + ": " + e.getMessage());
         }
+    }
+
+    /**
+     * Loads animal art for the current zone.
+     * <p>
+     * Each zone has two assigned animal types. Art is Nemesis-compressed per animal type.
+     * Mappings are parsed from ROM (Map_Animals1-5, 3 frames each, 6-byte S3K pieces).
+     * The combined sheet follows the same layout as S2: 5 mapping sets × 2 variants × 3 frames.
+     * <p>
+     * The animal tile bank offset in S3K is 18 tiles (ArtTile_Animals2 - ArtTile_Animals1).
+     */
+    private void loadAnimalArt(int zoneIndex) throws IOException {
+        Rom rom = GameServices.rom().getRom();
+        if (rom == null) return;
+
+        RomByteReader reader = RomByteReader.fromRom(rom);
+
+        // Resolve zone-specific animal types
+        AnimalType[] zoneAnimals = (zoneIndex >= 0 && zoneIndex < S3K_ZONE_ANIMALS.length)
+                ? S3K_ZONE_ANIMALS[zoneIndex] : DEFAULT_ANIMALS;
+        AnimalType typeA = zoneAnimals[0];
+        AnimalType typeB = zoneAnimals[1];
+        animalTypeA = typeA.ordinal();
+        animalTypeB = typeB.ordinal();
+
+        // Load Nemesis-compressed art for both animal types
+        Pattern[] patternsA = PatternDecompressor.nemesis(rom, getS3kAnimalArtAddr(typeA));
+        Pattern[] patternsB = PatternDecompressor.nemesis(rom, getS3kAnimalArtAddr(typeB));
+
+        // Combine into a single bank with S3K's 18-tile offset
+        int tileOffset = Sonic3kConstants.S3K_ANIMAL_TILE_OFFSET;
+        int combinedLength = Math.max(
+                Math.max(patternsA.length, tileOffset + patternsB.length),
+                tileOffset * 2);
+        Pattern[] combined = new Pattern[combinedLength];
+        System.arraycopy(patternsA, 0, combined, 0, Math.min(patternsA.length, combined.length));
+        if (tileOffset < combined.length) {
+            int copyLen = Math.min(patternsB.length, combined.length - tileOffset);
+            System.arraycopy(patternsB, 0, combined, tileOffset, copyLen);
+        }
+        for (int i = 0; i < combined.length; i++) {
+            if (combined[i] == null) combined[i] = new Pattern();
+        }
+
+        // Parse all 5 mapping tables from ROM and build the combined frame list.
+        // Layout: 5 sets × 2 variants (offset 0, offset 18) × 3 frames = 30 frames.
+        // This matches the indexing in AnimalObjectInstance.getFrameIndex().
+        int[] mapAddrs = {
+                Sonic3kConstants.MAP_ANIMALS1_ADDR,
+                Sonic3kConstants.MAP_ANIMALS2_ADDR,
+                Sonic3kConstants.MAP_ANIMALS3_ADDR,
+                Sonic3kConstants.MAP_ANIMALS4_ADDR,
+                Sonic3kConstants.MAP_ANIMALS5_ADDR,
+        };
+
+        List<SpriteMappingFrame> allFrames = new ArrayList<>(30);
+        for (int mapAddr : mapAddrs) {
+            List<SpriteMappingFrame> setFrames = S3kSpriteDataLoader.loadMappingFrames(reader, mapAddr, 3);
+            // Variant 0: tile indices as-is (animal A at offset 0)
+            allFrames.addAll(setFrames);
+            // Variant 1: tile indices shifted by tileOffset (animal B at offset 18)
+            for (SpriteMappingFrame frame : setFrames) {
+                List<SpriteMappingPiece> shifted = new ArrayList<>(frame.pieces().size());
+                for (SpriteMappingPiece piece : frame.pieces()) {
+                    shifted.add(new SpriteMappingPiece(
+                            piece.xOffset(), piece.yOffset(),
+                            piece.widthTiles(), piece.heightTiles(),
+                            piece.tileIndex() + tileOffset,
+                            piece.hFlip(), piece.vFlip(),
+                            piece.paletteIndex(), piece.priority()));
+                }
+                allFrames.add(new SpriteMappingFrame(shifted));
+            }
+        }
+
+        ObjectSpriteSheet animalSheet = new ObjectSpriteSheet(combined, allFrames, 0, 1);
+        registerSheet(ObjectArtKeys.ANIMAL, animalSheet);
+        LOG.info("Loaded S3K animal art: " + typeA.displayName() + " + " + typeB.displayName()
+                + ", " + combined.length + " patterns, " + allFrames.size() + " frames");
+    }
+
+    /**
+     * Returns the S3K-specific Nemesis art ROM address for the given animal type.
+     * S3K uses BlueFlicky (mapped to FLICKY) instead of S2's Flicky.
+     */
+    private static int getS3kAnimalArtAddr(AnimalType type) {
+        return switch (type) {
+            case RABBIT -> Sonic3kConstants.ART_NEM_RABBIT_ADDR;
+            case CHICKEN -> Sonic3kConstants.ART_NEM_CHICKEN_ADDR;
+            case PENGUIN -> Sonic3kConstants.ART_NEM_PENGUIN_ADDR;
+            case SEAL -> Sonic3kConstants.ART_NEM_SEAL_ADDR;
+            case PIG -> Sonic3kConstants.ART_NEM_PIG_ADDR;
+            case FLICKY -> Sonic3kConstants.ART_NEM_BLUE_FLICKY_ADDR;
+            case SQUIRREL -> Sonic3kConstants.ART_NEM_SQUIRREL_ADDR;
+            // Animals not present in S3K ROM - fall back to BlueFlicky
+            default -> Sonic3kConstants.ART_NEM_BLUE_FLICKY_ADDR;
+        };
+    }
+
+    /**
+     * Loads enemy score/points popup art.
+     * <p>
+     * The score tiles are the first 8 tiles of ArtNem_EnemyPtsStarPost (already loaded
+     * by loadStarPostArt). Mappings are parsed from Map_EnemyScore (7 frames).
+     * Unlike the StarPost mappings which need a +8 tile offset, the score mappings
+     * reference tiles starting at 0 (the beginning of the combined art blob).
+     */
+    private void loadPointsArt() throws IOException {
+        Rom rom = GameServices.rom().getRom();
+        if (rom == null) return;
+
+        RomByteReader reader = RomByteReader.fromRom(rom);
+
+        // Load the same combined art blob used by StarPost
+        Pattern[] patterns = PatternDecompressor.nemesis(rom, Sonic3kConstants.ART_NEM_ENEMY_PTS_STARPOST_ADDR);
+
+        // Parse Map_EnemyScore (7 frames, tile indices relative to start of blob - no offset needed)
+        List<SpriteMappingFrame> frames = S3kSpriteDataLoader.loadMappingFrames(reader,
+                Sonic3kConstants.MAP_ENEMY_SCORE_ADDR, 7);
+
+        ObjectSpriteSheet sheet = new ObjectSpriteSheet(patterns, frames, 0, 1);
+        registerSheet(ObjectArtKeys.POINTS, sheet);
+        LOG.info("Loaded S3K enemy score art: " + patterns.length + " patterns, " + frames.size() + " frames");
     }
 
     /**
@@ -1010,7 +1161,11 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
 
     @Override
     public int getZoneData(String key, int zoneIndex) {
-        return -1;
+        return switch (key) {
+            case ObjectArtKeys.ANIMAL_TYPE_A -> animalTypeA;
+            case ObjectArtKeys.ANIMAL_TYPE_B -> animalTypeB;
+            default -> -1;
+        };
     }
 
     @Override

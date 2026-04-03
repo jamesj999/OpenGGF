@@ -93,7 +93,7 @@ sound driver.
 |------|--------|
 | Sonic the Hedgehog (S1) | Broadly playable. All 7 zones, 6 bosses, special stages, title screen, ending/credits. |
 | Sonic the Hedgehog 2 (S2) | Most complete. All zones, 9 bosses (including both DEZ bosses), special stages, Tails AI, credits/ending. |
-| Sonic 3 & Knuckles (S3K) | Progressing. Angel Island Zone playable with intro cutscene, miniboss fight (with defeat flow and signpost), results screen, Blue Ball special stages (WIP), palette cycling for all zones, per-character physics, insta-shield, title screen, level select, Knuckles playable with glide/climb, sidekick Knuckles with palette/VRAM isolation, and 10+ gameplay objects. |
+| Sonic 3 & Knuckles (S3K) | Progressing. Angel Island Zone playable with intro cutscene, miniboss fight (with defeat flow and signpost), results screen, Blue Ball special stages (WIP), palette cycling for all zones, per-character physics, insta-shield, title screen, level select, Knuckles playable with glide/climb, sidekick Knuckles with palette/VRAM isolation, badnik destruction with animals and points, and 10+ gameplay objects. |
 
 Work is ongoing across all three games. See CHANGELOG.md for detailed progress.
 
