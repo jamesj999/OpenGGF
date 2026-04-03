@@ -150,6 +150,25 @@ public class RenderContext {
     }
 
     /**
+     * Clears all sidekick palette contexts and reclaims their palette line slots.
+     * Called at the start of each level load to prevent accumulation.
+     */
+    public static void clearSidekickContexts() {
+        if (sidekickContexts.isEmpty()) {
+            return;
+        }
+        sidekickContexts.clear();
+        // Recompute nextPaletteBase: base (4) + donor contexts
+        nextPaletteBase = LINES_PER_CONTEXT;
+        for (RenderContext ctx : donorContexts.values()) {
+            int ctxEnd = ctx.paletteLineBase + LINES_PER_CONTEXT;
+            if (ctxEnd > nextPaletteBase) {
+                nextPaletteBase = ctxEnd;
+            }
+        }
+    }
+
+    /**
      * Clears all donor contexts. Call on engine cleanup or game reset.
      */
     public static void reset() {

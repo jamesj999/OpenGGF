@@ -9,6 +9,7 @@ import com.openggf.data.Game;
 import com.openggf.data.PlayerSpriteArtProvider;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
+import com.openggf.data.SpindashDustArtProvider;
 import com.openggf.game.DynamicStartPositionProvider;
 import com.openggf.sprites.art.SpriteArtSet;
 import com.openggf.game.sonic3k.audio.Sonic3kAudioProfile;
@@ -39,12 +40,13 @@ import com.openggf.game.GameServices;
  * <p>Phase 1 supports terrain, collision, and basic palettes. No objects,
  * rings, or zone-specific features.
  */
-public class Sonic3k extends Game implements PlayerSpriteArtProvider, DynamicStartPositionProvider,
-        AnimatedPatternProvider, AnimatedPaletteProvider {
+public class Sonic3k extends Game implements PlayerSpriteArtProvider, SpindashDustArtProvider,
+        DynamicStartPositionProvider, AnimatedPatternProvider, AnimatedPaletteProvider {
     private static final Logger LOG = Logger.getLogger(Sonic3k.class.getName());
 
     private final Rom rom;
     private Sonic3kPlayerArt playerArt;
+    private Sonic3kDustArt dustArt;
     private Sonic3kRingArt ringArt;
     private Sonic3kLevelAnimationManager levelAnimationManager;
     private Level levelAnimationLevel;
@@ -116,6 +118,14 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, DynamicSta
     }
 
     @Override
+    public SpriteArtSet loadSpindashDustArt(String characterCode) throws IOException {
+        if (dustArt == null) {
+            dustArt = new Sonic3kDustArt(RomByteReader.fromRom(rom));
+        }
+        return dustArt.loadForCharacter(characterCode);
+    }
+
+    @Override
     public Palette loadCharacterPalette(String characterCode) {
         if (characterCode == null) {
             return null;
@@ -129,8 +139,7 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, DynamicSta
             paletteAddr = Sonic3kConstants.SONIC_PALETTE_ADDR;
         }
         try {
-            RomByteReader reader = RomByteReader.fromRom(rom);
-            byte[] data = reader.slice(paletteAddr, paletteSize);
+            byte[] data = rom.readBytes(paletteAddr, paletteSize);
             Palette palette = new Palette();
             palette.fromSegaFormat(data);
             return palette;

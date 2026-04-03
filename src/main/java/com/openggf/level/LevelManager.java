@@ -1139,6 +1139,8 @@ public class LevelManager {
     }
 
     private void initPlayerSpriteArt() {
+        // Clear stale sidekick palette contexts from previous level loads
+        RenderContext.clearSidekickContexts();
         tailsTailBankCount = 0;
         PlayerSpriteArtProvider artProvider;
         if (CrossGameFeatureProvider.isActive()) {
