@@ -69,6 +69,57 @@ public class TestAizShipBombInstance {
     }
 
     @Test
+    public void testBattleshipBombScriptMatchesRomUnderflowCadence() {
+        Camera camera = new Camera();
+        camera.setX((short) 0x4380);
+        camera.setY((short) 0x0180);
+
+        ObjectServices services = servicesWithCamera(camera);
+        int baseSecondaryY = camera.getY() + 0x08F0;
+
+        AizBattleshipInstance ship = buildWithContext(services,
+                () -> new AizBattleshipInstance(
+                        new ObjectSpawn(camera.getX(), baseSecondaryY, 0, 0, 0, false, 0),
+                        baseSecondaryY));
+
+        advanceShip(ship, 420);
+        assertEquals("The initial $1A4 delay should not spawn a bomb until the counter underflows",
+                0, readIntField(ship, "scriptIndex"));
+
+        advanceShip(ship, 1);
+        assertEquals("The first bomb should spawn on update 421 after the $1A4 counter underflows",
+                1, readIntField(ship, "scriptIndex"));
+
+        advanceShip(ship, 32);
+        assertEquals("A $20 script delay should still be waiting after 32 more updates",
+                1, readIntField(ship, "scriptIndex"));
+
+        advanceShip(ship, 1);
+        assertEquals("A $20 script delay should produce the next bomb after 33 updates",
+                2, readIntField(ship, "scriptIndex"));
+
+        advanceShip(ship, 99);
+        assertEquals("By this point the first five bombs should have spawned on consecutive $20 gaps",
+                5, readIntField(ship, "scriptIndex"));
+
+        advanceShip(ship, 32);
+        assertEquals("Bomb 6 should still be pending because bomb 5's entry keeps the gap at $20+1",
+                5, readIntField(ship, "scriptIndex"));
+
+        advanceShip(ship, 1);
+        assertEquals("Bomb 6 should spawn after bomb 5's $20 delay, not bomb 6's $38 delay",
+                6, readIntField(ship, "scriptIndex"));
+
+        advanceShip(ship, 56);
+        assertEquals("Bomb 7 should still be waiting because bomb 6's entry sets the long $38 gap",
+                6, readIntField(ship, "scriptIndex"));
+
+        advanceShip(ship, 1);
+        assertEquals("Bomb 7 should spawn after the full $38+1-frame delay from bomb 6's entry",
+                7, readIntField(ship, "scriptIndex"));
+    }
+
+    @Test
     public void testExplosionFragmentAppliesWrapOffsetInWorldSpace() {
         AizBombExplosionInstance explosion = new AizBombExplosionInstance(0x4550, 0x02C0, 0, 0);
 
@@ -96,6 +147,22 @@ public class TestAizShipBombInstance {
             return object;
         } finally {
             clearConstructionContext();
+        }
+    }
+
+    private static void advanceShip(AizBattleshipInstance ship, int updates) {
+        for (int i = 0; i < updates; i++) {
+            ship.update(i, null);
+        }
+    }
+
+    private static int readIntField(Object target, String fieldName) {
+        try {
+            Field field = target.getClass().getDeclaredField(fieldName);
+            field.setAccessible(true);
+            return field.getInt(target);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
         }
     }
 

@@ -21,7 +21,10 @@ import java.util.logging.Logger;
  * to the ship's secondary camera, converted to world coordinates via:
  * {@code world_x = bomb_script_x - shipX + camera_x}.
  *
- * <p>Initial delay of $1A4 (420) frames before the first bomb drops.
+ * <p>The ship starts with an initial counter of $1A4, but like the ROM it waits
+ * for the counter to underflow before consuming the first script entry. That
+ * makes the first bomb appear on update 421 after spawn, and each entry's delay
+ * governs the gap before the following bomb.
  * When the ship crosses below $3CDC, spawns {@link AizBossSmallInstance}.
  * Every 16 frames plays {@code cfx_LargeShip} SFX.
  */
@@ -47,7 +50,7 @@ public class AizBattleshipInstance extends AbstractObjectInstance {
     /** ROM: Ship movement speed in 16:16 fixed-point ($8800 per frame ≈ 0.53 px/frame). */
     private static final int SHIP_SPEED = 0x8800;
 
-    /** ROM: Initial delay before first bomb ($1A4 = 420 frames). */
+    /** ROM: Initial delay counter before the first underflow ($1A4 -> first bomb on update 421). */
     private static final int INITIAL_DELAY = 0x1A4;
 
     /** ROM: bomb source Y in secondary BG camera space. */
@@ -88,6 +91,16 @@ public class AizBattleshipInstance extends AbstractObjectInstance {
         // Move ship left (16:16 fixed-point)
         shipXFixed -= SHIP_SPEED;
         int shipX = shipXFixed >> 16;
+
+        // ROM parity: exit check happens BEFORE SFX replay and bobbing.
+        // When the ship crosses $3CDC, it transitions to Obj_AIZ2BossSmall
+        // immediately — the continuous SFX stops being re-triggered and
+        // naturally fades out via the cfLoopContinuousSFX fallthrough.
+        if (shipX < SHIP_EXIT_X) {
+            onShipExited();
+            return;
+        }
+
         updateSecondaryCameraY(shipX);
 
         // ROM: replay the large ship SFX every 16th frame.
@@ -95,33 +108,31 @@ public class AizBattleshipInstance extends AbstractObjectInstance {
             services().playSfx(Sonic3kSfx.LARGE_SHIP.id);
         }
 
-        // Process bomb script with initial delay
-        delayTimer--;
-        if (delayTimer <= 0 && scriptIndex < BOMB_SCRIPT.length) {
-            if (!bombingStarted) {
-                bombingStarted = true;
-                LOG.info("AIZ2 battleship: bombing started at frame " + this.frameCounter
-                        + ", shipX=0x" + Integer.toHexString(shipX));
-            }
-
-            // ROM: Translate_Camera2ObjPosition/Translate_Camera2ObjX.
-            int bombScriptX = BOMB_SCRIPT[scriptIndex][1];
-            int screenX = bombScriptX - shipX;
-            int worldY = services().camera().getY() + (BOMB_SOURCE_Y - effectiveSecondaryY);
-
-            spawnBomb(screenX, worldY, bombScriptX);
-            scriptIndex++;
-
-            // Load next delay (if more entries remain)
-            if (scriptIndex < BOMB_SCRIPT.length) {
-                delayTimer = BOMB_SCRIPT[scriptIndex][0];
-            }
+        if (!bombDelayUnderflowed() || scriptIndex >= BOMB_SCRIPT.length) {
+            return;
         }
 
-        // Check if ship has crossed the screen
-        if (shipX < SHIP_EXIT_X) {
-            onShipExited();
+        if (!bombingStarted) {
+            bombingStarted = true;
+            LOG.info("AIZ2 battleship: bombing started at frame " + this.frameCounter
+                    + ", shipX=0x" + Integer.toHexString(shipX));
         }
+
+        int currentScriptIndex = scriptIndex;
+        int nextDelay = BOMB_SCRIPT[currentScriptIndex][0];
+
+        // ROM: Translate_Camera2ObjPosition/Translate_Camera2ObjX.
+        int bombScriptX = BOMB_SCRIPT[currentScriptIndex][1];
+        int screenX = bombScriptX - shipX;
+        int worldY = services().camera().getY() + (BOMB_SOURCE_Y - effectiveSecondaryY);
+
+        spawnBomb(screenX, worldY, bombScriptX);
+        scriptIndex = currentScriptIndex + 1;
+        delayTimer = nextDelay;
+    }
+
+    private boolean bombDelayUnderflowed() {
+        return --delayTimer < 0;
     }
 
     private void spawnBomb(int screenX, int worldY, int bombScriptX) {

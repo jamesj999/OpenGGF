@@ -38,6 +38,7 @@ public class AizShipBombInstance extends AbstractObjectInstance implements Touch
     private static final int COLLISION_FLAGS = 0x8B;
     private static final int GRAVITY = 0x20;       // 8:8 fixed-point
     private static final int Y_RADIUS = 0x10;
+    private static final int IMPACT_DISTANCE_THRESHOLD = -8;
 
     // ROM states
     private static final int STATE_READY_DROP = 0;
@@ -117,20 +118,20 @@ public class AizShipBombInstance extends AbstractObjectInstance implements Touch
                 }
             }
             case STATE_DROP -> {
-                // ROM: gravity fall
-                yVel += GRAVITY;
+                // ROM: apply the current velocity first, then add gravity.
                 int yPos16 = (currentY << 8) | (ySub & 0xFF);
                 yPos16 += yVel;
                 currentY = yPos16 >> 8;
                 ySub = yPos16 & 0xFF;
+                yVel += GRAVITY;
 
-                // Floor collision
+                // ROM: ObjCheckFloorDist only explodes once the bomb is at least
+                // 8 pixels into the floor; the bomb position is left untouched.
                 int worldX = getX();
                 TerrainCheckResult floorResult = ObjectTerrainUtils.checkFloorDist(
                         worldX, currentY, Y_RADIUS);
-                if (floorResult != null && floorResult.distance() < 0) {
-                    currentY += floorResult.distance();
-                    onGroundImpact(worldX);
+                if (floorResult != null && floorResult.distance() <= IMPACT_DISTANCE_THRESHOLD) {
+                    onGroundImpact();
                     return;
                 }
 
@@ -142,7 +143,7 @@ public class AizShipBombInstance extends AbstractObjectInstance implements Touch
         }
     }
 
-    private void onGroundImpact(int impactX) {
+    private void onGroundImpact() {
         // ROM: sfx_MissileExplode
         services().playSfx(Sonic3kSfx.MISSILE_EXPLODE.id);
 

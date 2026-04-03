@@ -178,6 +178,16 @@ public class SpriteManager {
 		playbackInputSuppressed = false;
 	}
 
+	/**
+	 * Forces the cached render buckets to rebuild on the next draw.
+	 *
+	 * Needed when per-frame state like high priority or bucket index changes
+	 * outside add/remove paths (for example, plane switchers or zone events).
+	 */
+	public void invalidateRenderBuckets() {
+		bucketsDirty = true;
+	}
+
 	public Collection<Sprite> getAllSprites() {
 		return sprites.values();
 	}

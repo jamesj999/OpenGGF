@@ -99,12 +99,10 @@ public class AizBossSmallInstance extends AbstractObjectInstance {
             }
         }
 
-        // Play siren SFX every 16 frames
-        if ((this.frameCounter & 0xF) == 0) {
-            services().playSfx(Sonic3kSfx.ROBOTNIK_SIREN.id);
-        }
-
-        // Wait for camera to reach the trigger point
+        // Wait for camera to reach the trigger point.
+        // ROM: siren and movement only start after Camera_X_pos >= $4670.
+        // Before activation, the object just returns — no SFX, no movement.
+        // This gives the Large Ship continuous SFX time to fade out naturally.
         if (!movementStarted) {
             int cameraX = services().camera().getX();
             if (cameraX < CAMERA_WAIT_X) {
@@ -113,6 +111,11 @@ public class AizBossSmallInstance extends AbstractObjectInstance {
             movementStarted = true;
             LOG.info("AIZ2 BossSmall: movement started at cameraX=0x"
                     + Integer.toHexString(cameraX));
+        }
+
+        // Play siren SFX every 16 frames (only after activation)
+        if ((this.frameCounter & 0xF) == 0) {
+            services().playSfx(Sonic3kSfx.ROBOTNIK_SIREN.id);
         }
 
         // Apply deceleration / acceleration arc

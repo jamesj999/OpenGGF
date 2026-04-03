@@ -181,6 +181,16 @@ public class ObjectManager {
         }
     }
 
+    /**
+     * Forces cached render buckets to rebuild on the next draw.
+     *
+     * Object priority can change during update (or by following another entity's
+     * priority), so add/remove-based invalidation alone is not sufficient.
+     */
+    public void invalidateRenderBuckets() {
+        bucketsDirty = true;
+    }
+
     public void update(int cameraX, PlayableEntity player, List<? extends PlayableEntity> sidekicks, int touchFrameCounter) {
         update(cameraX, player, sidekicks, touchFrameCounter, true);
     }

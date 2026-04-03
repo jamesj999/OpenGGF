@@ -285,8 +285,8 @@ public class HudRenderManager {
      * @param yCoord Y coordinate to display (will be masked to 16-bit)
      */
     private void drawSmallHexCoordinates(int x, int y, int xCoord, int yCoord) {
-        int camX = camera.getX();
-        int camY = camera.getY();
+        int camX = camera.getXWithShake();
+        int camY = camera.getYWithShake();
 
         // Draw X coordinate (4 hex digits)
         for (int i = 0; i < 4; i++) {
@@ -330,8 +330,8 @@ public class HudRenderManager {
     }
 
     private void drawLives(int lives) {
-        int camX = camera.getX();
-        int camY = camera.getY();
+        int camX = camera.getXWithShake();
+        int camY = camera.getYWithShake();
 
         // Base position for Lives HUD (Bottom Left)
         int baseX = 16;
@@ -398,8 +398,8 @@ public class HudRenderManager {
     }
 
     private void drawHudString(int x, int y, String text, PatternDesc patternDesc) {
-        int camX = camera.getX();
-        int camY = camera.getY();
+        int camX = camera.getXWithShake();
+        int camY = camera.getYWithShake();
         for (int i = 0; i < text.length(); i++) {
             char c = text.charAt(i);
             int patternId = getPatternIndexForChar(c);
@@ -436,8 +436,8 @@ public class HudRenderManager {
     }
 
     private void drawNumberRightAligned(int startX, int y, int value, int maxDigits) {
-        int camX = camera.getX();
-        int camY = camera.getY();
+        int camX = camera.getXWithShake();
+        int camY = camera.getYWithShake();
 
         // Use cached digit arrays to avoid String allocation each frame
         int[] digitArray;
@@ -483,8 +483,8 @@ public class HudRenderManager {
     }
 
     private void drawTime(int x, int y, String timeStr) {
-        int camX = camera.getX();
-        int camY = camera.getY();
+        int camX = camera.getXWithShake();
+        int camY = camera.getYWithShake();
         for (int i = 0; i < timeStr.length(); i++) {
             char c = timeStr.charAt(i);
             int patternIdx;
@@ -509,8 +509,8 @@ public class HudRenderManager {
     }
 
     public void drawDebugStrip() {
-        int camX = camera.getX();
-        int camY = camera.getY();
+        int camX = camera.getXWithShake();
+        int camY = camera.getYWithShake();
         int chunks = Math.min(40, textPatternCount); // Clamp limit
         for (int i = 0; i < chunks; i++) {
             graphicsManager.renderPatternWithId(textPatternIndex + i, hudPatternDesc, camX + 10 + (i * 8), camY + 100);

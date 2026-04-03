@@ -1566,7 +1566,14 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
             // Clear SSG-EG state: new voice may not use SSG-EG, and the song's
             // coordination flags (FF 05) will re-set it if needed.
             Arrays.fill(t.ssgEg, 0);
-            refreshInstrument(t);
+            // ROM parity: when a note is being sustained (tieNext / HOLD),
+            // skip refreshInstrument to avoid the key-off in setInstrument().
+            // Continuous SFX (cfx_*) loop back through smpsSetvoice on every
+            // iteration while the note is tied; re-keying would kill the sound.
+            // The Z80 driver's zSetVoice does not key-off mid-sustain.
+            if (!t.tieNext) {
+                refreshInstrument(t);
+            }
         }
     }
 
