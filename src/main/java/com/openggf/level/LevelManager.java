@@ -1181,11 +1181,11 @@ public class LevelManager {
         }
 
         // Also initialize art for each sidekick (CPU-controlled Tails etc.)
-        // Build character name list and compute VRAM slot assignments so that
-        // sidekicks sharing a character type with the main (or each other) get
-        // shifted pattern banks to avoid atlas corruption.
+        // Every sidekick unconditionally gets its own isolated bank in the
+        // SIDEKICK_PATTERN_BASE range to avoid VRAM collisions even when
+        // characters share the same ART_TILE base (e.g. Knuckles and Sonic
+        // both use 0x0680 in S3K).
         List<AbstractPlayableSprite> sidekicks = spriteManager.getSidekicks();
-        String mainCharName = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         List<String> sidekickCharNames = new ArrayList<>(sidekicks.size());
         for (AbstractPlayableSprite sidekick : sidekicks) {
             String name = spriteManager.getSidekickCharacterName(sidekick);
@@ -1195,17 +1195,15 @@ public class LevelManager {
             }
             sidekickCharNames.add(name);
         }
-        java.util.Map<Integer, Integer> vramSlots = computeVramSlots(mainCharName, sidekickCharNames);
         // Cache loaded art per character type to avoid redundant ROM reads
         java.util.Map<String, SpriteArtSet> artCache = new java.util.HashMap<>();
-        // Global running offset in SIDEKICK_PATTERN_BASE range — ensures different
-        // character types with the same per-type slot don't collide.
+        // Global running offset in SIDEKICK_PATTERN_BASE range
         int sidekickBankOffset = 0;
         for (int i = 0; i < sidekicks.size(); i++) {
             AbstractPlayableSprite sidekick = sidekicks.get(i);
             String sidekickCharName = sidekickCharNames.get(i);
             try {
-                SpriteArtSet sidekickArt = artCache.computeIfAbsent(
+                SpriteArtSet sourceArt = artCache.computeIfAbsent(
                         sidekickCharName.toLowerCase(),
                         key -> {
                             try {
@@ -1215,33 +1213,28 @@ public class LevelManager {
                                 return null;
                             }
                         });
-                if (sidekickArt == null || sidekickArt.bankSize() <= 0
-                        || sidekickArt.mappingFrames().isEmpty()
-                        || sidekickArt.dplcFrames().isEmpty()) {
+                if (sourceArt == null || sourceArt.bankSize() <= 0
+                        || sourceArt.mappingFrames().isEmpty()
+                        || sourceArt.dplcFrames().isEmpty()) {
                     LOGGER.warning("Skipping art init for sidekick " + i
                             + " (" + sidekickCharName + "): art unavailable or empty.");
                     continue;
                 }
-                // When a sidekick shares a character type with the main or another
-                // sidekick, give it a unique pattern bank in the dedicated sidekick
-                // range (SIDEKICK_PATTERN_BASE = 0x30000+). Uses a global running
-                // offset so different character types with the same per-type slot
-                // don't collide (e.g. sonic slot 1 and tails slot 1).
-                int slot = vramSlots.get(i);
-                if (slot > 0) {
-                    int shiftedBase = SIDEKICK_PATTERN_BASE + sidekickBankOffset;
-                    sidekickBankOffset += sidekickArt.bankSize();
-                    sidekickArt = new SpriteArtSet(
-                            sidekickArt.artTiles(),
-                            sidekickArt.mappingFrames(),
-                            sidekickArt.dplcFrames(),
-                            sidekickArt.paletteIndex(),
-                            shiftedBase,
-                            sidekickArt.frameDelay(),
-                            sidekickArt.bankSize(),
-                            sidekickArt.animationProfile(),
-                            sidekickArt.animationSet());
-                }
+                // Every sidekick gets its own isolated bank in SIDEKICK_PATTERN_BASE range.
+                // This avoids VRAM collisions even when characters share the same ART_TILE
+                // base (e.g., Knuckles and Sonic both use 0x0680 in S3K).
+                int shiftedBase = SIDEKICK_PATTERN_BASE + sidekickBankOffset;
+                sidekickBankOffset += sourceArt.bankSize();
+                SpriteArtSet sidekickArt = new SpriteArtSet(
+                        sourceArt.artTiles(),
+                        sourceArt.mappingFrames(),
+                        sourceArt.dplcFrames(),
+                        sourceArt.paletteIndex(),
+                        shiftedBase,
+                        sourceArt.frameDelay(),
+                        sourceArt.bankSize(),
+                        sourceArt.animationProfile(),
+                        sourceArt.animationSet());
                 PlayerSpriteRenderer sidekickRenderer = new PlayerSpriteRenderer(sidekickArt);
                 if (CrossGameFeatureProvider.isActive()) {
                     sidekickRenderer.setRenderContext(
@@ -1271,22 +1264,21 @@ public class LevelManager {
     }
 
     /**
-     * Computes VRAM bank slot index for each sidekick.
-     * Characters matching the main character start at slot 1 (main is slot 0).
-     * Different characters start at slot 0 (no conflict).
+     * Computes the running VRAM bank offset for each sidekick within SIDEKICK_PATTERN_BASE.
+     * Every sidekick unconditionally gets its own isolated bank — no name-based slot
+     * optimization (which missed ART_TILE collisions like Knuckles/Sonic sharing 0x0680).
+     *
+     * @param bankSizes the bank size of each sidekick's art set, in order
+     * @return list of offsets (one per sidekick) within SIDEKICK_PATTERN_BASE
      */
-    public static java.util.Map<Integer, Integer> computeVramSlots(String mainChar, List<String> sidekickChars) {
-        java.util.Map<String, Integer> nextSlot = new java.util.HashMap<>();
-        // Main character occupies slot 0 for its type
-        nextSlot.put(mainChar.toLowerCase(), 1);
-        java.util.Map<Integer, Integer> result = new java.util.HashMap<>();
-        for (int i = 0; i < sidekickChars.size(); i++) {
-            String charType = sidekickChars.get(i).toLowerCase();
-            int slot = nextSlot.getOrDefault(charType, 0);
-            result.put(i, slot);
-            nextSlot.put(charType, slot + 1);
+    public static List<Integer> computeSidekickBankOffsets(List<Integer> bankSizes) {
+        List<Integer> offsets = new java.util.ArrayList<>(bankSizes.size());
+        int running = 0;
+        for (int size : bankSizes) {
+            offsets.add(running);
+            running += size;
         }
-        return result;
+        return offsets;
     }
 
     private void resetPlayerState() {
