@@ -14,6 +14,7 @@ import com.openggf.sprites.art.SpriteArtSet;
 import com.openggf.game.sonic3k.audio.Sonic3kAudioProfile;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.level.Level;
+import com.openggf.level.Palette;
 import com.openggf.level.animation.AnimatedPaletteManager;
 import com.openggf.level.animation.AnimatedPatternManager;
 import com.openggf.level.resources.LevelResourcePlan;
@@ -112,6 +113,31 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, DynamicSta
             playerArt = new Sonic3kPlayerArt(RomByteReader.fromRom(rom));
         }
         return playerArt.loadForCharacter(characterCode);
+    }
+
+    @Override
+    public Palette loadCharacterPalette(String characterCode) {
+        if (characterCode == null) {
+            return null;
+        }
+        int paletteAddr;
+        int paletteSize = Palette.PALETTE_SIZE_IN_ROM;
+        if ("knuckles".equalsIgnoreCase(characterCode)) {
+            paletteAddr = Sonic3kConstants.KNUCKLES_PALETTE_ADDR;
+            paletteSize = 32; // Pal_Knuckles: 1 palette line
+        } else {
+            paletteAddr = Sonic3kConstants.SONIC_PALETTE_ADDR;
+        }
+        try {
+            RomByteReader reader = RomByteReader.fromRom(rom);
+            byte[] data = reader.slice(paletteAddr, paletteSize);
+            Palette palette = new Palette();
+            palette.fromSegaFormat(data);
+            return palette;
+        } catch (IOException e) {
+            LOG.warning("Failed to load character palette for " + characterCode + ": " + e.getMessage());
+            return null;
+        }
     }
 
     @Override

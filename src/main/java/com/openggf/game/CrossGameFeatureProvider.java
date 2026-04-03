@@ -201,6 +201,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
      * @param characterCode the character code ("sonic", "tails", "knuckles"), or null for default
      * @return the donor's character palette, or null if unavailable
      */
+    @Override
     public Palette loadCharacterPalette(String characterCode) {
         if (donorReader == null) {
             return null;
