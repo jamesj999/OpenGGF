@@ -1197,34 +1197,47 @@ public class LevelManager {
         }
         // Cache loaded art per character type to avoid redundant ROM reads
         java.util.Map<String, SpriteArtSet> artCache = new java.util.HashMap<>();
-        // Global running offset in SIDEKICK_PATTERN_BASE range
-        int sidekickBankOffset = 0;
+        // First pass: load art for each sidekick (or null if unavailable) and collect bank sizes
+        List<SpriteArtSet> sidekickSourceArts = new ArrayList<>(sidekicks.size());
+        List<Integer> bankSizes = new ArrayList<>(sidekicks.size());
+        for (int i = 0; i < sidekicks.size(); i++) {
+            String sidekickCharName = sidekickCharNames.get(i);
+            SpriteArtSet sourceArt = artCache.computeIfAbsent(
+                    sidekickCharName.toLowerCase(),
+                    key -> {
+                        try {
+                            return artProvider.loadPlayerSpriteArt(key);
+                        } catch (IOException e) {
+                            LOGGER.log(SEVERE, "Failed to load art for sidekick character: " + key, e);
+                            return null;
+                        }
+                    });
+            boolean valid = sourceArt != null && sourceArt.bankSize() > 0
+                    && !sourceArt.mappingFrames().isEmpty()
+                    && !sourceArt.dplcFrames().isEmpty();
+            sidekickSourceArts.add(valid ? sourceArt : null);
+            if (valid) {
+                bankSizes.add(sourceArt.bankSize());
+            }
+        }
+        // Delegate offset computation to the tested utility
+        List<Integer> bankOffsets = computeSidekickBankOffsets(bankSizes);
+        // Second pass: initialise each sidekick using the pre-computed offsets
+        int validIndex = 0;
         for (int i = 0; i < sidekicks.size(); i++) {
             AbstractPlayableSprite sidekick = sidekicks.get(i);
             String sidekickCharName = sidekickCharNames.get(i);
+            SpriteArtSet sourceArt = sidekickSourceArts.get(i);
+            if (sourceArt == null) {
+                LOGGER.warning("Skipping art init for sidekick " + i
+                        + " (" + sidekickCharName + "): art unavailable or empty.");
+                continue;
+            }
             try {
-                SpriteArtSet sourceArt = artCache.computeIfAbsent(
-                        sidekickCharName.toLowerCase(),
-                        key -> {
-                            try {
-                                return artProvider.loadPlayerSpriteArt(key);
-                            } catch (IOException e) {
-                                LOGGER.log(SEVERE, "Failed to load art for sidekick character: " + key, e);
-                                return null;
-                            }
-                        });
-                if (sourceArt == null || sourceArt.bankSize() <= 0
-                        || sourceArt.mappingFrames().isEmpty()
-                        || sourceArt.dplcFrames().isEmpty()) {
-                    LOGGER.warning("Skipping art init for sidekick " + i
-                            + " (" + sidekickCharName + "): art unavailable or empty.");
-                    continue;
-                }
                 // Every sidekick gets its own isolated bank in SIDEKICK_PATTERN_BASE range.
                 // This avoids VRAM collisions even when characters share the same ART_TILE
                 // base (e.g., Knuckles and Sonic both use 0x0680 in S3K).
-                int shiftedBase = SIDEKICK_PATTERN_BASE + sidekickBankOffset;
-                sidekickBankOffset += sourceArt.bankSize();
+                int shiftedBase = SIDEKICK_PATTERN_BASE + bankOffsets.get(validIndex++);
                 SpriteArtSet sidekickArt = new SpriteArtSet(
                         sourceArt.artTiles(),
                         sourceArt.mappingFrames(),
@@ -1272,7 +1285,7 @@ public class LevelManager {
      * @return list of offsets (one per sidekick) within SIDEKICK_PATTERN_BASE
      */
     public static List<Integer> computeSidekickBankOffsets(List<Integer> bankSizes) {
-        List<Integer> offsets = new java.util.ArrayList<>(bankSizes.size());
+        List<Integer> offsets = new ArrayList<>(bankSizes.size());
         int running = 0;
         for (int size : bankSizes) {
             offsets.add(running);
