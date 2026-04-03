@@ -1903,6 +1903,16 @@ public class LevelManager {
         // The sprite priority shader composites sprites with tile priority awareness
         profiler.beginSection("render.sprites");
 
+        // Priority membership is mutable at runtime (plane switchers, hurt/death,
+        // zone event overrides, follower objects mirroring player priority).
+        // Rebuild buckets from live state right before drawing the unified pass.
+        if (spriteManager != null) {
+            spriteManager.invalidateRenderBuckets();
+        }
+        if (objectManager != null) {
+            objectManager.invalidateRenderBuckets();
+        }
+
         graphicsManager.setUseSpritePriorityShader(true);
         graphicsManager.setCurrentSpriteHighPriority(false);
         graphicsManager.beginPatternBatch();

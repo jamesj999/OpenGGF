@@ -6,11 +6,13 @@ import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.ZoneFeatureProvider;
+import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.game.sonic3k.features.AizBattleshipRenderFeature;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.features.AizTransitionRenderFeature;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.graphics.GraphicsManager;
+import com.openggf.graphics.RenderPriority;
 import com.openggf.level.WaterSystem;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -30,6 +32,7 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
     private final AizBattleshipRenderFeature aizBattleshipRenderFeature = new AizBattleshipRenderFeature();
     private final AizTransitionRenderFeature aizTransitionRenderFeature = new AizTransitionRenderFeature();
     private Sonic3kWaterSurfaceManager waterSurfaceManager;
+    private boolean forcedAizForestFrontPriority;
 
     @Override
     public void initZoneFeatures(Rom rom, int zoneIndex, int actIndex, int cameraX) throws IOException {
@@ -44,7 +47,35 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
 
     @Override
     public void update(AbstractPlayableSprite player, int cameraX, int zoneIndex) {
-        // No zone features to update yet
+        updateAizForestFrontPriority(player, zoneIndex);
+    }
+
+    private void updateAizForestFrontPriority(AbstractPlayableSprite player, int zoneIndex) {
+        if (zoneIndex != Sonic3kZoneIds.ZONE_AIZ || getFeatureActId() != 1 || player == null) {
+            return;
+        }
+
+        Sonic3kAIZEvents aizEvents = getAizEvents();
+        boolean forestFrontPhaseActive = aizEvents != null && aizEvents.isBattleshipForestFrontPhaseActive();
+        if (forestFrontPhaseActive) {
+            player.setHighPriority(true);
+            player.setPriorityBucket(RenderPriority.MIN);
+            forcedAizForestFrontPriority = true;
+            return;
+        }
+
+        if (forcedAizForestFrontPriority && canReleaseAizForestFrontPriority(player)) {
+            player.setHighPriority(false);
+            player.setPriorityBucket(RenderPriority.PLAYER_DEFAULT);
+            forcedAizForestFrontPriority = false;
+        }
+    }
+
+    private boolean canReleaseAizForestFrontPriority(AbstractPlayableSprite player) {
+        return !player.getDead()
+                && !player.isHurt()
+                && !player.isDrowningPreDeath()
+                && !player.isDrowningDeath();
     }
 
     private void initWaterSurfaceManager(Rom rom, int zoneIndex, int actIndex) {
@@ -62,6 +93,7 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
         aizBattleshipRenderFeature.reset();
         aizTransitionRenderFeature.reset();
         waterSurfaceManager = null;
+        forcedAizForestFrontPriority = false;
     }
 
     @Override
@@ -162,6 +194,15 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
         }
         String mainCharacter = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         return mainCharacter != null && "sonic".equalsIgnoreCase(mainCharacter.trim());
+    }
+
+    protected Sonic3kAIZEvents getAizEvents() {
+        Sonic3kLevelEventManager levelEventManager = Sonic3kLevelEventManager.getInstance();
+        return levelEventManager != null ? levelEventManager.getAizEvents() : null;
+    }
+
+    protected int getFeatureActId() {
+        return GameServices.level().getFeatureActId();
     }
 
 }

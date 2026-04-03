@@ -60,9 +60,23 @@ public class SmpsDriver extends VirtualSynthesizer implements AudioStream {
     public boolean extendContinuousSfx(int sfxId, int trackCount) {
         synchronized (sequencersLock) {
             if (continuousSfxId == sfxId && continuousSfxId != 0) {
-                continuousSfxFlag = true;
-                contSfxLoopCnt = trackCount;
-                return true;
+                // Verify the sequencer is still alive. If the SFX finished its first
+                // playthrough before being re-triggered (flag wasn't set yet when 0xFC
+                // was hit), the sequencer will have been removed — in that case we must
+                // NOT claim to extend, so the caller creates a fresh sequencer.
+                boolean stillAlive = false;
+                for (SmpsSequencer s : sfxSequencers) {
+                    if (s.getSmpsData().getId() == sfxId) {
+                        stillAlive = true;
+                        break;
+                    }
+                }
+                if (stillAlive) {
+                    continuousSfxFlag = true;
+                    contSfxLoopCnt = trackCount;
+                    return true;
+                }
+                // Sequencer already completed — fall through to start fresh
             }
             return false;
         }

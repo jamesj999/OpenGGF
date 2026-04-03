@@ -176,6 +176,10 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
      * is 143); wraps to $4640 (col 140.5, still forest). Small boss trigger $4670 fits.
      */
     private static final int BATTLESHIP_WRAP_X_POST_BOMBING = 0x46C0;
+    /** Forest mask becomes visible once the bombship redraw reaches this camera X. */
+    private static final int BATTLESHIP_FOREST_FRONT_START_X = 0x4380;
+    /** ROM: Sonic's AIZ end-boss arena camera lock. Forest-front override ends here. */
+    private static final int AIZ_END_BOSS_LOCK_X = 0x4880;
     private static final int BATTLESHIP_WRAP_DIST_POST_BOMBING = 0x80;
     /** Wrap distance during bombing: subtract $200 from all positions on wrap. */
     private static final int BATTLESHIP_WRAP_DIST = 0x200;
@@ -1280,6 +1284,18 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     /** True when the battleship auto-scroll loop is active. */
     public boolean isBattleshipAutoScrollActive() {
         return battleshipAutoScrollActive;
+    }
+
+    /**
+     * Forest handoff after the bombship exits and before the small craft clears.
+     * In this phase Sonic should stay in front of the decorative forest mask.
+     */
+    public boolean isBattleshipForestFrontPhaseActive() {
+        int cameraX = camera().getX();
+        return battleshipSpawned
+                && !bossFlag
+                && cameraX >= BATTLESHIP_FOREST_FRONT_START_X
+                && cameraX < AIZ_END_BOSS_LOCK_X;
     }
 
     /**

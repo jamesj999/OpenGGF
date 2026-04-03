@@ -457,16 +457,22 @@ public class Sonic3kCoordFlagHandler implements CoordFlagHandler {
     private void handleContSfx(CoordFlagContext ctx, SmpsSequencer.Track t) {
         // FC: cfLoopContinuousSFX - conditional loop for continuous SFX tracks.
         // ROM (Z80 Sound Driver.asm lines 3712-3736):
-        //   If zContinuousSFXFlag != 0x80 → sound wasn't re-triggered, stop looping.
+        //   If zContinuousSFXFlag != 0x80 → sound wasn't re-triggered, fall through
+        //     to the fade-out section that follows the FC pointer in the SFX data.
         //   If flag == 0x80 → decrement zContSFXLoopCnt:
         //     non-zero: jump to target (keep looping)
         //     zero: clear flag, jump to target (one more loop, then stop next time)
+        //
+        // ROM pointer handling: cfLoopContinuousSFX's `inc de; ret` skips the first
+        // pointer byte, and the loc_BF9 return stub's `inc de` skips the second.
+        // Both bytes are consumed, and the track continues to the data after the
+        // pointer (Sound_BD_Loop00 fade-out section for the Large Ship SFX).
         int jumpTarget = ctx.readJumpPointer(t);
 
         if (!ctx.isContinuousSfxFlagSet()) {
-            // Not re-triggered: clear state and skip the jump (track proceeds to end).
+            // Not re-triggered: clear state. readJumpPointer already consumed both
+            // pointer bytes, so the track continues to the fade-out section.
             ctx.clearContinuousSfxId();
-            // ROM: inc de / ret — skip the 2-byte pointer (already consumed by readJumpPointer)
             return;
         }
 
@@ -474,8 +480,9 @@ public class Sonic3kCoordFlagHandler implements CoordFlagHandler {
         boolean counterReachedZero = ctx.decrementContSfxLoopCnt();
         if (counterReachedZero) {
             // All tracks have passed their loop point for this cycle — clear flag.
-            // The jump still happens, but next time through the flag won't be set
-            // so the SFX will stop (unless re-triggered again by game code).
+            // The jump still happens (cfJumpTo's `dec de` compensates for loc_BF9's
+            // `inc de`), but next time through the flag won't be set so the SFX will
+            // fall through to fade-out (unless re-triggered again by game code).
             ctx.clearContinuousSfxFlag();
         }
 
