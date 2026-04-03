@@ -528,7 +528,13 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
      */
     private static boolean simulateDecompressionLoading = true;
 
-    public static void updateMainLevelPhaseForCameraX(int cameraX) {
+    /**
+     * @param introWasPlayed true when the intro cinematic ran (terrain swap was triggered
+     *     dynamically at cameraX=$1400). false for skip-intro or level-select past $1400.
+     *     When false, the simulated decompression countdown is skipped because no Kos data
+     *     was queued — matching ROM behavior where Kos_decomp_queue_count is 0 at level start.
+     */
+    public static void updateMainLevelPhaseForCameraX(int cameraX, boolean introWasPlayed) {
         if (mainLevelPhaseActive) {
             return;
         }
@@ -559,10 +565,11 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
             }
         }
 
-        if (simulateDecompressionLoading) {
-            // Start simulated decompression queue drain — mainLevelPhaseActive
-            // stays false for DECOMPRESSION_FRAMES ticks, matching the ROM's
-            // incremental Kos processing across VBlanks.
+        // ROM parity: the decompression queue only has pending work when the
+        // intro terrain swap was triggered dynamically (camera scrolled past
+        // $1400 during gameplay). When the intro is skipped, terrain is already
+        // loaded from LevelLoadBlock entry 26 and Kos_decomp_queue_count is 0.
+        if (simulateDecompressionLoading && introWasPlayed) {
             decompressionCountdown = DECOMPRESSION_FRAMES;
         } else {
             mainLevelPhaseActive = true;

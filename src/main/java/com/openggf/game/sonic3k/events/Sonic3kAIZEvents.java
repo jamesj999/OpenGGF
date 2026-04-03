@@ -481,7 +481,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         // --- Routine 2: Terrain swap at camera X >= $1400 ---
         // For skip-intro bootstrap, camera starts past this point and still requires
         // the same main-level overlay activation before tree reveal chunk staging.
-        AizPlaneIntroInstance.updateMainLevelPhaseForCameraX(cameraX);
+        AizPlaneIntroInstance.updateMainLevelPhaseForCameraX(cameraX, shouldSpawnIntro(0));
         if (cameraX >= FIRE_OVERLAY_STAGE_X) {
             // Keep the fire overlay staging after the intro/main-level terrain swap.
             // Both paths patch shared level-art VRAM ranges in this engine, and

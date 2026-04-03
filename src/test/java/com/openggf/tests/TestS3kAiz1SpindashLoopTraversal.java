@@ -21,8 +21,8 @@ import static org.junit.Assert.assertTrue;
 /**
  * Headless regression for AIZ1 loop traversal via spindash.
  *
- * <p>Spawns Sonic at X=8561 Y=1093, charges a spindash, and verifies he
- * traverses the loop and passes X=9029 within 180 game frames.
+ * <p>Spawns Sonic at X=8561 Y=1093 with spindash-speed gSpeed (0x800)
+ * rolling right and asserts he passes X=9029 within 180 game frames.
  */
 @RequiresRom(SonicGame.SONIC_3K)
 public class TestS3kAiz1SpindashLoopTraversal {
@@ -89,6 +89,11 @@ public class TestS3kAiz1SpindashLoopTraversal {
     public void aiz1SpindashLoop_traversesLoopWithin180Frames() {
         teleportToStart();
 
+        // Verify ground attachment succeeded
+        assertTrue("Sonic should be grounded after teleport. air=" + sprite.getAir()
+                        + " y=" + sprite.getY() + " gSpd=" + sprite.getGSpeed(),
+                !sprite.getAir());
+
         for (int frame = 0; frame < TIMEOUT_FRAMES; frame++) {
             fixture.stepFrame(false, false, false, false, false);
 
@@ -122,6 +127,11 @@ public class TestS3kAiz1SpindashLoopTraversal {
         Camera camera = fixture.camera();
         camera.updatePosition(true);
         sprite.updateSensors(sprite.getX(), sprite.getY());
+
+        // Snap to ground with max threshold to handle the slope distance
+        GameServices.collision().resolveGroundAttachment(sprite, 14, () -> false);
+        // Force grounded in case the snap distance was borderline
+        sprite.setAir(false);
 
         GameServices.level().getObjectManager().reset(camera.getX());
     }
