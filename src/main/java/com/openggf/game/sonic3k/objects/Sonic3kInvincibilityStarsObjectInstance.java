@@ -16,9 +16,13 @@ import java.util.List;
  * <p>
  * ROM reference: Obj_Invincibility (sonic3k.asm:33751).
  * <p>
- * Structure: 1 parent group (at player position) + 4 child groups (trailing via position
- * history at 0/3/6/9 frames behind). Each group renders 2 sub-sprites at opposite orbit
+ * Structure: 1 parent group (at player position) + 3 child groups (trailing via position
+ * history at 3/6/9 frames behind). Each group renders 2 sub-sprites at opposite orbit
  * positions using a 32-entry circular offset table.
+ * <p>
+ * ROM note: The init loop creates 4 objects, but iteration 0 sets up the parent slot
+ * (overwritten at line 33777 with loc_18868). Only iterations 1-3 using Obj_188E8 are
+ * real children, with $36 (starIndex) values 1, 2, 3.
  * <p>
  * Parent rotates at 9 entries/frame (ROM: $12 byte offset in 2-byte table).
  * Children rotate at 1 entry/frame (ROM: $02 byte offset).
@@ -47,24 +51,29 @@ public class Sonic3kInvincibilityStarsObjectInstance extends AbstractObjectInsta
     /** Parent animation table (byte_189E0). */
     static final int[] PARENT_ANIM = {8, 5, 7, 6, 6, 7, 5, 8, 6, 7, 7, 6};
 
-    /** Child primary animation tables. Sub-sprite A uses primary. */
+    /**
+     * Child primary animation tables (off_187DE entries 0-2: byte_189ED, byte_18A02, byte_18A1B).
+     * ROM: sub-sprite B (at phase-offset angle) gets the primary frame via swap d5.
+     */
     static final int[][] CHILD_PRIMARY_ANIMS = {
-            {8, 7, 6, 5, 4, 3, 4, 5, 6, 7},
-            {8, 7, 6, 5, 4, 3, 2, 3, 4, 5, 6, 7},
-            {7, 6, 5, 4, 3, 2, 1, 2, 3, 4, 5, 6},
-            {8, 5, 7, 6, 6, 7, 5, 8, 6, 7, 7, 6}
+            {8, 7, 6, 5, 4, 3, 4, 5, 6, 7},           // Child 1 (byte_189ED)
+            {8, 7, 6, 5, 4, 3, 2, 3, 4, 5, 6, 7},     // Child 2 (byte_18A02)
+            {7, 6, 5, 4, 3, 2, 1, 2, 3, 4, 5, 6}       // Child 3 (byte_18A1B)
     };
 
-    /** Child secondary animation tables. Sub-sprite B uses secondary. */
+    /**
+     * Child secondary animation tables (second half of each byte_189xx table).
+     * ROM: sub-sprite A (at base angle) gets the secondary frame.
+     */
     static final int[][] CHILD_SECONDARY_ANIMS = {
-            {3, 4, 5, 6, 7, 8, 7, 6, 5, 4},
-            {2, 3, 4, 5, 6, 7, 8, 7, 6, 5, 4, 3},
-            {1, 2, 3, 4, 5, 6, 7, 6, 5, 4, 3, 2},
-            {6, 7, 7, 6, 8, 5, 7, 6, 6, 7, 5, 8}
+            {3, 4, 5, 6, 7, 8, 7, 6, 5, 4},           // Child 1
+            {2, 3, 4, 5, 6, 7, 8, 7, 6, 5, 4, 3},     // Child 2
+            {1, 2, 3, 4, 5, 6, 7, 6, 5, 4, 3, 2}       // Child 3
     };
 
-    private static final int[] CHILD_INIT_ANGLES = {0, 0, 11, 22};
-    private static final int CHILD_COUNT = 4;
+    /** Initial orbit angles per child (from off_187DE $34 bytes: $00, $16/2, $2C/2). */
+    private static final int[] CHILD_INIT_ANGLES = {0, 11, 22};
+    private static final int CHILD_COUNT = 3;
     private static final int PARENT_ROTATION_SPEED = 9;
     private static final int CHILD_ROTATION_SPEED = 1;
 
@@ -87,8 +96,13 @@ public class Sonic3kInvincibilityStarsObjectInstance extends AbstractObjectInsta
         }
     }
 
+    /**
+     * Returns how many frames behind the player a given child star trails.
+     * ROM: children have $36 values 1, 2, 3 (not 0). Formula: (starIndex+1) * 12 bytes
+     * in Pos_table / 4 bytes per entry = (starIndex+1) * 3 frames.
+     */
     public static int trailingFramesBehind(int starIndex) {
-        return starIndex * 3;
+        return (starIndex + 1) * 3;
     }
 
     @Override
@@ -122,7 +136,9 @@ public class Sonic3kInvincibilityStarsObjectInstance extends AbstractObjectInsta
             int primaryFrame = CHILD_PRIMARY_ANIMS[i][childAnimIndices[i]];
             int secondaryFrame = CHILD_SECONDARY_ANIMS[i][childAnimIndices[i]];
 
-            drawStarGroup(cx, cy, childAngles[i], primaryFrame, secondaryFrame);
+            // ROM: swap d5 means sub-sprite A (base angle) = secondary,
+            // sub-sprite B (phase offset) = primary
+            drawStarGroup(cx, cy, childAngles[i], secondaryFrame, primaryFrame);
         }
     }
 

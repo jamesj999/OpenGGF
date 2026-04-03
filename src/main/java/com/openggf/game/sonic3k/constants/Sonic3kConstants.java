@@ -810,10 +810,12 @@ public class Sonic3kConstants {
     public static final int MAP_INSTA_SHIELD_ADDR = 0x01A0D0;
     public static final int DPLC_INSTA_SHIELD_ADDR = 0x01A154;
 
-    // ArtUnc_Invincibility - Invincibility Stars art (32 tiles, uncompressed)
+    // ArtUnc_Invincibility - Invincibility Stars art (16 tiles, uncompressed)
+    // ROM DMA loads $200 bytes (move.w #$200,d3). Invincibility.bin is 1024 bytes
+    // but only the first 16 tiles are used.
     // Verified by RomOffsetFinder, 2026-04-03
     public static final int ART_UNC_INVINCIBILITY_ADDR = 0x18A204;
-    public static final int ART_UNC_INVINCIBILITY_SIZE = 0x400;     // 32 tiles × 32 bytes
+    public static final int ART_UNC_INVINCIBILITY_SIZE = 0x200;     // 16 tiles × 32 bytes
 
     // Map_Invincibility - 9 mapping frames for invincibility star sprites
     // Verified by RomOffsetFinder, 2026-04-03
