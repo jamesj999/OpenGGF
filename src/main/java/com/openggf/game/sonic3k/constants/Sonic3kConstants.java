@@ -261,6 +261,15 @@ public class Sonic3kConstants {
     public static final int ART_KOSM_STARPOST_STARS3_ADDR = 0x187C4E; // Yellow stars
     public static final int ART_NEM_SPIKES_SPRINGS_ADDR = 0x1927FE;
 
+    // Animal art (Nemesis compressed, per-type)
+    public static final int ART_NEM_SEAL_ADDR = 0x192F6E;
+    public static final int ART_NEM_PIG_ADDR = 0x19308A;
+    public static final int ART_NEM_BLUE_FLICKY_ADDR = 0x1931D6;
+    public static final int ART_NEM_CHICKEN_ADDR = 0x193308;
+    public static final int ART_NEM_PENGUIN_ADDR = 0x193456;
+    public static final int ART_NEM_SQUIRREL_ADDR = 0x1935A8;
+    public static final int ART_NEM_RABBIT_ADDR = 0x193706;
+
     // VRAM tile index for SpikesSprings shared art (spikes start at +8)
     public static final int ARTTILE_SPIKES_SPRINGS = 0x0494;
     // VRAM tile index for diagonal spring art (separate from SpikesSprings)
@@ -331,6 +340,22 @@ public class Sonic3kConstants {
 
     // Map_StarpostStars - StarPost bonus star mappings (3 frames)
     public static final int MAP_STARPOST_STARS_ADDR = 0x2D3AA;
+
+    // Map_Animals1-5 - Animal sprite mappings (3 frames each, 6-byte pieces)
+    // Each set covers a different body shape: 1=A(Chicken/Eagle/Flicky), 2=B(Squirrel/Mouse/Monkey/Turtle/Bear),
+    // 3=C(Pig), 4=D(Seal), 5=E(Rabbit/Penguin)
+    public static final int MAP_ANIMALS1_ADDR = 0x02CEBA;
+    public static final int MAP_ANIMALS2_ADDR = 0x02CED8;
+    public static final int MAP_ANIMALS3_ADDR = 0x02CEF6;
+    public static final int MAP_ANIMALS4_ADDR = 0x02CF14;
+    public static final int MAP_ANIMALS5_ADDR = 0x02CF32;
+
+    // Map_EnemyScore - Enemy points popup mappings (7 frames: 10,20,50,100,1,200,500)
+    public static final int MAP_ENEMY_SCORE_ADDR = 0x02CF50;
+
+    // VRAM tile offsets for animal art
+    // ArtTile_Animals1 = $0580, ArtTile_Animals2 = $0592, difference = 18 tiles
+    public static final int S3K_ANIMAL_TILE_OFFSET = 0x12; // 18 tiles between animal banks
 
     // --- Animation scripts (inline data in S3 code space) ---
     // Knuckles cutscene animation scripts
@@ -768,6 +793,13 @@ public class Sonic3kConstants {
     public static final int ANI_BUBBLE_SHIELD_COUNT = 3;
     public static final int MAP_BUBBLE_SHIELD_ADDR = 0x019F82;
     public static final int DPLC_BUBBLE_SHIELD_ADDR = 0x01A076;
+
+    // Dash Dust / Splash / Drown: shared art for all characters
+    // Verified by ROM binary search (offset table fingerprint + art data match), 2026-04-03
+    public static final int ART_UNC_DASH_DUST_ADDR = 0x18A604;
+    public static final int ART_UNC_DASH_DUST_SIZE = 5952;  // 186 tiles x 32 bytes
+    public static final int MAP_DASH_DUST_ADDR = 0x018DF4;
+    public static final int DPLC_DASH_DUST_ADDR = 0x018EE2;
 
     // Insta-Shield: 8 mapping frames, 8 DPLC frames, 2 animations
     // Verified by ROM binary search, 2026-03-18

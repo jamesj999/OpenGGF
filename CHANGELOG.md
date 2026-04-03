@@ -262,6 +262,19 @@ in S3K and via cross-game donation into S1 and S2.
 - `Sonic3kLevelTriggerManager` added for AIZ trigger state such as boss-driven burn activation.
 - All zone badnik entries populated in `Sonic3kPlcArtRegistry`.
 - Initial badnik implementations wired into object system.
+- **Badnik destruction effects**: destroying S3K badniks now spawns animals and floating points
+  popups, matching S1/S2 behavior. Zone-specific animal pairs loaded from ROM per
+  `PLCLoad_Animals_Index` (all 13 zones mapped). Enemy score art parsed from `Map_EnemyScore`
+  (shared `ArtNem_EnemyPtsStarPost` blob). `Sonic3kPointsObjectInstance` provides S3K-specific
+  score-to-frame mapping.
+
+#### Spindash Dust
+- **S3K spindash dust**: implemented native `SpindashDustArtProvider` for Sonic 3&K. Art loaded
+  from ROM (`ArtUnc_DashDust` at 0x18A604, `Map_DashDust` at 0x18DF4, `DPLC_DashSplashDrown` at
+  0x18EE2). Uses virtual pattern base 0x34000 to avoid collision with ring tiles in the atlas.
+- **Multi-character dust isolation**: sidekick dust renderers now get isolated DPLC banks
+  (shifted into `SIDEKICK_PATTERN_BASE + 0x2000` range), preventing atlas corruption when
+  multiple characters spindash simultaneously.
 
 #### Audio
 - Music tempo scaling and all-spheres SFX fix.
@@ -302,6 +315,25 @@ Full S3K insta-shield ability implemented with ROM parity:
 - Leader reference preserved across `reset()` — sidekicks no longer become permanently idle.
 - Directional input maintained during approach phase.
 - Slot reclamation added to `PatternAtlas` for efficient VRAM management.
+
+#### S3K Sidekick Knuckles Fixes
+
+- **VRAM isolation**: every sidekick now unconditionally gets its own isolated pattern bank in the
+  `SIDEKICK_PATTERN_BASE` (0x38000) range, eliminating sprite corruption when characters share
+  the same ART_TILE base (Knuckles and Sonic both use 0x0680 in S3K). Removed the name-based
+  `computeVramSlots` optimization that missed this collision.
+- **Palette isolation**: per-sidekick `RenderContext` palette blocks loaded via
+  `PlayerSpriteArtProvider.loadCharacterPalette()`. When a sidekick uses a different palette
+  than the main character (e.g. Knuckles' `Pal_Knuckles` vs Sonic's `Pal_SonicTails`), a
+  dedicated palette context is created so the sidekick renders with correct colors. Propagated
+  to spindash dust and Tails tail appendage sub-renderers.
+- **Knuckles glide-in respawn**: `KnucklesRespawnStrategy.requiresPhysics()` now returns
+  `true` during the drop phase so the physics pipeline applies gravity. Previously Knuckles
+  would hang in mid-air after the glide because `SpriteManager` skipped physics for all
+  `APPROACHING` strategies. `GLIDE_DROP` animation set during the glide approach phase.
+- **Palette texture resize safety**: `GraphicsManager.cachePaletteTexture()` now preserves
+  existing palette data when the texture grows to accommodate new contexts, preventing level
+  palette corruption on resize.
 
 ### Tails AI Improvements
 

@@ -12,6 +12,7 @@ import com.openggf.data.RomManager;
 import com.openggf.data.SpindashDustArtProvider;
 import com.openggf.game.sonic2.Sonic2SuperStateController;
 import com.openggf.game.sonic3k.S3kSpriteDataLoader;
+import com.openggf.game.sonic3k.Sonic3kDustArt;
 import com.openggf.game.sonic3k.Sonic3kPlayerArt;
 import com.openggf.game.sonic3k.Sonic3kSuperStateController;
 import com.openggf.game.sonic2.Sonic2DustArt;
@@ -55,6 +56,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
     private Sonic2PlayerArt s2PlayerArt;
     private Sonic3kPlayerArt s3kPlayerArt;
     private Sonic2DustArt s2DustArt;
+    private Sonic3kDustArt s3kDustArt;
     private SmpsLoader donorSmpsLoader;
     private DacData donorDacData;
     private PhysicsFeatureSet hybridFeatureSet;
@@ -104,7 +106,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
 
         if (donorGameId == GameId.S3K) {
             s3kPlayerArt = new Sonic3kPlayerArt(donorReader);
-            // S3K does not have a separate SpindashDustArtProvider
+            s3kDustArt = new Sonic3kDustArt(donorReader);
             s2DustArt = null;
             s2PlayerArt = null;
         } else {
@@ -165,6 +167,9 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
         if (s2DustArt != null) {
             return s2DustArt.loadForCharacter(characterCode);
         }
+        if (s3kDustArt != null) {
+            return s3kDustArt.loadForCharacter(characterCode);
+        }
         return null;
     }
 
@@ -201,6 +206,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
      * @param characterCode the character code ("sonic", "tails", "knuckles"), or null for default
      * @return the donor's character palette, or null if unavailable
      */
+    @Override
     public Palette loadCharacterPalette(String characterCode) {
         if (donorReader == null) {
             return null;
@@ -362,6 +368,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
         s2PlayerArt = null;
         s3kPlayerArt = null;
         s2DustArt = null;
+        s3kDustArt = null;
         donorSmpsLoader = null;
         donorDacData = null;
         hybridFeatureSet = null;

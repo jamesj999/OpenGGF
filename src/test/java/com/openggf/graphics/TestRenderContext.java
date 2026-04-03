@@ -96,6 +96,49 @@ public class TestRenderContext {
         assertNull(ctx.getPalette(1));
     }
 
+    @Test
+    public void createSidekickContext_allocatesFreshBlock() {
+        RenderContext sidekick = RenderContext.createSidekickContext(GameId.S3K);
+        assertEquals(4, sidekick.getPaletteLineBase());
+        assertEquals(8, RenderContext.getTotalPaletteLines());
+    }
+
+    @Test
+    public void createSidekickContext_doesNotCacheByGameId() {
+        RenderContext first = RenderContext.createSidekickContext(GameId.S3K);
+        RenderContext second = RenderContext.createSidekickContext(GameId.S3K);
+        assertNotSame("Each sidekick must get its own context", first, second);
+        assertEquals(4, first.getPaletteLineBase());
+        assertEquals(8, second.getPaletteLineBase());
+        assertEquals(12, RenderContext.getTotalPaletteLines());
+    }
+
+    @Test
+    public void createSidekickContext_coexistsWithDonorContexts() {
+        RenderContext donor = RenderContext.getOrCreateDonor(GameId.S2);
+        assertEquals(4, donor.getPaletteLineBase());
+        RenderContext sidekick = RenderContext.createSidekickContext(GameId.S3K);
+        assertEquals(8, sidekick.getPaletteLineBase());
+        assertEquals(12, RenderContext.getTotalPaletteLines());
+    }
+
+    @Test
+    public void clearSidekickContexts_reclaimsSlots() {
+        RenderContext donor = RenderContext.getOrCreateDonor(GameId.S2);
+        assertEquals(4, donor.getPaletteLineBase());
+
+        RenderContext sk1 = RenderContext.createSidekickContext(GameId.S3K);
+        assertEquals(8, sk1.getPaletteLineBase());
+        assertEquals(12, RenderContext.getTotalPaletteLines());
+
+        RenderContext.clearSidekickContexts();
+
+        // After clearing, next sidekick should reuse the reclaimed slot
+        RenderContext sk2 = RenderContext.createSidekickContext(GameId.S3K);
+        assertEquals(8, sk2.getPaletteLineBase()); // same as sk1 had
+        assertEquals(12, RenderContext.getTotalPaletteLines());
+    }
+
     // --- deriveUnderwaterPalette tests ---
     // Uses GLOBAL average per-channel ratio (not per-index), so donor sprites
     // with different palette layouts (e.g., Tails in S1) get a consistent tint.

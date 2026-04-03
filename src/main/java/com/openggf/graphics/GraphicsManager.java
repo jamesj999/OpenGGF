@@ -434,14 +434,29 @@ public class GraphicsManager {
 				MemoryUtil.memFree(emptyBuffer);
 			}
 		} else if (requiredHeight > currentPaletteTextureHeight) {
-			// Texture needs to grow to accommodate new donor contexts
-			currentPaletteTextureHeight = requiredHeight;
-			ByteBuffer emptyBuffer = MemoryUtil.memAlloc(COLORS_PER_PALETTE * 4 * requiredHeight);
+			// Texture needs to grow to accommodate new contexts.
+			// Read back existing palette data before replacing the texture so that
+			// level palettes (lines 0-3) are not wiped by the resize.
+			int oldBytes = COLORS_PER_PALETTE * 4 * currentPaletteTextureHeight;
+			ByteBuffer oldData = MemoryUtil.memAlloc(oldBytes);
 			try {
 				glBindTexture(GL_TEXTURE_2D, combinedPaletteTextureId);
-				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 16, requiredHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, emptyBuffer);
+				glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, oldData);
+				currentPaletteTextureHeight = requiredHeight;
+				ByteBuffer newBuffer = MemoryUtil.memAlloc(COLORS_PER_PALETTE * 4 * requiredHeight);
+				try {
+					oldData.rewind();
+					newBuffer.put(oldData);
+					while (newBuffer.hasRemaining()) {
+						newBuffer.put((byte) 0);
+					}
+					newBuffer.flip();
+					glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 16, requiredHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, newBuffer);
+				} finally {
+					MemoryUtil.memFree(newBuffer);
+				}
 			} finally {
-				MemoryUtil.memFree(emptyBuffer);
+				MemoryUtil.memFree(oldData);
 			}
 		}
 
