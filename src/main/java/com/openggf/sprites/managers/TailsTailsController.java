@@ -154,6 +154,10 @@ public class TailsTailsController {
     private int frameIndex;
     private int frameTick;
 
+    public PlayerSpriteRenderer getRenderer() {
+        return renderer;
+    }
+
     public TailsTailsController(AbstractPlayableSprite sprite, PlayerSpriteRenderer renderer) {
         this(sprite, renderer, false);
     }

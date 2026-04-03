@@ -1186,6 +1186,7 @@ public class LevelManager {
         // characters share the same ART_TILE base (e.g. Knuckles and Sonic
         // both use 0x0680 in S3K).
         List<AbstractPlayableSprite> sidekicks = spriteManager.getSidekicks();
+        String mainCharName = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         List<String> sidekickCharNames = new ArrayList<>(sidekicks.size());
         for (AbstractPlayableSprite sidekick : sidekicks) {
             String name = spriteManager.getSidekickCharacterName(sidekick);
@@ -1252,7 +1253,13 @@ public class LevelManager {
                         sourceArt.animationProfile(),
                         sourceArt.animationSet());
                 PlayerSpriteRenderer sidekickRenderer = new PlayerSpriteRenderer(sidekickArt);
-                if (CrossGameFeatureProvider.isActive()) {
+                // Palette isolation: if sidekick uses a different palette than main,
+                // create a dedicated RenderContext so it renders with correct colors.
+                RenderContext sidekickPaletteCtx = createSidekickPaletteContext(
+                        artProvider, sidekickCharName, mainCharName);
+                if (sidekickPaletteCtx != null) {
+                    sidekickRenderer.setRenderContext(sidekickPaletteCtx);
+                } else if (CrossGameFeatureProvider.isActive()) {
                     sidekickRenderer.setRenderContext(
                             CrossGameFeatureProvider.getInstance().getDonorRenderContext());
                 }
@@ -1267,16 +1274,18 @@ public class LevelManager {
                 sidekick.setAnimationTick(0);
                 initSpindashDust(sidekick);
                 initTailsTails(sidekick, sidekickArt);
+                // Propagate sidekick palette context to sub-renderers (dust, tail appendage)
+                if (sidekickPaletteCtx != null) {
+                    propagateSidekickPaletteContext(sidekick, sidekickPaletteCtx);
+                }
                 initSuperState(sidekick);
             } catch (Exception e) {
                 LOGGER.log(SEVERE, "Failed to load sidekick sprite art for index " + i + ".", e);
             }
         }
 
-        // Upload donor palettes to GPU if cross-game features are active
-        if (CrossGameFeatureProvider.isActive()) {
-            RenderContext.uploadDonorPalettes(graphicsManager);
-        }
+        // Upload donor and sidekick palettes to GPU
+        RenderContext.uploadDonorPalettes(graphicsManager);
     }
 
     /**
@@ -1295,6 +1304,35 @@ public class LevelManager {
             running += size;
         }
         return offsets;
+    }
+
+    private RenderContext createSidekickPaletteContext(
+            PlayerSpriteArtProvider artProvider,
+            String sidekickCharName, String mainCharName) {
+        if (sidekickCharName.equalsIgnoreCase(mainCharName)) {
+            return null;
+        }
+        Palette sidekickPalette = artProvider.loadCharacterPalette(sidekickCharName);
+        if (sidekickPalette == null) {
+            return null;
+        }
+        GameId gameId = (GameModuleRegistry.getCurrent() != null)
+                ? GameModuleRegistry.getCurrent().getGameId()
+                : null;
+        RenderContext ctx = RenderContext.createSidekickContext(gameId);
+        ctx.setPalette(0, sidekickPalette);
+        return ctx;
+    }
+
+    private void propagateSidekickPaletteContext(AbstractPlayableSprite sidekick, RenderContext ctx) {
+        if (sidekick.getSpindashDustController() != null
+                && sidekick.getSpindashDustController().getRenderer() != null) {
+            sidekick.getSpindashDustController().getRenderer().setRenderContext(ctx);
+        }
+        if (sidekick.getTailsTailsController() != null
+                && sidekick.getTailsTailsController().getRenderer() != null) {
+            sidekick.getTailsTailsController().getRenderer().setRenderContext(ctx);
+        }
     }
 
     private void resetPlayerState() {
