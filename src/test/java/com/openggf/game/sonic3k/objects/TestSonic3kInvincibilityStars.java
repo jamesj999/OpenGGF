@@ -14,10 +14,20 @@ public class TestSonic3kInvincibilityStars {
 
     @Test
     public void trailingFramesBehind_matchesDisassemblyFormula() {
-        assertEquals(0, Sonic3kInvincibilityStarsObjectInstance.trailingFramesBehind(0));
-        assertEquals(3, Sonic3kInvincibilityStarsObjectInstance.trailingFramesBehind(1));
-        assertEquals(6, Sonic3kInvincibilityStarsObjectInstance.trailingFramesBehind(2));
-        assertEquals(9, Sonic3kInvincibilityStarsObjectInstance.trailingFramesBehind(3));
+        // ROM: children have $36 values 1, 2, 3 (parent is slot 0, overwritten).
+        // Formula: (starIndex+1) * 12 bytes / 4 bytes per entry = (starIndex+1) * 3 frames.
+        // No child ever overlaps the parent position (0 frames behind).
+        assertEquals(3, Sonic3kInvincibilityStarsObjectInstance.trailingFramesBehind(0));
+        assertEquals(6, Sonic3kInvincibilityStarsObjectInstance.trailingFramesBehind(1));
+        assertEquals(9, Sonic3kInvincibilityStarsObjectInstance.trailingFramesBehind(2));
+    }
+
+    @Test
+    public void childCount_is3NotIncludingParent() {
+        // ROM creates 4 object slots but slot 0 becomes the parent (loc_18868).
+        // Only slots 1-3 are real children using Obj_188E8.
+        assertEquals(3, Sonic3kInvincibilityStarsObjectInstance.CHILD_PRIMARY_ANIMS.length);
+        assertEquals(3, Sonic3kInvincibilityStarsObjectInstance.CHILD_SECONDARY_ANIMS.length);
     }
 
     @Test
