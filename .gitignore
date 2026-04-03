@@ -13,12 +13,17 @@
 *.log
 *_output.txt
 *.class
+__pycache__/
 
 # IDE temporary
 .idea/shelf/
 
 # Archives
 *.7z
+
+# stable-retro (large, install via pip)
+stable-retro-*/
+stable-retro-*.zip
 
 # Audio debug files (keep locally, don't track)
 docs/audio-debug/
@@ -31,6 +36,7 @@ docs/archive/
 # Debug tools (uncompiled standalone scripts)
 tools/*
 !tools/bizhawk/
+!tools/retro/
 
 # Screenshots (keep locally)
 docs/screenshots/
