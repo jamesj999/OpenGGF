@@ -1141,6 +1141,7 @@ public class LevelManager {
     private void initPlayerSpriteArt() {
         // Clear stale sidekick palette contexts from previous level loads
         RenderContext.clearSidekickContexts();
+        dustBankCount = 0;
         tailsTailBankCount = 0;
         PlayerSpriteArtProvider artProvider;
         if (CrossGameFeatureProvider.isActive()) {
@@ -1375,6 +1376,25 @@ public class LevelManager {
                 playable.setSpindashDustController(null);
                 return;
             }
+            // Multiple characters sharing the same dust base corrupt each other's
+            // DPLC banks.  Shift subsequent dust renderers into isolated banks,
+            // similar to how sidekick body sprites and Tails tail appendages are
+            // shifted (see initTailsTails).
+            if (dustBankCount > 0) {
+                int shiftedBase = SIDEKICK_PATTERN_BASE + 0x2000
+                        + dustArt.bankSize() * (dustBankCount - 1);
+                dustArt = new SpriteArtSet(
+                        dustArt.artTiles(),
+                        dustArt.mappingFrames(),
+                        dustArt.dplcFrames(),
+                        dustArt.paletteIndex(),
+                        shiftedBase,
+                        dustArt.frameDelay(),
+                        dustArt.bankSize(),
+                        dustArt.animationProfile(),
+                        dustArt.animationSet());
+            }
+            dustBankCount++;
             PlayerSpriteRenderer dustRenderer = new PlayerSpriteRenderer(dustArt);
             if (CrossGameFeatureProvider.isActive()) {
                 dustRenderer.setRenderContext(
@@ -1387,6 +1407,9 @@ public class LevelManager {
             playable.setSpindashDustController(null);
         }
     }
+
+    /** Tracks how many dust DPLC banks have been allocated this level load. */
+    private int dustBankCount = 0;
 
     /** Tracks how many tail appendage DPLC banks have been allocated this level load. */
     private int tailsTailBankCount = 0;
