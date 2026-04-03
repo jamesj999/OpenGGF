@@ -287,9 +287,9 @@ public class TestObjectServices implements ObjectServices {
     }
 
     @Override
-    public void saveBigRingReturnPosition(int playerX, int playerY, int cameraX, int cameraY) {
+    public void saveBigRingReturnPosition(int playerX, int playerY, int cameraX, int cameraY, int rings) {
         if (levelManager != null) {
-            levelManager.saveBigRingReturnPosition(playerX, playerY, cameraX, cameraY);
+            levelManager.saveBigRingReturnPosition(playerX, playerY, cameraX, cameraY, rings);
         }
     }
 }

@@ -53,7 +53,7 @@ class TestObjectServicesConstructionContext {
         @Override public void requestZoneAndAct(int zone, int act, boolean deactivateLevelNow) {}
         @Override public int getCurrentLevelMusicId() { return 0; }
         @Override public int[] findPatternOffset(int refX, int refY, int minTileIdx, int maxTileIdx, int searchRadius) { return null; }
-        @Override public void saveBigRingReturnPosition(int playerX, int playerY, int cameraX, int cameraY) {}
+        @Override public void saveBigRingReturnPosition(int playerX, int playerY, int cameraX, int cameraY, int rings) {}
     };
 
     /** Test object that calls services() in its constructor. */

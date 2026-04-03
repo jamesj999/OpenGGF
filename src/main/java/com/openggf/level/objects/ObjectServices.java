@@ -180,9 +180,10 @@ public interface ObjectServices {
     int[] findPatternOffset(int refX, int refY, int minTileIdx, int maxTileIdx, int searchRadius);
 
     /**
-     * Saves the player/camera position for returning from a big ring special stage.
+     * Saves the player/camera position and ring count for returning from a
+     * big ring special stage (ROM: Save_Level_Data2 -> Saved2_* variables).
      */
-    void saveBigRingReturnPosition(int playerX, int playerY, int cameraX, int cameraY);
+    void saveBigRingReturnPosition(int playerX, int playerY, int cameraX, int cameraY, int rings);
 
     // --- Game-specific providers ---
 

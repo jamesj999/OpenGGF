@@ -304,8 +304,8 @@ public class DefaultObjectServices implements ObjectServices {
     }
 
     @Override
-    public void saveBigRingReturnPosition(int playerX, int playerY, int cameraX, int cameraY) {
-        lm().saveBigRingReturnPosition(playerX, playerY, cameraX, cameraY);
+    public void saveBigRingReturnPosition(int playerX, int playerY, int cameraX, int cameraY, int rings) {
+        lm().saveBigRingReturnPosition(playerX, playerY, cameraX, cameraY, rings);
     }
 
     // ── Game-specific providers ─────────────────────────────────────────
