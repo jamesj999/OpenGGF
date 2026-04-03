@@ -1009,9 +1009,11 @@ public class GameLoop {
         }
 
         boolean reloadLevelBeforeReturn = levelManager.consumeSpecialStageReturnLevelReloadRequest();
-        if (reloadLevelBeforeReturn) {
-            // Giant-ring progression (S1): zone/act was advanced before SS entry.
-            // Load the new act now so player spawn/state matches the title card.
+        if (reloadLevelBeforeReturn || levelManager.hasBigRingReturnPosition()) {
+            // Full level reload: either S1 giant-ring progression (zone/act was advanced),
+            // or S3K/bonus big ring return (same zone/act but objects must be reset).
+            // ROM: the Level: function runs in full on special stage return, clearing all
+            // object RAM so bridges and other stateful objects reset to their initial state.
             levelManager.loadCurrentLevel();
         } else {
             // Starpost flow (S2): return to the same act/checkpoint.
@@ -1091,10 +1093,16 @@ public class GameLoop {
             // Unfreeze camera (frozen by S3K big ring entry sequence)
             camera.setFrozen(false);
 
-            // Reset rings to 0 when returning from special stage
+            // ROM: Load_Starpost_Settings:loc_2D2C2 (line 61796) restores
+            // Saved2_ring_count -> Ring_count when returning from big ring entry.
+            // S2 checkpoint path clears rings to 0 (no Saved2_ system).
             LevelState gamestate = levelManager.getLevelGamestate();
             if (gamestate != null) {
-                gamestate.setRings(0);
+                if (levelManager.hasBigRingReturnPosition()) {
+                    gamestate.setRings(levelManager.getBigRingReturnRings());
+                } else {
+                    gamestate.setRings(0);
+                }
             }
 
             // ROM parity: both S2 (InitPlayers) and S3K (SpawnLevelMainSprites_SpawnPlayers)

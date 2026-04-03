@@ -52,11 +52,14 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
     private static final Logger LOGGER = Logger.getLogger(Sonic3kSSEntryRingObjectInstance.class.getName());
 
     // Collision extents from center (ROM: SSEntry_Range: dc.w -$18, $30, -$28, $50)
-    // Asymmetric box: X [-24, +48], Y [-40, +80] relative to ring center
+    // Check_PlayerInRange interprets as {offset, span} pairs:
+    //   left  = ring_x + (-$18),  right  = left + $30 = ring_x + $18
+    //   top   = ring_y + (-$28),  bottom = top  + $50 = ring_y + $28
+    // Symmetric box: X [-24, +24), Y [-40, +40) relative to ring center
     private static final int COLLISION_X_MIN = -0x18;  // -24
-    private static final int COLLISION_X_MAX =  0x30;  //  48
+    private static final int COLLISION_X_MAX =  0x18;  //  24  (-$18 + $30)
     private static final int COLLISION_Y_MIN = -0x28;  // -40
-    private static final int COLLISION_Y_MAX =  0x50;  //  80
+    private static final int COLLISION_Y_MAX =  0x28;  //  40  (-$28 + $50)
 
     // ROM: render_flags = 4 (on-screen check), priority = $280 (bucket 5)
     private static final int RENDER_PRIORITY = 5;
@@ -319,12 +322,13 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
     private void enterSpecialStageSequence(AbstractPlayableSprite player) {
         state = State.ENTERED;
 
-        // ROM: Save_Level_Data2 — save player position at ring for return from SS.
+        // ROM: Save_Level_Data2 — save player position and ring count for return from SS.
         // This is separate from checkpoint state (ROM: Saved_ vs Saved2_).
+        // ROM line 61738: move.w (Ring_count).w,(Saved2_ring_count).w
         var camera = services().camera();
         services().saveBigRingReturnPosition(
                 player.getCentreX(), player.getCentreY(),
-                camera.getX(), camera.getY());
+                camera.getX(), camera.getY(), player.getRingCount());
 
         // Lock player: hidden + object controlled
         // ROM: move.b #$53,object_control(a2) — disables input
