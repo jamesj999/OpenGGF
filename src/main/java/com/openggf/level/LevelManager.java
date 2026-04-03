@@ -1237,6 +1237,9 @@ public class LevelManager {
                 // Every sidekick gets its own isolated bank in SIDEKICK_PATTERN_BASE range.
                 // This avoids VRAM collisions even when characters share the same ART_TILE
                 // base (e.g., Knuckles and Sonic both use 0x0680 in S3K).
+                assert validIndex < bankOffsets.size()
+                        : "validIndex " + validIndex + " out of bounds for bankOffsets (size "
+                        + bankOffsets.size() + ")";
                 int shiftedBase = SIDEKICK_PATTERN_BASE + bankOffsets.get(validIndex++);
                 SpriteArtSet sidekickArt = new SpriteArtSet(
                         sourceArt.artTiles(),
