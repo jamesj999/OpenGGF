@@ -1139,6 +1139,9 @@ public class LevelManager {
     }
 
     private void initPlayerSpriteArt() {
+        // Clear stale sidekick palette contexts from previous level loads
+        RenderContext.clearSidekickContexts();
+        dustBankCount = 0;
         tailsTailBankCount = 0;
         PlayerSpriteArtProvider artProvider;
         if (CrossGameFeatureProvider.isActive()) {
@@ -1181,9 +1184,10 @@ public class LevelManager {
         }
 
         // Also initialize art for each sidekick (CPU-controlled Tails etc.)
-        // Build character name list and compute VRAM slot assignments so that
-        // sidekicks sharing a character type with the main (or each other) get
-        // shifted pattern banks to avoid atlas corruption.
+        // Every sidekick unconditionally gets its own isolated bank in the
+        // SIDEKICK_PATTERN_BASE range to avoid VRAM collisions even when
+        // characters share the same ART_TILE base (e.g. Knuckles and Sonic
+        // both use 0x0680 in S3K).
         List<AbstractPlayableSprite> sidekicks = spriteManager.getSidekicks();
         String mainCharName = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         List<String> sidekickCharNames = new ArrayList<>(sidekicks.size());
@@ -1195,55 +1199,70 @@ public class LevelManager {
             }
             sidekickCharNames.add(name);
         }
-        java.util.Map<Integer, Integer> vramSlots = computeVramSlots(mainCharName, sidekickCharNames);
         // Cache loaded art per character type to avoid redundant ROM reads
         java.util.Map<String, SpriteArtSet> artCache = new java.util.HashMap<>();
-        // Global running offset in SIDEKICK_PATTERN_BASE range — ensures different
-        // character types with the same per-type slot don't collide.
-        int sidekickBankOffset = 0;
+        // First pass: load art for each sidekick (or null if unavailable) and collect bank sizes
+        List<SpriteArtSet> sidekickSourceArts = new ArrayList<>(sidekicks.size());
+        List<Integer> bankSizes = new ArrayList<>(sidekicks.size());
+        for (int i = 0; i < sidekicks.size(); i++) {
+            String sidekickCharName = sidekickCharNames.get(i);
+            SpriteArtSet sourceArt = artCache.computeIfAbsent(
+                    sidekickCharName.toLowerCase(),
+                    key -> {
+                        try {
+                            return artProvider.loadPlayerSpriteArt(key);
+                        } catch (IOException e) {
+                            LOGGER.log(SEVERE, "Failed to load art for sidekick character: " + key, e);
+                            return null;
+                        }
+                    });
+            boolean valid = sourceArt != null && sourceArt.bankSize() > 0
+                    && !sourceArt.mappingFrames().isEmpty()
+                    && !sourceArt.dplcFrames().isEmpty();
+            sidekickSourceArts.add(valid ? sourceArt : null);
+            if (valid) {
+                bankSizes.add(sourceArt.bankSize());
+            }
+        }
+        // Delegate offset computation to the tested utility
+        List<Integer> bankOffsets = computeSidekickBankOffsets(bankSizes);
+        // Second pass: initialise each sidekick using the pre-computed offsets
+        int validIndex = 0;
         for (int i = 0; i < sidekicks.size(); i++) {
             AbstractPlayableSprite sidekick = sidekicks.get(i);
             String sidekickCharName = sidekickCharNames.get(i);
+            SpriteArtSet sourceArt = sidekickSourceArts.get(i);
+            if (sourceArt == null) {
+                LOGGER.warning("Skipping art init for sidekick " + i
+                        + " (" + sidekickCharName + "): art unavailable or empty.");
+                continue;
+            }
             try {
-                SpriteArtSet sidekickArt = artCache.computeIfAbsent(
-                        sidekickCharName.toLowerCase(),
-                        key -> {
-                            try {
-                                return artProvider.loadPlayerSpriteArt(key);
-                            } catch (IOException e) {
-                                LOGGER.log(SEVERE, "Failed to load art for sidekick character: " + key, e);
-                                return null;
-                            }
-                        });
-                if (sidekickArt == null || sidekickArt.bankSize() <= 0
-                        || sidekickArt.mappingFrames().isEmpty()
-                        || sidekickArt.dplcFrames().isEmpty()) {
-                    LOGGER.warning("Skipping art init for sidekick " + i
-                            + " (" + sidekickCharName + "): art unavailable or empty.");
-                    continue;
-                }
-                // When a sidekick shares a character type with the main or another
-                // sidekick, give it a unique pattern bank in the dedicated sidekick
-                // range (SIDEKICK_PATTERN_BASE = 0x30000+). Uses a global running
-                // offset so different character types with the same per-type slot
-                // don't collide (e.g. sonic slot 1 and tails slot 1).
-                int slot = vramSlots.get(i);
-                if (slot > 0) {
-                    int shiftedBase = SIDEKICK_PATTERN_BASE + sidekickBankOffset;
-                    sidekickBankOffset += sidekickArt.bankSize();
-                    sidekickArt = new SpriteArtSet(
-                            sidekickArt.artTiles(),
-                            sidekickArt.mappingFrames(),
-                            sidekickArt.dplcFrames(),
-                            sidekickArt.paletteIndex(),
-                            shiftedBase,
-                            sidekickArt.frameDelay(),
-                            sidekickArt.bankSize(),
-                            sidekickArt.animationProfile(),
-                            sidekickArt.animationSet());
-                }
+                // Every sidekick gets its own isolated bank in SIDEKICK_PATTERN_BASE range.
+                // This avoids VRAM collisions even when characters share the same ART_TILE
+                // base (e.g., Knuckles and Sonic both use 0x0680 in S3K).
+                assert validIndex < bankOffsets.size()
+                        : "validIndex " + validIndex + " out of bounds for bankOffsets (size "
+                        + bankOffsets.size() + ")";
+                int shiftedBase = SIDEKICK_PATTERN_BASE + bankOffsets.get(validIndex++);
+                SpriteArtSet sidekickArt = new SpriteArtSet(
+                        sourceArt.artTiles(),
+                        sourceArt.mappingFrames(),
+                        sourceArt.dplcFrames(),
+                        sourceArt.paletteIndex(),
+                        shiftedBase,
+                        sourceArt.frameDelay(),
+                        sourceArt.bankSize(),
+                        sourceArt.animationProfile(),
+                        sourceArt.animationSet());
                 PlayerSpriteRenderer sidekickRenderer = new PlayerSpriteRenderer(sidekickArt);
-                if (CrossGameFeatureProvider.isActive()) {
+                // Palette isolation: if sidekick uses a different palette than main,
+                // create a dedicated RenderContext so it renders with correct colors.
+                RenderContext sidekickPaletteCtx = createSidekickPaletteContext(
+                        artProvider, sidekickCharName, mainCharName);
+                if (sidekickPaletteCtx != null) {
+                    sidekickRenderer.setRenderContext(sidekickPaletteCtx);
+                } else if (CrossGameFeatureProvider.isActive()) {
                     sidekickRenderer.setRenderContext(
                             CrossGameFeatureProvider.getInstance().getDonorRenderContext());
                 }
@@ -1258,35 +1277,73 @@ public class LevelManager {
                 sidekick.setAnimationTick(0);
                 initSpindashDust(sidekick);
                 initTailsTails(sidekick, sidekickArt);
+                // Propagate sidekick palette context to sub-renderers (dust, tail appendage)
+                if (sidekickPaletteCtx != null) {
+                    propagateSidekickPaletteContext(sidekick, sidekickPaletteCtx);
+                }
                 initSuperState(sidekick);
             } catch (Exception e) {
                 LOGGER.log(SEVERE, "Failed to load sidekick sprite art for index " + i + ".", e);
             }
         }
 
-        // Upload donor palettes to GPU if cross-game features are active
-        if (CrossGameFeatureProvider.isActive()) {
-            RenderContext.uploadDonorPalettes(graphicsManager);
-        }
+        // Upload donor and sidekick palettes to GPU
+        RenderContext.uploadDonorPalettes(graphicsManager);
     }
 
     /**
-     * Computes VRAM bank slot index for each sidekick.
-     * Characters matching the main character start at slot 1 (main is slot 0).
-     * Different characters start at slot 0 (no conflict).
+     * Computes the running VRAM bank offset for each sidekick within SIDEKICK_PATTERN_BASE.
+     * Every sidekick unconditionally gets its own isolated bank — no name-based slot
+     * optimization (which missed ART_TILE collisions like Knuckles/Sonic sharing 0x0680).
+     *
+     * @param bankSizes the bank size of each sidekick's art set, in order
+     * @return list of offsets (one per sidekick) within SIDEKICK_PATTERN_BASE
      */
-    public static java.util.Map<Integer, Integer> computeVramSlots(String mainChar, List<String> sidekickChars) {
-        java.util.Map<String, Integer> nextSlot = new java.util.HashMap<>();
-        // Main character occupies slot 0 for its type
-        nextSlot.put(mainChar.toLowerCase(), 1);
-        java.util.Map<Integer, Integer> result = new java.util.HashMap<>();
-        for (int i = 0; i < sidekickChars.size(); i++) {
-            String charType = sidekickChars.get(i).toLowerCase();
-            int slot = nextSlot.getOrDefault(charType, 0);
-            result.put(i, slot);
-            nextSlot.put(charType, slot + 1);
+    public static List<Integer> computeSidekickBankOffsets(List<Integer> bankSizes) {
+        List<Integer> offsets = new ArrayList<>(bankSizes.size());
+        int running = 0;
+        for (int size : bankSizes) {
+            offsets.add(running);
+            running += size;
         }
-        return result;
+        return offsets;
+    }
+
+    private RenderContext createSidekickPaletteContext(
+            PlayerSpriteArtProvider artProvider,
+            String sidekickCharName, String mainCharName) {
+        if (sidekickCharName.equalsIgnoreCase(mainCharName)) {
+            return null;
+        }
+        Palette sidekickPalette = artProvider.loadCharacterPalette(sidekickCharName);
+        if (sidekickPalette == null) {
+            return null;
+        }
+        // Only create a separate context if the sidekick's palette actually
+        // differs from the main character's. Sonic and Tails share Pal_SonicTails
+        // in S3K — creating an unnecessary context would trigger a palette texture
+        // resize that wipes existing level palette data.
+        Palette mainPalette = artProvider.loadCharacterPalette(mainCharName);
+        if (mainPalette != null && sidekickPalette.dataEquals(mainPalette)) {
+            return null;
+        }
+        GameId gameId = (GameModuleRegistry.getCurrent() != null)
+                ? GameModuleRegistry.getCurrent().getGameId()
+                : null;
+        RenderContext ctx = RenderContext.createSidekickContext(gameId);
+        ctx.setPalette(0, sidekickPalette);
+        return ctx;
+    }
+
+    private void propagateSidekickPaletteContext(AbstractPlayableSprite sidekick, RenderContext ctx) {
+        if (sidekick.getSpindashDustController() != null
+                && sidekick.getSpindashDustController().getRenderer() != null) {
+            sidekick.getSpindashDustController().getRenderer().setRenderContext(ctx);
+        }
+        if (sidekick.getTailsTailsController() != null
+                && sidekick.getTailsTailsController().getRenderer() != null) {
+            sidekick.getTailsTailsController().getRenderer().setRenderContext(ctx);
+        }
     }
 
     private void resetPlayerState() {
@@ -1319,6 +1376,25 @@ public class LevelManager {
                 playable.setSpindashDustController(null);
                 return;
             }
+            // Multiple characters sharing the same dust base corrupt each other's
+            // DPLC banks.  Shift subsequent dust renderers into isolated banks,
+            // similar to how sidekick body sprites and Tails tail appendages are
+            // shifted (see initTailsTails).
+            if (dustBankCount > 0) {
+                int shiftedBase = SIDEKICK_PATTERN_BASE + 0x2000
+                        + dustArt.bankSize() * (dustBankCount - 1);
+                dustArt = new SpriteArtSet(
+                        dustArt.artTiles(),
+                        dustArt.mappingFrames(),
+                        dustArt.dplcFrames(),
+                        dustArt.paletteIndex(),
+                        shiftedBase,
+                        dustArt.frameDelay(),
+                        dustArt.bankSize(),
+                        dustArt.animationProfile(),
+                        dustArt.animationSet());
+            }
+            dustBankCount++;
             PlayerSpriteRenderer dustRenderer = new PlayerSpriteRenderer(dustArt);
             if (CrossGameFeatureProvider.isActive()) {
                 dustRenderer.setRenderContext(
@@ -1331,6 +1407,9 @@ public class LevelManager {
             playable.setSpindashDustController(null);
         }
     }
+
+    /** Tracks how many dust DPLC banks have been allocated this level load. */
+    private int dustBankCount = 0;
 
     /** Tracks how many tail appendage DPLC banks have been allocated this level load. */
     private int tailsTailBankCount = 0;

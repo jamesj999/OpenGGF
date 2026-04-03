@@ -26,6 +26,7 @@ public class RenderContext {
     public static final int LINES_PER_CONTEXT = 4;
 
     private static final Map<GameId, RenderContext> donorContexts = new LinkedHashMap<>();
+    private static final java.util.List<RenderContext> sidekickContexts = new java.util.ArrayList<>();
     private static int nextPaletteBase = LINES_PER_CONTEXT; // first donor starts at line 4
 
     /**
@@ -41,6 +42,18 @@ public class RenderContext {
     }
 
     /**
+     * Creates a new sidekick render context with its own palette block.
+     * Unlike donor contexts, sidekick contexts are NOT cached by GameId —
+     * each sidekick gets a unique context even if they share the same game.
+     */
+    public static RenderContext createSidekickContext(GameId gameId) {
+        RenderContext ctx = new RenderContext(gameId, nextPaletteBase);
+        nextPaletteBase += LINES_PER_CONTEXT;
+        sidekickContexts.add(ctx);
+        return ctx;
+    }
+
+    /**
      * Returns the total number of palette lines needed (base + all donors).
      */
     public static int getTotalPaletteLines() {
@@ -52,6 +65,14 @@ public class RenderContext {
      */
     public static void uploadDonorPalettes(GraphicsManager gm) {
         for (RenderContext ctx : donorContexts.values()) {
+            for (int line = 0; line < LINES_PER_CONTEXT; line++) {
+                Palette p = ctx.palettes[line];
+                if (p != null) {
+                    gm.cachePaletteTexture(p, ctx.paletteLineBase + line);
+                }
+            }
+        }
+        for (RenderContext ctx : sidekickContexts) {
             for (int line = 0; line < LINES_PER_CONTEXT; line++) {
                 Palette p = ctx.palettes[line];
                 if (p != null) {
@@ -129,10 +150,30 @@ public class RenderContext {
     }
 
     /**
+     * Clears all sidekick palette contexts and reclaims their palette line slots.
+     * Called at the start of each level load to prevent accumulation.
+     */
+    public static void clearSidekickContexts() {
+        if (sidekickContexts.isEmpty()) {
+            return;
+        }
+        sidekickContexts.clear();
+        // Recompute nextPaletteBase: base (4) + donor contexts
+        nextPaletteBase = LINES_PER_CONTEXT;
+        for (RenderContext ctx : donorContexts.values()) {
+            int ctxEnd = ctx.paletteLineBase + LINES_PER_CONTEXT;
+            if (ctxEnd > nextPaletteBase) {
+                nextPaletteBase = ctxEnd;
+            }
+        }
+    }
+
+    /**
      * Clears all donor contexts. Call on engine cleanup or game reset.
      */
     public static void reset() {
         donorContexts.clear();
+        sidekickContexts.clear();
         nextPaletteBase = LINES_PER_CONTEXT;
     }
 

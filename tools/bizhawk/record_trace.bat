@@ -5,8 +5,9 @@ REM
 REM Usage:  record_trace.bat <rom_path> <bk2_path>
 REM Example: record_trace.bat "Sonic The Hedgehog (W) (REV01) [!].gen" "Movies\s1-mz1.bk2"
 REM
-REM Output goes to: <bizhawk_dir>\Lua\trace_output\
-REM   (BizHawk sets the Lua working directory to its Lua\ folder)
+REM Output goes to: <repo>\tools\bizhawk\trace_output\
+REM   (BizHawk resolves the script's relative trace_output folder from the
+REM    recorder script location)
 REM
 REM BizHawk path can be overridden with BIZHAWK_EXE env var.
 REM To see the emulator window during recording, edit HEADLESS_VISIBLE in
@@ -19,9 +20,7 @@ if "%BIZHAWK_EXE%"=="" set "BIZHAWK_EXE=C:\Users\farre\IdeaProjects\sonic-engine
 
 set "LUA_SCRIPT=%~dp0s1_trace_recorder.lua"
 
-REM Derive BizHawk directory from EXE path for output location
-for %%I in ("%BIZHAWK_EXE%") do set "BIZHAWK_DIR=%%~dpI"
-set "OUTPUT_DIR=%BIZHAWK_DIR%Lua\trace_output"
+set "OUTPUT_DIR=%~dp0trace_output"
 
 if "%~1"=="" (
     echo Usage: %~nx0 ^<rom_path^> ^<bk2_path^>

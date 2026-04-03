@@ -9,6 +9,10 @@ The current in-tree Sonic 1 traces are:
 - `TestS1Ghz1TraceReplay` using `src/test/resources/traces/s1/ghz1_fullrun/`
 - `TestS1Mz1TraceReplay` using `src/test/resources/traces/s1/mz1_fullrun/`
 
+The repo also contains tooling for capturing the eight built-in Sonic 1 ending-credits demo replays.
+Those traces are intended for future trace-replay coverage of the credits sequence and do not require
+BK2 movies, because the ROM owns the input stream.
+
 Each trace directory contains:
 
 - `metadata.json` for trace metadata and start state
@@ -79,9 +83,9 @@ tools\bizhawk\record_trace.bat ^
   "docs\BizHawk-2.11-win-x64\Movies\s1-mz1.bk2"
 ```
 
-The recorder writes output to BizHawk's Lua working directory:
+The recorder writes output relative to the recorder script:
 
-- `docs/BizHawk-2.11-win-x64/Lua/trace_output/`
+- `tools/bizhawk/trace_output/`
 
 After recording, copy:
 
@@ -98,6 +102,68 @@ Sanity-check `metadata.json` before trusting the trace:
 - `zone` and `act` should match the intended recording
 - `trace_frame_count` should be in the expected range for that route
 - `start_x` and `start_y` should look plausible for the level start
+
+## Recording Sonic 1 Credits Demo Traces
+
+Use the dedicated credits recorder when you want the ROM's ending replays rather than a human-played
+BK2 route. This path forces `GM_Credits` from the title screen, waits for each demo to become active,
+and records each replay into its own trace directory under `tools/bizhawk/trace_output/credits_demos/`.
+
+Command:
+
+```bat
+tools\bizhawk\record_s1_credits_traces.bat ^
+  "Sonic The Hedgehog (W) (REV01) [!].gen" ^
+  all
+```
+
+Record one replay only:
+
+```bat
+tools\bizhawk\record_s1_credits_traces.bat ^
+  "Sonic The Hedgehog (W) (REV01) [!].gen" ^
+  3
+```
+
+Supported replay indices:
+
+- `0` = `ghz1_credits_demo_1`
+- `1` = `mz2_credits_demo`
+- `2` = `syz3_credits_demo`
+- `3` = `lz3_credits_demo`
+- `4` = `slz3_credits_demo`
+- `5` = `sbz1_credits_demo`
+- `6` = `sbz2_credits_demo`
+- `7` = `ghz1_credits_demo_2`
+
+Output layout:
+
+- `tools/bizhawk/trace_output/credits_demos/manifest.json`
+- `tools/bizhawk/trace_output/credits_demos/00_ghz1_credits_demo_1/`
+- `tools/bizhawk/trace_output/credits_demos/01_mz2_credits_demo/`
+- `...`
+
+Each replay directory contains the same core files as a normal trace capture:
+
+- `metadata.json`
+- `physics.csv`
+- `aux_state.jsonl`
+
+Credits-demo metadata adds a few fields that are useful for future trace-framework work:
+
+- `trace_type = "credits_demo"`
+- `input_source = "rom_ending_demo"`
+- `credits_demo_index`
+- `credits_demo_slug`
+- `emu_frame_start`
+
+Notes:
+
+- No `.bk2` is produced or required for this workflow.
+- The script exits after the last gameplay replay finishes; it does not wait through the final
+  text-only "PRESENTED BY SEGA" card or the `TRY AGAIN / END` screen.
+- The capture format is intentionally aligned with the existing S1 `physics.csv` / `aux_state.jsonl`
+  schema so the replay-side test harness can be extended later without inventing a parallel parser.
 
 ## Adding A New Trace Test
 
@@ -178,7 +244,9 @@ Typical debugging pattern:
 - [`TraceBinder.java`](../../../src/test/java/com/openggf/tests/trace/TraceBinder.java)
 - [`DivergenceReport.java`](../../../src/test/java/com/openggf/tests/trace/DivergenceReport.java)
 - [`s1_trace_recorder.lua`](../../../tools/bizhawk/s1_trace_recorder.lua)
+- [`s1_credits_trace_recorder.lua`](../../../tools/bizhawk/s1_credits_trace_recorder.lua)
 - [`record_trace.bat`](../../../tools/bizhawk/record_trace.bat)
+- [`record_s1_credits_traces.bat`](../../../tools/bizhawk/record_s1_credits_traces.bat)
 
 ## Next Steps
 

@@ -130,6 +130,22 @@ public class Palette {
     }
 
     /**
+     * Compares color data with another palette. Returns true if all 16 colors
+     * have identical RGB values.
+     */
+    public boolean dataEquals(Palette other) {
+        if (other == null) return false;
+        for (int i = 0; i < PALETTE_SIZE; i++) {
+            if (colors[i].r != other.colors[i].r
+                    || colors[i].g != other.colors[i].g
+                    || colors[i].b != other.colors[i].b) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
      * Creates a deep copy of this palette.
      * Each color is copied by value (new Color instances).
      */
