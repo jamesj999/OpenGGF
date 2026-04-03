@@ -1,5 +1,7 @@
 package com.openggf.game.sonic3k.constants;
 
+import com.openggf.level.Pattern;
+
 /**
  * ROM offset constants for Sonic 3 &amp; Knuckles (combined S3K ROM).
  *
@@ -100,10 +102,12 @@ public class Sonic3kConstants {
     public static final int SOLID_TILE_ANGLE_SIZE = 0x100;  // 256 bytes
 
     // ===== Map dimensions =====
-    // S3K uses same map structure as S2 for the layout buffer
+    // Safety caps for map allocation. Actual dimensions are derived per-level from
+    // the layout header (fgColsPerRow × fgRows) in Sonic3kLevel.loadMap().
+    // S3K levels vary widely: ICZ1 is 216×16, DEZ is 122×32, LBZ is 160×24.
     public static final int MAP_LAYERS = 2;
-    public static final int MAP_WIDTH = 128;
-    public static final int MAP_HEIGHT = 16;
+    public static final int MAP_WIDTH = 256;
+    public static final int MAP_HEIGHT = 32;
 
     // ===== Acts per zone stride =====
     // The LevelLoadBlock indexes by zone*2+act (each zone has 2 act slots)
@@ -1018,6 +1022,61 @@ public class Sonic3kConstants {
     public static final int MAP_AIZ_MINIBOSS_SMALL_ADDR = 0x3625EA;
     // Map_BossExplosion - Boss explosion mappings (6 frames, shared with S2)
     public static final int MAP_BOSS_EXPLOSION_ADDR = 0x083FFC;
+
+    // ===== AIZ End Boss (Object 0x92) =====
+    // ArtKosM_AIZEndBoss - Main boss art (Kosinski Moduled, 15712 bytes)
+    public static final int ART_KOSM_AIZ_END_BOSS_ADDR = 0x365260;
+    // ArtTile_AIZEndBoss - VRAM destination tile index
+    public static final int ART_TILE_AIZ_END_BOSS = 0x0180;
+    // PLC 0x6B loads: ArtNem_RobotnikShip + ArtNem_BossExplosion (shared Eggman ship/explosion art)
+    public static final int PLC_AIZ_END_BOSS = 0x6B;
+    // Pal_AIZEndBoss - End boss palette (32 bytes = 16 colors, palette line 2)
+    public static final int PAL_AIZ_END_BOSS_ADDR = 0x69E80;
+    // Map_AIZEndBoss - Boss sprite mappings (56 frames)
+    public static final int MAP_AIZ_END_BOSS_ADDR = 0x361FD6;
+    // Map_RobotnikShip - Robotnik ship sprite mappings (13 frames, shared)
+    public static final int MAP_ROBOTNIK_SHIP_ADDR = 0x06820C;
+    // ArtTile_RobotnikShip - VRAM tile for shared Robotnik ship
+    public static final int ART_TILE_ROBOTNIK_SHIP = 0x052E;
+    // ArtTile_BossExplosion2 - VRAM tile for boss explosion (PLC_6B)
+    public static final int ART_TILE_BOSS_EXPLOSION_2 = 0x04D2;
+
+    // ===== AIZ2 Battleship / Bombing Sequence =====
+    // AIZ2_16x16_BomberShip_Kos - Kosinski-compressed 16x16 ship blocks (S3 half 0x1B1372 + 0x200000)
+    public static final int AIZ2_16X16_BOMBERSHIP_ADDR = 0x3B1372;
+    // AIZ2_16x16_BomberShip_Kos is queued to Block_table+$AB8 in the ROM.
+    // In engine terminology this patches Chunk data (16x16 tiles).
+    public static final int AIZ2_16X16_BOMBERSHIP_DEST_OFFSET = 0x0AB8;
+    // AIZ2_8x8_BomberShip_KosM - Kosinski Moduled 8x8 ship tiles (S3 half 0x1B48C6 + 0x200000)
+    public static final int AIZ2_8X8_BOMBERSHIP_ADDR = 0x3B48C6;
+    // Queue_Kos_Module(AIZ2_8x8_BomberShip_KosM, tile $1FC)
+    public static final int AIZ2_8X8_BOMBERSHIP_DEST_TILE = 0x01FC;
+    public static final int AIZ2_8X8_BOMBERSHIP_DEST_BYTES =
+            AIZ2_8X8_BOMBERSHIP_DEST_TILE * Pattern.PATTERN_SIZE_IN_ROM;
+    // ArtKosM_AIZ2Bombership2_8x8 - KosinskiModuled art (176 tiles, covers all mapping indices)
+    public static final int ART_KOSM_AIZ2_BOMBERSHIP_ADDR = 0x399CC4;
+    // ArtTile_AIZ2Bombership - VRAM tile for bombership/bomb art
+    public static final int ART_TILE_AIZ2_BOMBERSHIP = 0x0500;
+    // Map_AIZ2BombExplode - Bomb explosion mappings (12 frames)
+    public static final int MAP_AIZ2_BOMB_EXPLODE_ADDR = 0x23C1B2;
+    // Map_AIZShipPropeller - Ship propeller mappings (4 frames)
+    public static final int MAP_AIZ_SHIP_PROPELLER_ADDR = 0x23C182;
+    // Map_AIZ2BossSmall - Small Eggman craft mappings (1 frame)
+    public static final int MAP_AIZ2_BOSS_SMALL_ADDR = 0x23C264;
+    // ArtNem_AIZBackgroundTree - Nemesis art for parallax trees (15 tiles)
+    public static final int ART_NEM_AIZ_BG_TREE_ADDR = 0x38DB46;
+    // ArtTile_AIZBackgroundTree - VRAM tile base
+    public static final int ART_TILE_AIZ_BG_TREE = 0x0438;
+    // Map_AIZ2BGTree - Tree sprite mapping (1 frame, 4 pieces)
+    public static final int MAP_AIZ2_BG_TREE_ADDR = 0x23C248;
+    // Pal_AIZBattleship - Battleship palette (32 bytes, palette line 2)
+    public static final int PAL_AIZ_BATTLESHIP_ADDR = 0x23C05A;
+    // Pal_AIZBossSmall - Small boss/bombing palette (28 bytes, palette line 2)
+    public static final int PAL_AIZ_BOSS_SMALL_ADDR = 0x23C07A;
+    // ArtNem_RobotnikShip - Shared Robotnik ship art (Nemesis)
+    public static final int ART_NEM_ROBOTNIK_SHIP_ADDR = 0x0D771E;
+    // ArtNem_BossExplosion - Shared boss explosion art (Nemesis)
+    public static final int ART_NEM_BOSS_EXPLOSION_ADDR = 0x0D73CE;
 
     // ===== Signpost (Obj_EndSign) - End of act signpost =====
     // ArtUnc_EndSigns - Uncompressed end-of-act signpost art (3328 bytes)

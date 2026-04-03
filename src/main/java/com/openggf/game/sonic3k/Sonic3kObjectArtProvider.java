@@ -106,6 +106,8 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         // PLC-based boss art stays separate for now
         if (zoneIndex == 0x00) {
             loadAizMinibossArtFromPlc();
+            loadAizEndBossArt();
+            loadAiz2BattleshipArt();
         }
 
         // Level-art sheets are registered later via registerLevelArtSheets()
@@ -807,6 +809,139 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         } catch (IOException e) {
             LOG.warning("Failed to load AIZ miniboss art from PLC: " + e.getMessage());
         }
+    }
+
+    /**
+     * Loads AIZ end boss art: KosinskiModuled main art + PLC 0x6B (Robotnik ship + explosions).
+     * The main boss art at ArtKosM_AIZEndBoss is separate from the PLC-loaded shared assets.
+     * Matching ROM: Queue_Kos_Module + Load_PLC(#$6B) in Obj_AIZEndBossWait.
+     */
+    private void loadAizEndBossArt() {
+        try {
+            Rom rom = GameServices.rom().getRom();
+            if (rom == null) return;
+            RomByteReader reader = RomByteReader.fromRom(rom);
+
+            // Main boss art (KosinskiModuled)
+            Pattern[] bossPatterns = decompressKosinskiModuled(rom,
+                    Sonic3kConstants.ART_KOSM_AIZ_END_BOSS_ADDR);
+            if (bossPatterns.length > 0) {
+                registerSheet(Sonic3kObjectArtKeys.AIZ_END_BOSS,
+                        buildSheetFromPatterns(bossPatterns, reader,
+                                Sonic3kConstants.MAP_AIZ_END_BOSS_ADDR, 1));
+            }
+
+            // PLC 0x6B: ArtNem_RobotnikShip + ArtNem_BossExplosion (shared assets)
+            PlcDefinition plc = Sonic3kPlcLoader.parsePlc(rom, Sonic3kConstants.PLC_AIZ_END_BOSS);
+            List<Pattern[]> decompressed = PlcParser.decompressAll(rom, plc);
+
+            // Entry 0: Robotnik ship art
+            if (!decompressed.isEmpty() && decompressed.get(0).length > 0) {
+                registerSheet(Sonic3kObjectArtKeys.ROBOTNIK_SHIP,
+                        buildSheetFromPatterns(decompressed.get(0), reader,
+                                Sonic3kConstants.MAP_ROBOTNIK_SHIP_ADDR, 0));
+            }
+
+            // Entry 1: Boss explosion art (may already be registered by miniboss PLC)
+            if (decompressed.size() >= 2 && decompressed.get(1).length > 0
+                    && sheets.get(ObjectArtKeys.BOSS_EXPLOSION) == null) {
+                registerSheet(ObjectArtKeys.BOSS_EXPLOSION,
+                        buildSheetFromPatterns(decompressed.get(1), reader,
+                                Sonic3kConstants.MAP_BOSS_EXPLOSION_ADDR, 0));
+            }
+
+            LOG.info(String.format("Loaded AIZ end boss art: main=%d tiles, ship=%s, explosion=%s",
+                    bossPatterns.length,
+                    !decompressed.isEmpty() ? decompressed.get(0).length + " tiles" : "n/a",
+                    decompressed.size() >= 2 ? decompressed.get(1).length + " tiles" : "n/a"));
+        } catch (IOException e) {
+            LOG.warning("Failed to load AIZ end boss art: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Loads AIZ2 battleship sequence art via standalone KosinskiModuled decompression.
+     *
+     * <p>The bombership sprites share a single KosinskiModuled art source
+     * (ArtKosM_AIZ2Bombership2 at 0x399CC4, 176 tiles). Each object type uses
+     * different mapping frames referencing tile indices within this art set.
+     * The battleship palette is loaded into palette line 2.
+     */
+    private void loadAiz2BattleshipArt() {
+        try {
+            Rom rom = GameServices.rom().getRom();
+            if (rom == null) return;
+            RomByteReader reader = RomByteReader.fromRom(rom);
+
+            // Decompress the shared bombership art (KosinskiModuled, 176 tiles)
+            Pattern[] bomberPatterns = decompressKosinskiModuled(rom,
+                    Sonic3kConstants.ART_KOSM_AIZ2_BOMBERSHIP_ADDR);
+            if (bomberPatterns.length == 0) {
+                LOG.warning("Failed to decompress bombership art");
+                return;
+            }
+
+            // Bomb explosions: 12 frames (tile indices ~$08-$80).
+            // Mapping pieces carry palette 1 ($20 byte). Sheet palette 0 means
+            // pieces render at their native palette: (1+0)&3 = palette 1.
+            // Palette 1 is patched with Pal_AIZBossSmall/Pal_AIZBattleship
+            // during the bombing sequence.
+            registerSheet(Sonic3kObjectArtKeys.AIZ2_BOMB_EXPLODE,
+                    buildSheetFromPatterns(bomberPatterns, reader,
+                            Sonic3kConstants.MAP_AIZ2_BOMB_EXPLODE_ADDR, 0));
+
+            // Ship propeller: 4 frames (tile indices ~$00-$07).
+            // Mapping pieces carry palette 2 ($A0 byte includes priority).
+            registerSheet(Sonic3kObjectArtKeys.AIZ2_SHIP_PROPELLER,
+                    buildSheetFromPatterns(bomberPatterns, reader,
+                            Sonic3kConstants.MAP_AIZ_SHIP_PROPELLER_ADDR, 0));
+
+            // Small boss craft: 1 frame (tile indices ~$86-$AC).
+            // Mapping pieces carry palette 1 ($20 byte). Sheet palette 0 means
+            // pieces render at their native palette: (1+0)&3 = palette 1.
+            // The small boss patches palette 1 with Pal_AIZBossSmall at spawn time.
+            registerSheet(Sonic3kObjectArtKeys.AIZ2_BOSS_SMALL,
+                    buildSheetFromPatterns(bomberPatterns, reader,
+                            Sonic3kConstants.MAP_AIZ2_BOSS_SMALL_ADDR, 0));
+
+            // Background parallax trees: Nemesis-compressed, 1 frame, 4 stacked pieces
+            // Mapping pieces carry palette 2 ($40 byte = priority + pal 2).
+            // Sheet palette 0: rendered palette = (2+0)&3 = 2.
+            Pattern[] treePatterns = PatternDecompressor.nemesis(rom,
+                    Sonic3kConstants.ART_NEM_AIZ_BG_TREE_ADDR);
+            if (treePatterns.length > 0) {
+                registerSheet(Sonic3kObjectArtKeys.AIZ2_BG_TREE,
+                        buildSheetFromPatterns(treePatterns, reader,
+                                Sonic3kConstants.MAP_AIZ2_BG_TREE_ADDR, 0));
+            }
+
+            LOG.info(String.format("Loaded AIZ2 bombership art: %d tiles, " +
+                            "bomb=%s, propeller=%s, small=%s, tree=%s",
+                    bomberPatterns.length,
+                    sheets.containsKey(Sonic3kObjectArtKeys.AIZ2_BOMB_EXPLODE) ? "ok" : "fail",
+                    sheets.containsKey(Sonic3kObjectArtKeys.AIZ2_SHIP_PROPELLER) ? "ok" : "fail",
+                    sheets.containsKey(Sonic3kObjectArtKeys.AIZ2_BOSS_SMALL) ? "ok" : "fail",
+                    sheets.containsKey(Sonic3kObjectArtKeys.AIZ2_BG_TREE) ? "ok" : "fail"));
+        } catch (IOException e) {
+            LOG.warning("Failed to load AIZ2 bombership art: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Decompresses KosinskiModuled art from the ROM into Pattern arrays.
+     */
+    private static Pattern[] decompressKosinskiModuled(Rom rom, int romAddr) throws IOException {
+        byte[] header = rom.readBytes(romAddr, 2);
+        if (header.length < 2) return new Pattern[0];
+        int fullSize = ((header[0] & 0xFF) << 8) | (header[1] & 0xFF);
+        int inputSize = Math.min(Math.max(fullSize + 256, 0x10000), 0x40000);
+        long romSize = rom.getSize();
+        if (romAddr + inputSize > romSize) {
+            inputSize = (int) (romSize - romAddr);
+        }
+        byte[] compressed = rom.readBytes(romAddr, inputSize);
+        byte[] data = KosinskiReader.decompressModuled(compressed, 0);
+        return PatternDecompressor.fromBytes(data);
     }
 
     /**

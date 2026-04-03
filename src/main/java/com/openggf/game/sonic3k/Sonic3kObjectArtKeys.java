@@ -39,6 +39,17 @@ public final class Sonic3kObjectArtKeys {
     public static final String AIZ_MINIBOSS_FLAME = "aiz_miniboss_flame";
     public static final String AIZ_MINIBOSS_SMALL = "aiz_miniboss_small";
 
+    // AIZ End Boss (Object 0x92)
+    public static final String AIZ_END_BOSS = "aiz_end_boss";
+    public static final String ROBOTNIK_SHIP = "robotnik_ship";
+    // AIZ2 Battleship bombing sequence
+    public static final String AIZ2_BOMB_EXPLODE = "aiz2_bomb_explode";
+    public static final String AIZ2_SHIP_PROPELLER = "aiz2_ship_propeller";
+    public static final String AIZ2_BOSS_SMALL = "aiz2_boss_small";
+
+    // AIZ2 Background Tree (parallax tree during bombing transition)
+    public static final String AIZ2_BG_TREE = "aiz2_bg_tree";
+
     // AIZ Falling Log (act-specific log body + splash)
     public static final String AIZ1_FALLING_LOG = "aiz1_falling_log";
     public static final String AIZ2_FALLING_LOG = "aiz2_falling_log";

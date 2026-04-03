@@ -6,6 +6,7 @@ import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.ZoneFeatureProvider;
+import com.openggf.game.sonic3k.features.AizBattleshipRenderFeature;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.features.AizTransitionRenderFeature;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
@@ -26,6 +27,7 @@ import com.openggf.game.GameServices;
 public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
     private static final Logger LOGGER = Logger.getLogger(Sonic3kZoneFeatureProvider.class.getName());
 
+    private final AizBattleshipRenderFeature aizBattleshipRenderFeature = new AizBattleshipRenderFeature();
     private final AizTransitionRenderFeature aizTransitionRenderFeature = new AizTransitionRenderFeature();
     private Sonic3kWaterSurfaceManager waterSurfaceManager;
 
@@ -57,6 +59,7 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
 
     @Override
     public void reset() {
+        aizBattleshipRenderFeature.reset();
         aizTransitionRenderFeature.reset();
         waterSurfaceManager = null;
     }
@@ -90,6 +93,11 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
     @Override
     public void renderAfterForeground(Camera camera) {
         // No S3K foreground-stage overlays currently. AIZ fire wall is a post-sprite screen pass.
+    }
+
+    @Override
+    public void renderAfterBackground(Camera camera, int frameCounter) {
+        aizBattleshipRenderFeature.renderAfterBackground(camera, frameCounter);
     }
 
     @Override
