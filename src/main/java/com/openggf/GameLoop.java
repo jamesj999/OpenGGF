@@ -1235,8 +1235,15 @@ public class GameLoop {
             returningFromSpecialStage = false;
             LOGGER.info("Exited Title Card, returned to level from special stage at checkpoint");
         } else {
-            // Normal title card exit (level start)
-            // Physics has been running during title card, so player is already settled
+            // Normal title card exit (level start).
+            // Re-apply zone-specific player state (airborne intros like HCZ1, MGZ1).
+            // enterTitleCard() freezes the player (air=false, speed=0), so the intro
+            // falling state set by SpawnLevelMainSprites must be restored here when
+            // gameplay actually begins.
+            LevelEventProvider levelEvents = GameModuleRegistry.getCurrent().getLevelEventProvider();
+            if (levelEvents instanceof com.openggf.game.sonic3k.Sonic3kLevelEventManager s3kEvents) {
+                s3kEvents.applyZonePlayerState();
+            }
             LOGGER.info("Exited Title Card, starting level");
         }
 

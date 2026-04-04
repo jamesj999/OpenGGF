@@ -84,6 +84,13 @@ public class Camera {
 	// ROM: Inertia threshold for fast scroll (0x800 = 2048)
 	private static final short FAST_SCROLL_INERTIA_THRESHOLD = 0x800;
 
+	// ROM: Maximum vertical scroll speed for airborne + fast-ground paths.
+	// S1/S2: 16 (0x10) pixels/frame  (s2.asm:18190 ".doScroll_fast")
+	// S3K:   24 (0x18) pixels/frame  (sonic3k.asm:loc_1C1B0; comment "S3K uses 24 instead of 16")
+	// Set per-game via setFastScrollCap().
+	private static final short DEFAULT_FAST_SCROLL_CAP = 16;
+	private short fastScrollCap = DEFAULT_FAST_SCROLL_CAP;
+
 	public Camera() {
 		this(SonicConfigurationService.getInstance());
 	}
@@ -188,15 +195,15 @@ public class Camera {
 			short lowerBound = (short) (yPosBias + AIRBORNE_WINDOW_HALF);
 			if (focusedSpriteRealY < upperBound) {
 				short difference = (short) (focusedSpriteRealY - upperBound);
-				if (difference < -16) {
-					y -= 16;
+				if (difference < -fastScrollCap) {
+					y -= fastScrollCap;
 				} else {
 					y += difference;
 				}
 			} else if (focusedSpriteRealY >= lowerBound) {
 				short difference = (short) (focusedSpriteRealY - lowerBound);
-				if (difference > 16) {
-					y += 16;
+				if (difference > fastScrollCap) {
+					y += fastScrollCap;
 				} else {
 					y += difference;
 				}
@@ -218,8 +225,8 @@ public class Camera {
 					short absInertia = (short) Math.abs(focusedSprite.getGSpeed());
 					if (absInertia >= FAST_SCROLL_INERTIA_THRESHOLD) {
 						// ROM: .doScroll_fast - player moving very fast on ground
-						// Use 16px cap
-						tolerance = 16;
+						// S2: 16px cap, S3K: 24px cap
+						tolerance = fastScrollCap;
 					} else {
 						// ROM: .doScroll_medium - normal ground movement
 						// Use 6px cap
@@ -836,9 +843,26 @@ public class Camera {
 		levelStarted = true;
 		focusedSprite = null;
 		yPosBias = DEFAULT_Y_BIAS;
+		fastScrollCap = DEFAULT_FAST_SCROLL_CAP;
 		verticalWrapEnabled = false;
 		lastFrameWrapped = false;
 		wrapDeltaY = 0;
+	}
+
+	/**
+	 * Sets the maximum vertical scroll speed for airborne and fast-ground paths.
+	 * ROM: S2 uses 16 (0x10), S3K uses 24 (0x18).
+	 * (s2.asm:18189-18190 ".doScroll_fast"; sonic3k.asm:loc_1C1B0)
+	 *
+	 * @param cap scroll cap in pixels per frame (16 for S1/S2, 24 for S3K)
+	 */
+	public void setFastScrollCap(int cap) {
+		this.fastScrollCap = (short) cap;
+	}
+
+	/** Returns the current fast vertical scroll cap in pixels/frame. */
+	public int getFastScrollCap() {
+		return fastScrollCap;
 	}
 
 }
