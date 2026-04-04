@@ -186,7 +186,7 @@ public class TestS3kAiz1SpecialStageReturn {
             // Secondary path: player was past plane switchers
             byte topBit = 0x0E, lrbBit = 0x0F;
             lm.saveBigRingReturn(new BigRingReturnState(bigRingX, bigRingY, camX, camY, 10,
-                    topBit, lrbBit, 1194 + 200));
+                    topBit, lrbBit, 1194 + 200, 0));
 
             System.out.println("=== bigRingPos: saved position X=0x"
                     + Integer.toHexString(bigRingX) + " Y=0x"
@@ -301,7 +301,7 @@ public class TestS3kAiz1SpecialStageReturn {
         lm.saveBigRingReturn(new BigRingReturnState(savedCentreX, savedCentreY,
                 savedCameraX, savedCameraY, savedRings,
                 sprite.getTopSolidBit(), sprite.getLrbSolidBit(),
-                fixture.camera().getMaxY()));
+                fixture.camera().getMaxY(), 0));
 
         // ---- Simulate doExitResultsScreen flow ----
         lm.loadCurrentLevel();

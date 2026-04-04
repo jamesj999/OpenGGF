@@ -241,6 +241,27 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
     }
 
     /**
+     * Returns the current Dynamic_resize_routine value from the active zone
+     * events handler. ROM: Saved2_dynamic_resize_routine.
+     */
+    public int getDynamicResizeRoutine() {
+        if (aizEvents != null) {
+            return aizEvents.getDynamicResizeRoutine();
+        }
+        return 0;
+    }
+
+    /**
+     * Restores the Dynamic_resize_routine after a big ring special stage return.
+     * Must be called AFTER initLevel() (which resets it to 0).
+     */
+    public void setDynamicResizeRoutine(int routine) {
+        if (aizEvents != null) {
+            aizEvents.setDynamicResizeRoutine(routine);
+        }
+    }
+
+    /**
      * Resets mutable state including static/global state in AIZ event helpers.
      * Extends the base {@link AbstractLevelEventManager#resetState()} to also
      * clear fire wall handoff, tree reveal counter, and intro phase state that

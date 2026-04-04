@@ -1061,6 +1061,14 @@ public class GameLoop {
                 // S3K big ring path: restore all Saved2_* state
                 BigRingReturnState br = levelManager.getBigRingReturn();
                 br.restoreToPlayer(playable, camera, levelManager.getLevelGamestate());
+                // ROM: restore Dynamic_resize_routine AFTER initLevel() has reset it to 0.
+                // Without this, the resize state machine restarts from routine 0 and
+                // rapidly re-processes all boundary thresholds with the camera already
+                // deep in the level, causing incorrect camera locks.
+                LevelEventProvider eventProvider = GameModuleRegistry.getCurrent().getLevelEventProvider();
+                if (eventProvider instanceof com.openggf.game.sonic3k.Sonic3kLevelEventManager s3kEvents) {
+                    s3kEvents.setDynamicResizeRoutine(br.dynamicResizeRoutine());
+                }
                 levelManager.clearBigRingReturn();
             } else if (checkpointState != null && checkpointState.isActive()) {
                 // S2 checkpoint star path: restore to checkpoint (ROM: Saved_* variables)

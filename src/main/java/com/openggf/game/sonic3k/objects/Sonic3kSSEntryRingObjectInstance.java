@@ -1,6 +1,7 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.level.BigRingReturnState;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
@@ -325,13 +326,19 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
 
         // ROM: Save_Level_Data2 — save player position and ring count for return from SS.
         // This is separate from checkpoint state (ROM: Saved_ vs Saved2_).
-        // ROM line 61738: move.w (Ring_count).w,(Saved2_ring_count).w
+        // ROM line 52685-52701: saves position, rings, solid bits, camera, and
+        // Dynamic_resize_routine so the resize state machine resumes correctly.
         var camera = services().camera();
+        int resizeRoutine = 0;
+        var eventProvider = services().levelEventProvider();
+        if (eventProvider instanceof Sonic3kLevelEventManager s3kEvents) {
+            resizeRoutine = s3kEvents.getDynamicResizeRoutine();
+        }
         services().saveBigRingReturn(new BigRingReturnState(
                 player.getCentreX(), player.getCentreY(),
                 camera.getX(), camera.getY(), player.getRingCount(),
                 player.getTopSolidBit(), player.getLrbSolidBit(),
-                camera.getMaxY()));
+                camera.getMaxY(), resizeRoutine));
 
         // Lock player: hidden + object controlled
         // ROM: move.b #$53,object_control(a2) — disables input

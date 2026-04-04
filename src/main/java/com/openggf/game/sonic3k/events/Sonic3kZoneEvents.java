@@ -92,6 +92,25 @@ public abstract class Sonic3kZoneEvents {
         this.eventRoutine = routine;
     }
 
+    /**
+     * Returns the current Dynamic_resize_routine equivalent for this zone.
+     * ROM: saved/restored as Saved2_dynamic_resize_routine during big ring
+     * special stage transitions.
+     *
+     * <p>Default returns {@link #eventRoutine}. Zones with separate resize
+     * state machines (e.g., AIZ Act 2) override this.
+     */
+    public int getDynamicResizeRoutine() {
+        return eventRoutine;
+    }
+
+    /**
+     * Restores the Dynamic_resize_routine after a big ring special stage return.
+     */
+    public void setDynamicResizeRoutine(int routine) {
+        this.eventRoutine = routine;
+    }
+
     /** Spawn a dynamic object into the level. */
     protected void spawnObject(ObjectInstance object) {
         LevelManager lm = levelManager();
