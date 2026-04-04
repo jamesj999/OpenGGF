@@ -1241,6 +1241,7 @@ public class Sonic3kConstants {
     // Sprite art and mappings
     public static final int GUMBALL_ART_NEM_ADDR = 0x19385A;        // ArtNem_BonusStage (Nemesis, 2862B -> 8576B)
     public static final int GUMBALL_MAP_ADDR = 0x06148A;            // Map_GumballBonus (24 frames, S3K mapping format)
+    public static final int ARTTILE_BONUS_STAGE = 0x015B;           // ArtTile_BonusStage (VRAM tile destination)
     public static final int GUMBALL_ANI_TILES_ADDR = 0x2C2180;      // ArtUnc_AniGumball (uncompressed, 256 bytes)
 
     // Spring child object mappings (shared, used across all zones)

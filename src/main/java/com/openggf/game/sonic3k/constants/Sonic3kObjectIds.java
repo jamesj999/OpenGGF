@@ -28,6 +28,8 @@ public final class Sonic3kObjectIds {
     public static final int STAR_POST = 0x34;
     public static final int AIZ_FOREGROUND_PLANT = 0x35;
     public static final int SS_ENTRY_RING = 0x85;
+    public static final int GUMBALL_MACHINE = 0x86;
+    public static final int GUMBALL_TRIANGLE_BUMPER = 0x87;
     public static final int BLOOMINATOR = 0x8C;
     public static final int RHINOBOT = 0x8D;
     public static final int MONKEY_DUDE = 0x8E;

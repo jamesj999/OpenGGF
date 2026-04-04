@@ -204,6 +204,9 @@ public final class Sonic3kObjectArtKeys {
     public static final String ANIM_STILL_LRZ2 = "anim_still_lrz2";       // base 0x40D
     public static final String ANIM_STILL_SOZ = "anim_still_soz";         // base 0x40F
 
+    // Gumball Bonus Stage sprites (shared across all gumball objects)
+    public static final String GUMBALL_BONUS = "gumball_bonus";
+
     private Sonic3kObjectArtKeys() {
     }
 }
