@@ -28,14 +28,20 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance {
     private static final int LEFT_BOUND_OFFSET = 0x30;
     private static final int RIGHT_BOUND_OFFSET = 0x110;
     private static final int PRIORITY = 5;
-    private static final int RELEASE_DELAY = 0x40;
+    private static final int ACTIVATION_X_LEFT = -0x1A;
+    private static final int ACTIVATION_X_RIGHT = 0x34;
+    private static final int ACTIVATION_Y_TOP = 0x08;
+    private static final int ACTIVATION_Y_BOTTOM = 0x60;
+    private static final int ACTIVATION_TIMER = 0x40;
 
     private int currentX;
     private int currentY;
     private int verticalAccumulator;
     private int bobAngle;
     private int xDirection = 1;
-    private int hoverTimer = RELEASE_DELAY;
+    private int activationTimer = ACTIVATION_TIMER;
+    private int mappingFrame;
+    private boolean activated;
     private boolean resultsStarted;
     private boolean releaseTriggered;
 
@@ -70,6 +76,11 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance {
     }
 
     @Override
+    public boolean isHighPriority() {
+        return true;
+    }
+
+    @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
         int cameraX = services().camera().getX();
         int cameraY = services().camera().getY();
@@ -94,11 +105,21 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance {
                     currentY = Math.max(targetY, currentY - step);
                 }
             }
-        } else if (!resultsStarted) {
-            if (hoverTimer > 0) {
-                hoverTimer--;
+        } else if (!activated) {
+            if (playerEntity instanceof AbstractPlayableSprite player && shouldActivate(player)) {
+                activate();
             }
-            if (hoverTimer == 0
+            for (PlayableEntity sidekickEntity : services().sidekicks()) {
+                if (sidekickEntity instanceof AbstractPlayableSprite sidekick && shouldActivate(sidekick)) {
+                    activate();
+                    break;
+                }
+            }
+        } else if (!resultsStarted) {
+            if (activationTimer > 0) {
+                activationTimer--;
+            }
+            if (activationTimer == 0
                     && playerEntity instanceof AbstractPlayableSprite player
                     && !player.getAir()) {
                 startResults(player);
@@ -110,6 +131,25 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance {
         }
 
         bobAngle = (bobAngle + 3) & 0xFF;
+    }
+
+    private boolean shouldActivate(AbstractPlayableSprite player) {
+        int dx = player.getCentreX() - currentX;
+        int dy = player.getCentreY() - currentY;
+        return player.getYSpeed() < 0
+                && dx >= ACTIVATION_X_LEFT
+                && dx < ACTIVATION_X_RIGHT
+                && dy >= ACTIVATION_Y_TOP
+                && dy < ACTIVATION_Y_BOTTOM;
+    }
+
+    private void activate() {
+        if (activated) {
+            return;
+        }
+        activated = true;
+        mappingFrame = 1;
+        activationTimer = ACTIVATION_TIMER;
     }
 
     private void startResults(AbstractPlayableSprite player) {
@@ -124,7 +164,7 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance {
                 lockForResults(sidekick);
             }
         }
-        spawnDynamicObject(new S3kResultsScreenObjectInstance(getPlayerCharacter(), services().currentAct()));
+        spawnChild(() -> new S3kResultsScreenObjectInstance(getPlayerCharacter(), services().currentAct()));
     }
 
     private void lockForResults(AbstractPlayableSprite sprite) {
@@ -151,6 +191,6 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance {
             return;
         }
         int bobY = currentY + (int) Math.round(Math.sin((bobAngle * Math.PI * 2.0) / 256.0) * 3.0);
-        renderer.drawFrameIndex(0, currentX, bobY, false, true);
+        renderer.drawFrameIndex(mappingFrame, currentX, bobY, false, true);
     }
 }
