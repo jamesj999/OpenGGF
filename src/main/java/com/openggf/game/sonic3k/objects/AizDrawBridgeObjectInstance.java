@@ -195,7 +195,9 @@ public class AizDrawBridgeObjectInstance extends AbstractObjectInstance
             player.setPushing(false);
             player.setAir(true);
             if (player instanceof AbstractPlayableSprite sprite) {
-                sprite.setAnimationId(Sonic3kAnimationIds.HURT_FALL);
+                // Use forcedAnimationId so the normal animation system doesn't
+                // overwrite HURT_FALL on the next frame based on movement state.
+                sprite.setForcedAnimationId(Sonic3kAnimationIds.HURT_FALL);
             }
         }
         standingPlayers.clear();
