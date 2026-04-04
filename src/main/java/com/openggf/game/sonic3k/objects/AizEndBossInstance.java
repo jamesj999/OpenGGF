@@ -657,7 +657,11 @@ public class AizEndBossInstance extends AbstractBossInstance {
         state.yVel = 0;
         waitTimer = -1;
         waitCallback = null;
-        flags38 |= FLAG_DEFEAT_STARTED | FLAG_HIDDEN;
+        flags38 |= FLAG_DEFEAT_STARTED;
+        // ROM: The boss remains visible during the defeat explosion sequence.
+        // Don't set FLAG_HIDDEN yet — let the defeat animation play out.
+        // Keep highPriorityArt so the boss renders in front of the waterfall.
+        highPriorityArt = true;
         collisionEnabled = false;
         mappingFrame = 0;
 
@@ -833,48 +837,13 @@ public class AizEndBossInstance extends AbstractBossInstance {
      */
     private void loadAfterBossArt() {
         try {
-            // 1. Load Pal_AIZFire to palette line 1 (ROM: PalLoad_Line1)
+            // ROM: AfterBoss_AIZ2 — PalLoad_Line1 with Pal_AIZFire.
+            // Restores palette line 1 from the boss palette to fire colours.
+            // Boss art uses standalone sprite sheets (not level patterns), so
+            // level tiles are not corrupted and no PLC reload is needed.
             byte[] firePal = services().rom().readBytes(
                     Sonic3kConstants.PAL_AIZ_FIRE_ADDR, 32);
             services().updatePalette(BOSS_PALETTE_INDEX, firePal);
-
-            // 2. Reload PLC_AfterMiniboss_AIZ to refresh level art patterns.
-            // Then force-rebuild the draw bridge sprite sheet from the fresh
-            // level patterns. The PLC tile-range overlap detection may not
-            // catch the draw bridge tiles, so we explicitly rebuild it.
-            var levelManager = com.openggf.game.GameServices.level();
-            if (levelManager != null) {
-                var level = levelManager.getCurrentLevel();
-                if (level instanceof com.openggf.game.sonic3k.Sonic3kLevel sonic3kLevel) {
-                    var rom = com.openggf.game.GameServices.rom().getRom();
-                    // Apply PLC $0D (AIZ2 objects PLC containing AIZMisc2)
-                    var plc = com.openggf.game.sonic3k.Sonic3kPlcLoader.parsePlc(rom, 0x0D);
-                    var modified = com.openggf.game.sonic3k.Sonic3kPlcLoader.applyToLevel(
-                            plc, sonic3kLevel);
-                    com.openggf.game.sonic3k.Sonic3kPlcLoader.refreshAffectedRenderers(
-                            modified, levelManager);
-
-                    // Force refresh draw bridge patterns from current level data.
-                    // The PLC overlap check may miss these tiles, so refresh explicitly.
-                    // Uses refreshSheetPatterns() to update the existing renderer's GPU
-                    // textures without losing its cached patternBase (which would make
-                    // the bridge invisible).
-                    var renderManager = levelManager.getObjectRenderManager();
-                    if (renderManager != null) {
-                        var artProvider = renderManager.getArtProvider();
-                        if (artProvider instanceof com.openggf.game.sonic3k.Sonic3kObjectArtProvider s3kProvider) {
-                            var reader = com.openggf.data.RomByteReader.fromRom(rom);
-                            var artBuilder = new com.openggf.game.sonic3k.Sonic3kObjectArt(sonic3kLevel, reader);
-                            var newSheet = artBuilder.buildDrawBridgeSheet();
-                            if (newSheet != null) {
-                                s3kProvider.refreshSheetPatterns(
-                                        com.openggf.game.sonic3k.Sonic3kObjectArtKeys.AIZ_DRAW_BRIDGE,
-                                        newSheet);
-                            }
-                        }
-                    }
-                }
-            }
         } catch (Exception e) {
             LOG.fine(() -> "AizEndBossInstance.loadAfterBossArt: " + e.getMessage());
         }

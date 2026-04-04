@@ -182,6 +182,14 @@ public class CutsceneKnucklesAiz2Instance extends AbstractObjectInstance {
     }
 
     @Override
+    public boolean isHighPriority() {
+        // ROM: The cutscene Knuckles appears in the post-boss arena area which
+        // has high-priority foreground tiles (waterfall). Knuckles must render
+        // in front of these tiles to be visible.
+        return true;
+    }
+
+    @Override
     public void appendRenderCommands(List<GLCommand> commands) {
         PatternSpriteRenderer renderer = AizIntroArtLoader.getKnucklesRenderer();
         if (renderer == null || !renderer.isReady()) {
