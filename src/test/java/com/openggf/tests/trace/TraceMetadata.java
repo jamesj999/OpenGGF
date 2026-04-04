@@ -14,6 +14,7 @@ import java.nio.file.Path;
 public record TraceMetadata(
     @JsonProperty("game") String game,
     @JsonProperty("zone") String zone,
+    @JsonProperty("zone_id") Integer zoneId,
     @JsonProperty("act") int act,
     @JsonProperty("bk2_frame_offset") int bk2FrameOffset,
     @JsonProperty("trace_frame_count") int traceFrameCount,
@@ -23,7 +24,11 @@ public record TraceMetadata(
     @JsonProperty("lua_script_version") String luaScriptVersion,
     @JsonProperty("rom_checksum") String romChecksum,
     @JsonProperty("notes") String notes,
-    @JsonProperty("pre_trace_osc_frames") Integer preTraceOscFrames
+    @JsonProperty("pre_trace_osc_frames") Integer preTraceOscFrames,
+    @JsonProperty("trace_type") String traceType,
+    @JsonProperty("input_source") String inputSource,
+    @JsonProperty("credits_demo_index") Integer creditsDemoIndex,
+    @JsonProperty("credits_demo_slug") String creditsDemoSlug
 ) {
 
     /**
