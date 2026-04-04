@@ -53,9 +53,11 @@ ADDR_TIME = 0xFE22
 ADDR_SCORE = 0xFE26
 
 # Demo / credits
-ADDR_DEMO_FLAG = 0xFFF2
-ADDR_DEMO_NUM = 0xFFF4
-ADDR_CREDITS_NUM = 0xFFF6
+# NOTE: These offsets are 2 bytes lower than what s1disasm labels suggest.
+# Verified empirically against stable-retro genesis_plus_gx RAM layout.
+ADDR_DEMO_FLAG = 0xFFF0
+ADDR_DEMO_NUM = 0xFFF2
+ADDR_CREDITS_NUM = 0xFFF4
 
 # Lamp state (LZ)
 ADDR_LAST_LAMP = 0xFD2E
@@ -136,11 +138,16 @@ ZONE_NAMES = {
 # =====================================================================
 
 class GenesisRAM:
-    """Read big-endian values from a Genesis work RAM numpy array (64KB).
+    """Read 68K values from a Genesis work RAM numpy array (64KB).
 
-    stable-retro's env.get_ram() returns the 64KB work RAM as a uint8
-    numpy array where index 0 = 68K address $FF0000.  The indices match
-    BizHawk mainmemory domain offsets exactly.
+    stable-retro's genesis_plus_gx core exposes the 64KB work RAM with
+    bytes **swapped within each 16-bit word** (little-endian x86 order).
+    The 68K is big-endian, so a word at address $FFD008 with value $0050
+    appears as ram[0xD008]=0x50, ram[0xD009]=0x00.  Byte-sized fields at
+    even addresses land at addr+1 and vice versa (XOR 1).
+
+    All read methods accept 68K-relative addresses (offset from $FF0000)
+    and transparently handle the byte swap.
     """
 
     def __init__(self, ram_array=None):
@@ -150,22 +157,26 @@ class GenesisRAM:
         self._ram = ram_array
 
     def u8(self, addr):
-        return int(self._ram[addr])
+        # Bytes are swapped within each word: even↔odd
+        return int(self._ram[addr ^ 1])
 
     def s8(self, addr):
-        v = int(self._ram[addr])
+        v = self.u8(addr)
         return v - 256 if v > 127 else v
 
     def u16(self, addr):
-        return (int(self._ram[addr]) << 8) | int(self._ram[addr + 1])
+        # Word at addr: low byte at ram[addr], high byte at ram[addr+1] (LE)
+        return int(self._ram[addr]) | (int(self._ram[addr + 1]) << 8)
 
     def s16(self, addr):
         v = self.u16(addr)
         return v - 0x10000 if v > 0x7FFF else v
 
     def u32(self, addr):
-        return ((int(self._ram[addr]) << 24) | (int(self._ram[addr + 1]) << 16) |
-                (int(self._ram[addr + 2]) << 8) | int(self._ram[addr + 3]))
+        # Two words: high word at addr, low word at addr+2 (each word is LE)
+        hi = int(self._ram[addr]) | (int(self._ram[addr + 1]) << 8)
+        lo = int(self._ram[addr + 2]) | (int(self._ram[addr + 3]) << 8)
+        return (hi << 16) | lo
 
 
 # =====================================================================
