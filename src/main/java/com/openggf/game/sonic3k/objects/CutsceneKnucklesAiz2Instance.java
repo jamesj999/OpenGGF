@@ -46,7 +46,9 @@ public class CutsceneKnucklesAiz2Instance extends AbstractObjectInstance {
     private boolean initialized;
     private boolean bounced;
 
-    private int mappingFrame = 0x1C;
+    // ROM: SetUp_ObjAttributesSlotted defaults mapping_frame to 0 (standing).
+    // Frame 0x1C is the laugh pose — only used during LAUGH_1/LAUGH_2 phases.
+    private int mappingFrame = 0;
     private int animationTick;
     private int animationIndex;
     /** ROM render_flags bit 0: true = facing right (hFlip in draw call). */
@@ -98,7 +100,7 @@ public class CutsceneKnucklesAiz2Instance extends AbstractObjectInstance {
     }
 
     private void updateInitWait() {
-        mappingFrame = 0x1C;
+        // ROM: Knuckles stands at frame 0 (default) during the initial wait.
         if (timer > 0) {
             timer--;
             return;
