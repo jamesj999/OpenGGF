@@ -1,12 +1,12 @@
 # Sonic 3&K Object Implementation Checklist
 
-Generated: 2026-04-02 14:37:37
+Generated: 2026-04-03 23:34:00
 
 ## Summary
 
 - **Total unique objects found:** 303
-- **Implemented:** 34 (11.2%)
-- **Unimplemented:** 269 (88.8%)
+- **Implemented:** 35 (11.6%)
+- **Unimplemented:** 268 (88.4%)
 
 ## Implemented Objects
 
@@ -46,6 +46,7 @@ Generated: 2026-04-02 14:37:37
 | 0x33 | Button | 37 |  | AIZ2, HCZ1, FBZ1, FBZ2, ICZ1, ICZ2, LRZ1, LRZ2 |
 | 0x80 | HiddenMonitor | 45 |  | AIZ2, HCZ1, MGZ1, CNZ1, CNZ2, FBZ1, ICZ2, LBZ1, MHZ1, SOZ1, LRZ1 |
 | 0x8F | CaterKillerJr | 14 |  | AIZ2 |
+| 0x92 | AIZEndBoss | 2 |  | AIZ2 |
 
 ## Unimplemented Objects (By Usage)
 
@@ -268,7 +269,6 @@ Generated: 2026-04-02 14:37:37
 | 0x25 | Object | LRZChainedPlatforms | 3 |  | LRZ2 |
 | 0x5C | Object | DEZGravityHub | 3 |  | DEZ2 |
 | 0x32 | Object | AIZDrawBridge | 2 |  | AIZ2 |
-| 0x92 | Boss | AIZEndBoss | 2 |  | AIZ2 |
 | 0x9A | Boss | HCZEndBoss | 2 |  | HCZ2 |
 | 0x44 | Object | CNZTrapDoor | 2 |  | CNZ1 |
 | 0x4C | Object | CNZSpiralTube | 2 |  | CNZ1 |
@@ -362,7 +362,7 @@ Total: 153 objects | Implemented: 23 | Unimplemented: 0
 
 #### Act 2
 
-Total: 751 objects | Implemented: 29 | Unimplemented: 3
+Total: 751 objects | Implemented: 30 | Unimplemented: 2
 
 **Badniks:**
 - [x] 0x8C Bloominator (x11) [0x00]
@@ -371,7 +371,7 @@ Total: 751 objects | Implemented: 29 | Unimplemented: 3
 - [x] 0x8F CaterKillerJr (x14) [0x00]
 
 **Bosses:**
-- [ ] 0x92 AIZEndBoss (x2) [0x00]
+- [x] 0x92 AIZEndBoss (x2) [0x00]
 
 **Objects:**
 - [x] 0x01 Monitor (x22) [6 subtypes]

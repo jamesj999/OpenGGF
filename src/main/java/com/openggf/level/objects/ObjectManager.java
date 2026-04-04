@@ -1065,6 +1065,23 @@ public class ObjectManager {
     }
 
     /**
+     * Adjusts the placement system's tracking state after a camera wrap-back.
+     * <p>
+     * ROM parity: when Level_repeat_offset is non-zero, the ROM's ObjPosLoad
+     * adjusts its cursor boundaries by the wrap distance so that the forward/backward
+     * scan sees a continuous camera motion instead of a discontinuous jump.
+     * Without this adjustment, the engine's placement system detects a negative
+     * camera delta, triggering a full {@code refreshWindow()} that can re-spawn
+     * objects already in the scene (e.g., the AIZ2 end boss during the bombing
+     * sequence camera loop).
+     *
+     * @param wrapDelta the positive distance the camera was moved backward
+     */
+    public void adjustPlacementTrackingForWrap(int wrapDelta) {
+        placement.adjustForWrap(wrapDelta);
+    }
+
+    /**
      * Enables slot limit enforcement (ROM FindFreeObj simulation).
      */
     public void enforceSlotLimit() {
@@ -1779,6 +1796,20 @@ public class ObjectManager {
 
         Placement(List<ObjectSpawn> spawns) {
             super(spawns, LOAD_AHEAD, UNLOAD_BEHIND);
+        }
+
+        /**
+         * Adjusts tracking state after a camera wrap-back so that the next
+         * {@link #update(int)} call sees a small positive delta instead of a
+         * large negative one, preventing a spurious {@link #refreshWindow(int)}.
+         *
+         * @param wrapDelta positive distance the camera X was decreased
+         */
+        void adjustForWrap(int wrapDelta) {
+            if (lastCameraX != Integer.MIN_VALUE) {
+                lastCameraX -= wrapDelta;
+                lastCameraChunk = toCoarseChunk(lastCameraX);
+            }
         }
 
         void enableCounterBasedRespawn() {

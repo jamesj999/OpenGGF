@@ -390,8 +390,9 @@ public class GameLoop {
                 levelManager.updateObjectPositions();
                 // Run player physics only if the title card provider allows it.
                 // S2: runs physics so Sonic settles onto ground / Tornado (SCZ).
-                // S1: ROM title card is blocking; player stays at spawn position
-                //     until the title card ends (important for SBZ3 airborne spawn).
+                // S1/S3K: ROM title card path is blocking for player movement; Sonic
+                // stays frozen until control is released (important for airborne
+                // starts like SBZ3, HCZ1, and LRZ1).
                 if (tcpCard.shouldRunPlayerPhysics()) {
                     spriteManager.updateWithoutInput();
                 }

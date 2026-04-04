@@ -538,6 +538,19 @@ public class Sonic3kObjectArt {
         return buildLevelArtSheet(Sonic3kConstants.ARTTILE_AIZ_MISC2, 2, frames, minTile, maxTile);
     }
 
+    /**
+     * Builds the AIZ draw bridge sheet.
+     * The ROM mapping contains an empty frame and a single 2x2 bridge segment frame.
+     */
+    public ObjectSpriteSheet buildDrawBridgeSheet() {
+        List<SpriteMappingFrame> frames = List.of(
+                new SpriteMappingFrame(List.of()),
+                new SpriteMappingFrame(List.of(
+                        new SpriteMappingPiece(-8, -8, 2, 2, 0x22, true, false, 0)
+                )));
+        return buildLevelArtSheet(Sonic3kConstants.ARTTILE_AIZ_MISC2, 2, frames, 0x22, 0x26);
+    }
+
     // ===== AIZ Disappearing Floor sprite sheets (parsed from ROM) =====
 
     /**
@@ -733,6 +746,27 @@ public class Sonic3kObjectArt {
             return new ObjectSpriteSheet(patterns, remapped, 1, 1);
         } catch (IOException e) {
             LOG.warning("Failed loading Rhinobot art: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Loads the shared egg capsule / prison art used by S3K boss endings.
+     */
+    public ObjectSpriteSheet loadEggCapsuleSheet(Rom rom) {
+        if (rom == null || reader == null) {
+            return null;
+        }
+        try {
+            Pattern[] patterns = PatternDecompressor.nemesis(rom, Sonic3kConstants.ART_NEM_EGG_CAPSULE_ADDR);
+            if (patterns == null || patterns.length == 0) {
+                return null;
+            }
+            List<SpriteMappingFrame> mappings =
+                    S3kSpriteDataLoader.loadMappingFrames(reader, Sonic3kConstants.MAP_EGG_CAPSULE_ADDR);
+            return new ObjectSpriteSheet(patterns, mappings, 0, 1);
+        } catch (IOException e) {
+            LOG.warning("Failed loading Egg Capsule art: " + e.getMessage());
             return null;
         }
     }

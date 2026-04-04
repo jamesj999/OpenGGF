@@ -57,7 +57,8 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
 
         Sonic3kAIZEvents aizEvents = getAizEvents();
         boolean forestFrontPhaseActive = aizEvents != null && aizEvents.isBattleshipForestFrontPhaseActive();
-        if (forestFrontPhaseActive) {
+        boolean bossArenaFrontPriority = aizEvents != null && aizEvents.isBossFlag();
+        if (forestFrontPhaseActive || bossArenaFrontPriority) {
             player.setHighPriority(true);
             player.setPriorityBucket(RenderPriority.MIN);
             forcedAizForestFrontPriority = true;

@@ -51,7 +51,7 @@ public class AizEndBossArmChild extends AbstractBossChild {
     private AizEndBossPropellerChild propeller;
 
     public AizEndBossArmChild(AizEndBossInstance boss, int offsetX, int offsetY, int subtype) {
-        super(boss, "AIZEndBossArm", 0x200, 0);
+        super(boss, "AIZEndBossArm", 4, 0);
         this.boss = boss;
         this.offsetX = offsetX;
         this.offsetY = offsetY;
@@ -65,8 +65,9 @@ public class AizEndBossArmChild extends AbstractBossChild {
     public void update(int frameCounter, PlayableEntity player) {
         if (!beginUpdate(frameCounter)) return;
 
-        // Sync position with parent
-        setPosition(boss.getX() + offsetX, boss.getY() + offsetY);
+        // ROM Refresh_ChildPositionAdjusted negates child_dx when the parent is X-flipped.
+        int signedOffsetX = boss.isFacingRight() ? -offsetX : offsetX;
+        setPosition(boss.getX() + signedOffsetX, boss.getY() + offsetY);
 
         // Check parent defeat
         if (boss.isDefeatSignal()) {
@@ -91,8 +92,8 @@ public class AizEndBossArmChild extends AbstractBossChild {
                 routine = ROUTINE_WAIT_REVEAL;
             }
             case ROUTINE_WAIT_REVEAL -> {
-                // Wait until parent finishes emerge animation
-                if (!boss.isHidden()) {
+                // ROM checks parent bit 3, which is latched when the emerge cycle starts.
+                if (boss.hasEmergeStarted()) {
                     if (subtype == 0) {
                         routine = ROUTINE_SHORT_DELAY;
                         waitTimer = 4;
@@ -139,12 +140,17 @@ public class AizEndBossArmChild extends AbstractBossChild {
         PatternSpriteRenderer renderer = renderManager.getRenderer(Sonic3kObjectArtKeys.AIZ_END_BOSS);
         if (renderer == null || !renderer.isReady()) return;
 
-        boolean hFlip = (subtype != 0); // Right arm is flipped
+        boolean hFlip = boss.isFacingRight();
         renderer.drawFrameIndex(mappingFrame, getX(), getY(), hFlip, false);
     }
 
     public int getCollisionFlags() {
         return 0; // Arms are not collidable
+    }
+
+    @Override
+    public boolean isHighPriority() {
+        return boss.isHighPriority();
     }
 
     public AizEndBossPropellerChild getPropeller() {

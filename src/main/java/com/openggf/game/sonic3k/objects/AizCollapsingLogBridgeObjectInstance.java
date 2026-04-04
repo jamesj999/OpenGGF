@@ -141,6 +141,18 @@ public class AizCollapsingLogBridgeObjectInstance extends AbstractObjectInstance
         segmentFrame[SEGMENT_COUNT - 1] = 2;
     }
 
+    /**
+     * ROM parity: the bridge object does not call {@code out_of_range} — it uses
+     * {@code Delete_Sprite_If_Not_In_Range} which only deletes when truly off-screen.
+     * Without this override, the exec-loop out-of-range check deletes the bridge
+     * during the battleship auto-scroll camera wrapping, causing it to respawn
+     * fresh (un-collapsed) when the camera returns.
+     */
+    @Override
+    public boolean isPersistent() {
+        return !isDestroyed();
+    }
+
     // ===== SolidObjectProvider =====
 
     @Override
@@ -228,6 +240,17 @@ public class AizCollapsingLogBridgeObjectInstance extends AbstractObjectInstance
         segmentsSpawned = true;
         state = STATE_COLLAPSING;
         collapseTimer = totalTimer;
+        if (isFireBridge) {
+            drawBridgeBurnActive = false;
+        }
+
+        // ROM parity: mark the spawn as remembered so the placement system
+        // never re-creates this bridge if the camera leaves and returns.
+        // In the ROM, the object's respawn bit prevents reloading after deletion.
+        var objManager = services().objectManager();
+        if (objManager != null) {
+            objManager.markRemembered(spawn);
+        }
 
         // Spawn 6 segment child objects with staggered delays
         // ROM: d2 starts at subtypeBase, increments by COLLAPSE_DELAY_INCREMENT each segment
@@ -333,6 +356,11 @@ public class AizCollapsingLogBridgeObjectInstance extends AbstractObjectInstance
     @Override
     public int getPriorityBucket() {
         return RenderPriority.clamp(PRIORITY);
+    }
+
+    @Override
+    public boolean isHighPriority() {
+        return isFireBridge;
     }
 
     @Override
@@ -453,6 +481,11 @@ public class AizCollapsingLogBridgeObjectInstance extends AbstractObjectInstance
         @Override
         public int getPriorityBucket() {
             return RenderPriority.clamp(PRIORITY);
+        }
+
+        @Override
+        public boolean isHighPriority() {
+            return isFireVariant;
         }
 
         @Override
