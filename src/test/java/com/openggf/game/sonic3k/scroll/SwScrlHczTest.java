@@ -341,6 +341,132 @@ public class SwScrlHczTest {
         }
     }
 
+    // ==== HCZ2 Screen Shake Tests ====
+
+    @Test
+    public void hcz2BgYIncludesShakeCompensation() {
+        SwScrlHcz handler = new SwScrlHcz();
+        int[] buf = new int[VISIBLE_LINES];
+
+        // Without shake: bgY = cameraY / 4
+        handler.setScreenShakeOffset(0);
+        handler.update(buf, 0x100, 0x400, 0, 1);
+        short noShake = handler.getVscrollFactorBG();
+        assertEquals("No shake: BG Y = cameraY/4", (short) (0x400 >> 2), noShake);
+
+        // With shake of 8: bgY = (0x400 - 8) / 4 + 8 = 0xFE + 8 = 0x106
+        handler.setScreenShakeOffset(8);
+        handler.update(buf, 0x100, 0x400, 0, 1);
+        short withShake = handler.getVscrollFactorBG();
+        short expected = (short) ((((short) (0x400 - 8)) >> 2) + 8);
+        assertEquals("With shake: BG Y = (camY - shake)/4 + shake", expected, withShake);
+        assertNotEquals("Shake changes BG Y", noShake, withShake);
+    }
+
+    @Test
+    public void hcz2ShakeOffsetAffectsFgVScroll() {
+        SwScrlHcz handler = new SwScrlHcz();
+        int[] buf = new int[VISIBLE_LINES];
+
+        handler.setScreenShakeOffset(0);
+        handler.update(buf, 0x100, 0x400, 0, 1);
+        assertEquals("No shake: FG VScroll = 0", (short) 0, handler.getVscrollFactorFG());
+
+        handler.setScreenShakeOffset(4);
+        handler.update(buf, 0x100, 0x400, 0, 1);
+        assertEquals("With shake: FG VScroll = camY + shake",
+                (short) (0x400 + 4), handler.getVscrollFactorFG());
+    }
+
+    @Test
+    public void hcz2ShakeDoesNotAffectHcz1() {
+        SwScrlHcz handler = new SwScrlHcz();
+        int[] buf = new int[VISIBLE_LINES];
+
+        // Set shake and run HCZ1 (actId=0) — shake should not affect Act 1
+        handler.setScreenShakeOffset(10);
+        handler.update(buf, 0x100, EQUILIBRIUM_Y, 0, 0);
+        assertEquals("HCZ1 ignores shake: FG VScroll = 0",
+                (short) 0, handler.getVscrollFactorFG());
+    }
+
+    // ==== HCZ2 Wall-Chase Mode Tests ====
+
+    @Test
+    public void hcz2DefaultPhaseIsNormal() {
+        SwScrlHcz handler = new SwScrlHcz();
+        assertEquals(SwScrlHcz.Hcz2BgPhase.NORMAL, handler.getHcz2BgPhase());
+    }
+
+    @Test
+    public void hcz2WallChaseProducesUniformScroll() {
+        SwScrlHcz handler = new SwScrlHcz();
+        int[] buf = new int[VISIBLE_LINES];
+        int cameraX = 0x800;
+        int cameraY = 0x600;
+
+        handler.setHcz2BgPhase(SwScrlHcz.Hcz2BgPhase.WALL_CHASE);
+        handler.setWallChaseOffsetX(0x40);
+        handler.update(buf, cameraX, cameraY, 0, 1);
+
+        // BG Y = camY - $500 (sonic3k.asm HCZ2_WallMove line ~106052)
+        assertEquals("Wall chase BG Y", (short) (cameraY - 0x500),
+                handler.getVscrollFactorBG());
+
+        // All 224 lines should have identical scroll values (PlainDeformation)
+        short expectedFg = negWord(cameraX);
+        // BG X = -(camX - $200 + wallOffset) (sonic3k.asm line ~106058)
+        short expectedBg = negWord(cameraX - 0x200 + 0x40);
+        for (int i = 0; i < VISIBLE_LINES; i++) {
+            assertEquals("Uniform FG at line " + i, expectedFg, unpackFG(buf[i]));
+            assertEquals("Uniform BG at line " + i, expectedBg, unpackBG(buf[i]));
+        }
+    }
+
+    @Test
+    public void hcz2NormalModeHasParallaxBandsWallChaseDoesNot() {
+        SwScrlHcz handler = new SwScrlHcz();
+        int[] buf = new int[VISIBLE_LINES];
+        int cameraX = 0x800;
+        int cameraY = 0x200;
+
+        // Normal mode: multiple parallax bands
+        handler.setHcz2BgPhase(SwScrlHcz.Hcz2BgPhase.NORMAL);
+        handler.update(buf, cameraX, cameraY, 0, 1);
+        int normalDistinct = uniqueBgValues(buf);
+        assertTrue("Normal mode has multiple BG speeds, got " + normalDistinct,
+                normalDistinct > 3);
+
+        // Wall-chase mode: single uniform BG value
+        handler.setHcz2BgPhase(SwScrlHcz.Hcz2BgPhase.WALL_CHASE);
+        handler.update(buf, cameraX, cameraY, 0, 1);
+        int chaseDistinct = uniqueBgValues(buf);
+        assertEquals("Wall chase is uniform", 1, chaseDistinct);
+    }
+
+    @Test
+    public void hcz2WallChaseOffsetMovesBackground() {
+        SwScrlHcz handler = new SwScrlHcz();
+        int[] buf1 = new int[VISIBLE_LINES];
+        int[] buf2 = new int[VISIBLE_LINES];
+        int cameraX = 0x800;
+        int cameraY = 0x600;
+
+        handler.setHcz2BgPhase(SwScrlHcz.Hcz2BgPhase.WALL_CHASE);
+
+        // Wall offset 0
+        handler.setWallChaseOffsetX(0);
+        handler.update(buf1, cameraX, cameraY, 0, 1);
+        short bg1 = unpackBG(buf1[0]);
+
+        // Wall offset -0x200 (wall has advanced)
+        handler.setWallChaseOffsetX(-0x200);
+        handler.update(buf2, cameraX, cameraY, 0, 1);
+        short bg2 = unpackBG(buf2[0]);
+
+        assertNotEquals("Different wall offsets produce different BG scroll", bg1, bg2);
+    }
+
     // ==== Provider routing test ====
 
     @Test

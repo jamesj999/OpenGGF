@@ -5,6 +5,7 @@ import com.openggf.level.scroll.AbstractZoneScrollHandler;
 import java.util.Arrays;
 
 import static com.openggf.level.scroll.M68KMath.VISIBLE_LINES;
+import static com.openggf.level.scroll.M68KMath.asrWord;
 import static com.openggf.level.scroll.M68KMath.negWord;
 import static com.openggf.level.scroll.M68KMath.packScrollWords;
 
@@ -106,10 +107,55 @@ public class SwScrlHcz extends AbstractZoneScrollHandler {
 
     private static final int HCZ2_HSCROLL_SIZE = 24;
 
+    // ==== HCZ2 Wall-Chase Constants (sonic3k.asm line ~106129) ====
+
+    /** BG Y offset during wall-chase: camY - $500. */
+    private static final int WALL_CHASE_BG_Y_OFFSET = 0x500;
+
+    /** BG X offset during wall-chase: camX - $200 + wallOffset. */
+    private static final int WALL_CHASE_BG_X_OFFSET = 0x200;
+
+    // ==== HCZ2 Background Phase ====
+
+    /**
+     * Background scroll phase for HCZ Act 2.
+     *
+     * <p>The ROM's HCZ2_BackgroundEvent has 5 states (0/$4/$8/$C/$10). This
+     * enum simplifies them into two meaningful modes for the scroll handler:
+     * <ul>
+     *   <li>{@link #WALL_CHASE} — states 0-4: flat scroll (PlainDeformation)
+     *       during the collapsing-wall chase sequence</li>
+     *   <li>{@link #NORMAL} — state $10: full parallax with HCZ2_Deform +
+     *       ApplyDeformation. Also used for states $8/$C (transition) once
+     *       the BG tile refresh is underway.</li>
+     * </ul>
+     */
+    public enum Hcz2BgPhase {
+        /** Wall-chase mode: flat/plain deformation, screen shake. */
+        WALL_CHASE,
+        /** Normal parallax mode: 7 speed levels via scatter-fill. */
+        NORMAL
+    }
+
     // ==== Mutable state ====
 
     private final short[] hcz1HScroll = new short[HCZ1_HSCROLL_SIZE];
     private final short[] hcz2HScroll = new short[HCZ2_HSCROLL_SIZE];
+
+    /** Current HCZ2 background scroll mode. Default is NORMAL. */
+    private Hcz2BgPhase hcz2Phase = Hcz2BgPhase.NORMAL;
+
+    /** Screen shake Y offset (from ShakeScreen_Setup). */
+    private int screenShakeOffset;
+
+    /**
+     * Wall movement X offset (Events_bg+$00 in ROM). Added to BG X during
+     * wall-chase mode. Negative values mean the wall is advancing leftward.
+     */
+    private int wallChaseOffsetX;
+
+    /** FG vertical scroll (non-zero only during screen shake). */
+    private short vscrollFactorFG;
 
     /**
      * Optional HCZ waterline scroll data (9312 bytes from ROM).
@@ -133,6 +179,55 @@ public class SwScrlHcz extends AbstractZoneScrollHandler {
         this(null);
     }
 
+    // ---- HCZ2 phase and screen shake API ----
+
+    /**
+     * Set the HCZ2 background scroll phase. The event handler calls this to
+     * switch between wall-chase (flat scroll) and normal (parallax) modes.
+     *
+     * @param phase the new scroll phase
+     */
+    public void setHcz2BgPhase(Hcz2BgPhase phase) {
+        this.hcz2Phase = phase;
+    }
+
+    /** @return the current HCZ2 background scroll phase */
+    public Hcz2BgPhase getHcz2BgPhase() {
+        return hcz2Phase;
+    }
+
+    /**
+     * Set the screen shake Y offset. The HCZ2 event handler (or
+     * ShakeScreen_Setup) calls this each frame. Affects both BG Y and FG
+     * vertical scroll in Act 2.
+     *
+     * @param offset shake pixel offset (positive = shift down)
+     */
+    public void setScreenShakeOffset(int offset) {
+        this.screenShakeOffset = offset;
+    }
+
+    /**
+     * Set the wall movement X offset for wall-chase mode. In the ROM, this is
+     * {@code Events_bg+$00}, updated by {@code HCZ2_WallMove}. Negative values
+     * mean the wall has advanced leftward.
+     *
+     * @param offset wall chase BG X offset (added to base BG X)
+     */
+    public void setWallChaseOffsetX(int offset) {
+        this.wallChaseOffsetX = offset;
+    }
+
+    @Override
+    public short getVscrollFactorFG() {
+        return vscrollFactorFG;
+    }
+
+    @Override
+    public int getShakeOffsetY() {
+        return screenShakeOffset;
+    }
+
     @Override
     public void update(int[] horizScrollBuf,
                        int cameraX,
@@ -140,11 +235,18 @@ public class SwScrlHcz extends AbstractZoneScrollHandler {
                        int frameCounter,
                        int actId) {
         resetScrollTracking();
+        vscrollFactorFG = 0;
 
         if (actId == 0) {
             updateHcz1(horizScrollBuf, cameraX, cameraY);
         } else {
             updateHcz2(horizScrollBuf, cameraX, cameraY);
+
+            // HCZ2_ScreenEvent (sonic3k.asm line 105989): adds Screen_shake_offset
+            // to Camera_Y_pos_copy. The FG vertical scroll compensates for this.
+            if (screenShakeOffset != 0) {
+                vscrollFactorFG = (short) (cameraY + screenShakeOffset);
+            }
         }
 
         if (minScrollOffset == Integer.MAX_VALUE) {
@@ -342,19 +444,53 @@ public class SwScrlHcz extends AbstractZoneScrollHandler {
     // HCZ2_Deform (s3.asm line ~71995)
     // ====================================================================
 
+    /**
+     * HCZ2 update: switches between wall-chase (PlainDeformation) and normal
+     * (HCZ2_Deform + ApplyDeformation) depending on the current background phase.
+     *
+     * <p><b>Wall-chase mode</b> (sonic3k.asm HCZ2_WallMove, line ~106129):
+     * Flat scroll with BG Y = camY - $500, BG X = camX - $200 + wallOffset.
+     * Active during the collapsing-wall chase sequence (BackgroundEvent states 0-4).
+     *
+     * <p><b>Normal mode</b> (sonic3k.asm HCZ2_Deform, line ~106179):
+     * 7-speed scatter-fill parallax. BG Y = (camY - shake)/4 + shake.
+     * Active after the wall chase ends (BackgroundEvent state $10).
+     */
     private void updateHcz2(int[] horizScrollBuf, int cameraX, int cameraY) {
+        short fgScroll = negWord(cameraX);
+
+        if (hcz2Phase == Hcz2BgPhase.WALL_CHASE) {
+            // PlainDeformation (sonic3k.asm loc_5F086): uniform FG+BG scroll.
+            // HCZ2_WallMove: BG Y = camY - $500, BG X = camX - $200 + wallOffset.
+            vscrollFactorBG = (short) (cameraY - WALL_CHASE_BG_Y_OFFSET);
+            short bgScroll = negWord(cameraX - WALL_CHASE_BG_X_OFFSET + wallChaseOffsetX);
+            writePlainDeformation(horizScrollBuf, fgScroll, bgScroll);
+            return;
+        }
+
+        // Normal HCZ2_Deform (sonic3k.asm line ~106179)
         Arrays.fill(hcz2HScroll, (short) 0);
 
-        // BG Y = cameraY / 4 (asr.w #2)
-        vscrollFactorBG = (short) (((short) cameraY) >> 2);
+        // BG Y = (cameraY - shake) / 4 + shake  (asr.w #2 with shake compensation)
+        short shakeY = (short) screenShakeOffset;
+        vscrollFactorBG = (short) (asrWord(cameraY - shakeY, 2) + shakeY);
 
         // Build HScroll table using scatter-fill
         buildHcz2HScroll(cameraX);
 
         // Apply deformation to 224 scanlines
-        short fgScroll = negWord(cameraX);
         applyDeformation(horizScrollBuf, fgScroll, vscrollFactorBG,
                 HCZ2_DEFORM_HEIGHTS, hcz2HScroll);
+    }
+
+    /**
+     * PlainDeformation: fill all 224 scanlines with a uniform FG/BG scroll pair.
+     * ROM: sonic3k.asm line ~103593.
+     */
+    private void writePlainDeformation(int[] horizScrollBuf, short fgScroll, short bgScroll) {
+        int packed = packScrollWords(fgScroll, bgScroll);
+        trackOffset(fgScroll, bgScroll);
+        Arrays.fill(horizScrollBuf, 0, VISIBLE_LINES, packed);
     }
 
     /**
