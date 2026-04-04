@@ -5,18 +5,18 @@ import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+
 import static org.junit.Assert.*;
 
 public class TestSonicConfigurationService {
     @Test
-    public void testUpdateAndSaveConfig() {
+    public void testUpdateConfig() {
         SonicConfigurationService service = SonicConfigurationService.getInstance();
 
         // Save original value
         boolean originalDebug = service.getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
-
-        File file = new File("config.json");
-        boolean existed = file.exists();
 
         try {
             // Update value
@@ -24,21 +24,29 @@ public class TestSonicConfigurationService {
 
             // Verify update in memory
             assertEquals(!originalDebug, service.getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED));
-
-            // Save to file
-            service.saveConfig();
-
-            // Verify file exists
-            assertTrue(file.exists());
-            assertTrue(file.lastModified() > 0);
         } finally {
             // Cleanup: Restore original value in memory
             service.setConfigValue(SonicConfiguration.DEBUG_VIEW_ENABLED, originalDebug);
+        }
+    }
 
-            if (!existed) {
-                file.delete();
+    @Test
+    public void testSaveConfig() throws IOException {
+        SonicConfigurationService service = SonicConfigurationService.getInstance();
+        File file = new File("config.json");
+        boolean existed = file.exists();
+        byte[] originalBytes = existed ? Files.readAllBytes(file.toPath()) : null;
+
+        try {
+            service.saveConfig();
+
+            assertTrue("saveConfig should create config.json", file.exists());
+            assertTrue("config.json should not be empty", file.length() > 0);
+        } finally {
+            if (existed) {
+                Files.write(file.toPath(), originalBytes);
             } else {
-                service.saveConfig();
+                file.delete();
             }
         }
     }
