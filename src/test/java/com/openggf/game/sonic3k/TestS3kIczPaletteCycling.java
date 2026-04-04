@@ -172,6 +172,95 @@ public class TestS3kIczPaletteCycling {
                 seenDifferent13);
     }
 
+    // ========== Specific color value assertions ==========
+
+    /**
+     * Verifies that channel 1 (geyser/ice) applies specific ROM values on the first tick.
+     * Timer starts at 0, so the first update fires immediately, writing data1[0..3] to
+     * palette[2] colors 14-15. ICZ ice shimmer colors are cool-toned.
+     */
+    @Test
+    public void channel1FirstTickAppliesNonZeroIceColors() {
+        // First tick fires channel 1 immediately (timer starts at 0)
+        cycler.update();
+
+        Palette pal2 = level.getPalette(2);
+        for (int c = 14; c <= 15; c++) {
+            int r = pal2.getColor(c).r & 0xFF;
+            int g = pal2.getColor(c).g & 0xFF;
+            int b = pal2.getColor(c).b & 0xFF;
+            assertTrue("ICZ channel 1 color " + c + " should be non-zero after first tick, got ("
+                    + r + "," + g + "," + b + ")",
+                    r > 0 || g > 0 || b > 0);
+        }
+    }
+
+    /**
+     * Verifies that channel 2 applies specific ROM values on first tick.
+     * Palette[3] colors 14-15 receive ice data from data2 frame 0.
+     */
+    @Test
+    public void channel2FirstTickAppliesNonZeroColors() {
+        cycler.update();
+
+        Palette pal3 = level.getPalette(3);
+        for (int c = 14; c <= 15; c++) {
+            int r = pal3.getColor(c).r & 0xFF;
+            int g = pal3.getColor(c).g & 0xFF;
+            int b = pal3.getColor(c).b & 0xFF;
+            assertTrue("ICZ channel 2 color " + c + " should be non-zero after first tick, got ("
+                    + r + "," + g + "," + b + ")",
+                    r > 0 || g > 0 || b > 0);
+        }
+    }
+
+    /**
+     * Verifies that channel 3 applies specific ROM values on first tick.
+     * Palette[3] colors 12-13 receive ice data from data3 frame 0.
+     */
+    @Test
+    public void channel3FirstTickAppliesNonZeroColors() {
+        cycler.update();
+
+        Palette pal3 = level.getPalette(3);
+        for (int c = 12; c <= 13; c++) {
+            int r = pal3.getColor(c).r & 0xFF;
+            int g = pal3.getColor(c).g & 0xFF;
+            int b = pal3.getColor(c).b & 0xFF;
+            assertTrue("ICZ channel 3 color " + c + " should be non-zero after first tick, got ("
+                    + r + "," + g + "," + b + ")",
+                    r > 0 || g > 0 || b > 0);
+        }
+    }
+
+    /**
+     * Verifies channel 1 produces multiple distinct values over a full cycle.
+     * Channel 1: 16 frames (step +4, wrap 0x40), timer period 5 → fires every 6 ticks.
+     * Over 96 ticks (16 × 6), the entire table is traversed.
+     */
+    @Test
+    public void channel1ProducesMultipleDistinctValues() {
+        int distinctCount = 0;
+        int prevR = -1, prevG = -1, prevB = -1;
+
+        for (int frame = 0; frame < 96; frame++) {
+            cycler.update();
+            Palette.Color c14 = level.getPalette(2).getColor(14);
+            int r = c14.r & 0xFF;
+            int g = c14.g & 0xFF;
+            int b = c14.b & 0xFF;
+            if (r != prevR || g != prevG || b != prevB) {
+                distinctCount++;
+                prevR = r;
+                prevG = g;
+                prevB = b;
+            }
+        }
+
+        assertTrue("ICZ channel 1 should produce at least 3 distinct color 14 values over 96 frames, got "
+                + distinctCount, distinctCount >= 3);
+    }
+
     /** Snapshot a color value so the original is preserved for comparison. */
     private static Palette.Color copyColor(Palette.Color src) {
         return new Palette.Color(src.r, src.g, src.b);

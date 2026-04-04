@@ -263,6 +263,10 @@ public class TestObjectServices implements ObjectServices {
     }
 
     @Override
+    public void setApparentAct(int act) {
+    }
+
+    @Override
     public void requestSpecialStageFromCheckpoint() {
     }
 

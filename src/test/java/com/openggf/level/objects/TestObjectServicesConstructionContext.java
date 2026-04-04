@@ -48,6 +48,7 @@ class TestObjectServicesConstructionContext {
         @Override public void updatePalette(int idx, byte[] data) {}
         @Override public com.openggf.level.rings.RingManager ringManager() { return null; }
         @Override public void advanceZoneActOnly() {}
+        @Override public void setApparentAct(int act) {}
         @Override public void requestSpecialStageFromCheckpoint() {}
         @Override public void requestZoneAndAct(int zone, int act) {}
         @Override public void requestZoneAndAct(int zone, int act, boolean deactivateLevelNow) {}

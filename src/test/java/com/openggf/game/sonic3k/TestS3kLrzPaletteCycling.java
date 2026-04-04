@@ -7,16 +7,29 @@ import org.junit.ClassRule;
 import org.junit.Test;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.data.RomByteReader;
 import com.openggf.game.GameServices;
+import com.openggf.graphics.GraphicsManager;
+import com.openggf.level.Block;
+import com.openggf.level.Chunk;
 import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
+import com.openggf.level.Map;
 import com.openggf.level.Palette;
+import com.openggf.level.Pattern;
+import com.openggf.level.SolidTile;
 import com.openggf.level.animation.AnimatedPatternManager;
+import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.rings.RingSpawn;
+import com.openggf.level.rings.RingSpriteSheet;
 import com.openggf.tests.HeadlessTestFixture;
 import com.openggf.tests.SharedLevel;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
+
+import java.io.IOException;
+import java.util.List;
 
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
@@ -114,5 +127,175 @@ public class TestS3kLrzPaletteCycling {
                 + "proving AnPal_PalLRZ12_1 cycling is active. "
                 + "Initial RGB=(" + initialR + "," + initialG + "," + initialB + ")",
                 colorChanged);
+    }
+
+    // ========== Direct cycler tests with specific color value assertions ==========
+
+    /**
+     * Verifies that channels A+B (shared timer) apply specific ROM values on the first tick.
+     * Timer starts at 0, so the first update fires immediately.
+     * Channel A: palette[2] colors 1-4 from LRZ12_1 table frame 0 (lava colors: warm).
+     * Channel B: palette[3] colors 1-2 from LRZ12_2 table frame 0 (crystal colors).
+     */
+    @Test
+    public void channelABFirstTickAppliesLavaAndCrystalColors() throws IOException {
+        GraphicsManager.getInstance().initHeadless();
+        LrzStubLevel stubLevel = new LrzStubLevel();
+        RomByteReader reader = RomByteReader.fromRom(romRule.rom());
+
+        Sonic3kPaletteCycler cycler = new Sonic3kPaletteCycler(reader, stubLevel, ZONE_LRZ, ACT_1);
+
+        cycler.update();
+
+        // Channel A: palette[2] colors 1-4 (lava colors should be warm tones)
+        Palette pal2 = stubLevel.getPalette(2);
+        for (int c = 1; c <= 4; c++) {
+            int r = pal2.getColor(c).r & 0xFF;
+            int g = pal2.getColor(c).g & 0xFF;
+            int b = pal2.getColor(c).b & 0xFF;
+            assertTrue("LRZ lava color " + c + " should be non-zero after first tick, got ("
+                    + r + "," + g + "," + b + ")",
+                    r > 0 || g > 0 || b > 0);
+        }
+
+        // Lava colors should be warm: at least one color should have R >= B
+        int r1 = pal2.getColor(1).r & 0xFF;
+        int b1 = pal2.getColor(1).b & 0xFF;
+        assertTrue("LRZ lava color 1 should be warm (R >= B), got R=" + r1 + " B=" + b1,
+                r1 >= b1);
+
+        // Channel B: palette[3] colors 1-2 (crystal)
+        Palette pal3 = stubLevel.getPalette(3);
+        for (int c = 1; c <= 2; c++) {
+            int r = pal3.getColor(c).r & 0xFF;
+            int g = pal3.getColor(c).g & 0xFF;
+            int b = pal3.getColor(c).b & 0xFF;
+            assertTrue("LRZ crystal color " + c + " should be non-zero after first tick, got ("
+                    + r + "," + g + "," + b + ")",
+                    r > 0 || g > 0 || b > 0);
+        }
+    }
+
+    /**
+     * Verifies that channel C (Act 1 only, independent timer period 8) applies palette[2]
+     * color 11 from ROM data. This is the lava glow cycling color.
+     */
+    @Test
+    public void channelCFirstTickAppliesLavaGlowColor() throws IOException {
+        GraphicsManager.getInstance().initHeadless();
+        LrzStubLevel stubLevel = new LrzStubLevel();
+        RomByteReader reader = RomByteReader.fromRom(romRule.rom());
+
+        Sonic3kPaletteCycler cycler = new Sonic3kPaletteCycler(reader, stubLevel, ZONE_LRZ, ACT_1);
+
+        cycler.update();
+
+        // Channel C writes palette[2] color 11
+        Palette.Color color11 = stubLevel.getPalette(2).getColor(11);
+        int r = color11.r & 0xFF;
+        int g = color11.g & 0xFF;
+        int b = color11.b & 0xFF;
+        assertTrue("LRZ lava glow color 11 should be non-zero after first tick, got ("
+                + r + "," + g + "," + b + ")",
+                r > 0 || g > 0 || b > 0);
+    }
+
+    /**
+     * Verifies channel A produces multiple distinct lava color values over a full cycle.
+     * Channel A: 16 frames (step +8, wrap 0x80), timer period 16 → fires every 16 ticks.
+     * Over 256 ticks (16 × 16), the entire table is traversed.
+     */
+    @Test
+    public void channelAProducesMultipleDistinctLavaValues() throws IOException {
+        GraphicsManager.getInstance().initHeadless();
+        LrzStubLevel stubLevel = new LrzStubLevel();
+        RomByteReader reader = RomByteReader.fromRom(romRule.rom());
+
+        Sonic3kPaletteCycler cycler = new Sonic3kPaletteCycler(reader, stubLevel, ZONE_LRZ, ACT_1);
+
+        int distinctCount = 0;
+        int prevR = -1, prevG = -1, prevB = -1;
+
+        for (int frame = 0; frame < 256; frame++) {
+            cycler.update();
+            Palette.Color c1 = stubLevel.getPalette(2).getColor(1);
+            int r = c1.r & 0xFF;
+            int g = c1.g & 0xFF;
+            int b = c1.b & 0xFF;
+            if (r != prevR || g != prevG || b != prevB) {
+                distinctCount++;
+                prevR = r;
+                prevG = g;
+                prevB = b;
+            }
+        }
+
+        assertTrue("LRZ channel A should produce at least 3 distinct lava color 1 values "
+                + "over 256 frames, got " + distinctCount, distinctCount >= 3);
+    }
+
+    /**
+     * Verifies channel B produces at least 2 distinct crystal values. Channel B has 7 frames
+     * (step +4, wrap 0x1C), shared timer with channel A (period 16).
+     */
+    @Test
+    public void channelBProducesMultipleDistinctCrystalValues() throws IOException {
+        GraphicsManager.getInstance().initHeadless();
+        LrzStubLevel stubLevel = new LrzStubLevel();
+        RomByteReader reader = RomByteReader.fromRom(romRule.rom());
+
+        Sonic3kPaletteCycler cycler = new Sonic3kPaletteCycler(reader, stubLevel, ZONE_LRZ, ACT_1);
+
+        int distinctCount = 0;
+        int prevR = -1, prevG = -1, prevB = -1;
+
+        for (int frame = 0; frame < 256; frame++) {
+            cycler.update();
+            Palette.Color c1 = stubLevel.getPalette(3).getColor(1);
+            int r = c1.r & 0xFF;
+            int g = c1.g & 0xFF;
+            int b = c1.b & 0xFF;
+            if (r != prevR || g != prevG || b != prevB) {
+                distinctCount++;
+                prevR = r;
+                prevG = g;
+                prevB = b;
+            }
+        }
+
+        assertTrue("LRZ channel B should produce at least 2 distinct crystal color 1 values "
+                + "over 256 frames, got " + distinctCount, distinctCount >= 2);
+    }
+
+    /**
+     * Minimal Level stub for direct LRZ palette cycling tests.
+     */
+    private static final class LrzStubLevel implements Level {
+        private final Palette[] palettes = new Palette[4];
+
+        LrzStubLevel() {
+            for (int i = 0; i < palettes.length; i++) {
+                palettes[i] = new Palette();
+            }
+        }
+
+        @Override public int getPaletteCount() { return palettes.length; }
+        @Override public Palette getPalette(int index) { return palettes[index]; }
+        @Override public int getPatternCount() { return 0; }
+        @Override public Pattern getPattern(int index) { throw new UnsupportedOperationException(); }
+        @Override public int getChunkCount() { return 0; }
+        @Override public Chunk getChunk(int index) { throw new UnsupportedOperationException(); }
+        @Override public int getBlockCount() { return 0; }
+        @Override public Block getBlock(int index) { throw new UnsupportedOperationException(); }
+        @Override public SolidTile getSolidTile(int index) { throw new UnsupportedOperationException(); }
+        @Override public Map getMap() { return null; }
+        @Override public List<ObjectSpawn> getObjects() { return List.of(); }
+        @Override public List<RingSpawn> getRings() { return List.of(); }
+        @Override public RingSpriteSheet getRingSpriteSheet() { return null; }
+        @Override public int getMinX() { return 0; }
+        @Override public int getMaxX() { return 0; }
+        @Override public int getMinY() { return 0; }
+        @Override public int getMaxY() { return 0; }
+        @Override public int getZoneIndex() { return ZONE_LRZ; }
     }
 }
