@@ -74,7 +74,23 @@ public enum LevelData {
     S3K_SKY_SANCTUARY_2(0xD5, 0x0080, 0x0020),
     S3K_DEATH_EGG_1(0xD6, 0x0030, 0x09AC),
     S3K_DEATH_EGG_2(0xD7, 0x0140, 0x03AC),
-    S3K_DOOMSDAY(0xD8, 0x0000, 0x0100);
+    S3K_DOOMSDAY(0xD8, 0x0000, 0x0100),
+
+    // S3K competition zones (zone IDs 13-17, not playable in single-player)
+    S3K_AZURE_LAKE(0xDA, 0x0060, 0x0200),
+    S3K_BALLOON_PARK(0xDC, 0x0060, 0x0200),
+    S3K_DESERT_PALACE(0xDE, 0x0060, 0x0200),
+    S3K_CHROME_GADGET(0xE0, 0x0060, 0x0200),
+    S3K_ENDLESS_MINE(0xE2, 0x0060, 0x0200),
+
+    // S3K reserved zone 18 (unused in ROM)
+    S3K_RESERVED_18(0xE4, 0x0060, 0x0200),
+
+    // S3K bonus stages (zone IDs 19-21)
+    // Start positions are loaded from ROM at runtime; values here are fallback defaults
+    S3K_GUMBALL(0xE6, 0x0120, 0x0100),
+    S3K_GLOWING_SPHERE(0xE8, 0x0120, 0x0100),
+    S3K_SLOT_MACHINE(0xEA, 0x0120, 0x0100);
 
     private final int levelIndex;
     private final int startXPos;

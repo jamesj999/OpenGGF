@@ -29,5 +29,11 @@ public class Sonic3kZoneIds {
     public static final int ZONE_CGZ = 0x10;  // Chrome Gadget
     public static final int ZONE_EMZ = 0x11;  // Endless Mine
 
+    // Bonus stages
+    public static final int ZONE_GUMBALL        = 0x13;  // Gumball Machine
+    public static final int ZONE_GLOWING_SPHERE = 0x14;  // Glowing Spheres (Pachinko)
+    public static final int ZONE_SLOT_MACHINE   = 0x15;  // Slot Machine
+
     public static final int MAIN_ZONE_COUNT = 13; // AIZ through DDZ
+    public static final int TOTAL_ZONE_COUNT = 22; // AIZ(0) through Slots(21), including gaps
 }
