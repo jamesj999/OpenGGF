@@ -73,11 +73,18 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
             return;
         }
 
-        if (forcedAizForestFrontPriority) {
+        if (forcedAizForestFrontPriority && canReleaseAizForestFrontPriority(player)) {
             player.setHighPriority(false);
             player.setPriorityBucket(RenderPriority.PLAYER_DEFAULT);
             forcedAizForestFrontPriority = false;
         }
+    }
+
+    private boolean canReleaseAizForestFrontPriority(AbstractPlayableSprite player) {
+        return !player.getDead()
+                && !player.isHurt()
+                && !player.isDrowningPreDeath()
+                && !player.isDrowningDeath();
     }
 
     private void initWaterSurfaceManager(Rom rom, int zoneIndex, int actIndex) {
