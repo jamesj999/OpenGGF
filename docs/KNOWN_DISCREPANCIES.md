@@ -10,6 +10,7 @@ This document tracks intentional deviations from the original Sonic 2 ROM implem
 4. [HTZ Cloud Scroll Precision Fix](#htz-cloud-scroll-precision-fix)
 5. [MCZ Rotating Platforms Child Cleanup](#mcz-rotating-platforms-child-cleanup)
 6. [Multi-Sidekick Daisy Chain](#multi-sidekick-daisy-chain)
+7. [Bonus Stage Game Mode](#bonus-stage-game-mode)
 
 ---
 
@@ -322,3 +323,26 @@ Practical limits before title card pattern corruption:
 ```
 
 Empty string disables sidekicks (default). Single value preserves ROM-accurate single-sidekick behavior.
+
+---
+
+## Bonus Stage Game Mode
+
+**Location:** `GameLoop.java`, `GameMode.java`
+**ROM Reference:** `sonic3k.asm` Level: routine (line 7504)
+
+### Original Implementation
+
+S3K bonus stages (Gumball, Pachinko, Slots) are loaded through the normal `Level()` routine. The zone ID changes to a bonus zone ($1300/$1400/$1500), the level loads, and the game loop runs identically to any other level. No separate game mode exists.
+
+### Engine Implementation
+
+Bonus stages use a distinct `GameMode.BONUS_STAGE` that runs the same level rendering/physics/object pipeline as `LEVEL` mode, but with an explicit `AbstractBonusStageCoordinator` managing entry/exit lifecycle, state persistence, and ring gains.
+
+### Reason
+
+The engine's `GameLoop` dispatches behavior based on `GameMode`. Overloading `LEVEL` with conditional bonus stage logic would scatter bonus-specific checks across the codebase (timer suppression, death plane disable, exit detection, state save/restore). A dedicated mode keeps the lifecycle explicit and contained in the coordinator.
+
+### Impact
+
+None on gameplay. The level pipeline (rendering, physics, objects, collision) is identical between `LEVEL` and `BONUS_STAGE` modes. The only difference is the coordinator managing transitions.
