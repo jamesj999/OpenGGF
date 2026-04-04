@@ -744,4 +744,5 @@ public class Sonic3k extends Game implements PlayerSpriteArtProvider, SpindashDu
             LOG.warning(String.format("Failed to parse PLC 0x%02X from ROM: %s", plcIndex, e.getMessage()));
         }
     }
+
 }
