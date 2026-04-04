@@ -47,7 +47,7 @@ except ImportError:
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from trace_core import (
     GenesisRAM, TraceRecorder, write_metadata, write_credits_manifest,
-    ADDR_GAME_MODE, ADDR_CTRL1, ADDR_GENERICTIMER, ADDR_ZONE, ADDR_ACT,
+    ADDR_GAME_MODE, ADDR_CTRL1, ADDR_ZONE, ADDR_ACT,
     ADDR_LIVES, ADDR_RING_COUNT, ADDR_TIME, ADDR_SCORE,
     ADDR_WATER_ROUTINE, ADDR_WATER_STATE,
     ADDR_DEMO_FLAG, ADDR_DEMO_NUM, ADDR_CREDITS_NUM,
@@ -240,7 +240,7 @@ class CreditsRecorder:
         self.no_input = np.zeros(self.num_buttons, dtype=np.int8)
 
         self.mem = GenesisRAM()
-        self.recorder = TraceRecorder(self.output_root)
+        self.recorder = None
 
         # State machine
         self.demo_forced = False
@@ -352,11 +352,33 @@ class CreditsRecorder:
 
         self.recorder.record_frame(self.mem)
 
+        if not self.first_frame_captured:
+            self._capture_first_frame_state()
+
         if self.recorder.trace_frame % 300 == 0:
             self._write_segment_metadata()
             print(f"  Demo {self.current_demo_index}: "
                   f"{self.recorder.trace_frame} frames recorded")
         return False
+
+    def _capture_first_frame_state(self):
+        """Read position and zone from RAM after the first physics frame.
+
+        This is called after the first record_frame() so the demo level
+        has fully loaded and the player position reflects the actual
+        start coordinates rather than the previous segment's leftovers.
+        """
+        self.first_frame_captured = True
+        self.start_x = self.mem.u16(PLAYER_BASE + OFF_X_POS)
+        self.start_y = self.mem.u16(PLAYER_BASE + OFF_Y_POS)
+        self.start_zone_id = self.mem.u8(ADDR_ZONE)
+        self.start_act = self.mem.u8(ADDR_ACT)
+        self.start_zone_name = ZONE_NAMES.get(
+            self.start_zone_id, f"unknown_{self.start_zone_id:02X}")
+        self._write_segment_metadata()
+        print(f"  Captured first frame: zone={self.start_zone_name} "
+              f"act={self.start_act + 1} pos=(0x{self.start_x:04X}, "
+              f"0x{self.start_y:04X})")
 
     # -----------------------------------------------------------------
     # RAM writes for forcing credits mode
@@ -454,16 +476,10 @@ class CreditsRecorder:
             return None
 
         routine = self.mem.u8(PLAYER_BASE + OFF_ROUTINE)
-        timer = self.mem.u16(ADDR_GENERICTIMER)
         expected_za = DEMO_ZONE_ACT_WORDS.get(idx, -1)
-        expected_timer = DEMO_TIMER_FRAMES.get(idx, 540)
         actual_za = self.mem.u16(ADDR_ZONE)
-        x = self.mem.u16(PLAYER_BASE + OFF_X_POS)
-        y = self.mem.u16(PLAYER_BASE + OFF_Y_POS)
 
-        if (actual_za == expected_za and routine >= 0x02
-                and expected_timer - 120 <= timer <= expected_timer
-                and not (x == 0 and y == 0)):
+        if actual_za == expected_za and routine >= 0x02:
             return idx
         return None
 
@@ -471,22 +487,23 @@ class CreditsRecorder:
         self.recording_segment = True
         self.current_demo_index = demo_index
         self.segment_start_emu = emu_frame
+        self.first_frame_captured = False
 
-        self.start_x = self.mem.u16(PLAYER_BASE + OFF_X_POS)
-        self.start_y = self.mem.u16(PLAYER_BASE + OFF_Y_POS)
-        self.start_zone_id = self.mem.u8(ADDR_ZONE)
-        self.start_act = self.mem.u8(ADDR_ACT)
-        self.start_zone_name = ZONE_NAMES.get(
-            self.start_zone_id, f"unknown_{self.start_zone_id:02X}")
+        # Position and zone are captured on the first recorded physics
+        # frame (see _capture_first_frame_state) — reading them here is
+        # too early because EndingDemoLoad may not have completed yet.
+        self.start_x = 0
+        self.start_y = 0
+        self.start_zone_id = 0
+        self.start_act = 0
+        self.start_zone_name = "unknown"
 
         seg_dir = self._segment_dir(demo_index)
         self.recorder = TraceRecorder(seg_dir)
         self.recorder.open()
-        self._write_segment_metadata()
 
         slug = DEMO_SLUGS.get(demo_index, "unknown")
-        print(f"Recording credits demo {demo_index} -> {seg_dir} "
-              f"(zone {self.start_zone_name} act {self.start_act + 1})")
+        print(f"Recording credits demo {demo_index} -> {seg_dir}")
 
     def _finish_segment(self):
         idx = self.current_demo_index
