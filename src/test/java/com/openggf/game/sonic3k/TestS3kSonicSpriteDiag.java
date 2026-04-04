@@ -1,12 +1,10 @@
 package com.openggf.game.sonic3k;
 
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
-import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.level.render.SpriteDplcFrame;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpriteMappingPiece;
@@ -164,120 +162,6 @@ public class TestS3kSonicSpriteDiag {
                 maxMappingTileIndex, artSet.bankSize());
     }
 
-    @Ignore("Diagnostic dump - not a regression test")
-    @Test
-    public void verifyRomMappingBytes() {
-        int mappingAddr = Sonic3kConstants.MAP_SONIC_ADDR;
-        int dplcAddr = Sonic3kConstants.DPLC_SONIC_ADDR;
-        int offsetTableSize = reader.readU16BE(mappingAddr);
-        int frameCount = offsetTableSize / 2;
-        System.out.println("=== ROM Mapping Address Verification ===");
-        System.out.println("MAP_SONIC_ADDR: 0x" + Integer.toHexString(mappingAddr));
-        System.out.println("DPLC_SONIC_ADDR: 0x" + Integer.toHexString(dplcAddr));
-        System.out.println("Offset table size: " + offsetTableSize + " (0x" + Integer.toHexString(offsetTableSize) + ")");
-        System.out.println("Frame count: " + frameCount);
-
-        // Dump raw bytes for specific frames
-        for (int frameIdx : new int[]{0, 7, 150, 186}) {
-            if (frameIdx >= frameCount) continue;
-            int offset = reader.readU16BE(mappingAddr + frameIdx * 2);
-            int frameAddr = mappingAddr + offset;
-            System.out.printf("%nFrame %d: offset=0x%04X, addr=0x%06X%n", frameIdx, offset, frameAddr);
-
-            // Read piece count
-            int pieceCount = reader.readU16BE(frameAddr);
-            System.out.printf("  pieceCount=%d%n", pieceCount);
-
-            // Dump raw bytes for each piece (6 bytes each)
-            for (int p = 0; p < pieceCount && p < 8; p++) {
-                int pAddr = frameAddr + 2 + p * 6;
-                StringBuilder sb = new StringBuilder();
-                for (int b = 0; b < 6; b++) {
-                    sb.append(String.format("%02X ", reader.readU8(pAddr + b)));
-                }
-                int y = (byte) reader.readU8(pAddr);
-                int size = reader.readU8(pAddr + 1);
-                int tileWord = reader.readU16BE(pAddr + 2);
-                int x = (short) reader.readU16BE(pAddr + 4);
-                int w = ((size >> 2) & 3) + 1;
-                int h = (size & 3) + 1;
-                int tileIdx = tileWord & 0x7FF;
-                System.out.printf("  Piece %d: raw=[%s] Y=%d size=0x%02X(%dx%d) tile=0x%04X(%d) X=%d%n",
-                        p, sb.toString().trim(), y, size, w, h, tileWord, tileIdx, x);
-            }
-
-            // Also dump 8 extra raw bytes after last piece to detect alignment issues
-            int afterPieces = frameAddr + 2 + pieceCount * 6;
-            StringBuilder extra = new StringBuilder();
-            for (int b = 0; b < 8 && (afterPieces + b) < reader.size(); b++) {
-                extra.append(String.format("%02X ", reader.readU8(afterPieces + b)));
-            }
-            System.out.printf("  Bytes after pieces: [%s]%n", extra.toString().trim());
-        }
-    }
-
-    @Ignore("Diagnostic dump - not a regression test")
-    @Test
-    public void verifyDisasmAddresses() {
-        // Frame 7 mapping data should be at 0x146A94 per disasm
-        // Expected: 00 02 FC 0A 00 00 FF F4 EC 0D 00 09 FF EC
-        System.out.println("=== Disasm Address Verification ===");
-        int[] disasmAddrs = {0x146A0C, 0x146A94, 0x14756A, 0x147828};
-        String[] names = {"Frame 0 (disasm)", "Frame 7 (disasm)", "Frame 150 (disasm)", "Frame 186 (disasm)"};
-        for (int i = 0; i < disasmAddrs.length; i++) {
-            int addr = disasmAddrs[i];
-            StringBuilder sb = new StringBuilder();
-            for (int b = 0; b < 20 && addr + b < reader.size(); b++) {
-                sb.append(String.format("%02X ", reader.readU8(addr + b)));
-            }
-            System.out.printf("%s at 0x%06X: [%s]%n", names[i], addr, sb.toString().trim());
-        }
-
-        // Now check the ACTUAL ROM addresses from our offset table
-        int mappingAddr = Sonic3kConstants.MAP_SONIC_ADDR;
-        int[] romFrameAddrs = new int[4];
-        int[] frameIdxs = {0, 7, 150, 186};
-        for (int i = 0; i < frameIdxs.length; i++) {
-            int offset = reader.readU16BE(mappingAddr + frameIdxs[i] * 2);
-            romFrameAddrs[i] = mappingAddr + offset;
-            StringBuilder sb = new StringBuilder();
-            for (int b = 0; b < 20 && romFrameAddrs[i] + b < reader.size(); b++) {
-                sb.append(String.format("%02X ", reader.readU8(romFrameAddrs[i] + b)));
-            }
-            System.out.printf("Frame %d (ROM table) at 0x%06X: [%s]%n", frameIdxs[i], romFrameAddrs[i], sb.toString().trim());
-        }
-
-        // Check first 10 offset table entries
-        System.out.println("\nFirst 10 offset table entries:");
-        for (int i = 0; i < 10; i++) {
-            int offset = reader.readU16BE(mappingAddr + i * 2);
-            System.out.printf("  [%d] offset=0x%04X -> addr=0x%06X%n", i, offset, mappingAddr + offset);
-        }
-    }
-
-    @Ignore("Diagnostic dump - not a regression test")
-    @Test
-    public void verifyTileOffsetSequence() {
-        // For each frame, verify that DPLC loads cover exactly the tiles
-        // referenced by the mapping pieces (no gaps, no overlaps)
-        System.out.println("=== Tile Offset Sequence Verification ===");
-
-        // Check just idle and roll frames
-        SpriteAnimationScript waitScript = animSet.getScript(5);
-        SpriteAnimationScript rollScript = animSet.getScript(2);
-
-        if (!waitScript.frames().isEmpty()) {
-            int idleFrame = waitScript.frames().get(0);
-            System.out.println("\n--- Idle Frame " + idleFrame + " ---");
-            verifyFrameTileSequence(idleFrame);
-        }
-        if (!rollScript.frames().isEmpty()) {
-            int rollFrame = rollScript.frames().get(0);
-            System.out.println("\n--- Roll Frame " + rollFrame + " ---");
-            verifyFrameTileSequence(rollFrame);
-        }
-    }
-
     private void dumpFrame(int frameIndex) {
         SpriteMappingFrame mapping = artSet.mappingFrames().get(frameIndex);
         SpriteDplcFrame dplc = artSet.dplcFrames().get(frameIndex);
@@ -315,39 +199,4 @@ public class TestS3kSonicSpriteDiag {
         System.out.println();
     }
 
-    private void verifyFrameTileSequence(int frameIndex) {
-        SpriteMappingFrame mapping = artSet.mappingFrames().get(frameIndex);
-        SpriteDplcFrame dplc = artSet.dplcFrames().get(frameIndex);
-
-        // Build a map of which bank positions are loaded by DPLC
-        int dplcTotal = 0;
-        for (TileLoadRequest req : dplc.requests()) {
-            dplcTotal += req.count();
-        }
-        boolean[] loaded = new boolean[Math.max(dplcTotal, 64)];
-        int pos = 0;
-        for (TileLoadRequest req : dplc.requests()) {
-            for (int i = 0; i < req.count(); i++) {
-                if (pos < loaded.length) loaded[pos] = true;
-                pos++;
-            }
-        }
-
-        // Check each mapping piece's tile range
-        for (int p = 0; p < mapping.pieces().size(); p++) {
-            SpriteMappingPiece piece = mapping.pieces().get(p);
-            int w = piece.widthTiles();
-            int h = piece.heightTiles();
-            System.out.printf("  Piece %d (%dx%d, tileIdx=%d): tiles ", p, w, h, piece.tileIndex());
-            for (int tx = 0; tx < w; tx++) {
-                for (int ty = 0; ty < h; ty++) {
-                    int tileOffset = tx * h + ty;
-                    int bankPos = piece.tileIndex() + tileOffset;
-                    boolean isLoaded = bankPos < loaded.length && loaded[bankPos];
-                    System.out.printf("[%d:%s] ", bankPos, isLoaded ? "OK" : "MISSING");
-                }
-            }
-            System.out.println();
-        }
-    }
 }
