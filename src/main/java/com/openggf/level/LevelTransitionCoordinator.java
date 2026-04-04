@@ -1,5 +1,7 @@
 package com.openggf.level;
 
+import com.openggf.game.BonusStageType;
+
 /**
  * Holds all transition request/consume state that was previously scattered
  * across LevelManager fields.  LevelManager owns a single instance and
@@ -16,6 +18,9 @@ public class LevelTransitionCoordinator {
 
     // ── S3K big ring return (ROM: Saved2_* variables) ──────────
     private BigRingReturnState bigRingReturn;
+
+    // ── Bonus stage ───────────────────────────────────────────────────
+    private BonusStageType bonusStageRequested;
 
     // ── Title card ─────────────────────────────────────────────────────
     private boolean titleCardRequested;
@@ -122,6 +127,28 @@ public class LevelTransitionCoordinator {
     /** Clears the big ring return state. */
     public void clearBigRingReturn() {
         this.bigRingReturn = null;
+    }
+
+    // ================================================================
+    //  Bonus stage requests
+    // ================================================================
+
+    /**
+     * Request entry to a bonus stage from a star post bonus star.
+     * Called by Sonic3kStarPostBonusStarChild on player touch.
+     */
+    public void requestBonusStageEntry(BonusStageType type) {
+        this.bonusStageRequested = type;
+    }
+
+    /**
+     * Consumes and clears the bonus stage request.
+     * @return the requested bonus stage type, or null if none requested
+     */
+    public BonusStageType consumeBonusStageRequest() {
+        BonusStageType requested = bonusStageRequested;
+        bonusStageRequested = null;
+        return requested;
     }
 
     // ================================================================
@@ -432,6 +459,7 @@ public class LevelTransitionCoordinator {
         specialStageRequestedFromCheckpoint = false;
         specialStageReturnLevelReloadRequested = false;
         bigRingReturn = null;
+        bonusStageRequested = null;
         titleCardRequested = false;
         titleCardZone = -1;
         titleCardAct = -1;

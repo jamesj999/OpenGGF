@@ -36,5 +36,8 @@ public enum GameMode {
     TRY_AGAIN_END,
 
     /** Ending cutscene sequence (managed by EndingProvider) */
-    ENDING_CUTSCENE
+    ENDING_CUTSCENE,
+
+    /** S3K bonus stage (Gumball, Pachinko, Slots) — uses level pipeline with coordinator lifecycle */
+    BONUS_STAGE
 }
