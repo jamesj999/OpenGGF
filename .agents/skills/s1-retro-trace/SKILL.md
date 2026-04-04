@@ -1,5 +1,5 @@
 ---
-name: s1-retro-trace
+title: S1 Retro Trace
 description: Use when recording Sonic 1 physics traces using stable-retro for trace replay tests.
 ---
 
@@ -244,10 +244,11 @@ Both recorders produce byte-identical output format. The difference is the emula
 
 | | BizHawk (Lua) | stable-retro (Python) |
 |---|---|---|
-| **Platform** | Windows only | Windows, macOS, Linux |
+| **Platform** | Windows only | macOS, Linux, Windows (via WSL) |
 | **GUI** | Requires GLFW window | Fully headless |
 | **Core** | Genesis Plus GX | Genesis Plus GX |
 | **Input** | BK2 movie (native) | BK2 movie (native or BizHawk-parsed) |
 | **RAM writes** | `mainmemory.write_*()` | `env.data.set_value()` via extended data.json |
+| **RAM read order** | Big-endian (native 68K) | Little-endian (word-swapped, handled by GenesisRAM) |
 
 Both use the same emulator core (Genesis Plus GX), so identical inputs should produce identical results. Traces from either platform can be used interchangeably with the Java test infrastructure.
