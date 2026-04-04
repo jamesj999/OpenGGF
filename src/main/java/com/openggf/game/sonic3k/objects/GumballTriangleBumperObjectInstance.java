@@ -61,8 +61,10 @@ public class GumballTriangleBumperObjectInstance extends AbstractObjectInstance
     // ROM: ObjDat3_613A4 mapping frame
     private static final int MAPPING_FRAME = 0x12;
 
-    // ROM: SolidObjectFull params — D1=$D, D2=8, D3=$11
-    private static final SolidObjectParams SOLID_PARAMS = new SolidObjectParams(13, 8, 8);
+    // ROM: SolidObjectFull params — D1=$D (halfWidth=13), D2=8 (airHalfHeight),
+    // D3=$11 (groundHalfHeight=17). The ground half-height is larger to account
+    // for the triangle's tall upper hitbox that catches the player standing on top.
+    private static final SolidObjectParams SOLID_PARAMS = new SolidObjectParams(13, 8, 17);
 
     /** Cooldown timer; when > 0, collision is skipped. */
     private int cooldownTimer;

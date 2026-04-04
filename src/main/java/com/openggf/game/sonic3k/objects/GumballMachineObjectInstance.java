@@ -112,15 +112,22 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
     private static final int PLATFORM_EXTRA_OFFSET_X = 0;
     private static final int PLATFORM_EXTRA_OFFSET_Y = -0x28;
 
+    // Springs: 4 vertical red springs at the bottom of the stage.
+    // ROM: ChildObjDat_61424 spawns 4 springs as children of the dispenser (loc_60D58)
+    // at offsets (-$30, -$18), (-$10, -$18), ($10, -$18), ($30, -$18).
+    // The dispenser is at absolute (0x100, 0x310), so springs are at absolute (0xD0-0x130, 0x2F8).
+    // Y offset from machine-adjusted Y: dispenser_y - machine_y - $18 = 0 - 0x18 = -$18
+    private static final int[] SPRING_X_OFFSETS = { -0x30, -0x10, 0x10, 0x30 };
+    private static final int SPRING_Y_OFFSET = -0x18;
+
     // ===== Gumball ejection constants =====
 
     // ROM: Gumball items ejected per trigger (1-3 random)
     private static final int MIN_GUMBALLS = 1;
     private static final int MAX_GUMBALLS = 3;
 
-    // ROM: Gumball initial Y velocity range (negative = upward)
-    private static final int GUMBALL_Y_VEL_MIN = -0x400;
-    private static final int GUMBALL_Y_VEL_MAX = -0x200;
+    // ROM: Balls spawn with y_vel=0 (default) and fall via gravity (+$10/frame)
+    private static final int GUMBALL_INITIAL_Y_VEL = 0;
 
     // ROM: Gumball X position spread from dispenser
     private static final int GUMBALL_X_SPREAD = 0x10;
@@ -177,6 +184,16 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         spawnChild(() -> new PlatformChild(
                 buildSpawnAt(px + PLATFORM_EXTRA_OFFSET_X, py + PLATFORM_EXTRA_OFFSET_Y),
                 "GumballPlatformExtra"));
+
+        // 4 springs at the bottom of the stage (ROM: ChildObjDat_61424, loc_60DAC).
+        // Subtype 0 = red vertical up-spring (default Sonic3kSpringObjectInstance config).
+        for (int springX : SPRING_X_OFFSETS) {
+            final int sx = px + springX;
+            final int sy = py + SPRING_Y_OFFSET;
+            spawnChild(() -> new Sonic3kSpringObjectInstance(
+                    new com.openggf.level.objects.ObjectSpawn(sx, sy, 0x07, 0,
+                            0, false, 0)));
+        }
     }
 
     // ===== State machine =====
@@ -290,8 +307,8 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         int dispenserY = spawn.y() + MACHINE_Y_OFFSET + DISPENSER_OFFSET_Y;
 
         for (int i = 0; i < count; i++) {
-            // Random Y velocity between -0x400 and -0x200 (upward)
-            int yVel = GUMBALL_Y_VEL_MIN + rng.nextInt(GUMBALL_Y_VEL_MAX - GUMBALL_Y_VEL_MIN);
+            // ROM: y_vel = 0 at spawn; gravity (+$10/frame) pulls balls down immediately
+            int yVel = GUMBALL_INITIAL_Y_VEL;
 
             // Random X offset for spread
             int xOffset = rng.nextInt(GUMBALL_X_SPREAD * 2 + 1) - GUMBALL_X_SPREAD;
@@ -348,7 +365,7 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         // ROM: SolidObject params for dispenser — approximate from sprite dimensions
         private static final SolidObjectParams SOLID_PARAMS = new SolidObjectParams(24, 16, 16);
-        private static final int MAPPING_FRAME = 1; // Dispenser visual frame
+        private static final int MAPPING_FRAME = 0x13; // ROM ObjDat3_61398 byte 2
 
         DispenserChild(ObjectSpawn spawn) {
             super(spawn, "GumballDispenser");
@@ -547,7 +564,8 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
             if (renderer == null) {
                 return;
             }
-            renderer.drawFrameIndex(MAPPING_FRAME, spawn.x(), spawn.y(), false, false);
+            // ROM: ObjDat3_6138C uses make_art_tile(ArtTile_BonusStage, 0, 0) — palette 0
+            renderer.drawFrameIndex(MAPPING_FRAME, spawn.x(), spawn.y(), false, false, 0);
         }
     }
 }

@@ -283,4 +283,33 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
         }
         return instance;
     }
+
+    /**
+     * Intercepts pit death in S3K bonus stages (Gumball, Pachinko, Slots).
+     * ROM: Obj_GumballMachine init does st (Disable_death_plane).w — bonus
+     * stages don't kill the player for falling off the bottom. Instead,
+     * falling through triggers the stage exit via the exit trigger child.
+     * <p>
+     * If the player falls below the exit trigger (past the bottom of the stage),
+     * force the stage to end.
+     */
+    @Override
+    public boolean interceptPitDeath(AbstractPlayableSprite player) {
+        if (isInBonusStage()) {
+            // Trigger bonus stage exit if player has fallen out of the arena
+            com.openggf.game.BonusStageProvider provider =
+                    com.openggf.game.GameServices.bonusStage();
+            if (provider != null) {
+                provider.requestExit();
+            }
+            return true; // Suppress death
+        }
+        return false;
+    }
+
+    private boolean isInBonusStage() {
+        return currentZone == Sonic3kZoneIds.ZONE_GUMBALL
+                || currentZone == Sonic3kZoneIds.ZONE_GLOWING_SPHERE
+                || currentZone == Sonic3kZoneIds.ZONE_SLOT_MACHINE;
+    }
 }
