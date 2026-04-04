@@ -49,6 +49,8 @@ public class CutsceneKnucklesAiz2Instance extends AbstractObjectInstance {
     private int mappingFrame = 0x1C;
     private int animationTick;
     private int animationIndex;
+    /** ROM render_flags bit 0: true = facing right (hFlip in draw call). */
+    private boolean facingRight = true;  // Starts facing right (running in from right side)
 
     public CutsceneKnucklesAiz2Instance(ObjectSpawn spawn) {
         super(spawn, "CutsceneKnucklesAIZ2");
@@ -113,6 +115,8 @@ public class CutsceneKnucklesAiz2Instance extends AbstractObjectInstance {
             return;
         }
         currentX = RUN_END_X;
+        // ROM: loc_6203C — bclr #0,render_flags → face LEFT (toward Sonic/button)
+        facingRight = false;
         phase = Phase.LAUGH_1;
         timer = LAUGH_TIMER;
         animationTick = 0;
@@ -187,11 +191,20 @@ public class CutsceneKnucklesAiz2Instance extends AbstractObjectInstance {
 
     /**
      * Returns true once Knuckles has completed his jump/bounce sequence
-     * and entered the final laugh phase. Used by the button to determine
-     * when it's safe to trigger the press.
+     * and entered the final laugh phase.
      */
     public boolean isJumpFinished() {
         return phase == Phase.LAUGH_2;
+    }
+
+    /**
+     * Returns true once Knuckles has landed at least once during the jump
+     * phase (i.e. the first bounce). The ROM button is triggered by
+     * SolidObjectFull2 when Knuckles physically lands on it during the
+     * first arc of the jump, before he bounces back.
+     */
+    public boolean hasLandedOnButton() {
+        return bounced || phase == Phase.LAUGH_2;
     }
 
     @Override
@@ -208,6 +221,6 @@ public class CutsceneKnucklesAiz2Instance extends AbstractObjectInstance {
         if (renderer == null || !renderer.isReady()) {
             return;
         }
-        renderer.drawFrameIndex(mappingFrame, currentX, currentY, true, false);
+        renderer.drawFrameIndex(mappingFrame, currentX, currentY, facingRight, false);
     }
 }

@@ -88,10 +88,12 @@ public class S3kCutsceneButtonObjectInstance extends AbstractObjectInstance {
         if (knuckles == null) {
             return;
         }
-        // ROM: The button is pressed when Knuckles lands after his jump/bounce
-        // sequence, NOT during his initial run-in. Only check proximity once
-        // Knuckles has finished jumping (isJumpFinished() returns true).
-        if (!knuckles.isJumpFinished()) {
+        // ROM: The button is pressed when Knuckles lands ON it during the first
+        // arc of his jump (loc_620EA uses SolidObjectFull2). This is before
+        // the bounce back — NOT during his initial run-in or after the full
+        // jump sequence. Gate on hasLandedOnButton() which becomes true at the
+        // first bounce (when Knuckles physically touches down on the button).
+        if (!knuckles.hasLandedOnButton()) {
             return;
         }
         int dx = knuckles.getX() - x;

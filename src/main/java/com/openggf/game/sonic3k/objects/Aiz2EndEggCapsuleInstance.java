@@ -216,7 +216,10 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance
      * collision box, which is offset below the capsule body.
      */
     private boolean shouldHitButton(AbstractPlayableSprite player) {
-        int buttonY = currentY + BUTTON_Y_OFFSET;
+        // ROM: The button child sits at child_dy=+$24 below the capsule centre.
+        // Since our capsule is rendered vFlipped (upside-down), the button is
+        // visually ABOVE the capsule centre, so we use -BUTTON_Y_OFFSET.
+        int buttonY = currentY - BUTTON_Y_OFFSET;
         int dx = player.getCentreX() - currentX;
         int dy = player.getCentreY() - buttonY;
         return player.getYSpeed() < 0
@@ -357,12 +360,12 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance
         // Draw body vFlip=true to hang upside-down.
         renderer.drawFrameIndex(mappingFrame, currentX, bobY, false, true);
 
-        // ROM: The button is a separate child object (ChildObjDat_86B64) positioned
-        // at child_dy=+$24 below the capsule centre. It uses mapping frame 5 (idle)
-        // or frame 12 (pressed). The button child also has render_flags bit 1 set
-        // (vFlip) in loc_8675C.
+        // ROM: The button child sits at child_dy=+$24. Since the capsule is
+        // rendered vFlipped, the button appears ABOVE the capsule centre
+        // (negative Y offset in world coords), facing downward for the player
+        // to jump up into.
         int buttonFrame = opened ? 0xC : 0x5;
-        int buttonY = bobY + BUTTON_Y_OFFSET;
+        int buttonY = bobY - BUTTON_Y_OFFSET;
         renderer.drawFrameIndex(buttonFrame, currentX, buttonY, false, true);
     }
 }
