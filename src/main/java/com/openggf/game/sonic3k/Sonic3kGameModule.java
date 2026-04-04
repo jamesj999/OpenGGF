@@ -28,6 +28,7 @@ import com.openggf.game.LevelGamestate;
 import com.openggf.game.TitleCardProvider;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
+import com.openggf.game.BonusStageProvider;
 import com.openggf.game.SpecialStageProvider;
 import com.openggf.game.sonic3k.events.S3kSeamlessMutationExecutor;
 import com.openggf.game.sonic3k.objects.Sonic3kObjectRegistry;
@@ -65,6 +66,7 @@ public class Sonic3kGameModule implements GameModule {
     private PhysicsProvider physicsProvider;
     private Sonic3kObjectArtProvider objectArtProvider;
     private Sonic3kSpecialStageProvider specialStageProvider;
+    private final Sonic3kBonusStageCoordinator bonusStageCoordinator = new Sonic3kBonusStageCoordinator();
 
     @Override
     public String getIdentifier() {
@@ -255,6 +257,11 @@ public class Sonic3kGameModule implements GameModule {
             specialStageProvider = new Sonic3kSpecialStageProvider();
         }
         return specialStageProvider;
+    }
+
+    @Override
+    public BonusStageProvider getBonusStageProvider() {
+        return bonusStageCoordinator;
     }
 
     @Override
