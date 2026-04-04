@@ -139,7 +139,8 @@ public class CutsceneKnucklesAiz2Instance extends AbstractObjectInstance {
 
     private void updateJump() {
         animateLoop(JUMP_FRAMES, JUMP_DELAY);
-        SubpixelMotion.State motion = new SubpixelMotion.State(xSub, currentY, ySub, currentX, yVel, xVel);
+        SubpixelMotion.State motion = new SubpixelMotion.State(
+                currentX, currentY, xSub, ySub, xVel, yVel);
         SubpixelMotion.objectFall(motion, SubpixelMotion.S3K_GRAVITY);
         currentX = motion.x;
         currentY = motion.y;
@@ -148,11 +149,13 @@ public class CutsceneKnucklesAiz2Instance extends AbstractObjectInstance {
         xVel = motion.xVel;
         yVel = motion.yVel;
 
+        // Still going up or above floor — keep falling
         if (yVel < 0 || currentY < FLOOR_Y) {
             return;
         }
 
         if (!bounced) {
+            // First landing — bounce back the other way
             bounced = true;
             currentY = FLOOR_Y;
             xVel = -xVel;
@@ -160,6 +163,7 @@ public class CutsceneKnucklesAiz2Instance extends AbstractObjectInstance {
             return;
         }
 
+        // Second landing — done jumping, start laughing
         currentY = FLOOR_Y;
         xVel = 0;
         yVel = 0;
