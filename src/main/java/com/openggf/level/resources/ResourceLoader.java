@@ -173,8 +173,16 @@ public class ResourceLoader {
         int fullSize = ((header[0] & 0xFF) << 8) | (header[1] & 0xFF);
 
         // Compressed data is smaller than decompressed, so fullSize is a safe upper bound
-        // for input. Add extra for module alignment padding. Cap at 256KB to prevent issues.
-        int inputSize = Math.min(Math.max(fullSize + 256, 0x10000), 0x40000);
+        // for input. Add extra for module alignment padding. Cap at 256KB to prevent issues,
+        // and also cap against remaining ROM space (data near end of ROM, e.g., Gumball bonus
+        // stage art at 0x3FEE2E in a 4MB ROM).
+        int remaining;
+        try {
+            remaining = (int) Math.min(rom.getSize() - romAddr, Integer.MAX_VALUE);
+        } catch (IOException e) {
+            remaining = 0x40000; // Fallback: use cap if size unavailable
+        }
+        int inputSize = Math.min(Math.min(Math.max(fullSize + 256, 0x10000), 0x40000), remaining);
         byte[] romData = rom.readBytes(romAddr, inputSize);
         if (romData.length < inputSize) {
             throw new IOException("Short read for KosM data at 0x" + Integer.toHexString(romAddr));
