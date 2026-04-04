@@ -49,11 +49,15 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance
     private static final int SOLID_HALF_WIDTH = 0x2B;
     private static final int SOLID_HALF_HEIGHT = 0x18;
 
-    // ROM: Check_PlayerInRange bounds for the button child (word_867C2)
+    // ROM: Check_PlayerInRange bounds for the button child (word_867C2).
+    // word_867C2: dc.w -$1A, $34, -$1C, $38
+    // Check_PlayerInRange interprets these as (offset, size) pairs, NOT (min, max):
+    //   X: left = obj_x + (-$1A), right = left + $34 → obj_x - $1A to obj_x + $1A
+    //   Y: top  = obj_y + (-$1C), bottom = top + $38 → obj_y - $1C to obj_y + $1C
     private static final int BUTTON_X_LEFT = -0x1A;
-    private static final int BUTTON_X_RIGHT = 0x34;
+    private static final int BUTTON_X_RIGHT = -0x1A + 0x34;  // = +$1A
     private static final int BUTTON_Y_TOP = -0x1C;
-    private static final int BUTTON_Y_BOTTOM = 0x38;
+    private static final int BUTTON_Y_BOTTOM = -0x1C + 0x38;  // = +$1C
 
     // Button offset from capsule centre (ROM: ChildObjDat_86B64, child_dy=+$24)
     private static final int BUTTON_Y_OFFSET = 0x24;
