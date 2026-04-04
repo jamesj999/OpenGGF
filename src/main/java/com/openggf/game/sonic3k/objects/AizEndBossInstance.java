@@ -705,8 +705,11 @@ public class AizEndBossInstance extends AbstractBossInstance {
         }
         services().gameState().setCurrentBossId(0);
 
-        // ROM: Load PLC_EggCapsule + PLC_Animals + PLC_Explosion
-        // TODO: Spawn Obj_EggCapsule when implemented
+        // ROM: AfterBoss_AIZ2 — load fire palette + PLC_AfterMiniboss_AIZ.
+        // The fire palette restores palette line 1 from the boss palette to the
+        // burning-forest colours. The PLC reloads ArtNem_AIZMisc2 and other
+        // level art tiles that may have been overwritten by boss art.
+        loadAfterBossArt();
 
         ObjectManager objectManager = services().objectManager();
         if (objectManager != null) {
@@ -817,6 +820,63 @@ public class AizEndBossInstance extends AbstractBossInstance {
             services().updatePalette(BOSS_PALETTE_INDEX, line);
         } catch (Exception e) {
             LOG.fine(() -> "AizEndBossInstance.loadBossPalette: " + e.getMessage());
+        }
+    }
+
+    /**
+     * ROM: AfterBoss_AIZ2 (sonic3k.asm:176563-176567).
+     * Restores the fire palette to palette line 1 and reloads the
+     * PLC_AfterMiniboss_AIZ art (ArtNem_AIZMisc2 etc.) to refresh
+     * level patterns that may have been overwritten by boss art.
+     * This ensures the draw bridge and other post-boss objects have
+     * correct graphics.
+     */
+    private void loadAfterBossArt() {
+        try {
+            // 1. Load Pal_AIZFire to palette line 1 (ROM: PalLoad_Line1)
+            byte[] firePal = services().rom().readBytes(
+                    Sonic3kConstants.PAL_AIZ_FIRE_ADDR, 32);
+            services().updatePalette(BOSS_PALETTE_INDEX, firePal);
+
+            // 2. Reload PLC_AfterMiniboss_AIZ to refresh level art patterns.
+            // Then force-rebuild the draw bridge sprite sheet from the fresh
+            // level patterns. The PLC tile-range overlap detection may not
+            // catch the draw bridge tiles, so we explicitly rebuild it.
+            var levelManager = com.openggf.game.GameServices.level();
+            if (levelManager != null) {
+                var level = levelManager.getCurrentLevel();
+                if (level instanceof com.openggf.game.sonic3k.Sonic3kLevel sonic3kLevel) {
+                    var rom = com.openggf.game.GameServices.rom().getRom();
+                    // Apply PLC $0D (AIZ2 objects PLC containing AIZMisc2)
+                    var plc = com.openggf.game.sonic3k.Sonic3kPlcLoader.parsePlc(rom, 0x0D);
+                    var modified = com.openggf.game.sonic3k.Sonic3kPlcLoader.applyToLevel(
+                            plc, sonic3kLevel);
+                    com.openggf.game.sonic3k.Sonic3kPlcLoader.refreshAffectedRenderers(
+                            modified, levelManager);
+
+                    // Force refresh draw bridge patterns from current level data.
+                    // The PLC overlap check may miss these tiles, so refresh explicitly.
+                    // Uses refreshSheetPatterns() to update the existing renderer's GPU
+                    // textures without losing its cached patternBase (which would make
+                    // the bridge invisible).
+                    var renderManager = levelManager.getObjectRenderManager();
+                    if (renderManager != null) {
+                        var artProvider = renderManager.getArtProvider();
+                        if (artProvider instanceof com.openggf.game.sonic3k.Sonic3kObjectArtProvider s3kProvider) {
+                            var reader = com.openggf.data.RomByteReader.fromRom(rom);
+                            var artBuilder = new com.openggf.game.sonic3k.Sonic3kObjectArt(sonic3kLevel, reader);
+                            var newSheet = artBuilder.buildDrawBridgeSheet();
+                            if (newSheet != null) {
+                                s3kProvider.refreshSheetPatterns(
+                                        com.openggf.game.sonic3k.Sonic3kObjectArtKeys.AIZ_DRAW_BRIDGE,
+                                        newSheet);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            LOG.fine(() -> "AizEndBossInstance.loadAfterBossArt: " + e.getMessage());
         }
     }
 

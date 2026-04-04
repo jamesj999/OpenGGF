@@ -1222,6 +1222,42 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         rendererOrder.add(renderer);
     }
 
+    /**
+     * Refreshes an existing sheet's pattern data and re-uploads GPU textures.
+     * Used after PLC reloads or boss defeat to ensure renderers show updated art.
+     *
+     * <p>Unlike creating a whole new renderer (which would lose the cached
+     * {@code patternBase} and cause invisible sprites), this copies patterns
+     * from the new sheet into the existing one and asks the renderer to
+     * re-upload the affected GPU textures.
+     *
+     * @param key the art key to refresh
+     * @param freshSheet a newly built sheet with up-to-date patterns
+     */
+    public void refreshSheetPatterns(String key, ObjectSpriteSheet freshSheet) {
+        if (freshSheet == null) return;
+        ObjectSpriteSheet existing = sheets.get(key);
+        PatternSpriteRenderer renderer = renderers.get(key);
+        if (existing == null || renderer == null) {
+            // Not registered yet — register fresh so first draw works normally
+            registerSheet(key, freshSheet);
+            return;
+        }
+
+        // Copy fresh patterns into the existing sheet's array so the renderer
+        // (which holds a reference to the same array) sees updated data.
+        Pattern[] dst = existing.getPatterns();
+        Pattern[] src = freshSheet.getPatterns();
+        int count = Math.min(dst.length, src.length);
+        System.arraycopy(src, 0, dst, 0, count);
+
+        // Ask the renderer to re-upload the affected GPU textures.
+        GraphicsManager gfx = GraphicsManager.getInstance();
+        if (gfx != null && gfx.isGlInitialized() && renderer.isReady()) {
+            renderer.updatePatternRange(gfx, 0, count);
+        }
+    }
+
     @Override
     public PatternSpriteRenderer getRenderer(String key) {
         return renderers.get(key);

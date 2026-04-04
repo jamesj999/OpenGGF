@@ -86,7 +86,7 @@ class TestAiz2BossEndSequenceObjects {
 
         assertFalse(Aiz2BossEndSequenceState.isEggCapsuleReleased());
         setField(capsule, "currentY", 0x0140);
-        setField(capsule, "activated", 1);
+        setField(capsule, "opened", 1);
         setField(capsule, "resultsStarted", 1);
         gameState.setEndOfLevelFlag(true);
         capsule.update(0, null);
