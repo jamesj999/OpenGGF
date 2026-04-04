@@ -216,19 +216,19 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance
      * collision box, which is offset below the capsule body.
      */
     private boolean shouldHitButton(AbstractPlayableSprite player) {
-        // ROM: The button child sits at child_dy=+$24 below the capsule centre.
-        // Check_PlayerInRange (word_867C2) bounds: X(-$1A to $34), Y(-$1C to $38)
-        // are relative to the button position. The button is visually at
-        // +BUTTON_Y_OFFSET below the capsule centre (the part hanging down
-        // that the player jumps up into).
+        // ROM: loc_86770 — Check_PlayerInRange (word_867C2) bounds relative to
+        // the button child at child_dy=+$24 below the capsule centre.
+        // Additionally, the ROM requires the player to be ROLLING (anim==2)
+        // or be Tails (character_id==1). Sonic in normal jump doesn't trigger.
         int buttonY = currentY + BUTTON_Y_OFFSET;
         int dx = player.getCentreX() - currentX;
         int dy = player.getCentreY() - buttonY;
-        return player.getYSpeed() < 0
-                && dx >= BUTTON_X_LEFT
-                && dx < BUTTON_X_RIGHT
-                && dy >= BUTTON_Y_TOP
-                && dy < BUTTON_Y_BOTTOM;
+        if (player.getYSpeed() >= 0) return false;
+        if (dx < BUTTON_X_LEFT || dx >= BUTTON_X_RIGHT) return false;
+        if (dy < BUTTON_Y_TOP || dy >= BUTTON_Y_BOTTOM) return false;
+        // ROM: cmpi.b #2,anim(a1) / beq trigger; cmpi.b #1,character_id / beq trigger
+        // Only rolling (spin jump) or Tails can activate the button.
+        return player.getRolling() || player.getRollingJump();
     }
 
     // ===== Capsule opening =====
