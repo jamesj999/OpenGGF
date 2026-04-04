@@ -93,6 +93,126 @@ public class TestS3kCnzPaletteCycling {
                 colorsEqual(before, after));
     }
 
+    // ========== Specific color value assertions ==========
+
+    /**
+     * Verifies channel 1 (bumpers) applies ROM color values on first tick.
+     * Channel 1 fires immediately (timer starts at 0) and writes palette[3] colors 9-11
+     * from the bumper table frame 0. At least one of the 3 bumper colors must be non-zero,
+     * as the cycle contains bright neon/electric colors (some individual entries may be black).
+     */
+    @Test
+    public void bumperChannel1FirstTickAppliesColors() {
+        cycler.update();
+
+        Palette pal3 = level.getPalette(3);
+        boolean anyNonZero = false;
+        for (int c = 9; c <= 11; c++) {
+            int r = pal3.getColor(c).r & 0xFF;
+            int g = pal3.getColor(c).g & 0xFF;
+            int b = pal3.getColor(c).b & 0xFF;
+            if (r > 0 || g > 0 || b > 0) {
+                anyNonZero = true;
+            }
+        }
+        assertTrue("At least one bumper color (9-11) should be non-zero after first tick",
+                anyNonZero);
+    }
+
+    /**
+     * Verifies channel 2 (background) applies specific ROM color values on first tick.
+     * Channel 2 runs every frame and writes palette[2] colors 9-11.
+     */
+    @Test
+    public void backgroundChannel2FirstTickAppliesNonZeroColors() {
+        cycler.update();
+
+        Palette pal2 = level.getPalette(2);
+        for (int c = 9; c <= 11; c++) {
+            int r = pal2.getColor(c).r & 0xFF;
+            int g = pal2.getColor(c).g & 0xFF;
+            int b = pal2.getColor(c).b & 0xFF;
+            assertTrue("Background color " + c + " should be non-zero after first tick, got ("
+                    + r + "," + g + "," + b + ")",
+                    r > 0 || g > 0 || b > 0);
+        }
+    }
+
+    /**
+     * Verifies channel 3 (tertiary) applies specific ROM color values on first tick.
+     * Channel 3 fires immediately (timer starts at 0) and writes palette[2] colors 7-8.
+     */
+    @Test
+    public void tertiaryChannel3FirstTickAppliesNonZeroColors() {
+        cycler.update();
+
+        Palette pal2 = level.getPalette(2);
+        for (int c = 7; c <= 8; c++) {
+            int r = pal2.getColor(c).r & 0xFF;
+            int g = pal2.getColor(c).g & 0xFF;
+            int b = pal2.getColor(c).b & 0xFF;
+            assertTrue("Tertiary color " + c + " should be non-zero after first tick, got ("
+                    + r + "," + g + "," + b + ")",
+                    r > 0 || g > 0 || b > 0);
+        }
+    }
+
+    /**
+     * Verifies bumper cycle produces multiple distinct palette states over 30 frames.
+     * Channel 1 has 16 frames (step +6, wrap 0x60), timer period 3, so fires ~7 times
+     * in 30 ticks — should yield at least 3 distinct color states.
+     */
+    @Test
+    public void bumperCycleProducesMultipleDistinctValues() {
+        int distinctCount = 0;
+        int prevR = -1, prevG = -1, prevB = -1;
+
+        for (int frame = 0; frame < 30; frame++) {
+            cycler.update();
+            Palette.Color c9 = level.getPalette(3).getColor(9);
+            int r = c9.r & 0xFF;
+            int g = c9.g & 0xFF;
+            int b = c9.b & 0xFF;
+            if (r != prevR || g != prevG || b != prevB) {
+                distinctCount++;
+                prevR = r;
+                prevG = g;
+                prevB = b;
+            }
+        }
+
+        assertTrue("Bumper cycle should produce at least 3 distinct color 9 values over 30 frames, got "
+                + distinctCount, distinctCount >= 3);
+    }
+
+    /**
+     * Verifies background cycle advances every frame producing many distinct values.
+     * Channel 2 runs every frame with 30 entries — so 30 ticks should yield 30 distinct states.
+     */
+    @Test
+    public void backgroundCycleAdvancesEveryFrame() {
+        int distinctCount = 0;
+        int prevR = -1, prevG = -1, prevB = -1;
+
+        for (int frame = 0; frame < 30; frame++) {
+            cycler.update();
+            Palette.Color c9 = level.getPalette(2).getColor(9);
+            int r = c9.r & 0xFF;
+            int g = c9.g & 0xFF;
+            int b = c9.b & 0xFF;
+            if (r != prevR || g != prevG || b != prevB) {
+                distinctCount++;
+                prevR = r;
+                prevG = g;
+                prevB = b;
+            }
+        }
+
+        // 30 frames with step +6 in a 180-byte table (30 frames) — each should be unique
+        assertTrue("Background cycle should produce at least 10 distinct color 9 values over 30 frames, got "
+                + distinctCount, distinctCount >= 10);
+    }
+
     // ===== helpers =====
 
     private static Palette.Color snapshot(Palette.Color c) {

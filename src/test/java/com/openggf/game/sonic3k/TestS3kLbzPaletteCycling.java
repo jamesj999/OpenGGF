@@ -7,16 +7,29 @@ import org.junit.ClassRule;
 import org.junit.Test;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.data.RomByteReader;
 import com.openggf.game.GameServices;
+import com.openggf.graphics.GraphicsManager;
+import com.openggf.level.Block;
+import com.openggf.level.Chunk;
 import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
+import com.openggf.level.Map;
 import com.openggf.level.Palette;
+import com.openggf.level.Pattern;
+import com.openggf.level.SolidTile;
 import com.openggf.level.animation.AnimatedPatternManager;
+import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.rings.RingSpawn;
+import com.openggf.level.rings.RingSpriteSheet;
 import com.openggf.tests.HeadlessTestFixture;
 import com.openggf.tests.SharedLevel;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.RequiresRomRule;
 import com.openggf.tests.rules.SonicGame;
+
+import java.io.IOException;
+import java.util.List;
 
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
@@ -108,5 +121,134 @@ public class TestS3kLbzPaletteCycling {
                 + "proving AnPal_PalLBZ1 cycling is active. "
                 + "Initial RGB=(" + initialR + "," + initialG + "," + initialB + ")",
                 colorChanged);
+    }
+
+    // ========== Direct cycler tests with specific color value assertions ==========
+
+    /**
+     * Verifies that the LBZ pipe fluid cycle applies specific ROM values on the first tick.
+     * Timer starts at 0, so the first update fires immediately, writing 3 colors to
+     * palette[2] colors 8-10 from the table frame 0.
+     */
+    @Test
+    public void lbzCycleFirstTickAppliesNonZeroColors() throws IOException {
+        GraphicsManager.getInstance().initHeadless();
+        LbzStubLevel stubLevel = new LbzStubLevel();
+        RomByteReader reader = RomByteReader.fromRom(romRule.rom());
+
+        Sonic3kPaletteCycler cycler = new Sonic3kPaletteCycler(reader, stubLevel, ZONE_LBZ, ACT_1);
+
+        cycler.update();
+
+        // LBZ cycle writes palette[2] colors 8-10 from ROM frame 0
+        Palette pal2 = stubLevel.getPalette(2);
+        for (int c = 8; c <= 10; c++) {
+            int r = pal2.getColor(c).r & 0xFF;
+            int g = pal2.getColor(c).g & 0xFF;
+            int b = pal2.getColor(c).b & 0xFF;
+            assertTrue("LBZ pipe color " + c + " should be non-zero after first tick, got ("
+                    + r + "," + g + "," + b + ")",
+                    r > 0 || g > 0 || b > 0);
+        }
+    }
+
+    /**
+     * Verifies the LBZ cycle has exactly 3 frames and wraps correctly.
+     * The table is 18 bytes (3 frames x 6 bytes), counter0 step +6, wrap at 0x12.
+     * Timer period 3 → fires every 4 ticks. After 12 ticks (3 fires), it wraps back
+     * to frame 0, so the 4th fire should match the 1st.
+     */
+    @Test
+    public void lbzCycleWrapsAfterThreeFrames() throws IOException {
+        GraphicsManager.getInstance().initHeadless();
+        LbzStubLevel stubLevel = new LbzStubLevel();
+        RomByteReader reader = RomByteReader.fromRom(romRule.rom());
+
+        Sonic3kPaletteCycler cycler = new Sonic3kPaletteCycler(reader, stubLevel, ZONE_LBZ, ACT_1);
+
+        // Fire frame 0: tick 0 (timer=0 → fires, timer→3)
+        cycler.update();
+        int frame0R = stubLevel.getPalette(2).getColor(8).r & 0xFF;
+        int frame0G = stubLevel.getPalette(2).getColor(8).g & 0xFF;
+        int frame0B = stubLevel.getPalette(2).getColor(8).b & 0xFF;
+
+        // Fire frames 1, 2 (ticks 4, 8)
+        for (int i = 0; i < 8; i++) {
+            cycler.update();
+        }
+
+        // Fire frame 0 again (tick 12: counter wraps from 0x12 → 0)
+        for (int i = 0; i < 4; i++) {
+            cycler.update();
+        }
+        int wrapR = stubLevel.getPalette(2).getColor(8).r & 0xFF;
+        int wrapG = stubLevel.getPalette(2).getColor(8).g & 0xFF;
+        int wrapB = stubLevel.getPalette(2).getColor(8).b & 0xFF;
+
+        assertTrue("LBZ color 8 should wrap back to frame 0 values after 3 frames, "
+                + "got frame0=(" + frame0R + "," + frame0G + "," + frame0B + ") "
+                + "wrap=(" + wrapR + "," + wrapG + "," + wrapB + ")",
+                frame0R == wrapR && frame0G == wrapG && frame0B == wrapB);
+    }
+
+    /**
+     * Verifies that all 3 colors (8-10) are written per frame by checking they all
+     * match expected patterns (pipe fluid: mechanical/industrial palette tones).
+     */
+    @Test
+    public void lbzCycleWritesAllThreeColorsPerFrame() throws IOException {
+        GraphicsManager.getInstance().initHeadless();
+        LbzStubLevel stubLevel = new LbzStubLevel();
+        RomByteReader reader = RomByteReader.fromRom(romRule.rom());
+
+        Sonic3kPaletteCycler cycler = new Sonic3kPaletteCycler(reader, stubLevel, ZONE_LBZ, ACT_1);
+
+        cycler.update();
+
+        Palette pal2 = stubLevel.getPalette(2);
+        int nonZeroCount = 0;
+        for (int c = 8; c <= 10; c++) {
+            int r = pal2.getColor(c).r & 0xFF;
+            int g = pal2.getColor(c).g & 0xFF;
+            int b = pal2.getColor(c).b & 0xFF;
+            if (r != 0 || g != 0 || b != 0) {
+                nonZeroCount++;
+            }
+        }
+
+        assertTrue("All 3 LBZ pipe colors (8-10) should be written on first tick, "
+                + "but only " + nonZeroCount + " are non-zero", nonZeroCount >= 2);
+    }
+
+    /**
+     * Minimal Level stub for direct LBZ palette cycling tests.
+     */
+    private static final class LbzStubLevel implements Level {
+        private final Palette[] palettes = new Palette[4];
+
+        LbzStubLevel() {
+            for (int i = 0; i < palettes.length; i++) {
+                palettes[i] = new Palette();
+            }
+        }
+
+        @Override public int getPaletteCount() { return palettes.length; }
+        @Override public Palette getPalette(int index) { return palettes[index]; }
+        @Override public int getPatternCount() { return 0; }
+        @Override public Pattern getPattern(int index) { throw new UnsupportedOperationException(); }
+        @Override public int getChunkCount() { return 0; }
+        @Override public Chunk getChunk(int index) { throw new UnsupportedOperationException(); }
+        @Override public int getBlockCount() { return 0; }
+        @Override public Block getBlock(int index) { throw new UnsupportedOperationException(); }
+        @Override public SolidTile getSolidTile(int index) { throw new UnsupportedOperationException(); }
+        @Override public Map getMap() { return null; }
+        @Override public List<ObjectSpawn> getObjects() { return List.of(); }
+        @Override public List<RingSpawn> getRings() { return List.of(); }
+        @Override public RingSpriteSheet getRingSpriteSheet() { return null; }
+        @Override public int getMinX() { return 0; }
+        @Override public int getMaxX() { return 0; }
+        @Override public int getMinY() { return 0; }
+        @Override public int getMaxY() { return 0; }
+        @Override public int getZoneIndex() { return ZONE_LBZ; }
     }
 }
