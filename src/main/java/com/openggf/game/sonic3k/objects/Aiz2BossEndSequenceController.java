@@ -115,10 +115,14 @@ public class Aiz2BossEndSequenceController extends AbstractObjectInstance {
         // Phase: Wait for button press (triggered by Knuckles animation)
         if (!buttonHandled && Aiz2BossEndSequenceState.isButtonPressed()) {
             buttonHandled = true;
-            // ROM: Player controls stay locked — bridge collapse handles the fall.
-            // Set hurt/falling animation on player.
+            // Bridge collapses under Sonic. Put player into airborne hurt-fall
+            // state. The bridge's ejectStandingPlayers may not fire because
+            // Sonic's X can be outside the bridge's solid half-width, so we
+            // handle the ejection here explicitly.
             player.clearForcedInputMask();
             player.setForceInputRight(false);
+            player.setOnObject(false);
+            player.setAir(true);
             player.setAnimationId(Sonic3kAnimationIds.HURT_FALL);
             player.setControlLocked(true);
             services().camera().setMaxYTarget((short) 0x1000);
