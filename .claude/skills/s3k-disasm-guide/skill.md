@@ -1,3 +1,8 @@
+---
+name: s3k-disasm-guide
+description: Use when navigating the Sonic 3&K disassembly — label conventions, file structure, RomOffsetFinder commands, zone-set system for skdisasm.
+---
+
 # s3k-disasm Navigation Guide
 
 This skill provides guidance on finding, identifying, and interpreting items in the Sonic 3 & Knuckles disassembly (`docs/skdisasm/`).

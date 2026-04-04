@@ -1,3 +1,8 @@
+---
+name: s3k-plc-system
+description: Use when working with the S3K Pattern Load Cue system — runtime art loading, act transition PLCs, boss art, PLC table format.
+---
+
 # S3K Pattern Load Cue (PLC) System
 
 > **Cross-game note:** The PLC binary format is shared across S1, S2, and S3K. The game-agnostic parser is `PlcParser` in `level.resources`. See the `plc-system` skill for the cross-game reference. This file covers S3K-specific PLC IDs, runtime loading, and GPU texture refresh.

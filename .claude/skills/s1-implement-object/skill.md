@@ -1,3 +1,8 @@
+---
+name: s1-implement-object
+description: Use when implementing a Sonic 1 object or badnik — ports object logic from s1disasm, art loading, collision, movement patterns.
+---
+
 # Implement Sonic 1 Object/Badnik
 
 Implement a Sonic 1 object or badnik with complete ROM accuracy. This skill guides complete implementation including art, animation, sound effects, all subtypes, and cross-validation against the Sonic 1 disassembly.

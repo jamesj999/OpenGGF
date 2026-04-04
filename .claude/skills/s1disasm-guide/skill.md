@@ -1,3 +1,8 @@
+---
+name: s1disasm-guide
+description: Use when navigating the Sonic 1 disassembly — label conventions, file structure, RomOffsetFinder commands for s1disasm.
+---
+
 # s1disasm Navigation Guide
 
 This skill provides guidance on finding, identifying, and interpreting items in the Sonic 1 disassembly (`docs/s1disasm/`).

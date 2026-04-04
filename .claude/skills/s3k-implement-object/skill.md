@@ -1,3 +1,8 @@
+---
+name: s3k-implement-object
+description: Use when implementing a Sonic 3&K object or badnik — ports object logic from skdisasm, zone-set-aware IDs, art loading, collision.
+---
+
 # Implement Sonic 3&K Object/Badnik
 
 Implement a Sonic 3 & Knuckles object or badnik with complete ROM accuracy. This skill guides complete implementation including art, animation, sound effects, all subtypes, and cross-validation against the Sonic 3&K disassembly.

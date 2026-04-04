@@ -1,3 +1,8 @@
+---
+name: s2disasm-guide
+description: Use when navigating the Sonic 2 disassembly — label conventions, file structure, RomOffsetFinder commands for s2disasm.
+---
+
 # s2disasm Navigation Guide
 
 This skill provides guidance on finding, identifying, and interpreting items in the Sonic 2 disassembly (`docs/s2disasm/`).
