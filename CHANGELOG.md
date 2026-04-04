@@ -345,6 +345,35 @@ Full S3K insta-shield ability implemented with ROM parity:
   existing palette data when the texture grows to accommodate new contexts, preventing level
   palette corruption on resize.
 
+#### S3K Zone Bring-Up Skill System
+
+A 7-skill agentic system for systematic, per-zone implementation of S3K visual and behavioural
+features (events, parallax, animated tiles, palette cycling). Designed for agent-driven analysis
+of the disassembly followed by parallel feature implementation across worktrees.
+
+- **s3k-zone-analysis**: reads the S3K disassembly and produces a structured zone feature spec
+  covering events, parallax, animated tiles, palette cycling, notable objects, and cross-cutting
+  concerns. Includes Phase 4 shared state trace for cross-category dependency detection (VRAM
+  ownership conflicts, palette mutation vs cycling overlaps, event flag gating).
+- **s3k-zone-events**: implements `Sonic3kZoneEvents` subclasses porting `Dynamic_Resize` routines
+  from the disassembly — camera locks, boss arenas, cutscenes, act transitions, palette mutations.
+- **s3k-animated-tiles**: implements AniPLC script triggers in `Sonic3kPatternAnimator` with
+  zone-specific gating conditions and dynamic art overrides.
+- **s3k-palette-cycling**: implements or validates `AnPal` handlers in `Sonic3kPaletteCycler` using
+  the counter/step/limit pattern. Supports both new implementation and validation of existing zones.
+- **s3k-parallax** *(updated)*: now accepts a zone analysis spec as optional input to accelerate
+  deform routine discovery.
+- **s3k-zone-bring-up**: orchestrator that dispatches zone analysis, parallel feature agents in
+  worktrees, merge reconciliation, build verification, and validation.
+- **s3k-zone-validate**: visual validation via stable-retro reference screenshots compared against
+  engine output using agent image recognition (feature presence, not pixel-perfect diffing).
+- All skills published in dual format (`.claude/skills/` + `.agent/skills/`) for agent-agnostic use.
+- YAML frontmatter standardised across all 20 `.claude/skills/` and 8 `.agent/skills/` files.
+- HCZ zone analysis spec produced as smoke test (`docs/s3k-zones/hcz-analysis.md`).
+- AIZ zone analysis cross-validated against engine implementation: events and palette cycling
+  matched byte-for-byte; parallax matched 13/14 checks; animated tiles revealed 3 cross-category
+  gating omissions that motivated the Phase 4 shared state trace addition.
+
 ### Tails AI Improvements
 
 - Comprehensive Tails CPU AI rework:
