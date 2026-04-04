@@ -3620,6 +3620,12 @@ public class LevelManager {
     /** @see LevelTransitionCoordinator#consumeSpecialStageReturnLevelReloadRequest() */
     public boolean consumeSpecialStageReturnLevelReloadRequest() { return transitions.consumeSpecialStageReturnLevelReloadRequest(); }
 
+    /** @see LevelTransitionCoordinator#requestBonusStageEntry(BonusStageType) */
+    public void requestBonusStageEntry(BonusStageType type) { transitions.requestBonusStageEntry(type); }
+
+    /** @see LevelTransitionCoordinator#consumeBonusStageRequest() */
+    public BonusStageType consumeBonusStageRequest() { return transitions.consumeBonusStageRequest(); }
+
     /** @see LevelTransitionCoordinator#saveBigRingReturn(BigRingReturnState) */
     public void saveBigRingReturn(BigRingReturnState state) { transitions.saveBigRingReturn(state); }
 
