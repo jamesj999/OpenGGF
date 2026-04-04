@@ -143,6 +143,15 @@ public abstract class AbstractCreditsDemoTraceReplayTest {
                 boolean right = (inputMask & AbstractPlayableSprite.INPUT_RIGHT) != 0;
                 boolean jump  = (inputMask & AbstractPlayableSprite.INPUT_JUMP) != 0;
 
+                // Emulate S1 REV01 demo-mode bug: MoveSonicInDemo (FixBugs=off,
+                // Revision!=0 path) sets d2=0 instead of reading old held state,
+                // so v_jpadpress1 = new_held every frame. Sonic_Control copies
+                // this into v_jpadpress2, and Sonic_Jump sees the jump button
+                // as "pressed" on every frame it's held. This means Sonic
+                // re-jumps every time he lands with jump still held.
+                // See docs/s1disasm/_inc/MoveSonicInDemo.asm:66-76.
+                fixture.sprite().setForcedJumpPress(jump);
+
                 // Step engine with demo input
                 fixture.stepFrame(up, down, left, right, jump);
 
