@@ -217,17 +217,20 @@ public final class Sonic3kPlcArtRegistry {
 
     /**
      * Populates Gumball Bonus Stage art entries.
-     * Object art: Map_GumballBonus with art_tile make_art_tile(ArtTile_BonusStage, 1, 1).
-     * ArtTile_BonusStage = 0x015B, palette 1.
+     * ROM: PLC_47 loads ArtNem_BonusStage to VRAM at ArtTile_BonusStage (0x15B).
+     * Objects use make_art_tile(ArtTile_BonusStage, 1, 1) — palette 1.
+     * The art is a standalone Nemesis blob, NOT in the level tile data.
      */
     private static void addGumballEntries(int actIndex,
             List<StandaloneArtEntry> standalone, List<LevelArtEntry> levelArt) {
-        levelArt.add(new LevelArtEntry(
+        standalone.add(new StandaloneArtEntry(
                 Sonic3kObjectArtKeys.GUMBALL_BONUS,
+                Sonic3kConstants.GUMBALL_ART_NEM_ADDR,
+                CompressionType.NEMESIS,
+                0,
                 Sonic3kConstants.GUMBALL_MAP_ADDR,
-                Sonic3kConstants.ARTTILE_BONUS_STAGE,
                 1,
-                null
+                -1
         ));
     }
 

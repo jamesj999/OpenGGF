@@ -75,8 +75,12 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
     private static final int SPIN_FRAME_DURATION = 3; // frames per animation frame
     private static final int SPIN_TOTAL_FRAMES = SPIN_FRAMES.length * SPIN_FRAME_DURATION;
 
-    // ROM: Mapping frame for idle state (machine body)
-    private static final int IDLE_MAPPING_FRAME = 0;
+    // ROM: ObjDat_GumballMachine byte 2 = 5 — default mapping frame (machine body)
+    private static final int IDLE_MAPPING_FRAME = 5;
+
+    // ROM: Obj_GumballMachine init subtracts $100 from y_pos at spawn.
+    // The visible machine and all children sit 256 pixels above the placement position.
+    private static final int MACHINE_Y_OFFSET = -0x100;
 
     // ===== Child offsets from parent position =====
 
@@ -140,7 +144,7 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
     private void spawnChildren() {
         int px = spawn.x();
-        int py = spawn.y();
+        int py = spawn.y() + MACHINE_Y_OFFSET;
 
         // 1. Dispenser (at parent position)
         dispenser = spawnChild(() -> new DispenserChild(
@@ -206,7 +210,7 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         int playerX = playerEntity.getCentreX();
         int playerY = playerEntity.getCentreY();
         int dx = playerX - spawn.x();
-        int dy = playerY - spawn.y();
+        int dy = playerY - (spawn.y() + MACHINE_Y_OFFSET);
 
         if (dx >= ACTIVATE_X_MIN && dx <= ACTIVATE_X_MAX
                 && dy >= ACTIVATE_Y_MIN && dy <= ACTIVATE_Y_MAX) {
@@ -264,7 +268,7 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         int playerX = playerEntity.getCentreX();
         int playerY = playerEntity.getCentreY();
         int dx = playerX - spawn.x();
-        int dy = playerY - spawn.y();
+        int dy = playerY - (spawn.y() + MACHINE_Y_OFFSET);
 
         // Wait for player to leave the activation range
         if (dx < ACTIVATE_X_MIN || dx > ACTIVATE_X_MAX
@@ -283,7 +287,7 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
     private void ejectGumballs() {
         int count = MIN_GUMBALLS + rng.nextInt(MAX_GUMBALLS - MIN_GUMBALLS + 1);
         int dispenserX = spawn.x() + DISPENSER_OFFSET_X;
-        int dispenserY = spawn.y() + DISPENSER_OFFSET_Y;
+        int dispenserY = spawn.y() + MACHINE_Y_OFFSET + DISPENSER_OFFSET_Y;
 
         for (int i = 0; i < count; i++) {
             // Random Y velocity between -0x400 and -0x200 (upward)
@@ -325,7 +329,7 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
             return;
         }
 
-        renderer.drawFrameIndex(currentFrame, spawn.x(), spawn.y(), false, false);
+        renderer.drawFrameIndex(currentFrame, spawn.x(), spawn.y() + MACHINE_Y_OFFSET, false, false);
     }
 
     // =====================================================================

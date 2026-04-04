@@ -49,8 +49,13 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
 
     private static final Logger LOGGER = Logger.getLogger(GumballItemObjectInstance.class.getName());
 
-    // ROM: subi.w #4,y_vel(a0) — gravity deceleration (upward decel, item rises then falls)
-    private static final int Y_GRAVITY_DECEL = -4;
+    // When ejected from the gumball machine, items use ball physics (ROM loc_60ECE):
+    //   addi.w #$10,d0  — gravity +$10/frame (downward)
+    //   cmpi.w #$200,d0 / bhi.s — terminal velocity $200
+    // Note: Obj_GumballItem (Pachinko orb variant) uses subi #4 (anti-gravity float),
+    // but the machine-ejected balls in the Gumball stage use standard gravity.
+    private static final int Y_GRAVITY = 0x10;
+    private static final int Y_TERMINAL_VELOCITY = 0x200;
 
     // ROM: collision_flags 0xD7 → size index 0x17 (23)
     // Engine uses SPECIAL category (0x40) so the listener handles response,
@@ -132,9 +137,12 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
         }
 
         if (moving) {
-            // ROM: loc_4A34C — MoveSprite2 then subi.w #4,y_vel(a0)
+            // ROM: loc_60ECE — apply gravity then MoveSprite2, cap at terminal velocity
+            motionState.yVel += Y_GRAVITY;
+            if (motionState.yVel > Y_TERMINAL_VELOCITY) {
+                motionState.yVel = Y_TERMINAL_VELOCITY;
+            }
             SubpixelMotion.moveSprite2(motionState);
-            motionState.yVel += Y_GRAVITY_DECEL;
             updateDynamicSpawn(motionState.x, motionState.y);
         }
 
