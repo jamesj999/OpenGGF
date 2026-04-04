@@ -40,6 +40,8 @@ public final class GameRuntime {
     private final SpriteManager spriteManager;
     private final LevelManager levelManager;
 
+    private volatile BonusStageProvider activeBonusStageProvider = NoOpBonusStageProvider.INSTANCE;
+
     /**
      * Package-private constructor — only {@link RuntimeManager} creates these.
      * Parameters are in construction-order (dependency order):
@@ -75,6 +77,12 @@ public final class GameRuntime {
     public CollisionSystem getCollisionSystem() { return collisionSystem; }
     public SpriteManager getSpriteManager() { return spriteManager; }
     public LevelManager getLevelManager() { return levelManager; }
+
+    public BonusStageProvider getActiveBonusStageProvider() { return activeBonusStageProvider; }
+
+    public void setActiveBonusStageProvider(BonusStageProvider provider) {
+        this.activeBonusStageProvider = provider != null ? provider : NoOpBonusStageProvider.INSTANCE;
+    }
 
     // ── Convenience: LevelManager-owned sub-managers ─────────────────────
 
