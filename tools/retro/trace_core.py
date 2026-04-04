@@ -53,9 +53,11 @@ ADDR_TIME = 0xFE22
 ADDR_SCORE = 0xFE26
 
 # Demo / credits
-ADDR_DEMO_FLAG = 0xFFF2
-ADDR_DEMO_NUM = 0xFFF4
-ADDR_CREDITS_NUM = 0xFFF6
+# NOTE: These offsets are 2 bytes lower than what s1disasm labels suggest.
+# Verified empirically against stable-retro genesis_plus_gx RAM layout.
+ADDR_DEMO_FLAG = 0xFFF0
+ADDR_DEMO_NUM = 0xFFF2
+ADDR_CREDITS_NUM = 0xFFF4
 
 # Lamp state (LZ)
 ADDR_LAST_LAMP = 0xFD2E
@@ -136,11 +138,16 @@ ZONE_NAMES = {
 # =====================================================================
 
 class GenesisRAM:
-    """Read big-endian values from a Genesis work RAM numpy array (64KB).
+    """Read 68K values from a Genesis work RAM numpy array (64KB).
 
-    stable-retro's env.get_ram() returns the 64KB work RAM as a uint8
-    numpy array where index 0 = 68K address $FF0000.  The indices match
-    BizHawk mainmemory domain offsets exactly.
+    stable-retro's genesis_plus_gx core exposes the 64KB work RAM with
+    bytes **swapped within each 16-bit word** (little-endian x86 order).
+    The 68K is big-endian, so a word at address $FFD008 with value $0050
+    appears as ram[0xD008]=0x50, ram[0xD009]=0x00.  Byte-sized fields at
+    even addresses land at addr+1 and vice versa (XOR 1).
+
+    All read methods accept 68K-relative addresses (offset from $FF0000)
+    and transparently handle the byte swap.
     """
 
     def __init__(self, ram_array=None):
@@ -150,22 +157,26 @@ class GenesisRAM:
         self._ram = ram_array
 
     def u8(self, addr):
-        return int(self._ram[addr])
+        # Bytes are swapped within each word: even↔odd
+        return int(self._ram[addr ^ 1])
 
     def s8(self, addr):
-        v = int(self._ram[addr])
+        v = self.u8(addr)
         return v - 256 if v > 127 else v
 
     def u16(self, addr):
-        return (int(self._ram[addr]) << 8) | int(self._ram[addr + 1])
+        # Word at addr: low byte at ram[addr], high byte at ram[addr+1] (LE)
+        return int(self._ram[addr]) | (int(self._ram[addr + 1]) << 8)
 
     def s16(self, addr):
         v = self.u16(addr)
         return v - 0x10000 if v > 0x7FFF else v
 
     def u32(self, addr):
-        return ((int(self._ram[addr]) << 24) | (int(self._ram[addr + 1]) << 16) |
-                (int(self._ram[addr + 2]) << 8) | int(self._ram[addr + 3]))
+        # Two words: high word at addr, low word at addr+2 (each word is LE)
+        hi = int(self._ram[addr]) | (int(self._ram[addr + 1]) << 8)
+        lo = int(self._ram[addr + 2]) | (int(self._ram[addr + 3]) << 8)
+        return (hi << 16) | lo
 
 
 # =====================================================================
@@ -228,6 +239,8 @@ class BizhawkBK2:
     def __init__(self, path):
         self.path = path
         self._frames = []
+        self._p1_group_idx = -1
+        self._p1_button_names = []
         self._parse()
 
     def _parse(self):
@@ -235,7 +248,6 @@ class BizhawkBK2:
             raw = zf.read('Input Log.txt').decode('utf-8')
 
         lines = raw.splitlines()
-        button_names = []
         reading_input = False
 
         for line in lines:
@@ -249,54 +261,70 @@ class BizhawkBK2:
                 continue
 
             if stripped.startswith('LogKey:'):
-                button_names = self._parse_logkey(stripped)
+                self._parse_logkey(stripped)
                 continue
 
             if stripped.startswith('|') and stripped.endswith('|'):
-                action = self._parse_input_line(stripped, button_names)
+                action = self._parse_input_line(stripped)
                 self._frames.append(action)
 
     def _parse_logkey(self, line):
-        """Extract button names from LogKey line.
+        """Parse BizHawk LogKey to identify the P1 button group.
 
-        BizHawk Genesis 3-button LogKey format:
-          LogKey:#Genesis 3-Button Controller P1 Up|Down|Left|Right|B|C|A|Start|
-        The first segment includes the #controller-type prefix with P1 and
-        the first button name inline.  Subsequent segments are bare button
-        names.  Console buttons (#Reset, #Power) are prefixed with '#'.
+        BizHawk BK2 format for Genesis:
+          LogKey:#Power|Reset|#P1 Up|P1 Down|...|P1 Start|#P2 Up|...|
+        Input lines: |..|........|........|
+                      ^sys ^P1      ^P2
+
+        Groups are delimited by | in both LogKey and input lines.
+        A # prefix in the LogKey marks the START of a new group.
         """
         key_part = line.split('LogKey:', 1)[1]
         segments = [s.strip() for s in key_part.split('|')]
-        names = []
+
+        # Each #-prefixed segment starts a new group
+        groups = []
+        current_group = []
         for seg in segments:
             if not seg:
                 continue
             if seg.startswith('#'):
-                # Controller header block — extract trailing button name(s)
-                # after the last 'P1 ' occurrence.
-                # e.g. '#Genesis 3-Button Controller P1 Up' → 'Up'
-                if 'P1 ' in seg:
-                    trailing = seg.rsplit('P1 ', 1)[1].strip()
-                    for btn in trailing.split():
-                        if not btn.startswith('#'):
-                            names.append(btn.lower())
-                # Skip console buttons like '#Reset', '#Power'
-                continue
-            if seg.startswith('P1 '):
-                names.append(seg[3:].strip().lower())
-            elif seg.startswith('P2 '):
-                continue  # Skip P2 for single-player
+                if current_group:
+                    groups.append(current_group)
+                current_group = [seg]
             else:
-                names.append(seg.strip().lower())
-        return names
+                current_group.append(seg)
+        if current_group:
+            groups.append(current_group)
 
-    def _parse_input_line(self, line, button_names):
-        """Convert a BK2 input line to a stable-retro action array."""
-        content = line.strip('|')
+        # Find the P1 group
+        for gi, group in enumerate(groups):
+            if any('P1 ' in entry for entry in group):
+                self._p1_group_idx = gi
+                names = []
+                for entry in group:
+                    clean = entry.lstrip('#').strip()
+                    if clean.startswith('P1 '):
+                        names.append(clean[3:].strip().lower())
+                    else:
+                        names.append(clean.lower())
+                self._p1_button_names = names
+                break
+
+    def _parse_input_line(self, line):
+        """Convert a BK2 input line to a stable-retro action array.
+
+        Input line: |group0|group1|group2| — split by | to get groups.
+        """
+        # Split by | to get groups (leading/trailing | produce empty strings)
+        groups = [p for p in line.split('|') if p]
         action = np.zeros(len(self.RETRO_BUTTONS), dtype=np.int8)
-        for i, ch in enumerate(content):
-            if ch != '.' and i < len(button_names):
-                name = button_names[i]
+        if self._p1_group_idx < 0 or self._p1_group_idx >= len(groups):
+            return action
+        p1_chars = groups[self._p1_group_idx]
+        for i, ch in enumerate(p1_chars):
+            if ch != '.' and i < len(self._p1_button_names):
+                name = self._p1_button_names[i]
                 retro_idx = self._BK2_TO_RETRO.get(name, -1)
                 if retro_idx >= 0:
                     action[retro_idx] = 1
