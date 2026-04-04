@@ -135,12 +135,11 @@ public class Sonic3kStarPostBonusStarChild extends AbstractObjectInstance {
             if (player.getRingCount() < RING_THRESHOLD) {
                 return;
             }
-            // ROM: S3K lampposts enter bonus stages, not special stages.
-            // loc_2D47E uses Saved_ring_count with same formula as star art selection.
-            // Bonus stages (Gumball/Glowing Spheres/Slot Machine) are NYI.
-            LOGGER.info("Player touched S3K bonus star - " + variant.bonusStageType
-                    + " bonus stage entry NYI (variant=" + variant + ", rings="
-                    + player.getRingCount() + ")");
+            // ROM: loc_2D47E — S3K lampposts enter bonus stages via Restart_level_flag.
+            // Engine: request bonus stage entry through LevelTransitionCoordinator.
+            LOGGER.info("Requesting bonus stage entry: " + variant.bonusStageType
+                    + " (variant=" + variant + ", rings=" + player.getRingCount() + ")");
+            services().requestBonusStageEntry(variant.bonusStageType);
             if (parentStarPost != null) {
                 parentStarPost.markUsedForSpecialStage();
             }

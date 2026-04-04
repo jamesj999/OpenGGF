@@ -271,6 +271,13 @@ public class TestObjectServices implements ObjectServices {
     }
 
     @Override
+    public void requestBonusStageEntry(com.openggf.game.BonusStageType type) {
+        if (levelManager != null) {
+            levelManager.requestBonusStageEntry(type);
+        }
+    }
+
+    @Override
     public void requestZoneAndAct(int zone, int act) {
     }
 

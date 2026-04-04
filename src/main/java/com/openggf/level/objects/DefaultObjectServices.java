@@ -6,6 +6,7 @@ import com.openggf.camera.Camera;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.data.RomManager;
+import com.openggf.game.BonusStageType;
 import com.openggf.game.GameModule;
 import com.openggf.game.GameRuntime;
 import com.openggf.game.GameStateManager;
@@ -285,6 +286,11 @@ public class DefaultObjectServices implements ObjectServices {
     @Override
     public void requestSpecialStageFromCheckpoint() {
         lm().requestSpecialStageFromCheckpoint();
+    }
+
+    @Override
+    public void requestBonusStageEntry(BonusStageType type) {
+        lm().requestBonusStageEntry(type);
     }
 
     @Override
