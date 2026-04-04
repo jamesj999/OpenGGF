@@ -19,6 +19,7 @@ import com.openggf.game.ResultsScreen;
 import com.openggf.game.NoOpSpecialStageProvider;
 import com.openggf.game.SpecialStageProvider;
 import com.openggf.debug.PerformanceProfiler;
+import com.openggf.level.BigRingReturnState;
 import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -1056,16 +1057,36 @@ public class GameLoop {
         if (sprite instanceof AbstractPlayableSprite playable) {
             RespawnState checkpointState = levelManager.getCheckpointState();
 
-            if (levelManager.hasBigRingReturnPosition()) {
+            if (levelManager.hasBigRingReturn()) {
                 // S3K big ring path: restore to ring location (ROM: Saved2_* variables)
                 // Saved coordinates are centre coordinates (ROM x_pos/y_pos), so use
                 // setCentreX/Y to correctly offset back to top-left pixel position.
-                playable.setCentreX((short) levelManager.getBigRingReturnX());
-                playable.setCentreY((short) levelManager.getBigRingReturnY());
-                camera.setX((short) levelManager.getBigRingReturnCameraX());
-                camera.setY((short) levelManager.getBigRingReturnCameraY());
+                BigRingReturnState br = levelManager.getBigRingReturn();
+                playable.setCentreX((short) br.playerX());
+                playable.setCentreY((short) br.playerY());
+                camera.setX((short) br.cameraX());
+                camera.setY((short) br.cameraY());
                 camera.updatePosition(true);
-                levelManager.clearBigRingReturnPosition();
+                // ROM: Load_Starpost_Settings:loc_2D2C2 restores
+                // Saved2_ring_count -> Ring_count on big ring return.
+                // Must read all saved data before clearing the return data.
+                LevelState gamestate = levelManager.getLevelGamestate();
+                if (gamestate != null) {
+                    gamestate.setRings(br.rings());
+                }
+                // ROM: Saved2_solid_bits -> top_solid_bit(a0)
+                // Restores the collision path the player was on when they
+                // entered the special stage. Without this, resetState() forces
+                // primary path (0x0C/0x0D) but the player may have been on the
+                // secondary path (0x0E/0x0F) — causing them to fall through
+                // floors that only have secondary-path collision.
+                playable.setTopSolidBit(br.topSolidBit());
+                playable.setLrbSolidBit(br.lrbSolidBit());
+                // ROM: Saved2_camera_max_Y_pos -> Camera_max_Y_pos
+                // Restores the expanded Y boundary from level events so the
+                // player doesn't die from being below the initial max Y.
+                camera.setMaxY((short) br.cameraMaxY());
+                levelManager.clearBigRingReturn();
             } else if (checkpointState != null && checkpointState.isActive()) {
                 // S2 checkpoint star path: restore to checkpoint (ROM: Saved_* variables)
                 checkpointState.restoreToPlayer(playable, camera);
@@ -1090,18 +1111,6 @@ public class GameLoop {
             playable.setObjectControlled(false);
             // Unfreeze camera (frozen by S3K big ring entry sequence)
             camera.setFrozen(false);
-
-            // ROM: Load_Starpost_Settings:loc_2D2C2 (line 61796) restores
-            // Saved2_ring_count -> Ring_count when returning from big ring entry.
-            // S2 checkpoint path clears rings to 0 (no Saved2_ system).
-            LevelState gamestate = levelManager.getLevelGamestate();
-            if (gamestate != null) {
-                if (levelManager.hasBigRingReturnPosition()) {
-                    gamestate.setRings(levelManager.getBigRingReturnRings());
-                } else {
-                    gamestate.setRings(0);
-                }
-            }
 
             // ROM parity: both S2 (InitPlayers) and S3K (SpawnLevelMainSprites_SpawnPlayers)
             // do a full level re-init on special stage return, which spawns Tails at
