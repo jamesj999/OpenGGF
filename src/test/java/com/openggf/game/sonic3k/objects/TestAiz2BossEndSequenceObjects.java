@@ -34,6 +34,8 @@ class TestAiz2BossEndSequenceObjects {
         CutsceneKnucklesAiz2Instance knuckles = CutsceneKnucklesAiz2Instance.createDefault();
         setField(knuckles, "currentX", 0x4B10);
         setField(knuckles, "currentY", 0x0188);
+        // Button only triggers after Knuckles' jump is finished (LAUGH_2 phase)
+        setPhase(knuckles, "LAUGH_2");
         Aiz2BossEndSequenceState.setActiveKnuckles(knuckles);
 
         button.update(0, null);
@@ -149,6 +151,14 @@ class TestAiz2BossEndSequenceObjects {
         } else {
             field.setInt(target, value);
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <E extends Enum<E>> void setPhase(Object target, String enumName) throws Exception {
+        Field field = target.getClass().getDeclaredField("phase");
+        field.setAccessible(true);
+        Class<E> enumType = (Class<E>) field.getType();
+        field.set(target, Enum.valueOf(enumType, enumName));
     }
 
     private static final class RecordingServices extends TestObjectServices {

@@ -181,6 +181,15 @@ public class CutsceneKnucklesAiz2Instance extends AbstractObjectInstance {
         animationTick--;
     }
 
+    /**
+     * Returns true once Knuckles has completed his jump/bounce sequence
+     * and entered the final laugh phase. Used by the button to determine
+     * when it's safe to trigger the press.
+     */
+    public boolean isJumpFinished() {
+        return phase == Phase.LAUGH_2;
+    }
+
     @Override
     public boolean isHighPriority() {
         // ROM: The cutscene Knuckles appears in the post-boss arena area which

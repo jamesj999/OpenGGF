@@ -15,6 +15,10 @@ import java.util.List;
  * Button used by the AIZ2 Knuckles post-boss cutscene.
  *
  * <p>ROM reference: Obj_CutsceneButton subtype 0.
+ * The button is pressed when cutscene Knuckles finishes his jump/bounce
+ * sequence and lands near it. It's NOT triggered during Knuckles' initial
+ * run-in — only after the LAUGH_2 phase begins (Knuckles has completed
+ * his jump and is now laughing at the player).
  */
 public class S3kCutsceneButtonObjectInstance extends AbstractObjectInstance {
 
@@ -82,6 +86,12 @@ public class S3kCutsceneButtonObjectInstance extends AbstractObjectInstance {
         }
         CutsceneKnucklesAiz2Instance knuckles = Aiz2BossEndSequenceState.getActiveKnuckles();
         if (knuckles == null) {
+            return;
+        }
+        // ROM: The button is pressed when Knuckles lands after his jump/bounce
+        // sequence, NOT during his initial run-in. Only check proximity once
+        // Knuckles has finished jumping (isJumpFinished() returns true).
+        if (!knuckles.isJumpFinished()) {
             return;
         }
         int dx = knuckles.getX() - x;
