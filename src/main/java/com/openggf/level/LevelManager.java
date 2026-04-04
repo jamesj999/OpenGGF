@@ -1790,6 +1790,13 @@ public class LevelManager {
             if (featureSet != null && featureSet.waterShimmerEnabled()) {
                 waterlineOffset = 0.0f;
             }
+            // HCZ uses ROM-driven background strip updates and explicit wave-splash
+            // sprites at Water_level itself; keeping the generic S2-style -8 split
+            // creates a visible seam between the shader boundary and HCZ's art.
+            if (zoneId == com.openggf.game.sonic3k.constants.Sonic3kZoneIds.ZONE_HCZ
+                    && GameModuleRegistry.getCurrent() instanceof com.openggf.game.sonic3k.Sonic3kGameModule) {
+                waterlineOffset = 0.0f;
+            }
             float waterlineScreenY = (float) (waterLevel - camera.getY() + waterlineOffset);
             currentShimmerStyle = shimmerStyle;
 

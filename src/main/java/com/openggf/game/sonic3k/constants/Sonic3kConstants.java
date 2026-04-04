@@ -626,12 +626,45 @@ public class Sonic3kConstants {
     // Verified by ROM binary search for frame data pattern (1660 0417 0017 2E45)
     public static final int ANIPLC_AIZ2_ADDR = 0x02879C;
 
+    // AniPLC_HCZ1: 2 scripts (background bubble column, water shimmer)
+    // Verified against S&K ROM bytes immediately following AniPLC_AIZ2 at 0x0287F4.
+    public static final int ANIPLC_HCZ1_ADDR = 0x0287F4;
+
+    // AniPLC_HCZ2: 2 scripts (waterfall stream, water shimmer)
+    // Verified against S&K ROM bytes immediately following AniPLC_HCZ1 at 0x02882C.
+    public static final int ANIPLC_HCZ2_ADDR = 0x02882C;
+
     // ArtUnc_AniAIZ2_FirstTree: Static tree art for AIZ2 near-spawn area (camera X < 0x1C0)
     // 0x460 bytes = 35 tiles, loaded to VRAM tile $0CA
     // Verified by move.l #addr,d1 instruction at ROM 0x02786A
     public static final int ART_UNC_AIZ2_FIRST_TREE_ADDR = 0x2A5880;
     public static final int ART_UNC_AIZ2_FIRST_TREE_SIZE = 0x460;
     public static final int ART_UNC_AIZ2_FIRST_TREE_DEST_TILE = 0x0CA;
+
+    // HCZ1 startup background repair strips.
+    // ROM startup with Events_bg+$10 == 0 calls AniHCZ_FixLowerBG, DMAing these
+    // two 12-tile rows into VRAM $2F4 and $300 before HCZ background rendering.
+    public static final int HCZ_WATERLINE_SCROLL_DATA_ADDR = 0x26D000;
+    public static final int HCZ_WATERLINE_SCROLL_DATA_SIZE = 0x2460;
+    public static final int ART_UNC_HCZ1_WATERLINE_BELOW1_ADDR = 0x2A6A60;
+    public static final int ART_UNC_FIX_HCZ1_UPPER_BG1_ADDR = 0x2A6BE0;
+    public static final int ART_UNC_HCZ1_WATERLINE_ABOVE1_ADDR = 0x2A6D60;
+    public static final int ART_UNC_FIX_HCZ1_LOWER_BG1_ADDR = 0x2A6EE0;
+    public static final int ART_UNC_HCZ1_WATERLINE_BELOW2_ADDR = 0x2A7060;
+    public static final int ART_UNC_FIX_HCZ1_UPPER_BG2_ADDR = 0x2A71E0;
+    public static final int ART_UNC_HCZ1_WATERLINE_ABOVE2_ADDR = 0x2A7360;
+    public static final int ART_UNC_FIX_HCZ1_LOWER_BG2_ADDR = 0x2A74E0;
+    public static final int ART_UNC_FIX_HCZ1_BG_STRIP_SIZE = 0x180;
+
+    // HCZ2 direct background DMA sources, driven by HCZ2_Deform deltas.
+    public static final int ART_UNC_HCZ2_SMALL_BG_LINE_ADDR = 0x2A87A0;
+    public static final int ART_UNC_HCZ2_SMALL_BG_LINE_SIZE = 0x400;
+    public static final int ART_UNC_HCZ2_2_ADDR = 0x2A8BA0;
+    public static final int ART_UNC_HCZ2_2_SIZE = 0x800;
+    public static final int ART_UNC_HCZ2_3_ADDR = 0x2A93A0;
+    public static final int ART_UNC_HCZ2_3_SIZE = 0x1000;
+    public static final int ART_UNC_HCZ2_4_ADDR = 0x2AA3A0;
+    public static final int ART_UNC_HCZ2_4_SIZE = 0x3000;
 
     // ===== Title Screen Art (Kosinski compressed, S3 lock-on data) =====
     // Sonic animation frames — frames 1-7 share Sonic1 art with different palettes/mappings
