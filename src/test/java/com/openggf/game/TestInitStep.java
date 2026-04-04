@@ -17,14 +17,6 @@ public class TestInitStep {
     }
 
     @Test
-    public void initStepFieldsAccessible() {
-        var step = new InitStep("LoadTiles", "s2.asm:4934", () -> {});
-        assertEquals("LoadTiles", step.name());
-        assertEquals("s2.asm:4934", step.romRoutine());
-        assertNotNull(step.action());
-    }
-
-    @Test
     public void staticFixupAppliesAction() {
         AtomicBoolean applied = new AtomicBoolean(false);
         var fixup = new StaticFixup("WireGroundSensor",

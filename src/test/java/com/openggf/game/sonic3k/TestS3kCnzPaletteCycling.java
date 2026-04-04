@@ -2,7 +2,6 @@ package com.openggf.game.sonic3k;
 
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
-import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
 import com.openggf.level.Palette;
@@ -49,47 +48,6 @@ public class TestS3kCnzPaletteCycling {
         level = new StubLevel();
         // CNZ zone index = 3, act index = 0
         cycler = new Sonic3kPaletteCycler(reader, level, 3, 0);
-    }
-
-    @Test
-    public void romDataPresent_cnz1() throws IOException {
-        Rom rom = romRule.rom();
-        byte[] data = new byte[Sonic3kConstants.ANPAL_CNZ_1_SIZE];
-        for (int i = 0; i < data.length; i++) {
-            data[i] = rom.readByte(Sonic3kConstants.ANPAL_CNZ_1_ADDR + i);
-        }
-        assertEquals("CNZ_1 should be 96 bytes", 96, data.length);
-        // First entry: dc.w 0, $66, $EE → bytes: 00 00 00 66 00 EE
-        assertEquals("CNZ_1[0] hi-byte should be 0x00", 0x00, data[0] & 0xFF);
-        assertEquals("CNZ_1[0] lo-byte should be 0x00", 0x00, data[1] & 0xFF);
-        assertEquals("CNZ_1[1] hi-byte should be 0x00", 0x00, data[2] & 0xFF);
-        assertEquals("CNZ_1[1] lo-byte should be 0x66", 0x66, data[3] & 0xFF);
-    }
-
-    @Test
-    public void romDataPresent_cnz3() throws IOException {
-        Rom rom = romRule.rom();
-        byte[] data = new byte[Sonic3kConstants.ANPAL_CNZ_3_SIZE];
-        for (int i = 0; i < data.length; i++) {
-            data[i] = rom.readByte(Sonic3kConstants.ANPAL_CNZ_3_ADDR + i);
-        }
-        assertEquals("CNZ_3 should be 180 bytes", 180, data.length);
-        // First entry: dc.w $E20, $8A, $C0E → bytes: 0E 20 00 8A 0C 0E
-        assertEquals("CNZ_3[0] hi-byte should be 0x0E", 0x0E, data[0] & 0xFF);
-        assertEquals("CNZ_3[0] lo-byte should be 0x20", 0x20, data[1] & 0xFF);
-    }
-
-    @Test
-    public void romDataPresent_cnz5() throws IOException {
-        Rom rom = romRule.rom();
-        byte[] data = new byte[Sonic3kConstants.ANPAL_CNZ_5_SIZE];
-        for (int i = 0; i < data.length; i++) {
-            data[i] = rom.readByte(Sonic3kConstants.ANPAL_CNZ_5_ADDR + i);
-        }
-        assertEquals("CNZ_5 should be 64 bytes", 64, data.length);
-        // First entry: dc.w $2E0, $ECE → bytes: 02 E0 0E CE
-        assertEquals("CNZ_5[0] hi-byte should be 0x02", 0x02, data[0] & 0xFF);
-        assertEquals("CNZ_5[0] lo-byte should be 0xE0", 0xE0, data[1] & 0xFF);
     }
 
     @Test

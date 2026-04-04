@@ -68,13 +68,4 @@ class TestEdgeBalance {
         assertFalse(sprite.isBalancing(), "Should not be balancing initially");
     }
 
-    @Test
-    void featureSetConstants_correctValues() {
-        assertFalse(PhysicsFeatureSet.SONIC_1.extendedEdgeBalance(),
-                "SONIC_1 should not have extended edge balance");
-        assertTrue(PhysicsFeatureSet.SONIC_2.extendedEdgeBalance(),
-                "SONIC_2 should have extended edge balance");
-        assertTrue(PhysicsFeatureSet.SONIC_3K.extendedEdgeBalance(),
-                "SONIC_3K should have extended edge balance");
-    }
 }

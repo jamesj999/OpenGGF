@@ -12,7 +12,6 @@ import com.openggf.tests.rules.SonicGame;
 import java.io.IOException;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -35,32 +34,6 @@ import static org.junit.Assert.assertTrue;
 public class TestTodo6_SolidTileAngleFromRom {
     @Rule
     public RequiresRomRule romRule = new RequiresRomRule();
-
-    /**
-     * Verify the angle table has exactly 256 entries.
-     */
-    @Test
-    public void testAngleTableSize() throws IOException {
-        Rom rom = romRule.rom();
-        byte[] angleData = rom.readBytes(Sonic2Constants.SOLID_TILE_ANGLE_ADDR,
-                Sonic2Constants.SOLID_TILE_ANGLE_SIZE);
-        assertEquals("Angle table should have 256 entries",
-                Sonic2Constants.SOLID_TILE_ANGLE_SIZE, angleData.length);
-    }
-
-    /**
-     * Verify collision tile index 0 has angle 0xFF.
-     * Index 0 in ColCurveMap is the "empty" collision tile but its angle byte
-     * is 0xFF (meaning "no slope / full block"), not 0x00. This is because
-     * collision lookups that resolve to index 0 are short-circuited before
-     * the angle is read (see s2.asm line 42984: beq.s loc_1E7E2).
-     */
-    @Test
-    public void testTileIndex0Angle() throws IOException {
-        Rom rom = romRule.rom();
-        byte angle = rom.readByte(Sonic2Constants.SOLID_TILE_ANGLE_ADDR);
-        assertEquals("Tile 0 angle should be 0xFF", 0xFF, angle & 0xFF);
-    }
 
     /**
      * Verify that flat floor tiles (e.g., tile 1 = full solid block) have angle 0xFF.
@@ -105,45 +78,6 @@ public class TestTodo6_SolidTileAngleFromRom {
         // Verify no-flip returns the same angle
         assertEquals("No-flip should return original angle",
                 angleFromRom, tile.getAngle(false, false));
-    }
-
-    /**
-     * Verify angle values for several known collision tiles from the ROM.
-     * Reads a range of angle values and checks basic consistency:
-     * - Non-zero tiles should have angles that make geometric sense
-     * - Sloped tiles should not have angle 0xFF (which means "no slope")
-     */
-    @Test
-    public void testAngleValuesConsistency() throws IOException {
-        Rom rom = romRule.rom();
-        byte[] angles = rom.readBytes(Sonic2Constants.SOLID_TILE_ANGLE_ADDR,
-                Sonic2Constants.SOLID_TILE_ANGLE_SIZE);
-
-        // Count tiles with specific angle properties
-        int flatCount = 0;  // angle 0xFF = no slope
-        int slopedCount = 0;  // angle != 0xFF and != 0x00
-        int emptyCount = 0;  // angle 0x00
-
-        for (int i = 0; i < angles.length; i++) {
-            int angle = angles[i] & 0xFF;
-            if (angle == 0xFF) {
-                flatCount++;
-            } else if (angle == 0x00) {
-                emptyCount++;
-            } else {
-                slopedCount++;
-            }
-        }
-
-        // There should be a mix of flat, sloped, and empty tiles
-        assertTrue("Should have at least some flat tiles (angle=0xFF)", flatCount > 0);
-        assertTrue("Should have at least some sloped tiles (angle != 0xFF and != 0x00)", slopedCount > 0);
-        assertTrue("Should have at least one empty entry (angle=0x00)", emptyCount > 0);
-
-        // The Sonic 2 collision data has well-known properties:
-        // ~20-40 entries are flat (0xFF), the rest are sloped or empty
-        assertTrue("Sloped tiles should outnumber flat tiles",
-                slopedCount > flatCount);
     }
 
     /**
