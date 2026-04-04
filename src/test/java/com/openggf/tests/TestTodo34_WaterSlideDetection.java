@@ -1,12 +1,13 @@
 package com.openggf.tests;
 
-import org.junit.Ignore;
 import org.junit.Test;
+
+import java.lang.reflect.Field;
 
 import static org.junit.Assert.*;
 
 /**
- * TODO #34 -- Water slide chunk detection in Labyrinth Zone.
+ * Water slide chunk detection in Labyrinth Zone.
  *
  * <p>The LZ water slide system detects whether Sonic is standing on a slide chunk
  * by looking up the current level layout chunk ID and comparing it against a
@@ -37,28 +38,29 @@ public class TestTodo34_WaterSlideDetection {
     /**
      * Water slide chunk IDs from LZWaterFeatures.asm:454-455.
      * {@code Slide_Chunks: dc.b 2, 7, 3, $4C, $4B, 8, 4}
-     *
-     * <p>These are the 256x256 block (chunk) IDs that the game checks to
-     * determine if Sonic is on a water slide. The search is done backwards
-     * (from Slide_Chunks_End to Slide_Chunks), so the index d1 after the
-     * search loop corresponds to the position in this array.
      */
-    private static final int[] SLIDE_CHUNK_IDS = {
+    private static final int[] EXPECTED_SLIDE_CHUNK_IDS = {
             0x02, 0x07, 0x03, 0x4C, 0x4B, 0x08, 0x04
     };
 
     /**
      * Corresponding slide speeds from LZWaterFeatures.asm:450-451.
      * {@code Slide_Speeds: dc.b 10, -11, 10, -10, -11, -12, 11}
-     *
-     * <p>These are signed byte values set as Sonic's ground speed (obInertia).
-     * Positive = slide right, negative = slide left.
-     * The index into this table matches the index into Slide_Chunks
-     * (after the reverse search).
      */
-    private static final int[] SLIDE_SPEEDS = {
+    private static final int[] EXPECTED_SLIDE_SPEEDS = {
             10, -11, 10, -10, -11, -12, 11
     };
+
+    /**
+     * Reads a private static int[] field from Sonic1LZWaterEvents via reflection.
+     */
+    private static int[] getPrivateStaticIntArray(String fieldName) throws Exception {
+        Class<?> clazz = Class.forName(
+                "com.openggf.game.sonic1.events.Sonic1LZWaterEvents");
+        Field field = clazz.getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return (int[]) field.get(null);
+    }
 
     @Test
     public void testReverseSearchLogic() {
@@ -75,7 +77,7 @@ public class TestTodo34_WaterSlideDetection {
         //
         // Because the search goes backward, d1=6 checks the last entry first (chunk $04),
         // d1=5 checks chunk $08, etc. When a match is found, d1 is the array index.
-        int searchCount = SLIDE_CHUNK_IDS.length - 1; // 6 (initial d1 value)
+        int searchCount = EXPECTED_SLIDE_CHUNK_IDS.length - 1; // 6 (initial d1 value)
         assertEquals("Initial d1 should be Slide_Chunks length - 1", 6, searchCount);
 
         // Verify a sample reverse search: looking for chunk $4B
@@ -83,24 +85,40 @@ public class TestTodo34_WaterSlideDetection {
         int foundIndex = -1;
         // Simulate the dbeq loop (reverse search)
         for (int d1 = searchCount; d1 >= 0; d1--) {
-            if (SLIDE_CHUNK_IDS[d1] == targetChunk) {
+            if (EXPECTED_SLIDE_CHUNK_IDS[d1] == targetChunk) {
                 foundIndex = d1;
                 break;
             }
         }
         assertEquals("Chunk $4B should be found at index 4", 4, foundIndex);
-        assertEquals("Speed for chunk $4B should be -11", -11, SLIDE_SPEEDS[foundIndex]);
+        assertEquals("Speed for chunk $4B should be -11", -11, EXPECTED_SLIDE_SPEEDS[foundIndex]);
     }
 
     @Test
-    @Ignore("TODO #34 -- LZ water slide detection not yet implemented. " +
-            "See docs/s1disasm/_inc/LZWaterFeatures.asm:392-457")
-    public void testWaterSlideChunkLookupFromLevelLayout() {
-        // When implemented, this test should:
-        // 1. Load an LZ level
-        // 2. Position Sonic on a known slide chunk
-        // 3. Verify the chunk lookup formula returns the correct chunk ID
-        // 4. Verify Sonic enters slide mode with correct speed/direction
-        fail("LZ water slide detection not yet implemented");
+    public void testSlideChunkIdsMatchRom() throws Exception {
+        int[] actual = getPrivateStaticIntArray("SLIDE_CHUNK_IDS");
+        assertArrayEquals(
+                "SLIDE_CHUNK_IDS must match disassembly Slide_Chunks table",
+                EXPECTED_SLIDE_CHUNK_IDS, actual);
+    }
+
+    @Test
+    public void testSlideSpeedsMatchRom() throws Exception {
+        int[] actual = getPrivateStaticIntArray("SLIDE_SPEEDS");
+        assertArrayEquals(
+                "SLIDE_SPEEDS must match disassembly Slide_Speeds table",
+                EXPECTED_SLIDE_SPEEDS, actual);
+    }
+
+    @Test
+    public void testSlideChunkAndSpeedTablesHaveSameLength() throws Exception {
+        int[] chunkIds = getPrivateStaticIntArray("SLIDE_CHUNK_IDS");
+        int[] speeds = getPrivateStaticIntArray("SLIDE_SPEEDS");
+        assertEquals(
+                "SLIDE_CHUNK_IDS and SLIDE_SPEEDS must have the same length",
+                7, chunkIds.length);
+        assertEquals(
+                "SLIDE_CHUNK_IDS and SLIDE_SPEEDS must have the same length",
+                chunkIds.length, speeds.length);
     }
 }
