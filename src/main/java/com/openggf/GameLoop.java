@@ -9,13 +9,19 @@ import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.debug.DebugObjectArtViewer;
+import com.openggf.game.AbstractLevelEventManager;
+import com.openggf.game.BonusStageProvider;
+import com.openggf.game.BonusStageState;
+import com.openggf.game.BonusStageType;
 import com.openggf.game.GameMode;
+import com.openggf.game.GameRuntime;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.LevelEventProvider;
 import com.openggf.game.LevelSelectProvider;
 import com.openggf.game.TitleScreenProvider;
 import com.openggf.game.RespawnState;
 import com.openggf.game.ResultsScreen;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.NoOpSpecialStageProvider;
 import com.openggf.game.SpecialStageProvider;
 import com.openggf.debug.PerformanceProfiler;
@@ -96,6 +102,10 @@ public class GameLoop {
 
     // Flag to freeze level updates during special stage entry transition
     private boolean specialStageTransitionPending = false;
+
+    // Bonus stage entry/exit state
+    private boolean bonusStageTransitionPending;
+    private BonusStageProvider activeBonusStageProvider;
 
     // Game-agnostic ending/credits provider (wraps S1 CreditsManager, S2 credits, etc.)
     private EndingProvider endingProvider;
@@ -500,11 +510,12 @@ public class GameLoop {
 
             boolean freezeForArtViewer = GameServices.debugOverlay()
                     .isEnabled(DebugOverlayToggle.OBJECT_ART_VIEWER);
-            // Freeze level updates during special stage entry transition
+            // Freeze level updates during special/bonus stage entry transitions
             boolean freezeForSpecialStage = specialStageTransitionPending;
+            boolean freezeForBonusStage = bonusStageTransitionPending;
             // ObjB2 transition parity: freeze gameplay during pending zone-act fade.
             boolean freezeForZoneActTransition = levelManager.isLevelInactiveForTransition();
-            if (!freezeForArtViewer && !freezeForSpecialStage && !freezeForZoneActTransition) {
+            if (!freezeForArtViewer && !freezeForSpecialStage && !freezeForBonusStage && !freezeForZoneActTransition) {
                 // Canonical level tick sequence — see LevelFrameStep for ordering rationale.
                 LevelFrameStep.execute(levelManager, camera, () -> {
                     spriteManager.update(inputHandler);
@@ -520,6 +531,12 @@ public class GameLoop {
                 // Check if a checkpoint star requested a special stage
                 if (levelManager.consumeSpecialStageRequest()) {
                     enterSpecialStage();
+                }
+
+                // Check if a bonus star requested a bonus stage
+                BonusStageType bonusRequest = levelManager.consumeBonusStageRequest();
+                if (bonusRequest != null) {
+                    enterBonusStage(bonusRequest);
                 }
             }
 
@@ -545,6 +562,28 @@ public class GameLoop {
             // Level select key (F9 by default)
             if (inputHandler.isKeyPressed(configService.getInt(SonicConfiguration.LEVEL_SELECT_KEY))) {
                 enterLevelSelect();
+            }
+        } else if (currentGameMode == GameMode.BONUS_STAGE) {
+            // Bonus stage runs the same level frame steps as LEVEL mode
+            boolean freezeForBonusExit = bonusStageTransitionPending;
+            if (!freezeForBonusExit) {
+                LevelFrameStep.execute(levelManager, camera, () -> {
+                    spriteManager.update(inputHandler);
+                }, (name, step) -> {
+                    profiler.beginSection(name);
+                    step.run();
+                    profiler.endSection(name);
+                });
+
+                // Notify coordinator of frame tick
+                if (activeBonusStageProvider != null) {
+                    activeBonusStageProvider.onFrameUpdate();
+                }
+
+                // Check bonus stage completion
+                if (activeBonusStageProvider != null && activeBonusStageProvider.isStageComplete()) {
+                    exitBonusStage();
+                }
             }
         }
 
@@ -871,10 +910,243 @@ public class GameLoop {
         }
     }
 
+    // ==================== Bonus Stage Methods ====================
+
+    /**
+     * Enters a bonus stage from level mode.
+     * Captures current state, fades to white, loads the bonus zone.
+     */
+    private void enterBonusStage(BonusStageType type) {
+        if (currentGameMode != GameMode.LEVEL) {
+            return;
+        }
+
+        BonusStageProvider provider = GameModuleRegistry.getCurrent().getBonusStageProvider();
+        if (!provider.hasBonusStages()) {
+            LOGGER.fine("Current game module has no bonus stages; ignoring entry request");
+            return;
+        }
+
+        // Capture state snapshot
+        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        if (mainCode == null) mainCode = "sonic";
+        var sprite = spriteManager.getSprite(mainCode);
+
+        int playerX = 0, playerY = 0;
+        byte topSolidBit = 0, lrbSolidBit = 0;
+        if (sprite instanceof AbstractPlayableSprite playable) {
+            playerX = playable.getCentreX();
+            playerY = playable.getCentreY();
+            topSolidBit = playable.getTopSolidBit();
+            lrbSolidBit = playable.getLrbSolidBit();
+        }
+
+        LevelEventProvider eventProvider = GameModuleRegistry.getCurrent().getLevelEventProvider();
+        int resizeFg = 0, resizeBg = 0;
+        if (eventProvider instanceof AbstractLevelEventManager eventMgr) {
+            resizeFg = eventMgr.getEventRoutineFg();
+            resizeBg = eventMgr.getEventRoutineBg();
+        }
+
+        int zoneAndAct = (levelManager.getCurrentZone() << 8) | levelManager.getCurrentAct();
+        int apparentZoneAndAct = (levelManager.getCurrentZone() << 8) | levelManager.getApparentAct();
+        int ringCount = 0;
+        if (levelManager.getLevelGamestate() != null) {
+            ringCount = levelManager.getLevelGamestate().getRings();
+        }
+
+        BonusStageState savedState = new BonusStageState(
+                zoneAndAct,
+                apparentZoneAndAct,
+                ringCount,
+                0, // extraLifeFlags — populate if needed
+                0, // lastStarPostHit — populate if needed
+                0, // statusSecondary — populate if needed
+                resizeFg, resizeBg,
+                playerX, playerY,
+                camera.getX(), camera.getY(),
+                topSolidBit, lrbSolidBit,
+                camera.getMaxY()
+        );
+
+        // Fade out music
+        AudioManager.getInstance().fadeOutMusic();
+
+        bonusStageTransitionPending = true;
+        fadeManager.startFadeToWhite(() -> {
+            doEnterBonusStage(provider, type, savedState);
+        });
+
+        LOGGER.info("Starting fade-to-white for Bonus Stage " + type);
+    }
+
+    /**
+     * Actually enters the bonus stage after the fade-to-white completes.
+     */
+    private void doEnterBonusStage(BonusStageProvider provider, BonusStageType type,
+                                    BonusStageState savedState) {
+        bonusStageTransitionPending = false;
+        activeBonusStageProvider = provider;
+
+        // Register on GameRuntime so objects can access via GameServices.bonusStage()
+        GameRuntime rt = RuntimeManager.getCurrent();
+        if (rt != null) {
+            rt.setActiveBonusStageProvider(provider);
+        }
+
+        provider.onEnter(type, savedState);
+
+        // Load the bonus zone through the normal level loading path
+        int zoneId = provider.getZoneId(type);
+        int zone = (zoneId >> 8) & 0xFF;
+        int act = zoneId & 0xFF;
+
+        try {
+            levelManager.loadZoneAndAct(zone, act);
+            // Consume title card — bonus stages don't show one
+            levelManager.consumeTitleCardRequest();
+        } catch (IOException e) {
+            LOGGER.severe("Failed to load bonus stage zone: " + e.getMessage());
+            // Abort — restore original zone
+            provider.onExit();
+            activeBonusStageProvider = null;
+            if (rt != null) {
+                rt.setActiveBonusStageProvider(null);
+            }
+            currentGameMode = GameMode.LEVEL;
+            return;
+        }
+
+        GameMode oldMode = currentGameMode;
+        currentGameMode = GameMode.BONUS_STAGE;
+
+        // Play bonus stage music
+        int musicId = provider.getMusicId(type);
+        if (musicId >= 0) {
+            AudioManager.getInstance().playMusic(musicId);
+        }
+
+        fadeManager.startFadeFromWhite(null);
+
+        if (gameModeChangeListener != null) {
+            gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);
+        }
+
+        LOGGER.info("Entered Bonus Stage " + type + " (zone 0x" + Integer.toHexString(zoneId) + ")");
+    }
+
+    /**
+     * Exits the current bonus stage. Fades to white, restores previous zone.
+     */
+    private void exitBonusStage() {
+        if (currentGameMode != GameMode.BONUS_STAGE || activeBonusStageProvider == null) {
+            return;
+        }
+
+        BonusStageProvider provider = activeBonusStageProvider;
+        BonusStageState savedState = provider.getSavedState();
+
+        AudioManager.getInstance().fadeOutMusic();
+
+        bonusStageTransitionPending = true;
+        fadeManager.startFadeToWhite(() -> {
+            doExitBonusStage(provider, savedState);
+        });
+
+        LOGGER.info("Starting fade-to-white to exit Bonus Stage");
+    }
+
+    /**
+     * Actually exits the bonus stage after the fade-to-white completes.
+     */
+    private void doExitBonusStage(BonusStageProvider provider, BonusStageState savedState) {
+        bonusStageTransitionPending = false;
+
+        provider.onExit();
+        activeBonusStageProvider = null;
+
+        // Clear from GameRuntime
+        GameRuntime rt = RuntimeManager.getCurrent();
+        if (rt != null) {
+            rt.setActiveBonusStageProvider(null);
+        }
+
+        if (savedState == null) {
+            LOGGER.warning("No saved state for bonus stage exit — returning to zone 0,0");
+            try {
+                levelManager.loadZoneAndAct(0, 0);
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to load fallback level", e);
+            }
+            currentGameMode = GameMode.LEVEL;
+            fadeManager.startFadeFromWhite(null);
+            return;
+        }
+
+        // Restore previous zone
+        int zone = (savedState.savedZoneAndAct() >> 8) & 0xFF;
+        int act = savedState.savedZoneAndAct() & 0xFF;
+
+        try {
+            levelManager.loadZoneAndAct(zone, act);
+            levelManager.consumeTitleCardRequest(); // No title card on return
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to reload level after bonus stage", e);
+        }
+
+        // Restore event routine state (prevents camera lock replay)
+        LevelEventProvider eventProvider = GameModuleRegistry.getCurrent().getLevelEventProvider();
+        if (eventProvider instanceof com.openggf.game.sonic3k.Sonic3kLevelEventManager s3kEvents) {
+            s3kEvents.setDynamicResizeRoutine(savedState.dynamicResizeRoutineFg());
+        }
+
+        // Restore player position and collision path
+        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        if (mainCode == null) mainCode = "sonic";
+        var sprite = spriteManager.getSprite(mainCode);
+        if (sprite instanceof AbstractPlayableSprite playable) {
+            playable.setCentreX((short) savedState.playerX());
+            playable.setCentreY((short) savedState.playerY());
+            playable.setTopSolidBit(savedState.topSolidBit());
+            playable.setLrbSolidBit(savedState.lrbSolidBit());
+            playable.setXSpeed((short) 0);
+            playable.setYSpeed((short) 0);
+            playable.setGSpeed((short) 0);
+        }
+
+        // Restore camera
+        camera.setX((short) savedState.cameraX());
+        camera.setY((short) savedState.cameraY());
+        camera.setMaxY((short) savedState.cameraMaxY());
+        camera.updatePosition(true);
+
+        // Restore ring count
+        if (levelManager.getLevelGamestate() != null) {
+            levelManager.getLevelGamestate().setRings(savedState.savedRingCount());
+        }
+
+        GameMode oldMode = currentGameMode;
+        currentGameMode = GameMode.LEVEL;
+
+        // Play zone music
+        int zoneMusicId = levelManager.getCurrentLevelMusicId();
+        if (zoneMusicId >= 0) {
+            AudioManager.getInstance().playMusic(zoneMusicId);
+        }
+
+        fadeManager.startFadeFromWhite(null);
+
+        if (gameModeChangeListener != null) {
+            gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);
+        }
+
+        LOGGER.info("Returned from Bonus Stage to zone " + zone + " act " + act);
+    }
+
     /**
      * Enters the results screen after special stage completion/failure.
      * Performs fade-to-white transition before showing results.
-     * 
+     *
      * @param emeraldCollected true if an emerald was collected
      */
     private void enterResultsScreen(boolean emeraldCollected) {
