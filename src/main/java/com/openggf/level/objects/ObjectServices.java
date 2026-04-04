@@ -5,6 +5,7 @@ import com.openggf.audio.GameSound;
 import com.openggf.camera.Camera;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
+import com.openggf.game.BonusStageType;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.LevelEventProvider;
 import com.openggf.game.LevelState;
@@ -150,6 +151,14 @@ public interface ObjectServices {
      * Wraps {@link com.openggf.level.LevelTransitionCoordinator#requestSpecialStageFromCheckpoint()}.
      */
     void requestSpecialStageFromCheckpoint();
+
+    /**
+     * Requests entry into a bonus stage of the given type.
+     * Wraps {@link com.openggf.level.LevelTransitionCoordinator#requestBonusStageEntry(BonusStageType)}.
+     *
+     * @param type the bonus stage type to enter
+     */
+    void requestBonusStageEntry(BonusStageType type);
 
     /**
      * Requests transition to a specific zone and act.
