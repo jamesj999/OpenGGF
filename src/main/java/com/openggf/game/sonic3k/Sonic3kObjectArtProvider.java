@@ -120,6 +120,7 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         loadExplosionArt();
         loadMonitorArt();
         loadStarPostArt();
+        loadEggCapsuleArt();
         loadAnimalArt(zoneIndex);
         loadPointsArt();
 
@@ -937,6 +938,7 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
             case "buildAnimStillLrz2Sheet" -> art.buildAnimStillLrz2Sheet();
             case "buildAnimStillSozSheet" -> art.buildAnimStillSozSheet();
             case "buildFlippingBridgeSheet" -> art.buildFlippingBridgeSheet();
+            case "buildDrawBridgeSheet" -> art.buildDrawBridgeSheet();
             case "buildDisappearingFloorSheet" -> art.buildDisappearingFloorSheet();
             case "buildDisappearingFloorBorderSheet" -> art.buildDisappearingFloorBorderSheet();
             default -> {
@@ -955,6 +957,16 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
             levelArtTileRanges.put(key, new Sonic3kPlcLoader.TileRange(
                     art.getLastBuildStartTile(), art.getLastBuildTileCount()));
         }
+    }
+
+    private void loadEggCapsuleArt() throws IOException {
+        Rom rom = GameServices.rom().getRom();
+        if (rom == null) {
+            return;
+        }
+        RomByteReader reader = RomByteReader.fromRom(rom);
+        Sonic3kObjectArt art = new Sonic3kObjectArt(null, reader);
+        registerSheet(Sonic3kObjectArtKeys.EGG_CAPSULE, art.loadEggCapsuleSheet(rom));
     }
 
     /**

@@ -62,9 +62,13 @@ public final class Sonic3kObjectArtKeys {
     // AIZ Flipping Bridge
     public static final String AIZ_FLIPPING_BRIDGE = "aiz_flipping_bridge";
 
-    // AIZ Collapsing Log Bridge / Draw Bridge Fire
+    // AIZ Draw Bridge / Collapsing Log Bridge / Draw Bridge Fire
+    public static final String AIZ_DRAW_BRIDGE = "aiz_draw_bridge";
     public static final String AIZ_COLLAPSING_LOG_BRIDGE = "aiz_collapsing_log_bridge";
     public static final String AIZ_DRAW_BRIDGE_FIRE = "aiz_draw_bridge_fire";
+
+    // Shared S3K egg capsule / prison
+    public static final String EGG_CAPSULE = "egg_capsule";
 
     // AIZ Disappearing Floor (visual overlay + water border)
     public static final String AIZ_DISAPPEARING_FLOOR = "aiz_disappearing_floor";

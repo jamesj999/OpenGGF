@@ -1998,7 +1998,11 @@ public class LevelManager {
 
         if (ringManager != null) {
             ringManager.draw(frameCounter);
+            // ROM: Lost rings (Ring_LostRing) use art_tile with priority bit set,
+            // rendering them in front of both playfield layers (including waterfalls).
+            graphicsManager.setCurrentSpriteHighPriority(true);
             ringManager.drawLostRings(frameCounter);
+            graphicsManager.setCurrentSpriteHighPriority(false);
         }
 
         for (int bucket = RenderPriority.MAX; bucket >= RenderPriority.MIN; bucket--) {

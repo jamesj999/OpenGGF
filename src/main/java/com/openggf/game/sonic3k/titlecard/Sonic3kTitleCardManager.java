@@ -192,6 +192,17 @@ public class Sonic3kTitleCardManager implements TitleCardProvider {
         return state == Sonic3kTitleCardState.COMPLETE;
     }
 
+    /**
+     * S3K ROM: the pre-level title card completes its blocking setup work before
+     * normal gameplay begins, so the player does not keep advancing physics during
+     * the locked title-card phase. This matters for airborne starts like HCZ1 and
+     * LRZ1, where Sonic must remain frozen until the title card releases control.
+     */
+    @Override
+    public boolean shouldRunPlayerPhysics() {
+        return false;
+    }
+
     @Override
     public void draw() {
         ensureArtCached();

@@ -7,6 +7,7 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
+import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 
@@ -28,12 +29,22 @@ import java.util.logging.Logger;
  */
 public class AizEndBossFlameChild extends AbstractObjectInstance implements TouchResponseProvider {
     private static final Logger LOG = Logger.getLogger(AizEndBossFlameChild.class.getName());
+    private static final int SHIELD_REACTION_FIRE = 1 << 4;
 
     private static final int COLLISION_FLAGS = 0x97; // Hurts player, size index $17
     private static final int FLAME_DURATION = 40;    // Approximate flame animation duration
+    private static final int[][] FLAME_OFFSETS = {
+            {0x03, 0x05},
+            {0x00, 0x07},
+            {0x00, 0x07},
+            {-0x03, 0x05}
+    };
 
     private final AizEndBossInstance boss;
+    private final AizEndBossPropellerChild propeller;
     private final int angle;
+    private final int offsetX;
+    private final int offsetY;
     private int currentX;
     private int currentY;
     private int animTimer;
@@ -42,11 +53,15 @@ public class AizEndBossFlameChild extends AbstractObjectInstance implements Touc
 
     public AizEndBossFlameChild(AizEndBossInstance boss,
                                 AizEndBossPropellerChild propeller, int angle) {
-        super(null, "AIZEndBossFlame");
+        super(buildSpawnAt(propeller.getX(), propeller.getY(), boss), "AIZEndBossFlame");
         this.boss = boss;
+        this.propeller = propeller;
         this.angle = angle;
-        this.currentX = propeller.getX();
-        this.currentY = propeller.getY();
+        int angleIndex = angle / 4;
+        this.offsetX = FLAME_OFFSETS[angleIndex][0];
+        this.offsetY = FLAME_OFFSETS[angleIndex][1];
+        this.currentX = propeller.getX() + offsetX;
+        this.currentY = propeller.getY() + offsetY;
         this.animTimer = 0;
         this.faceRight = (angle < 8);
 
@@ -66,6 +81,12 @@ public class AizEndBossFlameChild extends AbstractObjectInstance implements Touc
         }
 
         animTimer++;
+
+        if (!propeller.isDestroyed()) {
+            currentX = propeller.getX() + offsetX;
+            currentY = propeller.getY() + offsetY;
+        }
+        updateDynamicSpawn(currentX, currentY);
 
         // Animate flame burst (ROM: byte_69DC9 / byte_69DF3)
         boolean vertical = (angle == 4 || angle == 8);
@@ -106,6 +127,11 @@ public class AizEndBossFlameChild extends AbstractObjectInstance implements Touc
     }
 
     @Override
+    public int getShieldReactionFlags() {
+        return SHIELD_REACTION_FIRE;
+    }
+
+    @Override
     public int getX() { return currentX; }
 
     @Override
@@ -125,8 +151,13 @@ public class AizEndBossFlameChild extends AbstractObjectInstance implements Touc
     }
 
     @Override
-    public boolean isHighPriority() { return false; }
+    public boolean isHighPriority() { return true; }
 
     @Override
     public int getPriorityBucket() { return 2; }
+
+    private static ObjectSpawn buildSpawnAt(int x, int y, AizEndBossInstance boss) {
+        int objectId = boss != null && boss.getSpawn() != null ? boss.getSpawn().objectId() : 0x92;
+        return new ObjectSpawn(x, y, objectId, 0, 0, false, 0);
+    }
 }

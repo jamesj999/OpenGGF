@@ -1,0 +1,192 @@
+package com.openggf.game.sonic3k.objects;
+
+import com.openggf.game.PlayableEntity;
+import com.openggf.game.sonic3k.audio.Sonic3kMusic;
+import com.openggf.graphics.GLCommand;
+import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.SubpixelMotion;
+import com.openggf.level.render.PatternSpriteRenderer;
+
+import java.util.List;
+
+/**
+ * Rival Knuckles cutscene object for the Sonic/Tails AIZ2 post-boss transition.
+ *
+ * <p>ROM reference: CutsceneKnux_AIZ2.
+ */
+public class CutsceneKnucklesAiz2Instance extends AbstractObjectInstance {
+
+    private static final int OBJECT_ID = 0x82;
+    private static final int INIT_X = 0x4B8E;
+    private static final int INIT_Y = 0x017D;
+    private static final int RUN_END_X = 0x4B3C;
+    private static final int WAIT_TIMER = (2 * 60) - 1;
+    private static final int LAUGH_TIMER = 0x5F;
+    private static final int RUN_SPEED = 2;
+    private static final int FLOOR_Y = 0x017D;
+
+    private static final int[] RUN_FRAMES = {0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11};
+    private static final int RUN_DELAY = 4;
+    private static final int[] JUMP_FRAMES = {8, 4, 8, 5, 8, 6, 8, 7};
+    private static final int JUMP_DELAY = 1;
+    private static final int[] LAUGH_FRAMES = {0x1C, 0x1C, 0x1D};
+    private static final int LAUGH_DELAY = 7;
+
+    private enum Phase { INIT_WAIT, RUN_IN, LAUGH_1, JUMP, LAUGH_2 }
+
+    private Phase phase = Phase.INIT_WAIT;
+    private int timer = WAIT_TIMER;
+    private int currentX;
+    private int currentY;
+    private int xSub;
+    private int ySub;
+    private int xVel;
+    private int yVel;
+    private boolean initialized;
+    private boolean bounced;
+
+    private int mappingFrame = 0x1C;
+    private int animationTick;
+    private int animationIndex;
+
+    public CutsceneKnucklesAiz2Instance(ObjectSpawn spawn) {
+        super(spawn, "CutsceneKnucklesAIZ2");
+        this.currentX = spawn.x();
+        this.currentY = spawn.y();
+    }
+
+    public static CutsceneKnucklesAiz2Instance createDefault() {
+        return new CutsceneKnucklesAiz2Instance(
+                new ObjectSpawn(INIT_X, INIT_Y, OBJECT_ID, 4, 1, false, 0));
+    }
+
+    @Override
+    public int getX() {
+        return currentX;
+    }
+
+    @Override
+    public int getY() {
+        return currentY;
+    }
+
+    @Override
+    public boolean isPersistent() {
+        return true;
+    }
+
+    @Override
+    public void update(int frameCounter, PlayableEntity playerEntity) {
+        if (!initialized) {
+            initialized = true;
+            AizIntroArtLoader.loadAllIntroArt();
+            AizIntroArtLoader.applyKnucklesPalette();
+            services().playMusic(Sonic3kMusic.KNUCKLES.id);
+        }
+        Aiz2BossEndSequenceState.setActiveKnuckles(this);
+
+        switch (phase) {
+            case INIT_WAIT -> updateInitWait();
+            case RUN_IN -> updateRunIn();
+            case LAUGH_1 -> updateLaugh(true);
+            case JUMP -> updateJump();
+            case LAUGH_2 -> updateLaugh(false);
+        }
+    }
+
+    private void updateInitWait() {
+        mappingFrame = 0x1C;
+        if (timer > 0) {
+            timer--;
+            return;
+        }
+        phase = Phase.RUN_IN;
+        animationTick = 0;
+        animationIndex = 0;
+    }
+
+    private void updateRunIn() {
+        if (currentX - RUN_SPEED >= RUN_END_X) {
+            currentX -= RUN_SPEED;
+            animateLoop(RUN_FRAMES, RUN_DELAY);
+            return;
+        }
+        currentX = RUN_END_X;
+        phase = Phase.LAUGH_1;
+        timer = LAUGH_TIMER;
+        animationTick = 0;
+        animationIndex = 0;
+        mappingFrame = 0x1C;
+    }
+
+    private void updateLaugh(boolean countdown) {
+        animateLoop(LAUGH_FRAMES, LAUGH_DELAY);
+        if (!countdown) {
+            return;
+        }
+        if (timer > 0) {
+            timer--;
+            return;
+        }
+        phase = Phase.JUMP;
+        xVel = -0x100;
+        yVel = -0x400;
+        animationTick = 0;
+        animationIndex = 0;
+        mappingFrame = 8;
+    }
+
+    private void updateJump() {
+        animateLoop(JUMP_FRAMES, JUMP_DELAY);
+        SubpixelMotion.State motion = new SubpixelMotion.State(xSub, currentY, ySub, currentX, yVel, xVel);
+        SubpixelMotion.objectFall(motion, SubpixelMotion.S3K_GRAVITY);
+        currentX = motion.x;
+        currentY = motion.y;
+        xSub = motion.xSub;
+        ySub = motion.ySub;
+        xVel = motion.xVel;
+        yVel = motion.yVel;
+
+        if (yVel < 0 || currentY < FLOOR_Y) {
+            return;
+        }
+
+        if (!bounced) {
+            bounced = true;
+            currentY = FLOOR_Y;
+            xVel = -xVel;
+            yVel = -yVel;
+            return;
+        }
+
+        currentY = FLOOR_Y;
+        xVel = 0;
+        yVel = 0;
+        phase = Phase.LAUGH_2;
+        animationTick = 0;
+        animationIndex = 0;
+        mappingFrame = 0x1C;
+    }
+
+    private void animateLoop(int[] frames, int delay) {
+        if (frames.length == 0) {
+            return;
+        }
+        if (animationTick <= 0) {
+            mappingFrame = frames[animationIndex];
+            animationIndex = (animationIndex + 1) % frames.length;
+            animationTick = delay;
+        }
+        animationTick--;
+    }
+
+    @Override
+    public void appendRenderCommands(List<GLCommand> commands) {
+        PatternSpriteRenderer renderer = AizIntroArtLoader.getKnucklesRenderer();
+        if (renderer == null || !renderer.isReady()) {
+            return;
+        }
+        renderer.drawFrameIndex(mappingFrame, currentX, currentY, true, false);
+    }
+}

@@ -7,8 +7,11 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
+import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.physics.ObjectTerrainUtils;
+import com.openggf.physics.TerrainCheckResult;
 
 import java.util.List;
 import java.util.logging.Logger;
@@ -30,9 +33,11 @@ import java.util.logging.Logger;
  */
 public class AizEndBossBombChild extends AbstractObjectInstance implements TouchResponseProvider {
     private static final Logger LOG = Logger.getLogger(AizEndBossBombChild.class.getName());
+    private static final int SHIELD_REACTION_FIRE = 1 << 4;
 
     private static final int COLLISION_FLAGS = 0x9A; // Hurts player, size index $1A
     private static final int LIFETIME = 0x9F;        // 159 frames
+    private static final int Y_RADIUS = 0x0C;        // ROM: move.b #$C,y_radius(a0)
 
     // Velocity per angle index (ROM: word_69BD2)
     private static final int[][] BOMB_VELOCITY = {
@@ -40,6 +45,12 @@ public class AizEndBossBombChild extends AbstractObjectInstance implements Touch
             {0, 0x400},       // angle 4
             {0, 0x400},       // angle 8
             {-0x300, 0x300},  // angle $C
+    };
+    private static final int[][] BOMB_OFFSETS = {
+            {0x14, 0x14},
+            {0x00, 0x18},
+            {0x00, 0x18},
+            {-0x14, 0x14}
     };
 
     private final AizEndBossInstance boss;
@@ -56,7 +67,7 @@ public class AizEndBossBombChild extends AbstractObjectInstance implements Touch
     private boolean faceRight;
 
     public AizEndBossBombChild(AizEndBossInstance boss, int startX, int startY, int angle) {
-        super(null, "AIZEndBossBomb");
+        super(buildSpawnAt(startX, startY, boss), "AIZEndBossBomb");
         this.boss = boss;
         this.currentX = startX;
         this.currentY = startY;
@@ -64,8 +75,10 @@ public class AizEndBossBombChild extends AbstractObjectInstance implements Touch
         this.frameCounter = 0;
         this.hitFloor = false;
 
-        // Apply position offset and velocity from angle (ROM: loc_69B7A + word_69BD2)
+        // Apply position offset and velocity from angle (ROM: loc_69B7A).
         int angleIndex = angle / 4;
+        this.currentX += BOMB_OFFSETS[angleIndex][0];
+        this.currentY += BOMB_OFFSETS[angleIndex][1];
         this.xVel = BOMB_VELOCITY[angleIndex][0];
         this.yVel = BOMB_VELOCITY[angleIndex][1];
         this.faceRight = (xVel >= 0);
@@ -90,6 +103,15 @@ public class AizEndBossBombChild extends AbstractObjectInstance implements Touch
             return;
         }
 
+        if (!hitFloor && xVel != 0) {
+            TerrainCheckResult floor = ObjectTerrainUtils.checkFloorDist(currentX, currentY, Y_RADIUS);
+            if (floor.hasCollision()) {
+                hitFloor = true;
+                currentY += floor.distance();
+                yVel = 0;
+            }
+        }
+
         // Apply movement (ROM: MoveSprite2)
         int xPos24 = (currentX << 8) | (xSub & 0xFF);
         xPos24 += xVel;
@@ -100,24 +122,11 @@ public class AizEndBossBombChild extends AbstractObjectInstance implements Touch
         yPos24 += yVel;
         currentY = yPos24 >> 8;
         ySub = yPos24 & 0xFF;
+        updateDynamicSpawn(currentX, currentY);
 
         // Apply gravity if not on floor
         if (!hitFloor) {
             yVel += 0x38; // ROM: standard gravity
-        }
-
-        // Simple floor check (ROM: ObjHitFloor_DoRoutine)
-        // For now, use a fixed Y threshold based on level geometry
-        // TODO: Use proper floor collision when available
-        if (!hitFloor && yVel > 0) {
-            // Check if past a reasonable floor Y (boss Y base + some offset)
-            int floorY = boss.getY() + 0x40;
-            if (currentY >= floorY) {
-                hitFloor = true;
-                currentY = floorY;
-                yVel = 0;
-                // ROM: byte_69E29 — rolling animation: frames $10,$11,$2D,$2E
-            }
         }
 
         // Animate bomb (cycling frames)
@@ -165,6 +174,11 @@ public class AizEndBossBombChild extends AbstractObjectInstance implements Touch
     }
 
     @Override
+    public int getShieldReactionFlags() {
+        return SHIELD_REACTION_FIRE;
+    }
+
+    @Override
     public int getX() { return currentX; }
 
     @Override
@@ -184,8 +198,13 @@ public class AizEndBossBombChild extends AbstractObjectInstance implements Touch
     }
 
     @Override
-    public boolean isHighPriority() { return false; }
+    public boolean isHighPriority() { return true; }
 
     @Override
     public int getPriorityBucket() { return 2; }
+
+    private static ObjectSpawn buildSpawnAt(int x, int y, AizEndBossInstance boss) {
+        int objectId = boss != null && boss.getSpawn() != null ? boss.getSpawn().objectId() : 0x92;
+        return new ObjectSpawn(x, y, objectId, 0, 0, false, 0);
+    }
 }

@@ -855,6 +855,9 @@ public class Sonic3kConstants {
 
     // Map_AIZDrawBridgeFire - 8 frames: frames 0-2 = bridge pieces, frames 3-7 = fire animation
     public static final int MAP_AIZ_DRAW_BRIDGE_FIRE_ADDR = 0x02B092;
+    public static final int ART_NEM_EGG_CAPSULE_ADDR = 0x201031;
+    public static final int MAP_EGG_CAPSULE_ADDR = 0x182230;
+    public static final int ARTTILE_EGG_CAPSULE = 0x0494;
 
     // ===== Level Object Mappings (parsed at runtime by S3kSpriteDataLoader) =====
     // Verified by ROM binary pattern search for offset table fingerprints, 2026-02-17
