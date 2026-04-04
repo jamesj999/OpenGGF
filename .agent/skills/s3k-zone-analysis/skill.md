@@ -212,7 +212,75 @@ Check for each of these and note presence/absence:
 - [ ] **PLC loading:** Boss art loads via PLC (`jsr (LoadPLC).l` or `jsr (NewPLC).l` calls in `_Resize`). Note which PLC IDs are loaded and when.
 - [ ] **Unique mechanics:** Zone-specific physics or gimmicks (e.g., CNZ gravity flip, SOZ quicksand, HCZ water currents, ICZ snowboard). Note these even if not implementing them -- they affect event sequencing.
 
-### Phase 4: Write the Analysis Spec
+### Phase 4: Shared State Trace (Cross-Category Dependencies)
+
+After reading all routines individually, trace shared mutable state across category boundaries. This catches dependencies that single-category analysis misses (e.g., events setting a flag that animated tiles check, or events loading art to a VRAM region that AniPLC scripts also target).
+
+#### 4.1 Catalogue Writes Per Category
+
+For each category, list every RAM variable, VRAM destination, and palette entry it WRITES:
+
+**Events writes:** (from `_Resize`, `ScreenEvent`, `BackgroundEvent`)
+- `Dynamic_Resize_routine` values (which stages are set)
+- `Boss_flag` (when set/cleared)
+- `Level_trigger_array+N` entries (which indices, what values)
+- `Target_water_level` / `Water_Level_2` changes
+- `Screen_shake_flag` writes
+- Palette RAM writes (palette mutations — which line, which colors)
+- PLC loads (which IDs — these load art to VRAM)
+- Kos/KosinskiM queue loads (destination VRAM tile addresses)
+- Any custom flags (e.g., `AIZ1_palette_cycle_flag`, zone-specific RAM)
+
+**Animated Tiles writes:** (from `Animated_Tiles_{ZONE}` AND `AniPLC` scripts)
+- VRAM tile destinations per script (from AniPLC entries)
+- Any non-AniPLC art loads in custom `Animated_Tiles_{ZONE}` routines
+- Note: custom routines often contain camera checks, flag reads, and direct art loads that straddle the events/tiles boundary
+
+**Palette Cycling writes:** (from `AnPal_{ZONE}`)
+- Palette line and color indices per channel
+
+**Parallax reads:** (from `_Deform`)
+- `Water_Level_1` / `Water_Level_2` (for water split)
+- `Screen_shake_offset` / `Screen_shake_flag`
+- Any event flags that change deform behaviour (e.g., `Events_bg+$04` for battleship mode)
+
+#### 4.2 Cross-Reference: Find Shared State
+
+Search for each variable written by one category in the routines of OTHER categories:
+
+```bash
+# For each flag/variable found in events, search animated tiles and palette cycling:
+grep -n "Dynamic_Resize_routine\|Boss_flag\|Level_trigger_array" docs/skdisasm/sonic3k.asm | grep -i "Animated_Tiles_{ZONE}\|AnPal_{ZONE}\|{ZONE}_Deform"
+```
+
+Also search the custom `Animated_Tiles_{ZONE}` routine (NOT just the AniPLC script data) for:
+```bash
+grep -n "Animated_Tiles_{ZONE}" docs/skdisasm/sonic3k.asm
+```
+Then read the FULL custom routine — it often contains `cmpi`/`tst` checks on event state, camera position checks, and direct art loads that are NOT part of the AniPLC script system.
+
+#### 4.3 Detect VRAM/Palette Conflicts
+
+Compare VRAM destinations:
+- List all VRAM tile destinations from AniPLC scripts
+- List all VRAM tile destinations from event PLC/Kos loads
+- List all VRAM tile destinations from custom `Animated_Tiles` art loads
+- Flag any overlaps — these indicate art ownership handoffs (one system must yield to another at certain game states)
+
+Compare palette targets:
+- List palette entries written by AnPal cycling channels
+- List palette entries written by event palette mutations
+- Flag any overlaps — these are potential conflicts where cycling and mutation target the same colors
+
+#### 4.4 Output the Dependency Map
+
+Record all cross-category dependencies found. Each dependency should state:
+- **Source:** which category and routine writes the state
+- **Consumer:** which category and routine reads the state
+- **Variable:** the specific RAM address, VRAM tile, or palette entry
+- **Effect:** what changes when the state changes (gating, art swap, mode switch)
+
+### Phase 5: Write the Analysis Spec
 
 Produce the zone analysis spec using the template below. Save it to `docs/s3k-zones/{zone}-analysis.md` where `{zone}` is the lowercase zone abbreviation (e.g., `docs/s3k-zones/hcz-analysis.md`).
 
@@ -345,6 +413,41 @@ Produce the zone analysis spec using the template below. Save it to `docs/s3k-zo
 - **PLC loading:** {list all PLC loads with trigger conditions}
 - **Unique mechanics:** {zone-specific gimmicks}
 
+## Dependency Map
+
+### Events → Animated Tiles
+- {variable/flag}: {what events writes} → {what animated tiles checks/does differently}
+- {VRAM conflict}: Events loads art to tile $XXX via PLC/Kos → AniPLC script N targets same tile range
+- {art override}: Events/custom routine loads static art to tile $XXX when {condition} → scripts must not overwrite
+
+### Events → Palette Cycling
+- {flag}: {what events sets} → {how cycling mode changes}
+- {palette conflict}: Events writes palette line N color M at {trigger} → cycling channel N also targets line N colors M-P
+
+### Events → Parallax
+- {water level}: Events sets Target_water_level → parallax splits deformation at water boundary
+- {shake}: Events sets Screen_shake_flag → parallax applies shake offset
+- {mode change}: Events sets {flag} → parallax switches to alternate deform mode
+
+### Animated Tiles → Parallax
+- {VRAM}: Animated tiles update tile $XXX → parallax renders those tiles in band N
+(Usually no direct dependency — note only if custom interaction exists)
+
+### VRAM Ownership Table
+
+| VRAM Tile Range | Owner | Condition | Notes |
+|-----------------|-------|-----------|-------|
+| $XXX-$YYY | AniPLC script N | Always / when flag set | |
+| $XXX-$YYY | Events PLC $NN | Loaded at stage N | Overwrites script range |
+| $XXX-$YYY | Custom art load | Camera X < $XXXX | Conflicts with script M |
+
+### Palette Ownership Table
+
+| Palette Entry | Owner | Condition | Notes |
+|---------------|-------|-----------|-------|
+| Line N, color M | AnPal channel N | Timer-driven | |
+| Line N, color M | Events mutation | Camera X >= $XXXX | One-shot, same entry as cycling |
+
 ## Implementation Notes
 
 ### Priority Order
@@ -378,3 +481,7 @@ Produce the zone analysis spec using the template below. Save it to `docs/s3k-zo
 6. **Ignoring `s3.asm` for S3KL zones:** While `sonic3k.asm` is the primary source, some S3KL zone routines (AIZ through LBZ) may have additional context or comments in `s3.asm`. Cross-reference when a routine seems incomplete or references undefined labels.
 
 7. **Not checking BackgroundInit/BackgroundEvent:** These routines run at level load and during gameplay to manage background state. They can swap entire background layouts (e.g., MHZ autumn-to-winter, LBZ interior-to-exterior), affecting what the Deform routine scrolls. Missing these means the parallax implementation may break during gameplay transitions.
+
+8. **Only reading AniPLC script data, not the custom `Animated_Tiles_{ZONE}` routine:** Many zones have a custom wrapper around AniPLC that contains camera threshold checks, flag reads, and direct art loads. These custom routines straddle the events/tiles boundary — they read event state (`Dynamic_Resize_routine`, `Boss_flag`, `Level_trigger_array`) and load non-AniPLC art (e.g., AIZ2 FirstTree override). Always read the full `Animated_Tiles_{ZONE}` routine, not just the AniPLC script entries.
+
+9. **Skipping Phase 4 (Shared State Trace):** The most common source of implementation bugs is cross-category dependencies — events loading art to VRAM regions that AniPLC scripts also target, or events setting flags that animated tile routines check. Phase 4 exists specifically to catch these. Skipping it produces specs that look complete but miss critical gating conditions and art ownership conflicts.
