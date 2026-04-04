@@ -281,9 +281,21 @@ public class WaterSystem {
      */
     public void loadForLevelFromProvider(WaterDataProvider provider, Rom rom,
             int zoneId, int actId, PlayerCharacter character) {
+        loadForLevelFromProvider(provider, rom, zoneId, actId, character, false);
+    }
+
+    /**
+     * Load water for a level with seamless transition awareness.
+     *
+     * @param seamlessTransition true when called during a seamless act transition
+     *     (ROM: Apparent_zone_and_act != Current_zone_and_act)
+     */
+    public void loadForLevelFromProvider(WaterDataProvider provider, Rom rom,
+            int zoneId, int actId, PlayerCharacter character,
+            boolean seamlessTransition) {
         String key = makeKey(zoneId, actId);
 
-        if (!provider.hasWater(zoneId, actId, character)) {
+        if (!provider.hasWater(zoneId, actId, character, seamlessTransition)) {
             waterConfigs.put(key, new WaterConfig(false, 0, null));
             LOGGER.info(String.format("Zone %d Act %d: No water (provider)", zoneId, actId));
             return;

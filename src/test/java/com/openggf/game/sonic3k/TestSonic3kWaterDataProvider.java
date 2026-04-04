@@ -39,10 +39,22 @@ public class TestSonic3kWaterDataProvider {
     }
 
     @Test
-    public void aiz2KnucklesHasNoWater() {
+    public void aiz2KnucklesHasNoWaterOnDirectLoad() {
         // ROM CheckLevelForWater (sonic3k.asm:9754-9759): Knuckles excluded from AIZ2 water
-        assertFalse("AIZ2 Knuckles should NOT have water",
+        // when Apparent_zone_and_act == Current_zone_and_act (direct load / level select).
+        assertFalse("AIZ2 Knuckles should NOT have water (direct load)",
                 provider.hasWater(Sonic3kZoneIds.ZONE_AIZ, 1, PlayerCharacter.KNUCKLES));
+        assertFalse("AIZ2 Knuckles should NOT have water (seamless=false)",
+                provider.hasWater(Sonic3kZoneIds.ZONE_AIZ, 1, PlayerCharacter.KNUCKLES, false));
+    }
+
+    @Test
+    public void aiz2KnucklesHasWaterOnSeamlessTransition() {
+        // ROM: During seamless AIZ1→AIZ2 transition, Apparent_zone_and_act still points to
+        // AIZ1 (0), not AIZ2 (1). CheckLevelForWater: Apparent != Current → water enabled
+        // even for Knuckles (sonic3k.asm:9756-9757: bne.s loc_78F2).
+        assertTrue("AIZ2 Knuckles should have water during seamless transition from AIZ1",
+                provider.hasWater(Sonic3kZoneIds.ZONE_AIZ, 1, PlayerCharacter.KNUCKLES, true));
     }
 
     @Test

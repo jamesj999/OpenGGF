@@ -117,6 +117,7 @@ public class LevelManager {
     private final PerformanceProfiler profiler = PerformanceProfiler.getInstance();
     private final List<List<LevelData>> levels = new ArrayList<>();
     private int currentAct = 0;
+    private int apparentAct = 0;
     private int currentZone = 0;
     private int frameCounter = 0;
     private int currentShimmerStyle = 0;
@@ -851,13 +852,32 @@ public class LevelManager {
      * Phase B: Initialize the water system for the current level.
      */
     public void initWater() throws IOException {
+        initWater(false);
+    }
+
+    /**
+     * Initialize the water system, with optional seamless-transition awareness.
+     * ROM: CheckLevelForWater (sonic3k.asm:9754-9759) compares Apparent_zone_and_act
+     * to Current_zone_and_act. During seamless transitions Apparent != Current,
+     * which enables water in cases that a direct load would disable (AIZ2 Knuckles).
+     *
+     * @param seamlessTransition true when called during a seamless act transition
+     */
+    private void initWater(boolean seamlessTransition) throws IOException {
         Rom rom = GameServices.rom().getRom();
         WaterDataProvider waterProvider = gameModule != null ? gameModule.getWaterDataProvider() : null;
         if (waterProvider != null) {
-            // Use the game-agnostic provider-based loading
-            PlayerCharacter character = PlayerCharacter.SONIC_AND_TAILS; // TODO: get from game state
+            // Resolve the actual player character from the level event manager.
+            // ROM: CheckLevelForWater uses Player_mode to gate per-character water
+            // (e.g. AIZ2 Knuckles has no water when loaded directly from level select).
+            PlayerCharacter character = PlayerCharacter.SONIC_AND_TAILS;
+            LevelEventProvider lep = gameModule.getLevelEventProvider();
+            if (lep instanceof AbstractLevelEventManager alem) {
+                character = alem.getPlayerCharacter();
+            }
             waterSystem.loadForLevelFromProvider(waterProvider, rom,
-                    getFeatureZoneId(), getFeatureActId(), character);
+                    getFeatureZoneId(), getFeatureActId(), character,
+                    seamlessTransition);
         } else if (zoneFeatureProvider != null && zoneFeatureProvider.hasWater(getFeatureZoneId())) {
             // Fallback for games without a WaterDataProvider (backward compatibility).
             // All three game modules now supply providers, so this path should rarely execute.
@@ -3244,6 +3264,7 @@ public class LevelManager {
         if (currentAct >= levels.get(currentZone).size()) {
             currentAct = 0;
         }
+        apparentAct = currentAct;
         // Clear checkpoint when manually changing level
         if (checkpointState != null) {
             checkpointState.clear();
@@ -3297,6 +3318,7 @@ public class LevelManager {
 
     public void loadZoneAndAct(int zone, int act) throws IOException {
         currentAct = act;
+        apparentAct = act;
         currentZone = zone;
         // Clear checkpoint when manually changing level
         if (checkpointState != null) {
@@ -3372,7 +3394,9 @@ public class LevelManager {
         // ROM: CheckLevelForWater (s3.asm:5811) runs during every level load,
         // including act transitions. Sets Water_flag, Water_level, Mean_water_level,
         // Target_water_level, Water_speed, and the zone-specific dynamic handler.
-        initWater();
+        // Seamless=true: ROM's Apparent_zone_and_act still points to the previous act,
+        // which enables water for cases that a direct load would disable (AIZ2 Knuckles).
+        initWater(true);
 
         // 5. Rebuild managers with new act's spawn data
         // (ROM: Load_Level swaps obj/ring pointers, then clears Dynamic_object_RAM + Ring_status_table)
