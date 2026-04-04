@@ -278,6 +278,11 @@ public class DefaultObjectServices implements ObjectServices {
     }
 
     @Override
+    public void setApparentAct(int act) {
+        lm().setApparentAct(act);
+    }
+
+    @Override
     public void requestSpecialStageFromCheckpoint() {
         lm().requestSpecialStageFromCheckpoint();
     }

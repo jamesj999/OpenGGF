@@ -487,7 +487,9 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
 
         if (!isAct2OrSpecial) {
             // Act 1: transition to act 2 (ROM lines 62708-62720)
-            // ROM sets Apparent_act = 1 — in our engine the title card handles this visually.
+            // ROM: move.b #1,(Apparent_act).w — update display act so
+            // death/restart title cards show "Act 2" from this point on.
+            services().setApparentAct(1);
             // The level data continues seamlessly (S3K acts share the same level).
 
             // Play act 2 music
