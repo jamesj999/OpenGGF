@@ -709,11 +709,19 @@ public class AizEndBossInstance extends AbstractBossInstance {
         }
         services().gameState().setCurrentBossId(0);
 
-        // ROM: AfterBoss_AIZ2 — load fire palette + PLC_AfterMiniboss_AIZ.
-        // The fire palette restores palette line 1 from the boss palette to the
-        // burning-forest colours. The PLC reloads ArtNem_AIZMisc2 and other
-        // level art tiles that may have been overwritten by boss art.
+        // ROM: AfterBoss_AIZ2 — load fire palette.
         loadAfterBossArt();
+
+        // ROM: loc_694D4 calls Restore_LevelMusic — play zone music while
+        // the egg capsule floats down.
+        try {
+            int levelMusic = services().getCurrentLevelMusicId();
+            if (levelMusic > 0) {
+                services().playMusic(levelMusic);
+            }
+        } catch (Exception e) {
+            // Ignore audio errors
+        }
 
         ObjectManager objectManager = services().objectManager();
         if (objectManager != null) {
