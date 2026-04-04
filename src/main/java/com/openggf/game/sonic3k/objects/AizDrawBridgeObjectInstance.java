@@ -103,6 +103,11 @@ public class AizDrawBridgeObjectInstance extends AbstractObjectInstance
     }
 
     @Override
+    public boolean isHighPriority() {
+        return true;
+    }
+
+    @Override
     public SolidObjectParams getSolidParams() {
         return new SolidObjectParams(HALF_WIDTH, HEIGHT, HEIGHT + 1);
     }

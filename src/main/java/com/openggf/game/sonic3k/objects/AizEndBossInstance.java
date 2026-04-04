@@ -900,17 +900,19 @@ public class AizEndBossInstance extends AbstractBossInstance {
     }
 
     /**
-     * ROM parity: boss objects do not call the {@code out_of_range} macro.
-     * They persist once loaded, regardless of distance from camera.
-     * Without this, the exec-loop out-of-range check deletes the boss
-     * during the battleship auto-scroll camera wrapping (boss at $48A0
-     * is >640px from the wrapped-back camera at ~$4640), causing it to
-     * be recreated every wrap cycle — which resets its state machine and
-     * facing direction each time.
+     * ROM parity: boss objects do not call the {@code out_of_range} macro
+     * once activated. However, the AIZ2 layout contains TWO 0x92 entries —
+     * one for Sonic's arena ($48A0,$1C0) and one for Knuckles' ($4120,$640).
+     * Only one is valid per playthrough. The wrong-character boss must be
+     * allowed to expire via normal out-of-range while still in ROUTINE_INIT
+     * (waiting for the camera to reach the arena). Once activated, the boss
+     * becomes persistent to survive camera wrapping during the fight.
      */
     @Override
     public boolean isPersistent() {
-        return true;
+        // Only persist after activation — ROUTINE_INIT bosses at the wrong
+        // character's position will be cleaned up by out-of-range naturally.
+        return state.routine != ROUTINE_INIT;
     }
 
     // ===== Accessors for children =====

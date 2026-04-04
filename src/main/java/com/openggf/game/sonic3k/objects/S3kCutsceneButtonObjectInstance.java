@@ -67,6 +67,11 @@ public class S3kCutsceneButtonObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
+    public boolean isHighPriority() {
+        return true;
+    }
+
+    @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
         if (!cutsceneOverride && Aiz2BossEndSequenceState.isCutsceneOverrideObjectsActive()) {
             setDestroyed(true);
