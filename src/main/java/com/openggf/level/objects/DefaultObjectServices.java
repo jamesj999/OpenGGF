@@ -294,6 +294,27 @@ public class DefaultObjectServices implements ObjectServices {
     }
 
     @Override
+    public void requestBonusStageExit() {
+        try {
+            com.openggf.game.GameServices.bonusStage().requestExit();
+        } catch (Exception e) {
+            LOG.warning("requestBonusStageExit failed: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public void addBonusStageRings(int count) {
+        try {
+            var provider = com.openggf.game.GameServices.bonusStage();
+            if (provider instanceof com.openggf.game.AbstractBonusStageCoordinator coordinator) {
+                coordinator.addRings(count);
+            }
+        } catch (Exception e) {
+            LOG.warning("addBonusStageRings failed: " + e.getMessage());
+        }
+    }
+
+    @Override
     public void requestZoneAndAct(int zone, int act) {
         lm().requestZoneAndAct(zone, act);
     }

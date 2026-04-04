@@ -161,6 +161,21 @@ public interface ObjectServices {
     void requestBonusStageEntry(BonusStageType type);
 
     /**
+     * Requests exit from the current bonus stage.
+     * Wraps {@link com.openggf.game.BonusStageProvider#requestExit()}.
+     */
+    void requestBonusStageExit();
+
+    /**
+     * Adds rings to the bonus stage coordinator's saved ring count.
+     * ROM equivalent: {@code add.w d0,(Saved_ring_count).w}.
+     * No-op when not in a bonus stage.
+     *
+     * @param count the number of rings to add
+     */
+    void addBonusStageRings(int count);
+
+    /**
      * Requests transition to a specific zone and act.
      *
      * @param zone the zone index (0-based)
