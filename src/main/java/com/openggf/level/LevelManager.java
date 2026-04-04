@@ -2709,6 +2709,25 @@ public class LevelManager {
     }
 
     /**
+     * Returns the apparent act for title card display.
+     * ROM: {@code Apparent_act} — stays at 0 during AIZ's seamless fire
+     * transition even though {@code Current_act} changes to 1.
+     */
+    public int getApparentAct() {
+        return apparentAct;
+    }
+
+    /**
+     * Sets the apparent act for title card display.
+     * ROM: {@code move.b #1,(Apparent_act).w} — called by the results
+     * screen when act 1 ends, so subsequent death/restart title cards
+     * show the correct act number.
+     */
+    public void setApparentAct(int act) {
+        this.apparentAct = act;
+    }
+
+    /**
      * Updates a specific palette line with new color data.
      * This is used to load boss palettes during boss fights.
      *
@@ -3186,7 +3205,10 @@ public class LevelManager {
         if (ctx.isShowTitleCard()
                 && !graphicsManager.isHeadlessMode()
                 && !(zoneFeatureProvider != null && zoneFeatureProvider.shouldSuppressInitialTitleCard(currentZone, currentAct))) {
-            requestTitleCard(currentZone, currentAct);
+            // ROM: title card reads Apparent_act, not Current_act.
+            // After AIZ's seamless fire transition, Current_act is 1 but
+            // Apparent_act stays 0 until the results screen exits.
+            requestTitleCard(currentZone, apparentAct);
         }
     }
 
@@ -3289,6 +3311,7 @@ public class LevelManager {
                 currentZone = 0; // Loop back for now - TODO: end game sequence
             }
         }
+        apparentAct = currentAct;
         // Clear checkpoint when advancing
         if (checkpointState != null) {
             checkpointState.clear();
@@ -3310,6 +3333,7 @@ public class LevelManager {
                 currentZone = 0;
             }
         }
+        apparentAct = currentAct;
         if (checkpointState != null) {
             checkpointState.clear();
         }
@@ -3665,6 +3689,7 @@ public class LevelManager {
         tilemapManager = null;
         currentZone = 0;
         currentAct = 0;
+        apparentAct = 0;
         frameCounter = 0;
         transitions.resetState();
         verticalWrapEnabled = false;

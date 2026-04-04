@@ -127,6 +127,13 @@ public interface ObjectServices {
     /** Returns the current zone index (rom-mapped). Alias for {@link #romZoneId()}. */
     default int currentZone() { return romZoneId(); }
 
+    /**
+     * Sets the apparent act for title card display.
+     * ROM: {@code move.b #n,(Apparent_act).w} — used by the results screen
+     * to update the display act after act 1 completion.
+     */
+    void setApparentAct(int act);
+
     /** Returns true if all rings in the current level have been collected. */
     boolean areAllRingsCollected();
 

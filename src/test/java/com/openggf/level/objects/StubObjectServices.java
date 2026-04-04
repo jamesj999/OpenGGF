@@ -59,6 +59,7 @@ public class StubObjectServices implements ObjectServices {
     @Override public void updatePalette(int paletteIndex, byte[] paletteData) {}
     @Override public RingManager ringManager() { return null; }
     @Override public void advanceZoneActOnly() {}
+    @Override public void setApparentAct(int act) {}
     @Override public void requestSpecialStageFromCheckpoint() {}
     @Override public void requestZoneAndAct(int zone, int act) {}
     @Override public void requestZoneAndAct(int zone, int act, boolean deactivateLevelNow) {}
