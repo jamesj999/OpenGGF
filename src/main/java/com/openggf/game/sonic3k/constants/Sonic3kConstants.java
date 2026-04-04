@@ -1221,6 +1221,31 @@ public class Sonic3kConstants {
     public static final int PAL_S2_LEVEL_ICONS_ADDR = 0x2070BC;    // 15 icon palettes (480B)
     public static final int PAL_S2_LEVEL_ICONS_SIZE = 480;
 
+    // ===== Gumball Bonus Stage =====
+    // Level tile data (same structure as regular zones)
+    public static final int GUMBALL_8X8_KOSM_ADDR = 0x3FEE2E;       // Gumball_8x8_KosM (KosinskiM)
+    public static final int GUMBALL_16X16_KOS_ADDR = 0x3FEA0E;      // Gumball_16x16_Kos (Kosinski)
+    public static final int GUMBALL_128X128_KOS_ADDR = 0x3FFB80;    // Gumball_128x128_Kos (Kosinski)
+
+    // Level layout and collision
+    public static final int GUMBALL_LAYOUT_ADDR = 0x28BC2E;         // Layout_Gumball_Special (uncompressed, 184 bytes)
+    public static final int GUMBALL_COLLISION_ADDR = 0x280760;      // Solid_Gumball_Special (uncompressed, 3072 bytes)
+
+    // Palette
+    public static final int GUMBALL_PALETTE_ADDR = 0x0A9BBC;        // Pal_Gumball_Special (uncompressed, 96 bytes = 3 palette lines)
+
+    // Object and ring positions
+    public static final int GUMBALL_SPRITES_ADDR = 0x1FC75E;        // Gumball_Sprites (uncompressed, 192 bytes)
+    public static final int GUMBALL_RINGS_ADDR = 0x01835B;          // Gumball_Rings (uncompressed, 6 bytes)
+
+    // Sprite art and mappings
+    public static final int GUMBALL_ART_NEM_ADDR = 0x19385A;        // ArtNem_BonusStage (Nemesis, 2862B -> 8576B)
+    public static final int GUMBALL_MAP_ADDR = 0x06148A;            // Map_GumballBonus (24 frames, S3K mapping format)
+    public static final int GUMBALL_ANI_TILES_ADDR = 0x2C2180;      // ArtUnc_AniGumball (uncompressed, 256 bytes)
+
+    // Spring child object mappings (shared, used across all zones)
+    public static final int MAP_SPRING_ADDR = 0x02375C;             // Map_Spring (11 frames, S3K mapping format)
+
     private static boolean scanned = false;
 
     public static boolean isScanned() {
