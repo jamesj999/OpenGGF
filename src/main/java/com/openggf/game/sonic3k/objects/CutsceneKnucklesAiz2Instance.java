@@ -30,7 +30,9 @@ public class CutsceneKnucklesAiz2Instance extends AbstractObjectInstance {
     private static final int RUN_DELAY = 4;
     private static final int[] JUMP_FRAMES = {8, 4, 8, 5, 8, 6, 8, 7};
     private static final int JUMP_DELAY = 1;
-    private static final int[] LAUGH_FRAMES = {0x1C, 0x1C, 0x1D};
+    // ROM: byte_666B9 plays $1C, $1C, $1D then $F8-jumps to byte_666BF
+    // which continues with $1E, $1F (the actual visible laugh poses).
+    private static final int[] LAUGH_FRAMES = {0x1C, 0x1C, 0x1D, 0x1E, 0x1F};
     private static final int LAUGH_DELAY = 7;
 
     private enum Phase { INIT_WAIT, RUN_IN, LAUGH_1, JUMP, LAUGH_2 }
