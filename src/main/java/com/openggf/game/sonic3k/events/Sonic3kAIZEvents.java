@@ -456,6 +456,21 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         }
     }
 
+    /**
+     * ROM: Dynamic_resize_routine — for AIZ Act 2 this is the separate
+     * {@link #aiz2ResizeRoutine} state machine counter, not the base
+     * {@link #eventRoutine}. Saved/restored during big ring transitions.
+     */
+    @Override
+    public int getDynamicResizeRoutine() {
+        return aiz2ResizeRoutine;
+    }
+
+    @Override
+    public void setDynamicResizeRoutine(int routine) {
+        aiz2ResizeRoutine = routine;
+    }
+
     private void updateAct1(int frameCounter) {
         // Spawn intro object (one-shot)
         if (!introSpawned && shouldSpawnIntro(0)) {

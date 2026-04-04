@@ -18,11 +18,16 @@ public record BigRingReturnState(
         int rings,
         byte topSolidBit,
         byte lrbSolidBit,
-        int cameraMaxY
+        int cameraMaxY,
+        int dynamicResizeRoutine
 ) {
     /**
      * Restores all saved state onto the player, camera, and game state.
      * Mirrors ROM Load_Starpost_Settings2 (s3.asm:22082-22087).
+     *
+     * <p>Note: {@link #dynamicResizeRoutine} must be restored separately
+     * by the caller via the level event manager, since this record does
+     * not have access to the event system.
      */
     public void restoreToPlayer(AbstractPlayableSprite player, Camera camera, LevelState levelState) {
         player.setCentreX((short) playerX);

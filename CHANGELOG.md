@@ -300,6 +300,7 @@ in S3K and via cross-game donation into S1 and S2.
 - Prevented OOM in S3K DPLC frame loading by parsing only 1P entries (combined mapping table fix).
 - SONIC art address corrected; camera bounds restored after transition.
 - Lightning shield sparks rendered directly instead of via DPLC.
+- Save/restore `Dynamic_resize_routine` across big ring special stage transitions (ROM: `Saved2_dynamic_resize_routine`). Without this, the resize state machine restarted from routine 0 on return, rapidly re-processing boundary thresholds and causing incorrect camera locks in AIZ Act 2.
 
 ### Insta-Shield Implementation
 
