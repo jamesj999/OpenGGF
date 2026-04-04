@@ -234,6 +234,7 @@ class CreditsRecorder:
             state=stable_retro.State.DEFAULT,
             info='trace_data',
             use_restricted_actions=stable_retro.Actions.ALL,
+            render_mode=None,
         )
         self.env.reset()
         self.num_buttons = self.env.action_space.shape[0]
@@ -262,9 +263,19 @@ class CreditsRecorder:
         print(f"Target: {'all' if self.target_all else self.target_index}")
         print(f"Force mode: {self.args.force_mode}")
 
+        # stable-retro Genesis button order: B,A,MODE,START,UP,DOWN,LEFT,RIGHT,C,X,Y,Z
+        self.start_input = np.zeros(self.num_buttons, dtype=np.int8)
+        self.start_input[3] = 1  # START button index
+
         emu_frame = 0
         while True:
-            self.env.step(self.no_input)
+            # Press Start during title screen to load a level (redirect_level needs this)
+            action = self.no_input
+            if not self.demo_forced:
+                game_mode = self.mem.u8(ADDR_GAME_MODE) if self.mem._ram is not None else 0
+                if (game_mode & 0x7F) == GAMEMODE_TITLE and self.title_frames_seen >= self.args.force_delay:
+                    action = self.start_input
+            self.env.step(action)
             ram = self.env.get_ram()
             self.mem.update(ram)
 
@@ -297,6 +308,10 @@ class CreditsRecorder:
         return self._handle_recording(game_mode, emu_frame)
 
     def _handle_forcing(self, base_mode, emu_frame):
+        # Track title screen frames for all modes (used by run loop to inject Start)
+        if base_mode == GAMEMODE_TITLE:
+            self.title_frames_seen += 1
+
         if self.args.force_mode == 'none':
             if (base_mode == GAMEMODE_CREDITS or
                     self.mem.u16(ADDR_DEMO_FLAG) == 0x8001):
@@ -315,7 +330,6 @@ class CreditsRecorder:
 
         # direct mode
         if base_mode == GAMEMODE_TITLE:
-            self.title_frames_seen += 1
             if self.title_frames_seen >= self.args.force_delay:
                 self._force_target_demo()
                 self.demo_forced = True
