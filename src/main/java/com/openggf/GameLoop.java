@@ -309,6 +309,13 @@ public class GameLoop {
             handleSpecialStageDebugKey();
         }
 
+        // Check for Bonus Stage toggle (Shift+B)
+        if (inputHandler.isKeyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_B)
+                && (inputHandler.isKeyDown(org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_SHIFT)
+                || inputHandler.isKeyDown(org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_SHIFT))) {
+            handleBonusStageDebugKey();
+        }
+
         if (currentGameMode == GameMode.SPECIAL_STAGE) {
             SpecialStageProvider ssProvider = getActiveSpecialStageProvider();
 
@@ -641,6 +648,23 @@ public class GameLoop {
             enterResultsScreen(false);
         } else if (currentGameMode == GameMode.SPECIAL_STAGE_RESULTS) {
             exitResultsScreen();
+        }
+    }
+
+    /**
+     * Handles the bonus stage debug key (Shift+B).
+     * When in level mode, enters the Gumball bonus stage (or cycles through types).
+     * When in bonus stage mode, triggers immediate exit back to level.
+     */
+    private void handleBonusStageDebugKey() {
+        if (currentGameMode == GameMode.LEVEL) {
+            // Default to Gumball for quick testing
+            enterBonusStage(BonusStageType.GUMBALL);
+        } else if (currentGameMode == GameMode.BONUS_STAGE) {
+            // Force exit
+            if (activeBonusStageProvider != null) {
+                activeBonusStageProvider.requestExit();
+            }
         }
     }
 
