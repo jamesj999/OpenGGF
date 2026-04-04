@@ -14,6 +14,7 @@ import com.openggf.level.objects.SolidObjectProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.logging.Logger;
@@ -139,6 +140,13 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
     // ROM: Gumball X position spread from dispenser
     private static final int GUMBALL_X_SPREAD = 0x10;
 
+    // ROM: byte_6145B container animation frames: [2,3,3,3,4,F,3,3,2,3,F4]
+    // Total ~40 frames of spin animation before machine can re-trigger.
+    // This models the container animation ownership of bit 3 on the machine
+    // (loc_60E5C → loc_60E8C → loc_60EA2) which is cleared with bit 1 at
+    // animation completion, preventing re-trigger while active.
+    private static final int TRIGGER_COOLDOWN_FRAMES = 40;
+
     // ===== Instance state =====
 
     private State state = State.IDLE;
@@ -147,13 +155,36 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
     private final Random rng;
     private DispenserChild dispenser;
 
+    // Trigger cooldown prevents rapid re-triggering. ROM clears bits 1+3 on
+    // machine when container animation finishes (loc_60EA2).
+    private int triggerCooldownFrames;
+
+    // Tracks active gumball springs for respawn on REP gumball collect.
+    private final List<GumballSpringChild> springs = new ArrayList<>();
+    private final List<int[]> springOriginalPositions = new ArrayList<>();
+
     private boolean childrenSpawned;
+
+    // Single-instance reference for cross-object coordination (REP gumball
+    // needs to call back into the machine to respawn springs). Only one
+    // gumball bonus stage is active at a time.
+    private static GumballMachineObjectInstance currentInstance;
+
+    /**
+     * @return the current active gumball machine, or null if none
+     */
+    public static GumballMachineObjectInstance current() {
+        return currentInstance;
+    }
 
     public GumballMachineObjectInstance(ObjectSpawn spawn) {
         super(spawn, "GumballMachine");
 
         // ROM: Seed RNG from frame counter
         this.rng = new Random(System.nanoTime());
+
+        // Register as the active machine so gumball items can trigger callbacks
+        currentInstance = this;
     }
 
     private void spawnChildren() {
@@ -189,12 +220,16 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         // 4 springs at bottom of stage (ROM: ChildObjDat_61424 as children of dispenser).
         // Absolute positions: dispenser (0x100, 0x310) + offsets (-$30..$30, -$18).
+        // Springs crumble on first use and are respawned by REP gumball.
+        springs.clear();
+        springOriginalPositions.clear();
         for (int springX : SPRING_X_OFFSETS) {
             final int sx = DISPENSER_ABSOLUTE_X + springX;
             final int sy = DISPENSER_ABSOLUTE_Y + SPRING_Y_OFFSET;
-            spawnChild(() -> new Sonic3kSpringObjectInstance(
-                    new com.openggf.level.objects.ObjectSpawn(sx, sy, 0x07, 0,
-                            0, false, 0)));
+            springOriginalPositions.add(new int[]{sx, sy});
+            GumballSpringChild spring = spawnChild(() -> new GumballSpringChild(
+                    buildSpawnAt(sx, sy), this));
+            springs.add(spring);
         }
     }
 
@@ -206,7 +241,16 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         // services() isn't available until ObjectManager injects them.
         if (!childrenSpawned) {
             childrenSpawned = true;
+            // Ensure we're the current machine (constructor ran before any other
+            // machine may have loaded).
+            currentInstance = this;
             spawnChildren();
+        }
+
+        // Tick trigger cooldown regardless of state (ROM: container animation
+        // owns the re-trigger gate).
+        if (triggerCooldownFrames > 0) {
+            triggerCooldownFrames--;
         }
 
         switch (state) {
@@ -223,6 +267,13 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
      */
     private void updateIdle(PlayableEntity playerEntity) {
         if (playerEntity == null) {
+            return;
+        }
+
+        // ROM: bit 1 on machine gates re-trigger. Container animation clears
+        // bits 1+3 at loc_60EA2 when byte_6145B sequence completes. Until then,
+        // the machine is locked out of re-spinning.
+        if (triggerCooldownFrames > 0) {
             return;
         }
 
@@ -300,34 +351,68 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
     // ===== Gumball ejection =====
 
     /**
-     * Ejects 1-3 random gumball items from the dispenser position.
-     * Each gumball gets a random upward Y velocity and slight X offset for spread.
+     * ROM byte_612E0 — random index (0-15) to subtype mapping.
+     * Applied by sub_612A8 to give gumball items a subtype distribution.
+     */
+    private static final int[] SUBTYPE_LOOKUP = {
+            0, 3, 1, 4, 2, 4, 5, 4, 6, 3, 7, 4, 5, 6, 7, 2
+    };
+
+    /**
+     * ROM: loc_60E8C — each machine trigger spawns EXACTLY 1 ball from
+     * ChildObjDat_61444 at the container display position. The ball's
+     * initial y_vel is 0 (set by ObjDat3_613E0 defaults), gravity +0x10/frame
+     * pulls it down through the dispenser.
      */
     private void ejectGumballs() {
-        int count = MIN_GUMBALLS + rng.nextInt(MAX_GUMBALLS - MIN_GUMBALLS + 1);
-        // Balls eject from the ball container (just above the dispenser visually).
-        // ROM loc_60E8C spawns at the container position which is at machine.y+0x24.
-        int dispenserX = spawn.x() + CONTAINER_OFFSET_X;
-        int dispenserY = spawn.y() + MACHINE_Y_OFFSET + CONTAINER_OFFSET_Y;
+        // ROM: balls spawn at container display position (container = machine + $24 Y)
+        int ejectX = spawn.x() + CONTAINER_OFFSET_X;
+        int ejectY = spawn.y() + MACHINE_Y_OFFSET + CONTAINER_OFFSET_Y;
 
-        for (int i = 0; i < count; i++) {
-            // ROM: y_vel = 0 at spawn; gravity (+$10/frame) pulls balls down immediately
-            int yVel = GUMBALL_INITIAL_Y_VEL;
+        // ROM sub_612A8: random 0-15 indexes byte_612E0 to choose subtype (0-7).
+        int randomIndex = rng.nextInt(16);
+        int subtype = SUBTYPE_LOOKUP[randomIndex];
 
-            // Random X offset for spread
-            int xOffset = rng.nextInt(GUMBALL_X_SPREAD * 2 + 1) - GUMBALL_X_SPREAD;
+        ObjectSpawn gumballSpawn = new ObjectSpawn(ejectX, ejectY, 0xEB, subtype, 0, false, 0);
+        spawnChild(() -> new GumballItemObjectInstance(gumballSpawn, GUMBALL_INITIAL_Y_VEL, true));
 
-            int gx = dispenserX + xOffset;
-            int gy = dispenserY;
+        // ROM: container animation runs ~40 frames (byte_6145B) during which
+        // bits 1+3 are set on the machine, blocking re-trigger.
+        triggerCooldownFrames = TRIGGER_COOLDOWN_FRAMES;
 
-            // ROM: subtype for gumball items (1-4 random for visual variety)
-            int subtype = 1 + rng.nextInt(4);
+        LOGGER.fine("GumballMachine: ejected 1 gumball, subtype=" + subtype
+                + ", cooldown=" + triggerCooldownFrames);
+    }
 
-            ObjectSpawn gumballSpawn = new ObjectSpawn(gx, gy, 0xEB, subtype, 0, false, 0);
-            spawnChild(() -> new GumballItemObjectInstance(gumballSpawn, yVel, true));
+    /**
+     * Respawns any destroyed gumball springs at their original positions.
+     * Called when the REP (subtype 1) gumball is collected.
+     * <p>
+     * ROM: loc_61130 respawns the dispenser, which respawns its 4 spring
+     * children via ChildObjDat_61424. We replicate that by iterating over
+     * our tracked springs and re-spawning any that have been destroyed.
+     */
+    public void respawnSprings() {
+        if (springs.size() != springOriginalPositions.size()) {
+            LOGGER.warning("GumballMachine: spring tracking mismatch ("
+                    + springs.size() + " vs " + springOriginalPositions.size() + ")");
+            return;
         }
 
-        LOGGER.fine("GumballMachine: ejected " + count + " gumballs");
+        int respawned = 0;
+        for (int i = 0; i < springs.size(); i++) {
+            GumballSpringChild existing = springs.get(i);
+            if (existing == null || existing.isDestroyed()) {
+                int[] pos = springOriginalPositions.get(i);
+                final int sx = pos[0];
+                final int sy = pos[1];
+                GumballSpringChild replacement = spawnChild(() ->
+                        new GumballSpringChild(buildSpawnAt(sx, sy), this));
+                springs.set(i, replacement);
+                respawned++;
+            }
+        }
+        LOGGER.fine("GumballMachine: respawned " + respawned + " springs");
     }
 
     // ===== Rendering =====
@@ -570,6 +655,117 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
                 return;
             }
             // ROM: ObjDat3_6138C uses make_art_tile(ArtTile_BonusStage, 0, 0) — palette 0
+            renderer.drawFrameIndex(MAPPING_FRAME, spawn.x(), spawn.y(), false, false, 0);
+        }
+    }
+
+    /**
+     * Gumball bonus stage crumbling spring.
+     * <p>
+     * ROM: loc_60DAC (dispenser's spring children). Uses SolidObjectFull2_1P
+     * for solid-from-above collision. When player stands on it:
+     * <ul>
+     *   <li>Sets bit 5 on spring and plays bounce animation via sub_22F98</li>
+     *   <li>Animation plays until prev_anim == 1 (end of bounce)</li>
+     *   <li>Spring deletes self, sets bit 1 on parent (dispenser)</li>
+     *   <li>Parent sees bit 1 → deletes itself (chained cleanup)</li>
+     * </ul>
+     * REP gumball (subtype 1, loc_61130) respawns the dispenser, which
+     * respawns all 4 springs. In our implementation, the machine owns the
+     * spring references and respawns them directly.
+     * <p>
+     * Solid params from ROM sub_22F98: halfWidth=$1B (27), airHalfHeight=8,
+     * groundHalfHeight=$10 (16).
+     */
+    static class GumballSpringChild extends AbstractObjectInstance
+            implements SolidObjectProvider, SolidObjectListener {
+
+        // ROM: Obj_Spring params — halfWidth=$1B, airHalfHeight=8, groundHalfHeight=$10
+        private static final SolidObjectParams SOLID_PARAMS = new SolidObjectParams(27, 8, 16);
+
+        // ROM: red spring uses strength -$1000
+        private static final int BOUNCE_STRENGTH = -0x1000;
+
+        // ROM: short bounce animation before crumbling
+        private static final int CRUMBLE_DELAY_FRAMES = 8;
+
+        // ROM: Map_Spring frame for red vertical spring (frame 0)
+        private static final int MAPPING_FRAME = 0;
+
+        private final GumballMachineObjectInstance parent;
+        private boolean triggered;
+        private int crumbleTimer;
+
+        GumballSpringChild(ObjectSpawn spawn, GumballMachineObjectInstance parent) {
+            super(spawn, "GumballSpring");
+            this.parent = parent;
+        }
+
+        @Override
+        public boolean isPersistent() {
+            return true;
+        }
+
+        @Override
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            if (triggered) {
+                // ROM: continue animating, then delete when prev_anim == 1
+                crumbleTimer--;
+                if (crumbleTimer <= 0) {
+                    setDestroyed(true);
+                }
+            }
+        }
+
+        @Override
+        public SolidObjectParams getSolidParams() {
+            return SOLID_PARAMS;
+        }
+
+        @Override
+        public boolean isTopSolidOnly() {
+            // ROM: SolidObjectFull2_1P — solid from above only
+            return true;
+        }
+
+        @Override
+        public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
+            if (triggered || !contact.standing()) {
+                return;
+            }
+            if (!(playerEntity instanceof AbstractPlayableSprite player)) {
+                return;
+            }
+
+            // ROM: sub_22F98 — bounce player upward, set airborne, play spring anim
+            player.setYSpeed((short) BOUNCE_STRENGTH);
+            player.setAir(true);
+            player.setGSpeed((short) 0);
+
+            // ROM: play sfx_Spring (0xB1)
+            try {
+                services().playSfx(Sonic3kSfx.SPRING.id);
+            } catch (Exception e) {
+                // Ignore
+            }
+
+            triggered = true;
+            crumbleTimer = CRUMBLE_DELAY_FRAMES;
+            LOGGER.fine("GumballSpring: triggered, will crumble in "
+                    + CRUMBLE_DELAY_FRAMES + " frames");
+        }
+
+        @Override
+        public int getPriorityBucket() {
+            return RenderPriority.clamp(PRIORITY_BUCKET);
+        }
+
+        @Override
+        public void appendRenderCommands(List<GLCommand> commands) {
+            PatternSpriteRenderer renderer = getRenderer(Sonic3kObjectArtKeys.GUMBALL_BONUS);
+            if (renderer == null) {
+                return;
+            }
             renderer.drawFrameIndex(MAPPING_FRAME, spawn.x(), spawn.y(), false, false, 0);
         }
     }
