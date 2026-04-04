@@ -2,8 +2,10 @@ package com.openggf.tests.trace;
 
 import com.openggf.data.Rom;
 import com.openggf.game.GameServices;
+import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.game.sonic1.credits.DemoInputPlayer;
 import com.openggf.game.sonic1.credits.Sonic1CreditsDemoData;
+import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectManager;
@@ -96,6 +98,11 @@ public abstract class AbstractCreditsDemoTraceReplayTest {
                 .startPositionIsCentre()
                 .build();
 
+            // 3a. Demo-specific state: LZ (credit 3) needs lamppost/water setup
+            if (idx == 3) {
+                setupLzDemoState(fixture);
+            }
+
             // 4. Determine frame limit: min of trace frames and demo timer
             int frameLimit = Math.min(trace.frameCount(),
                 Sonic1CreditsDemoData.DEMO_TIMER[idx]);
@@ -153,6 +160,33 @@ public abstract class AbstractCreditsDemoTraceReplayTest {
             }
         } finally {
             sharedLevel.dispose();
+        }
+    }
+
+    /**
+     * Sets up LZ-specific lamppost/water state for credit demo 3 (LZ Act 3).
+     * The ROM restores lamppost state before the demo starts: ring count,
+     * camera position, bottom boundary, and water height/routine.
+     */
+    private void setupLzDemoState(HeadlessTestFixture fixture) {
+        AbstractPlayableSprite player = fixture.sprite();
+        player.setRingCount(Sonic1CreditsDemoData.LZ_LAMP_RINGS);
+
+        fixture.camera().setX((short) Sonic1CreditsDemoData.LZ_LAMP_CAMERA_X);
+        fixture.camera().setY((short) Sonic1CreditsDemoData.LZ_LAMP_CAMERA_Y);
+        fixture.camera().setMaxY((short) Sonic1CreditsDemoData.LZ_LAMP_BOTTOM_BND);
+
+        WaterSystem waterSystem = GameServices.water();
+        int featureZone = GameServices.level().getFeatureZoneId();
+        int featureAct = GameServices.level().getFeatureActId();
+        waterSystem.setWaterLevelDirect(featureZone, featureAct,
+            Sonic1CreditsDemoData.LZ_LAMP_WATER_HEIGHT);
+        waterSystem.setWaterLevelTarget(featureZone, featureAct,
+            Sonic1CreditsDemoData.LZ_LAMP_WATER_HEIGHT);
+
+        ZoneFeatureProvider featureProvider = GameServices.level().getZoneFeatureProvider();
+        if (featureProvider != null) {
+            featureProvider.setWaterRoutine(Sonic1CreditsDemoData.LZ_LAMP_WATER_ROUTINE);
         }
     }
 
