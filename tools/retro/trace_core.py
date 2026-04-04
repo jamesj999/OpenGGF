@@ -239,6 +239,8 @@ class BizhawkBK2:
     def __init__(self, path):
         self.path = path
         self._frames = []
+        self._p1_group_idx = -1
+        self._p1_button_names = []
         self._parse()
 
     def _parse(self):
@@ -246,7 +248,6 @@ class BizhawkBK2:
             raw = zf.read('Input Log.txt').decode('utf-8')
 
         lines = raw.splitlines()
-        button_names = []
         reading_input = False
 
         for line in lines:
@@ -260,54 +261,70 @@ class BizhawkBK2:
                 continue
 
             if stripped.startswith('LogKey:'):
-                button_names = self._parse_logkey(stripped)
+                self._parse_logkey(stripped)
                 continue
 
             if stripped.startswith('|') and stripped.endswith('|'):
-                action = self._parse_input_line(stripped, button_names)
+                action = self._parse_input_line(stripped)
                 self._frames.append(action)
 
     def _parse_logkey(self, line):
-        """Extract button names from LogKey line.
+        """Parse BizHawk LogKey to identify the P1 button group.
 
-        BizHawk Genesis 3-button LogKey format:
-          LogKey:#Genesis 3-Button Controller P1 Up|Down|Left|Right|B|C|A|Start|
-        The first segment includes the #controller-type prefix with P1 and
-        the first button name inline.  Subsequent segments are bare button
-        names.  Console buttons (#Reset, #Power) are prefixed with '#'.
+        BizHawk BK2 format for Genesis:
+          LogKey:#Power|Reset|#P1 Up|P1 Down|...|P1 Start|#P2 Up|...|
+        Input lines: |..|........|........|
+                      ^sys ^P1      ^P2
+
+        Groups are delimited by | in both LogKey and input lines.
+        A # prefix in the LogKey marks the START of a new group.
         """
         key_part = line.split('LogKey:', 1)[1]
         segments = [s.strip() for s in key_part.split('|')]
-        names = []
+
+        # Each #-prefixed segment starts a new group
+        groups = []
+        current_group = []
         for seg in segments:
             if not seg:
                 continue
             if seg.startswith('#'):
-                # Controller header block — extract trailing button name(s)
-                # after the last 'P1 ' occurrence.
-                # e.g. '#Genesis 3-Button Controller P1 Up' → 'Up'
-                if 'P1 ' in seg:
-                    trailing = seg.rsplit('P1 ', 1)[1].strip()
-                    for btn in trailing.split():
-                        if not btn.startswith('#'):
-                            names.append(btn.lower())
-                # Skip console buttons like '#Reset', '#Power'
-                continue
-            if seg.startswith('P1 '):
-                names.append(seg[3:].strip().lower())
-            elif seg.startswith('P2 '):
-                continue  # Skip P2 for single-player
+                if current_group:
+                    groups.append(current_group)
+                current_group = [seg]
             else:
-                names.append(seg.strip().lower())
-        return names
+                current_group.append(seg)
+        if current_group:
+            groups.append(current_group)
 
-    def _parse_input_line(self, line, button_names):
-        """Convert a BK2 input line to a stable-retro action array."""
-        content = line.strip('|')
+        # Find the P1 group
+        for gi, group in enumerate(groups):
+            if any('P1 ' in entry for entry in group):
+                self._p1_group_idx = gi
+                names = []
+                for entry in group:
+                    clean = entry.lstrip('#').strip()
+                    if clean.startswith('P1 '):
+                        names.append(clean[3:].strip().lower())
+                    else:
+                        names.append(clean.lower())
+                self._p1_button_names = names
+                break
+
+    def _parse_input_line(self, line):
+        """Convert a BK2 input line to a stable-retro action array.
+
+        Input line: |group0|group1|group2| — split by | to get groups.
+        """
+        # Split by | to get groups (leading/trailing | produce empty strings)
+        groups = [p for p in line.split('|') if p]
         action = np.zeros(len(self.RETRO_BUTTONS), dtype=np.int8)
-        for i, ch in enumerate(content):
-            if ch != '.' and i < len(button_names):
-                name = button_names[i]
+        if self._p1_group_idx < 0 or self._p1_group_idx >= len(groups):
+            return action
+        p1_chars = groups[self._p1_group_idx]
+        for i, ch in enumerate(p1_chars):
+            if ch != '.' and i < len(self._p1_button_names):
+                name = self._p1_button_names[i]
                 retro_idx = self._BK2_TO_RETRO.get(name, -1)
                 if retro_idx >= 0:
                     action[retro_idx] = 1
