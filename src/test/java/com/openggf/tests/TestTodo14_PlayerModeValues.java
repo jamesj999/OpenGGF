@@ -29,11 +29,4 @@ public class TestTodo14_PlayerModeValues {
                 4, PlayerCharacter.values().length);
     }
 
-    @Test
-    public void testPlayerCharacterFromOrdinalRoundTrips() {
-        for (PlayerCharacter pc : PlayerCharacter.values()) {
-            assertEquals("fromOrdinal round-trip",
-                    pc, PlayerCharacter.values()[pc.ordinal()]);
-        }
-    }
 }
