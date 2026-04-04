@@ -54,7 +54,8 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
                 break;
 
             case 0x01: // HCZ — AnPal_HCZ1 water surface shimmer + cave lighting
-                loadHczCycles(reader, list);
+                // AnPal_HCZ2 is rts (no palette cycling for Act 2)
+                loadHczCycles(reader, list, actIndex);
                 break;
 
             case 0x03: // CNZ — AnPal_CNZ bumper glow, background, tertiary
@@ -127,7 +128,11 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
         }
     }
 
-    private void loadHczCycles(RomByteReader reader, List<PaletteCycle> list) {
+    private void loadHczCycles(RomByteReader reader, List<PaletteCycle> list, int actIndex) {
+        // AnPal_HCZ2 (sonic3k.asm line 3315) is rts — Act 2 has no palette cycling.
+        if (actIndex != 0) {
+            return;
+        }
         byte[] waterData = safeSlice(reader, Sonic3kConstants.ANPAL_HCZ1_ADDR, Sonic3kConstants.ANPAL_HCZ1_SIZE);
         if (waterData.length >= Sonic3kConstants.ANPAL_HCZ1_SIZE) {
             list.add(new HczCycle(waterData));
