@@ -1,6 +1,7 @@
 package com.openggf.tests;
 
 import org.junit.Test;
+import com.openggf.game.ZoneRegistry;
 import com.openggf.game.sonic1.Sonic1ZoneRegistry;
 import com.openggf.game.sonic2.Sonic2ZoneRegistry;
 
@@ -143,6 +144,41 @@ public class TestTodo31_EndGameLoopPrevention {
         // Out-of-bounds zone name returns "UNKNOWN" (not crash)
         assertEquals("Out-of-bounds zone returns UNKNOWN",
                 "UNKNOWN", registry.getZoneName(zoneAfterFinal));
+    }
+
+    /**
+     * Verifies that all ZoneRegistry boundary methods return safe defaults
+     * for out-of-bounds zone indices (at, beyond, and negative). This is the
+     * behavior that advanceToNextLevel() would encounter if it did not wrap.
+     */
+    @Test
+    public void testZoneIndexBeyondFinalIsHandledGracefully() {
+        assertBoundaryBehavior("Sonic 2", Sonic2ZoneRegistry.getInstance());
+        assertBoundaryBehavior("Sonic 1", Sonic1ZoneRegistry.getInstance());
+    }
+
+    private void assertBoundaryBehavior(String gameName, ZoneRegistry registry) {
+        int count = registry.getZoneCount();
+        assertTrue(gameName + " must have at least one zone", count > 0);
+
+        // Indices at and beyond the final zone
+        int[] outOfBounds = { count, count + 1, count + 100 };
+        for (int idx : outOfBounds) {
+            assertEquals(gameName + " getZoneName(" + idx + ") should return UNKNOWN",
+                    "UNKNOWN", registry.getZoneName(idx));
+            assertEquals(gameName + " getActCount(" + idx + ") should return 0",
+                    0, registry.getActCount(idx));
+            assertTrue(gameName + " getLevelDataForZone(" + idx + ") should return empty list",
+                    registry.getLevelDataForZone(idx).isEmpty());
+        }
+
+        // Negative index
+        assertEquals(gameName + " getZoneName(-1) should return UNKNOWN",
+                "UNKNOWN", registry.getZoneName(-1));
+        assertEquals(gameName + " getActCount(-1) should return 0",
+                0, registry.getActCount(-1));
+        assertTrue(gameName + " getLevelDataForZone(-1) should return empty list",
+                registry.getLevelDataForZone(-1).isEmpty());
     }
 
 }
