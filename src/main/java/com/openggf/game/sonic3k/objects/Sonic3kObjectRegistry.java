@@ -124,6 +124,8 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                 (spawn, registry) -> new Sonic3kSSEntryRingObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.GUMBALL_TRIANGLE_BUMPER,
                 (spawn, registry) -> new GumballTriangleBumperObjectInstance(spawn));
+        factories.put(Sonic3kObjectIds.GUMBALL_ITEM,
+                (spawn, registry) -> new GumballItemObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.BLOOMINATOR,
                 (spawn, registry) -> {
                     S3kZoneSet zoneSet = getCurrentZoneSet();

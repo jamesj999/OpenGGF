@@ -43,6 +43,7 @@ public final class Sonic3kObjectIds {
     public static final int AIZ_MINIBOSS_CUTSCENE = 0x90;
     public static final int AIZ_MINIBOSS = 0x91;
     public static final int AIZ_END_BOSS = 0x92;
+    public static final int GUMBALL_ITEM = 0xEB;
 
     private Sonic3kObjectIds() {
     }
