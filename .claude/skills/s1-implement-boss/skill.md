@@ -1,3 +1,8 @@
+---
+name: s1-implement-boss
+description: Use when implementing a Sonic 1 boss — ports boss object logic from s1disasm, arena setup, hit detection, defeat sequence.
+---
+
 # Implement Sonic 1 Boss
 
 Implement a Sonic 1 zone boss with complete ROM accuracy. This skill guides complete implementation including arena setup, hit handling, defeat sequences, and cross-validation against the Sonic 1 disassembly.

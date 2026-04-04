@@ -1,3 +1,8 @@
+---
+name: s3k-implement-boss
+description: Use when implementing a Sonic 3&K boss — ports boss object logic from skdisasm, arena setup, multi-phase patterns, character variants.
+---
+
 # Implement Sonic 3&K Boss
 
 Implement a Sonic 3 & Knuckles zone boss with complete ROM accuracy. This skill guides complete implementation including arena setup, hit handling, defeat sequences, and cross-validation against the Sonic 3&K disassembly.

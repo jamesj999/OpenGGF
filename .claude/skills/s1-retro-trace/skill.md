@@ -1,3 +1,8 @@
+---
+name: s1-retro-trace
+description: Use when recording Sonic 1 physics traces using stable-retro for trace replay tests.
+---
+
 # S1 Retro Trace
 
 Record a Sonic 1 physics trace using stable-retro (cross-platform, headless Genesis emulation via Python). Produces identical output to the BizHawk Lua trace recorder: physics.csv, aux_state.jsonl, and metadata.json in the same format consumed by the Java trace replay tests.

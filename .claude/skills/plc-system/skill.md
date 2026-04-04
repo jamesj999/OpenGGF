@@ -1,3 +1,8 @@
+---
+name: plc-system
+description: Use when working with Pattern Load Cue systems across any game — runtime art loading, PLC table parsing, art decompression queuing.
+---
+
 # Cross-Game Pattern Load Cue (PLC) System
 
 Reference for the shared PLC binary format used across S1, S2, and S3K, and the `PlcParser` utility.

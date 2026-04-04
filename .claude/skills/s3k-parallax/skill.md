@@ -1,3 +1,8 @@
+---
+name: s3k-parallax
+description: Use when implementing S3K zone parallax scroll handlers — deform routines, HScroll tables, scatter-fill, water splits, dynamic BG changes.
+---
+
 # Implement Sonic 3&K Parallax Background
 
 Implement a zone-specific parallax scroll handler for Sonic 3 & Knuckles with ROM accuracy. This skill covers finding deform data in the disassembly, porting the 68000 scroll math to Java, handling dynamic background changes during gameplay, and integrating with the rendering pipeline.

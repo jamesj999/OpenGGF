@@ -1,3 +1,8 @@
+---
+name: s1-trace-replay
+description: Use when running or creating Sonic 1 trace replay tests that compare engine physics against recorded reference data.
+---
+
 # S1 Trace Replay
 
 Record a Sonic 1 BizHawk trace, copy it to the test resources, run the trace replay tests, and interpret the divergence results.

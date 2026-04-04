@@ -1,3 +1,8 @@
+---
+name: s2-implement-boss
+description: Use when implementing a Sonic 2 boss — ports boss object logic from s2disasm, arena setup, hit detection, defeat sequence.
+---
+
 # Implement Sonic 2 Boss
 
 Implement a Sonic 2 zone boss with complete ROM accuracy. This skill guides complete implementation including Sonic2LevelEventManager integration, multi-component architecture, hit handling, defeat sequences, and cross-validation against the disassembly.
