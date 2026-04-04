@@ -218,17 +218,17 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance
     private boolean shouldHitButton(AbstractPlayableSprite player) {
         // ROM: loc_86770 — Check_PlayerInRange (word_867C2) bounds relative to
         // the button child at child_dy=+$24 below the capsule centre.
-        // Additionally, the ROM requires the player to be ROLLING (anim==2)
-        // or be Tails (character_id==1). Sonic in normal jump doesn't trigger.
+        // ROM checks: in range + y_vel < 0 + (anim==2 OR character_id==1).
+        // In S3K a normal jump always sets anim=2 (ball/rolling), so the
+        // anim check effectively just confirms the player is jumping.
         int buttonY = currentY + BUTTON_Y_OFFSET;
         int dx = player.getCentreX() - currentX;
         int dy = player.getCentreY() - buttonY;
-        if (player.getYSpeed() >= 0) return false;
-        if (dx < BUTTON_X_LEFT || dx >= BUTTON_X_RIGHT) return false;
-        if (dy < BUTTON_Y_TOP || dy >= BUTTON_Y_BOTTOM) return false;
-        // ROM: cmpi.b #2,anim(a1) / beq trigger; cmpi.b #1,character_id / beq trigger
-        // Only rolling (spin jump) or Tails can activate the button.
-        return player.getRolling() || player.getRollingJump();
+        return player.getYSpeed() < 0
+                && dx >= BUTTON_X_LEFT
+                && dx < BUTTON_X_RIGHT
+                && dy >= BUTTON_Y_TOP
+                && dy < BUTTON_Y_BOTTOM;
     }
 
     // ===== Capsule opening =====
