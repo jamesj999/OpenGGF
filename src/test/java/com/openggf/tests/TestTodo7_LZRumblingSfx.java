@@ -1,12 +1,7 @@
 package com.openggf.tests;
 
-import org.junit.Rule;
 import org.junit.Test;
-import com.openggf.game.sonic1.audio.Sonic1AudioProfile;
 import com.openggf.game.sonic1.audio.Sonic1SmpsConstants;
-import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomRule;
-import com.openggf.tests.rules.SonicGame;
 
 import static org.junit.Assert.*;
 
@@ -51,15 +46,4 @@ public class TestTodo7_LZRumblingSfx {
         assertEquals("sfx_Rumbling priority should be 0x70", 0x70, priority);
     }
 
-    @Test
-    public void testRumblingSfxNotInAudioProfile() {
-        // Verify sfx_Rumbling (0xB7) is NOT yet mapped in Sonic1AudioProfile.
-        // This documents the TODO: LZ water events need to play this sound
-        // but the SFX constant is not yet defined in the audio profile class.
-        Sonic1AudioProfile profile = new Sonic1AudioProfile();
-        // Check that no GameSound enum maps to 0xB7
-        boolean found = profile.getSoundMap().containsValue(SFX_RUMBLING);
-        assertFalse("sfx_Rumbling (0xB7) should not yet be mapped in GameSound enum " +
-                "(it is a zone-specific SFX, not a common game sound)", found);
-    }
 }

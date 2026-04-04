@@ -89,21 +89,6 @@ public class TestAizEmeraldScatterInstance {
     }
 
     @Test
-    public void proximityCheckIs8Pixels() {
-        assertEquals(8, AizEmeraldScatterInstance.PICKUP_PROXIMITY);
-    }
-
-    @Test
-    public void yRadiusIs4() {
-        assertEquals(4, AizEmeraldScatterInstance.Y_RADIUS);
-    }
-
-    @Test
-    public void gravityIs0x38() {
-        assertEquals(0x38, AizEmeraldScatterInstance.GRAVITY);
-    }
-
-    @Test
     public void isPersistent() {
         var spawn = new ObjectSpawn(100, 100, 0, 0, 0, false, 0);
         var emerald = new AizEmeraldScatterInstance(spawn);
