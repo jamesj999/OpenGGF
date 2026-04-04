@@ -319,16 +319,11 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance
         }
         int bobY = currentY + (int) Math.round(Math.sin((bobAngle * Math.PI * 2.0) / 256.0) * 3.0);
 
-        // Draw main capsule body (upside-down: vFlip=true).
-        // ROM: loc_86592 sets bset #1,render_flags(a0) for floating capsule.
+        // ROM: loc_86592 sets bset #1,render_flags(a0) for the floating capsule.
+        // The mapping frames (0 = closed, 1 = opened) contain the full capsule
+        // visual including the button area at the bottom. The button collision is
+        // handled by a separate child in the ROM, but the visuals are part of
+        // the main body frame. Draw vFlip=true to hang upside-down.
         renderer.drawFrameIndex(mappingFrame, currentX, bobY, false, true);
-
-        // Draw button below capsule body (ROM: ChildObjDat_86B64, child_dy=+$24).
-        // The button is a flat platform the player jumps up into from below.
-        // It renders right-side-up (vFlip=false) even though the capsule body
-        // is flipped — the button faces downward toward the player.
-        int buttonFrame = opened ? 0xC : 0xB;
-        int buttonY = bobY + BUTTON_Y_OFFSET;
-        renderer.drawFrameIndex(buttonFrame, currentX, buttonY, false, false);
     }
 }
