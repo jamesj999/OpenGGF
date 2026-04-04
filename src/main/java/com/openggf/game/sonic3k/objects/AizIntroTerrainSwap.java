@@ -85,7 +85,7 @@ public final class AizIntroTerrainSwap {
         LOG.info("AIZ intro transition tilemaps pre-computed successfully");
     }
 
-    static synchronized boolean applyMainLevelOverlays() {
+    public static synchronized boolean applyMainLevelOverlays() {
         LevelManager levelManager = LevelManager.getInstance();
         Level level = levelManager.getCurrentLevel();
         if (!(level instanceof Sonic3kLevel sonic3kLevel)) {

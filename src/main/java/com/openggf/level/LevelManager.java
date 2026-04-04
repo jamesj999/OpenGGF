@@ -3011,7 +3011,15 @@ public class LevelManager {
         }
 
         int spawnY = -1;
-        if (ctx.hasCheckpoint()) {
+        // ROM: Level_FromSavedGame sets Saved2_* position before level init.
+        if (transitions.hasBigRingReturn()) {
+            BigRingReturnState br = transitions.getBigRingReturn();
+            player.setCentreX((short) br.playerX());
+            player.setCentreY((short) br.playerY());
+            spawnY = br.playerY();
+            LOGGER.info("Set player position from big ring return: X=" + br.playerX() +
+                    ", Y=" + br.playerY() + " (center coordinates)");
+        } else if (ctx.hasCheckpoint()) {
             player.setCentreX((short) ctx.getCheckpointX());
             player.setCentreY((short) ctx.getCheckpointY());
             spawnY = ctx.getCheckpointY();
@@ -3564,25 +3572,17 @@ public class LevelManager {
     /** @see LevelTransitionCoordinator#consumeSpecialStageReturnLevelReloadRequest() */
     public boolean consumeSpecialStageReturnLevelReloadRequest() { return transitions.consumeSpecialStageReturnLevelReloadRequest(); }
 
-    /** @see LevelTransitionCoordinator#saveBigRingReturnPosition(int, int, int, int, int) */
-    public void saveBigRingReturnPosition(int playerX, int playerY, int cameraX, int cameraY, int rings) { transitions.saveBigRingReturnPosition(playerX, playerY, cameraX, cameraY, rings); }
+    /** @see LevelTransitionCoordinator#saveBigRingReturn(BigRingReturnState) */
+    public void saveBigRingReturn(BigRingReturnState state) { transitions.saveBigRingReturn(state); }
 
-    /** @see LevelTransitionCoordinator#hasBigRingReturnPosition() */
-    public boolean hasBigRingReturnPosition() { return transitions.hasBigRingReturnPosition(); }
+    /** @see LevelTransitionCoordinator#hasBigRingReturn() */
+    public boolean hasBigRingReturn() { return transitions.hasBigRingReturn(); }
 
-    /** @see LevelTransitionCoordinator#getBigRingReturnX() */
-    public int getBigRingReturnX() { return transitions.getBigRingReturnX(); }
-    /** @see LevelTransitionCoordinator#getBigRingReturnY() */
-    public int getBigRingReturnY() { return transitions.getBigRingReturnY(); }
-    /** @see LevelTransitionCoordinator#getBigRingReturnCameraX() */
-    public int getBigRingReturnCameraX() { return transitions.getBigRingReturnCameraX(); }
-    /** @see LevelTransitionCoordinator#getBigRingReturnCameraY() */
-    public int getBigRingReturnCameraY() { return transitions.getBigRingReturnCameraY(); }
-    /** @see LevelTransitionCoordinator#getBigRingReturnRings() */
-    public int getBigRingReturnRings() { return transitions.getBigRingReturnRings(); }
+    /** @see LevelTransitionCoordinator#getBigRingReturn() */
+    public BigRingReturnState getBigRingReturn() { return transitions.getBigRingReturn(); }
 
-    /** @see LevelTransitionCoordinator#clearBigRingReturnPosition() */
-    public void clearBigRingReturnPosition() { transitions.clearBigRingReturnPosition(); }
+    /** @see LevelTransitionCoordinator#clearBigRingReturn() */
+    public void clearBigRingReturn() { transitions.clearBigRingReturn(); }
 
     /** @see LevelTransitionCoordinator#requestTitleCard(int, int) */
     public void requestTitleCard(int zone, int act) { transitions.requestTitleCard(zone, act); }

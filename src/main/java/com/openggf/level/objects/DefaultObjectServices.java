@@ -17,6 +17,7 @@ import com.openggf.game.TitleCardProvider;
 import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.GraphicsManager;
+import com.openggf.level.BigRingReturnState;
 import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
 import com.openggf.level.ParallaxManager;
@@ -304,8 +305,8 @@ public class DefaultObjectServices implements ObjectServices {
     }
 
     @Override
-    public void saveBigRingReturnPosition(int playerX, int playerY, int cameraX, int cameraY, int rings) {
-        lm().saveBigRingReturnPosition(playerX, playerY, cameraX, cameraY, rings);
+    public void saveBigRingReturn(BigRingReturnState state) {
+        lm().saveBigRingReturn(state);
     }
 
     // ── Game-specific providers ─────────────────────────────────────────

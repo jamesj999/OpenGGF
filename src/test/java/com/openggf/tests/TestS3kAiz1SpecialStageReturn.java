@@ -1,0 +1,370 @@
+package com.openggf.tests;
+
+import com.openggf.camera.Camera;
+import com.openggf.configuration.SonicConfiguration;
+import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.game.GameServices;
+import com.openggf.level.BigRingReturnState;
+import com.openggf.level.ChunkDesc;
+import com.openggf.level.LevelManager;
+import com.openggf.physics.GroundSensor;
+import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.sprites.playable.Sonic;
+import com.openggf.tests.rules.RequiresRom;
+import com.openggf.tests.rules.RequiresRomRule;
+import com.openggf.tests.rules.SonicGame;
+
+import org.junit.AfterClass;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.ClassRule;
+import org.junit.Test;
+
+import static org.junit.Assert.*;
+
+/**
+ * Diagnostic test: reproduce the "in the floor" bug when returning from a
+ * special stage to AIZ1 via the first big ring.
+ *
+ * Simulates the exact flow:
+ * 1. Load AIZ1 normally, walk Sonic past X=$1400 (terrain swap point)
+ * 2. Record position (simulating big ring save)
+ * 3. Reload level via loadCurrentLevel (simulating special stage return)
+ * 4. Restore position
+ * 5. Step frames — Sonic should NOT die or fall through the floor
+ */
+@RequiresRom(SonicGame.SONIC_3K)
+public class TestS3kAiz1SpecialStageReturn {
+
+    @ClassRule
+    public static RequiresRomRule romRule = new RequiresRomRule();
+
+    private static final int ZONE_AIZ = 0;
+    private static final int ACT_1 = 0;
+
+    private static Object oldSkipIntros;
+    private static SharedLevel sharedLevel;
+
+    @BeforeClass
+    public static void loadLevel() throws Exception {
+        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        oldSkipIntros = config.getConfigValue(SonicConfiguration.S3K_SKIP_INTROS);
+        config.setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, true);
+        sharedLevel = SharedLevel.load(SonicGame.SONIC_3K, ZONE_AIZ, ACT_1);
+    }
+
+    @AfterClass
+    public static void cleanup() {
+        SonicConfigurationService.getInstance().setConfigValue(
+                SonicConfiguration.S3K_SKIP_INTROS,
+                oldSkipIntros != null ? oldSkipIntros : false);
+        if (sharedLevel != null) sharedLevel.dispose();
+    }
+
+    private HeadlessTestFixture fixture;
+    private Sonic sprite;
+
+    @Before
+    public void setUp() {
+        fixture = HeadlessTestFixture.builder()
+                .withSharedLevel(sharedLevel)
+                .build();
+        sprite = (Sonic) fixture.sprite();
+    }
+
+    /**
+     * Simulate the special stage return flow at a position past the terrain
+     * swap point (X=$1400). Teleport directly to avoid walk-time issues.
+     *
+     * Tests with skip_intros=true config (terrain swap already applied during
+     * initial load).
+     */
+    @Test
+    public void specialStageReturn_skipIntrosConfig_sonicDoesNotDie() {
+        specialStageReturnFlowTest("skipIntrosConfig", 0x1600, 0x0300);
+    }
+
+    /**
+     * The REAL scenario — config has skip_intros=false (intro was enabled),
+     * then special stage return causes a reload where our fix must override
+     * to SKIP_INTRO. This matches the user's actual game flow.
+     */
+    @Test
+    public void specialStageReturn_introEnabledConfig_sonicDoesNotDie() throws Exception {
+        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        config.setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, false);
+        try {
+            specialStageReturnFlowTest("introEnabledConfig", 0x1600, 0x0300);
+        } finally {
+            config.setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, true);
+        }
+    }
+
+    /**
+     * Diagnostic: scan terrain at and around the user-reported big ring
+     * position to understand what collision data exists there.
+     */
+    @Test
+    public void diagnostic_terrainAtBigRingPosition() {
+        int bigRingX = 7107;  // 0x1BC3
+        int bigRingY = 1194;  // 0x4AA
+
+        System.out.println("=== TERRAIN SCAN at big ring position ===");
+        System.out.println("Big ring: X=0x" + Integer.toHexString(bigRingX)
+                + " Y=0x" + Integer.toHexString(bigRingY));
+
+        // Scan a column at X=bigRingX, from Y=0x300 to Y=0x600
+        for (int y = 0x300; y <= 0x600; y += 16) {
+            ChunkDesc desc = GameServices.level().getChunkDescAt((byte) 0, bigRingX, y);
+            String info = "  Y=0x" + Integer.toHexString(y) + ": ";
+            if (desc == null) {
+                info += "null";
+            } else {
+                boolean primarySolid = desc.hasPrimarySolidity();
+                int chunkIdx = desc.getChunkIndex();
+                info += "chunk=0x" + Integer.toHexString(chunkIdx)
+                        + " primarySolid=" + primarySolid;
+                if (primarySolid && chunkIdx >= 0
+                        && chunkIdx < GameServices.level().getCurrentLevel().getChunkCount()) {
+                    var chunk = GameServices.level().getCurrentLevel().getChunk(chunkIdx);
+                    info += " solidTileIdx=" + chunk.getSolidTileIndex();
+                }
+            }
+            System.out.println(info);
+        }
+
+        // Also scan nearby X positions
+        System.out.println("\n=== HORIZONTAL SCAN at Y=0x4AA ===");
+        for (int x = bigRingX - 128; x <= bigRingX + 128; x += 32) {
+            ChunkDesc desc = GameServices.level().getChunkDescAt((byte) 0, x, bigRingY);
+            String info = "  X=0x" + Integer.toHexString(x) + ": ";
+            if (desc == null) {
+                info += "null";
+            } else {
+                info += "chunk=0x" + Integer.toHexString(desc.getChunkIndex())
+                        + " primarySolid=" + desc.hasPrimarySolidity();
+            }
+            System.out.println(info);
+        }
+
+        // Check secondary (path B) collision too
+        System.out.println("\n=== SECONDARY PATH SCAN at X=0x1BC3 ===");
+        for (int y = 0x400; y <= 0x520; y += 16) {
+            ChunkDesc desc = GameServices.level().getChunkDescAt((byte) 1, bigRingX, y);
+            String info = "  Y=0x" + Integer.toHexString(y) + ": ";
+            if (desc == null) {
+                info += "null";
+            } else {
+                info += "chunk=0x" + Integer.toHexString(desc.getChunkIndex())
+                        + " secondarySolid=" + desc.hasSecondarySolidity();
+            }
+            System.out.println(info);
+        }
+    }
+
+    /**
+     * User-reported position of the first big ring in AIZ1: X~7107 Y~1194.
+     * This is at X=0x1BC3, Y=0x4AA — well past the terrain swap point.
+     */
+    /**
+     * The exact user-reported scenario: big ring at (7107, 1194) on the
+     * secondary collision path. Tests ONLY the reload flow — the initial
+     * SharedLevel won't have objects spawned at this position since the
+     * camera was elsewhere, but loadCurrentLevel() respawns objects near
+     * the big ring return position.
+     */
+    @Test
+    public void specialStageReturn_atActualBigRingPosition_sonicDoesNotDie() throws Exception {
+        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        config.setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, false);
+        try {
+            // Save big ring position directly (simulating Sonic touching the ring)
+            LevelManager lm = GameServices.level();
+            int bigRingX = 7107, bigRingY = 1194;
+            // Camera would be roughly centred on player
+            int camX = bigRingX - 160, camY = bigRingY - 96;
+            // Secondary path: player was past plane switchers
+            byte topBit = 0x0E, lrbBit = 0x0F;
+            lm.saveBigRingReturn(new BigRingReturnState(bigRingX, bigRingY, camX, camY, 10,
+                    topBit, lrbBit, 1194 + 200));
+
+            System.out.println("=== bigRingPos: saved position X=0x"
+                    + Integer.toHexString(bigRingX) + " Y=0x"
+                    + Integer.toHexString(bigRingY)
+                    + " solidBits=0x0E/0x0F ===");
+
+            // Reload level (simulating special stage return)
+            lm.loadCurrentLevel();
+            GroundSensor.setLevelManager(lm);
+
+            System.out.println("BigRingReturn active: " + lm.hasBigRingReturn());
+            System.out.println("Sonic after reload: centreX=0x"
+                    + Integer.toHexString(sprite.getCentreX())
+                    + " centreY=0x" + Integer.toHexString(sprite.getCentreY())
+                    + " topSolidBit=0x" + Integer.toHexString(sprite.getTopSolidBit())
+                    + " lrbSolidBit=0x" + Integer.toHexString(sprite.getLrbSolidBit()));
+
+            // Simulate enterTitleCardFromResults: restore position + solid bits
+            assertTrue("BigRingReturn should be active after reload",
+                    lm.hasBigRingReturn());
+            lm.getBigRingReturn().restoreToPlayer(sprite, fixture.camera(), lm.getLevelGamestate());
+            lm.clearBigRingReturn();
+
+            sprite.setXSpeed((short) 0);
+            sprite.setYSpeed((short) 0);
+            sprite.setGSpeed((short) 0);
+            sprite.setAir(false);
+            sprite.setDead(false);
+            sprite.setHurt(false);
+
+            System.out.println("After restore: centreX=0x"
+                    + Integer.toHexString(sprite.getCentreX())
+                    + " centreY=0x" + Integer.toHexString(sprite.getCentreY())
+                    + " topSolidBit=0x" + Integer.toHexString(sprite.getTopSolidBit())
+                    + " lrbSolidBit=0x" + Integer.toHexString(sprite.getLrbSolidBit()));
+
+            // Ground snap with correct solid bits
+            GameServices.collision().resolveGroundAttachment(sprite, 14, () -> false);
+            System.out.println("After snap: centreY=0x"
+                    + Integer.toHexString(sprite.getCentreY())
+                    + " air=" + sprite.getAir());
+
+            Camera cam = fixture.camera();
+            System.out.println("Camera bounds: minX=" + cam.getMinX()
+                    + " maxX=" + cam.getMaxX()
+                    + " minY=" + cam.getMinY()
+                    + " maxY=" + cam.getMaxY());
+            System.out.println("Camera pos: X=" + cam.getX() + " Y=" + cam.getY());
+            System.out.println("Level maxY=" + lm.getCurrentLevel().getMaxY());
+
+            // Step 60 frames
+            for (int frame = 0; frame < 60; frame++) {
+                fixture.stepFrame(false, false, false, false, false);
+                if (sprite.getDead()) {
+                    fail("bigRingPos: Sonic DIED on frame " + frame
+                            + " centreX=0x" + Integer.toHexString(sprite.getCentreX())
+                            + " centreY=0x" + Integer.toHexString(sprite.getCentreY())
+                            + " air=" + sprite.getAir()
+                            + " topSolidBit=0x" + Integer.toHexString(sprite.getTopSolidBit()));
+                }
+            }
+            System.out.println("=== bigRingPos ALIVE after 60 frames ===");
+            assertFalse("bigRingPos: Sonic should not be dead", sprite.getDead());
+        } finally {
+            config.setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, true);
+        }
+    }
+
+    private void specialStageReturnFlowTest(String label, int teleportX, int teleportY) {
+        // Place Sonic at the specified position and snap to ground.
+        // This simulates the player standing near a big ring.
+        sprite.setCentreX((short) teleportX);
+        sprite.setCentreY((short) teleportY);
+        sprite.setAir(false);
+        fixture.camera().updatePosition(true);
+        GameServices.collision().resolveGroundAttachment(sprite, 14, () -> false);
+
+        System.out.println("=== " + label + " INITIAL PLACEMENT ===");
+        System.out.println("Requested: X=0x" + Integer.toHexString(teleportX)
+                + " Y=0x" + Integer.toHexString(teleportY));
+        System.out.println("After snap: centreX=0x" + Integer.toHexString(sprite.getCentreX())
+                + " centreY=0x" + Integer.toHexString(sprite.getCentreY())
+                + " air=" + sprite.getAir());
+
+        // Step a few frames to confirm stable footing
+        for (int frame = 0; frame < 10; frame++) {
+            fixture.stepFrame(false, false, false, false, false);
+        }
+        assertFalse(label + ": Sonic should not die at initial position"
+                        + " centreX=0x" + Integer.toHexString(sprite.getCentreX())
+                        + " centreY=0x" + Integer.toHexString(sprite.getCentreY())
+                        + " air=" + sprite.getAir(),
+                sprite.getDead());
+
+        // Record grounded position (may have shifted slightly from snap)
+        int savedCentreX = sprite.getCentreX();
+        int savedCentreY = sprite.getCentreY();
+        int savedCameraX = fixture.camera().getX();
+        int savedCameraY = fixture.camera().getY();
+        int savedRings = sprite.getRingCount();
+
+        System.out.println("=== " + label + " SAVED POSITION ===");
+        System.out.println("Centre: X=0x" + Integer.toHexString(savedCentreX)
+                + " Y=0x" + Integer.toHexString(savedCentreY));
+        System.out.println("Camera: X=0x" + Integer.toHexString(savedCameraX)
+                + " Y=0x" + Integer.toHexString(savedCameraY));
+        System.out.println("Air: " + sprite.getAir()
+                + " Dead: " + sprite.getDead());
+
+        // Save big ring return position
+        LevelManager lm = GameServices.level();
+        lm.saveBigRingReturn(new BigRingReturnState(savedCentreX, savedCentreY,
+                savedCameraX, savedCameraY, savedRings,
+                sprite.getTopSolidBit(), sprite.getLrbSolidBit(),
+                fixture.camera().getMaxY()));
+
+        // ---- Simulate doExitResultsScreen flow ----
+        lm.loadCurrentLevel();
+        GroundSensor.setLevelManager(lm);
+
+        System.out.println("=== " + label + " POST-RELOAD ===");
+        System.out.println("BigRingReturn active: " + lm.hasBigRingReturn());
+        System.out.println("Sonic centre: X=0x" + Integer.toHexString(sprite.getCentreX())
+                + " Y=0x" + Integer.toHexString(sprite.getCentreY()));
+
+        // Simulate enterTitleCardFromResults
+        if (lm.hasBigRingReturn()) {
+            lm.getBigRingReturn().restoreToPlayer(sprite, fixture.camera(), lm.getLevelGamestate());
+            lm.clearBigRingReturn();
+        } else {
+            System.out.println("WARNING: BigRingReturn was NOT active after reload!");
+        }
+        sprite.setXSpeed((short) 0);
+        sprite.setYSpeed((short) 0);
+        sprite.setGSpeed((short) 0);
+        sprite.setAir(false);
+        sprite.setDead(false);
+        sprite.setHurt(false);
+
+        boolean hasCollision = hasCollisionBelow(savedCentreX, savedCentreY);
+        System.out.println("Has collision below restored pos: " + hasCollision);
+
+        // Ground snap
+        GameServices.collision().resolveGroundAttachment(sprite, 14, () -> false);
+        System.out.println("After ground snap: centreY=0x"
+                + Integer.toHexString(sprite.getCentreY())
+                + " air=" + sprite.getAir());
+
+        // Step 60 frames — check for death
+        for (int frame = 0; frame < 60; frame++) {
+            fixture.stepFrame(false, false, false, false, false);
+            if (sprite.getDead()) {
+                fail(label + ": Sonic DIED on frame " + frame
+                        + " after special stage return!"
+                        + " centreX=0x" + Integer.toHexString(sprite.getCentreX())
+                        + " centreY=0x" + Integer.toHexString(sprite.getCentreY())
+                        + " air=" + sprite.getAir()
+                        + " Y(top-left)=" + sprite.getY());
+            }
+        }
+        System.out.println("=== " + label + " ALIVE after 60 frames ===");
+        assertFalse(label + ": Sonic should not be dead", sprite.getDead());
+    }
+
+    private boolean hasCollisionBelow(int worldX, int worldY) {
+        LevelManager lm = GameServices.level();
+        if (lm.getCurrentLevel() == null) return false;
+        int endY = worldY + 256;
+        for (int y = worldY; y <= endY; y += 16) {
+            ChunkDesc desc = lm.getChunkDescAt((byte) 0, worldX, y);
+            if (desc != null && desc.hasPrimarySolidity()) {
+                int chunkIdx = desc.getChunkIndex();
+                if (chunkIdx >= 0 && chunkIdx < lm.getCurrentLevel().getChunkCount()) {
+                    var chunk = lm.getCurrentLevel().getChunk(chunkIdx);
+                    if (chunk.getSolidTileIndex() != 0) return true;
+                }
+            }
+        }
+        return false;
+    }
+}

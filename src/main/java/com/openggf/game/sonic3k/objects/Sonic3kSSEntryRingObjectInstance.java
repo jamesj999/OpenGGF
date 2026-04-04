@@ -2,6 +2,7 @@ package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
+import com.openggf.level.BigRingReturnState;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -326,9 +327,11 @@ public class Sonic3kSSEntryRingObjectInstance extends AbstractObjectInstance {
         // This is separate from checkpoint state (ROM: Saved_ vs Saved2_).
         // ROM line 61738: move.w (Ring_count).w,(Saved2_ring_count).w
         var camera = services().camera();
-        services().saveBigRingReturnPosition(
+        services().saveBigRingReturn(new BigRingReturnState(
                 player.getCentreX(), player.getCentreY(),
-                camera.getX(), camera.getY(), player.getRingCount());
+                camera.getX(), camera.getY(), player.getRingCount(),
+                player.getTopSolidBit(), player.getLrbSolidBit(),
+                camera.getMaxY()));
 
         // Lock player: hidden + object controlled
         // ROM: move.b #$53,object_control(a2) — disables input
