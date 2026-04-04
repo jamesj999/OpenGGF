@@ -86,6 +86,15 @@ public final class GameServices {
         return requireRuntime("water").getWaterSystem();
     }
 
+    /**
+     * Returns the active bonus stage provider. Returns {@link NoOpBonusStageProvider}
+     * when not in a bonus stage. Objects call this to signal stage completion
+     * via {@link BonusStageProvider#requestExit()}.
+     */
+    public static BonusStageProvider bonusStage() {
+        return requireRuntime("bonusStage").getActiveBonusStageProvider();
+    }
+
     // ── Engine globals (stay as direct singleton calls) ──────────────────
 
     public static RomManager rom() {
