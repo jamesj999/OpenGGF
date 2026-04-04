@@ -113,6 +113,25 @@ public abstract class AbstractCreditsDemoTraceReplayTest {
             for (int i = 0; i < frameLimit; i++) {
                 TraceFrame expected = trace.getFrame(i);
 
+                // On lag frames, the ROM's main loop didn't complete, so
+                // neither physics nor demo input advanced. Skip both to
+                // keep the engine and demo-input cursor aligned with the
+                // ROM's cursor across the lag.
+                if (trace.isLagFrame(i)) {
+                    // Still compare — engine state should match previous
+                    // trace frame since neither side advanced.
+                    var sprite = fixture.sprite();
+                    EngineDiagnostics engineDiag = captureEngineDiagnostics(sprite);
+                    binder.compareFrame(expected,
+                        sprite.getCentreX(), sprite.getCentreY(),
+                        sprite.getXSpeed(), sprite.getYSpeed(), sprite.getGSpeed(),
+                        sprite.getAngle(),
+                        sprite.getAir(), sprite.getRolling(),
+                        sprite.getGroundMode().ordinal(),
+                        engineDiag);
+                    continue;
+                }
+
                 // Advance demo input and get current input mask
                 demoPlayer.advanceFrame();
                 int inputMask = demoPlayer.getInputMask();

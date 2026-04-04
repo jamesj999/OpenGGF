@@ -431,6 +431,16 @@ field frame-by-frame.
   byte-identical output format (same CSV, JSONL, and metadata.json) consumed by the same Java
   test infrastructure. Supports stable-retro BK2 replay, BizHawk BK2 parsing, savestate boot,
   and credits demo recording. Enables trace generation on macOS and Linux without BizHawk.
+  Verified byte-for-byte output match against BizHawk reference traces for first 2100+ frames
+  of GHZ1 before GPGX version-specific lag frames diverge the runs.
+- **stable-retro BK2 alignment** (`--bk2-offset`): replays BizHawk BK2 movies through
+  stable-retro by shifting BK2 inputs to the emulator's gameplay start frame. Handles GPGX
+  byte-swap, exact-0x0C game_mode detection, and `|system|P1|P2|` BK2 group parsing.
+- **Lag frame handling in credits demo tests**: `AbstractCreditsDemoTraceReplayTest` now
+  detects lag frames (identical physics state on consecutive frames with non-zero speed) and
+  skips both engine physics and demo input advancement on those frames. Reduced MZ2 credits
+  divergences from 28 errors/131 warnings to 10 errors/57 warnings. Remaining errors are
+  genuine engine divergences (missed bounces, slope collision, object timing).
 - **Trace replay test infrastructure** (`tests.trace` package): `TraceData` loader, `TraceFrame`
   parser, `TraceBinder` per-frame comparator with configurable tolerances, `DivergenceReport`
   with JSON output and context windows, lag frame detection for VBlank sync.
