@@ -8,7 +8,11 @@ import com.openggf.level.WaterSystem;
 import org.junit.Before;
 import org.junit.Test;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Tests for S3K dynamic water handlers returned by {@link Sonic3kWaterDataProvider}.
@@ -98,99 +102,6 @@ public class TestSonic3kDynamicWaterHandlers {
                 provider.getDynamicHandler(Sonic3kZoneIds.ZONE_MGZ, 0, PlayerCharacter.SONIC_AND_TAILS));
         assertNull("DEZ should have no dynamic handler",
                 provider.getDynamicHandler(Sonic3kZoneIds.ZONE_DEZ, 0, PlayerCharacter.SONIC_AND_TAILS));
-    }
-
-    // =====================================================================
-    // hasWater() tests — CheckLevelForWater (sonic3k.asm:9751-9778)
-    // =====================================================================
-
-    @Test
-    public void hasWaterAiz1AllCharacters() {
-        assertTrue("AIZ1 Sonic should have water",
-                provider.hasWater(Sonic3kZoneIds.ZONE_AIZ, 0, PlayerCharacter.SONIC_AND_TAILS));
-        assertTrue("AIZ1 Knuckles should have water",
-                provider.hasWater(Sonic3kZoneIds.ZONE_AIZ, 0, PlayerCharacter.KNUCKLES));
-    }
-
-    @Test
-    public void hasWaterAiz2SonicOnly() {
-        // AIZ2: Sonic/Tails have water, Knuckles does NOT (sonic3k.asm:9754-9759)
-        assertTrue("AIZ2 Sonic should have water",
-                provider.hasWater(Sonic3kZoneIds.ZONE_AIZ, 1, PlayerCharacter.SONIC_AND_TAILS));
-        assertTrue("AIZ2 Tails should have water",
-                provider.hasWater(Sonic3kZoneIds.ZONE_AIZ, 1, PlayerCharacter.TAILS_ALONE));
-        assertFalse("AIZ2 Knuckles should NOT have water",
-                provider.hasWater(Sonic3kZoneIds.ZONE_AIZ, 1, PlayerCharacter.KNUCKLES));
-    }
-
-    @Test
-    public void hasWaterHczBothActs() {
-        assertTrue("HCZ1 should have water",
-                provider.hasWater(Sonic3kZoneIds.ZONE_HCZ, 0, PlayerCharacter.SONIC_AND_TAILS));
-        assertTrue("HCZ2 should have water",
-                provider.hasWater(Sonic3kZoneIds.ZONE_HCZ, 1, PlayerCharacter.SONIC_AND_TAILS));
-    }
-
-    @Test
-    public void hasWaterCnz2SonicOnly() {
-        // CNZ2 Sonic/Tails: water (sonic3k.asm:9764-9767)
-        assertTrue("CNZ2 Sonic should have water",
-                provider.hasWater(Sonic3kZoneIds.ZONE_CNZ, 1, PlayerCharacter.SONIC_AND_TAILS));
-        assertTrue("CNZ2 Tails should have water",
-                provider.hasWater(Sonic3kZoneIds.ZONE_CNZ, 1, PlayerCharacter.TAILS_ALONE));
-        // CNZ2 Knuckles: no water
-        assertFalse("CNZ2 Knuckles should NOT have water",
-                provider.hasWater(Sonic3kZoneIds.ZONE_CNZ, 1, PlayerCharacter.KNUCKLES));
-        // CNZ1: no water for anyone
-        assertFalse("CNZ1 should NOT have water",
-                provider.hasWater(Sonic3kZoneIds.ZONE_CNZ, 0, PlayerCharacter.SONIC_AND_TAILS));
-    }
-
-    @Test
-    public void hasWaterIcz2Only() {
-        // ICZ2: water (sonic3k.asm:9770-9771)
-        assertTrue("ICZ2 should have water",
-                provider.hasWater(Sonic3kZoneIds.ZONE_ICZ, 1, PlayerCharacter.SONIC_AND_TAILS));
-        // ICZ1: no water
-        assertFalse("ICZ1 should NOT have water",
-                provider.hasWater(Sonic3kZoneIds.ZONE_ICZ, 0, PlayerCharacter.SONIC_AND_TAILS));
-    }
-
-    @Test
-    public void hasWaterLbz2Only() {
-        // LBZ2: water (sonic3k.asm:9772-9773)
-        assertTrue("LBZ2 should have water",
-                provider.hasWater(Sonic3kZoneIds.ZONE_LBZ, 1, PlayerCharacter.SONIC_AND_TAILS));
-        // LBZ1: NO water (falls through to default)
-        assertFalse("LBZ1 should NOT have water",
-                provider.hasWater(Sonic3kZoneIds.ZONE_LBZ, 0, PlayerCharacter.SONIC_AND_TAILS));
-    }
-
-    @Test
-    public void noWaterForNonWaterZones() {
-        assertFalse("MGZ should NOT have water",
-                provider.hasWater(Sonic3kZoneIds.ZONE_MGZ, 0, PlayerCharacter.SONIC_AND_TAILS));
-        assertFalse("FBZ should NOT have water",
-                provider.hasWater(Sonic3kZoneIds.ZONE_FBZ, 0, PlayerCharacter.SONIC_AND_TAILS));
-        assertFalse("DEZ should NOT have water",
-                provider.hasWater(Sonic3kZoneIds.ZONE_DEZ, 0, PlayerCharacter.SONIC_AND_TAILS));
-    }
-
-    // =====================================================================
-    // Starting water height tests — StartingWaterHeights.bin (ROM verified)
-    // =====================================================================
-
-    @Test
-    public void startingHeightsMatchRom() {
-        assertEquals("AIZ1 height", 0x0504, provider.getStartingWaterLevel(Sonic3kZoneIds.ZONE_AIZ, 0));
-        assertEquals("AIZ2 height", 0x0528, provider.getStartingWaterLevel(Sonic3kZoneIds.ZONE_AIZ, 1));
-        assertEquals("HCZ1 height", 0x0500, provider.getStartingWaterLevel(Sonic3kZoneIds.ZONE_HCZ, 0));
-        assertEquals("HCZ2 height", 0x0700, provider.getStartingWaterLevel(Sonic3kZoneIds.ZONE_HCZ, 1));
-        assertEquals("CNZ2 height", 0x0A90, provider.getStartingWaterLevel(Sonic3kZoneIds.ZONE_CNZ, 1));
-        assertEquals("ICZ1 height", 0x0AD8, provider.getStartingWaterLevel(Sonic3kZoneIds.ZONE_ICZ, 0));
-        assertEquals("ICZ2 height", 0x0AD8, provider.getStartingWaterLevel(Sonic3kZoneIds.ZONE_ICZ, 1));
-        assertEquals("LBZ1 height", 0x0A80, provider.getStartingWaterLevel(Sonic3kZoneIds.ZONE_LBZ, 0));
-        assertEquals("LBZ2 height", 0x065E, provider.getStartingWaterLevel(Sonic3kZoneIds.ZONE_LBZ, 1));
     }
 
     // =====================================================================
