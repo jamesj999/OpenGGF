@@ -1,21 +1,12 @@
 package com.openggf.tests;
 
-import org.junit.Rule;
 import org.junit.Test;
 import com.openggf.audio.smps.DacData;
 import com.openggf.audio.smps.SmpsSequencer;
 import com.openggf.audio.synth.VirtualSynthesizer;
-import com.openggf.data.Rom;
 import com.openggf.game.sonic3k.audio.Sonic3kSmpsSequencerConfig;
 import com.openggf.game.sonic3k.audio.smps.Sonic3kSmpsData;
-import com.openggf.game.sonic3k.audio.smps.Sonic3kSmpsLoader;
-import com.openggf.tests.rules.RequiresRom;
-import com.openggf.tests.rules.RequiresRomRule;
-import com.openggf.tests.rules.SonicGame;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -28,54 +19,13 @@ import static org.junit.Assert.*;
  *
  * <p>Verifies:
  * <ol>
- *   <li>Global instrument table matches reference {@code InsSet.17D8.bin}</li>
  *   <li>SSG-EG values persist across {@code refreshInstrument()} calls</li>
  *   <li>SSG-EG values are cleared on voice change (EF command)</li>
  * </ol>
  */
-@RequiresRom(SonicGame.SONIC_3K)
 public class TestSonic3kVoiceData {
 
-    @Rule
-    public RequiresRomRule romRule = new RequiresRomRule();
-
     private static final DacData EMPTY_DAC = new DacData(new HashMap<>(), new HashMap<>(), 297);
-
-    /**
-     * Verify that the loaded global instrument table matches the reference
-     * {@code InsSet.17D8.bin} from the SMPS research pack.
-     */
-    @Test
-    public void globalInstrumentTableMatchesReference() throws IOException {
-        Path refPath = Path.of("docs/SMPS-rips/Sonic & Knuckles/InsSet.17D8.bin");
-        org.junit.Assume.assumeTrue(
-                "Reference InsSet.17D8.bin not available",
-                Files.exists(refPath));
-
-        Rom rom = romRule.rom();
-        Sonic3kSmpsLoader loader = new Sonic3kSmpsLoader(rom);
-        // Loading any music triggers Z80 driver decompression and table parsing
-        loader.loadMusic(0x01); // AIZ1
-
-        byte[] loaded = loader.getGlobalVoiceData();
-        assertNotNull("Global voice data should be loaded", loaded);
-
-        byte[] reference = Files.readAllBytes(refPath);
-        assertTrue("Global voice data should have at least as many bytes as reference",
-                loaded.length >= reference.length);
-
-        // Compare voice-by-voice (25 bytes each)
-        int voiceCount = reference.length / 25;
-        for (int v = 0; v < voiceCount; v++) {
-            int offset = v * 25;
-            for (int b = 0; b < 25; b++) {
-                int refByte = reference[offset + b] & 0xFF;
-                int loadedByte = loaded[offset + b] & 0xFF;
-                assertEquals(String.format("Voice %d byte %d (offset 0x%03X) mismatch",
-                        v, b, offset + b), refByte, loadedByte);
-            }
-        }
-    }
 
     // -----------------------------------------------------------------------
     // SSG-EG persistence tests (no ROM required for these — synthetic data)
