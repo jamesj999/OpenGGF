@@ -2,6 +2,8 @@ package com.openggf.level;
 
 import com.openggf.data.Rom;
 import com.openggf.game.DynamicWaterHandler;
+import com.openggf.game.GameId;
+import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.OscillationManager;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.RuntimeManager;
@@ -638,8 +640,9 @@ public class WaterSystem {
         if (baseLevel == 0) {
             return 0; // No water
         }
+        GameId gameId = GameModuleRegistry.getCurrent().getGameId();
         // S2 CPZ: water oscillation using oscillator 0
-        if (zoneId == ZONE_ID_CPZ) {
+        if (gameId == GameId.S2 && zoneId == ZONE_ID_CPZ) {
             // Apply oscillation offset from oscillator index 0 (limit=0x10, 0-16 range)
             // Center around 0 by subtracting half the limit (8)
             // Result is +/-8 pixels (~16 pixels total bobbing, ring height)
@@ -650,11 +653,15 @@ public class WaterSystem {
         // The ROM reads byte at v_oscillate+2, shifts right by 1 (divides by 2),
         // and adds to v_waterpos2. This produces a gentle vertical bob.
         // SBZ3 reuses the LZ water system entirely (LZWaterFeatures.asm .setheight).
-        if (zoneId == S1_ZONE_ID_LZ || (zoneId == S1_ZONE_ID_SBZ && actId == 2)) {
+        // Guard with gameId check: S3K HCZ shares zone ID 0x01 with S1 LZ but
+        // does NOT oscillate its water surface.
+        if (gameId == GameId.S1
+                && (zoneId == S1_ZONE_ID_LZ || (zoneId == S1_ZONE_ID_SBZ && actId == 2))) {
             int oscillation = OscillationManager.getByte(0);
             return baseLevel + (oscillation >> 1);
         }
-        return baseLevel; // ARZ: no oscillation
+        // S3K and S2 ARZ: no oscillation
+        return baseLevel;
     }
 
     /**
