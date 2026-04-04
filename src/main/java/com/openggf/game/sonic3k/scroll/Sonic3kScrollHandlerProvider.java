@@ -2,6 +2,7 @@ package com.openggf.game.sonic3k.scroll;
 
 import com.openggf.data.Rom;
 import com.openggf.game.ScrollHandlerProvider;
+import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.level.scroll.ZoneScrollHandler;
 
 import java.io.IOException;
@@ -17,6 +18,7 @@ public class Sonic3kScrollHandlerProvider implements ScrollHandlerProvider {
     private boolean loaded = false;
 
     private SwScrlAiz aizHandler;
+    private SwScrlHcz hczHandler;
     private SwScrlMgz mgzHandler;
     private SwScrlS3kDefault defaultHandler;
 
@@ -26,6 +28,16 @@ public class Sonic3kScrollHandlerProvider implements ScrollHandlerProvider {
             return;
         }
         aizHandler = new SwScrlAiz();
+        byte[] hczWaterlineData = null;
+        try {
+            hczWaterlineData = rom.readBytes(
+                    Sonic3kConstants.HCZ_WATERLINE_SCROLL_DATA_ADDR,
+                    Sonic3kConstants.HCZ_WATERLINE_SCROLL_DATA_SIZE);
+        } catch (IOException e) {
+            LOGGER.fine(() -> "HCZ waterline scroll data unavailable; using fallback HCZ handler: "
+                    + e.getMessage());
+        }
+        hczHandler = new SwScrlHcz(hczWaterlineData);
         mgzHandler = new SwScrlMgz();
         defaultHandler = new SwScrlS3kDefault();
         loaded = true;
@@ -40,6 +52,7 @@ public class Sonic3kScrollHandlerProvider implements ScrollHandlerProvider {
 
         return switch (zoneIndex) {
             case Sonic3kZoneConstants.ZONE_AIZ -> aizHandler;
+            case Sonic3kZoneConstants.ZONE_HCZ -> hczHandler;
             case Sonic3kZoneConstants.ZONE_MGZ -> mgzHandler;
             default -> defaultHandler;
         };
