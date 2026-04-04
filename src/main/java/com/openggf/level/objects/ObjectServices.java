@@ -14,6 +14,7 @@ import com.openggf.game.TitleCardProvider;
 import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.GraphicsManager;
+import com.openggf.level.BigRingReturnState;
 import com.openggf.level.Level;
 import com.openggf.level.ParallaxManager;
 import com.openggf.level.WaterSystem;
@@ -183,7 +184,7 @@ public interface ObjectServices {
      * Saves the player/camera position and ring count for returning from a
      * big ring special stage (ROM: Save_Level_Data2 -> Saved2_* variables).
      */
-    void saveBigRingReturnPosition(int playerX, int playerY, int cameraX, int cameraY, int rings);
+    void saveBigRingReturn(BigRingReturnState state);
 
     // --- Game-specific providers ---
 

@@ -17,6 +17,7 @@ import com.openggf.game.sonic3k.objects.AizBombExplosionInstance;
 import com.openggf.game.sonic3k.objects.AizShipBombInstance;
 import com.openggf.game.sonic3k.objects.AizBossSmallInstance;
 import com.openggf.game.sonic3k.objects.AizHollowTreeObjectInstance;
+import com.openggf.game.sonic3k.objects.AizIntroTerrainSwap;
 import com.openggf.game.sonic3k.objects.AizMinibossInstance;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.level.LevelConstants;
@@ -434,6 +435,15 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
             // the intro object's first update(). ROM: Tails_CPU_routine = $20.
             AizPlaneIntroInstance.setSidekickSuppressed(true);
             LOG.info("AIZ1 intro: will spawn intro object");
+        } else if (act == 0) {
+            // Skip-intro: apply main-level terrain overlays and palette now
+            // rather than deferring to the camera X >= $1400 gate in update().
+            if (!paletteSwapped) {
+                loadPaletteFromPalPointers(PAL_AIZ_INDEX);
+                paletteSwapped = true;
+            }
+            AizIntroTerrainSwap.applyMainLevelOverlays();
+            AizPlaneIntroInstance.setMainLevelPhaseActive(true);
         }
     }
 

@@ -238,6 +238,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
     /** Returns the current Events_fg_1 accumulator value for BG parallax. */
     public static int getIntroScrollOffset() { return introScrollOffset; }
     public static boolean isMainLevelPhaseActive() { return mainLevelPhaseActive; }
+    public static void setMainLevelPhaseActive(boolean active) { mainLevelPhaseActive = active; }
     public static boolean isSidekickSuppressed() { return sidekickSuppressed; }
     public static void setSidekickSuppressed(boolean suppressed) { sidekickSuppressed = suppressed; }
     public static void resetIntroPhaseState() {

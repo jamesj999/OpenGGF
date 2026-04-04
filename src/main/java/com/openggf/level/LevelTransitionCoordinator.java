@@ -14,13 +14,8 @@ public class LevelTransitionCoordinator {
     private boolean specialStageRequestedFromCheckpoint;
     private boolean specialStageReturnLevelReloadRequested;
 
-    // ── S3K big ring return position (ROM: Saved2_* variables) ──────────
-    private boolean bigRingReturnActive;
-    private int bigRingReturnX;
-    private int bigRingReturnY;
-    private int bigRingReturnCameraX;
-    private int bigRingReturnCameraY;
-    private int bigRingReturnRings;
+    // ── S3K big ring return (ROM: Saved2_* variables) ──────────
+    private BigRingReturnState bigRingReturn;
 
     // ── Title card ─────────────────────────────────────────────────────
     private boolean titleCardRequested;
@@ -108,39 +103,25 @@ public class LevelTransitionCoordinator {
     // ================================================================
 
     /**
-     * Saves the big ring return state (ROM: Save_Level_Data2 -> Saved2_* variables).
-     * Called by S3K SSEntryRing before entering the special stage so the player
-     * returns to the ring location, not the last checkpoint.
-     * ROM: Save_Level_Data2 saves Ring_count -> Saved2_ring_count (line 61738).
+     * Saves the big ring return state (ROM: Save_Level_Data2 -> Saved2_*).
      */
-    public void saveBigRingReturnPosition(int playerX, int playerY, int cameraX, int cameraY, int rings) {
-        this.bigRingReturnActive = true;
-        this.bigRingReturnX = playerX;
-        this.bigRingReturnY = playerY;
-        this.bigRingReturnCameraX = cameraX;
-        this.bigRingReturnCameraY = cameraY;
-        this.bigRingReturnRings = rings;
+    public void saveBigRingReturn(BigRingReturnState state) {
+        this.bigRingReturn = state;
     }
 
-    /** Returns true if a big ring return position is saved. */
-    public boolean hasBigRingReturnPosition() {
-        return bigRingReturnActive;
+    /** Returns true if a big ring return state is saved. */
+    public boolean hasBigRingReturn() {
+        return bigRingReturn != null;
     }
 
-    /** Returns saved big ring return X. */
-    public int getBigRingReturnX() { return bigRingReturnX; }
-    /** Returns saved big ring return Y. */
-    public int getBigRingReturnY() { return bigRingReturnY; }
-    /** Returns saved big ring return camera X. */
-    public int getBigRingReturnCameraX() { return bigRingReturnCameraX; }
-    /** Returns saved big ring return camera Y. */
-    public int getBigRingReturnCameraY() { return bigRingReturnCameraY; }
-    /** Returns saved big ring return ring count (ROM: Saved2_ring_count). */
-    public int getBigRingReturnRings() { return bigRingReturnRings; }
+    /** Returns the saved big ring return state, or null if none. */
+    public BigRingReturnState getBigRingReturn() {
+        return bigRingReturn;
+    }
 
-    /** Consumes and clears the big ring return position. */
-    public void clearBigRingReturnPosition() {
-        this.bigRingReturnActive = false;
+    /** Clears the big ring return state. */
+    public void clearBigRingReturn() {
+        this.bigRingReturn = null;
     }
 
     // ================================================================
@@ -450,7 +431,7 @@ public class LevelTransitionCoordinator {
     public void resetState() {
         specialStageRequestedFromCheckpoint = false;
         specialStageReturnLevelReloadRequested = false;
-        bigRingReturnActive = false;
+        bigRingReturn = null;
         titleCardRequested = false;
         titleCardZone = -1;
         titleCardAct = -1;
