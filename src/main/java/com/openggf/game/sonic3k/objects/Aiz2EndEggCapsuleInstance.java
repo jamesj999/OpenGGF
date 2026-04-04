@@ -271,7 +271,23 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance
             int animalY = currentY - 8;
             int delay = i * 4;  // Staggered: 0, 4, 8, 12, ...
             ObjectSpawn spawn = new ObjectSpawn(animalX, animalY, 0x28, 0, 0, false, 0);
-            objectManager.addDynamicObject(new EggPrisonAnimalInstance(spawn, delay));
+            objectManager.addDynamicObject(new HighPriorityAnimal(spawn, delay));
+        }
+    }
+
+    /**
+     * Animal subclass that renders in front of high-priority foreground tiles.
+     * The AIZ2 post-boss area has waterfall foreground tiles; without high
+     * priority the animals would appear behind them.
+     */
+    private static final class HighPriorityAnimal extends EggPrisonAnimalInstance {
+        HighPriorityAnimal(ObjectSpawn spawn, int delay) {
+            super(spawn, delay);
+        }
+
+        @Override
+        public boolean isHighPriority() {
+            return true;
         }
     }
 
@@ -320,10 +336,15 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance
         int bobY = currentY + (int) Math.round(Math.sin((bobAngle * Math.PI * 2.0) / 256.0) * 3.0);
 
         // ROM: loc_86592 sets bset #1,render_flags(a0) for the floating capsule.
-        // The mapping frames (0 = closed, 1 = opened) contain the full capsule
-        // visual including the button area at the bottom. The button collision is
-        // handled by a separate child in the ROM, but the visuals are part of
-        // the main body frame. Draw vFlip=true to hang upside-down.
+        // Draw body vFlip=true to hang upside-down.
         renderer.drawFrameIndex(mappingFrame, currentX, bobY, false, true);
+
+        // ROM: The button is a separate child object (ChildObjDat_86B64) positioned
+        // at child_dy=+$24 below the capsule centre. It uses mapping frame 5 (idle)
+        // or frame 12 (pressed). The button child also has render_flags bit 1 set
+        // (vFlip) in loc_8675C.
+        int buttonFrame = opened ? 0xC : 0x5;
+        int buttonY = bobY + BUTTON_Y_OFFSET;
+        renderer.drawFrameIndex(buttonFrame, currentX, buttonY, false, true);
     }
 }

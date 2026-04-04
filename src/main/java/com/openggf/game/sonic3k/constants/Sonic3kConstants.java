@@ -853,6 +853,10 @@ public class Sonic3kConstants {
     // Map_AIZCollapsingLogBridge - 3 frames: frame 0/1 = log segment, frame 2 = end segment with debris
     public static final int MAP_AIZ_COLLAPSING_LOG_BRIDGE_ADDR = 0x02B070;
 
+    // Map_AIZDrawBridge - 2 frames: frame 0 = empty, frame 1 = single 2x2 bridge segment
+    // ROM: Obj_AIZDrawBridge uses make_art_tile(ArtTile_AIZMisc2, 2, 1)
+    public static final int MAP_AIZ_DRAW_BRIDGE_ADDR = 0x02B558;
+
     // Map_AIZDrawBridgeFire - 8 frames: frames 0-2 = bridge pieces, frames 3-7 = fire animation
     public static final int MAP_AIZ_DRAW_BRIDGE_FIRE_ADDR = 0x02B092;
     public static final int ART_NEM_EGG_CAPSULE_ADDR = 0x0DD990;

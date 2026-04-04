@@ -539,16 +539,15 @@ public class Sonic3kObjectArt {
     }
 
     /**
-     * Builds the AIZ draw bridge sheet.
-     * The ROM mapping contains an empty frame and a single 2x2 bridge segment frame.
+     * Builds the AIZ draw bridge sheet from ROM mappings.
+     * ROM: Obj_AIZDrawBridge uses art_tile = make_art_tile(ArtTile_AIZMisc2, 2, 1).
+     * Map_AIZDrawBridge has 2 frames: frame 0 = empty, frame 1 = single 2x2 segment.
      */
     public ObjectSpriteSheet buildDrawBridgeSheet() {
-        List<SpriteMappingFrame> frames = List.of(
-                new SpriteMappingFrame(List.of()),
-                new SpriteMappingFrame(List.of(
-                        new SpriteMappingPiece(-8, -8, 2, 2, 0x22, true, false, 0)
-                )));
-        return buildLevelArtSheet(Sonic3kConstants.ARTTILE_AIZ_MISC2, 2, frames, 0x22, 0x26);
+        return buildLevelArtSheetFromRom(
+                Sonic3kConstants.MAP_AIZ_DRAW_BRIDGE_ADDR,
+                Sonic3kConstants.ARTTILE_AIZ_MISC2,
+                2);
     }
 
     // ===== AIZ Disappearing Floor sprite sheets (parsed from ROM) =====
