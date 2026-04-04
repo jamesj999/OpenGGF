@@ -95,6 +95,7 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
     private static final int GUMBALL_DMA_SIZE = GUMBALL_TILE_COUNT * Pattern.PATTERN_SIZE_IN_ROM;
     private final byte[] gumballAniData;
     private int lastGumballIndex = -1;
+    private int gumballFrameCounter;
 
     Sonic3kPatternAnimator(RomByteReader reader, Level level,
                            int zoneIndex, int actIndex, boolean isSkipIntro) {
@@ -699,9 +700,11 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
         }
         // ROM: d1 = (Events_bg+$10) - Camera_Y_pos_BG_copy
         // For the bonus stage, Events_bg+$10 is the BG event Y offset.
-        // Simplified: use camera Y directly as the scroll driver.
-        int cameraY = getCameraY();
-        int index = cameraY & 0x1F;
+        // The camera is locked in the gumball bonus stage, so we drive the
+        // animation from a per-frame counter instead of camera Y. This
+        // produces constant vertical scrolling of the BG tile art.
+        gumballFrameCounter = (gumballFrameCounter + 1) & 0x1F;
+        int index = gumballFrameCounter;
 
         if (index == lastGumballIndex) {
             return; // No change — skip DMA
