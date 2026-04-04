@@ -1009,17 +1009,14 @@ public class GameLoop {
             return;
         }
 
-        boolean reloadLevelBeforeReturn = levelManager.consumeSpecialStageReturnLevelReloadRequest();
-        if (reloadLevelBeforeReturn || levelManager.hasBigRingReturnPosition()) {
-            // Full level reload: either S1 giant-ring progression (zone/act was advanced),
-            // or S3K/bonus big ring return (same zone/act but objects must be reset).
-            // ROM: the Level: function runs in full on special stage return, clearing all
-            // object RAM so bridges and other stateful objects reset to their initial state.
-            levelManager.loadCurrentLevel();
-        } else {
-            // Starpost flow (S2): return to the same act/checkpoint.
-            levelManager.reloadLevelPalettes();
-        }
+        // ROM: returning from special stage always runs the full Level: function,
+        // which clears all object RAM (bridges/stateful objects reset to initial state)
+        // and reloads level data. This applies to all games:
+        // - S1: zone/act may have been advanced before SS entry
+        // - S2: same zone/act, objects reset, rings cleared (Obj79_LoadData clr.w Ring_count)
+        // - S3K: same zone/act, objects reset, rings restored from Saved2_ring_count
+        levelManager.consumeSpecialStageReturnLevelReloadRequest();
+        levelManager.loadCurrentLevel();
 
         // Consume any pending title card request to prevent double title card
         // (we're manually entering the title card below)
