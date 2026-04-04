@@ -580,6 +580,32 @@ field frame-by-frame.
   tests, guarded teardown camera calls with null checks, used `destroyForReinit()` for
   `TestGraphicsManagerHeadless`.
 
+#### Test Suite Cleanup
+
+Systematic audit and remediation of the test suite. Net result: +34 passing tests, 36→0 skipped,
+no new failures.
+
+- **Stale @Ignored stubs replaced with real tests**: `TestTodo14` (PlayerCharacter ordinals),
+  `TestTodo13` (19 SBZ/FZ event routine tests), `TestTodo17` (boss flag gating), `TestTodo19`
+  (rock debris table parity), `TestTodo34` (water slide chunk detection).
+- **Broken live tests fixed**: `TestTodo3` (MonitorType reflection instead of test-local enum copy),
+  `TestTodo37` (ROM-vs-engine constant parity via reflection).
+- **Dead test files deleted**: 8 fully-@Ignored TestTodo stubs for unimplemented features (Yadrin
+  spiky-top, Knuckles monitor, Super transform, rock width, rock push, ChopChop bubbles, control
+  lockout, SBZ2 transition); 8 zero-assertion diagnostic dumps; `TestTodo29` (SCALE no-op).
+- **Low-value tests pruned**: constant-equals-itself assertions (Knuckles cutscene timers, emerald
+  scatter constants), ROM-only checks with no engine cross-reference (angle table size, CNZ
+  romDataPresent), duplicate coverage (edge balance constants, water provider hasWater), test
+  infrastructure self-tests (SharedLevel, InitStep fields).
+- **Test uplifts**: `TestTodo1` cross-references ROM water heights against `Sonic2WaterDataProvider`;
+  `TestTodo31` adds real end-game zone boundary assertions; 7 S3K palette cycling test files (AIZ2,
+  CNZ, EMZ, HCZ, ICZ, LBZ, LRZ) strengthened from "color changed" to specific RGB value assertions
+  using `Sonic3kPaletteCycler` with StubLevel; water data provider tests deduplicated between
+  provider and handler files.
+- **Integration gaps closed**: removed blocked @Ignored stubs from `TestGameLoop` (special stage
+  mode) and `TestTodo4` (MCZ boss collision boxes); removed reference-file-dependent test from
+  `TestSonic3kVoiceData`; removed diagnostic dump stubs from `TestS3kSonicSpriteDiag`.
+
 ### Documentation
 
 - Comprehensive user guide for three audiences (players, developers, contributors).
