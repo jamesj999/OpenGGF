@@ -448,4 +448,28 @@ public class TestSonic3kAIZEvents {
         assertEquals("Camera minX should be locked to $F50 for direct AIZ2 entry",
                 0x0F50, minX);
     }
+
+    @Test
+    public void bossFlagDefaultsFalse() {
+        var events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
+        events.init(0);
+        assertFalse("Boss flag should default to false", events.isBossFlag());
+    }
+
+    @Test
+    public void bossFlagCanBeSet() {
+        var events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
+        events.init(0);
+        events.setBossFlag(true);
+        assertTrue("Boss flag should be true after setting", events.isBossFlag());
+    }
+
+    @Test
+    public void bossFlagResetsOnInit() {
+        var events = new Sonic3kAIZEvents(Sonic3kLoadBootstrap.NORMAL);
+        events.init(0);
+        events.setBossFlag(true);
+        events.init(0);
+        assertFalse("Boss flag should reset to false on init", events.isBossFlag());
+    }
 }
