@@ -77,18 +77,6 @@ public class TestGameLoop {
     // ==================== Mode Transition Guard Tests ====================
 
     @Test
-    @org.junit.Ignore("Cannot reach SPECIAL_STAGE mode without ROM/managers; guard logic is integration-tested")
-    public void testEnterSpecialStageFromSpecialStageDoesNothing() {
-        // First we need to somehow be in special stage mode
-        // This tests the guard condition - can't enter special stage from special stage
-        GameMode initialMode = gameLoop.getCurrentGameMode();
-        assertEquals("Should start in LEVEL mode", GameMode.LEVEL, initialMode);
-
-        // Note: Actually entering special stage requires ROM data and initialized managers
-        // This test verifies the API exists and guards are in place
-    }
-
-    @Test
     public void testGameModeStartsInLevelMode() {
         // When starting, should be in LEVEL mode
         assertEquals("Should be in LEVEL mode", GameMode.LEVEL, gameLoop.getCurrentGameMode());

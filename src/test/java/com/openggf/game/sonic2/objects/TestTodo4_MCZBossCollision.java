@@ -6,7 +6,6 @@ import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic2.events.Sonic2MCZEvents;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import static org.junit.Assert.*;
@@ -204,69 +203,4 @@ public class TestTodo4_MCZBossCollision {
         assertEquals(6, events.getEventRoutine());
     }
 
-    // =========================================================================
-    // The following collision box specifications are documented from the ROM
-    // disassembly but require full boss instance infrastructure to test.
-    // They are kept as documentation for when the collision system is
-    // unit-testable.
-    // =========================================================================
-
-    /**
-     * MCZ Boss collision mode 0: diggers pointing upward.
-     * ROM reference: BossCollision_MCZ2 (s2.asm:85254-85274)
-     *
-     * <p>Two collision boxes:
-     * <ul>
-     *   <li>Box 1: (boss_x + $14, boss_y - $20), height $10, width 4</li>
-     *   <li>Box 2: (boss_x - $14, boss_y - $20), height $10, width 4</li>
-     * </ul>
-     *
-     * <p>Requires Sonic2MCZBossInstance internals (Boss_CollisionRoutine state,
-     * collision detection framework) which are not exposed for unit testing.
-     */
-    @Ignore("Requires full boss instance infrastructure (art loading, render manager) " +
-            "to construct Sonic2MCZBossInstance and inspect collision boxes")
-    @Test
-    public void testCollisionMode0_DiggersUp() {
-        // Collision box specs from ROM:
-        // Box 1: x_offset=+$14, y_offset=-$20, height=$10, width=4
-        // Box 2: x_offset=-$14, y_offset=-$20, height=$10, width=4
-    }
-
-    /**
-     * MCZ Boss collision mode 1: diggers pointing to side.
-     * ROM reference: BossCollision_MCZ (s2.asm:85217-85250)
-     *
-     * <p>Single collision box:
-     * <ul>
-     *   <li>Not flipped: (boss_x - $30, boss_y + 4), height 4, width 4</li>
-     *   <li>Flipped: (boss_x + $30, boss_y + 4), height 4, width 4</li>
-     * </ul>
-     *
-     * <p>Requires Sonic2MCZBossInstance internals.
-     */
-    @Ignore("Requires full boss instance infrastructure (art loading, render manager) " +
-            "to construct Sonic2MCZBossInstance and inspect collision boxes")
-    @Test
-    public void testCollisionMode1_DiggersSide() {
-        // Collision box specs from ROM:
-        // Normal: x_offset=-$30, y_offset=+4, height=4, width=4
-        // Flipped: x_offset=+$30, y_offset=+4, height=4, width=4
-    }
-
-    /**
-     * MCZ Boss invulnerability hurt-sonic flag.
-     * ROM reference: BossCollision_MCZ (s2.asm:85246-85249)
-     *
-     * <p>The boss sets boss_hurt_sonic only when invulnerable_time equals
-     * exactly $78 (120), indicating the player just took damage this frame.
-     *
-     * <p>Requires Sonic2MCZBossInstance internals.
-     */
-    @Ignore("Requires full boss instance infrastructure to test invulnerability timer logic")
-    @Test
-    public void testInvulnerabilityHurtFlag() {
-        // ROM: cmpi.w #$78,invulnerable_time(a0) -> st.b boss_hurt_sonic(a1)
-        // Hurt detection triggers at invuln_time = $78 (120 frames)
-    }
 }
