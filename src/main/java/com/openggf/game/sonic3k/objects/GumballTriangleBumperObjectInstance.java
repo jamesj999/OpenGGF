@@ -97,12 +97,6 @@ public class GumballTriangleBumperObjectInstance extends AbstractObjectInstance
 
     @Override
     public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
-        java.util.logging.Logger.getLogger("GumballBumper").info(
-                "onSolidContact fired: standing=" + contact.standing()
-                        + " pushing=" + contact.pushing()
-                        + " touchSide=" + contact.touchSide()
-                        + " cooldown=" + cooldownTimer);
-
         if (cooldownTimer > 0) {
             return;
         }
@@ -112,9 +106,8 @@ public class GumballTriangleBumperObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        // ROM: btst #$10,d6 — bit 16 of d6, which corresponds to side-touch
-        // regardless of push state. The bumper bounces on ANY side contact, not
-        // just pushing. Also fires when player stands on it.
+        // ROM: btst #$10,d6 — side-touch bit, or p1_standing_bit.
+        // Engine: contact.touchSide() or contact.standing().
         if (!contact.standing() && !contact.touchSide()) {
             return;
         }
@@ -175,6 +168,10 @@ public class GumballTriangleBumperObjectInstance extends AbstractObjectInstance
         } catch (Exception e) {
             // Prevent audio failure from breaking game logic
         }
+
+        // ROM: jmp (Delete_Current_Sprite).l — bumper is consumed after bounce.
+        // The gumball machine respawns bumpers from its object placement data.
+        setDestroyed(true);
     }
 
     // --- Rendering ---

@@ -63,8 +63,10 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
     private static final int ACTIVATE_Y_MIN = -8;
     private static final int ACTIVATE_Y_MAX = 16;
 
-    // ROM: priority $0200 -> bucket 2
-    private static final int PRIORITY_BUCKET = 2;
+    // Machine and most children render at bucket 1 (behind Sonic at bucket 2).
+    // ROM VDP priority is 2-tier; our bucket system uses spawn order within
+    // a bucket, so placing the machine at bucket 1 keeps Sonic always visible.
+    private static final int PRIORITY_BUCKET = 1;
 
     // ROM: Spin animation frame sequence [3,5,6,7,$14,5,$F4,$7F,5,5,$FC]
     // $F4 = -12 (signed byte) -> frame wait command
@@ -84,7 +86,12 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
     // ===== Child offsets from parent position =====
 
-    // Dispenser: at parent position
+    // Dispenser: ABSOLUTE world position (ROM loc_60D58 hardcodes to $100, $310).
+    // The dispenser is at the BOTTOM of the stage, far below the machine body.
+    private static final int DISPENSER_ABSOLUTE_X = 0x100;
+    private static final int DISPENSER_ABSOLUTE_Y = 0x310;
+
+    // Kept for legacy reference but no longer used for dispenser positioning.
     private static final int DISPENSER_OFFSET_X = 0;
     private static final int DISPENSER_OFFSET_Y = 0;
 
@@ -153,43 +160,38 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         int px = spawn.x();
         int py = spawn.y() + MACHINE_Y_OFFSET;
 
-        // 1. Dispenser (at parent position)
+        // 1. Dispenser — ABSOLUTE (0x100, 0x310) per ROM loc_60D58.
+        // Independent of machine position; sits at the bottom of the stage.
         dispenser = spawnChild(() -> new DispenserChild(
-                buildSpawnAt(px + DISPENSER_OFFSET_X, py + DISPENSER_OFFSET_Y)));
+                buildSpawnAt(DISPENSER_ABSOLUTE_X, DISPENSER_ABSOLUTE_Y)));
 
-        // 2. Ball container display
+        // 2. Ball container display — follows machine (y+0x24 via Refresh_ChildPosition)
         spawnChild(() -> new ContainerDisplayChild(
                 buildSpawnAt(px + CONTAINER_OFFSET_X, py + CONTAINER_OFFSET_Y)));
 
-        // 3. Exit trigger
+        // 3. Exit trigger — relative to machine, +0x2A0 Y
         spawnChild(() -> new ExitTriggerChild(
                 buildSpawnAt(px + EXIT_TRIGGER_OFFSET_X, py + EXIT_TRIGGER_OFFSET_Y)));
 
-        // 4. Platform left
+        // 4-7. Platforms — follow machine via Refresh_ChildPosition
         spawnChild(() -> new PlatformChild(
                 buildSpawnAt(px + PLATFORM_LEFT_OFFSET_X, py + PLATFORM_LEFT_OFFSET_Y),
                 "GumballPlatformLeft"));
-
-        // 5. Platform center
         spawnChild(() -> new PlatformChild(
                 buildSpawnAt(px + PLATFORM_CENTER_OFFSET_X, py + PLATFORM_CENTER_OFFSET_Y),
                 "GumballPlatformCenter"));
-
-        // 6. Platform right
         spawnChild(() -> new PlatformChild(
                 buildSpawnAt(px + PLATFORM_RIGHT_OFFSET_X, py + PLATFORM_RIGHT_OFFSET_Y),
                 "GumballPlatformRight"));
-
-        // 7. Platform extra
         spawnChild(() -> new PlatformChild(
                 buildSpawnAt(px + PLATFORM_EXTRA_OFFSET_X, py + PLATFORM_EXTRA_OFFSET_Y),
                 "GumballPlatformExtra"));
 
-        // 4 springs at the bottom of the stage (ROM: ChildObjDat_61424, loc_60DAC).
-        // Subtype 0 = red vertical up-spring (default Sonic3kSpringObjectInstance config).
+        // 4 springs at bottom of stage (ROM: ChildObjDat_61424 as children of dispenser).
+        // Absolute positions: dispenser (0x100, 0x310) + offsets (-$30..$30, -$18).
         for (int springX : SPRING_X_OFFSETS) {
-            final int sx = px + springX;
-            final int sy = py + SPRING_Y_OFFSET;
+            final int sx = DISPENSER_ABSOLUTE_X + springX;
+            final int sy = DISPENSER_ABSOLUTE_Y + SPRING_Y_OFFSET;
             spawnChild(() -> new Sonic3kSpringObjectInstance(
                     new com.openggf.level.objects.ObjectSpawn(sx, sy, 0x07, 0,
                             0, false, 0)));
@@ -303,8 +305,10 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
      */
     private void ejectGumballs() {
         int count = MIN_GUMBALLS + rng.nextInt(MAX_GUMBALLS - MIN_GUMBALLS + 1);
-        int dispenserX = spawn.x() + DISPENSER_OFFSET_X;
-        int dispenserY = spawn.y() + MACHINE_Y_OFFSET + DISPENSER_OFFSET_Y;
+        // Balls eject from the ball container (just above the dispenser visually).
+        // ROM loc_60E8C spawns at the container position which is at machine.y+0x24.
+        int dispenserX = spawn.x() + CONTAINER_OFFSET_X;
+        int dispenserY = spawn.y() + MACHINE_Y_OFFSET + CONTAINER_OFFSET_Y;
 
         for (int i = 0; i < count; i++) {
             // ROM: y_vel = 0 at spawn; gravity (+$10/frame) pulls balls down immediately
@@ -364,7 +368,8 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
             implements SolidObjectProvider, SolidObjectListener {
 
         // ROM: SolidObject params for dispenser — approximate from sprite dimensions
-        private static final SolidObjectParams SOLID_PARAMS = new SolidObjectParams(24, 16, 16);
+        // ROM sub_61314: d1=$4B (halfWidth=75), d2=$10 (airHalfHeight=16), d3=$11 (groundHalfHeight=17)
+        private static final SolidObjectParams SOLID_PARAMS = new SolidObjectParams(75, 16, 17);
         private static final int MAPPING_FRAME = 0x13; // ROM ObjDat3_61398 byte 2
 
         DispenserChild(ObjectSpawn spawn) {
