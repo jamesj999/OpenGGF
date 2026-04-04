@@ -184,7 +184,8 @@ public class AizDrawBridgeObjectInstance extends AbstractObjectInstance
 
     private void spawnFallingSegments() {
         for (int i = 0; i < SEGMENT_COUNT; i++) {
-            spawnDynamicObject(new FallingBridgeSegment(pieceX[i], pieceY[i], FALL_DELAYS[i]));
+            final int px = pieceX[i], py = pieceY[i], delay = FALL_DELAYS[i];
+            spawnChild(() -> new FallingBridgeSegment(px, py, delay));
         }
     }
 

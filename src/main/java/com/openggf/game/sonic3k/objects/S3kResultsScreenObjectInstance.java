@@ -20,6 +20,7 @@ import com.openggf.level.render.SpriteMappingPiece;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.nio.channels.FileChannel;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
@@ -456,15 +457,20 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
             sidekick.setControlLocked(false);
             sidekick.setObjectControlled(false);
         }
-        // Restore camera bounds from level data (boss arena locked the boundaries)
+        // Restore camera. When the AIZ2 cutscene override is active, the
+        // Aiz2BossEndSequenceController manages camera bounds for the walk-right
+        // sequence. Restoring full level bounds here would snap the camera back
+        // to the pre-boss area (ROM: loc_694D4 uses Obj_IncLevEndXGradual).
         var cam = services().camera();
         cam.setFrozen(false);
-        var level = services().currentLevel();
-        if (level != null) {
-            cam.setMinX((short) level.getMinX());
-            cam.setMaxX((short) level.getMaxX());
-            cam.setMinY((short) level.getMinY());
-            cam.setMaxY((short) level.getMaxY());
+        if (!Aiz2BossEndSequenceState.isCutsceneOverrideObjectsActive()) {
+            var level = services().currentLevel();
+            if (level != null) {
+                cam.setMinX((short) level.getMinX());
+                cam.setMaxX((short) level.getMaxX());
+                cam.setMinY((short) level.getMinY());
+                cam.setMaxY((short) level.getMaxY());
+            }
         }
 
         int zone = services().romZoneId();
@@ -533,6 +539,16 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
                 // Subtract VRAM_RESULTS_BASE so piece.tileIndex() maps to array indices.
                 mappingFrames = Sonic3kObjectArt.adjustTileIndices(rawMappings, -Sonic3kConstants.VRAM_RESULTS_BASE);
 
+                // ROM: The character name child object's art_tile is 0 (act 1) or $28 (act 2).
+                // This offset is added at render time by Draw_Sprite. Since we don't have
+                // per-element art_tile, bake the act 2 offset into the mapping tile indices.
+                // $28 = VRAM_RESULTS_CHAR_NAME_ACT2 - VRAM_RESULTS_CHAR_NAME_ACT1 = $5A0 - $578
+                if (act != 0) {
+                    int charNameTileOffset = Sonic3kConstants.VRAM_RESULTS_CHAR_NAME_ACT2
+                            - Sonic3kConstants.VRAM_RESULTS_CHAR_NAME_ACT1;
+                    adjustCharNameFrameTiles(charNameTileOffset);
+                }
+
                 // Create sprite sheet and renderer
                 spriteSheet = new ObjectSpriteSheet(combinedPatterns, mappingFrames, 0, 1);
                 renderer = new PatternSpriteRenderer(spriteSheet);
@@ -582,6 +598,37 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
             LOG.fine("Loaded " + totalTiles + " ring/HUD text tiles from ROM");
         } catch (Exception e) {
             LOG.warning("Failed to load HUD text tiles: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Adjusts tile indices for character name mapping frames to account for the
+     * act-dependent VRAM destination. Character name frames are $13 (Sonic),
+     * $14 (Sonic & Tails label), $15 (Tails), $16 (Knuckles).
+     *
+     * <p>ROM: Character name child object art_tile = 0 (act 1) or $28 (act 2).
+     * Since we use a single combined pattern array without per-element art_tile,
+     * we must offset the character name frame tile indices by this amount.
+     */
+    private void adjustCharNameFrameTiles(int tileOffset) {
+        if (mappingFrames == null || !(mappingFrames instanceof ArrayList)) {
+            mappingFrames = new ArrayList<>(mappingFrames);
+        }
+        // Adjust all possible character name frames ($13 through $16)
+        for (int frameIdx = 0x13; frameIdx <= 0x16; frameIdx++) {
+            if (frameIdx >= mappingFrames.size()) continue;
+            SpriteMappingFrame frame = mappingFrames.get(frameIdx);
+            if (frame.pieces().isEmpty()) continue;
+            List<SpriteMappingPiece> adjusted = new ArrayList<>(frame.pieces().size());
+            for (SpriteMappingPiece piece : frame.pieces()) {
+                adjusted.add(new SpriteMappingPiece(
+                        piece.xOffset(), piece.yOffset(),
+                        piece.widthTiles(), piece.heightTiles(),
+                        piece.tileIndex() + tileOffset,
+                        piece.hFlip(), piece.vFlip(),
+                        piece.paletteIndex(), piece.priority()));
+            }
+            mappingFrames.set(frameIdx, new SpriteMappingFrame(adjusted));
         }
     }
 

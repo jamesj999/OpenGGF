@@ -58,25 +58,26 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
         Sonic3kAIZEvents aizEvents = getAizEvents();
         boolean forestFrontPhaseActive = aizEvents != null && aizEvents.isBattleshipForestFrontPhaseActive();
         boolean bossArenaFrontPriority = aizEvents != null && aizEvents.isBossFlag();
-        if (forestFrontPhaseActive || bossArenaFrontPriority) {
+
+        // ROM: During the post-boss cutscene (egg capsule, results, walk-right,
+        // bridge collapse) the player's art_tile high-priority bit stays set.
+        // Restore_PlayerControl (called at loc_694D4) does NOT clear it.
+        // High priority is only lost when the next zone loads.
+        boolean postBossCutsceneActive = com.openggf.game.sonic3k.objects
+                .Aiz2BossEndSequenceState.isCutsceneOverrideObjectsActive();
+
+        if (forestFrontPhaseActive || bossArenaFrontPriority || postBossCutsceneActive) {
             player.setHighPriority(true);
             player.setPriorityBucket(RenderPriority.MIN);
             forcedAizForestFrontPriority = true;
             return;
         }
 
-        if (forcedAizForestFrontPriority && canReleaseAizForestFrontPriority(player)) {
+        if (forcedAizForestFrontPriority) {
             player.setHighPriority(false);
             player.setPriorityBucket(RenderPriority.PLAYER_DEFAULT);
             forcedAizForestFrontPriority = false;
         }
-    }
-
-    private boolean canReleaseAizForestFrontPriority(AbstractPlayableSprite player) {
-        return !player.getDead()
-                && !player.isHurt()
-                && !player.isDrowningPreDeath()
-                && !player.isDrowningDeath();
     }
 
     private void initWaterSurfaceManager(Rom rom, int zoneIndex, int actIndex) {
