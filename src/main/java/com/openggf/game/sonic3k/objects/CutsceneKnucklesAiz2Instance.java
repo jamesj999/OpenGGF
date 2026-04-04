@@ -143,9 +143,10 @@ public class CutsceneKnucklesAiz2Instance extends AbstractObjectInstance {
 
     private void updateJump() {
         animateLoop(JUMP_FRAMES, JUMP_DELAY);
+        // ROM: loc_620AA uses MoveSprite (moves X and Y) + gravity
         SubpixelMotion.State motion = new SubpixelMotion.State(
                 currentX, currentY, xSub, ySub, xVel, yVel);
-        SubpixelMotion.objectFall(motion, SubpixelMotion.S3K_GRAVITY);
+        SubpixelMotion.objectFallXY(motion, SubpixelMotion.S3K_GRAVITY);
         currentX = motion.x;
         currentY = motion.y;
         xSub = motion.xSub;
