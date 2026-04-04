@@ -127,15 +127,8 @@ def main():
     start_zone_id = 0
     start_zone_name = "unknown"
     start_act = 0
-    # stable-retro's genesis_plus_gx enters game_mode 0x8C (level + loading
-    # flag) very early, with ctrl_lock stuck at 0.  The real gameplay start
-    # is when Sonic's routine advances to 0x02 (Sonic_Control) — this means
-    # the player object has been fully initialized with position, angle, and
-    # collision state.  We wait for level mode + routine == 0x02.
-    saw_x_zero = False
-
     print("S1 Trace Recorder (stable-retro) loaded.")
-    print("Waiting for level gameplay...")
+    print("Waiting for level gameplay (game_mode==0x0C)...")
 
     while not finished:
         # --- Input selection ---
@@ -160,16 +153,11 @@ def main():
         gm = mem.u8(ADDR_GAME_MODE)
 
         # --- Gameplay detection ---
+        # Wait for game_mode == EXACT 0x0C. During level loading, GPGX
+        # reports 0x8C (0x0C | 0x80 loading flag). Game logic (player
+        # movement) only runs once the flag clears to plain 0x0C.
         if not started:
-            x = mem.u16(PLAYER_BASE + OFF_X_POS)
-            routine = mem.u8(PLAYER_BASE + 0x24)  # OFF_ROUTINE
-            in_level = (gm & 0x7F) == GAMEMODE_LEVEL
-            if in_level and x == 0:
-                saw_x_zero = True
-            # Detect when Sonic is fully initialized: position set AND
-            # routine advanced to 0x02 (Sonic_Control).  This matches the
-            # BizHawk detection frame where angle/routine are already valid.
-            if in_level and saw_x_zero and x > 0 and routine == 0x02:
+            if gm == GAMEMODE_LEVEL:
                 started = True
                 bk2_frame_offset = emu_frame + 1
 
@@ -198,7 +186,7 @@ def main():
             continue
 
         # --- Recording ---
-        if (gm & 0x7F) != GAMEMODE_LEVEL:
+        if gm != GAMEMODE_LEVEL:
             print(f"Left level gameplay at trace frame {recorder.trace_frame}.")
             break
 
