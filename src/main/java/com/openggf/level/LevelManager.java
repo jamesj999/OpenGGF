@@ -3094,6 +3094,13 @@ public class LevelManager {
             verticalWrapEnabled = camera.isVerticalWrapEnabled();
             camera.updatePosition(true);
         }
+
+        // Apply per-game fast vertical scroll cap from PhysicsFeatureSet.
+        // S1/S2: 16px/frame (s2.asm:18190), S3K: 24px/frame (sonic3k.asm:loc_1C1B0).
+        PhysicsProvider physics = GameModuleRegistry.getCurrent().getPhysicsProvider();
+        if (physics != null && physics.getFeatureSet() != null) {
+            camera.setFastScrollCap(physics.getFeatureSet().fastScrollCap());
+        }
     }
 
     /**

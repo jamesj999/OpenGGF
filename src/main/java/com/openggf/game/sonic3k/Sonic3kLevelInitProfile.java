@@ -34,9 +34,22 @@ public class Sonic3kLevelInitProfile extends AbstractLevelInitProfile {
             steps.add(initCameraStep());
             steps.add(initLevelEventsStep());
             steps.add(spawnSidekickStep());
+            steps.add(initZonePlayerStateStep());
             steps.add(requestTitleCardStep(ctx));
         }
         return List.copyOf(steps);
+    }
+
+    /**
+     * ROM: SpawnLevelMainSprites zone-specific player state (sonic3k.asm:8132).
+     * Runs after sidekick spawn so both main player and sidekicks exist.
+     * Sets falling animation, airborne flag, and jumping for zone intros
+     * (HCZ1, MGZ1, LRZ1/Knuckles, SSZ).
+     */
+    protected InitStep initZonePlayerStateStep() {
+        return new InitStep("InitZonePlayerState",
+            "S3K: SpawnLevelMainSprites — zone-specific player animation/air state",
+            () -> Sonic3kLevelEventManager.getInstance().applyZonePlayerState());
     }
 
     /** S3K sidekick: -32px X, +4px Y (ROM: {@code player_pos - $20}, {@code player_pos + 4}). */

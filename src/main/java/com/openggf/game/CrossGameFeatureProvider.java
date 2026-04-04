@@ -466,7 +466,8 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
                 baseFeatureSet.movingCrouchThreshold(),         // movingCrouchThreshold (from base game)
                 baseFeatureSet.groundWallCollisionEnabled(),    // groundWallCollisionEnabled (from base game)
                 baseFeatureSet.airSuperspeedPreserved(),        // airSuperspeedPreserved (from base game)
-                baseFeatureSet.slopeRepelChecksOnObject()       // slopeRepelChecksOnObject (from base game)
+                baseFeatureSet.slopeRepelChecksOnObject(),      // slopeRepelChecksOnObject (from base game)
+                baseFeatureSet.fastScrollCap()                  // fastScrollCap (from base game)
         );
     }
 

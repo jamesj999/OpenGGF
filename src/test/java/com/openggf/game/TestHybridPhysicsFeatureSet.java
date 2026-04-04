@@ -52,7 +52,8 @@ public class TestHybridPhysicsFeatureSet {
                 (short) 0,  // movingCrouchThreshold - not donated
                 false,  // groundWallCollisionEnabled - S1
                 false,  // airSuperspeedPreserved - S1
-                false   // slopeRepelChecksOnObject - S1
+                false,  // slopeRepelChecksOnObject - S1
+                PhysicsFeatureSet.FAST_SCROLL_CAP_S2  // fastScrollCap - S1 (same as S2)
         );
 
         // Verify spindash is enabled (donor contribution)
