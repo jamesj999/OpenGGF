@@ -80,6 +80,7 @@ def create_env_from_movie(movie_path):
         state=None,
         use_restricted_actions=stable_retro.Actions.ALL,
         players=movie.players,
+        render_mode=None,
     )
     env.initial_state = movie.get_state()
     env.reset()
@@ -100,6 +101,7 @@ def create_env_from_bizhawk_bk2(bk2_path, state_name=None):
         game=GAME_NAME,
         state=state,
         use_restricted_actions=stable_retro.Actions.ALL,
+        render_mode=None,
     )
     env.reset()
     return env, bk2
@@ -111,6 +113,7 @@ def create_env_from_state(state_name):
         game=GAME_NAME,
         state=state_name or stable_retro.State.DEFAULT,
         use_restricted_actions=stable_retro.Actions.ALL,
+        render_mode=None,
     )
     env.reset()
     return env, None
