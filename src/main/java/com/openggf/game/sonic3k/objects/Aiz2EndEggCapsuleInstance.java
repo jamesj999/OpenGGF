@@ -186,7 +186,10 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance
         } else if (!releaseTriggered && services().gameState().isEndOfLevelFlag()) {
             releaseTriggered = true;
             Aiz2BossEndSequenceState.releaseEggCapsule();
-            setDestroyed(true);
+            // ROM: The capsule stays visible — it doesn't disappear.
+            // It remains on screen while Sonic walks right and Knuckles
+            // does his cutscene. It only leaves when the camera scrolls
+            // past it or the zone transitions.
         }
 
         bobAngle = (bobAngle + 3) & 0xFF;
