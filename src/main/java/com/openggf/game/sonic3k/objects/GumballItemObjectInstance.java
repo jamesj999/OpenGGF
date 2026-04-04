@@ -324,6 +324,8 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        renderer.drawFrameIndex(mappingFrame, motionState.x, motionState.y, false, false);
+        // ROM: ObjDat3_613E0 uses make_art_tile(ArtTile_BonusStage, 0, 1) — palette 0
+        // (sheet default is palette 1 for the main machine/bumpers).
+        renderer.drawFrameIndex(mappingFrame, motionState.x, motionState.y, false, false, 0);
     }
 }
