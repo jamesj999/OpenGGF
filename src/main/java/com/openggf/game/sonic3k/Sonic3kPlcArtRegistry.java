@@ -211,7 +211,24 @@ public final class Sonic3kPlcArtRegistry {
             case 0x0A -> addSszEntries(actIndex, standalone, levelArt);
             case 0x0B -> addDezEntries(actIndex, standalone, levelArt);
             case 0x0C -> addDdzEntries(actIndex, standalone, levelArt);
+            case 0x13 -> addGumballEntries(actIndex, standalone, levelArt);
         }
+    }
+
+    /**
+     * Populates Gumball Bonus Stage art entries.
+     * Object art: Map_GumballBonus with art_tile make_art_tile(ArtTile_BonusStage, 1, 1).
+     * ArtTile_BonusStage = 0x015B, palette 1.
+     */
+    private static void addGumballEntries(int actIndex,
+            List<StandaloneArtEntry> standalone, List<LevelArtEntry> levelArt) {
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.GUMBALL_BONUS,
+                Sonic3kConstants.GUMBALL_MAP_ADDR,
+                Sonic3kConstants.ARTTILE_BONUS_STAGE,
+                1,
+                null
+        ));
     }
 
     /**
