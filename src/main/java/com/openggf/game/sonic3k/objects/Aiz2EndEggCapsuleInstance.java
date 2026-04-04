@@ -131,32 +131,14 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
-        int cameraX = services().camera().getX();
-        int cameraY = services().camera().getY();
-
-        // Horizontal panning within camera bounds
-        int leftBound = cameraX + LEFT_BOUND_OFFSET;
-        int rightBound = cameraX + RIGHT_BOUND_OFFSET;
-        currentX += xDirection;
-        if (currentX <= leftBound || currentX >= rightBound) {
-            currentX = Math.max(leftBound, Math.min(rightBound, currentX));
-            xDirection = -xDirection;
+        // ROM: Once opened, the capsule stops all movement (no panning, no
+        // camera tracking). It stays at its current position and only the
+        // bob animation continues. The camera scrolls past it naturally.
+        if (!opened) {
+            updateMovement();
         }
 
-        // Vertical descent toward target
-        int targetY = cameraY + Y_TARGET_OFFSET;
-        if (currentY != targetY) {
-            verticalAccumulator += 0x4000;
-            int step = verticalAccumulator >> 16;
-            verticalAccumulator &= 0xFFFF;
-            if (step > 0) {
-                if (currentY < targetY) {
-                    currentY = Math.min(targetY, currentY + step);
-                } else {
-                    currentY = Math.max(targetY, currentY - step);
-                }
-            }
-        } else if (!opened) {
+        if (!opened) {
             // Check if player hits the button from below
             if (playerEntity instanceof AbstractPlayableSprite player && shouldHitButton(player)) {
                 openCapsule();
@@ -193,6 +175,39 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance
         }
 
         bobAngle = (bobAngle + 3) & 0xFF;
+    }
+
+    /**
+     * Camera-relative panning and descent. Only runs while the capsule is
+     * still closed (pre-open phase).
+     */
+    private void updateMovement() {
+        int cameraX = services().camera().getX();
+        int cameraY = services().camera().getY();
+
+        // Horizontal panning within camera bounds
+        int leftBound = cameraX + LEFT_BOUND_OFFSET;
+        int rightBound = cameraX + RIGHT_BOUND_OFFSET;
+        currentX += xDirection;
+        if (currentX <= leftBound || currentX >= rightBound) {
+            currentX = Math.max(leftBound, Math.min(rightBound, currentX));
+            xDirection = -xDirection;
+        }
+
+        // Vertical descent toward target
+        int targetY = cameraY + Y_TARGET_OFFSET;
+        if (currentY != targetY) {
+            verticalAccumulator += 0x4000;
+            int step = verticalAccumulator >> 16;
+            verticalAccumulator &= 0xFFFF;
+            if (step > 0) {
+                if (currentY < targetY) {
+                    currentY = Math.min(targetY, currentY + step);
+                } else {
+                    currentY = Math.max(targetY, currentY - step);
+                }
+            }
+        }
     }
 
     /**
