@@ -278,6 +278,14 @@ public class TestObjectServices implements ObjectServices {
     }
 
     @Override
+    public void requestBonusStageExit() {
+    }
+
+    @Override
+    public void addBonusStageRings(int count) {
+    }
+
+    @Override
     public void requestZoneAndAct(int zone, int act) {
     }
 

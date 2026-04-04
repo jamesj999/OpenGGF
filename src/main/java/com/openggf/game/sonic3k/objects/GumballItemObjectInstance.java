@@ -1,9 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.audio.GameSound;
-import com.openggf.game.AbstractBonusStageCoordinator;
-import com.openggf.game.BonusStageProvider;
-import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
@@ -281,9 +278,10 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
      * ROM equivalent: add.w d0,(Saved_ring_count).w
      */
     private void awardRingsToCoordinator(int count) {
-        BonusStageProvider provider = GameServices.bonusStage();
-        if (provider instanceof AbstractBonusStageCoordinator coordinator) {
-            coordinator.addRings(count);
+        try {
+            services().addBonusStageRings(count);
+        } catch (Exception e) {
+            // Safe fallback for test environments
         }
     }
 

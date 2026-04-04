@@ -122,6 +122,8 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                 (spawn, registry) -> new S3kHiddenMonitorInstance(spawn));
         factories.put(Sonic3kObjectIds.SS_ENTRY_RING,
                 (spawn, registry) -> new Sonic3kSSEntryRingObjectInstance(spawn));
+        factories.put(Sonic3kObjectIds.GUMBALL_MACHINE,
+                (spawn, registry) -> new GumballMachineObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.GUMBALL_TRIANGLE_BUMPER,
                 (spawn, registry) -> new GumballTriangleBumperObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.GUMBALL_ITEM,
