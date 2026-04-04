@@ -129,14 +129,13 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
     private final Random rng;
     private DispenserChild dispenser;
 
+    private boolean childrenSpawned;
+
     public GumballMachineObjectInstance(ObjectSpawn spawn) {
         super(spawn, "GumballMachine");
 
         // ROM: Seed RNG from frame counter
         this.rng = new Random(System.nanoTime());
-
-        // Spawn 7 children
-        spawnChildren();
     }
 
     private void spawnChildren() {
@@ -180,6 +179,13 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        // Spawn children on first update — can't do it in constructor because
+        // services() isn't available until ObjectManager injects them.
+        if (!childrenSpawned) {
+            childrenSpawned = true;
+            spawnChildren();
+        }
+
         switch (state) {
             case IDLE -> updateIdle(playerEntity);
             case SPIN -> updateSpin();
