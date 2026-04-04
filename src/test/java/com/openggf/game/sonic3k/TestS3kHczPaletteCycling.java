@@ -31,6 +31,7 @@ import com.openggf.tests.rules.SonicGame;
 import java.io.IOException;
 import java.util.List;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
@@ -219,6 +220,35 @@ public class TestS3kHczPaletteCycling {
 
         assertTrue("All 4 HCZ water colors (3-6) should be written on first tick, but only "
                 + nonZeroCount + " are non-zero", nonZeroCount >= 3);
+    }
+
+    /**
+     * Verifies that HCZ Act 2 has NO palette cycling (AnPal_HCZ2 is rts).
+     * The palette cycler should not modify any palette colors for Act 2.
+     */
+    @Test
+    public void hcz2HasNoPaletteCycling() throws IOException {
+        GraphicsManager.getInstance().initHeadless();
+        HczStubLevel stubLevel = new HczStubLevel();
+        RomByteReader reader = RomByteReader.fromRom(romRule.rom());
+
+        // Create cycler for Act 2 — should produce no cycles
+        Sonic3kPaletteCycler cycler = new Sonic3kPaletteCycler(reader, stubLevel, ZONE_HCZ, 1);
+
+        // Record initial palette state (should be all zeros from stub)
+        Palette pal2 = stubLevel.getPalette(2);
+        int initialR = pal2.getColor(3).r & 0xFF;
+        int initialG = pal2.getColor(3).g & 0xFF;
+        int initialB = pal2.getColor(3).b & 0xFF;
+
+        // Tick many frames — palette should never change
+        for (int i = 0; i < 60; i++) {
+            cycler.update();
+        }
+
+        assertEquals("HCZ2 palette should not cycle (R)", initialR, pal2.getColor(3).r & 0xFF);
+        assertEquals("HCZ2 palette should not cycle (G)", initialG, pal2.getColor(3).g & 0xFF);
+        assertEquals("HCZ2 palette should not cycle (B)", initialB, pal2.getColor(3).b & 0xFF);
     }
 
     /**
