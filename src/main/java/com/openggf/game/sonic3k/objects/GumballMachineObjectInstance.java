@@ -12,7 +12,6 @@ import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
-import com.openggf.level.objects.SpringBounceHelper;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -139,7 +138,10 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
     // Initialized to 0xFF at machine spawn (ROM 127413-127419).
     // Tested by sub_6126C as words: word is "occupied" when non-zero.
     // Individual bumpers clear their byte when bumped (ROM 127692-127695).
-    private static final int SLOT_COUNT_BYTES = 28;
+    // ROM fills 36 bytes ($24) at $FF2000 at init. The iteration in sub_6126C only
+    // reads 28 bytes (14 words), but the extra bytes are kept defensively so any
+    // future subtype in [28..35] range won't corrupt adjacent memory.
+    private static final int SLOT_COUNT_BYTES = 36;
     private static final int SLOT_WORD_COUNT = 14;
     private static final int DRIFT_PER_EMPTY_SLOT = 0x20;
     private static final int DRIFT_STEP_PER_FRAME = 4;
@@ -651,6 +653,9 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         public void update(int frameCounter, PlayableEntity playerEntity) {
             timer--;
             if (timer < 0) {
+                // ROM: move.l #MoveChkDel,(a0) — effect keeps moving (gravity) until off-screen.
+                // Engine: immediate destroy for simplicity (effect has no initial velocity,
+                // would just fall a short distance before off-screen).
                 setDestroyed(true);
             }
         }
@@ -895,8 +900,9 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         // ROM: red spring uses strength -$1000
         private static final int BOUNCE_STRENGTH = -0x1000;
 
-        // ROM: short bounce animation before crumbling
-        private static final int CRUMBLE_DELAY_FRAMES = 8;
+        // ROM: short bounce animation before crumbling.
+        // Ani_Spring anim 1 is `dc.b 0, 1, 0, 0, 2, 2, 2, 2, 2, 2, $FD, 0` — 10 animation entries.
+        private static final int CRUMBLE_DELAY_FRAMES = 10;
 
         // ROM: Map_Spring frames — frame 0 idle, frame 1 compressed (played on bounce)
         private static final int IDLE_FRAME = 0;
@@ -963,7 +969,8 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
             // move.w $30(a0), y_vel(a1) — upward velocity (-$1000 for red spring)
             player.setYSpeed((short) BOUNCE_STRENGTH);
-            player.setGSpeed((short) 0);
+            // ROM sub_22F98 does not clear ground_vel for plain vertical red spring
+            // (subtype 0) — ground_vel is only touched for flip-related subtypes.
 
             // bset #1, status(a1) — Status_InAir
             player.setAir(true);
@@ -980,8 +987,7 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
             // move.b #$10, anim(a1) — player SPRING animation
             player.setAnimationId(Sonic3kAnimationIds.SPRING);
 
-            // Standard S3K spring bounce pattern: lock horizontal control briefly.
-            player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
+            // ROM sub_22F98 does not apply move_lock — removed for ROM parity.
 
             // ROM: play sfx_Spring (0xB1)
             try {
