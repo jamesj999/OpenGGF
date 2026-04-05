@@ -59,6 +59,24 @@ public interface ZoneScrollHandler {
     }
 
     /**
+     * Optional per-column FG vertical scroll offsets (20 columns in H40 mode).
+     * <p>
+     * When non-null, values are absolute FG VScroll values (signed 16-bit, in
+     * pixels) that override the flat {@link #getVscrollFactorFG()} value on a
+     * per-column basis. Each entry maps to a 16-pixel-wide column of the Plane A
+     * nametable, mirroring the hardware VDP per-column VSCROLL behavior.
+     *
+     * <p>ROM reference: Gumball_SetUpVScroll (s3.asm:76130) writes different
+     * VScroll values to HScroll_table+$0, +$4, +$8, +$C, +$10 so that the
+     * gumball machine body tiles drift with the machine object.
+     *
+     * @return 20-entry per-column FG VScroll array, or null for flat VScroll
+     */
+    default short[] getPerColumnVScrollFG() {
+        return null;
+    }
+
+    /**
      * Get minimum BG scroll offset relative to FG for this frame.
      * Used by LevelManager to determine tile loading bounds.
      * 
