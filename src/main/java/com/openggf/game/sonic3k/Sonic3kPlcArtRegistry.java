@@ -232,6 +232,17 @@ public final class Sonic3kPlcArtRegistry {
                 1,
                 -1
         ));
+        // Gumball bonus dispenser springs use the standalone ArtNem_VerticalSpring sheet.
+        // ROM: ObjDat3_613C8 uses make_art_tile(..., palette 0).
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.GUMBALL_SPRING,
+                Sonic3kConstants.ART_NEM_VERTICAL_SPRING_ADDR,
+                CompressionType.NEMESIS,
+                0,
+                Sonic3kConstants.MAP_SPRING_ADDR,
+                0,
+                -1
+        ));
     }
 
     /**

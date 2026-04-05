@@ -207,6 +207,9 @@ public final class Sonic3kObjectArtKeys {
     // Gumball Bonus Stage sprites (shared across all gumball objects)
     public static final String GUMBALL_BONUS = "gumball_bonus";
 
+    // Standalone red vertical spring used by gumball bonus dispenser.
+    public static final String GUMBALL_SPRING = "gumball_spring";
+
     private Sonic3kObjectArtKeys() {
     }
 }
