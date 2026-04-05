@@ -168,21 +168,24 @@ public class Sonic1BumperObjectInstance extends AbstractObjectInstance {
      * The negation pushes Sonic AWAY from the bumper.
      */
     private void applyBounce(AbstractPlayableSprite player) {
+        // ROM: sub.w obX(a1),d1 / sub.w obY(a1),d2 (d1=bumper.X - sonic.X, d2=bumper.Y - sonic.Y)
+        // Then CalcAngle (d1, d2) and CalcSine to get sin/cos as 8-bit fixed-point.
         int dx = spawn.x() - player.getCentreX();
         int dy = spawn.y() - player.getCentreY();
 
-        double angle = StrictMath.atan2(dy, dx);
+        // ROM CalcAngle takes raw (dx, dy) — not speed. We reuse the same logic
+        // since it's just atan2 over the 256-entry lookup table.
+        int hexAngle = com.openggf.physics.TrigLookupTable.calcAngle(
+                (short) dx, (short) dy);
 
-        // If player is exactly at center, push them up
-        if (dx == 0 && dy == 0) {
-            angle = StrictMath.PI / 2;
-        }
+        int sinVal = com.openggf.physics.TrigLookupTable.sinHex(hexAngle);
+        int cosVal = com.openggf.physics.TrigLookupTable.cosHex(hexAngle);
 
-        // ROM: muls.w #-$700,d1 / asr.l #8,d1 (cos component for X)
-        // ROM: muls.w #-$700,d0 / asr.l #8,d0 (sin component for Y)
-        // Negate to push away from bumper center
-        int xVel = (int) (-StrictMath.cos(angle) * BOUNCE_VELOCITY);
-        int yVel = (int) (-StrictMath.sin(angle) * BOUNCE_VELOCITY);
+        // ROM: muls.w #-$700,d1 / asr.l #8,d1 (cos * -0x700 >> 8 -> VelX)
+        // ROM: muls.w #-$700,d0 / asr.l #8,d0 (sin * -0x700 >> 8 -> VelY)
+        // ROM sin/cos are 8-bit fixed-point (range -0x100..+0x100).
+        int xVel = (-BOUNCE_VELOCITY * cosVal) >> 8;
+        int yVel = (-BOUNCE_VELOCITY * sinVal) >> 8;
 
         // ROM: move.w d1,obVelX(a1) / move.w d0,obVelY(a1)
         player.setXSpeed((short) xVel);
@@ -191,10 +194,12 @@ public class Sonic1BumperObjectInstance extends AbstractObjectInstance {
         // ROM: bset #1,obStatus(a1) — set airborne
         // ROM: bclr #4,obStatus(a1) — clear roll-jumping
         // ROM: bclr #5,obStatus(a1) — clear pushing
-        // ROM: clr.b objoff_3C(a1)  — clear jumping flag
+        // ROM: clr.b objoff_3C(a1)  — clear the jumping flag (Sonic's $3C byte),
+        //      NOT obInertia. Bump_Hit preserves ground speed.
         player.setAir(true);
         player.setPushing(false);
-        player.setGSpeed((short) 0);
+        player.setRollingJump(false);
+        player.setJumping(false);
 
         // ROM: move.b #1,obAnim(a0) — trigger hit animation
         hitAnimIndex = 0;
