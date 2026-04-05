@@ -17,6 +17,7 @@ public abstract class AbstractBonusStageCoordinator implements BonusStageProvide
     private boolean exitRequested;
     private int ringsCollected;
     private int livesAwarded;
+    private ShieldType awardedShield; // null if none
 
     @Override
     public boolean hasBonusStages() { return true; }
@@ -28,6 +29,7 @@ public abstract class AbstractBonusStageCoordinator implements BonusStageProvide
         this.exitRequested = false;
         this.ringsCollected = 0;
         this.livesAwarded = 0;
+        this.awardedShield = null;
         LOGGER.info("Entering bonus stage: " + type + " (zone 0x"
                 + Integer.toHexString(getZoneId(type)) + ")");
     }
@@ -53,8 +55,17 @@ public abstract class AbstractBonusStageCoordinator implements BonusStageProvide
 
     @Override
     public BonusStageRewards getRewards() {
+        boolean basic = false, fire = false, lightning = false, bubble = false;
+        if (awardedShield != null) {
+            switch (awardedShield) {
+                case FIRE -> fire = true;
+                case BUBBLE -> bubble = true;
+                case LIGHTNING -> lightning = true;
+                default -> basic = true;
+            }
+        }
         return new BonusStageRewards(ringsCollected, livesAwarded,
-                false, false, false, false);
+                basic, fire, lightning, bubble);
     }
 
     @Override
@@ -67,4 +78,15 @@ public abstract class AbstractBonusStageCoordinator implements BonusStageProvide
 
     /** Accumulate lives during the bonus stage. */
     public void addLife() { livesAwarded++; }
+
+    /**
+     * Records the shield awarded by a bonus-stage gumball.
+     * ROM awards overwrite any previous shield with the latest pickup,
+     * so we track only the most recent. Surfaces as the matching flag in
+     * {@link #getRewards()} so {@code doExitBonusStage} can restore it
+     * after the level reload clears the player state.
+     */
+    public void setAwardedShield(ShieldType type) {
+        this.awardedShield = type;
+    }
 }

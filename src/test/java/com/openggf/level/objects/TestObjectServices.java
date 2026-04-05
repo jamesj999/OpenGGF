@@ -286,6 +286,10 @@ public class TestObjectServices implements ObjectServices {
     }
 
     @Override
+    public void setBonusStageShield(com.openggf.game.ShieldType type) {
+    }
+
+    @Override
     public void requestZoneAndAct(int zone, int act) {
     }
 

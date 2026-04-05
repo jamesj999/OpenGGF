@@ -90,14 +90,14 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
 
     // Gumball bonus stage: direct DMA of uncompressed art based on BG scroll
     // ROM: AnimateTiles_Gumball (sonic3k.asm:55266)
-    // ROM DMA copies tiles_to_bytes($054) = 0xA80 = 2688 bytes, but ArtUnc_AniGumball is
-    // only 0x100 = 256 bytes = 8 tiles (ds.b $100 per LockOn Pointers.asm). The ROM reads
-    // past the end into adjacent art data — most of those "tiles" overwrite VRAM outside
-    // the visible background plane for gumball. Limit our copy to the actual data size
-    // to avoid corrupting level patterns with unrelated ROM bytes.
-    private static final int GUMBALL_DEST_TILE = 0x40;
-    private static final int GUMBALL_SOURCE_SIZE = 0x100;                       // 256 bytes actual data
-    private static final int GUMBALL_TILE_COUNT = GUMBALL_SOURCE_SIZE / Pattern.PATTERN_SIZE_IN_ROM;  // 8 tiles
+    // ROM Add_To_DMA_Queue params:
+    //   d1 = source address (ArtUnc_AniGumball)
+    //   d2 = VRAM BYTE destination = tiles_to_bytes($054) = 0xA80 → VRAM tile $54
+    //   d3 = $40 words = 128 bytes = 4 tiles
+    // Source data is 256 bytes; max byte offset read = 31*4 + 128 = 252 < 256, safely within bounds.
+    private static final int GUMBALL_DEST_TILE = 0x54;
+    private static final int GUMBALL_SOURCE_SIZE = 0x100;                       // 256 bytes source data
+    private static final int GUMBALL_TILE_COUNT = 4;                             // 4 tiles ($40 words = 128 bytes)
     private static final int GUMBALL_DMA_SIZE = GUMBALL_TILE_COUNT * Pattern.PATTERN_SIZE_IN_ROM;
     private final byte[] gumballAniData;
     private int lastGumballIndex = -1;
@@ -703,8 +703,8 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
      * <p>
      * Computes a scroll index from (Events_bg+$10 - Camera_Y_BG) &amp; $1F,
      * uses it as a byte offset into ArtUnc_AniGumball, then DMA copies
-     * 0x54 tiles to VRAM tile $40. Creates a vertical scrolling effect
-     * in the background tile art.
+     * 4 tiles ($40 words = 128 bytes) to VRAM tile $54. Creates a vertical
+     * scrolling effect in the background tile art.
      */
     private void updateGumball() {
         if (gumballAniData == null) {

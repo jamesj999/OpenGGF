@@ -315,6 +315,18 @@ public class DefaultObjectServices implements ObjectServices {
     }
 
     @Override
+    public void setBonusStageShield(com.openggf.game.ShieldType type) {
+        try {
+            var provider = com.openggf.game.GameServices.bonusStage();
+            if (provider instanceof com.openggf.game.AbstractBonusStageCoordinator coordinator) {
+                coordinator.setAwardedShield(type);
+            }
+        } catch (Exception e) {
+            LOG.warning("setBonusStageShield failed: " + e.getMessage());
+        }
+    }
+
+    @Override
     public void requestZoneAndAct(int zone, int act) {
         lm().requestZoneAndAct(zone, act);
     }

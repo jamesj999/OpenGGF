@@ -1161,6 +1161,21 @@ public class GameLoop {
             playable.setXSpeed((short) 0);
             playable.setYSpeed((short) 0);
             playable.setGSpeed((short) 0);
+
+            // Re-apply any shield earned during the bonus stage. The level reload
+            // clears the player's shield state, so this is where we restore it.
+            // Priority matches ROM SpawnLevelMainSprites_SpawnPowerup: fire > bubble
+            // > lightning > basic (only one flag should be set at a time, but we
+            // enforce the ordering defensively).
+            if (rewards.fireShield()) {
+                playable.giveShield(ShieldType.FIRE);
+            } else if (rewards.bubbleShield()) {
+                playable.giveShield(ShieldType.BUBBLE);
+            } else if (rewards.lightningShield()) {
+                playable.giveShield(ShieldType.LIGHTNING);
+            } else if (rewards.shield()) {
+                playable.giveShield(ShieldType.BASIC);
+            }
         }
 
         // Restore camera

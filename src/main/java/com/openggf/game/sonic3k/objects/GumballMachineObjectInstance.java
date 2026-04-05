@@ -492,6 +492,15 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
      * our tracked springs and re-spawning any that have been destroyed.
      */
     public void respawnSprings() {
+        // Destroy any surviving old springs before replacing them, so stale
+        // entries don't linger in the object manager.
+        for (GumballSpringChild old : springs) {
+            if (old != null && !old.isDestroyed()) {
+                old.setDestroyed(true);
+            }
+        }
+        springs.clear();
+
         // If dispenser was destroyed (by spring → bit 1 chain), respawn it first
         // so newly-spawned springs have a live parent to signal.
         if (dispenser == null || dispenser.isDestroyed()) {
@@ -499,8 +508,7 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
                     buildSpawnAt(DISPENSER_ABSOLUTE_X, DISPENSER_ABSOLUTE_Y)));
         }
 
-        // Respawn all springs pointing to the (now-alive) dispenser.
-        springs.clear();
+        // Spawn fresh springs linked to the live dispenser.
         for (int[] pos : springOriginalPositions) {
             final int sx = pos[0];
             final int sy = pos[1];
@@ -563,6 +571,9 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         /** ROM loc_60E44: called by spring when it crumbles. */
         public void setSpringBit() { this.springBitSet = true; }
+
+        /** ROM btst #1, $38(a1) — siblings chain-crumble when this bit is set. */
+        public boolean isSpringBitSet() { return springBitSet; }
 
         @Override
         public boolean isPersistent() {
@@ -928,6 +939,13 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         @Override
         public void update(int frameCounter, PlayableEntity playerEntity) {
+            // ROM: btst #1, $38(a1) / bne.s loc_60E36 — if a sibling spring already
+            // crumbled, the dispenser's bit 1 is set; siblings chain-delete at the
+            // start of their update each frame.
+            if (!triggered && dispenser != null && dispenser.isSpringBitSet()) {
+                setDestroyed(true);
+                return;
+            }
             if (triggered) {
                 // ROM: continue animating, then delete when prev_anim == 1
                 crumbleTimer--;
