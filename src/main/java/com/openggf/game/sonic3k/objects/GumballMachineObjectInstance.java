@@ -146,6 +146,33 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
     // animation completion, preventing re-trigger while active.
     private static final int TRIGGER_COOLDOWN_FRAMES = 40;
 
+    // ===== Machine Y drift / slot tracking =====
+    //
+    // ROM: 28 bytes at $FF2000..$FF201B, 14 word-sized "slots" (pairs of bumpers).
+    // Initialized to 0xFF at machine spawn (ROM 127413-127419).
+    // Tested by sub_6126C as words: word is "occupied" when non-zero.
+    // Individual bumpers clear their byte when bumped (ROM 127692-127695).
+    private static final int SLOT_COUNT_BYTES = 28;
+    private static final int SLOT_WORD_COUNT = 14;
+    private static final int DRIFT_PER_EMPTY_SLOT = 0x20;
+    private static final int DRIFT_STEP_PER_FRAME = 4;
+
+    private final byte[] slotRam = new byte[SLOT_COUNT_BYTES];
+
+    // ROM $3A: original Y (saved at init, before any drift).
+    private int savedY;
+
+    // ROM $3C: current drift target (savedY + emptySlotPrefix*0x20).
+    private int targetY;
+
+    // ROM y_pos: current Y, updated +4/frame until >= targetY.
+    private int currentY;
+
+    // ROM bit 0 of $38: set by bumpers when they clear a slot; machine recounts.
+    private boolean slotRecalcNeeded;
+
+    private boolean driftInitialized;
+
     // ===== Instance state =====
 
     private State state = State.IDLE;
@@ -197,7 +224,8 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         // 2. Ball container display — follows machine (y+0x24 via Refresh_ChildPosition)
         spawnChild(() -> new ContainerDisplayChild(
-                buildSpawnAt(px + CONTAINER_OFFSET_X, py + CONTAINER_OFFSET_Y)));
+                buildSpawnAt(px + CONTAINER_OFFSET_X, py + CONTAINER_OFFSET_Y),
+                CONTAINER_OFFSET_Y));
 
         // 3. Exit trigger — relative to machine, +0x2A0 Y
         spawnChild(() -> new ExitTriggerChild(
@@ -206,16 +234,16 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         // 4-7. Platforms — follow machine via Refresh_ChildPosition
         spawnChild(() -> new PlatformChild(
                 buildSpawnAt(px + PLATFORM_LEFT_OFFSET_X, py + PLATFORM_LEFT_OFFSET_Y),
-                "GumballPlatformLeft"));
+                "GumballPlatformLeft", PLATFORM_LEFT_OFFSET_Y));
         spawnChild(() -> new PlatformChild(
                 buildSpawnAt(px + PLATFORM_CENTER_OFFSET_X, py + PLATFORM_CENTER_OFFSET_Y),
-                "GumballPlatformCenter"));
+                "GumballPlatformCenter", PLATFORM_CENTER_OFFSET_Y));
         spawnChild(() -> new PlatformChild(
                 buildSpawnAt(px + PLATFORM_RIGHT_OFFSET_X, py + PLATFORM_RIGHT_OFFSET_Y),
-                "GumballPlatformRight"));
+                "GumballPlatformRight", PLATFORM_RIGHT_OFFSET_Y));
         spawnChild(() -> new PlatformChild(
                 buildSpawnAt(px + PLATFORM_EXTRA_OFFSET_X, py + PLATFORM_EXTRA_OFFSET_Y),
-                "GumballPlatformExtra"));
+                "GumballPlatformExtra", PLATFORM_EXTRA_OFFSET_Y));
 
         // 4 springs at bottom of stage (ROM: ChildObjDat_61424 as children of dispenser).
         // Absolute positions: dispenser (0x100, 0x310) + offsets (-$30..$30, -$18).
@@ -236,6 +264,12 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        // Initialize drift state on first update (separated from child spawning
+        // so tests can exercise drift logic without requiring services()).
+        if (!driftInitialized) {
+            initDrift();
+        }
+
         // Spawn children on first update — can't do it in constructor because
         // services() isn't available until ObjectManager injects them.
         if (!childrenSpawned) {
@@ -245,6 +279,9 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
             currentInstance = this;
             spawnChildren();
         }
+
+        // ROM sub_6126C: recount empty slots and apply drift each frame.
+        applyDrift();
 
         // Tick trigger cooldown regardless of state (ROM: container animation
         // owns the re-trigger gate).
@@ -258,6 +295,69 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
             case TRIGGERED -> updateTriggered();
             case POST_TRIGGER -> updatePostTrigger(playerEntity);
         }
+    }
+
+    /**
+     * ROM Obj_GumballMachine init (line 127399).
+     * <ul>
+     *   <li>line 127405: move.w y_pos(a0),$3A(a0) — save initial Y after -$100 offset.</li>
+     *   <li>lines 127413-127419: init slot RAM ($FF2000..$FF201B) to 0xFF.</li>
+     * </ul>
+     * Package-private so unit tests can drive drift logic without requiring the
+     * child-spawn path (which needs injected ObjectServices).
+     */
+    void initDrift() {
+        driftInitialized = true;
+        savedY = spawn.y() + MACHINE_Y_OFFSET;
+        currentY = savedY;
+        targetY = savedY;
+        java.util.Arrays.fill(slotRam, (byte) 0xFF);
+        slotRecalcNeeded = false;
+    }
+
+    /** ROM sub_6126C (line 127949). Recount empty-slot prefix, apply drift. */
+    void applyDrift() {
+        if (slotRecalcNeeded) {
+            slotRecalcNeeded = false;
+            int accum = 0;
+            for (int i = 0; i < SLOT_WORD_COUNT; i++) {
+                int lo = slotRam[i * 2] & 0xFF;
+                int hi = slotRam[i * 2 + 1] & 0xFF;
+                int word = (hi << 8) | lo;
+                if (word != 0) {
+                    break; // ROM: tst.w / bne.s loc_6128A
+                }
+                accum += DRIFT_PER_EMPTY_SLOT;
+            }
+            targetY = savedY + accum;
+        }
+        if (currentY < targetY) {
+            currentY += DRIFT_STEP_PER_FRAME;
+        }
+    }
+
+    /** Called by GumballBumperObjectInstance on player bump. ROM lines 127692-127698. */
+    public void onBumperHit(int subtype) {
+        if (subtype < 0 || subtype >= SLOT_COUNT_BYTES) {
+            return;
+        }
+        slotRam[subtype] = 0;
+        slotRecalcNeeded = true;
+    }
+
+    /** Returns the machine's current (drifted) Y position. */
+    public int getCurrentY() {
+        return currentY;
+    }
+
+    /** Returns the machine's saved (initial) Y position. Package-private for tests. */
+    int getSavedY() {
+        return savedY;
+    }
+
+    /** Returns the current drift target Y. Package-private for tests. */
+    int getTargetY() {
+        return targetY;
     }
 
     /**
@@ -279,7 +379,7 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         int playerX = playerEntity.getCentreX();
         int playerY = playerEntity.getCentreY();
         int dx = playerX - spawn.x();
-        int dy = playerY - (spawn.y() + MACHINE_Y_OFFSET);
+        int dy = playerY - currentY;
 
         if (dx >= ACTIVATE_X_MIN && dx <= ACTIVATE_X_MAX
                 && dy >= ACTIVATE_Y_MIN && dy <= ACTIVATE_Y_MAX) {
@@ -434,7 +534,9 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
             return;
         }
 
-        renderer.drawFrameIndex(currentFrame, spawn.x(), spawn.y() + MACHINE_Y_OFFSET, false, false);
+        // Render at currentY so the machine visually slides as bumpers clear.
+        int renderY = driftInitialized ? currentY : (spawn.y() + MACHINE_Y_OFFSET);
+        renderer.drawFrameIndex(currentFrame, spawn.x(), renderY, false, false);
     }
 
     // =====================================================================
@@ -511,8 +613,12 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         private static final int MAPPING_FRAME = 2; // Container visual frame
 
-        ContainerDisplayChild(ObjectSpawn spawn) {
+        /** Y offset from the machine's savedY (machine-relative). */
+        private final int offsetFromMachine;
+
+        ContainerDisplayChild(ObjectSpawn spawn, int offsetFromMachine) {
             super(spawn, "GumballContainer");
+            this.offsetFromMachine = offsetFromMachine;
         }
 
         @Override
@@ -536,7 +642,12 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
             if (renderer == null) {
                 return;
             }
-            renderer.drawFrameIndex(MAPPING_FRAME, spawn.x(), spawn.y(), false, false);
+            // Track the machine's drifted Y position so the container slides in sync.
+            GumballMachineObjectInstance machine = GumballMachineObjectInstance.current();
+            int renderY = (machine != null)
+                    ? machine.getCurrentY() + offsetFromMachine
+                    : spawn.y();
+            renderer.drawFrameIndex(MAPPING_FRAME, spawn.x(), renderY, false, false);
         }
     }
 
@@ -612,8 +723,12 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         // ROM ObjDat3_6138C byte 2 = 0 — platform uses mapping frame 0
         private static final int MAPPING_FRAME = 0;
 
-        PlatformChild(ObjectSpawn spawn, String name) {
+        /** Y offset from the machine's savedY (machine-relative). */
+        private final int offsetFromMachine;
+
+        PlatformChild(ObjectSpawn spawn, String name, int offsetFromMachine) {
             super(spawn, name);
+            this.offsetFromMachine = offsetFromMachine;
         }
 
         @Override
@@ -637,8 +752,13 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
             if (renderer == null) {
                 return;
             }
+            // Track the machine's drifted Y position so platforms slide in sync.
+            GumballMachineObjectInstance machine = GumballMachineObjectInstance.current();
+            int renderY = (machine != null)
+                    ? machine.getCurrentY() + offsetFromMachine
+                    : spawn.y();
             // ROM: ObjDat3_6138C uses make_art_tile(ArtTile_BonusStage, 0, 0) — palette 0
-            renderer.drawFrameIndex(MAPPING_FRAME, spawn.x(), spawn.y(), false, false, 0);
+            renderer.drawFrameIndex(MAPPING_FRAME, spawn.x(), renderY, false, false, 0);
         }
     }
 

@@ -169,6 +169,14 @@ public class GumballTriangleBumperObjectInstance extends AbstractObjectInstance
             // Prevent audio failure from breaking game logic
         }
 
+        // ROM lines 127692-127698: bumper clears its slot byte on the machine
+        // (indexed by subtype), and sets bit 0 of $38 so the machine recounts
+        // its empty-slot prefix to drive vertical drift.
+        GumballMachineObjectInstance machine = GumballMachineObjectInstance.current();
+        if (machine != null) {
+            machine.onBumperHit(spawn.subtype() & 0xFF);
+        }
+
         // ROM: jmp (Delete_Current_Sprite).l — bumper is consumed after bounce.
         // The gumball machine respawns bumpers from its object placement data.
         setDestroyed(true);
