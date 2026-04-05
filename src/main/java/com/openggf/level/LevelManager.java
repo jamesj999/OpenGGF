@@ -185,6 +185,7 @@ public class LevelManager {
     // Mutable state for pre-allocated water shader setup command
     private float pendingWaterlineScreenY;
     private int pendingWaterShimmerStyle;
+    private boolean pendingSuppressUnderwaterPalette;
     private final GLCommand waterShaderSetupCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
         graphicsManager.setUseWaterShader(true);
 
@@ -204,7 +205,7 @@ public class LevelManager {
         shader.setScreenDimensions((float) configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS),
                 screenHeightPixels);
 
-        graphicsManager.setWaterEnabled(true);
+        graphicsManager.setWaterEnabled(!pendingSuppressUnderwaterPalette);
         graphicsManager.setWaterlineScreenY(pendingWaterlineScreenY);
         graphicsManager.setWindowHeight(windowHeight);
         graphicsManager.setScreenHeight(screenHeightPixels);
@@ -1832,6 +1833,7 @@ public class LevelManager {
             // Set mutable state for pre-allocated water shader setup command
             pendingWaterlineScreenY = waterlineScreenY;
             pendingWaterShimmerStyle = shimmerStyle;
+            pendingSuppressUnderwaterPalette = shouldSuppressUnderwaterPalette(zoneId, actId);
             graphicsManager.registerCommand(waterShaderSetupCommand);
         } else {
             // No water in this zone - disable underwater palette for sprite priority shader
