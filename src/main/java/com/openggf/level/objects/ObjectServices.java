@@ -176,6 +176,15 @@ public interface ObjectServices {
     void addBonusStageRings(int count);
 
     /**
+     * Records the shield awarded by a bonus-stage gumball pickup so the
+     * exit handler can restore it after the level reload clears the player
+     * state. No-op when not in a bonus stage.
+     *
+     * @param type the shield type awarded
+     */
+    void setBonusStageShield(com.openggf.game.ShieldType type);
+
+    /**
      * Requests transition to a specific zone and act.
      *
      * @param zone the zone index (0-based)

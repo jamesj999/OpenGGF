@@ -219,6 +219,7 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
             case 5 -> onCollectPush(player);             // push player away (no sound)
             case 6 -> onCollectFireShield(player);       // FireShield + sfx_FireShield
             case 7 -> onCollectBubbleShield(player);     // BubbleShield + sfx_BubbleShield
+            case 8 -> onCollectLightningShield(player);  // LightningShield + sfx_LightningShield
             default -> {
                 LOGGER.fine("GumballItem: unhandled subtype " + subtype);
                 onCollectBumper(player);
@@ -307,6 +308,11 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
             } catch (Exception e) {
                 // safe fallback
             }
+            try {
+                services().setBonusStageShield(com.openggf.game.ShieldType.FIRE);
+            } catch (Exception e) {
+                // ignore
+            }
         }
         playSfx(Sonic3kSfx.FIRE_SHIELD);
     }
@@ -321,8 +327,32 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
             } catch (Exception e) {
                 // safe fallback
             }
+            try {
+                services().setBonusStageShield(com.openggf.game.ShieldType.BUBBLE);
+            } catch (Exception e) {
+                // ignore
+            }
         }
         playSfx(Sonic3kSfx.BUBBLE_SHIELD);
+    }
+
+    /**
+     * ROM: subtype 8 — loc_6122A grants LightningShield + plays sfx_LightningShield.
+     */
+    private void onCollectLightningShield(PlayableEntity player) {
+        if (player instanceof AbstractPlayableSprite sprite) {
+            try {
+                sprite.giveShield(com.openggf.game.ShieldType.LIGHTNING);
+            } catch (Exception e) {
+                // safe fallback
+            }
+            try {
+                services().setBonusStageShield(com.openggf.game.ShieldType.LIGHTNING);
+            } catch (Exception e) {
+                // ignore
+            }
+        }
+        playSfx(Sonic3kSfx.LIGHTNING_SHIELD);
     }
 
     // --- Ring Award Helpers ---

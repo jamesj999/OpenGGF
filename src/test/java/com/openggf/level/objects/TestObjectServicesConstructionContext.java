@@ -53,6 +53,7 @@ class TestObjectServicesConstructionContext {
         @Override public void requestBonusStageEntry(com.openggf.game.BonusStageType type) {}
         @Override public void requestBonusStageExit() {}
         @Override public void addBonusStageRings(int count) {}
+        @Override public void setBonusStageShield(com.openggf.game.ShieldType type) {}
         @Override public void requestZoneAndAct(int zone, int act) {}
         @Override public void requestZoneAndAct(int zone, int act, boolean deactivateLevelNow) {}
         @Override public int getCurrentLevelMusicId() { return 0; }
