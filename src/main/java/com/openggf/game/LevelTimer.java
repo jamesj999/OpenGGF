@@ -29,8 +29,33 @@ public class LevelTimer {
         paused = true;
     }
 
+    /**
+     * Resumes the timer after a pause.
+     * Called when returning from a bonus stage (ROM: Update_HUD_timer = 1).
+     */
+    public void resume() {
+        paused = false;
+    }
+
     public boolean isPaused() {
         return paused;
+    }
+
+    /**
+     * Gets the raw total frame count.
+     * @return total frames elapsed since reset
+     */
+    public long getTotalFrames() {
+        return totalFrames;
+    }
+
+    /**
+     * Sets the raw total frame count.
+     * Used for state restoration (e.g. bonus stage exit).
+     * @param totalFrames new frame count
+     */
+    public void setTotalFrames(long totalFrames) {
+        this.totalFrames = totalFrames;
     }
 
     public void update() {

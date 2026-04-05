@@ -157,6 +157,15 @@ public abstract class AbstractLevelEventManager implements LevelEventProvider {
         eventRoutineBg = routine;
     }
 
+    /**
+     * Restores the dynamic resize routine state after a bonus/special stage return.
+     * Must be called AFTER initLevel() has reset counters to 0.
+     */
+    public void restoreEventRoutineState(int routineFg, int routineBg) {
+        this.eventRoutineFg = routineFg;
+        this.eventRoutineBg = routineBg;
+    }
+
     // =========================================================================
     // Camera boundary convenience methods
     // =========================================================================

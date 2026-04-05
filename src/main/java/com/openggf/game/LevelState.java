@@ -65,6 +65,12 @@ public interface LevelState {
     void pauseTimer();
 
     /**
+     * Resumes the level timer after a pause.
+     * Called when returning from a bonus stage (ROM: Update_HUD_timer = 1).
+     */
+    void resumeTimer();
+
+    /**
      * Returns whether the level timer is paused.
      * ROM equivalent: Update_HUD_timer == 0.
      * Set by the signpost and egg prison at end of act.

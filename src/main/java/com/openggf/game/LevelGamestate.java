@@ -79,6 +79,11 @@ public class LevelGamestate implements LevelState {
     }
 
     @Override
+    public void resumeTimer() {
+        timer.resume();
+    }
+
+    @Override
     public boolean isTimerPaused() {
         return timer.isPaused();
     }
