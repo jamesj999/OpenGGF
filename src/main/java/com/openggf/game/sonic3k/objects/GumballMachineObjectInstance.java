@@ -3,6 +3,7 @@ package com.openggf.game.sonic3k.objects;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
+import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -11,6 +12,7 @@ import com.openggf.level.objects.SolidContact;
 import com.openggf.level.objects.SolidObjectListener;
 import com.openggf.level.objects.SolidObjectParams;
 import com.openggf.level.objects.SolidObjectProvider;
+import com.openggf.level.objects.SpringBounceHelper;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -885,8 +887,9 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         // ROM: short bounce animation before crumbling
         private static final int CRUMBLE_DELAY_FRAMES = 8;
 
-        // ROM: Map_Spring frame for red vertical spring (frame 0)
-        private static final int MAPPING_FRAME = 0;
+        // ROM: Map_Spring frames — frame 0 idle, frame 1 compressed (played on bounce)
+        private static final int IDLE_FRAME = 0;
+        private static final int COMPRESSED_FRAME = 1;
 
         private final GumballMachineObjectInstance parent;
         private final DispenserChild dispenser;
@@ -942,10 +945,29 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
                 return;
             }
 
-            // ROM: sub_22F98 — bounce player upward, set airborne, play spring anim
+            // ROM sub_22F98 (sonic3k.asm lines 47714-47766) — full red vertical spring bounce.
+
+            // addq.w #8, y_pos(a1) — nudge player DOWN 8 pixels (start of compression)
+            player.setY((short) (player.getY() + 8));
+
+            // move.w $30(a0), y_vel(a1) — upward velocity (-$1000 for red spring)
             player.setYSpeed((short) BOUNCE_STRENGTH);
-            player.setAir(true);
             player.setGSpeed((short) 0);
+
+            // bset #1, status(a1) — Status_InAir
+            player.setAir(true);
+
+            // bclr #3, status(a1) — clear Status_OnObj
+            player.setOnObject(false);
+
+            // clr.b jumping(a1)
+            player.setJumping(false);
+
+            // move.b #$10, anim(a1) — player SPRING animation
+            player.setAnimationId(Sonic3kAnimationIds.SPRING);
+
+            // Standard S3K spring bounce pattern: lock horizontal control briefly.
+            player.setSpringing(SpringBounceHelper.CONTROL_LOCK_FRAMES);
 
             // ROM: play sfx_Spring (0xB1)
             try {
@@ -967,11 +989,13 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
-            PatternSpriteRenderer renderer = getRenderer(Sonic3kObjectArtKeys.GUMBALL_BONUS);
+            PatternSpriteRenderer renderer = getRenderer(Sonic3kObjectArtKeys.GUMBALL_SPRING);
             if (renderer == null) {
                 return;
             }
-            renderer.drawFrameIndex(MAPPING_FRAME, spawn.x(), spawn.y(), false, false, 0);
+            // Frame 0 idle, frame 1 compressed (played while the bounce/crumble plays).
+            int frame = triggered ? COMPRESSED_FRAME : IDLE_FRAME;
+            renderer.drawFrameIndex(frame, spawn.x(), spawn.y(), false, false, 0);
         }
     }
 }

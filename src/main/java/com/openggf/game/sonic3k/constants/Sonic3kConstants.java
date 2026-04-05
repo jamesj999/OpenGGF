@@ -1247,6 +1247,10 @@ public class Sonic3kConstants {
     // Spring child object mappings (shared, used across all zones)
     public static final int MAP_SPRING_ADDR = 0x02375C;             // Map_Spring (11 frames, S3K mapping format)
 
+    // ArtNem_VerticalSpring — standalone red vertical spring art used by gumball bonus springs.
+    // ROM: s3.asm:118453, 325 compressed bytes -> 512 bytes (8 tiles).
+    public static final int ART_NEM_VERTICAL_SPRING_ADDR = 0x35C988;
+
     private static boolean scanned = false;
 
     public static boolean isScanned() {
