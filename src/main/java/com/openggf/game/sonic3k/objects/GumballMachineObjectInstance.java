@@ -69,13 +69,12 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
     // a bucket, so placing the machine at bucket 1 keeps Sonic always visible.
     private static final int PRIORITY_BUCKET = 1;
 
-    // ROM: Spin animation frame sequence [3,5,6,7,$14,5,$F4,$7F,5,5,$FC]
-    // $F4 = -12 (signed byte) -> frame wait command
-    // $7F = end-of-frame-wait marker
-    // $FC = loop back / end
-    // Simplified: display frames 3,5,6,7,0x14,5 then 5,5 with delays
-    private static final int[] SPIN_FRAMES = {3, 5, 6, 7, 0x14, 5, 5, 5};
-    private static final int SPIN_FRAME_DURATION = 3; // frames per animation frame
+    // ROM: byte_61450 = [3, 5, 6, 7, $14, 5, $FF]
+    // First byte (3) is the per-frame timer, NOT a mapping frame.
+    // Actual animation frames: 5, 6, 7, $14, 5.
+    // ROM timer stores (value) then decrements via bpl check (runs value+1 frames).
+    private static final int[] SPIN_FRAMES = {5, 6, 7, 0x14, 5};
+    private static final int SPIN_FRAME_DURATION = 4; // ROM timer=3 + 1 for bpl check
     private static final int SPIN_TOTAL_FRAMES = SPIN_FRAMES.length * SPIN_FRAME_DURATION;
 
     // ROM: ObjDat_GumballMachine byte 2 = 5 — default mapping frame (machine body)
@@ -478,7 +477,8 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         @Override
         public boolean isTopSolidOnly() {
-            return true;
+            // ROM sub_61314 calls SolidObjectFull — 4-sided collision.
+            return false;
         }
 
         @Override
@@ -602,17 +602,15 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
     }
 
     /**
-     * Platform child — solid platform for the player to stand on.
+     * Platform child — visual-only decoration.
      * <p>
-     * ROM: Uses SolidObject with standard platform dimensions.
-     * Top-solid only so the player can jump up through them.
+     * ROM loc_61012 only does Refresh_ChildPosition + Draw_Sprite.
+     * NO solid collision — the platforms are decorative, not standable.
      */
-    static class PlatformChild extends AbstractObjectInstance
-            implements SolidObjectProvider, SolidObjectListener {
+    static class PlatformChild extends AbstractObjectInstance {
 
-        // ROM: Platform solid params — approximate from gumball stage layout
-        private static final SolidObjectParams SOLID_PARAMS = new SolidObjectParams(32, 8, 8);
-        private static final int MAPPING_FRAME = 4; // Platform visual frame
+        // ROM ObjDat3_6138C byte 2 = 0 — platform uses mapping frame 0
+        private static final int MAPPING_FRAME = 0;
 
         PlatformChild(ObjectSpawn spawn, String name) {
             super(spawn, name);
@@ -626,21 +624,6 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         @Override
         public void update(int frameCounter, PlayableEntity playerEntity) {
             // Static platform — no per-frame logic
-        }
-
-        @Override
-        public SolidObjectParams getSolidParams() {
-            return SOLID_PARAMS;
-        }
-
-        @Override
-        public boolean isTopSolidOnly() {
-            return true;
-        }
-
-        @Override
-        public void onSolidContact(PlayableEntity player, SolidContact contact, int frameCounter) {
-            // No special contact behavior
         }
 
         @Override

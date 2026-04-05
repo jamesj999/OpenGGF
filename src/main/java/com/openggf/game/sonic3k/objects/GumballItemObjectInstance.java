@@ -1,6 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.audio.GameSound;
 import com.openggf.camera.Camera;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
@@ -63,18 +62,14 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
     // matching ROM behavior where $C0+ objects use collision_property polling.
     private static final int COLLISION_FLAGS = 0x40 | 0x17;
 
-    // ROM: priority $0200 → bucket 2
-    private static final int PRIORITY_BUCKET = 2;
+    // ROM: ObjDat3_613E0 priority $0100 → bucket 1
+    private static final int PRIORITY_BUCKET = 1;
 
     // ROM: byte_1E44C4 — ring reward table indexed by (y_pos & 0xF)
     private static final int[] RING_REWARD_TABLE = {
             0x50, 0x32, 0x28, 0x23, 0x23, 0x1E, 0x1E, 0x14,
             0x14, 0x0A, 0x0A, 0x0A, 0x0A, 0x05, 0x05, 0x05
     };
-
-    // ROM: loc_6114E — ring item awards 10 rings to HUD and 20 to saved count
-    private static final int RING_ITEM_HUD_AWARD = 10;
-    private static final int RING_ITEM_SAVED_AWARD = 20;
 
     /** Subpixel motion state for MoveSprite2 + gravity deceleration. */
     private final SubpixelMotion.State motionState;
@@ -149,15 +144,15 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
 
         // ROM: loc_4A31A — bottom-only despawn.
         //   move.w  (Camera_Y_pos).w,d0
-        //   addi.w  #$200,d0
+        //   addi.w  #$240,d0
         //   cmp.w   y_pos(a0),d0
         //   bcs.s   DeleteObject
         // Items only despawn when they fall off the BOTTOM of the screen
-        // (y_pos > Camera_Y_pos + $200), not when scrolled off any edge.
+        // (y_pos > Camera_Y_pos + $240), not when scrolled off any edge.
         try {
             Camera camera = services().camera();
             int cameraY = camera.getY();
-            if (motionState.y > cameraY + 0x200) {
+            if (motionState.y > cameraY + 0x240) {
                 setDestroyed(true);
             }
         } catch (Exception e) {
@@ -214,48 +209,49 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
 
         collected = true;
 
-        // ROM: sub_4A384 — dispatch on subtype
+        // ROM: sub_4A384 — dispatch on subtype (verified via loc_611xx handlers)
         switch (subtype) {
-            case 0 -> onCollectDefault(player);
-            case 1 -> onCollectSmallBumper(player);
-            case 2 -> onCollectRingItem(player);
-            case 3 -> onCollectBonusItem(player);
-            case 4 -> onCollectRingReward(player);
-            case 5 -> {
-                // ROM: loc_6115C — push handler, plays sfx_SmallBumpers
-                playSfx(Sonic3kSfx.SMALL_BUMPERS);
-            }
-            case 6, 7 -> {
-                // ROM: shield subtypes play shield SFX
-                playSfx(Sonic3kSfx.SHIELD);
-            }
+            case 0 -> onCollectBumper(player);           // sfx_SmallBumpers (no reward)
+            case 1 -> onCollectExtraLife(player);        // REP: +1 life + respawn springs
+            case 2 -> onCollectBumper(player);           // sfx_SmallBumpers (no reward)
+            case 3 -> onCollectRingReward(player);       // position-based ring reward
+            case 4 -> onCollectSilent(player);           // nothing — silent delete
+            case 5 -> onCollectPush(player);             // push player away (no sound)
+            case 6 -> onCollectFireShield(player);       // FireShield + sfx_FireShield
+            case 7 -> onCollectBubbleShield(player);     // BubbleShield + sfx_BubbleShield
             default -> {
-                // Subtypes 8+ fall back to default bumper sound
                 LOGGER.fine("GumballItem: unhandled subtype " + subtype);
-                onCollectDefault(player);
+                onCollectBumper(player);
             }
         }
     }
 
     /**
-     * ROM: subtype 0 — normal gumball / black bouncer (sub_4A384 dispatch → loc_4A3AC).
-     * Plays sfx_SmallBumpers and deletes.
+     * ROM: subtypes 0 and 2 — plain bouncer, plays sfx_SmallBumpers only (no reward).
+     * sub_4A384 dispatch → default case just plays the bumper sound.
      */
-    private void onCollectDefault(PlayableEntity player) {
+    private void onCollectBumper(PlayableEntity player) {
         playSfx(Sonic3kSfx.SMALL_BUMPERS);
     }
 
     /**
-     * ROM: subtype 1 — REP / extra life gumball (loc_61120 plays mus_ExtraLife).
-     * In our bonus stage implementation, this subtype is the "REP" gumball which
-     * respawns the dispenser springs. See Issue 5. We trigger spring respawn
-     * via the machine singleton and play the bumper SFX.
+     * ROM: subtype 1 — REP / extra life gumball (loc_61120).
+     * ROM plays mus_ExtraLife and grants +1 life. The engine also uses this
+     * subtype as the respawn-springs gumball (dispenser respawn).
      */
-    private void onCollectSmallBumper(PlayableEntity player) {
-        playSfx(Sonic3kSfx.SMALL_BUMPERS);
-        // ROM loc_61130 (entry 1 of off_6110E) respawns the dispenser. In our
-        // engine, the dispenser owns the springs, so we request a spring respawn
-        // from the current gumball machine instance.
+    private void onCollectExtraLife(PlayableEntity player) {
+        // ROM loc_61120: plays mus_ExtraLife, adds 1 life
+        try {
+            services().gameState().addLife();
+        } catch (Exception e) {
+            // safe fallback for test env
+        }
+        try {
+            services().playMusic(com.openggf.game.sonic3k.audio.Sonic3kMusic.EXTRA_LIFE.id);
+        } catch (Exception e) {
+            // safe fallback
+        }
+        // Engine-specific: respawn the dispenser springs from the REP gumball.
         GumballMachineObjectInstance current = GumballMachineObjectInstance.current();
         if (current != null) {
             current.respawnSprings();
@@ -263,36 +259,70 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
     }
 
     /**
-     * ROM: subtype 2 — also a bounce bumper in the dispatch table.
-     * Awards rings (engine-specific reward on top of ROM's bumper).
-     * Plays sfx_SmallBumpers.
+     * ROM: subtype 3 — position-based ring reward (loc_4A3B6).
+     * Ring count from byte_1E44C4 indexed by (y_pos &amp; 0xF).
      */
-    private void onCollectRingItem(PlayableEntity player) {
-        awardRingsToHud(player, RING_ITEM_HUD_AWARD);
-        awardRingsToCoordinator(RING_ITEM_SAVED_AWARD);
-        playSfx(Sonic3kSfx.SMALL_BUMPERS);
-    }
-
-    /**
-     * ROM: subtype 3 — ring collect (loc_6113C plays sfx_Ring).
-     * Ring reward from position-based table (byte_1E44C4), indexed by (y_pos &amp; 0xF).
-     */
-    private void onCollectBonusItem(PlayableEntity player) {
+    private void onCollectRingReward(PlayableEntity player) {
         int tableIndex = motionState.y & 0xF;
         int ringReward = RING_REWARD_TABLE[tableIndex];
         awardRingsToCoordinator(ringReward);
         awardRingsToHud(player, ringReward);
-        // ROM: subtype 3 plays sfx_Ring (0x33)
+        // ROM plays sfx_Ring (0x33) on collect
         playSfx(Sonic3kSfx.RING_RIGHT);
     }
 
     /**
-     * ROM: subtype 4 — locret_6114C (no sound directly).
-     * Falls through to the shared bounce handler at loc_6115C (push sound).
+     * ROM: subtype 4 — locret_6114C (does nothing). Silent delete, no SFX, no reward.
      */
-    private void onCollectRingReward(PlayableEntity player) {
-        // ROM: no direct sound; shared push handler plays sfx_SmallBumpers
-        playSfx(Sonic3kSfx.SMALL_BUMPERS);
+    private void onCollectSilent(PlayableEntity player) {
+        // No sound, no reward. Just get deleted (collected=true above).
+    }
+
+    /**
+     * ROM: subtype 5 — loc_6115C (push handler).
+     * Uses arctan/sine/cosine to push player away from the item. No SFX.
+     */
+    private void onCollectPush(PlayableEntity player) {
+        if (!(player instanceof AbstractPlayableSprite sprite)) {
+            return;
+        }
+        // Simplified push: nudge player X away from the item (ROM uses sin/cos lookup).
+        int dx = sprite.getCentreX() - motionState.x;
+        int dir = dx >= 0 ? 1 : -1;
+        try {
+            sprite.setXSpeed((short) (0x200 * dir));
+        } catch (Exception e) {
+            // safe fallback
+        }
+        // ROM: no sound played directly by subtype 5
+    }
+
+    /**
+     * ROM: subtype 6 — loc_611D6 grants FireShield + plays sfx_FireShield.
+     */
+    private void onCollectFireShield(PlayableEntity player) {
+        if (player instanceof AbstractPlayableSprite sprite) {
+            try {
+                sprite.giveShield(com.openggf.game.ShieldType.FIRE);
+            } catch (Exception e) {
+                // safe fallback
+            }
+        }
+        playSfx(Sonic3kSfx.FIRE_SHIELD);
+    }
+
+    /**
+     * ROM: subtype 7 — loc_61200 grants BubbleShield + plays sfx_BubbleShield.
+     */
+    private void onCollectBubbleShield(PlayableEntity player) {
+        if (player instanceof AbstractPlayableSprite sprite) {
+            try {
+                sprite.giveShield(com.openggf.game.ShieldType.BUBBLE);
+            } catch (Exception e) {
+                // safe fallback
+            }
+        }
+        playSfx(Sonic3kSfx.BUBBLE_SHIELD);
     }
 
     // --- Ring Award Helpers ---

@@ -9,15 +9,19 @@ class TestBonusStageLifecycle {
 
     @Test
     void testSelectBonusStage_ringFormula() {
+        // ROM loc_2D47E dispatch (sonic3k.asm lines 61886-61912):
+        //   remainder 0 -> SLOTS ($1500)
+        //   remainder 1 -> PACHINKO / GLOWING_SPHERE ($1400)
+        //   remainder 2 -> GUMBALL ($1300)
         var coordinator = new Sonic3kBonusStageCoordinator();
         assertEquals(BonusStageType.NONE, coordinator.selectBonusStage(19));
-        assertEquals(BonusStageType.GUMBALL, coordinator.selectBonusStage(20));
-        assertEquals(BonusStageType.GUMBALL, coordinator.selectBonusStage(34));
+        assertEquals(BonusStageType.SLOT_MACHINE, coordinator.selectBonusStage(20));
+        assertEquals(BonusStageType.SLOT_MACHINE, coordinator.selectBonusStage(34));
         assertEquals(BonusStageType.GLOWING_SPHERE, coordinator.selectBonusStage(35));
         assertEquals(BonusStageType.GLOWING_SPHERE, coordinator.selectBonusStage(49));
-        assertEquals(BonusStageType.SLOT_MACHINE, coordinator.selectBonusStage(50));
-        assertEquals(BonusStageType.SLOT_MACHINE, coordinator.selectBonusStage(64));
-        assertEquals(BonusStageType.GUMBALL, coordinator.selectBonusStage(65));
+        assertEquals(BonusStageType.GUMBALL, coordinator.selectBonusStage(50));
+        assertEquals(BonusStageType.GUMBALL, coordinator.selectBonusStage(64));
+        assertEquals(BonusStageType.SLOT_MACHINE, coordinator.selectBonusStage(65));
     }
 
     @Test
