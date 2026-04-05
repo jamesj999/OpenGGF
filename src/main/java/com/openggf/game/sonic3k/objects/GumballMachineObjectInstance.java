@@ -219,19 +219,34 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         spawnChild(() -> new ExitTriggerChild(
                 buildSpawnAt(px + EXIT_TRIGGER_OFFSET_X, py + EXIT_TRIGGER_OFFSET_Y)));
 
-        // 4-7. Platforms — follow machine via Refresh_ChildPosition
+        // 4-7. Platforms — follow machine via Refresh_ChildPosition.
+        // ROM sub_61362 + RawAni_61388 = [0, 1, 0, $16]: each platform child gets a
+        // per-slot mapping frame indexed by (subtype - 6) / 2 where subtype is the
+        // child's CreateChild1_Normal index (6, 8, $A, $C for the 4 platform slots).
+        // Children 3 (left), 5 (right): frame 0 (top cap tiles).
+        // Child 4 (center): frame 1 (top cap center tiles).
+        // Child 6 (extra): frame 0x16 — the MAIN MACHINE BODY sprite.
         spawnChild(() -> new PlatformChild(
                 buildSpawnAt(px + PLATFORM_LEFT_OFFSET_X, py + PLATFORM_LEFT_OFFSET_Y),
-                "GumballPlatformLeft", PLATFORM_LEFT_OFFSET_Y));
+                "GumballPlatformLeft", PLATFORM_LEFT_OFFSET_Y, 0x00));
         spawnChild(() -> new PlatformChild(
                 buildSpawnAt(px + PLATFORM_CENTER_OFFSET_X, py + PLATFORM_CENTER_OFFSET_Y),
-                "GumballPlatformCenter", PLATFORM_CENTER_OFFSET_Y));
+                "GumballPlatformCenter", PLATFORM_CENTER_OFFSET_Y, 0x01));
         spawnChild(() -> new PlatformChild(
                 buildSpawnAt(px + PLATFORM_RIGHT_OFFSET_X, py + PLATFORM_RIGHT_OFFSET_Y),
-                "GumballPlatformRight", PLATFORM_RIGHT_OFFSET_Y));
+                "GumballPlatformRight", PLATFORM_RIGHT_OFFSET_Y, 0x00));
         spawnChild(() -> new PlatformChild(
                 buildSpawnAt(px + PLATFORM_EXTRA_OFFSET_X, py + PLATFORM_EXTRA_OFFSET_Y),
-                "GumballPlatformExtra", PLATFORM_EXTRA_OFFSET_Y));
+                "GumballPlatformExtra", PLATFORM_EXTRA_OFFSET_Y, 0x16));
+
+        // 5th overlay child for the extra platform: the glass dome shine (sprite-mask
+        // effect). ROM sub_61362 detects frame=$16 on the child and calls
+        // CreateChild6_Simple with ChildObjDat_6144A, which spawns loc_610B6 using
+        // ObjDat3_613EC (mapping frame $17, palette 0, art_tile 0). The overlay
+        // follows the extra platform's position (ROM loc_610C6 copies parent pos).
+        spawnChild(() -> new BodyOverlayChild(
+                buildSpawnAt(px + PLATFORM_EXTRA_OFFSET_X, py + PLATFORM_EXTRA_OFFSET_Y),
+                PLATFORM_EXTRA_OFFSET_Y));
 
         // 4 springs at bottom of stage (ROM: ChildObjDat_61424 as children of dispenser).
         // Absolute positions: dispenser (0x100, 0x310) + offsets (-$30..$30, -$18).
@@ -664,9 +679,23 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         public void update(int frameCounter, PlayableEntity playerEntity) {
             timer--;
             if (timer < 0) {
-                // ROM: move.l #MoveChkDel,(a0) — effect keeps moving (gravity) until off-screen.
-                // Engine: immediate destroy for simplicity (effect has no initial velocity,
-                // would just fall a short distance before off-screen).
+                // ROM loc_61032: `subq.b #1,$2E(a0) / bpl draw / move.l #MoveChkDel,(a0)`.
+                // After the timer expires, the ROM swaps the update routine to
+                // MoveChkDel, which does: `MoveSprite` (applies gravity +$38 to y_vel
+                // each frame, then updates pos from velocity) + `Sprite_CheckDeleteXY`
+                // (delete when off-screen).
+                //
+                // CRITICAL: sub_61320 (the init routine) only writes timer ($2E) and
+                // position offsets — it NEVER initializes x_vel or y_vel. So effects
+                // start with zero velocity. Gravity (+$38/frame) accumulates slowly,
+                // and the effect falls a short distance before the off-screen check
+                // deletes it. With no horizontal velocity, off-screen only happens
+                // vertically (stage camera is fixed in the gumball bonus stage).
+                //
+                // Our engine takes the shortcut of destroying the effect immediately
+                // on timer expiry, which is visually indistinguishable for this
+                // transient debris (no x drift, tiny y drop before deletion anyway).
+                // This is intentional ROM-accurate-enough behaviour.
                 setDestroyed(true);
             }
         }
@@ -839,18 +868,23 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
      * <p>
      * ROM loc_61012 only does Refresh_ChildPosition + Draw_Sprite.
      * NO solid collision — the platforms are decorative, not standable.
+     * <p>
+     * Each of the 4 platform slots renders a DIFFERENT mapping frame from
+     * RawAni_61388 [0, 1, 0, $16], set by sub_61362 based on the child's
+     * subtype (spawn slot index in ChildObjDat_613F8).
      */
     static class PlatformChild extends AbstractObjectInstance {
-
-        // ROM ObjDat3_6138C byte 2 = 0 — platform uses mapping frame 0
-        private static final int MAPPING_FRAME = 0;
 
         /** Y offset from the machine's savedY (machine-relative). */
         private final int offsetFromMachine;
 
-        PlatformChild(ObjectSpawn spawn, String name, int offsetFromMachine) {
+        /** Per-instance mapping frame from RawAni_61388 (ROM sub_61362). */
+        private final int mappingFrame;
+
+        PlatformChild(ObjectSpawn spawn, String name, int offsetFromMachine, int mappingFrame) {
             super(spawn, name);
             this.offsetFromMachine = offsetFromMachine;
+            this.mappingFrame = mappingFrame;
         }
 
         @Override
@@ -880,6 +914,66 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
                     ? machine.getCurrentY() + offsetFromMachine
                     : spawn.y();
             // ROM: ObjDat3_6138C uses make_art_tile(ArtTile_BonusStage, 0, 0) — palette 0
+            renderer.drawFrameIndex(mappingFrame, spawn.x(), renderY, false, false, 0);
+        }
+    }
+
+    /**
+     * Glass dome shine overlay (sprite-mask shine effect) for the machine body.
+     * <p>
+     * ROM loc_610B6 / ObjDat3_613EC (mapping frame $17). Spawned by sub_61362 via
+     * CreateChild6_Simple(ChildObjDat_6144A) when the extra platform child's
+     * mapping frame is $16 (the body sprite). Follows the parent's position every
+     * frame (ROM loc_610C6 copies x_pos/y_pos from parent3). Uses palette 0 /
+     * art_tile 0 per the ObjDat3_613EC `make_art_tile($000, 0, 0)` definition and
+     * sets the global Spritemask_flag on the VDP each frame.
+     * <p>
+     * Priority $180 in ROM — slightly lower than the machine body's $200 so it
+     * renders just after the body. In our bucketed renderer this is still
+     * priority bucket 1 (behind Sonic).
+     */
+    static class BodyOverlayChild extends AbstractObjectInstance {
+
+        private static final int MAPPING_FRAME = 0x17;
+
+        /** Y offset from the machine's current Y (matches extra platform offset). */
+        private final int offsetFromMachine;
+
+        BodyOverlayChild(ObjectSpawn spawn, int offsetFromMachine) {
+            super(spawn, "GumballBodyShine");
+            this.offsetFromMachine = offsetFromMachine;
+        }
+
+        @Override
+        public boolean isPersistent() {
+            return true;
+        }
+
+        @Override
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            // ROM loc_610C6 just copies parent position; rendering reads the
+            // machine's current Y live, so no per-frame state updates needed.
+        }
+
+        @Override
+        public int getPriorityBucket() {
+            // ROM ObjDat3_613EC priority = $180 (below machine body's $200).
+            // Keep it in the same bucket (1) as the rest of the machine so it
+            // draws after the body but still behind Sonic.
+            return RenderPriority.clamp(1);
+        }
+
+        @Override
+        public void appendRenderCommands(List<GLCommand> commands) {
+            PatternSpriteRenderer renderer = getRenderer(Sonic3kObjectArtKeys.GUMBALL_BONUS);
+            if (renderer == null) {
+                return;
+            }
+            GumballMachineObjectInstance machine = GumballMachineObjectInstance.current();
+            int renderY = (machine != null)
+                    ? machine.getCurrentY() + offsetFromMachine
+                    : spawn.y();
+            // ROM ObjDat3_613EC uses make_art_tile($000, 0, 0) — palette 0.
             renderer.drawFrameIndex(MAPPING_FRAME, spawn.x(), renderY, false, false, 0);
         }
     }
