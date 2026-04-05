@@ -941,6 +941,7 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
             case "buildDrawBridgeSheet" -> art.buildDrawBridgeSheet();
             case "buildDisappearingFloorSheet" -> art.buildDisappearingFloorSheet();
             case "buildDisappearingFloorBorderSheet" -> art.buildDisappearingFloorBorderSheet();
+            case "buildHczWaterRushBlockSheet" -> art.buildHczWaterRushBlockSheet();
             default -> {
                 LOG.warning("Unknown builder: " + builderName);
                 yield null;

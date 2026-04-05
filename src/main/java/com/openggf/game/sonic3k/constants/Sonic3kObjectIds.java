@@ -27,6 +27,9 @@ public final class Sonic3kObjectIds {
     public static final int BUTTON = 0x33;
     public static final int STAR_POST = 0x34;
     public static final int AIZ_FOREGROUND_PLANT = 0x35;
+    public static final int HCZ_BREAKABLE_BAR = 0x36;
+    public static final int HCZ_WATER_RUSH = 0x37;
+    public static final int HCZ_WATER_WALL = 0x3B;
     public static final int SS_ENTRY_RING = 0x85;
     public static final int BLOOMINATOR = 0x8C;
     public static final int RHINOBOT = 0x8D;

@@ -99,6 +99,22 @@ public final class Sonic3kObjectArtKeys {
     public static final String FLOATING_PLATFORM_HCZ = "floating_platform_hcz";
     public static final String FLOATING_PLATFORM_MGZ = "floating_platform_mgz";
 
+    // HCZ Breakable Bar (Object 0x36)
+    public static final String HCZ_BREAKABLE_BAR = "hcz_breakable_bar";
+
+    // HCZ Water Rush (Object 0x37)
+    public static final String HCZ_WATER_RUSH = "hcz_water_rush";
+    public static final String HCZ_WATER_RUSH_BLOCK = "hcz_water_rush_block";
+
+    // HCZ Water Wall / Geyser (Object 0x3B)
+    public static final String HCZ_GEYSER_HORZ = "hcz_geyser_horz";
+    public static final String HCZ_GEYSER_VERT = "hcz_geyser_vert";
+    public static final String HCZ_GEYSER_DEBRIS = "hcz_geyser_debris";
+    public static final String HCZ_GEYSER_SPRAY = "hcz_geyser_spray"; // ArtTile_HCZGeyser+$30 splash/spray frames
+
+    // HCZ Bubbles (ArtNem_Bubbles) — used by 25% of water wall spray particles
+    public static final String HCZ_BUBBLES = "hcz_bubbles";
+
     // HCZ badniks
     public static final String HCZ_BLASTOID = "hcz_blastoid";
     public static final String HCZ_TURBO_SPIKER = "hcz_turbo_spiker";
