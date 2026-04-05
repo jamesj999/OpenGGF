@@ -979,13 +979,19 @@ public class GameLoop {
             ringCount = levelManager.getLevelGamestate().getRings();
         }
 
+        int lastStarPostHit = 0;
+        RespawnState cs = levelManager.getCheckpointState();
+        if (cs != null && cs.isActive()) {
+            lastStarPostHit = cs.getLastCheckpointIndex() + 1; // ROM: 1-based
+        }
+
         BonusStageState savedState = new BonusStageState(
                 zoneAndAct,
                 apparentZoneAndAct,
                 ringCount,
-                0, // extraLifeFlags — populate if needed
-                0, // lastStarPostHit — populate if needed
-                0, // statusSecondary — populate if needed
+                0, // TODO: wire to GameStateManager.getExtraLifeFlags() once API exists
+                lastStarPostHit,
+                0, // TODO: wire to player.getStatusSecondary() once API exists (0x71 mask)
                 resizeFg, resizeBg,
                 playerX, playerY,
                 camera.getX(), camera.getY(),
@@ -997,11 +1003,11 @@ public class GameLoop {
         AudioManager.getInstance().fadeOutMusic();
 
         bonusStageTransitionPending = true;
-        fadeManager.startFadeToWhite(() -> {
+        fadeManager.startFadeToBlack(() -> {
             doEnterBonusStage(provider, type, savedState);
         });
 
-        LOGGER.info("Starting fade-to-white for Bonus Stage " + type);
+        LOGGER.info("Starting fade-to-black for Bonus Stage " + type);
     }
 
     /**
@@ -1041,6 +1047,11 @@ public class GameLoop {
             return;
         }
 
+        // Pause HUD timer during bonus stage (ROM: clr.b (Update_HUD_timer).w for zones $13-$15)
+        if (levelManager.getLevelGamestate() != null) {
+            levelManager.getLevelGamestate().pauseTimer();
+        }
+
         GameMode oldMode = currentGameMode;
         currentGameMode = GameMode.BONUS_STAGE;
 
@@ -1050,7 +1061,7 @@ public class GameLoop {
             AudioManager.getInstance().playMusic(musicId);
         }
 
-        fadeManager.startFadeFromWhite(null);
+        fadeManager.startFadeFromBlack(null);
 
         if (gameModeChangeListener != null) {
             gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);
@@ -1073,11 +1084,11 @@ public class GameLoop {
         AudioManager.getInstance().fadeOutMusic();
 
         bonusStageTransitionPending = true;
-        fadeManager.startFadeToWhite(() -> {
+        fadeManager.startFadeToBlack(() -> {
             doExitBonusStage(provider, savedState);
         });
 
-        LOGGER.info("Starting fade-to-white to exit Bonus Stage");
+        LOGGER.info("Starting fade-to-black to exit Bonus Stage");
     }
 
     /**
@@ -1103,7 +1114,7 @@ public class GameLoop {
                 throw new RuntimeException("Failed to load fallback level", e);
             }
             currentGameMode = GameMode.LEVEL;
-            fadeManager.startFadeFromWhite(null);
+            fadeManager.startFadeFromBlack(null);
             return;
         }
 
@@ -1120,8 +1131,10 @@ public class GameLoop {
 
         // Restore event routine state (prevents camera lock replay)
         LevelEventProvider eventProvider = GameModuleRegistry.getCurrent().getLevelEventProvider();
-        if (eventProvider instanceof com.openggf.game.sonic3k.Sonic3kLevelEventManager s3kEvents) {
-            s3kEvents.setDynamicResizeRoutine(savedState.dynamicResizeRoutineFg());
+        if (eventProvider instanceof AbstractLevelEventManager eventMgr) {
+            eventMgr.restoreEventRoutineState(
+                    savedState.dynamicResizeRoutineFg(),
+                    savedState.dynamicResizeRoutineBg());
         }
 
         // Restore player position and collision path
@@ -1147,6 +1160,8 @@ public class GameLoop {
         // Restore ring count
         if (levelManager.getLevelGamestate() != null) {
             levelManager.getLevelGamestate().setRings(savedState.savedRingCount());
+            // Resume HUD timer (ROM: Update_HUD_timer restored after bonus stage exit)
+            levelManager.getLevelGamestate().resumeTimer();
         }
 
         GameMode oldMode = currentGameMode;
@@ -1158,7 +1173,7 @@ public class GameLoop {
             AudioManager.getInstance().playMusic(zoneMusicId);
         }
 
-        fadeManager.startFadeFromWhite(null);
+        fadeManager.startFadeFromBlack(null);
 
         if (gameModeChangeListener != null) {
             gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);

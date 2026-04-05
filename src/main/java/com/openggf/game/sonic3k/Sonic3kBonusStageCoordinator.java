@@ -14,6 +14,12 @@ import com.openggf.game.BonusStageType;
  *   <li>1 -> GLOWING_SPHERE / Pachinko (zone $1400, music $1F)</li>
  *   <li>2 -> GUMBALL (zone $1300, music $1E)</li>
  * </ul>
+ * <p>
+ * Note: SK_alone_flag handling is not implemented. The only supported S3K ROM
+ * is the combined "Sonic and Knuckles &amp; Sonic 3 (W) [!].gen" which always sets
+ * SK_alone_flag=0 (3 bonus stages available). For S&amp;K standalone ROMs, the
+ * divisor would be 2 and remainder=2 branch would route to Pachinko instead
+ * of Gumball (ROM loc_2D47E lines 61897, 61910-61912).
  */
 public class Sonic3kBonusStageCoordinator extends AbstractBonusStageCoordinator {
 
