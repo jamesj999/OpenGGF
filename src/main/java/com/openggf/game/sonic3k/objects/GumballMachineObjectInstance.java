@@ -24,13 +24,17 @@ import java.util.logging.Logger;
  * <p>
  * ROM reference: sonic3k.asm Obj_GumballMachine (line 127399).
  * <p>
- * The parent gumball machine object implements a 4-state state machine:
+ * The parent gumball machine object implements a 3-state state machine driven
+ * by ROM $38 bit flags (shared with children for the ball-ejection chain):
  * <ul>
- *   <li>IDLE: waiting for player to enter trigger range</li>
- *   <li>SPIN: playing the spin animation after activation</li>
- *   <li>TRIGGERED: signaling the dispenser to eject gumball items</li>
- *   <li>POST_TRIGGER: waiting for the player to exit range before returning to IDLE</li>
+ *   <li>IDLE: waiting for player to enter trigger range; gated by bit 1.</li>
+ *   <li>SPIN: playing the spin animation; sets bit 3 at the end to signal container.</li>
+ *   <li>POST_TRIGGER: waiting for container to clear bit 1 (loc_60EA2), then IDLE.</li>
  * </ul>
+ * The container child watches the parent's bit 3, runs byte_6145B animation,
+ * spawns the ball on the first frame, then calls back to clear bits 1+3.
+ * Separately, springs set bit 1 on the dispenser when they crumble; the
+ * dispenser sees its own bit 1, spawns 16 ejection effects, and self-destroys.
  * <p>
  * On init, spawns 7 children: dispenser, ball container display, exit trigger,
  * 3 upper platforms, and 1 extra platform.
@@ -51,7 +55,6 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
     private enum State {
         IDLE,
         SPIN,
-        TRIGGERED,
         POST_TRIGGER
     }
 
@@ -127,25 +130,6 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
     private static final int[] SPRING_X_OFFSETS = { -0x30, -0x10, 0x10, 0x30 };
     private static final int SPRING_Y_OFFSET = -0x18;
 
-    // ===== Gumball ejection constants =====
-
-    // ROM: Gumball items ejected per trigger (1-3 random)
-    private static final int MIN_GUMBALLS = 1;
-    private static final int MAX_GUMBALLS = 3;
-
-    // ROM: Balls spawn with y_vel=0 (default) and fall via gravity (+$10/frame)
-    private static final int GUMBALL_INITIAL_Y_VEL = 0;
-
-    // ROM: Gumball X position spread from dispenser
-    private static final int GUMBALL_X_SPREAD = 0x10;
-
-    // ROM: byte_6145B container animation frames: [2,3,3,3,4,F,3,3,2,3,F4]
-    // Total ~40 frames of spin animation before machine can re-trigger.
-    // This models the container animation ownership of bit 3 on the machine
-    // (loc_60E5C → loc_60E8C → loc_60EA2) which is cleared with bit 1 at
-    // animation completion, preventing re-trigger while active.
-    private static final int TRIGGER_COOLDOWN_FRAMES = 40;
-
     // ===== Machine Y drift / slot tracking =====
     //
     // ROM: 28 bytes at $FF2000..$FF201B, 14 word-sized "slots" (pairs of bumpers).
@@ -181,9 +165,8 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
     private final Random rng;
     private DispenserChild dispenser;
 
-    // Trigger cooldown prevents rapid re-triggering. ROM clears bits 1+3 on
-    // machine when container animation finishes (loc_60EA2).
-    private int triggerCooldownFrames;
+    // ROM $38 field bit flags — shared state with children for ball-ejection chain.
+    private byte flagByte38;
 
     // Tracks active gumball springs for respawn on REP gumball collect.
     private final List<GumballSpringChild> springs = new ArrayList<>();
@@ -225,7 +208,7 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         // 2. Ball container display — follows machine (y+0x24 via Refresh_ChildPosition)
         spawnChild(() -> new ContainerDisplayChild(
                 buildSpawnAt(px + CONTAINER_OFFSET_X, py + CONTAINER_OFFSET_Y),
-                CONTAINER_OFFSET_Y));
+                this, CONTAINER_OFFSET_Y));
 
         // 3. Exit trigger — relative to machine, +0x2A0 Y
         spawnChild(() -> new ExitTriggerChild(
@@ -254,8 +237,9 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
             final int sx = DISPENSER_ABSOLUTE_X + springX;
             final int sy = DISPENSER_ABSOLUTE_Y + SPRING_Y_OFFSET;
             springOriginalPositions.add(new int[]{sx, sy});
+            final DispenserChild dispenserRef = dispenser;
             GumballSpringChild spring = spawnChild(() -> new GumballSpringChild(
-                    buildSpawnAt(sx, sy), this));
+                    buildSpawnAt(sx, sy), this, dispenserRef));
             springs.add(spring);
         }
     }
@@ -283,17 +267,10 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         // ROM sub_6126C: recount empty slots and apply drift each frame.
         applyDrift();
 
-        // Tick trigger cooldown regardless of state (ROM: container animation
-        // owns the re-trigger gate).
-        if (triggerCooldownFrames > 0) {
-            triggerCooldownFrames--;
-        }
-
         switch (state) {
             case IDLE -> updateIdle(playerEntity);
             case SPIN -> updateSpin();
-            case TRIGGERED -> updateTriggered();
-            case POST_TRIGGER -> updatePostTrigger(playerEntity);
+            case POST_TRIGGER -> updatePostTrigger();
         }
     }
 
@@ -336,6 +313,27 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         }
     }
 
+    // ===== ROM $38 field bit flags =====
+
+    /** ROM bit 1: set when SPIN begins, cleared when container anim completes. Gates re-trigger. */
+    public boolean isBit1Set() { return (flagByte38 & 0x02) != 0; }
+    public void setMachineBit1() { flagByte38 |= 0x02; }
+
+    /** ROM bit 3: set at end of SPIN, signals container to animate + spawn ball. */
+    public boolean isBit3Set() { return (flagByte38 & 0x08) != 0; }
+    public void setMachineBit3() { flagByte38 |= 0x08; }
+
+    /** ROM loc_60EA2: container anim complete. */
+    public void clearMachineBits1and3() { flagByte38 &= ~0x0A; }
+
+    /** ROM bit 7: machine has seen first random=0 roll (for ball subtype selection). */
+    public boolean isBit7Set() { return (flagByte38 & 0x80) != 0; }
+    public boolean setBit7IfUnset() {
+        boolean was = isBit7Set();
+        flagByte38 |= (byte) 0x80;
+        return !was; // matches ROM bset semantics
+    }
+
     /** Called by GumballBumperObjectInstance on player bump. ROM lines 127692-127698. */
     public void onBumperHit(int subtype) {
         if (subtype < 0 || subtype >= SLOT_COUNT_BYTES) {
@@ -372,7 +370,7 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         // ROM: bit 1 on machine gates re-trigger. Container animation clears
         // bits 1+3 at loc_60EA2 when byte_6145B sequence completes. Until then,
         // the machine is locked out of re-spinning.
-        if (triggerCooldownFrames > 0) {
+        if (isBit1Set()) {
             return;
         }
 
@@ -391,6 +389,7 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
             }
 
             spinTimer = 0;
+            setMachineBit1();
             state = State.SPIN;
             LOGGER.fine("GumballMachine: IDLE -> SPIN (player in range)");
         }
@@ -399,6 +398,9 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
     /**
      * SPIN state: Animate the spin sequence.
      * ROM: frames [3,5,6,7,$14,5,$F4,$7F,5,5,$FC] with per-frame timing.
+     * <p>
+     * At end of animation, sets machine bit 3 to signal the container
+     * (loc_60E5C -> loc_60E8C) to animate and spawn a ball.
      */
     private void updateSpin() {
         int frameIndex = spinTimer / SPIN_FRAME_DURATION;
@@ -408,46 +410,25 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         spinTimer++;
 
         if (spinTimer >= SPIN_TOTAL_FRAMES) {
-            state = State.TRIGGERED;
-            LOGGER.fine("GumballMachine: SPIN -> TRIGGERED (animation complete)");
+            currentFrame = IDLE_MAPPING_FRAME;
+            setMachineBit3();
+            state = State.POST_TRIGGER;
+            LOGGER.fine("GumballMachine: SPIN -> POST_TRIGGER (bit 3 set, container signaled)");
         }
     }
 
     /**
-     * TRIGGERED state: Signal dispenser to eject gumballs, then transition.
+     * POST_TRIGGER state: Wait for container to clear bit 1 (ROM loc_60EA2).
+     * While bit 1 remains set, the machine is busy. Once cleared, return to IDLE.
      */
-    private void updateTriggered() {
-        // Spawn gumball items from dispenser
-        ejectGumballs();
-
-        currentFrame = IDLE_MAPPING_FRAME;
-        state = State.POST_TRIGGER;
-        LOGGER.fine("GumballMachine: TRIGGERED -> POST_TRIGGER");
-    }
-
-    /**
-     * POST_TRIGGER state: Wait for player to exit activation range, then return to IDLE.
-     */
-    private void updatePostTrigger(PlayableEntity playerEntity) {
-        if (playerEntity == null) {
+    private void updatePostTrigger() {
+        if (!isBit1Set()) {
             state = State.IDLE;
-            return;
-        }
-
-        int playerX = playerEntity.getCentreX();
-        int playerY = playerEntity.getCentreY();
-        int dx = playerX - spawn.x();
-        int dy = playerY - (spawn.y() + MACHINE_Y_OFFSET);
-
-        // Wait for player to leave the activation range
-        if (dx < ACTIVATE_X_MIN || dx > ACTIVATE_X_MAX
-                || dy < ACTIVATE_Y_MIN || dy > ACTIVATE_Y_MAX) {
-            state = State.IDLE;
-            LOGGER.fine("GumballMachine: POST_TRIGGER -> IDLE (player exited range)");
+            LOGGER.fine("GumballMachine: POST_TRIGGER -> IDLE (container finished)");
         }
     }
 
-    // ===== Gumball ejection =====
+    // ===== Ball subtype selection =====
 
     /**
      * ROM byte_612E0 — random index (0-15) to subtype mapping.
@@ -458,29 +439,33 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
     };
 
     /**
-     * ROM: loc_60E8C — each machine trigger spawns EXACTLY 1 ball from
-     * ChildObjDat_61444 at the container display position. The ball's
-     * initial y_vel is 0 (set by ObjDat3_613E0 defaults), gravity +0x10/frame
-     * pulls it down through the dispenser.
+     * ROM sub_612A8 (line 127983): random 0-15 indexes byte_612E0 to choose ball subtype.
+     * Special case: if random&amp;0xF == 0 AND bit 7 of machine $38 wasn't already set,
+     * set bit 7 and return subtype 3 (black gumball).
      */
-    private void ejectGumballs() {
-        // ROM: balls spawn at container display position (container = machine + $24 Y)
-        int ejectX = spawn.x() + CONTAINER_OFFSET_X;
-        int ejectY = spawn.y() + MACHINE_Y_OFFSET + CONTAINER_OFFSET_Y;
+    public int chooseBallSubtype() {
+        int r = rng.nextInt(16);
+        if (r == 0) {
+            boolean wasUnset = setBit7IfUnset();
+            if (wasUnset) {
+                return 3; // ROM: force subtype 3 on first zero-roll
+            }
+        }
+        return SUBTYPE_LOOKUP[r];
+    }
 
-        // ROM sub_612A8: random 0-15 indexes byte_612E0 to choose subtype (0-7).
-        int randomIndex = rng.nextInt(16);
-        int subtype = SUBTYPE_LOOKUP[randomIndex];
+    /** Called by ContainerDisplayChild when it activates (parent bit 3 set). */
+    public void onContainerSpawnBall(int x, int y) {
+        int subtype = chooseBallSubtype();
+        ObjectSpawn gumballSpawn = new ObjectSpawn(x, y, 0xEB, subtype, 0, false, 0);
+        spawnChild(() -> new GumballItemObjectInstance(gumballSpawn, 0, true));
+        LOGGER.fine("GumballMachine: container spawned ball, subtype=" + subtype);
+    }
 
-        ObjectSpawn gumballSpawn = new ObjectSpawn(ejectX, ejectY, 0xEB, subtype, 0, false, 0);
-        spawnChild(() -> new GumballItemObjectInstance(gumballSpawn, GUMBALL_INITIAL_Y_VEL, true));
-
-        // ROM: container animation runs ~40 frames (byte_6145B) during which
-        // bits 1+3 are set on the machine, blocking re-trigger.
-        triggerCooldownFrames = TRIGGER_COOLDOWN_FRAMES;
-
-        LOGGER.fine("GumballMachine: ejected 1 gumball, subtype=" + subtype
-                + ", cooldown=" + triggerCooldownFrames);
+    /** ROM loc_60EA2: called by container when animation completes. */
+    public void onContainerAnimComplete() {
+        clearMachineBits1and3();
+        LOGGER.fine("GumballMachine: container animation complete, bits 1+3 cleared");
     }
 
     /**
@@ -505,8 +490,9 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
                 int[] pos = springOriginalPositions.get(i);
                 final int sx = pos[0];
                 final int sy = pos[1];
+                final DispenserChild dispenserRef = dispenser;
                 GumballSpringChild replacement = spawnChild(() ->
-                        new GumballSpringChild(buildSpawnAt(sx, sy), this));
+                        new GumballSpringChild(buildSpawnAt(sx, sy), this, dispenserRef));
                 springs.set(i, replacement);
                 respawned++;
             }
@@ -546,21 +532,25 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
     /**
      * Dispenser child — solid platform at the machine's dispenser position.
      * <p>
-     * ROM: When the parent sets the trigger flag, spawns gumball items.
-     * In this implementation, ejection is handled directly by the parent's
-     * TRIGGERED state, so this child only provides visual/solid presence.
+     * ROM sub_61314 / loc_60D96: When a spring crumbles, it sets bit 1 on the
+     * dispenser; the dispenser sees its own bit 1, spawns 16 ejection effects
+     * from byte_61342 + sub_61320, and self-destroys.
      */
     static class DispenserChild extends AbstractObjectInstance
             implements SolidObjectProvider, SolidObjectListener {
 
-        // ROM: SolidObject params for dispenser — approximate from sprite dimensions
         // ROM sub_61314: d1=$4B (halfWidth=75), d2=$10 (airHalfHeight=16), d3=$11 (groundHalfHeight=17)
         private static final SolidObjectParams SOLID_PARAMS = new SolidObjectParams(75, 16, 17);
         private static final int MAPPING_FRAME = 0x13; // ROM ObjDat3_61398 byte 2
 
+        private boolean springBitSet;  // ROM bit 1 of $38
+
         DispenserChild(ObjectSpawn spawn) {
             super(spawn, "GumballDispenser");
         }
+
+        /** ROM loc_60E44: called by spring when it crumbles. */
+        public void setSpringBit() { this.springBitSet = true; }
 
         @Override
         public boolean isPersistent() {
@@ -569,8 +559,19 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         @Override
         public void update(int frameCounter, PlayableEntity playerEntity) {
-            // Static presence; ejection handled by parent
+            if (springBitSet) {
+                // ROM loc_60D96: spawn 16 ejection effects + delete self.
+                for (int i = 0; i < 16; i++) {
+                    final int idx = i;
+                    spawnChild(() -> new EjectionEffectChild(
+                            buildSpawnAt(spawn.x(), spawn.y()), idx));
+                }
+                setDestroyed(true);
+            }
         }
+
+        @Override
+        public boolean isSolidFor(PlayableEntity playerEntity) { return !springBitSet; }
 
         @Override
         public SolidObjectParams getSolidParams() {
@@ -585,7 +586,7 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         @Override
         public void onSolidContact(PlayableEntity player, SolidContact contact, int frameCounter) {
-            // No special contact behavior
+            // No action — pure platform
         }
 
         @Override
@@ -604,20 +605,88 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
     }
 
     /**
+     * ROM loc_6101E / loc_61032 / sub_61320 / byte_61342.
+     * 16 spawned when dispenser deletes. Each has a different subtype (0-15) giving
+     * a unique position offset and timer duration.
+     */
+    static class EjectionEffectChild extends AbstractObjectInstance {
+        private static final int MAPPING_FRAME = 0x15;
+
+        // ROM byte_61342: 16 signed (dx, dy) offsets
+        private static final int[][] OFFSETS = {
+                {  -8,    8}, {   8,    8}, {  -8,   -8}, {   8,   -8},
+                {-0x18,   8}, { 0x18,   8}, {-0x18,  -8}, { 0x18,  -8},
+                {-0x28,   8}, { 0x28,   8}, {-0x28,  -8}, { 0x28,  -8},
+                {-0x38,   8}, { 0x38,   8}, {-0x38,  -8}, { 0x38,  -8}
+        };
+
+        private int timer;  // ROM $2E(a0)
+        private final int drawX;
+        private final int drawY;
+
+        EjectionEffectChild(ObjectSpawn spawn, int subtype) {
+            super(spawn, "GumballEjectionEffect");
+            timer = subtype;
+            int[] off = OFFSETS[subtype];
+            drawX = spawn.x() + off[0];
+            drawY = spawn.y() + off[1];
+        }
+
+        @Override public boolean isPersistent() { return false; }
+
+        @Override
+        public void update(int frameCounter, PlayableEntity playerEntity) {
+            timer--;
+            if (timer < 0) {
+                setDestroyed(true);
+            }
+        }
+
+        @Override public int getPriorityBucket() { return RenderPriority.clamp(PRIORITY_BUCKET); }
+
+        @Override
+        public void appendRenderCommands(List<GLCommand> commands) {
+            PatternSpriteRenderer r = getRenderer(Sonic3kObjectArtKeys.GUMBALL_BONUS);
+            if (r == null) return;
+            r.drawFrameIndex(MAPPING_FRAME, drawX, drawY, false, false);
+        }
+    }
+
+    /**
      * Ball container display child — visual animation of the gumball container.
      * <p>
-     * ROM: Uses Map_GumballBonus with animation frames for the ball container.
-     * Positioned at (0, +0x24) from parent.
+     * ROM: byte_6145B container animation (loc_60E5C -> loc_60E8C -> loc_60EA2).
+     * Positioned at (0, +0x24) from parent machine.
+     * <p>
+     * State machine:
+     * <ul>
+     *   <li>DORMANT — idle, watches parent's bit 3; renders IDLE_FRAME.</li>
+     *   <li>ANIMATING — runs byte_6145B pairs; on first frame, calls
+     *       onContainerSpawnBall(). When complete, calls onContainerAnimComplete()
+     *       (clears parent bits 1+3) and returns to DORMANT.</li>
+     * </ul>
      */
     static class ContainerDisplayChild extends AbstractObjectInstance {
 
-        private static final int MAPPING_FRAME = 2; // Container visual frame
+        // ROM byte_6145B pairs (frame, timer-value). Timer value+1 runs frames.
+        private static final int[][] ANIM_PAIRS = {
+                {2, 3}, {3, 3}, {4, 0xF}, {3, 3}, {2, 3}
+        };
+        private static final int IDLE_FRAME = 2;
 
-        /** Y offset from the machine's savedY (machine-relative). */
-        private final int offsetFromMachine;
+        private enum State { DORMANT, ANIMATING }
 
-        ContainerDisplayChild(ObjectSpawn spawn, int offsetFromMachine) {
+        private final GumballMachineObjectInstance parent;
+        private final int offsetFromMachine; // Y offset (ROM: +$24)
+        private State state = State.DORMANT;
+        private int animStep;
+        private int animTimer;
+        private int currentFrame = IDLE_FRAME;
+
+        ContainerDisplayChild(ObjectSpawn spawn, GumballMachineObjectInstance parent,
+                              int offsetFromMachine) {
             super(spawn, "GumballContainer");
+            this.parent = parent;
             this.offsetFromMachine = offsetFromMachine;
         }
 
@@ -628,8 +697,37 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         @Override
         public void update(int frameCounter, PlayableEntity playerEntity) {
-            // Static visual; animation can be refined later
+            if (state == State.DORMANT) {
+                if (parent.isBit3Set()) {
+                    state = State.ANIMATING;
+                    animStep = 0;
+                    animTimer = ANIM_PAIRS[0][1] + 1;
+                    currentFrame = ANIM_PAIRS[0][0];
+                    int spawnY = parent.getCurrentY() + offsetFromMachine;
+                    parent.onContainerSpawnBall(spawn.x(), spawnY);
+                }
+                return;
+            }
+            // ANIMATING
+            animTimer--;
+            if (animTimer <= 0) {
+                animStep++;
+                if (animStep >= ANIM_PAIRS.length) {
+                    parent.onContainerAnimComplete();
+                    state = State.DORMANT;
+                    currentFrame = IDLE_FRAME;
+                    return;
+                }
+                currentFrame = ANIM_PAIRS[animStep][0];
+                animTimer = ANIM_PAIRS[animStep][1] + 1;
+            }
         }
+
+        @Override
+        public int getX() { return spawn.x(); }
+
+        @Override
+        public int getY() { return parent.getCurrentY() + offsetFromMachine; }
 
         @Override
         public int getPriorityBucket() {
@@ -642,12 +740,7 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
             if (renderer == null) {
                 return;
             }
-            // Track the machine's drifted Y position so the container slides in sync.
-            GumballMachineObjectInstance machine = GumballMachineObjectInstance.current();
-            int renderY = (machine != null)
-                    ? machine.getCurrentY() + offsetFromMachine
-                    : spawn.y();
-            renderer.drawFrameIndex(MAPPING_FRAME, spawn.x(), renderY, false, false);
+            renderer.drawFrameIndex(currentFrame, spawn.x(), getY(), false, false);
         }
     }
 
@@ -796,12 +889,16 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         private static final int MAPPING_FRAME = 0;
 
         private final GumballMachineObjectInstance parent;
+        private final DispenserChild dispenser;
         private boolean triggered;
         private int crumbleTimer;
+        private boolean signaledDispenser;
 
-        GumballSpringChild(ObjectSpawn spawn, GumballMachineObjectInstance parent) {
+        GumballSpringChild(ObjectSpawn spawn, GumballMachineObjectInstance parent,
+                           DispenserChild dispenser) {
             super(spawn, "GumballSpring");
             this.parent = parent;
+            this.dispenser = dispenser;
         }
 
         @Override
@@ -815,6 +912,11 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
                 // ROM: continue animating, then delete when prev_anim == 1
                 crumbleTimer--;
                 if (crumbleTimer <= 0) {
+                    // ROM loc_60E44: crumble sets bit 1 on parent (dispenser).
+                    if (!signaledDispenser && dispenser != null) {
+                        dispenser.setSpringBit();
+                        signaledDispenser = true;
+                    }
                     setDestroyed(true);
                 }
             }
