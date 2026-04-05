@@ -92,4 +92,14 @@ public class LevelGamestate implements LevelState {
     public int getElapsedSeconds() {
         return timer.getElapsedSeconds();
     }
+
+    @Override
+    public long getTimerFrames() {
+        return timer.getTotalFrames();
+    }
+
+    @Override
+    public void setTimerFrames(long frames) {
+        timer.setTotalFrames(frames);
+    }
 }

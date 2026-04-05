@@ -48,7 +48,8 @@ class TestBonusStageLifecycle {
                 0x0001, 0x0001, 50, 0, 1, 0,
                 4, 0,
                 0x100, 0x200, 0x80, 0x100,
-                (byte) 0x0C, (byte) 0x0E, 0x300
+                (byte) 0x0C, (byte) 0x0E, 0x300,
+                0L
         );
 
         coordinator.onEnter(BonusStageType.GUMBALL, savedState);

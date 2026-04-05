@@ -82,4 +82,18 @@ public interface LevelState {
      * @return elapsed seconds
      */
     int getElapsedSeconds();
+
+    /**
+     * Gets the total elapsed timer frames.
+     * Used for saving/restoring timer state across bonus stage transitions.
+     * @return total elapsed frames
+     */
+    long getTimerFrames();
+
+    /**
+     * Sets the total elapsed timer frames directly.
+     * Used for restoring timer state after exiting a bonus stage.
+     * @param frames total elapsed frames
+     */
+    void setTimerFrames(long frames);
 }
