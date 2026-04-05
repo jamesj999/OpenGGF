@@ -90,8 +90,14 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
 
     // Gumball bonus stage: direct DMA of uncompressed art based on BG scroll
     // ROM: AnimateTiles_Gumball (sonic3k.asm:55266)
+    // ROM DMA copies tiles_to_bytes($054) = 0xA80 = 2688 bytes, but ArtUnc_AniGumball is
+    // only 0x100 = 256 bytes = 8 tiles (ds.b $100 per LockOn Pointers.asm). The ROM reads
+    // past the end into adjacent art data — most of those "tiles" overwrite VRAM outside
+    // the visible background plane for gumball. Limit our copy to the actual data size
+    // to avoid corrupting level patterns with unrelated ROM bytes.
     private static final int GUMBALL_DEST_TILE = 0x40;
-    private static final int GUMBALL_TILE_COUNT = 0x54; // tiles_to_bytes($054) / 0x20
+    private static final int GUMBALL_SOURCE_SIZE = 0x100;                       // 256 bytes actual data
+    private static final int GUMBALL_TILE_COUNT = GUMBALL_SOURCE_SIZE / Pattern.PATTERN_SIZE_IN_ROM;  // 8 tiles
     private static final int GUMBALL_DMA_SIZE = GUMBALL_TILE_COUNT * Pattern.PATTERN_SIZE_IN_ROM;
     private final byte[] gumballAniData;
     private int lastGumballIndex = -1;
@@ -133,7 +139,7 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
             // Gumball uses direct DMA, not AniPLC — still needs data loaded
             if (zoneIndex == 0x13) {
                 this.gumballAniData = loadRawBytes(reader,
-                        Sonic3kConstants.GUMBALL_ANI_TILES_ADDR, GUMBALL_DMA_SIZE + 0x80);
+                        Sonic3kConstants.GUMBALL_ANI_TILES_ADDR, GUMBALL_SOURCE_SIZE);
             } else {
                 this.gumballAniData = null;
             }
@@ -285,7 +291,7 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
         // Gumball bonus stage animated tiles (zone 0x13)
         if (zoneIndex == 0x13) {
             this.gumballAniData = loadRawBytes(reader,
-                    Sonic3kConstants.GUMBALL_ANI_TILES_ADDR, GUMBALL_DMA_SIZE + 0x80);
+                    Sonic3kConstants.GUMBALL_ANI_TILES_ADDR, GUMBALL_SOURCE_SIZE);
         } else {
             this.gumballAniData = null;
         }
@@ -718,26 +724,28 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
         lastGumballIndex = index;
 
         // ROM: d1 = d1 * 4; source = ArtUnc_AniGumball + d1
+        // Each scroll step shifts the source offset by 4 bytes = 1 tile row (8 pixels wide,
+        // 4bpp = 4 bytes/row). Source data is 256 bytes and wraps cyclically to create a
+        // scrolling stripes animation. We read `i * PATTERN_SIZE_IN_ROM` into the data,
+        // wrapping on overflow so the tile pattern loops.
         int sourceByteOffset = index * 4;
-        if (sourceByteOffset + GUMBALL_DMA_SIZE > gumballAniData.length) {
-            return; // Bounds check
-        }
 
-        // Copy 0x54 tiles from source offset to level patterns at tile 0x40
+        // Copy 8 tiles from source offset to level patterns at tile 0x40, wrapping the
+        // source data on overflow.
         level.ensurePatternCapacity(GUMBALL_DEST_TILE + GUMBALL_TILE_COUNT);
         boolean canUpdateTextures = graphicsManager.isGlInitialized();
+        byte[] tileData = new byte[Pattern.PATTERN_SIZE_IN_ROM];
         for (int i = 0; i < GUMBALL_TILE_COUNT; i++) {
-            int srcOffset = sourceByteOffset + i * Pattern.PATTERN_SIZE_IN_ROM;
-            if (srcOffset + Pattern.PATTERN_SIZE_IN_ROM > gumballAniData.length) {
-                break;
-            }
+            int baseOffset = (sourceByteOffset + i * Pattern.PATTERN_SIZE_IN_ROM) % GUMBALL_SOURCE_SIZE;
             int destIndex = GUMBALL_DEST_TILE + i;
             if (destIndex >= level.getPatternCount()) {
                 break;
             }
+            // Read one tile worth of bytes with wrap-around on source data.
+            for (int b = 0; b < Pattern.PATTERN_SIZE_IN_ROM; b++) {
+                tileData[b] = gumballAniData[(baseOffset + b) % GUMBALL_SOURCE_SIZE];
+            }
             Pattern dest = level.getPattern(destIndex);
-            byte[] tileData = new byte[Pattern.PATTERN_SIZE_IN_ROM];
-            System.arraycopy(gumballAniData, srcOffset, tileData, 0, Pattern.PATTERN_SIZE_IN_ROM);
             dest.fromSegaFormat(tileData);
             if (canUpdateTextures) {
                 graphicsManager.updatePatternTexture(dest, destIndex);
