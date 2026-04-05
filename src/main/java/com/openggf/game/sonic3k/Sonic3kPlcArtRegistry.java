@@ -317,6 +317,16 @@ public final class Sonic3kPlcArtRegistry {
                 new int[]{2, 3}
         ));
 
+        // HCZ Breakable Bar: ArtTile_HCZMisc ($03CA), palette 2
+        // ROM: make_art_tile(ArtTile_HCZMisc, 2, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.HCZ_BREAKABLE_BAR,
+                Sonic3kConstants.MAP_HCZ_BREAKABLE_BAR_ADDR,
+                Sonic3kConstants.ARTTILE_HCZ_MISC,
+                2,
+                null
+        ));
+
         // Floating Platform: ArtTile_HCZMisc + $53
         levelArt.add(new LevelArtEntry(
                 Sonic3kObjectArtKeys.FLOATING_PLATFORM_HCZ,
@@ -334,6 +344,89 @@ public final class Sonic3kPlcArtRegistry {
                 1,
                 null
         ));
+
+        // Water Rush main sprite: ArtNem_HCZWaterRush, loaded via PLC_0E
+        // Hardcoded mappings (mappingAddr=0 triggers dispatch in loadStandaloneSheet)
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.HCZ_WATER_RUSH,
+                Sonic3kConstants.ART_NEM_HCZ_WATER_RUSH_ADDR,
+                CompressionType.NEMESIS,
+                0,
+                0,
+                2,
+                -1
+        ));
+
+        // Water Rush Block: ArtTile_HCZMisc + $A, palette 2 (hardcoded mappings)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.HCZ_WATER_RUSH_BLOCK,
+                -1,
+                Sonic3kConstants.ARTTILE_HCZ_WATER_RUSH_BLOCK,
+                2,
+                "buildHczWaterRushBlockSheet"
+        ));
+
+        // Geyser horizontal art (subtype 0 water wall)
+        // Hardcoded mappings (mappingAddr=0 triggers dispatch in loadStandaloneSheet)
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.HCZ_GEYSER_HORZ,
+                Sonic3kConstants.ART_KOSM_HCZ_GEYSER_HORZ_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                0,
+                2,
+                -1
+        ));
+
+        // Geyser vertical art (subtype != 0 water wall)
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.HCZ_GEYSER_VERT,
+                Sonic3kConstants.ART_KOSM_HCZ_GEYSER_VERT_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                0,
+                2,
+                -1
+        ));
+
+        // Geyser debris art (Map_HCZWaterWallDebris, tiles at ArtTile_HCZGeyser+$58)
+        // Uses same compressed art as horizontal geyser but with debris mappings.
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.HCZ_GEYSER_DEBRIS,
+                Sonic3kConstants.ART_KOSM_HCZ_GEYSER_HORZ_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                0,
+                2,
+                -1
+        ));
+
+        // Bubbles art (ArtNem_Bubbles) — Nemesis compressed, 56 tiles.
+        // Used by 25% of water wall spray particles. Same mapping frames as geyser
+        // (buildHczGeyserAllFrames) but tile indices reference bubble patterns.
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.HCZ_BUBBLES,
+                Sonic3kConstants.ART_NEM_BUBBLES_ADDR,
+                CompressionType.NEMESIS,
+                0,
+                0,
+                2,
+                -1
+        ));
+
+        // Geyser spray/splash art (ArtTile_HCZGeyser+$30 offset).
+        // Same patterns as horizontal geyser, but mapping tile indices offset by $30.
+        // Used by spray particles and water surface splashes.
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.HCZ_GEYSER_SPRAY,
+                Sonic3kConstants.ART_KOSM_HCZ_GEYSER_HORZ_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                0,
+                2,
+                -1
+        ));
+
     }
 
     /**

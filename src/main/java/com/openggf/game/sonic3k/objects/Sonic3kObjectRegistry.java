@@ -112,10 +112,34 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                 (spawn, registry) -> new S3kCutsceneButtonObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.STAR_POST,
                 (spawn, registry) -> new Sonic3kStarPostObjectInstance(spawn));
+        factories.put(Sonic3kObjectIds.HCZ_WATER_RUSH,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new HCZWaterRushObjectInstance(spawn);
+                });
         factories.put(Sonic3kObjectIds.STILL_SPRITE,
                 (spawn, registry) -> new StillSpriteInstance(spawn));
         factories.put(Sonic3kObjectIds.ANIMATED_STILL_SPRITE,
                 (spawn, registry) -> new AnimatedStillSpriteInstance(spawn));
+        factories.put(Sonic3kObjectIds.HCZ_BREAKABLE_BAR,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new HCZBreakableBarObjectInstance(spawn);
+                });
+        factories.put(Sonic3kObjectIds.HCZ_WATER_WALL,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new HCZWaterWallObjectInstance(spawn);
+                });
         factories.put(Sonic3kObjectIds.AIZ_FOREGROUND_PLANT,
                 (spawn, registry) -> new AizForegroundPlantInstance(spawn));
         factories.put(Sonic3kObjectIds.HIDDEN_MONITOR,

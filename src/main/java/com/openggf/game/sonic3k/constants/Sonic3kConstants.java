@@ -200,6 +200,19 @@ public class Sonic3kConstants {
     public static final int ARTTILE_MHZ_MISC = 0x0347;          // ArtTile_MHZMisc
     public static final int ARTTILE_SOZ_MISC = 0x03C9;          // ArtTile_SOZMisc
 
+    // ===== HCZ Breakable Bar mappings (Obj_HCZBreakableBar, ID 0x36) =====
+    // LockOn data (assembled into S3 half of combined ROM — no S&K-side copy exists)
+    public static final int MAP_HCZ_BREAKABLE_BAR_ADDR = 0x21CDCA; // Map_HCZBreakableBar (8 frames)
+
+    // ===== HCZ Water Rush (Obj_HCZWaterRush, ID 0x37) =====
+    // ArtNem_HCZWaterRush: Nemesis compressed, 2560 bytes decompressed (80 tiles)
+    // Loaded via PLC_0E. LockOn data (S3 half only — no S&K-side copy).
+    public static final int ART_NEM_HCZ_WATER_RUSH_ADDR = 0x390348;
+    // ArtTile_HCZWaterRush = $037A (from sonic3k.constants.asm)
+    public static final int ARTTILE_HCZ_WATER_RUSH = 0x037A;
+    // WaterRushBlock uses ArtTile_HCZMisc + $A = 0x03D4 (level-loaded art)
+    public static final int ARTTILE_HCZ_WATER_RUSH_BLOCK = 0x03CA + 0xA; // 0x03D4
+
     // ===== Floating Platform mappings (Obj_FloatingPlatform, ID 0x51) =====
     public static final int MAP_AIZ_FLOATING_PLATFORM_ADDR = 0x256A2; // Map_AIZFloatingPlatform (1 frame, 4 pieces)
     public static final int MAP_HCZ_FLOATING_PLATFORM_ADDR = 0x25688; // Map_HCZFloatingPlatform (2 frames, 2/1 pieces)
@@ -956,6 +969,14 @@ public class Sonic3kConstants {
     public static final int ART_KOSM_HCZ_MEGA_CHOPPER_ADDR = 0x36A6C4;
     public static final int ART_KOSM_HCZ_POINTDEXTER_ADDR = 0x36AD8A;
     public static final int ART_KOSM_HCZ_JAWZ_ADDR = 0x36A552;
+
+    // ===== HCZ Water Wall / Geyser (Object 0x3B) =====
+    // LockOn data (assembled into S3 half of combined ROM — no S&K-side copy exists).
+    // Verified by ROM hex search: these byte patterns are absent from 0x000000-0x200000.
+    public static final int ART_KOSM_HCZ_GEYSER_HORZ_ADDR = 0x390C02; // ArtKosM_HCZGeyserHorz
+    public static final int ART_KOSM_HCZ_GEYSER_VERT_ADDR = 0x391394; // ArtKosM_HCZGeyserVert
+    // ArtTile_HCZGeyser - VRAM tile base for geyser art (both variants)
+    public static final int ARTTILE_HCZ_GEYSER = 0x0500;
 
     // ===== MGZ Badnik Art =====
     public static final int ART_KOSM_SPIKER_ADDR = 0x36E0C4;

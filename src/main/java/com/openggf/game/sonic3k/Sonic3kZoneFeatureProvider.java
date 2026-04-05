@@ -10,6 +10,7 @@ import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.game.sonic3k.features.AizBattleshipRenderFeature;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.features.AizTransitionRenderFeature;
+import com.openggf.game.sonic3k.features.HCZWaterTunnelHandler;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
@@ -48,6 +49,19 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
     @Override
     public void update(AbstractPlayableSprite player, int cameraX, int zoneIndex) {
         updateAizForestFrontPriority(player, zoneIndex);
+    }
+
+    /**
+     * Pre-physics update for HCZ water tunnels.
+     * ROM: {@code sub_6F4A} runs before {@code ExecuteObjects}, so the tunnel
+     * velocity and position overrides are applied before player physics.
+     */
+    @Override
+    public void updatePrePhysics(AbstractPlayableSprite player, int cameraX, int zoneIndex) {
+        if (zoneIndex == Sonic3kZoneIds.ZONE_HCZ && player != null && !player.getDead()) {
+            int act = GameServices.level().getFeatureActId();
+            HCZWaterTunnelHandler.update(act);
+        }
     }
 
     private void updateAizForestFrontPriority(AbstractPlayableSprite player, int zoneIndex) {
@@ -103,6 +117,7 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
         aizTransitionRenderFeature.reset();
         waterSurfaceManager = null;
         forcedAizForestFrontPriority = false;
+        HCZWaterTunnelHandler.reset();
     }
 
     @Override
