@@ -32,8 +32,12 @@ public class ParallaxManager {
     // Optional per-column BG VScroll deltas (20 columns in H40 mode).
     private static final int BG_VSCROLL_COLUMN_COUNT = 20;
     private final short[] vScrollPerColumnBG = new short[BG_VSCROLL_COLUMN_COUNT];
+    // Optional per-column FG VScroll values (20 columns in H40 mode).
+    private static final int FG_VSCROLL_COLUMN_COUNT = 20;
+    private final short[] vScrollPerColumnFG = new short[FG_VSCROLL_COLUMN_COUNT];
     private boolean hasPerLineVScrollBG = false;
     private boolean hasPerColumnVScrollBG = false;
+    private boolean hasPerColumnVScrollFG = false;
 
     private int minScroll = 0;
     private int maxScroll = 0;
@@ -100,8 +104,10 @@ public class ParallaxManager {
         java.util.Arrays.fill(hScroll, 0);
         java.util.Arrays.fill(vScrollPerLineBG, (short) 0);
         java.util.Arrays.fill(vScrollPerColumnBG, (short) 0);
+        java.util.Arrays.fill(vScrollPerColumnFG, (short) 0);
         hasPerLineVScrollBG = false;
         hasPerColumnVScrollBG = false;
+        hasPerColumnVScrollFG = false;
     }
 
     public void load(Rom rom) {
@@ -181,6 +187,17 @@ public class ParallaxManager {
      */
     public short[] getVScrollPerColumnBGForShader() {
         return hasPerColumnVScrollBG ? vScrollPerColumnBG : null;
+    }
+
+    /**
+     * Optional per-column FG VScroll values for shader-based column distortion effects.
+     * Used by the S3K Gumball bonus stage to make machine body tiles drift with the
+     * gumball machine object.
+     *
+     * @return 20-entry per-column FG VScroll array, or null when not active
+     */
+    public short[] getVScrollPerColumnFGForShader() {
+        return hasPerColumnVScrollFG ? vScrollPerColumnFG : null;
     }
 
     /**
@@ -283,8 +300,10 @@ public class ParallaxManager {
         currentShakeOffsetY = 0;
         java.util.Arrays.fill(vScrollPerLineBG, (short) 0);
         java.util.Arrays.fill(vScrollPerColumnBG, (short) 0);
+        java.util.Arrays.fill(vScrollPerColumnFG, (short) 0);
         hasPerLineVScrollBG = false;
         hasPerColumnVScrollBG = false;
+        hasPerColumnVScrollFG = false;
 
         int cameraX = cam.getX();
         int cameraY = cam.getY();
@@ -306,6 +325,7 @@ public class ParallaxManager {
                 cachedBgPeriodWidth = handler.getBgPeriodWidth();
                 capturePerLineVScroll(handler);
                 capturePerColumnVScroll(handler);
+                capturePerColumnVScrollFG(handler);
 
                 // FG vscroll: handlers that apply screen shake (MCZ, HTZ earthquake)
                 // return a non-zero value including the ripple offset.
@@ -434,5 +454,19 @@ public class ParallaxManager {
             java.util.Arrays.fill(vScrollPerColumnBG, count, BG_VSCROLL_COLUMN_COUNT, (short) 0);
         }
         hasPerColumnVScrollBG = true;
+    }
+
+    private void capturePerColumnVScrollFG(ZoneScrollHandler handler) {
+        short[] perColumn = handler.getPerColumnVScrollFG();
+        if (perColumn == null || perColumn.length == 0) {
+            hasPerColumnVScrollFG = false;
+            return;
+        }
+        int count = Math.min(FG_VSCROLL_COLUMN_COUNT, perColumn.length);
+        System.arraycopy(perColumn, 0, vScrollPerColumnFG, 0, count);
+        if (count < FG_VSCROLL_COLUMN_COUNT) {
+            java.util.Arrays.fill(vScrollPerColumnFG, count, FG_VSCROLL_COLUMN_COUNT, (short) 0);
+        }
+        hasPerColumnVScrollFG = true;
     }
 }

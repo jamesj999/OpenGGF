@@ -305,6 +305,10 @@ public class LevelManager {
             return;
         }
         applyForegroundHeatHaze(tilemapRenderer);
+        short[] fgPerColumnVScrollLow = parallaxManager.getVScrollPerColumnFGForShader();
+        if (fgPerColumnVScrollLow != null) {
+            tilemapRenderer.enablePerColumnVScroll(fgPerColumnVScrollLow);
+        }
         glGetIntegerv(GL_VIEWPORT, viewportBuffer);
         tilemapRenderer.render(
                 TilemapGpuRenderer.Layer.FOREGROUND,
@@ -344,6 +348,10 @@ public class LevelManager {
             return;
         }
         applyForegroundHeatHaze(tilemapRenderer);
+        short[] fgPerColumnVScrollHigh = parallaxManager.getVScrollPerColumnFGForShader();
+        if (fgPerColumnVScrollHigh != null) {
+            tilemapRenderer.enablePerColumnVScroll(fgPerColumnVScrollHigh);
+        }
         glGetIntegerv(GL_VIEWPORT, viewportBuffer);
         tilemapRenderer.render(
                 TilemapGpuRenderer.Layer.FOREGROUND,
@@ -388,6 +396,10 @@ public class LevelManager {
         glBlendFunc(GL_ONE, GL_ONE);
 
         applyForegroundHeatHaze(tilemapRenderer);
+        short[] fgPerColumnVScrollFbo = parallaxManager.getVScrollPerColumnFGForShader();
+        if (fgPerColumnVScrollFbo != null) {
+            tilemapRenderer.enablePerColumnVScroll(fgPerColumnVScrollFbo);
+        }
         tilemapRenderer.render(
                 TilemapGpuRenderer.Layer.FOREGROUND,
                 pendingFboScreenW,
