@@ -11,9 +11,8 @@
   "trace_frame_count": 524,
   "start_x": "0x0A00",
   "start_y": "0x062C",
-  "emu_frame_start": 2808,
-  "recording_date": "2026-04-04",
-  "lua_script_version": "credits-retro-1.0",
+  "recording_date": "2026-04-05",
+  "lua_script_version": "credits-retro-1.3",
   "csv_version": 4,
   "rom_checksum": "",
   "notes": ""

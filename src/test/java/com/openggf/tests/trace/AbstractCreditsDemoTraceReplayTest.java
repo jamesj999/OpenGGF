@@ -216,6 +216,11 @@ public abstract class AbstractCreditsDemoTraceReplayTest {
         if (featureProvider != null) {
             featureProvider.setWaterRoutine(Sonic1CreditsDemoData.LZ_LAMP_WATER_ROUTINE);
         }
+
+        // Sync player's underwater flag with the water level we just set.
+        // Without this, the first frame runs with inWater=false and uses
+        // normal (non-underwater) acceleration, causing physics divergence.
+        player.updateWaterState(Sonic1CreditsDemoData.LZ_LAMP_WATER_HEIGHT);
     }
 
     /**
