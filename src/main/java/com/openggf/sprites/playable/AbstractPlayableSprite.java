@@ -2372,16 +2372,26 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          * The ROM uses center-based coordinates where y_pos is the sprite center, so it adjusts by
          * the RADIUS difference (standYRadius - rollYRadius = 19 - 14 = 5 pixels for Sonic).
          *
-         * This engine uses top-left coordinates where y is the top of the sprite, so we must adjust
-         * by the full HEIGHT difference (runHeight - rollHeight = 38 - 28 = 10 pixels for Sonic).
+         * This engine uses top-left coordinates. When height changes (floor/ceiling orientation),
+         * we add the full HEIGHT difference (runHeight - rollHeight = 10) to the top-left Y so
+         * the center shifts by 5 (matching ROM). When on a WALL (left/right), setRolling() adjusts
+         * WIDTH instead of HEIGHT, so height stays constant — we only need to shift top by 5 to
+         * move center by 5.
          *
          * When entering roll: setY(getY() + getRollHeightAdjustment()) - moves top down, feet stay planted
          * When exiting roll: setY(getY() - getRollHeightAdjustment()) - moves top up, feet stay planted
          *
-         * @return the height difference between standing and rolling (always positive)
+         * @return the top-left Y adjustment needed (orientation-aware)
          */
         public short getRollHeightAdjustment() {
-                return (short) (runHeight - rollHeight);
+                int fullDiff = runHeight - rollHeight;
+                // On walls, setRolling() changes WIDTH, not HEIGHT. Since height stays constant,
+                // adjusting top by fullDiff would move centre by fullDiff, overshooting the ROM's
+                // centre+=5 by 5px. Use half (the radius diff) to match ROM centre behaviour.
+                if (GroundMode.LEFTWALL.equals(runningMode) || GroundMode.RIGHTWALL.equals(runningMode)) {
+                        return (short) (fullDiff / 2);
+                }
+                return (short) fullDiff;
         }
 
         /**
