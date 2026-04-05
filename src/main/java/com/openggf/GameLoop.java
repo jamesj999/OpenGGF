@@ -984,7 +984,9 @@ public class GameLoop {
         int lastStarPostHit = 0;
         RespawnState cs = levelManager.getCheckpointState();
         if (cs != null && cs.isActive()) {
-            lastStarPostHit = cs.getLastCheckpointIndex() + 1; // ROM: 1-based
+            // getLastCheckpointIndex() returns the ROM 1-based subtype (spawn.subtype() & 0x7F)
+            // that was passed into saveCheckpoint(), so no +1 adjustment is needed.
+            lastStarPostHit = cs.getLastCheckpointIndex();
         }
 
         BonusStageState savedState = new BonusStageState(
@@ -1051,8 +1053,12 @@ public class GameLoop {
         }
 
         // Pause HUD timer during bonus stage (ROM: clr.b (Update_HUD_timer).w for zones $13-$15)
+        // Also restore the saved ring count so the HUD shows the carried-over rings
+        // (ROM sonic3k.asm line 127408: move.w (Saved_ring_count).w, (Ring_count).w).
+        // loadZoneAndAct() creates a fresh LevelGamestate with rings=0, so we must set it here.
         if (levelManager.getLevelGamestate() != null) {
             levelManager.getLevelGamestate().pauseTimer();
+            levelManager.getLevelGamestate().setRings(savedState.savedRingCount());
         }
 
         GameMode oldMode = currentGameMode;
