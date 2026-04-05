@@ -114,11 +114,16 @@ public class Sonic3kStarPostObjectInstance extends AbstractObjectInstance {
     static BonusStarVariant computeBonusStarVariant(int ringCount) {
         // ROM formula: remainder = ((rings - 20) / 15) % divisor
         // S3K locked-on: divisor=3 (all 3 bonus stages available)
+        // ROM loc_2D47E dispatch (sonic3k.asm lines 61886-61912):
+        //   remainder 0 -> SLOTS ($1500)
+        //   remainder 1 -> PACHINKO / GLOWING_SPHERE ($1400)
+        //   remainder 2 -> GUMBALL ($1300)
         int quotient = (ringCount - 20) / 15;
         int remainder = quotient % 3;
         return switch (remainder) {
-            case 1 -> BonusStarVariant.BLUE;
-            case 2 -> BonusStarVariant.RED;
+            case 0 -> BonusStarVariant.RED;       // SLOT_MACHINE
+            case 1 -> BonusStarVariant.BLUE;      // GLOWING_SPHERE
+            case 2 -> BonusStarVariant.YELLOW;    // GUMBALL
             default -> BonusStarVariant.YELLOW;
         };
     }

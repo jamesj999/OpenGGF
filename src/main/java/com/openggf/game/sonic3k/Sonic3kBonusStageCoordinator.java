@@ -8,10 +8,11 @@ import com.openggf.game.BonusStageType;
  * Provides zone ID and music ID mapping for Gumball, Pachinko, and Slots.
  *
  * <p>Ring-based selection formula: {@code remainder = ((rings - 20) / 15) % 3}
+ * <p>ROM loc_2D47E (sonic3k.asm lines 61886-61912):
  * <ul>
- *   <li>0 -> GUMBALL (zone $1300, music $1E)</li>
- *   <li>1 -> GLOWING_SPHERE (zone $1400, music $1F)</li>
- *   <li>2 -> SLOT_MACHINE (zone $1500, music $20)</li>
+ *   <li>0 -> SLOT_MACHINE (zone $1500, music $20)</li>
+ *   <li>1 -> GLOWING_SPHERE / Pachinko (zone $1400, music $1F)</li>
+ *   <li>2 -> GUMBALL (zone $1300, music $1E)</li>
  * </ul>
  */
 public class Sonic3kBonusStageCoordinator extends AbstractBonusStageCoordinator {
@@ -33,9 +34,9 @@ public class Sonic3kBonusStageCoordinator extends AbstractBonusStageCoordinator 
         if (ringCount < RING_THRESHOLD) return BonusStageType.NONE;
         int remainder = ((ringCount - RING_THRESHOLD) / RING_DIVISOR) % STAGE_COUNT;
         return switch (remainder) {
-            case 0 -> BonusStageType.GUMBALL;
+            case 0 -> BonusStageType.SLOT_MACHINE;
             case 1 -> BonusStageType.GLOWING_SPHERE;
-            case 2 -> BonusStageType.SLOT_MACHINE;
+            case 2 -> BonusStageType.GUMBALL;
             default -> BonusStageType.NONE;
         };
     }

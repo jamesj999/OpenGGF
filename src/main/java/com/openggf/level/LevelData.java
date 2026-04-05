@@ -88,7 +88,7 @@ public enum LevelData {
 
     // S3K bonus stages (zone IDs 19-21)
     // Start positions are loaded from ROM at runtime; values here are fallback defaults
-    S3K_GUMBALL(0xE6, 0x0120, 0x0100),
+    S3K_GUMBALL(0xE6, 0x0100, 0x0120),
     S3K_GLOWING_SPHERE(0xE8, 0x0120, 0x0100),
     S3K_SLOT_MACHINE(0xEA, 0x0120, 0x0100);
 

@@ -293,6 +293,12 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
 
     @Override
     public void update() {
+        // Zone 0x13 (Gumball bonus stage) has no AniPLC scripts but still requires
+        // animated tile updates. Run its updater before the early return.
+        if (zoneIndex == 0x13) {
+            updateGumball();
+            return;
+        }
         if (scripts.isEmpty()) {
             return;
         }
