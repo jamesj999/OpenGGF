@@ -633,23 +633,20 @@ public class HCZWaterWallObjectInstance extends AbstractObjectInstance {
      * Debris child spawned by both horizontal and vertical geysers.
      * <p>
      * ROM: loc_3011A - Animates through 8 frames, moves with gravity (0x38).
-     * When y &gt; Water_level: stops y_vel, halves x_vel twice, spawns splash.
-     * Transitions to slow sinking with gravity=8, timer=9 frames.
+     * When y &gt; Water_level: stops y_vel, halves x_vel twice, spawns splash,
+     * then continues sinking until it goes off-screen.
      */
     static class WaterWallDebrisChild extends AbstractObjectInstance {
 
         private static final int GRAVITY = 0x38;
         private static final int SLOW_GRAVITY = 8;
         private static final int ANIM_RESET_TIMER = 2;
-        private static final int SLOW_SINK_TIMER = 9;
-
         private enum DebrisState { FLYING, SINKING }
 
         private final SubpixelMotion.State motion;
         private int mappingFrame;
         private int animTimer = ANIM_RESET_TIMER;
         private DebrisState state = DebrisState.FLYING;
-        private int sinkTimer = SLOW_SINK_TIMER;
         private boolean splashSpawned;
         private final String parentArtKey;
 
@@ -712,11 +709,11 @@ public class HCZWaterWallObjectInstance extends AbstractObjectInstance {
         }
 
         private void updateSinking() {
-            // Slow gravity, timer-based deletion
+            // ROM loc_301A8: keep moving with reduced gravity until the sprite
+            // leaves the screen; there is no short post-splash lifetime.
             SubpixelMotion.moveSprite(motion, SLOW_GRAVITY);
 
-            sinkTimer--;
-            if (sinkTimer <= 0 || !isOnScreen(0x80)) {
+            if (!isOnScreen(0x80)) {
                 setDestroyed(true);
             }
         }

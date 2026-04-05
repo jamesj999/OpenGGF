@@ -41,7 +41,9 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
 
         // Initialize water surface manager for HCZ (zone 1)
         // From sonic3k.asm:7777-7787: only HCZ loads Obj_HCZWaveSplash
-        if (zoneIndex == Sonic3kZoneIds.ZONE_HCZ && hasWater(zoneIndex)) {
+        // Use a static zone check (not hasWater()) because the WaterSystem
+        // is loaded in a later init phase (InitWater runs after InitZoneFeatures).
+        if (zoneHasWaterSurface(zoneIndex)) {
             initWaterSurfaceManager(rom, zoneIndex, actIndex);
         }
     }
@@ -127,9 +129,20 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
 
     @Override
     public boolean hasWater(int zoneIndex) {
-        // Check if water was loaded for this zone (any act)
-        WaterSystem waterSystem = GameServices.water();
-        return waterSystem.hasWater(zoneIndex, 0) || waterSystem.hasWater(zoneIndex, 1);
+        // Static check: HCZ is the only S3K zone with water surface sprites.
+        // Must not query WaterSystem here because this method may be called
+        // before InitWater has run (e.g. from initZoneFeatures).
+        // ROM: CheckLevelForWater (sonic3k.asm:9754) — zone 1 (HCZ) has water.
+        return zoneHasWaterSurface(zoneIndex);
+    }
+
+    /**
+     * Static check for zones that have water surface rendering.
+     * Unlike {@link #hasWater(int)}, this never queries runtime state,
+     * so it is safe to call during any init phase.
+     */
+    private static boolean zoneHasWaterSurface(int zoneIndex) {
+        return zoneIndex == Sonic3kZoneIds.ZONE_HCZ;
     }
 
     @Override
