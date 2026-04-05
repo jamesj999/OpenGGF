@@ -3,6 +3,7 @@ package com.openggf.game.sonic3k.features;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.game.sonic3k.objects.HCZWaterRushObjectInstance.HCZBreakableBarState;
+import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 /**
@@ -31,10 +32,9 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
  * <h3>Velocity-to-position math</h3>
  * ROM: {@code ext.l d0; lsl.l #8,d0; add.l d0,x_pos(a1)} adds velocity shifted
  * left 8 bits to the 32-bit position (16.16 fixed-point). This is equivalent to
- * adding {@code velocity >> 8} pixels and accumulating the fractional remainder.
- * Since the engine player sprites do not expose a subpixel API, we shift the
- * velocity right by 8 and add the integer pixel displacement each frame, matching
- * the ROM's per-frame pixel movement to within ±1 pixel.
+ * adding {@code velocity / 256} pixels per frame while carrying the fractional
+ * remainder forward. We mirror that by accumulating the 8.8 tunnel velocity in a
+ * per-player remainder and applying the integer pixel part each frame.
  */
 public final class HCZWaterTunnelHandler {
     private HCZWaterTunnelHandler() {}
@@ -51,6 +51,9 @@ public final class HCZWaterTunnelHandler {
     // Restore the last tunnel velocity on exit so ejection keeps the expected momentum.
     private static short lastXVelP1, lastYVelP1;
     private static short lastXVelP2, lastYVelP2;
+
+    private static int tunnelXSubP1, tunnelYSubP1;
+    private static int tunnelXSubP2, tunnelYSubP2;
 
     private static int exitAnimTimerP1;
     private static int exitAnimTimerP2;
@@ -158,8 +161,18 @@ public final class HCZWaterTunnelHandler {
         windTunnelFlagP2 = false;
         lastXVelP1 = lastYVelP1 = 0;
         lastXVelP2 = lastYVelP2 = 0;
+        tunnelXSubP1 = tunnelYSubP1 = 0;
+        tunnelXSubP2 = tunnelYSubP2 = 0;
         exitAnimTimerP1 = 0;
         exitAnimTimerP2 = 0;
+    }
+
+    /**
+     * Returns whether HCZ should temporarily present as "dry" for palette/waterline
+     * purposes during the water-rush/tunnel sequence.
+     */
+    public static boolean shouldForceDryPresentation() {
+        return windTunnelFlagP1 || windTunnelFlagP2;
     }
 
     // =========================================================================
@@ -203,10 +216,28 @@ public final class HCZWaterTunnelHandler {
             short xVel = (short) entry[X_VEL];
             short yVel = (short) entry[Y_VEL];
 
-            // Apply the full tunnel displacement directly. The engine's normal
-            // physics path otherwise adds unwanted motion and breaks control feel.
-            int xPixels = (xVel * 2) / 256;
-            int yPixels = (yVel * 2) / 256;
+            // The engine's tunnel path runs against centre-position integers rather than
+            // the ROM's full player-position representation. Doubling the 8.8 delta keeps
+            // Sonic aligned with the real HCZ rush sequence in practice.
+            int xDelta = xVel * 2;
+            int yDelta = yVel * 2;
+            int xPixels;
+            int yPixels;
+            if (playerIndex == 0) {
+                tunnelXSubP1 += xDelta;
+                tunnelYSubP1 += yDelta;
+                xPixels = tunnelXSubP1 / 256;
+                yPixels = tunnelYSubP1 / 256;
+                tunnelXSubP1 -= xPixels * 256;
+                tunnelYSubP1 -= yPixels * 256;
+            } else {
+                tunnelXSubP2 += xDelta;
+                tunnelYSubP2 += yDelta;
+                xPixels = tunnelXSubP2 / 256;
+                yPixels = tunnelYSubP2 / 256;
+                tunnelXSubP2 -= xPixels * 256;
+                tunnelYSubP2 -= yPixels * 256;
+            }
             player.setCentreX((short) (player.getCentreX() + xPixels));
             player.setCentreY((short) (player.getCentreY() + yPixels));
 
@@ -236,20 +267,20 @@ public final class HCZWaterTunnelHandler {
             if (entry[INFLUENCE_FLAG] == 0) {
                 // ROM: btst #button_up,d6 / beq loc_7024 / subq.w #1,y_pos(a1)
                 if (player.isUpPressed()) {
-                    player.setCentreY((short) (player.getCentreY() - 1));
+                    tryTunnelNudge(player, 0, -1);
                 }
                 // ROM: btst #button_down,d6 / beq locret_702E / addq.w #1,y_pos(a1)
                 if (player.isDownPressed()) {
-                    player.setCentreY((short) (player.getCentreY() + 1));
+                    tryTunnelNudge(player, 0, 1);
                 }
             } else {
                 // ROM: btst #button_left,d6 / beq loc_703A / subq.w #1,x_pos(a1)
                 if (player.isLeftPressed()) {
-                    player.setCentreX((short) (player.getCentreX() - 1));
+                    tryTunnelNudge(player, -1, 0);
                 }
                 // ROM: btst #button_right,d6 / beq locret_7044 / addq.w #1,x_pos(a1)
                 if (player.isRightPressed()) {
-                    player.setCentreX((short) (player.getCentreX() + 1));
+                    tryTunnelNudge(player, 1, 0);
                 }
             }
 
@@ -262,10 +293,14 @@ public final class HCZWaterTunnelHandler {
             if (playerIndex == 0) {
                 player.setXSpeed(lastXVelP1);
                 player.setYSpeed(lastYVelP1);
+                tunnelXSubP1 = 0;
+                tunnelYSubP1 = 0;
                 exitAnimTimerP1 = 1;
             } else {
                 player.setXSpeed(lastXVelP2);
                 player.setYSpeed(lastYVelP2);
+                tunnelXSubP2 = 0;
+                tunnelYSubP2 = 0;
                 exitAnimTimerP2 = 1;
             }
             player.setAir(true);
@@ -274,5 +309,28 @@ public final class HCZWaterTunnelHandler {
         }
 
         return false;
+    }
+
+    private static void tryTunnelNudge(AbstractPlayableSprite player, int dx, int dy) {
+        int nextX = player.getCentreX() + dx;
+        int nextY = player.getCentreY() + dy;
+
+        boolean blocked;
+        if (dy < 0) {
+            blocked = ObjectTerrainUtils.checkCeilingDist(nextX, nextY, player.getYRadius()).hasCollision();
+        } else if (dy > 0) {
+            blocked = ObjectTerrainUtils.checkFloorDist(nextX, nextY, player.getYRadius()).hasCollision();
+        } else if (dx < 0) {
+            blocked = ObjectTerrainUtils.checkLeftWallDist(nextX - player.getXRadius(), nextY).hasCollision();
+        } else if (dx > 0) {
+            blocked = ObjectTerrainUtils.checkRightWallDist(nextX + player.getXRadius(), nextY).hasCollision();
+        } else {
+            blocked = false;
+        }
+
+        if (!blocked) {
+            player.setCentreX((short) nextX);
+            player.setCentreY((short) nextY);
+        }
     }
 }

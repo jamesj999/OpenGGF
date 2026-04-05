@@ -16,7 +16,6 @@ import com.openggf.data.RomByteReader;
 import com.openggf.game.CrossGameFeatureProvider;
 import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.game.DynamicStartPositionProvider;
-
 import com.openggf.debug.DebugObjectArtViewer;
 import com.openggf.debug.DebugOverlayManager;
 import com.openggf.debug.DebugOverlayToggle;
@@ -1105,7 +1104,7 @@ public class LevelManager {
 
         // Update player water state after both water movement and zone features.
         if (level != null && waterSystem.hasWater(featureZone, featureAct) && playable != null) {
-            int waterY = waterSystem.getVisualWaterLevelY(featureZone, featureAct);
+            int waterY = waterSystem.getWaterLevelY(featureZone, featureAct);
             playable.updateWaterState(waterY);
         }
     }
@@ -1135,9 +1134,20 @@ public class LevelManager {
         }
 
         if (level != null && waterSystem.hasWater(featureZone, featureAct) && playable != null) {
-            int waterY = waterSystem.getVisualWaterLevelY(featureZone, featureAct);
+            int waterY = waterSystem.getWaterLevelY(featureZone, featureAct);
             playable.updateWaterState(waterY);
         }
+    }
+
+    private boolean shouldSuppressUnderwaterPalette(int zoneId, int actId) {
+        if (zoneId != com.openggf.game.sonic3k.constants.Sonic3kZoneIds.ZONE_HCZ
+                || !(GameModuleRegistry.getCurrent() instanceof com.openggf.game.sonic3k.Sonic3kGameModule)) {
+            return false;
+        }
+
+        // HCZ1 keeps real water gameplay and a visible surface from the start, but the
+        // underwater palette split does not engage until the first water-height switch.
+        return actId == 0 && waterSystem.getWaterLevelY(zoneId, actId) == 0x0500;
     }
 
     public void applyPlaneSwitchers(AbstractPlayableSprite player) {
@@ -1786,7 +1796,6 @@ public class LevelManager {
     private void updateWaterShaderState(Camera camera) {
         int zoneId = getFeatureZoneId();
         int actId = getFeatureActId();
-
         if (waterSystem.hasWater(zoneId, actId)) {
             // Set uniforms via custom command - this also enables the water shader
             // Use visual water level (with oscillation) for rendering effects
@@ -1942,6 +1951,7 @@ public class LevelManager {
         int featureZone = getFeatureZoneId();
         int featureAct = getFeatureActId();
         boolean hasWater = waterSystem.hasWater(featureZone, featureAct);
+        boolean suppressUnderwaterPalette = shouldSuppressUnderwaterPalette(featureZone, featureAct);
         // Use visual water level (with oscillation) for background rendering
         int waterLevelWorldY = hasWater ? waterSystem.getVisualWaterLevelY(featureZone, featureAct) : 9999;
 
@@ -1964,7 +1974,7 @@ public class LevelManager {
         ensureBackgroundTilemapData();
         pendingBgTilePassRenderWidth = renderWidth;
         pendingBgTilePassRenderHeight = renderHeight;
-        pendingBgTilePassHasWater = hasWater;
+        pendingBgTilePassHasWater = hasWater && !suppressUnderwaterPalette;
         pendingBgTilePassFboWaterlineY = fboWaterlineY;
         pendingBgTilePassAlignedBgY = alignedBgY;
         pendingBgTilePassBgTilemapWorldOffsetX = bgTilemapWorldOffsetX;
@@ -2136,6 +2146,7 @@ public class LevelManager {
         int featureZone = getFeatureZoneId();
         int featureAct = getFeatureActId();
         boolean hasWater = waterSystem.hasWater(featureZone, featureAct);
+        boolean suppressUnderwaterPalette = shouldSuppressUnderwaterPalette(featureZone, featureAct);
         int waterLevel = hasWater ? waterSystem.getVisualWaterLevelY(featureZone, featureAct) : 0;
         // Use shake-adjusted Y for water line calculation
         float waterlineScreenY = (float) (waterLevel - camera.getYWithShake());
@@ -2150,7 +2161,7 @@ public class LevelManager {
         Integer atlasId = graphicsManager.getPatternAtlasTextureId();
         Integer paletteId = graphicsManager.getCombinedPaletteTextureId();
         Integer underwaterPaletteId = graphicsManager.getUnderwaterPaletteTextureId();
-        boolean useUnderwaterPalette = hasWater && underwaterPaletteId != null;
+        boolean useUnderwaterPalette = hasWater && !suppressUnderwaterPalette && underwaterPaletteId != null;
 
         if (atlasId == null || paletteId == null) {
             return;
