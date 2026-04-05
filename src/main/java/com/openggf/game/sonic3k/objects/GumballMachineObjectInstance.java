@@ -62,12 +62,13 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
     // ===== ROM constants =====
 
-    // ROM: Player proximity check for activation (Obj_GumballMachine IDLE state)
-    // X range: -36 to +72, Y range: -8 to +16
-    private static final int ACTIVATE_X_MIN = -36;
-    private static final int ACTIVATE_X_MAX = 72;
-    private static final int ACTIVATE_Y_MIN = -8;
-    private static final int ACTIVATE_Y_MAX = 16;
+    // ROM word_60D16: dc.w -$24, $48, -8, $10 = (xOffset=-36, width=72, yOffset=-8, height=16)
+    // Check_PlayerInRange uses (xOffset..xOffset+width) x (yOffset..yOffset+height),
+    // giving a 72x16 pixel activation zone centered around the machine.
+    private static final int ACTIVATE_X_MIN = -36;  // xOffset
+    private static final int ACTIVATE_X_MAX = 36;   // xOffset + width
+    private static final int ACTIVATE_Y_MIN = -8;   // yOffset
+    private static final int ACTIVATE_Y_MAX = 8;    // yOffset + height
 
     // Machine and most children render at bucket 1 (behind Sonic at bucket 2).
     // ROM VDP priority is 2-tier; our bucket system uses spawn order within
@@ -330,10 +331,12 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
     /** ROM bit 7: machine has seen first random=0 roll (for ball subtype selection). */
     public boolean isBit7Set() { return (flagByte38 & 0x80) != 0; }
-    public boolean setBit7IfUnset() {
-        boolean was = isBit7Set();
-        flagByte38 |= (byte) 0x80;
-        return !was; // matches ROM bset semantics
+    public void setBit7(boolean value) {
+        if (value) {
+            flagByte38 |= (byte) 0x80;
+        } else {
+            flagByte38 &= (byte) 0x7F;
+        }
     }
 
     /** Called by GumballBumperObjectInstance on player bump. ROM lines 127692-127698. */
@@ -442,16 +445,24 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
     /**
      * ROM sub_612A8 (line 127983): random 0-15 indexes byte_612E0 to choose ball subtype.
-     * Special case: if random&amp;0xF == 0 AND bit 7 of machine $38 wasn't already set,
-     * set bit 7 and return subtype 3 (black gumball).
+     * <p>
+     * ROM behavior (bset #7 sets Z based on OLD bit value):
+     * <ul>
+     *   <li>On first zero-roll: bit 7 was CLEAR (old=0) → Z=1 → beq branches keeping d0=0
+     *       → LUT[0] = 0 (EXTRA LIFE subtype)</li>
+     *   <li>On subsequent zero-rolls: bit 7 was SET (old=1) → Z=0 → fall through
+     *       → moveq #3,d0 → LUT[3] = 4 (push player subtype)</li>
+     * </ul>
      */
     public int chooseBallSubtype() {
         int r = rng.nextInt(16);
         if (r == 0) {
-            boolean wasUnset = setBit7IfUnset();
-            if (wasUnset) {
-                return 3; // ROM: force subtype 3 on first zero-roll
+            boolean wasSet = isBit7Set();
+            setBit7(true);
+            if (wasSet) {
+                r = 3; // ROM: fall through with d0=3 → LUT[3]=4
             }
+            // else: r stays 0 → LUT[0]=0 (first zero-roll gives EXTRA LIFE)
         }
         return SUBTYPE_LOOKUP[r];
     }
@@ -479,27 +490,24 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
      * our tracked springs and re-spawning any that have been destroyed.
      */
     public void respawnSprings() {
-        if (springs.size() != springOriginalPositions.size()) {
-            LOGGER.warning("GumballMachine: spring tracking mismatch ("
-                    + springs.size() + " vs " + springOriginalPositions.size() + ")");
-            return;
+        // If dispenser was destroyed (by spring → bit 1 chain), respawn it first
+        // so newly-spawned springs have a live parent to signal.
+        if (dispenser == null || dispenser.isDestroyed()) {
+            dispenser = spawnChild(() -> new DispenserChild(
+                    buildSpawnAt(DISPENSER_ABSOLUTE_X, DISPENSER_ABSOLUTE_Y)));
         }
 
-        int respawned = 0;
-        for (int i = 0; i < springs.size(); i++) {
-            GumballSpringChild existing = springs.get(i);
-            if (existing == null || existing.isDestroyed()) {
-                int[] pos = springOriginalPositions.get(i);
-                final int sx = pos[0];
-                final int sy = pos[1];
-                final DispenserChild dispenserRef = dispenser;
-                GumballSpringChild replacement = spawnChild(() ->
-                        new GumballSpringChild(buildSpawnAt(sx, sy), this, dispenserRef));
-                springs.set(i, replacement);
-                respawned++;
-            }
+        // Respawn all springs pointing to the (now-alive) dispenser.
+        springs.clear();
+        for (int[] pos : springOriginalPositions) {
+            final int sx = pos[0];
+            final int sy = pos[1];
+            final DispenserChild dispenserRef = dispenser;
+            GumballSpringChild spring = spawnChild(() -> new GumballSpringChild(
+                    buildSpawnAt(sx, sy), this, dispenserRef));
+            springs.add(spring);
         }
-        LOGGER.fine("GumballMachine: respawned " + respawned + " springs");
+        LOGGER.fine("GumballMachine: respawned dispenser + " + springs.size() + " springs");
     }
 
     // ===== Rendering =====
@@ -628,7 +636,10 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         EjectionEffectChild(ObjectSpawn spawn, int subtype) {
             super(spawn, "GumballEjectionEffect");
-            timer = subtype;
+            // ROM CreateChild6_Simple assigns subtypes via addq.w #2,d2 → 0,2,4,...,30.
+            // Timer ($2E) = subtype, so effects live for subtype+1 frames (1..31).
+            // We pass 0..15 as the OFFSETS index, so double it to get the ROM timer value.
+            timer = subtype * 2;
             int[] off = OFFSETS[subtype];
             drawX = spawn.x() + off[0];
             drawY = spawn.y() + off[1];
@@ -962,6 +973,9 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
             // clr.b jumping(a1)
             player.setJumping(false);
+
+            // clr.b spin_dash_flag(a1)
+            player.setSpindash(false);
 
             // move.b #$10, anim(a1) — player SPRING animation
             player.setAnimationId(Sonic3kAnimationIds.SPRING);

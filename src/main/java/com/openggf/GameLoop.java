@@ -975,8 +975,10 @@ public class GameLoop {
         int zoneAndAct = (levelManager.getCurrentZone() << 8) | levelManager.getCurrentAct();
         int apparentZoneAndAct = (levelManager.getCurrentZone() << 8) | levelManager.getApparentAct();
         int ringCount = 0;
+        long savedTimerFrames = 0;
         if (levelManager.getLevelGamestate() != null) {
             ringCount = levelManager.getLevelGamestate().getRings();
+            savedTimerFrames = levelManager.getLevelGamestate().getTimerFrames();
         }
 
         int lastStarPostHit = 0;
@@ -996,7 +998,8 @@ public class GameLoop {
                 playerX, playerY,
                 camera.getX(), camera.getY(),
                 topSolidBit, lrbSolidBit,
-                camera.getMaxY()
+                camera.getMaxY(),
+                savedTimerFrames
         );
 
         // Fade out music
@@ -1097,6 +1100,9 @@ public class GameLoop {
     private void doExitBonusStage(BonusStageProvider provider, BonusStageState savedState) {
         bonusStageTransitionPending = false;
 
+        // Capture rewards BEFORE onExit() in case it resets counters.
+        BonusStageProvider.BonusStageRewards rewards = provider.getRewards();
+
         provider.onExit();
         activeBonusStageProvider = null;
 
@@ -1157,11 +1163,20 @@ public class GameLoop {
         camera.setMaxY((short) savedState.cameraMaxY());
         camera.updatePosition(true);
 
-        // Restore ring count
+        // Restore ring count + add bonus stage rewards
         if (levelManager.getLevelGamestate() != null) {
-            levelManager.getLevelGamestate().setRings(savedState.savedRingCount());
+            levelManager.getLevelGamestate().setRings(savedState.savedRingCount() + rewards.rings());
+            // Restore HUD timer frames before resuming
+            levelManager.getLevelGamestate().setTimerFrames(savedState.savedTimerFrames());
             // Resume HUD timer (ROM: Update_HUD_timer restored after bonus stage exit)
             levelManager.getLevelGamestate().resumeTimer();
+        }
+
+        // Award lives collected during the bonus stage
+        if (rewards.lives() > 0) {
+            for (int i = 0; i < rewards.lives(); i++) {
+                gameState.addLife();
+            }
         }
 
         GameMode oldMode = currentGameMode;

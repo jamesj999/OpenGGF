@@ -55,9 +55,6 @@ public class GumballTriangleBumperObjectInstance extends AbstractObjectInstance
     private static final int BOUNCE_X_SPEED = 0x300;
     private static final int BOUNCE_Y_SPEED = -0x600;
 
-    // ROM: move.w #$F,($FF2020).l — cooldown frames between bounces
-    private static final int BOUNCE_COOLDOWN_FRAMES = 0x0F;
-
     // ROM: ObjDat3_613A4 mapping frame
     private static final int MAPPING_FRAME = 0x12;
 
@@ -66,26 +63,20 @@ public class GumballTriangleBumperObjectInstance extends AbstractObjectInstance
     // for the triangle's tall upper hitbox that catches the player standing on top.
     private static final SolidObjectParams SOLID_PARAMS = new SolidObjectParams(13, 8, 17);
 
-    /** Cooldown timer; when > 0, collision is skipped. */
-    private int cooldownTimer;
-
     public GumballTriangleBumperObjectInstance(ObjectSpawn spawn) {
         super(spawn, "GumballTriangleBumper");
     }
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
-        if (cooldownTimer > 0) {
-            cooldownTimer--;
-        }
+        // No per-frame work — bumper self-destructs on bounce.
     }
 
     // --- SolidObjectProvider ---
 
     @Override
     public boolean isSolidFor(PlayableEntity playerEntity) {
-        // ROM: tst.w ($FF2020).l / bpl.s loc_60F8E — skip collision when cooldown active
-        return cooldownTimer <= 0;
+        return true;
     }
 
     @Override
@@ -97,10 +88,6 @@ public class GumballTriangleBumperObjectInstance extends AbstractObjectInstance
 
     @Override
     public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
-        if (cooldownTimer > 0) {
-            return;
-        }
-
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         if (player == null) {
             return;
@@ -158,9 +145,6 @@ public class GumballTriangleBumperObjectInstance extends AbstractObjectInstance
 
         // ROM: clr.b jumping(a1)
         player.setJumping(false);
-
-        // ROM: move.w #$F,($FF2020).l — set cooldown
-        cooldownTimer = BOUNCE_COOLDOWN_FRAMES;
 
         // ROM: moveq #signextendB(sfx_Spring),d0 / jsr (Play_SFX).l
         try {

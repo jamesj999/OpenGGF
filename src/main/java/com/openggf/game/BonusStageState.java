@@ -21,5 +21,6 @@ public record BonusStageState(
         int cameraY,
         byte topSolidBit,
         byte lrbSolidBit,
-        int cameraMaxY
+        int cameraMaxY,
+        long savedTimerFrames
 ) {}
