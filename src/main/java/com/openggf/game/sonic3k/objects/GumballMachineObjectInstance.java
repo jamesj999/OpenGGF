@@ -925,11 +925,10 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         @Override
         public boolean isHighPriority() {
             // ROM: ObjDat3_6138C uses make_art_tile(ArtTile_BonusStage, 0, 0) — priority 0.
-            // Ideally this would be LOW priority (behind cage bars, in front of fill).
-            // But the engine's FG tiles may all be high-priority, causing low-priority
-            // sprites to be hidden entirely. Set HIGH so the body renders in front of
-            // the VSCROLL'd FG tiles. The VSCROLL keeps tiles and sprites aligned.
-            return true;
+            // Per-piece priority from ROM mapping data (PatternDesc bit 15) now handles
+            // mixed-priority tiles within the sprite — structure tiles render HIGH (in front
+            // of FG tiles), gumball pile tiles render LOW (behind FG cage bars).
+            return false;
         }
 
         @Override
@@ -1001,9 +1000,8 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         @Override
         public boolean isHighPriority() {
             // ROM: ObjDat3_613EC make_art_tile($000, 0, 0) — priority 0 (LOW).
-            // Set HIGH to match the body sprite — both must render in front of
-            // the VSCROLL'd FG tiles so the machine body is visible.
-            return true;
+            // Per-piece priority from mapping data handles mixed tiles.
+            return false;
         }
 
         @Override

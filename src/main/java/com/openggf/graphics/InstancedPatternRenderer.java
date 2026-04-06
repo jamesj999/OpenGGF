@@ -204,9 +204,11 @@ public class InstancedPatternRenderer {
             v1 = tmp;
         }
 
-        // Get current sprite priority from GraphicsManager
+        // Per-piece VDP priority: use the ROM's per-tile priority bit from the
+        // PatternDesc (bit 15), OR'd with the global override for backward compat
+        // (lost rings, hurt state, bonus stage player override).
         GraphicsManager gm = getGm();
-        float highPriority = gm.getCurrentSpriteHighPriority() ? 1.0f : 0.0f;
+        float highPriority = (desc.getPriority() || gm.getCurrentSpriteHighPriority()) ? 1.0f : 0.0f;
 
         int offset = instanceCount * FLOATS_PER_INSTANCE;
         instanceData[offset] = x;
@@ -258,9 +260,9 @@ public class InstancedPatternRenderer {
             v1 = stripTop;
         }
 
-        // Get current sprite priority from GraphicsManager
+        // Per-piece VDP priority (same OR logic as addPattern)
         GraphicsManager gm = getGm();
-        float highPriority = gm.getCurrentSpriteHighPriority() ? 1.0f : 0.0f;
+        float highPriority = (desc.getPriority() || gm.getCurrentSpriteHighPriority()) ? 1.0f : 0.0f;
 
         int offset = instanceCount * FLOATS_PER_INSTANCE;
         instanceData[offset] = x;

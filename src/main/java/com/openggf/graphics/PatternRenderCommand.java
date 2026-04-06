@@ -41,6 +41,7 @@ public class PatternRenderCommand implements GLCommandable {
     private int paletteIndex;
     private boolean hFlip;
     private boolean vFlip;
+    private boolean piecePriority; // VDP per-tile priority from PatternDesc bit 15
     private int x;
     private int y;
 
@@ -114,6 +115,7 @@ public class PatternRenderCommand implements GLCommandable {
         this.paletteIndex = desc.getPaletteIndex();
         this.hFlip = desc.getHFlip();
         this.vFlip = desc.getVFlip();
+        this.piecePriority = desc.getPriority();
         this.x = x;
         // Genesis Y refers to the TOP of the pattern, so we subtract the pattern height
         // (8)
@@ -194,7 +196,8 @@ public class PatternRenderCommand implements GLCommandable {
                     glActiveTexture(GL_TEXTURE0);
                 }
 
-                priorityShader.setSpriteHighPriority(gm.getCurrentSpriteHighPriority());
+                // Per-piece VDP priority: use ROM per-tile bit OR'd with global override
+                priorityShader.setSpriteHighPriority(piecePriority || gm.getCurrentSpriteHighPriority());
                 priorityShader.setScreenSize(gm.getViewportWidth(), gm.getViewportHeight());
                 priorityShader.setViewportOffset(gm.getViewportX(), gm.getViewportY());
 
