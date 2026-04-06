@@ -23,6 +23,14 @@ public interface TitleCardProvider {
     }
 
     /**
+     * Initializes the title card for a bonus stage entry.
+     * S3K shows "BONUS STAGE" text; S1/S2 have no bonus stages so this is a no-op.
+     */
+    default void initializeBonus() {
+        // No-op for games without bonus stages
+    }
+
+    /**
      * Updates the title card animation.
      * Call this once per frame while in TITLE_CARD mode.
      */
