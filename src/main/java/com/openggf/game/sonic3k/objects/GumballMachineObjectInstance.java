@@ -1006,8 +1006,9 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         @Override
         public int getPriorityBucket() {
-            // Overlay at same bucket as body — drawn first (behind balls/apparatus)
-            return RenderPriority.clamp(BODY_PRIORITY_BUCKET);
+            // Glass reflection renders IN FRONT of balls (inside machine) but
+            // behind apparatus (door/handle). Bucket 2: body(4) → balls(3) → glass(2) → apparatus(1)
+            return RenderPriority.clamp(2);
         }
 
         @Override
