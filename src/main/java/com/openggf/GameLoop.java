@@ -1108,8 +1108,11 @@ public class GameLoop {
         postTitleCardDestination = PostTitleCardDestination.BONUS_STAGE;
         currentGameMode = GameMode.TITLE_CARD;
 
-        // Fade from black — level + title card become visible together
-        fadeManager.startFadeFromBlack(null);
+        // Cancel the FadeManager overlay — the bonus title card manages its own
+        // per-channel background fade (matching ROM Pal_FadeFromBlack). The FadeManager
+        // was in HOLD_BLACK from the fade-to-black; clearing it lets the title card's
+        // own black rect and text render without being covered by the fade overlay.
+        fadeManager.cancel();
 
         if (gameModeChangeListener != null) {
             gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);

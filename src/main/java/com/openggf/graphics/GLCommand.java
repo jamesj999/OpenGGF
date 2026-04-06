@@ -28,7 +28,7 @@ public class GLCommand implements GLCommandable {
 	}
 
 	public enum BlendType {
-		SOLID, ONE_MINUS_SRC_ALPHA
+		SOLID, ONE_MINUS_SRC_ALPHA, SUBTRACTIVE
 	}
 
 	public static void setInGroup(boolean inGroup) {
@@ -218,6 +218,11 @@ public class GLCommand implements GLCommandable {
 		} else if (blendMode == BlendType.ONE_MINUS_SRC_ALPHA) {
 			glEnable(GL_BLEND);
 			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		} else if (blendMode == BlendType.SUBTRACTIVE) {
+			// result = dst - src (matching FadeManager.renderBlackFade)
+			glEnable(GL_BLEND);
+			glBlendEquation(GL_FUNC_REVERSE_SUBTRACT);
+			glBlendFunc(GL_ONE, GL_ONE);
 		}
 
 		ensureBuffers();
@@ -239,6 +244,11 @@ public class GLCommand implements GLCommandable {
 			vertexBuffer.flip();
 
 			drawVertices(GL_TRIANGLE_FAN, 4);
+
+			// Restore additive blend equation after subtractive draw
+			if (blendMode == BlendType.SUBTRACTIVE) {
+				glBlendEquation(GL_FUNC_ADD);
+			}
 		} else if (CommandType.VERTEX2I.equals(glCmdCommandType)) {
 			// Single vertex draw (usually used in groups, but handle standalone)
 			float vx = x1 - cameraX;
