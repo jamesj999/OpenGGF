@@ -127,15 +127,18 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
         this.moving = moving;
         this.subtype = spawn.subtype() & 0xFF;
 
-        // ROM: Obj_GumballItem init (line 96817-96826)
-        // subtype == 0 → Map_PachinkoFItem, frame 0
-        // subtype != 0 → Map_GumballBonus, frame = subtype + 7
+        // ROM: Obj_GumballItem init (line 96824) sets mapping_frame = subtype + 7,
+        // BUT the ball object (loc_60EBA) stores animation pointers in $30(a0) via
+        // sub_612A8 → off_612F0, and Animate_Raw at loc_60ECE overrides the frame
+        // each tick. The animation scripts (byte_61466+) use subtype + 8 as the
+        // static frame (e.g., subtype 0 → frame 8, subtype 1 → frame 9).
+        // Use the ANIMATION frame (subtype + 8), not the init frame (subtype + 7).
         if (subtype == 0) {
-            this.useGumballMappings = false;
-            this.mappingFrame = 0;
+            this.useGumballMappings = true;
+            this.mappingFrame = 8;  // byte_61466: $7F, 8, 8, $FC
         } else {
             this.useGumballMappings = true;
-            this.mappingFrame = subtype + 7;
+            this.mappingFrame = subtype + 8;
         }
 
         this.motionState = new SubpixelMotion.State(
@@ -277,7 +280,10 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
     private void onCollectRepairDispenser(PlayableEntity player) {
         GumballMachineObjectInstance current = GumballMachineObjectInstance.current();
         if (current != null) {
+            LOGGER.info("REP gumball collected — calling respawnSprings()");
             current.respawnSprings();
+        } else {
+            LOGGER.warning("REP gumball collected but no machine instance found!");
         }
     }
 
