@@ -131,9 +131,6 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
     private static final int DISPENSER_ABSOLUTE_X = 0x100;
     private static final int DISPENSER_ABSOLUTE_Y = 0x310;
 
-    // Kept for legacy reference but no longer used for dispenser positioning.
-    private static final int DISPENSER_OFFSET_X = 0;
-    private static final int DISPENSER_OFFSET_Y = 0;
 
     // Ball container display: (0, +0x24)
     private static final int CONTAINER_OFFSET_X = 0;
@@ -318,9 +315,6 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         // services() isn't available until ObjectManager injects them.
         if (!childrenSpawned) {
             childrenSpawned = true;
-            // Ensure we're the current machine (constructor ran before any other
-            // machine may have loaded).
-            currentInstance = this;
             spawnChildren();
         }
 
