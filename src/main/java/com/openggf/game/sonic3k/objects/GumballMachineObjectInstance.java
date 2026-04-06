@@ -74,6 +74,37 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
     // before player (0). Engine draws 7→0: body(4) → balls(3) → apparatus(1) → player(0).
     private static final int PRIORITY_BUCKET = 1;
 
+    // ===== Debug: press F11 to cycle bucket/priority isolation =====
+    // -1 = normal (all render), 0-7 = show ONLY that bucket, 8 = show only HIGH pri, 9 = show only LOW pri
+    private static volatile int debugBucketFilter = -1;
+    private static final java.util.logging.Logger DEBUG_LOG = java.util.logging.Logger.getLogger("GumballDebug");
+
+    /** Called from GameLoop on F11 press during BONUS_STAGE mode. */
+    public static void cycleDebugFilter() {
+        debugBucketFilter++;
+        if (debugBucketFilter > 9) {
+            debugBucketFilter = -1;
+        }
+        if (debugBucketFilter == -1) {
+            DEBUG_LOG.info("Gumball debug: ALL buckets/priorities (normal)");
+        } else if (debugBucketFilter <= 7) {
+            DEBUG_LOG.info("Gumball debug: showing ONLY bucket " + debugBucketFilter);
+        } else if (debugBucketFilter == 8) {
+            DEBUG_LOG.info("Gumball debug: showing ONLY HIGH priority objects");
+        } else {
+            DEBUG_LOG.info("Gumball debug: showing ONLY LOW priority objects");
+        }
+    }
+
+    /** Returns true if this object should render given current debug filter. */
+    static boolean shouldDebugRender(int bucket, boolean highPriority) {
+        int filter = debugBucketFilter;
+        if (filter == -1) return true; // normal
+        if (filter <= 7) return bucket == filter;
+        if (filter == 8) return highPriority;
+        return !highPriority; // filter == 9
+    }
+
     // Body at bucket 5 — drawn as early as possible (behind everything) but still
     // HIGH priority so the sprite priority shader renders it in front of FG tiles.
     private static final int BODY_PRIORITY_BUCKET = 5;
@@ -570,6 +601,7 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
+        if (!shouldDebugRender(PRIORITY_BUCKET, isHighPriority())) return;
         PatternSpriteRenderer renderer = getRenderer(Sonic3kObjectArtKeys.GUMBALL_BONUS);
         if (renderer == null) {
             return;
@@ -660,6 +692,7 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
+            if (!shouldDebugRender(getPriorityBucket(), isHighPriority())) return;
             PatternSpriteRenderer renderer = getRenderer(Sonic3kObjectArtKeys.GUMBALL_BONUS);
             if (renderer == null) {
                 return;
@@ -832,6 +865,7 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
+            if (!shouldDebugRender(getPriorityBucket(), isHighPriority())) return;
             PatternSpriteRenderer renderer = getRenderer(Sonic3kObjectArtKeys.GUMBALL_BONUS);
             if (renderer == null) {
                 return;
@@ -958,6 +992,7 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
+            if (!shouldDebugRender(getPriorityBucket(), isHighPriority())) return;
             PatternSpriteRenderer renderer = getRenderer(Sonic3kObjectArtKeys.GUMBALL_BONUS);
             if (renderer == null) {
                 return;
@@ -1000,6 +1035,7 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
+            if (!shouldDebugRender(getPriorityBucket(), isHighPriority())) return;
             PatternSpriteRenderer renderer = getRenderer(Sonic3kObjectArtKeys.GUMBALL_BONUS);
             if (renderer == null) return;
             GumballMachineObjectInstance machine = GumballMachineObjectInstance.current();
@@ -1062,6 +1098,7 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
+            if (!shouldDebugRender(getPriorityBucket(), isHighPriority())) return;
             PatternSpriteRenderer renderer = getRenderer(Sonic3kObjectArtKeys.GUMBALL_BONUS);
             if (renderer == null) {
                 return;
