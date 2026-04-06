@@ -1107,6 +1107,8 @@ public class GameLoop {
         if (sprite instanceof AbstractPlayableSprite playable) {
             if (!playable.isHighPriority()) {
                 playable.setHighPriority(true);
+                // Force render bucket rebuild so the priority change takes effect
+                spriteManager.invalidateRenderBuckets();
             }
         }
     }
