@@ -65,6 +65,10 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
     // ROM: ObjDat3_613E0 priority $0100 → bucket 1
     private static final int PRIORITY_BUCKET = 1;
 
+    // ROM: loc_6114E — ring item awards 10 rings to HUD and 20 to saved count
+    private static final int RING_ITEM_HUD_AWARD = 10;
+    private static final int RING_ITEM_SAVED_AWARD = 20;
+
     // ROM: byte_1E44C4 — ring reward table indexed by (y_pos & 0xF)
     private static final int[] RING_REWARD_TABLE = {
             0x50, 0x32, 0x28, 0x23, 0x23, 0x1E, 0x1E, 0x14,
@@ -207,41 +211,38 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        collected = true;
+        // ROM: Machine-ejected balls use sub_610E0 → loc_61100 dispatch with
+        // d1 = subtype DIRECTLY (NOT subtype-1 like sub_4A384 does for Pachinko orbs).
+        // Deletion: loc_60F28 deletes the ball UNLESS the handler set d2=0.
+        // Only loc_6115C (push, subtype 4) sets d2=0 → ball survives.
+        boolean shouldDelete = true;
 
-        // ROM: sub_4A384 — dispatch on subtype (verified via loc_611xx handlers)
         switch (subtype) {
-            case 0 -> onCollectBumper(player);           // sfx_SmallBumpers (no reward)
-            case 1 -> onCollectExtraLife(player);        // REP: +1 life + respawn springs
-            case 2 -> onCollectBumper(player);           // sfx_SmallBumpers (no reward)
-            case 3 -> onCollectRingReward(player);       // position-based ring reward
-            case 4 -> onCollectSilent(player);           // nothing — silent delete
-            case 5 -> onCollectPush(player);             // push player away (no sound)
-            case 6 -> onCollectFireShield(player);       // FireShield + sfx_FireShield
-            case 7 -> onCollectBubbleShield(player);     // BubbleShield + sfx_BubbleShield
-            case 8 -> onCollectLightningShield(player);  // LightningShield + sfx_LightningShield
+            case 0 -> onCollectExtraLife(player);         // loc_61120: +1 life
+            case 1 -> onCollectRepairDispenser(player);   // loc_61130: REP (respawn dispenser + springs)
+            case 2 -> onCollectRingReward(player);        // loc_6114E: +20 saved, +10 HUD
+            case 3 -> { /* locret_6114C: nothing (silent delete) */ }
+            case 4 -> { onCollectPush(player); shouldDelete = false; }  // loc_6115C: push, d2=0 → NOT deleted
+            case 5 -> onCollectFireShield(player);        // loc_611D6
+            case 6 -> onCollectBubbleShield(player);      // loc_61200
+            case 7 -> onCollectLightningShield(player);   // loc_6122A
             default -> {
                 LOGGER.fine("GumballItem: unhandled subtype " + subtype);
-                onCollectBumper(player);
             }
+        }
+
+        if (shouldDelete) {
+            collected = true;
+            // ROM loc_60F28: jmp Delete_Current_Sprite + sfx_SmallBumpers
+            playSfx(Sonic3kSfx.SMALL_BUMPERS);
         }
     }
 
     /**
-     * ROM: subtypes 0 and 2 — plain bouncer, plays sfx_SmallBumpers only (no reward).
-     * sub_4A384 dispatch → default case just plays the bumper sound.
-     */
-    private void onCollectBumper(PlayableEntity player) {
-        playSfx(Sonic3kSfx.SMALL_BUMPERS);
-    }
-
-    /**
-     * ROM: subtype 1 — REP / extra life gumball (loc_61120).
-     * ROM plays mus_ExtraLife and grants +1 life. The engine also uses this
-     * subtype as the respawn-springs gumball (dispenser respawn).
+     * ROM: subtype 0 → off_6110E[0] = loc_61120 — extra life.
+     * Grants +1 life and plays mus_ExtraLife.
      */
     private void onCollectExtraLife(PlayableEntity player) {
-        // ROM loc_61120: plays mus_ExtraLife, adds 1 life
         try {
             services().gameState().addLife();
         } catch (Exception e) {
@@ -252,7 +253,14 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
         } catch (Exception e) {
             // safe fallback
         }
-        // Engine-specific: respawn the dispenser springs from the REP gumball.
+    }
+
+    /**
+     * ROM: subtype 1 → off_6110E[1] = loc_61130 — REP (respawn dispenser).
+     * Checks $FF2022 guard, allocates a new dispenser object, sets $FF2022.
+     * In the engine, this respawns the dispenser + springs via the machine.
+     */
+    private void onCollectRepairDispenser(PlayableEntity player) {
         GumballMachineObjectInstance current = GumballMachineObjectInstance.current();
         if (current != null) {
             current.respawnSprings();
@@ -263,13 +271,13 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
      * ROM: subtype 3 — position-based ring reward (loc_4A3B6).
      * Ring count from byte_1E44C4 indexed by (y_pos &amp; 0xF).
      */
+    /**
+     * ROM: subtype 2 → off_6110E[2] = loc_6114E — ring award.
+     * addi.w #20,(Saved_ring_count).w / moveq #10,d0 / jmp (AddRings).l
+     */
     private void onCollectRingReward(PlayableEntity player) {
-        int tableIndex = motionState.y & 0xF;
-        int ringReward = RING_REWARD_TABLE[tableIndex];
-        awardRingsToCoordinator(ringReward);
-        awardRingsToHud(player, ringReward);
-        // ROM plays sfx_Ring (0x33) on collect
-        playSfx(Sonic3kSfx.RING_RIGHT);
+        awardRingsToCoordinator(RING_ITEM_SAVED_AWARD);  // +20 to saved
+        awardRingsToHud(player, RING_ITEM_HUD_AWARD);    // +10 to HUD
     }
 
     /**
