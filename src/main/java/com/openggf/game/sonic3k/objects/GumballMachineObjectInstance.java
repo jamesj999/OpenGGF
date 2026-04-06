@@ -1151,10 +1151,17 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
                 // Ignore
             }
 
-            triggered = true;
-            crumbleTimer = CRUMBLE_DELAY_FRAMES;
-            LOGGER.fine("GumballSpring: triggered, will crumble in "
-                    + CRUMBLE_DELAY_FRAMES + " frames");
+            // ROM: bset #5,$38(a0) is ONLY done for Player_1 (line 127526).
+            // Player_2 (sidekick) bounces but does NOT trigger crumble.
+            // isCpuControlled() identifies the AI-driven sidekick.
+            if (!player.isCpuControlled()) {
+                triggered = true;
+                crumbleTimer = CRUMBLE_DELAY_FRAMES;
+                LOGGER.fine("GumballSpring: triggered by P1, will crumble in "
+                        + CRUMBLE_DELAY_FRAMES + " frames");
+            } else {
+                LOGGER.fine("GumballSpring: sidekick bounced (no crumble)");
+            }
         }
 
         @Override
