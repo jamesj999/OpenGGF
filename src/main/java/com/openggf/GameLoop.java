@@ -1061,6 +1061,16 @@ public class GameLoop {
             levelManager.getLevelGamestate().setRings(savedState.savedRingCount());
         }
 
+        // ROM lines 127411-127412: bset #7, (Player_1+art_tile).w / bset #7, (Player_2+art_tile).w
+        // Set player VDP priority to HIGH so Sonic renders in front of high-priority FG tiles
+        // (the machine body chunks in the gumball stage layout).
+        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        if (mainCode == null) mainCode = "sonic";
+        var entrySprite = spriteManager.getSprite(mainCode);
+        if (entrySprite instanceof AbstractPlayableSprite entryPlayable) {
+            entryPlayable.setHighPriority(true);
+        }
+
         GameMode oldMode = currentGameMode;
         currentGameMode = GameMode.BONUS_STAGE;
 
@@ -1176,6 +1186,12 @@ public class GameLoop {
             } else if (rewards.shield()) {
                 playable.giveShield(ShieldType.BASIC);
             }
+
+            // ROM: the player's art_tile priority bit was set to HIGH during bonus
+            // stage entry (line 127411). Reset it on exit — the normal level's player
+            // priority will be determined by plane switching / zone events.
+            // loadZoneAndAct() + resetState() should clear this, but be explicit.
+            playable.setHighPriority(false);
         }
 
         // Restore camera
