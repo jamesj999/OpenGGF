@@ -622,6 +622,11 @@ public class GameLoop {
                     exitBonusStage();
                 }
             }
+
+            // Debug: F11 cycles through bucket/priority isolation for the gumball machine
+            if (inputHandler.isKeyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_F11)) {
+                com.openggf.game.sonic3k.objects.GumballMachineObjectInstance.cycleDebugFilter();
+            }
         }
 
         inputHandler.update();

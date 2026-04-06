@@ -465,6 +465,7 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
+        if (!GumballMachineObjectInstance.shouldDebugRender(getPriorityBucket(), isHighPriority())) return;
         // ROM: subtype 0 uses Map_PachinkoFItem, others use Map_GumballBonus
         // Both share the same art key in the engine (loaded together for the bonus stage)
         String artKey = useGumballMappings
