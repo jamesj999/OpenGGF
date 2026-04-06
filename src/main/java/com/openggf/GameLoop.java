@@ -1100,16 +1100,22 @@ public class GameLoop {
      * various engine paths (hurt landing at AbstractPlayableSprite:963,
      * plane switching) can clear it. Re-assert every frame.
      */
+    /**
+     * Forces ALL player sprites to VDP high priority during the bonus stage.
+     * ROM lines 127411-127412: bset #7 on BOTH Player_1 AND Player_2 art_tile.
+     */
     private void forcePlayerHighPriorityInBonusStage() {
-        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-        if (mainCode == null) mainCode = "sonic";
-        var sprite = spriteManager.getSprite(mainCode);
-        if (sprite instanceof AbstractPlayableSprite playable) {
-            if (!playable.isHighPriority()) {
-                playable.setHighPriority(true);
-                // Force render bucket rebuild so the priority change takes effect
-                spriteManager.invalidateRenderBuckets();
+        boolean changed = false;
+        for (var sprite : spriteManager.getAllSprites()) {
+            if (sprite instanceof AbstractPlayableSprite playable) {
+                if (!playable.isHighPriority()) {
+                    playable.setHighPriority(true);
+                    changed = true;
+                }
             }
+        }
+        if (changed) {
+            spriteManager.invalidateRenderBuckets();
         }
     }
 
