@@ -35,8 +35,8 @@ public class TestSonic3kBonusTitleCard {
         for (int i = 0; i < 20; i++) {
             manager.update();
         }
-        // Advance through DISPLAY hold (90 frames)
-        for (int i = 0; i < 90; i++) {
+        // Advance through DISPLAY hold (22 frames, matching ROM $16 sync)
+        for (int i = 0; i < 22; i++) {
             manager.update();
         }
         // Should now be in EXIT phase — control released
@@ -47,8 +47,8 @@ public class TestSonic3kBonusTitleCard {
     public void bonusModeCompletesAfterFullAnimation() {
         manager.initializeBonus();
         // Run enough frames for full animation cycle:
-        // SLIDE_IN (~12 frames) + DISPLAY (90 frames) + EXIT (~10 frames)
-        for (int i = 0; i < 150; i++) {
+        // SLIDE_IN (~12 frames) + DISPLAY (22 frames) + EXIT (~10 frames)
+        for (int i = 0; i < 60; i++) {
             manager.update();
         }
         assertTrue("Should be complete after full animation", manager.isComplete());

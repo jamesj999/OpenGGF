@@ -1718,9 +1718,9 @@ public class GameLoop {
             entryPlayable.setHighPriority(true);
         }
 
-        // Fade from black — reveals the level now that the title card is exiting.
         // Music already started in doEnterBonusStage (at title card init).
-        fadeManager.startFadeFromBlack(null);
+        // Background fade is handled by the title card's own per-channel rect fade
+        // during DISPLAY (synchronized with the 22-frame hold, matching ROM).
     }
 
     // ==================== Master Title Screen Methods ====================
