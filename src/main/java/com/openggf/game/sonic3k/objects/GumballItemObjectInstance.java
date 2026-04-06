@@ -365,57 +365,54 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
      * ROM: subtype 5 → off_6110E[5] = loc_611D6 — grants FireShield + plays sfx_FireShield.
      */
     private void onCollectFireShield(PlayableEntity player) {
-        if (player instanceof AbstractPlayableSprite sprite) {
-            try {
-                sprite.giveShield(com.openggf.game.ShieldType.FIRE);
-            } catch (Exception e) {
-                // safe fallback
-            }
-            try {
-                services().setBonusStageShield(com.openggf.game.ShieldType.FIRE);
-            } catch (Exception e) {
-                // ignore
-            }
-        }
+        // ROM: loc_611D6 — lea (Player_1).w,a1 — ALWAYS grants to Player 1
+        grantShieldToPlayer1(com.openggf.game.ShieldType.FIRE);
         playSfx(Sonic3kSfx.FIRE_SHIELD);
     }
 
     /**
-     * ROM: subtype 6 → off_6110E[6] = loc_61200 — grants BubbleShield + plays sfx_BubbleShield.
+     * ROM: subtype 6 → off_6110E[6] = loc_61200 — grants BubbleShield to Player_1.
      */
     private void onCollectBubbleShield(PlayableEntity player) {
-        if (player instanceof AbstractPlayableSprite sprite) {
-            try {
-                sprite.giveShield(com.openggf.game.ShieldType.BUBBLE);
-            } catch (Exception e) {
-                // safe fallback
-            }
-            try {
-                services().setBonusStageShield(com.openggf.game.ShieldType.BUBBLE);
-            } catch (Exception e) {
-                // ignore
-            }
-        }
+        grantShieldToPlayer1(com.openggf.game.ShieldType.BUBBLE);
         playSfx(Sonic3kSfx.BUBBLE_SHIELD);
     }
 
     /**
-     * ROM: subtype 7 → off_6110E[7] = loc_6122A — grants LightningShield + plays sfx_LightningShield.
+     * ROM: subtype 7 → off_6110E[7] = loc_6122A — grants LightningShield to Player_1.
      */
     private void onCollectLightningShield(PlayableEntity player) {
-        if (player instanceof AbstractPlayableSprite sprite) {
+        grantShieldToPlayer1(com.openggf.game.ShieldType.LIGHTNING);
+        playSfx(Sonic3kSfx.LIGHTNING_SHIELD);
+    }
+
+    /**
+     * ROM: Shield gumballs always grant to Player_1 (lea (Player_1).w,a1).
+     * Regardless of which player touched the ball, the shield goes to P1.
+     */
+    private void grantShieldToPlayer1(com.openggf.game.ShieldType type) {
+        // Find Player 1 (non-CPU-controlled main character)
+        AbstractPlayableSprite p1 = null;
+        try {
+            var camera = services().camera();
+            if (camera != null && camera.getFocusedSprite() != null) {
+                p1 = camera.getFocusedSprite();
+            }
+        } catch (Exception e) {
+            // ignore
+        }
+        if (p1 != null) {
             try {
-                sprite.giveShield(com.openggf.game.ShieldType.LIGHTNING);
+                p1.giveShield(type);
             } catch (Exception e) {
                 // safe fallback
             }
-            try {
-                services().setBonusStageShield(com.openggf.game.ShieldType.LIGHTNING);
-            } catch (Exception e) {
-                // ignore
-            }
         }
-        playSfx(Sonic3kSfx.LIGHTNING_SHIELD);
+        try {
+            services().setBonusStageShield(type);
+        } catch (Exception e) {
+            // ignore
+        }
     }
 
     // --- Ring Award Helpers ---
