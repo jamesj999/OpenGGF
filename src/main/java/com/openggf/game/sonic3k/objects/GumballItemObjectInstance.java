@@ -342,8 +342,11 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
             // ROM: bset #Status_InAir,status(a1)
             sprite.setAir(true);
 
-            // ROM: bclr #Status_RollJump,status(a1) / bclr #Status_Push,status(a1)
-            sprite.setJumping(false);
+            // ROM: bclr #Status_RollJump,status(a1)
+            sprite.setRollingJump(false);
+
+            // ROM: bclr #Status_Push,status(a1)
+            sprite.setPushing(false);
 
             // ROM: clr.b jumping(a1)
             sprite.setJumping(false);
