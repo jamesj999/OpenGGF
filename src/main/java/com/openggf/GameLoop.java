@@ -589,6 +589,13 @@ public class GameLoop {
                 enterLevelSelect();
             }
         } else if (currentGameMode == GameMode.BONUS_STAGE) {
+            // Continue updating title card overlay during bonus stage
+            // (EXIT phase: elements slide off screen after exitTitleCard transitioned here)
+            TitleCardProvider bonusTcp = getTitleCardProviderLazy();
+            if (bonusTcp != null && bonusTcp.isOverlayActive()) {
+                bonusTcp.update();
+            }
+
             // Bonus stage runs the same level frame steps as LEVEL mode
             boolean freezeForBonusExit = bonusStageTransitionPending;
             if (!freezeForBonusExit) {
