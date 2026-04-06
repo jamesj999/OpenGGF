@@ -88,8 +88,7 @@ public class GumballTriangleBumperObjectInstance extends AbstractObjectInstance
 
     @Override
     public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
-        AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
-        if (player == null) {
+        if (!(playerEntity instanceof AbstractPlayableSprite player)) {
             return;
         }
 
