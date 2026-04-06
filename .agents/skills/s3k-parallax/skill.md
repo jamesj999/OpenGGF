@@ -1,3 +1,8 @@
+---
+name: s3k-parallax
+description: Use when implementing S3K zone parallax scroll handlers — deform routines, HScroll tables, scatter-fill, water splits, dynamic BG changes.
+---
+
 # Implement Sonic 3&K Parallax Background
 
 Implement a zone-specific parallax scroll handler for Sonic 3 & Knuckles with ROM accuracy. This skill covers finding deform data in the disassembly, porting the 68000 scroll math to Java, handling dynamic background changes during gameplay, and integrating with the rendering pipeline.
@@ -6,10 +11,23 @@ Implement a zone-specific parallax scroll handler for Sonic 3 & Knuckles with RO
 
 $ARGUMENTS: Zone name or abbreviation (e.g., "HCZ", "Hydrocity Zone", "CNZ1", "FBZ Act 2")
 
+## Zone Analysis Spec (Optional)
+
+If a zone analysis spec exists at `docs/s3k-zones/{zone}-analysis.md`, read it first. The **Parallax** section provides:
+- Band count and deform type
+- Data table labels and disassembly line numbers
+- Water split information
+- Act-specific differences
+
+This saves time on Phase 1 (finding the deform routine) but the disassembly remains the source of truth for implementation details.
+
+This spec is produced by the **s3k-zone-analysis** skill (`.claude/skills/s3k-zone-analysis/skill.md`).
+
 ## Related Skills
 
 - **s3k-disasm-guide** (`.claude/skills/s3k-disasm-guide/skill.md`) for disassembly navigation, label conventions, RomOffsetFinder commands, and zone abbreviations.
 - **s3k-plc-system** (`.claude/skills/s3k-plc-system/skill.md`) for PLC-driven art loading during act transitions and boss arenas (PLCs can trigger mid-level background art changes).
+- **s3k-zone-analysis** (`.claude/skills/s3k-zone-analysis/skill.md`) for producing a zone analysis spec that pre-identifies deform routine locations and band counts.
 
 ## Architecture Overview
 
