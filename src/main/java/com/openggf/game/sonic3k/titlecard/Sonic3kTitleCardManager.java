@@ -81,6 +81,17 @@ public class Sonic3kTitleCardManager implements TitleCardProvider {
     private int stateTimer;
     private int phaseCounter;  // Exit phase counter for staggered exit
     private boolean inLevelMode;  // No black background, control released immediately
+    private boolean bonusMode;  // 2-element "BONUS STAGE" layout
+
+    // Bonus mode element definitions (ObjArray_TtlCardBonus, sonic3k.asm line 62482)
+    // VDP coords converted to screen coords (subtract 128)
+    private static final int BONUS_ELEMENT_COUNT = 2;
+    private static final int BONUS_ELEM_BONUS = 0;
+    private static final int BONUS_ELEM_STAGE = 1;
+    private static final int[] BONUS_START_X = {264, 360};
+    private static final int[] BONUS_TARGET_X = {72, 168};
+    private static final int BONUS_Y = 104;
+    private static final int[] BONUS_EXIT_PRIORITY = {1, 1};
 
     private int currentZone;
     private int currentAct;
@@ -125,9 +136,46 @@ public class Sonic3kTitleCardManager implements TitleCardProvider {
         initInternal(zoneIndex, actIndex, true);
     }
 
+    /**
+     * Initializes for bonus stage mode — shows "BONUS STAGE" text.
+     * Uses 2 horizontal elements (frames 19/20) instead of the normal 4-element layout.
+     * Both elements have exit priority 1 (exit simultaneously).
+     *
+     * <p>ROM reference: ObjArray_TtlCardBonus (sonic3k.asm line 62482).
+     */
+    @Override
+    public void initializeBonus() {
+        this.bonusMode = true;
+        this.inLevelMode = false;
+        this.state = Sonic3kTitleCardState.SLIDE_IN;
+        this.stateTimer = 0;
+        this.phaseCounter = 0;
+
+        // Set up 2 bonus elements — reuse the first 2 slots of the 4-element arrays
+        elemFrame[0] = Sonic3kTitleCardMappings.FRAME_BONUS;
+        elemFrame[1] = Sonic3kTitleCardMappings.FRAME_STAGE;
+
+        for (int i = 0; i < BONUS_ELEMENT_COUNT; i++) {
+            elemX[i] = BONUS_START_X[i];
+            elemY[i] = BONUS_Y;
+            elemAtTarget[i] = false;
+            elemExiting[i] = false;
+            elemExited[i] = false;
+        }
+
+        // Load bonus art (no zone/act needed — bonus art is always the same)
+        if (!artLoaded || lastLoadedZone != -2) {
+            loadBonusArt();
+        }
+
+        artCached = false;
+        LOG.info("S3K bonus title card initialized");
+    }
+
     private void initInternal(int zoneIndex, int actIndex, boolean inLevel) {
         this.currentZone = zoneIndex;
         this.currentAct = actIndex;
+        this.bonusMode = false;
         this.inLevelMode = inLevel;
         this.state = Sonic3kTitleCardState.SLIDE_IN;
         this.stateTimer = 0;
@@ -210,7 +258,7 @@ public class Sonic3kTitleCardManager implements TitleCardProvider {
         GraphicsManager gm = GraphicsManager.getInstance();
         if (gm == null) return;
 
-        // Black background during SLIDE_IN and DISPLAY (normal mode only)
+        // Black background during SLIDE_IN and DISPLAY (normal and bonus mode, not in-level)
         if (!inLevelMode &&
                 (state == Sonic3kTitleCardState.SLIDE_IN || state == Sonic3kTitleCardState.DISPLAY)) {
             gm.registerCommand(new GLCommand(
@@ -222,18 +270,16 @@ public class Sonic3kTitleCardManager implements TitleCardProvider {
 
         gm.beginPatternBatch();
 
-        // Draw banner
-        renderElement(gm, ELEM_BANNER);
-
-        // Draw zone name
-        renderElement(gm, ELEM_ZONE_NAME);
-
-        // Draw "ZONE" text
-        renderElement(gm, ELEM_ZONE_TEXT);
-
-        // Draw act number (if visible)
-        if (actNumberVisible) {
-            renderElement(gm, ELEM_ACT_NUM);
+        if (bonusMode) {
+            renderElement(gm, BONUS_ELEM_BONUS);
+            renderElement(gm, BONUS_ELEM_STAGE);
+        } else {
+            renderElement(gm, ELEM_BANNER);
+            renderElement(gm, ELEM_ZONE_NAME);
+            renderElement(gm, ELEM_ZONE_TEXT);
+            if (actNumberVisible) {
+                renderElement(gm, ELEM_ACT_NUM);
+            }
         }
 
         gm.flushPatternBatch();
@@ -259,9 +305,10 @@ public class Sonic3kTitleCardManager implements TitleCardProvider {
     // ---- State machine ----
 
     private void updateSlideIn() {
+        int count = bonusMode ? BONUS_ELEMENT_COUNT : ELEMENT_COUNT;
         boolean allAtTarget = true;
-        for (int i = 0; i < ELEMENT_COUNT; i++) {
-            if (!actNumberVisible && i == ELEM_ACT_NUM) continue;
+        for (int i = 0; i < count; i++) {
+            if (!bonusMode && !actNumberVisible && i == ELEM_ACT_NUM) continue;
             if (!elemAtTarget[i]) {
                 slideElement(i, true);
                 if (!elemAtTarget[i]) allAtTarget = false;
@@ -285,14 +332,16 @@ public class Sonic3kTitleCardManager implements TitleCardProvider {
 
     private void updateExit() {
         phaseCounter++;
+        int count = bonusMode ? BONUS_ELEMENT_COUNT : ELEMENT_COUNT;
+        int[] priorities = bonusMode ? BONUS_EXIT_PRIORITY : EXIT_PRIORITY;
 
         boolean allExited = true;
-        for (int i = 0; i < ELEMENT_COUNT; i++) {
-            if (!actNumberVisible && i == ELEM_ACT_NUM) continue;
+        for (int i = 0; i < count; i++) {
+            if (!bonusMode && !actNumberVisible && i == ELEM_ACT_NUM) continue;
             if (elemExited[i]) continue;
 
             // Start exiting when phase counter reaches element's priority
-            if (phaseCounter >= EXIT_PRIORITY[i]) {
+            if (phaseCounter >= priorities[i]) {
                 elemExiting[i] = true;
             }
 
@@ -316,6 +365,26 @@ public class Sonic3kTitleCardManager implements TitleCardProvider {
      */
     private void slideElement(int idx, boolean slideIn) {
         int speed = slideIn ? SLIDE_SPEED_IN : SLIDE_SPEED_OUT;
+
+        if (bonusMode) {
+            // Bonus mode: all elements are horizontal
+            int goalX = slideIn ? BONUS_TARGET_X[idx] : BONUS_START_X[idx];
+            int dir = Integer.compare(goalX, elemX[idx]);
+            if (dir == 0) {
+                if (slideIn) elemAtTarget[idx] = true;
+                else elemExited[idx] = true;
+                return;
+            }
+            elemX[idx] += dir * speed;
+            if ((dir > 0 && elemX[idx] >= goalX) || (dir < 0 && elemX[idx] <= goalX)) {
+                elemX[idx] = goalX;
+                if (slideIn) elemAtTarget[idx] = true;
+                else elemExited[idx] = true;
+            }
+            return;
+        }
+
+        // Normal mode
         int goalX = slideIn ? TARGET_X[idx] : START_X[idx];
         int goalY = slideIn ? TARGET_Y[idx] : START_Y[idx];
 
@@ -391,6 +460,45 @@ public class Sonic3kTitleCardManager implements TitleCardProvider {
             LOG.info("S3K title card art loaded for zone " + zoneIndex);
         } catch (Exception e) {
             LOG.warning("Failed to load S3K title card art: " + e.getMessage());
+            artLoaded = false;
+        }
+    }
+
+    /**
+     * Loads bonus stage title card art.
+     * Same shared blocks (RedAct, S3KZone text) plus
+     * ArtKosM_BonusTitleCard at VRAM $54D instead of zone-specific art.
+     */
+    private void loadBonusArt() {
+        try {
+            if (!GameServices.rom().isRomAvailable()) {
+                LOG.warning("ROM not available for bonus title card art");
+                return;
+            }
+            Rom rom = GameServices.rom().getRom();
+
+            combinedPatterns = new Pattern[VRAM_ARRAY_SIZE];
+            Pattern empty = new Pattern();
+            Arrays.fill(combinedPatterns, empty);
+
+            // 1. Load RedAct art -> VRAM $500 (index 0)
+            loadKosmArt(rom, Sonic3kConstants.ART_KOSM_TITLE_CARD_RED_ACT_ADDR, 0);
+
+            // 2. Load S3KZone text -> VRAM $510 (index $10)
+            loadKosmArt(rom, Sonic3kConstants.ART_KOSM_TITLE_CARD_S3K_ZONE_ADDR,
+                    Sonic3kConstants.VRAM_TITLE_CARD_ZONE_TEXT - VRAM_BASE);
+
+            // 3. Load bonus-specific letter art -> VRAM $54D (index $4D)
+            loadKosmArt(rom, Sonic3kConstants.ART_KOSM_BONUS_TITLE_CARD_ADDR,
+                    Sonic3kConstants.VRAM_TITLE_CARD_ZONE_ART - VRAM_BASE);
+
+            artLoaded = true;
+            artCached = false;
+            lastLoadedZone = -2;  // Sentinel for "bonus art loaded"
+            lastLoadedAct = -1;
+            LOG.info("S3K bonus title card art loaded");
+        } catch (Exception e) {
+            LOG.warning("Failed to load S3K bonus title card art: " + e.getMessage());
             artLoaded = false;
         }
     }
