@@ -74,9 +74,9 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
     // before player (0). Engine draws 7→0: body(4) → balls(3) → apparatus(1) → player(0).
     private static final int PRIORITY_BUCKET = 1;
 
-    // Body/overlay at bucket 4 — drawn first (behind everything) but still HIGH
-    // priority so the sprite priority shader renders them in front of FG tiles.
-    private static final int BODY_PRIORITY_BUCKET = 4;
+    // Body at bucket 5 — drawn as early as possible (behind everything) but still
+    // HIGH priority so the sprite priority shader renders it in front of FG tiles.
+    private static final int BODY_PRIORITY_BUCKET = 5;
 
     // ROM: byte_61450 = [3, 5, 6, 7, $14, 5, $FF]
     // First byte (3) is the per-frame timer, NOT a mapping frame.
