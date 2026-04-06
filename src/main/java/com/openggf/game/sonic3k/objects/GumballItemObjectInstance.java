@@ -66,11 +66,10 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
     // matching ROM behavior where $C0+ objects use collision_property polling.
     private static final int COLLISION_FLAGS = 0x40 | 0x17;
 
-    // ROM: ObjDat3_613E0 priority $0100. On the VDP, the machine apparatus
-    // (lower sprite-table index) renders ON TOP of balls (higher index).
-    // Engine draws buckets 7→0 (high first), so bucket 2 draws BEFORE
-    // the machine at bucket 1, placing balls visually behind the apparatus.
-    private static final int PRIORITY_BUCKET = 2;
+    // Engine draws buckets 7→0. Machine apparatus at bucket 3. Balls at
+    // bucket 4 draw BEFORE the apparatus (7→0), placing them behind.
+    // Player at bucket 2 draws AFTER both, rendering in front of everything.
+    private static final int PRIORITY_BUCKET = 4;
 
     // ROM: loc_6114E — ring item awards 10 rings to HUD and 20 to saved count
     private static final int RING_ITEM_HUD_AWARD = 10;
