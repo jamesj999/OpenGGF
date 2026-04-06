@@ -242,11 +242,10 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         spawnChild(() -> new PlatformChild(
                 buildSpawnAt(px + PLATFORM_EXTRA_OFFSET_X, py + PLATFORM_EXTRA_OFFSET_Y),
                 "GumballPlatformExtra", PLATFORM_EXTRA_OFFSET_Y, 0x16));
-        // Separate child for LOW priority pieces of frame 0x16 (gumball piles)
-        // at bucket 6 (behind everything including the structure pieces at bucket 5)
-        spawnChild(() -> new BodyPilesChild(
-                buildSpawnAt(px + PLATFORM_EXTRA_OFFSET_X, py + PLATFORM_EXTRA_OFFSET_Y),
-                PLATFORM_EXTRA_OFFSET_Y));
+        // NOTE: Frame 0x16's LOW priority piece (gumball piles) is NOT rendered
+        // as a separate child. The piles are visible through the FG tile transparency
+        // in the level layout. Rendering them as a sprite would place them in front
+        // of the LOW priority FG tiles (VDP compositing limitation).
 
         // 5th overlay child for the extra platform: the glass dome shine (sprite-mask
         // effect). ROM sub_61362 detects frame=$16 on the child and calls
