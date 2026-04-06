@@ -1097,6 +1097,12 @@ public class GameLoop {
             tcp.initializeBonus();
         }
 
+        // Play bonus stage music at title card start (ROM: Restore_LevelMusic during title card)
+        int musicId = provider.getMusicId(type);
+        if (musicId >= 0) {
+            AudioManager.getInstance().playMusic(musicId);
+        }
+
         // Enter TITLE_CARD mode — exitTitleCard will transition to BONUS_STAGE
         GameMode oldMode = currentGameMode;
         postTitleCardDestination = PostTitleCardDestination.BONUS_STAGE;
@@ -1709,11 +1715,7 @@ public class GameLoop {
             entryPlayable.setHighPriority(true);
         }
 
-        // Play bonus stage music
-        int musicId = provider.getMusicId(type);
-        if (musicId >= 0) {
-            AudioManager.getInstance().playMusic(musicId);
-        }
+        // Music already started in doEnterBonusStage (at title card init)
     }
 
     // ==================== Master Title Screen Methods ====================
