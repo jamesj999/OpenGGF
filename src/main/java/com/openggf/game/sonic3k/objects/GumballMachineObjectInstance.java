@@ -274,13 +274,10 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
                 buildSpawnAt(px + PLATFORM_EXTRA_OFFSET_X, py + PLATFORM_EXTRA_OFFSET_Y),
                 "GumballPlatformExtra", PLATFORM_EXTRA_OFFSET_Y, 0x16));
         // Pile piece (piece 6 of frame 0x16) rendered separately at bucket 6 with
-        // HIGH priority override. Must be HIGH to appear in front of FG tiles (both
-        // the pile and FG lip are LOW pri in ROM, but LOW sprites always draw after
-        // FG tiles, creating wrong layering). Bucket 6 ensures piles draw behind
-        // glass (bucket 2) and structure (bucket 5) via painter's algorithm.
-        spawnChild(() -> new BodyPilesChild(
-                buildSpawnAt(px + PLATFORM_EXTRA_OFFSET_X, py + PLATFORM_EXTRA_OFFSET_Y),
-                PLATFORM_EXTRA_OFFSET_Y));
+        // No separate BodyPilesChild — PlatformChild for frame 0x16 renders ALL
+        // pieces with isHighPriority()=true (global override). The per-piece priority
+        // feature would make the pile piece LOW (hidden behind HIGH FG tiles), but
+        // ALL gumball FG tiles are HIGH priority so we need the global override.
 
         // 5th overlay child for the extra platform: the glass dome shine (sprite-mask
         // effect). ROM sub_61362 detects frame=$16 on the child and calls
@@ -966,11 +963,12 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         @Override
         public boolean isHighPriority() {
-            // ROM: ObjDat3_6138C uses make_art_tile(ArtTile_BonusStage, 0, 0) — priority 0.
-            // Per-piece priority from ROM mapping data (PatternDesc bit 15) now handles
-            // mixed-priority tiles within the sprite — structure tiles render HIGH (in front
-            // of FG tiles), gumball pile tiles render LOW (behind FG cage bars).
-            return false;
+            // All FG tiles in the gumball stage are HIGH priority. The per-piece
+            // priority system would make the pile piece (bit 15=0) LOW, causing it
+            // to be discarded by the sprite priority shader. Force ALL pieces HIGH
+            // via the global override so everything renders in front of FG tiles.
+            // Bucket ordering handles sprite-vs-sprite depth.
+            return true;
         }
 
         @Override
@@ -980,12 +978,10 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         @Override
         public int getPriorityBucket() {
-            // Frame 0x16: structure pieces (HIGH pri) go at bucket 4.
-            // The LOW pri gumball pile piece is drawn by a separate BodyPilesChild
-            // at bucket 7 (behind everything).
-            // Frames 0+1: reflection/glass at bucket 2.
+            // Frame 0x16 (body + piles): bucket 5, behind glass/reflection.
+            // Frames 0+1 (reflection/glass): bucket 2, in front of body.
             if (mappingFrame == 0x16) {
-                return RenderPriority.clamp(BODY_PRIORITY_BUCKET);  // bucket 5
+                return RenderPriority.clamp(BODY_PRIORITY_BUCKET);
             }
             return RenderPriority.clamp(2);
         }
@@ -1001,17 +997,9 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
             int renderY = (machine != null)
                     ? machine.getCurrentY() + offsetFromMachine
                     : spawn.y();
-            if (mappingFrame == 0x16) {
-                // Frame 0x16 has mixed priorities. The LOW priority pile piece (piece 6)
-                // must NOT be rendered as a sprite — it would appear in front of LOW
-                // priority FG lip/housing tiles (sprites always draw after FG).
-                // The piles are visible through the FG tile art instead.
-                // Only render HIGH priority structure pieces as sprites.
-                renderer.drawFrameIndexFilteredByPriority(
-                        mappingFrame, spawn.x(), renderY, false, false, 0, true);
-            } else {
-                renderer.drawFrameIndex(mappingFrame, spawn.x(), renderY, false, false, 0);
-            }
+            // All pieces rendered — isHighPriority()=true forces the global override,
+            // making all pieces (including the pile) render in front of FG tiles.
+            renderer.drawFrameIndex(mappingFrame, spawn.x(), renderY, false, false, 0);
         }
     }
 
