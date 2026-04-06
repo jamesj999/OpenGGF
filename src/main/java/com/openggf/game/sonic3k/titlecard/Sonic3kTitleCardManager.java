@@ -48,9 +48,11 @@ public class Sonic3kTitleCardManager implements TitleCardProvider {
     // at line 7878, synchronizing the hold with Palette_fade_timer.
     private static final int DISPLAY_HOLD_FRAMES = 90;
 
-    // Bonus mode hold: 22 frames, synchronized with the per-channel background fade.
-    // ROM: sonic3k.asm line 7877-7878 sets both timers to $16 simultaneously.
-    private static final int BONUS_DISPLAY_HOLD_FRAMES = 22;
+    // ROM palette fade duration: 22 frames (sonic3k.asm line 7877, Palette_fade_timer = $16).
+    // In the ROM, the title card is already visible for many frames during level loading
+    // before the Level routine overwrites the hold timer to 22. Our engine loads levels
+    // synchronously, so we use the full 90-frame hold but run the fade in the last 22.
+    private static final int BONUS_BG_FADE_FRAMES = 22;
 
     private static final int SCREEN_WIDTH = 320;
     private static final int SCREEN_HEIGHT = 224;
@@ -351,14 +353,20 @@ public class Sonic3kTitleCardManager implements TitleCardProvider {
 
     private void updateDisplay() {
         stateTimer++;
-        int holdFrames = bonusMode ? BONUS_DISPLAY_HOLD_FRAMES : DISPLAY_HOLD_FRAMES;
 
-        // In bonus mode, advance the per-channel background fade (synchronized with hold)
+        // In bonus mode, run the per-channel fade during the last 22 frames of the hold.
+        // ROM: Palette_fade_timer runs after level loading completes, but the title card
+        // has already been visible for many frames. Our level loads synchronously, so we
+        // use the full 90-frame hold and fade at the end.
         if (bonusMode) {
-            bonusFadeProgress = Math.min(1f, (float) stateTimer / BONUS_DISPLAY_HOLD_FRAMES);
+            int fadeStart = DISPLAY_HOLD_FRAMES - BONUS_BG_FADE_FRAMES;
+            if (stateTimer > fadeStart) {
+                bonusFadeProgress = Math.min(1f,
+                        (float) (stateTimer - fadeStart) / BONUS_BG_FADE_FRAMES);
+            }
         }
 
-        if (stateTimer >= holdFrames) {
+        if (stateTimer >= DISPLAY_HOLD_FRAMES) {
             state = Sonic3kTitleCardState.EXIT;
             phaseCounter = 0;
             LOG.fine("S3K title card: EXIT");
