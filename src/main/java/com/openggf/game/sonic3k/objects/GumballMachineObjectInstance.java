@@ -242,10 +242,14 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         spawnChild(() -> new PlatformChild(
                 buildSpawnAt(px + PLATFORM_EXTRA_OFFSET_X, py + PLATFORM_EXTRA_OFFSET_Y),
                 "GumballPlatformExtra", PLATFORM_EXTRA_OFFSET_Y, 0x16));
-        // No separate BodyPilesChild needed — per-piece priority in the instanced
-        // renderer handles mixed-priority pieces within frame 0x16: structure tiles
-        // (HIGH pri) render in front of FG tiles, pile tiles (LOW pri) render behind
-        // HIGH-pri FG tiles. Both rendered in one drawFrameIndex call.
+        // Pile piece (piece 6 of frame 0x16) rendered separately at bucket 6 with
+        // HIGH priority override. Must be HIGH to appear in front of FG tiles (both
+        // the pile and FG lip are LOW pri in ROM, but LOW sprites always draw after
+        // FG tiles, creating wrong layering). Bucket 6 ensures piles draw behind
+        // glass (bucket 2) and structure (bucket 5) via painter's algorithm.
+        spawnChild(() -> new BodyPilesChild(
+                buildSpawnAt(px + PLATFORM_EXTRA_OFFSET_X, py + PLATFORM_EXTRA_OFFSET_Y),
+                PLATFORM_EXTRA_OFFSET_Y));
 
         // 5th overlay child for the extra platform: the glass dome shine (sprite-mask
         // effect). ROM sub_61362 detects frame=$16 on the child and calls
@@ -990,8 +994,8 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         }
 
         @Override public boolean isPersistent() { return true; }
-        @Override public boolean isHighPriority() { return false; }
-        @Override public int getPriorityBucket() { return RenderPriority.clamp(7); }
+        @Override public boolean isHighPriority() { return true; } // HIGH so piles render in front of FG tiles
+        @Override public int getPriorityBucket() { return RenderPriority.clamp(6); } // behind glass(2)/structure(5)
         @Override public void update(int frameCounter, PlayableEntity p) {}
 
         @Override
