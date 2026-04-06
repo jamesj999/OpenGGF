@@ -399,6 +399,13 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
     }
 
     @Override
+    public boolean isHighPriority() {
+        // ROM: ObjDat3_613E0 make_art_tile(ArtTile_BonusStage, 0, 1) — VDP priority 1
+        // Balls render in front of high-priority FG tiles (machine body chunks).
+        return true;
+    }
+
+    @Override
     public void appendRenderCommands(List<GLCommand> commands) {
         // ROM: subtype 0 uses Map_PachinkoFItem, others use Map_GumballBonus
         // Both share the same art key in the engine (loaded together for the bonus stage)
