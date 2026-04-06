@@ -107,6 +107,24 @@ public class GameLoop {
     private boolean bonusStageTransitionPending;
     private BonusStageProvider activeBonusStageProvider;
 
+    /**
+     * Where to transition after a title card completes.
+     * Normally LEVEL, but bonus stage entry routes through title card first.
+     */
+    private enum PostTitleCardDestination {
+        /** Normal: title card → LEVEL mode (default) */
+        LEVEL,
+        /** Bonus stage entry: title card → BONUS_STAGE mode */
+        BONUS_STAGE
+    }
+
+    private PostTitleCardDestination postTitleCardDestination = PostTitleCardDestination.LEVEL;
+
+    // Deferred bonus stage setup — applied when title card exits with BONUS_STAGE destination
+    private BonusStageProvider deferredBonusProvider;
+    private BonusStageType deferredBonusType;
+    private BonusStageState deferredBonusState;
+
     // Game-agnostic ending/credits provider (wraps S1 CreditsManager, S2 credits, etc.)
     private EndingProvider endingProvider;
 
@@ -1021,14 +1039,17 @@ public class GameLoop {
     }
 
     /**
-     * Actually enters the bonus stage after the fade-to-white completes.
+     * Actually enters the bonus stage after the fade-to-black completes.
+     * Loads the bonus zone, then shows the "BONUS STAGE" title card.
+     * The actual gameplay setup (HUD, rings, priority, music) is deferred
+     * to {@link #applyDeferredBonusStageSetup()} when the title card exits.
      */
     private void doEnterBonusStage(BonusStageProvider provider, BonusStageType type,
                                     BonusStageState savedState) {
         bonusStageTransitionPending = false;
-        activeBonusStageProvider = provider;
 
-        // Register on GameRuntime so objects can access via GameServices.bonusStage()
+        // Register provider on GameRuntime so objects can access via GameServices.bonusStage()
+        activeBonusStageProvider = provider;
         GameRuntime rt = RuntimeManager.getCurrent();
         if (rt != null) {
             rt.setActiveBonusStageProvider(provider);
@@ -1043,11 +1064,10 @@ public class GameLoop {
 
         try {
             levelManager.loadZoneAndAct(zone, act);
-            // Consume title card — bonus stages don't show one
+            // Consume the default title card request — we'll show the bonus card instead
             levelManager.consumeTitleCardRequest();
         } catch (IOException e) {
             LOGGER.severe("Failed to load bonus stage zone: " + e.getMessage());
-            // Abort — restore original zone
             provider.onExit();
             activeBonusStageProvider = null;
             if (rt != null) {
@@ -1057,41 +1077,31 @@ public class GameLoop {
             return;
         }
 
-        // Pause HUD timer during bonus stage (ROM: clr.b (Update_HUD_timer).w for zones $13-$15)
-        // Also restore the saved ring count so the HUD shows the carried-over rings
-        // (ROM sonic3k.asm line 127408: move.w (Saved_ring_count).w, (Ring_count).w).
-        // loadZoneAndAct() creates a fresh LevelGamestate with rings=0, so we must set it here.
-        if (levelManager.getLevelGamestate() != null) {
-            levelManager.getLevelGamestate().pauseTimer();
-            levelManager.getLevelGamestate().setRings(savedState.savedRingCount());
+        // Defer bonus-stage-specific setup to exitTitleCard() when the title card completes
+        deferredBonusProvider = provider;
+        deferredBonusType = type;
+        deferredBonusState = savedState;
+
+        // Initialize the bonus title card
+        TitleCardProvider tcp = getTitleCardProviderLazy();
+        if (tcp != null) {
+            tcp.initializeBonus();
         }
 
-        // ROM lines 127411-127412: bset #7, (Player_1+art_tile).w / bset #7, (Player_2+art_tile).w
-        // Set player VDP priority to HIGH so Sonic renders in front of high-priority FG tiles
-        // (the machine body chunks in the gumball stage layout).
-        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-        if (mainCode == null) mainCode = "sonic";
-        var entrySprite = spriteManager.getSprite(mainCode);
-        if (entrySprite instanceof AbstractPlayableSprite entryPlayable) {
-            entryPlayable.setHighPriority(true);
-        }
-
+        // Enter TITLE_CARD mode — exitTitleCard will transition to BONUS_STAGE
         GameMode oldMode = currentGameMode;
-        currentGameMode = GameMode.BONUS_STAGE;
+        postTitleCardDestination = PostTitleCardDestination.BONUS_STAGE;
+        currentGameMode = GameMode.TITLE_CARD;
 
-        // Play bonus stage music
-        int musicId = provider.getMusicId(type);
-        if (musicId >= 0) {
-            AudioManager.getInstance().playMusic(musicId);
-        }
-
+        // Fade from black — level + title card become visible together
         fadeManager.startFadeFromBlack(null);
 
         if (gameModeChangeListener != null) {
             gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);
         }
 
-        LOGGER.info("Entered Bonus Stage " + type + " (zone 0x" + Integer.toHexString(zoneId) + ")");
+        LOGGER.info("Entered bonus title card for " + type + " (zone 0x"
+                + Integer.toHexString(zoneId) + ")");
     }
 
     /**
@@ -1612,23 +1622,24 @@ public class GameLoop {
         }
 
         GameMode oldMode = currentGameMode;
-        currentGameMode = GameMode.LEVEL;
 
-        // Don't reset title card - overlay phases (TEXT_WAIT, TEXT_EXIT) still need to
-        // run
-        // getTitleCardProviderLazy().reset();
+        if (postTitleCardDestination == PostTitleCardDestination.BONUS_STAGE) {
+            // Transitioning to bonus stage after "BONUS STAGE" title card
+            postTitleCardDestination = PostTitleCardDestination.LEVEL;
+            currentGameMode = GameMode.BONUS_STAGE;
 
-        if (returningFromSpecialStage) {
-            // Returning from special stage - checkpoint was already restored in
-            // enterTitleCardFromResults()
+            // Apply deferred bonus stage setup
+            applyDeferredBonusStageSetup();
+
+            LOGGER.info("Exited bonus title card, entering BONUS_STAGE mode");
+        } else if (returningFromSpecialStage) {
+            currentGameMode = GameMode.LEVEL;
             returningFromSpecialStage = false;
             LOGGER.info("Exited Title Card, returned to level from special stage at checkpoint");
         } else {
-            // Normal title card exit (level start).
-            // Re-apply zone-specific player state (airborne intros like HCZ1, MGZ1).
-            // enterTitleCard() freezes the player (air=false, speed=0), so the intro
-            // falling state set by SpawnLevelMainSprites must be restored here when
-            // gameplay actually begins.
+            currentGameMode = GameMode.LEVEL;
+
+            // Re-apply zone-specific player state (airborne intros like HCZ1, MGZ1)
             LevelEventProvider levelEvents = GameModuleRegistry.getCurrent().getLevelEventProvider();
             if (levelEvents instanceof com.openggf.game.sonic3k.Sonic3kLevelEventManager s3kEvents) {
                 s3kEvents.applyZonePlayerState();
@@ -1636,9 +1647,49 @@ public class GameLoop {
             LOGGER.info("Exited Title Card, starting level");
         }
 
-        // Notify listener of mode change
         if (gameModeChangeListener != null) {
             gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);
+        }
+    }
+
+    /**
+     * Applies bonus stage setup that was deferred until the title card completed.
+     * Mirrors the setup previously done inline in doEnterBonusStage.
+     */
+    private void applyDeferredBonusStageSetup() {
+        BonusStageProvider provider = deferredBonusProvider;
+        BonusStageType type = deferredBonusType;
+        BonusStageState savedState = deferredBonusState;
+
+        // Clear deferred state
+        deferredBonusProvider = null;
+        deferredBonusType = null;
+        deferredBonusState = null;
+
+        if (provider == null || savedState == null) {
+            LOGGER.warning("No deferred bonus stage state — skipping setup");
+            return;
+        }
+
+        // Pause HUD timer (ROM: clr.b (Update_HUD_timer).w for zones $13-$15)
+        // Restore saved ring count so HUD shows carried-over rings
+        if (levelManager.getLevelGamestate() != null) {
+            levelManager.getLevelGamestate().pauseTimer();
+            levelManager.getLevelGamestate().setRings(savedState.savedRingCount());
+        }
+
+        // Set player VDP priority to HIGH (ROM lines 127411-127412)
+        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        if (mainCode == null) mainCode = "sonic";
+        var entrySprite = spriteManager.getSprite(mainCode);
+        if (entrySprite instanceof AbstractPlayableSprite entryPlayable) {
+            entryPlayable.setHighPriority(true);
+        }
+
+        // Play bonus stage music
+        int musicId = provider.getMusicId(type);
+        if (musicId >= 0) {
+            AudioManager.getInstance().playMusic(musicId);
         }
     }
 
