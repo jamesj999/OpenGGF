@@ -44,8 +44,13 @@ public class Sonic3kTitleCardManager implements TitleCardProvider {
     private static final int SLIDE_SPEED_IN = 16;
     private static final int SLIDE_SPEED_OUT = 32;
 
-    // Display hold duration (frames). ROM holds while loading; we use 90 frames.
+    // Display hold duration (frames). ROM: Level routine overwrites $2E to $16 (22)
+    // at line 7878, synchronizing the hold with Palette_fade_timer.
     private static final int DISPLAY_HOLD_FRAMES = 90;
+
+    // Bonus mode hold: 22 frames, synchronized with the per-channel background fade.
+    // ROM: sonic3k.asm line 7877-7878 sets both timers to $16 simultaneously.
+    private static final int BONUS_DISPLAY_HOLD_FRAMES = 22;
 
     private static final int SCREEN_WIDTH = 320;
     private static final int SCREEN_HEIGHT = 224;
@@ -82,6 +87,7 @@ public class Sonic3kTitleCardManager implements TitleCardProvider {
     private int phaseCounter;  // Exit phase counter for staggered exit
     private boolean inLevelMode;  // No black background, control released immediately
     private boolean bonusMode;  // 2-element "BONUS STAGE" layout
+    private float bonusFadeProgress; // 0.0→1.0 over BONUS_DISPLAY_HOLD_FRAMES during DISPLAY
 
     // Bonus mode element definitions (ObjArray_TtlCardBonus, sonic3k.asm line 62482)
     // VDP coords converted to screen coords (subtract 128)
@@ -146,6 +152,7 @@ public class Sonic3kTitleCardManager implements TitleCardProvider {
     @Override
     public void initializeBonus() {
         this.bonusMode = true;
+        this.bonusFadeProgress = 0f;
         this.inLevelMode = false;
         this.state = Sonic3kTitleCardState.SLIDE_IN;
         this.stateTimer = 0;
@@ -259,15 +266,34 @@ public class Sonic3kTitleCardManager implements TitleCardProvider {
         if (gm == null) return;
 
         // Black background during SLIDE_IN and DISPLAY (not in-level mode).
-        // Stays fully opaque throughout the title card. For bonus mode, the
-        // FadeManager handles the fade-from-black after the title card exits.
+        // Normal mode: opaque black rect throughout.
+        // Bonus mode: fully opaque during SLIDE_IN, then per-channel fade during DISPLAY
+        // (B→G→R subtractive, 22 frames, synchronized with hold timer).
+        // ROM: Pal_FadeFromBlack runs simultaneously with the title card wait.
         if (!inLevelMode &&
                 (state == Sonic3kTitleCardState.SLIDE_IN || state == Sonic3kTitleCardState.DISPLAY)) {
-            gm.registerCommand(new GLCommand(
-                    GLCommand.CommandType.RECTI, -1,
-                    0.0f, 0.0f, 0.0f,
-                    0, 0, SCREEN_WIDTH, SCREEN_HEIGHT
-            ));
+            if (bonusMode && state == Sonic3kTitleCardState.DISPLAY && bonusFadeProgress > 0f) {
+                // Per-channel subtractive fade matching FadeManager.updateFadeFromBlack()
+                // B fades first (0→1/3), then G (1/3→2/3), then R (2/3→1)
+                float p = bonusFadeProgress;
+                float third = 1f / 3f;
+                float darkB = Math.max(0f, 1f - Math.min(1f, p / third));
+                float darkG = Math.max(0f, 1f - Math.min(1f, (p - third) / third));
+                float darkR = Math.max(0f, 1f - Math.min(1f, (p - 2f * third) / third));
+                if (darkR > 0f || darkG > 0f || darkB > 0f) {
+                    gm.registerCommand(new GLCommand(
+                            GLCommand.CommandType.RECTI, -1, GLCommand.BlendType.SUBTRACTIVE,
+                            darkR, darkG, darkB, 1.0f,
+                            0, 0, SCREEN_WIDTH, SCREEN_HEIGHT
+                    ));
+                }
+            } else {
+                gm.registerCommand(new GLCommand(
+                        GLCommand.CommandType.RECTI, -1,
+                        0.0f, 0.0f, 0.0f,
+                        0, 0, SCREEN_WIDTH, SCREEN_HEIGHT
+                ));
+            }
         }
 
         gm.beginPatternBatch();
@@ -325,7 +351,14 @@ public class Sonic3kTitleCardManager implements TitleCardProvider {
 
     private void updateDisplay() {
         stateTimer++;
-        if (stateTimer >= DISPLAY_HOLD_FRAMES) {
+        int holdFrames = bonusMode ? BONUS_DISPLAY_HOLD_FRAMES : DISPLAY_HOLD_FRAMES;
+
+        // In bonus mode, advance the per-channel background fade (synchronized with hold)
+        if (bonusMode) {
+            bonusFadeProgress = Math.min(1f, (float) stateTimer / BONUS_DISPLAY_HOLD_FRAMES);
+        }
+
+        if (stateTimer >= holdFrames) {
             state = Sonic3kTitleCardState.EXIT;
             phaseCounter = 0;
             LOG.fine("S3K title card: EXIT");
