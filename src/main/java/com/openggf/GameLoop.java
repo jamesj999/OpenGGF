@@ -986,6 +986,16 @@ public class GameLoop {
             return;
         }
 
+        if (type == null || type == BonusStageType.NONE) {
+            LOGGER.fine("Bonus stage entry ignored: NONE type");
+            return;
+        }
+
+        if (fadeManager.isActive()) {
+            LOGGER.fine("Bonus stage entry ignored: fade already in progress");
+            return;
+        }
+
         // Capture state snapshot
         String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         if (mainCode == null) mainCode = "sonic";
@@ -1128,12 +1138,6 @@ public class GameLoop {
     }
 
     /**
-     * Forces the player sprite to VDP high priority during the bonus stage.
-     * ROM bset #7,(Player_1+art_tile).w is a one-time set at init, but
-     * various engine paths (hurt landing at AbstractPlayableSprite:963,
-     * plane switching) can clear it. Re-assert every frame.
-     */
-    /**
      * Forces ALL player sprites to VDP high priority AND bucket 0 during bonus stage.
      * ROM lines 127411-127412: bset #7 on BOTH Player_1 AND Player_2 art_tile.
      * Bucket 0 is drawn last in the 7→0 loop, ensuring the player renders on top
@@ -1159,7 +1163,7 @@ public class GameLoop {
     }
 
     /**
-     * Exits the current bonus stage. Fades to white, restores previous zone.
+     * Exits the current bonus stage. Fades to black, restores previous zone.
      */
     private void exitBonusStage() {
         if (currentGameMode != GameMode.BONUS_STAGE || activeBonusStageProvider == null) {
@@ -1180,7 +1184,7 @@ public class GameLoop {
     }
 
     /**
-     * Actually exits the bonus stage after the fade-to-white completes.
+     * Actually exits the bonus stage after the fade-to-black completes.
      */
     private void doExitBonusStage(BonusStageProvider provider, BonusStageState savedState) {
         bonusStageTransitionPending = false;
