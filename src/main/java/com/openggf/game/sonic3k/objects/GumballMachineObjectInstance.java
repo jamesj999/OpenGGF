@@ -889,6 +889,8 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         private static final int EXIT_Y_MIN = -0x10;
         private static final int EXIT_Y_MAX = 0x40;
 
+        private boolean exitFired;
+
         ExitTriggerChild(ObjectSpawn spawn) {
             super(spawn, "GumballExitTrigger");
         }
@@ -900,7 +902,7 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         @Override
         public void update(int frameCounter, PlayableEntity playerEntity) {
-            if (playerEntity == null) {
+            if (playerEntity == null || exitFired) {
                 return;
             }
 
@@ -911,6 +913,7 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
             if (dx >= EXIT_X_MIN && dx <= EXIT_X_MAX
                     && dy >= EXIT_Y_MIN && dy <= EXIT_Y_MAX) {
+                exitFired = true;
                 LOGGER.info("GumballExitTrigger: player in exit range, requesting bonus stage exit");
                 try {
                     services().requestBonusStageExit();
