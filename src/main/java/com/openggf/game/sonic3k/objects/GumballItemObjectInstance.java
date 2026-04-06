@@ -14,6 +14,7 @@ import com.openggf.level.objects.TouchResponseListener;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.level.render.PatternSpriteRenderer;
+import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
@@ -30,13 +31,16 @@ import java.util.logging.Logger;
  * SPECIAL category (0x40) so the touch listener handles the response without
  * applying boss/hurt logic.
  * <p>
- * Subtypes determine reward on player contact:
+ * Subtypes determine reward on player contact (ROM off_6110E dispatch table):
  * <ul>
- *   <li>0: Normal gumball — plays sfx_SmallBumpers, deletes self</li>
- *   <li>1: Small bumper — plays sfx_SmallBumpers, deletes self</li>
- *   <li>2: Ring item — awards 10 rings to HUD + 20 to saved count, plays sfx_SmallBumpers</li>
- *   <li>3: Bonus item — ring reward from position-based table (byte_1E44C4)</li>
- *   <li>4: Ring reward — same collision_flags, bounce player away</li>
+ *   <li>0: Extra life — +1 life, mus_ExtraLife, deleted</li>
+ *   <li>1: REP — respawn dispenser/springs, deleted</li>
+ *   <li>2: Rings — +20 saved, +10 HUD, sfx_RingRight, deleted</li>
+ *   <li>3: Nothing — silent delete, no action</li>
+ *   <li>4: Push — arctan velocity push, sfx_SmallBumpers, NOT deleted</li>
+ *   <li>5: Fire shield — grant fire shield, sfx_FireShield, deleted</li>
+ *   <li>6: Bubble shield — grant bubble shield, sfx_BubbleShield, deleted</li>
+ *   <li>7: Lightning shield — grant lightning shield, sfx_LightningShield, deleted</li>
  * </ul>
  * <p>
  * ROM art: subtype 0 uses Map_PachinkoFItem (pachinko art), subtypes 1-8 use
@@ -69,6 +73,9 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
     private static final int RING_ITEM_HUD_AWARD = 10;
     private static final int RING_ITEM_SAVED_AWARD = 20;
 
+    // ROM: sub_61176 push force — muls.w #-$700,d1 / asr.l #8,d1
+    private static final int PUSH_FORCE = 0x700;
+
     // ROM: byte_1E44C4 — ring reward table indexed by (y_pos & 0xF)
     private static final int[] RING_REWARD_TABLE = {
             0x50, 0x32, 0x28, 0x23, 0x23, 0x1E, 0x1E, 0x14,
@@ -92,6 +99,12 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
 
     /** Set true when player touches this item; triggers deletion next frame. */
     private boolean collected;
+
+    /**
+     * Set true after subtype 4 (push) applies its velocity push.
+     * ROM: clr.b collision_property(a0) prevents re-triggering; we use a flag instead.
+     */
+    private boolean pushedPlayer;
 
     /**
      * Constructs a gumball item.
@@ -207,7 +220,7 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
 
     @Override
     public void onTouchResponse(PlayableEntity player, TouchResponseResult result, int frameCounter) {
-        if (collected) {
+        if (collected || pushedPlayer) {
             return;
         }
 
@@ -215,17 +228,19 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
         // d1 = subtype DIRECTLY (NOT subtype-1 like sub_4A384 does for Pachinko orbs).
         // Deletion: loc_60F28 deletes the ball UNLESS the handler set d2=0.
         // Only loc_6115C (push, subtype 4) sets d2=0 → ball survives.
+        // NOTE: loc_60F28 is just `jmp (Delete_Current_Sprite).l` — NO SFX there.
+        // Each handler plays its own SFX internally if needed.
         boolean shouldDelete = true;
 
         switch (subtype) {
-            case 0 -> onCollectExtraLife(player);         // loc_61120: +1 life
-            case 1 -> onCollectRepairDispenser(player);   // loc_61130: REP (respawn dispenser + springs)
-            case 2 -> onCollectRingReward(player);        // loc_6114E: +20 saved, +10 HUD
+            case 0 -> onCollectExtraLife(player);                             // loc_61120: +1 life
+            case 1 -> onCollectRepairDispenser(player);                       // loc_61130: REP (respawn dispenser + springs)
+            case 2 -> onCollectRingReward(player);                            // loc_6114E: +20 saved, +10 HUD + sfx_RingRight
             case 3 -> { /* locret_6114C: nothing (silent delete) */ }
-            case 4 -> { onCollectPush(player); shouldDelete = false; }  // loc_6115C: push, d2=0 → NOT deleted
-            case 5 -> onCollectFireShield(player);        // loc_611D6
-            case 6 -> onCollectBubbleShield(player);      // loc_61200
-            case 7 -> onCollectLightningShield(player);   // loc_6122A
+            case 4 -> { onCollectPush(player, frameCounter); shouldDelete = false; }  // loc_6115C: push, d2=0 → NOT deleted
+            case 5 -> onCollectFireShield(player);                            // loc_611D6
+            case 6 -> onCollectBubbleShield(player);                          // loc_61200
+            case 7 -> onCollectLightningShield(player);                       // loc_6122A
             default -> {
                 LOGGER.fine("GumballItem: unhandled subtype " + subtype);
             }
@@ -233,8 +248,7 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
 
         if (shouldDelete) {
             collected = true;
-            // ROM loc_60F28: jmp Delete_Current_Sprite + sfx_SmallBumpers
-            playSfx(Sonic3kSfx.SMALL_BUMPERS);
+            // ROM: loc_60F28 just deletes — no SFX played at the deletion site.
         }
     }
 
@@ -268,46 +282,78 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
     }
 
     /**
-     * ROM: subtype 3 — position-based ring reward (loc_4A3B6).
-     * Ring count from byte_1E44C4 indexed by (y_pos &amp; 0xF).
-     */
-    /**
      * ROM: subtype 2 → off_6110E[2] = loc_6114E — ring award.
      * addi.w #20,(Saved_ring_count).w / moveq #10,d0 / jmp (AddRings).l
+     * AddRings plays sfx_RingRight (or mus_ExtraLife at 100/200 ring thresholds).
      */
     private void onCollectRingReward(PlayableEntity player) {
         awardRingsToCoordinator(RING_ITEM_SAVED_AWARD);  // +20 to saved
         awardRingsToHud(player, RING_ITEM_HUD_AWARD);    // +10 to HUD
+        // ROM: AddRings plays sfx_RingRight at loc_86132
+        playSfx(Sonic3kSfx.RING_RIGHT);
     }
 
     /**
-     * ROM: subtype 4 — locret_6114C (does nothing). Silent delete, no SFX, no reward.
+     * ROM: subtype 4 → off_6110E[4] = loc_6115C (push handler).
+     * <p>
+     * ROM sub_61176: calculates arctan angle from item to player, adds slight
+     * randomization from Level_frame_counter, then applies -0x700 force along
+     * that angle. Sets player airborne, clears RollJump/Push, clears jumping.
+     * Plays sfx_SmallBumpers per player pushed.
+     * <p>
+     * ROM: clr.b collision_property(a0) prevents re-triggering; moveq #0,d2 keeps ball alive.
      */
-    private void onCollectSilent(PlayableEntity player) {
-        // No sound, no reward. Just get deleted (collected=true above).
-    }
-
-    /**
-     * ROM: subtype 5 — loc_6115C (push handler).
-     * Uses arctan/sine/cosine to push player away from the item. No SFX.
-     */
-    private void onCollectPush(PlayableEntity player) {
+    private void onCollectPush(PlayableEntity player, int frameCounter) {
         if (!(player instanceof AbstractPlayableSprite sprite)) {
             return;
         }
-        // Simplified push: nudge player X away from the item (ROM uses sin/cos lookup).
-        int dx = sprite.getCentreX() - motionState.x;
-        int dir = dx >= 0 ? 1 : -1;
+
+        // ROM sub_61176: d1 = x_pos(a0) - x_pos(a1), d2 = y_pos(a0) - y_pos(a1)
+        int dx = motionState.x - sprite.getCentreX();
+        int dy = motionState.y - sprite.getCentreY();
+
+        // ROM: jsr (GetArcTan).l — returns angle in d0
+        int angle = TrigLookupTable.calcAngle((short) dx, (short) dy);
+
+        // ROM: move.b (Level_frame_counter).w,d1 / andi.w #3,d1 / add.w d1,d0
+        // Slight angle randomization from frame counter
+        angle = (angle + (frameCounter & 3)) & 0xFF;
+
+        // ROM: jsr (GetSineCosine).l — d0=sin(angle), d1=cos(angle)
+        // ROM: muls.w #-$700,d1 / asr.l #8,d1 → x_vel
+        // ROM: muls.w #-$700,d0 / asr.l #8,d0 → y_vel
+        int sinVal = TrigLookupTable.sinHex(angle);  // -256..256
+        int cosVal = TrigLookupTable.cosHex(angle);   // -256..256
+
+        int xVel = (cosVal * -PUSH_FORCE) >> 8;
+        int yVel = (sinVal * -PUSH_FORCE) >> 8;
+
         try {
-            sprite.setXSpeed((short) (0x200 * dir));
+            sprite.setXSpeed((short) xVel);
+            sprite.setYSpeed((short) yVel);
+
+            // ROM: bset #Status_InAir,status(a1)
+            sprite.setAir(true);
+
+            // ROM: bclr #Status_RollJump,status(a1) / bclr #Status_Push,status(a1)
+            sprite.setJumping(false);
+
+            // ROM: clr.b jumping(a1)
+            sprite.setJumping(false);
         } catch (Exception e) {
             // safe fallback
         }
-        // ROM: no sound played directly by subtype 5
+
+        // ROM: moveq #signextendB(sfx_SmallBumpers),d0 / jmp (Play_SFX).l
+        playSfx(Sonic3kSfx.SMALL_BUMPERS);
+
+        // ROM: clr.b collision_property(a0) — prevents further touch callbacks
+        // ROM: moveq #0,d2 — ball NOT deleted
+        pushedPlayer = true;
     }
 
     /**
-     * ROM: subtype 6 — loc_611D6 grants FireShield + plays sfx_FireShield.
+     * ROM: subtype 5 → off_6110E[5] = loc_611D6 — grants FireShield + plays sfx_FireShield.
      */
     private void onCollectFireShield(PlayableEntity player) {
         if (player instanceof AbstractPlayableSprite sprite) {
@@ -326,7 +372,7 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
     }
 
     /**
-     * ROM: subtype 7 — loc_61200 grants BubbleShield + plays sfx_BubbleShield.
+     * ROM: subtype 6 → off_6110E[6] = loc_61200 — grants BubbleShield + plays sfx_BubbleShield.
      */
     private void onCollectBubbleShield(PlayableEntity player) {
         if (player instanceof AbstractPlayableSprite sprite) {
@@ -345,7 +391,7 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
     }
 
     /**
-     * ROM: subtype 8 — loc_6122A grants LightningShield + plays sfx_LightningShield.
+     * ROM: subtype 7 → off_6110E[7] = loc_6122A — grants LightningShield + plays sfx_LightningShield.
      */
     private void onCollectLightningShield(PlayableEntity player) {
         if (player instanceof AbstractPlayableSprite sprite) {
