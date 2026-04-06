@@ -20,6 +20,15 @@ public interface BonusStageProvider {
     int getMusicId(BonusStageType type);
     BonusStageState getSavedState();
 
+    /** Accumulate rings. ROM equivalent: add.w d0,(Saved_ring_count).w */
+    default void addRings(int count) {}
+
+    /** Accumulate lives. ROM equivalent: addq.b #1,(Life_count).w */
+    default void addLife() {}
+
+    /** Record shield awarded during bonus stage. */
+    default void setAwardedShield(com.openggf.game.ShieldType type) {}
+
     record BonusStageRewards(
             int rings, int lives,
             boolean shield, boolean fireShield,

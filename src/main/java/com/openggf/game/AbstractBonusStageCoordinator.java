@@ -74,9 +74,11 @@ public abstract class AbstractBonusStageCoordinator implements BonusStageProvide
     public BonusStageType getActiveType() { return activeType; }
 
     /** Accumulate rings during the bonus stage. Called by gumball item objects. */
+    @Override
     public void addRings(int count) { ringsCollected += count; }
 
     /** Accumulate lives during the bonus stage. */
+    @Override
     public void addLife() { livesAwarded++; }
 
     /**
@@ -86,6 +88,7 @@ public abstract class AbstractBonusStageCoordinator implements BonusStageProvide
      * {@link #getRewards()} so {@code doExitBonusStage} can restore it
      * after the level reload clears the player state.
      */
+    @Override
     public void setAwardedShield(ShieldType type) {
         this.awardedShield = type;
     }
