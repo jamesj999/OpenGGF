@@ -45,11 +45,24 @@ public class SwScrlGumball extends AbstractZoneScrollHandler {
     private static final int Y_BASE_OFFSET = 0xC8;
 
     /**
-     * World X range of the machine body. The gumball machine spawns around
-     * world X $100, with platform offsets covering roughly ±$40. Widening the
-     * range to {@code [0x80, 0x180)} captures the machine frame plus the side
-     * caps, matching the body sprite footprint. Columns outside this range
-     * belong to the stage walls and scroll with the camera.
+     * ROM Gumball_VScroll writes machineTrackedY only to HScroll_table offset $4
+     * (= VSRAM entry for Plane A column-pair 1 = screen pixels 32-63).
+     * DrawTilesVDeform with scatter array {$C0, $80, $7FFF} then distributes
+     * VSRAM across 6+4 column-pairs, but only column-pair 1 has the machine
+     * value — all others get cameraY.
+     *
+     * In the engine's 20-column system (16px each), column-pair 1 = columns 2-3.
+     * Rather than hardcoding column indices, we use the world X range that
+     * maps to those columns. With camera at ~0x60, column 2 starts at
+     * 0x60 + 32 = 0x80, column 3 ends at 0x60 + 63 = 0x9F.
+     * But the machine body chunks span 2 chunks (256px) centered at 0x100.
+     * The actual visible machine tiles = chunks at X=[0x80, 0x180).
+     *
+     * The ROM uses a SINGLE 32px column-pair for the per-strip VSCROLL.
+     * This works because DrawTilesVDeform redraws tiles at shifted positions
+     * within each strip. Our shader-based approach applies VSCROLL to the
+     * entire visible column, so we need to apply it to ALL columns that
+     * overlap the machine body — otherwise only 32px of the body moves.
      */
     private static final int MACHINE_BODY_MIN_X = 0x80;
     private static final int MACHINE_BODY_MAX_X = 0x180;

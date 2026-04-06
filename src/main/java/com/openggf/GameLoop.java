@@ -574,6 +574,11 @@ public class GameLoop {
             // Bonus stage runs the same level frame steps as LEVEL mode
             boolean freezeForBonusExit = bonusStageTransitionPending;
             if (!freezeForBonusExit) {
+                // ROM lines 127411-127412: player art_tile priority bit stays HIGH throughout
+                // the bonus stage. Various engine paths (hurt landing, plane switching) can
+                // clear highPriority, so re-assert it every frame.
+                forcePlayerHighPriorityInBonusStage();
+
                 LevelFrameStep.execute(levelManager, camera, () -> {
                     spriteManager.update(inputHandler);
                 }, (name, step) -> {
@@ -1087,6 +1092,23 @@ public class GameLoop {
         }
 
         LOGGER.info("Entered Bonus Stage " + type + " (zone 0x" + Integer.toHexString(zoneId) + ")");
+    }
+
+    /**
+     * Forces the player sprite to VDP high priority during the bonus stage.
+     * ROM bset #7,(Player_1+art_tile).w is a one-time set at init, but
+     * various engine paths (hurt landing at AbstractPlayableSprite:963,
+     * plane switching) can clear it. Re-assert every frame.
+     */
+    private void forcePlayerHighPriorityInBonusStage() {
+        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        if (mainCode == null) mainCode = "sonic";
+        var sprite = spriteManager.getSprite(mainCode);
+        if (sprite instanceof AbstractPlayableSprite playable) {
+            if (!playable.isHighPriority()) {
+                playable.setHighPriority(true);
+            }
+        }
     }
 
     /**
