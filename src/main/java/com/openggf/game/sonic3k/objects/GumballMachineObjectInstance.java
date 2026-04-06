@@ -70,9 +70,13 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
     private static final int ACTIVATE_Y_MAX = 8;    // yOffset + height
 
     // Machine and most children render at bucket 1 (behind Sonic at bucket 2).
-    // Machine at bucket 1. Player's bucket is lowered to 0 during bonus stage
-    // (drawn last in 7→0 loop = on top). Ball at bucket 2 draws before machine.
+    // Machine apparatus at bucket 1. Drawn after balls (3) and body (4),
+    // before player (0). Engine draws 7→0: body(4) → balls(3) → apparatus(1) → player(0).
     private static final int PRIORITY_BUCKET = 1;
+
+    // Body/overlay at bucket 4 — drawn first (behind everything) but still HIGH
+    // priority so the sprite priority shader renders them in front of FG tiles.
+    private static final int BODY_PRIORITY_BUCKET = 4;
 
     // ROM: byte_61450 = [3, 5, 6, 7, $14, 5, $FF]
     // First byte (3) is the per-frame timer, NOT a mapping frame.
@@ -935,7 +939,8 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         @Override
         public int getPriorityBucket() {
-            return RenderPriority.clamp(PRIORITY_BUCKET);
+            // Body drawn first (bucket 4 in 7→0) = behind balls and apparatus
+            return RenderPriority.clamp(BODY_PRIORITY_BUCKET);
         }
 
         @Override
@@ -1001,10 +1006,8 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         @Override
         public int getPriorityBucket() {
-            // ROM ObjDat3_613EC priority = $180 (below machine body's $200).
-            // Keep it in the same bucket (1) as the rest of the machine so it
-            // draws after the body but still behind Sonic.
-            return RenderPriority.clamp(1);
+            // Overlay at same bucket as body — drawn first (behind balls/apparatus)
+            return RenderPriority.clamp(BODY_PRIORITY_BUCKET);
         }
 
         @Override
