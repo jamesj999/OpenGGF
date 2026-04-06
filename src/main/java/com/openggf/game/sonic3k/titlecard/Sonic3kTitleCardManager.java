@@ -258,8 +258,10 @@ public class Sonic3kTitleCardManager implements TitleCardProvider {
         GraphicsManager gm = GraphicsManager.getInstance();
         if (gm == null) return;
 
-        // Black background during SLIDE_IN and DISPLAY (normal and bonus mode, not in-level)
-        if (!inLevelMode &&
+        // Black background during SLIDE_IN and DISPLAY (normal mode only, not in-level or bonus).
+        // Bonus mode relies on FadeManager's fade-from-black overlay for initial blackness;
+        // as the overlay fades, the level becomes visible behind the title card text.
+        if (!inLevelMode && !bonusMode &&
                 (state == Sonic3kTitleCardState.SLIDE_IN || state == Sonic3kTitleCardState.DISPLAY)) {
             gm.registerCommand(new GLCommand(
                     GLCommand.CommandType.RECTI, -1,

@@ -1070,6 +1070,8 @@ public class GameLoop {
         int act = zoneId & 0xFF;
 
         try {
+            // Suppress auto-music: bonus music plays later in applyDeferredBonusStageSetup
+            levelManager.setSuppressNextMusicChange(true);
             levelManager.loadZoneAndAct(zone, act);
             // Consume the default title card request — we'll show the bonus card instead
             levelManager.consumeTitleCardRequest();
@@ -1198,6 +1200,8 @@ public class GameLoop {
         int act = savedState.savedZoneAndAct() & 0xFF;
 
         try {
+            // Suppress auto-music: zone music starts below during the title card
+            levelManager.setSuppressNextMusicChange(true);
             levelManager.loadZoneAndAct(zone, act);
             // Consume the auto-generated title card request — we initialize it ourselves below
             levelManager.consumeTitleCardRequest();
