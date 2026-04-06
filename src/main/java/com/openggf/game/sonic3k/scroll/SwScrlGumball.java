@@ -64,8 +64,11 @@ public class SwScrlGumball extends AbstractZoneScrollHandler {
      * entire visible column, so we need to apply it to ALL columns that
      * overlap the machine body — otherwise only 32px of the body moves.
      */
-    private static final int MACHINE_BODY_MIN_X = 0x80;
-    private static final int MACHINE_BODY_MAX_X = 0x180;
+    // Machine body tiles: chunks 1-2 span world X [0x80, 0x180).
+    // Add 8px (half-column) inset on each side to prevent wall tiles from
+    // being caught when a 16px column straddles the chunk boundary.
+    private static final int MACHINE_BODY_MIN_X = 0x88;
+    private static final int MACHINE_BODY_MAX_X = 0x178;
 
     private final short[] fgColumns = new short[COLUMN_COUNT];
     private boolean fgColumnsActive;

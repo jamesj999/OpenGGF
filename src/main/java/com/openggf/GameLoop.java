@@ -574,11 +574,6 @@ public class GameLoop {
             // Bonus stage runs the same level frame steps as LEVEL mode
             boolean freezeForBonusExit = bonusStageTransitionPending;
             if (!freezeForBonusExit) {
-                // ROM lines 127411-127412: player art_tile priority bit stays HIGH throughout
-                // the bonus stage. Various engine paths (hurt landing, plane switching) can
-                // clear highPriority, so re-assert it every frame.
-                forcePlayerHighPriorityInBonusStage();
-
                 LevelFrameStep.execute(levelManager, camera, () -> {
                     spriteManager.update(inputHandler);
                 }, (name, step) -> {
@@ -586,6 +581,11 @@ public class GameLoop {
                     step.run();
                     profiler.endSection(name);
                 });
+
+                // ROM lines 127411-127412: player art_tile priority bit stays HIGH throughout
+                // the bonus stage. Must be set AFTER the sprite update (which runs inside
+                // LevelFrameStep.execute) because setAir(false) on hurt-landing clears it.
+                forcePlayerHighPriorityInBonusStage();
 
                 // Notify coordinator of frame tick
                 if (activeBonusStageProvider != null) {
