@@ -939,8 +939,16 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         @Override
         public int getPriorityBucket() {
-            // Body drawn first (bucket 4 in 7→0) = behind balls and apparatus
-            return RenderPriority.clamp(BODY_PRIORITY_BUCKET);
+            // Per SonLVL composite: body 0x16 (with gumball piles) is the furthest
+            // back. Frames 0+1 (reflection/glass effect) render in FRONT of the body
+            // and in front of balls, covering the gumball piles with the glass surface.
+            //
+            // body(4) → balls(3) → reflection/glass(2) → apparatus(1) → player(0)
+            if (mappingFrame == 0x16) {
+                return RenderPriority.clamp(BODY_PRIORITY_BUCKET);  // bucket 4
+            }
+            // Frames 0 and 1 are reflection/glass — same bucket as glass overlay
+            return RenderPriority.clamp(2);
         }
 
         @Override
