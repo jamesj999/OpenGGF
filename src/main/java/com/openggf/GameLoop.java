@@ -1192,7 +1192,8 @@ public class GameLoop {
 
         try {
             levelManager.loadZoneAndAct(zone, act);
-            levelManager.consumeTitleCardRequest(); // No title card on return
+            // Consume the auto-generated title card request — we initialize it ourselves below
+            levelManager.consumeTitleCardRequest();
         } catch (IOException e) {
             throw new RuntimeException("Failed to reload level after bonus stage", e);
         }
@@ -1263,22 +1264,33 @@ public class GameLoop {
             }
         }
 
-        GameMode oldMode = currentGameMode;
-        currentGameMode = GameMode.LEVEL;
+        // Initialize zone title card (ROM: Level routine always shows title card on reload)
+        int apparentZone = (savedState.savedApparentZoneAndAct() >> 8) & 0xFF;
+        int apparentAct = savedState.savedApparentZoneAndAct() & 0xFF;
+        TitleCardProvider tcp = getTitleCardProviderLazy();
+        if (tcp != null) {
+            tcp.initialize(apparentZone, apparentAct);
+        }
 
-        // Play zone music
+        // Enter TITLE_CARD mode — exitTitleCard will transition to LEVEL
+        GameMode oldMode = currentGameMode;
+        postTitleCardDestination = PostTitleCardDestination.LEVEL;
+        currentGameMode = GameMode.TITLE_CARD;
+
+        // Play zone music (ROM: Restore_LevelMusic during title card wait)
         int zoneMusicId = levelManager.getCurrentLevelMusicId();
         if (zoneMusicId >= 0) {
             AudioManager.getInstance().playMusic(zoneMusicId);
         }
 
+        // Fade from black — level + zone title card become visible together
         fadeManager.startFadeFromBlack(null);
 
         if (gameModeChangeListener != null) {
             gameModeChangeListener.onGameModeChanged(oldMode, currentGameMode);
         }
 
-        LOGGER.info("Returned from Bonus Stage to zone " + zone + " act " + act);
+        LOGGER.info("Exiting bonus stage, entering zone title card for zone " + zone + " act " + act);
     }
 
     /**
