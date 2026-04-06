@@ -231,6 +231,41 @@ public class PatternSpriteRenderer {
         }
     }
 
+    /**
+     * Draws only the pieces of a frame whose VDP priority matches the filter.
+     * Used to split mixed-priority frames (e.g., gumball machine body 0x16)
+     * across different render buckets.
+     *
+     * @param priorityFilter true = draw only HIGH priority pieces, false = only LOW
+     */
+    public void drawFrameIndexFilteredByPriority(int frameIndex, int originX, int originY,
+            boolean hFlip, boolean vFlip, int paletteOverride, boolean priorityFilter) {
+        if (frameIndex < 0 || frameIndex >= spriteSheet.getFrameCount() || patternBase < 0) {
+            return;
+        }
+        SpriteFrame<? extends SpriteFramePiece> frame = spriteSheet.getFrame(frameIndex);
+        int paletteIndex = paletteOverride >= 0 ? paletteOverride : spriteSheet.getPaletteIndex();
+        List<? extends SpriteFramePiece> pieces = frame.pieces();
+        for (int i = pieces.size() - 1; i >= 0; i--) {
+            SpriteFramePiece piece = pieces.get(i);
+            if (piece.priority() != priorityFilter) {
+                continue; // skip pieces that don't match the filter
+            }
+            boolean piecePriority = piece.priority();
+            SpritePieceRenderer.renderPiece(
+                    piece, originX, originY, patternBase, paletteIndex, hFlip, vFlip,
+                    (patternIdx, pieceHFlip, pieceVFlip, palIdx, drawX, drawY) -> {
+                        int descIndex = patternIdx & 0x7FF;
+                        if (piecePriority) descIndex |= 0x8000;
+                        if (pieceHFlip) descIndex |= 0x800;
+                        if (pieceVFlip) descIndex |= 0x1000;
+                        descIndex |= (palIdx & 0x3) << 13;
+                        reusableDesc.set(descIndex);
+                        GraphicsManager.getInstance().renderPatternWithId(patternIdx, reusableDesc, drawX, drawY);
+                    });
+        }
+    }
+
     private FrameBounds computeFrameBounds(SpriteFrame<? extends SpriteFramePiece> frame) {
         Pattern[] patterns = spriteSheet.getPatterns();
         boolean first = true;
