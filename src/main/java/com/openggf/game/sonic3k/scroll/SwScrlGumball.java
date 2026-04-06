@@ -119,13 +119,29 @@ public class SwScrlGumball extends AbstractZoneScrollHandler {
         int machineY = machine.getCurrentY();
         short machineDelta = (short) (Y_BASE_OFFSET - machineY);
 
+        // Log column classification on first frame for debugging
+        if (!fgColumnsActive) {
+            java.util.logging.Logger.getLogger("SwScrlGumball").info(
+                    "VSCROLL columns: cameraX=" + cameraX
+                            + " bodyRange=[" + MACHINE_BODY_MIN_X + "," + MACHINE_BODY_MAX_X + ")"
+                            + " machineDelta=" + machineDelta);
+        }
+
+        int machineColCount = 0;
         for (int col = 0; col < COLUMN_COUNT; col++) {
             int worldX = cameraX + col * 16;
             if (worldX >= MACHINE_BODY_MIN_X && worldX < MACHINE_BODY_MAX_X) {
                 fgColumns[col] = machineDelta;
+                machineColCount++;
             } else {
                 fgColumns[col] = 0;  // no extra offset — normal camera scroll
             }
+        }
+
+        if (!fgColumnsActive) {
+            java.util.logging.Logger.getLogger("SwScrlGumball").info(
+                    "VSCROLL: " + machineColCount + " machine cols, "
+                            + (COLUMN_COUNT - machineColCount) + " wall cols");
         }
         fgColumnsActive = true;
     }
