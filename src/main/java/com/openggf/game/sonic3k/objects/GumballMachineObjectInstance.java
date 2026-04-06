@@ -242,12 +242,10 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         spawnChild(() -> new PlatformChild(
                 buildSpawnAt(px + PLATFORM_EXTRA_OFFSET_X, py + PLATFORM_EXTRA_OFFSET_Y),
                 "GumballPlatformExtra", PLATFORM_EXTRA_OFFSET_Y, 0x16));
-        // Frame 0x16's LOW priority piece (gumball piles) rendered as a separate
-        // child at bucket 6. LOW priority sprite renders in front of LOW-pri FG tiles
-        // but behind HIGH-pri FG tiles (cage bars), matching VDP compositing.
-        spawnChild(() -> new BodyPilesChild(
-                buildSpawnAt(px + PLATFORM_EXTRA_OFFSET_X, py + PLATFORM_EXTRA_OFFSET_Y),
-                PLATFORM_EXTRA_OFFSET_Y));
+        // No separate BodyPilesChild needed — per-piece priority in the instanced
+        // renderer handles mixed-priority pieces within frame 0x16: structure tiles
+        // (HIGH pri) render in front of FG tiles, pile tiles (LOW pri) render behind
+        // HIGH-pri FG tiles. Both rendered in one drawFrameIndex call.
 
         // 5th overlay child for the extra platform: the glass dome shine (sprite-mask
         // effect). ROM sub_61362 detects frame=$16 on the child and calls
@@ -964,15 +962,10 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
             int renderY = (machine != null)
                     ? machine.getCurrentY() + offsetFromMachine
                     : spawn.y();
-            if (mappingFrame == 0x16) {
-                // Frame 0x16 has mixed priorities: pieces 0-5 are structure (HIGH),
-                // piece 6 is gumball piles (LOW). Only draw the HIGH structure pieces
-                // here. The LOW pile piece is drawn by BodyPilesChild at a higher bucket.
-                renderer.drawFrameIndexFilteredByPriority(
-                        mappingFrame, spawn.x(), renderY, false, false, 0, true);
-            } else {
-                renderer.drawFrameIndex(mappingFrame, spawn.x(), renderY, false, false, 0);
-            }
+            // Per-piece priority in the instanced renderer handles mixed-priority
+            // pieces within frame 0x16: structure tiles (HIGH) render in front of
+            // FG tiles, pile tiles (LOW) render behind HIGH FG tiles.
+            renderer.drawFrameIndex(mappingFrame, spawn.x(), renderY, false, false, 0);
         }
     }
 
