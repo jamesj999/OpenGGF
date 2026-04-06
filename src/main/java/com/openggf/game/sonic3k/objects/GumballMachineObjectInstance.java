@@ -1061,6 +1061,10 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         private boolean triggered;
         private int crumbleTimer;
         private boolean signaledDispenser;
+        private boolean falling;    // MoveChkDel state: falling with gravity
+        private int fallY;          // current Y during fall
+        private int fallYVel;       // Y velocity in subpixels during fall
+        private static final int FALL_GRAVITY = 0x38; // ROM standard gravity
 
         GumballSpringChild(ObjectSpawn spawn, GumballMachineObjectInstance parent,
                            DispenserChild dispenser) {
@@ -1077,14 +1081,23 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         @Override
         public void update(int frameCounter, PlayableEntity playerEntity) {
             // ROM: btst #1, $38(a1) / bne.s loc_60E36 — if a sibling spring already
-            // crumbled, the dispenser's bit 1 is set; siblings chain-delete at the
-            // start of their update each frame.
+            // crumbled, the dispenser's bit 1 is set; siblings chain-delete via
+            // MoveChkDel (fall with gravity then off-screen delete).
             if (!triggered && dispenser != null && dispenser.isSpringBitSet()) {
-                setDestroyed(true);
+                startFalling();
+                return;
+            }
+            if (falling) {
+                // ROM MoveChkDel: apply gravity + velocity, delete when off-screen
+                fallYVel += FALL_GRAVITY;
+                fallY += fallYVel >> 8;
+                if (fallY > 0x400) { // well below any visible area
+                    setDestroyed(true);
+                }
                 return;
             }
             if (triggered) {
-                // ROM: continue animating, then delete when prev_anim == 1
+                // ROM: continue animating, then switch to MoveChkDel when anim completes
                 crumbleTimer--;
                 if (crumbleTimer <= 0) {
                     // ROM loc_60E44: crumble sets bit 1 on parent (dispenser).
@@ -1092,9 +1105,16 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
                         dispenser.setSpringBit();
                         signaledDispenser = true;
                     }
-                    setDestroyed(true);
+                    startFalling();
                 }
             }
+        }
+
+        /** ROM: move.l #MoveChkDel,(a0) — transition to gravity-fall + off-screen delete. */
+        private void startFalling() {
+            falling = true;
+            fallY = spawn.y();
+            fallYVel = 0;
         }
 
         @Override
@@ -1109,8 +1129,13 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         }
 
         @Override
+        public boolean isSolidFor(PlayableEntity playerEntity) {
+            return !triggered && !falling;
+        }
+
+        @Override
         public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
-            if (triggered || !contact.standing()) {
+            if (triggered || falling || !contact.standing()) {
                 return;
             }
             if (!(playerEntity instanceof AbstractPlayableSprite player)) {
@@ -1175,9 +1200,9 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
             if (renderer == null) {
                 return;
             }
-            // Frame 0 idle, frame 1 compressed (played while the bounce/crumble plays).
             int frame = triggered ? COMPRESSED_FRAME : IDLE_FRAME;
-            renderer.drawFrameIndex(frame, spawn.x(), spawn.y(), false, false, 0);
+            int renderY = falling ? fallY : spawn.y();
+            renderer.drawFrameIndex(frame, spawn.x(), renderY, false, false, 0);
         }
     }
 }
