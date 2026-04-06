@@ -962,10 +962,17 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
             int renderY = (machine != null)
                     ? machine.getCurrentY() + offsetFromMachine
                     : spawn.y();
-            // Per-piece priority in the instanced renderer handles mixed-priority
-            // pieces within frame 0x16: structure tiles (HIGH) render in front of
-            // FG tiles, pile tiles (LOW) render behind HIGH FG tiles.
-            renderer.drawFrameIndex(mappingFrame, spawn.x(), renderY, false, false, 0);
+            if (mappingFrame == 0x16) {
+                // Frame 0x16 has mixed priorities. The LOW priority pile piece (piece 6)
+                // must NOT be rendered as a sprite — it would appear in front of LOW
+                // priority FG lip/housing tiles (sprites always draw after FG).
+                // The piles are visible through the FG tile art instead.
+                // Only render HIGH priority structure pieces as sprites.
+                renderer.drawFrameIndexFilteredByPriority(
+                        mappingFrame, spawn.x(), renderY, false, false, 0, true);
+            } else {
+                renderer.drawFrameIndex(mappingFrame, spawn.x(), renderY, false, false, 0);
+            }
         }
     }
 
