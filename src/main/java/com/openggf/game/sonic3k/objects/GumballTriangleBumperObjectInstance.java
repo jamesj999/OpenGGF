@@ -175,6 +175,12 @@ public class GumballTriangleBumperObjectInstance extends AbstractObjectInstance
     }
 
     @Override
+    public boolean isHighPriority() {
+        // ROM: ObjDat3_613A4 make_art_tile(ArtTile_BonusStage, 1, 1) — VDP priority 1
+        return true;
+    }
+
+    @Override
     public void appendRenderCommands(List<GLCommand> commands) {
         PatternSpriteRenderer renderer = getRenderer(Sonic3kObjectArtKeys.GUMBALL_BONUS);
         if (renderer == null) {

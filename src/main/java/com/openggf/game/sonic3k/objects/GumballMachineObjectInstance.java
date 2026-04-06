@@ -544,6 +544,14 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
     }
 
     @Override
+    public boolean isHighPriority() {
+        // ROM: ObjDat_GumballMachine uses make_art_tile(ArtTile_BonusStage, 1, 1)
+        // — VDP priority bit = 1. Must render in front of high-priority FG tiles
+        // (the machine body chunks in the level layout).
+        return true;
+    }
+
+    @Override
     public int getPriorityBucket() {
         return RenderPriority.clamp(PRIORITY_BUCKET);
     }
@@ -582,6 +590,12 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         DispenserChild(ObjectSpawn spawn) {
             super(spawn, "GumballDispenser");
+        }
+
+        @Override
+        public boolean isHighPriority() {
+            // ROM: ObjDat3_61398 make_art_tile(ArtTile_BonusStage, 1, 1) — VDP priority 1
+            return true;
         }
 
         /** ROM loc_60E44: called by spring when it crumbles. */
@@ -673,6 +687,12 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
             drawY = spawn.y() + off[1];
         }
 
+        @Override
+        public boolean isHighPriority() {
+            // ROM: ObjDat3_613D4 make_art_tile(ArtTile_BonusStage, 1, 1) — VDP priority 1
+            return true;
+        }
+
         @Override public boolean isPersistent() { return false; }
 
         @Override
@@ -746,6 +766,12 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
             super(spawn, "GumballContainer");
             this.parent = parent;
             this.offsetFromMachine = offsetFromMachine;
+        }
+
+        @Override
+        public boolean isHighPriority() {
+            // ROM: ObjDat3_613BC make_art_tile(ArtTile_BonusStage, 1, 1) — VDP priority 1
+            return true;
         }
 
         @Override
