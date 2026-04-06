@@ -324,7 +324,6 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
                     updateHcz2();
                 }
             }
-            case 0x13 -> updateGumball();
             default -> runAllScripts();
         }
     }

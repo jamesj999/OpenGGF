@@ -40,7 +40,7 @@ public final class GameRuntime {
     private final SpriteManager spriteManager;
     private final LevelManager levelManager;
 
-    private volatile BonusStageProvider activeBonusStageProvider = NoOpBonusStageProvider.INSTANCE;
+    private BonusStageProvider activeBonusStageProvider = NoOpBonusStageProvider.INSTANCE;
 
     /**
      * Package-private constructor — only {@link RuntimeManager} creates these.

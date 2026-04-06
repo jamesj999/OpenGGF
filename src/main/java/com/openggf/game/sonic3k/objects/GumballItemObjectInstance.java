@@ -77,11 +77,6 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
     // ROM: sub_61176 push force — muls.w #-$700,d1 / asr.l #8,d1
     private static final int PUSH_FORCE = 0x700;
 
-    // ROM: byte_1E44C4 — ring reward table indexed by (y_pos & 0xF)
-    private static final int[] RING_REWARD_TABLE = {
-            0x50, 0x32, 0x28, 0x23, 0x23, 0x1E, 0x1E, 0x14,
-            0x14, 0x0A, 0x0A, 0x0A, 0x0A, 0x05, 0x05, 0x05
-    };
 
     /** Subpixel motion state for MoveSprite2 + gravity deceleration. */
     private final SubpixelMotion.State motionState;
@@ -95,8 +90,6 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
     /** Mapping frame for rendering. */
     private final int mappingFrame;
 
-    /** Whether this item uses GumballBonus mappings (true) or PachinkoFItem (false). */
-    private final boolean useGumballMappings;
 
     /** Set true when player touches this item; triggers deletion next frame. */
     private boolean collected;
@@ -128,19 +121,8 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
         this.moving = moving;
         this.subtype = spawn.subtype() & 0xFF;
 
-        // ROM: Obj_GumballItem init (line 96824) sets mapping_frame = subtype + 7,
-        // BUT the ball object (loc_60EBA) stores animation pointers in $30(a0) via
-        // sub_612A8 → off_612F0, and Animate_Raw at loc_60ECE overrides the frame
-        // each tick. The animation scripts (byte_61466+) use subtype + 8 as the
-        // static frame (e.g., subtype 0 → frame 8, subtype 1 → frame 9).
-        // Use the ANIMATION frame (subtype + 8), not the init frame (subtype + 7).
-        if (subtype == 0) {
-            this.useGumballMappings = true;
-            this.mappingFrame = 8;  // byte_61466: $7F, 8, 8, $FC
-        } else {
-            this.useGumballMappings = true;
-            this.mappingFrame = subtype + 8;
-        }
+        // ROM animation scripts (byte_61466+) use subtype + 8 as the static frame.
+        this.mappingFrame = subtype + 8;
 
         this.motionState = new SubpixelMotion.State(
                 spawn.x(), spawn.y(), 0, 0, 0, initialYVel);
@@ -471,9 +453,7 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
         if (!GumballMachineObjectInstance.shouldDebugRender(getPriorityBucket(), isHighPriority())) return;
         // ROM: subtype 0 uses Map_PachinkoFItem, others use Map_GumballBonus
         // Both share the same art key in the engine (loaded together for the bonus stage)
-        String artKey = useGumballMappings
-                ? Sonic3kObjectArtKeys.GUMBALL_BONUS
-                : Sonic3kObjectArtKeys.GUMBALL_BONUS; // TODO: add PACHINKO_F_ITEM art key when pachinko is implemented
+        String artKey = Sonic3kObjectArtKeys.GUMBALL_BONUS;
         PatternSpriteRenderer renderer = getRenderer(artKey);
         if (renderer == null) {
             return;
