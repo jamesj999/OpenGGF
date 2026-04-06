@@ -153,21 +153,15 @@ public class GumballTriangleBumperObjectInstance extends AbstractObjectInstance
             // Prevent audio failure from breaking game logic
         }
 
-        // ROM: Both P1 and P2 can trigger bumper destruction in ROM (loc_60F64/loc_60F80
-        // both end with jmp Delete_Current_Sprite). However, only P1 should clear the
-        // gumball slot and destroy the bumper — sidekick (CPU-controlled P2) bounces
-        // but doesn't consume the bumper, matching the intended gameplay progression
-        // where the player must clear bumpers to advance the machine drift.
-        if (!player.isCpuControlled()) {
-            // ROM lines 127692-127698: bumper clears its slot byte on the machine
-            GumballMachineObjectInstance machine = GumballMachineObjectInstance.current();
-            if (machine != null) {
-                machine.onBumperHit(spawn.subtype() & 0xFF);
-            }
-
-            // ROM: jmp (Delete_Current_Sprite).l — bumper consumed after P1 bounce
-            setDestroyed(true);
+        // ROM lines 127692-127698: bumper clears its slot byte on the machine.
+        // Both P1 (loc_60F64) and P2 (loc_60F80) paths end with jmp Delete_Current_Sprite.
+        GumballMachineObjectInstance machine = GumballMachineObjectInstance.current();
+        if (machine != null) {
+            machine.onBumperHit(spawn.subtype() & 0xFF);
         }
+
+        // ROM: jmp (Delete_Current_Sprite).l — bumper consumed after bounce (both P1 and P2)
+        setDestroyed(true);
     }
 
     // --- Rendering ---
