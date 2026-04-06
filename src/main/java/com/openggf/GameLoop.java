@@ -1718,7 +1718,9 @@ public class GameLoop {
             entryPlayable.setHighPriority(true);
         }
 
-        // Music already started in doEnterBonusStage (at title card init)
+        // Fade from black — reveals the level now that the title card is exiting.
+        // Music already started in doEnterBonusStage (at title card init).
+        fadeManager.startFadeFromBlack(null);
     }
 
     // ==================== Master Title Screen Methods ====================

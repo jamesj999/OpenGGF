@@ -66,9 +66,9 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
     // matching ROM behavior where $C0+ objects use collision_property polling.
     private static final int COLLISION_FLAGS = 0x40 | 0x17;
 
-    // Engine draws buckets 7→0: body(4) → balls(3) → apparatus(1) → player(0).
-    // Balls at bucket 3: behind apparatus, in front of body, behind player.
-    private static final int PRIORITY_BUCKET = 3;
+    // Engine draws buckets 7→0: piles(7) → balls(6) → body(5) → apparatus(1) → player(0).
+    // Balls at bucket 6: behind body structure, in front of piles.
+    private static final int PRIORITY_BUCKET = 6;
 
     // ROM: loc_6114E — ring item awards 10 rings to HUD and 20 to saved count
     private static final int RING_ITEM_HUD_AWARD = 10;

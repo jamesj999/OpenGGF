@@ -944,7 +944,7 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         public int getPriorityBucket() {
             // Frame 0x16: structure pieces (HIGH pri) go at bucket 4.
             // The LOW pri gumball pile piece is drawn by a separate BodyPilesChild
-            // at bucket 6 (behind everything).
+            // at bucket 7 (behind everything).
             // Frames 0+1: reflection/glass at bucket 2.
             if (mappingFrame == 0x16) {
                 return RenderPriority.clamp(BODY_PRIORITY_BUCKET);  // bucket 5
@@ -976,8 +976,8 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
     /**
      * Renders ONLY the LOW priority pieces of frame 0x16 (gumball piles).
-     * Drawn at bucket 6 (furthest back) so piles appear behind everything:
-     * piles(6) → structure(5) → balls(3) → glass(2) → apparatus(1) → player(0)
+     * Drawn at bucket 7 (furthest back) so piles appear behind everything:
+     * piles(7) → balls(6) → structure(5) → glass(2) → apparatus(1) → player(0)
      */
     static class BodyPilesChild extends AbstractObjectInstance {
         private final int offsetFromMachine;
@@ -989,7 +989,7 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         @Override public boolean isPersistent() { return true; }
         @Override public boolean isHighPriority() { return false; }
-        @Override public int getPriorityBucket() { return RenderPriority.clamp(6); }
+        @Override public int getPriorityBucket() { return RenderPriority.clamp(7); }
         @Override public void update(int frameCounter, PlayableEntity p) {}
 
         @Override
