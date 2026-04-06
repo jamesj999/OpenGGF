@@ -70,11 +70,9 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
     private static final int ACTIVATE_Y_MAX = 8;    // yOffset + height
 
     // Machine and most children render at bucket 1 (behind Sonic at bucket 2).
-    // Engine draws buckets 7→0. Within each bucket: sprites (player) draw
-    // before objects. Player is at bucket 2 (PLAYER_DEFAULT). Machine at
-    // bucket 3 draws BEFORE player (7→0), so player renders on top.
-    // On the VDP, Sonic (sprite table 0) renders on top of machine objects.
-    private static final int PRIORITY_BUCKET = 3;
+    // Machine at bucket 1. Player's bucket is lowered to 0 during bonus stage
+    // (drawn last in 7→0 loop = on top). Ball at bucket 2 draws before machine.
+    private static final int PRIORITY_BUCKET = 1;
 
     // ROM: byte_61450 = [3, 5, 6, 7, $14, 5, $FF]
     // First byte (3) is the per-frame timer, NOT a mapping frame.

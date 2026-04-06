@@ -1101,8 +1101,10 @@ public class GameLoop {
      * plane switching) can clear it. Re-assert every frame.
      */
     /**
-     * Forces ALL player sprites to VDP high priority during the bonus stage.
+     * Forces ALL player sprites to VDP high priority AND bucket 0 during bonus stage.
      * ROM lines 127411-127412: bset #7 on BOTH Player_1 AND Player_2 art_tile.
+     * Bucket 0 is drawn last in the 7→0 loop, ensuring the player renders on top
+     * of all machine objects (bucket 1) and balls (bucket 2).
      */
     private void forcePlayerHighPriorityInBonusStage() {
         boolean changed = false;
@@ -1110,6 +1112,10 @@ public class GameLoop {
             if (sprite instanceof AbstractPlayableSprite playable) {
                 if (!playable.isHighPriority()) {
                     playable.setHighPriority(true);
+                    changed = true;
+                }
+                if (playable.getPriorityBucket() != 0) {
+                    playable.setPriorityBucket(0);
                     changed = true;
                 }
             }
@@ -1222,6 +1228,7 @@ public class GameLoop {
             // priority will be determined by plane switching / zone events.
             // loadZoneAndAct() + resetState() should clear this, but be explicit.
             playable.setHighPriority(false);
+            playable.setPriorityBucket(2); // RenderPriority.PLAYER_DEFAULT
         }
 
         // Restore camera
