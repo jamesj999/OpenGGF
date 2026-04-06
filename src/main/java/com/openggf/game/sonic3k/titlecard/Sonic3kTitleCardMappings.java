@@ -40,6 +40,9 @@ public final class Sonic3kTitleCardMappings {
     public static final int FRAME_DEZ = 15;
     public static final int FRAME_DDZ = 16;
     public static final int FRAME_HPZ = 17;
+    public static final int FRAME_COMPETITION = 18;
+    public static final int FRAME_BONUS = 19;
+    public static final int FRAME_STAGE = 20;
 
     // Helper to create a piece with standard flags (priority=true, palette=0, no flip)
     private static TitleCardMappings.SpritePiece p(int x, int y, int w, int h, int tile) {
@@ -277,6 +280,25 @@ public final class Sonic3kTitleCardMappings {
             p(112, 0, 2, 3, 0x51C),
     };
 
+    // Frame 19: "BONUS" (5 pieces) — Map - Title Card.asm line 204
+    // Frame 18 (Competition) shares the same data (labels alias in disasm)
+    private static final TitleCardMappings.SpritePiece[] TC_BONUS = {
+            p(  0, 0, 2, 3, 0x553),  // B
+            p( 16, 0, 3, 3, 0x528),  // O
+            p( 40, 0, 2, 3, 0x55F),  // N
+            p( 56, 0, 2, 3, 0x571),  // U
+            p( 72, 0, 2, 3, 0x565),  // S
+    };
+
+    // Frame 20: "STAGE" (5 pieces) — Map - Title Card.asm line 210
+    private static final TitleCardMappings.SpritePiece[] TC_STAGE = {
+            p(  0, 0, 2, 3, 0x565),  // S
+            p( 16, 0, 2, 3, 0x56B),  // T
+            p( 32, 0, 2, 3, 0x54D),  // A
+            p( 48, 0, 2, 3, 0x559),  // G
+            p( 64, 0, 2, 3, 0x51C),  // E
+    };
+
     // Empty frame
     private static final TitleCardMappings.SpritePiece[] TC_BLANK = {};
 
@@ -303,6 +325,9 @@ public final class Sonic3kTitleCardMappings {
             case FRAME_DEZ -> TC_DEZ;
             case FRAME_DDZ -> TC_DDZ;
             case FRAME_HPZ -> TC_HPZ;
+            case FRAME_COMPETITION -> TC_BONUS;
+            case FRAME_BONUS -> TC_BONUS;
+            case FRAME_STAGE -> TC_STAGE;
             default -> TC_BLANK;
         };
     }
