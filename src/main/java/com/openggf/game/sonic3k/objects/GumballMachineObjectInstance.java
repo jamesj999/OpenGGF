@@ -921,10 +921,11 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         @Override
         public boolean isHighPriority() {
             // ROM: ObjDat3_6138C uses make_art_tile(ArtTile_BonusStage, 0, 0) — priority 0.
-            // Low-priority sprites render behind high-priority FG tiles (cage bars)
-            // but in front of low-priority FG tiles (machine fill/background).
-            // This creates the "inside the machine" visual layering.
-            return false;
+            // Ideally this would be LOW priority (behind cage bars, in front of fill).
+            // But the engine's FG tiles may all be high-priority, causing low-priority
+            // sprites to be hidden entirely. Set HIGH so the body renders in front of
+            // the VSCROLL'd FG tiles. The VSCROLL keeps tiles and sprites aligned.
+            return true;
         }
 
         @Override
@@ -987,9 +988,9 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         @Override
         public boolean isHighPriority() {
             // ROM: ObjDat3_613EC make_art_tile($000, 0, 0) — priority 0 (LOW).
-            // The shine overlay renders behind the high-priority cage tiles,
-            // visible through their transparent pixels.
-            return false;
+            // Set HIGH to match the body sprite — both must render in front of
+            // the VSCROLL'd FG tiles so the machine body is visible.
+            return true;
         }
 
         @Override
