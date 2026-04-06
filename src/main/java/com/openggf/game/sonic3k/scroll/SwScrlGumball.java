@@ -70,8 +70,10 @@ public class SwScrlGumball extends AbstractZoneScrollHandler {
     // center falls within this range.
     // Tuned from chunk boundaries [0x80, 0x180) by narrowing 3 columns (48px)
     // on each side to match the visible machine body tile area.
-    private static final int MACHINE_BODY_MIN_X = 0xB0;  // 0x80 + 0x30
-    private static final int MACHINE_BODY_MAX_X = 0x150; // 0x180 - 0x30
+    // Tuned from chunk boundaries [0x80, 0x180) by narrowing 4 columns (64px)
+    // on each side to match the visible machine body tile area.
+    private static final int MACHINE_BODY_MIN_X = 0xC0;  // 0x80 + 0x40
+    private static final int MACHINE_BODY_MAX_X = 0x140; // 0x180 - 0x40
 
     private final short[] fgColumns = new short[COLUMN_COUNT];
     private boolean fgColumnsActive;
