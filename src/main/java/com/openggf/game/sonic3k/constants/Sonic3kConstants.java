@@ -743,6 +743,11 @@ public class Sonic3kConstants {
             0x15CC30,  // 13 HPZ - ArtKosM_HPZTitleCard (1152 bytes)
     };
 
+    // Bonus stage title card letter art (KosinskiM, 354 bytes → 42 tiles)
+    // Loaded to VRAM $54D in place of zone-specific letters.
+    // ROM verified by binary match at 0x0D726C (follows ArtKosM_FBZTitleCard).
+    public static final int ART_KOSM_BONUS_TITLE_CARD_ADDR = 0x0D726C;
+
     // VRAM tile destinations for title card art blocks
     public static final int VRAM_TITLE_CARD_BASE = 0x500;       // RedAct base
     public static final int VRAM_TITLE_CARD_ZONE_TEXT = 0x510;   // S3KZone text overwrites
