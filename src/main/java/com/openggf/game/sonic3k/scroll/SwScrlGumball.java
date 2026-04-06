@@ -64,11 +64,16 @@ public class SwScrlGumball extends AbstractZoneScrollHandler {
      * entire visible column, so we need to apply it to ALL columns that
      * overlap the machine body — otherwise only 32px of the body moves.
      */
-    // Machine body tiles: chunks 1-2 span world X [0x80, 0x180).
-    // Add 8px (half-column) inset on each side to prevent wall tiles from
-    // being caught when a 16px column straddles the chunk boundary.
-    private static final int MACHINE_BODY_MIN_X = 0x88;
-    private static final int MACHINE_BODY_MAX_X = 0x178;
+    // ROM: Refresh_PlaneDirectVScroll processes the scatter array {$C0, $80, $7FFF}
+    // relative to Camera_X_pos_rounded. With camera at ~0x60:
+    //   Strip 0: first $C0 (192px) = 12 columns → uses VSRAM entry 0 (cameraY)
+    //   Strip 1: next $80 (128px) = 8 columns → uses VSRAM entry 1 (machineY)
+    // So the machine-tracked strip starts at cameraX + 192 and covers 128px.
+    //
+    // Rather than hardcoding world X bounds (which depend on camera position),
+    // compute column ranges based on the scatter array offsets from the camera.
+    private static final int STRIP_0_WIDTH_PX = 0xC0;  // 192px = 12 columns
+    private static final int STRIP_1_WIDTH_PX = 0x80;  // 128px = 8 columns
 
     private final short[] fgColumns = new short[COLUMN_COUNT];
     private boolean fgColumnsActive;
@@ -119,29 +124,20 @@ public class SwScrlGumball extends AbstractZoneScrollHandler {
         int machineY = machine.getCurrentY();
         short machineDelta = (short) (Y_BASE_OFFSET - machineY);
 
-        // Log column classification on first frame for debugging
-        if (!fgColumnsActive) {
-            java.util.logging.Logger.getLogger("SwScrlGumball").info(
-                    "VSCROLL columns: cameraX=" + cameraX
-                            + " bodyRange=[" + MACHINE_BODY_MIN_X + "," + MACHINE_BODY_MAX_X + ")"
-                            + " machineDelta=" + machineDelta);
-        }
+        // ROM Refresh_PlaneDirectVScroll: scatter array {$C0, $80, $7FFF}
+        // relative to Camera_X_pos_rounded. Strip 0 = first 192px (12 cols) = cameraY.
+        // Strip 1 = next 128px (8 cols) = machineY. Strip 2+ = cameraY.
+        int strip0Cols = STRIP_0_WIDTH_PX / 16;  // 12
+        int strip1Cols = STRIP_1_WIDTH_PX / 16;  // 8
+        int strip1Start = strip0Cols;             // column 12
+        int strip1End = strip0Cols + strip1Cols;  // column 20
 
-        int machineColCount = 0;
         for (int col = 0; col < COLUMN_COUNT; col++) {
-            int worldX = cameraX + col * 16;
-            if (worldX >= MACHINE_BODY_MIN_X && worldX < MACHINE_BODY_MAX_X) {
+            if (col >= strip1Start && col < strip1End) {
                 fgColumns[col] = machineDelta;
-                machineColCount++;
             } else {
-                fgColumns[col] = 0;  // no extra offset — normal camera scroll
+                fgColumns[col] = 0;
             }
-        }
-
-        if (!fgColumnsActive) {
-            java.util.logging.Logger.getLogger("SwScrlGumball").info(
-                    "VSCROLL: " + machineColCount + " machine cols, "
-                            + (COLUMN_COUNT - machineColCount) + " wall cols");
         }
         fgColumnsActive = true;
     }
