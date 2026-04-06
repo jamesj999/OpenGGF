@@ -89,18 +89,26 @@ public class SwScrlGumball extends AbstractZoneScrollHandler {
             return;
         }
 
+        // The shader adds columnVScroll as a DELTA on top of WorldOffsetY (which
+        // is already cameraY). So non-machine columns must be 0 (no extra offset).
+        // Machine-tracked columns use a DELTA: the difference between machine-tracked
+        // scroll and normal camera scroll.
+        //
+        // ROM: d1 = cameraY + $C8 - machineY (absolute VSCROLL for the strip).
+        // As a delta from cameraY: delta = d1 - cameraY = $C8 - machineY.
+        // When machine is at savedY (no drift): delta = $C8 - savedY.
+        // As machine drifts DOWN (machineY increases): delta decreases (tiles scroll up
+        // relative to camera) — which is correct: the tiles "stay with" the machine
+        // while the camera pans normally.
         int machineY = machine.getCurrentY();
-        short machineTrackedY = (short) (cameraY + Y_BASE_OFFSET - machineY);
-        short cameraTrackedY = (short) cameraY;
+        short machineDelta = (short) (Y_BASE_OFFSET - machineY);
 
-        // Per-column scatter: columns overlapping the machine body use the
-        // machine-tracked Y, columns outside use the camera Y.
         for (int col = 0; col < COLUMN_COUNT; col++) {
             int worldX = cameraX + col * 16;
             if (worldX >= MACHINE_BODY_MIN_X && worldX < MACHINE_BODY_MAX_X) {
-                fgColumns[col] = machineTrackedY;
+                fgColumns[col] = machineDelta;
             } else {
-                fgColumns[col] = cameraTrackedY;
+                fgColumns[col] = 0;  // no extra offset — normal camera scroll
             }
         }
         fgColumnsActive = true;
