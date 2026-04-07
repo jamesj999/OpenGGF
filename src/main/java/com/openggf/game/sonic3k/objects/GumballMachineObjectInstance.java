@@ -1000,9 +1000,10 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
                     : spawn.y();
             if (mappingFrame == 0x16) {
                 if (GraphicsManager.getInstance().isSpriteSatCollectionActive()) {
-                    // In the SAT/mask path, preserve the original ROM mapping-piece order.
-                    // Splitting low/high into separate submits reorders the mixed frame and
-                    // brings the interior pile in front of the shell during replay.
+                    // In the SAT/mask path, keep the original mapping-piece order intact.
+                    // Frame 0x16 only has one LOW piece in ROM, so splitting it by mapping
+                    // priority and replaying the HIGH pieces in front is not a valid model
+                    // for the full-width interior occlusion that the hardware mask produces.
                     renderer.drawFrameIndex(mappingFrame, spawn.x(), renderY, false, false, 0);
                     return;
                 }

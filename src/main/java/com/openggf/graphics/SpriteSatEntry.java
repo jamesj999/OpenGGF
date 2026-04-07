@@ -18,6 +18,7 @@ public record SpriteSatEntry(
         boolean vFlip,
         boolean piecePriority,
         boolean globalHighPriority,
+        SpriteMaskReplayRole maskReplayRole,
         int startColTile,
         int colCountTiles,
         int startRowTile,
@@ -76,6 +77,7 @@ public record SpriteSatEntry(
                 vFlip,
                 piecePriority,
                 globalHighPriority,
+                SpriteMaskReplayRole.NORMAL,
                 0,
                 widthTiles,
                 0,
@@ -95,6 +97,7 @@ public record SpriteSatEntry(
                 piece.vFlip(),
                 piece.piecePriority(),
                 piece.globalHighPriority(),
+                piece.maskReplayRole(),
                 piece.startColTile(),
                 piece.colCountTiles(),
                 piece.startRowTile(),
@@ -114,6 +117,7 @@ public record SpriteSatEntry(
                 vFlip,
                 piecePriority,
                 globalHighPriority,
+                maskReplayRole,
                 startColTile,
                 colCountTiles,
                 startRowTile,
@@ -154,6 +158,7 @@ public record SpriteSatEntry(
                 vFlip,
                 piecePriority,
                 globalHighPriority,
+                maskReplayRole,
                 clippedStartColTile,
                 clippedColCountTiles,
                 clippedStartRowTile,
@@ -162,5 +167,25 @@ public record SpriteSatEntry(
 
     public SpriteSatEntry clipRows(int clippedStartRowTile, int clippedRowCountTiles) {
         return clipRect(startColTile, colCountTiles, clippedStartRowTile, clippedRowCountTiles);
+    }
+
+    public SpriteSatEntry withMaskReplayRole(SpriteMaskReplayRole overriddenMaskReplayRole) {
+        return new SpriteSatEntry(
+                x,
+                y,
+                widthTiles,
+                heightTiles,
+                firstPatternIndex,
+                rawTileWordLow11,
+                paletteIndex,
+                hFlip,
+                vFlip,
+                piecePriority,
+                globalHighPriority,
+                overriddenMaskReplayRole,
+                startColTile,
+                colCountTiles,
+                startRowTile,
+                rowCountTiles);
     }
 }

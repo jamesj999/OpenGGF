@@ -1,6 +1,7 @@
 package com.openggf.level.render;
 
 import com.openggf.graphics.GraphicsManager;
+import com.openggf.graphics.SpriteMaskReplayRole;
 import com.openggf.level.PatternDesc;
 import com.openggf.level.Pattern;
 
@@ -270,6 +271,13 @@ public class PatternSpriteRenderer {
      */
     public void drawFrameIndexFilteredByPriority(int frameIndex, int originX, int originY,
             boolean hFlip, boolean vFlip, int paletteOverride, boolean priorityFilter) {
+        drawFrameIndexFilteredByPriority(frameIndex, originX, originY, hFlip, vFlip,
+                paletteOverride, priorityFilter, SpriteMaskReplayRole.NORMAL);
+    }
+
+    public void drawFrameIndexFilteredByPriority(int frameIndex, int originX, int originY,
+            boolean hFlip, boolean vFlip, int paletteOverride, boolean priorityFilter,
+            SpriteMaskReplayRole satReplayRole) {
         if (frameIndex < 0 || frameIndex >= spriteSheet.getFrameCount() || patternBase < 0) {
             return;
         }
@@ -286,7 +294,8 @@ public class PatternSpriteRenderer {
                 SpritePieceRenderer.preparePiece(
                         piece, originX, originY, patternBase, paletteIndex, hFlip, vFlip,
                         graphicsManager.getCurrentSpriteHighPriority(),
-                        graphicsManager::submitSpriteSatPiece);
+                        preparedPiece -> graphicsManager.submitSpriteSatPiece(
+                                preparedPiece.withMaskReplayRole(satReplayRole)));
             }
             return;
         }
