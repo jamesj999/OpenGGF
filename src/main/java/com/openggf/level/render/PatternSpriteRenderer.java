@@ -163,6 +163,20 @@ public class PatternSpriteRenderer {
             boolean hFlip,
             boolean vFlip,
             int paletteIndex) {
+        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        if (graphicsManager.isSpriteSatCollectionActive()) {
+            SpritePieceRenderer.preparePiece(
+                    piece,
+                    originX,
+                    originY,
+                    patternBase,
+                    paletteIndex,
+                    hFlip,
+                    vFlip,
+                    graphicsManager.getCurrentSpriteHighPriority(),
+                    graphicsManager::submitSpriteSatPiece);
+            return;
+        }
         boolean piecePriority = piece.priority();
         SpritePieceRenderer.renderPiece(
                 piece,
@@ -185,7 +199,7 @@ public class PatternSpriteRenderer {
                     }
                     descIndex |= (palIdx & 0x3) << 13;
                     reusableDesc.set(descIndex);
-                    GraphicsManager.getInstance().renderPatternWithId(patternIdx, reusableDesc, drawX, drawY);
+                    graphicsManager.renderPatternWithId(patternIdx, reusableDesc, drawX, drawY);
                 });
     }
 
@@ -195,6 +209,22 @@ public class PatternSpriteRenderer {
             boolean hFlip,
             boolean vFlip,
             int paletteIndex) {
+        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        if (graphicsManager.isSpriteSatCollectionActive()) {
+            for (int i = 0; i < pieces.size(); i++) {
+                SpritePieceRenderer.preparePiece(
+                        pieces.get(i),
+                        originX,
+                        originY,
+                        patternBase,
+                        paletteIndex,
+                        hFlip,
+                        vFlip,
+                        graphicsManager.getCurrentSpriteHighPriority(),
+                        graphicsManager::submitSpriteSatPiece);
+            }
+            return;
+        }
         // Draw in reverse order (Painter's Algorithm) so that the first piece in the
         // list (index 0)
         // is drawn LAST, appearing on top. This matches Genesis behavior where lower
@@ -226,7 +256,7 @@ public class PatternSpriteRenderer {
                         descIndex |= (palIdx & 0x3) << 13;
                         reusableDesc.set(descIndex);
                         // Use full patternIndex for texture lookup (avoids 11-bit limit)
-                        GraphicsManager.getInstance().renderPatternWithId(patternIdx, reusableDesc, drawX, drawY);
+                        graphicsManager.renderPatternWithId(patternIdx, reusableDesc, drawX, drawY);
                     });
         }
     }
@@ -246,6 +276,20 @@ public class PatternSpriteRenderer {
         SpriteFrame<? extends SpriteFramePiece> frame = spriteSheet.getFrame(frameIndex);
         int paletteIndex = paletteOverride >= 0 ? paletteOverride : spriteSheet.getPaletteIndex();
         List<? extends SpriteFramePiece> pieces = frame.pieces();
+        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        if (graphicsManager.isSpriteSatCollectionActive()) {
+            for (int i = 0; i < pieces.size(); i++) {
+                SpriteFramePiece piece = pieces.get(i);
+                if (piece.priority() != priorityFilter) {
+                    continue;
+                }
+                SpritePieceRenderer.preparePiece(
+                        piece, originX, originY, patternBase, paletteIndex, hFlip, vFlip,
+                        graphicsManager.getCurrentSpriteHighPriority(),
+                        graphicsManager::submitSpriteSatPiece);
+            }
+            return;
+        }
         for (int i = pieces.size() - 1; i >= 0; i--) {
             SpriteFramePiece piece = pieces.get(i);
             if (piece.priority() != priorityFilter) {
@@ -261,7 +305,7 @@ public class PatternSpriteRenderer {
                         if (pieceVFlip) descIndex |= 0x1000;
                         descIndex |= (palIdx & 0x3) << 13;
                         reusableDesc.set(descIndex);
-                        GraphicsManager.getInstance().renderPatternWithId(patternIdx, reusableDesc, drawX, drawY);
+                        graphicsManager.renderPatternWithId(patternIdx, reusableDesc, drawX, drawY);
                     });
         }
     }
@@ -287,6 +331,23 @@ public class PatternSpriteRenderer {
             boolean vFlip,
             int paletteIndex,
             boolean forcedPriority) {
+        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        if (graphicsManager.isSpriteSatCollectionActive()) {
+            for (int i = 0; i < pieces.size(); i++) {
+                SpritePieceRenderer.preparePiece(
+                        pieces.get(i),
+                        originX,
+                        originY,
+                        patternBase,
+                        paletteIndex,
+                        hFlip,
+                        vFlip,
+                        graphicsManager.getCurrentSpriteHighPriority(),
+                        preparedPiece -> graphicsManager.submitSpriteSatPiece(
+                                preparedPiece.withPriorityFlags(forcedPriority, forcedPriority || graphicsManager.getCurrentSpriteHighPriority())));
+            }
+            return;
+        }
         for (int i = pieces.size() - 1; i >= 0; i--) {
             SpriteFramePiece piece = pieces.get(i);
             SpritePieceRenderer.renderPiece(
@@ -310,7 +371,7 @@ public class PatternSpriteRenderer {
                         }
                         descIndex |= (palIdx & 0x3) << 13;
                         reusableDesc.set(descIndex);
-                        GraphicsManager.getInstance().renderPatternWithId(patternIdx, reusableDesc, drawX, drawY);
+                        graphicsManager.renderPatternWithId(patternIdx, reusableDesc, drawX, drawY);
                     });
         }
     }

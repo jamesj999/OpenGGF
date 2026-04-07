@@ -19,11 +19,11 @@ class TestGumballItemPriority {
     }
 
     @Test
-    void machineEjectedGumballItem_usesHighBucket2Priority() {
+    void machineEjectedGumballItem_usesHighBucket3Priority() {
         GumballItemObjectInstance item =
                 new GumballItemObjectInstance(new ObjectSpawn(0x100, 0x180, 0xEB, 0x00, 0, false, 0), 0, true);
 
-        assertEquals(2, item.getPriorityBucket());
+        assertEquals(3, item.getPriorityBucket());
         assertTrue(item.isHighPriority());
     }
 

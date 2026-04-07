@@ -11,9 +11,118 @@ public final class SpritePieceRenderer {
     private SpritePieceRenderer() {
     }
 
+    public record PreparedPiece(
+            int x,
+            int y,
+            int widthTiles,
+            int heightTiles,
+            int firstPatternIndex,
+            int rawTileWordLow11,
+            int paletteIndex,
+            boolean hFlip,
+            boolean vFlip,
+            boolean piecePriority,
+            boolean globalHighPriority,
+            int startColTile,
+            int colCountTiles,
+            int startRowTile,
+            int rowCountTiles
+    ) {
+        public PreparedPiece {
+            if (widthTiles < 0 || heightTiles < 0) {
+                throw new IllegalArgumentException("Tile dimensions must be non-negative");
+            }
+            if (startColTile < 0 || colCountTiles < 0 || startColTile + colCountTiles > widthTiles) {
+                throw new IllegalArgumentException("Clipped columns must stay within the piece width");
+            }
+            if (startRowTile < 0 || rowCountTiles < 0 || startRowTile + rowCountTiles > heightTiles) {
+                throw new IllegalArgumentException("Clipped rows must stay within the piece height");
+            }
+        }
+
+        public PreparedPiece(
+                int x,
+                int y,
+                int widthTiles,
+                int heightTiles,
+                int firstPatternIndex,
+                int rawTileWordLow11,
+                int paletteIndex,
+                boolean hFlip,
+                boolean vFlip,
+                boolean piecePriority,
+                boolean globalHighPriority,
+                int startRowTile,
+                int rowCountTiles
+        ) {
+            this(x, y, widthTiles, heightTiles, firstPatternIndex, rawTileWordLow11, paletteIndex,
+                    hFlip, vFlip, piecePriority, globalHighPriority, 0, widthTiles, startRowTile, rowCountTiles);
+        }
+
+        public int endXExclusive() {
+            return x + (widthTiles * Pattern.PATTERN_WIDTH);
+        }
+
+        public int endYExclusive() {
+            return y + (heightTiles * Pattern.PATTERN_HEIGHT);
+        }
+
+        public PreparedPiece clipRect(
+                int clippedStartColTile,
+                int clippedColCountTiles,
+                int clippedStartRowTile,
+                int clippedRowCountTiles
+        ) {
+            return new PreparedPiece(
+                    x,
+                    y,
+                    widthTiles,
+                    heightTiles,
+                    firstPatternIndex,
+                    rawTileWordLow11,
+                    paletteIndex,
+                    hFlip,
+                    vFlip,
+                    piecePriority,
+                    globalHighPriority,
+                    clippedStartColTile,
+                    clippedColCountTiles,
+                    clippedStartRowTile,
+                    clippedRowCountTiles);
+        }
+
+        public PreparedPiece clipRows(int clippedStartRowTile, int clippedRowCountTiles) {
+            return clipRect(startColTile, colCountTiles, clippedStartRowTile, clippedRowCountTiles);
+        }
+
+        public PreparedPiece withPriorityFlags(boolean overriddenPiecePriority, boolean overriddenGlobalHighPriority) {
+            return new PreparedPiece(
+                    x,
+                    y,
+                    widthTiles,
+                    heightTiles,
+                    firstPatternIndex,
+                    rawTileWordLow11,
+                    paletteIndex,
+                    hFlip,
+                    vFlip,
+                    overriddenPiecePriority,
+                    overriddenGlobalHighPriority,
+                    startColTile,
+                    colCountTiles,
+                    startRowTile,
+                    rowCountTiles);
+        }
+    }
+
     @FunctionalInterface
     public interface TileConsumer {
         void render(int patternIndex, boolean hFlip, boolean vFlip, int paletteIndex, int drawX, int drawY);
+    }
+
+    @FunctionalInterface
+    public interface PieceConsumer {
+        void render(PreparedPiece piece);
     }
 
     /**
@@ -32,8 +141,8 @@ public final class SpritePieceRenderer {
         if (piece == null || consumer == null) {
             return;
         }
-        renderPieceInternal(piece, originX, originY, basePatternIndex, defaultPaletteIndex,
-                frameHFlip, frameVFlip, consumer);
+        preparePiece(piece, originX, originY, basePatternIndex, defaultPaletteIndex,
+                frameHFlip, frameVFlip, false, preparedPiece -> renderPreparedPiece(preparedPiece, consumer));
     }
 
     public static void renderPieces(
@@ -50,12 +159,12 @@ public final class SpritePieceRenderer {
             return;
         }
         for (SpriteFramePiece piece : pieces) {
-            renderPieceInternal(piece, originX, originY, basePatternIndex, defaultPaletteIndex,
-                    frameHFlip, frameVFlip, consumer);
+            preparePiece(piece, originX, originY, basePatternIndex, defaultPaletteIndex,
+                    frameHFlip, frameVFlip, false, preparedPiece -> renderPreparedPiece(preparedPiece, consumer));
         }
     }
 
-    private static void renderPieceInternal(
+    public static void preparePiece(
             SpriteFramePiece piece,
             int originX,
             int originY,
@@ -63,8 +172,12 @@ public final class SpritePieceRenderer {
             int defaultPaletteIndex,
             boolean frameHFlip,
             boolean frameVFlip,
-            TileConsumer consumer
+            boolean globalHighPriority,
+            PieceConsumer consumer
     ) {
+        if (piece == null || consumer == null) {
+            return;
+        }
         int widthTiles = piece.widthTiles();
         int heightTiles = piece.heightTiles();
         int widthPixels = widthTiles * Pattern.PATTERN_WIDTH;
@@ -89,20 +202,50 @@ public final class SpritePieceRenderer {
         // If defaultPaletteIndex is negative, use piece's palette directly (absolute).
         // Otherwise, ADD piece's palette to the default (matching Sonic 2 art_tile behavior
         // where the pattern name word is added to art_tile, including palette bits).
-        int paletteIndex = defaultPaletteIndex < 0 ? piece.paletteIndex()
-                : ((piece.paletteIndex() + defaultPaletteIndex) & 3);
+        int paletteIndex;
+        if (defaultPaletteIndex < 0) {
+            paletteIndex = piece.paletteIndex();
+        } else {
+            int paletteBankBits = defaultPaletteIndex & ~0x3;
+            int paletteLineLowBits = (piece.paletteIndex() + defaultPaletteIndex) & 0x3;
+            paletteIndex = paletteBankBits | paletteLineLowBits;
+        }
 
-        for (int ty = 0; ty < heightTiles; ty++) {
-            for (int tx = 0; tx < widthTiles; tx++) {
-                int srcX = pieceHFlip ? (widthTiles - 1 - tx) : tx;
-                int srcY = pieceVFlip ? (heightTiles - 1 - ty) : ty;
-                int tileOffset = (tx * heightTiles) + ty;
-                int patternIndex = basePatternIndex + piece.tileIndex() + tileOffset;
+        consumer.render(new PreparedPiece(
+                pieceX,
+                pieceY,
+                widthTiles,
+                heightTiles,
+                basePatternIndex + piece.tileIndex(),
+                piece.tileIndex() & 0x7FF,
+                paletteIndex,
+                pieceHFlip,
+                pieceVFlip,
+                piece.priority(),
+                globalHighPriority,
+                0,
+                widthTiles,
+                0,
+                heightTiles));
+    }
 
-                int drawX = pieceX + (srcX * Pattern.PATTERN_WIDTH);
-                int drawY = pieceY + (srcY * Pattern.PATTERN_HEIGHT);
+    public static void renderPreparedPiece(PreparedPiece piece, TileConsumer consumer) {
+        if (piece == null || consumer == null) {
+            return;
+        }
+        for (int ty = 0; ty < piece.rowCountTiles(); ty++) {
+            int originalRow = piece.startRowTile() + ty;
+            for (int tx = 0; tx < piece.colCountTiles(); tx++) {
+                int originalCol = piece.startColTile() + tx;
+                int srcX = piece.hFlip() ? (piece.widthTiles() - 1 - originalCol) : originalCol;
+                int srcY = piece.vFlip() ? (piece.heightTiles() - 1 - originalRow) : originalRow;
+                int tileOffset = (originalCol * piece.heightTiles()) + originalRow;
+                int patternIndex = piece.firstPatternIndex() + tileOffset;
 
-                consumer.render(patternIndex, pieceHFlip, pieceVFlip, paletteIndex, drawX, drawY);
+                int drawX = piece.x() + (srcX * Pattern.PATTERN_WIDTH);
+                int drawY = piece.y() + (srcY * Pattern.PATTERN_HEIGHT);
+
+                consumer.render(patternIndex, piece.hFlip(), piece.vFlip(), piece.paletteIndex(), drawX, drawY);
             }
         }
     }

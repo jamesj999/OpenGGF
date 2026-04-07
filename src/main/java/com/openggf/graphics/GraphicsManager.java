@@ -7,6 +7,7 @@ import com.openggf.level.Palette;
 import com.openggf.level.Pattern;
 import com.openggf.level.PatternDesc;
 import com.openggf.level.render.BackgroundRenderer;
+import com.openggf.level.render.SpritePieceRenderer;
 
 import static com.openggf.level.LevelConstants.*;
 
@@ -71,6 +72,9 @@ public class GraphicsManager {
 	// Sprite priority shader mode flags
 	private boolean useSpritePriorityShader = false;
 	private boolean currentSpriteHighPriority = false;
+	private boolean spriteSatCollectionActive = false;
+	private boolean spriteMaskRequested = false;
+	private final List<SpriteSatEntry> spriteSatEntries = new ArrayList<>();
 	// Background renderer for per-scanline parallax scrolling
 	private BackgroundRenderer backgroundRenderer;
 	private TilemapGpuRenderer tilemapGpuRenderer;
@@ -1066,6 +1070,9 @@ public class GraphicsManager {
 		useUnderwaterPaletteForBackground = false;
 		useSpritePriorityShader = false;
 		currentSpriteHighPriority = false;
+		spriteSatCollectionActive = false;
+		spriteMaskRequested = false;
+		spriteSatEntries.clear();
 		waterlineScreenY = 0;
 		windowHeight = 224;
 		screenHeight = 224;
@@ -1176,6 +1183,81 @@ public class GraphicsManager {
 	 */
 	public boolean getCurrentSpriteHighPriority() {
 		return currentSpriteHighPriority;
+	}
+
+	public void beginSpriteSatCollection() {
+		spriteSatCollectionActive = true;
+		spriteMaskRequested = false;
+		spriteSatEntries.clear();
+	}
+
+	public boolean isSpriteSatCollectionActive() {
+		return spriteSatCollectionActive;
+	}
+
+	public void requestSpriteMask() {
+		if (spriteSatCollectionActive) {
+			spriteMaskRequested = true;
+		}
+	}
+
+	public void submitSpriteSatPiece(SpritePieceRenderer.PreparedPiece piece) {
+		if (!spriteSatCollectionActive || piece == null) {
+			return;
+		}
+		spriteSatEntries.add(SpriteSatEntry.fromPreparedPiece(piece));
+	}
+
+	public void endSpriteSatCollectionAndReplay() {
+		if (!spriteSatCollectionActive) {
+			return;
+		}
+
+		List<SpriteSatEntry> collectedEntries = new ArrayList<>(spriteSatEntries);
+		boolean applyMask = spriteMaskRequested;
+
+		spriteSatCollectionActive = false;
+		spriteMaskRequested = false;
+		spriteSatEntries.clear();
+
+		List<SpriteSatEntry> processedEntries = SpriteSatMaskPostProcessor.process(collectedEntries, applyMask);
+		if (processedEntries.isEmpty()) {
+			return;
+		}
+
+		Boolean currentReplayPriority = null;
+		for (int i = processedEntries.size() - 1; i >= 0; i--) {
+			SpriteSatEntry entry = processedEntries.get(i);
+			boolean replayPriority = entry.globalHighPriority();
+			if (currentReplayPriority == null || currentReplayPriority != replayPriority) {
+				flushPatternBatch();
+				setCurrentSpriteHighPriority(replayPriority);
+				beginPatternBatch();
+				currentReplayPriority = replayPriority;
+			}
+			renderCollectedSpriteSatEntry(entry);
+		}
+	}
+
+	private void renderCollectedSpriteSatEntry(SpriteSatEntry entry) {
+		SpritePieceRenderer.renderPreparedPiece(entry.toPreparedPiece(),
+				(patternIndex, pieceHFlip, pieceVFlip, paletteIndex, drawX, drawY) -> {
+					int descIndex = patternIndex & 0x7FF;
+					if (entry.piecePriority()) {
+						descIndex |= 0x8000;
+					}
+					if (pieceHFlip) {
+						descIndex |= 0x800;
+					}
+					if (pieceVFlip) {
+						descIndex |= 0x1000;
+					}
+					descIndex |= (paletteIndex & 0x3) << 13;
+					PatternDesc desc = new PatternDesc();
+					desc.set(descIndex);
+					desc.setPaletteIndex(paletteIndex);
+					renderPatternWithId(patternIndex, desc, drawX, drawY);
+				});
 	}
 
 	public WaterShaderProgram getWaterShaderProgram() {

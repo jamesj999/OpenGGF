@@ -5,6 +5,7 @@ import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.graphics.GLCommand;
+import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
@@ -998,6 +999,13 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
                     ? machine.getCurrentY() + offsetFromMachine
                     : spawn.y();
             if (mappingFrame == 0x16) {
+                if (GraphicsManager.getInstance().isSpriteSatCollectionActive()) {
+                    // In the SAT/mask path, preserve the original ROM mapping-piece order.
+                    // Splitting low/high into separate submits reorders the mixed frame and
+                    // brings the interior pile in front of the shell during replay.
+                    renderer.drawFrameIndex(mappingFrame, spawn.x(), renderY, false, false, 0);
+                    return;
+                }
                 // SonLVL and the ROM mapping both treat frame 0x16 as a true mixed-priority
                 // composition: LOW pieces form the interior pile/body layer, HIGH pieces form
                 // the front shell. Drawing the full frame as LOW duplicates the shell behind
@@ -1073,6 +1081,7 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
                     ? machine.getCurrentY() + offsetFromMachine
                     : spawn.y();
             // ROM ObjDat3_613EC uses make_art_tile($000, 0, 0) — palette 0.
+            GraphicsManager.getInstance().requestSpriteMask();
             renderer.drawFrameIndex(MAPPING_FRAME, spawn.x(), renderY, false, false, 0);
         }
     }
