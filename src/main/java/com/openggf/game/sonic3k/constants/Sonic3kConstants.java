@@ -1254,6 +1254,12 @@ public class Sonic3kConstants {
     public static final int ARTTILE_PACHINKO_GUMBALLS = 0x0388;     // ArtTile_PachinkoGumballs
     public static final int ANIPLC_PACHINKO_ADDR = 0x028C2C;        // AniPLC_Pachinko
     public static final int ART_UNC_ANI_PACHINKO_ADDR = 0x0C8E20;   // ArtUnc_AniPachinko
+    public static final int ART_KOS_PACHINKO_BG1_ADDR = 0x156C08;   // ArtKos_PachinkoBG1
+    public static final int ART_KOS_PACHINKO_BG1_SIZE = 2272;       // compressed bytes
+    public static final int ART_KOS_PACHINKO_BG2_ADDR = 0x1574E8;   // ArtKos_PachinkoBG2
+    public static final int ART_KOS_PACHINKO_BG2_SIZE = 1040;       // compressed bytes
+    public static final int PAL_KOS_PACHINKO_ADDR = 0x1578F8;       // PalKos_Pachinko
+    public static final int PAL_KOS_PACHINKO_SIZE = 496;            // compressed bytes
 
     // S3K inline mapping data. These addresses are derived from the first frame label
     // in each included mapping asm file minus the 2-byte offset words in the table.

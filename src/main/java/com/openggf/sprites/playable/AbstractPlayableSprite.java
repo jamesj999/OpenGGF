@@ -433,6 +433,15 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          */
         protected boolean jumpInputPressed = false;
         /**
+         * Tracks whether jump transitioned from not-pressed to pressed this frame,
+         * including forced/demo input, matching the ROM's logical-pad low-byte checks.
+         */
+        protected boolean jumpInputJustPressed = false;
+        /**
+         * Previous frame combined jump state (player input OR forced input).
+         */
+        protected boolean jumpInputPressedPreviousFrame = false;
+        /**
          * Tracks whether the up button is currently pressed this frame.
          * Set by SpriteManager, used by objects (like VineSwitch) to detect directional input.
          */
@@ -589,6 +598,9 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 this.objectControlled = false;
                 this.hidden = false;
                 this.objectControlReleasedFrame = Integer.MIN_VALUE;
+                this.jumpInputPressed = false;
+                this.jumpInputJustPressed = false;
+                this.jumpInputPressedPreviousFrame = false;
                 this.movementInputActive = false;
                 this.spiralActiveFrame = Integer.MIN_VALUE;
                 this.flipAngle = 0;
@@ -1794,11 +1806,22 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         /**
+         * Returns whether jump was freshly pressed this frame, including forced/demo input.
+         */
+        public boolean isJumpJustPressed() {
+                return jumpInputJustPressed;
+        }
+
+        /**
          * Sets the jump input state for this frame.
          * Called by movement manager each frame with the current jump button state.
          */
         public void setJumpInputPressed(boolean pressed) {
                 this.jumpInputPressed = pressed;
+                boolean combinedJumpPressed = pressed || isForcedInputActive(INPUT_JUMP);
+                this.jumpInputJustPressed =
+                        combinedJumpPressed && !jumpInputPressedPreviousFrame;
+                this.jumpInputPressedPreviousFrame = combinedJumpPressed;
         }
 
         /**

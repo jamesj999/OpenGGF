@@ -207,6 +207,9 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
     // ROM $38 field bit flags — shared state with children for ball-ejection chain.
     private byte flagByte38;
 
+    // ROM $FF2020: shared triangle-bumper cooldown timer. Negative means active.
+    private int bumperCooldownTimer = -1;
+
     // Tracks active gumball springs for respawn on REP gumball collect.
     private final List<GumballSpringChild> springs = new ArrayList<>();
     private final List<int[]> springOriginalPositions = new ArrayList<>();
@@ -316,6 +319,7 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         // ROM sub_6126C: recount empty slots and apply drift each frame.
         applyDrift();
+        bumperCooldownTimer--;
 
         switch (state) {
             case IDLE -> updateIdle(playerEntity);
@@ -340,6 +344,7 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         targetY = savedY;
         java.util.Arrays.fill(slotRam, (byte) 0xFF);
         slotRecalcNeeded = false;
+        bumperCooldownTimer = -1;
     }
 
     /** ROM sub_6126C (line 127949). Recount empty-slot prefix, apply drift. */
@@ -392,7 +397,13 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
             return;
         }
         slotRam[subtype] = 0;
+        flagByte38 |= 0x01;
+        bumperCooldownTimer = 0x0F;
         slotRecalcNeeded = true;
+    }
+
+    boolean areBumpersActive() {
+        return bumperCooldownTimer < 0;
     }
 
     /** Returns the machine's current (drifted) Y position. */
@@ -987,10 +998,11 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
                     ? machine.getCurrentY() + offsetFromMachine
                     : spawn.y();
             if (mappingFrame == 0x16) {
-                // Frame 0x16 is a mixed machine-body composition. Draw the whole frame as a
-                // LOW background layer first, then re-draw only the ROM-marked HIGH pieces
-                // so the front shell stays over the interior balls.
-                renderer.drawFrameIndexForcedPriority(mappingFrame, spawn.x(), renderY,
+                // SonLVL and the ROM mapping both treat frame 0x16 as a true mixed-priority
+                // composition: LOW pieces form the interior pile/body layer, HIGH pieces form
+                // the front shell. Drawing the full frame as LOW duplicates the shell behind
+                // the FG body tiles, so split the frame strictly by the mapping bits.
+                renderer.drawFrameIndexFilteredByPriority(mappingFrame, spawn.x(), renderY,
                         false, false, 0, false);
                 renderer.drawFrameIndexFilteredByPriority(mappingFrame, spawn.x(), renderY,
                         false, false, 0, true);

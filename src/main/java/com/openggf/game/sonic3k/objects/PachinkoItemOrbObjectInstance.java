@@ -33,9 +33,8 @@ public class PachinkoItemOrbObjectInstance extends AbstractObjectInstance
             4, 3, 4, 3
     };
 
-    private boolean triggered;
-    private int spawnDelayFrames = -1;
     private int animationFrameCounter;
+    private GumballItemObjectInstance rewardItem;
 
     public PachinkoItemOrbObjectInstance(ObjectSpawn spawn) {
         super(spawn, "PachinkoItemOrb");
@@ -44,22 +43,22 @@ public class PachinkoItemOrbObjectInstance extends AbstractObjectInstance
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
         animationFrameCounter = frameCounter;
-        if (spawnDelayFrames >= 0) {
-            spawnDelayFrames--;
-            if (spawnDelayFrames < 0) {
-                spawnReward(frameCounter);
+        if (rewardItem != null) {
+            rewardItem.update(frameCounter, playerEntity);
+            if (rewardItem.isDestroyed()) {
+                setDestroyed(true);
             }
         }
     }
 
     @Override
     public int getCollisionFlags() {
-        return triggered ? 0 : COLLISION_FLAGS;
+        return rewardItem != null ? rewardItem.getCollisionFlags() : COLLISION_FLAGS;
     }
 
     @Override
     public int getCollisionProperty() {
-        return 0;
+        return rewardItem != null ? rewardItem.getCollisionProperty() : 0;
     }
 
     @Override
@@ -69,14 +68,29 @@ public class PachinkoItemOrbObjectInstance extends AbstractObjectInstance
 
     @Override
     public void onTouchResponse(PlayableEntity player, TouchResponseResult result, int frameCounter) {
-        if (triggered) {
+        if (rewardItem != null) {
+            rewardItem.onTouchResponse(player, result, frameCounter);
             return;
         }
-        triggered = true;
-        spawnDelayFrames = 1;
+        convertToReward(frameCounter);
     }
 
-    private void spawnReward(int frameCounter) {
+    @Override
+    public int getX() {
+        return rewardItem != null ? rewardItem.getX() : super.getX();
+    }
+
+    @Override
+    public int getY() {
+        return rewardItem != null ? rewardItem.getY() : super.getY();
+    }
+
+    @Override
+    public ObjectSpawn getSpawn() {
+        return rewardItem != null ? rewardItem.getSpawn() : super.getSpawn();
+    }
+
+    private void convertToReward(int frameCounter) {
         playSfx(Sonic3kSfx.BLUE_SPHERE);
 
         int yNibble = spawn.y() & 0x0F;
@@ -86,8 +100,8 @@ public class PachinkoItemOrbObjectInstance extends AbstractObjectInstance
         ObjectSpawn rewardSpawn = new ObjectSpawn(
                 spawn.x(), spawn.y(), spawn.objectId() - 2, rewardSubtype,
                 spawn.renderFlags(), false, 0, spawn.layoutIndex());
-        spawnChild(() -> GumballItemObjectInstance.createPachinkoItem(rewardSpawn));
-        setDestroyed(true);
+        rewardItem = GumballItemObjectInstance.createPachinkoItem(rewardSpawn);
+        rewardItem.setServices(services());
     }
 
     private void playSfx(Sonic3kSfx sfx) {
@@ -100,18 +114,22 @@ public class PachinkoItemOrbObjectInstance extends AbstractObjectInstance
 
     @Override
     public int getPriorityBucket() {
-        return RenderPriority.clamp(4);
+        return rewardItem != null ? rewardItem.getPriorityBucket() : RenderPriority.clamp(4);
     }
 
     @Override
     public boolean isHighPriority() {
-        return true;
+        return rewardItem == null || rewardItem.isHighPriority();
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
+        if (rewardItem != null) {
+            rewardItem.appendRenderCommands(commands);
+            return;
+        }
         PatternSpriteRenderer renderer = getRenderer(Sonic3kObjectArtKeys.PACHINKO_ITEM_ORB);
-        if (renderer == null || spawnDelayFrames >= 0) {
+        if (renderer == null) {
             return;
         }
         boolean hFlip = (spawn.renderFlags() & 0x1) != 0;

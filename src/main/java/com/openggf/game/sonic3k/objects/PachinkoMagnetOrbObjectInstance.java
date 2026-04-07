@@ -1,8 +1,10 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.camera.Camera;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
+import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -11,14 +13,14 @@ import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
+import java.util.IdentityHashMap;
 import java.util.List;
 
 /**
  * Object 0xEC - Pachinko magnet orb.
  *
- * <p>ROM reference: {@code Obj_PachinkoMagnetOrb}. The orb captures the player when they
- * enter its catch box, rotates them around the orb while left/right adjust the orbit,
- * and launches them when jump is pressed.
+ * <p>ROM reference: {@code Obj_PachinkoMagnetOrb}. The orb tracks capture/orbit state
+ * per player slot rather than sharing one global state across the object.
  */
 public class PachinkoMagnetOrbObjectInstance extends AbstractObjectInstance {
 
@@ -32,10 +34,8 @@ public class PachinkoMagnetOrbObjectInstance extends AbstractObjectInstance {
             0x60, 0xA0, 0xA0, 0xB0, 0xC0, 0xD0, 0xE0, 0xE0
     };
 
-    private AbstractPlayableSprite capturedPlayer;
-    private int cooldownFrames;
-    private int angleA;
-    private int angleB;
+    private final IdentityHashMap<AbstractPlayableSprite, PlayerState> playerStates =
+            new IdentityHashMap<>();
 
     public PachinkoMagnetOrbObjectInstance(ObjectSpawn spawn) {
         super(spawn, "PachinkoMagnetOrb");
@@ -43,31 +43,38 @@ public class PachinkoMagnetOrbObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
-        if (!(playerEntity instanceof AbstractPlayableSprite player)) {
+        if (playerEntity instanceof AbstractPlayableSprite player) {
+            updatePlayer(player, frameCounter);
+        }
+        for (PlayableEntity sidekickEntity : services().sidekicks()) {
+            if (sidekickEntity instanceof AbstractPlayableSprite sidekick) {
+                updatePlayer(sidekick, frameCounter);
+            }
+        }
+    }
+
+    private void updatePlayer(AbstractPlayableSprite player, int frameCounter) {
+        PlayerState state = playerStates.computeIfAbsent(player, ignored -> new PlayerState());
+        if (state.captured) {
+            updateCapturedPlayer(player, state, frameCounter);
             return;
         }
 
-        if (capturedPlayer != null) {
-            updateCapturedPlayer(player, frameCounter);
-            return;
-        }
-
-        if (cooldownFrames > 0) {
-            cooldownFrames--;
-            if (cooldownFrames == 0) {
-                restorePlayerPriority(player);
+        if (state.cooldownFrames > 0) {
+            state.cooldownFrames--;
+            if (state.cooldownFrames == 0) {
+                restoreReleasedPlayerPriority(player);
+            } else {
+                return;
             }
         }
 
-        if (player.isDebugMode()
-                || player.getDead()
-                || player.isHurt()
-                || player.wasRecentlyObjectControlled(frameCounter, 1)) {
+        if (player.isDebugMode() || player.getDead() || player.isHurt()) {
             return;
         }
 
-        int dx = player.getX() - spawn.x();
-        int dy = player.getY() - spawn.y();
+        int dx = player.getCentreX() - spawn.x();
+        int dy = player.getCentreY() - spawn.y();
         if (dx < -CATCH_RANGE || dx >= CATCH_RANGE || dy < -CATCH_RANGE || dy >= CATCH_RANGE) {
             return;
         }
@@ -75,37 +82,37 @@ public class PachinkoMagnetOrbObjectInstance extends AbstractObjectInstance {
             return;
         }
 
-        capturePlayer(player);
+        capturePlayer(player, state);
     }
 
-    private void updateCapturedPlayer(AbstractPlayableSprite player, int frameCounter) {
-        if (player != capturedPlayer) {
-            releasePlayer(capturedPlayer, frameCounter, false);
+    private void updateCapturedPlayer(AbstractPlayableSprite player, PlayerState state,
+                                      int frameCounter) {
+        if (player.isDebugMode() || player.getDead() || player.isHurt()) {
+            releasePlayer(player, state, frameCounter, false);
+            return;
+        }
+        if (shouldReleaseCapturedSidekick(player)) {
+            releasePlayer(player, state, frameCounter, false);
             return;
         }
 
-        if (player.isDebugMode() || player.getDead() || player.isHurt() || !player.isObjectControlled()) {
-            releasePlayer(player, frameCounter, false);
-            return;
-        }
-
-        if (player.isJumpPressed()) {
-            releasePlayer(player, frameCounter, true);
+        if (player.isJumpJustPressed()) {
+            releasePlayer(player, state, frameCounter, true);
             return;
         }
 
         if (player.isLeftPressed()) {
-            angleB = (angleB - 1) & 0xFF;
+            state.angleB = (state.angleB - 1) & 0xFF;
         }
         if (player.isRightPressed()) {
-            angleB = (angleB + 1) & 0xFF;
+            state.angleB = (state.angleB + 1) & 0xFF;
         }
 
-        int previousX = player.getX();
-        int previousY = player.getY();
-        placePlayerOnOrbit(player);
-        player.setXSpeed((short) (-(player.getX() - previousX) << 8));
-        player.setYSpeed((short) (-(player.getY() - previousY) << 8));
+        int previousX = player.getCentreX();
+        int previousY = player.getCentreY();
+        placePlayerOnOrbit(player, state);
+        player.setXSpeed((short) (-(player.getCentreX() - previousX) << 8));
+        player.setYSpeed((short) (-(player.getCentreY() - previousY) << 8));
         player.setGSpeed((short) 0x0800);
         player.setAir(true);
 
@@ -114,38 +121,49 @@ public class PachinkoMagnetOrbObjectInstance extends AbstractObjectInstance {
         }
     }
 
-    private void capturePlayer(AbstractPlayableSprite player) {
-        int angle = TrigLookupTable.calcAngle((short) (player.getX() - spawn.x()),
-                (short) (player.getY() - spawn.y()));
+    private boolean shouldReleaseCapturedSidekick(AbstractPlayableSprite player) {
+        if (!player.isCpuControlled()) {
+            return false;
+        }
+        Camera camera = services().camera();
+        return camera != null && !camera.isOnScreen(player);
+    }
+
+    private void capturePlayer(AbstractPlayableSprite player, PlayerState state) {
+        int angle = TrigLookupTable.calcAngle((short) (player.getCentreX() - spawn.x()),
+                (short) (player.getCentreY() - spawn.y()));
         if ((angle & 0x80) != 0) {
-            angleA = -0x80;
+            state.angleA = -0x80;
             angle = (angle + 0x80) & 0xFF;
         } else {
-            angleA = 0;
+            state.angleA = 0;
         }
-        angleB = (angle - 0x40) & 0xFF;
+        state.angleB = (angle - 0x40) & 0xFF;
 
         player.setXSpeed((short) 0);
         player.setYSpeed((short) 0);
         player.setGSpeed((short) 0x0800);
         player.setControlLocked(true);
+        // Engine movement skips only when objectControlled is true, so mirror the
+        // ROM's captured-player ownership with the engine's full-control flag.
         player.setObjectControlled(true);
         player.setAir(true);
         player.setOnObject(false);
+        player.setJumping(false);
+        player.setAnimationId(Sonic3kAnimationIds.ROLL);
 
-        capturedPlayer = player;
-        placePlayerOnOrbit(player);
+        state.captured = true;
+        placePlayerOnOrbit(player, state);
     }
 
-    private void placePlayerOnOrbit(AbstractPlayableSprite player) {
-        int radius = (TrigLookupTable.cosHex(angleA & 0xFF) * ORBIT_RADIUS_SCALE) >> 16;
-        int xOffset = (radius * TrigLookupTable.sinHex(angleB & 0xFF)) >> 8;
-        int yOffset = (radius * TrigLookupTable.cosHex(angleB & 0xFF)) >> 8;
+    private void placePlayerOnOrbit(AbstractPlayableSprite player, PlayerState state) {
+        int radius = (TrigLookupTable.cosHex(state.angleA & 0xFF) * ORBIT_RADIUS_SCALE) >> 16;
+        int xOffset = (radius * TrigLookupTable.sinHex(state.angleB & 0xFF)) >> 8;
+        int yOffset = (radius * TrigLookupTable.cosHex(state.angleB & 0xFF)) >> 8;
 
-        player.setX((short) (spawn.x() - xOffset));
-        player.setY((short) (spawn.y() + yOffset));
+        setPlayerCenterPosition(player, spawn.x() - xOffset, spawn.y() + yOffset);
 
-        if (angleA < 0) {
+        if (state.angleA < 0) {
             player.setPriorityBucket(5);
             player.setHighPriority(false);
         } else {
@@ -153,19 +171,16 @@ public class PachinkoMagnetOrbObjectInstance extends AbstractObjectInstance {
             player.setHighPriority(true);
         }
 
-        angleA = (byte) ((angleA + 4) & 0xFF);
+        state.angleA = (byte) ((state.angleA + 4) & 0xFF);
     }
 
-    private void releasePlayer(AbstractPlayableSprite player, int frameCounter, boolean launched) {
-        if (player == null) {
-            return;
-        }
-
+    private void releasePlayer(AbstractPlayableSprite player, PlayerState state,
+                               int frameCounter, boolean launched) {
         if (launched) {
-            int combinedAngle = buildReleaseAngle();
+            int combinedAngle = buildReleaseAngle(state.angleA);
             int launchRadius = TrigLookupTable.sinHex(combinedAngle) * RELEASE_MAGNITUDE;
-            int xVelocity = (TrigLookupTable.sinHex(angleB & 0xFF) * launchRadius) >> 8;
-            int yVelocity = -((TrigLookupTable.cosHex(angleB & 0xFF) * launchRadius) >> 8);
+            int xVelocity = (TrigLookupTable.sinHex(state.angleB & 0xFF) * launchRadius) >> 8;
+            int yVelocity = -((TrigLookupTable.cosHex(state.angleB & 0xFF) * launchRadius) >> 8);
             player.setXSpeed((short) xVelocity);
             player.setYSpeed((short) yVelocity);
         }
@@ -174,23 +189,35 @@ public class PachinkoMagnetOrbObjectInstance extends AbstractObjectInstance {
         player.setControlLocked(false);
         player.setAir(true);
         player.setOnObject(false);
-        player.setRolling(true);
+        if (!player.getRolling()) {
+            player.setRolling(true);
+            player.setY((short) (player.getY() + player.getRollHeightAdjustment()));
+        }
+        player.setRollingJump(false);
+        player.setJumping(false);
         player.setPinballMode(true);
-        restorePlayerPriority(player);
+        player.setAnimationId(Sonic3kAnimationIds.ROLL);
+        player.setFlipAngle(0);
+        player.setDoubleJumpFlag(0);
+        restoreReleasedPlayerPriority(player);
 
-        cooldownFrames = RELEASE_COOLDOWN;
-        capturedPlayer = null;
+        state.captured = false;
+        state.cooldownFrames = RELEASE_COOLDOWN;
     }
 
-    private int buildReleaseAngle() {
+    private int buildReleaseAngle(int angleA) {
         int angle = angleA & 0xFF;
         int highNibble = RELEASE_TABLE[(angle >>> 4) & 0x0F];
         return ((angle & 0x0F) | highNibble) & 0xFF;
     }
 
-    private void restorePlayerPriority(AbstractPlayableSprite player) {
+    private void setPlayerCenterPosition(AbstractPlayableSprite player, int centerX, int centerY) {
+        player.setX((short) (centerX - (player.getWidth() / 2)));
+        player.setY((short) (centerY - (player.getHeight() / 2)));
+    }
+
+    private void restoreReleasedPlayerPriority(AbstractPlayableSprite player) {
         player.setPriorityBucket(RenderPriority.PLAYER_DEFAULT);
-        player.setHighPriority(true);
     }
 
     private void playSfx(Sonic3kSfx sfx) {
@@ -220,5 +247,12 @@ public class PachinkoMagnetOrbObjectInstance extends AbstractObjectInstance {
         boolean hFlip = (spawn.renderFlags() & 0x1) != 0;
         boolean vFlip = (spawn.renderFlags() & 0x2) != 0;
         renderer.drawFrameIndex(0, spawn.x(), spawn.y(), hFlip, vFlip);
+    }
+
+    private static final class PlayerState {
+        private boolean captured;
+        private int cooldownFrames;
+        private int angleA;
+        private int angleB;
     }
 }

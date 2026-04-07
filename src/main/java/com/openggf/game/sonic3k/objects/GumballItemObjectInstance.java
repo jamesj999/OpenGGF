@@ -153,8 +153,11 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
         this.rewardMode = rewardMode;
         this.subtype = spawn.subtype() & 0xFF;
 
-        // ROM animation scripts (byte_61466+) use subtype + 8 as the static frame.
-        this.mappingFrame = subtype + 8;
+        // ROM frame bases differ between the normal gumball dispenser table and the
+        // Pachinko reward conversion path.
+        this.mappingFrame = rewardMode == RewardMode.PACHINKO
+                ? subtype + 7
+                : subtype + 8;
 
         this.motionState = new SubpixelMotion.State(
                 spawn.x(), spawn.y(), 0, 0, 0, initialYVel);
