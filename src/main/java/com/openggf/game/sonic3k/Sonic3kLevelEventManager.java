@@ -262,6 +262,27 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
     }
 
     /**
+     * S3K zone handlers maintain their own routine counters independently of
+     * the base class fields. Override to read from the active zone handler so
+     * callers (GameLoop bonus stage capture) get the correct value.
+     */
+    @Override
+    public int getEventRoutineFg() {
+        return getDynamicResizeRoutine();
+    }
+
+    /**
+     * Restores the event routine state after a bonus/special stage return.
+     * Propagates to the active zone handler so its internal state machine
+     * resumes from the saved position instead of replaying from 0.
+     */
+    @Override
+    public void restoreEventRoutineState(int routineFg, int routineBg) {
+        super.restoreEventRoutineState(routineFg, routineBg);
+        setDynamicResizeRoutine(routineFg);
+    }
+
+    /**
      * Resets mutable state including static/global state in AIZ event helpers.
      * Extends the base {@link AbstractLevelEventManager#resetState()} to also
      * clear fire wall handoff, tree reveal counter, and intro phase state that

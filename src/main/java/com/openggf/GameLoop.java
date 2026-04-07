@@ -1517,8 +1517,8 @@ public class GameLoop {
                 // rapidly re-processes all boundary thresholds with the camera already
                 // deep in the level, causing incorrect camera locks.
                 LevelEventProvider eventProvider = GameModuleRegistry.getCurrent().getLevelEventProvider();
-                if (eventProvider instanceof com.openggf.game.sonic3k.Sonic3kLevelEventManager s3kEvents) {
-                    s3kEvents.setDynamicResizeRoutine(br.dynamicResizeRoutine());
+                if (eventProvider instanceof AbstractLevelEventManager eventMgr) {
+                    eventMgr.restoreEventRoutineState(br.dynamicResizeRoutine(), 0);
                 }
                 levelManager.clearBigRingReturn();
             } else if (checkpointState != null && checkpointState.isActive()) {
