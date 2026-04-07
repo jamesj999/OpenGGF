@@ -64,10 +64,10 @@ public class TestSonic2EndingProvider {
     }
 
     @Test
-    public void testIsNotLzDemo() {
+    public void testNoLamppostState() {
         Sonic2EndingProvider provider = new Sonic2EndingProvider();
-        assertFalse("S2 ending should never report LZ demo",
-                provider.isLzDemo());
+        assertNull("S2 ending should never return lamppost state",
+                provider.getDemoLamppostState());
     }
 
     @Test

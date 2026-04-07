@@ -35,7 +35,7 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.timer.TimerManager;
 import com.openggf.graphics.FadeManager;
 
-import com.openggf.game.sonic1.credits.Sonic1CreditsDemoData;
+import com.openggf.game.DemoLamppostState;
 import com.openggf.level.WaterSystem;
 import com.openggf.debug.playback.PlaybackDebugManager;
 import com.openggf.level.SeamlessLevelTransitionRequest;
@@ -2657,6 +2657,7 @@ public class GameLoop {
         levelManager.setForceHudSuppressed(true);
 
         // Position the player at the demo start position (ROM uses center coordinates)
+        DemoLamppostState lamppost = endingProvider.getDemoLamppostState();
         String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         if (mainCode == null) mainCode = "sonic";
         var sprite = spriteManager.getSprite(mainCode);
@@ -2671,31 +2672,26 @@ public class GameLoop {
             player.setControlLocked(false);
             player.setForcedInputMask(0);
 
-            if (endingProvider.isLzDemo()) {
-                // LZ demo (credit 3): use lamppost position, not startpos
-                // ROM: EndDemo_LampVar (sonic.asm:4176-4187) — lamppost is pre-loaded
-                // so the level code uses lamppost position instead of startpos.
-                // ROM checks v_creditsnum==4 (already incremented) = original credit 3.
-                player.setCentreX((short) Sonic1CreditsDemoData.LZ_LAMP_X);
-                player.setCentreY((short) Sonic1CreditsDemoData.LZ_LAMP_Y);
-                player.setRingCount(Sonic1CreditsDemoData.LZ_LAMP_RINGS);
-                camera.setX((short) Sonic1CreditsDemoData.LZ_LAMP_CAMERA_X);
-                camera.setY((short) Sonic1CreditsDemoData.LZ_LAMP_CAMERA_Y);
-                camera.setMaxY((short) Sonic1CreditsDemoData.LZ_LAMP_BOTTOM_BND);
+            if (lamppost != null) {
+                // Demo starts at a lamppost — restore saved position/camera/water
+                player.setCentreX((short) lamppost.playerX());
+                player.setCentreY((short) lamppost.playerY());
+                player.setRingCount(lamppost.rings());
+                camera.setX((short) lamppost.cameraX());
+                camera.setY((short) lamppost.cameraY());
+                camera.setMaxY((short) lamppost.cameraMaxY());
 
-                // Restore lamppost water state (ROM: EndDemo_LampVar dc.w $308 / dc.b 1,1)
-                // Level loading sets water to default LZ3 height (0x0900), but the demo
-                // starts at a lamppost where water has risen to 0x0308 with routine 1.
+                // Restore lamppost water state
                 int featureZone = levelManager.getFeatureZoneId();
                 int featureAct = levelManager.getFeatureActId();
                 WaterSystem waterSystem = this.waterSystem;
                 waterSystem.setWaterLevelDirect(featureZone, featureAct,
-                        Sonic1CreditsDemoData.LZ_LAMP_WATER_HEIGHT);
+                        lamppost.waterHeight());
                 waterSystem.setWaterLevelTarget(featureZone, featureAct,
-                        Sonic1CreditsDemoData.LZ_LAMP_WATER_HEIGHT);
+                        lamppost.waterHeight());
                 ZoneFeatureProvider zfp = levelManager.getZoneFeatureProvider();
                 if (zfp != null) {
-                    zfp.setWaterRoutine(Sonic1CreditsDemoData.LZ_LAMP_WATER_ROUTINE);
+                    zfp.setWaterRoutine(lamppost.waterRoutine());
                 }
             } else {
                 // All other demos: use startpos (center coordinates)
@@ -2704,8 +2700,8 @@ public class GameLoop {
             }
         }
 
-        // Snap camera to player position (unless LZ which has explicit camera coords)
-        if (!endingProvider.isLzDemo()) {
+        // Snap camera to player position (unless lamppost demo has explicit camera coords)
+        if (lamppost == null) {
             camera.updatePosition(true);
         }
 
