@@ -23,6 +23,9 @@ public enum GameMode {
     /** Level Select Screen (debug menu for selecting zone/act) */
     LEVEL_SELECT,
 
+    /** Editor mode for editing the current world/session */
+    EDITOR,
+
     /** Credits text display on black screen (ending sequence) */
     CREDITS_TEXT,
 
