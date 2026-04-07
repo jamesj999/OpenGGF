@@ -28,6 +28,7 @@ import com.openggf.sprites.playable.SidekickCpuController;
 import com.openggf.debug.playback.PlaybackDebugManager;
 import com.openggf.data.RomManager;
 import com.openggf.game.sonic3k.objects.AizIntroArtLoader;
+import com.openggf.game.session.GameplayModeContext;
 import com.openggf.game.session.SessionManager;
 import com.openggf.game.sonic2.Sonic2GameModule;
 import com.openggf.data.Rom;
@@ -362,11 +363,12 @@ public class Engine {
 			throw new RuntimeException("Failed to load ROM during game initialization", e);
 		}
 		GameModuleRegistry.setCurrent(module);
-		SessionManager.openGameplaySession(module);
+		GameplayModeContext gameplayMode = SessionManager.openGameplaySession(module);
 
 		// Create the gameplay runtime before any manager access.
-		// During this transitional period, createGameplay() wraps existing singletons.
-		runtime = com.openggf.game.RuntimeManager.createGameplay();
+		// During this transitional period, the runtime is still a manager facade,
+		// but it now carries explicit gameplay/world ownership from SessionManager.
+		runtime = com.openggf.game.RuntimeManager.createGameplay(gameplayMode);
 		graphicsManager.rebindRuntimeFadeManager();
 		this.camera = runtime.getCamera();
 		this.spriteManager = runtime.getSpriteManager();

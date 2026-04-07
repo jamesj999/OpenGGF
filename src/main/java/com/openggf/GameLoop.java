@@ -78,8 +78,8 @@ public class GameLoop {
     private final PerformanceProfiler profiler = PerformanceProfiler.getInstance();
     private final PlaybackDebugManager playbackDebugManager = PlaybackDebugManager.getInstance();
 
-    // The gameplay runtime — set by Engine after RuntimeManager.createGameplay().
-    // When non-null, cached fields above are sourced from this runtime.
+    // The gameplay runtime facade — set by Engine after RuntimeManager.createGameplay(...).
+    // When non-null, cached fields above are sourced from the runtime's gameplay context.
     private com.openggf.game.GameRuntime runtime;
     private SpecialStageProvider activeSpecialStageProvider = NoOpSpecialStageProvider.INSTANCE;
 
@@ -152,8 +152,8 @@ public class GameLoop {
     }
 
     /**
-     * Sets the gameplay runtime. Cached manager fields are re-assigned from
-     * the runtime so all existing field-based code continues to work.
+     * Sets the gameplay runtime facade. Cached manager fields are re-assigned
+     * from the runtime so all existing field-based code continues to work.
      */
     public void setRuntime(com.openggf.game.GameRuntime runtime) {
         this.runtime = runtime;

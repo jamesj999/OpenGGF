@@ -1,6 +1,8 @@
 package com.openggf.game;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.session.GameplayModeContext;
+import com.openggf.game.session.WorldSession;
 import com.openggf.graphics.FadeManager;
 import com.openggf.level.LevelManager;
 import com.openggf.level.ParallaxManager;
@@ -29,6 +31,8 @@ import com.openggf.timer.TimerManager;
  */
 public final class GameRuntime {
 
+    private final WorldSession worldSession;
+    private final GameplayModeContext gameplayMode;
     private final Camera camera;
     private final TimerManager timers;
     private final GameStateManager gameState;
@@ -47,12 +51,15 @@ public final class GameRuntime {
      * Parameters are in construction-order (dependency order):
      * independent managers first, then dependents.
      */
-    GameRuntime(Camera camera, TimerManager timers, GameStateManager gameState,
+    GameRuntime(WorldSession worldSession, GameplayModeContext gameplayMode,
+                Camera camera, TimerManager timers, GameStateManager gameState,
                 FadeManager fadeManager, WaterSystem waterSystem,
                 ParallaxManager parallaxManager,
                 TerrainCollisionManager terrainCollisionManager,
                 CollisionSystem collisionSystem, SpriteManager spriteManager,
                 LevelManager levelManager) {
+        this.worldSession = worldSession;
+        this.gameplayMode = gameplayMode;
         this.camera = camera;
         this.timers = timers;
         this.gameState = gameState;
@@ -67,6 +74,8 @@ public final class GameRuntime {
 
     // ── Getters ──────────────────────────────────────────────────────────
 
+    public WorldSession getWorldSession() { return worldSession; }
+    public GameplayModeContext getGameplayModeContext() { return gameplayMode; }
     public Camera getCamera() { return camera; }
     public TimerManager getTimers() { return timers; }
     public GameStateManager getGameState() { return gameState; }
