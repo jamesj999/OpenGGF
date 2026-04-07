@@ -1,9 +1,9 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.GameServices;
 import com.openggf.graphics.GraphicsManager;
 import java.util.logging.Logger;
 import com.openggf.level.Level;
-import com.openggf.level.LevelManager;
 import com.openggf.level.Palette;
 
 /**
@@ -71,7 +71,7 @@ public class AizIntroPaletteCycler {
         if (offset + COLORS_PER_STEP * 2 > data.length) return;
 
         try {
-            LevelManager lm = LevelManager.getInstance();
+            var lm = GameServices.level();
             if (lm == null) return;
             Level level = lm.getCurrentLevel();
             if (level == null) return;

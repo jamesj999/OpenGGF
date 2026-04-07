@@ -166,9 +166,7 @@ public class GraphicsManager {
 		this.instancedPatternRenderer = new InstancedPatternRenderer();
 		this.instancedPatternRenderer.init(INSTANCED_VERTEX_SHADER_PATH, pixelShaderPath, WATER_SHADER_PATH);
 
-		// Initialize fade manager with shader — get from RuntimeManager if available, else singleton
-		com.openggf.game.GameRuntime rt = com.openggf.game.RuntimeManager.getCurrent();
-		this.fadeManager = rt != null ? rt.getFadeManager() : FadeManager.getInstance();
+		syncRuntimeManagedReferences();
 		this.fadeManager.setFadeShader(this.fadeShaderProgram);
 
 		// Initialize unified UI render pipeline
@@ -222,16 +220,27 @@ public class GraphicsManager {
 	 * This avoids triggering Camera singleton initialization during GraphicsManager construction.
 	 */
 	private Camera getCamera() {
-		com.openggf.game.GameRuntime rt2 = com.openggf.game.RuntimeManager.getCurrent();
-		if (rt2 != null) {
-			Camera runtimeCamera = rt2.getCamera();
-			if (camera != runtimeCamera) {
-				camera = runtimeCamera;
-			}
-		} else if (camera == null) {
-			camera = Camera.getInstance();
-		}
+		syncRuntimeManagedReferences();
 		return camera;
+	}
+
+	private void syncRuntimeManagedReferences() {
+		com.openggf.game.GameRuntime runtime = com.openggf.game.RuntimeManager.getCurrent();
+		Camera resolvedCamera = runtime != null ? runtime.getCamera() : Camera.getInstance();
+		if (camera != resolvedCamera) {
+			camera = resolvedCamera;
+		}
+
+		FadeManager resolvedFadeManager = runtime != null ? runtime.getFadeManager() : FadeManager.getInstance();
+		if (fadeManager != resolvedFadeManager) {
+			fadeManager = resolvedFadeManager;
+			if (fadeShaderProgram != null) {
+				fadeManager.setFadeShader(fadeShaderProgram);
+			}
+			if (uiRenderPipeline != null) {
+				uiRenderPipeline.setFadeManager(fadeManager);
+			}
+		}
 	}
 
 	/**
@@ -1242,35 +1251,8 @@ public class GraphicsManager {
 	 * Get the fade manager for screen transitions.
 	 */
 	public FadeManager getFadeManager() {
-		if (fadeManager == null) {
-			com.openggf.game.GameRuntime rt = com.openggf.game.RuntimeManager.getCurrent();
-			fadeManager = rt != null ? rt.getFadeManager() : FadeManager.getInstance();
-			if (fadeShaderProgram != null) {
-				fadeManager.setFadeShader(fadeShaderProgram);
-			}
-		}
+		syncRuntimeManagedReferences();
 		return fadeManager;
-	}
-
-	/**
-	 * Rebinds fade-related references to the current runtime's FadeManager.
-	 *
-	 * <p>This is required after gameplay runtime creation because GraphicsManager may
-	 * have been initialized earlier against the bootstrap FadeManager. If the UI
-	 * pipeline keeps updating that stale instance while GameLoop starts fades on the
-	 * runtime instance, callbacks never complete.
-	 */
-	public void rebindRuntimeFadeManager() {
-		com.openggf.game.GameRuntime rt = com.openggf.game.RuntimeManager.getCurrent();
-		FadeManager reboundFade = rt != null ? rt.getFadeManager() : FadeManager.getInstance();
-		this.fadeManager = reboundFade;
-		this.camera = rt != null ? rt.getCamera() : Camera.getInstance();
-		if (fadeShaderProgram != null) {
-			reboundFade.setFadeShader(fadeShaderProgram);
-		}
-		if (uiRenderPipeline != null) {
-			uiRenderPipeline.setFadeManager(reboundFade);
-		}
 	}
 
 	/**

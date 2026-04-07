@@ -25,6 +25,7 @@ import static org.junit.Assert.fail;
  *   <li>Leaf infrastructure wrappers that intentionally cache direct manager access</li>
  *   <li>{@link GameServices} — runtime facade / engine-global access</li>
  *   <li>{@code DefaultObjectServices} — object-service facade over an explicit runtime</li>
+ *   <li>{@code BootstrapObjectServices} — pre-runtime bootstrap-only object-service bridge</li>
  *   <li>{@code GraphicsManager} — legitimate fallback for Camera/FadeManager</li>
  * </ul>
  */
@@ -51,25 +52,18 @@ public class TestRuntimeSingletonGuard {
             "AbstractObjectInstance.java",  // static helpers wrapping singletons for leaf classes
             "AbstractObjectRegistry.java",
             "GraphicsManager.java",
-            "Engine.java",
-            "GameLoop.java",
+            "BootstrapObjectServices.java",
             "GameModuleRegistry.java",
             "AbstractLevelEventManager.java",
             "AbstractLevelInitProfile.java",
             "DebugRenderer.java",
             "AbstractPlayableSprite.java",
             "HudRenderManager.java",
-            "ObjectManager.java",
             "RingManager.java",
             "GroundSensor.java",
             "PlayableSpriteMovement.java",
             "SpindashCameraTimer.java",
-            "LazyMappingHolder.java",
-            "Sonic2ObjectRegistry.java",
-            "AizIntroArtLoader.java",
-            "AizIntroBoosterChild.java",
-            "AizIntroPaletteCycler.java",
-            "AizIntroTerrainSwap.java"
+            "LazyMappingHolder.java"
     );
 
     /** Pattern matching e.g. Camera.getInstance() or LevelManager.getInstance() */

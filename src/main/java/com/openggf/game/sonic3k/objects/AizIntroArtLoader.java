@@ -3,9 +3,9 @@ package com.openggf.game.sonic3k.objects;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.data.RomManager;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.graphics.GraphicsManager;
-import com.openggf.level.LevelManager;
 import com.openggf.level.Palette;
 import com.openggf.level.Pattern;
 import com.openggf.level.objects.ObjectSpriteSheet;
@@ -884,7 +884,7 @@ public class AizIntroArtLoader {
     }
 
     private static com.openggf.level.Level currentLevel() {
-        LevelManager levelManager = LevelManager.getInstance();
+        var levelManager = GameServices.level();
         return levelManager != null ? levelManager.getCurrentLevel() : null;
     }
 

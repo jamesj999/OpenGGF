@@ -20,7 +20,7 @@ public class TestGraphicsManagerFadeRebinding {
     }
 
     @Test
-    public void testRebindRuntimeFadeManagerUpdatesPipelineReference() throws Exception {
+    public void testGetFadeManagerRebindsRuntimeManagedReferences() throws Exception {
         RuntimeManager.destroyCurrent();
         GraphicsManager graphicsManager = GraphicsManager.getInstance();
         graphicsManager.resetState();
@@ -35,10 +35,10 @@ public class TestGraphicsManagerFadeRebinding {
         FadeManager runtimeFade = RuntimeManager.getCurrent().getFadeManager();
         Camera runtimeCamera = RuntimeManager.getCurrent().getCamera();
 
-        graphicsManager.rebindRuntimeFadeManager();
+        FadeManager resolvedFade = graphicsManager.getFadeManager();
 
         assertSame("GraphicsManager should switch to the runtime FadeManager",
-                runtimeFade, graphicsManager.getFadeManager());
+                runtimeFade, resolvedFade);
         assertSame("UiRenderPipeline should also use the runtime FadeManager",
                 runtimeFade, pipeline.getFadeManager());
         assertSame("GraphicsManager should switch to the runtime Camera",

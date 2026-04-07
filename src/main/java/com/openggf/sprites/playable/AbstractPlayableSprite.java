@@ -739,14 +739,21 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 return superSonic;
         }
 
-        public final Camera currentCamera() {
+        private com.openggf.game.GameRuntime requireRuntime(String accessor) {
                 var runtime = RuntimeManager.getCurrent();
-                return runtime != null ? runtime.getCamera() : Camera.getInstance();
+                if (runtime == null) {
+                        throw new IllegalStateException(
+                                        "AbstractPlayableSprite." + accessor + "() requires an active GameRuntime.");
+                }
+                return runtime;
+        }
+
+        public final Camera currentCamera() {
+                return requireRuntime("currentCamera").getCamera();
         }
 
         public final LevelManager currentLevelManager() {
-                var runtime = RuntimeManager.getCurrent();
-                return runtime != null ? runtime.getLevelManager() : LevelManager.getInstance();
+                return requireRuntime("currentLevelManager").getLevelManager();
         }
 
         public final GameModule currentGameModule() {
@@ -769,18 +776,15 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         public final TimerManager currentTimerManager() {
-                var runtime = RuntimeManager.getCurrent();
-                return runtime != null ? runtime.getTimers() : TimerManager.getInstance();
+                return requireRuntime("currentTimerManager").getTimers();
         }
 
         public final GameStateManager currentGameState() {
-                var runtime = RuntimeManager.getCurrent();
-                return runtime != null ? runtime.getGameState() : GameStateManager.getInstance();
+                return requireRuntime("currentGameState").getGameState();
         }
 
         public final CollisionSystem currentCollisionSystem() {
-                var runtime = RuntimeManager.getCurrent();
-                return runtime != null ? runtime.getCollisionSystem() : CollisionSystem.getInstance();
+                return requireRuntime("currentCollisionSystem").getCollisionSystem();
         }
 
         public final AudioManager currentAudioManager() {
@@ -788,8 +792,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         public final WaterSystem currentWaterSystem() {
-                var runtime = RuntimeManager.getCurrent();
-                return runtime != null ? runtime.getWaterSystem() : WaterSystem.getInstance();
+                return requireRuntime("currentWaterSystem").getWaterSystem();
         }
 
         /**
@@ -2921,7 +2924,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         protected void onEnterWater() {
                 LOGGER.fine("Player entered water");
                 // Increment global Water_entered_counter so objects can detect water transitions
-                WaterSystem.getInstance().incrementWaterEnteredCounter();
+                currentWaterSystem().incrementWaterEnteredCounter();
                 // S3K: water entry resets Character_Speeds init values to canonical
                 // (sonic3k.asm:22225-22227 sets absolute values, not relative to init)
                 clearInitOverride();
@@ -2971,7 +2974,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         protected void onExitWater() {
                 LOGGER.fine("Player exited water");
                 // Increment global Water_entered_counter so objects can detect water transitions
-                WaterSystem.getInstance().incrementWaterEnteredCounter();
+                currentWaterSystem().incrementWaterEnteredCounter();
                 // S3K: water exit resets Character_Speeds init values to canonical
                 // (sonic3k.asm:22253-22255 sets absolute $600/$C/$80, not relative to init)
                 clearInitOverride();
