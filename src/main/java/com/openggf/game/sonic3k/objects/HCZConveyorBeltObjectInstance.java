@@ -269,7 +269,13 @@ public class HCZConveyorBeltObjectInstance extends AbstractObjectInstance {
         }
 
         // ROM: Jump check (A/B/C buttons) (sonic3k.asm:66411-66412)
-        if (player.isJumpPressed()) {
+        // ROM uses andi.w #button_A_mask|button_B_mask|button_C_mask,d1 which tests the
+        // LOW byte of Ctrl_1_logical = newly pressed buttons only, NOT held state.
+        // We track previous frame's held state to detect new presses.
+        boolean jumpHeld = player.isJumpPressed();
+        boolean jumpNewPress = jumpHeld && !state.lastJumpHeld;
+        state.lastJumpHeld = jumpHeld;
+        if (jumpNewPress) {
             // ROM: loc_312C0 (sonic3k.asm:66434-66438)
             if (player.isInWater()) {
                 player.setYSpeed(JUMP_VELOCITY_UNDERWATER);
@@ -324,10 +330,16 @@ public class HCZConveyorBeltObjectInstance extends AbstractObjectInstance {
         // Also check the fan push tracking as a fallback: our engine's player physics
         // may overwrite gSpeed between the fan's set and the belt's read (the ROM
         // processes all objects in the same loop so gSpeed persists within a frame).
+        //
+        // Unlike the ROM (which unconditionally branches to hanging), we fall through
+        // to try standing if hanging fails. This is necessary because the cross-frame
+        // fan push tracking may still be active after the player has moved from the
+        // hanging zone to the standing zone. The Y detection ranges don't overlap
+        // (standing: objY+20..+36, hanging: objY-20..-4), so only one can succeed.
         if (player.getGSpeed() == 1
                 || HCZCGZFanObjectInstance.wasPushedByFan(player, frameCounter)) {
             tryCapturHanging(player, state, frameCounter);
-            return;
+            if (state.active) return;  // successfully captured in hanging mode
         }
 
         // ROM: Standing-on-top detection (sonic3k.asm:66475-66511)
@@ -694,5 +706,6 @@ public class HCZConveyorBeltObjectInstance extends AbstractObjectInstance {
         int animCounter;      // byte 6(a2): frame animation counter
         int frameSetOffset;   // byte 8(a2): 0 or $10
         AbstractPlayableSprite capturedPlayer;  // reference for safe cleanup
+        boolean lastJumpHeld; // previous frame's jump button state for new-press detection
     }
 }
