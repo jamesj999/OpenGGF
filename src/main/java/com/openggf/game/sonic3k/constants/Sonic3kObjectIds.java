@@ -37,6 +37,7 @@ public final class Sonic3kObjectIds {
     public static final int RHINOBOT = 0x8D;
     public static final int MONKEY_DUDE = 0x8E;
     public static final int CATERKILLER_JR = 0x8F;
+    public static final int MEGA_CHOPPER = 0x97;
     public static final int POINDEXTER = 0x98;
     public static final int STILL_SPRITE = 0x2F;
     public static final int ANIMATED_STILL_SPRITE = 0x30;
