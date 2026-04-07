@@ -80,6 +80,16 @@ class TestSessionManager {
     }
 
     @Test
+    void runtimeManager_returnsCurrentGameplayContextFacade() {
+        SessionManager.openGameplaySession(new Sonic2GameModule());
+
+        assertNotNull(com.openggf.game.RuntimeManager.getCurrent());
+        assertNotNull(com.openggf.game.RuntimeManager.getCurrent().getWorldSession());
+        assertSame(SessionManager.getCurrentWorldSession(),
+                com.openggf.game.RuntimeManager.getCurrent().getWorldSession());
+    }
+
+    @Test
     void openGameplaySession_rejectsNullModule() {
         assertThrows(NullPointerException.class, () -> SessionManager.openGameplaySession(null));
     }
