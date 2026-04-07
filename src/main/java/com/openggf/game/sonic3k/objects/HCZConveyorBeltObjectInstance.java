@@ -57,9 +57,10 @@ public class HCZConveyorBeltObjectInstance extends AbstractObjectInstance {
     };
 
     // ===== Shared load array (Conveyor_belt_load_array, sonic3k.constants.asm:317) =====
-    // One byte per subtype (0-13, but array sized to 16 for safety).
-    // Prevents duplicate object instances for the same belt.
-    private static final boolean[] loadArray = new boolean[16];
+    // The ROM indexes this with the full subtype byte before masking the low nibble
+    // for the bounds table. HCZ uses paired placements like 0x00/0x10 for the
+    // top/bottom belt pair, so they must not collide here.
+    private static final boolean[] loadArray = new boolean[0x100];
 
     // ===== Player animation frame table (byte_314D2, sonic3k.asm:66619) =====
     // 32 entries: maps animation phase (upper nibble of phase byte + frame set offset) to
@@ -149,14 +150,16 @@ public class HCZConveyorBeltObjectInstance extends AbstractObjectInstance {
     private final int rightBound;         // $3E(a0): right X from table
     private final int activeLeftBound;    // $40(a0): adjusted left X for detection
     private final int activeRightBound;   // $42(a0): adjusted right X for detection
-    private final int subtypeIndex;       // Subtype masked to 0-15
+    private final int rawSubtype;         // Full subtype byte for load-array indexing
+    private final int subtypeIndex;       // Low nibble used by the bounds table
     private boolean initialized = false;
 
     public HCZConveyorBeltObjectInstance(ObjectSpawn spawn) {
         super(spawn, "HCZConveyorBelt");
         this.objY = spawn.y();
         this.flipped = (spawn.renderFlags() & 0x01) != 0;
-        this.subtypeIndex = spawn.subtype() & 0x0F;
+        this.rawSubtype = spawn.subtype() & 0xFF;
+        this.subtypeIndex = rawSubtype & 0x0F;
 
         int[] bounds = BELT_BOUNDS[subtypeIndex];
         this.leftBound = bounds[0];
@@ -180,14 +183,14 @@ public class HCZConveyorBeltObjectInstance extends AbstractObjectInstance {
         if (!initialized) {
             initialized = true;
             // ROM: tst.b (a1,d0.w) / beq.s loc_31186 — check if already loaded
-            if (loadArray[subtypeIndex]) {
+            if (loadArray[rawSubtype]) {
                 // Another instance is already loaded — delete self
                 // ROM: loc_31180 (sonic3k.asm:66317-66318)
                 setDestroyed(true);
                 return;
             }
             // ROM: move.b #1,(a1,d0.w) — mark as loaded
-            loadArray[subtypeIndex] = true;
+            loadArray[rawSubtype] = true;
         }
 
         AbstractPlayableSprite player = (playerEntity instanceof AbstractPlayableSprite)
@@ -326,11 +329,6 @@ public class HCZConveyorBeltObjectInstance extends AbstractObjectInstance {
         }
 
         // ROM: cmpi.w #1,ground_vel(a1) / beq.w loc_313D6 (sonic3k.asm:66473-66474)
-        // ground_vel == 1 means an external force (the HCZ fan) is actively pushing
-        // the player — enter hanging (bottom) mode. Otherwise try standing (top).
-        // This is the ROM's sole branching mechanism; alternation between surfaces
-        // emerges naturally from the fan setting ground_vel=1 each frame while the
-        // player is in its push column.
         if (player.getGSpeed() == 1) {
             tryCapturHanging(player, state, frameCounter);
             return;
@@ -598,7 +596,7 @@ public class HCZConveyorBeltObjectInstance extends AbstractObjectInstance {
      */
     private void unloadBelt() {
         // ROM: move.b #0,(a1,d0.w) — clear load flag
-        loadArray[subtypeIndex] = false;
+        loadArray[rawSubtype] = false;
 
         // Release any captured players
         // (In the original, players are released by the state checks in processOnBelt
@@ -626,14 +624,14 @@ public class HCZConveyorBeltObjectInstance extends AbstractObjectInstance {
     @Override
     public void onUnload() {
         releaseAllCapturedPlayers();
-        loadArray[subtypeIndex] = false;
+        loadArray[rawSubtype] = false;
     }
 
     @Override
     public void setDestroyed(boolean destroyed) {
         if (destroyed && !isDestroyed()) {
             releaseAllCapturedPlayers();
-            loadArray[subtypeIndex] = false;
+            loadArray[rawSubtype] = false;
         }
         super.setDestroyed(destroyed);
     }

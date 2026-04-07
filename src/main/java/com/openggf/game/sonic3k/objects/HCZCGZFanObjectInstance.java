@@ -340,7 +340,6 @@ public class HCZCGZFanObjectInstance extends AbstractObjectInstance {
         if (player.isObjectControlled()) {
             // ROM: move.w #1,ground_vel(a1)
             player.setGSpeed((short) 1);
-
             return;
         }
 
@@ -376,7 +375,6 @@ public class HCZCGZFanObjectInstance extends AbstractObjectInstance {
         if (isUnderwater) {
             // ROM: move.w #1,ground_vel(a1)
             player.setGSpeed((short) 1);
-
             // ROM: move.b #$F,anim(a1) — special underwater animation
             player.setAnimationId(0x0F);
             return;
