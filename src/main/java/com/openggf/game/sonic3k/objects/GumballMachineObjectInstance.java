@@ -44,7 +44,7 @@ import java.util.logging.Logger;
  * <ul>
  *   <li>Mappings: Map_GumballBonus</li>
  *   <li>Art tile: make_art_tile(ArtTile_BonusStage, 1, 1) = palette 1, high priority</li>
- *   <li>Priority: $0200</li>
+ *   <li>Priority: $0100</li>
  * </ul>
  */
 public class GumballMachineObjectInstance extends AbstractObjectInstance {
@@ -69,10 +69,11 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
     private static final int ACTIVATE_Y_MIN = -8;   // yOffset
     private static final int ACTIVATE_Y_MAX = 8;    // yOffset + height
 
-    // Machine and most children render at bucket 1 (behind Sonic at bucket 2).
-    // Machine apparatus at bucket 1. Drawn after balls (3) and body (4),
-    // before player (0). Engine draws 7→0: body(4) → balls(3) → apparatus(1) → player(0).
-    private static final int PRIORITY_BUCKET = 1;
+    // ROM: ObjDat_GumballMachine priority $0100 → bucket 2 (same as Sonic).
+    // Draw_Sprite uses priority as byte offset into Sprite_table_input ($80/bucket).
+    // Machine apparatus, bumpers, dispenser, springs, container all share bucket 2.
+    // Within the same bucket, VDP slot order puts Sonic on top.
+    private static final int PRIORITY_BUCKET = 2;
 
     // ===== Debug: press F11 to cycle bucket/priority isolation =====
     // -1 = normal (all render), 0-7 = show ONLY that bucket, 8 = show only HIGH pri, 9 = show only LOW pri
@@ -105,9 +106,10 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         return !highPriority; // filter == 9
     }
 
-    // Body at bucket 5 — drawn as early as possible (behind everything) but still
-    // HIGH priority so the sprite priority shader renders it in front of FG tiles.
-    private static final int BODY_PRIORITY_BUCKET = 5;
+    // ROM: ObjDat3_6138C (platform/pile children) priority $0200 → bucket 4.
+    // Art tile make_art_tile(ArtTile_BonusStage,0,0) → VDP priority 0 (LOW).
+    // Piles/glass render behind high-priority FG tiles, visible through transparent areas.
+    private static final int BODY_PRIORITY_BUCKET = 4;
 
     // ROM: byte_61450 = [3, 5, 6, 7, $14, 5, $FF]
     // First byte (3) is the per-frame timer, NOT a mapping frame.
@@ -270,12 +272,6 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         spawnChild(() -> new PlatformChild(
                 buildSpawnAt(px + PLATFORM_EXTRA_OFFSET_X, py + PLATFORM_EXTRA_OFFSET_Y),
                 "GumballPlatformExtra", PLATFORM_EXTRA_OFFSET_Y, 0x16));
-        // Pile piece (piece 6 of frame 0x16) rendered separately at bucket 6 with
-        // No separate BodyPilesChild — PlatformChild for frame 0x16 renders ALL
-        // pieces with isHighPriority()=true (global override). The per-piece priority
-        // feature would make the pile piece LOW (hidden behind HIGH FG tiles), but
-        // ALL gumball FG tiles are HIGH priority so we need the global override.
-
         // 5th overlay child for the extra platform: the glass dome shine (sprite-mask
         // effect). ROM sub_61362 detects frame=$16 on the child and calls
         // CreateChild6_Simple with ChildObjDat_6144A, which spawns loc_610B6 using
@@ -760,6 +756,7 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
+            if (!shouldDebugRender(getPriorityBucket(), isHighPriority())) return;
             PatternSpriteRenderer r = getRenderer(Sonic3kObjectArtKeys.GUMBALL_BONUS);
             if (r == null) return;
             r.drawFrameIndex(MAPPING_FRAME, drawX, drawY, false, false);
@@ -960,12 +957,11 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         @Override
         public boolean isHighPriority() {
-            // All FG tiles in the gumball stage are HIGH priority. The per-piece
-            // priority system would make the pile piece (bit 15=0) LOW, causing it
-            // to be discarded by the sprite priority shader. Force ALL pieces HIGH
-            // via the global override so everything renders in front of FG tiles.
-            // Bucket ordering handles sprite-vs-sprite depth.
-            return true;
+            // ROM: ObjDat3_6138C uses make_art_tile(ArtTile_BonusStage,0,0) so the
+            // object-wide art_tile priority bit is clear. Frame 0x16's mixed
+            // layering comes from the mapping data itself, so keep the global
+            // override LOW and let the per-piece priority bits drive compositing.
+            return false;
         }
 
         @Override
@@ -975,12 +971,8 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         @Override
         public int getPriorityBucket() {
-            // Frame 0x16 (body + piles): bucket 5, behind glass/reflection.
-            // Frames 0+1 (reflection/glass): bucket 2, in front of body.
-            if (mappingFrame == 0x16) {
-                return RenderPriority.clamp(BODY_PRIORITY_BUCKET);
-            }
-            return RenderPriority.clamp(2);
+            // ROM: ObjDat3_6138C priority $0200 → bucket 4 for all frames.
+            return RenderPriority.clamp(BODY_PRIORITY_BUCKET);
         }
 
         @Override
@@ -994,39 +986,17 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
             int renderY = (machine != null)
                     ? machine.getCurrentY() + offsetFromMachine
                     : spawn.y();
-            // All pieces rendered — isHighPriority()=true forces the global override,
-            // making all pieces (including the pile) render in front of FG tiles.
+            if (mappingFrame == 0x16) {
+                // Frame 0x16 is a mixed machine-body composition. Draw the whole frame as a
+                // LOW background layer first, then re-draw only the ROM-marked HIGH pieces
+                // so the front shell stays over the interior balls.
+                renderer.drawFrameIndexForcedPriority(mappingFrame, spawn.x(), renderY,
+                        false, false, 0, false);
+                renderer.drawFrameIndexFilteredByPriority(mappingFrame, spawn.x(), renderY,
+                        false, false, 0, true);
+                return;
+            }
             renderer.drawFrameIndex(mappingFrame, spawn.x(), renderY, false, false, 0);
-        }
-    }
-
-    /**
-     * Renders ONLY the LOW priority pieces of frame 0x16 (gumball piles).
-     * Drawn at bucket 7 (furthest back) so piles appear behind everything:
-     * piles(7) → balls(6) → structure(5) → glass(2) → apparatus(1) → player(0)
-     */
-    static class BodyPilesChild extends AbstractObjectInstance {
-        private final int offsetFromMachine;
-
-        BodyPilesChild(ObjectSpawn spawn, int offsetFromMachine) {
-            super(spawn, "GumballBodyPiles");
-            this.offsetFromMachine = offsetFromMachine;
-        }
-
-        @Override public boolean isPersistent() { return true; }
-        @Override public boolean isHighPriority() { return true; } // HIGH so piles render in front of FG tiles
-        @Override public int getPriorityBucket() { return RenderPriority.clamp(6); } // behind glass(2)/structure(5)
-        @Override public void update(int frameCounter, PlayableEntity p) {}
-
-        @Override
-        public void appendRenderCommands(List<GLCommand> commands) {
-            if (!shouldDebugRender(getPriorityBucket(), isHighPriority())) return;
-            PatternSpriteRenderer renderer = getRenderer(Sonic3kObjectArtKeys.GUMBALL_BONUS);
-            if (renderer == null) return;
-            GumballMachineObjectInstance machine = GumballMachineObjectInstance.current();
-            int renderY = (machine != null) ? machine.getCurrentY() + offsetFromMachine : spawn.y();
-            // Draw only LOW priority pieces (gumball piles, piece 6 of frame 0x16)
-            renderer.drawFrameIndexFilteredByPriority(0x16, spawn.x(), renderY, false, false, 0, false);
         }
     }
 
@@ -1037,12 +1007,11 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
      * CreateChild6_Simple(ChildObjDat_6144A) when the extra platform child's
      * mapping frame is $16 (the body sprite). Follows the parent's position every
      * frame (ROM loc_610C6 copies x_pos/y_pos from parent3). Uses palette 0 /
-     * art_tile 0 per the ObjDat3_613EC `make_art_tile($000, 0, 0)` definition and
+     * art_tile 0 per the ObjDat3_613EC {@code make_art_tile($000, 0, 0)} definition and
      * sets the global Spritemask_flag on the VDP each frame.
      * <p>
-     * Priority $180 in ROM — slightly lower than the machine body's $200 so it
-     * renders just after the body. In our bucketed renderer this is still
-     * priority bucket 1 (behind Sonic).
+     * ROM priority $0180 → bucket 3 (between apparatus at bucket 2 and piles at
+     * bucket 4). VDP priority 0 (LOW) — renders behind high-priority FG tiles.
      */
     static class BodyOverlayChild extends AbstractObjectInstance {
 
@@ -1076,9 +1045,8 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         @Override
         public int getPriorityBucket() {
-            // Glass reflection renders IN FRONT of balls (inside machine) but
-            // behind apparatus (door/handle). Bucket 2: body(4) → balls(3) → glass(2) → apparatus(1)
-            return RenderPriority.clamp(2);
+            // ROM: ObjDat3_613EC priority $0180 → bucket 3.
+            return RenderPriority.clamp(3);
         }
 
         @Override

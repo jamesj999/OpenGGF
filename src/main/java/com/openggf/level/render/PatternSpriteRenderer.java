@@ -266,6 +266,55 @@ public class PatternSpriteRenderer {
         }
     }
 
+    /**
+     * Draws a frame while forcing every piece to the same VDP priority bit.
+     * Used for objects whose ROM composition relies on re-layering a mixed frame.
+     */
+    public void drawFrameIndexForcedPriority(int frameIndex, int originX, int originY,
+            boolean hFlip, boolean vFlip, int paletteOverride, boolean forcedPriority) {
+        if (frameIndex < 0 || frameIndex >= spriteSheet.getFrameCount() || patternBase < 0) {
+            return;
+        }
+        SpriteFrame<? extends SpriteFramePiece> frame = spriteSheet.getFrame(frameIndex);
+        int paletteIndex = paletteOverride >= 0 ? paletteOverride : spriteSheet.getPaletteIndex();
+        drawFramePiecesForcedPriority(frame.pieces(), originX, originY, hFlip, vFlip, paletteIndex, forcedPriority);
+    }
+
+    private void drawFramePiecesForcedPriority(List<? extends SpriteFramePiece> pieces,
+            int originX,
+            int originY,
+            boolean hFlip,
+            boolean vFlip,
+            int paletteIndex,
+            boolean forcedPriority) {
+        for (int i = pieces.size() - 1; i >= 0; i--) {
+            SpriteFramePiece piece = pieces.get(i);
+            SpritePieceRenderer.renderPiece(
+                    piece,
+                    originX,
+                    originY,
+                    patternBase,
+                    paletteIndex,
+                    hFlip,
+                    vFlip,
+                    (patternIdx, pieceHFlip, pieceVFlip, palIdx, drawX, drawY) -> {
+                        int descIndex = patternIdx & 0x7FF;
+                        if (forcedPriority) {
+                            descIndex |= 0x8000;
+                        }
+                        if (pieceHFlip) {
+                            descIndex |= 0x800;
+                        }
+                        if (pieceVFlip) {
+                            descIndex |= 0x1000;
+                        }
+                        descIndex |= (palIdx & 0x3) << 13;
+                        reusableDesc.set(descIndex);
+                        GraphicsManager.getInstance().renderPatternWithId(patternIdx, reusableDesc, drawX, drawY);
+                    });
+        }
+    }
+
     private FrameBounds computeFrameBounds(SpriteFrame<? extends SpriteFramePiece> frame) {
         Pattern[] patterns = spriteSheet.getPatterns();
         boolean first = true;

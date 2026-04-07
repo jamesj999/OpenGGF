@@ -21,6 +21,7 @@ public class LevelTransitionCoordinator {
 
     // ── Bonus stage ───────────────────────────────────────────────────
     private BonusStageType bonusStageRequested;
+    private int bonusStageReturnCheckpointIndex = -1;
 
     // ── Title card ─────────────────────────────────────────────────────
     private boolean titleCardRequested;
@@ -149,6 +150,33 @@ public class LevelTransitionCoordinator {
         BonusStageType requested = bonusStageRequested;
         bonusStageRequested = null;
         return requested;
+    }
+
+    /**
+     * Signals that the next level load is a bonus stage return.
+     * Set before {@code loadZoneAndAct()} so that {@code onInitLevel()} can
+     * detect the return and skip intros. The checkpoint index is restored
+     * to {@code CheckpointState} after the load completes.
+     *
+     * @param checkpointIndex the Last_star_post_hit value saved before bonus entry
+     */
+    public void setBonusStageReturnCheckpointIndex(int checkpointIndex) {
+        this.bonusStageReturnCheckpointIndex = checkpointIndex;
+    }
+
+    /** Returns true if this level load is a bonus stage return. */
+    public boolean isBonusStageReturn() {
+        return bonusStageReturnCheckpointIndex >= 0;
+    }
+
+    /** Returns the checkpoint index for bonus stage return, or -1 if not returning. */
+    public int getBonusStageReturnCheckpointIndex() {
+        return bonusStageReturnCheckpointIndex;
+    }
+
+    /** Clears the bonus stage return signal. */
+    public void clearBonusStageReturn() {
+        this.bonusStageReturnCheckpointIndex = -1;
     }
 
     // ================================================================
@@ -460,6 +488,7 @@ public class LevelTransitionCoordinator {
         specialStageReturnLevelReloadRequested = false;
         bigRingReturn = null;
         bonusStageRequested = null;
+        bonusStageReturnCheckpointIndex = -1;
         titleCardRequested = false;
         titleCardZone = -1;
         titleCardAct = -1;

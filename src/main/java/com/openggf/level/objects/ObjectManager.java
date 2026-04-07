@@ -93,6 +93,12 @@ public class ObjectManager {
     private final SolidContacts solidContacts;
     private final TouchResponses touchResponses;
 
+    private static final Comparator<ObjectInstance> RENDER_SLOT_DESCENDING = (a, b) -> {
+        int slotA = a instanceof AbstractObjectInstance aoiA ? aoiA.getSlotIndex() : Integer.MAX_VALUE;
+        int slotB = b instanceof AbstractObjectInstance aoiB ? aoiB.getSlotIndex() : Integer.MAX_VALUE;
+        return Integer.compare(slotB, slotA);
+    };
+
     public ObjectManager(List<ObjectSpawn> spawns, ObjectRegistry registry,
             int planeSwitcherObjectId, PlaneSwitcherConfig planeSwitcherConfig,
             TouchResponseTable touchResponseTable, GraphicsManager graphicsManager,
@@ -793,6 +799,15 @@ public class ObjectManager {
                 lowPriorityBuckets[idx].add(instance);
             }
         }
+
+        // ROM parity: lower sprite-table indices render in front. Objects execute and
+        // call Draw_Sprite in slot order, so lower SST slots must be drawn later in
+        // painter's-algorithm order. Sort each bucket descending by slot so lower
+        // slot indices appear on top.
+        for (int i = 0; i < BUCKET_COUNT; i++) {
+            lowPriorityBuckets[i].sort(RENDER_SLOT_DESCENDING);
+            highPriorityBuckets[i].sort(RENDER_SLOT_DESCENDING);
+        }
     }
 
     public void drawPriorityBucket(int bucket, boolean highPriority) {
@@ -897,16 +912,24 @@ public class ObjectManager {
         ensureBucketsPopulated();
         int idx = RenderPriority.clamp(bucket) - RenderPriority.MIN;
 
-        // Draw low-priority objects first (sets priority per-instance in shader)
+        // The BatchedPatternRenderer uses a single global priority uniform for
+        // the entire batch — it cannot vary per-instance. We must flush and
+        // restart the batch at each LOW→HIGH transition so that each group
+        // gets its own batch with the correct priority.
+        // (The InstancedPatternRenderer bakes priority per-instance and doesn't
+        // need the flush, but it's harmless — empty flushes are no-ops.)
+
         if (!lowPriorityBuckets[idx].isEmpty()) {
+            gfx.flushPatternBatch();
             gfx.setCurrentSpriteHighPriority(false);
+            gfx.beginPatternBatch();
             drawBucketInstancesWithPriority(lowPriorityBuckets[idx]);
         }
 
-        // Draw high-priority objects (sets priority per-instance in shader)
-        // No batch flush needed - priority is baked into instance data
         if (!highPriorityBuckets[idx].isEmpty()) {
+            gfx.flushPatternBatch();
             gfx.setCurrentSpriteHighPriority(true);
+            gfx.beginPatternBatch();
             drawBucketInstancesWithPriority(highPriorityBuckets[idx]);
         }
     }

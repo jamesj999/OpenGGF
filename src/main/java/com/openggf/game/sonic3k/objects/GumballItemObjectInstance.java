@@ -66,9 +66,13 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
     // matching ROM behavior where $C0+ objects use collision_property polling.
     private static final int COLLISION_FLAGS = 0x40 | 0x17;
 
-    // Engine draws buckets 7→0: piles(7) → balls(6) → body(5) → apparatus(1) → player(0).
-    // Balls at bucket 6: behind body structure, in front of piles.
-    private static final int PRIORITY_BUCKET = 6;
+    // ROM: regular Obj_GumballItem uses priority $0200 → bucket 4.
+    // These are the static balls displayed inside the machine / bonus stage.
+    private static final int STATIC_PRIORITY_BUCKET = 4;
+
+    // ROM: machine-ejected child balls use ObjDat3_613E0 priority $0100 → bucket 2.
+    // Same depth as Sonic and the active machine apparatus.
+    private static final int MOVING_PRIORITY_BUCKET = 2;
 
     // ROM: loc_6114E — ring item awards 10 rings to HUD and 20 to saved count
     private static final int RING_ITEM_HUD_AWARD = 10;
@@ -77,12 +81,30 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
     // ROM: sub_61176 push force — muls.w #-$700,d1 / asr.l #8,d1
     private static final int PUSH_FORCE = 0x700;
 
+    private static final int[] PACHINKO_RING_TABLE = {
+            0x50, 0x32, 0x28, 0x23, 0x23, 0x1E, 0x1E, 0x14,
+            0x14, 0x0A, 0x0A, 0x0A, 0x0A, 0x05, 0x05, 0x05
+    };
+
+    private enum MotionMode {
+        STATIC,
+        GUMBALL_EJECT,
+        PACHINKO_FLOAT
+    }
+
+    private enum RewardMode {
+        GUMBALL,
+        PACHINKO
+    }
 
     /** Subpixel motion state for MoveSprite2 + gravity deceleration. */
     private final SubpixelMotion.State motionState;
 
-    /** Whether this item uses the moving path (ejected from gumball machine). */
-    private final boolean moving;
+    /** Motion profile: static, gumball-ejected gravity, or pachinko float-up. */
+    private final MotionMode motionMode;
+
+    /** Reward dispatch mode: direct gumball subtype table vs pachinko translated subtype table. */
+    private final RewardMode rewardMode;
 
     /** Subtype determining reward behavior. */
     private final int subtype;
@@ -106,7 +128,7 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
      * @param spawn the object spawn data
      */
     public GumballItemObjectInstance(ObjectSpawn spawn) {
-        this(spawn, 0, false);
+        this(spawn, 0, MotionMode.STATIC, RewardMode.GUMBALL);
     }
 
     /**
@@ -117,8 +139,18 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
      * @param moving      true if this item uses the moving path (MoveSprite2 + gravity)
      */
     public GumballItemObjectInstance(ObjectSpawn spawn, int initialYVel, boolean moving) {
+        this(spawn, initialYVel, moving ? MotionMode.GUMBALL_EJECT : MotionMode.STATIC, RewardMode.GUMBALL);
+    }
+
+    public static GumballItemObjectInstance createPachinkoItem(ObjectSpawn spawn) {
+        return new GumballItemObjectInstance(spawn, 0, MotionMode.PACHINKO_FLOAT, RewardMode.PACHINKO);
+    }
+
+    private GumballItemObjectInstance(ObjectSpawn spawn, int initialYVel,
+            MotionMode motionMode, RewardMode rewardMode) {
         super(spawn, "GumballItem");
-        this.moving = moving;
+        this.motionMode = motionMode;
+        this.rewardMode = rewardMode;
         this.subtype = spawn.subtype() & 0xFF;
 
         // ROM animation scripts (byte_61466+) use subtype + 8 as the static frame.
@@ -135,13 +167,16 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        if (moving) {
-            // ROM: loc_60ECE — apply gravity then MoveSprite2, cap at terminal velocity
+        if (motionMode == MotionMode.GUMBALL_EJECT) {
             motionState.yVel += Y_GRAVITY;
             if (motionState.yVel > Y_TERMINAL_VELOCITY) {
                 motionState.yVel = Y_TERMINAL_VELOCITY;
             }
             SubpixelMotion.moveSprite2(motionState);
+            updateDynamicSpawn(motionState.x, motionState.y);
+        } else if (motionMode == MotionMode.PACHINKO_FLOAT) {
+            SubpixelMotion.moveSprite2(motionState);
+            motionState.yVel -= 4;
             updateDynamicSpawn(motionState.x, motionState.y);
         }
 
@@ -175,7 +210,7 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
 
     @Override
     public ObjectSpawn getSpawn() {
-        if (moving) {
+        if (motionMode != MotionMode.STATIC) {
             return buildSpawnAt(motionState.x, motionState.y);
         }
         return super.getSpawn();
@@ -210,6 +245,15 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
             return;
         }
 
+        if (rewardMode == RewardMode.PACHINKO) {
+            handlePachinkoReward(player, frameCounter);
+            return;
+        }
+
+        handleGumballReward(player, frameCounter, subtype);
+    }
+
+    private void handleGumballReward(PlayableEntity player, int frameCounter, int rewardSubtype) {
         // ROM: Machine-ejected balls use sub_610E0 → loc_61100 dispatch with
         // d1 = subtype DIRECTLY (NOT subtype-1 like sub_4A384 does for Pachinko orbs).
         // Deletion: loc_60F28 deletes the ball UNLESS the handler set d2=0.
@@ -218,7 +262,7 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
         // Each handler plays its own SFX internally if needed.
         boolean shouldDelete = true;
 
-        switch (subtype) {
+        switch (rewardSubtype) {
             case 0 -> onCollectExtraLife(player);                             // loc_61120: +1 life
             case 1 -> onCollectRepairDispenser(player);                       // loc_61130: REP (respawn dispenser + springs)
             case 2 -> onCollectRingReward(player);                            // loc_6114E: +20 saved, +10 HUD + sfx_RingRight
@@ -235,6 +279,24 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
         if (shouldDelete) {
             collected = true;
             // ROM: loc_60F28 just deletes — no SFX played at the deletion site.
+        }
+    }
+
+    private void handlePachinkoReward(PlayableEntity player, int frameCounter) {
+        boolean shouldDelete = true;
+
+        switch (subtype) {
+            case 0, 2 -> playSfx(Sonic3kSfx.SMALL_BUMPERS);
+            case 3 -> onCollectPachinkoRingReward(player);
+            default -> {
+                int translatedSubtype = subtype - 1;
+                handleGumballReward(player, frameCounter, translatedSubtype);
+                return;
+            }
+        }
+
+        if (shouldDelete) {
+            collected = true;
         }
     }
 
@@ -279,6 +341,13 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
         awardRingsToCoordinator(RING_ITEM_SAVED_AWARD);  // +20 to saved
         awardRingsToHud(player, RING_ITEM_HUD_AWARD);    // +10 to HUD
         // ROM: AddRings plays sfx_RingRight at loc_86132
+        playSfx(Sonic3kSfx.RING_RIGHT);
+    }
+
+    private void onCollectPachinkoRingReward(PlayableEntity player) {
+        int amount = PACHINKO_RING_TABLE[motionState.y & 0x0F];
+        awardRingsToCoordinator(amount);
+        awardRingsToHud(player, amount);
         playSfx(Sonic3kSfx.RING_RIGHT);
     }
 
@@ -438,29 +507,44 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
 
     @Override
     public int getPriorityBucket() {
-        return RenderPriority.clamp(PRIORITY_BUCKET);
+        return RenderPriority.clamp(
+                motionMode == MotionMode.GUMBALL_EJECT ? MOVING_PRIORITY_BUCKET : STATIC_PRIORITY_BUCKET);
     }
 
     @Override
     public boolean isHighPriority() {
-        // ROM: ObjDat3_613E0 make_art_tile(ArtTile_BonusStage, 0, 1) — VDP priority 1
-        // Balls render in front of high-priority FG tiles (machine body chunks).
-        return true;
+        // ROM has two distinct attribute sets:
+        // - Obj_GumballItem / loc_4A2CC: make_art_tile(...,0,0) → LOW priority
+        // - loc_60EBA child spawn:       make_art_tile(...,0,1) → HIGH priority
+        return motionMode == MotionMode.GUMBALL_EJECT;
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
         if (!GumballMachineObjectInstance.shouldDebugRender(getPriorityBucket(), isHighPriority())) return;
-        // ROM: subtype 0 uses Map_PachinkoFItem, others use Map_GumballBonus
-        // Both share the same art key in the engine (loaded together for the bonus stage)
-        String artKey = Sonic3kObjectArtKeys.GUMBALL_BONUS;
+        String artKey = resolveArtKey();
         PatternSpriteRenderer renderer = getRenderer(artKey);
         if (renderer == null) {
             return;
         }
 
-        // ROM: ObjDat3_613E0 uses make_art_tile(ArtTile_BonusStage, 0, 1) — palette 0
-        // (sheet default is palette 1 for the main machine/bumpers).
-        renderer.drawFrameIndex(mappingFrame, motionState.x, motionState.y, false, false, 0);
+        int frame = resolveMappingFrame();
+        renderer.drawFrameIndex(frame, motionState.x, motionState.y, false, false, 0);
+    }
+
+    private String resolveArtKey() {
+        if (rewardMode == RewardMode.PACHINKO) {
+            return subtype == 0
+                    ? Sonic3kObjectArtKeys.PACHINKO_F_ITEM
+                    : Sonic3kObjectArtKeys.PACHINKO_GUMBALLS;
+        }
+        return Sonic3kObjectArtKeys.GUMBALL_BONUS;
+    }
+
+    private int resolveMappingFrame() {
+        if (rewardMode == RewardMode.PACHINKO && subtype == 0) {
+            return 0;
+        }
+        return mappingFrame;
     }
 }

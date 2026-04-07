@@ -48,6 +48,23 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
             0x300, 0x00, 0x2A0, 0x60, 0x240, 0xC0, 0x1E0, 0x120,
             0x180, 0x180, 0x120, 0x1E0, 0xC0, 0x240, 0x60, 0x2A0
     };
+    private static final int PACHINKO_BG_DEST_TILE = 0x0E9;
+    private static final int PACHINKO_BG_DMA_BYTES = 0x780;
+    private static final int PACHINKO_LOW_SOURCE_TILE = 0x080;
+    private static final int PACHINKO_LOW_SOURCE_BYTES = 0x5000;
+    private static final int PACHINKO_HIGH_SOURCE_TILE = 0x300;
+    private static final int PACHINKO_HIGH_SOURCE_BYTES = 0x0C00;
+    private static final int[] PACHINKO_COPY_OFFSETS = {
+            0x180, 0x120, 0x0C0, 0x060, 0x400, 0x3A0, 0x340, 0x2E0, 0x680, 0x620, 0x5C0, 0x560
+    };
+    private static final int[] PACHINKO_MIX_OFFSETS = {
+            0x400, 0x3A0, 0x340, 0x2E0, 0x680, 0x620, 0x5C0, 0x560, 0x180, 0x120, 0x0C0, 0x060
+    };
+    private static final int[] PACHINKO_PHASE_PARAMS = {
+            0x50, 0x05, 0xA0, 0x0A,
+            0x00, 0x00, 0x00, 0x00,
+            0xA0, 0x0A, 0x50, 0x05
+    };
 
     private final Level level;
     private final GraphicsManager graphicsManager = GraphicsManager.getInstance();
@@ -81,12 +98,18 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
     private final Pattern[] hcz2Art2Patterns;
     private final Pattern[] hcz2Art3Patterns;
     private final Pattern[] hcz2Art4Patterns;
+    private final byte[] pachinkoScratch;
+    private final byte[] pachinkoLowSource;
+    private final byte[] pachinkoHighSource;
 
     private int lastHcz1WaterlineDelta = Integer.MIN_VALUE;
     private int lastHcz2SmallBgLineValue = Integer.MIN_VALUE;
     private int lastHcz2Art2Value = Integer.MIN_VALUE;
     private int lastHcz2Art3Value = Integer.MIN_VALUE;
     private int lastHcz2Art4Value = Integer.MIN_VALUE;
+    private int pachinkoPhase;
+    private int pachinkoSourceOffset;
+    private int pachinkoStripeOffset;
 
     // Gumball bonus stage: direct DMA of uncompressed art based on BG scroll
     // ROM: AnimateTiles_Gumball (sonic3k.asm:55266)
@@ -136,6 +159,9 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
             this.hcz2Art2Patterns = null;
             this.hcz2Art3Patterns = null;
             this.hcz2Art4Patterns = null;
+            this.pachinkoScratch = null;
+            this.pachinkoLowSource = null;
+            this.pachinkoHighSource = null;
             // Gumball uses direct DMA, not AniPLC — still needs data loaded
             if (zoneIndex == 0x13) {
                 this.gumballAniData = loadRawBytes(reader,
@@ -155,6 +181,7 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
             level.ensurePatternCapacity(firstTreeEnd);
         }
         ensureHczPatternCapacity();
+        ensurePachinkoPatternCapacity();
 
         boolean isAiz1Intro = zoneIndex == 0 && actIndex == 0 && !isSkipIntro;
         if (!isAiz1Intro) {
@@ -288,6 +315,19 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
             this.hcz2Art4Patterns = null;
         }
 
+        if (zoneIndex == 0x14) {
+            this.pachinkoScratch = new byte[PACHINKO_BG_DMA_BYTES];
+            this.pachinkoLowSource = new byte[PACHINKO_LOW_SOURCE_BYTES];
+            this.pachinkoHighSource = new byte[PACHINKO_HIGH_SOURCE_BYTES];
+            this.pachinkoPhase = 0;
+            this.pachinkoSourceOffset = 0;
+            this.pachinkoStripeOffset = 0;
+        } else {
+            this.pachinkoScratch = null;
+            this.pachinkoLowSource = null;
+            this.pachinkoHighSource = null;
+        }
+
         // Gumball bonus stage animated tiles (zone 0x13)
         if (zoneIndex == 0x13) {
             this.gumballAniData = loadRawBytes(reader,
@@ -303,6 +343,11 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
         // animated tile updates. Run its updater before the early return.
         if (zoneIndex == 0x13) {
             updateGumball();
+            return;
+        }
+        if (zoneIndex == 0x14) {
+            updatePachinko();
+            runAllScripts();
             return;
         }
         if (scripts.isEmpty()) {
@@ -634,6 +679,42 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
         }
     }
 
+    private void ensurePachinkoPatternCapacity() {
+        if (zoneIndex == 0x14) {
+            level.ensurePatternCapacity(PACHINKO_BG_DEST_TILE
+                    + (PACHINKO_BG_DMA_BYTES / Pattern.PATTERN_SIZE_IN_ROM));
+        }
+    }
+
+    private void copyPatternsToRawBytes(int startTile, byte[] dest) {
+        if (dest == null) {
+            return;
+        }
+        int tileCount = dest.length / Pattern.PATTERN_SIZE_IN_ROM;
+        for (int tile = 0; tile < tileCount; tile++) {
+            int levelTile = startTile + tile;
+            int outPos = tile * Pattern.PATTERN_SIZE_IN_ROM;
+            if (levelTile >= level.getPatternCount()) {
+                for (int i = 0; i < Pattern.PATTERN_SIZE_IN_ROM; i++) {
+                    dest[outPos + i] = 0;
+                }
+                continue;
+            }
+            writePatternToSegaBytes(level.getPattern(levelTile), dest, outPos);
+        }
+    }
+
+    private void writePatternToSegaBytes(Pattern pattern, byte[] dest, int destPos) {
+        int pos = destPos;
+        for (int row = 0; row < Pattern.PATTERN_HEIGHT; row++) {
+            for (int col = 0; col < Pattern.PATTERN_WIDTH; col += 2) {
+                int left = pattern.getPixel(col, row) & 0x0F;
+                int right = pattern.getPixel(col + 1, row) & 0x0F;
+                dest[pos++] = (byte) ((left << 4) | right);
+            }
+        }
+    }
+
     private byte[] loadRawBytes(RomByteReader reader, int addr, int size) {
         if (addr + size > reader.size()) {
             return null;
@@ -752,6 +833,124 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
         }
     }
 
+    private void updatePachinko() {
+        if (pachinkoScratch == null || pachinkoLowSource == null || pachinkoHighSource == null) {
+            return;
+        }
+
+        copyPatternsToRawBytes(PACHINKO_LOW_SOURCE_TILE, pachinkoLowSource);
+        copyPatternsToRawBytes(PACHINKO_HIGH_SOURCE_TILE, pachinkoHighSource);
+
+        if (pachinkoPhase == 0) {
+            rebuildPachinkoScratch();
+            pachinkoPhase = 1;
+        } else {
+            applyPachinkoBlendPhase(pachinkoPhase);
+            pachinkoPhase++;
+            if (pachinkoPhase >= 4) {
+                pachinkoPhase = 0;
+                pachinkoSourceOffset += 0x280;
+                if (pachinkoSourceOffset >= PACHINKO_LOW_SOURCE_BYTES) {
+                    pachinkoSourceOffset = 0;
+                }
+            }
+        }
+
+        applyRawPatternSliceToLevel(pachinkoScratch, 0, PACHINKO_BG_DMA_BYTES, PACHINKO_BG_DEST_TILE);
+    }
+
+    private void rebuildPachinkoScratch() {
+        int sourceOffset = pachinkoStripeOffset & 0x7F;
+        pachinkoStripeOffset = (pachinkoStripeOffset - 4) & 0x7F;
+
+        int destPos = 0;
+        int sourcePos = sourceOffset;
+        for (int group = 0; group < 3; group++) {
+            for (int row = 0; row < 4; row++) {
+                System.arraycopy(pachinkoHighSource, sourcePos, pachinkoScratch, destPos, 0x80);
+                destPos += 0x80;
+                sourcePos += 0x100;
+            }
+            destPos += 0x80;
+        }
+
+        int writePos = 0x200;
+        int offsetIndex = 0;
+        for (int group = 0; group < 3; group++) {
+            for (int row = 0; row < 4; row++) {
+                int a1 = PACHINKO_COPY_OFFSETS[offsetIndex];
+                int a2 = PACHINKO_MIX_OFFSETS[offsetIndex];
+                int maskA = 0xFFFFFFFF;
+                int maskB = 0x00000000;
+                for (int column = 0; column < 8; column++) {
+                    int mixed = (readLongBE(pachinkoScratch, a1) & maskA)
+                            | (readLongBE(pachinkoScratch, a2) & maskB);
+                    writeLongBE(pachinkoScratch, writePos, mixed);
+                    a1 += 4;
+                    a2 += 4;
+                    writePos += 4;
+                    maskA <<= 4;
+                    maskB = (maskB << 4) | 0x0F;
+                }
+                offsetIndex++;
+            }
+            writePos += 0x200;
+        }
+    }
+
+    private void applyPachinkoBlendPhase(int phase) {
+        int phaseIndex = phase - 1;
+        if (phaseIndex < 0 || phaseIndex > 2) {
+            return;
+        }
+
+        int writePos = phaseIndex * 0x280;
+        int paramPos = phaseIndex * 4;
+        int addHigh = PACHINKO_PHASE_PARAMS[paramPos];
+        int addLow = PACHINKO_PHASE_PARAMS[paramPos + 1];
+        int subHigh = PACHINKO_PHASE_PARAMS[paramPos + 2];
+        int subLow = PACHINKO_PHASE_PARAMS[paramPos + 3];
+        int readPos = pachinkoSourceOffset;
+
+        for (int i = 0; i < 0x200; i++) {
+            int source = pachinkoLowSource[readPos++] & 0xFF;
+            if (source != 0) {
+                int high = source & 0xF0;
+                if (high != 0) {
+                    pachinkoScratch[writePos] = (byte) ((pachinkoScratch[writePos] & 0x0F)
+                            | ((high + addHigh) & 0xF0));
+                }
+                int low = source & 0x0F;
+                if (low != 0) {
+                    pachinkoScratch[writePos] = (byte) ((pachinkoScratch[writePos] & 0xF0)
+                            | ((low + addLow) & 0x0F));
+                }
+            }
+            writePos++;
+        }
+
+        for (int i = 0; i < 0x80; i++) {
+            int source = pachinkoLowSource[readPos++] & 0xFF;
+            if (source != 0) {
+                int high = source & 0xF0;
+                if (high != 0) {
+                    int value = ((source & 0x80) == 0)
+                            ? ((high + addHigh) & 0xF0)
+                            : ((high - subHigh) & 0xF0);
+                    pachinkoScratch[writePos] = (byte) ((pachinkoScratch[writePos] & 0x0F) | value);
+                }
+                int low = source & 0x0F;
+                if (low != 0) {
+                    int value = ((low & 0x08) == 0)
+                            ? ((low + addLow) & 0x0F)
+                            : ((low - subLow) & 0x0F);
+                    pachinkoScratch[writePos] = (byte) ((pachinkoScratch[writePos] & 0xF0) | value);
+                }
+            }
+            writePos++;
+        }
+    }
+
     private int getCameraY() {
         try {
             return GameServices.camera().getY();
@@ -769,6 +968,7 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
             case 1 -> actIndex == 0
                     ? Sonic3kConstants.ANIPLC_HCZ1_ADDR
                     : Sonic3kConstants.ANIPLC_HCZ2_ADDR;
+            case 0x14 -> Sonic3kConstants.ANIPLC_PACHINKO_ADDR;
             default -> -1;
         };
     }
@@ -785,5 +985,19 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
         int masked = value & 0xFFFF;
         int shift = bits & 15;
         return ((masked >>> shift) | (masked << (16 - shift))) & 0xFFFF;
+    }
+
+    private static int readLongBE(byte[] data, int offset) {
+        return ((data[offset] & 0xFF) << 24)
+                | ((data[offset + 1] & 0xFF) << 16)
+                | ((data[offset + 2] & 0xFF) << 8)
+                | (data[offset + 3] & 0xFF);
+    }
+
+    private static void writeLongBE(byte[] data, int offset, int value) {
+        data[offset] = (byte) ((value >>> 24) & 0xFF);
+        data[offset + 1] = (byte) ((value >>> 16) & 0xFF);
+        data[offset + 2] = (byte) ((value >>> 8) & 0xFF);
+        data[offset + 3] = (byte) (value & 0xFF);
     }
 }

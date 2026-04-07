@@ -167,8 +167,8 @@ public class GumballTriangleBumperObjectInstance extends AbstractObjectInstance
 
     @Override
     public int getPriorityBucket() {
-        // ROM: priority $0100 → bucket 1 (lower bits of priority word / $80)
-        return RenderPriority.clamp(1);
+        // ROM: ObjDat3_613A4 priority $0100 → bucket 2 ($0100 / $80 = 2).
+        return RenderPriority.clamp(2);
     }
 
     @Override

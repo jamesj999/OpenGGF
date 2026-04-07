@@ -212,6 +212,7 @@ public final class Sonic3kPlcArtRegistry {
             case 0x0B -> addDezEntries(actIndex, standalone, levelArt);
             case 0x0C -> addDdzEntries(actIndex, standalone, levelArt);
             case 0x13 -> addGumballEntries(actIndex, standalone, levelArt);
+            case 0x14 -> addPachinkoEntries(actIndex, standalone, levelArt);
         }
     }
 
@@ -242,6 +243,80 @@ public final class Sonic3kPlcArtRegistry {
                 Sonic3kConstants.MAP_SPRING_ADDR,
                 0,
                 -1
+        ));
+    }
+
+    /**
+     * Populates Pachinko / Glowing Spheres bonus stage art entries.
+     *
+     * <p>The main Pachinko object art is loaded into level pattern memory by the stage PLC
+     * (PLC_50 -> ArtTile_PachinkoMain), so these entries use ROM-parsed mappings with
+     * level-art tile bases rather than standalone Nemesis sheets.
+     */
+    private static void addPachinkoEntries(int actIndex,
+            List<StandaloneArtEntry> standalone, List<LevelArtEntry> levelArt) {
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.PACHINKO_BUMPER,
+                Sonic3kConstants.MAP_PACHINKO_BUMPER_ADDR,
+                Sonic3kConstants.ARTTILE_PACHINKO_MAIN,
+                3,
+                null
+        ));
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.PACHINKO_TRIANGLE_BUMPER,
+                Sonic3kConstants.MAP_PACHINKO_TRIANGLE_BUMPER_ADDR,
+                Sonic3kConstants.ARTTILE_PACHINKO_MAIN + 0x1E,
+                3,
+                null
+        ));
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.PACHINKO_FLIPPER,
+                Sonic3kConstants.MAP_PACHINKO_FLIPPER_ADDR,
+                Sonic3kConstants.ARTTILE_PACHINKO_MAIN + 0x62,
+                0,
+                null
+        ));
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.PACHINKO_ENERGY_TRAP,
+                Sonic3kConstants.MAP_PACHINKO_ENERGY_TRAP_ADDR,
+                Sonic3kConstants.ARTTILE_PACHINKO_MAIN + 0x85,
+                1,
+                null
+        ));
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.PACHINKO_INVISIBLE_UNKNOWN,
+                Sonic3kConstants.MAP_PACHINKO_INVISIBLE_UNKNOWN_ADDR,
+                Sonic3kConstants.ARTTILE_PACHINKO_MAIN + 0x97,
+                3,
+                null
+        ));
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.PACHINKO_PLATFORM,
+                Sonic3kConstants.MAP_PACHINKO_PLATFORM_ADDR,
+                Sonic3kConstants.ARTTILE_PACHINKO_MAIN + 0x8B,
+                1,
+                null
+        ));
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.PACHINKO_ITEM_ORB,
+                Sonic3kConstants.MAP_PACHINKO_ITEM_ORB_ADDR,
+                Sonic3kConstants.ARTTILE_PACHINKO_MAIN + 0x97,
+                3,
+                null
+        ));
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.PACHINKO_F_ITEM,
+                Sonic3kConstants.MAP_PACHINKO_F_ITEM_ADDR,
+                Sonic3kConstants.ARTTILE_PACHINKO_MAIN + 0xAB,
+                3,
+                null
+        ));
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.PACHINKO_GUMBALLS,
+                Sonic3kConstants.GUMBALL_MAP_ADDR,
+                Sonic3kConstants.ARTTILE_PACHINKO_GUMBALLS,
+                0,
+                null
         ));
     }
 

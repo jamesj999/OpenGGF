@@ -16,6 +16,7 @@ import com.openggf.data.RomByteReader;
 import com.openggf.game.CrossGameFeatureProvider;
 import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.game.DynamicStartPositionProvider;
+import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 
 import com.openggf.debug.DebugObjectArtViewer;
 import com.openggf.debug.DebugOverlayManager;
@@ -2044,12 +2045,26 @@ public class LevelManager {
             graphicsManager.setCurrentSpriteHighPriority(false);
         }
 
+        boolean gumballStageOrdering = currentZone == Sonic3kZoneIds.ZONE_GUMBALL;
+
         for (int bucket = RenderPriority.MAX; bucket >= RenderPriority.MIN; bucket--) {
-            if (spriteManager != null) {
-                spriteManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
-            }
-            if (objectManager != null) {
-                objectManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
+            if (gumballStageOrdering) {
+                // In the gumball bonus stage, the player and bonus-stage objects share
+                // the same priority buckets. Draw objects first so lower-slot player
+                // sprites remain on top within a shared bucket.
+                if (objectManager != null) {
+                    objectManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
+                }
+                if (spriteManager != null) {
+                    spriteManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
+                }
+            } else {
+                if (spriteManager != null) {
+                    spriteManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
+                }
+                if (objectManager != null) {
+                    objectManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
+                }
             }
         }
         graphicsManager.flushPatternBatch();
@@ -3649,6 +3664,18 @@ public class LevelManager {
 
     /** @see LevelTransitionCoordinator#clearBigRingReturn() */
     public void clearBigRingReturn() { transitions.clearBigRingReturn(); }
+
+    /** @see LevelTransitionCoordinator#setBonusStageReturnCheckpointIndex(int) */
+    public void setBonusStageReturnCheckpointIndex(int idx) { transitions.setBonusStageReturnCheckpointIndex(idx); }
+
+    /** @see LevelTransitionCoordinator#isBonusStageReturn() */
+    public boolean isBonusStageReturn() { return transitions.isBonusStageReturn(); }
+
+    /** @see LevelTransitionCoordinator#getBonusStageReturnCheckpointIndex() */
+    public int getBonusStageReturnCheckpointIndex() { return transitions.getBonusStageReturnCheckpointIndex(); }
+
+    /** @see LevelTransitionCoordinator#clearBonusStageReturn() */
+    public void clearBonusStageReturn() { transitions.clearBonusStageReturn(); }
 
     /** @see LevelTransitionCoordinator#requestTitleCard(int, int) */
     public void requestTitleCard(int zone, int act) { transitions.requestTitleCard(zone, act); }

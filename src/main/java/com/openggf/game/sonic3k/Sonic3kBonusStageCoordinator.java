@@ -10,8 +10,8 @@ import com.openggf.game.BonusStageType;
  * <p>Ring-based selection formula: {@code remainder = ((rings - 20) / 15) % 3}
  * <p>ROM loc_2D47E (sonic3k.asm lines 61886-61912):
  * <ul>
- *   <li>0 -> SLOT_MACHINE (zone $1500, music $20)</li>
- *   <li>1 -> GLOWING_SPHERE / Pachinko (zone $1400, music $1F)</li>
+ *   <li>0 -> SLOT_MACHINE (zone $1500, music $1D)</li>
+ *   <li>1 -> GLOWING_SPHERE / Pachinko (zone $1400, music $1B)</li>
  *   <li>2 -> GUMBALL (zone $1300, music $1E)</li>
  * </ul>
  * <p>
@@ -28,8 +28,8 @@ public class Sonic3kBonusStageCoordinator extends AbstractBonusStageCoordinator 
     private static final int ZONE_SLOTS    = 0x1500;
 
     private static final int MUS_GUMBALL  = 0x1E;
-    private static final int MUS_PACHINKO = 0x1F;
-    private static final int MUS_SLOTS    = 0x20;
+    private static final int MUS_PACHINKO = 0x1B;
+    private static final int MUS_SLOTS    = 0x1D;
 
     private static final int RING_THRESHOLD = 20;
     private static final int RING_DIVISOR   = 15;

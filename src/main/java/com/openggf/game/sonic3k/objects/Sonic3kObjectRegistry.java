@@ -4,6 +4,7 @@ import com.openggf.game.sonic3k.objects.badniks.CaterkillerJrHeadInstance;
 import com.openggf.game.sonic3k.objects.badniks.MonkeyDudeBadnikInstance;
 import com.openggf.game.sonic3k.constants.S3kZoneSet;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
+import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.objects.badniks.BloominatorBadnikInstance;
 import com.openggf.game.sonic3k.objects.badniks.RhinobotBadnikInstance;
 import com.openggf.level.objects.AbstractObjectRegistry;
@@ -106,6 +107,13 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                 (spawn, registry) -> new Sonic3kInvisibleBlockObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.FLOATING_PLATFORM,
                 (spawn, registry) -> new FloatingPlatformObjectInstance(spawn));
+        factories.put(Sonic3kObjectIds.BUMPER,
+                (spawn, registry) -> {
+                    if (currentRomZoneId() == Sonic3kZoneIds.ZONE_GLOWING_SPHERE) {
+                        return new PachinkoBumperObjectInstance(spawn);
+                    }
+                    return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), getCurrentZoneSet()));
+                });
         factories.put(Sonic3kObjectIds.BUTTON,
                 (spawn, registry) -> new Sonic3kButtonObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.CUTSCENE_BUTTON,
@@ -126,6 +134,30 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                 (spawn, registry) -> new GumballMachineObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.GUMBALL_TRIANGLE_BUMPER,
                 (spawn, registry) -> new GumballTriangleBumperObjectInstance(spawn));
+        factories.put(Sonic3kObjectIds.PACHINKO_TRIANGLE_BUMPER,
+                (spawn, registry) -> currentRomZoneId() == Sonic3kZoneIds.ZONE_GLOWING_SPHERE
+                        ? new PachinkoTriangleBumperObjectInstance(spawn)
+                        : new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), getCurrentZoneSet())));
+        factories.put(Sonic3kObjectIds.PACHINKO_FLIPPER,
+                (spawn, registry) -> currentRomZoneId() == Sonic3kZoneIds.ZONE_GLOWING_SPHERE
+                        ? new PachinkoFlipperObjectInstance(spawn)
+                        : new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), getCurrentZoneSet())));
+        factories.put(Sonic3kObjectIds.PACHINKO_ENERGY_TRAP,
+                (spawn, registry) -> currentRomZoneId() == Sonic3kZoneIds.ZONE_GLOWING_SPHERE
+                        ? new PachinkoEnergyTrapObjectInstance(spawn)
+                        : new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), getCurrentZoneSet())));
+        factories.put(Sonic3kObjectIds.PACHINKO_PLATFORM,
+                (spawn, registry) -> currentRomZoneId() == Sonic3kZoneIds.ZONE_GLOWING_SPHERE
+                        ? new PachinkoPlatformObjectInstance(spawn)
+                        : new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), getCurrentZoneSet())));
+        factories.put(Sonic3kObjectIds.PACHINKO_ITEM_ORB,
+                (spawn, registry) -> currentRomZoneId() == Sonic3kZoneIds.ZONE_GLOWING_SPHERE
+                        ? new PachinkoItemOrbObjectInstance(spawn)
+                        : new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), getCurrentZoneSet())));
+        factories.put(Sonic3kObjectIds.PACHINKO_MAGNET_ORB,
+                (spawn, registry) -> currentRomZoneId() == Sonic3kZoneIds.ZONE_GLOWING_SPHERE
+                        ? new PachinkoMagnetOrbObjectInstance(spawn)
+                        : new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), getCurrentZoneSet())));
         factories.put(Sonic3kObjectIds.GUMBALL_ITEM,
                 (spawn, registry) -> new GumballItemObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.BLOOMINATOR,

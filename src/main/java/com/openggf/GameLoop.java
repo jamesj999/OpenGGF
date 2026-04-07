@@ -1138,10 +1138,10 @@ public class GameLoop {
     }
 
     /**
-     * Forces ALL player sprites to VDP high priority AND bucket 0 during bonus stage.
+     * Forces all player sprites to VDP high priority during bonus stage.
      * ROM lines 127411-127412: bset #7 on BOTH Player_1 AND Player_2 art_tile.
-     * Bucket 0 is drawn last in the 7→0 loop, ensuring the player renders on top
-     * of all machine objects (bucket 1) and balls (bucket 2).
+     * This only restores the tile-priority bit; it does not rewrite the player's
+     * display bucket, which remains governed by the normal priority model.
      */
     private void forcePlayerHighPriorityInBonusStage() {
         boolean changed = false;
@@ -1149,10 +1149,6 @@ public class GameLoop {
             if (sprite instanceof AbstractPlayableSprite playable) {
                 if (!playable.isHighPriority()) {
                     playable.setHighPriority(true);
-                    changed = true;
-                }
-                if (playable.getPriorityBucket() != 0) {
-                    playable.setPriorityBucket(0);
                     changed = true;
                 }
             }
@@ -1218,6 +1214,8 @@ public class GameLoop {
         int act = savedState.savedZoneAndAct() & 0xFF;
 
         try {
+            // Signal bonus stage return so onInitLevel() can skip intros (ROM: Level_FromSavedGame)
+            levelManager.setBonusStageReturnCheckpointIndex(savedState.savedLastStarPostHit());
             // Suppress auto-music: zone music starts below during the title card
             levelManager.setSuppressNextMusicChange(true);
             levelManager.loadZoneAndAct(zone, act);
@@ -1225,6 +1223,19 @@ public class GameLoop {
             levelManager.consumeTitleCardRequest();
         } catch (IOException e) {
             throw new RuntimeException("Failed to reload level after bonus stage", e);
+        } finally {
+            levelManager.clearBonusStageReturn();
+        }
+
+        // Restore checkpoint state so starposts show as activated (ROM: Saved_last_star_post_hit)
+        if (savedState.savedLastStarPostHit() >= 0) {
+            RespawnState cs = levelManager.getCheckpointState();
+            if (cs != null) {
+                cs.restoreFromSaved(
+                        savedState.playerX(), savedState.playerY(),
+                        savedState.cameraX(), savedState.cameraY(),
+                        savedState.savedLastStarPostHit());
+            }
         }
 
         // Restore event routine state (prevents camera lock replay)
