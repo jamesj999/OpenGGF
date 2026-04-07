@@ -1249,6 +1249,23 @@ public class Sonic3kConstants {
     public static final int ARTTILE_BONUS_STAGE = 0x015B;           // ArtTile_BonusStage (VRAM tile destination)
     public static final int GUMBALL_ANI_TILES_ADDR = 0x2C2180;      // ArtUnc_AniGumball (uncompressed, 256 bytes)
 
+    // ===== Pachinko / Glowing Spheres Bonus Stage =====
+    public static final int ARTTILE_PACHINKO_MAIN = 0x02CD;         // ArtTile_PachinkoMain
+    public static final int ARTTILE_PACHINKO_GUMBALLS = 0x0388;     // ArtTile_PachinkoGumballs
+    public static final int ANIPLC_PACHINKO_ADDR = 0x028C2C;        // AniPLC_Pachinko
+    public static final int ART_UNC_ANI_PACHINKO_ADDR = 0x0C8E20;   // ArtUnc_AniPachinko
+
+    // S3K inline mapping data. These addresses are derived from the first frame label
+    // in each included mapping asm file minus the 2-byte offset words in the table.
+    public static final int MAP_PACHINKO_BUMPER_ADDR = 0x0330A2;    // Map_PachinkoBumper
+    public static final int MAP_PACHINKO_TRIANGLE_BUMPER_ADDR = 0x049C0A; // Map_PachinkoTriangleBumper
+    public static final int MAP_PACHINKO_FLIPPER_ADDR = 0x049E8C;   // Map_PachinkoFlipper
+    public static final int MAP_PACHINKO_ENERGY_TRAP_ADDR = 0x04A08A; // Map_PachinkoEnergyTrap
+    public static final int MAP_PACHINKO_INVISIBLE_UNKNOWN_ADDR = 0x04A118; // Map_PachinkoInvisibleUnknown
+    public static final int MAP_PACHINKO_PLATFORM_ADDR = 0x04A1D6;  // Map_PachinkoPlatform
+    public static final int MAP_PACHINKO_ITEM_ORB_ADDR = 0x04A294;  // Map_PachinkoItemOrb
+    public static final int MAP_PACHINKO_F_ITEM_ADDR = 0x04A3D2;    // Map_PachinkoFItem
+
     // Spring child object mappings (shared, used across all zones)
     public static final int MAP_SPRING_ADDR = 0x02375C;             // Map_Spring (11 frames, S3K mapping format)
 

@@ -210,6 +210,17 @@ public final class Sonic3kObjectArtKeys {
     // Standalone red vertical spring used by gumball bonus dispenser.
     public static final String GUMBALL_SPRING = "gumball_spring";
 
+    // Pachinko / Glowing Spheres bonus stage sprites.
+    public static final String PACHINKO_BUMPER = "pachinko_bumper";
+    public static final String PACHINKO_TRIANGLE_BUMPER = "pachinko_triangle_bumper";
+    public static final String PACHINKO_FLIPPER = "pachinko_flipper";
+    public static final String PACHINKO_ENERGY_TRAP = "pachinko_energy_trap";
+    public static final String PACHINKO_INVISIBLE_UNKNOWN = "pachinko_invisible_unknown";
+    public static final String PACHINKO_PLATFORM = "pachinko_platform";
+    public static final String PACHINKO_ITEM_ORB = "pachinko_item_orb";
+    public static final String PACHINKO_F_ITEM = "pachinko_f_item";
+    public static final String PACHINKO_GUMBALLS = "pachinko_gumballs";
+
     private Sonic3kObjectArtKeys() {
     }
 }

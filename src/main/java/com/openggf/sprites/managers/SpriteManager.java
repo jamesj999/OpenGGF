@@ -534,18 +534,22 @@ public class SpriteManager {
 			bucketSprites();
 			int idx = RenderPriority.clamp(bucket) - RenderPriority.MIN;
 
-			// Draw low-priority sprites first (sets priority per-instance in shader)
+			// The BatchedPatternRenderer uses a single global priority uniform —
+			// flush and restart the batch at each LOW→HIGH transition so each group
+			// gets its own batch with the correct priority.
 			if (!lowPriorityBuckets[idx].isEmpty()) {
+				gfx.flushPatternBatch();
 				gfx.setCurrentSpriteHighPriority(false);
+				gfx.beginPatternBatch();
 				for (Sprite sprite : lowPriorityBuckets[idx]) {
 					sprite.draw();
 				}
 			}
 
-			// Draw high-priority sprites (sets priority per-instance in shader)
-			// No batch flush needed - priority is baked into instance data
 			if (!highPriorityBuckets[idx].isEmpty()) {
+				gfx.flushPatternBatch();
 				gfx.setCurrentSpriteHighPriority(true);
+				gfx.beginPatternBatch();
 				for (Sprite sprite : highPriorityBuckets[idx]) {
 					sprite.draw();
 				}
@@ -553,7 +557,9 @@ public class SpriteManager {
 
 			// Handle non-playable sprites at bucket MIN
 			if (bucket == RenderPriority.MIN && !nonPlayableSprites.isEmpty()) {
+				gfx.flushPatternBatch();
 				gfx.setCurrentSpriteHighPriority(false);
+				gfx.beginPatternBatch();
 				for (Sprite sprite : nonPlayableSprites) {
 					sprite.draw();
 				}

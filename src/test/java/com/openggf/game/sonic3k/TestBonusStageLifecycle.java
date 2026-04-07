@@ -37,8 +37,8 @@ class TestBonusStageLifecycle {
     void testMusicIdMapping() {
         var coordinator = new Sonic3kBonusStageCoordinator();
         assertEquals(0x1E, coordinator.getMusicId(BonusStageType.GUMBALL));
-        assertEquals(0x1F, coordinator.getMusicId(BonusStageType.GLOWING_SPHERE));
-        assertEquals(0x20, coordinator.getMusicId(BonusStageType.SLOT_MACHINE));
+        assertEquals(0x1B, coordinator.getMusicId(BonusStageType.GLOWING_SPHERE));
+        assertEquals(0x1D, coordinator.getMusicId(BonusStageType.SLOT_MACHINE));
     }
 
     @Test

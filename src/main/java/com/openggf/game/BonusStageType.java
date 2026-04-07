@@ -9,9 +9,9 @@ package com.openggf.game;
  * <p>Sonic 3&K bonus stage selection uses a cyclic formula:
  * {@code remainder = ((rings - 20) / 15) % divisor} where divisor=3 for S3K.
  * <ul>
- *   <li>remainder 0 (20-34, 65-79, ...): Gumball Machine</li>
+ *   <li>remainder 0 (20-34, 65-79, ...): Slot Machine</li>
  *   <li>remainder 1 (35-49, 80-94, ...): Glowing Spheres</li>
- *   <li>remainder 2 (50-64, 95-109, ...): Slot Machine</li>
+ *   <li>remainder 2 (50-64, 95-109, ...): Gumball Machine</li>
  * </ul>
  */
 public enum BonusStageType {
@@ -22,7 +22,7 @@ public enum BonusStageType {
 
     /**
      * Sonic 3&K Gumball Machine bonus stage.
-     * Accessed with 20-34 rings at checkpoint.
+     * Accessed with 50-64 rings at checkpoint.
      */
     GUMBALL,
 
@@ -34,7 +34,7 @@ public enum BonusStageType {
 
     /**
      * Sonic 3&K / Sonic 1 style Slot Machine bonus stage.
-     * Accessed with 50+ rings at checkpoint in S3&K.
+     * Accessed with 20-34 rings at checkpoint in S3&K.
      */
     SLOT_MACHINE
 }

@@ -24,6 +24,7 @@ public final class Sonic3kObjectIds {
     public static final int AIZ_DISAPPEARING_FLOOR = 0x29;
     public static final int AIZ_DRAW_BRIDGE = 0x32;
     public static final int FLOATING_PLATFORM = 0x51;
+    public static final int BUMPER = 0x4A;
     public static final int BUTTON = 0x33;
     public static final int STAR_POST = 0x34;
     public static final int AIZ_FOREGROUND_PLANT = 0x35;
@@ -43,7 +44,14 @@ public final class Sonic3kObjectIds {
     public static final int AIZ_MINIBOSS_CUTSCENE = 0x90;
     public static final int AIZ_MINIBOSS = 0x91;
     public static final int AIZ_END_BOSS = 0x92;
+    public static final int PACHINKO_TRIANGLE_BUMPER = 0xE6;
+    public static final int PACHINKO_FLIPPER = 0xE7;
+    public static final int PACHINKO_ENERGY_TRAP = 0xE8;
+    public static final int PACHINKO_INVISIBLE_UNKNOWN = 0xE9;
+    public static final int PACHINKO_PLATFORM = 0xEA;
     public static final int GUMBALL_ITEM = 0xEB;
+    public static final int PACHINKO_MAGNET_ORB = 0xEC;
+    public static final int PACHINKO_ITEM_ORB = 0xED;
 
     private Sonic3kObjectIds() {
     }

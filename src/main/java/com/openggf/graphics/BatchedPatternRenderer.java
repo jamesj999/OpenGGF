@@ -353,9 +353,10 @@ public class BatchedPatternRenderer {
 
         GraphicsManager gm = getGm();
         boolean usePriority = gm.isUseSpritePriorityShader();
+        boolean highPri = gm.getCurrentSpriteHighPriority();
 
         BatchRenderCommand command = obtainBatchCommand();
-        command.load(vertexData, texCoordData, paletteCoordData, patternCount, usePriority);
+        command.load(vertexData, texCoordData, paletteCoordData, patternCount, usePriority, highPri);
 
         // Reset for next batch
         patternCount = 0;
@@ -515,6 +516,7 @@ public class BatchedPatternRenderer {
         private int texCoordFloatCount;
         private int paletteFloatCount;
         private boolean usePriorityShader;
+        private boolean capturedHighPriority; // captured at batch creation, not read at execute time
 
         private FloatBuffer vertexBuffer;
         private FloatBuffer texCoordBuffer;
@@ -536,9 +538,10 @@ public class BatchedPatternRenderer {
         private int cachedShaderProgramId = -1;
 
         private void load(float[] vertexData, float[] texCoordData, float[] paletteCoordData,
-                          int patternCount, boolean usePriorityShader) {
+                          int patternCount, boolean usePriorityShader, boolean highPriority) {
             this.patternCount = patternCount;
             this.usePriorityShader = usePriorityShader;
+            this.capturedHighPriority = highPriority;
             this.vertexFloatCount = patternCount * FLOATS_PER_PATTERN_VERTS;
             this.texCoordFloatCount = patternCount * FLOATS_PER_PATTERN_TEXCOORDS;
             this.paletteFloatCount = patternCount * 6;
@@ -612,10 +615,11 @@ public class BatchedPatternRenderer {
                 glUniform2f(cachedCameraOffsetLoc, -cameraX, cameraY);
             }
 
-            // Set priority uniform if using sprite priority shader
+            // Set priority uniform if using sprite priority shader.
+            // Use the priority captured at batch creation time (not the current global
+            // state, which may have changed since the batch was created).
             if (shader instanceof SpritePriorityShaderProgram priorityShader) {
-                boolean highPri = gm.getCurrentSpriteHighPriority();
-                priorityShader.setSpriteHighPriority(highPri);
+                priorityShader.setSpriteHighPriority(capturedHighPriority);
 
                 // Bind tile priority FBO texture to unit 5 (avoid conflict with TilemapGpuRenderer which uses 0-4)
                 TilePriorityFBO fbo = gm.getTilePriorityFBO();

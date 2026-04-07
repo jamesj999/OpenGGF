@@ -68,8 +68,8 @@ public class Sonic3kZoneRegistry extends AbstractZoneRegistry {
             {-1},                                           // 17 EMZ (competition)
             {-1},                                           // 18 (reserved)
             {0x1E},                                         // 19 Gumball
-            {0x1F},                                         // 20 Glowing Spheres
-            {0x20}                                          // 21 Slot Machine
+            {0x1B},                                         // 20 Glowing Spheres / Pachinko
+            {0x1D}                                          // 21 Slot Machine
     };
 
     private static final Sonic3kZoneRegistry INSTANCE = new Sonic3kZoneRegistry();

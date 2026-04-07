@@ -91,12 +91,13 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
         introFallActiveOnPlayer = false;
         introFallActiveOnSidekick = false;
 
-        // ROM: Level_FromSavedGame skips intro on special stage return.
-        // Big ring return state is still active here (consumed later in GameLoop).
+        // ROM: Level_FromSavedGame skips intro when Last_star_post_hit != 0.
+        // This covers both special stage return (big ring) and bonus stage return.
         if (bootstrap.mode() == Sonic3kLoadBootstrap.Mode.INTRO
-                && GameServices.level().hasBigRingReturn()) {
+                && (GameServices.level().hasBigRingReturn()
+                    || GameServices.level().isBonusStageReturn())) {
             bootstrap = new Sonic3kLoadBootstrap(Sonic3kLoadBootstrap.Mode.SKIP_INTRO, null);
-            LOG.info("S3K bootstrap: skipping intro (returning from special stage)");
+            LOG.info("S3K bootstrap: skipping intro (returning from stage)");
         }
 
         if (bootstrap.isSkipIntro()) {

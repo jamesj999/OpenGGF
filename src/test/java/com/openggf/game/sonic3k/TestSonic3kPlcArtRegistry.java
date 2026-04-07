@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k;
 
+import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import org.junit.Test;
 
 import java.util.HashSet;
@@ -255,6 +256,47 @@ public class TestSonic3kPlcArtRegistry {
                 .findFirst().orElse(null);
         assertNotNull(ddzEggRobo);
         assertEquals(0, ddzEggRobo.palette());
+    }
+
+    @Test
+    public void pachinkoPlanHasBonusStageObjectArt() {
+        Sonic3kPlcArtRegistry.ZoneArtPlan plan = Sonic3kPlcArtRegistry.getPlan(0x14, 0);
+        assertNotNull(plan);
+
+        assertTrue(plan.levelArt().stream()
+                .anyMatch(e -> e.key().equals(Sonic3kObjectArtKeys.PACHINKO_BUMPER)));
+        assertTrue(plan.levelArt().stream()
+                .anyMatch(e -> e.key().equals(Sonic3kObjectArtKeys.PACHINKO_TRIANGLE_BUMPER)));
+        assertTrue(plan.levelArt().stream()
+                .anyMatch(e -> e.key().equals(Sonic3kObjectArtKeys.PACHINKO_FLIPPER)));
+        assertTrue(plan.levelArt().stream()
+                .anyMatch(e -> e.key().equals(Sonic3kObjectArtKeys.PACHINKO_ENERGY_TRAP)));
+        assertTrue(plan.levelArt().stream()
+                .anyMatch(e -> e.key().equals(Sonic3kObjectArtKeys.PACHINKO_INVISIBLE_UNKNOWN)));
+        assertTrue(plan.levelArt().stream()
+                .anyMatch(e -> e.key().equals(Sonic3kObjectArtKeys.PACHINKO_PLATFORM)));
+        assertTrue(plan.levelArt().stream()
+                .anyMatch(e -> e.key().equals(Sonic3kObjectArtKeys.PACHINKO_ITEM_ORB)));
+        assertTrue(plan.levelArt().stream()
+                .anyMatch(e -> e.key().equals(Sonic3kObjectArtKeys.PACHINKO_GUMBALLS)));
+
+        Sonic3kPlcArtRegistry.LevelArtEntry bumper = plan.levelArt().stream()
+                .filter(e -> e.key().equals(Sonic3kObjectArtKeys.PACHINKO_BUMPER))
+                .findFirst().orElse(null);
+        assertNotNull(bumper);
+        assertEquals(Sonic3kConstants.ARTTILE_PACHINKO_MAIN, bumper.artTileBase());
+
+        Sonic3kPlcArtRegistry.LevelArtEntry gumballs = plan.levelArt().stream()
+                .filter(e -> e.key().equals(Sonic3kObjectArtKeys.PACHINKO_GUMBALLS))
+                .findFirst().orElse(null);
+        assertNotNull(gumballs);
+        assertEquals(Sonic3kConstants.ARTTILE_PACHINKO_GUMBALLS, gumballs.artTileBase());
+
+        Sonic3kPlcArtRegistry.LevelArtEntry invisibleBeam = plan.levelArt().stream()
+                .filter(e -> e.key().equals(Sonic3kObjectArtKeys.PACHINKO_INVISIBLE_UNKNOWN))
+                .findFirst().orElse(null);
+        assertNotNull(invisibleBeam);
+        assertEquals(Sonic3kConstants.ARTTILE_PACHINKO_MAIN + 0x97, invisibleBeam.artTileBase());
     }
 
     @Test
