@@ -28,6 +28,9 @@ import com.openggf.sprites.playable.SidekickCpuController;
 import com.openggf.debug.playback.PlaybackDebugManager;
 import com.openggf.data.RomManager;
 import com.openggf.game.sonic3k.objects.AizIntroArtLoader;
+import com.openggf.game.session.SessionManager;
+import com.openggf.game.sonic2.Sonic2GameModule;
+import com.openggf.data.Rom;
 
 import java.io.IOException;
 import java.nio.IntBuffer;
@@ -346,6 +349,21 @@ public class Engine {
 	 * exitMasterTitleScreen() after game selection.
 	 */
 	public void initializeGame() {
+		GameModule module;
+		try {
+			Rom rom = RomManager.getInstance().getRom();
+			module = RomDetectionService.getInstance()
+				.detectAndCreateModule(rom)
+				.orElseGet(() -> {
+					LOGGER.warning("ROM detection failed during game initialization, using default Sonic 2 module");
+					return new Sonic2GameModule();
+				});
+		} catch (IOException e) {
+			throw new RuntimeException("Failed to load ROM during game initialization", e);
+		}
+		GameModuleRegistry.setCurrent(module);
+		SessionManager.openGameplaySession(module);
+
 		// Create the gameplay runtime before any manager access.
 		// During this transitional period, createGameplay() wraps existing singletons.
 		runtime = com.openggf.game.RuntimeManager.createGameplay();
@@ -354,15 +372,9 @@ public class Engine {
 		this.spriteManager = runtime.getSpriteManager();
 		this.levelManager = runtime.getLevelManager();
 		gameLoop.setRuntime(runtime);
-
-		// Trigger ROM loading and game module detection early so that
-		// GameModuleRegistry.getCurrent() returns the correct module (S1/S2/S3K)
-		// before the cross-game features and sidekick checks below.
-		try {
-			GameServices.rom().getRom();
-		} catch (IOException e) {
-			throw new RuntimeException("Failed to load ROM during game initialization", e);
-		}
+		GameServices.gameState().configureSpecialStageProgress(
+			module.getSpecialStageCycleCount(),
+			module.getChaosEmeraldCount());
 
 		if (configService.getBoolean(SonicConfiguration.AUDIO_ENABLED)) {
 			AudioManager.getInstance().setBackend(new LWJGLAudioBackend());
@@ -395,7 +407,7 @@ public class Engine {
 		// Supports comma-separated list for multiple sidekicks chained leader-to-follower.
 		List<String> sidekickNames = parseSidekickConfig(
 			configService.getString(SonicConfiguration.SIDEKICK_CHARACTER_CODE));
-		boolean sidekickAllowed = GameModuleRegistry.getCurrent().supportsSidekick()
+		boolean sidekickAllowed = module.supportsSidekick()
 				|| CrossGameFeatureProvider.isActive();
 		if (sidekickAllowed) {
 			AbstractPlayableSprite previousLeader = mainSprite;
@@ -489,6 +501,7 @@ public class Engine {
 
 	private void resetForGameplayFromMasterTitle() {
 		com.openggf.game.RuntimeManager.destroyCurrent();
+		SessionManager.clear();
 		RomManager.getInstance().close();
 		GameModuleRegistry.reset();
 		AudioManager.getInstance().resetState();
@@ -949,6 +962,7 @@ public class Engine {
 
 	private void cleanup() {
 		com.openggf.game.RuntimeManager.destroyCurrent();
+		SessionManager.clear();
 		AudioManager.getInstance().clearDonorAudio();
 		CrossGameFeatureProvider.getInstance().resetState();
 		RenderContext.reset();

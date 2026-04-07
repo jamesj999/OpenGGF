@@ -11,6 +11,9 @@ public final class WorldSession {
         this.gameModule = Objects.requireNonNull(gameModule, "gameModule");
     }
 
+    /**
+     * Returns the active gameplay module owned by this world session.
+     */
     public GameModule getGameModule() {
         return gameModule;
     }
