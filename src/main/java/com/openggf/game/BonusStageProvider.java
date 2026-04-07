@@ -27,7 +27,7 @@ public interface BonusStageProvider {
     default void addLife() {}
 
     /** Record shield awarded during bonus stage. */
-    default void setAwardedShield(com.openggf.game.ShieldType type) {}
+    default void setAwardedShield(ShieldType type) {}
 
     record BonusStageRewards(
             int rings, int lives,
