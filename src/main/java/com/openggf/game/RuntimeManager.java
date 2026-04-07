@@ -9,7 +9,6 @@ import com.openggf.level.ParallaxManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.physics.CollisionSystem;
 import com.openggf.physics.TerrainCollisionManager;
-import com.openggf.game.sonic2.Sonic2GameModule;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.timer.TimerManager;
 
@@ -42,7 +41,7 @@ public final class RuntimeManager {
     public static synchronized GameRuntime getCurrent() {
         GameplayModeContext gameplayMode = SessionManager.getCurrentGameplayMode();
         if (current != null) {
-            if (gameplayMode != null && current.getGameplayModeContext() != gameplayMode) {
+            if (current.getGameplayModeContext() != gameplayMode) {
                 current.destroy();
                 current = null;
             } else {
@@ -73,8 +72,7 @@ public final class RuntimeManager {
     public static synchronized GameRuntime createGameplay() {
         GameplayModeContext gameplayMode = SessionManager.getCurrentGameplayMode();
         if (gameplayMode == null) {
-            GameModule defaultModule = new Sonic2GameModule();
-            GameModuleRegistry.setCurrent(defaultModule);
+            GameModule defaultModule = GameModuleRegistry.getCurrent();
             gameplayMode = SessionManager.openGameplaySession(defaultModule);
         }
         return createGameplay(gameplayMode);
