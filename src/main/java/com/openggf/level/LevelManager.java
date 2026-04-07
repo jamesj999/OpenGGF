@@ -3910,6 +3910,12 @@ public class LevelManager {
     /** @see LevelTransitionCoordinator#setForceHudSuppressed(boolean) */
     public void setForceHudSuppressed(boolean suppressed) { transitions.setForceHudSuppressed(suppressed); }
 
+    public void setBonusStageHudLayout(boolean enabled) {
+        if (hudRenderManager != null) {
+            hudRenderManager.setBonusStageHudLayout(enabled);
+        }
+    }
+
     /** @see LevelTransitionCoordinator#setSuppressNextMusicChange(boolean) */
     public void setSuppressNextMusicChange(boolean suppress) { transitions.setSuppressNextMusicChange(suppress); }
 

@@ -61,6 +61,26 @@ public class InputHandler {
 		return false;
 	}
 
+	public boolean isShiftDown() {
+		return isKeyDown(GLFW_KEY_LEFT_SHIFT) || isKeyDown(GLFW_KEY_RIGHT_SHIFT);
+	}
+
+	public boolean isControlDown() {
+		return isKeyDown(GLFW_KEY_LEFT_CONTROL) || isKeyDown(GLFW_KEY_RIGHT_CONTROL);
+	}
+
+	public boolean isAltDown() {
+		return isKeyDown(GLFW_KEY_LEFT_ALT) || isKeyDown(GLFW_KEY_RIGHT_ALT);
+	}
+
+	public boolean isAnyModifierDown() {
+		return isShiftDown() || isControlDown() || isAltDown();
+	}
+
+	public boolean isKeyPressedWithoutModifiers(int keyCode) {
+		return isKeyPressed(keyCode) && !isAnyModifierDown();
+	}
+
 	/**
 	 * Updates the input handler state. Should be called at the end of the game loop.
 	 */
