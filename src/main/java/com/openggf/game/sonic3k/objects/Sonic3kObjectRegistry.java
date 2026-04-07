@@ -129,6 +129,14 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                     }
                     return new HCZCGZFanObjectInstance(spawn);
                 });
+        factories.put(Sonic3kObjectIds.HCZ_CONVEYOR_BELT,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new HCZConveyorBeltObjectInstance(spawn);
+                });
         factories.put(Sonic3kObjectIds.STILL_SPRITE,
                 (spawn, registry) -> new StillSpriteInstance(spawn));
         factories.put(Sonic3kObjectIds.ANIMATED_STILL_SPRITE,
