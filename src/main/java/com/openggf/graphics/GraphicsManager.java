@@ -71,7 +71,6 @@ public class GraphicsManager {
 	// Sprite priority shader mode flags
 	private boolean useSpritePriorityShader = false;
 	private boolean currentSpriteHighPriority = false;
-
 	// Background renderer for per-scanline parallax scrolling
 	private BackgroundRenderer backgroundRenderer;
 	private TilemapGpuRenderer tilemapGpuRenderer;
@@ -277,7 +276,6 @@ public class GraphicsManager {
 
 		// Reset pattern render state for new batch of commands
 		PatternRenderCommand.resetFrameState();
-
 		for (GLCommandable command : commands) {
 			command.execute(cameraX, cameraY, cameraWidth, cameraHeight);
 		}
@@ -527,7 +525,6 @@ public class GraphicsManager {
 		if (paletteTextureId == null) {
 			return;
 		}
-
 		// Try batched rendering for better performance
 		// Only use batching if enabled, batch is active, and pattern was successfully added
 		boolean usedBatch = false;

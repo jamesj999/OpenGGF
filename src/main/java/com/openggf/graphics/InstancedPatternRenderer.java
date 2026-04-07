@@ -452,7 +452,6 @@ public class InstancedPatternRenderer {
         private int instanceCount;
         private int floatCount;
         private boolean usePriorityShader;
-
         private void load(float[] data, int instanceCount, boolean usePriorityShader) {
             this.instanceCount = instanceCount;
             this.floatCount = instanceCount * FLOATS_PER_INSTANCE;
