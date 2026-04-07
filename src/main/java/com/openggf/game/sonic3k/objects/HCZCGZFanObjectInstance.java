@@ -2,7 +2,6 @@ package com.openggf.game.sonic3k.objects;
 
 import com.openggf.debug.DebugColor;
 import com.openggf.debug.DebugRenderContext;
-import com.openggf.game.GameServices;
 import com.openggf.game.OscillationManager;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kLevelTriggerManager;
@@ -682,8 +681,8 @@ public class HCZCGZFanObjectInstance extends AbstractObjectInstance {
             try {
                 WaterSystem water = services().waterSystem();
                 if (water != null) {
-                    int zoneId = GameServices.level().getFeatureZoneId();
-                    int actId = GameServices.level().getCurrentAct();
+                    int zoneId = services().romZoneId();
+                    int actId = services().currentAct();
                     int waterLevel = water.getWaterLevelY(zoneId, actId);
                     if (waterLevel > 0 && y <= waterLevel) {
                         // Above water — destroy (ROM: jmp Delete_Current_Sprite)
