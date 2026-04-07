@@ -33,6 +33,7 @@ import java.util.logging.Logger;
  */
 public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
     private static final Logger LOG = Logger.getLogger(Sonic3kLevelEventManager.class.getName());
+    private static final int PACHINKO_TOP_EXIT_Y = -0x20;
     private static Sonic3kLevelEventManager instance;
 
     private Sonic3kLoadBootstrap bootstrap = Sonic3kLoadBootstrap.NORMAL;
@@ -115,6 +116,8 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
 
     @Override
     protected void onUpdate() {
+        handleBonusStageTopExit();
+
         // Clear intro-fall forced animation when players land
         updateIntroFallState();
 
@@ -122,6 +125,20 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
         // Boss_flag gates FG events during boss fights.
         if (aizEvents != null && currentZone == Sonic3kZoneIds.ZONE_AIZ) {
             aizEvents.update(currentAct, frameCounter);
+        }
+    }
+
+    private void handleBonusStageTopExit() {
+        if (currentZone != Sonic3kZoneIds.ZONE_GLOWING_SPHERE) {
+            return;
+        }
+        AbstractPlayableSprite player = GameServices.camera().getFocusedSprite();
+        if (player == null || player.getCentreY() >= PACHINKO_TOP_EXIT_Y) {
+            return;
+        }
+        var provider = GameServices.bonusStage();
+        if (provider != null) {
+            provider.requestExit();
         }
     }
 
