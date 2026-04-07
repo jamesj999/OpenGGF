@@ -28,5 +28,6 @@ public final class EditorModeContext implements ModeContext {
 
     @Override
     public void destroy() {
+        // Editor lifecycle is a stub for now; destroy only marks the mode as gone.
     }
 }

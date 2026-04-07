@@ -30,6 +30,17 @@ public final class SessionManager {
         return currentEditorMode;
     }
 
+    public static synchronized GameplayModeContext exitEditorMode() {
+        if (currentEditorMode == null) {
+            throw new IllegalStateException("Cannot exit editor mode without an active editor mode.");
+        }
+        EditorCursorState cursor = currentEditorMode.getCursor();
+        WorldSession worldSession = currentEditorMode.getWorldSession();
+        destroyCurrentMode();
+        currentGameplayMode = new GameplayModeContext(worldSession, cursor.x(), cursor.y());
+        return currentGameplayMode;
+    }
+
     public static synchronized void clear() {
         destroyCurrentMode();
         currentWorldSession = null;

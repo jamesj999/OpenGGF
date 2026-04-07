@@ -302,6 +302,11 @@ public class GameLoop {
             return;
         }
 
+        if (currentGameMode == GameMode.EDITOR) {
+            inputHandler.update();
+            return;
+        }
+
         // Handle pause toggle - must work even when paused
         int pauseKey = configService.getInt(SonicConfiguration.PAUSE_KEY);
         if (inputHandler.isKeyPressed(pauseKey)) {
