@@ -973,7 +973,7 @@ public class GameLoop {
 
     /**
      * Enters a bonus stage from level mode.
-     * Captures current state, fades to white, loads the bonus zone.
+     * Captures current state, fades to black, loads the bonus zone.
      */
     private void enterBonusStage(BonusStageType type) {
         if (currentGameMode != GameMode.LEVEL) {
