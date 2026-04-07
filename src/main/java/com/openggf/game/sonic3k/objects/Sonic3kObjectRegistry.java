@@ -1,6 +1,7 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.sonic3k.objects.badniks.CaterkillerJrHeadInstance;
+import com.openggf.game.sonic3k.objects.badniks.MegaChopperBadnikInstance;
 import com.openggf.game.sonic3k.objects.badniks.MonkeyDudeBadnikInstance;
 import com.openggf.game.sonic3k.objects.badniks.PoindexterBadnikInstance;
 import com.openggf.game.sonic3k.constants.S3kZoneSet;
@@ -194,6 +195,14 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                         return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
                     }
                     return new CaterkillerJrHeadInstance(spawn);
+                });
+        factories.put(Sonic3kObjectIds.MEGA_CHOPPER,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new MegaChopperBadnikInstance(spawn);
                 });
         factories.put(Sonic3kObjectIds.POINDEXTER,
                 (spawn, registry) -> {
