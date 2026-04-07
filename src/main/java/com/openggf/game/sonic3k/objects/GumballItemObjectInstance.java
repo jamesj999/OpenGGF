@@ -70,9 +70,10 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
     // These are the static balls displayed inside the machine / bonus stage.
     private static final int STATIC_PRIORITY_BUCKET = 4;
 
-    // ROM: machine-ejected child balls use ObjDat3_613E0 priority $0100 → bucket 2.
-    // Same depth as Sonic and the active machine apparatus.
-    private static final int MOVING_PRIORITY_BUCKET = 2;
+    // The machine-spawned reward ball needs to sit between the body/pile layer and
+    // the front glass/door helper in the current renderer. Bucket 3 places it behind
+    // the glass helper (bucket 3 LOW) while still in front of the machine body (bucket 4).
+    private static final int MOVING_PRIORITY_BUCKET = 3;
 
     // ROM: loc_6114E — ring item awards 10 rings to HUD and 20 to saved count
     private static final int RING_ITEM_HUD_AWARD = 10;

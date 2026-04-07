@@ -69,6 +69,22 @@ public class PlayerSpriteRenderer {
         }
 
         SpriteMappingFrame frame = artSet.mappingFrames().get(frameIndex);
+        if (graphicsManager.isSpriteSatCollectionActive()) {
+            int satPaletteIndex = resolveRenderPaletteIndex(artSet.paletteIndex());
+            for (int i = 0; i < frame.pieces().size(); i++) {
+                SpritePieceRenderer.preparePiece(
+                        frame.pieces().get(i),
+                        originX,
+                        originY,
+                        patternBank.getBasePatternIndex(),
+                        satPaletteIndex,
+                        hFlip,
+                        vFlip,
+                        graphicsManager.getCurrentSpriteHighPriority(),
+                        graphicsManager::submitSpriteSatPiece);
+            }
+            return;
+        }
         SpritePieceRenderer.renderPieces(
                 frame.pieces(),
                 originX,
@@ -106,6 +122,13 @@ public class PlayerSpriteRenderer {
         }
         SpriteMappingFrame frame = artSet.mappingFrames().get(frameIndex);
         return SpritePieceRenderer.computeFrameBounds(frame.pieces(), hFlip, vFlip);
+    }
+
+    int resolveRenderPaletteIndex(int logicalPaletteIndex) {
+        if (renderContext == null) {
+            return logicalPaletteIndex;
+        }
+        return renderContext.getEffectivePaletteLine(logicalPaletteIndex);
     }
 
     /**
