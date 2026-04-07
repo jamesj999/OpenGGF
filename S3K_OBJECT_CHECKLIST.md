@@ -5,8 +5,8 @@ Generated: 2026-04-03 23:34:00
 ## Summary
 
 - **Total unique objects found:** 303
-- **Implemented:** 35 (11.6%)
-- **Unimplemented:** 268 (88.4%)
+- **Implemented:** 40 (13.2%)
+- **Unimplemented:** 263 (86.8%)
 
 ## Implemented Objects
 
@@ -47,6 +47,11 @@ Generated: 2026-04-03 23:34:00
 | 0x80 | HiddenMonitor | 45 |  | AIZ2, HCZ1, MGZ1, CNZ1, CNZ2, FBZ1, ICZ2, LBZ1, MHZ1, SOZ1, LRZ1 |
 | 0x8F | CaterKillerJr | 14 |  | AIZ2 |
 | 0x92 | AIZEndBoss | 2 |  | AIZ2 |
+| 0x36 | HCZBreakableBar | 8 |  | HCZ1, HCZ2 |
+| 0x37 | HCZWaterRush | 1 |  | HCZ1 |
+| 0x38 | HCZCGZFan | 63 |  | HCZ1, HCZ2 |
+| 0x3B | HCZWaterWall | 3 |  | HCZ1 |
+| 0x3E | HCZConveyorBelt | 64 |  | HCZ1 |
 
 ## Unimplemented Objects (By Usage)
 
@@ -71,8 +76,6 @@ Generated: 2026-04-03 23:34:00
 | 0x19 | Object | LBZCupElevatorPole | 72 |  | LBZ1, LBZ2 |
 | 0xB8 | Object | ICZHarmfulIce | 69 |  | ICZ1, ICZ2 |
 | 0x9A | Badnik | Iwamodoki | 66 |  | LRZ1, LRZ2 |
-| 0x3E | Object | HCZConveyorBelt | 64 |  | HCZ1 |
-| 0x38 | Object | HCZCGZFan | 63 |  | HCZ1, HCZ2 |
 | 0x3C | Object | Door | 63 |  | HCZ2, CNZ1, CNZ2, DEZ1, DEZ2 |
 | 0xE1 | Object | FBZMine | 60 |  | FBZ1, FBZ2 |
 | 0x6A | Object | InvisibleHurtBlockH | 59 |  | HCZ1, HCZ2, FBZ1, FBZ2, ICZ1, DEZ2 |
@@ -206,7 +209,6 @@ Generated: 2026-04-03 23:34:00
 | 0x22 | Object | LBZAlarm | 9 |  | LBZ1 |
 | 0x37 | Object | LRZSpikeBallLauncher | 9 |  | LRZ2 |
 | 0x53 | Object | DEZConveyorPad | 9 |  | DEZ1, DEZ2 |
-| 0x36 | Object | HCZBreakableBar | 8 |  | HCZ1, HCZ2 |
 | 0x95 | Badnik | Buggernaut | 8 |  | HCZ1 |
 | 0x6E | Object | WaterDrop | 8 |  | HCZ2 |
 | 0x43 | Object | CNZRisingPlatform | 8 |  | CNZ1, CNZ2 |
@@ -262,7 +264,6 @@ Generated: 2026-04-03 23:34:00
 | 0x4C | Object | DEZHangCarrier | 4 |  | DEZ1, DEZ2 |
 | 0x83 | Object | CutsceneButton | 3 |  | AIZ2, CNZ2 |
 | 0x39 | Object | HCZLargeFan | 3 |  | HCZ1, HCZ2 |
-| 0x3B | Object | HCZWaterWall | 3 |  | HCZ1 |
 | 0x9E | Badnik | Tunnelbot | 3 |  | MGZ1 |
 | 0x39 | Object | SOZSpawningSandBlocks | 3 |  | SOZ1 |
 | 0x3B | Object | SOZLoopFallthrough | 3 |  | SOZ2 |
@@ -281,7 +282,6 @@ Generated: 2026-04-03 23:34:00
 | 0x16 | Object | LRZWallRide | 2 |  | LRZ1, LRZ2 |
 | 0x1D | Object | LRZShootingTrigger | 2 |  | LRZ1 |
 | 0x9C | Boss | LRZRockCrusher | 2 |  | LRZ1 |
-| 0x37 | Object | HCZWaterRush | 1 |  | HCZ1 |
 | 0x99 | Boss | HCZMiniboss | 1 |  | HCZ1 |
 | 0x9F | Boss | MGZMiniboss | 1 |  | MGZ1 |
 | 0xA2 | Boss | MGZEndBossKnux | 1 |  | MGZ2 |
@@ -429,13 +429,13 @@ Total: 383 objects | Implemented: 12 | Unimplemented: 18
 - [x] 0x2F StillSprite (x11) [5 subtypes]
 - [x] 0x33 Button (x2) [0x20]
 - [x] 0x34 StarPost (x5) [5 subtypes]
-- [ ] 0x36 HCZBreakableBar (x6) [0x05, 0x15, 0x25]
-- [ ] 0x37 HCZWaterRush (x1) [0x00]
-- [ ] 0x38 HCZCGZFan (x27) [12 subtypes]
+- [x] 0x36 HCZBreakableBar (x6) [0x05, 0x15, 0x25]
+- [x] 0x37 HCZWaterRush (x1) [0x00]
+- [x] 0x38 HCZCGZFan (x27) [12 subtypes]
 - [ ] 0x39 HCZLargeFan (x2) [0x00]
 - [ ] 0x3A HCZHandLauncher (x5) [0x00]
-- [ ] 0x3B HCZWaterWall (x3) [0x00, 0x01]
-- [ ] 0x3E HCZConveyorBelt (x64) [32 subtypes]
+- [x] 0x3B HCZWaterWall (x3) [0x00, 0x01]
+- [x] 0x3E HCZConveyorBelt (x64) [32 subtypes]
 - [ ] 0x3F HCZConveyorSpike (x6) [0x02, 0x08, 0x0A]
 - [ ] 0x40 HCZBlock (x1) [0x00]
 - [x] 0x51 FloatingPlatform (x17) [4 subtypes]
@@ -466,8 +466,8 @@ Total: 510 objects | Implemented: 9 | Unimplemented: 21
 - [x] 0x28 InvisibleBlock (x2) [0x11, 0x17]
 - [x] 0x2F StillSprite (x61) [5 subtypes]
 - [x] 0x34 StarPost (x5) [5 subtypes]
-- [ ] 0x36 HCZBreakableBar (x2) [0x15]
-- [ ] 0x38 HCZCGZFan (x36) [12 subtypes]
+- [x] 0x36 HCZBreakableBar (x2) [0x15]
+- [x] 0x38 HCZCGZFan (x36) [12 subtypes]
 - [ ] 0x39 HCZLargeFan (x1) [0x00]
 - [ ] 0x3A HCZHandLauncher (x7) [0x00]
 - [ ] 0x3C Door (x19) [0x00]

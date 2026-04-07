@@ -417,6 +417,15 @@ public class HCZConveyorBeltObjectInstance extends AbstractObjectInstance {
         // ROM: andi.b #$FC,render_flags(a1) — clear facing and V-flip
         player.setRenderFlips(false, false);
 
+        // Clear rolling state so the player is vulnerable to enemy touch responses
+        // while on the belt (e.g. Chopper can grab and hurt the player). The ROM
+        // capture sequence doesn't have an explicit bclr #Status_Roll, but observed
+        // gameplay confirms the player is NOT in an attacking state on the belt.
+        // Must clear BEFORE setCentreY so the snap uses standing-height coordinates.
+        if (player.getRolling()) {
+            player.setRolling(false);
+        }
+
         // ROM: move.w d0,y_pos(a1) — snap to belt surface
         player.setCentreY((short) snapY);
 
