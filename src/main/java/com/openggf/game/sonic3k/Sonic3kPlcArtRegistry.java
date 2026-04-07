@@ -211,6 +211,7 @@ public final class Sonic3kPlcArtRegistry {
             case 0x0A -> addSszEntries(actIndex, standalone, levelArt);
             case 0x0B -> addDezEntries(actIndex, standalone, levelArt);
             case 0x0C -> addDdzEntries(actIndex, standalone, levelArt);
+            case 0x16 -> addHpzEntries(actIndex, standalone, levelArt);
         }
     }
 
@@ -449,6 +450,15 @@ public final class Sonic3kPlcArtRegistry {
                 -1
         ));
 
+        // Collapsing Bridge (Object 0x0F): make_art_tile($001, 2, 1)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.COLLAPSING_BRIDGE_HCZ,
+                Sonic3kConstants.MAP_HCZ_COLLAPSING_BRIDGE_ADDR,
+                1,
+                2,
+                null
+        ));
+
     }
 
     /**
@@ -546,6 +556,15 @@ public final class Sonic3kPlcArtRegistry {
                 Sonic3kConstants.MAP_BUTTON_ADDR,
                 Sonic3kConstants.ARTTILE_GRAY_BUTTON,
                 0,
+                null
+        ));
+
+        // Collapsing Bridge (Object 0x0F): make_art_tile($001, 2, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.COLLAPSING_BRIDGE_MGZ,
+                Sonic3kConstants.MAP_MGZ_COLLAPSING_BRIDGE_ADDR,
+                1,
+                2,
                 null
         ));
     }
@@ -693,6 +712,15 @@ public final class Sonic3kPlcArtRegistry {
                 1,
                 null
         ));
+
+        // Collapsing Bridge (Object 0x0F): make_art_tile($001, 2, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.COLLAPSING_BRIDGE_FBZ,
+                Sonic3kConstants.MAP_FBZ_COLLAPSING_BRIDGE_ADDR,
+                1,
+                2,
+                null
+        ));
     }
 
     /**
@@ -756,6 +784,9 @@ public final class Sonic3kPlcArtRegistry {
                 0,
                 null
         ));
+
+        // Collapsing Bridge (Object 0x0F) shares Map_ICZCollapsingBridge with Object 0x04.
+        // Both objects use the same mapping file (6 frames), so COLLAPSING_PLATFORM_ICZ serves both.
     }
 
     /**
@@ -836,6 +867,24 @@ public final class Sonic3kPlcArtRegistry {
                 Sonic3kConstants.MAP_BUTTON_ADDR,
                 Sonic3kConstants.ARTTILE_GRAY_BUTTON,
                 0,
+                null
+        ));
+
+        // Collapsing Bridge (Object 0x0F): make_art_tile($001, 2, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.COLLAPSING_BRIDGE_LBZ,
+                Sonic3kConstants.MAP_LBZ_COLLAPSING_BRIDGE_ADDR,
+                1,
+                2,
+                null
+        ));
+
+        // Collapsing Ledge (Object 0x0F, LBZ subtype bit 6): make_art_tile($001, 2, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.COLLAPSING_BRIDGE_LBZ_LEDGE,
+                Sonic3kConstants.MAP_LBZ_COLLAPSING_LEDGE_ADDR,
+                1,
+                2,
                 null
         ));
     }
@@ -990,6 +1039,15 @@ public final class Sonic3kPlcArtRegistry {
                 2,
                 null
         ));
+
+        // Collapsing Bridge (Object 0x0F): make_art_tile($001, 2, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.COLLAPSING_BRIDGE_SOZ,
+                Sonic3kConstants.MAP_SOZ_COLLAPSING_BRIDGE_ADDR,
+                1,
+                2,
+                null
+        ));
     }
 
     /**
@@ -1097,6 +1155,16 @@ public final class Sonic3kPlcArtRegistry {
                     null
             ));
         }
+
+        // Collapsing Bridge (Object 0x0F): make_art_tile($090, 2, 0)
+        // Note: LRZ uses a different tile base ($090) than most zones ($001).
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.COLLAPSING_BRIDGE_LRZ,
+                Sonic3kConstants.MAP_LRZ_COLLAPSING_BRIDGE_0F_ADDR,
+                0x090,
+                2,
+                null
+        ));
     }
 
     /**
@@ -1169,6 +1237,23 @@ public final class Sonic3kPlcArtRegistry {
                 Sonic3kConstants.MAP_EGG_ROBO_ADDR,
                 0,
                 -1
+        ));
+    }
+
+    /**
+     * Populates HPZ (Hidden Palace Zone) art entries.
+     * Level-art: collapsing bridge.
+     */
+    private static void addHpzEntries(int actIndex,
+                                      List<StandaloneArtEntry> standalone,
+                                      List<LevelArtEntry> levelArt) {
+        // Collapsing Bridge (Object 0x0F): make_art_tile($001, 2, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.COLLAPSING_BRIDGE_HPZ,
+                Sonic3kConstants.MAP_HPZ_COLLAPSING_BRIDGE_ADDR,
+                1,
+                2,
+                null
         ));
     }
 

@@ -885,6 +885,39 @@ public class Sonic3kConstants {
     // Map_ICZCollapsingBridge - ICZ collapsing platform mappings (6 frames)
     public static final int MAP_ICZ_COLLAPSING_BRIDGE_ADDR = 0x21F2F2;
 
+    // ===== Collapsing Bridge Mappings (Object 0x0F) =====
+    // Multi-zone bridge that collapses when the player stands on it.
+    // S3 LockOn region addresses (>= 0x200000) for S3KL zones.
+
+    // Map_LBZCollapsingBridge - LBZ bridge variant (3 frames: intact + 2 fragment directions)
+    public static final int MAP_LBZ_COLLAPSING_BRIDGE_ADDR = 0x21E896;
+
+    // Map_LBZCollapsingLedge - LBZ ledge variant (3 frames)
+    public static final int MAP_LBZ_COLLAPSING_LEDGE_ADDR = 0x21E992;
+
+    // Map_HCZCollapsingBridge - HCZ bridge (12 frames: 4 subtypes × 3 frames each)
+    public static final int MAP_HCZ_COLLAPSING_BRIDGE_ADDR = 0x21EA1A;
+
+    // Map_MGZCollapsingBridge - MGZ bridge (9 frames: 3 subtypes × 3 frames each)
+    public static final int MAP_MGZ_COLLAPSING_BRIDGE_ADDR = 0x21EE68;
+
+    // Map_ICZCollapsingBridge is shared with Object 0x04 (above): 0x21F2F2
+    // Object 0x0F uses frames 3-5, Object 0x04 uses frames 0-3.
+
+    // S&K side addresses (< 0x200000) for SKL zones and HPZ.
+
+    // Map_HPZCollapsingBridge - HPZ bridge (3 frames)
+    public static final int MAP_HPZ_COLLAPSING_BRIDGE_ADDR = 0x020FCE;
+
+    // Map_LRZCollapsingPlatform - LRZ bridge via Object 0x0F (3 frames)
+    public static final int MAP_LRZ_COLLAPSING_BRIDGE_0F_ADDR = 0x020F0E;
+
+    // Map_FBZCollapsingBridge - FBZ bridge (3 frames)
+    public static final int MAP_FBZ_COLLAPSING_BRIDGE_ADDR = 0x02108E;
+
+    // Map_SOZCollapsingBridge - SOZ bridge (3 frames)
+    public static final int MAP_SOZ_COLLAPSING_BRIDGE_ADDR = 0x02127A;
+
     // ===== AIZ Disappearing Floor Mappings (Object 0x29) =====
     // Map_AIZDisappearingFloor - 6 frames: parent visual overlay (frame 0 = invisible, 1-5 = crumbling)
     // In LockOn data region (S3 half). Interleaved with Map_AIZDisappearingFloor2 offset table.
