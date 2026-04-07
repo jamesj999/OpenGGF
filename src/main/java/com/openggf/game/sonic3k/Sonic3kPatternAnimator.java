@@ -11,7 +11,11 @@ import com.openggf.level.Pattern;
 import com.openggf.level.animation.AniPlcParser;
 import com.openggf.level.animation.AniPlcScriptState;
 import com.openggf.level.animation.AnimatedPatternManager;
+import com.openggf.tools.KosinskiReader;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.nio.channels.Channels;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -316,12 +320,26 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
         }
 
         if (zoneIndex == 0x14) {
-            this.pachinkoScratch = new byte[PACHINKO_BG_DMA_BYTES];
-            this.pachinkoLowSource = new byte[PACHINKO_LOW_SOURCE_BYTES];
-            this.pachinkoHighSource = new byte[PACHINKO_HIGH_SOURCE_BYTES];
-            this.pachinkoPhase = 0;
-            this.pachinkoSourceOffset = 0;
-            this.pachinkoStripeOffset = 0;
+            byte[] lowSource = loadKosinskiBytes(reader,
+                    Sonic3kConstants.ART_KOS_PACHINKO_BG1_ADDR,
+                    Sonic3kConstants.ART_KOS_PACHINKO_BG1_SIZE,
+                    PACHINKO_LOW_SOURCE_BYTES);
+            byte[] highSource = buildPachinkoHighSource(loadKosinskiBytes(reader,
+                    Sonic3kConstants.ART_KOS_PACHINKO_BG2_ADDR,
+                    Sonic3kConstants.ART_KOS_PACHINKO_BG2_SIZE,
+                    0x600));
+            if (lowSource != null && highSource != null) {
+                this.pachinkoScratch = new byte[PACHINKO_BG_DMA_BYTES];
+                this.pachinkoLowSource = lowSource;
+                this.pachinkoHighSource = highSource;
+                this.pachinkoPhase = 0;
+                this.pachinkoSourceOffset = 0;
+                this.pachinkoStripeOffset = 0;
+            } else {
+                this.pachinkoScratch = null;
+                this.pachinkoLowSource = null;
+                this.pachinkoHighSource = null;
+            }
         } else {
             this.pachinkoScratch = null;
             this.pachinkoLowSource = null;
@@ -686,35 +704,6 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
         }
     }
 
-    private void copyPatternsToRawBytes(int startTile, byte[] dest) {
-        if (dest == null) {
-            return;
-        }
-        int tileCount = dest.length / Pattern.PATTERN_SIZE_IN_ROM;
-        for (int tile = 0; tile < tileCount; tile++) {
-            int levelTile = startTile + tile;
-            int outPos = tile * Pattern.PATTERN_SIZE_IN_ROM;
-            if (levelTile >= level.getPatternCount()) {
-                for (int i = 0; i < Pattern.PATTERN_SIZE_IN_ROM; i++) {
-                    dest[outPos + i] = 0;
-                }
-                continue;
-            }
-            writePatternToSegaBytes(level.getPattern(levelTile), dest, outPos);
-        }
-    }
-
-    private void writePatternToSegaBytes(Pattern pattern, byte[] dest, int destPos) {
-        int pos = destPos;
-        for (int row = 0; row < Pattern.PATTERN_HEIGHT; row++) {
-            for (int col = 0; col < Pattern.PATTERN_WIDTH; col += 2) {
-                int left = pattern.getPixel(col, row) & 0x0F;
-                int right = pattern.getPixel(col + 1, row) & 0x0F;
-                dest[pos++] = (byte) ((left << 4) | right);
-            }
-        }
-    }
-
     private byte[] loadRawBytes(RomByteReader reader, int addr, int size) {
         if (addr + size > reader.size()) {
             return null;
@@ -838,9 +827,6 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
             return;
         }
 
-        copyPatternsToRawBytes(PACHINKO_LOW_SOURCE_TILE, pachinkoLowSource);
-        copyPatternsToRawBytes(PACHINKO_HIGH_SOURCE_TILE, pachinkoHighSource);
-
         if (pachinkoPhase == 0) {
             rebuildPachinkoScratch();
             pachinkoPhase = 1;
@@ -853,10 +839,10 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
                 if (pachinkoSourceOffset >= PACHINKO_LOW_SOURCE_BYTES) {
                     pachinkoSourceOffset = 0;
                 }
+                applyRawPatternSliceToLevel(pachinkoScratch, 0, PACHINKO_BG_DMA_BYTES,
+                        PACHINKO_BG_DEST_TILE);
             }
         }
-
-        applyRawPatternSliceToLevel(pachinkoScratch, 0, PACHINKO_BG_DMA_BYTES, PACHINKO_BG_DEST_TILE);
     }
 
     private void rebuildPachinkoScratch() {
@@ -999,5 +985,45 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
         data[offset + 1] = (byte) ((value >>> 16) & 0xFF);
         data[offset + 2] = (byte) ((value >>> 8) & 0xFF);
         data[offset + 3] = (byte) (value & 0xFF);
+    }
+
+    private byte[] loadKosinskiBytes(RomByteReader reader, int addr, int compressedSize,
+                                     int minimumDecompressedSize) {
+        if (addr < 0 || addr + compressedSize > reader.size()) {
+            return null;
+        }
+        byte[] compressed = reader.slice(addr, compressedSize);
+        try (ByteArrayInputStream bais = new ByteArrayInputStream(compressed)) {
+            byte[] decompressed = KosinskiReader.decompress(Channels.newChannel(bais), false);
+            if (decompressed.length < minimumDecompressedSize) {
+                LOG.warning(() -> String.format(
+                        "Pachinko Kosinski resource too short at 0x%X: expected >= 0x%X bytes, got 0x%X",
+                        addr, minimumDecompressedSize, decompressed.length));
+                return null;
+            }
+            return decompressed;
+        } catch (IOException e) {
+            LOG.warning(() -> String.format(
+                    "Failed to decompress Pachinko Kosinski resource at 0x%X: %s", addr, e.getMessage()));
+            return null;
+        }
+    }
+
+    private byte[] buildPachinkoHighSource(byte[] source) {
+        if (source == null || source.length < 0x600) {
+            return null;
+        }
+        byte[] expanded = new byte[PACHINKO_HIGH_SOURCE_BYTES];
+        int sourcePos = 0;
+        int destPos = 0;
+        for (int row = 0; row < 0x0C; row++) {
+            for (int i = 0; i < 0x80; i += 4) {
+                System.arraycopy(source, sourcePos, expanded, destPos + 0x80 + i, 4);
+                System.arraycopy(source, sourcePos, expanded, destPos + i, 4);
+                sourcePos += 4;
+            }
+            destPos += 0x100;
+        }
+        return expanded;
     }
 }

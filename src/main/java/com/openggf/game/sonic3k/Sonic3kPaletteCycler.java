@@ -7,7 +7,11 @@ import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
 import com.openggf.level.Palette;
 import com.openggf.level.animation.AnimatedPaletteManager;
+import com.openggf.tools.KosinskiReader;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.nio.channels.Channels;
 import java.util.ArrayList;
 import java.util.List;
 import com.openggf.game.GameServices;
@@ -89,6 +93,10 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
 
             case 0x11: // EMZ (competition) — AnPal_EMZ emerald glow + background
                 loadEmzCycles(reader, list);
+                break;
+
+            case 0x14:
+                loadPachinkoCycles(reader, list);
                 break;
 
             default: break;
@@ -228,11 +236,35 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
         }
     }
 
+    private void loadPachinkoCycles(RomByteReader reader, List<PaletteCycle> list) {
+        byte[] tableData = loadKosinskiBytes(reader,
+                Sonic3kConstants.PAL_KOS_PACHINKO_ADDR,
+                Sonic3kConstants.PAL_KOS_PACHINKO_SIZE,
+                0x532);
+        if (tableData != null) {
+            list.add(new PachinkoCycle(tableData));
+        }
+    }
+
     private byte[] safeSlice(RomByteReader reader, int addr, int len) {
         if (addr < 0 || addr + len > reader.size()) {
             return new byte[0];
         }
         return reader.slice(addr, len);
+    }
+
+    private byte[] loadKosinskiBytes(RomByteReader reader, int addr, int compressedSize,
+                                     int minimumDecompressedSize) {
+        if (addr < 0 || addr + compressedSize > reader.size()) {
+            return null;
+        }
+        byte[] compressed = reader.slice(addr, compressedSize);
+        try (ByteArrayInputStream bais = new ByteArrayInputStream(compressed)) {
+            byte[] decompressed = KosinskiReader.decompress(Channels.newChannel(bais), false);
+            return decompressed.length >= minimumDecompressedSize ? decompressed : null;
+        } catch (IOException e) {
+            return null;
+        }
     }
 
     // ========== Base class ==========
@@ -1245,6 +1277,70 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
                 pal3.getColor(9).fromSegaFormat(bgData, d0);
                 pal3.getColor(10).fromSegaFormat(bgData, d0 + 2);
                 dirty3 = true;
+            }
+
+            if (gm.isGlInitialized()) {
+                if (dirty2) {
+                    gm.cachePaletteTexture(level.getPalette(2), 2);
+                    dirty2 = false;
+                }
+                if (dirty3) {
+                    gm.cachePaletteTexture(level.getPalette(3), 3);
+                    dirty3 = false;
+                }
+            }
+        }
+    }
+
+    private static class PachinkoCycle extends PaletteCycle {
+        private static final int[] LINE3_OFFSETS = {
+                0x50, 0x52, 0x54, 0x56, 0x58,
+                0x28, 0x2A, 0x2C, 0x2E, 0x30,
+                0x00, 0x02, 0x04, 0x06, 0x08
+        };
+
+        private final byte[] tableData;
+        private int line4Timer;
+        private int line4Offset;
+        private int line3Timer;
+        private int line3Offset;
+        private boolean dirty2;
+        private boolean dirty3;
+
+        private PachinkoCycle(byte[] tableData) {
+            this.tableData = tableData;
+        }
+
+        @Override
+        void tick(Level level, GraphicsManager gm) {
+            if (line4Timer > 0) {
+                line4Timer--;
+            } else {
+                Palette pal3 = level.getPalette(3);
+                for (int i = 0; i < 7; i++) {
+                    pal3.getColor(8 + i).fromSegaFormat(tableData, line4Offset + (i * 2));
+                }
+                line4Offset += 0x0E;
+                if (line4Offset >= 0x0FC) {
+                    line4Offset = 0;
+                }
+                dirty3 = true;
+            }
+
+            if (line3Timer > 0) {
+                line3Timer--;
+            } else {
+                line3Timer = 3;
+                Palette pal2 = level.getPalette(2);
+                int baseOffset = 0x0FC + line3Offset;
+                for (int i = 0; i < LINE3_OFFSETS.length; i++) {
+                    pal2.getColor(1 + i).fromSegaFormat(tableData, baseOffset + LINE3_OFFSETS[i]);
+                }
+                line3Offset += 0x0A;
+                if (line3Offset >= 0x3E8) {
+                    line3Offset = 0;
+                }
+                dirty2 = true;
             }
 
             if (gm.isGlInitialized()) {

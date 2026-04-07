@@ -91,8 +91,13 @@ public class PachinkoFlipperObjectInstance extends AbstractObjectInstance
             return;
         }
 
+        boolean newlyLocked = lockedPlayer != player;
         lockPlayer(player);
-        if (player.isJumpPressed()) {
+        if (newlyLocked) {
+            applySurfaceAcceleration(player);
+            return;
+        }
+        if (player.isJumpJustPressed()) {
             launchPlayer(player);
         } else {
             applySurfaceAcceleration(player);

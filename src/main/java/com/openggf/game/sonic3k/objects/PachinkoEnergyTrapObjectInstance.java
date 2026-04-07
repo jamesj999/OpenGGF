@@ -70,6 +70,10 @@ public class PachinkoEnergyTrapObjectInstance extends AbstractObjectInstance {
 
         updateDynamicSpawn(currentX, currentY);
 
+        if (hasEscapedThroughTop(playerEntity)) {
+            requestExit();
+        }
+
         maybePlayTransporterSfx(frameCounter, playerEntity);
         updateCapture(playerEntity);
     }
@@ -79,37 +83,49 @@ public class PachinkoEnergyTrapObjectInstance extends AbstractObjectInstance {
             return;
         }
 
-        int relativeY = player.getY() - currentY;
+        int playerCenterY = player.getCentreY();
+        int relativeY = playerCenterY - currentY;
         boolean inCaptureBand = relativeY >= CAPTURE_TOP && relativeY < CAPTURE_BOTTOM_EXCLUSIVE;
         if (!inCaptureBand && capturedPlayer != player) {
             return;
         }
 
         capturedPlayer = player;
-        player.setY((short) currentY);
+        setPlayerCenterY(player, currentY);
+        player.setObjectControlled(true);
         player.setControlLocked(true);
+        player.setXSpeed((short) 0);
         player.setAir(true);
+        player.setOnObject(false);
 
         if (!exitArmed) {
             playSfx(Sonic3kSfx.BOUNCY);
             exitArmed = true;
         }
 
-        if (player.getY() < PLAYER_ESCAPED_Y) {
-            exitDelayFrames = 0;
-        }
-
         if (!exitRequested && --exitDelayFrames < 0) {
-            exitRequested = true;
-            services().requestBonusStageExit();
+            requestExit();
         }
+    }
+
+    private boolean hasEscapedThroughTop(PlayableEntity playerEntity) {
+        return playerEntity instanceof AbstractPlayableSprite player
+                && player.getY() < PLAYER_ESCAPED_Y;
+    }
+
+    private void requestExit() {
+        if (exitRequested) {
+            return;
+        }
+        exitRequested = true;
+        services().requestBonusStageExit();
     }
 
     private void maybePlayTransporterSfx(int frameCounter, PlayableEntity playerEntity) {
         if (!(playerEntity instanceof AbstractPlayableSprite player)) {
             return;
         }
-        int relativeY = player.getY() - currentY;
+        int relativeY = player.getCentreY() - currentY;
         if (relativeY < -0x180 || relativeY >= 0) {
             return;
         }
@@ -124,6 +140,10 @@ public class PachinkoEnergyTrapObjectInstance extends AbstractObjectInstance {
         } catch (Exception e) {
             // Keep gameplay logic independent from audio state.
         }
+    }
+
+    private void setPlayerCenterY(AbstractPlayableSprite player, int centerY) {
+        player.setY((short) (centerY - (player.getHeight() / 2)));
     }
 
     private ObjectSpawn createColumnSpawn() {
