@@ -22,6 +22,9 @@ public class Sonic3kZoneIds {
     public static final int ZONE_DEZ = 0x0B;  // Death Egg
     public static final int ZONE_DDZ = 0x0C;  // Doomsday
 
+    // Special/bonus zones
+    public static final int ZONE_HPZ = 0x16;  // Hidden Palace
+
     // Competition zones
     public static final int ZONE_ALZ = 0x0D;  // Azure Lake
     public static final int ZONE_BPZ = 0x0E;  // Balloon Park

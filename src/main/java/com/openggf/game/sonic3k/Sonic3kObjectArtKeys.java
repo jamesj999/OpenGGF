@@ -17,6 +17,17 @@ public final class Sonic3kObjectArtKeys {
     public static final String COLLAPSING_PLATFORM_AIZ1 = "collapsing_platform_aiz1";
     public static final String COLLAPSING_PLATFORM_AIZ2 = "collapsing_platform_aiz2";
     public static final String COLLAPSING_PLATFORM_ICZ = "collapsing_platform_icz";
+
+    // Collapsing Bridge (Object 0x0F) - per-zone level art
+    public static final String COLLAPSING_BRIDGE_LBZ = "collapsing_bridge_lbz";
+    public static final String COLLAPSING_BRIDGE_LBZ_LEDGE = "collapsing_bridge_lbz_ledge";
+    public static final String COLLAPSING_BRIDGE_HCZ = "collapsing_bridge_hcz";
+    public static final String COLLAPSING_BRIDGE_MGZ = "collapsing_bridge_mgz";
+    // ICZ Object 0x0F shares Map_ICZCollapsingBridge with Object 0x04 (COLLAPSING_PLATFORM_ICZ)
+    public static final String COLLAPSING_BRIDGE_HPZ = "collapsing_bridge_hpz";
+    public static final String COLLAPSING_BRIDGE_LRZ = "collapsing_bridge_lrz";
+    public static final String COLLAPSING_BRIDGE_FBZ = "collapsing_bridge_fbz";
+    public static final String COLLAPSING_BRIDGE_SOZ = "collapsing_bridge_soz";
     public static final String AIZ1_ROCK = "aiz1_rock";
     public static final String AIZ2_ROCK = "aiz2_rock";
     public static final String LRZ1_ROCK = "lrz1_rock";
