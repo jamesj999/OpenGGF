@@ -61,4 +61,21 @@ public class TestSpecialStageModuleConfig {
         assertFalse(gameState.hasAllEmeralds());
         assertEquals(0, gameState.consumeCurrentSpecialStageIndexAndAdvance());
     }
+
+    @Test
+    public void resetRestoresSonic2StageConfigThroughCompatibilityPath() {
+        GameModuleRegistry.setCurrent(new Sonic1GameModule());
+        GameStateManager gameState = GameServices.gameState();
+        for (int i = 0; i < 6; i++) {
+            gameState.markEmeraldCollected(i);
+        }
+        assertTrue(gameState.hasAllEmeralds());
+
+        GameModuleRegistry.reset();
+
+        assertEquals(7, gameState.getSpecialStageCount());
+        assertEquals(7, gameState.getChaosEmeraldCount());
+        assertFalse(gameState.hasAllEmeralds());
+        assertEquals(0, gameState.consumeCurrentSpecialStageIndexAndAdvance());
+    }
 }
