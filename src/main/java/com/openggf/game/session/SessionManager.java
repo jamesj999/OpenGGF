@@ -2,6 +2,8 @@ package com.openggf.game.session;
 
 import com.openggf.game.GameModule;
 
+import java.util.Objects;
+
 public final class SessionManager {
     private static WorldSession currentWorldSession;
     private static GameplayModeContext currentGameplayMode;
@@ -11,31 +13,37 @@ public final class SessionManager {
     }
 
     public static synchronized GameplayModeContext openGameplaySession(GameModule module) {
+        Objects.requireNonNull(module, "module");
+        destroyCurrentMode();
         currentWorldSession = new WorldSession(module);
-        currentEditorMode = null;
         currentGameplayMode = new GameplayModeContext(currentWorldSession);
         return currentGameplayMode;
     }
 
     public static synchronized EditorModeContext enterEditorMode(EditorCursorState cursor) {
-        if (currentGameplayMode != null) {
-            currentGameplayMode.destroy();
-            currentGameplayMode = null;
+        Objects.requireNonNull(cursor, "cursor");
+        if (currentWorldSession == null) {
+            throw new IllegalStateException("Cannot enter editor mode without an active world session.");
         }
+        destroyCurrentMode();
         currentEditorMode = new EditorModeContext(currentWorldSession, cursor);
         return currentEditorMode;
     }
 
     public static synchronized void clear() {
+        destroyCurrentMode();
+        currentWorldSession = null;
+    }
+
+    private static void destroyCurrentMode() {
         if (currentGameplayMode != null) {
             currentGameplayMode.destroy();
+            currentGameplayMode = null;
         }
         if (currentEditorMode != null) {
             currentEditorMode.destroy();
+            currentEditorMode = null;
         }
-        currentGameplayMode = null;
-        currentEditorMode = null;
-        currentWorldSession = null;
     }
 
     public static synchronized WorldSession getCurrentWorldSession() {
