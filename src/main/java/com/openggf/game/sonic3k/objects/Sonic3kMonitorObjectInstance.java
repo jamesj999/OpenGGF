@@ -431,6 +431,14 @@ public class Sonic3kMonitorObjectInstance extends AbstractMonitorObjectInstance
     }
 
     @Override
+    public boolean usesStickyContactBuffer() {
+        // Monitors are static objects — the sticky buffer is only needed for
+        // moving platforms to compensate for execution-order jitter. Using it
+        // here would extend riding bounds 16px beyond the ROM's ExitPlatform width.
+        return false;
+    }
+
+    @Override
     public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         // Solid contact for standing/edge checks; no additional behavior needed.
