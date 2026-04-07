@@ -50,7 +50,7 @@ public final class PlaybackDebugManager {
             return;
         }
 
-        if (input.isKeyPressed(configService.getInt(SonicConfiguration.PLAYBACK_TOGGLE_KEY))) {
+        if (input.isKeyPressedWithoutModifiers(configService.getInt(SonicConfiguration.PLAYBACK_TOGGLE_KEY))) {
             enabled = !enabled;
             if (enabled) {
                 if (movie == null) {
@@ -67,7 +67,7 @@ public final class PlaybackDebugManager {
             }
         }
 
-        if (input.isKeyPressed(configService.getInt(SonicConfiguration.PLAYBACK_LOAD_KEY))) {
+        if (input.isKeyPressedWithoutModifiers(configService.getInt(SonicConfiguration.PLAYBACK_LOAD_KEY))) {
             loadFromConfig();
         }
 
@@ -75,38 +75,38 @@ public final class PlaybackDebugManager {
             return;
         }
 
-        if (input.isKeyPressed(configService.getInt(SonicConfiguration.PLAYBACK_PLAY_PAUSE_KEY))) {
+        if (input.isKeyPressedWithoutModifiers(configService.getInt(SonicConfiguration.PLAYBACK_PLAY_PAUSE_KEY))) {
             timeline.togglePlaying();
             periodicLogCounter = 0;
             setStatus(timeline.isPlaying() ? "Playback running" : "Playback paused", true);
         }
 
-        if (input.isKeyPressed(configService.getInt(SonicConfiguration.PLAYBACK_STEP_BACK_KEY))) {
+        if (input.isKeyPressedWithoutModifiers(configService.getInt(SonicConfiguration.PLAYBACK_STEP_BACK_KEY))) {
             timeline.stepBackward();
             setStatus("Stepped movie frame backward", true);
         }
 
-        if (input.isKeyPressed(configService.getInt(SonicConfiguration.PLAYBACK_STEP_FORWARD_KEY))) {
+        if (input.isKeyPressedWithoutModifiers(configService.getInt(SonicConfiguration.PLAYBACK_STEP_FORWARD_KEY))) {
             timeline.stepForward();
             setStatus("Stepped movie frame forward", true);
         }
 
-        if (input.isKeyPressed(configService.getInt(SonicConfiguration.PLAYBACK_JUMP_BACK_KEY))) {
+        if (input.isKeyPressedWithoutModifiers(configService.getInt(SonicConfiguration.PLAYBACK_JUMP_BACK_KEY))) {
             timeline.jumpBackward(DEFAULT_JUMP_FRAMES);
             setStatus("Jumped movie backward by " + DEFAULT_JUMP_FRAMES + " frames", true);
         }
 
-        if (input.isKeyPressed(configService.getInt(SonicConfiguration.PLAYBACK_JUMP_FORWARD_KEY))) {
+        if (input.isKeyPressedWithoutModifiers(configService.getInt(SonicConfiguration.PLAYBACK_JUMP_FORWARD_KEY))) {
             timeline.jumpForward(DEFAULT_JUMP_FRAMES);
             setStatus("Jumped movie forward by " + DEFAULT_JUMP_FRAMES + " frames", true);
         }
 
-        if (input.isKeyPressed(configService.getInt(SonicConfiguration.PLAYBACK_FAST_RATE_KEY))) {
+        if (input.isKeyPressedWithoutModifiers(configService.getInt(SonicConfiguration.PLAYBACK_FAST_RATE_KEY))) {
             timeline.cycleRate();
             setStatus("Playback rate set to " + timeline.getRate() + "x", true);
         }
 
-        if (input.isKeyPressed(configService.getInt(SonicConfiguration.PLAYBACK_RESET_TO_START_KEY))) {
+        if (input.isKeyPressedWithoutModifiers(configService.getInt(SonicConfiguration.PLAYBACK_RESET_TO_START_KEY))) {
             resetToConfiguredOffset();
             setStatus("Reset movie cursor to start offset", true);
         }
