@@ -71,18 +71,14 @@ class TestSpritePieceRendererSatPreparation {
 
         List<SpriteSatEntry> processed = SpriteSatMaskPostProcessor.process(entries, true);
 
-        assertEquals(4, processed.size());
-        assertEquals(0x25F, processed.get(1).rawTileWordLow11());
+        assertEquals(3, processed.size());
+        assertEquals(0x200, processed.get(1).rawTileWordLow11());
         assertEquals(0, processed.get(1).startColTile());
-        assertEquals(2, processed.get(1).colCountTiles());
+        assertEquals(4, processed.get(1).colCountTiles());
         assertEquals(0, processed.get(1).startRowTile());
-        assertEquals(2, processed.get(1).rowCountTiles());
-        assertEquals(0, processed.get(2).startColTile());
-        assertEquals(4, processed.get(2).colCountTiles());
-        assertEquals(0, processed.get(2).startRowTile());
+        assertEquals(1, processed.get(1).rowCountTiles());
+        assertEquals(3, processed.get(2).startRowTile());
         assertEquals(1, processed.get(2).rowCountTiles());
-        assertEquals(3, processed.get(3).startRowTile());
-        assertEquals(1, processed.get(3).rowCountTiles());
     }
 
     private static SpriteFramePiece piece(int xOffset, int yOffset, int widthTiles, int heightTiles,

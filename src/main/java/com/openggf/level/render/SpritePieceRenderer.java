@@ -1,5 +1,6 @@
 package com.openggf.level.render;
 
+import com.openggf.graphics.SpriteMaskReplayRole;
 import com.openggf.level.Pattern;
 
 import java.util.List;
@@ -23,6 +24,7 @@ public final class SpritePieceRenderer {
             boolean vFlip,
             boolean piecePriority,
             boolean globalHighPriority,
+            SpriteMaskReplayRole maskReplayRole,
             int startColTile,
             int colCountTiles,
             int startRowTile,
@@ -56,7 +58,8 @@ public final class SpritePieceRenderer {
                 int rowCountTiles
         ) {
             this(x, y, widthTiles, heightTiles, firstPatternIndex, rawTileWordLow11, paletteIndex,
-                    hFlip, vFlip, piecePriority, globalHighPriority, 0, widthTiles, startRowTile, rowCountTiles);
+                    hFlip, vFlip, piecePriority, globalHighPriority,
+                    SpriteMaskReplayRole.NORMAL, 0, widthTiles, startRowTile, rowCountTiles);
         }
 
         public int endXExclusive() {
@@ -85,6 +88,7 @@ public final class SpritePieceRenderer {
                     vFlip,
                     piecePriority,
                     globalHighPriority,
+                    maskReplayRole,
                     clippedStartColTile,
                     clippedColCountTiles,
                     clippedStartRowTile,
@@ -93,6 +97,26 @@ public final class SpritePieceRenderer {
 
         public PreparedPiece clipRows(int clippedStartRowTile, int clippedRowCountTiles) {
             return clipRect(startColTile, colCountTiles, clippedStartRowTile, clippedRowCountTiles);
+        }
+
+        public PreparedPiece withMaskReplayRole(SpriteMaskReplayRole overriddenMaskReplayRole) {
+            return new PreparedPiece(
+                    x,
+                    y,
+                    widthTiles,
+                    heightTiles,
+                    firstPatternIndex,
+                    rawTileWordLow11,
+                    paletteIndex,
+                    hFlip,
+                    vFlip,
+                    piecePriority,
+                    globalHighPriority,
+                    overriddenMaskReplayRole,
+                    startColTile,
+                    colCountTiles,
+                    startRowTile,
+                    rowCountTiles);
         }
 
         public PreparedPiece withPriorityFlags(boolean overriddenPiecePriority, boolean overriddenGlobalHighPriority) {
@@ -108,6 +132,7 @@ public final class SpritePieceRenderer {
                     vFlip,
                     overriddenPiecePriority,
                     overriddenGlobalHighPriority,
+                    maskReplayRole,
                     startColTile,
                     colCountTiles,
                     startRowTile,
@@ -223,6 +248,7 @@ public final class SpritePieceRenderer {
                 pieceVFlip,
                 piece.priority(),
                 globalHighPriority,
+                SpriteMaskReplayRole.NORMAL,
                 0,
                 widthTiles,
                 0,

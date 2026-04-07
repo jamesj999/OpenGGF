@@ -28,6 +28,7 @@ public final class SpriteSatMaskPostProcessor {
 
         List<VerticalBand> activeBands = new ArrayList<>();
         List<SpriteSatEntry> processed = new ArrayList<>();
+        int preMaskInsertIndex = -1;
 
         for (int i = 0; i < entries.size(); i++) {
             SpriteSatEntry entry = entries.get(i);
@@ -36,12 +37,19 @@ public final class SpriteSatMaskPostProcessor {
                 VerticalBand band = createMaskBand(entry, companion);
                 if (band != null) {
                     activeBands.add(band);
+                    if (preMaskInsertIndex < 0) {
+                        preMaskInsertIndex = processed.size();
+                    }
                 }
-                processed.add(companion);
-                i++; // The marker becomes the mask; the companion remains visible.
+                i++; // The helper pair becomes the mask; neither piece replays visibly.
                 continue;
             }
 
+            if (entry.maskReplayRole() == SpriteMaskReplayRole.PRE_MASK_FRONT && preMaskInsertIndex >= 0) {
+                processed.add(preMaskInsertIndex, entry);
+                preMaskInsertIndex++;
+                continue;
+            }
             processed.addAll(clipAgainstBands(entry, activeBands));
         }
 

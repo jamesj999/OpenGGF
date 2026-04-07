@@ -1225,17 +1225,14 @@ public class GraphicsManager {
 			return;
 		}
 
-		Boolean currentReplayPriority = null;
+		// Replay SAT entries as individual commands instead of rebatching them.
+		// The non-instanced batch path only captures the global sprite-priority uniform,
+		// which collapses mixed-priority frames like Gumball 0x16. Encoding the effective
+		// priority into each replayed PatternDesc keeps per-piece ROM priority intact.
+		flushPatternBatch();
+		setCurrentSpriteHighPriority(false);
 		for (int i = processedEntries.size() - 1; i >= 0; i--) {
-			SpriteSatEntry entry = processedEntries.get(i);
-			boolean replayPriority = entry.globalHighPriority();
-			if (currentReplayPriority == null || currentReplayPriority != replayPriority) {
-				flushPatternBatch();
-				setCurrentSpriteHighPriority(replayPriority);
-				beginPatternBatch();
-				currentReplayPriority = replayPriority;
-			}
-			renderCollectedSpriteSatEntry(entry);
+			renderCollectedSpriteSatEntry(processedEntries.get(i));
 		}
 	}
 
@@ -1243,7 +1240,7 @@ public class GraphicsManager {
 		SpritePieceRenderer.renderPreparedPiece(entry.toPreparedPiece(),
 				(patternIndex, pieceHFlip, pieceVFlip, paletteIndex, drawX, drawY) -> {
 					int descIndex = patternIndex & 0x7FF;
-					if (entry.piecePriority()) {
+					if (entry.piecePriority() || entry.globalHighPriority()) {
 						descIndex |= 0x8000;
 					}
 					if (pieceHFlip) {
