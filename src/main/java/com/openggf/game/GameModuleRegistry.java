@@ -82,7 +82,7 @@ public final class GameModuleRegistry {
      * Useful for testing or reinitialization.
      */
     public static void reset() {
-        bootstrapDefault = new Sonic2GameModule();
+        setCurrent(new Sonic2GameModule());
         LOGGER.fine("Game module registry reset to Sonic 2 default");
     }
 }
