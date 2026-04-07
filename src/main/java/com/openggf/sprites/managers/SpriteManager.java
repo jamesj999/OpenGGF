@@ -689,9 +689,22 @@ public class SpriteManager {
 	}
 
 	private boolean isCpuSidekickSuppressed() {
-		LevelManager lm = getLevelManager();
+		LevelManager lm = null;
+		GameModule module = null;
+		var runtime = RuntimeManager.getCurrent();
+		if (runtime != null) {
+			lm = runtime.getLevelManager();
+			if (runtime.getWorldSession() != null) {
+				module = runtime.getWorldSession().getGameModule();
+			}
+		}
+		if (lm == null) {
+			lm = getLevelManager();
+		}
 		if (lm == null) return false;
-		GameModule module = lm.getGameModule();
+		if (module == null) {
+			module = lm.getGameModule();
+		}
 		if (module != null && module.isSidekickSuppressedForZone(lm.getCurrentZone())) return true;
 		if (AizPlaneIntroInstance.isSidekickSuppressed()) return true;
 		return false;

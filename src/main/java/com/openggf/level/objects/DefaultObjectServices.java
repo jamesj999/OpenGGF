@@ -49,6 +49,7 @@ public class DefaultObjectServices implements ObjectServices {
     private final FadeManager fadeManager;
     private final WaterSystem waterSystem;
     private final ParallaxManager parallaxManager;
+    private final WorldSession worldSession;
 
     /**
      * Primary constructor backed by a GameRuntime.
@@ -60,7 +61,8 @@ public class DefaultObjectServices implements ObjectServices {
                 runtime.getSpriteManager(),
                 runtime.getFadeManager(),
                 runtime.getWaterSystem(),
-                runtime.getParallaxManager());
+                runtime.getParallaxManager(),
+                runtime.getWorldSession());
     }
 
     public DefaultObjectServices(LevelManager levelManager,
@@ -70,6 +72,17 @@ public class DefaultObjectServices implements ObjectServices {
                                  FadeManager fadeManager,
                                  WaterSystem waterSystem,
                                  ParallaxManager parallaxManager) {
+        this(levelManager, camera, gameState, spriteManager, fadeManager, waterSystem, parallaxManager, null);
+    }
+
+    private DefaultObjectServices(LevelManager levelManager,
+                                 Camera camera,
+                                 GameStateManager gameState,
+                                 SpriteManager spriteManager,
+                                 FadeManager fadeManager,
+                                 WaterSystem waterSystem,
+                                 ParallaxManager parallaxManager,
+                                 WorldSession worldSession) {
         this.levelManager = Objects.requireNonNull(levelManager, "levelManager");
         this.camera = Objects.requireNonNull(camera, "camera");
         this.gameState = Objects.requireNonNull(gameState, "gameState");
@@ -77,6 +90,7 @@ public class DefaultObjectServices implements ObjectServices {
         this.fadeManager = Objects.requireNonNull(fadeManager, "fadeManager");
         this.waterSystem = Objects.requireNonNull(waterSystem, "waterSystem");
         this.parallaxManager = Objects.requireNonNull(parallaxManager, "parallaxManager");
+        this.worldSession = worldSession;
     }
 
     private LevelManager lm() {
@@ -159,12 +173,15 @@ public class DefaultObjectServices implements ObjectServices {
 
     @Override
     public WorldSession worldSession() {
-        return com.openggf.game.GameServices.worldSession();
+        return worldSession;
     }
 
     @Override
     public GameModule gameModule() {
-        return worldSession().getGameModule();
+        if (worldSession != null) {
+            return worldSession.getGameModule();
+        }
+        return levelManager.getGameModule();
     }
 
     @Override

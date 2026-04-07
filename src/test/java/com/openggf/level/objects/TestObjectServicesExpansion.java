@@ -4,6 +4,11 @@ import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.GameStateManager;
+import com.openggf.graphics.FadeManager;
+import com.openggf.level.LevelManager;
+import com.openggf.level.ParallaxManager;
+import com.openggf.level.WaterSystem;
+import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.tests.TestEnvironment;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -59,5 +64,24 @@ class TestObjectServicesExpansion {
     @Test
     void defaultObjectServices_requiresRuntime() {
         assertThrows(NullPointerException.class, () -> new DefaultObjectServices(null));
+    }
+
+    @Test
+    void defaultObjectServices_bootstrapConstructor_worldSessionAndGameModuleAreNullWithoutRuntime() {
+        RuntimeManager.setCurrent(null);
+
+        DefaultObjectServices services = new DefaultObjectServices(
+                LevelManager.getInstance(),
+                Camera.getInstance(),
+                GameStateManager.getInstance(),
+                SpriteManager.getInstance(),
+                FadeManager.getInstance(),
+                WaterSystem.getInstance(),
+                ParallaxManager.getInstance());
+
+        assertNull(services.worldSession(),
+                "bootstrap constructor should not require an active runtime world session");
+        assertNull(services.gameModule(),
+                "bootstrap constructor should return null game module when unavailable");
     }
 }
