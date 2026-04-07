@@ -320,8 +320,12 @@ public class HCZConveyorBeltObjectInstance extends AbstractObjectInstance {
         }
 
         // ROM: cmpi.w #1,ground_vel(a1) / beq.w loc_313D6 (sonic3k.asm:66473-66474)
-        // ground_vel == 1 means fan is pushing player — enter hanging mode
-        if (player.getGSpeed() == 1) {
+        // ground_vel == 1 means fan is pushing player — enter hanging mode.
+        // Also check the fan push tracking as a fallback: our engine's player physics
+        // may overwrite gSpeed between the fan's set and the belt's read (the ROM
+        // processes all objects in the same loop so gSpeed persists within a frame).
+        if (player.getGSpeed() == 1
+                || HCZCGZFanObjectInstance.wasPushedByFan(player, frameCounter)) {
             tryCapturHanging(player, state, frameCounter);
             return;
         }
