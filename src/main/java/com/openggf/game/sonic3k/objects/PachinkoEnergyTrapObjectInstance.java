@@ -110,7 +110,7 @@ public class PachinkoEnergyTrapObjectInstance extends AbstractObjectInstance {
 
     private boolean hasEscapedThroughTop(PlayableEntity playerEntity) {
         return playerEntity instanceof AbstractPlayableSprite player
-                && player.getY() < PLAYER_ESCAPED_Y;
+                && player.getCentreY() < PLAYER_ESCAPED_Y;
     }
 
     private void requestExit() {
@@ -143,7 +143,7 @@ public class PachinkoEnergyTrapObjectInstance extends AbstractObjectInstance {
     }
 
     private void setPlayerCenterY(AbstractPlayableSprite player, int centerY) {
-        player.setY((short) (centerY - (player.getHeight() / 2)));
+        player.setCentreY((short) centerY);
     }
 
     private ObjectSpawn createColumnSpawn() {

@@ -2045,25 +2045,41 @@ public class LevelManager {
             graphicsManager.setCurrentSpriteHighPriority(false);
         }
 
-        boolean gumballStageOrdering = currentZone == Sonic3kZoneIds.ZONE_GUMBALL;
-
-        for (int bucket = RenderPriority.MAX; bucket >= RenderPriority.MIN; bucket--) {
-            if (gumballStageOrdering) {
-                // In the gumball bonus stage, the player and bonus-stage objects share
-                // the same priority buckets. Draw objects first so lower-slot player
-                // sprites remain on top within a shared bucket.
-                if (objectManager != null) {
-                    objectManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
-                }
-                if (spriteManager != null) {
-                    spriteManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
-                }
-            } else {
+        boolean bonusStageSpriteSatOrdering = currentZone == Sonic3kZoneIds.ZONE_GUMBALL;
+        boolean useSpriteSatMasking = bonusStageSpriteSatOrdering;
+        if (useSpriteSatMasking) {
+            graphicsManager.beginSpriteSatCollection();
+            // SAT collection must follow sprite-table order, not painter order.
+            // Draw_Sprite inserts into Sprite_table_input by ascending priority bucket,
+            // and lower sprite slots end up in front later during rasterization.
+            for (int bucket = RenderPriority.MIN; bucket <= RenderPriority.MAX; bucket++) {
                 if (spriteManager != null) {
                     spriteManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
                 }
                 if (objectManager != null) {
                     objectManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
+                }
+            }
+            graphicsManager.endSpriteSatCollectionAndReplay();
+        } else {
+            for (int bucket = RenderPriority.MAX; bucket >= RenderPriority.MIN; bucket--) {
+                if (bonusStageSpriteSatOrdering) {
+                    // In the gumball bonus stage, the player and bonus-stage objects share
+                    // the same priority buckets. Draw objects first so lower-slot player
+                    // sprites remain on top within a shared bucket.
+                    if (objectManager != null) {
+                        objectManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
+                    }
+                    if (spriteManager != null) {
+                        spriteManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
+                    }
+                } else {
+                    if (spriteManager != null) {
+                        spriteManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
+                    }
+                    if (objectManager != null) {
+                        objectManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
+                    }
                 }
             }
         }

@@ -164,11 +164,9 @@ public class PachinkoMagnetOrbObjectInstance extends AbstractObjectInstance {
         setPlayerCenterPosition(player, spawn.x() - xOffset, spawn.y() + yOffset);
 
         if (state.angleA < 0) {
-            player.setPriorityBucket(5);
-            player.setHighPriority(false);
+            setRenderPriority(player, 5, false);
         } else {
-            player.setPriorityBucket(RenderPriority.PLAYER_DEFAULT);
-            player.setHighPriority(true);
+            setRenderPriority(player, RenderPriority.PLAYER_DEFAULT, true);
         }
 
         state.angleA = (byte) ((state.angleA + 4) & 0xFF);
@@ -217,7 +215,18 @@ public class PachinkoMagnetOrbObjectInstance extends AbstractObjectInstance {
     }
 
     private void restoreReleasedPlayerPriority(AbstractPlayableSprite player) {
-        player.setPriorityBucket(RenderPriority.PLAYER_DEFAULT);
+        setRenderPriority(player, RenderPriority.PLAYER_DEFAULT, true);
+    }
+
+    private void setRenderPriority(AbstractPlayableSprite player, int bucket, boolean highPriority) {
+        int clampedBucket = RenderPriority.clamp(bucket);
+        boolean changed = player.getPriorityBucket() != clampedBucket
+                || player.isHighPriority() != highPriority;
+        player.setPriorityBucket(clampedBucket);
+        player.setHighPriority(highPriority);
+        if (changed) {
+            services().spriteManager().invalidateRenderBuckets();
+        }
     }
 
     private void playSfx(Sonic3kSfx sfx) {
@@ -230,7 +239,7 @@ public class PachinkoMagnetOrbObjectInstance extends AbstractObjectInstance {
 
     @Override
     public int getPriorityBucket() {
-        return RenderPriority.clamp(4);
+        return RenderPriority.clamp(5);
     }
 
     @Override

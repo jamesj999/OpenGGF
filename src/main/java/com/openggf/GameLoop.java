@@ -26,6 +26,7 @@ import com.openggf.game.NoOpSpecialStageProvider;
 import com.openggf.game.SpecialStageProvider;
 import com.openggf.debug.PerformanceProfiler;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
+import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.objects.PachinkoEnergyTrapObjectInstance;
 import com.openggf.level.BigRingReturnState;
 import com.openggf.level.Level;
@@ -604,6 +605,10 @@ public class GameLoop {
             TitleCardProvider bonusTcp = getTitleCardProviderLazy();
             if (bonusTcp != null && bonusTcp.isOverlayActive()) {
                 bonusTcp.update();
+            }
+
+            if (levelManager.getRomZoneId() == Sonic3kZoneIds.ZONE_GLOWING_SPHERE) {
+                ensureBonusStageBootstrapObjectPresent(BonusStageType.GLOWING_SPHERE);
             }
 
             // Bonus stage runs the same level frame steps as LEVEL mode
@@ -1194,7 +1199,10 @@ public class GameLoop {
         boolean changed = false;
         for (var sprite : spriteManager.getAllSprites()) {
             if (sprite instanceof AbstractPlayableSprite playable) {
-                if (!playable.isHighPriority()) {
+                // Preserve object-specific render ordering overrides such as the
+                // Pachinko magnet orb's "behind the orb" phase.
+                if (playable.getPriorityBucket() == com.openggf.graphics.RenderPriority.PLAYER_DEFAULT
+                        && !playable.isHighPriority()) {
                     playable.setHighPriority(true);
                     changed = true;
                 }
@@ -1214,9 +1222,17 @@ public class GameLoop {
         restorePlayableStateForBonusTitleCard();
         forcePlayerHighPriorityInBonusStage();
         refreshPlayableSpriteArtCaches();
+        ensureBonusStageBootstrapObjectPresent(type);
+    }
 
+    private void ensureBonusStageBootstrapObjectPresent(BonusStageType type) {
         ObjectSpawn bootstrapSpawn = resolveBonusStageBootstrapSpawn(type);
-        if (bootstrapSpawn != null && levelManager.getObjectManager() != null) {
+        if (bootstrapSpawn == null || levelManager.getObjectManager() == null) {
+            return;
+        }
+        boolean present = levelManager.getObjectManager().getActiveObjects().stream()
+                .anyMatch(PachinkoEnergyTrapObjectInstance.class::isInstance);
+        if (!present) {
             levelManager.getObjectManager().addDynamicObject(
                     new PachinkoEnergyTrapObjectInstance(bootstrapSpawn));
         }
