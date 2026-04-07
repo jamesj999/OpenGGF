@@ -1,5 +1,6 @@
 package com.openggf.game.sonic1.credits;
 
+import com.openggf.game.DemoLamppostState;
 import com.openggf.game.EndingPhase;
 import com.openggf.game.EndingProvider;
 import com.openggf.graphics.FadeManager;
@@ -161,8 +162,20 @@ public class Sonic1EndingProvider implements EndingProvider {
     }
 
     @Override
-    public boolean isLzDemo() {
-        return creditsManager != null && creditsManager.isLzDemo();
+    public DemoLamppostState getDemoLamppostState() {
+        if (creditsManager != null && creditsManager.isLzDemo()) {
+            return new DemoLamppostState(
+                    Sonic1CreditsDemoData.LZ_LAMP_X,
+                    Sonic1CreditsDemoData.LZ_LAMP_Y,
+                    Sonic1CreditsDemoData.LZ_LAMP_RINGS,
+                    Sonic1CreditsDemoData.LZ_LAMP_CAMERA_X,
+                    Sonic1CreditsDemoData.LZ_LAMP_CAMERA_Y,
+                    Sonic1CreditsDemoData.LZ_LAMP_BOTTOM_BND,
+                    Sonic1CreditsDemoData.LZ_LAMP_WATER_HEIGHT,
+                    Sonic1CreditsDemoData.LZ_LAMP_WATER_ROUTINE
+            );
+        }
+        return null;
     }
 
     @Override

@@ -203,14 +203,17 @@ public interface EndingProvider {
     }
 
     /**
-     * Returns whether the current credit demo is the Labyrinth Zone
-     * lamppost demo, which requires special water/lamppost state setup.
-     * Only applicable to Sonic 1 credits.
+     * Returns lamppost state for the current credits demo, or {@code null}
+     * if the demo starts from the zone's normal start position.
+     * <p>
+     * When non-null, the game loop restores player position, camera, and
+     * water state from the returned snapshot instead of using the zone's
+     * start coordinates.
      *
-     * @return true if the current demo is the LZ lamppost demo
+     * @return lamppost state snapshot, or null for normal start position
      */
-    default boolean isLzDemo() {
-        return false;
+    default DemoLamppostState getDemoLamppostState() {
+        return null;
     }
 
     /**
