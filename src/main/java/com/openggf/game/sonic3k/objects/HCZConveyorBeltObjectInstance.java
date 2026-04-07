@@ -453,6 +453,16 @@ public class HCZConveyorBeltObjectInstance extends AbstractObjectInstance {
      */
     private void releaseBelt(AbstractPlayableSprite player, PlayerBeltState state,
                              int frameCounter) {
+        // Surface alternation: In the ROM, the jump trajectory naturally alternates
+        // surfaces — jumping from TOP sends you upward into the fan, which sets
+        // ground_vel=1 for BOTTOM capture; jumping from BOTTOM sends you downward
+        // for TOP capture. Our engine's timing differences can break this natural
+        // flow, so we reinforce it by setting gSpeed on release:
+        //   - Release from TOP (phase near 0x00) → set gSpeed=1 → next capture is BOTTOM
+        //   - Release from BOTTOM (phase near 0x80) → set gSpeed=0 → next capture is TOP
+        boolean wasHanging = (state.phase & 0x80) != 0;
+        player.setGSpeed(wasHanging ? (short) 0 : (short) 1);
+
         state.active = false;
         state.capturedPlayer = null;
 
