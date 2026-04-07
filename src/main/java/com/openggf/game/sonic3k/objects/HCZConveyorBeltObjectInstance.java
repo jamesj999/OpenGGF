@@ -609,22 +609,50 @@ public class HCZConveyorBeltObjectInstance extends AbstractObjectInstance {
         setDestroyed(true);
     }
 
+    /**
+     * Prevents the ObjectManager's standard out-of-range check from unloading this
+     * belt while a player is captured. The belt is very wide (leftBound to rightBound)
+     * but {@link #getX()} returns leftBound, so the standard check may see it as
+     * "off-screen" even though the player is still on it. The belt handles its own
+     * camera culling with a wider margin in {@link #update}.
+     */
+    @Override
+    public boolean isPersistent() {
+        return p1State.active || p2State.active;
+    }
+
+    /**
+     * Called by ObjectManager when the belt is unloaded (out-of-range or level teardown).
+     * Must release any captured players to prevent them getting stuck with
+     * {@code objectControlled=true} and no controlling object.
+     */
+    @Override
+    public void onUnload() {
+        releaseAllCapturedPlayers();
+        loadArray[subtypeIndex] = false;
+    }
+
     @Override
     public void setDestroyed(boolean destroyed) {
         if (destroyed && !isDestroyed()) {
-            // Safety: release any captured players before destruction to prevent
-            // them getting stuck in objectControlled state with no owning object.
-            safeReleaseCapturedPlayer(p1State);
-            safeReleaseCapturedPlayer(p2State);
-            // Clear the load array entry when this object is cleaned up
+            releaseAllCapturedPlayers();
             loadArray[subtypeIndex] = false;
         }
         super.setDestroyed(destroyed);
     }
 
     /**
-     * Safely releases a captured player if this belt is being destroyed.
-     * Minimal state cleanup — just clear object control and mapping frame ownership.
+     * Releases all captured players. Called from both {@link #onUnload()} and
+     * {@link #setDestroyed} to ensure players are never left stuck.
+     */
+    private void releaseAllCapturedPlayers() {
+        safeReleaseCapturedPlayer(p1State);
+        safeReleaseCapturedPlayer(p2State);
+    }
+
+    /**
+     * Safely releases a captured player if this belt is being removed.
+     * Restores the player to a valid airborne state so physics can resume.
      */
     private void safeReleaseCapturedPlayer(PlayerBeltState state) {
         if (state.active && state.capturedPlayer != null) {
