@@ -13,7 +13,6 @@ import com.openggf.level.objects.TouchResponseTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.game.ShieldType;
 import com.openggf.camera.Camera;
-import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.game.PhysicsProvider;
@@ -128,8 +127,7 @@ public class RingManager {
 
         // Lightning shield ring attraction — S3K only
         PhysicsFeatureSet featureSet = null;
-        PhysicsProvider physProvider = GameModuleRegistry.getCurrent() != null
-                ? GameModuleRegistry.getCurrent().getPhysicsProvider() : null;
+        PhysicsProvider physProvider = GameServices.module().getPhysicsProvider();
         if (physProvider != null) {
             featureSet = physProvider.getFeatureSet();
         }
@@ -826,8 +824,7 @@ public class RingManager {
 
             // Per-game floor check frequency: S1 every 4 frames (#3), S2/S3K every 8 (#7).
             int floorCheckMask = PhysicsFeatureSet.RING_FLOOR_CHECK_MASK_S2; // default S2
-            PhysicsProvider physProvider = GameModuleRegistry.getCurrent() != null
-                    ? GameModuleRegistry.getCurrent().getPhysicsProvider() : null;
+            PhysicsProvider physProvider = GameServices.module().getPhysicsProvider();
             PhysicsFeatureSet featureSet = physProvider != null ? physProvider.getFeatureSet() : null;
             if (featureSet != null) {
                 floorCheckMask = featureSet.ringFloorCheckMask();

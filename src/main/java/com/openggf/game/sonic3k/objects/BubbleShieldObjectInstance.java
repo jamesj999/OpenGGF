@@ -2,7 +2,7 @@ package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.GameModule;
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.GameServices;
 import com.openggf.game.ObjectArtProvider;
 import com.openggf.level.objects.ShieldObjectInstance;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
@@ -148,7 +148,7 @@ public class BubbleShieldObjectInstance extends ShieldObjectInstance {
     }
 
     private static Sonic3kObjectArtProvider getS3kArtProvider() {
-        GameModule module = GameModuleRegistry.getCurrent();
+        GameModule module = GameServices.module();
         if (module == null) return null;
         ObjectArtProvider provider = module.getObjectArtProvider();
         return (provider instanceof Sonic3kObjectArtProvider s3k) ? s3k : null;

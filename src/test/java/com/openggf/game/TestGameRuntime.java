@@ -90,6 +90,12 @@ public class TestGameRuntime {
 
         IllegalStateException ex = assertThrows(IllegalStateException.class, GameServices::camera);
         assertTrue(ex.getMessage().contains("GameServices.camera() requires an active GameRuntime"));
+
+        IllegalStateException worldSessionEx = assertThrows(IllegalStateException.class, GameServices::worldSession);
+        assertTrue(worldSessionEx.getMessage().contains("GameServices.worldSession() requires an active GameRuntime"));
+
+        IllegalStateException moduleEx = assertThrows(IllegalStateException.class, GameServices::module);
+        assertTrue(moduleEx.getMessage().contains("requires an active GameRuntime"));
     }
 
     @Test
@@ -187,11 +193,23 @@ public class TestGameRuntime {
         assertNotNull("terrainCollision", GameServices.terrainCollision());
         assertNotNull("parallax", GameServices.parallax());
         assertNotNull("water", GameServices.water());
+        assertNotNull("worldSession", GameServices.worldSession());
+        assertNotNull("module", GameServices.module());
 
         // Engine globals (non-runtime-owned) should also work
         assertNotNull("rom", GameServices.rom());
         assertNotNull("audio", GameServices.audio());
         assertNotNull("debugOverlay", GameServices.debugOverlay());
+    }
+
+    @Test
+    public void gameServices_worldSessionAndModule_delegateToRuntimeWorldOwnership() {
+        RuntimeManager.setCurrent(null);
+
+        GameRuntime runtime = RuntimeManager.createGameplay();
+
+        assertSame(runtime.getWorldSession(), GameServices.worldSession());
+        assertSame(runtime.getWorldSession().getGameModule(), GameServices.module());
     }
 
     /**

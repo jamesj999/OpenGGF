@@ -102,6 +102,10 @@ public class LevelManager {
         return gameModule;
     }
 
+    private GameModule activeGameModule() {
+        return gameModule != null ? gameModule : GameServices.module();
+    }
+
     /** Returns the tilemap lifecycle delegate. */
     public LevelTilemapManager getTilemapManager() {
         return tilemapManager;
@@ -565,7 +569,8 @@ public class LevelManager {
      */
     public void loadLevel(int levelIndex, LevelLoadMode loadMode, LevelLoadContext ctx) throws IOException {
         try {
-            LevelInitProfile profile = GameModuleRegistry.getCurrent().getLevelInitProfile();
+            GameModule module = activeGameModule();
+            LevelInitProfile profile = module.getLevelInitProfile();
             ctx.setLevelIndex(levelIndex);
             ctx.setLoadMode(loadMode);
 
@@ -573,7 +578,7 @@ public class LevelManager {
             if (steps.isEmpty()) {
                 throw new IllegalStateException(
                     "No level load steps defined for " +
-                    GameModuleRegistry.getCurrent().getClass().getSimpleName() +
+                    module.getClass().getSimpleName() +
                     ". All game modules must implement levelLoadSteps().");
             }
             for (InitStep step : steps) {
@@ -604,7 +609,7 @@ public class LevelManager {
     public void initGameModule(int levelIndex) throws IOException {
         Rom rom = GameServices.rom().getRom();
         parallaxManager.load(rom);
-        gameModule = GameModuleRegistry.getCurrent();
+        gameModule = GameServices.module();
         refreshZoneList();
         game = gameModule.createGame(rom);
     }
@@ -1161,7 +1166,7 @@ public class LevelManager {
             objectManager.applyPlaneSwitchers(player);
         }
         // Sonic 1 loop-based plane switching (and any other game-specific plane logic)
-        GameModule module = GameModuleRegistry.getCurrent();
+        GameModule module = activeGameModule();
         if (module != null) {
             module.applyPlaneSwitching(player);
         }
@@ -1360,9 +1365,11 @@ public class LevelManager {
         if (mainPalette != null && sidekickPalette.dataEquals(mainPalette)) {
             return null;
         }
-        GameId gameId = (GameModuleRegistry.getCurrent() != null)
-                ? GameModuleRegistry.getCurrent().getGameId()
-                : null;
+        GameModule activeModule = gameModule;
+        if (activeModule == null && RuntimeManager.getCurrent() != null) {
+            activeModule = GameServices.module();
+        }
+        GameId gameId = activeModule != null ? activeModule.getGameId() : null;
         RenderContext ctx = RenderContext.createSidekickContext(gameId);
         ctx.setPalette(0, sidekickPalette);
         return ctx;
@@ -1809,7 +1816,7 @@ public class LevelManager {
             // 0 = S2/S3K smooth sine wave, 1 = S1 integer-snapped shimmer
             int shimmerStyle = 0;
             PhysicsFeatureSet featureSet = null;
-            GameModule currentModule = GameModuleRegistry.getCurrent();
+            GameModule currentModule = activeGameModule();
             if (currentModule != null && currentModule.getPhysicsProvider() != null) {
                 featureSet = currentModule.getPhysicsProvider().getFeatureSet();
                 if (featureSet != null && featureSet.waterShimmerEnabled()) {
@@ -1827,7 +1834,7 @@ public class LevelManager {
             // sprites at Water_level itself; keeping the generic S2-style -8 split
             // creates a visible seam between the shader boundary and HCZ's art.
             if (zoneId == com.openggf.game.sonic3k.constants.Sonic3kZoneIds.ZONE_HCZ
-                    && GameModuleRegistry.getCurrent() instanceof com.openggf.game.sonic3k.Sonic3kGameModule) {
+                    && activeGameModule() instanceof com.openggf.game.sonic3k.Sonic3kGameModule) {
                 waterlineOffset = 0.0f;
             }
             float waterlineScreenY = (float) (waterLevel - camera.getY() + waterlineOffset);
@@ -3178,7 +3185,7 @@ public class LevelManager {
 
         // Apply per-game fast vertical scroll cap from PhysicsFeatureSet.
         // S1/S2: 16px/frame (s2.asm:18190), S3K: 24px/frame (sonic3k.asm:loc_1C1B0).
-        PhysicsProvider physics = GameModuleRegistry.getCurrent().getPhysicsProvider();
+        PhysicsProvider physics = activeGameModule().getPhysicsProvider();
         if (physics != null && physics.getFeatureSet() != null) {
             camera.setFastScrollCap(physics.getFeatureSet().fastScrollCap());
         }
@@ -3189,7 +3196,7 @@ public class LevelManager {
      * All games: LevelEventProvider.initLevel(zone, act).
      */
     public void initLevelEventsForLevel() {
-        LevelEventProvider levelEvents = GameModuleRegistry.getCurrent().getLevelEventProvider();
+        LevelEventProvider levelEvents = activeGameModule().getLevelEventProvider();
         if (levelEvents != null) {
             levelEvents.initLevel(currentZone, currentAct);
         }
@@ -3288,7 +3295,7 @@ public class LevelManager {
                 // ROM is already loaded by Engine.initializeGame(), so
                 // GameModuleRegistry has the correct module. Just bootstrap
                 // the zone list for level data lookup.
-                gameModule = GameModuleRegistry.getCurrent();
+                gameModule = GameServices.module();
                 refreshZoneList();
             }
             LevelData levelData = levels.get(currentZone).get(currentAct);
@@ -3413,7 +3420,7 @@ public class LevelManager {
 
         // 2. Reload layout + collision only (ROM: Load_Level + LoadSolids)
         if (levels.isEmpty()) {
-            gameModule = GameModuleRegistry.getCurrent();
+            gameModule = GameServices.module();
             refreshZoneList();
         }
         LevelData levelData = levels.get(currentZone).get(currentAct);
@@ -3595,7 +3602,7 @@ public class LevelManager {
     }
 
     private void initLevelEventsForCurrentZoneAct() {
-        LevelEventProvider levelEvents = GameModuleRegistry.getCurrent().getLevelEventProvider();
+        LevelEventProvider levelEvents = activeGameModule().getLevelEventProvider();
         if (levelEvents != null) {
             levelEvents.initLevel(currentZone, currentAct);
         }

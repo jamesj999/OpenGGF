@@ -9,6 +9,7 @@ import com.openggf.control.InputHandler;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.CollisionModel;
+import com.openggf.game.GameModule;
 import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.RuntimeManager;
@@ -17,7 +18,6 @@ import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.camera.Camera;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
-import com.openggf.game.GameModuleRegistry;
 import com.openggf.level.LevelManager;
 import com.openggf.physics.Direction;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -691,7 +691,8 @@ public class SpriteManager {
 	private boolean isCpuSidekickSuppressed() {
 		LevelManager lm = getLevelManager();
 		if (lm == null) return false;
-		if (GameModuleRegistry.getCurrent().isSidekickSuppressedForZone(lm.getCurrentZone())) return true;
+		GameModule module = lm.getGameModule();
+		if (module != null && module.isSidekickSuppressedForZone(lm.getCurrentZone())) return true;
 		if (AizPlaneIntroInstance.isSidekickSuppressed()) return true;
 		return false;
 	}

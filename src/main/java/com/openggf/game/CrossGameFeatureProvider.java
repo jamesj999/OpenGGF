@@ -86,7 +86,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
         this.donorGameId = GameId.fromCode(donorGameCode);
 
         // Same-game guard: disable donation when donor == host
-        GameId hostId = GameModuleRegistry.getCurrent().getGameId();
+        GameId hostId = GameServices.module().getGameId();
         if (donorGameId == hostId) {
             LOGGER.info("Donor same as host (" + donorGameId.code() + "), donation disabled");
             active = false;
@@ -443,7 +443,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
 
         // Inherit collision model from the base game module so plane switching
         // works correctly in S2/S3K levels with cross-game features enabled
-        PhysicsFeatureSet baseFeatureSet = GameModuleRegistry.getCurrent()
+        PhysicsFeatureSet baseFeatureSet = GameServices.module()
                 .getPhysicsProvider().getFeatureSet();
 
         return new PhysicsFeatureSet(

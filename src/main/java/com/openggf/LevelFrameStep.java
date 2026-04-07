@@ -1,7 +1,7 @@
 package com.openggf;
 
 import com.openggf.camera.Camera;
-import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.GameServices;
 import com.openggf.game.LevelEventProvider;
 import com.openggf.level.LevelManager;
 
@@ -91,7 +91,7 @@ public final class LevelFrameStep {
         wrapper.wrap("physics", spriteUpdate);
 
         // 4. Dynamic level events — boss arenas, boundary changes, zone transitions.
-        LevelEventProvider levelEvents = GameModuleRegistry.getCurrent().getLevelEventProvider();
+        LevelEventProvider levelEvents = GameServices.module().getLevelEventProvider();
         if (levelEvents != null) {
             levelEvents.update();
         }

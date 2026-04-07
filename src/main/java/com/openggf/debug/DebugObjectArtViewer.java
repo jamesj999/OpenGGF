@@ -1,6 +1,6 @@
 package com.openggf.debug;
 
-import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.GameServices;
 import com.openggf.game.GameServices;
 import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.game.ZoneFeatureRenderer;
@@ -209,7 +209,7 @@ public class DebugObjectArtViewer {
      */
     private ZoneFeatureRenderer getZoneFeatureRenderer() {
         try {
-            ZoneFeatureProvider provider = GameModuleRegistry.getCurrent().getZoneFeatureProvider();
+            ZoneFeatureProvider provider = GameServices.module().getZoneFeatureProvider();
             if (provider != null) {
                 ZoneFeatureRenderer renderer = provider.getFeatureRenderer();
                 return renderer != ZoneFeatureRenderer.NONE ? renderer : null;

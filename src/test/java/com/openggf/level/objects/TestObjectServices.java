@@ -6,10 +6,12 @@ import com.openggf.camera.Camera;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.GameStateManager;
+import com.openggf.game.GameModule;
 import com.openggf.game.LevelState;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.RespawnState;
 import com.openggf.game.ZoneFeatureProvider;
+import com.openggf.game.session.WorldSession;
 import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
@@ -39,6 +41,8 @@ public class TestObjectServices implements ObjectServices {
     private Rom rom;
     private RomByteReader romReader;
     private List<PlayableEntity> sidekicks = List.of();
+    private WorldSession worldSession;
+    private GameModule gameModule;
 
     public TestObjectServices withLevelManager(LevelManager levelManager) {
         this.levelManager = levelManager;
@@ -97,6 +101,19 @@ public class TestObjectServices implements ObjectServices {
 
     public TestObjectServices withSidekicks(List<? extends PlayableEntity> sidekicks) {
         this.sidekicks = List.copyOf(sidekicks);
+        return this;
+    }
+
+    public TestObjectServices withWorldSession(WorldSession worldSession) {
+        this.worldSession = worldSession;
+        return this;
+    }
+
+    public TestObjectServices withGameModule(GameModule gameModule) {
+        this.gameModule = gameModule;
+        if (gameModule != null && worldSession == null) {
+            this.worldSession = new WorldSession(gameModule);
+        }
         return this;
     }
 
@@ -168,6 +185,22 @@ public class TestObjectServices implements ObjectServices {
     @Override
     public GameStateManager gameState() {
         return gameState;
+    }
+
+    @Override
+    public WorldSession worldSession() {
+        if (worldSession != null) {
+            return worldSession;
+        }
+        return gameModule != null ? new WorldSession(gameModule) : null;
+    }
+
+    @Override
+    public GameModule gameModule() {
+        if (gameModule != null) {
+            return gameModule;
+        }
+        return worldSession != null ? worldSession.getGameModule() : null;
     }
 
     @Override

@@ -16,6 +16,7 @@ import com.openggf.game.PlayableEntity;
 import com.openggf.game.RespawnState;
 import com.openggf.game.TitleCardProvider;
 import com.openggf.game.ZoneFeatureProvider;
+import com.openggf.game.session.WorldSession;
 import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.BigRingReturnState;
@@ -154,6 +155,16 @@ public class DefaultObjectServices implements ObjectServices {
     @Override
     public GameStateManager gameState() {
         return gameState;
+    }
+
+    @Override
+    public WorldSession worldSession() {
+        return com.openggf.game.GameServices.worldSession();
+    }
+
+    @Override
+    public GameModule gameModule() {
+        return worldSession().getGameModule();
     }
 
     @Override
@@ -351,19 +362,19 @@ public class DefaultObjectServices implements ObjectServices {
 
     @Override
     public LevelEventProvider levelEventProvider() {
-        GameModule gm = lm().getGameModule();
+        GameModule gm = gameModule();
         return gm != null ? gm.getLevelEventProvider() : null;
     }
 
     @Override
     public TitleCardProvider titleCardProvider() {
-        GameModule gm = lm().getGameModule();
+        GameModule gm = gameModule();
         return gm != null ? gm.getTitleCardProvider() : null;
     }
 
     @Override
     public <T> T gameService(Class<T> type) {
-        GameModule gm = lm().getGameModule();
+        GameModule gm = gameModule();
         return gm != null ? gm.getGameService(type) : null;
     }
 }
