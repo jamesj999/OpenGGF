@@ -2,13 +2,15 @@ package com.openggf.game.session;
 
 import com.openggf.game.GameMode;
 
+import java.util.Objects;
+
 public final class EditorModeContext implements ModeContext {
     private final WorldSession worldSession;
     private final EditorCursorState cursor;
 
     public EditorModeContext(WorldSession worldSession, EditorCursorState cursor) {
-        this.worldSession = worldSession;
-        this.cursor = cursor;
+        this.worldSession = Objects.requireNonNull(worldSession, "worldSession");
+        this.cursor = Objects.requireNonNull(cursor, "cursor");
     }
 
     public WorldSession getWorldSession() {
