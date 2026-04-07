@@ -18,7 +18,6 @@ uniform float TotalPaletteLines;
 uniform int SpriteHighPriority;         // 1 = sprite appears above all tiles, 0 = behind high-priority tiles
 uniform vec2 ScreenSize;                // Viewport dimensions for screen coord lookup
 uniform vec2 ViewportOffset;            // Viewport offset in window coords (for letterboxing)
-
 // Underwater palette uniforms
 uniform sampler2D UnderwaterPalette;    // Texture Unit 2
 uniform float WaterlineScreenY;         // Screen Y where water starts (negative = above screen)

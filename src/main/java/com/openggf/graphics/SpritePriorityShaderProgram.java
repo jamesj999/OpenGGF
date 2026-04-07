@@ -22,7 +22,6 @@ public class SpritePriorityShaderProgram extends ShaderProgram {
     private int spriteHighPriorityLocation = -1;
     private int screenSizeLocation = -1;
     private int viewportOffsetLocation = -1;
-
     // Uniform locations for underwater palette support
     private int underwaterPaletteLocation = -1;
     private int waterlineScreenYLocation = -1;
@@ -48,7 +47,6 @@ public class SpritePriorityShaderProgram extends ShaderProgram {
         spriteHighPriorityLocation = glGetUniformLocation(programId, "SpriteHighPriority");
         screenSizeLocation = glGetUniformLocation(programId, "ScreenSize");
         viewportOffsetLocation = glGetUniformLocation(programId, "ViewportOffset");
-
         // Cache underwater palette uniforms
         underwaterPaletteLocation = glGetUniformLocation(programId, "UnderwaterPalette");
         waterlineScreenYLocation = glGetUniformLocation(programId, "WaterlineScreenY");
