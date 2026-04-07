@@ -798,6 +798,7 @@ public class Sonic3kObjectArt {
                 case Sonic3kObjectArtKeys.HCZ_GEYSER_DEBRIS -> buildHczGeyserDebrisMappings();
                 case Sonic3kObjectArtKeys.HCZ_GEYSER_SPRAY -> buildHczGeyserSprayMappings();
                 case Sonic3kObjectArtKeys.HCZ_BUBBLES -> buildHczGeyserAllFrames();
+                case Sonic3kObjectArtKeys.HCZ_FAN_BUBBLE -> buildHczFanBubbleMappings();
                 default -> null;
             };
             if (hardcoded == null || hardcoded.isEmpty()) {
@@ -1364,6 +1365,41 @@ public class Sonic3kObjectArt {
      * Since our standalone sheets index from 0, we add $30 to every tile index.
      * Only frames 2-10 are used by spray/splash children.
      */
+    /**
+     * Builds hardcoded mappings for HCZ fan bubble (Map_Bubbler, frames 0-5).
+     * Small bubble sprites spawned by Obj_HCZCGZFan when subtype bit 6 is set.
+     * <p>
+     * ROM: Map_Bubbler (docs/skdisasm/General/Sprites/Bubbles/Map - Bubbler.asm).
+     * Frame 0: 1×1 tile (8×8), tile 0 — tiny bubble dot.
+     * Frame 1: 1×1 tile (8×8), tile 1 — slightly different dot.
+     * Frame 2: 1×1 tile (8×8), tile 2 — medium dot.
+     * Frame 3: 2×2 tile (16×16), tile 3 — small bubble.
+     * Frame 4: 2×2 tile (16×16), tile 7 — medium bubble.
+     * Frame 5: 3×3 tile (24×24), tile $B — large bubble.
+     */
+    List<SpriteMappingFrame> buildHczFanBubbleMappings() {
+        return List.of(
+                // Frame 0: dc.b $FC,$00,$00,$00,$FF,$FC — 1×1 at (-4,-4), tile 0
+                new SpriteMappingFrame(List.of(
+                        new SpriteMappingPiece(-4, -4, 1, 1, 0, false, false, 0))),
+                // Frame 1: dc.b $FC,$00,$00,$01,$FF,$FC — 1×1 at (-4,-4), tile 1
+                new SpriteMappingFrame(List.of(
+                        new SpriteMappingPiece(-4, -4, 1, 1, 1, false, false, 0))),
+                // Frame 2: dc.b $FC,$00,$00,$02,$FF,$FC — 1×1 at (-4,-4), tile 2
+                new SpriteMappingFrame(List.of(
+                        new SpriteMappingPiece(-4, -4, 1, 1, 2, false, false, 0))),
+                // Frame 3: dc.b $F8,$05,$00,$03,$FF,$F8 — 2×2 at (-8,-8), tile 3
+                new SpriteMappingFrame(List.of(
+                        new SpriteMappingPiece(-8, -8, 2, 2, 3, false, false, 0))),
+                // Frame 4: dc.b $F8,$05,$00,$07,$FF,$F8 — 2×2 at (-8,-8), tile 7
+                new SpriteMappingFrame(List.of(
+                        new SpriteMappingPiece(-8, -8, 2, 2, 7, false, false, 0))),
+                // Frame 5: dc.b $F4,$0A,$00,$0B,$FF,$F4 — 3×3 at (-12,-12), tile $B
+                new SpriteMappingFrame(List.of(
+                        new SpriteMappingPiece(-12, -12, 3, 3, 0x0B, false, false, 0)))
+        );
+    }
+
     List<SpriteMappingFrame> buildHczGeyserSprayMappings() {
         int ofs = 0x30; // ArtTile_HCZGeyser+$30 offset
         // Frame 0 and 1 are unused placeholders (spray only uses frames 2-10)

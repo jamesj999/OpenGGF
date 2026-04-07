@@ -106,6 +106,10 @@ public final class Sonic3kObjectArtKeys {
     public static final String HCZ_WATER_RUSH = "hcz_water_rush";
     public static final String HCZ_WATER_RUSH_BLOCK = "hcz_water_rush_block";
 
+    // HCZ/CGZ Fan (Object 0x38)
+    public static final String HCZ_FAN = "hcz_fan";
+    public static final String HCZ_FAN_BUBBLE = "hcz_fan_bubble"; // Tiny bubble from Map_Bubbler
+
     // HCZ Water Wall / Geyser (Object 0x3B)
     public static final String HCZ_GEYSER_HORZ = "hcz_geyser_horz";
     public static final String HCZ_GEYSER_VERT = "hcz_geyser_vert";
