@@ -2,7 +2,6 @@ package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.GameModule;
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.GameServices;
 import com.openggf.game.ObjectArtProvider;
 import com.openggf.level.objects.ShieldObjectInstance;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
@@ -173,8 +172,8 @@ public class LightningShieldObjectInstance extends ShieldObjectInstance {
         commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I, -1, GLCommand.BlendType.SOLID, r, g, b, cx, top, 0, 0));
     }
 
-    private static Sonic3kObjectArtProvider getS3kArtProvider() {
-        GameModule module = GameServices.module();
+    private Sonic3kObjectArtProvider getS3kArtProvider() {
+        GameModule module = services().gameModule();
         if (module == null) return null;
         ObjectArtProvider provider = module.getObjectArtProvider();
         return (provider instanceof Sonic3kObjectArtProvider s3k) ? s3k : null;

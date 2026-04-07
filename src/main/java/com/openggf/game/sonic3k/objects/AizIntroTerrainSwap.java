@@ -2,12 +2,12 @@ package com.openggf.game.sonic3k.objects;
 
 import com.openggf.data.Rom;
 import com.openggf.data.RomManager;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.Sonic3kLevel;
 import com.openggf.game.sonic3k.Sonic3kPlcLoader;
 import com.openggf.level.resources.PlcParser.PlcDefinition;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.level.Level;
-import com.openggf.level.LevelManager;
 import com.openggf.level.resources.LoadOp;
 import com.openggf.level.resources.ResourceLoader;
 
@@ -64,7 +64,7 @@ public final class AizIntroTerrainSwap {
             return;
         }
 
-        LevelManager levelManager = LevelManager.getInstance();
+        var levelManager = GameServices.level();
         Level level = levelManager.getCurrentLevel();
         if (!(level instanceof Sonic3kLevel sonic3kLevel)) {
             return;
@@ -86,7 +86,7 @@ public final class AizIntroTerrainSwap {
     }
 
     public static synchronized boolean applyMainLevelOverlays() {
-        LevelManager levelManager = LevelManager.getInstance();
+        var levelManager = GameServices.level();
         Level level = levelManager.getCurrentLevel();
         if (!(level instanceof Sonic3kLevel sonic3kLevel)) {
             return false;

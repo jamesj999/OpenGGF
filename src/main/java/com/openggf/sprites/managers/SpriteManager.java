@@ -655,9 +655,14 @@ public class SpriteManager {
 	}
 
 	private LevelManager getLevelManager() {
-		if (levelManager == null) {
-			var runtime = RuntimeManager.getCurrent();
-			levelManager = runtime != null ? runtime.getLevelManager() : LevelManager.getInstance();
+		var runtime = RuntimeManager.getCurrent();
+		if (runtime != null) {
+			LevelManager runtimeLevelManager = runtime.getLevelManager();
+			if (levelManager != runtimeLevelManager) {
+				levelManager = runtimeLevelManager;
+			}
+		} else if (levelManager == null) {
+			levelManager = LevelManager.getInstance();
 		}
 		return levelManager;
 	}

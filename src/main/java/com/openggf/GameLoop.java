@@ -68,13 +68,13 @@ public class GameLoop {
     private static final Logger LOGGER = Logger.getLogger(GameLoop.class.getName());
 
     private final SonicConfigurationService configService = SonicConfigurationService.getInstance();
-    private SpriteManager spriteManager = SpriteManager.getInstance();
-    private Camera camera = Camera.getInstance();
-    private TimerManager timerManager = TimerManager.getInstance();
-    private LevelManager levelManager = LevelManager.getInstance();
-    private GameStateManager gameState = GameStateManager.getInstance();
-    private FadeManager fadeManager = FadeManager.getInstance();
-    private WaterSystem waterSystem = WaterSystem.getInstance();
+    private SpriteManager spriteManager;
+    private Camera camera;
+    private TimerManager timerManager;
+    private LevelManager levelManager;
+    private GameStateManager gameState;
+    private FadeManager fadeManager;
+    private WaterSystem waterSystem;
     private final PerformanceProfiler profiler = PerformanceProfiler.getInstance();
     private final PlaybackDebugManager playbackDebugManager = PlaybackDebugManager.getInstance();
 
@@ -145,9 +145,11 @@ public class GameLoop {
     private boolean playbackFrameConsumed = false;
 
     public GameLoop() {
+        refreshRuntimeBindings();
     }
 
     public GameLoop(InputHandler inputHandler) {
+        refreshRuntimeBindings();
         this.inputHandler = inputHandler;
     }
 
@@ -157,15 +159,22 @@ public class GameLoop {
      */
     public void setRuntime(com.openggf.game.GameRuntime runtime) {
         this.runtime = runtime;
-        if (runtime != null) {
-            this.spriteManager = runtime.getSpriteManager();
-            this.camera = runtime.getCamera();
-            this.timerManager = runtime.getTimers();
-            this.levelManager = runtime.getLevelManager();
-            this.gameState = runtime.getGameState();
-            this.fadeManager = runtime.getFadeManager();
-            this.waterSystem = runtime.getWaterSystem();
+        refreshRuntimeBindings();
+    }
+
+    private void refreshRuntimeBindings() {
+        GameRuntime currentRuntime = runtime != null ? runtime : RuntimeManager.getCurrent();
+        if (currentRuntime == null) {
+            return;
         }
+        this.runtime = currentRuntime;
+        this.spriteManager = currentRuntime.getSpriteManager();
+        this.camera = currentRuntime.getCamera();
+        this.timerManager = currentRuntime.getTimers();
+        this.levelManager = currentRuntime.getLevelManager();
+        this.gameState = currentRuntime.getGameState();
+        this.fadeManager = currentRuntime.getFadeManager();
+        this.waterSystem = currentRuntime.getWaterSystem();
     }
 
     public void setInputHandler(InputHandler inputHandler) {
@@ -273,6 +282,7 @@ public class GameLoop {
         if (inputHandler == null) {
             throw new IllegalStateException("InputHandler must be set before calling step()");
         }
+        refreshRuntimeBindings();
         playbackDebugManager.handleInput(inputHandler);
         syncPlaybackInputBridge();
         playbackDebugManager.setObservedMode(currentGameMode);

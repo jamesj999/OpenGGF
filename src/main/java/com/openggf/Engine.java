@@ -58,10 +58,10 @@ public class Engine {
 	private static final Logger LOGGER = Logger.getLogger(Engine.class.getName());
 	public static final String RESOURCES_SHADERS_PIXEL_SHADER_GLSL = "shaders/shader_the_hedgehog.glsl";
 	private final SonicConfigurationService configService = SonicConfigurationService.getInstance();
-	private SpriteManager spriteManager = SpriteManager.getInstance();
+	private SpriteManager spriteManager;
 	private final GraphicsManager graphicsManager = GraphicsManager.getInstance();
 
-	private Camera camera = Camera.getInstance();
+	private Camera camera;
 	// Lazy-initialized: DebugRenderer.<clinit> references java.awt.Color which
 	// is unavailable in GraalVM native-image builds.
 	private DebugRenderer debugRenderer;
@@ -86,7 +86,7 @@ public class Engine {
 
 	private boolean debugViewEnabled = configService.getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
 
-	private LevelManager levelManager = LevelManager.getInstance();
+	private LevelManager levelManager;
 
 	// The gameplay runtime — set during initializeGame()
 	private com.openggf.game.GameRuntime runtime;
@@ -369,7 +369,6 @@ public class Engine {
 		// During this transitional period, the runtime is still a manager facade,
 		// but it now carries explicit gameplay/world ownership from SessionManager.
 		runtime = com.openggf.game.RuntimeManager.createGameplay(gameplayMode);
-		graphicsManager.rebindRuntimeFadeManager();
 		this.camera = runtime.getCamera();
 		this.spriteManager = runtime.getSpriteManager();
 		this.levelManager = runtime.getLevelManager();

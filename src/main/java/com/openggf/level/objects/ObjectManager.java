@@ -4,6 +4,8 @@ import static org.lwjgl.opengl.GL11.GL_LINES;
 import com.openggf.camera.Camera;
 import com.openggf.debug.DebugOverlayManager;
 import com.openggf.game.GameServices;
+import com.openggf.game.GameRuntime;
+import com.openggf.game.RuntimeManager;
 import com.openggf.debug.DebugOverlayToggle;
 import com.openggf.game.CollisionModel;
 import com.openggf.game.PhysicsFeatureSet;
@@ -126,20 +128,24 @@ public class ObjectManager {
             int planeSwitcherObjectId, PlaneSwitcherConfig planeSwitcherConfig,
             TouchResponseTable touchResponseTable) {
         this(spawns, registry, planeSwitcherObjectId, planeSwitcherConfig, touchResponseTable,
-                GraphicsManager.getInstance(),
-                Camera.getInstance(),
                 defaultServices());
     }
 
+    private ObjectManager(List<ObjectSpawn> spawns, ObjectRegistry registry,
+            int planeSwitcherObjectId, PlaneSwitcherConfig planeSwitcherConfig,
+            TouchResponseTable touchResponseTable, ObjectServices services) {
+        this(spawns, registry, planeSwitcherObjectId, planeSwitcherConfig, touchResponseTable,
+                GraphicsManager.getInstance(),
+                services.camera(),
+                services);
+    }
+
     private static ObjectServices defaultServices() {
-        return new DefaultObjectServices(
-                LevelManager.getInstance(),
-                Camera.getInstance(),
-                GameStateManager.getInstance(),
-                SpriteManager.getInstance(),
-                FadeManager.getInstance(),
-                WaterSystem.getInstance(),
-                ParallaxManager.getInstance());
+        GameRuntime runtime = RuntimeManager.getCurrent();
+        if (runtime != null) {
+            return new DefaultObjectServices(runtime);
+        }
+        return new BootstrapObjectServices();
     }
 
     public void reset(int cameraX) {
@@ -3220,9 +3226,9 @@ public class ObjectManager {
 
             boolean hadRings = player.getRingCount() > 0;
             if (hadRings && !player.hasShield()) {
-                // Escape hatch: LevelManager.spawnLostRings needs concrete type for RingManager
+                // Requires the concrete playable type, but still goes through ObjectServices.
                 if (player instanceof AbstractPlayableSprite aps) {
-                    LevelManager.getInstance().spawnLostRings(aps, currentFrameCounter);
+                    objectManager.services().spawnLostRings(aps, currentFrameCounter);
                 }
             }
             player.applyHurtOrDeath(sourceX, cause, hadRings);
