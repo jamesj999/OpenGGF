@@ -326,20 +326,14 @@ public class HCZConveyorBeltObjectInstance extends AbstractObjectInstance {
         }
 
         // ROM: cmpi.w #1,ground_vel(a1) / beq.w loc_313D6 (sonic3k.asm:66473-66474)
-        // ground_vel == 1 means fan is pushing player — enter hanging mode.
-        // Also check the fan push tracking as a fallback: our engine's player physics
-        // may overwrite gSpeed between the fan's set and the belt's read (the ROM
-        // processes all objects in the same loop so gSpeed persists within a frame).
-        //
-        // Unlike the ROM (which unconditionally branches to hanging), we fall through
-        // to try standing if hanging fails. This is necessary because the cross-frame
-        // fan push tracking may still be active after the player has moved from the
-        // hanging zone to the standing zone. The Y detection ranges don't overlap
-        // (standing: objY+20..+36, hanging: objY-20..-4), so only one can succeed.
-        if (player.getGSpeed() == 1
-                || HCZCGZFanObjectInstance.wasPushedByFan(player, frameCounter)) {
+        // ground_vel == 1 means an external force (the HCZ fan) is actively pushing
+        // the player — enter hanging (bottom) mode. Otherwise try standing (top).
+        // This is the ROM's sole branching mechanism; alternation between surfaces
+        // emerges naturally from the fan setting ground_vel=1 each frame while the
+        // player is in its push column.
+        if (player.getGSpeed() == 1) {
             tryCapturHanging(player, state, frameCounter);
-            if (state.active) return;  // successfully captured in hanging mode
+            return;
         }
 
         // ROM: Standing-on-top detection (sonic3k.asm:66475-66511)
@@ -453,16 +447,9 @@ public class HCZConveyorBeltObjectInstance extends AbstractObjectInstance {
      */
     private void releaseBelt(AbstractPlayableSprite player, PlayerBeltState state,
                              int frameCounter) {
-        // Surface alternation: In the ROM, the jump trajectory naturally alternates
-        // surfaces — jumping from TOP sends you upward into the fan, which sets
-        // ground_vel=1 for BOTTOM capture; jumping from BOTTOM sends you downward
-        // for TOP capture. Our engine's timing differences can break this natural
-        // flow, so we reinforce it by setting gSpeed on release:
-        //   - Release from TOP (phase near 0x00) → set gSpeed=1 → next capture is BOTTOM
-        //   - Release from BOTTOM (phase near 0x80) → set gSpeed=0 → next capture is TOP
-        boolean wasHanging = (state.phase & 0x80) != 0;
-        player.setGSpeed(wasHanging ? (short) 0 : (short) 1);
-
+        // ROM: loc_312D4 does NOT modify ground_vel on release. The alternation
+        // between top/bottom surfaces is driven by external forces (the HCZ fan)
+        // setting ground_vel=1 each frame while the player is in its push column.
         state.active = false;
         state.capturedPlayer = null;
 

@@ -108,28 +108,6 @@ public class HCZCGZFanObjectInstance extends AbstractObjectInstance {
 
     private static final Random RANDOM = new Random();
 
-    // ===== Cross-object fan push tracking =====
-    // In the ROM, the fan sets ground_vel=1 and the conveyor belt reads it in the
-    // same ExecuteObjects pass. In our engine, player physics runs between object
-    // updates and may overwrite gSpeed (e.g., landing calculations). This tracking
-    // lets the conveyor belt reliably detect fan push across frames.
-    private static final java.util.Map<AbstractPlayableSprite, Integer> fanPushFrames =
-            new java.util.WeakHashMap<>();
-
-    /**
-     * Returns true if the given player was pushed by any fan within the last 2 frames.
-     * Used by {@link HCZConveyorBeltObjectInstance} to detect hanging capture eligibility.
-     */
-    public static boolean wasPushedByFan(AbstractPlayableSprite player, int currentFrame) {
-        Integer pushFrame = fanPushFrames.get(player);
-        return pushFrame != null && (currentFrame - pushFrame) <= 2;
-    }
-
-    /** Clears all fan push tracking state. Called on level reset. */
-    public static void resetFanPushTracking() {
-        fanPushFrames.clear();
-    }
-
     // ===== Configuration (from subtype) =====
     private final int innerRange;      // $36(a0): inner detection range
     private final int outerRange;      // $38(a0): outer detection range
@@ -362,7 +340,7 @@ public class HCZCGZFanObjectInstance extends AbstractObjectInstance {
         if (player.isObjectControlled()) {
             // ROM: move.w #1,ground_vel(a1)
             player.setGSpeed((short) 1);
-            fanPushFrames.put(player, frameCounter);
+
             return;
         }
 
@@ -398,7 +376,7 @@ public class HCZCGZFanObjectInstance extends AbstractObjectInstance {
         if (isUnderwater) {
             // ROM: move.w #1,ground_vel(a1)
             player.setGSpeed((short) 1);
-            fanPushFrames.put(player, frameCounter);
+
             // ROM: move.b #$F,anim(a1) — special underwater animation
             player.setAnimationId(0x0F);
             return;
@@ -407,7 +385,6 @@ public class HCZCGZFanObjectInstance extends AbstractObjectInstance {
         // Normal fan — flip animation (sonic3k.asm:65512-65520)
         // ROM: move.w #1,ground_vel(a1)
         player.setGSpeed((short) 1);
-        fanPushFrames.put(player, frameCounter);
         // ROM: tst.b flip_angle(a1) / bne.s locret_3081C
         if (player.getFlipAngle() == 0) {
             // ROM: move.b #1,flip_angle(a1)
