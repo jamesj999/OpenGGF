@@ -7,6 +7,7 @@ import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.game.sonic3k.features.HCZWaterTunnelHandler;
+import com.openggf.game.sonic3k.objects.HCZCGZFanObjectInstance;
 import com.openggf.game.sonic3k.objects.HCZConveyorBeltObjectInstance;
 import com.openggf.game.sonic3k.objects.AizHollowTreeObjectInstance;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
@@ -277,6 +278,7 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
         Sonic3kAIZEvents.resetGlobalState();
         HCZWaterTunnelHandler.reset();
         HCZConveyorBeltObjectInstance.resetLoadArray();
+        HCZCGZFanObjectInstance.resetFanPushTracking();
         AizHollowTreeObjectInstance.resetTreeRevealCounter();
         AizPlaneIntroInstance.resetIntroPhaseState();
     }
