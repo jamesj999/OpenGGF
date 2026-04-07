@@ -35,6 +35,13 @@ public final class SessionManager {
         currentWorldSession = null;
     }
 
+    public static synchronized GameModule requireCurrentGameModule() {
+        if (currentWorldSession == null) {
+            throw new IllegalStateException("No active WorldSession");
+        }
+        return currentWorldSession.getGameModule();
+    }
+
     private static void destroyCurrentMode() {
         if (currentGameplayMode != null) {
             currentGameplayMode.destroy();

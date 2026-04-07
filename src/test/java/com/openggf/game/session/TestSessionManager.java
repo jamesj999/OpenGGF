@@ -64,6 +64,22 @@ class TestSessionManager {
     }
 
     @Test
+    void requireCurrentGameModule_returnsWorldOwnedModule() {
+        GameModule module = new Sonic2GameModule();
+        SessionManager.openGameplaySession(module);
+
+        assertSame(module, SessionManager.requireCurrentGameModule());
+    }
+
+    @Test
+    void requireCurrentGameModule_withoutWorldSessionThrows() {
+        IllegalStateException exception = assertThrows(IllegalStateException.class,
+                SessionManager::requireCurrentGameModule);
+
+        assertEquals("No active WorldSession", exception.getMessage());
+    }
+
+    @Test
     void openGameplaySession_rejectsNullModule() {
         assertThrows(NullPointerException.class, () -> SessionManager.openGameplaySession(null));
     }
