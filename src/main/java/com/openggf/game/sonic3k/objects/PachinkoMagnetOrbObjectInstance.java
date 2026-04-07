@@ -85,6 +85,14 @@ public class PachinkoMagnetOrbObjectInstance extends AbstractObjectInstance {
         capturePlayer(player, state);
     }
 
+    public void forceReleasePlayer(AbstractPlayableSprite player, int frameCounter) {
+        PlayerState state = playerStates.get(player);
+        if (state == null || !state.captured) {
+            return;
+        }
+        releasePlayer(player, state, frameCounter, false);
+    }
+
     private void updateCapturedPlayer(AbstractPlayableSprite player, PlayerState state,
                                       int frameCounter) {
         if (player.isDebugMode() || player.getDead() || player.isHurt()) {

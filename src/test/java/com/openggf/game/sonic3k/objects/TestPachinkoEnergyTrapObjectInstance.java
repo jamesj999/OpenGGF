@@ -33,6 +33,14 @@ public class TestPachinkoEnergyTrapObjectInstance {
     }
 
     @Test
+    public void trapIsPersistent() {
+        PachinkoEnergyTrapObjectInstance trap = new PachinkoEnergyTrapObjectInstance(
+                new ObjectSpawn(0x78, 0xF30, 0xE8, 0, 0, false, 0));
+
+        assertTrue(trap.isPersistent());
+    }
+
+    @Test
     public void mainCharacterEscapingOutTopRequestsImmediateExit() {
         PachinkoEnergyTrapObjectInstance trap = new PachinkoEnergyTrapObjectInstance(
                 new ObjectSpawn(0x78, 0xF30, 0xE8, 0, 0, false, 0));
