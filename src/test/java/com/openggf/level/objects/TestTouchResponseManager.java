@@ -323,6 +323,18 @@ public class TestTouchResponseManager {
     }
 
     @Test
+    public void testSkipTouchThisFrameSuppressesOverlap() {
+        MockSkipTouchObject obj = new MockSkipTouchObject(160, 112, 0x48);
+        setupTableSize(8, 16, 16);
+        objectManager.addDynamicObject(obj);
+
+        objectManager.update(0, player, List.of(), 1);
+
+        assertFalse("Objects flagged skipTouchThisFrame should not trigger touch callbacks",
+                obj.wasTouched);
+    }
+
+    @Test
     public void testTouchTriggersAgainAfterExitAndReenter() {
         MockTouchObject obj = new MockTouchObject(160, 112, 0x48);
         setupTableSize(8, 16, 16);
@@ -441,6 +453,17 @@ public class TestTouchResponseManager {
 
         @Override
         public boolean requiresContinuousTouchCallbacks() {
+            return true;
+        }
+    }
+
+    private static class MockSkipTouchObject extends MockTouchObject {
+        public MockSkipTouchObject(int x, int y, int flags) {
+            super(x, y, flags);
+        }
+
+        @Override
+        public boolean isSkipTouchThisFrame() {
             return true;
         }
     }

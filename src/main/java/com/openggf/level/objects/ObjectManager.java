@@ -984,6 +984,18 @@ public class ObjectManager {
     }
 
     public void addDynamicObject(ObjectInstance object) {
+        addDynamicObjectInternal(object, false);
+    }
+
+    /**
+     * Adds a dynamic object using the slot immediately after the current exec slot when
+     * called from an object's update, matching ROM AllocateObjectAfterCurrent behavior.
+     */
+    public void addDynamicObjectAfterCurrent(ObjectInstance object) {
+        addDynamicObjectInternal(object, true);
+    }
+
+    private void addDynamicObjectInternal(ObjectInstance object, boolean allocateAfterCurrent) {
         if (object instanceof AbstractObjectInstance aoi) {
             aoi.setServices(objectServices);
             // ROM parity: FindFreeObj allocates an SST slot for EVERY object,
@@ -993,7 +1005,9 @@ public class ObjectManager {
             // slot numbers than the ROM — shifting d7 values and breaking timing
             // gates like (v_vbla_byte + d7) & 7.
             if (aoi.getSlotIndex() < 0) {
-                int slot = allocateSlot();
+                int slot = allocateAfterCurrent && updating && currentExecSlot >= 0
+                        ? allocateSlotAfter(currentExecSlot + DYNAMIC_SLOT_BASE)
+                        : allocateSlot();
                 if (slot >= 0) {
                     aoi.setSlotIndex(slot);
                 }
@@ -1018,6 +1032,7 @@ public class ObjectManager {
             int execIdx = aoi2.getSlotIndex() - DYNAMIC_SLOT_BASE;
             if (execIdx < DYNAMIC_SLOT_COUNT && execIdx > currentExecSlot) {
                 object.snapshotPreUpdatePosition();
+                aoi2.setSkipTouchThisFrame(true);
                 execOrder[execIdx] = object;
             }
         }
@@ -2787,6 +2802,9 @@ public class ObjectManager {
 
             for (ObjectInstance instance : activeObjects) {
                 if (!(instance instanceof TouchResponseProvider provider)) {
+                    continue;
+                }
+                if (instance.isSkipTouchThisFrame()) {
                     continue;
                 }
 
