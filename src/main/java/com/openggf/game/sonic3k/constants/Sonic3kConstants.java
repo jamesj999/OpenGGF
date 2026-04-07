@@ -213,6 +213,12 @@ public class Sonic3kConstants {
     // WaterRushBlock uses ArtTile_HCZMisc + $A = 0x03D4 (level-loaded art)
     public static final int ARTTILE_HCZ_WATER_RUSH_BLOCK = 0x03CA + 0xA; // 0x03D4
 
+    // ===== HCZ/CGZ Fan (Obj_HCZCGZFan, ID 0x38) =====
+    // Map_HCZFan: 5 frames, 3 pieces each. LockOn data (S3 half).
+    public static final int MAP_HCZ_FAN_ADDR = 0x22F3AA;
+    // Fan uses ArtTile_HCZMisc + $41 = $040B, palette 1
+    public static final int ARTTILE_HCZ_FAN = 0x03CA + 0x41; // ArtTile_HCZMisc + $41 = 0x040B
+
     // ===== Floating Platform mappings (Obj_FloatingPlatform, ID 0x51) =====
     public static final int MAP_AIZ_FLOATING_PLATFORM_ADDR = 0x256A2; // Map_AIZFloatingPlatform (1 frame, 4 pieces)
     public static final int MAP_HCZ_FLOATING_PLATFORM_ADDR = 0x25688; // Map_HCZFloatingPlatform (2 frames, 2/1 pieces)

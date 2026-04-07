@@ -366,6 +366,16 @@ public final class Sonic3kPlcArtRegistry {
                 "buildHczWaterRushBlockSheet"
         ));
 
+        // HCZ Fan: ArtTile_HCZMisc + $41, palette 1
+        // ROM: make_art_tile(ArtTile_HCZMisc+$41, 1, 0), Map_HCZFan (5 frames)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.HCZ_FAN,
+                Sonic3kConstants.MAP_HCZ_FAN_ADDR,
+                Sonic3kConstants.ARTTILE_HCZ_FAN,
+                1,
+                null
+        ));
+
         // Geyser horizontal art (subtype 0 water wall)
         // Hardcoded mappings (mappingAddr=0 triggers dispatch in loadStandaloneSheet)
         standalone.add(new StandaloneArtEntry(
@@ -411,6 +421,18 @@ public final class Sonic3kPlcArtRegistry {
                 0,
                 0,
                 2,
+                -1
+        ));
+
+        // Fan bubble art — same ArtNem_Bubbles but with tiny Map_Bubbler mappings.
+        // ROM: Obj_HCZCGZFan bubble child uses Map_Bubbler (frame 0 = single 8x8 tile).
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.HCZ_FAN_BUBBLE,
+                Sonic3kConstants.ART_NEM_BUBBLES_ADDR,
+                CompressionType.NEMESIS,
+                0,
+                0,
+                0,  // palette 0 (ROM: make_art_tile(ArtTile_Bubbles, 0, 0))
                 -1
         ));
 
