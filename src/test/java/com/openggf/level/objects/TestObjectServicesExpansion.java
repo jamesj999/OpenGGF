@@ -35,6 +35,20 @@ class TestObjectServicesExpansion {
     }
 
     @Test
+    void defaultObjectServices_worldSession_returnsRuntimeWorldSession() {
+        DefaultObjectServices services = new DefaultObjectServices(RuntimeManager.getCurrent());
+        assertSame(GameServices.worldSession(), services.worldSession(),
+                "worldSession() should delegate to the runtime-owned world session");
+    }
+
+    @Test
+    void defaultObjectServices_gameModule_returnsRuntimeModule() {
+        DefaultObjectServices services = new DefaultObjectServices(RuntimeManager.getCurrent());
+        assertSame(GameServices.module(), services.gameModule(),
+                "gameModule() should delegate to the runtime-owned module");
+    }
+
+    @Test
     void defaultObjectServices_sidekicks_returnsUnmodifiableList() {
         DefaultObjectServices services = new DefaultObjectServices(RuntimeManager.getCurrent());
         var sidekicks = services.sidekicks();

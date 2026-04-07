@@ -2,7 +2,7 @@ package com.openggf.level;
 
 import com.openggf.camera.Camera;
 import com.openggf.data.Rom;
-import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.GameServices;
 import com.openggf.game.GameModule;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
@@ -116,7 +116,7 @@ public class ParallaxManager {
         }
 
         // Get the game-specific scroll handler provider
-        GameModule module = GameModuleRegistry.getCurrent();
+        GameModule module = GameServices.module();
 
         if (module != null) {
             scrollProvider = module.getScrollHandlerProvider();

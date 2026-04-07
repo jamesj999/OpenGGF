@@ -1,6 +1,6 @@
 package com.openggf.level.objects;
 
-import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.GameServices;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -231,7 +231,7 @@ public class InvincibilityStarsObjectInstance extends AbstractObjectInstance imp
 
     private static boolean isTrailMode() {
         try {
-            return GameModuleRegistry.getCurrent().hasTrailInvincibilityStars();
+            return GameServices.module().hasTrailInvincibilityStars();
         } catch (Exception ignored) {
             return false;
         }

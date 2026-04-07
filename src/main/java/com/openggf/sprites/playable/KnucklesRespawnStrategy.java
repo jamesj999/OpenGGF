@@ -2,7 +2,6 @@ package com.openggf.sprites.playable;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.CanonicalAnimation;
-import com.openggf.game.GameModuleRegistry;
 import com.openggf.physics.Direction;
 
 /**
@@ -25,10 +24,7 @@ public class KnucklesRespawnStrategy implements SidekickRespawnStrategy {
 
     public KnucklesRespawnStrategy(SidekickCpuController controller) {
         // controller not currently used; accepted for API consistency with other strategies
-        var module = GameModuleRegistry.getCurrent();
-        this.glideAnimId = (module != null)
-                ? module.resolveAnimationId(CanonicalAnimation.GLIDE_DROP)
-                : -1;
+        this.glideAnimId = controller.resolveAnimationId(CanonicalAnimation.GLIDE_DROP);
     }
 
     @Override

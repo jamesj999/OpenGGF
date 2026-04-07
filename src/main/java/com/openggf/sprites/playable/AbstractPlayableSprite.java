@@ -5,7 +5,7 @@ import com.openggf.game.AnimationId;
 import com.openggf.game.CanonicalAnimation;
 import com.openggf.game.CollisionModel;
 import com.openggf.game.CrossGameFeatureProvider;
-import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.GameModule;
 import com.openggf.game.GameServices;
 import com.openggf.game.InstaShieldHandle;
 import com.openggf.game.PhysicsFeatureSet;
@@ -747,6 +747,20 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         public final LevelManager currentLevelManager() {
                 var runtime = RuntimeManager.getCurrent();
                 return runtime != null ? runtime.getLevelManager() : LevelManager.getInstance();
+        }
+
+        public final GameModule currentGameModule() {
+                LevelManager levelManager = currentLevelManager();
+                if (levelManager != null && levelManager.getGameModule() != null) {
+                        return levelManager.getGameModule();
+                }
+                var runtime = RuntimeManager.getCurrent();
+                return runtime != null ? runtime.getWorldSession().getGameModule() : null;
+        }
+
+        public final int resolveAnimationId(CanonicalAnimation animation) {
+                GameModule module = currentGameModule();
+                return module != null ? module.resolveAnimationId(animation) : -1;
         }
 
         public final LevelState currentLevelState() {
@@ -2047,7 +2061,8 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          */
         private void resolvePhysicsProfile() {
                 try {
-                        PhysicsProvider provider = GameModuleRegistry.getCurrent().getPhysicsProvider();
+                        GameModule module = currentGameModule();
+                        PhysicsProvider provider = module != null ? module.getPhysicsProvider() : null;
                         if (provider == null) {
                                 return;
                         }
@@ -2111,7 +2126,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                         // Registration deferred to tickStatus() to avoid double-add
                         // when resolvePhysicsProfile() and tickStatus() both run on the same frame
                 }
-                bubbleAnimId = GameModuleRegistry.getCurrent().resolveAnimationId(CanonicalAnimation.BUBBLE);
+                bubbleAnimId = resolveAnimationId(CanonicalAnimation.BUBBLE);
         }
 
         /**

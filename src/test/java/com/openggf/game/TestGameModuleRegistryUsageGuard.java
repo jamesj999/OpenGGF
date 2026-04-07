@@ -1,6 +1,5 @@
 package com.openggf.game;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -13,13 +12,13 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 class TestGameModuleRegistryUsageGuard {
 
-    @Disabled("Task 3 groundwork only: re-enable in Task 5 once remaining gameplay GameModuleRegistry.getCurrent() reads are migrated.")
     @Test
     void gameplayCodeShouldNotReadGameModuleRegistryDirectly() throws IOException {
         Path srcMain = Path.of("src/main/java");
         List<String> allowed = List.of(
                 "src/main/java/com/openggf/game/GameModuleRegistry.java",
-                "src/main/java/com/openggf/game/RomDetectionService.java"
+                "src/main/java/com/openggf/game/RomDetectionService.java",
+                "src/main/java/com/openggf/game/RuntimeManager.java"
         );
         List<String> violations = new ArrayList<>();
 

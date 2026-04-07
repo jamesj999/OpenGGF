@@ -6,10 +6,12 @@ import com.openggf.camera.Camera;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.GameStateManager;
+import com.openggf.game.GameModule;
 import com.openggf.game.LevelState;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.RespawnState;
 import com.openggf.game.ZoneFeatureProvider;
+import com.openggf.game.session.WorldSession;
 import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
@@ -43,6 +45,8 @@ public class StubObjectServices implements ObjectServices {
     @Override public void spawnLostRings(PlayableEntity player, int frameCounter) {}
     @Override public Camera camera() { return null; }
     @Override public GameStateManager gameState() { return null; }
+    @Override public WorldSession worldSession() { return null; }
+    @Override public GameModule gameModule() { return null; }
     @Override public List<PlayableEntity> sidekicks() { return List.of(); }
     @Override public SpriteManager spriteManager() { return null; }
     @Override public GraphicsManager graphicsManager() { return null; }

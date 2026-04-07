@@ -180,7 +180,7 @@ public class GameLoop {
      */
     private TitleCardProvider getTitleCardProviderLazy() {
         if (titleCardProvider == null) {
-            titleCardProvider = GameModuleRegistry.getCurrent().getTitleCardProvider();
+            titleCardProvider = GameServices.module().getTitleCardProvider();
         }
         return titleCardProvider;
     }
@@ -714,7 +714,7 @@ public class GameLoop {
         }
 
         // Find the furthest right checkpoint (game-agnostic)
-        int checkpointId = GameModuleRegistry.getCurrent().getCheckpointObjectId();
+        int checkpointId = GameServices.module().getCheckpointObjectId();
         if (checkpointId == 0) {
             LOGGER.info("DEBUG: Current game has no checkpoint object ID configured");
             return;
@@ -980,7 +980,7 @@ public class GameLoop {
             return;
         }
 
-        BonusStageProvider provider = GameModuleRegistry.getCurrent().getBonusStageProvider();
+        BonusStageProvider provider = GameServices.module().getBonusStageProvider();
         if (!provider.hasBonusStages()) {
             LOGGER.fine("Current game module has no bonus stages; ignoring entry request");
             return;
@@ -1010,7 +1010,7 @@ public class GameLoop {
             lrbSolidBit = playable.getLrbSolidBit();
         }
 
-        LevelEventProvider eventProvider = GameModuleRegistry.getCurrent().getLevelEventProvider();
+        LevelEventProvider eventProvider = GameServices.module().getLevelEventProvider();
         int resizeFg = 0, resizeBg = 0;
         if (eventProvider instanceof AbstractLevelEventManager eventMgr) {
             resizeFg = eventMgr.getEventRoutineFg();
@@ -1239,7 +1239,7 @@ public class GameLoop {
         }
 
         // Restore event routine state (prevents camera lock replay)
-        LevelEventProvider eventProvider = GameModuleRegistry.getCurrent().getLevelEventProvider();
+        LevelEventProvider eventProvider = GameServices.module().getLevelEventProvider();
         if (eventProvider instanceof AbstractLevelEventManager eventMgr) {
             eventMgr.restoreEventRoutineState(
                     savedState.dynamicResizeRoutineFg(),
@@ -1527,7 +1527,7 @@ public class GameLoop {
                 // Without this, the resize state machine restarts from routine 0 and
                 // rapidly re-processes all boundary thresholds with the camera already
                 // deep in the level, causing incorrect camera locks.
-                LevelEventProvider eventProvider = GameModuleRegistry.getCurrent().getLevelEventProvider();
+                LevelEventProvider eventProvider = GameServices.module().getLevelEventProvider();
                 if (eventProvider instanceof AbstractLevelEventManager eventMgr) {
                     eventMgr.restoreEventRoutineState(br.dynamicResizeRoutine(), 0);
                 }
@@ -1692,7 +1692,7 @@ public class GameLoop {
             currentGameMode = GameMode.LEVEL;
 
             // Re-apply zone-specific player state (airborne intros like HCZ1, MGZ1)
-            LevelEventProvider levelEvents = GameModuleRegistry.getCurrent().getLevelEventProvider();
+            LevelEventProvider levelEvents = GameServices.module().getLevelEventProvider();
             if (levelEvents instanceof com.openggf.game.sonic3k.Sonic3kLevelEventManager s3kEvents) {
                 s3kEvents.applyZonePlayerState();
             }
@@ -1800,7 +1800,7 @@ public class GameLoop {
         // Ensure the ROM is loaded and audio is initialized
         try {
             var rom = GameServices.rom().getRom();
-            var gameModule = GameModuleRegistry.getCurrent();
+            var gameModule = GameServices.module();
 
             AudioManager audioManager = AudioManager.getInstance();
             audioManager.setAudioProfile(gameModule.getAudioProfile());
@@ -1943,7 +1943,7 @@ public class GameLoop {
     }
 
     private TitleScreenProvider getTitleScreenProviderLazy() {
-        var gameModule = GameModuleRegistry.getCurrent();
+        var gameModule = GameServices.module();
         if (gameModule != null) {
             return gameModule.getTitleScreenProvider();
         }
@@ -1964,7 +1964,7 @@ public class GameLoop {
         // Ensure the ROM is loaded and audio is initialized before level select
         try {
             var rom = GameServices.rom().getRom();
-            var gameModule = GameModuleRegistry.getCurrent();
+            var gameModule = GameServices.module();
 
             // Initialize audio system with game module's audio profile
             AudioManager audioManager = AudioManager.getInstance();
@@ -2143,7 +2143,7 @@ public class GameLoop {
      * Lazily retrieves the level select provider from the current game module.
      */
     private LevelSelectProvider getLevelSelectProviderLazy() {
-        var gameModule = GameModuleRegistry.getCurrent();
+        var gameModule = GameServices.module();
         if (gameModule != null) {
             return gameModule.getLevelSelectProvider();
         }
@@ -2296,7 +2296,7 @@ public class GameLoop {
     }
 
     private SpecialStageProvider getCurrentModuleSpecialStageProvider() {
-        var module = GameModuleRegistry.getCurrent();
+        var module = GameServices.module();
         if (module == null) {
             return NoOpSpecialStageProvider.INSTANCE;
         }
@@ -2470,7 +2470,7 @@ public class GameLoop {
      * Initializes the EndingProvider from the current GameModule.
      */
     private void doEnterEnding() {
-        endingProvider = GameModuleRegistry.getCurrent().getEndingProvider();
+        endingProvider = GameServices.module().getEndingProvider();
         if (endingProvider == null) {
             // No ending provider for this game — return to title screen
             LOGGER.warning("No EndingProvider available, returning to title screen");
@@ -2591,7 +2591,7 @@ public class GameLoop {
         levelManager.updateZoneFeaturesPrePhysics();
         levelManager.updateObjectPositions();
         spriteManager.update(inputHandler);
-        LevelEventProvider levelEvents = GameModuleRegistry.getCurrent().getLevelEventProvider();
+        LevelEventProvider levelEvents = GameServices.module().getLevelEventProvider();
         if (levelEvents != null) {
             levelEvents.update();
         }

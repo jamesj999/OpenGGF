@@ -7,12 +7,14 @@ import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.BonusStageType;
 import com.openggf.game.GameStateManager;
+import com.openggf.game.GameModule;
 import com.openggf.game.LevelEventProvider;
 import com.openggf.game.LevelState;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.RespawnState;
 import com.openggf.game.TitleCardProvider;
 import com.openggf.game.ZoneFeatureProvider;
+import com.openggf.game.session.WorldSession;
 import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.BigRingReturnState;
@@ -74,6 +76,12 @@ public interface ObjectServices {
      * {@link com.openggf.game.GameServices#gameState()}.
      */
     GameStateManager gameState();
+
+    /** Returns the active world session backing the current runtime. */
+    WorldSession worldSession();
+
+    /** Returns the active game module owned by the current world session. */
+    GameModule gameModule();
 
     // Player/sidekick access
     List<PlayableEntity> sidekicks();

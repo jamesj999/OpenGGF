@@ -4,6 +4,7 @@ import com.openggf.audio.AudioManager;
 import com.openggf.camera.Camera;
 import com.openggf.data.RomManager;
 import com.openggf.debug.DebugOverlayManager;
+import com.openggf.game.session.WorldSession;
 import com.openggf.graphics.FadeManager;
 import com.openggf.level.LevelManager;
 import com.openggf.level.ParallaxManager;
@@ -84,6 +85,14 @@ public final class GameServices {
 
     public static WaterSystem water() {
         return requireRuntime("water").getWaterSystem();
+    }
+
+    public static WorldSession worldSession() {
+        return requireRuntime("worldSession").getWorldSession();
+    }
+
+    public static GameModule module() {
+        return worldSession().getGameModule();
     }
 
     /**

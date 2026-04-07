@@ -3,7 +3,7 @@ package com.openggf.level;
 import com.openggf.data.Rom;
 import com.openggf.game.DynamicWaterHandler;
 import com.openggf.game.GameId;
-import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.GameServices;
 import com.openggf.game.OscillationManager;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.game.RuntimeManager;
@@ -640,7 +640,7 @@ public class WaterSystem {
         if (baseLevel == 0) {
             return 0; // No water
         }
-        GameId gameId = GameModuleRegistry.getCurrent().getGameId();
+        GameId gameId = GameServices.module().getGameId();
         // S2 CPZ: water oscillation using oscillator 0
         if (gameId == GameId.S2 && zoneId == ZONE_ID_CPZ) {
             // Apply oscillation offset from oscillator index 0 (limit=0x10, 0-16 range)

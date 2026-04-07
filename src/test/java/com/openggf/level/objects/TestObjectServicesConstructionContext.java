@@ -32,6 +32,8 @@ class TestObjectServicesConstructionContext {
         @Override public void spawnLostRings(com.openggf.game.PlayableEntity player, int fc) {}
         @Override public com.openggf.camera.Camera camera() { return null; }
         @Override public com.openggf.game.GameStateManager gameState() { return null; }
+        @Override public com.openggf.game.session.WorldSession worldSession() { return null; }
+        @Override public com.openggf.game.GameModule gameModule() { return null; }
         @Override public java.util.List<com.openggf.game.PlayableEntity> sidekicks() { return java.util.List.of(); }
         @Override public com.openggf.sprites.managers.SpriteManager spriteManager() { return null; }
         @Override public com.openggf.graphics.GraphicsManager graphicsManager() { return null; }

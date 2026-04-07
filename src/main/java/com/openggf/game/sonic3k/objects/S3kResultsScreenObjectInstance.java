@@ -1,7 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.data.Rom;
-import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.PlayerCharacter;
 import com.openggf.level.objects.AbstractResultsScreen;
@@ -493,7 +492,7 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
             // The level data continues seamlessly (S3K acts share the same level).
 
             // Play act 2 music
-            var zoneRegistry = GameModuleRegistry.getCurrent().getZoneRegistry();
+            var zoneRegistry = services().gameModule().getZoneRegistry();
             int act2MusicId = zoneRegistry.getMusicId(zone, 1);
             if (act2MusicId >= 0) {
                 try { services().playMusic(act2MusicId); } catch (Exception e) { /* ignore */ }

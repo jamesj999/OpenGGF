@@ -1,7 +1,7 @@
 package com.openggf.debug;
 
 import com.openggf.game.GameServices;
-import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.GameModule;
 
 import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
@@ -219,7 +219,11 @@ public class DebugRenderer {
                 if (!glyphBatch.isBatchActive()) {
                         return;
                 }
-                ObjectRegistry registry = GameModuleRegistry.getCurrent().createObjectRegistry();
+                GameModule module = getLevelManager().getGameModule();
+                if (module == null) {
+                        module = GameServices.module();
+                }
+                ObjectRegistry registry = module.createObjectRegistry();
                 java.util.Collection<ObjectSpawn> spawns = getLevelManager().getActiveObjectSpawns();
                 if (registry == null || spawns.isEmpty()) {
                         return;
@@ -268,10 +272,11 @@ public class DebugRenderer {
                 if (!overlayManager.isEnabled(DebugOverlayToggle.PLANE_SWITCHERS)) {
                         return;
                 }
-                int planeSwitcherObjectId = GameModuleRegistry.getCurrent().getPlaneSwitcherObjectId();
-                if (getLevelManager().getGameModule() != null) {
-                        planeSwitcherObjectId = getLevelManager().getGameModule().getPlaneSwitcherObjectId();
+                GameModule planeSwitcherModule = getLevelManager().getGameModule();
+                if (planeSwitcherModule == null) {
+                        planeSwitcherModule = GameServices.module();
                 }
+                int planeSwitcherObjectId = planeSwitcherModule.getPlaneSwitcherObjectId();
                 for (ObjectSpawn spawn : spawns) {
                         if (spawn.objectId() != planeSwitcherObjectId) {
                                 continue;
@@ -535,7 +540,11 @@ public class DebugRenderer {
                   .append(" Hits: ").append(hitCount);
                 lines.add(tb.toString());
 
-                ObjectRegistry registry = GameModuleRegistry.getCurrent().createObjectRegistry();
+                GameModule module = getLevelManager().getGameModule();
+                if (module == null) {
+                        module = GameServices.module();
+                }
+                ObjectRegistry registry = module.createObjectRegistry();
                 int maxLines = 12;
                 int shown = 0;
                 for (TouchResponseDebugHit hit : hits) {
