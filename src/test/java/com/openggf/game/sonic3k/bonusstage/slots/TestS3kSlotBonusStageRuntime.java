@@ -15,6 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -39,6 +41,7 @@ class TestS3kSlotBonusStageRuntime {
         runtime.bootstrap();
 
         assertTrue(runtime.isInitialized());
+        assertNotNull(runtime.activeSlotCageForTest());
         assertTrue(GameServices.sprites().getSprite("tails") instanceof S3kSlotBonusPlayer);
 
         AbstractPlayableSprite slotPlayer = assertInstanceOf(Tails.class, GameServices.sprites().getSprite("tails"));
@@ -92,6 +95,7 @@ class TestS3kSlotBonusStageRuntime {
 
         assertSame(originalPlayer, GameServices.sprites().getSprite("tails"));
         assertSame(originalPlayer, GameServices.camera().getFocusedSprite());
+        assertNull(runtime.activeSlotCageForTest());
     }
 
     @Test
