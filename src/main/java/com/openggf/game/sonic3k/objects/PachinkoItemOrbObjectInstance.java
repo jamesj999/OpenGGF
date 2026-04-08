@@ -18,8 +18,9 @@ import java.util.List;
  * Object 0xED - Pachinko Item Orb.
  *
  * <p>ROM reference: {@code Obj_PachinkoItemOrb}. The orb animates until touched, then
- * resolves to a reward subtype based on the orb's Y position and frame counter and
- * turns into the shared {@link GumballItemObjectInstance} Pachinko reward object.
+ * arms itself and resolves to a reward subtype on the following update based on the
+ * orb's Y position and {@code Level_frame_counter}, turning into the shared
+ * {@link GumballItemObjectInstance} Pachinko reward object.
  */
 public class PachinkoItemOrbObjectInstance extends AbstractObjectInstance
         implements TouchResponseProvider, TouchResponseListener {
@@ -34,6 +35,7 @@ public class PachinkoItemOrbObjectInstance extends AbstractObjectInstance
     };
 
     private int animationFrameCounter;
+    private boolean pendingRewardConversion;
     private GumballItemObjectInstance rewardItem;
 
     public PachinkoItemOrbObjectInstance(ObjectSpawn spawn) {
@@ -48,6 +50,12 @@ public class PachinkoItemOrbObjectInstance extends AbstractObjectInstance
             if (rewardItem.isDestroyed()) {
                 setDestroyed(true);
             }
+            return;
+        }
+
+        if (pendingRewardConversion) {
+            pendingRewardConversion = false;
+            convertToReward(frameCounter);
         }
     }
 
@@ -72,7 +80,7 @@ public class PachinkoItemOrbObjectInstance extends AbstractObjectInstance
             rewardItem.onTouchResponse(player, result, frameCounter);
             return;
         }
-        convertToReward(frameCounter);
+        pendingRewardConversion = true;
     }
 
     @Override
@@ -93,15 +101,18 @@ public class PachinkoItemOrbObjectInstance extends AbstractObjectInstance
     private void convertToReward(int frameCounter) {
         playSfx(Sonic3kSfx.BLUE_SPHERE);
 
-        int yNibble = spawn.y() & 0x0F;
-        int rewardIndex = ((yNibble << 2) + (frameCounter & 3)) & 0x3F;
-        int rewardSubtype = REWARD_TABLE[rewardIndex];
+        int rewardSubtype = resolveRewardSubtype(getY(), frameCounter);
 
         ObjectSpawn rewardSpawn = new ObjectSpawn(
-                spawn.x(), spawn.y(), spawn.objectId() - 2, rewardSubtype,
+                getX(), getY(), spawn.objectId() - 2, rewardSubtype,
                 spawn.renderFlags(), false, 0, spawn.layoutIndex());
         rewardItem = GumballItemObjectInstance.createPachinkoItem(rewardSpawn);
         rewardItem.setServices(services());
+    }
+
+    static int resolveRewardSubtype(int yPos, int levelFrameCounter) {
+        int rewardIndex = (((yPos & 0x0F) << 2) + (levelFrameCounter & 3)) & 0x3F;
+        return REWARD_TABLE[rewardIndex];
     }
 
     private void playSfx(Sonic3kSfx sfx) {
