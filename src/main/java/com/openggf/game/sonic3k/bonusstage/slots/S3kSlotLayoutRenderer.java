@@ -77,6 +77,12 @@ public final class S3kSlotLayoutRenderer {
         return peppermintFrame;
     }
 
+    public void tickTransientAnimations(S3kSlotRenderBuffers buffers) {
+        if (buffers != null) {
+            buffers.tickTransientAnimations();
+        }
+    }
+
     public short[] buildPointGrid(int angle, int cameraX, int cameraY) {
         short[] points = new short[GRID_SIZE * GRID_SIZE * 2];
         int byteAngle = angle & 0xFC;
@@ -99,6 +105,45 @@ public final class S3kSlotLayoutRenderer {
             currentOffsetY += CELL_SIZE;
         }
         return points;
+    }
+
+    public List<VisibleCell> buildVisibleCells(S3kSlotRenderBuffers buffers) {
+        if (buffers == null) {
+            return List.of();
+        }
+        short[] points = buffers.stagedPointGrid();
+        if (points == null || points.length < GRID_SIZE * GRID_SIZE * 2) {
+            return List.of();
+        }
+
+        int layoutRow = Math.floorDiv(buffers.stagedCameraY(), CELL_SIZE);
+        int layoutCol = Math.floorDiv(buffers.stagedCameraX(), CELL_SIZE);
+        List<VisibleCell> visible = new ArrayList<>();
+
+        int pointIndex = 0;
+        for (int row = 0; row < GRID_SIZE; row++) {
+            int sourceRow = layoutRow + row;
+            for (int col = 0; col < GRID_SIZE; col++) {
+                int sourceCol = layoutCol + col;
+                int cellId = buffers.renderCellIdAt(sourceRow, sourceCol);
+
+                int pointX = points[pointIndex++];
+                int pointY = points[pointIndex++];
+                int screenX = pointX + SCREEN_X_OFFSET;
+                int screenY = pointY + SCREEN_Y_OFFSET;
+
+                if (cellId == 0 || cellId >= PIECE_DEFS.length || PIECE_DEFS[cellId] == null) {
+                    continue;
+                }
+                if (screenX < MIN_SCREEN_X || screenX >= MAX_SCREEN_X
+                        || screenY < MIN_SCREEN_Y || screenY >= MAX_SCREEN_Y) {
+                    continue;
+                }
+                visible.add(new VisibleCell((byte) cellId, screenX, screenY));
+            }
+        }
+
+        return Collections.unmodifiableList(visible);
     }
 
     public List<VisibleCell> buildVisibleCells(byte[] layout, int angle, int cameraX, int cameraY) {
@@ -138,6 +183,16 @@ public final class S3kSlotLayoutRenderer {
         }
 
         return Collections.unmodifiableList(visible);
+    }
+
+    public void render(S3kSlotStageState state, S3kSlotRenderBuffers buffers,
+                       Camera camera, ObjectRenderManager renderManager) {
+        if (state == null || buffers == null || camera == null || renderManager == null) {
+            return;
+        }
+        updateAnimations();
+        tickTransientAnimations(buffers);
+        renderVisibleCells(buildVisibleCells(buffers), camera, renderManager);
     }
 
     public void renderVisibleCells(List<VisibleCell> visibleCells, Camera camera, ObjectRenderManager renderManager) {

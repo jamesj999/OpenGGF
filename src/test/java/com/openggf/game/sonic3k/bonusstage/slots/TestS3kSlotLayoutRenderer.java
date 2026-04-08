@@ -12,6 +12,36 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class TestS3kSlotLayoutRenderer {
 
     @Test
+    void renderBuildsVisiblePiecesFromStagedExpandedBuffers() {
+        S3kSlotLayoutRenderer renderer = new S3kSlotLayoutRenderer();
+        S3kSlotRenderBuffers buffers = S3kSlotRenderBuffers.fromRomData();
+
+        buffers.stagePointGrid(renderer.buildPointGrid(0, 0, 0));
+
+        List<S3kSlotLayoutRenderer.VisibleCell> cells = renderer.buildVisibleCells(buffers);
+
+        assertFalse(cells.isEmpty());
+        assertTrue(cells.stream().anyMatch(cell -> cell.cellId() == 1));
+        assertTrue(cells.stream().anyMatch(cell -> cell.cellId() == 5));
+        assertTrue(cells.stream().allMatch(cell -> cell.screenX() >= 0x70 && cell.screenX() < 0x1D0));
+        assertTrue(cells.stream().allMatch(cell -> cell.screenY() >= 0x70 && cell.screenY() < 0x170));
+    }
+
+    @Test
+    void transientRingAnimationUsesRuntimeAnimationSlots() {
+        S3kSlotLayoutRenderer renderer = new S3kSlotLayoutRenderer();
+        S3kSlotRenderBuffers buffers = S3kSlotRenderBuffers.fromRomData();
+
+        buffers.stagePointGrid(renderer.buildPointGrid(0, 0, 0));
+        buffers.startRingAnimationAt(0x21);
+
+        renderer.tickTransientAnimations(buffers);
+
+        assertTrue(buffers.hasActiveTransientAnimationAt(0x21));
+        assertEquals(0x10, buffers.renderCellIdAt(1, 1));
+    }
+
+    @Test
     void zeroAngleBuildsStable16x16PointGrid() {
         S3kSlotLayoutRenderer renderer = new S3kSlotLayoutRenderer();
 
@@ -41,12 +71,11 @@ class TestS3kSlotLayoutRenderer {
     @Test
     void visibleCellsIncludeSemanticSlotStagePieces() {
         S3kSlotLayoutRenderer renderer = new S3kSlotLayoutRenderer();
+        S3kSlotRenderBuffers buffers = S3kSlotRenderBuffers.fromRomData();
 
-        List<S3kSlotLayoutRenderer.VisibleCell> cells = renderer.buildVisibleCells(
-                S3kSlotRomData.SLOT_BONUS_LAYOUT,
-                0,
-                0,
-                0);
+        buffers.stagePointGrid(renderer.buildPointGrid(0, 0, 0));
+
+        List<S3kSlotLayoutRenderer.VisibleCell> cells = renderer.buildVisibleCells(buffers);
 
         assertFalse(cells.isEmpty());
         assertTrue(cells.stream().anyMatch(cell -> cell.cellId() == 1));
