@@ -5,8 +5,8 @@ Generated: 2026-04-08 15:53:51
 ## Summary
 
 - **Total unique objects found:** 303
-- **Implemented:** 46 (15.2%)
-- **Unimplemented:** 257 (84.8%)
+- **Implemented:** 47 (15.5%)
+- **Unimplemented:** 256 (84.5%)
 
 ## Implemented Objects
 
@@ -30,6 +30,7 @@ Generated: 2026-04-08 15:53:51
 | 0x34 | StarPost | 106 |  | AIZ1, AIZ2, HCZ1, HCZ2, MGZ1, MGZ2, CNZ1, CNZ2, FBZ1, FBZ2, ICZ1, ICZ2, LBZ1, LBZ2, MHZ1, MHZ2, SOZ1, SOZ2, LRZ1, LRZ2, SSZ1, DEZ1, DEZ2 |
 | 0x35 | AIZForegroundPlant | 64 |  | AIZ1 |
 | 0x51 | FloatingPlatform | 81 |  | AIZ1, AIZ2, HCZ1, MGZ1, MGZ2 |
+| 0x54 | Bubbler | 10 |  | HCZ1, HCZ2 |
 | 0x85 | SSEntryRing | 77 |  | AIZ1, AIZ2, HCZ1, HCZ2, MGZ1, MGZ2, CNZ1, CNZ2, FBZ1, FBZ2, ICZ1, ICZ2, LBZ1, LBZ2, MHZ1, MHZ2, SOZ1, SOZ2, LRZ1, LRZ2 |
 | 0x8C | Bloominator | 13 |  | AIZ1, AIZ2 |
 | 0x8D | Rhinobot | 12 |  | AIZ1, AIZ2 |
@@ -197,7 +198,6 @@ Generated: 2026-04-08 15:53:51
 | 0x5E | Object | DEZHoverMachine | 11 |  | DEZ1 |
 | 0x5B | Object | DEZGravitySwap | 11 |  | DEZ2 |
 | 0x40 | Object | HCZBlock | 10 |  | HCZ1, HCZ2 |
-| 0x54 | Object | Bubbler | 10 |  | HCZ1, HCZ2 |
 | 0x5B | Object | MGZTopPlatform | 10 |  | MGZ1, MGZ2 |
 | 0x49 | Object | CNZGiantWheel | 10 |  | CNZ1, CNZ2 |
 | 0x7F | Object | FBZMissileLauncher | 10 |  | FBZ1 |
@@ -406,7 +406,7 @@ Total: 751 objects | Implemented: 30 | Unimplemented: 2
 
 #### Act 1
 
-Total: 383 objects | Implemented: 23 | Unimplemented: 7
+Total: 383 objects | Implemented: 24 | Unimplemented: 6
 
 **Badniks:**
 - [x] 0x94 Blastoid (x7) [5 subtypes]
@@ -439,14 +439,14 @@ Total: 383 objects | Implemented: 23 | Unimplemented: 7
 - [ ] 0x3F HCZConveyorSpike (x6) [0x02, 0x08, 0x0A]
 - [ ] 0x40 HCZBlock (x1) [0x00]
 - [x] 0x51 FloatingPlatform (x17) [4 subtypes]
-- [ ] 0x54 Bubbler (x9) [0x80]
+- [x] 0x54 Bubbler (x9) [0x80]
 - [ ] 0x6A InvisibleHurtBlockH (x2) [0xF1, 0xA1]
 - [x] 0x80 HiddenMonitor (x2) [0x03]
 - [x] 0x85 SSEntryRing (x2) [0x01, 0x02]
 
 #### Act 2
 
-Total: 510 objects | Implemented: 14 | Unimplemented: 16
+Total: 510 objects | Implemented: 15 | Unimplemented: 15
 
 **Badniks:**
 - [ ] 0x93 Jawz (x19) [0x00]
@@ -472,7 +472,7 @@ Total: 510 objects | Implemented: 14 | Unimplemented: 16
 - [x] 0x3A HCZHandLauncher (x7) [0x00]
 - [ ] 0x3C Door (x19) [0x00]
 - [ ] 0x40 HCZBlock (x9) [0x00]
-- [ ] 0x54 Bubbler (x1) [0x80]
+- [x] 0x54 Bubbler (x1) [0x80]
 - [ ] 0x67 HCZSnakeBlocks (x50) [15 subtypes]
 - [ ] 0x68 HCZSpinningColumn (x27) [5 subtypes]
 - [ ] 0x69 HCZTwistingLoop (x16) [16 subtypes]
