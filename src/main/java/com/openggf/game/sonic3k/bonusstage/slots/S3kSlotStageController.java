@@ -12,10 +12,19 @@ public class S3kSlotStageController {
     private int statTable;
     private int scalarIndex;  // SStage_scalar_index_1 — rotation velocity per frame
     private int rewardCounter;
+    private int latchedPrize;
+    private int latchedPrizeCycleId;
+    private boolean reelsFrozen;
+    private boolean paletteCycleEnabled;
+    private int bounceTimer;           // $3A(a0) — grace period after landing (4 frames)
+    private int activeRewardObjects;
     private int pendingRingRewards;
     private int pendingSpikeRewards;
 
     // Positional data queued alongside each pending reward (spawnX, spawnY, targetX, targetY)
+    private byte[] activeLayout;        // layout reference for collision checks during physics
+    private int lastCollisionTileId;    // $30(a0) — tile ID from last collision check
+    private int lastCollisionIndex = -1; // layout index of last collision
     private final Deque<int[]> pendingRingRewardPositions = new ArrayDeque<>();
     private final Deque<int[]> pendingSpikeRewardPositions = new ArrayDeque<>();
 
@@ -23,6 +32,15 @@ public class S3kSlotStageController {
         statTable = 0;
         scalarIndex = 0x40;  // ROM line 98732
         rewardCounter = 0;
+        latchedPrize = 0;
+        latchedPrizeCycleId = -1;
+        reelsFrozen = false;
+        paletteCycleEnabled = false;
+        bounceTimer = 0;
+        activeLayout = null;
+        lastCollisionTileId = 0;
+        lastCollisionIndex = -1;
+        activeRewardObjects = 0;
         pendingRingRewards = 0;
         pendingSpikeRewards = 0;
         pendingRingRewardPositions.clear();
@@ -31,7 +49,7 @@ public class S3kSlotStageController {
 
     /** Per-frame rotation: Stat_table += SStage_scalar_index_1 (lines 98776-98778) */
     public void tick() {
-        statTable = (statTable + scalarIndex) & 0xFF;
+        statTable = (statTable + scalarIndex) & 0xFFFF;
     }
 
     public int scalarIndex() {
@@ -45,6 +63,52 @@ public class S3kSlotStageController {
     /** ROM: neg.w (SStage_scalar_index_1).w — used by spike tile and cage release */
     public void negateScalar() {
         scalarIndex = -scalarIndex;
+    }
+
+    /** ROM $3A(a0): Set bounce timer on landing (sub_4BCB0 line 99028/99046) */
+    public void setBounceTimer(int frames) {
+        bounceTimer = frames;
+    }
+
+    /** Tick bounce timer. Returns true if timer was active and just expired. */
+    public boolean tickBounceTimer() {
+        if (bounceTimer > 0) {
+            bounceTimer--;
+            return bounceTimer == 0;
+        }
+        return false;
+    }
+
+    public int bounceTimer() {
+        return bounceTimer;
+    }
+
+    /** Set the active layout for collision checks during player physics. */
+    public void setActiveLayout(byte[] layout) {
+        this.activeLayout = layout;
+    }
+
+    public byte[] activeLayout() {
+        return activeLayout;
+    }
+
+    /** ROM $30(a0): Store tile ID from last collision for tile interaction dispatch */
+    public void setLastCollision(int tileId, int layoutIndex) {
+        this.lastCollisionTileId = tileId;
+        this.lastCollisionIndex = layoutIndex;
+    }
+
+    public void clearLastCollision() {
+        this.lastCollisionTileId = 0;
+        this.lastCollisionIndex = -1;
+    }
+
+    public int lastCollisionTileId() {
+        return lastCollisionTileId;
+    }
+
+    public int lastCollisionIndex() {
+        return lastCollisionIndex;
     }
 
     public void tickPlayer(S3kSlotBonusPlayer player, boolean left, boolean right,
@@ -64,8 +128,63 @@ public class S3kSlotStageController {
         }
     }
 
+    /** Returns the low byte of Stat_table — ROM uses move.b (Stat_table).w,d0 for angle reads */
     public int angle() {
-        return statTable;
+        return statTable & 0xFF;
+    }
+
+    /** Returns the full 16-bit Stat_table value (for exit sequence scalar math) */
+    public int rawStatTable() {
+        return statTable & 0xFFFF;
+    }
+
+    public boolean isReelsFrozen() {
+        return reelsFrozen;
+    }
+
+    public void setPaletteCycleEnabled(boolean enabled) {
+        paletteCycleEnabled = enabled;
+    }
+
+    public boolean isPaletteCycleEnabled() {
+        return paletteCycleEnabled;
+    }
+
+    public void latchResolvedPrize(int prize, int cycleId) {
+        if (cycleId == latchedPrizeCycleId) {
+            return;
+        }
+        latchedPrize = prize;
+        latchedPrizeCycleId = cycleId;
+    }
+
+    public void latchResolvedPrizeForCapture(int prize) {
+        latchedPrize = prize;
+        latchedPrizeCycleId++;
+    }
+
+    public int beginCapturePayout() {
+        reelsFrozen = true;
+        return latchedPrize;
+    }
+
+    public void endCapturePayout() {
+        reelsFrozen = false;
+        latchedPrize = 0;
+    }
+
+    public void onRewardSpawned() {
+        activeRewardObjects++;
+    }
+
+    public void onRewardExpired() {
+        if (activeRewardObjects > 0) {
+            activeRewardObjects--;
+        }
+    }
+
+    public int activeRewardObjects() {
+        return activeRewardObjects;
     }
 
     public void addRewardRing() {

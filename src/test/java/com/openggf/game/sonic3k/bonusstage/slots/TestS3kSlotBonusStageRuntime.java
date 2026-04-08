@@ -5,6 +5,8 @@ import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.GameRuntime;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
+import com.openggf.game.sonic3k.objects.S3kSlotRingRewardObjectInstance;
+import com.openggf.game.sonic3k.objects.S3kSlotSpikeRewardObjectInstance;
 import com.openggf.sprites.art.SpriteArtSet;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.Sonic;
@@ -55,8 +57,8 @@ class TestS3kSlotBonusStageRuntime {
 
         assertTrue(runtime.isInitialized());
         assertNotNull(runtime.activeSlotCageForTest());
-        assertNotNull(runtime.activeSlotRingRewardForTest());
-        assertNotNull(runtime.activeSlotSpikeRewardForTest());
+        assertTrue(runtime.activeSlotRingRewardsForTest().isEmpty());
+        assertTrue(runtime.activeSlotSpikeRewardsForTest().isEmpty());
         assertTrue(GameServices.sprites().getSprite("tails") instanceof S3kSlotBonusPlayer);
 
         AbstractPlayableSprite slotPlayer = assertInstanceOf(Tails.class, GameServices.sprites().getSprite("tails"));
@@ -98,16 +100,61 @@ class TestS3kSlotBonusStageRuntime {
 
         AbstractPlayableSprite slotPlayer = assertInstanceOf(
                 AbstractPlayableSprite.class, GameServices.sprites().getSprite("tails"));
-        assertFalse(runtime.activeSlotRingRewardForTest().isActive());
+        // Move player away from cage to prevent capture interference
+        slotPlayer.setX((short) 0x200);
+        slotPlayer.setY((short) 0x200);
+        assertTrue(runtime.activeSlotRingRewardsForTest().isEmpty());
 
         runtime.queueRingReward();
-        for (int frame = 0; frame < 0x1A; frame++) {
+        runtime.update(0);
+        assertFalse(runtime.activeSlotRingRewardsForTest().isEmpty());
+        for (int frame = 1; frame <= 0x1A; frame++) {
             runtime.update(frame);
         }
 
-        assertTrue(runtime.activeSlotRingRewardForTest().isDestroyed());
-        assertFalse(runtime.activeSlotRingRewardForTest().isActive());
+        assertTrue(runtime.activeSlotRingRewardsForTest().isEmpty());
         assertSame(slotPlayer, GameServices.sprites().getSprite("tails"));
+    }
+
+    @Test
+    void queuedRingRewardsSpawnIndependentTransientChildren() {
+        RuntimeManager.createGameplay();
+        SonicConfigurationService.getInstance().setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "tails");
+
+        Tails originalPlayer = new Tails("tails", (short) 0x460, (short) 0x430);
+        GameServices.sprites().addSprite(originalPlayer);
+        GameServices.camera().setFocusedSprite(originalPlayer);
+
+        S3kSlotBonusStageRuntime runtime = new S3kSlotBonusStageRuntime();
+        runtime.bootstrap();
+
+        runtime.queueRingReward();
+        runtime.queueRingReward();
+        runtime.queueRingReward();
+        runtime.update(0);
+
+        assertEquals(3, runtime.activeSlotRingRewardsForTest().size());
+        assertTrue(runtime.activeSlotRingRewardsForTest().stream().allMatch(S3kSlotRingRewardObjectInstance::isActive));
+    }
+
+    @Test
+    void queuedSpikeRewardsSpawnIndependentTransientChildren() {
+        RuntimeManager.createGameplay();
+        SonicConfigurationService.getInstance().setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "tails");
+
+        Tails originalPlayer = new Tails("tails", (short) 0x460, (short) 0x430);
+        GameServices.sprites().addSprite(originalPlayer);
+        GameServices.camera().setFocusedSprite(originalPlayer);
+
+        S3kSlotBonusStageRuntime runtime = new S3kSlotBonusStageRuntime();
+        runtime.bootstrap();
+
+        runtime.queueSpikeReward();
+        runtime.queueSpikeReward();
+        runtime.update(0);
+
+        assertEquals(2, runtime.activeSlotSpikeRewardsForTest().size());
+        assertTrue(runtime.activeSlotSpikeRewardsForTest().stream().allMatch(S3kSlotSpikeRewardObjectInstance::isActive));
     }
 
     @Test
@@ -147,9 +194,11 @@ class TestS3kSlotBonusStageRuntime {
                 AbstractPlayableSprite.class, GameServices.sprites().getSprite("tails"));
         runtime.update(0);
 
+        // Cage should NOT capture on first frame (suppressInitialCaptureOnce)
         assertFalse(slotPlayer.isControlLocked());
         assertFalse(slotPlayer.isObjectControlled());
-        assertFalse(slotPlayer.getAir());
+        // Player starts airborne per ROM (bset #Status_InAir)
+        assertTrue(slotPlayer.getAir());
     }
 
     @Test
@@ -193,8 +242,8 @@ class TestS3kSlotBonusStageRuntime {
         assertSame(originalPlayer, GameServices.sprites().getSprite("tails"));
         assertSame(originalPlayer, GameServices.camera().getFocusedSprite());
         assertNull(runtime.activeSlotCageForTest());
-        assertNull(runtime.activeSlotRingRewardForTest());
-        assertNull(runtime.activeSlotSpikeRewardForTest());
+        assertTrue(runtime.activeSlotRingRewardsForTest().isEmpty());
+        assertTrue(runtime.activeSlotSpikeRewardsForTest().isEmpty());
     }
 
     @Test
@@ -239,8 +288,8 @@ class TestS3kSlotBonusStageRuntime {
 
         assertTrue(runtime.isInitialized());
         assertNotNull(runtime.activeSlotCageForTest());
-        assertNotNull(runtime.activeSlotRingRewardForTest());
-        assertNotNull(runtime.activeSlotSpikeRewardForTest());
+        assertTrue(runtime.activeSlotRingRewardsForTest().isEmpty());
+        assertTrue(runtime.activeSlotSpikeRewardsForTest().isEmpty());
         assertNotNull(runtime.activeLayoutForTest());
         assertNotNull(runtime.activeReelStateMachineForTest());
         assertNotNull(runtime.activeLayoutAnimatorForTest());
