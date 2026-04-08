@@ -16,10 +16,12 @@ public final class S3kSlotBonusStageRuntime {
     private GameRuntime bootstrapRuntime;
     private AbstractPlayableSprite originalPlayer;
     private final S3kSlotStageController slotStageController = new S3kSlotStageController();
+    private final S3kSlotLayoutRenderer slotLayoutRenderer = new S3kSlotLayoutRenderer();
     private AbstractPlayableSprite slotPlayer;
     private S3kSlotBonusCageObjectInstance slotCage;
     private S3kSlotRingRewardObjectInstance slotRingReward;
     private S3kSlotSpikeRewardObjectInstance slotSpikeReward;
+    private short[] pointGrid;
 
     public void bootstrap() {
         initialized = false;
@@ -28,6 +30,7 @@ public final class S3kSlotBonusStageRuntime {
         slotCage = null;
         slotRingReward = null;
         slotSpikeReward = null;
+        pointGrid = null;
         slotStageController.bootstrap();
         bootstrapRuntime = RuntimeManager.getCurrent();
         if (bootstrapRuntime == null) {
@@ -76,6 +79,10 @@ public final class S3kSlotBonusStageRuntime {
         if (slotSpikeReward != null && slotPlayer != null) {
             slotSpikeReward.update(frameCounter, slotPlayer);
         }
+        if (bootstrapRuntime != null) {
+            pointGrid = slotLayoutRenderer.buildPointGrid(slotStageController.angle(),
+                    bootstrapRuntime.getCamera().getX(), bootstrapRuntime.getCamera().getY());
+        }
     }
 
     public void queueRingReward() {
@@ -98,6 +105,7 @@ public final class S3kSlotBonusStageRuntime {
         slotCage = null;
         slotRingReward = null;
         slotSpikeReward = null;
+        pointGrid = null;
         originalPlayer = null;
         bootstrapRuntime = null;
         initialized = false;
@@ -117,5 +125,9 @@ public final class S3kSlotBonusStageRuntime {
 
     public S3kSlotSpikeRewardObjectInstance activeSlotSpikeRewardForTest() {
         return slotSpikeReward;
+    }
+
+    public short[] activePointGridForTest() {
+        return pointGrid;
     }
 }
