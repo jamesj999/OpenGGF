@@ -48,6 +48,11 @@ public abstract class AbstractBonusStageCoordinator implements BonusStageProvide
     }
 
     @Override
+    public void onDeferredSetupComplete() {
+        // Default: no deferred setup. Subclasses may override.
+    }
+
+    @Override
     public boolean isStageComplete() { return exitRequested; }
 
     @Override

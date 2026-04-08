@@ -13,6 +13,7 @@ public interface BonusStageProvider {
     void onEnter(BonusStageType type, BonusStageState savedState);
     void onExit();
     void onFrameUpdate();
+    default void onDeferredSetupComplete() {}
     boolean isStageComplete();
     void requestExit();
     BonusStageRewards getRewards();
