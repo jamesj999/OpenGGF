@@ -34,10 +34,16 @@ class TestS3kSlotRewardObjects {
 
         reward.update(0x19, player);
 
-        assertTrue(reward.isDestroyed());
+        // Ring is granted on expiry frame, but sparkle phase keeps it alive
+        assertFalse(reward.isDestroyed());
+        assertTrue(reward.isInSparkle());
         assertEquals(1, services.totalBonusStageRingDelta);
         assertEquals(1, player.liveRingDelta);
         assertEquals(1, controller.rewardCount());
+
+        // Sparkle phase (8 frames) then destroyed
+        stepFrames(reward, 8, player);
+        assertTrue(reward.isDestroyed());
     }
 
     @Test
