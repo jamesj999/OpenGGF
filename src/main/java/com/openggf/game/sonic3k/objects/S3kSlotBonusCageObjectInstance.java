@@ -10,6 +10,9 @@ import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
+import static com.openggf.physics.TrigLookupTable.cosHex;
+import static com.openggf.physics.TrigLookupTable.sinHex;
+
 import java.util.List;
 
 /**
@@ -132,11 +135,18 @@ public final class S3kSlotBonusCageObjectInstance extends AbstractObjectInstance
         // Only spawn on odd frames (ROM: btst #0,(Level_frame_counter+1))
         if ((frameCounter & 1) != 0) {
             if (activeRewardCount < MAX_ACTIVE_REWARDS && rewardsToSpawn > 0) {
+                // ROM loc_4C172/loc_4C0AA: spawn position = center + GetSineCosine(angle) >> 1
+                int centerX = spawn.x();
+                int centerY = spawn.y();
                 if (spawnRings) {
-                    controller.queueRingReward();
+                    int spawnX = centerX + (cosHex(rewardAngle) >> 1);
+                    int spawnY = centerY + (sinHex(rewardAngle) >> 1);
+                    controller.queueRingRewardAt(spawnX, spawnY, centerX, centerY);
                     rewardAngle = (rewardAngle + RING_ANGLE_INCREMENT) & 0xFF;
                 } else {
-                    controller.queueSpikeReward();
+                    int spawnX = centerX + (cosHex(rewardAngle) >> 1);
+                    int spawnY = centerY + (sinHex(rewardAngle) >> 1);
+                    controller.queueSpikeRewardAt(spawnX, spawnY, centerX, centerY);
                     rewardAngle = (rewardAngle + SPIKE_ANGLE_INCREMENT) & 0xFF;
                 }
                 rewardsToSpawn--;

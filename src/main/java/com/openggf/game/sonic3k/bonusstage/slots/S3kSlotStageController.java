@@ -3,6 +3,9 @@ package com.openggf.game.sonic3k.bonusstage.slots;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
+
 public class S3kSlotStageController {
     private int statTable;
     private int scalarIndex;  // SStage_scalar_index_1 — rotation velocity per frame
@@ -10,12 +13,18 @@ public class S3kSlotStageController {
     private int pendingRingRewards;
     private int pendingSpikeRewards;
 
+    // Positional data queued alongside each pending reward (spawnX, spawnY, targetX, targetY)
+    private final Deque<int[]> pendingRingRewardPositions = new ArrayDeque<>();
+    private final Deque<int[]> pendingSpikeRewardPositions = new ArrayDeque<>();
+
     public void bootstrap() {
         statTable = 0;
         scalarIndex = 0x40;  // ROM line 98732
         rewardCounter = 0;
         pendingRingRewards = 0;
         pendingSpikeRewards = 0;
+        pendingRingRewardPositions.clear();
+        pendingSpikeRewardPositions.clear();
     }
 
     /** Per-frame rotation: Stat_table += SStage_scalar_index_1 (lines 98776-98778) */
@@ -61,26 +70,68 @@ public class S3kSlotStageController {
 
     public void queueRingReward() {
         pendingRingRewards++;
+        pendingRingRewardPositions.offer(new int[0]);
+    }
+
+    /**
+     * Queues a ring reward with positional data for interpolated movement.
+     *
+     * <p>ROM reference: cage object stores spawn position at reward allocation time
+     * ({@code loc_4C172}, lines 99482-99490).
+     */
+    public void queueRingRewardAt(int spawnX, int spawnY, int targetX, int targetY) {
+        pendingRingRewards++;
+        pendingRingRewardPositions.offer(new int[]{spawnX, spawnY, targetX, targetY});
     }
 
     public void queueSpikeReward() {
         pendingSpikeRewards++;
+        pendingSpikeRewardPositions.offer(new int[0]);
     }
 
-    public boolean consumePendingRingReward() {
+    /**
+     * Queues a spike reward with positional data for interpolated movement.
+     *
+     * <p>ROM reference: cage object stores spawn position at reward allocation time
+     * ({@code loc_4C0AA}, lines 99438-99447).
+     */
+    public void queueSpikeRewardAt(int spawnX, int spawnY, int targetX, int targetY) {
+        pendingSpikeRewards++;
+        pendingSpikeRewardPositions.offer(new int[]{spawnX, spawnY, targetX, targetY});
+    }
+
+    /**
+     * Consumes one pending ring reward.
+     *
+     * @return {@code null} if no reward is pending; {@code int[4]} with
+     *         {@code {spawnX, spawnY, targetX, targetY}} if positional data was provided via
+     *         {@link #queueRingRewardAt}; or {@code int[0]} if queued without position data
+     *         (backward-compatible fallback — caller should use its own spawn coordinates).
+     */
+    public int[] consumePendingRingReward() {
         if (pendingRingRewards <= 0) {
-            return false;
+            return null;
         }
         pendingRingRewards--;
-        return true;
+        int[] pos = pendingRingRewardPositions.poll();
+        return pos != null ? pos : new int[0];
     }
 
-    public boolean consumePendingSpikeReward() {
+    /**
+     * Consumes one pending spike reward.
+     *
+     * @return {@code null} if no reward is pending; {@code int[4]} with
+     *         {@code {spawnX, spawnY, targetX, targetY}} if positional data was provided via
+     *         {@link #queueSpikeRewardAt}; or {@code int[0]} if queued without position data
+     *         (backward-compatible fallback — caller should use its own spawn coordinates).
+     */
+    public int[] consumePendingSpikeReward() {
         if (pendingSpikeRewards <= 0) {
-            return false;
+            return null;
         }
         pendingSpikeRewards--;
-        return true;
+        int[] pos = pendingSpikeRewardPositions.poll();
+        return pos != null ? pos : new int[0];
     }
 
     public boolean consumeRewardRing() {
