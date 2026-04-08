@@ -35,6 +35,7 @@ class TestS3kSlotStageController {
         assertEquals(4, controller.angle());
         assertEquals((byte) 4, player.getAngle());
 
+        player.setJumpInputPressed(true);
         controller.tickPlayer((S3kSlotBonusPlayer) player, true, true, true, 1);
         int angle = controller.angle();
         int launchAngle = (-((angle & 0xFC)) - 0x40) & 0xFF;
@@ -67,6 +68,7 @@ class TestS3kSlotStageController {
 
         controller.tickPlayer((S3kSlotBonusPlayer) player, false, true, false, 0);
         int angle = controller.angle();
+        player.setJumpInputPressed(true);
         controller.tickPlayer((S3kSlotBonusPlayer) player, false, false, true, 1);
         int launchAngle = (-((angle & 0xFC)) - 0x40) & 0xFF;
 
@@ -74,5 +76,24 @@ class TestS3kSlotStageController {
         assertEquals((short) ((TrigLookupTable.cosHex(launchAngle) * 0x680) >> 8), player.getXSpeed());
         assertEquals((short) ((TrigLookupTable.sinHex(launchAngle) * 0x680) >> 8), player.getYSpeed());
         assertEquals((byte) angle, player.getAngle());
+    }
+
+    @Test
+    void heldJumpDoesNotRelaunchAfterTheFirstPress() {
+        S3kSlotStageController controller = new S3kSlotStageController();
+        AbstractPlayableSprite player = S3kSlotBonusPlayer.create("tails", (short) 0, (short) 0, controller);
+
+        controller.tickPlayer((S3kSlotBonusPlayer) player, false, true, false, 0);
+        player.setJumpInputPressed(true);
+        controller.tickPlayer((S3kSlotBonusPlayer) player, false, false, true, 1);
+
+        player.setXSpeed((short) 0x0123);
+        player.setYSpeed((short) 0x0456);
+
+        player.setJumpInputPressed(true);
+        controller.tickPlayer((S3kSlotBonusPlayer) player, false, false, true, 2);
+
+        assertEquals((short) 0x0123, player.getXSpeed());
+        assertEquals((short) 0x0456, player.getYSpeed());
     }
 }

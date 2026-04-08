@@ -95,4 +95,20 @@ class TestS3kSlotBonusPlayer {
         assertTrue(player instanceof CustomPlayablePhysics);
         assertTrue(player instanceof S3kSlotBonusPlayer);
     }
+
+    @Test
+    void customPhysicsConsumesLaunchedVelocityIntoPosition() {
+        S3kSlotStageController controller = new S3kSlotStageController();
+        AbstractPlayableSprite player = S3kSlotBonusPlayer.create("sonic", (short) 0x460, (short) 0x430, controller);
+
+        short startX = player.getX();
+        short startY = player.getY();
+        player.setJumpInputPressed(true);
+
+        ((CustomPlayablePhysics) player).tickCustomPhysics(
+                false, false, false, true, true, false, false, false, (LevelManager) null, 42);
+
+        assertTrue(player.getAir());
+        assertTrue(player.getX() != startX || player.getY() != startY);
+    }
 }
