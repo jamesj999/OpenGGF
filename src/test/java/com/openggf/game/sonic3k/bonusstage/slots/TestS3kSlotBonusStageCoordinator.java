@@ -1,16 +1,41 @@
 package com.openggf.game.sonic3k.bonusstage.slots;
 
+import com.openggf.configuration.SonicConfiguration;
+import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.BonusStageState;
 import com.openggf.game.BonusStageType;
+import com.openggf.game.GameServices;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic3k.Sonic3kBonusStageCoordinator;
+import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.sprites.playable.Tails;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TestS3kSlotBonusStageCoordinator {
 
+    @AfterEach
+    void tearDown() {
+        RuntimeManager.destroyCurrent();
+        SonicConfigurationService.getInstance().resetToDefaults();
+    }
+
     @Test
-    void deferredSetupCreatesRuntimeOnlyForSlots() {
+    void deferredSetupCreatesInitializedRuntimeOnlyForSlotsWhenLiveGameplayRuntimeExists() {
+        RuntimeManager.createGameplay();
+        SonicConfigurationService.getInstance().setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "tails");
+        AbstractPlayableSprite originalPlayer = new Tails("tails", (short) 0x460, (short) 0x430);
+        GameServices.sprites().addSprite(originalPlayer);
+        GameServices.camera().setFocusedSprite(originalPlayer);
+
         Sonic3kBonusStageCoordinator coordinator = new Sonic3kBonusStageCoordinator();
         coordinator.onEnter(BonusStageType.SLOT_MACHINE, savedState());
 
@@ -19,10 +44,15 @@ class TestS3kSlotBonusStageCoordinator {
         S3kSlotBonusStageRuntime runtime = coordinator.activeSlotRuntimeForTest();
         assertNotNull(runtime);
         assertTrue(runtime.isInitialized());
+        AbstractPlayableSprite swappedPlayer = assertInstanceOf(Tails.class, GameServices.sprites().getSprite("tails"));
+        assertTrue(swappedPlayer instanceof S3kSlotBonusPlayer);
+        assertNotSame(originalPlayer, swappedPlayer);
+        assertSame(swappedPlayer, GameServices.camera().getFocusedSprite());
     }
 
     @Test
     void deferredSetupDoesNotCreateRuntimeForNonSlotStages() {
+        RuntimeManager.createGameplay();
         Sonic3kBonusStageCoordinator coordinator = new Sonic3kBonusStageCoordinator();
         coordinator.onEnter(BonusStageType.GUMBALL, savedState());
 
@@ -33,6 +63,12 @@ class TestS3kSlotBonusStageCoordinator {
 
     @Test
     void exitClearsActiveRuntime() {
+        RuntimeManager.createGameplay();
+        SonicConfigurationService.getInstance().setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "tails");
+        AbstractPlayableSprite originalPlayer = new Tails("tails", (short) 0x460, (short) 0x430);
+        GameServices.sprites().addSprite(originalPlayer);
+        GameServices.camera().setFocusedSprite(originalPlayer);
+
         Sonic3kBonusStageCoordinator coordinator = new Sonic3kBonusStageCoordinator();
         coordinator.onEnter(BonusStageType.SLOT_MACHINE, savedState());
         coordinator.onDeferredSetupComplete();
@@ -45,6 +81,8 @@ class TestS3kSlotBonusStageCoordinator {
 
         assertFalse(runtime.isInitialized());
         assertNull(coordinator.activeSlotRuntimeForTest());
+        assertSame(originalPlayer, GameServices.sprites().getSprite("tails"));
+        assertSame(originalPlayer, GameServices.camera().getFocusedSprite());
     }
 
     private static BonusStageState savedState() {

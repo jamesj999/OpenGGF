@@ -77,6 +77,9 @@ public class Sonic3kBonusStageCoordinator extends AbstractBonusStageCoordinator 
         }
         slotRuntime = new S3kSlotBonusStageRuntime();
         slotRuntime.bootstrap();
+        if (!slotRuntime.isInitialized()) {
+            slotRuntime = null;
+        }
     }
 
     @Override
