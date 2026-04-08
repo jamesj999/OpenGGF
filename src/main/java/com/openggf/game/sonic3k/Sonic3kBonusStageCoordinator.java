@@ -37,6 +37,7 @@ public class Sonic3kBonusStageCoordinator extends AbstractBonusStageCoordinator 
     private static final int STAGE_COUNT    = 3;
 
     private S3kSlotBonusStageRuntime slotRuntime;
+    private int slotFrameCounter;
 
     @Override
     public BonusStageType selectBonusStage(int ringCount) {
@@ -79,13 +80,19 @@ public class Sonic3kBonusStageCoordinator extends AbstractBonusStageCoordinator 
         slotRuntime.bootstrap();
         if (!slotRuntime.isInitialized()) {
             slotRuntime = null;
+            slotFrameCounter = 0;
+            return;
         }
+        slotFrameCounter = 0;
     }
 
     @Override
     public void onFrameUpdate() {
         if (slotRuntime != null) {
-            slotRuntime.update(0);
+            slotRuntime.update(slotFrameCounter++);
+            if (slotRuntime.isExitTriggered()) {
+                requestExit();
+            }
         }
     }
 
@@ -95,10 +102,15 @@ public class Sonic3kBonusStageCoordinator extends AbstractBonusStageCoordinator 
             slotRuntime.shutdown();
             slotRuntime = null;
         }
+        slotFrameCounter = 0;
         super.onExit();
     }
 
-    public S3kSlotBonusStageRuntime activeSlotRuntimeForTest() {
+    public S3kSlotBonusStageRuntime activeSlotRuntime() {
         return slotRuntime;
+    }
+
+    public S3kSlotBonusStageRuntime activeSlotRuntimeForTest() {
+        return activeSlotRuntime();
     }
 }

@@ -29,35 +29,16 @@ public interface S3kSlotBonusPlayer extends CustomPlayablePhysics {
         };
     }
 
-    static AbstractPlayableSprite create(String mainCode, short x, short y, S3kSlotStageController controller) {
-        S3kSlotPlayerRuntime runtime = S3kSlotPlayerRuntime.fromRomData();
-        if (controller != null) {
-            runtime.syncFromController(controller);
-        }
-        return switch (normalize(mainCode)) {
-            case "tails" -> new TailsSlotBonusPlayer(mainCode, x, y, runtime, controller);
-            case "knuckles" -> new KnucklesSlotBonusPlayer(mainCode, x, y, runtime, controller);
-            default -> new SonicSlotBonusPlayer(mainCode, x, y, runtime, controller);
-        };
-    }
-
     private static String normalize(String mainCode) {
         return mainCode == null ? "" : mainCode.trim().toLowerCase(Locale.ROOT);
     }
 
     final class SonicSlotBonusPlayer extends Sonic implements S3kSlotBonusPlayer {
         private final S3kSlotPlayerRuntime runtime;
-        private final S3kSlotStageController controller;
 
         SonicSlotBonusPlayer(String code, short x, short y, S3kSlotPlayerRuntime runtime) {
-            this(code, x, y, runtime, null);
-        }
-
-        SonicSlotBonusPlayer(String code, short x, short y, S3kSlotPlayerRuntime runtime,
-                             S3kSlotStageController controller) {
             super(code, x, y);
             this.runtime = runtime;
-            this.controller = controller;
             setHighPriority(true);
         }
 
@@ -65,9 +46,6 @@ public interface S3kSlotBonusPlayer extends CustomPlayablePhysics {
         public void tickCustomPhysics(boolean up, boolean down, boolean left, boolean right,
                                       boolean jump, boolean test, boolean speedUp, boolean slowDown,
                                       LevelManager levelManager, int frameCounter) {
-            if (controller != null) {
-                runtime.syncFromController(controller);
-            }
             runtime.tick(this, left, right, jump, frameCounter);
         }
 
@@ -79,17 +57,10 @@ public interface S3kSlotBonusPlayer extends CustomPlayablePhysics {
 
     final class TailsSlotBonusPlayer extends Tails implements S3kSlotBonusPlayer {
         private final S3kSlotPlayerRuntime runtime;
-        private final S3kSlotStageController controller;
 
         TailsSlotBonusPlayer(String code, short x, short y, S3kSlotPlayerRuntime runtime) {
-            this(code, x, y, runtime, null);
-        }
-
-        TailsSlotBonusPlayer(String code, short x, short y, S3kSlotPlayerRuntime runtime,
-                             S3kSlotStageController controller) {
             super(code, x, y);
             this.runtime = runtime;
-            this.controller = controller;
             setHighPriority(true);
         }
 
@@ -97,9 +68,6 @@ public interface S3kSlotBonusPlayer extends CustomPlayablePhysics {
         public void tickCustomPhysics(boolean up, boolean down, boolean left, boolean right,
                                       boolean jump, boolean test, boolean speedUp, boolean slowDown,
                                       LevelManager levelManager, int frameCounter) {
-            if (controller != null) {
-                runtime.syncFromController(controller);
-            }
             runtime.tick(this, left, right, jump, frameCounter);
         }
 
@@ -111,17 +79,10 @@ public interface S3kSlotBonusPlayer extends CustomPlayablePhysics {
 
     final class KnucklesSlotBonusPlayer extends Knuckles implements S3kSlotBonusPlayer {
         private final S3kSlotPlayerRuntime runtime;
-        private final S3kSlotStageController controller;
 
         KnucklesSlotBonusPlayer(String code, short x, short y, S3kSlotPlayerRuntime runtime) {
-            this(code, x, y, runtime, null);
-        }
-
-        KnucklesSlotBonusPlayer(String code, short x, short y, S3kSlotPlayerRuntime runtime,
-                                S3kSlotStageController controller) {
             super(code, x, y);
             this.runtime = runtime;
-            this.controller = controller;
             setHighPriority(true);
         }
 
@@ -129,9 +90,6 @@ public interface S3kSlotBonusPlayer extends CustomPlayablePhysics {
         public void tickCustomPhysics(boolean up, boolean down, boolean left, boolean right,
                                       boolean jump, boolean test, boolean speedUp, boolean slowDown,
                                       LevelManager levelManager, int frameCounter) {
-            if (controller != null) {
-                runtime.syncFromController(controller);
-            }
             runtime.tick(this, left, right, jump, frameCounter);
         }
 

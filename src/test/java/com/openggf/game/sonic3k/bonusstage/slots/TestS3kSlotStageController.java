@@ -12,7 +12,7 @@ class TestS3kSlotStageController {
     @Test
     void bootstrapResetsAngleStateAfterMovement() {
         S3kSlotStageController controller = new S3kSlotStageController();
-        AbstractPlayableSprite player = S3kSlotBonusPlayer.create("tails", (short) 0, (short) 0, controller);
+        AbstractPlayableSprite player = S3kSlotBonusPlayer.create("tails", (short) 0, (short) 0, newRuntime());
 
         controller.bootstrap();
         controller.tick(); // advance by scalarIndex (0x40)
@@ -31,7 +31,7 @@ class TestS3kSlotStageController {
     @Test
     void leftAndRightInputsDoNotSkipJumpWhenBothPressed() {
         S3kSlotStageController controller = new S3kSlotStageController();
-        AbstractPlayableSprite player = S3kSlotBonusPlayer.create("tails", (short) 0, (short) 0, controller);
+        AbstractPlayableSprite player = S3kSlotBonusPlayer.create("tails", (short) 0, (short) 0, newRuntime());
 
         controller.bootstrap();
         controller.tick(); // angle = 0x40
@@ -68,7 +68,7 @@ class TestS3kSlotStageController {
     @Test
     void jumpLaunchesPlayerUsingCurrentAngleAndSetsAirborneState() {
         S3kSlotStageController controller = new S3kSlotStageController();
-        AbstractPlayableSprite player = S3kSlotBonusPlayer.create("tails", (short) 0, (short) 0, controller);
+        AbstractPlayableSprite player = S3kSlotBonusPlayer.create("tails", (short) 0, (short) 0, newRuntime());
 
         controller.bootstrap();
         controller.tick(); // angle = 0x40
@@ -87,7 +87,7 @@ class TestS3kSlotStageController {
     @Test
     void heldJumpDoesNotRelaunchAfterTheFirstPress() {
         S3kSlotStageController controller = new S3kSlotStageController();
-        AbstractPlayableSprite player = S3kSlotBonusPlayer.create("tails", (short) 0, (short) 0, controller);
+        AbstractPlayableSprite player = S3kSlotBonusPlayer.create("tails", (short) 0, (short) 0, newRuntime());
 
         controller.bootstrap();
         controller.tick(); // angle = 0x40
@@ -144,7 +144,7 @@ class TestS3kSlotStageController {
     void jumpOnlyWorksWhenGrounded() {
         S3kSlotStageController controller = new S3kSlotStageController();
         controller.bootstrap();
-        AbstractPlayableSprite player = S3kSlotBonusPlayer.create("sonic", (short) 0, (short) 0, controller);
+        AbstractPlayableSprite player = S3kSlotBonusPlayer.create("sonic", (short) 0, (short) 0, newRuntime());
 
         // Set player airborne
         player.setAir(true);
@@ -155,5 +155,12 @@ class TestS3kSlotStageController {
         // Should NOT have launched (was already airborne)
         assertEquals((short) 0, player.getXSpeed());
         assertEquals((short) 0, player.getYSpeed());
+    }
+
+    private static S3kSlotPlayerRuntime newRuntime() {
+        S3kSlotStageState state = S3kSlotStageState.bootstrap();
+        S3kSlotCollisionSystem collisionSystem = new S3kSlotCollisionSystem(
+                S3kSlotRenderBuffers.fromRomData(), state);
+        return new S3kSlotPlayerRuntime(state, collisionSystem);
     }
 }

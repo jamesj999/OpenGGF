@@ -82,6 +82,7 @@ class TestS3kSlotBonusStageRuntime {
         assertEquals(0x20, buffers.layoutRows());
         assertEquals(0x20, buffers.layoutColumns());
     }
+
     @Test
     void slotPlayerMovesUnderRightInputInBootstrappedZone15() {
         SonicConfigurationService.getInstance().setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, true);
@@ -161,8 +162,8 @@ class TestS3kSlotBonusStageRuntime {
 
         // Verify subsystems are wired in
         assertNotNull(runtime.activeSlotCageForTest());
-        assertNotNull(runtime.activeSlotRingRewardForTest());
-        assertNotNull(runtime.activeSlotSpikeRewardForTest());
+        assertTrue(runtime.activeSlotRingRewardsForTest().isEmpty());
+        assertTrue(runtime.activeSlotSpikeRewardsForTest().isEmpty());
         assertNotNull(runtime.activeLayoutForTest());
         assertEquals(32 * 32, runtime.activeLayoutForTest().length);
 
