@@ -21,6 +21,7 @@ import com.openggf.game.GameModuleRegistry;
 import com.openggf.level.LevelManager;
 import com.openggf.physics.Direction;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.sprites.playable.CustomPlayablePhysics;
 import com.openggf.sprites.SensorConfiguration;
 import com.openggf.sprites.Sprite;
 import com.openggf.game.GroundMode;
@@ -737,7 +738,12 @@ public class SpriteManager {
 		if (!isUnified) {
 			applySolidContacts(levelManager, playable, false, false);
 		}
-		playable.getMovementManager().handleMovement(up, down, left, right, jump, test, speedUp, slowDown);
+		if (playable instanceof CustomPlayablePhysics customPhysics) {
+			customPhysics.tickCustomPhysics(up, down, left, right, jump, test, speedUp, slowDown,
+					levelManager, frameCounter);
+		} else {
+			playable.getMovementManager().handleMovement(up, down, left, right, jump, test, speedUp, slowDown);
+		}
 		// ROM order: ReactToItem runs during each player's slot within ExecuteObjects,
 		// after their physics but before other objects' solid checks.
 		levelManager.applyTouchResponses(playable);
