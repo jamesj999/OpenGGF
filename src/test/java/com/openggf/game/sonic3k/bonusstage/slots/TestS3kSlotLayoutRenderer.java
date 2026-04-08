@@ -42,6 +42,36 @@ class TestS3kSlotLayoutRenderer {
     }
 
     @Test
+    void transientRingAnimationAdvancesAndFallsBackToExpandedLayoutTile() {
+        S3kSlotLayoutRenderer renderer = new S3kSlotLayoutRenderer();
+        S3kSlotRenderBuffers buffers = S3kSlotRenderBuffers.fromRomData();
+        buffers.expandedLayout()[1 * buffers.layoutStrideBytes() + 1] = 8;
+
+        buffers.startRingAnimationAt(0x21);
+
+        for (int i = 0; i < S3kSlotRomData.RING_SPARKLE_DELAY; i++) {
+            renderer.tickTransientAnimations(buffers);
+        }
+        assertEquals(0x11, buffers.renderCellIdAt(1, 1));
+
+        for (int i = 0; i < S3kSlotRomData.RING_SPARKLE_DELAY; i++) {
+            renderer.tickTransientAnimations(buffers);
+        }
+        assertEquals(0x12, buffers.renderCellIdAt(1, 1));
+
+        for (int i = 0; i < S3kSlotRomData.RING_SPARKLE_DELAY; i++) {
+            renderer.tickTransientAnimations(buffers);
+        }
+        assertEquals(0x13, buffers.renderCellIdAt(1, 1));
+
+        for (int i = 0; i < S3kSlotRomData.RING_SPARKLE_DELAY; i++) {
+            renderer.tickTransientAnimations(buffers);
+        }
+        assertFalse(buffers.hasActiveTransientAnimationAt(0x21));
+        assertEquals(8, buffers.renderCellIdAt(1, 1));
+    }
+
+    @Test
     void zeroAngleBuildsStable16x16PointGrid() {
         S3kSlotLayoutRenderer renderer = new S3kSlotLayoutRenderer();
 
