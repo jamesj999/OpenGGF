@@ -160,6 +160,15 @@ public final class Sonic3kPlcArtRegistry {
                     Sonic3kConstants.MAP_SS_ENTRY_FLASH_ADDR,
                     1,  // palette line 1 (ROM: make_art_tile(ArtTile_Player_1,1,0))
                     Sonic3kConstants.DPLC_SS_ENTRY_FLASH_ADDR
+            ),
+            new StandaloneArtEntry(
+                    Sonic3kObjectArtKeys.BUBBLER,
+                    Sonic3kConstants.ART_NEM_BUBBLES_ADDR,
+                    CompressionType.NEMESIS,
+                    0,
+                    -1,
+                    0,
+                    -1
             )
     );
 
