@@ -1,9 +1,11 @@
 package com.openggf.game.sonic3k.bonusstage.slots;
 
+import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TestS3kSlotStageController {
 
@@ -25,7 +27,7 @@ class TestS3kSlotStageController {
     }
 
     @Test
-    void leftAndRightInputsAdjustAngleByFourAndNoOpWhenBothPressed() {
+    void leftAndRightInputsDoNotSkipJumpWhenBothPressed() {
         S3kSlotStageController controller = new S3kSlotStageController();
         AbstractPlayableSprite player = S3kSlotBonusPlayer.create("tails", (short) 0, (short) 0, controller);
 
@@ -33,13 +35,15 @@ class TestS3kSlotStageController {
         assertEquals(4, controller.angle());
         assertEquals((byte) 4, player.getAngle());
 
-        controller.tickPlayer((S3kSlotBonusPlayer) player, true, false, false, 1);
-        assertEquals(0, controller.angle());
-        assertEquals((byte) 0, player.getAngle());
+        controller.tickPlayer((S3kSlotBonusPlayer) player, true, true, true, 1);
+        int angle = controller.angle();
+        int launchAngle = (-((angle & 0xFC)) - 0x40) & 0xFF;
 
-        controller.tickPlayer((S3kSlotBonusPlayer) player, true, true, false, 2);
-        assertEquals(0, controller.angle());
-        assertEquals((byte) 0, player.getAngle());
+        assertEquals(4, angle);
+        assertEquals((byte) 4, player.getAngle());
+        assertTrue(player.getAir());
+        assertEquals((short) ((TrigLookupTable.cosHex(launchAngle) * 0x680) >> 8), player.getXSpeed());
+        assertEquals((short) ((TrigLookupTable.sinHex(launchAngle) * 0x680) >> 8), player.getYSpeed());
     }
 
     @Test
@@ -54,5 +58,21 @@ class TestS3kSlotStageController {
         controller.tickPlayer((S3kSlotBonusPlayer) player, false, false, false, 1);
         assertEquals(0xFC, controller.angle());
         assertEquals((byte) 0xFC, player.getAngle());
+    }
+
+    @Test
+    void jumpLaunchesPlayerUsingCurrentAngleAndSetsAirborneState() {
+        S3kSlotStageController controller = new S3kSlotStageController();
+        AbstractPlayableSprite player = S3kSlotBonusPlayer.create("tails", (short) 0, (short) 0, controller);
+
+        controller.tickPlayer((S3kSlotBonusPlayer) player, false, true, false, 0);
+        int angle = controller.angle();
+        controller.tickPlayer((S3kSlotBonusPlayer) player, false, false, true, 1);
+        int launchAngle = (-((angle & 0xFC)) - 0x40) & 0xFF;
+
+        assertTrue(player.getAir());
+        assertEquals((short) ((TrigLookupTable.cosHex(launchAngle) * 0x680) >> 8), player.getXSpeed());
+        assertEquals((short) ((TrigLookupTable.sinHex(launchAngle) * 0x680) >> 8), player.getYSpeed());
+        assertEquals((byte) angle, player.getAngle());
     }
 }
