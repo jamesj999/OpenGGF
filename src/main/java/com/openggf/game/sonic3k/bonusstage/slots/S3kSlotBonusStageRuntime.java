@@ -22,6 +22,8 @@ public final class S3kSlotBonusStageRuntime {
         if (GameServices.sprites().getSprite(mainCode) instanceof AbstractPlayableSprite mainPlayer) {
             originalPlayer = mainPlayer;
             slotPlayer = S3kSlotBonusPlayer.create(mainCode, mainPlayer.getX(), mainPlayer.getY(), slotStageController);
+            slotPlayer.setTopSolidBit(mainPlayer.getTopSolidBit());
+            slotPlayer.setLrbSolidBit(mainPlayer.getLrbSolidBit());
             GameServices.sprites().addSprite(slotPlayer);
             GameServices.camera().setFocusedSprite(slotPlayer);
             initialized = true;
