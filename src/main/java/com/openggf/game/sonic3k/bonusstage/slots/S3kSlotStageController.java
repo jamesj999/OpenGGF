@@ -47,6 +47,14 @@ public class S3kSlotStageController {
         return true;
     }
 
+    public boolean consumeRewardRing(int carriedRingCount) {
+        if (carriedRingCount + rewardCounter <= 0) {
+            return false;
+        }
+        rewardCounter--;
+        return true;
+    }
+
     public int rewardCount() {
         return rewardCounter;
     }
