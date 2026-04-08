@@ -407,6 +407,16 @@ public final class Sonic3kPlcArtRegistry {
                 null
         ));
 
+        // HCZ Conveyor Spike: ArtTile_HCZSpikeBall, palette 1
+        // ROM: make_art_tile(ArtTile_HCZSpikeBall, 1, 0), Map_HCZConveyorSpike
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.HCZ_CONVEYOR_SPIKE,
+                Sonic3kConstants.MAP_HCZ_CONVEYOR_SPIKE_ADDR,
+                Sonic3kConstants.ARTTILE_HCZ_CONVEYOR_SPIKE,
+                1,
+                null
+        ));
+
         // HCZ Fan: ArtTile_HCZMisc + $41, palette 1
         // ROM: make_art_tile(ArtTile_HCZMisc+$41, 1, 0), Map_HCZFan (5 frames)
         levelArt.add(new LevelArtEntry(

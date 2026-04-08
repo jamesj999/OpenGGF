@@ -160,6 +160,14 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                     }
                     return new HCZConveyorBeltObjectInstance(spawn);
                 });
+        factories.put(Sonic3kObjectIds.HCZ_CONVEYOR_SPIKE,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new HCZConveyorSpikeObjectInstance(spawn);
+                });
         factories.put(Sonic3kObjectIds.HCZ_BLOCK,
                 (spawn, registry) -> {
                     S3kZoneSet zoneSet = getCurrentZoneSet();

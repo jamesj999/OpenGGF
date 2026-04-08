@@ -36,6 +36,7 @@ public final class Sonic3kObjectIds {
     public static final int HCZ_WATER_WALL = 0x3B;
     public static final int HCZ_HAND_LAUNCHER = 0x3A;
     public static final int HCZ_CONVEYOR_BELT = 0x3E;
+    public static final int HCZ_CONVEYOR_SPIKE = 0x3F;
     public static final int HCZ_BLOCK = 0x40;
     public static final int SS_ENTRY_RING = 0x85;
     public static final int BLOOMINATOR = 0x8C;

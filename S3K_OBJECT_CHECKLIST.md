@@ -5,8 +5,8 @@ Generated: 2026-04-08 16:33:39
 ## Summary
 
 - **Total unique objects found:** 303
-- **Implemented:** 48 (15.8%)
-- **Unimplemented:** 255 (84.2%)
+- **Implemented:** 49 (16.2%)
+- **Unimplemented:** 254 (83.8%)
 
 ## Implemented Objects
 
@@ -236,7 +236,6 @@ Generated: 2026-04-08 16:33:39
 | 0x76 | Object | SSZRotatingPlatform | 7 |  | SSZ1 |
 | 0x4E | Object | DEZLiftPad | 7 |  | DEZ1 |
 | 0x57 | Object | DEZTunnelLauncher | 7 |  | DEZ1, DEZ2 |
-| 0x3F | Object | HCZConveyorSpike | 6 |  | HCZ1 |
 | 0x5C | Object | MGZTopLauncher | 6 |  | MGZ1, MGZ2 |
 | 0x77 | Object | FBZRotatingPlatform | 6 |  | FBZ1 |
 | 0xFF | Object | FBZMagneticPendulum | 6 |  | FBZ2 |
@@ -406,7 +405,7 @@ Total: 751 objects | Implemented: 30 | Unimplemented: 2
 
 #### Act 1
 
-Total: 383 objects | Implemented: 25 | Unimplemented: 5
+Total: 383 objects | Implemented: 26 | Unimplemented: 4
 
 **Badniks:**
 - [x] 0x94 Blastoid (x7) [5 subtypes]
@@ -436,7 +435,7 @@ Total: 383 objects | Implemented: 25 | Unimplemented: 5
 - [x] 0x3A HCZHandLauncher (x5) [0x00]
 - [x] 0x3B HCZWaterWall (x3) [0x00, 0x01]
 - [x] 0x3E HCZConveyorBelt (x64) [32 subtypes]
-- [ ] 0x3F HCZConveyorSpike (x6) [0x02, 0x08, 0x0A]
+- [x] 0x3F HCZConveyorSpike (x6) [0x02, 0x08, 0x0A]
 - [x] 0x40 HCZBlock (x1) [0x00]
 - [x] 0x51 FloatingPlatform (x17) [4 subtypes]
 - [x] 0x54 Bubbler (x9) [0x80]

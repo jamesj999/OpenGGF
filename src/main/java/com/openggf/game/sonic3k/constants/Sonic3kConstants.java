@@ -204,6 +204,13 @@ public class Sonic3kConstants {
     // LockOn data (assembled into S3 half of combined ROM — no S&K-side copy exists)
     public static final int MAP_HCZ_BREAKABLE_BAR_ADDR = 0x21CDCA; // Map_HCZBreakableBar (8 frames)
 
+    // ===== HCZ Conveyor Spike (Obj_HCZConveyorSpike, ID 0x3F) =====
+    // LockOn data (S3 half only — no S&K-side copy). Verified via ROM byte search
+    // for the assembled single-frame mapping table.
+    public static final int MAP_HCZ_CONVEYOR_SPIKE_ADDR = 0x23035E; // Map_HCZConveyorSpike (1 frame)
+    // ROM: make_art_tile(ArtTile_HCZSpikeBall, 1, 0)
+    public static final int ARTTILE_HCZ_CONVEYOR_SPIKE = 0x043E;
+
     // ===== HCZ Block mappings (Obj_HCZBlock, ID 0x40) =====
     // LockOn data (assembled into S3 half of combined ROM — no S&K-side copy exists).
     // Derived from the frame labels in Map - Block.asm: Frame_21D052 starts 8 bytes after the table base.
