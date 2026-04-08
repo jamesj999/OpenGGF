@@ -16,7 +16,19 @@ class TestS3kSlotBonusStageCoordinator {
 
         coordinator.onDeferredSetupComplete();
 
-        assertNotNull(coordinator.activeSlotRuntimeForTest());
+        S3kSlotBonusStageRuntime runtime = coordinator.activeSlotRuntimeForTest();
+        assertNotNull(runtime);
+        assertTrue(runtime.isInitialized());
+    }
+
+    @Test
+    void deferredSetupDoesNotCreateRuntimeForNonSlotStages() {
+        Sonic3kBonusStageCoordinator coordinator = new Sonic3kBonusStageCoordinator();
+        coordinator.onEnter(BonusStageType.GUMBALL, savedState());
+
+        coordinator.onDeferredSetupComplete();
+
+        assertNull(coordinator.activeSlotRuntimeForTest());
     }
 
     @Test
@@ -25,8 +37,13 @@ class TestS3kSlotBonusStageCoordinator {
         coordinator.onEnter(BonusStageType.SLOT_MACHINE, savedState());
         coordinator.onDeferredSetupComplete();
 
+        S3kSlotBonusStageRuntime runtime = coordinator.activeSlotRuntimeForTest();
+        assertNotNull(runtime);
+        assertTrue(runtime.isInitialized());
+
         coordinator.onExit();
 
+        assertFalse(runtime.isInitialized());
         assertNull(coordinator.activeSlotRuntimeForTest());
     }
 
