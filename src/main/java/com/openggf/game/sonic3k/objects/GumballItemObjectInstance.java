@@ -5,6 +5,7 @@ import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
+import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
@@ -70,10 +71,8 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
     // These are the static balls displayed inside the machine / bonus stage.
     private static final int STATIC_PRIORITY_BUCKET = 4;
 
-    // The machine-spawned reward ball needs to sit between the body/pile layer and
-    // the front glass/door helper in the current renderer. Bucket 3 places it behind
-    // the glass helper (bucket 3 LOW) while still in front of the machine body (bucket 4).
-    private static final int MOVING_PRIORITY_BUCKET = 3;
+    // ROM: loc_60EBA uses ObjDat3_613E0 with priority $0100 → bucket 2.
+    private static final int MOVING_PRIORITY_BUCKET = 2;
 
     // ROM: loc_6114E — ring item awards 10 rings to HUD and 20 to saved count
     private static final int RING_ITEM_HUD_AWARD = 10;
@@ -525,7 +524,8 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (!GumballMachineObjectInstance.shouldDebugRender(getPriorityBucket(), isHighPriority())) return;
+        if (!GumballMachineObjectInstance.shouldDebugRender(
+                getPriorityBucket(), isHighPriority(), GumballMachineObjectInstance.DEBUG_SOURCE_ITEM)) return;
         String artKey = resolveArtKey();
         PatternSpriteRenderer renderer = getRenderer(artKey);
         if (renderer == null) {
@@ -533,7 +533,15 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
         }
 
         int frame = resolveMappingFrame();
-        renderer.drawFrameIndex(frame, motionState.x, motionState.y, false, false, 0);
+        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        graphicsManager.setCurrentSpriteSatDebugSource(String.format(
+                "GumballItem mode=%s frame=0x%02X slot=%d bucket=%d high=%s",
+                motionMode, frame, getSlotIndex(), getPriorityBucket(), isHighPriority()));
+        try {
+            renderer.drawFrameIndex(frame, motionState.x, motionState.y, false, false, 0);
+        } finally {
+            graphicsManager.setCurrentSpriteSatDebugSource(null);
+        }
     }
 
     private String resolveArtKey() {

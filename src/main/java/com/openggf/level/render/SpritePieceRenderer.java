@@ -28,7 +28,8 @@ public final class SpritePieceRenderer {
             int startColTile,
             int colCountTiles,
             int startRowTile,
-            int rowCountTiles
+            int rowCountTiles,
+            String debugSource
     ) {
         public PreparedPiece {
             if (widthTiles < 0 || heightTiles < 0) {
@@ -59,7 +60,7 @@ public final class SpritePieceRenderer {
         ) {
             this(x, y, widthTiles, heightTiles, firstPatternIndex, rawTileWordLow11, paletteIndex,
                     hFlip, vFlip, piecePriority, globalHighPriority,
-                    SpriteMaskReplayRole.NORMAL, 0, widthTiles, startRowTile, rowCountTiles);
+                    SpriteMaskReplayRole.NORMAL, 0, widthTiles, startRowTile, rowCountTiles, null);
         }
 
         public int endXExclusive() {
@@ -92,7 +93,8 @@ public final class SpritePieceRenderer {
                     clippedStartColTile,
                     clippedColCountTiles,
                     clippedStartRowTile,
-                    clippedRowCountTiles);
+                    clippedRowCountTiles,
+                    debugSource);
         }
 
         public PreparedPiece clipRows(int clippedStartRowTile, int clippedRowCountTiles) {
@@ -116,7 +118,8 @@ public final class SpritePieceRenderer {
                     startColTile,
                     colCountTiles,
                     startRowTile,
-                    rowCountTiles);
+                    rowCountTiles,
+                    debugSource);
         }
 
         public PreparedPiece withPriorityFlags(boolean overriddenPiecePriority, boolean overriddenGlobalHighPriority) {
@@ -136,7 +139,29 @@ public final class SpritePieceRenderer {
                     startColTile,
                     colCountTiles,
                     startRowTile,
-                    rowCountTiles);
+                    rowCountTiles,
+                    debugSource);
+        }
+
+        public PreparedPiece withDebugSource(String overriddenDebugSource) {
+            return new PreparedPiece(
+                    x,
+                    y,
+                    widthTiles,
+                    heightTiles,
+                    firstPatternIndex,
+                    rawTileWordLow11,
+                    paletteIndex,
+                    hFlip,
+                    vFlip,
+                    piecePriority,
+                    globalHighPriority,
+                    maskReplayRole,
+                    startColTile,
+                    colCountTiles,
+                    startRowTile,
+                    rowCountTiles,
+                    overriddenDebugSource);
         }
     }
 
@@ -252,7 +277,8 @@ public final class SpritePieceRenderer {
                 0,
                 widthTiles,
                 0,
-                heightTiles));
+                heightTiles,
+                null));
     }
 
     public static void renderPreparedPiece(PreparedPiece piece, TileConsumer consumer) {

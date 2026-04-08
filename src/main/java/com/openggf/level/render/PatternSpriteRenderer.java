@@ -84,6 +84,33 @@ public class PatternSpriteRenderer {
         drawFrame(frame, originX, originY, hFlip, vFlip, paletteIndex);
     }
 
+    public void drawFrameIndexWithSatReplayRole(int frameIndex, int originX, int originY,
+            boolean hFlip, boolean vFlip, int paletteOverride, SpriteMaskReplayRole satReplayRole) {
+        if (frameIndex < 0 || frameIndex >= spriteSheet.getFrameCount() || patternBase < 0) {
+            return;
+        }
+        SpriteFrame<? extends SpriteFramePiece> frame = spriteSheet.getFrame(frameIndex);
+        int paletteIndex = paletteOverride >= 0 ? paletteOverride : spriteSheet.getPaletteIndex();
+        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        if (graphicsManager.isSpriteSatCollectionActive()) {
+            for (int i = 0; i < frame.pieces().size(); i++) {
+                SpritePieceRenderer.preparePiece(
+                        frame.pieces().get(i),
+                        originX,
+                        originY,
+                        patternBase,
+                        paletteIndex,
+                        hFlip,
+                        vFlip,
+                        graphicsManager.getCurrentSpriteHighPriority(),
+                        preparedPiece -> graphicsManager.submitSpriteSatPiece(
+                                preparedPiece.withMaskReplayRole(satReplayRole)));
+            }
+            return;
+        }
+        drawFrame(frame, originX, originY, hFlip, vFlip, paletteIndex);
+    }
+
     public void drawPieces(List<? extends SpriteFramePiece> pieces,
             int originX,
             int originY,

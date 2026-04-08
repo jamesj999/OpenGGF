@@ -7,6 +7,7 @@ import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
+import com.openggf.graphics.SpriteMaskReplayRole;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
@@ -79,7 +80,30 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
     // ===== Debug: press F11 to cycle bucket/priority isolation =====
     // -1 = normal (all render), 0-7 = show ONLY that bucket, 8 = show only HIGH pri, 9 = show only LOW pri
     private static volatile int debugBucketFilter = -1;
+    private static volatile int debugSourceFilter = -1;
     private static final java.util.logging.Logger DEBUG_LOG = java.util.logging.Logger.getLogger("GumballDebug");
+    static final String DEBUG_SOURCE_MACHINE_MAIN = "machine-main";
+    static final String DEBUG_SOURCE_DISPENSER = "dispenser";
+    static final String DEBUG_SOURCE_EJECTION_EFFECT = "ejection-effect";
+    static final String DEBUG_SOURCE_CONTAINER_GLASS = "container-glass";
+    static final String DEBUG_SOURCE_PLATFORM = "platform";
+    static final String DEBUG_SOURCE_PLATFORM_EXTRA = "platform-extra-16";
+    static final String DEBUG_SOURCE_BODY_OVERLAY = "body-overlay-17";
+    static final String DEBUG_SOURCE_SPRING = "spring";
+    static final String DEBUG_SOURCE_ITEM = "item";
+    static final String DEBUG_SOURCE_BUMPER = "bumper";
+    private static final String[] DEBUG_SOURCE_FILTERS = {
+            DEBUG_SOURCE_MACHINE_MAIN,
+            DEBUG_SOURCE_CONTAINER_GLASS,
+            DEBUG_SOURCE_PLATFORM_EXTRA,
+            DEBUG_SOURCE_BODY_OVERLAY,
+            DEBUG_SOURCE_ITEM,
+            DEBUG_SOURCE_DISPENSER,
+            DEBUG_SOURCE_EJECTION_EFFECT,
+            DEBUG_SOURCE_PLATFORM,
+            DEBUG_SOURCE_SPRING,
+            DEBUG_SOURCE_BUMPER
+    };
 
     /** Called from GameLoop on F11 press during BONUS_STAGE mode. */
     public static void cycleDebugFilter() {
@@ -98,13 +122,57 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         }
     }
 
+    /** Called from GameLoop on INSERT press during BONUS_STAGE mode. */
+    public static void cycleDebugSourceFilter() {
+        debugSourceFilter++;
+        if (debugSourceFilter >= DEBUG_SOURCE_FILTERS.length) {
+            debugSourceFilter = -1;
+        }
+        if (debugSourceFilter == -1) {
+            DEBUG_LOG.info("Gumball debug: ALL child sources");
+            return;
+        }
+        DEBUG_LOG.info("Gumball debug: showing ONLY source " + DEBUG_SOURCE_FILTERS[debugSourceFilter]);
+    }
+
     /** Returns true if this object should render given current debug filter. */
     static boolean shouldDebugRender(int bucket, boolean highPriority) {
+        return shouldDebugRender(bucket, highPriority, null);
+    }
+
+    /** Returns true if this object should render given current debug bucket + source filters. */
+    static boolean shouldDebugRender(int bucket, boolean highPriority, String sourceKey) {
         int filter = debugBucketFilter;
-        if (filter == -1) return true; // normal
-        if (filter <= 7) return bucket == filter;
-        if (filter == 8) return highPriority;
-        return !highPriority; // filter == 9
+        boolean bucketMatch;
+        if (filter == -1) {
+            bucketMatch = true;
+        } else if (filter <= 7) {
+            bucketMatch = bucket == filter;
+        } else if (filter == 8) {
+            bucketMatch = highPriority;
+        } else {
+            bucketMatch = !highPriority; // filter == 9
+        }
+        if (!bucketMatch) {
+            return false;
+        }
+        int sourceFilter = debugSourceFilter;
+        if (sourceFilter == -1) {
+            return true;
+        }
+        return DEBUG_SOURCE_FILTERS[sourceFilter].equals(sourceKey);
+    }
+
+    static void resetDebugFiltersForTest() {
+        debugBucketFilter = -1;
+        debugSourceFilter = -1;
+    }
+
+    static String getCurrentDebugSourceFilterForTest() {
+        if (debugSourceFilter == -1) {
+            return null;
+        }
+        return DEBUG_SOURCE_FILTERS[debugSourceFilter];
     }
 
     // ROM: ObjDat3_6138C (platform/pile children) priority $0200 → bucket 4.
@@ -600,7 +668,7 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (!shouldDebugRender(PRIORITY_BUCKET, isHighPriority())) return;
+        if (!shouldDebugRender(PRIORITY_BUCKET, isHighPriority(), DEBUG_SOURCE_MACHINE_MAIN)) return;
         PatternSpriteRenderer renderer = getRenderer(Sonic3kObjectArtKeys.GUMBALL_BONUS);
         if (renderer == null) {
             return;
@@ -608,7 +676,15 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         // Render at currentY so the machine visually slides as bumpers clear.
         int renderY = driftInitialized ? currentY : (spawn.y() + MACHINE_Y_OFFSET);
-        renderer.drawFrameIndex(currentFrame, spawn.x(), renderY, false, false);
+        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        graphicsManager.setCurrentSpriteSatDebugSource(String.format(
+                "%s frame=0x%02X slot=%d bucket=%d high=%s",
+                name, currentFrame, getSlotIndex(), getPriorityBucket(), isHighPriority()));
+        try {
+            renderer.drawFrameIndex(currentFrame, spawn.x(), renderY, false, false);
+        } finally {
+            graphicsManager.setCurrentSpriteSatDebugSource(null);
+        }
     }
 
     // =====================================================================
@@ -691,12 +767,20 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
-            if (!shouldDebugRender(getPriorityBucket(), isHighPriority())) return;
+            if (!shouldDebugRender(getPriorityBucket(), isHighPriority(), DEBUG_SOURCE_DISPENSER)) return;
             PatternSpriteRenderer renderer = getRenderer(Sonic3kObjectArtKeys.GUMBALL_BONUS);
             if (renderer == null) {
                 return;
             }
-            renderer.drawFrameIndex(MAPPING_FRAME, spawn.x(), spawn.y(), false, false);
+            GraphicsManager graphicsManager = GraphicsManager.getInstance();
+            graphicsManager.setCurrentSpriteSatDebugSource(String.format(
+                    "%s frame=0x%02X slot=%d bucket=%d high=%s",
+                    name, MAPPING_FRAME, getSlotIndex(), getPriorityBucket(), isHighPriority()));
+            try {
+                renderer.drawFrameIndex(MAPPING_FRAME, spawn.x(), spawn.y(), false, false);
+            } finally {
+                graphicsManager.setCurrentSpriteSatDebugSource(null);
+            }
         }
     }
 
@@ -768,10 +852,18 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
-            if (!shouldDebugRender(getPriorityBucket(), isHighPriority())) return;
+            if (!shouldDebugRender(getPriorityBucket(), isHighPriority(), DEBUG_SOURCE_EJECTION_EFFECT)) return;
             PatternSpriteRenderer r = getRenderer(Sonic3kObjectArtKeys.GUMBALL_BONUS);
             if (r == null) return;
-            r.drawFrameIndex(MAPPING_FRAME, drawX, drawY, false, false);
+            GraphicsManager graphicsManager = GraphicsManager.getInstance();
+            graphicsManager.setCurrentSpriteSatDebugSource(String.format(
+                    "%s frame=0x%02X slot=%d bucket=%d high=%s",
+                    name, MAPPING_FRAME, getSlotIndex(), getPriorityBucket(), isHighPriority()));
+            try {
+                r.drawFrameIndex(MAPPING_FRAME, drawX, drawY, false, false);
+            } finally {
+                graphicsManager.setCurrentSpriteSatDebugSource(null);
+            }
         }
     }
 
@@ -865,12 +957,20 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
-            if (!shouldDebugRender(getPriorityBucket(), isHighPriority())) return;
+            if (!shouldDebugRender(getPriorityBucket(), isHighPriority(), DEBUG_SOURCE_CONTAINER_GLASS)) return;
             PatternSpriteRenderer renderer = getRenderer(Sonic3kObjectArtKeys.GUMBALL_BONUS);
             if (renderer == null) {
                 return;
             }
-            renderer.drawFrameIndex(currentFrame, spawn.x(), getY(), false, false);
+            GraphicsManager graphicsManager = GraphicsManager.getInstance();
+            graphicsManager.setCurrentSpriteSatDebugSource(String.format(
+                    "%s frame=0x%02X slot=%d bucket=%d high=%s",
+                    name, currentFrame, getSlotIndex(), getPriorityBucket(), isHighPriority()));
+            try {
+                renderer.drawFrameIndex(currentFrame, spawn.x(), getY(), false, false);
+            } finally {
+                graphicsManager.setCurrentSpriteSatDebugSource(null);
+            }
         }
     }
 
@@ -989,35 +1089,41 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
-            if (!shouldDebugRender(getPriorityBucket(), isHighPriority())) return;
+            String debugSourceKey = mappingFrame == 0x16 ? DEBUG_SOURCE_PLATFORM_EXTRA : DEBUG_SOURCE_PLATFORM;
+            if (!shouldDebugRender(getPriorityBucket(), isHighPriority(), debugSourceKey)) return;
             PatternSpriteRenderer renderer = getRenderer(Sonic3kObjectArtKeys.GUMBALL_BONUS);
             if (renderer == null) {
                 return;
             }
+            GraphicsManager graphicsManager = GraphicsManager.getInstance();
             GumballMachineObjectInstance machine = GumballMachineObjectInstance.current();
             int renderY = (machine != null)
                     ? machine.getCurrentY() + offsetFromMachine
                     : spawn.y();
-            if (mappingFrame == 0x16) {
-                if (GraphicsManager.getInstance().isSpriteSatCollectionActive()) {
+            String debugSource = String.format("%s frame=0x%02X slot=%d bucket=%d high=%s",
+                    name, mappingFrame, getSlotIndex(), getPriorityBucket(), isHighPriority());
+            graphicsManager.setCurrentSpriteSatDebugSource(debugSource);
+            try {
+                if (mappingFrame == 0x16) {
+                    if (graphicsManager.isSpriteSatCollectionActive()) {
                     // In the SAT/mask path, keep the original mapping-piece order intact.
-                    // Frame 0x16 only has one LOW piece in ROM, so splitting it by mapping
-                    // priority and replaying the HIGH pieces in front is not a valid model
-                    // for the full-width interior occlusion that the hardware mask produces.
-                    renderer.drawFrameIndex(mappingFrame, spawn.x(), renderY, false, false, 0);
+                        renderer.drawFrameIndex(mappingFrame, spawn.x(), renderY, false, false, 0);
+                        return;
+                    }
+                    // SonLVL and the ROM mapping both treat frame 0x16 as a true mixed-priority
+                    // composition: LOW pieces form the interior pile/body layer, HIGH pieces form
+                    // the front shell. Drawing the full frame as LOW duplicates the shell behind
+                    // the FG body tiles, so split the frame strictly by the mapping bits.
+                    renderer.drawFrameIndexFilteredByPriority(mappingFrame, spawn.x(), renderY,
+                            false, false, 0, false);
+                    renderer.drawFrameIndexFilteredByPriority(mappingFrame, spawn.x(), renderY,
+                            false, false, 0, true);
                     return;
                 }
-                // SonLVL and the ROM mapping both treat frame 0x16 as a true mixed-priority
-                // composition: LOW pieces form the interior pile/body layer, HIGH pieces form
-                // the front shell. Drawing the full frame as LOW duplicates the shell behind
-                // the FG body tiles, so split the frame strictly by the mapping bits.
-                renderer.drawFrameIndexFilteredByPriority(mappingFrame, spawn.x(), renderY,
-                        false, false, 0, false);
-                renderer.drawFrameIndexFilteredByPriority(mappingFrame, spawn.x(), renderY,
-                        false, false, 0, true);
-                return;
+                renderer.drawFrameIndex(mappingFrame, spawn.x(), renderY, false, false, 0);
+            } finally {
+                graphicsManager.setCurrentSpriteSatDebugSource(null);
             }
-            renderer.drawFrameIndex(mappingFrame, spawn.x(), renderY, false, false, 0);
         }
     }
 
@@ -1072,18 +1178,26 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
-            if (!shouldDebugRender(getPriorityBucket(), isHighPriority())) return;
+            if (!shouldDebugRender(getPriorityBucket(), isHighPriority(), DEBUG_SOURCE_BODY_OVERLAY)) return;
             PatternSpriteRenderer renderer = getRenderer(Sonic3kObjectArtKeys.GUMBALL_BONUS);
             if (renderer == null) {
                 return;
             }
+            GraphicsManager graphicsManager = GraphicsManager.getInstance();
             GumballMachineObjectInstance machine = GumballMachineObjectInstance.current();
             int renderY = (machine != null)
                     ? machine.getCurrentY() + offsetFromMachine
                     : spawn.y();
             // ROM ObjDat3_613EC uses make_art_tile($000, 0, 0) — palette 0.
-            GraphicsManager.getInstance().requestSpriteMask();
-            renderer.drawFrameIndex(MAPPING_FRAME, spawn.x(), renderY, false, false, 0);
+            graphicsManager.requestSpriteMask();
+            graphicsManager.setCurrentSpriteSatDebugSource(String.format(
+                    "%s frame=0x%02X slot=%d bucket=%d high=%s",
+                    name, MAPPING_FRAME, getSlotIndex(), getPriorityBucket(), isHighPriority()));
+            try {
+                renderer.drawFrameIndex(MAPPING_FRAME, spawn.x(), renderY, false, false, 0);
+            } finally {
+                graphicsManager.setCurrentSpriteSatDebugSource(null);
+            }
         }
     }
 
@@ -1265,6 +1379,9 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         @Override
         public void appendRenderCommands(List<GLCommand> commands) {
+            if (!shouldDebugRender(getPriorityBucket(), false, DEBUG_SOURCE_SPRING)) {
+                return;
+            }
             PatternSpriteRenderer renderer = getRenderer(Sonic3kObjectArtKeys.GUMBALL_SPRING);
             if (renderer == null) {
                 return;
