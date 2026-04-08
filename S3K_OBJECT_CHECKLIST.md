@@ -5,8 +5,8 @@ Generated: 2026-04-08 17:47:01
 ## Summary
 
 - **Total unique objects found:** 303
-- **Implemented:** 50 (16.5%)
-- **Unimplemented:** 253 (83.5%)
+- **Implemented:** 52 (17.2%)
+- **Unimplemented:** 251 (82.8%)
 
 ## Implemented Objects
 
@@ -60,6 +60,8 @@ Generated: 2026-04-08 17:47:01
 | 0x3E | HCZConveyorBelt | 64 |  | HCZ1 |
 | 0x94 | Blastoid | 7 |  | HCZ1 |
 | 0x95 | Buggernaut | 8 |  | HCZ1 |
+| 0x96 | TurboSpiker | 23 |  | HCZ1, HCZ2 |
+| 0x97 | MegaChopper | 17 |  | HCZ1, HCZ2 |
 | 0x98 | Poindexter | 40 |  | HCZ1, HCZ2 |
 
 ## Unimplemented Objects (By Usage)
@@ -136,7 +138,6 @@ Generated: 2026-04-08 17:47:01
 | 0x15 | Object | LBZPlayerLauncher | 24 |  | LBZ1, LBZ2 |
 | 0x24 | Object | AutomaticTunnel | 24 |  | LBZ1, LRZ2 |
 | 0x31 | Object | LBZRollingDrum | 24 |  | LBZ1, LBZ2 |
-| 0x96 | Badnik | TurboSpiker | 23 |  | HCZ1, HCZ2 |
 | 0x9C | Badnik | Spiker | 23 |  | MGZ1, MGZ2 |
 | 0x09 | Object | MHZCurledVine | 23 |  | MHZ1, MHZ2 |
 | 0x71 | Object | FBZFloatingPlatform | 22 |  | FBZ1, FBZ2 |
@@ -161,7 +162,6 @@ Generated: 2026-04-08 17:47:01
 | 0x32 | Object | LRZTurbineSprites | 18 |  | LRZ2 |
 | 0xA4 | Badnik | Spikebonker | 18 |  | DEZ1, DEZ2 |
 | 0xA5 | Badnik | Chainspike | 18 |  | DEZ1, DEZ2 |
-| 0x97 | Badnik | MegaChopper | 17 |  | HCZ1, HCZ2 |
 | 0x59 | Object | MGZDashTrigger | 17 |  | MGZ1, MGZ2 |
 | 0x7E | Object | FBZPlatformBlocks | 17 |  | FBZ1, FBZ2 |
 | 0x3F | Object | SOZSpringVine | 17 |  | SOZ1, SOZ2 |
@@ -405,13 +405,13 @@ Total: 751 objects | Implemented: 30 | Unimplemented: 2
 
 #### Act 1
 
-Total: 383 objects | Implemented: 27 | Unimplemented: 3
+Total: 383 objects | Implemented: 29 | Unimplemented: 1
 
 **Badniks:**
 - [x] 0x94 Blastoid (x7) [5 subtypes]
 - [x] 0x95 Buggernaut (x8) [0x00]
-- [ ] 0x96 TurboSpiker (x7) [0x20, 0x30]
-- [ ] 0x97 MegaChopper (x9) [0x00]
+- [x] 0x96 TurboSpiker (x7) [0x20, 0x30]
+- [x] 0x97 MegaChopper (x9) [0x00]
 - [x] 0x98 Poindexter (x29) [0x20]
 
 **Bosses:**
@@ -445,12 +445,12 @@ Total: 383 objects | Implemented: 27 | Unimplemented: 3
 
 #### Act 2
 
-Total: 510 objects | Implemented: 17 | Unimplemented: 13
+Total: 510 objects | Implemented: 19 | Unimplemented: 11
 
 **Badniks:**
 - [ ] 0x93 Jawz (x19) [0x00]
-- [ ] 0x96 TurboSpiker (x16) [0x20]
-- [ ] 0x97 MegaChopper (x8) [0x00]
+- [x] 0x96 TurboSpiker (x16) [0x20]
+- [x] 0x97 MegaChopper (x8) [0x00]
 - [x] 0x98 Poindexter (x11) [0x20]
 
 **Bosses:**

@@ -1030,6 +1030,7 @@ public class Sonic3kConstants {
     public static final int ART_NEM_BUGGERNAUT_ADDR = 0x36A3E0;      // ArtNem_HCZDragonfly (Nemesis, 16 tiles)
     public static final int MAP_BLASTOID_ADDR = 0x360DD0;
     public static final int MAP_TURBO_SPIKER_ADDR = 0x361212;
+    public static final int MAP_TURBO_SPIKER_HIDDEN_ADDR = 0x3612DA;  // Map_TurboSpikerHidden follows Map_TurboSpiker
     public static final int MAP_MEGA_CHOPPER_ADDR = 0x360F26;
     public static final int MAP_POINTDEXTER_ADDR = 0x360E72;
     public static final int MAP_JAWZ_ADDR = 0x361364;
