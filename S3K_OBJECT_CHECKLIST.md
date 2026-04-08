@@ -210,7 +210,7 @@ Generated: 2026-04-08 10:32:55
 | 0x22 | Object | LBZAlarm | 9 |  | LBZ1 |
 | 0x37 | Object | LRZSpikeBallLauncher | 9 |  | LRZ2 |
 | 0x53 | Object | DEZConveyorPad | 9 |  | DEZ1, DEZ2 |
-| 0x95 | Badnik | Buggernaut | 8 |  | HCZ1 |
+| 0x95 | Badnik | Buggernaut | 8 | ✅ | HCZ1 |
 | 0x6E | Object | WaterDrop | 8 |  | HCZ2 |
 | 0x43 | Object | CNZRisingPlatform | 8 |  | CNZ1, CNZ2 |
 | 0x75 | Object | FBZSnakePlatform | 8 |  | FBZ1 |
@@ -410,7 +410,7 @@ Total: 383 objects | Implemented: 20 | Unimplemented: 10
 
 **Badniks:**
 - [x] 0x94 Blastoid (x7) [5 subtypes]
-- [ ] 0x95 Buggernaut (x8) [0x00]
+- [x] 0x95 Buggernaut (x8) [0x00]
 - [ ] 0x96 TurboSpiker (x7) [0x20, 0x30]
 - [ ] 0x97 MegaChopper (x9) [0x00]
 - [x] 0x98 Poindexter (x29) [0x20]
