@@ -239,6 +239,40 @@ in S3K and via cross-game donation into S1 and S2.
 - Tails P2 support in special stages with tails sprite and delayed jump.
 - Player returns to big ring location after special stage (not checkpoint).
 
+#### S3K Bonus Stages: Gumball and Glowing Sphere (WIP)
+- `Sonic3kBonusStageCoordinator` now implements the S3K ring-threshold selection formula and
+  zone/music routing for the three lock-on bonus stages: Slots, Glowing Sphere (Pachinko), and
+  Gumball. StarPost bonus-star entry and saved-state return are wired into the S3K bonus-stage
+  lifecycle.
+- Bonus-stage title card support added to `Sonic3kTitleCardManager` and mappings, including the
+  dedicated `BONUS STAGE` layout and bonus-specific fade timing.
+- **Gumball stage bring-up:** `GumballMachineObjectInstance`, `GumballItemObjectInstance`, and
+  `GumballTriangleBumperObjectInstance` implemented with ROM-driven machine state, dispenser /
+  container / exit-trigger child chains, machine Y drift and slot tracking, subtype-specific item
+  behavior, spring bounce/crumble parity, shield persistence, sidekick safety, and dedicated
+  `SwScrlGumball` scrolling.
+- **Glowing Sphere / Pachinko bring-up:** `PachinkoFlipperObjectInstance`,
+  `PachinkoTriangleBumperObjectInstance`, `PachinkoBumperObjectInstance`,
+  `PachinkoPlatformObjectInstance`, `PachinkoItemOrbObjectInstance`,
+  `PachinkoMagnetOrbObjectInstance`, and `PachinkoEnergyTrapObjectInstance` implemented, with
+  stage entry/return flow, top-exit handling, and dedicated `SwScrlPachinko` scrolling.
+- **Zone animation support:** `Sonic3kPatternAnimator` and `Sonic3kPaletteCycler` now cover the
+  bonus-stage-specific Gumball direct-DMA tile animation plus Pachinko animated tiles, DMA-driven
+  background strips, and palette cycling.
+- **Render-path parity for the gumball machine:** per-piece VDP priority from ROM mapping data,
+  SAT-style sprite-mask post-processing, and replay-role metadata now preserve the intended glass /
+  shell / interior pile layering for mixed-priority machine frames.
+- Pachinko energy trap bootstrap now stays persistent like the ROM object, keeps its spawned
+  column/beam children alive until scripted teardown, and force-releases players from competing
+  magnet orbs before trap capture. Capture now zeros X/Y/G speed and cleanly holds the player on
+  the beam.
+- Bonus-stage title card exit no longer freezes the pachinko trap update loop. Persistent power-up
+  re-registration now clears stale object slots before `ObjectManager` rebuilds, preventing slot
+  aliasing during bonus-stage entry and post-title-card resume.
+- Added regression coverage for coordinator lifecycle, bonus title card mappings/flow, gumball
+  machine drift and priority diagnostics, sprite-mask helper consumption and replay ordering,
+  pachinko palette/pattern animation, registry wiring, and live trap/orb/title-card integration.
+
 #### Per-Character Physics
 - Per-character physics profiles for Sonic, Tails, and Knuckles (speed, acceleration, jump height).
 - Super spindash speed table and slope sprite selection fixes.
