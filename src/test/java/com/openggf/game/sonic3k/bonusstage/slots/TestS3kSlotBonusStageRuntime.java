@@ -108,7 +108,8 @@ class TestS3kSlotBonusStageRuntime {
         runtime.queueRingReward();
         runtime.update(0);
         assertFalse(runtime.activeSlotRingRewardsForTest().isEmpty());
-        for (int frame = 1; frame <= 0x1A; frame++) {
+        // ROM Obj_SlotRing: 0x1A frames interpolation + 8 frames sparkle before deletion
+        for (int frame = 1; frame <= 0x1A + 8; frame++) {
             runtime.update(frame);
         }
 

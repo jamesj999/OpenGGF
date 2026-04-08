@@ -35,6 +35,7 @@ public final class S3kSlotBonusStageRuntime {
     private boolean exitTriggered;
     private AbstractPlayableSprite slotPlayer;
     private S3kSlotBonusCageObjectInstance slotCage;
+    private boolean continueAwarded;
     private final List<S3kSlotRingRewardObjectInstance> slotRingRewards = new ArrayList<>();
     private final List<S3kSlotSpikeRewardObjectInstance> slotSpikeRewards = new ArrayList<>();
     private byte[] layout;
@@ -48,6 +49,7 @@ public final class S3kSlotBonusStageRuntime {
         originalPlayer = null;
         slotPlayer = null;
         slotCage = null;
+        continueAwarded = false;
         slotRingRewards.clear();
         slotSpikeRewards.clear();
         layout = null;
@@ -177,6 +179,7 @@ public final class S3kSlotBonusStageRuntime {
         restoreSuppressedSidekicks();
         slotPlayer = null;
         slotCage = null;
+        continueAwarded = false;
         slotRingRewards.clear();
         slotSpikeRewards.clear();
         layout = null;
@@ -316,6 +319,16 @@ public final class S3kSlotBonusStageRuntime {
             }
             if (GameServices.audio() != null) {
                 GameServices.audio().playSfx(Sonic3kSfx.RING_RIGHT.id);
+            }
+            // ROM lines 99168-99174: 50-ring continue bonus (once per stage)
+            if (slotPlayer.getRingCount() >= 50 && !continueAwarded) {
+                continueAwarded = true;
+                if (GameServices.bonusStage() != null) {
+                    GameServices.bonusStage().addLife();
+                }
+                if (GameServices.audio() != null) {
+                    GameServices.audio().playSfx(Sonic3kSfx.CONTINUE.id);
+                }
             }
         }
     }

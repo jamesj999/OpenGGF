@@ -20,10 +20,13 @@ import java.util.List;
 public final class S3kSlotRingRewardObjectInstance extends AbstractObjectInstance {
 
     private static final int EXPIRY_FRAMES = 0x1A;
+    private static final int SPARKLE_FRAMES = 8;  // approximate sparkle duration (ROM routine 1)
 
     private final S3kSlotStageController controller;
     private int framesRemaining = EXPIRY_FRAMES;
     private boolean active;
+    private boolean inSparkle;
+    private int sparkleTimer;
 
     // ROM $34/$38: 32-bit fixed-point position (pixel:16 | sub:16)
     private long currentX32;
@@ -51,6 +54,8 @@ public final class S3kSlotRingRewardObjectInstance extends AbstractObjectInstanc
     public void activate(int spawnX, int spawnY, int centerX, int centerY) {
         active = true;
         framesRemaining = EXPIRY_FRAMES;
+        inSparkle = false;
+        sparkleTimer = 0;
         setDestroyed(false);
         this.currentX32 = (long) spawnX << 16;
         this.currentY32 = (long) spawnY << 16;
@@ -86,9 +91,18 @@ public final class S3kSlotRingRewardObjectInstance extends AbstractObjectInstanc
             return;
         }
 
-        // ROM Obj_SlotRing interpolation:
+        // ROM Obj_SlotRing routine 1: sparkle animation after ring grant
+        if (inSparkle) {
+            if (--sparkleTimer <= 0) {
+                setDestroyed(true);
+                active = false;
+            }
+            return;
+        }
+
+        // ROM Obj_SlotRing routine 0: interpolation toward cage center
         //   d0 = current - target ; asr.l #4,d0 ; sub.l d0,$34
-        //   ↔ current += (target - current) >> 4
+        //   equivalent: current += (target - current) >> 4
         long dx = ((long) targetX << 16) - currentX32;
         currentX32 += dx >> 4;
         long dy = ((long) targetY << 16) - currentY32;
@@ -98,12 +112,18 @@ public final class S3kSlotRingRewardObjectInstance extends AbstractObjectInstanc
             return;
         }
 
+        // Grant ring and enter sparkle phase (ROM routine 1)
         controller.addRewardRing();
         addLiveRings(playerEntity, 1);
         services().addBonusStageRings(1);
         services().playSfx(Sonic3kSfx.RING_RIGHT.id);
-        setDestroyed(true);
-        active = false;
+        inSparkle = true;
+        sparkleTimer = SPARKLE_FRAMES;
+    }
+
+    /** Returns true while in sparkle animation phase (ROM routine 1). */
+    public boolean isInSparkle() {
+        return inSparkle;
     }
 
     private void addLiveRings(PlayableEntity playerEntity, int amount) {
