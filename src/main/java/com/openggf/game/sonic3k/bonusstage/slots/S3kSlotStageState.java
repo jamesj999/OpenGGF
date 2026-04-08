@@ -1,8 +1,13 @@
 package com.openggf.game.sonic3k.bonusstage.slots;
 
+import java.util.ArrayDeque;
 import java.util.Arrays;
+import java.util.Deque;
 
 public final class S3kSlotStageState {
+    private static final int DEFAULT_EVENTS_BG_X = 0x10;
+    private static final int DEFAULT_EVENTS_BG_Y = 0x2D;
+
     private int statTable;
     private int scalarIndex1;
     private int scalarIndex2;
@@ -24,11 +29,22 @@ public final class S3kSlotStageState {
     private int optionCycleResolvedDisplayTimer;
     private int optionCycleCompletedCycles;
     private int optionCycleSpinCycleCounter;
+    private int latchedPrize;
+    private int latchedPrizeCycleId = -1;
+    private boolean reelsFrozen;
+    private int activeRewardObjects;
+    private int rewardCounter;
+    private int eventsBgX;
+    private int eventsBgY;
     private final int[] optionCycleDisplaySymbols = new int[3];
+    private final Deque<int[]> pendingRingRewardPositions = new ArrayDeque<>();
+    private final Deque<int[]> pendingSpikeRewardPositions = new ArrayDeque<>();
 
     public static S3kSlotStageState bootstrap() {
         S3kSlotStageState state = new S3kSlotStageState();
         state.scalarIndex1 = 0x40;
+        state.eventsBgX = DEFAULT_EVENTS_BG_X;
+        state.eventsBgY = DEFAULT_EVENTS_BG_Y;
         state.resetOptionCycleState();
         return state;
     }
@@ -97,6 +113,88 @@ public final class S3kSlotStageState {
     void clearCollision() {
         lastCollisionTileId = 0;
         lastCollisionIndex = -1;
+    }
+
+    int latchedPrize() {
+        return latchedPrize;
+    }
+
+    void setLatchedPrize(int latchedPrize) {
+        this.latchedPrize = latchedPrize;
+    }
+
+    int latchedPrizeCycleId() {
+        return latchedPrizeCycleId;
+    }
+
+    void setLatchedPrizeCycleId(int latchedPrizeCycleId) {
+        this.latchedPrizeCycleId = latchedPrizeCycleId;
+    }
+
+    boolean reelsFrozen() {
+        return reelsFrozen;
+    }
+
+    void setReelsFrozen(boolean reelsFrozen) {
+        this.reelsFrozen = reelsFrozen;
+    }
+
+    int activeRewardObjects() {
+        return activeRewardObjects;
+    }
+
+    void incrementActiveRewardObjects() {
+        activeRewardObjects++;
+    }
+
+    void decrementActiveRewardObjects() {
+        if (activeRewardObjects > 0) {
+            activeRewardObjects--;
+        }
+    }
+
+    int rewardCounter() {
+        return rewardCounter;
+    }
+
+    void incrementRewardCounter() {
+        rewardCounter++;
+    }
+
+    boolean decrementRewardCounter() {
+        if (rewardCounter <= 0) {
+            return false;
+        }
+        rewardCounter--;
+        return true;
+    }
+
+    void decrementRewardCounterUnchecked() {
+        rewardCounter--;
+    }
+
+    void enqueueRingRewardPosition(int[] rewardPosition) {
+        pendingRingRewardPositions.offer(rewardPosition);
+    }
+
+    int[] pollRingRewardPosition() {
+        return pendingRingRewardPositions.poll();
+    }
+
+    boolean hasPendingRingRewardPositions() {
+        return !pendingRingRewardPositions.isEmpty();
+    }
+
+    void enqueueSpikeRewardPosition(int[] rewardPosition) {
+        pendingSpikeRewardPositions.offer(rewardPosition);
+    }
+
+    int[] pollSpikeRewardPosition() {
+        return pendingSpikeRewardPositions.poll();
+    }
+
+    boolean hasPendingSpikeRewardPositions() {
+        return !pendingSpikeRewardPositions.isEmpty();
     }
 
     void setBounceTimer(int frames) {
@@ -237,8 +335,21 @@ public final class S3kSlotStageState {
         this.optionCycleSpinCycleCounter = optionCycleSpinCycleCounter;
     }
 
+    void setEventsBg(int eventsBgX, int eventsBgY) {
+        this.eventsBgX = eventsBgX;
+        this.eventsBgY = eventsBgY;
+    }
+
     public int[] optionCycleDisplaySymbols() {
         return optionCycleDisplaySymbols;
+    }
+
+    public int eventsBgX() {
+        return eventsBgX;
+    }
+
+    public int eventsBgY() {
+        return eventsBgY;
     }
 
     void setOptionCycleDisplaySymbol(int index, int value) {
@@ -263,5 +374,15 @@ public final class S3kSlotStageState {
         optionCycleCompletedCycles = 0;
         optionCycleSpinCycleCounter = 0;
         Arrays.fill(optionCycleDisplaySymbols, 0);
+    }
+
+    void resetRewardState() {
+        latchedPrize = 0;
+        latchedPrizeCycleId = -1;
+        reelsFrozen = false;
+        activeRewardObjects = 0;
+        rewardCounter = 0;
+        pendingRingRewardPositions.clear();
+        pendingSpikeRewardPositions.clear();
     }
 }

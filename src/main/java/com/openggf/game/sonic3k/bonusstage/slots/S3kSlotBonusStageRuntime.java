@@ -29,7 +29,7 @@ public final class S3kSlotBonusStageRuntime {
     private final S3kSlotOptionCycleSystem optionCycleSystem = new S3kSlotOptionCycleSystem();
     private S3kSlotPlayerRuntime slotPlayerRuntime;
     private S3kSlotCollisionSystem slotCollisionSystem;
-    private final S3kSlotStageController slotStageController = new S3kSlotStageController();
+    private S3kSlotStageController slotStageController;
     private final S3kSlotLayoutRenderer slotLayoutRenderer = new S3kSlotLayoutRenderer();
     private final S3kSlotLayoutAnimator layoutAnimator = new S3kSlotLayoutAnimator();
     private S3kSlotExitSequence exitSequence;
@@ -65,6 +65,7 @@ public final class S3kSlotBonusStageRuntime {
         slotPlayerRuntime = new S3kSlotPlayerRuntime(slotStageState, slotCollisionSystem);
         exitSequence = null;
         exitTriggered = false;
+        slotStageController = new S3kSlotStageController(slotStageState);
         slotStageController.bootstrap();
         slotStageController.setActiveLayout(slotRenderBuffers.layout());
         bootstrapRuntime = RuntimeManager.getCurrent();
@@ -126,7 +127,6 @@ public final class S3kSlotBonusStageRuntime {
         } else {
             slotStageController.tick();
         }
-        syncStageStateFromController();
         if (slotCollisionSystem != null) {
             slotCollisionSystem.tickFrameState();
         }
@@ -144,7 +144,7 @@ public final class S3kSlotBonusStageRuntime {
         // Cage object
         if (slotCage != null && slotPlayer != null) {
             slotCage.tickSlotRuntime(frameCounter, slotPlayer);
-            syncStageStateFromController();
+            slotStageState.setEventsBg(slotCage.getCurrentX(), slotCage.getCurrentY());
         }
 
         // Reward objects
@@ -205,6 +205,7 @@ public final class S3kSlotBonusStageRuntime {
         slotRenderBuffers = null;
         slotPlayerRuntime = null;
         slotCollisionSystem = null;
+        slotStageController = null;
         exitSequence = null;
         exitTriggered = false;
         originalPlayer = null;
@@ -222,6 +223,25 @@ public final class S3kSlotBonusStageRuntime {
 
     public S3kSlotStageState stageStateForTest() {
         return slotStageState;
+    }
+
+    public SlotVisualState slotVisualState() {
+        if (slotStageState == null) {
+            return new SlotVisualState(S3kSlotRomData.SLOT_BONUS_START_X,
+                    S3kSlotRomData.SLOT_BONUS_START_Y, 0x40, false);
+        }
+        return new SlotVisualState(slotStageState.eventsBgX(), slotStageState.eventsBgY(),
+                slotStageState.scalarIndex1(), slotStageState.paletteCycleEnabled());
+    }
+
+    public int paletteCycleMode() {
+        return slotStageState != null && slotStageState.paletteCycleEnabled() ? 1 : 0;
+    }
+
+    public void setPaletteCycleEnabledForTest(boolean enabled) {
+        if (slotStageController != null) {
+            slotStageController.setPaletteCycleEnabled(enabled);
+        }
     }
 
     public S3kSlotRenderBuffers renderBuffersForTest() {
@@ -281,10 +301,16 @@ public final class S3kSlotBonusStageRuntime {
     }
 
     public void render(com.openggf.camera.Camera camera) {
+        renderSlotLayout(camera);
+    }
+
+    public void renderSlotLayout(com.openggf.camera.Camera camera) {
         LevelManager levelManager = GameServices.level();
         if (camera == null || levelManager == null) {
             return;
         }
+        // Only the slot layout pass is rendered here. Cage/reward objects stay on
+        // the normal object pipeline so this hook matches the ROM's post-sprite pass.
         slotLayoutRenderer.render(slotStageState, slotRenderBuffers, camera, levelManager.getObjectRenderManager());
     }
 
@@ -522,15 +548,6 @@ public final class S3kSlotBonusStageRuntime {
         target.setOnObject(source.isOnObject());
     }
 
-    private void syncStageStateFromController() {
-        if (slotStageState == null) {
-            return;
-        }
-        slotStageState.setStatTable(slotStageController.rawStatTable());
-        slotStageState.setScalarIndex1(slotStageController.scalarIndex());
-        slotStageState.setPaletteCycleEnabled(slotStageController.isPaletteCycleEnabled());
-    }
-
     private void suppressCpuSidekicks() {
         if (bootstrapRuntime == null) {
             return;
@@ -561,5 +578,8 @@ public final class S3kSlotBonusStageRuntime {
     }
 
     private record SuppressedSidekick(AbstractPlayableSprite sidekick, String characterName) {
+    }
+
+    public record SlotVisualState(int eventsBgX, int eventsBgY, int scalarIndex1, boolean paletteCycleEnabled) {
     }
 }

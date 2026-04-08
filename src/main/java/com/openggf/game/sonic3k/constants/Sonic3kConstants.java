@@ -1250,6 +1250,13 @@ public class Sonic3kConstants {
     public static final int GUMBALL_ANI_TILES_ADDR = 0x2C2180;      // ArtUnc_AniGumball (uncompressed, 256 bytes)
 
     // ===== Slot Machine Bonus Stage =====
+    public static final int ARTTILE_SLOTS_BLOCKS = 0x033B;          // ArtTile_SlotsBlocks
+    public static final int ANPAL_SLOTS_1_ADDR = 0x003620;
+    public static final int ANPAL_SLOTS_1_SIZE = 0x40;
+    public static final int ANPAL_SLOTS_2_ADDR = 0x003658;
+    public static final int ANPAL_SLOTS_2_SIZE = 0x80;
+    public static final int ANPAL_SLOTS_3_ADDR = 0x0036E0;
+    public static final int ANPAL_SLOTS_3_SIZE = 0x0C;
     public static final int SLOTS_REWARD_VALUES_ADDR = 0x04C8A4;
     public static final int SLOTS_TARGET_ROWS_ADDR = 0x04C8B4;
     public static final int SLOTS_REEL_SEQUENCE_A_ADDR = 0x04C8CC;
@@ -1257,6 +1264,14 @@ public class Sonic3kConstants {
     public static final int SLOTS_REEL_SEQUENCE_C_ADDR = 0x04C8DC;
     public static final int SLOTS_CAGE_ROUTINE_ADDR = 0x04BF62;
     public static final int SLOTS_BOOTSTRAP_ROUTINE_ADDR = 0x04B6AA;
+    public static final int MAP_SLOT_MACHINE_FACE_ADDR = 0x04B794;  // Map_SB_Slot
+    public static final int MAP_SLOT_R_AND_PEPPERMINT_ADDR = 0x04B844; // Map_SB_R_and_Peppermint
+    public static final int MAP_SLOT_GOAL_ADDR = 0x04B864;          // Map_SB_Goal
+    public static final int MAP_SLOT_BUMPER_ADDR = 0x04B87C;        // Map_SB_Bumper
+    public static final int MAP_SLOT_RING_STAGE_ADDR = 0x04B894;    // Map_SB_Ring
+    public static final int MAP_SLOT_COLORED_WALL_ADDR = 0x04B8D8;  // Map_SB_ColoredWall
+    public static final int MAP_SLOT_BONUS_CAGE_ADDR = 0x04C2A0;    // Map_SlotBonusCage
+    public static final int MAP_SLOT_SPIKE_REWARD_ADDR = 0x04C3E6;  // Map_SlotSpike
 
     // ===== Pachinko / Glowing Spheres Bonus Stage =====
     public static final int ARTTILE_PACHINKO_MAIN = 0x02CD;         // ArtTile_PachinkoMain

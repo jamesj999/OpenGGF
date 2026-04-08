@@ -213,6 +213,7 @@ public final class Sonic3kPlcArtRegistry {
             case 0x0C -> addDdzEntries(actIndex, standalone, levelArt);
             case 0x13 -> addGumballEntries(actIndex, standalone, levelArt);
             case 0x14 -> addPachinkoEntries(actIndex, standalone, levelArt);
+            case 0x15 -> addSlotsEntries(actIndex, standalone, levelArt);
         }
     }
 
@@ -317,6 +318,75 @@ public final class Sonic3kPlcArtRegistry {
                 Sonic3kConstants.ARTTILE_PACHINKO_GUMBALLS,
                 0,
                 null
+        ));
+    }
+
+    private static void addSlotsEntries(int actIndex,
+            List<StandaloneArtEntry> standalone, List<LevelArtEntry> levelArt) {
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.SLOT_COLORED_WALL,
+                Sonic3kConstants.MAP_SLOT_COLORED_WALL_ADDR,
+                Sonic3kConstants.ARTTILE_SLOTS_BLOCKS,
+                0,
+                null
+        ));
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.SLOT_GOAL,
+                Sonic3kConstants.MAP_SLOT_GOAL_ADDR,
+                Sonic3kConstants.ARTTILE_SLOTS_BLOCKS + 0x14C,
+                0,
+                null
+        ));
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.SLOT_BUMPER,
+                Sonic3kConstants.MAP_SLOT_BUMPER_ADDR,
+                Sonic3kConstants.ARTTILE_SLOTS_BLOCKS + 0xF9,
+                0,
+                null
+        ));
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.SLOT_R_LABEL,
+                Sonic3kConstants.MAP_SLOT_R_AND_PEPPERMINT_ADDR,
+                Sonic3kConstants.ARTTILE_SLOTS_BLOCKS + 0x13D,
+                0,
+                null
+        ));
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.SLOT_PEPPERMINT,
+                Sonic3kConstants.MAP_SLOT_R_AND_PEPPERMINT_ADDR,
+                Sonic3kConstants.ARTTILE_SLOTS_BLOCKS + 0x122,
+                0,
+                null
+        ));
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.SLOT_MACHINE_FACE,
+                Sonic3kConstants.MAP_SLOT_MACHINE_FACE_ADDR,
+                Sonic3kConstants.ARTTILE_SLOTS_BLOCKS + 0x146,
+                0,
+                null
+        ));
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.SLOT_BONUS_CAGE,
+                Sonic3kConstants.MAP_SLOT_BONUS_CAGE_ADDR,
+                Sonic3kConstants.ARTTILE_SLOTS_BLOCKS + 0x146,
+                0,
+                null
+        ));
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.SLOT_SPIKE_REWARD,
+                Sonic3kConstants.MAP_SLOT_SPIKE_REWARD_ADDR,
+                Sonic3kConstants.ARTTILE_SLOTS_BLOCKS + 0x155,
+                1,
+                null
+        ));
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.SLOT_RING_STAGE,
+                Sonic3kConstants.ART_NEM_RING_HUD_TEXT_ADDR,
+                CompressionType.NEMESIS,
+                0,
+                Sonic3kConstants.MAP_SLOT_RING_STAGE_ADDR,
+                1,
+                -1
         ));
     }
 
