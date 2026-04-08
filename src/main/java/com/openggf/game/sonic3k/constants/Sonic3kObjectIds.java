@@ -46,6 +46,7 @@ public final class Sonic3kObjectIds {
     public static final int CATERKILLER_JR = 0x8F;
     public static final int BLASTOID = 0x94;
     public static final int BUGGERNAUT = 0x95;
+    public static final int TURBO_SPIKER = 0x96;
     public static final int MEGA_CHOPPER = 0x97;
     public static final int POINDEXTER = 0x98;
     public static final int STILL_SPRITE = 0x2F;

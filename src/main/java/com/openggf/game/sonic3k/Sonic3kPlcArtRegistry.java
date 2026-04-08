@@ -301,6 +301,13 @@ public final class Sonic3kPlcArtRegistry {
                 1,
                 -1
         ));
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.HCZ_TURBO_SPIKER_HIDDEN,
+                Sonic3kConstants.MAP_TURBO_SPIKER_HIDDEN_ADDR,
+                1,
+                2,
+                null
+        ));
         standalone.add(new StandaloneArtEntry(
                 Sonic3kObjectArtKeys.HCZ_MEGA_CHOPPER,
                 Sonic3kConstants.ART_KOSM_HCZ_MEGA_CHOPPER_ADDR,
