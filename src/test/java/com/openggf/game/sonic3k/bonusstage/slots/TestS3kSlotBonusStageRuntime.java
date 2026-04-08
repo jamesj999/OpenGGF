@@ -226,6 +226,38 @@ class TestS3kSlotBonusStageRuntime {
     }
 
     @Test
+    void bootstrapInitializesAllSubsystems() {
+        RuntimeManager.createGameplay();
+        SonicConfigurationService.getInstance().setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "tails");
+
+        AbstractPlayableSprite originalPlayer = new Tails("tails", (short) 0x460, (short) 0x430);
+        GameServices.sprites().addSprite(originalPlayer);
+        GameServices.camera().setFocusedSprite(originalPlayer);
+
+        S3kSlotBonusStageRuntime runtime = new S3kSlotBonusStageRuntime();
+        runtime.bootstrap();
+
+        assertTrue(runtime.isInitialized());
+        assertNotNull(runtime.activeSlotCageForTest());
+        assertNotNull(runtime.activeSlotRingRewardForTest());
+        assertNotNull(runtime.activeSlotSpikeRewardForTest());
+        assertNotNull(runtime.activeLayoutForTest());
+        assertNotNull(runtime.activeReelStateMachineForTest());
+        assertNotNull(runtime.activeLayoutAnimatorForTest());
+        assertFalse(runtime.isExitTriggered());
+
+        // Run a few frames to verify no crashes
+        for (int i = 0; i < 50; i++) {
+            runtime.update(i);
+        }
+
+        assertTrue(runtime.isInitialized());
+
+        runtime.shutdown();
+        assertFalse(runtime.isInitialized());
+    }
+
+    @Test
     void bootstrapWithoutGameplayRuntimeDoesNotMarkInitialized() {
         SonicConfigurationService.getInstance().setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "tails");
 

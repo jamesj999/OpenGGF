@@ -7,7 +7,10 @@ import com.openggf.game.BonusStageType;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotBonusPlayer;
 import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotBonusStageRuntime;
+import com.openggf.sprites.managers.SpriteManager;
+import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.tests.HeadlessTestFixture;
+import com.openggf.tests.HeadlessTestRunner;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.RequiresRomCondition;
 import com.openggf.tests.rules.SonicGame;
@@ -16,8 +19,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @RequiresRom(SonicGame.SONIC_3K)
@@ -54,6 +59,108 @@ class TestS3kSlotBonusStageRuntime {
         short[] pointGrid = runtime.activePointGridForTest();
         assertNotNull(pointGrid);
         assertEquals(16 * 16 * 2, pointGrid.length);
+    }
+
+    @Test
+    void slotPlayerMovesUnderRightInputInBootstrappedZone15() {
+        SonicConfigurationService.getInstance().setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, true);
+        fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(0x15, 0)
+                .build();
+
+        Sonic3kBonusStageCoordinator coordinator = new Sonic3kBonusStageCoordinator();
+        fixture.runtime().setActiveBonusStageProvider(coordinator);
+        coordinator.onEnter(BonusStageType.SLOT_MACHINE, savedState());
+        coordinator.onDeferredSetupComplete();
+
+        AbstractPlayableSprite slotPlayer = assertInstanceOf(
+                AbstractPlayableSprite.class, GameServices.sprites().getSprite("sonic"));
+        short startX = slotPlayer.getX();
+        short startY = slotPlayer.getY();
+
+        for (int frame = 0; frame < 8; frame++) {
+            SpriteManager.tickPlayablePhysics(slotPlayer,
+                    false, false, false, true, false, false, false, false,
+                    GameServices.level(), 100 + frame);
+        }
+
+        assertTrue(slotPlayer.getX() != startX || slotPlayer.getY() != startY,
+                "x=" + slotPlayer.getX() + " y=" + slotPlayer.getY()
+                        + " startX=" + startX + " startY=" + startY
+                        + " gSpeed=" + slotPlayer.getGSpeed()
+                        + " xSpeed=" + slotPlayer.getXSpeed()
+                        + " ySpeed=" + slotPlayer.getYSpeed());
+    }
+
+    @Test
+    void slotPlayerMovesUnderRightInputThroughFullHeadlessFrameStep() {
+        SonicConfigurationService.getInstance().setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, true);
+        fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(0x15, 0)
+                .build();
+
+        Sonic3kBonusStageCoordinator coordinator = new Sonic3kBonusStageCoordinator();
+        fixture.runtime().setActiveBonusStageProvider(coordinator);
+        coordinator.onEnter(BonusStageType.SLOT_MACHINE, savedState());
+        coordinator.onDeferredSetupComplete();
+
+        AbstractPlayableSprite slotPlayer = assertInstanceOf(
+                AbstractPlayableSprite.class, GameServices.sprites().getSprite("sonic"));
+        HeadlessTestRunner runner = new HeadlessTestRunner(slotPlayer);
+        short startX = slotPlayer.getX();
+        short startY = slotPlayer.getY();
+
+        for (int frame = 0; frame < 8; frame++) {
+            runner.stepFrame(false, false, false, true, false);
+        }
+
+        assertTrue(slotPlayer.getX() != startX || slotPlayer.getY() != startY,
+                "x=" + slotPlayer.getX() + " y=" + slotPlayer.getY()
+                        + " startX=" + startX + " startY=" + startY
+                        + " gSpeed=" + slotPlayer.getGSpeed()
+                        + " xSpeed=" + slotPlayer.getXSpeed()
+                        + " ySpeed=" + slotPlayer.getYSpeed());
+    }
+
+    @Test
+    void fullSlotStageLifecycleFromBootstrapThroughFrameUpdates() {
+        SonicConfigurationService.getInstance().setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, true);
+        fixture = HeadlessTestFixture.builder()
+                .withZoneAndAct(0x15, 0)
+                .build();
+
+        Sonic3kBonusStageCoordinator coordinator = new Sonic3kBonusStageCoordinator();
+        fixture.runtime().setActiveBonusStageProvider(coordinator);
+        coordinator.onEnter(BonusStageType.SLOT_MACHINE, savedState());
+        coordinator.onDeferredSetupComplete();
+
+        S3kSlotBonusStageRuntime runtime = coordinator.activeSlotRuntimeForTest();
+        assertNotNull(runtime);
+        assertTrue(runtime.isInitialized());
+
+        // Verify subsystems are wired in
+        assertNotNull(runtime.activeSlotCageForTest());
+        assertNotNull(runtime.activeSlotRingRewardForTest());
+        assertNotNull(runtime.activeSlotSpikeRewardForTest());
+        assertNotNull(runtime.activeLayoutForTest());
+        assertEquals(32 * 32, runtime.activeLayoutForTest().length);
+
+        // Run 300 frames of gameplay
+        for (int i = 0; i < 300; i++) {
+            coordinator.onFrameUpdate();
+        }
+
+        // Runtime should still be running (no goal tile reached from idle position)
+        assertTrue(runtime.isInitialized());
+        assertFalse(runtime.isExitTriggered());
+
+        // Verify the reel state machine has been ticking
+        assertNotNull(runtime.activeReelStateMachineForTest());
+
+        // Clean exit
+        coordinator.onExit();
+        assertFalse(runtime.isInitialized());
+        assertNull(coordinator.activeSlotRuntimeForTest());
     }
 
     private static BonusStageState savedState() {
