@@ -103,6 +103,7 @@ public class Sonic3kObjectProfile implements GameObjectProfile {
                 0x8E, // MonkeyDude
                 0x8F, // CaterKillerJr
                 0x94, // Blastoid
+                0x95, // Buggernaut
                 0x98, // Poindexter
                 0x90, // AIZMinibossCutscene
                 0x91, // AIZMiniboss

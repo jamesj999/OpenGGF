@@ -998,6 +998,8 @@ public class Sonic3kConstants {
     public static final int ART_KOSM_AIZ1_FIRE_OVERLAY_ADDR = 0x3AF5D0;
 
     // ===== HCZ Badnik mappings (SK side, verified from LockOn Pointers) =====
+    public static final int MAP_BUGGERNAUT_ADDR = 0x360EB4;           // Map_Buggernaut (6 frames)
+    public static final int ART_NEM_BUGGERNAUT_ADDR = 0x36A3E0;      // ArtNem_HCZDragonfly (Nemesis, 16 tiles)
     public static final int MAP_BLASTOID_ADDR = 0x360DD0;
     public static final int MAP_TURBO_SPIKER_ADDR = 0x361212;
     public static final int MAP_MEGA_CHOPPER_ADDR = 0x360F26;
