@@ -28,12 +28,12 @@ public final class S3kSlotBonusStageRuntime {
     private AbstractPlayableSprite originalPlayer;
     private S3kSlotStageState slotStageState;
     private S3kSlotRenderBuffers slotRenderBuffers;
+    private final S3kSlotOptionCycleSystem optionCycleSystem = new S3kSlotOptionCycleSystem();
     private S3kSlotPlayerRuntime slotPlayerRuntime;
     private S3kSlotCollisionSystem slotCollisionSystem;
     private final S3kSlotStageController slotStageController = new S3kSlotStageController();
     private final S3kSlotLayoutRenderer slotLayoutRenderer = new S3kSlotLayoutRenderer();
     private final S3kSlotLayoutAnimator layoutAnimator = new S3kSlotLayoutAnimator();
-    private final S3kSlotReelStateMachine reelStateMachine = new S3kSlotReelStateMachine();
     private S3kSlotExitSequence exitSequence;
     private boolean exitTriggered;
     private AbstractPlayableSprite slotPlayer;
@@ -60,9 +60,9 @@ public final class S3kSlotBonusStageRuntime {
         suppressedSidekicks.clear();
         slotStageState = S3kSlotStageState.bootstrap();
         slotRenderBuffers = S3kSlotRenderBuffers.fromRomData();
+        optionCycleSystem.bootstrap(slotStageState);
         slotCollisionSystem = new S3kSlotCollisionSystem(slotRenderBuffers, slotStageState);
         slotPlayerRuntime = new S3kSlotPlayerRuntime(slotStageState, slotCollisionSystem);
-        reelStateMachine.reset();
         exitSequence = null;
         exitTriggered = false;
         slotStageController.bootstrap();
@@ -125,13 +125,13 @@ public final class S3kSlotBonusStageRuntime {
             slotCollisionSystem.tickFrameState();
         }
 
-        // Reel state machine
+        // Option cycle system
         if (!slotStageController.isReelsFrozen()) {
-            reelStateMachine.tick(frameCounter);
-            if (reelStateMachine.isResolved()) {
+            optionCycleSystem.tick(slotStageState, frameCounter);
+            if (optionCycleSystem.isResolved(slotStageState)) {
                 slotStageController.latchResolvedPrize(
-                        reelStateMachine.lastPrizeResult(),
-                        reelStateMachine.completedCycles());
+                        optionCycleSystem.lastPrizeResult(slotStageState),
+                        optionCycleSystem.completedCycles(slotStageState));
             }
         }
 
@@ -214,6 +214,10 @@ public final class S3kSlotBonusStageRuntime {
         return slotRenderBuffers;
     }
 
+    public S3kSlotOptionCycleSystem optionCycleSystemForTest() {
+        return optionCycleSystem;
+    }
+
     public S3kSlotRingRewardObjectInstance activeSlotRingRewardForTest() {
         return slotRingRewards.isEmpty() ? null : slotRingRewards.get(0);
     }
@@ -248,10 +252,6 @@ public final class S3kSlotBonusStageRuntime {
 
     public boolean isExitTriggered() {
         return exitTriggered;
-    }
-
-    public S3kSlotReelStateMachine activeReelStateMachineForTest() {
-        return reelStateMachine;
     }
 
     public S3kSlotLayoutAnimator activeLayoutAnimatorForTest() {
