@@ -325,7 +325,6 @@ public final class S3kSlotBonusStageRuntime {
         if (ring.foundRing()) {
             slotCollisionSystem.consumeRing(ring);
             slotRenderBuffers.startRingAnimationAt(ring.layoutIndex());
-            layoutAnimator.queueRingSparkle(slotRenderBuffers.layout(), ring.layoutIndex());
             slotPlayer.addRings(1);
             // Track on coordinator so rings persist after exit (ROM: GiveRing)
             if (GameServices.bonusStage() != null) {
@@ -379,7 +378,6 @@ public final class S3kSlotBonusStageRuntime {
                 if (GameServices.audio() != null) GameServices.audio().playSfx(Sonic3kSfx.BUMPER.id);
                 // ROM loc_4BEC8: animation spawns at layout address - 1
                 slotRenderBuffers.startBumperAnimationAt(Math.max(0, layoutIndex - 1));
-                layoutAnimator.queueBumperBounce(slotRenderBuffers.layout(), Math.max(0, layoutIndex - 1));
             }
             case GOAL_EXIT -> {
                 if (GameServices.audio() != null) GameServices.audio().playSfx(Sonic3kSfx.GOAL.id);
@@ -389,7 +387,6 @@ public final class S3kSlotBonusStageRuntime {
                 if (GameServices.audio() != null) GameServices.audio().playSfx(Sonic3kSfx.LAUNCH_GO.id);
                 // ROM loc_4BEC8: animation spawns at layout address - 1
                 slotRenderBuffers.startSpikeAnimationAt(Math.max(0, layoutIndex - 1));
-                layoutAnimator.queueSpikeAnimation(slotRenderBuffers.layout(), Math.max(0, layoutIndex - 1));
             }
             case SLOT_REEL_INCREMENT -> {
                 if (GameServices.audio() != null) GameServices.audio().playSfx(Sonic3kSfx.FLIPPER.id);
