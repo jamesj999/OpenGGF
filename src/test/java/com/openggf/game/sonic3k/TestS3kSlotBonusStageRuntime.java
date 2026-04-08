@@ -176,8 +176,8 @@ class TestS3kSlotBonusStageRuntime {
         assertTrue(runtime.isInitialized());
         assertFalse(runtime.isExitTriggered());
 
-        // Verify the reel state machine has been ticking
-        assertNotNull(runtime.activeReelStateMachineForTest());
+        // Verify the option cycle system has been ticking
+        assertNotNull(runtime.optionCycleSystemForTest());
 
         // Clean exit
         coordinator.onExit();

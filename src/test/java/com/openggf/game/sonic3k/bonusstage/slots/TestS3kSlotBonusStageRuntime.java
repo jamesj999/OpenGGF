@@ -292,7 +292,7 @@ class TestS3kSlotBonusStageRuntime {
         assertTrue(runtime.activeSlotRingRewardsForTest().isEmpty());
         assertTrue(runtime.activeSlotSpikeRewardsForTest().isEmpty());
         assertNotNull(runtime.activeLayoutForTest());
-        assertNotNull(runtime.activeReelStateMachineForTest());
+        assertNotNull(runtime.optionCycleSystemForTest());
         assertNotNull(runtime.activeLayoutAnimatorForTest());
         assertFalse(runtime.isExitTriggered());
 

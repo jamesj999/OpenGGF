@@ -1,5 +1,7 @@
 package com.openggf.game.sonic3k.bonusstage.slots;
 
+import java.util.Arrays;
+
 public final class S3kSlotStageState {
     private int statTable;
     private int scalarIndex1;
@@ -12,10 +14,22 @@ public final class S3kSlotStageState {
     private int spikeThrottleTimer;
     private int slotValue;
     private boolean paletteCycleEnabled;
+    private int optionCycleState;
+    private int optionCycleCountdown;
+    private int optionCycleActiveReelIndex;
+    private int optionCycleTargetReelA;
+    private int optionCycleTargetPackedBC;
+    private int optionCycleLastPrize = Integer.MIN_VALUE;
+    private int optionCycleLockProgress;
+    private int optionCycleResolvedDisplayTimer;
+    private int optionCycleCompletedCycles;
+    private int optionCycleSpinCycleCounter;
+    private final int[] optionCycleDisplaySymbols = new int[3];
 
     public static S3kSlotStageState bootstrap() {
         S3kSlotStageState state = new S3kSlotStageState();
         state.scalarIndex1 = 0x40;
+        state.resetOptionCycleState();
         return state;
     }
 
@@ -141,5 +155,113 @@ public final class S3kSlotStageState {
 
     void setPaletteCycleEnabled(boolean paletteCycleEnabled) {
         this.paletteCycleEnabled = paletteCycleEnabled;
+    }
+
+    public int optionCycleState() {
+        return optionCycleState;
+    }
+
+    void setOptionCycleState(int optionCycleState) {
+        this.optionCycleState = optionCycleState;
+    }
+
+    public int optionCycleCountdown() {
+        return optionCycleCountdown;
+    }
+
+    void setOptionCycleCountdown(int optionCycleCountdown) {
+        this.optionCycleCountdown = optionCycleCountdown;
+    }
+
+    public int optionCycleActiveReelIndex() {
+        return optionCycleActiveReelIndex;
+    }
+
+    void setOptionCycleActiveReelIndex(int optionCycleActiveReelIndex) {
+        this.optionCycleActiveReelIndex = optionCycleActiveReelIndex;
+    }
+
+    public int optionCycleTargetReelA() {
+        return optionCycleTargetReelA;
+    }
+
+    void setOptionCycleTargetReelA(int optionCycleTargetReelA) {
+        this.optionCycleTargetReelA = optionCycleTargetReelA;
+    }
+
+    public int optionCycleTargetPackedBC() {
+        return optionCycleTargetPackedBC;
+    }
+
+    void setOptionCycleTargetPackedBC(int optionCycleTargetPackedBC) {
+        this.optionCycleTargetPackedBC = optionCycleTargetPackedBC;
+    }
+
+    public int optionCycleLastPrize() {
+        return optionCycleLastPrize;
+    }
+
+    void setOptionCycleLastPrize(int optionCycleLastPrize) {
+        this.optionCycleLastPrize = optionCycleLastPrize;
+    }
+
+    public int optionCycleLockProgress() {
+        return optionCycleLockProgress;
+    }
+
+    void setOptionCycleLockProgress(int optionCycleLockProgress) {
+        this.optionCycleLockProgress = optionCycleLockProgress;
+    }
+
+    public int optionCycleResolvedDisplayTimer() {
+        return optionCycleResolvedDisplayTimer;
+    }
+
+    void setOptionCycleResolvedDisplayTimer(int optionCycleResolvedDisplayTimer) {
+        this.optionCycleResolvedDisplayTimer = optionCycleResolvedDisplayTimer;
+    }
+
+    public int optionCycleCompletedCycles() {
+        return optionCycleCompletedCycles;
+    }
+
+    void setOptionCycleCompletedCycles(int optionCycleCompletedCycles) {
+        this.optionCycleCompletedCycles = optionCycleCompletedCycles;
+    }
+
+    public int optionCycleSpinCycleCounter() {
+        return optionCycleSpinCycleCounter;
+    }
+
+    void setOptionCycleSpinCycleCounter(int optionCycleSpinCycleCounter) {
+        this.optionCycleSpinCycleCounter = optionCycleSpinCycleCounter;
+    }
+
+    public int[] optionCycleDisplaySymbols() {
+        return optionCycleDisplaySymbols;
+    }
+
+    void setOptionCycleDisplaySymbol(int index, int value) {
+        optionCycleDisplaySymbols[index] = value;
+    }
+
+    void setOptionCycleDisplaySymbols(int left, int middle, int right) {
+        optionCycleDisplaySymbols[0] = left;
+        optionCycleDisplaySymbols[1] = middle;
+        optionCycleDisplaySymbols[2] = right;
+    }
+
+    void resetOptionCycleState() {
+        optionCycleState = 0;
+        optionCycleCountdown = 0;
+        optionCycleActiveReelIndex = 0;
+        optionCycleTargetReelA = 0;
+        optionCycleTargetPackedBC = 0;
+        optionCycleLastPrize = Integer.MIN_VALUE;
+        optionCycleLockProgress = 0;
+        optionCycleResolvedDisplayTimer = 0;
+        optionCycleCompletedCycles = 0;
+        optionCycleSpinCycleCounter = 0;
+        Arrays.fill(optionCycleDisplaySymbols, 0);
     }
 }
