@@ -38,6 +38,7 @@ public final class Sonic3kObjectIds {
     public static final int HCZ_CONVEYOR_BELT = 0x3E;
     public static final int HCZ_CONVEYOR_SPIKE = 0x3F;
     public static final int HCZ_BLOCK = 0x40;
+    public static final int INVISIBLE_HURT_BLOCK_H = 0x6A;
     public static final int SS_ENTRY_RING = 0x85;
     public static final int BLOOMINATOR = 0x8C;
     public static final int RHINOBOT = 0x8D;
