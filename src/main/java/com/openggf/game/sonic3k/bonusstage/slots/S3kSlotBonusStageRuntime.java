@@ -17,6 +17,7 @@ public final class S3kSlotBonusStageRuntime {
         initialized = false;
         originalPlayer = null;
         slotPlayer = null;
+        slotStageController.bootstrap();
         bootstrapRuntime = RuntimeManager.getCurrent();
         if (bootstrapRuntime == null) {
             return;
