@@ -7,6 +7,8 @@ import com.openggf.game.BonusStageType;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotBonusPlayer;
 import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotBonusStageRuntime;
+import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotRenderBuffers;
+import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotStageState;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.tests.HeadlessTestFixture;
@@ -61,6 +63,25 @@ class TestS3kSlotBonusStageRuntime {
         assertEquals(16 * 16 * 2, pointGrid.length);
     }
 
+    @Test
+    void bootstrapStagesRomShapedStateAndRenderBuffers() {
+        S3kSlotBonusStageRuntime runtime = new S3kSlotBonusStageRuntime();
+
+        runtime.bootstrap();
+
+        S3kSlotStageState state = runtime.stageStateForTest();
+        S3kSlotRenderBuffers buffers = runtime.renderBuffersForTest();
+
+        assertNotNull(state);
+        assertNotNull(buffers);
+        assertEquals(0, state.statTable());
+        assertEquals(0x40, state.scalarIndex1());
+        assertFalse(state.paletteCycleEnabled());
+        assertEquals(0, state.lastCollisionTileId());
+        assertEquals(0x80, buffers.layoutStrideBytes());
+        assertEquals(0x20, buffers.layoutRows());
+        assertEquals(0x20, buffers.layoutColumns());
+    }
     @Test
     void slotPlayerMovesUnderRightInputInBootstrappedZone15() {
         SonicConfigurationService.getInstance().setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, true);

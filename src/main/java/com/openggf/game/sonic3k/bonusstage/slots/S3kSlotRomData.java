@@ -59,6 +59,14 @@ public final class S3kSlotRomData {
     private S3kSlotRomData() {
     }
 
+    public static byte[] buildExpandedLayoutBuffer() {
+        byte[] expandedLayout = new byte[0x20 * 0x80];
+        for (int row = 0; row < 0x20; row++) {
+            System.arraycopy(SLOT_BONUS_LAYOUT, row * 0x20, expandedLayout, row * 0x80, 0x20);
+        }
+        return expandedLayout;
+    }
+
     private static byte[] decodeLayoutRows() {
         byte[] layout = new byte[SLOT_BONUS_LAYOUT_ROWS.length * 32];
         int index = 0;
