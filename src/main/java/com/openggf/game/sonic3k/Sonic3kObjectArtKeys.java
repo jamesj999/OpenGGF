@@ -117,6 +117,9 @@ public final class Sonic3kObjectArtKeys {
     public static final String HCZ_WATER_RUSH = "hcz_water_rush";
     public static final String HCZ_WATER_RUSH_BLOCK = "hcz_water_rush_block";
 
+    // HCZ Hand Launcher (Object 0x3A)
+    public static final String HCZ_HAND_LAUNCHER = "hcz_hand_launcher";
+
     // HCZ/CGZ Fan (Object 0x38)
     public static final String HCZ_FAN = "hcz_fan";
     public static final String HCZ_FAN_BUBBLE = "hcz_fan_bubble"; // Tiny bubble from Map_Bubbler
