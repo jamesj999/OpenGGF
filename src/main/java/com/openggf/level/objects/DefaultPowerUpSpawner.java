@@ -85,6 +85,12 @@ public class DefaultPowerUpSpawner implements PowerUpSpawner {
     @Override
     public void registerObject(PowerUpObject obj) {
         if (obj instanceof ObjectInstance oi) {
+            if (oi instanceof AbstractObjectInstance aoi) {
+                // registerObject() is used for persistent visuals that survive an
+                // ObjectManager rebuild. Their old slot belongs to the previous
+                // manager and must be dropped before the new manager allocates one.
+                aoi.setSlotIndex(-1);
+            }
             objectManager.addDynamicObject(oi);
         }
     }
