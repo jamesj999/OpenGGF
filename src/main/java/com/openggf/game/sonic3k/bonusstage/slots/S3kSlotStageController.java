@@ -23,13 +23,11 @@ public class S3kSlotStageController {
 
         player.setAngle((byte) statTable);
 
-        if (jump) {
+        if (jump && player instanceof AbstractPlayableSprite sprite && sprite.isJumpJustPressed()) {
             int angle = (-((statTable & 0xFC)) - 0x40) & 0xFF;
-            if (player instanceof AbstractPlayableSprite sprite) {
-                sprite.setXSpeed((short) ((TrigLookupTable.cosHex(angle) * 0x680) >> 8));
-                sprite.setYSpeed((short) ((TrigLookupTable.sinHex(angle) * 0x680) >> 8));
-                sprite.setAir(true);
-            }
+            sprite.setXSpeed((short) ((TrigLookupTable.cosHex(angle) * 0x680) >> 8));
+            sprite.setYSpeed((short) ((TrigLookupTable.sinHex(angle) * 0x680) >> 8));
+            sprite.setAir(true);
         }
     }
 

@@ -48,6 +48,7 @@ public interface S3kSlotBonusPlayer extends CustomPlayablePhysics {
                                       boolean jump, boolean test, boolean speedUp, boolean slowDown,
                                       LevelManager levelManager, int frameCounter) {
             S3kSlotBonusPlayer.tickController(this, controller, left, right, jump, frameCounter);
+            move();
         }
     }
 
@@ -65,6 +66,7 @@ public interface S3kSlotBonusPlayer extends CustomPlayablePhysics {
                                       boolean jump, boolean test, boolean speedUp, boolean slowDown,
                                       LevelManager levelManager, int frameCounter) {
             S3kSlotBonusPlayer.tickController(this, controller, left, right, jump, frameCounter);
+            move();
         }
     }
 
@@ -82,6 +84,7 @@ public interface S3kSlotBonusPlayer extends CustomPlayablePhysics {
                                       boolean jump, boolean test, boolean speedUp, boolean slowDown,
                                       LevelManager levelManager, int frameCounter) {
             S3kSlotBonusPlayer.tickController(this, controller, left, right, jump, frameCounter);
+            move();
         }
     }
 }
