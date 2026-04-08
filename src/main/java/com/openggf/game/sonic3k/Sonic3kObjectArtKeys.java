@@ -131,6 +131,7 @@ public final class Sonic3kObjectArtKeys {
     public static final String HCZ_BUBBLES = "hcz_bubbles";
 
     // HCZ badniks
+    public static final String HCZ_BUGGERNAUT = "hcz_buggernaut";
     public static final String HCZ_BLASTOID = "hcz_blastoid";
     public static final String HCZ_TURBO_SPIKER = "hcz_turbo_spiker";
     public static final String HCZ_MEGA_CHOPPER = "hcz_mega_chopper";

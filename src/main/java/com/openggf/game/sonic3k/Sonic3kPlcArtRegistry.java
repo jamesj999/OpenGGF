@@ -271,6 +271,17 @@ public final class Sonic3kPlcArtRegistry {
                 Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 0x048, 2,
                 null, new int[]{19}));
 
+        // Buggernaut: ArtNem_HCZDragonfly — Nemesis compressed, loaded via PLC_0F/PLC_11
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.HCZ_BUGGERNAUT,
+                Sonic3kConstants.ART_NEM_BUGGERNAUT_ADDR,
+                CompressionType.NEMESIS,
+                0,
+                Sonic3kConstants.MAP_BUGGERNAUT_ADDR,
+                1,   // palette line 1
+                -1   // no DPLC
+        ));
+
         // Shared across both acts
         standalone.add(new StandaloneArtEntry(
                 Sonic3kObjectArtKeys.HCZ_TURBO_SPIKER,
