@@ -5,6 +5,7 @@ import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.GameServices;
 import com.openggf.game.GameRuntime;
 import com.openggf.game.RuntimeManager;
+import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.objects.S3kSlotBonusCageObjectInstance;
 import com.openggf.game.sonic3k.objects.S3kSlotRingRewardObjectInstance;
 import com.openggf.game.sonic3k.objects.S3kSlotSpikeRewardObjectInstance;
@@ -26,6 +27,11 @@ public final class S3kSlotBonusStageRuntime {
     private AbstractPlayableSprite originalPlayer;
     private final S3kSlotStageController slotStageController = new S3kSlotStageController();
     private final S3kSlotLayoutRenderer slotLayoutRenderer = new S3kSlotLayoutRenderer();
+    private final S3kSlotLayoutAnimator layoutAnimator = new S3kSlotLayoutAnimator();
+    private final S3kSlotReelStateMachine reelStateMachine = new S3kSlotReelStateMachine();
+    private final S3kSlotTileInteraction.State tileInteractionState = new S3kSlotTileInteraction.State();
+    private S3kSlotExitSequence exitSequence;
+    private boolean exitTriggered;
     private AbstractPlayableSprite slotPlayer;
     private S3kSlotBonusCageObjectInstance slotCage;
     private S3kSlotRingRewardObjectInstance slotRingReward;
@@ -48,6 +54,10 @@ public final class S3kSlotBonusStageRuntime {
         visibleCells = List.of();
         lastFrameCounter = -1;
         suppressedSidekicks.clear();
+        reelStateMachine.reset();
+        tileInteractionState.reset();
+        exitSequence = null;
+        exitTriggered = false;
         slotStageController.bootstrap();
         layout = S3kSlotRomData.SLOT_BONUS_LAYOUT.clone();
         bootstrapRuntime = RuntimeManager.getCurrent();
@@ -92,46 +102,52 @@ public final class S3kSlotBonusStageRuntime {
 
     public void update(int frameCounter) {
         lastFrameCounter = frameCounter;
+
+        // Exit sequence takes priority
+        if (exitSequence != null) {
+            exitSequence.tick();
+            if (exitSequence.isComplete()) {
+                exitTriggered = true;
+            }
+            // During exit, still update visuals
+            updateVisuals();
+            return;
+        }
+
+        // Per-frame rotation integration
+        slotStageController.tick();
+
+        // Reel state machine
+        reelStateMachine.tick(frameCounter);
+
+        // Tile interaction timers
+        tileInteractionState.tickTimers();
+
+        // Layout tile animations
+        if (layout != null) {
+            layoutAnimator.tick(layout);
+        }
+
+        // Cage object
         if (slotCage != null && slotPlayer != null) {
             slotCage.update(frameCounter, slotPlayer);
         }
-        if (slotRingReward != null && !slotRingReward.isActive()) {
-            int[] ringPos = slotStageController.consumePendingRingReward();
-            if (ringPos != null) {
-                if (ringPos.length == 4) {
-                    slotRingReward.activate(ringPos[0], ringPos[1], ringPos[2], ringPos[3]);
-                } else {
-                    slotRingReward.activate();
-                }
-            }
+
+        // Reward objects
+        updateRewards(frameCounter);
+
+        // Ring pickup from grid
+        if (layout != null && slotPlayer != null) {
+            checkRingPickup();
         }
-        if (slotRingReward != null && slotPlayer != null) {
-            slotRingReward.update(frameCounter, slotPlayer);
+
+        // Grid collision for player movement
+        if (layout != null && slotPlayer != null) {
+            checkGridCollision();
         }
-        if (slotSpikeReward != null && !slotSpikeReward.isActive()) {
-            int[] spikePos = slotStageController.consumePendingSpikeReward();
-            if (spikePos != null) {
-                if (spikePos.length == 4) {
-                    slotSpikeReward.activate(spikePos[0], spikePos[1], spikePos[2], spikePos[3]);
-                } else {
-                    slotSpikeReward.activate();
-                }
-            }
-        }
-        if (slotSpikeReward != null && slotPlayer != null) {
-            slotSpikeReward.update(frameCounter, slotPlayer);
-        }
-        if (bootstrapRuntime != null) {
-            int stageCameraX = bootstrapRuntime.getCamera().getX() - S3kSlotRomData.SLOT_BONUS_START_X;
-            int stageCameraY = bootstrapRuntime.getCamera().getY() - S3kSlotRomData.SLOT_BONUS_START_Y;
-            pointGrid = slotLayoutRenderer.buildPointGrid(slotStageController.angle(),
-                    stageCameraX, stageCameraY);
-            visibleCells = slotLayoutRenderer.buildVisibleCells(
-                    layout,
-                    slotStageController.angle(),
-                    stageCameraX,
-                    stageCameraY);
-        }
+
+        // Visuals
+        updateVisuals();
     }
 
     public void queueRingReward() {
@@ -159,6 +175,8 @@ public final class S3kSlotBonusStageRuntime {
         pointGrid = null;
         visibleCells = List.of();
         lastFrameCounter = -1;
+        exitSequence = null;
+        exitTriggered = false;
         originalPlayer = null;
         bootstrapRuntime = null;
         initialized = false;
@@ -196,6 +214,22 @@ public final class S3kSlotBonusStageRuntime {
         return lastFrameCounter;
     }
 
+    public boolean isExitTriggered() {
+        return exitTriggered;
+    }
+
+    public S3kSlotReelStateMachine activeReelStateMachineForTest() {
+        return reelStateMachine;
+    }
+
+    public S3kSlotLayoutAnimator activeLayoutAnimatorForTest() {
+        return layoutAnimator;
+    }
+
+    public S3kSlotExitSequence activeExitSequenceForTest() {
+        return exitSequence;
+    }
+
     public void render(com.openggf.camera.Camera camera) {
         LevelManager levelManager = GameServices.level();
         ObjectRenderManager renderManager = levelManager != null ? levelManager.getObjectRenderManager() : null;
@@ -203,6 +237,110 @@ public final class S3kSlotBonusStageRuntime {
             return;
         }
         slotLayoutRenderer.renderVisibleCells(visibleCells, camera, renderManager);
+    }
+
+    private void checkRingPickup() {
+        S3kSlotGridCollision.RingCheck ring = S3kSlotGridCollision.checkRingPickup(
+                layout, slotPlayer.getX(), slotPlayer.getY());
+        if (ring.foundRing()) {
+            layout[ring.layoutIndex()] = 0; // consume ring tile
+            layoutAnimator.queueRingSparkle(layout, ring.layoutIndex());
+            slotPlayer.addRings(1);
+            if (GameServices.audio() != null) {
+                GameServices.audio().playSfx(Sonic3kSfx.RING_RIGHT.id);
+            }
+        }
+    }
+
+    private void checkGridCollision() {
+        S3kSlotGridCollision.Result collision = S3kSlotGridCollision.check(
+                layout, slotPlayer.getX(), slotPlayer.getY());
+
+        if (!collision.solid()) return;
+
+        // If special tile (1-6), process interaction
+        if (collision.special()) {
+            int tileRow = collision.layoutIndex() / S3kSlotGridCollision.LAYOUT_STRIDE;
+            int tileCol = collision.layoutIndex() % S3kSlotGridCollision.LAYOUT_STRIDE;
+            short tileCenterX = (short) (tileCol * S3kSlotGridCollision.CELL_SIZE
+                    - S3kSlotGridCollision.COLLISION_X_OFFSET + 0x0C);
+            short tileCenterY = (short) (tileRow * S3kSlotGridCollision.CELL_SIZE
+                    - S3kSlotGridCollision.COLLISION_Y_OFFSET + 0x0C);
+
+            S3kSlotTileInteraction.Response response = S3kSlotTileInteraction.process(
+                    collision.tileId(), slotPlayer.getX(), slotPlayer.getY(),
+                    tileCenterX, tileCenterY,
+                    slotStageController, tileInteractionState);
+
+            handleTileResponse(response, collision.layoutIndex());
+        }
+    }
+
+    private void handleTileResponse(S3kSlotTileInteraction.Response response, int layoutIndex) {
+        switch (response.effect()) {
+            case BUMPER_LAUNCH -> {
+                slotPlayer.setXSpeed(response.launchXVel());
+                slotPlayer.setYSpeed(response.launchYVel());
+                slotPlayer.setAir(true);
+                if (GameServices.audio() != null) GameServices.audio().playSfx(Sonic3kSfx.BUMPER.id);
+                layoutAnimator.queueBumperBounce(layout, layoutIndex);
+            }
+            case GOAL_EXIT -> {
+                if (GameServices.audio() != null) GameServices.audio().playSfx(Sonic3kSfx.GOAL.id);
+                exitSequence = new S3kSlotExitSequence(slotStageController);
+            }
+            case SPIKE_REVERSAL -> {
+                if (GameServices.audio() != null) GameServices.audio().playSfx(Sonic3kSfx.LAUNCH_GO.id);
+                layoutAnimator.queueSpikeAnimation(layout, layoutIndex);
+            }
+            case SLOT_REEL_INCREMENT -> {
+                if (GameServices.audio() != null) GameServices.audio().playSfx(Sonic3kSfx.FLIPPER.id);
+            }
+            default -> {}
+        }
+    }
+
+    private void updateVisuals() {
+        if (bootstrapRuntime != null) {
+            int stageCameraX = bootstrapRuntime.getCamera().getX() - S3kSlotRomData.SLOT_BONUS_START_X;
+            int stageCameraY = bootstrapRuntime.getCamera().getY() - S3kSlotRomData.SLOT_BONUS_START_Y;
+            pointGrid = slotLayoutRenderer.buildPointGrid(slotStageController.angle(),
+                    stageCameraX, stageCameraY);
+            visibleCells = slotLayoutRenderer.buildVisibleCells(
+                    layout,
+                    slotStageController.angle(),
+                    stageCameraX,
+                    stageCameraY);
+        }
+    }
+
+    private void updateRewards(int frameCounter) {
+        if (slotRingReward != null && !slotRingReward.isActive()) {
+            int[] ringPos = slotStageController.consumePendingRingReward();
+            if (ringPos != null) {
+                if (ringPos.length == 4) {
+                    slotRingReward.activate(ringPos[0], ringPos[1], ringPos[2], ringPos[3]);
+                } else {
+                    slotRingReward.activate();
+                }
+            }
+        }
+        if (slotRingReward != null && slotPlayer != null) {
+            slotRingReward.update(frameCounter, slotPlayer);
+        }
+        if (slotSpikeReward != null && !slotSpikeReward.isActive()) {
+            int[] spikePos = slotStageController.consumePendingSpikeReward();
+            if (spikePos != null) {
+                if (spikePos.length == 4) {
+                    slotSpikeReward.activate(spikePos[0], spikePos[1], spikePos[2], spikePos[3]);
+                } else {
+                    slotSpikeReward.activate();
+                }
+            }
+        }
+        if (slotSpikeReward != null && slotPlayer != null) {
+            slotSpikeReward.update(frameCounter, slotPlayer);
+        }
     }
 
     private void copyLivePlayerState(AbstractPlayableSprite source, AbstractPlayableSprite target) {
