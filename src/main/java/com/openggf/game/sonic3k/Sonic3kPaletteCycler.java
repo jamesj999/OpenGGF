@@ -99,6 +99,12 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
                 loadPachinkoCycles(reader, list);
                 break;
 
+            case 0x15: // Slots bonus stage — AnPal_Slots (sonic3k.asm ~line 3844)
+                // Three cycling routines targeting palette line 3 offsets $14-$1C.
+                // Gated by Palette_cycle_counters+$00: 0=idle, 1=capture, -1(0xFF)=disabled.
+                // ROM data at AnPal_PalSlots_1/2/3 — stub; full data loading TBD.
+                break;
+
             default: break;
         }
         return list;
