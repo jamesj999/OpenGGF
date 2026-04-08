@@ -52,6 +52,12 @@ public class S3kSlotStageController {
         statTable = (statTable + scalarIndex) & 0xFFFF;
     }
 
+    /** ROM loc_4BA80: accelerated rotation when player is object-controlled (cage capture).
+     *  Rotation is: (SStage_scalar_index_1 &lt;&lt; 4) + Stat_table → Stat_table */
+    public void tickObjectControlled() {
+        statTable = (statTable + (scalarIndex << 4)) & 0xFFFF;
+    }
+
     public int scalarIndex() {
         return scalarIndex;
     }
