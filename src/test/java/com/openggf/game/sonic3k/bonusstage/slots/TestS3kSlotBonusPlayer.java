@@ -103,6 +103,8 @@ class TestS3kSlotBonusPlayer {
 
         short startX = player.getX();
         short startY = player.getY();
+        assertFalse(player.getCeilingSensors()[0].isActive());
+        assertFalse(player.getCeilingSensors()[1].isActive());
         player.setJumpInputPressed(true);
 
         ((CustomPlayablePhysics) player).tickCustomPhysics(
@@ -110,5 +112,7 @@ class TestS3kSlotBonusPlayer {
 
         assertTrue(player.getAir());
         assertTrue(player.getX() != startX || player.getY() != startY);
+        assertTrue(player.getCeilingSensors()[0].isActive());
+        assertTrue(player.getCeilingSensors()[1].isActive());
     }
 }
