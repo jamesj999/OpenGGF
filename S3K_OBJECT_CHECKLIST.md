@@ -1,12 +1,12 @@
 # Sonic 3&K Object Implementation Checklist
 
-Generated: 2026-04-08 10:32:55
+Generated: 2026-04-08 15:53:51
 
 ## Summary
 
 - **Total unique objects found:** 303
-- **Implemented:** 43 (14.2%)
-- **Unimplemented:** 260 (85.8%)
+- **Implemented:** 45 (14.9%)
+- **Unimplemented:** 258 (85.1%)
 
 ## Implemented Objects
 
@@ -51,9 +51,11 @@ Generated: 2026-04-08 10:32:55
 | 0x36 | HCZBreakableBar | 8 |  | HCZ1, HCZ2 |
 | 0x37 | HCZWaterRush | 1 |  | HCZ1 |
 | 0x38 | HCZCGZFan | 63 |  | HCZ1, HCZ2 |
+| 0x3A | HCZHandLauncher | 12 |  | HCZ1, HCZ2 |
 | 0x3B | HCZWaterWall | 3 |  | HCZ1 |
 | 0x3E | HCZConveyorBelt | 64 |  | HCZ1 |
 | 0x94 | Blastoid | 7 |  | HCZ1 |
+| 0x95 | Buggernaut | 8 |  | HCZ1 |
 | 0x98 | Poindexter | 40 |  | HCZ1, HCZ2 |
 
 ## Unimplemented Objects (By Usage)
@@ -175,7 +177,6 @@ Generated: 2026-04-08 10:32:55
 | 0x90 | Badnik | Cluckoid | 13 |  | MHZ2 |
 | 0x50 | Object | DEZConveyorBelt | 13 |  | DEZ1, DEZ2 |
 | 0x5D | Object | DEZRetractingSpring | 13 |  | DEZ2 |
-| 0x3A | Object | HCZHandLauncher | 12 |  | HCZ1, HCZ2 |
 | 0xE2 | Object | FBZElevator | 12 |  | FBZ2 |
 | 0xB1 | Object | ICZBreakableWall | 12 |  | ICZ1 |
 | 0xB4 | Object | ICZSwingingPlatform | 12 |  | ICZ1, ICZ2 |
@@ -210,7 +211,6 @@ Generated: 2026-04-08 10:32:55
 | 0x22 | Object | LBZAlarm | 9 |  | LBZ1 |
 | 0x37 | Object | LRZSpikeBallLauncher | 9 |  | LRZ2 |
 | 0x53 | Object | DEZConveyorPad | 9 |  | DEZ1, DEZ2 |
-| 0x95 | Badnik | Buggernaut | 8 | ✅ | HCZ1 |
 | 0x6E | Object | WaterDrop | 8 |  | HCZ2 |
 | 0x43 | Object | CNZRisingPlatform | 8 |  | CNZ1, CNZ2 |
 | 0x75 | Object | FBZSnakePlatform | 8 |  | FBZ1 |
@@ -406,7 +406,7 @@ Total: 751 objects | Implemented: 30 | Unimplemented: 2
 
 #### Act 1
 
-Total: 383 objects | Implemented: 20 | Unimplemented: 10
+Total: 383 objects | Implemented: 22 | Unimplemented: 8
 
 **Badniks:**
 - [x] 0x94 Blastoid (x7) [5 subtypes]
@@ -433,7 +433,7 @@ Total: 383 objects | Implemented: 20 | Unimplemented: 10
 - [x] 0x37 HCZWaterRush (x1) [0x00]
 - [x] 0x38 HCZCGZFan (x27) [12 subtypes]
 - [ ] 0x39 HCZLargeFan (x2) [0x00]
-- [ ] 0x3A HCZHandLauncher (x5) [0x00]
+- [x] 0x3A HCZHandLauncher (x5) [0x00]
 - [x] 0x3B HCZWaterWall (x3) [0x00, 0x01]
 - [x] 0x3E HCZConveyorBelt (x64) [32 subtypes]
 - [ ] 0x3F HCZConveyorSpike (x6) [0x02, 0x08, 0x0A]
@@ -446,7 +446,7 @@ Total: 383 objects | Implemented: 20 | Unimplemented: 10
 
 #### Act 2
 
-Total: 510 objects | Implemented: 12 | Unimplemented: 18
+Total: 510 objects | Implemented: 13 | Unimplemented: 17
 
 **Badniks:**
 - [ ] 0x93 Jawz (x19) [0x00]
@@ -469,7 +469,7 @@ Total: 510 objects | Implemented: 12 | Unimplemented: 18
 - [x] 0x36 HCZBreakableBar (x2) [0x15]
 - [x] 0x38 HCZCGZFan (x36) [12 subtypes]
 - [ ] 0x39 HCZLargeFan (x1) [0x00]
-- [ ] 0x3A HCZHandLauncher (x7) [0x00]
+- [x] 0x3A HCZHandLauncher (x7) [0x00]
 - [ ] 0x3C Door (x19) [0x00]
 - [ ] 0x40 HCZBlock (x9) [0x00]
 - [ ] 0x54 Bubbler (x1) [0x80]
