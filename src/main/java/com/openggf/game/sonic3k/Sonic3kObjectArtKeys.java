@@ -112,6 +112,7 @@ public final class Sonic3kObjectArtKeys {
 
     // HCZ Breakable Bar (Object 0x36)
     public static final String HCZ_BREAKABLE_BAR = "hcz_breakable_bar";
+    public static final String HCZ_BLOCK = "hcz_block";
 
     // HCZ Water Rush (Object 0x37)
     public static final String HCZ_WATER_RUSH = "hcz_water_rush";

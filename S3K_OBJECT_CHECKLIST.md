@@ -1,12 +1,12 @@
 # Sonic 3&K Object Implementation Checklist
 
-Generated: 2026-04-08 15:53:51
+Generated: 2026-04-08 16:33:39
 
 ## Summary
 
 - **Total unique objects found:** 303
-- **Implemented:** 47 (15.5%)
-- **Unimplemented:** 256 (84.5%)
+- **Implemented:** 48 (15.8%)
+- **Unimplemented:** 255 (84.2%)
 
 ## Implemented Objects
 
@@ -50,6 +50,7 @@ Generated: 2026-04-08 15:53:51
 | 0x92 | AIZEndBoss | 2 |  | AIZ2 |
 | 0x0F | CollapsingBridge | 121 |  | HCZ1, MGZ1, MGZ2, FBZ1, FBZ2, ICZ1, ICZ2, LBZ1, LBZ2, SOZ1, SOZ2, LRZ2 |
 | 0x36 | HCZBreakableBar | 8 |  | HCZ1, HCZ2 |
+| 0x40 | HCZBlock | 10 |  | HCZ1, HCZ2 |
 | 0x37 | HCZWaterRush | 1 |  | HCZ1 |
 | 0x38 | HCZCGZFan | 63 |  | HCZ1, HCZ2 |
 | 0x39 | HCZLargeFan | 3 |  | HCZ1, HCZ2 |
@@ -197,7 +198,6 @@ Generated: 2026-04-08 15:53:51
 | 0x79 | Object | SSZHPZTeleporter | 11 |  | SSZ1, SSZ2 |
 | 0x5E | Object | DEZHoverMachine | 11 |  | DEZ1 |
 | 0x5B | Object | DEZGravitySwap | 11 |  | DEZ2 |
-| 0x40 | Object | HCZBlock | 10 |  | HCZ1, HCZ2 |
 | 0x5B | Object | MGZTopPlatform | 10 |  | MGZ1, MGZ2 |
 | 0x49 | Object | CNZGiantWheel | 10 |  | CNZ1, CNZ2 |
 | 0x7F | Object | FBZMissileLauncher | 10 |  | FBZ1 |
@@ -406,7 +406,7 @@ Total: 751 objects | Implemented: 30 | Unimplemented: 2
 
 #### Act 1
 
-Total: 383 objects | Implemented: 24 | Unimplemented: 6
+Total: 383 objects | Implemented: 25 | Unimplemented: 5
 
 **Badniks:**
 - [x] 0x94 Blastoid (x7) [5 subtypes]
@@ -437,7 +437,7 @@ Total: 383 objects | Implemented: 24 | Unimplemented: 6
 - [x] 0x3B HCZWaterWall (x3) [0x00, 0x01]
 - [x] 0x3E HCZConveyorBelt (x64) [32 subtypes]
 - [ ] 0x3F HCZConveyorSpike (x6) [0x02, 0x08, 0x0A]
-- [ ] 0x40 HCZBlock (x1) [0x00]
+- [x] 0x40 HCZBlock (x1) [0x00]
 - [x] 0x51 FloatingPlatform (x17) [4 subtypes]
 - [x] 0x54 Bubbler (x9) [0x80]
 - [ ] 0x6A InvisibleHurtBlockH (x2) [0xF1, 0xA1]
@@ -446,7 +446,7 @@ Total: 383 objects | Implemented: 24 | Unimplemented: 6
 
 #### Act 2
 
-Total: 510 objects | Implemented: 15 | Unimplemented: 15
+Total: 510 objects | Implemented: 16 | Unimplemented: 14
 
 **Badniks:**
 - [ ] 0x93 Jawz (x19) [0x00]
@@ -471,7 +471,7 @@ Total: 510 objects | Implemented: 15 | Unimplemented: 15
 - [x] 0x39 HCZLargeFan (x1) [0x00]
 - [x] 0x3A HCZHandLauncher (x7) [0x00]
 - [ ] 0x3C Door (x19) [0x00]
-- [ ] 0x40 HCZBlock (x9) [0x00]
+- [x] 0x40 HCZBlock (x9) [0x00]
 - [x] 0x54 Bubbler (x1) [0x80]
 - [ ] 0x67 HCZSnakeBlocks (x50) [15 subtypes]
 - [ ] 0x68 HCZSpinningColumn (x27) [5 subtypes]

@@ -3584,10 +3584,15 @@ public class ObjectManager {
                 }
 
                 int halfWidth = params.halfWidth();
-                // ROM: ExitPlatform ALWAYS uses the full collision halfWidth (obActWid + $B)
-                // for continued riding bounds. The narrower obActWid is only used by
-                // Solid_Landed for new landings. Do NOT use getTopLandingHalfWidth() here.
-                int ridingHalfWidth = halfWidth;
+                // Continued riding normally uses the full collision width, but some
+                // objects expose a deliberately narrower standable top surface than
+                // their side/body collision box. When a provider opts into that via
+                // getTopLandingHalfWidth(), use the narrower width for ExitPlatform-style
+                // walk-off checks as well so the riding state clears at the visible edge.
+                int configuredTopHalfWidth = provider.getTopLandingHalfWidth(player, halfWidth);
+                int ridingHalfWidth = (configuredTopHalfWidth < halfWidth)
+                        ? configuredTopHalfWidth
+                        : halfWidth;
 
                 // ROM: Bounds check uses collision-offset X (anchorX = obX + offsetX),
                 // while delta tracking uses raw object X for movement following.

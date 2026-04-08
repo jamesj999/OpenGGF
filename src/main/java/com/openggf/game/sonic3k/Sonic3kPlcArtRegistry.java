@@ -348,6 +348,16 @@ public final class Sonic3kPlcArtRegistry {
                 null
         ));
 
+        // HCZ Block: ArtTile_HCZMisc + $A, palette 2
+        // ROM: make_art_tile(ArtTile_HCZMisc+$A, 2, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.HCZ_BLOCK,
+                Sonic3kConstants.MAP_HCZ_BLOCK_ADDR,
+                Sonic3kConstants.ARTTILE_HCZ_WATER_RUSH_BLOCK,
+                2,
+                null
+        ));
+
         // Floating Platform: ArtTile_HCZMisc + $53
         levelArt.add(new LevelArtEntry(
                 Sonic3kObjectArtKeys.FLOATING_PLATFORM_HCZ,
