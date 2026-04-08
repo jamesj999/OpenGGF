@@ -1,12 +1,12 @@
 # Sonic 3&K Object Implementation Checklist
 
-Generated: 2026-04-08 16:33:39
+Generated: 2026-04-08 17:47:01
 
 ## Summary
 
 - **Total unique objects found:** 303
-- **Implemented:** 49 (16.2%)
-- **Unimplemented:** 254 (83.8%)
+- **Implemented:** 50 (16.5%)
+- **Unimplemented:** 253 (83.5%)
 
 ## Implemented Objects
 
@@ -31,6 +31,7 @@ Generated: 2026-04-08 16:33:39
 | 0x35 | AIZForegroundPlant | 64 |  | AIZ1 |
 | 0x51 | FloatingPlatform | 81 |  | AIZ1, AIZ2, HCZ1, MGZ1, MGZ2 |
 | 0x54 | Bubbler | 10 |  | HCZ1, HCZ2 |
+| 0x6A | InvisibleHurtBlockH | 59 |  | HCZ1, HCZ2, FBZ1, FBZ2, ICZ1, DEZ2 |
 | 0x85 | SSEntryRing | 77 |  | AIZ1, AIZ2, HCZ1, HCZ2, MGZ1, MGZ2, CNZ1, CNZ2, FBZ1, FBZ2, ICZ1, ICZ2, LBZ1, LBZ2, MHZ1, MHZ2, SOZ1, SOZ2, LRZ1, LRZ2 |
 | 0x8C | Bloominator | 13 |  | AIZ1, AIZ2 |
 | 0x8D | Rhinobot | 12 |  | AIZ1, AIZ2 |
@@ -85,7 +86,6 @@ Generated: 2026-04-08 16:33:39
 | 0x9A | Badnik | Iwamodoki | 66 |  | LRZ1, LRZ2 |
 | 0x3C | Object | Door | 63 |  | HCZ2, CNZ1, CNZ2, DEZ1, DEZ2 |
 | 0xE1 | Object | FBZMine | 60 |  | FBZ1, FBZ2 |
-| 0x6A | Object | InvisibleHurtBlockH | 59 |  | HCZ1, HCZ2, FBZ1, FBZ2, ICZ1, DEZ2 |
 | 0x29 | Object | LRZFlameThrower | 52 |  | LRZ2 |
 | 0x2D | Object | LRZSolidMovingPlatforms | 52 |  | LRZ2 |
 | 0x67 | Object | HCZSnakeBlocks | 50 |  | HCZ2 |
@@ -405,7 +405,7 @@ Total: 751 objects | Implemented: 30 | Unimplemented: 2
 
 #### Act 1
 
-Total: 383 objects | Implemented: 26 | Unimplemented: 4
+Total: 383 objects | Implemented: 27 | Unimplemented: 3
 
 **Badniks:**
 - [x] 0x94 Blastoid (x7) [5 subtypes]
@@ -439,13 +439,13 @@ Total: 383 objects | Implemented: 26 | Unimplemented: 4
 - [x] 0x40 HCZBlock (x1) [0x00]
 - [x] 0x51 FloatingPlatform (x17) [4 subtypes]
 - [x] 0x54 Bubbler (x9) [0x80]
-- [ ] 0x6A InvisibleHurtBlockH (x2) [0xF1, 0xA1]
+- [x] 0x6A InvisibleHurtBlockH (x2) [0xF1, 0xA1]
 - [x] 0x80 HiddenMonitor (x2) [0x03]
 - [x] 0x85 SSEntryRing (x2) [0x01, 0x02]
 
 #### Act 2
 
-Total: 510 objects | Implemented: 16 | Unimplemented: 14
+Total: 510 objects | Implemented: 17 | Unimplemented: 13
 
 **Badniks:**
 - [ ] 0x93 Jawz (x19) [0x00]
@@ -475,7 +475,7 @@ Total: 510 objects | Implemented: 16 | Unimplemented: 14
 - [ ] 0x67 HCZSnakeBlocks (x50) [15 subtypes]
 - [ ] 0x68 HCZSpinningColumn (x27) [5 subtypes]
 - [ ] 0x69 HCZTwistingLoop (x16) [16 subtypes]
-- [ ] 0x6A InvisibleHurtBlockH (x8) [4 subtypes]
+- [x] 0x6A InvisibleHurtBlockH (x8) [4 subtypes]
 - [ ] 0x6B InvisibleHurtBlockV (x40) [6 subtypes]
 - [ ] 0x6C TensionBridge (x7) [0x08, 0x88]
 - [ ] 0x6D HCZWaterSplash (x4) [0x00]
@@ -649,7 +649,7 @@ Total: 708 objects | Implemented: 10 | Unimplemented: 22
 
 #### Act 1
 
-Total: 420 objects | Implemented: 12 | Unimplemented: 27
+Total: 420 objects | Implemented: 13 | Unimplemented: 26
 
 **Badniks:**
 - [ ] 0xA8 Blaster (x10) [0x20, 0x08]
@@ -669,7 +669,7 @@ Total: 420 objects | Implemented: 12 | Unimplemented: 27
 - [x] 0x2F StillSprite (x5) [0x28, 0x29, 0x2A]
 - [x] 0x33 Button (x4) [0x20, 0x21, 0x22]
 - [x] 0x34 StarPost (x5) [5 subtypes]
-- [ ] 0x6A InvisibleHurtBlockH (x1) [0x71]
+- [x] 0x6A InvisibleHurtBlockH (x1) [0x71]
 - [ ] 0x6B InvisibleHurtBlockV (x16) [4 subtypes]
 - [ ] 0x6F FBZWireCage (x6) [0x10]
 - [ ] 0x70 FBZWireCageStationary (x9) [0x00, 0x01, 0x02]
@@ -698,7 +698,7 @@ Total: 420 objects | Implemented: 12 | Unimplemented: 27
 
 #### Act 2
 
-Total: 440 objects | Implemented: 12 | Unimplemented: 25
+Total: 440 objects | Implemented: 13 | Unimplemented: 24
 
 **Badniks:**
 - [ ] 0xA8 Blaster (x14) [0x20, 0x30]
@@ -721,7 +721,7 @@ Total: 440 objects | Implemented: 12 | Unimplemented: 25
 - [x] 0x33 Button (x16) [15 subtypes]
 - [x] 0x34 StarPost (x6) [6 subtypes]
 - [ ] 0x3D RetractingSpring (x1) [0x04]
-- [ ] 0x6A InvisibleHurtBlockH (x2) [0x71]
+- [x] 0x6A InvisibleHurtBlockH (x2) [0x71]
 - [ ] 0x6B InvisibleHurtBlockV (x22) [4 subtypes]
 - [ ] 0x6F FBZWireCage (x7) [4 subtypes]
 - [ ] 0x71 FBZFloatingPlatform (x2) [0x00, 0x4F]
@@ -747,7 +747,7 @@ Total: 440 objects | Implemented: 12 | Unimplemented: 25
 
 #### Act 1
 
-Total: 249 objects | Implemented: 9 | Unimplemented: 15
+Total: 249 objects | Implemented: 10 | Unimplemented: 14
 
 **Badniks:**
 - [ ] 0xAD Penguinator (x12) [0x30, 0x20]
@@ -762,7 +762,7 @@ Total: 249 objects | Implemented: 9 | Unimplemented: 15
 - [x] 0x28 InvisibleBlock (x1) [0x11]
 - [x] 0x33 Button (x4) [4 subtypes]
 - [x] 0x34 StarPost (x2) [0x01, 0x02]
-- [ ] 0x6A InvisibleHurtBlockH (x45) [10 subtypes]
+- [x] 0x6A InvisibleHurtBlockH (x45) [10 subtypes]
 - [ ] 0x6B InvisibleHurtBlockV (x14) [5 subtypes]
 - [ ] 0x6C TensionBridge (x1) [0x0C]
 - [x] 0x85 SSEntryRing (x2) [0x01, 0x02]
@@ -1242,7 +1242,7 @@ Total: 365 objects | Implemented: 7 | Unimplemented: 22
 
 #### Act 2
 
-Total: 494 objects | Implemented: 6 | Unimplemented: 23
+Total: 494 objects | Implemented: 7 | Unimplemented: 22
 
 **Badniks:**
 - [ ] 0xA4 Spikebonker (x11) [0x20, 0x40]
@@ -1275,7 +1275,7 @@ Total: 494 objects | Implemented: 6 | Unimplemented: 23
 - [ ] 0x5B DEZGravitySwap (x11) [0x00]
 - [ ] 0x5C DEZGravityHub (x3) [0x05, 0x06, 0x0F]
 - [ ] 0x5D DEZRetractingSpring (x13) [0x02]
-- [ ] 0x6A InvisibleHurtBlockH (x1) [0xF1]
+- [x] 0x6A InvisibleHurtBlockH (x1) [0xF1]
 - [ ] 0x6B InvisibleHurtBlockV (x5) [0xF1]
 - [ ] 0x6D InvisibleShockBlock (x56) [4 subtypes]
 

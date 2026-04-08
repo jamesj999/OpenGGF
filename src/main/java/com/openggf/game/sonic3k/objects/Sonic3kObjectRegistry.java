@@ -110,6 +110,8 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                 });
         factories.put(Sonic3kObjectIds.INVISIBLE_BLOCK,
                 (spawn, registry) -> new Sonic3kInvisibleBlockObjectInstance(spawn));
+        factories.put(Sonic3kObjectIds.INVISIBLE_HURT_BLOCK_H,
+                (spawn, registry) -> new Sonic3kInvisibleHurtBlockHObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.FLOATING_PLATFORM,
                 (spawn, registry) -> new FloatingPlatformObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.BUBBLER,

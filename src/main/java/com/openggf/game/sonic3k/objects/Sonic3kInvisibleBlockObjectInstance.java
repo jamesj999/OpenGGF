@@ -45,7 +45,11 @@ public class Sonic3kInvisibleBlockObjectInstance extends AbstractObjectInstance
     private final int halfHeight;
 
     public Sonic3kInvisibleBlockObjectInstance(ObjectSpawn spawn) {
-        super(spawn, "InvisibleBlock");
+        this(spawn, "InvisibleBlock");
+    }
+
+    protected Sonic3kInvisibleBlockObjectInstance(ObjectSpawn spawn, String name) {
+        super(spawn, name);
 
         int subtype = spawn.subtype();
         // ROM: andi.w #$F0,d0 / addi.w #$10,d0 / lsr.w #1,d0
