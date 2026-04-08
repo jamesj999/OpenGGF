@@ -164,6 +164,9 @@ public final class S3kSlotBonusStageRuntime {
         // ROM sub_4BBF4: custom camera tracking centered on player
         updateCamera();
 
+        // ROM sub_4B4C4: pre-render animation updates for goal/peppermint sprites
+        slotLayoutRenderer.updateAnimations();
+
         // Visuals
         updateVisuals();
     }
@@ -372,7 +375,8 @@ public final class S3kSlotBonusStageRuntime {
                 slotPlayer.setYSpeed(response.launchYVel());
                 slotPlayer.setAir(true);
                 if (GameServices.audio() != null) GameServices.audio().playSfx(Sonic3kSfx.BUMPER.id);
-                layoutAnimator.queueBumperBounce(layout, layoutIndex);
+                // ROM loc_4BEC8: animation spawns at layout address - 1
+                layoutAnimator.queueBumperBounce(layout, Math.max(0, layoutIndex - 1));
             }
             case GOAL_EXIT -> {
                 if (GameServices.audio() != null) GameServices.audio().playSfx(Sonic3kSfx.GOAL.id);
@@ -380,7 +384,8 @@ public final class S3kSlotBonusStageRuntime {
             }
             case SPIKE_REVERSAL -> {
                 if (GameServices.audio() != null) GameServices.audio().playSfx(Sonic3kSfx.LAUNCH_GO.id);
-                layoutAnimator.queueSpikeAnimation(layout, layoutIndex);
+                // ROM loc_4BEC8: animation spawns at layout address - 1
+                layoutAnimator.queueSpikeAnimation(layout, Math.max(0, layoutIndex - 1));
             }
             case SLOT_REEL_INCREMENT -> {
                 if (GameServices.audio() != null) GameServices.audio().playSfx(Sonic3kSfx.FLIPPER.id);
