@@ -45,7 +45,7 @@ class TestSpritePieceRendererSatPreparation {
                 false,
                 false,
                 false,
-                prepared -> entries.add(SpriteSatEntry.fromPreparedPiece(prepared)));
+                prepared -> entries.add(SpriteSatEntry.fromPreparedPiece(prepared, 0)));
 
         SpritePieceRenderer.preparePiece(
                 piece(0, 24, 2, 2, 0x25F, false, false, 0, false),
@@ -56,7 +56,7 @@ class TestSpritePieceRendererSatPreparation {
                 false,
                 false,
                 false,
-                prepared -> entries.add(SpriteSatEntry.fromPreparedPiece(prepared)));
+                prepared -> entries.add(SpriteSatEntry.fromPreparedPiece(prepared, 0)));
 
         SpritePieceRenderer.preparePiece(
                 piece(0, 16, 4, 4, 0x200, false, false, 0, false),
@@ -67,7 +67,7 @@ class TestSpritePieceRendererSatPreparation {
                 false,
                 false,
                 false,
-                prepared -> entries.add(SpriteSatEntry.fromPreparedPiece(prepared)));
+                prepared -> entries.add(SpriteSatEntry.fromPreparedPiece(prepared, 0)));
 
         List<SpriteSatEntry> processed = SpriteSatMaskPostProcessor.process(entries, true);
 
