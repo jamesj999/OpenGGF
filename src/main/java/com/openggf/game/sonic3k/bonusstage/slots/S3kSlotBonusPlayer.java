@@ -13,6 +13,8 @@ public interface S3kSlotBonusPlayer extends CustomPlayablePhysics {
 
     String getCode();
 
+    void setAngle(byte angle);
+
     static AbstractPlayableSprite create(String mainCode, short x, short y, S3kSlotStageController controller) {
         return switch (normalize(mainCode)) {
             case "tails" -> new TailsSlotBonusPlayer(mainCode, x, y, controller);

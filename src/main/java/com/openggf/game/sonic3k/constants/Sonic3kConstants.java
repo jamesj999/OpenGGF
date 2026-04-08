@@ -1249,6 +1249,15 @@ public class Sonic3kConstants {
     public static final int ARTTILE_BONUS_STAGE = 0x015B;           // ArtTile_BonusStage (VRAM tile destination)
     public static final int GUMBALL_ANI_TILES_ADDR = 0x2C2180;      // ArtUnc_AniGumball (uncompressed, 256 bytes)
 
+    // ===== Slot Machine Bonus Stage =====
+    public static final int SLOTS_REWARD_VALUES_ADDR = 0x04C8A4;
+    public static final int SLOTS_TARGET_ROWS_ADDR = 0x04C8B4;
+    public static final int SLOTS_REEL_SEQUENCE_A_ADDR = 0x04C8CC;
+    public static final int SLOTS_REEL_SEQUENCE_B_ADDR = 0x04C8D4;
+    public static final int SLOTS_REEL_SEQUENCE_C_ADDR = 0x04C8DC;
+    public static final int SLOTS_CAGE_ROUTINE_ADDR = 0x04BF62;
+    public static final int SLOTS_BOOTSTRAP_ROUTINE_ADDR = 0x04B6AA;
+
     // ===== Pachinko / Glowing Spheres Bonus Stage =====
     public static final int ARTTILE_PACHINKO_MAIN = 0x02CD;         // ArtTile_PachinkoMain
     public static final int ARTTILE_PACHINKO_GUMBALLS = 0x0388;     // ArtTile_PachinkoGumballs
