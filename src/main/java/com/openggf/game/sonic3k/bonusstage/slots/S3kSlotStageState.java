@@ -20,7 +20,7 @@ public final class S3kSlotStageState {
         return statTable;
     }
 
-    public void setStatTable(int statTable) {
+    void setStatTable(int statTable) {
         this.statTable = statTable;
     }
 
@@ -28,7 +28,7 @@ public final class S3kSlotStageState {
         return scalarIndex1;
     }
 
-    public void setScalarIndex1(int scalarIndex1) {
+    void setScalarIndex1(int scalarIndex1) {
         this.scalarIndex1 = scalarIndex1;
     }
 
@@ -36,7 +36,7 @@ public final class S3kSlotStageState {
         return scalarIndex2;
     }
 
-    public void setScalarIndex2(int scalarIndex2) {
+    void setScalarIndex2(int scalarIndex2) {
         this.scalarIndex2 = scalarIndex2;
     }
 
@@ -44,7 +44,7 @@ public final class S3kSlotStageState {
         return scalarResult0;
     }
 
-    public void setScalarResult0(int scalarResult0) {
+    void setScalarResult0(int scalarResult0) {
         this.scalarResult0 = scalarResult0;
     }
 
@@ -52,7 +52,7 @@ public final class S3kSlotStageState {
         return scalarResult1;
     }
 
-    public void setScalarResult1(int scalarResult1) {
+    void setScalarResult1(int scalarResult1) {
         this.scalarResult1 = scalarResult1;
     }
 
@@ -64,12 +64,12 @@ public final class S3kSlotStageState {
         return lastCollisionIndex;
     }
 
-    public void setLastCollision(int tileId, int layoutIndex) {
+    void setLastCollision(int tileId, int layoutIndex) {
         lastCollisionTileId = tileId;
         lastCollisionIndex = layoutIndex;
     }
 
-    public void clearCollision() {
+    void clearCollision() {
         lastCollisionTileId = 0;
         lastCollisionIndex = -1;
     }
@@ -78,7 +78,7 @@ public final class S3kSlotStageState {
         return paletteCycleEnabled;
     }
 
-    public void setPaletteCycleEnabled(boolean paletteCycleEnabled) {
+    void setPaletteCycleEnabled(boolean paletteCycleEnabled) {
         this.paletteCycleEnabled = paletteCycleEnabled;
     }
 }
