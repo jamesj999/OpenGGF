@@ -10,6 +10,12 @@ import com.openggf.sprites.playable.Tails;
 import java.util.Locale;
 
 public interface S3kSlotBonusPlayer extends CustomPlayablePhysics {
+    short GROUND_ACCEL = 0x0C;           // sub_4BB54 line 98856: subi.w #$C,d0
+    short GROUND_DECEL = 0x0C;           // sub_4BABC line 98801: subi.w #$C,d0
+    short GROUND_REVERSAL_DECEL = 0x40;  // sub_4BB54 line 98867: subi.w #$40,d0
+    short GROUND_MAX_SPEED = 0x800;      // sub_4BB54 line 98857: cmpi.w #-$800,d0
+    short AIR_ACCEL = 0x18;
+    short AIR_MAX_SPEED = 0x300;
 
     String getCode();
 
@@ -35,8 +41,67 @@ public interface S3kSlotBonusPlayer extends CustomPlayablePhysics {
         short originalX = player.getX();
         short originalY = player.getY();
         tickController((S3kSlotBonusPlayer) player, controller, left, right, jump, frameCounter);
-        player.move();
+        player.setMovementInputActive(left != right);
+
+        if (player.getAir()) {
+            applyAirMotion(player, left, right);
+        } else {
+            applyGroundMotion(player, left, right);
+        }
+
+        player.move(player.getXSpeed(), player.getYSpeed());
         player.updateSensors(originalX, originalY);
+    }
+
+    private static void applyGroundMotion(AbstractPlayableSprite player, boolean left, boolean right) {
+        int gSpeed = player.getGSpeed();
+        if (left == right) {
+            // No input: friction (sub_4BABC lines 98798-98816)
+            if (gSpeed > 0) {
+                gSpeed = Math.max(0, gSpeed - GROUND_DECEL);
+            } else if (gSpeed < 0) {
+                gSpeed = Math.min(0, gSpeed + GROUND_DECEL);
+            }
+        } else if (left) {
+            if (gSpeed > 0) {
+                // Reversing: heavy decel (sub_4BB54 line 98867: subi.w #$40,d0)
+                gSpeed -= GROUND_REVERSAL_DECEL;
+                if (gSpeed < 0) gSpeed = 0;
+            } else {
+                // Accelerating left (sub_4BB54 line 98856: subi.w #$C,d0)
+                gSpeed = Math.max(-GROUND_MAX_SPEED, gSpeed - GROUND_ACCEL);
+            }
+            player.setDirection(com.openggf.physics.Direction.LEFT);
+        } else {
+            if (gSpeed < 0) {
+                // Reversing: heavy decel (sub_4BB84 line 98895: addi.w #$40,d0)
+                gSpeed += GROUND_REVERSAL_DECEL;
+                if (gSpeed > 0) gSpeed = 0;
+            } else {
+                // Accelerating right (sub_4BB84 line 98884: addi.w #$C,d0)
+                gSpeed = Math.min(GROUND_MAX_SPEED, gSpeed + GROUND_ACCEL);
+            }
+            player.setDirection(com.openggf.physics.Direction.RIGHT);
+        }
+        player.setGSpeed((short) gSpeed);
+        player.setXSpeed((short) gSpeed);
+        player.setYSpeed((short) 0);
+        player.setJumping(false);
+    }
+
+    private static void applyAirMotion(AbstractPlayableSprite player, boolean left, boolean right) {
+        int xSpeed = player.getXSpeed();
+        if (left && !right) {
+            xSpeed = Math.max(-AIR_MAX_SPEED, xSpeed - AIR_ACCEL);
+            player.setDirection(com.openggf.physics.Direction.LEFT);
+        } else if (right && !left) {
+            xSpeed = Math.min(AIR_MAX_SPEED, xSpeed + AIR_ACCEL);
+            player.setDirection(com.openggf.physics.Direction.RIGHT);
+        }
+
+        int ySpeed = player.getYSpeed() + Math.round(player.getGravity());
+        player.setXSpeed((short) xSpeed);
+        player.setYSpeed((short) ySpeed);
     }
 
     private static String normalize(String mainCode) {

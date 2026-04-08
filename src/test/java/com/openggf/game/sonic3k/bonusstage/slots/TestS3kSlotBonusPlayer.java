@@ -115,4 +115,38 @@ class TestS3kSlotBonusPlayer {
         assertTrue(player.getCeilingSensors()[0].isActive());
         assertTrue(player.getCeilingSensors()[1].isActive());
     }
+
+    @Test
+    void movementConstantsMatchDisassembly() {
+        assertEquals(0x0C, S3kSlotBonusPlayer.GROUND_ACCEL);
+        assertEquals(0x0C, S3kSlotBonusPlayer.GROUND_DECEL);
+        assertEquals(0x40, S3kSlotBonusPlayer.GROUND_REVERSAL_DECEL);
+        assertEquals(0x800, S3kSlotBonusPlayer.GROUND_MAX_SPEED);
+    }
+
+    @Test
+    void startPositionMatchesCageCapture() {
+        assertEquals((short) 0x0460, S3kSlotRomData.SLOT_BONUS_START_X);
+        assertEquals((short) 0x0430, S3kSlotRomData.SLOT_BONUS_START_Y);
+    }
+
+    @Test
+    void spriteManagerTickPlayablePhysicsRespondsToGroundedRightInputForSlotPlayer() {
+        RuntimeManager.createGameplay();
+        S3kSlotStageController controller = new S3kSlotStageController();
+        AbstractPlayableSprite player = S3kSlotBonusPlayer.create("sonic", (short) 0x460, (short) 0x430, controller);
+
+        short startX = player.getX();
+
+        for (int frame = 0; frame < 8; frame++) {
+            SpriteManager.tickPlayablePhysics(player,
+                    false, false, false, true, false, false, false, false,
+                    GameServices.level(), 42 + frame);
+        }
+
+        assertTrue(player.getGSpeed() > 0 || player.getXSpeed() > 0,
+                "gSpeed=" + player.getGSpeed() + " xSpeed=" + player.getXSpeed() + " x=" + player.getX());
+        assertTrue(player.getX() > startX,
+                "gSpeed=" + player.getGSpeed() + " xSpeed=" + player.getXSpeed() + " x=" + player.getX() + " startX=" + startX);
+    }
 }
