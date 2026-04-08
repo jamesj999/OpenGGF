@@ -48,6 +48,23 @@ class TestSessionManager {
     }
 
     @Test
+    void enterEditorMode_withStash_retainsCursorAndStash() {
+        SessionManager.openGameplaySession(new Sonic2GameModule());
+        WorldSession world = SessionManager.getCurrentWorldSession();
+        EditorPlaytestStash stash = new EditorPlaytestStash(
+                48, 96, 0x0200, -0x0040, false, 12, 1);
+
+        EditorModeContext editor = SessionManager.enterEditorMode(new EditorCursorState(128, 256), stash);
+
+        assertNotNull(editor);
+        assertSame(world, editor.getWorldSession());
+        assertEquals(128, editor.getCursor().x());
+        assertEquals(256, editor.getCursor().y());
+        assertTrue(editor.hasPlaytestStash());
+        assertSame(stash, editor.getPlaytestStash());
+    }
+
+    @Test
     void openGameplaySession_replacesExistingEditorModeWithFreshWorld() {
         SessionManager.openGameplaySession(new Sonic2GameModule());
         EditorModeContext editor = SessionManager.enterEditorMode(new EditorCursorState(128, 256));

@@ -1,6 +1,7 @@
 package com.openggf;
 
 import com.openggf.debug.DebugOverlayToggle;
+import com.openggf.editor.EditorInputHandler;
 import com.openggf.game.*;
 
 import com.openggf.control.InputHandler;
@@ -87,6 +88,8 @@ public class GameLoop {
     private TitleCardProvider titleCardProvider;
 
     private InputHandler inputHandler;
+    private EditorInputHandler editorInputHandler;
+    private Runnable editorPlaytestToggleHandler;
     private GameMode currentGameMode = GameMode.LEVEL;
 
     // Special stage results screen
@@ -179,6 +182,14 @@ public class GameLoop {
 
     public void setInputHandler(InputHandler inputHandler) {
         this.inputHandler = inputHandler;
+    }
+
+    public void setEditorInputHandler(EditorInputHandler editorInputHandler) {
+        this.editorInputHandler = editorInputHandler;
+    }
+
+    public void setEditorPlaytestToggleHandler(Runnable editorPlaytestToggleHandler) {
+        this.editorPlaytestToggleHandler = editorPlaytestToggleHandler;
     }
 
     /**
@@ -302,7 +313,21 @@ public class GameLoop {
             return;
         }
 
+        if (!isPaused()
+                && (currentGameMode == GameMode.LEVEL || currentGameMode == GameMode.EDITOR)
+                && inputHandler.isKeyPressed(GLFW_KEY_TAB)
+                && (inputHandler.isKeyDown(GLFW_KEY_LEFT_SHIFT)
+                || inputHandler.isKeyDown(GLFW_KEY_RIGHT_SHIFT))
+                && editorPlaytestToggleHandler != null) {
+            editorPlaytestToggleHandler.run();
+            inputHandler.update();
+            return;
+        }
+
         if (currentGameMode == GameMode.EDITOR) {
+            if (editorInputHandler != null) {
+                editorInputHandler.update(inputHandler);
+            }
             inputHandler.update();
             return;
         }

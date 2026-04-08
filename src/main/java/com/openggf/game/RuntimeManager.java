@@ -30,6 +30,7 @@ import com.openggf.timer.TimerManager;
 public final class RuntimeManager {
 
     private static GameRuntime current;
+    private static GameRuntime parked;
     private static GameplayModeContext suppressedGameplayMode;
 
     private RuntimeManager() {}
@@ -59,6 +60,7 @@ public final class RuntimeManager {
      * production code should use {@link #createGameplay()}.
      */
     public static synchronized void setCurrent(GameRuntime runtime) {
+        destroyParkedRuntimeIfSupersededBy(runtime);
         current = runtime;
         suppressedGameplayMode = runtime == null ? SessionManager.getCurrentGameplayMode() : null;
     }
@@ -89,6 +91,7 @@ public final class RuntimeManager {
         if (gameplayMode == null) {
             throw new NullPointerException("gameplayMode");
         }
+        destroyParkedRuntimeIfSupersededBy(null);
         suppressedGameplayMode = null;
         Camera camera = new Camera();
         TimerManager timers = new TimerManager();
@@ -111,6 +114,37 @@ public final class RuntimeManager {
     }
 
     /**
+     * Detaches the active gameplay runtime without destroying it so editor mode can take over.
+     */
+    public static synchronized void parkCurrent() {
+        if (current == null) {
+            return;
+        }
+        parked = current;
+        current = null;
+        suppressedGameplayMode = SessionManager.getCurrentGameplayMode();
+    }
+
+    /**
+     * Rebinds a previously parked runtime to the resumed gameplay mode, or creates a fresh runtime
+     * if nothing is parked.
+     */
+    public static synchronized GameRuntime resumeParked(GameplayModeContext gameplayMode) {
+        if (parked == null) {
+            return createGameplay(gameplayMode);
+        }
+        if (parked.getWorldSession() != gameplayMode.getWorldSession()) {
+            destroyParkedRuntimeIfSupersededBy(null);
+            return createGameplay(gameplayMode);
+        }
+        parked.updateGameplayModeContext(gameplayMode);
+        current = parked;
+        parked = null;
+        suppressedGameplayMode = null;
+        return current;
+    }
+
+    /**
      * Destroys the current runtime (calling {@link GameRuntime#destroy()})
      * and sets the current reference to {@code null}.
      */
@@ -119,6 +153,16 @@ public final class RuntimeManager {
             current.destroy();
             current = null;
         }
+        destroyParkedRuntimeIfSupersededBy(null);
         suppressedGameplayMode = SessionManager.getCurrentGameplayMode();
+    }
+
+    private static void destroyParkedRuntimeIfSupersededBy(GameRuntime replacement) {
+        if (parked != null && parked != replacement) {
+            parked.destroy();
+        }
+        if (parked != replacement) {
+            parked = null;
+        }
     }
 }

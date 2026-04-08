@@ -195,15 +195,47 @@ public class MutableLevel extends AbstractLevel {
     }
 
     public void setChunkInBlock(int blockIndex, int cx, int cy, ChunkDesc desc) {
+        int oldChunkIndex = blocks[blockIndex].getChunkDesc(cx, cy).getChunkIndex();
         blocks[blockIndex].setChunkDesc(cx, cy, desc);
+        updateChunkToBlocksLookup(blockIndex, oldChunkIndex, desc.getChunkIndex());
         dirtyBlocks.set(blockIndex);
         dirtyTransitiveMapCells(blockIndex);
     }
 
+    public void restoreBlockState(int blockIndex, int[] state) {
+        Block block = blocks[blockIndex];
+        if (state.length != block.saveState().length) {
+            throw new IllegalArgumentException("Invalid block state length for block " + blockIndex);
+        }
+
+        int side = block.getGridSide();
+        for (int i = 0; i < state.length; i++) {
+            int x = i % side;
+            int y = i / side;
+            if (block.getChunkDesc(x, y).get() != state[i]) {
+                setChunkInBlock(blockIndex, x, y, new ChunkDesc(state[i]));
+            }
+        }
+    }
+
     public void setBlockInMap(int layer, int bx, int by, int blockIndex) {
+        int oldBlockIndex = map.getValue(layer, bx, by) & 0xFF;
         map.setValue(layer, bx, by, (byte) blockIndex);
-        int cellIdx = layer * map.getWidth() * map.getHeight() + by * map.getWidth() + bx;
+        int cellIdx = linearizeMapCell(layer, bx, by);
+        updateBlockToMapCellsLookup(cellIdx, oldBlockIndex, blockIndex);
         dirtyMapCells.set(cellIdx);
+    }
+
+    public void restoreChunkState(int chunkIndex, int[] state) {
+        if (!Arrays.equals(chunks[chunkIndex].saveState(), state)) {
+            chunks[chunkIndex].restoreState(Arrays.copyOf(state, state.length));
+            dirtyChunks.set(chunkIndex);
+            Set<Integer> affectedBlocks = chunkToBlocks.getOrDefault(chunkIndex, Set.of());
+            for (int blockIdx : affectedBlocks) {
+                dirtyBlocks.set(blockIdx);
+                dirtyTransitiveMapCells(blockIdx);
+            }
+        }
     }
 
     public void setSolidTile(int index, SolidTile tile) {
@@ -307,10 +339,66 @@ public class MutableLevel extends AbstractLevel {
         return new int[] { layer, x, y };
     }
 
+    public boolean isChunkReferencedInBlocks(int chunkIndex) {
+        return !chunkToBlocks.getOrDefault(chunkIndex, Set.of()).isEmpty();
+    }
+
+    public boolean isBlockReferencedInMap(int blockIndex) {
+        return !blockToMapCells.getOrDefault(blockIndex, Set.of()).isEmpty();
+    }
+
     private void dirtyTransitiveMapCells(int blockIndex) {
         Set<Integer> cells = blockToMapCells.getOrDefault(blockIndex, Set.of());
         for (int cellIdx : cells) {
             dirtyMapCells.set(cellIdx);
+        }
+    }
+
+    private int linearizeMapCell(int layer, int x, int y) {
+        return layer * map.getWidth() * map.getHeight() + y * map.getWidth() + x;
+    }
+
+    private void updateBlockToMapCellsLookup(int cellIdx, int oldBlockIndex, int newBlockIndex) {
+        if (oldBlockIndex == newBlockIndex) {
+            return;
+        }
+
+        removeLookupMember(blockToMapCells, oldBlockIndex, cellIdx);
+        blockToMapCells.computeIfAbsent(newBlockIndex, ignored -> new HashSet<>()).add(cellIdx);
+    }
+
+    private void updateChunkToBlocksLookup(int blockIndex, int oldChunkIndex, int newChunkIndex) {
+        if (oldChunkIndex == newChunkIndex) {
+            return;
+        }
+
+        if (!blockStillReferencesChunk(blockIndex, oldChunkIndex)) {
+            removeLookupMember(chunkToBlocks, oldChunkIndex, blockIndex);
+        }
+        chunkToBlocks.computeIfAbsent(newChunkIndex, ignored -> new HashSet<>()).add(blockIndex);
+    }
+
+    private boolean blockStillReferencesChunk(int blockIndex, int chunkIndex) {
+        Block block = blocks[blockIndex];
+        int side = block.getGridSide();
+        for (int cy = 0; cy < side; cy++) {
+            for (int cx = 0; cx < side; cx++) {
+                if (block.getChunkDesc(cx, cy).getChunkIndex() == chunkIndex) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static void removeLookupMember(java.util.Map<Integer, Set<Integer>> lookup, int key, int member) {
+        Set<Integer> members = lookup.get(key);
+        if (members == null) {
+            return;
+        }
+        members.remove(member);
+        if (members.isEmpty()) {
+            lookup.remove(key);
         }
     }
 

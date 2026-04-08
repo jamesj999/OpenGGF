@@ -7,6 +7,9 @@ import org.lwjgl.opengl.*;
 import org.lwjgl.system.MemoryStack;
 
 import com.openggf.control.InputHandler;
+import com.openggf.editor.EditorInputHandler;
+import com.openggf.editor.LevelEditorController;
+import com.openggf.editor.render.EditorOverlayRenderer;
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.LWJGLAudioBackend;
 import com.openggf.camera.Camera;
@@ -16,7 +19,12 @@ import com.openggf.debug.DebugOption;
 import com.openggf.debug.DebugRenderer;
 import com.openggf.debug.PerformanceProfiler;
 import com.openggf.debug.DebugState;
+import com.openggf.game.ShieldType;
 import com.openggf.level.LevelManager;
+import com.openggf.level.Level;
+import com.openggf.level.MutableLevel;
+import com.openggf.game.session.EditorCursorState;
+import com.openggf.game.session.EditorPlaytestStash;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.KnucklesRespawnStrategy;
@@ -32,6 +40,7 @@ import com.openggf.game.session.GameplayModeContext;
 import com.openggf.game.session.SessionManager;
 import com.openggf.game.sonic2.Sonic2GameModule;
 import com.openggf.data.Rom;
+import com.openggf.physics.Direction;
 
 import java.io.IOException;
 import java.nio.IntBuffer;
@@ -68,6 +77,9 @@ public class Engine {
 	private final PerformanceProfiler profiler = PerformanceProfiler.getInstance();
 
 	private final GameLoop gameLoop = new GameLoop();
+	private final LevelEditorController levelEditorController = new LevelEditorController();
+	private final EditorInputHandler editorInputHandler = new EditorInputHandler(levelEditorController);
+	private final EditorOverlayRenderer editorOverlayRenderer = new EditorOverlayRenderer();
 
 	private static volatile DebugState debugState = DebugState.NONE;
 	private static volatile DebugOption debugOption = DebugOption.A;
@@ -155,6 +167,8 @@ public class Engine {
 			// Keep projection at 320 for both modes
 			projectionWidth = realWidth;
 		});
+		gameLoop.setEditorInputHandler(editorInputHandler);
+		gameLoop.setEditorPlaytestToggleHandler(this::toggleEditorPlaytestMode);
 
 		instance = this;
 	}
@@ -369,10 +383,7 @@ public class Engine {
 		// During this transitional period, the runtime is still a manager facade,
 		// but it now carries explicit gameplay/world ownership from SessionManager.
 		runtime = com.openggf.game.RuntimeManager.createGameplay(gameplayMode);
-		this.camera = runtime.getCamera();
-		this.spriteManager = runtime.getSpriteManager();
-		this.levelManager = runtime.getLevelManager();
-		gameLoop.setRuntime(runtime);
+		bindRuntime(runtime);
 		GameServices.gameState().configureSpecialStageProgress(
 			module.getSpecialStageCycleCount(),
 			module.getChaosEmeraldCount());
@@ -510,6 +521,165 @@ public class Engine {
 		GameServices.debugOverlay().resetState();
 		RenderContext.reset();
 		AizIntroArtLoader.reset();
+	}
+
+	public void enterEditorFromCurrentPlayer(EditorPlaytestStash stash, int playerX, int playerY) {
+		ensureRuntimeBound();
+		prepareMutableEditorLevel();
+		primeEditorSelection(playerX, playerY);
+		synchronizeEditorOverlayDepth();
+		RuntimeManager.parkCurrent();
+		SessionManager.enterEditorMode(new EditorCursorState(playerX, playerY), stash);
+		gameLoop.setGameMode(GameMode.EDITOR);
+	}
+
+	public void resumePlaytestFromEditor() {
+		GameplayModeContext gameplay = SessionManager.resumeGameplayFromEditor();
+		runtime = RuntimeManager.resumeParked(gameplay);
+		bindRuntime(runtime);
+		applyResumedPlaytestState(gameplay);
+		gameLoop.setGameMode(GameMode.LEVEL);
+	}
+
+	public void startGameplayFromBeginning() {
+		GameplayModeContext gameplay = SessionManager.restartGameplayFromBeginning();
+		RuntimeManager.destroyCurrent();
+		runtime = RuntimeManager.createGameplay(gameplay);
+		bindRuntime(runtime);
+		gameLoop.setGameMode(GameMode.LEVEL);
+	}
+
+	public void toggleEditorPlaytestMode() {
+		if (getCurrentGameMode() == GameMode.EDITOR) {
+			resumePlaytestFromEditor();
+			return;
+		}
+		if (getCurrentGameMode() != GameMode.LEVEL) {
+			return;
+		}
+		AbstractPlayableSprite player = resolveMainPlayableSprite();
+		if (player == null) {
+			return;
+		}
+		EditorPlaytestStash stash = capturePlaytestStash(player);
+		enterEditorFromCurrentPlayer(stash, player.getCentreX(), player.getCentreY());
+	}
+
+	private void bindRuntime(com.openggf.game.GameRuntime runtime) {
+		this.runtime = runtime;
+		this.camera = runtime.getCamera();
+		this.spriteManager = runtime.getSpriteManager();
+		this.levelManager = runtime.getLevelManager();
+		gameLoop.setRuntime(runtime);
+	}
+
+	private void ensureRuntimeBound() {
+		if (runtime != null) {
+			return;
+		}
+		com.openggf.game.GameRuntime currentRuntime = RuntimeManager.getCurrent();
+		if (currentRuntime == null) {
+			throw new IllegalStateException("No active gameplay runtime");
+		}
+		bindRuntime(currentRuntime);
+	}
+
+	private AbstractPlayableSprite resolveMainPlayableSprite() {
+		ensureRuntimeBound();
+		String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+		if (mainCode == null || mainCode.isBlank()) {
+			mainCode = "sonic";
+		}
+		var sprite = spriteManager.getSprite(mainCode);
+		if (sprite instanceof AbstractPlayableSprite playable) {
+			return playable;
+		}
+		return null;
+	}
+
+	private EditorPlaytestStash capturePlaytestStash(AbstractPlayableSprite player) {
+		boolean facingRight = player.getDirection() != Direction.LEFT;
+		int shieldState = player.getShieldType() == null ? 0 : player.getShieldType().ordinal() + 1;
+		return new EditorPlaytestStash(
+				player.getCentreX(),
+				player.getCentreY(),
+				player.getXSpeed(),
+				player.getYSpeed(),
+				facingRight,
+				player.getRingCount(),
+				shieldState);
+	}
+
+	private void prepareMutableEditorLevel() {
+		Level currentLevel = levelManager.getCurrentLevel();
+		if (currentLevel == null) {
+			return;
+		}
+
+		MutableLevel mutableLevel = currentLevel instanceof MutableLevel existing
+				? existing
+				: MutableLevel.snapshot(currentLevel);
+		if (mutableLevel != currentLevel) {
+			levelManager.setLevel(mutableLevel);
+		}
+		levelEditorController.attachLevel(mutableLevel);
+	}
+
+	private void primeEditorSelection(int playerX, int playerY) {
+		Level currentLevel = levelManager.getCurrentLevel();
+		if (currentLevel == null) {
+			return;
+		}
+
+		int blockIndex = levelManager.getBlockIdAt(playerX, playerY);
+		if (blockIndex < 0 || blockIndex >= currentLevel.getBlockCount()) {
+			return;
+		}
+
+		levelEditorController.selectBlock(blockIndex);
+		levelEditorController.selectChunk(0);
+	}
+
+	private void synchronizeEditorOverlayDepth() {
+		editorOverlayRenderer.setHierarchyDepth(levelEditorController.depth());
+	}
+
+	private void applyResumedPlaytestState(GameplayModeContext gameplay) {
+		AbstractPlayableSprite player = resolveMainPlayableSprite();
+		if (player == null) {
+			return;
+		}
+
+		player.setCentreX((short) gameplay.getSpawnX());
+		player.setCentreY((short) gameplay.getSpawnY());
+
+		if (gameplay.getResumeStash().isPresent()) {
+			EditorPlaytestStash stash = gameplay.getResumeStash().orElseThrow();
+			player.setXSpeed((short) stash.xVelocity());
+			player.setYSpeed((short) stash.yVelocity());
+			player.setDirection(stash.facingRight() ? Direction.RIGHT : Direction.LEFT);
+			player.setRingCount(stash.rings());
+			player.clearPowerUps();
+			ShieldType shieldType = decodeShieldState(stash.shieldState());
+			if (shieldType != null) {
+				player.giveShield(shieldType);
+			}
+		}
+
+		camera.setFocusedSprite(player);
+		camera.updatePosition(true);
+	}
+
+	private ShieldType decodeShieldState(int shieldState) {
+		if (shieldState <= 0) {
+			return null;
+		}
+		ShieldType[] values = ShieldType.values();
+		int index = shieldState - 1;
+		if (index < 0 || index >= values.length) {
+			return null;
+		}
+		return values[index];
 	}
 
 	private void reshape(int width, int height) {
@@ -809,8 +979,14 @@ public class Engine {
 			return;
 		}
 		if (getCurrentGameMode() == GameMode.EDITOR) {
-			camera.setX((short) 0);
-			camera.setY((short) 0);
+			synchronizeEditorOverlayDepth();
+			levelManager.drawWithSpritePriority(spriteManager);
+			editorOverlayRenderer.renderWorldSpaceOverlay();
+			graphicsManager.flush();
+			graphicsManager.resetForFixedFunction();
+			prepareOverlayState();
+			editorOverlayRenderer.renderScreenSpaceOverlay();
+			graphicsManager.flushScreenSpace();
 			return;
 		}
 		if (getCurrentGameMode() == GameMode.SPECIAL_STAGE) {
