@@ -4,6 +4,7 @@ import com.openggf.game.LevelState;
 import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotStageController;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.TestObjectServices;
+import com.openggf.sprites.playable.Sonic;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -13,50 +14,58 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class TestS3kSlotRewardObjects {
 
     @Test
-    void ringRewardAddsOneBonusStageRingOnExpiry() {
+    void ringRewardAddsOneBonusStageRingToPlayableOnExpiry() {
         TrackingBonusStageServices services = new TrackingBonusStageServices();
         S3kSlotStageController controller = new S3kSlotStageController();
         controller.bootstrap();
 
+        TrackingPlayableSprite player = new TrackingPlayableSprite(0);
         S3kSlotRingRewardObjectInstance reward = new S3kSlotRingRewardObjectInstance(
                 new ObjectSpawn(0x460, 0x430, 0x00, 0x00, 0x00, false, 0), controller);
         reward.setServices(services);
+        reward.activate();
 
-        stepUntilExpired(reward, 0x1A - 1);
+        stepUntilExpired(reward, 0x1A - 1, player);
 
         assertFalse(reward.isDestroyed());
         assertEquals(0, services.totalBonusStageRingDelta);
+        assertEquals(0, player.liveRingDelta);
         assertEquals(0, controller.rewardCount());
 
-        reward.update(0x1A, null);
+        reward.update(0x1A, player);
 
         assertTrue(reward.isDestroyed());
         assertEquals(1, services.totalBonusStageRingDelta);
+        assertEquals(1, player.liveRingDelta);
         assertEquals(1, controller.rewardCount());
     }
 
     @Test
-    void spikeRewardConsumesOneAvailableBonusStageRingOnExpiry() {
+    void spikeRewardConsumesOneAvailableBonusStageRingAndUpdatesPlayableOnExpiry() {
         TrackingBonusStageServices services = new TrackingBonusStageServices();
         S3kSlotStageController controller = new S3kSlotStageController();
         controller.bootstrap();
         controller.addRewardRing();
 
+        TrackingPlayableSprite player = new TrackingPlayableSprite(5);
         S3kSlotSpikeRewardObjectInstance reward = new S3kSlotSpikeRewardObjectInstance(
                 new ObjectSpawn(0x460, 0x430, 0x00, 0x00, 0x00, false, 0), controller);
         reward.setServices(services);
+        reward.activate();
 
-        stepUntilExpired(reward, 0x1E - 1);
+        stepUntilExpired(reward, 0x1E - 1, player);
 
         assertFalse(reward.isDestroyed());
         assertEquals(1, controller.rewardCount());
         assertEquals(0, services.totalBonusStageRingDelta);
+        assertEquals(0, player.liveRingDelta);
 
-        reward.update(0x1E, null);
+        reward.update(0x1E, player);
 
         assertTrue(reward.isDestroyed());
         assertEquals(0, controller.rewardCount());
         assertEquals(-1, services.totalBonusStageRingDelta);
+        assertEquals(-1, player.liveRingDelta);
     }
 
     @Test
@@ -68,12 +77,14 @@ class TestS3kSlotRewardObjects {
         S3kSlotSpikeRewardObjectInstance reward = new S3kSlotSpikeRewardObjectInstance(
                 new ObjectSpawn(0x460, 0x430, 0x00, 0x00, 0x00, false, 0), controller);
         reward.setServices(services);
+        reward.activate();
 
-        stepUntilExpired(reward, 0x1E);
+        stepUntilExpired(reward, 0x1E, null);
 
         assertTrue(reward.isDestroyed());
         assertEquals(-1, controller.rewardCount());
         assertEquals(-1, services.totalBonusStageRingDelta);
+        assertEquals(4, services.levelState.getRings());
     }
 
     @Test
@@ -85,23 +96,25 @@ class TestS3kSlotRewardObjects {
         S3kSlotSpikeRewardObjectInstance reward = new S3kSlotSpikeRewardObjectInstance(
                 new ObjectSpawn(0x460, 0x430, 0x00, 0x00, 0x00, false, 0), controller);
         reward.setServices(services);
+        reward.activate();
 
-        stepUntilExpired(reward, 0x1E);
+        stepUntilExpired(reward, 0x1E, null);
 
         assertTrue(reward.isDestroyed());
         assertEquals(0, controller.rewardCount());
         assertEquals(0, services.totalBonusStageRingDelta);
+        assertEquals(0, services.levelState.getRings());
     }
 
-    private static void stepUntilExpired(S3kSlotRingRewardObjectInstance reward, int frames) {
+    private static void stepUntilExpired(S3kSlotRingRewardObjectInstance reward, int frames, Sonic player) {
         for (int frame = 0; frame < frames; frame++) {
-            reward.update(frame, null);
+            reward.update(frame, player);
         }
     }
 
-    private static void stepUntilExpired(S3kSlotSpikeRewardObjectInstance reward, int frames) {
+    private static void stepUntilExpired(S3kSlotSpikeRewardObjectInstance reward, int frames, Sonic player) {
         for (int frame = 0; frame < frames; frame++) {
-            reward.update(frame, null);
+            reward.update(frame, player);
         }
     }
 
@@ -125,6 +138,27 @@ class TestS3kSlotRewardObjects {
         @Override
         public void addBonusStageRings(int count) {
             totalBonusStageRingDelta += count;
+        }
+    }
+
+    private static final class TrackingPlayableSprite extends Sonic {
+        private int ringCount;
+        private int liveRingDelta;
+
+        private TrackingPlayableSprite(int ringCount) {
+            super("sonic", (short) 0x460, (short) 0x430);
+            this.ringCount = ringCount;
+        }
+
+        @Override
+        public void addRings(int delta) {
+            liveRingDelta += delta;
+            ringCount += delta;
+        }
+
+        @Override
+        public int getRingCount() {
+            return ringCount;
         }
     }
 

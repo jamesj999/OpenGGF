@@ -21,15 +21,22 @@ public final class S3kSlotRingRewardObjectInstance extends AbstractObjectInstanc
 
     private final S3kSlotStageController controller;
     private int framesRemaining = EXPIRY_FRAMES;
+    private boolean active;
 
     public S3kSlotRingRewardObjectInstance(ObjectSpawn spawn, S3kSlotStageController controller) {
         super(spawn, "S3kSlotRingReward");
         this.controller = controller;
     }
 
+    public void activate() {
+        active = true;
+        framesRemaining = EXPIRY_FRAMES;
+        setDestroyed(false);
+    }
+
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
-        if (isDestroyed()) {
+        if (isDestroyed() || !active) {
             return;
         }
         if (--framesRemaining > 0) {
@@ -37,8 +44,20 @@ public final class S3kSlotRingRewardObjectInstance extends AbstractObjectInstanc
         }
 
         controller.addRewardRing();
+        addLiveRings(playerEntity, 1);
         services().addBonusStageRings(1);
         setDestroyed(true);
+        active = false;
+    }
+
+    private void addLiveRings(PlayableEntity playerEntity, int amount) {
+        if (playerEntity instanceof com.openggf.sprites.playable.AbstractPlayableSprite sprite) {
+            sprite.addRings(amount);
+            return;
+        }
+        if (services().levelGamestate() != null) {
+            services().levelGamestate().addRings(amount);
+        }
     }
 
     @Override

@@ -21,26 +21,54 @@ public final class S3kSlotSpikeRewardObjectInstance extends AbstractObjectInstan
 
     private final S3kSlotStageController controller;
     private int framesRemaining = EXPIRY_FRAMES;
+    private boolean active;
 
     public S3kSlotSpikeRewardObjectInstance(ObjectSpawn spawn, S3kSlotStageController controller) {
         super(spawn, "S3kSlotSpikeReward");
         this.controller = controller;
     }
 
+    public void activate() {
+        active = true;
+        framesRemaining = EXPIRY_FRAMES;
+        setDestroyed(false);
+    }
+
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
-        if (isDestroyed()) {
+        if (isDestroyed() || !active) {
             return;
         }
         if (--framesRemaining > 0) {
             return;
         }
 
-        int carriedRingCount = services().levelGamestate() != null ? services().levelGamestate().getRings() : 0;
+        int carriedRingCount = resolveCarriedRingCount(playerEntity);
         if (controller.consumeRewardRing(carriedRingCount)) {
+            if (carriedRingCount > 0) {
+                addLiveRings(playerEntity, -1);
+            }
             services().addBonusStageRings(-1);
         }
         setDestroyed(true);
+        active = false;
+    }
+
+    private int resolveCarriedRingCount(PlayableEntity playerEntity) {
+        if (playerEntity instanceof com.openggf.sprites.playable.AbstractPlayableSprite sprite) {
+            return sprite.getRingCount();
+        }
+        return services().levelGamestate() != null ? services().levelGamestate().getRings() : 0;
+    }
+
+    private void addLiveRings(PlayableEntity playerEntity, int amount) {
+        if (playerEntity instanceof com.openggf.sprites.playable.AbstractPlayableSprite sprite) {
+            sprite.addRings(amount);
+            return;
+        }
+        if (services().levelGamestate() != null) {
+            services().levelGamestate().addRings(amount);
+        }
     }
 
     @Override
