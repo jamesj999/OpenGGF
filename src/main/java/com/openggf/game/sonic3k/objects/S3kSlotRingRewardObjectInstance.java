@@ -1,6 +1,7 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotStageController;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -100,6 +101,7 @@ public final class S3kSlotRingRewardObjectInstance extends AbstractObjectInstanc
         controller.addRewardRing();
         addLiveRings(playerEntity, 1);
         services().addBonusStageRings(1);
+        services().playSfx(Sonic3kSfx.RING_RIGHT.id);
         setDestroyed(true);
         active = false;
     }

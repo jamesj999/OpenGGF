@@ -1,6 +1,8 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.GameServices;
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotRomData;
 import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotStageController;
 import com.openggf.graphics.GLCommand;
@@ -157,7 +159,7 @@ public final class S3kSlotBonusCageObjectInstance extends AbstractObjectInstance
         // Play sfx every 16 frames (ROM: btst #3,d2)
         sfxCounter++;
         if ((sfxCounter & 0x0F) == 0) {
-            // TODO: Play sfx_SlotMachine when audio is wired
+            if (GameServices.audio() != null) GameServices.audio().playSfx(Sonic3kSfx.SLOT_MACHINE.id);
         }
 
         if (rewardsToSpawn <= 0) {
