@@ -1875,17 +1875,18 @@ public class GameLoop {
      */
     private void applyDeferredBonusStageSetup() {
         BonusStageProvider provider = deferredBonusProvider;
-        BonusStageState savedState = deferredBonusState;
 
         // Clear deferred state
         deferredBonusProvider = null;
         deferredBonusType = null;
         deferredBonusState = null;
 
-        if (provider == null || savedState == null) {
-            LOGGER.warning("No deferred bonus stage state — skipping setup");
+        if (provider == null) {
+            LOGGER.warning("No deferred bonus stage provider — skipping setup");
             return;
         }
+
+        provider.onDeferredSetupComplete();
 
         // Music already started in doEnterBonusStage (at title card init).
         // Background fade is handled by the title card's own per-channel rect fade
