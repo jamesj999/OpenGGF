@@ -226,6 +226,15 @@ public class Sonic3kConstants {
     // Fan uses ArtTile_HCZMisc + $41 = $040B, palette 1
     public static final int ARTTILE_HCZ_FAN = 0x03CA + 0x41; // ArtTile_HCZMisc + $41 = 0x040B
 
+    // ===== HCZ Large Fan (Obj_HCZLargeFan, ID 0x39) =====
+    // Map_HCZLargeFan immediately follows Map_HCZFan in LockOn S3 pointer data.
+    public static final int MAP_HCZ_LARGE_FAN_ADDR = 0x22F418;
+    // ArtKosM_HCZLargeFan from Split/s3.txt: 0x00190900-0x00190C02, shifted into
+    // the lock-on ROM's S3 half at +0x200000.
+    public static final int ART_KOSM_HCZ_LARGE_FAN_ADDR = 0x390900;
+    // ArtTile_HCZLargeFan = $0500 (sonic3k.constants.asm), palette 1
+    public static final int ARTTILE_HCZ_LARGE_FAN = 0x0500;
+
     // ===== Floating Platform mappings (Obj_FloatingPlatform, ID 0x51) =====
     public static final int MAP_AIZ_FLOATING_PLATFORM_ADDR = 0x256A2; // Map_AIZFloatingPlatform (1 frame, 4 pieces)
     public static final int MAP_HCZ_FLOATING_PLATFORM_ADDR = 0x25688; // Map_HCZFloatingPlatform (2 frames, 2/1 pieces)
