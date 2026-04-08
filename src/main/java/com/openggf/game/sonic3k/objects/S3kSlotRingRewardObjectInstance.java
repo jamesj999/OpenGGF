@@ -34,6 +34,7 @@ public final class S3kSlotRingRewardObjectInstance extends AbstractObjectInstanc
     // ROM $3C/$3E: target pixel position (cage center)
     private int targetX;
     private int targetY;
+    private int lastFrameCounter;
 
     public S3kSlotRingRewardObjectInstance(ObjectSpawn spawn, S3kSlotStageController controller) {
         super(spawn, "S3kSlotRingReward");
@@ -61,6 +62,7 @@ public final class S3kSlotRingRewardObjectInstance extends AbstractObjectInstanc
         this.currentY32 = (long) spawnY << 16;
         this.targetX = centerX;
         this.targetY = centerY;
+        this.lastFrameCounter = 0;
     }
 
     public boolean isActive() {
@@ -90,6 +92,7 @@ public final class S3kSlotRingRewardObjectInstance extends AbstractObjectInstanc
         if (isDestroyed() || !active) {
             return;
         }
+        lastFrameCounter = frameCounter;
 
         // ROM Obj_SlotRing routine 1: sparkle animation after ring grant
         if (inSparkle) {
@@ -148,6 +151,12 @@ public final class S3kSlotRingRewardObjectInstance extends AbstractObjectInstanc
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        // Logic-only object for the slot bonus runtime.
+        if (!active || isDestroyed()) {
+            return;
+        }
+        if (services().ringManager() == null) {
+            return;
+        }
+        services().ringManager().drawRingAt(getInterpolatedX(), getInterpolatedY(), lastFrameCounter);
     }
 }

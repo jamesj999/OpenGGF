@@ -13,8 +13,6 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.objects.DefaultObjectServices;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
-import com.openggf.level.rings.RingManager;
-import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -39,8 +37,10 @@ public final class S3kSlotBonusStageRuntime {
     private AbstractPlayableSprite slotPlayer;
     private S3kSlotBonusCageObjectInstance slotCage;
     private boolean continueAwarded;
+    private boolean exitFadeStarted;
     private final List<S3kSlotRingRewardObjectInstance> slotRingRewards = new ArrayList<>();
     private final List<S3kSlotSpikeRewardObjectInstance> slotSpikeRewards = new ArrayList<>();
+    private final List<com.openggf.graphics.GLCommand> slotObjectRenderScratch = new ArrayList<>();
     private short[] pointGrid;
     private List<S3kSlotLayoutRenderer.VisibleCell> visibleCells = List.of();
     private int lastFrameCounter = -1;
@@ -52,6 +52,7 @@ public final class S3kSlotBonusStageRuntime {
         slotPlayer = null;
         slotCage = null;
         continueAwarded = false;
+        exitFadeStarted = false;
         slotRingRewards.clear();
         slotSpikeRewards.clear();
         pointGrid = null;
@@ -103,6 +104,10 @@ public final class S3kSlotBonusStageRuntime {
         // Exit sequence takes priority
         if (exitSequence != null) {
             exitSequence.tick();
+            if (exitSequence.isFading() && !exitFadeStarted && GameServices.fade() != null) {
+                GameServices.fade().startFadeToBlack(null, 0, S3kSlotExitSequence.FADE_FRAMES);
+                exitFadeStarted = true;
+            }
             if (exitSequence.isComplete()) {
                 exitTriggered = true;
             }
@@ -182,8 +187,10 @@ public final class S3kSlotBonusStageRuntime {
         slotPlayer = null;
         slotCage = null;
         continueAwarded = false;
+        exitFadeStarted = false;
         slotRingRewards.clear();
         slotSpikeRewards.clear();
+        slotObjectRenderScratch.clear();
         pointGrid = null;
         visibleCells = List.of();
         lastFrameCounter = -1;
@@ -269,53 +276,19 @@ public final class S3kSlotBonusStageRuntime {
     public void render(com.openggf.camera.Camera camera) {
         LevelManager levelManager = GameServices.level();
         ObjectRenderManager renderManager = levelManager != null ? levelManager.getObjectRenderManager() : null;
-        RingManager ringManager = levelManager != null ? levelManager.getRingManager() : null;
         if (camera == null || renderManager == null) {
             return;
         }
         slotLayoutRenderer.render(slotStageState, slotRenderBuffers, camera, renderManager);
-        renderCage(renderManager);
-        renderRewardRings(ringManager);
-        renderRewardSpikes(renderManager);
-    }
-
-    private void renderCage(ObjectRenderManager renderManager) {
-        if (slotCage == null) {
-            return;
+        slotObjectRenderScratch.clear();
+        if (slotCage != null) {
+            slotCage.appendRenderCommands(slotObjectRenderScratch);
         }
-        PatternSpriteRenderer renderer = renderManager.getRenderer(
-                com.openggf.game.sonic3k.Sonic3kObjectArtKeys.SLOT_BONUS_CAGE);
-        if (renderer == null) {
-            return;
-        }
-        renderer.drawFrameIndex(slotCage.getMappingFrame(), slotCage.getCurrentX(), slotCage.getCurrentY(),
-                false, false);
-    }
-
-    private void renderRewardRings(RingManager ringManager) {
-        if (ringManager == null) {
-            return;
-        }
-        int frameCounter = Math.max(0, lastFrameCounter);
         for (S3kSlotRingRewardObjectInstance reward : slotRingRewards) {
-            if (!reward.isActive() || reward.isDestroyed()) {
-                continue;
-            }
-            ringManager.drawRingAt(reward.getInterpolatedX(), reward.getInterpolatedY(), frameCounter);
-        }
-    }
-
-    private void renderRewardSpikes(ObjectRenderManager renderManager) {
-        PatternSpriteRenderer renderer = renderManager.getRenderer(
-                com.openggf.game.sonic3k.Sonic3kObjectArtKeys.SLOT_SPIKE_REWARD);
-        if (renderer == null) {
-            return;
+            reward.appendRenderCommands(slotObjectRenderScratch);
         }
         for (S3kSlotSpikeRewardObjectInstance reward : slotSpikeRewards) {
-            if (!reward.isActive() || reward.isDestroyed()) {
-                continue;
-            }
-            renderer.drawFrameIndex(0, reward.getInterpolatedX(), reward.getInterpolatedY(), false, false);
+            reward.appendRenderCommands(slotObjectRenderScratch);
         }
     }
 
@@ -382,6 +355,7 @@ public final class S3kSlotBonusStageRuntime {
             case GOAL_EXIT -> {
                 if (GameServices.audio() != null) GameServices.audio().playSfx(Sonic3kSfx.GOAL.id);
                 exitSequence = new S3kSlotExitSequence(slotStageController);
+                exitFadeStarted = false;
             }
             case SPIKE_REVERSAL -> {
                 if (GameServices.audio() != null) GameServices.audio().playSfx(Sonic3kSfx.LAUNCH_GO.id);
