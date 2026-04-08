@@ -34,6 +34,10 @@ public final class S3kSlotSpikeRewardObjectInstance extends AbstractObjectInstan
         setDestroyed(false);
     }
 
+    public boolean isActive() {
+        return active;
+    }
+
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
         if (isDestroyed() || !active) {

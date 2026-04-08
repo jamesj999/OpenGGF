@@ -50,12 +50,38 @@ class TestS3kSlotBonusStageRuntime {
         assertTrue(slotPlayer instanceof S3kSlotBonusPlayer);
         assertFalse(slotPlayer instanceof Sonic);
         assertEquals("tails", slotPlayer.getCode());
-        assertEquals(originalPlayer.getCentreX(), slotPlayer.getCentreX());
-        assertEquals(originalPlayer.getCentreY(), slotPlayer.getCentreY());
+        assertEquals(originalPlayer.getCentreX(), slotPlayer.getX());
+        assertEquals(originalPlayer.getCentreY(), slotPlayer.getY());
         assertEquals(originalPlayer.getCentreX(), runtime.activeSlotCageForTest().getSpawn().x());
         assertEquals(originalPlayer.getCentreY(), runtime.activeSlotCageForTest().getSpawn().y());
         assertNotSame(originalPlayer, slotPlayer);
         assertSame(slotPlayer, GameServices.camera().getFocusedSprite());
+    }
+
+    @Test
+    void queuedRingRewardActivatesInsideRuntimeAndExpires() {
+        RuntimeManager.createGameplay();
+        SonicConfigurationService.getInstance().setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "tails");
+
+        Tails originalPlayer = new Tails("tails", (short) 0x460, (short) 0x430);
+        GameServices.sprites().addSprite(originalPlayer);
+        GameServices.camera().setFocusedSprite(originalPlayer);
+
+        S3kSlotBonusStageRuntime runtime = new S3kSlotBonusStageRuntime();
+        runtime.bootstrap();
+
+        AbstractPlayableSprite slotPlayer = assertInstanceOf(
+                AbstractPlayableSprite.class, GameServices.sprites().getSprite("tails"));
+        assertFalse(runtime.activeSlotRingRewardForTest().isActive());
+
+        runtime.queueRingReward();
+        for (int frame = 0; frame < 0x1A; frame++) {
+            runtime.update(frame);
+        }
+
+        assertTrue(runtime.activeSlotRingRewardForTest().isDestroyed());
+        assertFalse(runtime.activeSlotRingRewardForTest().isActive());
+        assertSame(slotPlayer, GameServices.sprites().getSprite("tails"));
     }
 
     @Test
