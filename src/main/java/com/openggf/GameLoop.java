@@ -1867,6 +1867,8 @@ public class GameLoop {
             return;
         }
 
+        provider.onDeferredSetupComplete();
+
         // Music already started in doEnterBonusStage (at title card init).
         // Background fade is handled by the title card's own per-channel rect fade
         // during DISPLAY (synchronized with the 22-frame hold, matching ROM).
