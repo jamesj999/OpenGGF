@@ -42,14 +42,18 @@ class TestS3kSlotBonusStageRuntime {
 
         assertTrue(runtime.isInitialized());
         assertNotNull(runtime.activeSlotCageForTest());
+        assertNotNull(runtime.activeSlotRingRewardForTest());
+        assertNotNull(runtime.activeSlotSpikeRewardForTest());
         assertTrue(GameServices.sprites().getSprite("tails") instanceof S3kSlotBonusPlayer);
 
         AbstractPlayableSprite slotPlayer = assertInstanceOf(Tails.class, GameServices.sprites().getSprite("tails"));
         assertTrue(slotPlayer instanceof S3kSlotBonusPlayer);
         assertFalse(slotPlayer instanceof Sonic);
         assertEquals("tails", slotPlayer.getCode());
-        assertEquals(originalPlayer.getX(), slotPlayer.getX());
-        assertEquals(originalPlayer.getY(), slotPlayer.getY());
+        assertEquals(originalPlayer.getCentreX(), slotPlayer.getCentreX());
+        assertEquals(originalPlayer.getCentreY(), slotPlayer.getCentreY());
+        assertEquals(originalPlayer.getCentreX(), runtime.activeSlotCageForTest().getSpawn().x());
+        assertEquals(originalPlayer.getCentreY(), runtime.activeSlotCageForTest().getSpawn().y());
         assertNotSame(originalPlayer, slotPlayer);
         assertSame(slotPlayer, GameServices.camera().getFocusedSprite());
     }
@@ -96,6 +100,8 @@ class TestS3kSlotBonusStageRuntime {
         assertSame(originalPlayer, GameServices.sprites().getSprite("tails"));
         assertSame(originalPlayer, GameServices.camera().getFocusedSprite());
         assertNull(runtime.activeSlotCageForTest());
+        assertNull(runtime.activeSlotRingRewardForTest());
+        assertNull(runtime.activeSlotSpikeRewardForTest());
     }
 
     @Test
