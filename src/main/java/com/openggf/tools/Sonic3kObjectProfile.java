@@ -96,6 +96,7 @@ public class Sonic3kObjectProfile implements GameObjectProfile {
                 0x36, // HCZBreakableBar
                 0x37, // HCZWaterRush
                 0x38, // HCZCGZFan
+                0x3A, // HCZHandLauncher
                 0x3B, // HCZWaterWall
                 0x3E, // HCZConveyorBelt
                 0x8C, // Bloominator

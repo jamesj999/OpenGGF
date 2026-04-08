@@ -213,6 +213,13 @@ public class Sonic3kConstants {
     // WaterRushBlock uses ArtTile_HCZMisc + $A = 0x03D4 (level-loaded art)
     public static final int ARTTILE_HCZ_WATER_RUSH_BLOCK = 0x03CA + 0xA; // 0x03D4
 
+    // ===== HCZ Hand Launcher (Obj_HCZHandLauncher, ID 0x3A) =====
+    // Map_HCZHandLauncher: 8 frames (6-piece arm cycle x6, 3-piece cup, 1-piece compact).
+    // LockOn data (S3 half only — no S&K-side copy).
+    public static final int MAP_HCZ_HAND_LAUNCHER_ADDR = 0x22F998;
+    // Hand uses ArtTile_HCZMisc + $1A = $03E4, palette 1
+    public static final int ARTTILE_HCZ_HAND_LAUNCHER = 0x03CA + 0x1A; // ArtTile_HCZMisc + $1A = 0x03E4
+
     // ===== HCZ/CGZ Fan (Obj_HCZCGZFan, ID 0x38) =====
     // Map_HCZFan: 5 frames, 3 pieces each. LockOn data (S3 half).
     public static final int MAP_HCZ_FAN_ADDR = 0x22F3AA;

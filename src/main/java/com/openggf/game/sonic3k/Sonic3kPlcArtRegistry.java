@@ -378,6 +378,16 @@ public final class Sonic3kPlcArtRegistry {
                 "buildHczWaterRushBlockSheet"
         ));
 
+        // HCZ Hand Launcher: ArtTile_HCZMisc + $1A, palette 1
+        // ROM: make_art_tile(ArtTile_HCZMisc+$1A, 1, 0), Map_HCZHandLauncher (8 frames)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.HCZ_HAND_LAUNCHER,
+                Sonic3kConstants.MAP_HCZ_HAND_LAUNCHER_ADDR,
+                Sonic3kConstants.ARTTILE_HCZ_HAND_LAUNCHER,
+                1,
+                null
+        ));
+
         // HCZ Fan: ArtTile_HCZMisc + $41, palette 1
         // ROM: make_art_tile(ArtTile_HCZMisc+$41, 1, 0), Map_HCZFan (5 frames)
         levelArt.add(new LevelArtEntry(
