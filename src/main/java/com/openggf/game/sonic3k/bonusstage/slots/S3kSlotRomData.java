@@ -3,6 +3,7 @@ package com.openggf.game.sonic3k.bonusstage.slots;
 public final class S3kSlotRomData {
     public static final short SLOT_BONUS_START_X = 0x0460;
     public static final short SLOT_BONUS_START_Y = 0x0430;  // ROM loc_4C026 line 99391
+    public static final int TRANSIENT_SLOT_COUNT = 0x20;
 
     public static final short[] REWARD_VALUES = {100, 30, 20, 25, -1, 10, 8, 200};
     public static final byte[] TARGET_ROWS = {
@@ -55,6 +56,12 @@ public final class S3kSlotRomData {
     };
 
     public static final byte[] SLOT_BONUS_LAYOUT = decodeLayoutRows();
+    public static final byte[] RING_SPARKLE_FRAMES = {0x10, 0x11, 0x12, 0x13};
+    public static final int RING_SPARKLE_DELAY = 5;
+    public static final byte[] BUMPER_BOUNCE_FRAMES = {0x0A, 0x0B};
+    public static final int BUMPER_BOUNCE_DELAY = 1;
+    public static final byte[] SPIKE_ANIMATION_FRAMES = {0x0C, 0x06, 0x0C};
+    public static final int SPIKE_ANIMATION_DELAY = 7;
 
     private S3kSlotRomData() {
     }

@@ -135,10 +135,6 @@ public final class S3kSlotBonusStageRuntime {
             }
         }
 
-        if (slotRenderBuffers != null) {
-            layoutAnimator.tick(slotRenderBuffers.layout());
-        }
-
         // Cage object
         if (slotCage != null && slotPlayer != null) {
             slotCage.update(frameCounter, slotPlayer);
@@ -161,9 +157,6 @@ public final class S3kSlotBonusStageRuntime {
 
         // ROM sub_4BBF4: custom camera tracking centered on player
         updateCamera();
-
-        // ROM sub_4B4C4: pre-render animation updates for goal/peppermint sprites
-        slotLayoutRenderer.updateAnimations();
 
         // Visuals
         updateVisuals();
@@ -277,10 +270,10 @@ public final class S3kSlotBonusStageRuntime {
         LevelManager levelManager = GameServices.level();
         ObjectRenderManager renderManager = levelManager != null ? levelManager.getObjectRenderManager() : null;
         RingManager ringManager = levelManager != null ? levelManager.getRingManager() : null;
-        if (camera == null || renderManager == null || visibleCells.isEmpty()) {
+        if (camera == null || renderManager == null) {
             return;
         }
-        slotLayoutRenderer.renderVisibleCells(visibleCells, camera, renderManager);
+        slotLayoutRenderer.render(slotStageState, slotRenderBuffers, camera, renderManager);
         renderCage(renderManager);
         renderRewardRings(ringManager);
         renderRewardSpikes(renderManager);
@@ -331,6 +324,7 @@ public final class S3kSlotBonusStageRuntime {
                 slotPlayer.getX(), slotPlayer.getY());
         if (ring.foundRing()) {
             slotCollisionSystem.consumeRing(ring);
+            slotRenderBuffers.startRingAnimationAt(ring.layoutIndex());
             layoutAnimator.queueRingSparkle(slotRenderBuffers.layout(), ring.layoutIndex());
             slotPlayer.addRings(1);
             // Track on coordinator so rings persist after exit (ROM: GiveRing)
@@ -384,6 +378,7 @@ public final class S3kSlotBonusStageRuntime {
                 slotPlayer.setAir(true);
                 if (GameServices.audio() != null) GameServices.audio().playSfx(Sonic3kSfx.BUMPER.id);
                 // ROM loc_4BEC8: animation spawns at layout address - 1
+                slotRenderBuffers.startBumperAnimationAt(Math.max(0, layoutIndex - 1));
                 layoutAnimator.queueBumperBounce(slotRenderBuffers.layout(), Math.max(0, layoutIndex - 1));
             }
             case GOAL_EXIT -> {
@@ -393,6 +388,7 @@ public final class S3kSlotBonusStageRuntime {
             case SPIKE_REVERSAL -> {
                 if (GameServices.audio() != null) GameServices.audio().playSfx(Sonic3kSfx.LAUNCH_GO.id);
                 // ROM loc_4BEC8: animation spawns at layout address - 1
+                slotRenderBuffers.startSpikeAnimationAt(Math.max(0, layoutIndex - 1));
                 layoutAnimator.queueSpikeAnimation(slotRenderBuffers.layout(), Math.max(0, layoutIndex - 1));
             }
             case SLOT_REEL_INCREMENT -> {
@@ -433,11 +429,13 @@ public final class S3kSlotBonusStageRuntime {
             int stageCameraY = bootstrapRuntime.getCamera().getY() - S3kSlotRomData.SLOT_BONUS_START_Y;
             pointGrid = slotLayoutRenderer.buildPointGrid(slotStageState.angle(),
                     stageCameraX, stageCameraY);
-            visibleCells = slotLayoutRenderer.buildVisibleCells(
-                    slotRenderBuffers != null ? slotRenderBuffers.layout() : null,
-                    slotStageState.angle(),
-                    stageCameraX,
-                    stageCameraY);
+            if (slotRenderBuffers != null) {
+                slotRenderBuffers.stageViewport(stageCameraX, stageCameraY);
+                slotRenderBuffers.stagePointGrid(pointGrid);
+                visibleCells = slotLayoutRenderer.buildVisibleCells(slotRenderBuffers);
+            } else {
+                visibleCells = List.of();
+            }
         }
     }
 
