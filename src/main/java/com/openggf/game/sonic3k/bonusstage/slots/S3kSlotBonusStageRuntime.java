@@ -4,6 +4,9 @@ import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.GameRuntime;
 import com.openggf.game.RuntimeManager;
+import com.openggf.game.sonic3k.objects.S3kSlotBonusCageObjectInstance;
+import com.openggf.level.objects.DefaultObjectServices;
+import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 public final class S3kSlotBonusStageRuntime {
@@ -12,11 +15,13 @@ public final class S3kSlotBonusStageRuntime {
     private AbstractPlayableSprite originalPlayer;
     private final S3kSlotStageController slotStageController = new S3kSlotStageController();
     private AbstractPlayableSprite slotPlayer;
+    private S3kSlotBonusCageObjectInstance slotCage;
 
     public void bootstrap() {
         initialized = false;
         originalPlayer = null;
         slotPlayer = null;
+        slotCage = null;
         slotStageController.bootstrap();
         bootstrapRuntime = RuntimeManager.getCurrent();
         if (bootstrapRuntime == null) {
@@ -31,11 +36,18 @@ public final class S3kSlotBonusStageRuntime {
             slotPlayer.setLrbSolidBit(mainPlayer.getLrbSolidBit());
             bootstrapRuntime.getSpriteManager().addSprite(slotPlayer);
             bootstrapRuntime.getCamera().setFocusedSprite(slotPlayer);
+            slotCage = new S3kSlotBonusCageObjectInstance(
+                    new ObjectSpawn(mainPlayer.getX(), mainPlayer.getY(), 0, 0, 0, false, 0),
+                    slotStageController);
+            slotCage.setServices(new DefaultObjectServices(bootstrapRuntime));
             initialized = true;
         }
     }
 
     public void update(int frameCounter) {
+        if (slotCage != null && slotPlayer != null) {
+            slotCage.update(frameCounter, slotPlayer);
+        }
     }
 
     public void shutdown() {
@@ -47,6 +59,7 @@ public final class S3kSlotBonusStageRuntime {
             }
         }
         slotPlayer = null;
+        slotCage = null;
         originalPlayer = null;
         bootstrapRuntime = null;
         initialized = false;
@@ -54,5 +67,9 @@ public final class S3kSlotBonusStageRuntime {
 
     public boolean isInitialized() {
         return initialized;
+    }
+
+    public S3kSlotBonusCageObjectInstance activeSlotCageForTest() {
+        return slotCage;
     }
 }

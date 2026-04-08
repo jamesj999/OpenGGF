@@ -34,4 +34,20 @@ public class S3kSlotStageController {
     public int angle() {
         return statTable;
     }
+
+    public void addRewardRing() {
+        rewardCounter++;
+    }
+
+    public boolean consumeRewardRing() {
+        if (rewardCounter <= 0) {
+            return false;
+        }
+        rewardCounter--;
+        return true;
+    }
+
+    public int rewardCount() {
+        return rewardCounter;
+    }
 }
