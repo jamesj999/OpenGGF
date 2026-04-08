@@ -5,8 +5,8 @@ Generated: 2026-04-08 15:53:51
 ## Summary
 
 - **Total unique objects found:** 303
-- **Implemented:** 45 (14.9%)
-- **Unimplemented:** 258 (85.1%)
+- **Implemented:** 46 (15.2%)
+- **Unimplemented:** 257 (84.8%)
 
 ## Implemented Objects
 
@@ -51,6 +51,7 @@ Generated: 2026-04-08 15:53:51
 | 0x36 | HCZBreakableBar | 8 |  | HCZ1, HCZ2 |
 | 0x37 | HCZWaterRush | 1 |  | HCZ1 |
 | 0x38 | HCZCGZFan | 63 |  | HCZ1, HCZ2 |
+| 0x39 | HCZLargeFan | 3 |  | HCZ1, HCZ2 |
 | 0x3A | HCZHandLauncher | 12 |  | HCZ1, HCZ2 |
 | 0x3B | HCZWaterWall | 3 |  | HCZ1 |
 | 0x3E | HCZConveyorBelt | 64 |  | HCZ1 |
@@ -263,7 +264,6 @@ Generated: 2026-04-08 15:53:51
 | 0x4B | Object | DEZTiltingBridge | 4 |  | DEZ1, DEZ2 |
 | 0x4C | Object | DEZHangCarrier | 4 |  | DEZ1, DEZ2 |
 | 0x83 | Object | CutsceneButton | 3 |  | AIZ2, CNZ2 |
-| 0x39 | Object | HCZLargeFan | 3 |  | HCZ1, HCZ2 |
 | 0x9E | Badnik | Tunnelbot | 3 |  | MGZ1 |
 | 0x39 | Object | SOZSpawningSandBlocks | 3 |  | SOZ1 |
 | 0x3B | Object | SOZLoopFallthrough | 3 |  | SOZ2 |
@@ -406,7 +406,7 @@ Total: 751 objects | Implemented: 30 | Unimplemented: 2
 
 #### Act 1
 
-Total: 383 objects | Implemented: 22 | Unimplemented: 8
+Total: 383 objects | Implemented: 23 | Unimplemented: 7
 
 **Badniks:**
 - [x] 0x94 Blastoid (x7) [5 subtypes]
@@ -432,7 +432,7 @@ Total: 383 objects | Implemented: 22 | Unimplemented: 8
 - [x] 0x36 HCZBreakableBar (x6) [0x05, 0x15, 0x25]
 - [x] 0x37 HCZWaterRush (x1) [0x00]
 - [x] 0x38 HCZCGZFan (x27) [12 subtypes]
-- [ ] 0x39 HCZLargeFan (x2) [0x00]
+- [x] 0x39 HCZLargeFan (x2) [0x00]
 - [x] 0x3A HCZHandLauncher (x5) [0x00]
 - [x] 0x3B HCZWaterWall (x3) [0x00, 0x01]
 - [x] 0x3E HCZConveyorBelt (x64) [32 subtypes]
@@ -446,7 +446,7 @@ Total: 383 objects | Implemented: 22 | Unimplemented: 8
 
 #### Act 2
 
-Total: 510 objects | Implemented: 13 | Unimplemented: 17
+Total: 510 objects | Implemented: 14 | Unimplemented: 16
 
 **Badniks:**
 - [ ] 0x93 Jawz (x19) [0x00]
@@ -468,7 +468,7 @@ Total: 510 objects | Implemented: 13 | Unimplemented: 17
 - [x] 0x34 StarPost (x5) [5 subtypes]
 - [x] 0x36 HCZBreakableBar (x2) [0x15]
 - [x] 0x38 HCZCGZFan (x36) [12 subtypes]
-- [ ] 0x39 HCZLargeFan (x1) [0x00]
+- [x] 0x39 HCZLargeFan (x1) [0x00]
 - [x] 0x3A HCZHandLauncher (x7) [0x00]
 - [ ] 0x3C Door (x19) [0x00]
 - [ ] 0x40 HCZBlock (x9) [0x00]
@@ -1292,4 +1292,3 @@ Total: 477 objects | Implemented: 0 | Unimplemented: 3
 **Objects:**
 - [ ] 0xB7 DDZAsteroid (x426) [14 subtypes]
 - [ ] 0xB8 DDZMissile (x50) [0x00]
-
