@@ -6,14 +6,19 @@ import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.graphics.GraphicsManager;
+import com.openggf.graphics.RenderPriority;
+import com.openggf.graphics.SpriteSatEntry;
+import com.openggf.graphics.SpriteSatMaskPostProcessor;
 import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.ObjectManager;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpriteMappingPiece;
 import com.openggf.physics.GroundSensor;
+import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.Sonic;
 import com.openggf.tests.rules.RequiresRom;
 import com.openggf.tests.rules.RequiresRomCondition;
@@ -21,6 +26,10 @@ import com.openggf.tests.rules.SonicGame;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+
+import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -59,7 +68,7 @@ class TestGumballFgPriorityDiagnostics {
     }
 
     @Test
-    void dumpForegroundPriorityAroundMachineBody() {
+    void dumpForegroundPriorityAroundMachineBody() throws Exception {
         Level level = levelManager.getCurrentLevel();
         assertNotNull(level, "Gumball bonus stage should be loaded");
 
@@ -134,11 +143,12 @@ class TestGumballFgPriorityDiagnostics {
                         spawn.objectId(), spawn.x(), spawn.y(), spawn.subtype()));
 
         dumpFrame16Geometry(bodyOriginX, bodyOriginY);
+        dumpStartupSatEntries(bodyOriginX, bodyOriginY);
 
         assertTrue(highCount + lowCount > 0, "Diagnostic sample should hit foreground tiles");
     }
 
-    private void dumpFrame16Geometry(int bodyOriginX, int bodyOriginY) {
+    private void dumpFrame16Geometry(int bodyOriginX, int bodyOriginY) throws Exception {
         RomByteReader reader = RomByteReader.fromRom(GameServices.rom().getRom());
         assertNotNull(reader, "ROM reader should be available");
 
@@ -159,6 +169,76 @@ class TestGumballFgPriorityDiagnostics {
                     minX, maxX, minY, maxY,
                     piece.widthTiles() * 8,
                     piece.heightTiles() * 8);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void dumpStartupSatEntries(int bodyOriginX, int bodyOriginY) throws Exception {
+        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        SpriteManager spriteManager = GameServices.sprites();
+        ObjectManager objectManager = levelManager.getObjectManager();
+        assertNotNull(objectManager, "Object manager should exist");
+
+        graphicsManager.setUseSpritePriorityShader(true);
+        graphicsManager.setCurrentSpriteHighPriority(false);
+        graphicsManager.beginPatternBatch();
+        graphicsManager.beginSpriteSatCollection();
+        for (int bucket = RenderPriority.MIN; bucket <= RenderPriority.MAX; bucket++) {
+            spriteManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
+            objectManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
+        }
+
+        Field entriesField = GraphicsManager.class.getDeclaredField("spriteSatEntries");
+        entriesField.setAccessible(true);
+        List<SpriteSatEntry> collected =
+                new ArrayList<>((List<SpriteSatEntry>) entriesField.get(graphicsManager));
+
+        Field maskField = GraphicsManager.class.getDeclaredField("spriteMaskRequested");
+        maskField.setAccessible(true);
+        boolean maskRequested = maskField.getBoolean(graphicsManager);
+
+        graphicsManager.endSpriteSatCollectionAndReplay();
+
+        List<SpriteSatEntry> processed = SpriteSatMaskPostProcessor.process(collected, maskRequested);
+        int minX = bodyOriginX - 0x50;
+        int maxX = bodyOriginX + 0x50;
+        int minY = bodyOriginY - 0x20;
+        int maxY = bodyOriginY + 0x80;
+
+        System.out.printf("SAT diagnostic: collected=%d processed=%d mask=%s%n",
+                collected.size(), processed.size(), maskRequested);
+        dumpRelevantEntries("Collected", collected, minX, maxX, minY, maxY);
+        dumpRelevantEntries("Processed", processed, minX, maxX, minY, maxY);
+
+        assertTrue(maskRequested, "Gumball startup scene should request a sprite mask");
+        assertTrue(collected.stream().anyMatch(entry -> entry.rawTileWordLow11() == 0x7C0),
+                "Collected SAT entries should include the 0x7C0 mask helper");
+    }
+
+    private void dumpRelevantEntries(String label, List<SpriteSatEntry> entries,
+            int minX, int maxX, int minY, int maxY) {
+        System.out.println(label + " SAT entries near machine:");
+        for (int i = 0; i < entries.size(); i++) {
+            SpriteSatEntry entry = entries.get(i);
+            if (entry.endXExclusive() <= minX || entry.x() >= maxX
+                    || entry.endYExclusive() <= minY || entry.y() >= maxY) {
+                continue;
+            }
+            System.out.printf(
+                    "  %s[%02d] raw=0x%03X tile=0x%03X pri=%s glob=%s x=[0x%04X..0x%04X] y=[0x%04X..0x%04X] rows=%d+%d src=%s%n",
+                    label.charAt(0) == 'C' ? "C" : "P",
+                    i,
+                    entry.rawTileWordLow11(),
+                    entry.firstPatternIndex(),
+                    entry.piecePriority(),
+                    entry.globalHighPriority(),
+                    entry.x(),
+                    entry.endXExclusive() - 1,
+                    entry.y(),
+                    entry.endYExclusive() - 1,
+                    entry.startRowTile(),
+                    entry.rowCountTiles(),
+                    entry.debugSource());
         }
     }
 }

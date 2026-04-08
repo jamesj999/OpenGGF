@@ -975,6 +975,10 @@ public class ObjectManager {
         return cachedActiveObjects;
     }
 
+    public int getFrameCounter() {
+        return frameCounter;
+    }
+
     public Collection<ObjectSpawn> getActiveSpawns() {
         return placement.getActiveSpawns();
     }

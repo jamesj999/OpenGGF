@@ -75,6 +75,8 @@ public class GraphicsManager {
 	private boolean spriteSatCollectionActive = false;
 	private boolean spriteMaskRequested = false;
 	private final List<SpriteSatEntry> spriteSatEntries = new ArrayList<>();
+	private String currentSpriteSatDebugSource = null;
+	private int currentSpriteSatBucket = RenderPriority.MIN;
 	// Background renderer for per-scanline parallax scrolling
 	private BackgroundRenderer backgroundRenderer;
 	private TilemapGpuRenderer tilemapGpuRenderer;
@@ -1073,6 +1075,7 @@ public class GraphicsManager {
 		spriteSatCollectionActive = false;
 		spriteMaskRequested = false;
 		spriteSatEntries.clear();
+		currentSpriteSatDebugSource = null;
 		waterlineScreenY = 0;
 		windowHeight = 224;
 		screenHeight = 224;
@@ -1189,6 +1192,8 @@ public class GraphicsManager {
 		spriteSatCollectionActive = true;
 		spriteMaskRequested = false;
 		spriteSatEntries.clear();
+		currentSpriteSatDebugSource = null;
+		currentSpriteSatBucket = RenderPriority.MIN;
 	}
 
 	public boolean isSpriteSatCollectionActive() {
@@ -1201,11 +1206,22 @@ public class GraphicsManager {
 		}
 	}
 
+	public void setCurrentSpriteSatDebugSource(String debugSource) {
+		currentSpriteSatDebugSource = debugSource;
+	}
+
+	public void setCurrentSpriteSatBucket(int bucket) {
+		currentSpriteSatBucket = RenderPriority.clamp(bucket);
+	}
+
 	public void submitSpriteSatPiece(SpritePieceRenderer.PreparedPiece piece) {
 		if (!spriteSatCollectionActive || piece == null) {
 			return;
 		}
-		spriteSatEntries.add(SpriteSatEntry.fromPreparedPiece(piece));
+		SpritePieceRenderer.PreparedPiece taggedPiece = currentSpriteSatDebugSource == null
+				? piece
+				: piece.withDebugSource(currentSpriteSatDebugSource);
+		spriteSatEntries.add(SpriteSatEntry.fromPreparedPiece(taggedPiece, currentSpriteSatBucket));
 	}
 
 	public void endSpriteSatCollectionAndReplay() {
@@ -1219,26 +1235,67 @@ public class GraphicsManager {
 		spriteSatCollectionActive = false;
 		spriteMaskRequested = false;
 		spriteSatEntries.clear();
+		currentSpriteSatDebugSource = null;
+		currentSpriteSatBucket = RenderPriority.MIN;
 
 		List<SpriteSatEntry> processedEntries = SpriteSatMaskPostProcessor.process(collectedEntries, applyMask);
 		if (processedEntries.isEmpty()) {
 			return;
 		}
 
-		// Replay SAT entries as individual commands instead of rebatching them.
-		// The non-instanced batch path only captures the global sprite-priority uniform,
-		// which collapses mixed-priority frames like Gumball 0x16. Encoding the effective
-		// priority into each replayed PatternDesc keeps per-piece ROM priority intact.
+		// Replay SAT entries as direct individual commands, not through renderPatternWithId().
+		// Re-entering the normal render path allows the replay to be re-batched, which can
+		// flatten or reorder the final SAT sequence again.
 		flushPatternBatch();
 		setCurrentSpriteHighPriority(false);
-		for (int i = processedEntries.size() - 1; i >= 0; i--) {
-			renderCollectedSpriteSatEntry(processedEntries.get(i));
+		for (PatternRenderCommand command : buildSpriteSatReplayCommands(processedEntries)) {
+			registerCommand(command);
 		}
 	}
 
-	private void renderCollectedSpriteSatEntry(SpriteSatEntry entry) {
+	List<PatternRenderCommand> buildSpriteSatReplayCommands(List<SpriteSatEntry> processedEntries) {
+		List<PatternRenderCommand> replayCommands = new ArrayList<>();
+		if (processedEntries == null || processedEntries.isEmpty()) {
+			return replayCommands;
+		}
+		ensurePatternAtlas();
+		Integer paletteTextureId = resolveSpriteSatReplayPaletteTextureId();
+		if (paletteTextureId == null) {
+			return replayCommands;
+		}
+		for (int bucket = RenderPriority.MAX; bucket >= RenderPriority.MIN; bucket--) {
+			for (SpriteSatEntry processedEntry : processedEntries) {
+				if (processedEntry.priorityBucket() == bucket) {
+					appendDirectReplayCommands(processedEntry, paletteTextureId, replayCommands);
+				}
+			}
+		}
+		return replayCommands;
+	}
+
+	private Integer resolveSpriteSatReplayPaletteTextureId() {
+		if (useUnderwaterPaletteForBackground && underwaterPaletteTextureId != null) {
+			return underwaterPaletteTextureId;
+		}
+		if (combinedPaletteTextureId != null) {
+			return combinedPaletteTextureId;
+		}
+		return headlessMode ? -1 : null;
+	}
+
+	private void appendDirectReplayCommands(
+			SpriteSatEntry entry,
+			int paletteTextureId,
+			List<PatternRenderCommand> replayCommands) {
+		if (entry == null || replayCommands == null) {
+			return;
+		}
 		SpritePieceRenderer.renderPreparedPiece(entry.toPreparedPiece(),
 				(patternIndex, pieceHFlip, pieceVFlip, paletteIndex, drawX, drawY) -> {
+					PatternAtlas.Entry atlasEntry = patternAtlas != null ? patternAtlas.getEntry(patternIndex) : null;
+					if (atlasEntry == null) {
+						return;
+					}
 					int descIndex = patternIndex & 0x7FF;
 					if (entry.piecePriority() || entry.globalHighPriority()) {
 						descIndex |= 0x8000;
@@ -1253,7 +1310,7 @@ public class GraphicsManager {
 					PatternDesc desc = new PatternDesc();
 					desc.set(descIndex);
 					desc.setPaletteIndex(paletteIndex);
-					renderPatternWithId(patternIndex, desc, drawX, drawY);
+					replayCommands.add(PatternRenderCommand.obtain(atlasEntry, paletteTextureId, desc, drawX, drawY));
 				});
 	}
 

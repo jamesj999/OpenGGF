@@ -188,7 +188,8 @@ public class GumballTriangleBumperObjectInstance extends AbstractObjectInstance
         if (consumed) {
             return;
         }
-        if (!GumballMachineObjectInstance.shouldDebugRender(getPriorityBucket(), isHighPriority())) {
+        if (!GumballMachineObjectInstance.shouldDebugRender(
+                getPriorityBucket(), isHighPriority(), GumballMachineObjectInstance.DEBUG_SOURCE_BUMPER)) {
             return;
         }
         PatternSpriteRenderer renderer = getRenderer(Sonic3kObjectArtKeys.GUMBALL_BONUS);

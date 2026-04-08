@@ -2052,12 +2052,15 @@ public class LevelManager {
             // SAT collection must follow sprite-table order, not painter order.
             // Draw_Sprite inserts into Sprite_table_input by ascending priority bucket,
             // and lower sprite slots end up in front later during rasterization.
+            // In the Gumball stage the playable sprites must still come after same-bucket
+            // machine objects so Sonic/sidekicks remain on top within bucket 2.
             for (int bucket = RenderPriority.MIN; bucket <= RenderPriority.MAX; bucket++) {
-                if (spriteManager != null) {
-                    spriteManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
-                }
+                graphicsManager.setCurrentSpriteSatBucket(bucket);
                 if (objectManager != null) {
                     objectManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
+                }
+                if (spriteManager != null) {
+                    spriteManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
                 }
             }
             graphicsManager.endSpriteSatCollectionAndReplay();
@@ -3000,6 +3003,10 @@ public class LevelManager {
 
     public RingManager getRingManager() {
         return ringManager;
+    }
+
+    public int getFrameCounter() {
+        return frameCounter;
     }
 
     public ZoneFeatureProvider getZoneFeatureProvider() {

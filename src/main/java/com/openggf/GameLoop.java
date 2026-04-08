@@ -642,6 +642,10 @@ public class GameLoop {
             if (isUnmodifiedDebugKeyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_F11)) {
                 com.openggf.game.sonic3k.objects.GumballMachineObjectInstance.cycleDebugFilter();
             }
+            // Debug: Insert cycles through gumball child-source isolation without colliding with overlay F-keys.
+            if (isUnmodifiedDebugKeyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_INSERT)) {
+                com.openggf.game.sonic3k.objects.GumballMachineObjectInstance.cycleDebugSourceFilter();
+            }
         }
 
         inputHandler.update();

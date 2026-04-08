@@ -7,6 +7,7 @@ import com.openggf.level.render.SpritePieceRenderer;
  * sprite-mask processing can happen before pieces are expanded into 8x8 tiles.
  */
 public record SpriteSatEntry(
+        int priorityBucket,
         int x,
         int y,
         int widthTiles,
@@ -22,9 +23,13 @@ public record SpriteSatEntry(
         int startColTile,
         int colCountTiles,
         int startRowTile,
-        int rowCountTiles
+        int rowCountTiles,
+        String debugSource
 ) {
     public SpriteSatEntry {
+        if (priorityBucket < RenderPriority.MIN || priorityBucket > RenderPriority.MAX) {
+            throw new IllegalArgumentException("Priority bucket out of range");
+        }
         if (widthTiles < 0 || heightTiles < 0) {
             throw new IllegalArgumentException("Tile dimensions must be non-negative");
         }
@@ -66,6 +71,7 @@ public record SpriteSatEntry(
             boolean globalHighPriority
     ) {
         return new SpriteSatEntry(
+                RenderPriority.MIN,
                 x,
                 y,
                 widthTiles,
@@ -81,11 +87,13 @@ public record SpriteSatEntry(
                 0,
                 widthTiles,
                 0,
-                heightTiles);
+                heightTiles,
+                null);
     }
 
-    public static SpriteSatEntry fromPreparedPiece(SpritePieceRenderer.PreparedPiece piece) {
+    public static SpriteSatEntry fromPreparedPiece(SpritePieceRenderer.PreparedPiece piece, int priorityBucket) {
         return new SpriteSatEntry(
+                RenderPriority.clamp(priorityBucket),
                 piece.x(),
                 piece.y(),
                 piece.widthTiles(),
@@ -101,7 +109,8 @@ public record SpriteSatEntry(
                 piece.startColTile(),
                 piece.colCountTiles(),
                 piece.startRowTile(),
-                piece.rowCountTiles());
+                piece.rowCountTiles(),
+                piece.debugSource());
     }
 
     public SpritePieceRenderer.PreparedPiece toPreparedPiece() {
@@ -121,7 +130,8 @@ public record SpriteSatEntry(
                 startColTile,
                 colCountTiles,
                 startRowTile,
-                rowCountTiles);
+                rowCountTiles,
+                debugSource);
     }
 
     public int endXExclusive() {
@@ -147,6 +157,7 @@ public record SpriteSatEntry(
             int clippedRowCountTiles
     ) {
         return new SpriteSatEntry(
+                priorityBucket,
                 x,
                 y,
                 widthTiles,
@@ -162,7 +173,8 @@ public record SpriteSatEntry(
                 clippedStartColTile,
                 clippedColCountTiles,
                 clippedStartRowTile,
-                clippedRowCountTiles);
+                clippedRowCountTiles,
+                debugSource);
     }
 
     public SpriteSatEntry clipRows(int clippedStartRowTile, int clippedRowCountTiles) {
@@ -171,6 +183,7 @@ public record SpriteSatEntry(
 
     public SpriteSatEntry withMaskReplayRole(SpriteMaskReplayRole overriddenMaskReplayRole) {
         return new SpriteSatEntry(
+                priorityBucket,
                 x,
                 y,
                 widthTiles,
@@ -186,6 +199,7 @@ public record SpriteSatEntry(
                 startColTile,
                 colCountTiles,
                 startRowTile,
-                rowCountTiles);
-    }
+                rowCountTiles,
+                debugSource);
+        }
 }
