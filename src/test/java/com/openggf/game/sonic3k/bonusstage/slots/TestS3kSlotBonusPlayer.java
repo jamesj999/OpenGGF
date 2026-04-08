@@ -117,6 +117,72 @@ class TestS3kSlotBonusPlayer {
     }
 
     @Test
+    void groundMotionProjectsVelocityThroughRotationAngle() {
+        S3kSlotStageController controller = new S3kSlotStageController();
+        controller.bootstrap();
+        // Set angle to 0 first, then change via setScalarIndex + tick
+        controller.setScalarIndex(0x40);
+        controller.tick(); // angle = 0x40
+
+        AbstractPlayableSprite player = S3kSlotBonusPlayer.create("sonic",
+                (short) 0x460, (short) 0x430, controller);
+        player.setGSpeed((short) 0x200);
+        player.setAir(false);
+
+        short startX = player.getX();
+        short startY = player.getY();
+
+        // tickAndMove projects gSpeed through angle 0x40
+        S3kSlotBonusPlayer.tickAndMove(player, controller, false, false, false, 0);
+
+        // At angle 0x40, the projected direction should differ from pure horizontal
+        assertTrue(player.getX() != startX || player.getY() != startY,
+                "Player should have moved via rotation projection");
+    }
+
+    @Test
+    void airGravityIsAngleDependentUsingFactor0x2A() {
+        S3kSlotStageController controller = new S3kSlotStageController();
+        controller.bootstrap();
+        // angle stays at 0 (no tick called)
+
+        AbstractPlayableSprite player = S3kSlotBonusPlayer.create("sonic",
+                (short) 0x460, (short) 0x430, controller);
+        player.setAir(true);
+        player.setXSpeed((short) 0);
+        player.setYSpeed((short) 0);
+
+        S3kSlotBonusPlayer.tickAndMove(player, controller, false, false, false, 0);
+
+        // At angle 0, sin(0)=0 and cos(0)=256
+        // X gravity component: sin(0) * 0x2A = 0
+        // Y gravity component: cos(0) * 0x2A = 256 * 42 = 10752 → >> 8 = 42 = 0x2A
+        assertEquals((short) 0, player.getXSpeed());
+        assertEquals((short) 0x2A, player.getYSpeed());
+    }
+
+    @Test
+    void airGravityAtAngle0x40ProducesXComponent() {
+        S3kSlotStageController controller = new S3kSlotStageController();
+        controller.bootstrap();
+        controller.tick(); // angle = 0x40
+
+        AbstractPlayableSprite player = S3kSlotBonusPlayer.create("sonic",
+                (short) 0x460, (short) 0x430, controller);
+        player.setAir(true);
+        player.setXSpeed((short) 0);
+        player.setYSpeed((short) 0);
+
+        S3kSlotBonusPlayer.tickAndMove(player, controller, false, false, false, 0);
+
+        // At angle 0x40 (90°), sin(0x40)=256, cos(0x40)≈0
+        // X gravity: sin(0x40) * 0x2A = 256*42 >> 8 = 42 = 0x2A
+        // Y gravity: cos(0x40) * 0x2A ≈ 0
+        assertEquals((short) 0x2A, player.getXSpeed());
+        assertTrue(Math.abs(player.getYSpeed()) <= 1, "Y should be near zero at angle 0x40");
+    }
+
+    @Test
     void movementConstantsMatchDisassembly() {
         assertEquals(0x0C, S3kSlotBonusPlayer.GROUND_ACCEL);
         assertEquals(0x0C, S3kSlotBonusPlayer.GROUND_DECEL);

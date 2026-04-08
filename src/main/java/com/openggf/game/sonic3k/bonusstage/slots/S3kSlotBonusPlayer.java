@@ -1,6 +1,7 @@
 package com.openggf.game.sonic3k.bonusstage.slots;
 
 import com.openggf.level.LevelManager;
+import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.sprites.playable.CustomPlayablePhysics;
 import com.openggf.sprites.playable.Knuckles;
@@ -44,16 +45,17 @@ public interface S3kSlotBonusPlayer extends CustomPlayablePhysics {
         player.setMovementInputActive(left != right);
 
         if (player.getAir()) {
-            applyAirMotion(player, left, right);
+            applyAirMotion(player, controller);
         } else {
-            applyGroundMotion(player, left, right);
+            applyGroundMotion(player, left, right, controller);
         }
 
         player.move(player.getXSpeed(), player.getYSpeed());
         player.updateSensors(originalX, originalY);
     }
 
-    private static void applyGroundMotion(AbstractPlayableSprite player, boolean left, boolean right) {
+    private static void applyGroundMotion(AbstractPlayableSprite player, boolean left, boolean right,
+                                          S3kSlotStageController controller) {
         int gSpeed = player.getGSpeed();
         if (left == right) {
             // No input: friction (sub_4BABC lines 98798-98816)
@@ -84,24 +86,34 @@ public interface S3kSlotBonusPlayer extends CustomPlayablePhysics {
             player.setDirection(com.openggf.physics.Direction.RIGHT);
         }
         player.setGSpeed((short) gSpeed);
-        player.setXSpeed((short) gSpeed);
-        player.setYSpeed((short) 0);
+
+        // ROM sub_4BABC lines 98818-98827: project gSpeed through rotation angle
+        // addi.b #$20,d0 / andi.b #$C0,d0 / neg.b d0 → snap to quadrant, negate
+        int statAngle = controller != null ? controller.angle() & 0xFF : 0;
+        int projAngle = (-((statAngle + 0x20) & 0xC0)) & 0xFF;
+        int sin = TrigLookupTable.sinHex(projAngle);
+        int cos = TrigLookupTable.cosHex(projAngle);
+        player.setXSpeed((short) ((cos * gSpeed) >> 8));
+        player.setYSpeed((short) ((sin * gSpeed) >> 8));
         player.setJumping(false);
     }
 
-    private static void applyAirMotion(AbstractPlayableSprite player, boolean left, boolean right) {
-        int xSpeed = player.getXSpeed();
-        if (left && !right) {
-            xSpeed = Math.max(-AIR_MAX_SPEED, xSpeed - AIR_ACCEL);
-            player.setDirection(com.openggf.physics.Direction.LEFT);
-        } else if (right && !left) {
-            xSpeed = Math.min(AIR_MAX_SPEED, xSpeed + AIR_ACCEL);
-            player.setDirection(com.openggf.physics.Direction.RIGHT);
-        }
+    private static void applyAirMotion(AbstractPlayableSprite player,
+                                       S3kSlotStageController controller) {
+        // ROM sub_4BCB0 lines 99005-99070: angle-dependent gravity (no left/right air control)
+        // andi.b #$FC,d0 — mask to 2-bit quadrant precision
+        int statAngle = controller != null ? controller.angle() & 0xFC : 0;
+        int sin = TrigLookupTable.sinHex(statAngle);
+        int cos = TrigLookupTable.cosHex(statAngle);
 
-        int ySpeed = player.getYSpeed() + Math.round(player.getGravity());
-        player.setXSpeed((short) xSpeed);
-        player.setYSpeed((short) ySpeed);
+        // x_vel_extended + sin * gravity_factor (0x2A)
+        // y_vel_extended + cos * gravity_factor (0x2A)
+        // ext.l d4 / asl.l #8,d4: extend velocity to 24.8 fixed-point
+        // asr.l #8,d0: extract back to velocity
+        long newX = ((long) player.getXSpeed() << 8) + (long) sin * 0x2A;
+        long newY = ((long) player.getYSpeed() << 8) + (long) cos * 0x2A;
+        player.setXSpeed((short) (newX >> 8));
+        player.setYSpeed((short) (newY >> 8));
     }
 
     private static String normalize(String mainCode) {
