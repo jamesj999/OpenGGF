@@ -117,7 +117,12 @@ public final class S3kSlotBonusStageRuntime {
         slotStageController.clearLastCollision();
 
         // Per-frame rotation integration
-        slotStageController.tick();
+        if (slotPlayer != null && slotPlayer.isObjectControlled()) {
+            // ROM loc_4BA80: accelerated rotation during cage capture
+            slotStageController.tickObjectControlled();
+        } else {
+            slotStageController.tick();
+        }
 
         // Reel state machine
         if (!slotStageController.isReelsFrozen()) {
@@ -155,6 +160,9 @@ public final class S3kSlotBonusStageRuntime {
         if (slotPlayer != null && slotStageController.lastCollisionTileId() > 0) {
             dispatchTileInteraction();
         }
+
+        // ROM sub_4BBF4: custom camera tracking centered on player
+        updateCamera();
 
         // Visuals
         updateVisuals();
@@ -379,6 +387,31 @@ public final class S3kSlotBonusStageRuntime {
             }
             default -> {}
         }
+    }
+
+    /**
+     * ROM sub_4BBF4 (lines 98937-98954): Custom camera tracking.
+     * Centers the player at screen offset (0xA0, 0x70). Only adjusts when
+     * player moves beyond those offsets.
+     */
+    private void updateCamera() {
+        if (slotPlayer == null || bootstrapRuntime == null) {
+            return;
+        }
+        int playerX = slotPlayer.getX();
+        int playerY = slotPlayer.getY();
+        int camX = bootstrapRuntime.getCamera().getX();
+        int camY = bootstrapRuntime.getCamera().getY();
+        int targetX = playerX - 0xA0;
+        if (targetX >= 0) {
+            camX = targetX;
+        }
+        int targetY = playerY - 0x70;
+        if (targetY >= 0) {
+            camY = targetY;
+        }
+        bootstrapRuntime.getCamera().setX((short) camX);
+        bootstrapRuntime.getCamera().setY((short) camY);
     }
 
     private void updateVisuals() {
