@@ -11,6 +11,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -55,6 +56,11 @@ class TestS3kSlotBonusStageRuntime {
 
         S3kSlotBonusStageRuntime runtime = new S3kSlotBonusStageRuntime();
         runtime.bootstrap();
+
+        assertTrue(GameServices.sprites().getSprite("tails") instanceof S3kSlotBonusPlayer);
+        assertNotSame(originalPlayer, GameServices.sprites().getSprite("tails"));
+        assertSame(GameServices.sprites().getSprite("tails"), GameServices.camera().getFocusedSprite());
+
         runtime.shutdown();
 
         assertSame(originalPlayer, GameServices.sprites().getSprite("tails"));

@@ -590,12 +590,15 @@ public class SpriteManager {
 	}
 
 	private boolean removeSprite(Sprite sprite) {
+		if (sprite == null) {
+			return false;
+		}
 		bucketsDirty = true;
 		if (sprite instanceof AbstractPlayableSprite playable) {
 			sidekicks.remove(playable);
 			sidekickCharacterNames.remove(playable);
 		}
-		return (sprites.remove(sprite) != null);
+		return (sprites.remove(sprite.getCode()) != null);
 	}
 
 	private void bucketSprites() {
