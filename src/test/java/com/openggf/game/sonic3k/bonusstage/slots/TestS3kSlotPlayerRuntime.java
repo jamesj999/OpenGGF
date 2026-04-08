@@ -61,4 +61,24 @@ class TestS3kSlotPlayerRuntime {
         assertEquals(2 * 0x20, state.lastCollisionIndex());
         assertFalse(player.getAir());
     }
+
+    @Test
+    void airMotionPreservesSpecialCollisionWhenLaterProbeHitsPlainSolid() {
+        S3kSlotStageState state = S3kSlotStageState.bootstrap();
+        S3kSlotRenderBuffers buffers = S3kSlotRenderBuffers.fromRomData();
+        buffers.expandedLayout()[2 * buffers.layoutStrideBytes() + 1] = 5;
+        buffers.expandedLayout()[3 * buffers.layoutStrideBytes()] = 7;
+        S3kSlotCollisionSystem collisionSystem = new S3kSlotCollisionSystem(buffers, state);
+        S3kSlotPlayerRuntime runtime = new S3kSlotPlayerRuntime(state, collisionSystem);
+        Sonic player = new Sonic("sonic", (short) 0x0000, (short) 0x0000);
+
+        runtime.initialize(player);
+        player.setXSpeed((short) (24 * 0x100));
+        player.setYSpeed((short) (24 * 0x100));
+
+        runtime.tick(player, false, false, false, 0);
+
+        assertEquals(5, state.lastCollisionTileId());
+        assertEquals((2 * 0x20) + 1, state.lastCollisionIndex());
+    }
 }

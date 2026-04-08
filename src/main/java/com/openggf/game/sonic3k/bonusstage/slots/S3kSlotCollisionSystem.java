@@ -30,9 +30,11 @@ public final class S3kSlotCollisionSystem {
     }
 
     public Collision checkCollision(int xPixel, int yPixel) {
+        // Collision state is cleared once per frame by the player runtime. Multiple
+        // collision probes can run in a single frame, so later plain-solid hits must
+        // not erase an earlier special tile that still needs dispatch.
         byte[] expandedLayout = renderBuffers.expandedLayout();
         if (expandedLayout == null || expandedLayout.length < renderBuffers.layoutRows() * renderBuffers.layoutStrideBytes()) {
-            stageState.clearCollision();
             return Collision.NONE;
         }
 
@@ -54,7 +56,6 @@ public final class S3kSlotCollisionSystem {
                     continue;
                 }
 
-                stageState.clearCollision();
                 if (isSpecial(tileId)) {
                     stageState.setLastCollision(tileId, compactIndex);
                 }
@@ -62,7 +63,6 @@ public final class S3kSlotCollisionSystem {
             }
         }
 
-        stageState.clearCollision();
         return Collision.NONE;
     }
 
