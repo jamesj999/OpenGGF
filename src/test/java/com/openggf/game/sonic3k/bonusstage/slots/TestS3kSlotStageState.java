@@ -18,6 +18,8 @@ class TestS3kSlotStageState {
         assertEquals(0x40, state.scalarIndex1());
         assertFalse(state.paletteCycleEnabled());
         assertEquals(0, state.lastCollisionTileId());
+        assertEquals(0x10, state.eventsBgX());
+        assertEquals(0x2D, state.eventsBgY());
     }
 
     @Test

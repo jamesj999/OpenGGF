@@ -5,88 +5,63 @@ import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
-
 public class S3kSlotStageController {
-    private int statTable;
-    private int scalarIndex;  // SStage_scalar_index_1 — rotation velocity per frame
-    private int rewardCounter;
-    private int latchedPrize;
-    private int latchedPrizeCycleId;
-    private boolean reelsFrozen;
-    private boolean paletteCycleEnabled;
-    private int bounceTimer;           // $3A(a0) — grace period after landing (4 frames)
-    private int activeRewardObjects;
-    private int pendingRingRewards;
-    private int pendingSpikeRewards;
+    private final S3kSlotStageState stageState;
+    private byte[] activeLayout;         // layout reference for collision checks during physics
 
-    // Positional data queued alongside each pending reward (spawnX, spawnY, targetX, targetY)
-    private byte[] activeLayout;        // layout reference for collision checks during physics
-    private int lastCollisionTileId;    // $30(a0) — tile ID from last collision check
-    private int lastCollisionIndex = -1; // layout index of last collision
-    private final Deque<int[]> pendingRingRewardPositions = new ArrayDeque<>();
-    private final Deque<int[]> pendingSpikeRewardPositions = new ArrayDeque<>();
+    public S3kSlotStageController() {
+        this(S3kSlotStageState.bootstrap());
+    }
+
+    public S3kSlotStageController(S3kSlotStageState stageState) {
+        this.stageState = stageState;
+    }
 
     public void bootstrap() {
-        statTable = 0;
-        scalarIndex = 0x40;  // ROM line 98732
-        rewardCounter = 0;
-        latchedPrize = 0;
-        latchedPrizeCycleId = -1;
-        reelsFrozen = false;
-        paletteCycleEnabled = false;
-        bounceTimer = 0;
+        stageState.setStatTable(0);
+        stageState.setScalarIndex1(0x40);
+        stageState.setPaletteCycleEnabled(false);
+        stageState.clearCollision();
+        stageState.setBounceTimer(0);
+        stageState.resetRewardState();
         activeLayout = null;
-        lastCollisionTileId = 0;
-        lastCollisionIndex = -1;
-        activeRewardObjects = 0;
-        pendingRingRewards = 0;
-        pendingSpikeRewards = 0;
-        pendingRingRewardPositions.clear();
-        pendingSpikeRewardPositions.clear();
     }
 
-    /** Per-frame rotation: Stat_table += SStage_scalar_index_1 (lines 98776-98778) */
+    /** Per-frame rotation: Stat_table += SStage_scalar_index_1 (lines 98776-98778). */
     public void tick() {
-        statTable = (statTable + scalarIndex) & 0xFFFF;
+        stageState.setStatTable((stageState.rawStatTable() + stageState.scalarIndex1()) & 0xFFFF);
     }
 
-    /** ROM loc_4BA80: accelerated rotation when player is object-controlled (cage capture).
-     *  Rotation is: (SStage_scalar_index_1 &lt;&lt; 4) + Stat_table → Stat_table */
+    /** ROM loc_4BA80: accelerated rotation while the player is object-controlled. */
     public void tickObjectControlled() {
-        statTable = (statTable + (scalarIndex << 4)) & 0xFFFF;
+        stageState.setStatTable((stageState.rawStatTable() + (stageState.scalarIndex1() << 4)) & 0xFFFF);
     }
 
     public int scalarIndex() {
-        return scalarIndex;
+        return stageState.scalarIndex1();
     }
 
     public void setScalarIndex(int value) {
-        scalarIndex = value;
+        stageState.setScalarIndex1(value);
     }
 
-    /** ROM: neg.w (SStage_scalar_index_1).w — used by spike tile and cage release */
+    /** ROM: neg.w (SStage_scalar_index_1).w — used by spike tile and cage release. */
     public void negateScalar() {
-        scalarIndex = -scalarIndex;
+        stageState.negateScalarIndex1();
     }
 
-    /** ROM $3A(a0): Set bounce timer on landing (sub_4BCB0 line 99028/99046) */
+    /** ROM $3A(a0): Set bounce timer on landing (sub_4BCB0 line 99028/99046). */
     public void setBounceTimer(int frames) {
-        bounceTimer = frames;
+        stageState.setBounceTimer(frames);
     }
 
     /** Tick bounce timer. Returns true if timer was active and just expired. */
     public boolean tickBounceTimer() {
-        if (bounceTimer > 0) {
-            bounceTimer--;
-            return bounceTimer == 0;
-        }
-        return false;
+        return stageState.tickBounceTimer();
     }
 
     public int bounceTimer() {
-        return bounceTimer;
+        return stageState.bounceTimer();
     }
 
     /** Set the active layout for collision checks during player physics. */
@@ -98,188 +73,149 @@ public class S3kSlotStageController {
         return activeLayout;
     }
 
-    /** ROM $30(a0): Store tile ID from last collision for tile interaction dispatch */
+    /** ROM $30(a0): Store tile ID from last collision for tile interaction dispatch. */
     public void setLastCollision(int tileId, int layoutIndex) {
-        this.lastCollisionTileId = tileId;
-        this.lastCollisionIndex = layoutIndex;
+        stageState.setLastCollision(tileId, layoutIndex);
     }
 
     public void clearLastCollision() {
-        this.lastCollisionTileId = 0;
-        this.lastCollisionIndex = -1;
+        stageState.clearCollision();
     }
 
     public int lastCollisionTileId() {
-        return lastCollisionTileId;
+        return stageState.lastCollisionTileId();
     }
 
     public int lastCollisionIndex() {
-        return lastCollisionIndex;
+        return stageState.lastCollisionIndex();
     }
 
     public void tickPlayer(S3kSlotBonusPlayer player, boolean left, boolean right,
                            boolean jump, int frameCounter) {
-        // Input is handled by S3kSlotBonusPlayer.applyGroundMotion()
-        // Controller only manages angle and jump
-        player.setAngle((byte) statTable);
+        // Input is handled by S3kSlotBonusPlayer.applyGroundMotion().
+        player.setAngle((byte) stageState.statTable());
 
         if (jump && player instanceof AbstractPlayableSprite sprite
                 && sprite.isJumpJustPressed() && !sprite.getAir()) {
-            int angle = (-((statTable & 0xFC)) - 0x40) & 0xFF;
+            int angle = (-((stageState.statTable() & 0xFC)) - 0x40) & 0xFF;
             sprite.setXSpeed((short) ((TrigLookupTable.cosHex(angle) * 0x680) >> 8));
             sprite.setYSpeed((short) ((TrigLookupTable.sinHex(angle) * 0x680) >> 8));
             sprite.setAir(true);
-            // ROM line 98926-98927: moveq #signextendB(sfx_Jump),d0; jsr (Play_SFX).l
-            if (GameServices.audio() != null) GameServices.audio().playSfx(Sonic3kSfx.JUMP.id);
+            if (GameServices.audio() != null) {
+                GameServices.audio().playSfx(Sonic3kSfx.JUMP.id);
+            }
         }
     }
 
-    /** Returns the low byte of Stat_table — ROM uses move.b (Stat_table).w,d0 for angle reads */
+    /** Returns the low byte of Stat_table — ROM uses move.b (Stat_table).w,d0 for angle reads. */
     public int angle() {
-        return statTable & 0xFF;
+        return stageState.angle();
     }
 
-    /** Returns the full 16-bit Stat_table value (for exit sequence scalar math) */
+    /** Returns the full 16-bit Stat_table value (for exit sequence scalar math). */
     public int rawStatTable() {
-        return statTable & 0xFFFF;
+        return stageState.rawStatTable();
     }
 
     public boolean isReelsFrozen() {
-        return reelsFrozen;
+        return stageState.reelsFrozen();
     }
 
     public void setPaletteCycleEnabled(boolean enabled) {
-        paletteCycleEnabled = enabled;
+        stageState.setPaletteCycleEnabled(enabled);
     }
 
     public boolean isPaletteCycleEnabled() {
-        return paletteCycleEnabled;
+        return stageState.paletteCycleEnabled();
     }
 
     public void latchResolvedPrize(int prize, int cycleId) {
-        if (cycleId == latchedPrizeCycleId) {
+        if (cycleId == stageState.latchedPrizeCycleId()) {
             return;
         }
-        latchedPrize = prize;
-        latchedPrizeCycleId = cycleId;
+        stageState.setLatchedPrize(prize);
+        stageState.setLatchedPrizeCycleId(cycleId);
     }
 
     public void latchResolvedPrizeForCapture(int prize) {
-        latchedPrize = prize;
-        latchedPrizeCycleId++;
+        stageState.setLatchedPrize(prize);
+        stageState.setLatchedPrizeCycleId(stageState.latchedPrizeCycleId() + 1);
     }
 
     public int beginCapturePayout() {
-        reelsFrozen = true;
-        return latchedPrize;
+        stageState.setReelsFrozen(true);
+        return stageState.latchedPrize();
     }
 
     public void endCapturePayout() {
-        reelsFrozen = false;
-        latchedPrize = 0;
+        stageState.setReelsFrozen(false);
+        stageState.setLatchedPrize(0);
     }
 
     public void onRewardSpawned() {
-        activeRewardObjects++;
+        stageState.incrementActiveRewardObjects();
     }
 
     public void onRewardExpired() {
-        if (activeRewardObjects > 0) {
-            activeRewardObjects--;
-        }
+        stageState.decrementActiveRewardObjects();
     }
 
     public int activeRewardObjects() {
-        return activeRewardObjects;
+        return stageState.activeRewardObjects();
     }
 
     public void addRewardRing() {
-        rewardCounter++;
+        stageState.incrementRewardCounter();
     }
 
     public void queueRingReward() {
-        pendingRingRewards++;
-        pendingRingRewardPositions.offer(new int[0]);
+        stageState.enqueueRingRewardPosition(new int[0]);
     }
 
-    /**
-     * Queues a ring reward with positional data for interpolated movement.
-     *
-     * <p>ROM reference: cage object stores spawn position at reward allocation time
-     * ({@code loc_4C172}, lines 99482-99490).
-     */
     public void queueRingRewardAt(int spawnX, int spawnY, int targetX, int targetY) {
-        pendingRingRewards++;
-        pendingRingRewardPositions.offer(new int[]{spawnX, spawnY, targetX, targetY});
+        stageState.enqueueRingRewardPosition(new int[]{spawnX, spawnY, targetX, targetY});
     }
 
     public void queueSpikeReward() {
-        pendingSpikeRewards++;
-        pendingSpikeRewardPositions.offer(new int[0]);
+        stageState.enqueueSpikeRewardPosition(new int[0]);
     }
 
-    /**
-     * Queues a spike reward with positional data for interpolated movement.
-     *
-     * <p>ROM reference: cage object stores spawn position at reward allocation time
-     * ({@code loc_4C0AA}, lines 99438-99447).
-     */
     public void queueSpikeRewardAt(int spawnX, int spawnY, int targetX, int targetY) {
-        pendingSpikeRewards++;
-        pendingSpikeRewardPositions.offer(new int[]{spawnX, spawnY, targetX, targetY});
+        stageState.enqueueSpikeRewardPosition(new int[]{spawnX, spawnY, targetX, targetY});
     }
 
-    /**
-     * Consumes one pending ring reward.
-     *
-     * @return {@code null} if no reward is pending; {@code int[4]} with
-     *         {@code {spawnX, spawnY, targetX, targetY}} if positional data was provided via
-     *         {@link #queueRingRewardAt}; or {@code int[0]} if queued without position data
-     *         (backward-compatible fallback — caller should use its own spawn coordinates).
-     */
     public int[] consumePendingRingReward() {
-        if (pendingRingRewards <= 0) {
+        if (!stageState.hasPendingRingRewardPositions()) {
             return null;
         }
-        pendingRingRewards--;
-        int[] pos = pendingRingRewardPositions.poll();
+        int[] pos = stageState.pollRingRewardPosition();
         return pos != null ? pos : new int[0];
     }
 
-    /**
-     * Consumes one pending spike reward.
-     *
-     * @return {@code null} if no reward is pending; {@code int[4]} with
-     *         {@code {spawnX, spawnY, targetX, targetY}} if positional data was provided via
-     *         {@link #queueSpikeRewardAt}; or {@code int[0]} if queued without position data
-     *         (backward-compatible fallback — caller should use its own spawn coordinates).
-     */
     public int[] consumePendingSpikeReward() {
-        if (pendingSpikeRewards <= 0) {
+        if (!stageState.hasPendingSpikeRewardPositions()) {
             return null;
         }
-        pendingSpikeRewards--;
-        int[] pos = pendingSpikeRewardPositions.poll();
+        int[] pos = stageState.pollSpikeRewardPosition();
         return pos != null ? pos : new int[0];
     }
 
     public boolean consumeRewardRing() {
-        if (rewardCounter <= 0) {
-            return false;
-        }
-        rewardCounter--;
-        return true;
+        return stageState.decrementRewardCounter();
     }
 
     public boolean consumeRewardRing(int carriedRingCount) {
-        if (carriedRingCount + rewardCounter <= 0) {
+        if (carriedRingCount + stageState.rewardCounter() <= 0) {
             return false;
         }
-        rewardCounter--;
+        if (stageState.rewardCounter() > 0) {
+            return stageState.decrementRewardCounter();
+        }
+        stageState.decrementRewardCounterUnchecked();
         return true;
     }
 
     public int rewardCount() {
-        return rewardCounter;
+        return stageState.rewardCounter();
     }
 }

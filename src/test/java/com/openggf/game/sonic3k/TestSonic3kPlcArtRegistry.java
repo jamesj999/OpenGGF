@@ -300,6 +300,43 @@ public class TestSonic3kPlcArtRegistry {
     }
 
     @Test
+    public void slotsPlanHasBonusStageObjectArt() {
+        Sonic3kPlcArtRegistry.ZoneArtPlan plan = Sonic3kPlcArtRegistry.getPlan(0x15, 0);
+        assertNotNull(plan);
+
+        assertTrue(plan.levelArt().stream()
+                .anyMatch(e -> e.key().equals(Sonic3kObjectArtKeys.SLOT_COLORED_WALL)));
+        assertTrue(plan.levelArt().stream()
+                .anyMatch(e -> e.key().equals(Sonic3kObjectArtKeys.SLOT_GOAL)));
+        assertTrue(plan.levelArt().stream()
+                .anyMatch(e -> e.key().equals(Sonic3kObjectArtKeys.SLOT_BUMPER)));
+        assertTrue(plan.levelArt().stream()
+                .anyMatch(e -> e.key().equals(Sonic3kObjectArtKeys.SLOT_R_LABEL)));
+        assertTrue(plan.levelArt().stream()
+                .anyMatch(e -> e.key().equals(Sonic3kObjectArtKeys.SLOT_PEPPERMINT)));
+        assertTrue(plan.levelArt().stream()
+                .anyMatch(e -> e.key().equals(Sonic3kObjectArtKeys.SLOT_MACHINE_FACE)));
+        assertTrue(plan.levelArt().stream()
+                .anyMatch(e -> e.key().equals(Sonic3kObjectArtKeys.SLOT_BONUS_CAGE)));
+        assertTrue(plan.levelArt().stream()
+                .anyMatch(e -> e.key().equals(Sonic3kObjectArtKeys.SLOT_SPIKE_REWARD)));
+
+        Sonic3kPlcArtRegistry.LevelArtEntry cage = plan.levelArt().stream()
+                .filter(e -> e.key().equals(Sonic3kObjectArtKeys.SLOT_BONUS_CAGE))
+                .findFirst().orElse(null);
+        assertNotNull(cage);
+        assertEquals(Sonic3kConstants.ARTTILE_SLOTS_BLOCKS + 0x146, cage.artTileBase());
+        assertEquals(Sonic3kConstants.MAP_SLOT_BONUS_CAGE_ADDR, cage.mappingAddr());
+
+        Sonic3kPlcArtRegistry.LevelArtEntry spike = plan.levelArt().stream()
+                .filter(e -> e.key().equals(Sonic3kObjectArtKeys.SLOT_SPIKE_REWARD))
+                .findFirst().orElse(null);
+        assertNotNull(spike);
+        assertEquals(Sonic3kConstants.ARTTILE_SLOTS_BLOCKS + 0x155, spike.artTileBase());
+        assertEquals(Sonic3kConstants.MAP_SLOT_SPIKE_REWARD_ADDR, spike.mappingAddr());
+    }
+
+    @Test
     public void allZonesReturnNonNullPlan() {
         // All 14 zone indices (0x00-0x0D) must return non-null plans for both acts
         for (int zone = 0x00; zone <= 0x0D; zone++) {

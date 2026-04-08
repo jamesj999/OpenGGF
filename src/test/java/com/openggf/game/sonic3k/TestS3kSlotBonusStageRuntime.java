@@ -66,6 +66,8 @@ class TestS3kSlotBonusStageRuntime {
         short[] pointGrid = runtime.activePointGridForTest();
         assertNotNull(pointGrid);
         assertEquals(16 * 16 * 2, pointGrid.length);
+        assertEquals(runtime.activeSlotCageForTest().getCurrentX(), runtime.slotVisualState().eventsBgX());
+        assertEquals(runtime.activeSlotCageForTest().getCurrentY(), runtime.slotVisualState().eventsBgY());
     }
 
     @Test
@@ -83,6 +85,9 @@ class TestS3kSlotBonusStageRuntime {
         assertEquals(0x40, state.scalarIndex1());
         assertFalse(state.paletteCycleEnabled());
         assertEquals(0, state.lastCollisionTileId());
+        assertEquals(0, runtime.paletteCycleMode());
+        assertEquals(0x10, state.eventsBgX());
+        assertEquals(0x2D, state.eventsBgY());
         assertEquals(0x80, buffers.layoutStrideBytes());
         assertEquals(0x20, buffers.layoutRows());
         assertEquals(0x20, buffers.layoutColumns());

@@ -2,7 +2,9 @@ package com.openggf.game.sonic3k;
 
 import com.openggf.camera.Camera;
 import com.openggf.data.RomByteReader;
+import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
+import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotBonusStageRuntime;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
 import com.openggf.level.Palette;
@@ -28,6 +30,14 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
     private final Level level;
     private final GraphicsManager graphicsManager = GraphicsManager.getInstance();
     private final List<PaletteCycle> cycles;
+
+    static int resolveSlotsModeForTest(S3kSlotBonusStageRuntime runtime) {
+        return runtime != null ? runtime.paletteCycleMode() : 0;
+    }
+
+    static int resolveSlotsModeFromRegistryForTest() {
+        return resolveSlotsModeFromRegistry();
+    }
 
     Sonic3kPaletteCycler(RomByteReader reader, Level level, int zoneIndex, int actIndex) {
         this.level = level;
@@ -98,11 +108,8 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
             case 0x14:
                 loadPachinkoCycles(reader, list);
                 break;
-
-            case 0x15: // Slots bonus stage — AnPal_Slots (sonic3k.asm ~line 3844)
-                // Three cycling routines targeting palette line 3 offsets $14-$1C.
-                // Gated by Palette_cycle_counters+$00: 0=idle, 1=capture, -1(0xFF)=disabled.
-                // ROM data at AnPal_PalSlots_1/2/3 — stub; full data loading TBD.
+            case 0x15:
+                loadSlotsCycles(reader, list);
                 break;
 
             default: break;
@@ -249,6 +256,20 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
                 0x532);
         if (tableData != null) {
             list.add(new PachinkoCycle(tableData));
+        }
+    }
+
+    private void loadSlotsCycles(RomByteReader reader, List<PaletteCycle> list) {
+        byte[] idleData = safeSlice(reader, Sonic3kConstants.ANPAL_SLOTS_1_ADDR,
+                Sonic3kConstants.ANPAL_SLOTS_1_SIZE);
+        byte[] captureData = safeSlice(reader, Sonic3kConstants.ANPAL_SLOTS_2_ADDR,
+                Sonic3kConstants.ANPAL_SLOTS_2_SIZE);
+        byte[] accentData = safeSlice(reader, Sonic3kConstants.ANPAL_SLOTS_3_ADDR,
+                Sonic3kConstants.ANPAL_SLOTS_3_SIZE);
+        if (idleData.length >= Sonic3kConstants.ANPAL_SLOTS_1_SIZE
+                && captureData.length >= Sonic3kConstants.ANPAL_SLOTS_2_SIZE
+                && accentData.length >= Sonic3kConstants.ANPAL_SLOTS_3_SIZE) {
+            list.add(new SlotsCycle(idleData, captureData, accentData));
         }
     }
 
@@ -1298,6 +1319,115 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
         }
     }
 
+    private static class SlotsCycle extends PaletteCycle {
+        private static final byte[] FIXED_IDLE_COLOR = new byte[]{0x0E, 0x02};
+
+        private final byte[] idleData;
+        private final byte[] captureData;
+        private final byte[] accentData;
+        private int idleTimer;
+        private int idleOffset;
+        private int captureTimer;
+        private int captureOffset;
+        private int accentOffset;
+        private boolean dirty2;
+        private boolean dirty3;
+
+        SlotsCycle(byte[] idleData, byte[] captureData, byte[] accentData) {
+            this.idleData = idleData;
+            this.captureData = captureData;
+            this.accentData = accentData;
+        }
+
+        @Override
+        void tick(Level level, GraphicsManager gm) {
+            int mode = resolveMode();
+            if (mode < 0) {
+                return;
+            }
+            if (mode == 0) {
+                tickIdle(level);
+            } else {
+                tickCapture(level);
+            }
+
+            if (gm.isGlInitialized()) {
+                if (dirty2) {
+                    gm.cachePaletteTexture(level.getPalette(2), 2);
+                    dirty2 = false;
+                }
+                if (dirty3) {
+                    gm.cachePaletteTexture(level.getPalette(3), 3);
+                    dirty3 = false;
+                }
+            }
+        }
+
+        private int resolveMode() {
+            return resolveSlotsModeFromRegistry();
+        }
+
+        private void tickIdle(Level level) {
+            if (idleTimer > 0) {
+                idleTimer--;
+                return;
+            }
+            idleTimer = 3;
+
+            Palette pal2 = level.getPalette(2);
+            Palette pal3 = level.getPalette(3);
+            applyFourColors(pal2, 10, idleData, idleOffset);
+            idleOffset += 8;
+            if (idleOffset >= 0x40) {
+                idleOffset = 0;
+            }
+            pal2.getColor(14).fromSegaFormat(FIXED_IDLE_COLOR, 0);
+            pal3.getColor(14).fromSegaFormat(FIXED_IDLE_COLOR, 0);
+            dirty2 = true;
+            dirty3 = true;
+        }
+
+        private void tickCapture(Level level) {
+            if (captureTimer > 0) {
+                captureTimer--;
+                return;
+            }
+            captureTimer = 0;
+
+            Palette pal2 = level.getPalette(2);
+            Palette pal3 = level.getPalette(3);
+            applyFourColors(pal2, 10, captureData, captureOffset);
+            captureOffset += 8;
+            if (captureOffset >= 0x78) {
+                captureOffset = 0;
+            }
+            pal2.getColor(14).fromSegaFormat(accentData, accentOffset);
+            pal3.getColor(14).fromSegaFormat(accentData, accentOffset);
+            accentOffset += 2;
+            if (accentOffset >= 0x0C) {
+                accentOffset = 0;
+            }
+            dirty2 = true;
+            dirty3 = true;
+        }
+
+        private void applyFourColors(Palette palette, int startColor, byte[] data, int offset) {
+            palette.getColor(startColor).fromSegaFormat(data, offset);
+            palette.getColor(startColor + 1).fromSegaFormat(data, offset + 2);
+            palette.getColor(startColor + 2).fromSegaFormat(data, offset + 4);
+            palette.getColor(startColor + 3).fromSegaFormat(data, offset + 6);
+        }
+    }
+
+    private static int resolveSlotsModeFromRegistry() {
+        if (GameModuleRegistry.getCurrent() != null
+                && GameModuleRegistry.getCurrent().getBonusStageProvider() instanceof Sonic3kBonusStageCoordinator coordinator
+                && coordinator.activeSlotRuntime() != null) {
+            return resolveSlotsModeForTest(coordinator.activeSlotRuntime());
+        }
+        return 0;
+    }
+
     private static class PachinkoCycle extends PaletteCycle {
         private static final int[] LINE3_OFFSETS = {
                 0x50, 0x52, 0x54, 0x56, 0x58,
@@ -1362,3 +1492,4 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
         }
     }
 }
+

@@ -221,6 +221,17 @@ public final class Sonic3kObjectArtKeys {
     public static final String PACHINKO_F_ITEM = "pachinko_f_item";
     public static final String PACHINKO_GUMBALLS = "pachinko_gumballs";
 
+    // Slot Machine bonus stage sprites.
+    public static final String SLOT_COLORED_WALL = "slot_colored_wall";
+    public static final String SLOT_GOAL = "slot_goal";
+    public static final String SLOT_BUMPER = "slot_bumper";
+    public static final String SLOT_R_LABEL = "slot_r_label";
+    public static final String SLOT_PEPPERMINT = "slot_peppermint";
+    public static final String SLOT_RING_STAGE = "slot_ring_stage";
+    public static final String SLOT_MACHINE_FACE = "slot_machine_face";
+    public static final String SLOT_BONUS_CAGE = "slot_bonus_cage";
+    public static final String SLOT_SPIKE_REWARD = "slot_spike_reward";
+
     private Sonic3kObjectArtKeys() {
     }
 }

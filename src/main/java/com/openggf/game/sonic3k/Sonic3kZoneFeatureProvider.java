@@ -5,6 +5,7 @@ import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
+import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.game.sonic3k.features.AizBattleshipRenderFeature;
@@ -129,11 +130,16 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
             waterSurfaceManager.render(camera, frameCounter);
         }
         aizTransitionRenderFeature.renderFlameOverlay(camera, frameCounter);
-    }
-
-    @Override
-    public void renderAfterForeground(Camera camera) {
-        // No S3K foreground-stage overlays currently. AIZ fire wall is a post-sprite screen pass.
+        if (GameServices.level() == null || GameServices.level().getCurrentZone() != Sonic3kZoneIds.ZONE_SLOT_MACHINE) {
+            return;
+        }
+        if (!(GameModuleRegistry.getCurrent().getBonusStageProvider() instanceof Sonic3kBonusStageCoordinator coordinator)) {
+            return;
+        }
+        if (coordinator.activeSlotRuntime() == null) {
+            return;
+        }
+        coordinator.activeSlotRuntime().renderSlotLayout(camera);
     }
 
     @Override
