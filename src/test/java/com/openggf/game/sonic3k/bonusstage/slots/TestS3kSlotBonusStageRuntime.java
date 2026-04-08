@@ -2,6 +2,7 @@ package com.openggf.game.sonic3k.bonusstage.slots;
 
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.game.GameRuntime;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -91,6 +92,34 @@ class TestS3kSlotBonusStageRuntime {
 
         assertSame(originalPlayer, GameServices.sprites().getSprite("tails"));
         assertSame(originalPlayer, GameServices.camera().getFocusedSprite());
+    }
+
+    @Test
+    void shutdownRestoresOriginalPlayerOnBootstrapRuntimeAfterCurrentRuntimeRecreation() {
+        GameRuntime bootstrapRuntime = RuntimeManager.createGameplay();
+        SonicConfigurationService.getInstance().setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "tails");
+
+        Tails originalPlayer = new Tails("tails", (short) 0x460, (short) 0x430);
+        GameServices.sprites().addSprite(originalPlayer);
+        GameServices.camera().setFocusedSprite(originalPlayer);
+
+        S3kSlotBonusStageRuntime runtime = new S3kSlotBonusStageRuntime();
+        runtime.bootstrap();
+
+        assertTrue(bootstrapRuntime.getSpriteManager().getSprite("tails") instanceof S3kSlotBonusPlayer);
+        assertNotSame(originalPlayer, bootstrapRuntime.getSpriteManager().getSprite("tails"));
+        assertSame(bootstrapRuntime.getSpriteManager().getSprite("tails"), bootstrapRuntime.getCamera().getFocusedSprite());
+
+        GameRuntime recreatedRuntime = RuntimeManager.createGameplay();
+
+        runtime.shutdown();
+
+        assertSame(originalPlayer, bootstrapRuntime.getSpriteManager().getSprite("tails"));
+        assertSame(originalPlayer, bootstrapRuntime.getCamera().getFocusedSprite());
+        assertFalse(runtime.isInitialized());
+        assertTrue(recreatedRuntime.getSpriteManager().getSprite("tails") == null);
+
+        bootstrapRuntime.destroy();
     }
 
     @Test
