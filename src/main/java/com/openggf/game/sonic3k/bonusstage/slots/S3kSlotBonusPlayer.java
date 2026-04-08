@@ -30,6 +30,15 @@ public interface S3kSlotBonusPlayer extends CustomPlayablePhysics {
         }
     }
 
+    static void tickAndMove(AbstractPlayableSprite player, S3kSlotStageController controller,
+                            boolean left, boolean right, boolean jump, int frameCounter) {
+        short originalX = player.getX();
+        short originalY = player.getY();
+        tickController((S3kSlotBonusPlayer) player, controller, left, right, jump, frameCounter);
+        player.move();
+        player.updateSensors(originalX, originalY);
+    }
+
     private static String normalize(String mainCode) {
         return mainCode == null ? "" : mainCode.trim().toLowerCase(Locale.ROOT);
     }
@@ -47,8 +56,7 @@ public interface S3kSlotBonusPlayer extends CustomPlayablePhysics {
         public void tickCustomPhysics(boolean up, boolean down, boolean left, boolean right,
                                       boolean jump, boolean test, boolean speedUp, boolean slowDown,
                                       LevelManager levelManager, int frameCounter) {
-            S3kSlotBonusPlayer.tickController(this, controller, left, right, jump, frameCounter);
-            move();
+            S3kSlotBonusPlayer.tickAndMove(this, controller, left, right, jump, frameCounter);
         }
     }
 
@@ -65,8 +73,7 @@ public interface S3kSlotBonusPlayer extends CustomPlayablePhysics {
         public void tickCustomPhysics(boolean up, boolean down, boolean left, boolean right,
                                       boolean jump, boolean test, boolean speedUp, boolean slowDown,
                                       LevelManager levelManager, int frameCounter) {
-            S3kSlotBonusPlayer.tickController(this, controller, left, right, jump, frameCounter);
-            move();
+            S3kSlotBonusPlayer.tickAndMove(this, controller, left, right, jump, frameCounter);
         }
     }
 
@@ -83,8 +90,7 @@ public interface S3kSlotBonusPlayer extends CustomPlayablePhysics {
         public void tickCustomPhysics(boolean up, boolean down, boolean left, boolean right,
                                       boolean jump, boolean test, boolean speedUp, boolean slowDown,
                                       LevelManager levelManager, int frameCounter) {
-            S3kSlotBonusPlayer.tickController(this, controller, left, right, jump, frameCounter);
-            move();
+            S3kSlotBonusPlayer.tickAndMove(this, controller, left, right, jump, frameCounter);
         }
     }
 }
