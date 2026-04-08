@@ -1,6 +1,7 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotRomData;
 import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotStageController;
@@ -8,6 +9,7 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -238,6 +240,10 @@ public final class S3kSlotBonusCageObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        // Rendered by the slot runtime so it can share the layout render pass.
+        PatternSpriteRenderer renderer = getRenderer(Sonic3kObjectArtKeys.SLOT_BONUS_CAGE);
+        if (renderer == null) {
+            return;
+        }
+        renderer.drawFrameIndex(mappingFrame, currentX, currentY, false, false);
     }
 }

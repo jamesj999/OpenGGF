@@ -1,12 +1,14 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotStageController;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.render.PatternSpriteRenderer;
 
 import java.util.List;
 
@@ -139,6 +141,13 @@ public final class S3kSlotSpikeRewardObjectInstance extends AbstractObjectInstan
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        // Logic-only object for the slot bonus runtime.
+        if (!active || isDestroyed()) {
+            return;
+        }
+        PatternSpriteRenderer renderer = getRenderer(Sonic3kObjectArtKeys.SLOT_SPIKE_REWARD);
+        if (renderer == null) {
+            return;
+        }
+        renderer.drawFrameIndex(0, getInterpolatedX(), getInterpolatedY(), false, false);
     }
 }
