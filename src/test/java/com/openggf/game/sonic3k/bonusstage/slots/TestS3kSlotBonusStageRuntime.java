@@ -51,6 +51,27 @@ class TestS3kSlotBonusStageRuntime {
     }
 
     @Test
+    void bootstrapPreservesLiveCollisionBitsOnSwappedSlotPlayer() {
+        RuntimeManager.createGameplay();
+        SonicConfigurationService.getInstance().setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "tails");
+
+        AbstractPlayableSprite originalPlayer = new Tails("tails", (short) 0x460, (short) 0x430);
+        originalPlayer.setTopSolidBit((byte) 0x02);
+        originalPlayer.setLrbSolidBit((byte) 0x03);
+        GameServices.sprites().addSprite(originalPlayer);
+        GameServices.camera().setFocusedSprite(originalPlayer);
+
+        S3kSlotBonusStageRuntime runtime = new S3kSlotBonusStageRuntime();
+        runtime.bootstrap();
+
+        AbstractPlayableSprite slotPlayer = assertInstanceOf(
+                AbstractPlayableSprite.class, GameServices.sprites().getSprite("tails"));
+        assertTrue(slotPlayer instanceof S3kSlotBonusPlayer);
+        assertEquals((byte) 0x02, slotPlayer.getTopSolidBit());
+        assertEquals((byte) 0x03, slotPlayer.getLrbSolidBit());
+    }
+
+    @Test
     void shutdownRestoresOriginalPlayerAndCameraFocus() {
         RuntimeManager.createGameplay();
         SonicConfigurationService.getInstance().setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "tails");
