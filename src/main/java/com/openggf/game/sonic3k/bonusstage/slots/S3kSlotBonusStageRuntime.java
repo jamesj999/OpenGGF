@@ -11,7 +11,7 @@ import com.openggf.game.sonic3k.objects.S3kSlotRingRewardObjectInstance;
 import com.openggf.game.sonic3k.objects.S3kSlotSpikeRewardObjectInstance;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.DefaultObjectServices;
-import com.openggf.level.objects.ObjectRenderManager;
+import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -40,7 +40,6 @@ public final class S3kSlotBonusStageRuntime {
     private boolean exitFadeStarted;
     private final List<S3kSlotRingRewardObjectInstance> slotRingRewards = new ArrayList<>();
     private final List<S3kSlotSpikeRewardObjectInstance> slotSpikeRewards = new ArrayList<>();
-    private final List<com.openggf.graphics.GLCommand> slotObjectRenderScratch = new ArrayList<>();
     private short[] pointGrid;
     private List<S3kSlotLayoutRenderer.VisibleCell> visibleCells = List.of();
     private int lastFrameCounter = -1;
@@ -93,6 +92,8 @@ public final class S3kSlotBonusStageRuntime {
                     new ObjectSpawn(centerX, centerY, 0, 0, 0, false, 0),
                     slotStageController);
             slotCage.setServices(new DefaultObjectServices(bootstrapRuntime));
+            slotCage.suppressObjectManagerUpdate();
+            registerDynamicSlotObject(slotCage);
             slotCage.suppressInitialCaptureOnce();
             initialized = true;
         }
@@ -142,7 +143,7 @@ public final class S3kSlotBonusStageRuntime {
 
         // Cage object
         if (slotCage != null && slotPlayer != null) {
-            slotCage.update(frameCounter, slotPlayer);
+            slotCage.tickSlotRuntime(frameCounter, slotPlayer);
             syncStageStateFromController();
         }
 
@@ -176,6 +177,13 @@ public final class S3kSlotBonusStageRuntime {
     }
 
     public void shutdown() {
+        for (S3kSlotRingRewardObjectInstance reward : slotRingRewards) {
+            unregisterDynamicSlotObject(reward);
+        }
+        for (S3kSlotSpikeRewardObjectInstance reward : slotSpikeRewards) {
+            unregisterDynamicSlotObject(reward);
+        }
+        unregisterDynamicSlotObject(slotCage);
         if (slotPlayer != null && bootstrapRuntime != null) {
             bootstrapRuntime.getSpriteManager().removeSprite(slotPlayer.getCode());
             if (originalPlayer != null) {
@@ -190,7 +198,6 @@ public final class S3kSlotBonusStageRuntime {
         exitFadeStarted = false;
         slotRingRewards.clear();
         slotSpikeRewards.clear();
-        slotObjectRenderScratch.clear();
         pointGrid = null;
         visibleCells = List.of();
         lastFrameCounter = -1;
@@ -275,21 +282,10 @@ public final class S3kSlotBonusStageRuntime {
 
     public void render(com.openggf.camera.Camera camera) {
         LevelManager levelManager = GameServices.level();
-        ObjectRenderManager renderManager = levelManager != null ? levelManager.getObjectRenderManager() : null;
-        if (camera == null || renderManager == null) {
+        if (camera == null || levelManager == null) {
             return;
         }
-        slotLayoutRenderer.render(slotStageState, slotRenderBuffers, camera, renderManager);
-        slotObjectRenderScratch.clear();
-        if (slotCage != null) {
-            slotCage.appendRenderCommands(slotObjectRenderScratch);
-        }
-        for (S3kSlotRingRewardObjectInstance reward : slotRingRewards) {
-            reward.appendRenderCommands(slotObjectRenderScratch);
-        }
-        for (S3kSlotSpikeRewardObjectInstance reward : slotSpikeRewards) {
-            reward.appendRenderCommands(slotObjectRenderScratch);
-        }
+        slotLayoutRenderer.render(slotStageState, slotRenderBuffers, camera, levelManager.getObjectRenderManager());
     }
 
     private void checkRingPickup() {
@@ -428,11 +424,13 @@ public final class S3kSlotBonusStageRuntime {
                             0, 0, 0, false, 0),
                     slotStageController);
             reward.setServices(new DefaultObjectServices(bootstrapRuntime));
+            reward.suppressObjectManagerUpdate();
             if (ringPos.length == 4) {
                 reward.activate(ringPos[0], ringPos[1], ringPos[2], ringPos[3]);
             } else {
                 reward.activate();
             }
+            registerDynamicSlotObject(reward);
             slotStageController.onRewardSpawned();
             slotRingRewards.add(reward);
         }
@@ -446,11 +444,13 @@ public final class S3kSlotBonusStageRuntime {
                             0, 0, 0, false, 0),
                     slotStageController);
             reward.setServices(new DefaultObjectServices(bootstrapRuntime));
+            reward.suppressObjectManagerUpdate();
             if (spikePos.length == 4) {
                 reward.activate(spikePos[0], spikePos[1], spikePos[2], spikePos[3]);
             } else {
                 reward.activate();
             }
+            registerDynamicSlotObject(reward);
             slotStageController.onRewardSpawned();
             slotSpikeRewards.add(reward);
         }
@@ -461,13 +461,40 @@ public final class S3kSlotBonusStageRuntime {
         Iterator<T> iterator = rewards.iterator();
         while (iterator.hasNext()) {
             T reward = iterator.next();
-            reward.update(frameCounter, slotPlayer);
+            if (reward instanceof S3kSlotRingRewardObjectInstance ringReward) {
+                ringReward.tickSlotRuntime(frameCounter, slotPlayer);
+            } else if (reward instanceof S3kSlotSpikeRewardObjectInstance spikeReward) {
+                spikeReward.tickSlotRuntime(frameCounter, slotPlayer);
+            } else {
+                reward.update(frameCounter, slotPlayer);
+            }
             boolean inactive = reward instanceof S3kSlotRingRewardObjectInstance ring && !ring.isActive()
                     || reward instanceof S3kSlotSpikeRewardObjectInstance spike && !spike.isActive();
             if (reward.isDestroyed() || inactive) {
                 slotStageController.onRewardExpired();
+                unregisterDynamicSlotObject(reward);
                 iterator.remove();
             }
+        }
+    }
+
+    private void registerDynamicSlotObject(com.openggf.level.objects.ObjectInstance object) {
+        if (bootstrapRuntime == null || object == null) {
+            return;
+        }
+        ObjectManager objectManager = bootstrapRuntime.getObjectManager();
+        if (objectManager != null) {
+            objectManager.addDynamicObject(object);
+        }
+    }
+
+    private void unregisterDynamicSlotObject(com.openggf.level.objects.ObjectInstance object) {
+        if (bootstrapRuntime == null || object == null) {
+            return;
+        }
+        ObjectManager objectManager = bootstrapRuntime.getObjectManager();
+        if (objectManager != null) {
+            objectManager.removeDynamicObject(object);
         }
     }
 
