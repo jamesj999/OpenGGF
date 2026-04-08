@@ -6,10 +6,14 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
 public class S3kSlotStageController {
     private int statTable;
     private int rewardCounter;
+    private int pendingRingRewards;
+    private int pendingSpikeRewards;
 
     public void bootstrap() {
         statTable = 0;
         rewardCounter = 0;
+        pendingRingRewards = 0;
+        pendingSpikeRewards = 0;
     }
 
     public void tickPlayer(S3kSlotBonusPlayer player, boolean left, boolean right, boolean jump, int frameCounter) {
@@ -37,6 +41,30 @@ public class S3kSlotStageController {
 
     public void addRewardRing() {
         rewardCounter++;
+    }
+
+    public void queueRingReward() {
+        pendingRingRewards++;
+    }
+
+    public void queueSpikeReward() {
+        pendingSpikeRewards++;
+    }
+
+    public boolean consumePendingRingReward() {
+        if (pendingRingRewards <= 0) {
+            return false;
+        }
+        pendingRingRewards--;
+        return true;
+    }
+
+    public boolean consumePendingSpikeReward() {
+        if (pendingSpikeRewards <= 0) {
+            return false;
+        }
+        pendingSpikeRewards--;
+        return true;
     }
 
     public boolean consumeRewardRing() {

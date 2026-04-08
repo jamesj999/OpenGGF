@@ -64,12 +64,26 @@ public final class S3kSlotBonusStageRuntime {
         if (slotCage != null && slotPlayer != null) {
             slotCage.update(frameCounter, slotPlayer);
         }
+        if (slotRingReward != null && !slotRingReward.isActive() && slotStageController.consumePendingRingReward()) {
+            slotRingReward.activate();
+        }
         if (slotRingReward != null && slotPlayer != null) {
             slotRingReward.update(frameCounter, slotPlayer);
+        }
+        if (slotSpikeReward != null && !slotSpikeReward.isActive() && slotStageController.consumePendingSpikeReward()) {
+            slotSpikeReward.activate();
         }
         if (slotSpikeReward != null && slotPlayer != null) {
             slotSpikeReward.update(frameCounter, slotPlayer);
         }
+    }
+
+    public void queueRingReward() {
+        slotStageController.queueRingReward();
+    }
+
+    public void queueSpikeReward() {
+        slotStageController.queueSpikeReward();
     }
 
     public void shutdown() {

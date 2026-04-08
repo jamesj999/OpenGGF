@@ -25,14 +25,14 @@ class TestS3kSlotRewardObjects {
         reward.setServices(services);
         reward.activate();
 
-        stepUntilExpired(reward, 0x1A - 1, player);
+        stepFrames(reward, 0x19, player);
 
         assertFalse(reward.isDestroyed());
         assertEquals(0, services.totalBonusStageRingDelta);
         assertEquals(0, player.liveRingDelta);
         assertEquals(0, controller.rewardCount());
 
-        reward.update(0x1A, player);
+        reward.update(0x19, player);
 
         assertTrue(reward.isDestroyed());
         assertEquals(1, services.totalBonusStageRingDelta);
@@ -53,14 +53,14 @@ class TestS3kSlotRewardObjects {
         reward.setServices(services);
         reward.activate();
 
-        stepUntilExpired(reward, 0x1E - 1, player);
+        stepFrames(reward, 0x1D, player);
 
         assertFalse(reward.isDestroyed());
         assertEquals(1, controller.rewardCount());
         assertEquals(0, services.totalBonusStageRingDelta);
         assertEquals(0, player.liveRingDelta);
 
-        reward.update(0x1E, player);
+        reward.update(0x1D, player);
 
         assertTrue(reward.isDestroyed());
         assertEquals(0, controller.rewardCount());
@@ -79,7 +79,7 @@ class TestS3kSlotRewardObjects {
         reward.setServices(services);
         reward.activate();
 
-        stepUntilExpired(reward, 0x1E, null);
+        stepFrames(reward, 0x1E, null);
 
         assertTrue(reward.isDestroyed());
         assertEquals(-1, controller.rewardCount());
@@ -98,7 +98,7 @@ class TestS3kSlotRewardObjects {
         reward.setServices(services);
         reward.activate();
 
-        stepUntilExpired(reward, 0x1E, null);
+        stepFrames(reward, 0x1E, null);
 
         assertTrue(reward.isDestroyed());
         assertEquals(0, controller.rewardCount());
@@ -106,13 +106,13 @@ class TestS3kSlotRewardObjects {
         assertEquals(0, services.levelState.getRings());
     }
 
-    private static void stepUntilExpired(S3kSlotRingRewardObjectInstance reward, int frames, Sonic player) {
+    private static void stepFrames(S3kSlotRingRewardObjectInstance reward, int frames, Sonic player) {
         for (int frame = 0; frame < frames; frame++) {
             reward.update(frame, player);
         }
     }
 
-    private static void stepUntilExpired(S3kSlotSpikeRewardObjectInstance reward, int frames, Sonic player) {
+    private static void stepFrames(S3kSlotSpikeRewardObjectInstance reward, int frames, Sonic player) {
         for (int frame = 0; frame < frames; frame++) {
             reward.update(frame, player);
         }
