@@ -14,6 +14,8 @@ import com.openggf.physics.TerrainCollisionManager;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.timer.TimerManager;
 
+import java.util.Objects;
+
 /**
  * Explicit container for all mutable gameplay state.
  * <p>
@@ -32,7 +34,7 @@ import com.openggf.timer.TimerManager;
 public final class GameRuntime {
 
     private final WorldSession worldSession;
-    private final GameplayModeContext gameplayMode;
+    private GameplayModeContext gameplayMode;
     private final Camera camera;
     private final TimerManager timers;
     private final GameStateManager gameState;
@@ -91,6 +93,13 @@ public final class GameRuntime {
 
     public void setActiveBonusStageProvider(BonusStageProvider provider) {
         this.activeBonusStageProvider = provider != null ? provider : NoOpBonusStageProvider.INSTANCE;
+    }
+
+    /**
+     * Rebinds this runtime to a resumed gameplay mode context after an editor detour.
+     */
+    public void updateGameplayModeContext(GameplayModeContext gameplayMode) {
+        this.gameplayMode = Objects.requireNonNull(gameplayMode, "gameplayMode");
     }
 
     // ── Convenience: LevelManager-owned sub-managers ─────────────────────

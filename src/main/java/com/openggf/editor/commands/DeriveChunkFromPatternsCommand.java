@@ -1,0 +1,68 @@
+package com.openggf.editor.commands;
+
+import com.openggf.editor.EditorCommand;
+import com.openggf.level.ChunkDesc;
+import com.openggf.level.MutableLevel;
+import com.openggf.level.PatternDesc;
+
+import java.util.Arrays;
+import java.util.Objects;
+
+public final class DeriveChunkFromPatternsCommand implements EditorCommand {
+    private final MutableLevel level;
+    private final int blockIndex;
+    private final int blockX;
+    private final int blockY;
+    private final int sourceChunkIndex;
+    private final int derivedChunkIndex;
+    private final int[] derivedChunkBeforeState;
+    private final int replacementPatternRaw;
+    private final int replaceX;
+    private final int replaceY;
+
+    public DeriveChunkFromPatternsCommand(MutableLevel level, int blockIndex, int blockX, int blockY,
+                                          int sourceChunkIndex, int derivedChunkIndex,
+                                          int[] derivedChunkBeforeState, PatternDesc replacementPattern,
+                                          int replaceX, int replaceY) {
+        this.level = Objects.requireNonNull(level, "level");
+        Objects.requireNonNull(replacementPattern, "replacementPattern");
+        validateIndices(level, sourceChunkIndex, derivedChunkIndex);
+        this.blockIndex = blockIndex;
+        this.blockX = blockX;
+        this.blockY = blockY;
+        this.sourceChunkIndex = sourceChunkIndex;
+        this.derivedChunkIndex = derivedChunkIndex;
+        this.derivedChunkBeforeState = Arrays.copyOf(derivedChunkBeforeState, derivedChunkBeforeState.length);
+        this.replacementPatternRaw = replacementPattern.get();
+        this.replaceX = replaceX;
+        this.replaceY = replaceY;
+    }
+
+    private static void validateIndices(MutableLevel level, int sourceChunkIndex, int derivedChunkIndex) {
+        if (sourceChunkIndex < 0 || sourceChunkIndex >= level.getChunkCount()) {
+            throw new IllegalArgumentException("sourceChunkIndex out of range: " + sourceChunkIndex);
+        }
+        if (derivedChunkIndex < 0 || derivedChunkIndex >= level.getChunkCount()) {
+            throw new IllegalArgumentException("derivedChunkIndex out of range: " + derivedChunkIndex);
+        }
+        if (sourceChunkIndex == derivedChunkIndex) {
+            throw new IllegalArgumentException("derivedChunkIndex must point at a fresh slot");
+        }
+        if (level.isChunkReferencedInBlocks(derivedChunkIndex)) {
+            throw new IllegalArgumentException("derivedChunkIndex already referenced by a block: " + derivedChunkIndex);
+        }
+    }
+
+    @Override
+    public void apply() {
+        level.restoreChunkState(derivedChunkIndex, derivedChunkBeforeState);
+        level.setPatternDescInChunk(derivedChunkIndex, replaceX, replaceY, new PatternDesc(replacementPatternRaw));
+        level.setChunkInBlock(blockIndex, blockX, blockY, new ChunkDesc(derivedChunkIndex));
+    }
+
+    @Override
+    public void undo() {
+        level.restoreChunkState(derivedChunkIndex, derivedChunkBeforeState);
+        level.setChunkInBlock(blockIndex, blockX, blockY, new ChunkDesc(sourceChunkIndex));
+    }
+}
