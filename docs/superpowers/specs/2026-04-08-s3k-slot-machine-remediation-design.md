@@ -71,9 +71,13 @@ The remediation is only complete when all of the following are present and corre
 ### Stage rendering
 
 - stage layout sourced from ROM-derived slot layout data
+- slot layout copied into its expanded runtime buffer with the ROM row stride rather than treated as a compact semantic grid
+- slot piece/map definitions copied into the runtime chunk table in the same shape the ROM uses
 - `Slots_RenderLayout`-style transformed piece submission
 - correct colored wall, goal, bumper, ring, R-marker, peppermint, and slot-window representation
 - correct goal and peppermint animation timing
+- slot-stage ring-piece animation driven from the same ring-frame source the ROM uses
+- correct transient tile-animation behavior for ring, bumper, spike, and related slot-piece state changes
 
 ### Reel and option state
 
@@ -109,8 +113,11 @@ The remediation is only complete when all of the following are present and corre
 
 ### Exit and lifecycle
 
+- saved ring count and extra-life flags restored on slot-player init
+- HUD ring refresh triggered on slot-player init
 - slot exit wind-down
 - slot fade timing
+- live ring count and extra-life flags written back to saved bonus-stage state on exit
 - coordinator exit handoff
 - checkpoint return through the existing bonus-stage lifecycle
 - no sidekick participation in the locked-on single-player slot stage
@@ -174,10 +181,14 @@ This runtime must be shaped by `Obj_Sonic_RotatingSlotBonus`, not by the normal 
 Replace the semantic-cell layout renderer with a renderer that ports `Slots_RenderLayout` directly enough that:
 
 - layout pieces come from ROM-derived slot layout and piece tables
+- the layout is staged into the same expanded runtime buffer shape the ROM uses, including the wider row stride used by the slot layout buffer
+- the piece-definition table is staged into the runtime chunk table shape the ROM uses
+- the transformed point grid and transient slot tile-animation state are staged in ROM-equivalent runtime buffers rather than hidden in unrelated abstractions
 - transformed screen positions come from the slot rotation/scalar state
 - animated piece selection is driven by the slot animation timers
+- transient tile animations are driven by slot runtime animation state matching the ROM helper routines around `Slots_RenderLayout`
 
-The stage layout is a stage-render pass, not a population of generic objects.
+The stage layout is a post-sprite stage-render pass, not a population of generic objects.
 
 ### Slot option-cycle system
 
@@ -190,6 +201,7 @@ Responsibilities:
 - target selection
 - final reward resolution
 - option-strip art source selection
+- option-strip staging and DMA/update handoff in the same conceptual position as the ROM routine
 - handoff to the cage/reward flow when a result is ready
 
 ### Slot collision/tile system
@@ -219,25 +231,26 @@ Retain the engine integration points, but make them consume ROM-shaped slot stat
 
 - `Sonic3kPaletteCycler` for `AnPal_Slots`
 - `SwScrlSlots` for slot screen/background deformation
-- `Sonic3kZoneFeatureProvider.renderAfterForeground(...)` for the stage-layout render pass
+- the cage-driven `Events_bg` anchor/state that the ROM screen and background handlers consume
+- a stage-layout render hook that preserves the ROM ordering of `Render_Sprites` followed by `Slots_RenderLayout`
 
 ## Required Per-Frame Order
 
-The frame order must be explicit and stable.
+The frame order must be explicit and stable. The ROM does not treat Slots as an early-stage background pass; it updates gameplay during the main level loop, renders normal sprites, then runs `Slots_RenderLayout`, then runs `Slots_CycleOptions`.
 
 1. clear slot-player last-collision state
 2. advance slot-stage rotation/scalar state
 3. advance the slot-player runtime
 4. run slot collision and tile response handling
-5. advance `Slots_CycleOptions`
-6. advance cage state
-7. advance reward child objects
-8. advance layout/option animation timers
-9. update camera from slot-player state
-10. update palette-cycle mode and scroll/background inputs
-11. build stage-layout renderables
-12. let normal sprite/object rendering draw the player, cage, and reward objects
+5. advance cage state
+6. advance reward child objects
+7. update camera from slot-player state
+8. update palette-cycle mode and screen/background inputs
+9. render normal sprites and objects through the regular sprite path
+10. run the slot stage-layout render pass in the ROM-equivalent post-sprite position
+11. advance `Slots_CycleOptions` in the ROM-equivalent position after layout rendering
 
+If the engine needs to precompute render data earlier for practical reasons, the externally visible ordering and frame-to-frame state transitions must still match the ROM.
 This order is part of the contract. Any major deviation must be justified against the disassembly.
 
 ## Integration Boundaries
