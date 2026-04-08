@@ -991,6 +991,25 @@ public class ObjectManager {
         addDynamicObjectInternal(object, false);
     }
 
+    public void removeDynamicObject(ObjectInstance object) {
+        if (object == null) {
+            return;
+        }
+        boolean removed = dynamicObjects.remove(object);
+        if (!removed) {
+            return;
+        }
+        if (object instanceof AbstractObjectInstance aoi) {
+            int slot = aoi.getSlotIndex();
+            if (slot >= 0) {
+                releaseSlot(slot);
+            }
+        }
+        object.onUnload();
+        bucketsDirty = true;
+        activeObjectsCacheDirty = true;
+    }
+
     /**
      * Adds a dynamic object using the slot immediately after the current exec slot when
      * called from an object's update, matching ROM AllocateObjectAfterCurrent behavior.

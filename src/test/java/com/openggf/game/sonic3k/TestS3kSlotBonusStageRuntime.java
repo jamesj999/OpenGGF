@@ -11,6 +11,7 @@ import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotBonusStageRuntime;
 import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotExitSequence;
 import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotRenderBuffers;
 import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotStageState;
+import com.openggf.game.sonic3k.objects.S3kSlotBonusCageObjectInstance;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.tests.HeadlessTestFixture;
@@ -165,7 +166,9 @@ class TestS3kSlotBonusStageRuntime {
         assertTrue(runtime.isInitialized());
 
         // Verify subsystems are wired in
-        assertNotNull(runtime.activeSlotCageForTest());
+        S3kSlotBonusCageObjectInstance cage = runtime.activeSlotCageForTest();
+        assertNotNull(cage);
+        assertTrue(fixture.runtime().getObjectManager().getActiveObjects().contains(cage));
         assertTrue(runtime.activeSlotRingRewardsForTest().isEmpty());
         assertTrue(runtime.activeSlotSpikeRewardsForTest().isEmpty());
         assertNotNull(runtime.activeLayoutForTest());
@@ -187,6 +190,7 @@ class TestS3kSlotBonusStageRuntime {
         coordinator.onExit();
         assertFalse(runtime.isInitialized());
         assertNull(coordinator.activeSlotRuntimeForTest());
+        assertFalse(fixture.runtime().getObjectManager().getActiveObjects().contains(cage));
     }
 
     @Test

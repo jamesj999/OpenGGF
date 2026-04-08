@@ -33,6 +33,7 @@ public final class S3kSlotSpikeRewardObjectInstance extends AbstractObjectInstan
     // ROM $3C/$3E: target pixel position (cage center)
     private int targetX;
     private int targetY;
+    private boolean suppressObjectManagerUpdate;
 
     public S3kSlotSpikeRewardObjectInstance(ObjectSpawn spawn, S3kSlotStageController controller) {
         super(spawn, "S3kSlotSpikeReward");
@@ -84,6 +85,13 @@ public final class S3kSlotSpikeRewardObjectInstance extends AbstractObjectInstan
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        if (suppressObjectManagerUpdate) {
+            return;
+        }
+        tickSlotRuntime(frameCounter, playerEntity);
+    }
+
+    public void tickSlotRuntime(int frameCounter, PlayableEntity playerEntity) {
         if (isDestroyed() || !active) {
             return;
         }
@@ -110,6 +118,10 @@ public final class S3kSlotSpikeRewardObjectInstance extends AbstractObjectInstan
         services().playSfx(Sonic3kSfx.SPIKE_HIT.id);
         setDestroyed(true);
         active = false;
+    }
+
+    public void suppressObjectManagerUpdate() {
+        suppressObjectManagerUpdate = true;
     }
 
     private int resolveCarriedRingCount(PlayableEntity playerEntity) {

@@ -35,6 +35,7 @@ public final class S3kSlotRingRewardObjectInstance extends AbstractObjectInstanc
     private int targetX;
     private int targetY;
     private int lastFrameCounter;
+    private boolean suppressObjectManagerUpdate;
 
     public S3kSlotRingRewardObjectInstance(ObjectSpawn spawn, S3kSlotStageController controller) {
         super(spawn, "S3kSlotRingReward");
@@ -89,6 +90,13 @@ public final class S3kSlotRingRewardObjectInstance extends AbstractObjectInstanc
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        if (suppressObjectManagerUpdate) {
+            return;
+        }
+        tickSlotRuntime(frameCounter, playerEntity);
+    }
+
+    public void tickSlotRuntime(int frameCounter, PlayableEntity playerEntity) {
         if (isDestroyed() || !active) {
             return;
         }
@@ -122,6 +130,10 @@ public final class S3kSlotRingRewardObjectInstance extends AbstractObjectInstanc
         services().playSfx(Sonic3kSfx.RING_RIGHT.id);
         inSparkle = true;
         sparkleTimer = SPARKLE_FRAMES;
+    }
+
+    public void suppressObjectManagerUpdate() {
+        suppressObjectManagerUpdate = true;
     }
 
     /** Returns true while in sparkle animation phase (ROM routine 1). */

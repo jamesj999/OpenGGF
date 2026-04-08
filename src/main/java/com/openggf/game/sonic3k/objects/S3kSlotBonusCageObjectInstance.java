@@ -47,6 +47,7 @@ public final class S3kSlotBonusCageObjectInstance extends AbstractObjectInstance
     private int mappingFrame;
     private int animFrameTimer = 1;
     private int armDelayFrames;
+    private boolean suppressObjectManagerUpdate;
 
     public S3kSlotBonusCageObjectInstance(ObjectSpawn spawn, S3kSlotStageController controller) {
         super(spawn, "S3kSlotBonusCage");
@@ -55,6 +56,13 @@ public final class S3kSlotBonusCageObjectInstance extends AbstractObjectInstance
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        if (suppressObjectManagerUpdate) {
+            return;
+        }
+        tickSlotRuntime(frameCounter, playerEntity);
+    }
+
+    public void tickSlotRuntime(int frameCounter, PlayableEntity playerEntity) {
         if (!(playerEntity instanceof AbstractPlayableSprite player) || player.isDebugMode()) {
             return;
         }
@@ -70,6 +78,10 @@ public final class S3kSlotBonusCageObjectInstance extends AbstractObjectInstance
             default -> {
             }
         }
+    }
+
+    public void suppressObjectManagerUpdate() {
+        suppressObjectManagerUpdate = true;
     }
 
     private void updateCapture(AbstractPlayableSprite player) {
