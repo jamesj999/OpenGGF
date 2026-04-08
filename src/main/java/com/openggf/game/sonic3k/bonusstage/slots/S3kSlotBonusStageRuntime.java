@@ -17,8 +17,9 @@ public final class S3kSlotBonusStageRuntime {
             String mainCode = SonicConfigurationService.getInstance().getString(SonicConfiguration.MAIN_CHARACTER_CODE);
             if (GameServices.sprites().getSprite(mainCode) instanceof AbstractPlayableSprite mainPlayer) {
                 originalPlayer = mainPlayer;
-                slotPlayer = new S3kSlotBonusPlayer(mainCode, mainPlayer.getCentreX(), mainPlayer.getCentreY(), slotStageController);
+                slotPlayer = new S3kSlotBonusPlayer(mainCode, mainPlayer.getX(), mainPlayer.getY(), slotStageController);
                 GameServices.sprites().addSprite(slotPlayer);
+                GameServices.camera().setFocusedSprite(slotPlayer);
             }
         }
         initialized = true;
@@ -32,6 +33,7 @@ public final class S3kSlotBonusStageRuntime {
             GameServices.sprites().removeSprite(slotPlayer.getCode());
             if (originalPlayer != null) {
                 GameServices.sprites().addSprite(originalPlayer);
+                GameServices.camera().setFocusedSprite(originalPlayer);
             }
         }
         slotPlayer = null;
