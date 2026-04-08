@@ -12,13 +12,15 @@ import com.openggf.sprites.playable.Tails;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
+
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TestS3kSlotBonusStageCoordinator {
 
@@ -83,6 +85,54 @@ class TestS3kSlotBonusStageCoordinator {
         assertNull(coordinator.activeSlotRuntimeForTest());
         assertSame(originalPlayer, GameServices.sprites().getSprite("tails"));
         assertSame(originalPlayer, GameServices.camera().getFocusedSprite());
+    }
+
+    @Test
+    void frameUpdateAdvancesSlotRuntimeFrameCounter() {
+        RuntimeManager.createGameplay();
+        SonicConfigurationService.getInstance().setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "tails");
+        AbstractPlayableSprite originalPlayer = new Tails("tails", (short) 0x460, (short) 0x430);
+        GameServices.sprites().addSprite(originalPlayer);
+        GameServices.camera().setFocusedSprite(originalPlayer);
+
+        Sonic3kBonusStageCoordinator coordinator = new Sonic3kBonusStageCoordinator();
+        coordinator.onEnter(BonusStageType.SLOT_MACHINE, savedState());
+        coordinator.onDeferredSetupComplete();
+
+        S3kSlotBonusStageRuntime runtime = coordinator.activeSlotRuntimeForTest();
+        assertNotNull(runtime);
+
+        coordinator.onFrameUpdate();
+        int firstFrame = runtime.lastFrameCounterForTest();
+        coordinator.onFrameUpdate();
+        int secondFrame = runtime.lastFrameCounterForTest();
+
+        assertTrue(firstFrame >= 0);
+        assertTrue(secondFrame > firstFrame);
+    }
+
+    @Test
+    void frameUpdateRequestsBonusStageExitWhenSlotRuntimeCompletes() throws Exception {
+        RuntimeManager.createGameplay();
+        SonicConfigurationService.getInstance().setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "tails");
+        AbstractPlayableSprite originalPlayer = new Tails("tails", (short) 0x460, (short) 0x430);
+        GameServices.sprites().addSprite(originalPlayer);
+        GameServices.camera().setFocusedSprite(originalPlayer);
+
+        Sonic3kBonusStageCoordinator coordinator = new Sonic3kBonusStageCoordinator();
+        coordinator.onEnter(BonusStageType.SLOT_MACHINE, savedState());
+        coordinator.onDeferredSetupComplete();
+
+        S3kSlotBonusStageRuntime runtime = coordinator.activeSlotRuntimeForTest();
+        assertNotNull(runtime);
+
+        Field exitTriggered = S3kSlotBonusStageRuntime.class.getDeclaredField("exitTriggered");
+        exitTriggered.setAccessible(true);
+        exitTriggered.setBoolean(runtime, true);
+
+        coordinator.onFrameUpdate();
+
+        assertTrue(coordinator.isStageComplete());
     }
 
     private static BonusStageState savedState() {

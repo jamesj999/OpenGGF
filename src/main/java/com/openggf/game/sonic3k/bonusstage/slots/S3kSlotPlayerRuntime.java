@@ -20,12 +20,6 @@ public final class S3kSlotPlayerRuntime {
         this.collisionSystem = collisionSystem;
     }
 
-    public static S3kSlotPlayerRuntime fromRomData() {
-        S3kSlotStageState state = S3kSlotStageState.bootstrap();
-        S3kSlotRenderBuffers buffers = S3kSlotRenderBuffers.fromRomData();
-        return new S3kSlotPlayerRuntime(state, new S3kSlotCollisionSystem(buffers, state));
-    }
-
     public S3kSlotStageState stageState() {
         return stageState;
     }
