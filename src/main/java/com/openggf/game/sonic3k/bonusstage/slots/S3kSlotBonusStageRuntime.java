@@ -28,11 +28,12 @@ public final class S3kSlotBonusStageRuntime {
     private AbstractPlayableSprite originalPlayer;
     private S3kSlotStageState slotStageState;
     private S3kSlotRenderBuffers slotRenderBuffers;
+    private S3kSlotPlayerRuntime slotPlayerRuntime;
+    private S3kSlotCollisionSystem slotCollisionSystem;
     private final S3kSlotStageController slotStageController = new S3kSlotStageController();
     private final S3kSlotLayoutRenderer slotLayoutRenderer = new S3kSlotLayoutRenderer();
     private final S3kSlotLayoutAnimator layoutAnimator = new S3kSlotLayoutAnimator();
     private final S3kSlotReelStateMachine reelStateMachine = new S3kSlotReelStateMachine();
-    private final S3kSlotTileInteraction.State tileInteractionState = new S3kSlotTileInteraction.State();
     private S3kSlotExitSequence exitSequence;
     private boolean exitTriggered;
     private AbstractPlayableSprite slotPlayer;
@@ -40,7 +41,6 @@ public final class S3kSlotBonusStageRuntime {
     private boolean continueAwarded;
     private final List<S3kSlotRingRewardObjectInstance> slotRingRewards = new ArrayList<>();
     private final List<S3kSlotSpikeRewardObjectInstance> slotSpikeRewards = new ArrayList<>();
-    private byte[] layout;
     private short[] pointGrid;
     private List<S3kSlotLayoutRenderer.VisibleCell> visibleCells = List.of();
     private int lastFrameCounter = -1;
@@ -54,20 +54,19 @@ public final class S3kSlotBonusStageRuntime {
         continueAwarded = false;
         slotRingRewards.clear();
         slotSpikeRewards.clear();
-        layout = null;
         pointGrid = null;
         visibleCells = List.of();
         lastFrameCounter = -1;
         suppressedSidekicks.clear();
         slotStageState = S3kSlotStageState.bootstrap();
         slotRenderBuffers = S3kSlotRenderBuffers.fromRomData();
+        slotCollisionSystem = new S3kSlotCollisionSystem(slotRenderBuffers, slotStageState);
+        slotPlayerRuntime = new S3kSlotPlayerRuntime(slotStageState, slotCollisionSystem);
         reelStateMachine.reset();
-        tileInteractionState.reset();
         exitSequence = null;
         exitTriggered = false;
         slotStageController.bootstrap();
-        layout = slotRenderBuffers.layout();
-        slotStageController.setActiveLayout(layout);
+        slotStageController.setActiveLayout(slotRenderBuffers.layout());
         bootstrapRuntime = RuntimeManager.getCurrent();
         if (bootstrapRuntime == null) {
             return;
@@ -82,16 +81,11 @@ public final class S3kSlotBonusStageRuntime {
             short slotStartY = S3kSlotRomData.SLOT_BONUS_START_Y;
             short centerX = S3kSlotRomData.SLOT_BONUS_START_X;
             short centerY = 0x430;
-            slotPlayer = S3kSlotBonusPlayer.create(mainCode, slotStartX, slotStartY, slotStageController);
+            slotPlayer = S3kSlotBonusPlayer.create(mainCode, slotStartX, slotStartY, slotPlayerRuntime);
             copyLivePlayerState(mainPlayer, slotPlayer);
             slotPlayer.setX(slotStartX);
             slotPlayer.setY(slotStartY);
-            // ROM loc_4B9CE: starts airborne and rolling
-            slotPlayer.setAir(true);       // bset #Status_InAir,status(a0)
-            slotPlayer.setRolling(true);   // bset #Status_Roll,status(a0)
-            slotPlayer.setGSpeed((short) 0);
-            slotPlayer.setXSpeed((short) 0);
-            slotPlayer.setYSpeed((short) 0);
+            slotPlayerRuntime.initialize(slotPlayer);
             bootstrapRuntime.getSpriteManager().addSprite(slotPlayer);
             bootstrapRuntime.getCamera().setFocusedSprite(slotPlayer);
             slotCage = new S3kSlotBonusCageObjectInstance(
@@ -118,7 +112,6 @@ public final class S3kSlotBonusStageRuntime {
         }
 
         // ROM line 98745: move.b #0,$30(a0) — clear collision tile at start of frame
-        slotStageController.clearLastCollision();
 
         // Per-frame rotation integration
         if (slotPlayer != null && slotPlayer.isObjectControlled()) {
@@ -126,6 +119,10 @@ public final class S3kSlotBonusStageRuntime {
             slotStageController.tickObjectControlled();
         } else {
             slotStageController.tick();
+        }
+        syncStageStateFromController();
+        if (slotCollisionSystem != null) {
+            slotCollisionSystem.tickFrameState();
         }
 
         // Reel state machine
@@ -138,30 +135,27 @@ public final class S3kSlotBonusStageRuntime {
             }
         }
 
-        // Tile interaction timers
-        tileInteractionState.tickTimers();
-
-        // Layout tile animations
-        if (layout != null) {
-            layoutAnimator.tick(layout);
+        if (slotRenderBuffers != null) {
+            layoutAnimator.tick(slotRenderBuffers.layout());
         }
 
         // Cage object
         if (slotCage != null && slotPlayer != null) {
             slotCage.update(frameCounter, slotPlayer);
+            syncStageStateFromController();
         }
 
         // Reward objects
         updateRewards(frameCounter);
 
         // Ring pickup from grid
-        if (layout != null && slotPlayer != null) {
+        if (slotRenderBuffers != null && slotPlayer != null) {
             checkRingPickup();
         }
 
         // Tile interaction dispatch — collision was already handled inline by player physics.
         // Read stored tile ID from controller (set during physics collision check).
-        if (slotPlayer != null && slotStageController.lastCollisionTileId() > 0) {
+        if (slotPlayer != null && slotStageState != null && slotStageState.lastCollisionTileId() > 0) {
             dispatchTileInteraction();
         }
 
@@ -197,12 +191,13 @@ public final class S3kSlotBonusStageRuntime {
         continueAwarded = false;
         slotRingRewards.clear();
         slotSpikeRewards.clear();
-        layout = null;
         pointGrid = null;
         visibleCells = List.of();
         lastFrameCounter = -1;
         slotStageState = null;
         slotRenderBuffers = null;
+        slotPlayerRuntime = null;
+        slotCollisionSystem = null;
         exitSequence = null;
         exitTriggered = false;
         originalPlayer = null;
@@ -247,7 +242,7 @@ public final class S3kSlotBonusStageRuntime {
     }
 
     public byte[] activeLayoutForTest() {
-        return layout;
+        return slotRenderBuffers != null ? slotRenderBuffers.layout() : null;
     }
 
     public List<S3kSlotLayoutRenderer.VisibleCell> activeVisibleCellsForTest() {
@@ -332,11 +327,11 @@ public final class S3kSlotBonusStageRuntime {
     }
 
     private void checkRingPickup() {
-        S3kSlotGridCollision.RingCheck ring = S3kSlotGridCollision.checkRingPickup(
-                layout, slotPlayer.getX(), slotPlayer.getY());
+        S3kSlotCollisionSystem.RingCheck ring = slotCollisionSystem.checkRingPickup(
+                slotPlayer.getX(), slotPlayer.getY());
         if (ring.foundRing()) {
-            layout[ring.layoutIndex()] = 0; // consume ring tile
-            layoutAnimator.queueRingSparkle(layout, ring.layoutIndex());
+            slotCollisionSystem.consumeRing(ring);
+            layoutAnimator.queueRingSparkle(slotRenderBuffers.layout(), ring.layoutIndex());
             slotPlayer.addRings(1);
             // Track on coordinator so rings persist after exit (ROM: GiveRing)
             if (GameServices.bonusStage() != null) {
@@ -363,26 +358,25 @@ public final class S3kSlotBonusStageRuntime {
      * ROM sub_4BE3A reads $30(a0) which was set by sub_4BDA2 during collision.
      */
     private void dispatchTileInteraction() {
-        int tileId = slotStageController.lastCollisionTileId();
-        int layoutIndex = slotStageController.lastCollisionIndex();
+        int tileId = slotStageState.lastCollisionTileId();
+        int layoutIndex = slotStageState.lastCollisionIndex();
         if (tileId <= 0 || tileId > 6 || layoutIndex < 0) return;
 
-        int tileRow = layoutIndex / S3kSlotGridCollision.LAYOUT_STRIDE;
-        int tileCol = layoutIndex % S3kSlotGridCollision.LAYOUT_STRIDE;
-        short tileCenterX = (short) (tileCol * S3kSlotGridCollision.CELL_SIZE
-                - S3kSlotGridCollision.COLLISION_X_OFFSET + 0x0C);
-        short tileCenterY = (short) (tileRow * S3kSlotGridCollision.CELL_SIZE
-                - S3kSlotGridCollision.COLLISION_Y_OFFSET + 0x0C);
+        int tileRow = layoutIndex / S3kSlotCollisionSystem.LAYOUT_STRIDE;
+        int tileCol = layoutIndex % S3kSlotCollisionSystem.LAYOUT_STRIDE;
+        short tileCenterX = (short) (tileCol * S3kSlotCollisionSystem.CELL_SIZE
+                - S3kSlotCollisionSystem.COLLISION_X_OFFSET + 0x0C);
+        short tileCenterY = (short) (tileRow * S3kSlotCollisionSystem.CELL_SIZE
+                - S3kSlotCollisionSystem.COLLISION_Y_OFFSET + 0x0C);
 
-        S3kSlotTileInteraction.Response response = S3kSlotTileInteraction.process(
-                tileId, slotPlayer.getX(), slotPlayer.getY(),
-                tileCenterX, tileCenterY,
-                slotStageController, tileInteractionState);
+        S3kSlotCollisionSystem.TileResponse response = slotCollisionSystem.resolveTileResponse(
+                tileId, slotPlayer.getX(), slotPlayer.getY(), tileCenterX, tileCenterY);
 
         handleTileResponse(response, layoutIndex);
+        slotStageController.setScalarIndex(slotStageState.scalarIndex1());
     }
 
-    private void handleTileResponse(S3kSlotTileInteraction.Response response, int layoutIndex) {
+    private void handleTileResponse(S3kSlotCollisionSystem.TileResponse response, int layoutIndex) {
         switch (response.effect()) {
             case BUMPER_LAUNCH -> {
                 slotPlayer.setXSpeed(response.launchXVel());
@@ -390,7 +384,7 @@ public final class S3kSlotBonusStageRuntime {
                 slotPlayer.setAir(true);
                 if (GameServices.audio() != null) GameServices.audio().playSfx(Sonic3kSfx.BUMPER.id);
                 // ROM loc_4BEC8: animation spawns at layout address - 1
-                layoutAnimator.queueBumperBounce(layout, Math.max(0, layoutIndex - 1));
+                layoutAnimator.queueBumperBounce(slotRenderBuffers.layout(), Math.max(0, layoutIndex - 1));
             }
             case GOAL_EXIT -> {
                 if (GameServices.audio() != null) GameServices.audio().playSfx(Sonic3kSfx.GOAL.id);
@@ -399,7 +393,7 @@ public final class S3kSlotBonusStageRuntime {
             case SPIKE_REVERSAL -> {
                 if (GameServices.audio() != null) GameServices.audio().playSfx(Sonic3kSfx.LAUNCH_GO.id);
                 // ROM loc_4BEC8: animation spawns at layout address - 1
-                layoutAnimator.queueSpikeAnimation(layout, Math.max(0, layoutIndex - 1));
+                layoutAnimator.queueSpikeAnimation(slotRenderBuffers.layout(), Math.max(0, layoutIndex - 1));
             }
             case SLOT_REEL_INCREMENT -> {
                 if (GameServices.audio() != null) GameServices.audio().playSfx(Sonic3kSfx.FLIPPER.id);
@@ -437,11 +431,11 @@ public final class S3kSlotBonusStageRuntime {
         if (bootstrapRuntime != null) {
             int stageCameraX = bootstrapRuntime.getCamera().getX() - S3kSlotRomData.SLOT_BONUS_START_X;
             int stageCameraY = bootstrapRuntime.getCamera().getY() - S3kSlotRomData.SLOT_BONUS_START_Y;
-            pointGrid = slotLayoutRenderer.buildPointGrid(slotStageController.angle(),
+            pointGrid = slotLayoutRenderer.buildPointGrid(slotStageState.angle(),
                     stageCameraX, stageCameraY);
             visibleCells = slotLayoutRenderer.buildVisibleCells(
-                    layout,
-                    slotStageController.angle(),
+                    slotRenderBuffers != null ? slotRenderBuffers.layout() : null,
+                    slotStageState.angle(),
                     stageCameraX,
                     stageCameraY);
         }
@@ -530,6 +524,15 @@ public final class S3kSlotBonusStageRuntime {
         target.setControlLocked(false);
         target.setObjectControlled(false);
         target.setOnObject(source.isOnObject());
+    }
+
+    private void syncStageStateFromController() {
+        if (slotStageState == null) {
+            return;
+        }
+        slotStageState.setStatTable(slotStageController.rawStatTable());
+        slotStageState.setScalarIndex1(slotStageController.scalarIndex());
+        slotStageState.setPaletteCycleEnabled(slotStageController.isPaletteCycleEnabled());
     }
 
     private void suppressCpuSidekicks() {

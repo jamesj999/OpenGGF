@@ -8,6 +8,9 @@ public final class S3kSlotStageState {
     private int scalarResult1;
     private int lastCollisionTileId;
     private int lastCollisionIndex = -1;
+    private int bounceTimer;
+    private int spikeThrottleTimer;
+    private int slotValue;
     private boolean paletteCycleEnabled;
 
     public static S3kSlotStageState bootstrap() {
@@ -64,6 +67,14 @@ public final class S3kSlotStageState {
         return lastCollisionIndex;
     }
 
+    int angle() {
+        return statTable & 0xFF;
+    }
+
+    int rawStatTable() {
+        return statTable & 0xFFFF;
+    }
+
     void setLastCollision(int tileId, int layoutIndex) {
         lastCollisionTileId = tileId;
         lastCollisionIndex = layoutIndex;
@@ -72,6 +83,56 @@ public final class S3kSlotStageState {
     void clearCollision() {
         lastCollisionTileId = 0;
         lastCollisionIndex = -1;
+    }
+
+    void setBounceTimer(int frames) {
+        bounceTimer = frames;
+    }
+
+    int bounceTimer() {
+        return bounceTimer;
+    }
+
+    boolean tickBounceTimer() {
+        if (bounceTimer > 0) {
+            bounceTimer--;
+            return bounceTimer == 0;
+        }
+        return false;
+    }
+
+    int spikeThrottleTimer() {
+        return spikeThrottleTimer;
+    }
+
+    void setSpikeThrottleTimer(int spikeThrottleTimer) {
+        this.spikeThrottleTimer = spikeThrottleTimer;
+    }
+
+    boolean tickSpikeThrottleTimer() {
+        if (spikeThrottleTimer > 0) {
+            spikeThrottleTimer--;
+            return spikeThrottleTimer == 0;
+        }
+        return false;
+    }
+
+    int slotValue() {
+        return slotValue;
+    }
+
+    void setSlotValue(int slotValue) {
+        this.slotValue = slotValue;
+    }
+
+    void incrementSlotValue() {
+        if (slotValue < 4) {
+            slotValue++;
+        }
+    }
+
+    void negateScalarIndex1() {
+        scalarIndex1 = -scalarIndex1;
     }
 
     public boolean paletteCycleEnabled() {
