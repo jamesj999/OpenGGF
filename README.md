@@ -93,7 +93,7 @@ sound driver.
 |------|--------|
 | Sonic the Hedgehog (S1) | Broadly playable. All 7 zones, 6 bosses, special stages, title screen, ending/credits. |
 | Sonic the Hedgehog 2 (S2) | Most complete. All zones, 9 bosses (including both DEZ bosses), special stages, Tails AI, credits/ending. |
-| Sonic 3 & Knuckles (S3K) | Progressing. Angel Island Zone playable with intro cutscene, miniboss fight (with defeat flow and signpost), results screen, Blue Ball special stages (WIP), palette cycling for all zones, per-character physics, insta-shield, spindash dust, title screen, level select, Knuckles playable with glide/climb, sidekick Knuckles with palette/VRAM isolation, badnik destruction with animals and points, and 10+ gameplay objects. |
+| Sonic 3 & Knuckles (S3K) | Progressing. Angel Island Zone playable with intro cutscene, miniboss fight (with defeat flow and signpost), results screen, Blue Ball special stages (WIP), early Glowing Sphere bonus stage work (gumball/pachinko, WIP), palette cycling for all zones, per-character physics, insta-shield, spindash dust, title screen, level select, Knuckles playable with glide/climb, sidekick Knuckles with palette/VRAM isolation, badnik destruction with animals and points, and 10+ gameplay objects. |
 
 Work is ongoing across all three games. See CHANGELOG.md for detailed progress.
 
@@ -199,7 +199,9 @@ HCZ transition) is the remaining gate before release.
 - **Sonic 3&K** expands with title screen (SEGA logo, Sonic morph animation, interactive menu),
   level select screen (SONICMILES background, zone icons, sound test), AIZ miniboss completion
   (defeat flow, napalm attack, staggered explosions), signpost and results screen, Blue Ball
-  special stages (WIP) with per-character art/palette, per-character physics profiles, palette
+  special stages (WIP) with per-character art/palette, early Glowing Sphere bonus-stage work
+  (gumball machine / pachinko) including gumball shell/interior mask-layer replay fixes and
+  pachinko trap capture/title-card lifecycle fixes, per-character physics profiles, palette
   cycling for all zones, 10+ new objects including AIZ collapsing/flipping bridges, spiked logs,
   and zone-specific buttons, plus ongoing parity fixes for start positions, special-stage return,
   and breakable rock behaviour.
@@ -212,7 +214,8 @@ HCZ transition) is the remaining gate before release.
 - **Cross-game donation** now bidirectional: S1 can donate into S2/S3K, with `DonorCapabilities`
   interface, `CanonicalAnimation` vocabulary, and `AnimationTranslator` for any game pair.
 - **Rendering pipeline:** PatternAtlas slot reclamation, batched DPLC updates, virtual pattern ID
-  validation, and fail-fast shader error handling.
+  validation, SAT sprite-mask replay ordering for mixed-priority S3K bonus-stage art, and
+  fail-fast shader error handling.
 - **Trace replay testing:** automated accuracy verification that records per-frame physics state
   from the real ROM, then replays the same inputs through the engine and compares every field.
   First trace (S1 GHZ1, 3,905 frames) passes with 0 errors; a second baseline (S1 MZ1, 7,936
