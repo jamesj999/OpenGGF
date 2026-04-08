@@ -1,6 +1,7 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotStageController;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
@@ -104,6 +105,7 @@ public final class S3kSlotSpikeRewardObjectInstance extends AbstractObjectInstan
             }
             services().addBonusStageRings(-1);
         }
+        services().playSfx(Sonic3kSfx.SPIKE_HIT.id);
         setDestroyed(true);
         active = false;
     }

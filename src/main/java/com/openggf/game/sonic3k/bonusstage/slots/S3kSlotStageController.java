@@ -1,5 +1,7 @@
 package com.openggf.game.sonic3k.bonusstage.slots;
 
+import com.openggf.game.GameServices;
+import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -57,6 +59,8 @@ public class S3kSlotStageController {
             sprite.setXSpeed((short) ((TrigLookupTable.cosHex(angle) * 0x680) >> 8));
             sprite.setYSpeed((short) ((TrigLookupTable.sinHex(angle) * 0x680) >> 8));
             sprite.setAir(true);
+            // ROM line 98926-98927: moveq #signextendB(sfx_Jump),d0; jsr (Play_SFX).l
+            if (GameServices.audio() != null) GameServices.audio().playSfx(Sonic3kSfx.JUMP.id);
         }
     }
 
