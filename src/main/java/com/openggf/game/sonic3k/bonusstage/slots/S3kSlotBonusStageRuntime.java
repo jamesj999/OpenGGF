@@ -66,7 +66,7 @@ public final class S3kSlotBonusStageRuntime {
         exitSequence = null;
         exitTriggered = false;
         slotStageController.bootstrap();
-        layout = S3kSlotRomData.SLOT_BONUS_LAYOUT.clone();
+        layout = slotRenderBuffers.layout();
         slotStageController.setActiveLayout(layout);
         bootstrapRuntime = RuntimeManager.getCurrent();
         if (bootstrapRuntime == null) {
