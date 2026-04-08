@@ -26,6 +26,8 @@ public final class S3kSlotBonusStageRuntime {
     private boolean initialized;
     private GameRuntime bootstrapRuntime;
     private AbstractPlayableSprite originalPlayer;
+    private S3kSlotStageState slotStageState;
+    private S3kSlotRenderBuffers slotRenderBuffers;
     private final S3kSlotStageController slotStageController = new S3kSlotStageController();
     private final S3kSlotLayoutRenderer slotLayoutRenderer = new S3kSlotLayoutRenderer();
     private final S3kSlotLayoutAnimator layoutAnimator = new S3kSlotLayoutAnimator();
@@ -57,6 +59,8 @@ public final class S3kSlotBonusStageRuntime {
         visibleCells = List.of();
         lastFrameCounter = -1;
         suppressedSidekicks.clear();
+        slotStageState = S3kSlotStageState.bootstrap();
+        slotRenderBuffers = S3kSlotRenderBuffers.fromRomData();
         reelStateMachine.reset();
         tileInteractionState.reset();
         exitSequence = null;
@@ -197,6 +201,8 @@ public final class S3kSlotBonusStageRuntime {
         pointGrid = null;
         visibleCells = List.of();
         lastFrameCounter = -1;
+        slotStageState = null;
+        slotRenderBuffers = null;
         exitSequence = null;
         exitTriggered = false;
         originalPlayer = null;
@@ -210,6 +216,14 @@ public final class S3kSlotBonusStageRuntime {
 
     public S3kSlotBonusCageObjectInstance activeSlotCageForTest() {
         return slotCage;
+    }
+
+    public S3kSlotStageState stageStateForTest() {
+        return slotStageState;
+    }
+
+    public S3kSlotRenderBuffers renderBuffersForTest() {
+        return slotRenderBuffers;
     }
 
     public S3kSlotRingRewardObjectInstance activeSlotRingRewardForTest() {
