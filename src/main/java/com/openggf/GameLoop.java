@@ -1855,15 +1855,14 @@ public class GameLoop {
      */
     private void applyDeferredBonusStageSetup() {
         BonusStageProvider provider = deferredBonusProvider;
-        BonusStageState savedState = deferredBonusState;
 
         // Clear deferred state
         deferredBonusProvider = null;
         deferredBonusType = null;
         deferredBonusState = null;
 
-        if (provider == null || savedState == null) {
-            LOGGER.warning("No deferred bonus stage state — skipping setup");
+        if (provider == null) {
+            LOGGER.warning("No deferred bonus stage provider — skipping setup");
             return;
         }
 
