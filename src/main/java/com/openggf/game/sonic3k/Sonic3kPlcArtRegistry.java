@@ -398,6 +398,19 @@ public final class Sonic3kPlcArtRegistry {
                 null
         ));
 
+        // HCZ Large Fan: dedicated ArtKosM blob + ROM mapping table, palette 1.
+        // The ROM queues this art dynamically when the player enters the trigger window,
+        // but we preload the sheet here and let the object emulate the activation flow.
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.HCZ_LARGE_FAN,
+                Sonic3kConstants.ART_KOSM_HCZ_LARGE_FAN_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                Sonic3kConstants.MAP_HCZ_LARGE_FAN_ADDR,
+                1,
+                -1
+        ));
+
         // Geyser horizontal art (subtype 0 water wall)
         // Hardcoded mappings (mappingAddr=0 triggers dispatch in loadStandaloneSheet)
         standalone.add(new StandaloneArtEntry(
