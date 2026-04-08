@@ -25,6 +25,7 @@ public final class Sonic3kObjectIds {
     public static final int AIZ_DISAPPEARING_FLOOR = 0x29;
     public static final int AIZ_DRAW_BRIDGE = 0x32;
     public static final int FLOATING_PLATFORM = 0x51;
+    public static final int BUBBLER = 0x54;
     public static final int BUTTON = 0x33;
     public static final int STAR_POST = 0x34;
     public static final int AIZ_FOREGROUND_PLANT = 0x35;

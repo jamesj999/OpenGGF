@@ -799,6 +799,7 @@ public class Sonic3kObjectArt {
                 case Sonic3kObjectArtKeys.HCZ_GEYSER_SPRAY -> buildHczGeyserSprayMappings();
                 case Sonic3kObjectArtKeys.HCZ_BUBBLES -> buildHczGeyserAllFrames();
                 case Sonic3kObjectArtKeys.HCZ_FAN_BUBBLE -> buildHczFanBubbleMappings();
+                case Sonic3kObjectArtKeys.BUBBLER -> buildBubblerMappings();
                 default -> null;
             };
             if (hardcoded == null || hardcoded.isEmpty()) {
@@ -1398,6 +1399,52 @@ public class Sonic3kObjectArt {
                 new SpriteMappingFrame(List.of(
                         new SpriteMappingPiece(-12, -12, 3, 3, 0x0B, false, false, 0)))
         );
+    }
+
+    /**
+     * Builds the subset of Map_Bubbler frames used by Obj_Bubbler.
+     * <p>
+     * The object only references frames 0-8 (bubble growth/burst) and 19-21
+     * (floor vent animation). Frames 9-18 reference high VRAM countdown tiles
+     * and are left blank here because the Bubbler object never animates through them.
+     * <p>
+     * ROM: General/Sprites/Bubbles/Map - Bubbler.asm
+     */
+    List<SpriteMappingFrame> buildBubblerMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>(22);
+
+        frames.add(single(-4, -4, 1, 1, 0x00));   // 0
+        frames.add(single(-4, -4, 1, 1, 0x01));   // 1
+        frames.add(single(-4, -4, 1, 1, 0x02));   // 2
+        frames.add(single(-8, -8, 2, 2, 0x03));   // 3
+        frames.add(single(-8, -8, 2, 2, 0x07));   // 4
+        frames.add(single(-12, -12, 3, 3, 0x0B)); // 5
+        frames.add(single(-16, -16, 4, 4, 0x14)); // 6
+        frames.add(new SpriteMappingFrame(List.of( // 7
+                new SpriteMappingPiece(-16, -16, 2, 2, 0x24, false, false, 0),
+                new SpriteMappingPiece(0, -16, 2, 2, 0x24, true, false, 0),
+                new SpriteMappingPiece(-16, 0, 2, 2, 0x24, false, true, 0),
+                new SpriteMappingPiece(0, 0, 2, 2, 0x24, true, true, 0))));
+        frames.add(new SpriteMappingFrame(List.of( // 8
+                new SpriteMappingPiece(-16, -16, 2, 2, 0x28, false, false, 0),
+                new SpriteMappingPiece(0, -16, 2, 2, 0x28, true, false, 0),
+                new SpriteMappingPiece(-16, 0, 2, 2, 0x28, false, true, 0),
+                new SpriteMappingPiece(0, 0, 2, 2, 0x28, true, true, 0))));
+
+        for (int i = 9; i <= 18; i++) {
+            frames.add(new SpriteMappingFrame(List.of()));
+        }
+
+        frames.add(single(-8, -8, 2, 2, 0x2C));   // 19
+        frames.add(single(-8, -8, 2, 2, 0x30));   // 20
+        frames.add(single(-8, -8, 2, 2, 0x34));   // 21
+
+        return frames;
+    }
+
+    private SpriteMappingFrame single(int x, int y, int w, int h, int tile) {
+        return new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(x, y, w, h, tile, false, false, 0)));
     }
 
     List<SpriteMappingFrame> buildHczGeyserSprayMappings() {
