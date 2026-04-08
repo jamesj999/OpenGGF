@@ -204,6 +204,11 @@ public class Sonic3kConstants {
     // LockOn data (assembled into S3 half of combined ROM — no S&K-side copy exists)
     public static final int MAP_HCZ_BREAKABLE_BAR_ADDR = 0x21CDCA; // Map_HCZBreakableBar (8 frames)
 
+    // ===== HCZ Block mappings (Obj_HCZBlock, ID 0x40) =====
+    // LockOn data (assembled into S3 half of combined ROM — no S&K-side copy exists).
+    // Derived from the frame labels in Map - Block.asm: Frame_21D052 starts 8 bytes after the table base.
+    public static final int MAP_HCZ_BLOCK_ADDR = 0x21D04A; // Map_HCZBlock (4 frames)
+
     // ===== HCZ Water Rush (Obj_HCZWaterRush, ID 0x37) =====
     // ArtNem_HCZWaterRush: Nemesis compressed, 2560 bytes decompressed (80 tiles)
     // Loaded via PLC_0E. LockOn data (S3 half only — no S&K-side copy).
