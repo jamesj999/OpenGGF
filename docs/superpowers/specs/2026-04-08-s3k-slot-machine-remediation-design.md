@@ -53,6 +53,7 @@ This spec supersedes the earlier implementation assumptions wherever the two con
 - Do not hide slot-stage geometry behind generic object rendering.
 - Do not hide slot-stage gameplay inside generic playable physics.
 - Prefer smaller focused slot subsystems over a single oversized runtime file.
+- Remove or collapse superseded slot-stage code paths as part of the remediation instead of leaving broken or duplicate implementations behind.
 
 ## ROM Parity Inventory
 
@@ -275,6 +276,26 @@ This order is part of the contract. Any major deviation must be justified agains
 - large parts of `S3kSlotBonusStageRuntime`
 - `S3kSlotRomData` where it still encodes reconstructed semantics instead of ROM-shaped data
 
+### Cleanup requirement
+
+The remediation must explicitly clean up the existing broken Slot Machine implementation while the new one is introduced.
+
+That includes:
+
+- deleting dead helper code that only exists to support superseded semantic-slot behavior
+- removing runtime-side rendering fallbacks once cage and reward objects render through their proper ownership paths
+- eliminating duplicate state holders when the new ROM-shaped slot-stage state becomes authoritative
+- deleting obsolete tests that encode the behavior of the broken approximation rather than the ROM
+- renaming or reshaping classes whose current names imply fidelity they do not actually provide
+- ensuring there is exactly one active Slot Machine gameplay path in production code when the remediation is complete
+
+The final codebase should not contain both:
+
+- a ROM-shaped Slot Machine implementation
+- a parallel approximation-layer Slot Machine implementation kept around “just in case”
+
+If a temporary compatibility seam is required during execution, it must be removed before the remediation is claimed complete.
+
 ## Testing And Verification
 
 The remediation must be verified at three levels.
@@ -313,6 +334,6 @@ Implement in four ordered slices:
 1. Replace slot state, player runtime, and collision/tile handling.
 2. Replace layout rendering and option-cycle logic.
 3. Replace cage/reward/exit behavior.
-4. Replace screen/background/palette behavior and perform parity verification.
+4. Replace screen/background/palette behavior, remove superseded code paths, and perform parity verification.
 
 Each slice should leave the branch in a coherent, testable state, but the feature should not be claimed complete until all four slices are done and verified together.
