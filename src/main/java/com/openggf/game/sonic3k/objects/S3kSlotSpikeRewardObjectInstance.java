@@ -36,7 +36,8 @@ public final class S3kSlotSpikeRewardObjectInstance extends AbstractObjectInstan
             return;
         }
 
-        if (controller.consumeRewardRing()) {
+        int carriedRingCount = services().levelGamestate() != null ? services().levelGamestate().getRings() : 0;
+        if (controller.consumeRewardRing(carriedRingCount)) {
             services().addBonusStageRings(-1);
         }
         setDestroyed(true);
