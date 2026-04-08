@@ -1,5 +1,8 @@
 package com.openggf.game.sonic3k.bonusstage.slots;
 
+import com.openggf.physics.TrigLookupTable;
+import com.openggf.sprites.playable.AbstractPlayableSprite;
+
 public class S3kSlotStageController {
     private int statTable;
     private int rewardCounter;
@@ -10,11 +13,24 @@ public class S3kSlotStageController {
     }
 
     public void tickPlayer(S3kSlotBonusPlayer player, boolean left, boolean right, boolean jump, int frameCounter) {
-        if (left == right) {
-            return;
+        if (left) {
+            statTable = (statTable - 4) & 0xFC;
         }
-        statTable = (statTable + (right ? 4 : -4)) & 0xFC;
+
+        if (right) {
+            statTable = (statTable + 4) & 0xFC;
+        }
+
         player.setAngle((byte) statTable);
+
+        if (jump) {
+            int angle = (-((statTable & 0xFC)) - 0x40) & 0xFF;
+            if (player instanceof AbstractPlayableSprite sprite) {
+                sprite.setXSpeed((short) ((TrigLookupTable.cosHex(angle) * 0x680) >> 8));
+                sprite.setYSpeed((short) ((TrigLookupTable.sinHex(angle) * 0x680) >> 8));
+                sprite.setAir(true);
+            }
+        }
     }
 
     public int angle() {
