@@ -13,15 +13,16 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.objects.DefaultObjectServices;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.rings.RingManager;
+import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 public final class S3kSlotBonusStageRuntime {
-    private static final int CAGE_BOOTSTRAP_OFFSET_Y = -0x80;
-
     private boolean initialized;
     private GameRuntime bootstrapRuntime;
     private AbstractPlayableSprite originalPlayer;
@@ -34,8 +35,8 @@ public final class S3kSlotBonusStageRuntime {
     private boolean exitTriggered;
     private AbstractPlayableSprite slotPlayer;
     private S3kSlotBonusCageObjectInstance slotCage;
-    private S3kSlotRingRewardObjectInstance slotRingReward;
-    private S3kSlotSpikeRewardObjectInstance slotSpikeReward;
+    private final List<S3kSlotRingRewardObjectInstance> slotRingRewards = new ArrayList<>();
+    private final List<S3kSlotSpikeRewardObjectInstance> slotSpikeRewards = new ArrayList<>();
     private byte[] layout;
     private short[] pointGrid;
     private List<S3kSlotLayoutRenderer.VisibleCell> visibleCells = List.of();
@@ -47,8 +48,8 @@ public final class S3kSlotBonusStageRuntime {
         originalPlayer = null;
         slotPlayer = null;
         slotCage = null;
-        slotRingReward = null;
-        slotSpikeReward = null;
+        slotRingRewards.clear();
+        slotSpikeRewards.clear();
         layout = null;
         pointGrid = null;
         visibleCells = List.of();
@@ -60,6 +61,7 @@ public final class S3kSlotBonusStageRuntime {
         exitTriggered = false;
         slotStageController.bootstrap();
         layout = S3kSlotRomData.SLOT_BONUS_LAYOUT.clone();
+        slotStageController.setActiveLayout(layout);
         bootstrapRuntime = RuntimeManager.getCurrent();
         if (bootstrapRuntime == null) {
             return;
@@ -78,24 +80,19 @@ public final class S3kSlotBonusStageRuntime {
             copyLivePlayerState(mainPlayer, slotPlayer);
             slotPlayer.setX(slotStartX);
             slotPlayer.setY(slotStartY);
-            slotPlayer.setAir(false);
+            // ROM loc_4B9CE: starts airborne and rolling
+            slotPlayer.setAir(true);       // bset #Status_InAir,status(a0)
+            slotPlayer.setRolling(true);   // bset #Status_Roll,status(a0)
             slotPlayer.setGSpeed((short) 0);
             slotPlayer.setXSpeed((short) 0);
             slotPlayer.setYSpeed((short) 0);
             bootstrapRuntime.getSpriteManager().addSprite(slotPlayer);
             bootstrapRuntime.getCamera().setFocusedSprite(slotPlayer);
             slotCage = new S3kSlotBonusCageObjectInstance(
-                    new ObjectSpawn(centerX, centerY + CAGE_BOOTSTRAP_OFFSET_Y, 0, 0, 0, false, 0),
+                    new ObjectSpawn(centerX, centerY, 0, 0, 0, false, 0),
                     slotStageController);
             slotCage.setServices(new DefaultObjectServices(bootstrapRuntime));
-            slotRingReward = new S3kSlotRingRewardObjectInstance(
-                    new ObjectSpawn(centerX, centerY, 0, 0, 0, false, 0),
-                    slotStageController);
-            slotRingReward.setServices(new DefaultObjectServices(bootstrapRuntime));
-            slotSpikeReward = new S3kSlotSpikeRewardObjectInstance(
-                    new ObjectSpawn(centerX, centerY, 0, 0, 0, false, 0),
-                    slotStageController);
-            slotSpikeReward.setServices(new DefaultObjectServices(bootstrapRuntime));
+            slotCage.suppressInitialCaptureOnce();
             initialized = true;
         }
     }
@@ -114,11 +111,21 @@ public final class S3kSlotBonusStageRuntime {
             return;
         }
 
+        // ROM line 98745: move.b #0,$30(a0) — clear collision tile at start of frame
+        slotStageController.clearLastCollision();
+
         // Per-frame rotation integration
         slotStageController.tick();
 
         // Reel state machine
-        reelStateMachine.tick(frameCounter);
+        if (!slotStageController.isReelsFrozen()) {
+            reelStateMachine.tick(frameCounter);
+            if (reelStateMachine.isResolved()) {
+                slotStageController.latchResolvedPrize(
+                        reelStateMachine.lastPrizeResult(),
+                        reelStateMachine.completedCycles());
+            }
+        }
 
         // Tile interaction timers
         tileInteractionState.tickTimers();
@@ -141,9 +148,10 @@ public final class S3kSlotBonusStageRuntime {
             checkRingPickup();
         }
 
-        // Grid collision for player movement
-        if (layout != null && slotPlayer != null) {
-            checkGridCollision();
+        // Tile interaction dispatch — collision was already handled inline by player physics.
+        // Read stored tile ID from controller (set during physics collision check).
+        if (slotPlayer != null && slotStageController.lastCollisionTileId() > 0) {
+            dispatchTileInteraction();
         }
 
         // Visuals
@@ -169,8 +177,8 @@ public final class S3kSlotBonusStageRuntime {
         restoreSuppressedSidekicks();
         slotPlayer = null;
         slotCage = null;
-        slotRingReward = null;
-        slotSpikeReward = null;
+        slotRingRewards.clear();
+        slotSpikeRewards.clear();
         layout = null;
         pointGrid = null;
         visibleCells = List.of();
@@ -191,11 +199,19 @@ public final class S3kSlotBonusStageRuntime {
     }
 
     public S3kSlotRingRewardObjectInstance activeSlotRingRewardForTest() {
-        return slotRingReward;
+        return slotRingRewards.isEmpty() ? null : slotRingRewards.get(0);
     }
 
     public S3kSlotSpikeRewardObjectInstance activeSlotSpikeRewardForTest() {
-        return slotSpikeReward;
+        return slotSpikeRewards.isEmpty() ? null : slotSpikeRewards.get(0);
+    }
+
+    public List<S3kSlotRingRewardObjectInstance> activeSlotRingRewardsForTest() {
+        return List.copyOf(slotRingRewards);
+    }
+
+    public List<S3kSlotSpikeRewardObjectInstance> activeSlotSpikeRewardsForTest() {
+        return List.copyOf(slotSpikeRewards);
     }
 
     public short[] activePointGridForTest() {
@@ -230,13 +246,61 @@ public final class S3kSlotBonusStageRuntime {
         return exitSequence;
     }
 
+    public S3kSlotStageController stageController() {
+        return slotStageController;
+    }
+
     public void render(com.openggf.camera.Camera camera) {
         LevelManager levelManager = GameServices.level();
         ObjectRenderManager renderManager = levelManager != null ? levelManager.getObjectRenderManager() : null;
+        RingManager ringManager = levelManager != null ? levelManager.getRingManager() : null;
         if (camera == null || renderManager == null || visibleCells.isEmpty()) {
             return;
         }
         slotLayoutRenderer.renderVisibleCells(visibleCells, camera, renderManager);
+        renderCage(renderManager);
+        renderRewardRings(ringManager);
+        renderRewardSpikes(renderManager);
+    }
+
+    private void renderCage(ObjectRenderManager renderManager) {
+        if (slotCage == null) {
+            return;
+        }
+        PatternSpriteRenderer renderer = renderManager.getRenderer(
+                com.openggf.game.sonic3k.Sonic3kObjectArtKeys.SLOT_BONUS_CAGE);
+        if (renderer == null) {
+            return;
+        }
+        renderer.drawFrameIndex(slotCage.getMappingFrame(), slotCage.getCurrentX(), slotCage.getCurrentY(),
+                false, false);
+    }
+
+    private void renderRewardRings(RingManager ringManager) {
+        if (ringManager == null) {
+            return;
+        }
+        int frameCounter = Math.max(0, lastFrameCounter);
+        for (S3kSlotRingRewardObjectInstance reward : slotRingRewards) {
+            if (!reward.isActive() || reward.isDestroyed()) {
+                continue;
+            }
+            ringManager.drawRingAt(reward.getInterpolatedX(), reward.getInterpolatedY(), frameCounter);
+        }
+    }
+
+    private void renderRewardSpikes(ObjectRenderManager renderManager) {
+        PatternSpriteRenderer renderer = renderManager.getRenderer(
+                com.openggf.game.sonic3k.Sonic3kObjectArtKeys.SLOT_SPIKE_REWARD);
+        if (renderer == null) {
+            return;
+        }
+        for (S3kSlotSpikeRewardObjectInstance reward : slotSpikeRewards) {
+            if (!reward.isActive() || reward.isDestroyed()) {
+                continue;
+            }
+            renderer.drawFrameIndex(0, reward.getInterpolatedX(), reward.getInterpolatedY(), false, false);
+        }
     }
 
     private void checkRingPickup() {
@@ -246,34 +310,38 @@ public final class S3kSlotBonusStageRuntime {
             layout[ring.layoutIndex()] = 0; // consume ring tile
             layoutAnimator.queueRingSparkle(layout, ring.layoutIndex());
             slotPlayer.addRings(1);
+            // Track on coordinator so rings persist after exit (ROM: GiveRing)
+            if (GameServices.bonusStage() != null) {
+                GameServices.bonusStage().addRings(1);
+            }
             if (GameServices.audio() != null) {
                 GameServices.audio().playSfx(Sonic3kSfx.RING_RIGHT.id);
             }
         }
     }
 
-    private void checkGridCollision() {
-        S3kSlotGridCollision.Result collision = S3kSlotGridCollision.check(
-                layout, slotPlayer.getX(), slotPlayer.getY());
+    /**
+     * Dispatch tile interaction based on collision detected during player physics.
+     * ROM sub_4BE3A reads $30(a0) which was set by sub_4BDA2 during collision.
+     */
+    private void dispatchTileInteraction() {
+        int tileId = slotStageController.lastCollisionTileId();
+        int layoutIndex = slotStageController.lastCollisionIndex();
+        if (tileId <= 0 || tileId > 6 || layoutIndex < 0) return;
 
-        if (!collision.solid()) return;
+        int tileRow = layoutIndex / S3kSlotGridCollision.LAYOUT_STRIDE;
+        int tileCol = layoutIndex % S3kSlotGridCollision.LAYOUT_STRIDE;
+        short tileCenterX = (short) (tileCol * S3kSlotGridCollision.CELL_SIZE
+                - S3kSlotGridCollision.COLLISION_X_OFFSET + 0x0C);
+        short tileCenterY = (short) (tileRow * S3kSlotGridCollision.CELL_SIZE
+                - S3kSlotGridCollision.COLLISION_Y_OFFSET + 0x0C);
 
-        // If special tile (1-6), process interaction
-        if (collision.special()) {
-            int tileRow = collision.layoutIndex() / S3kSlotGridCollision.LAYOUT_STRIDE;
-            int tileCol = collision.layoutIndex() % S3kSlotGridCollision.LAYOUT_STRIDE;
-            short tileCenterX = (short) (tileCol * S3kSlotGridCollision.CELL_SIZE
-                    - S3kSlotGridCollision.COLLISION_X_OFFSET + 0x0C);
-            short tileCenterY = (short) (tileRow * S3kSlotGridCollision.CELL_SIZE
-                    - S3kSlotGridCollision.COLLISION_Y_OFFSET + 0x0C);
+        S3kSlotTileInteraction.Response response = S3kSlotTileInteraction.process(
+                tileId, slotPlayer.getX(), slotPlayer.getY(),
+                tileCenterX, tileCenterY,
+                slotStageController, tileInteractionState);
 
-            S3kSlotTileInteraction.Response response = S3kSlotTileInteraction.process(
-                    collision.tileId(), slotPlayer.getX(), slotPlayer.getY(),
-                    tileCenterX, tileCenterY,
-                    slotStageController, tileInteractionState);
-
-            handleTileResponse(response, collision.layoutIndex());
-        }
+        handleTileResponse(response, layoutIndex);
     }
 
     private void handleTileResponse(S3kSlotTileInteraction.Response response, int layoutIndex) {
@@ -315,31 +383,63 @@ public final class S3kSlotBonusStageRuntime {
     }
 
     private void updateRewards(int frameCounter) {
-        if (slotRingReward != null && !slotRingReward.isActive()) {
-            int[] ringPos = slotStageController.consumePendingRingReward();
-            if (ringPos != null) {
-                if (ringPos.length == 4) {
-                    slotRingReward.activate(ringPos[0], ringPos[1], ringPos[2], ringPos[3]);
-                } else {
-                    slotRingReward.activate();
-                }
+        if (bootstrapRuntime == null || slotPlayer == null) {
+            return;
+        }
+        drainPendingRingRewards();
+        drainPendingSpikeRewards();
+        updateActiveRewards(slotRingRewards, frameCounter);
+        updateActiveRewards(slotSpikeRewards, frameCounter);
+    }
+
+    private void drainPendingRingRewards() {
+        int[] ringPos;
+        while ((ringPos = slotStageController.consumePendingRingReward()) != null) {
+            S3kSlotRingRewardObjectInstance reward = new S3kSlotRingRewardObjectInstance(
+                    new ObjectSpawn(S3kSlotRomData.SLOT_BONUS_START_X, S3kSlotRomData.SLOT_BONUS_START_Y,
+                            0, 0, 0, false, 0),
+                    slotStageController);
+            reward.setServices(new DefaultObjectServices(bootstrapRuntime));
+            if (ringPos.length == 4) {
+                reward.activate(ringPos[0], ringPos[1], ringPos[2], ringPos[3]);
+            } else {
+                reward.activate();
             }
+            slotStageController.onRewardSpawned();
+            slotRingRewards.add(reward);
         }
-        if (slotRingReward != null && slotPlayer != null) {
-            slotRingReward.update(frameCounter, slotPlayer);
-        }
-        if (slotSpikeReward != null && !slotSpikeReward.isActive()) {
-            int[] spikePos = slotStageController.consumePendingSpikeReward();
-            if (spikePos != null) {
-                if (spikePos.length == 4) {
-                    slotSpikeReward.activate(spikePos[0], spikePos[1], spikePos[2], spikePos[3]);
-                } else {
-                    slotSpikeReward.activate();
-                }
+    }
+
+    private void drainPendingSpikeRewards() {
+        int[] spikePos;
+        while ((spikePos = slotStageController.consumePendingSpikeReward()) != null) {
+            S3kSlotSpikeRewardObjectInstance reward = new S3kSlotSpikeRewardObjectInstance(
+                    new ObjectSpawn(S3kSlotRomData.SLOT_BONUS_START_X, S3kSlotRomData.SLOT_BONUS_START_Y,
+                            0, 0, 0, false, 0),
+                    slotStageController);
+            reward.setServices(new DefaultObjectServices(bootstrapRuntime));
+            if (spikePos.length == 4) {
+                reward.activate(spikePos[0], spikePos[1], spikePos[2], spikePos[3]);
+            } else {
+                reward.activate();
             }
+            slotStageController.onRewardSpawned();
+            slotSpikeRewards.add(reward);
         }
-        if (slotSpikeReward != null && slotPlayer != null) {
-            slotSpikeReward.update(frameCounter, slotPlayer);
+    }
+
+    private <T extends com.openggf.level.objects.AbstractObjectInstance> void updateActiveRewards(
+            List<T> rewards, int frameCounter) {
+        Iterator<T> iterator = rewards.iterator();
+        while (iterator.hasNext()) {
+            T reward = iterator.next();
+            reward.update(frameCounter, slotPlayer);
+            boolean inactive = reward instanceof S3kSlotRingRewardObjectInstance ring && !ring.isActive()
+                    || reward instanceof S3kSlotSpikeRewardObjectInstance spike && !spike.isActive();
+            if (reward.isDestroyed() || inactive) {
+                slotStageController.onRewardExpired();
+                iterator.remove();
+            }
         }
     }
 
