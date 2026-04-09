@@ -2526,6 +2526,9 @@ public class LevelManager {
         }
         int levelWidth = cachedFgWidthPx;
         int levelHeight = cachedFgHeightPx;
+        if (levelWidth <= 0 || levelHeight <= 0 || blockPixelSize <= 0) {
+            return -1;
+        }
         int wrappedX = ((x % levelWidth) + levelWidth) % levelWidth;
         int wrappedY = y;
         if (verticalWrapEnabled) {

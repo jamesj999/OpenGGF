@@ -2,7 +2,9 @@ package com.openggf.level.rings;
 
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
+import com.openggf.game.GameModule;
 import com.openggf.game.GameServices;
+import com.openggf.game.RuntimeManager;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.LevelManager;
 import com.openggf.level.SolidTile;
@@ -127,7 +129,8 @@ public class RingManager {
 
         // Lightning shield ring attraction — S3K only
         PhysicsFeatureSet featureSet = null;
-        PhysicsProvider physProvider = GameServices.module().getPhysicsProvider();
+        GameModule module = RuntimeManager.resolveCurrentOrBootstrapGameModule();
+        PhysicsProvider physProvider = module != null ? module.getPhysicsProvider() : null;
         if (physProvider != null) {
             featureSet = physProvider.getFeatureSet();
         }
