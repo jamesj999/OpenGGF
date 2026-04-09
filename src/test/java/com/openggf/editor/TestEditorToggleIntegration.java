@@ -158,6 +158,34 @@ class TestEditorToggleIntegration {
     }
 
     @Test
+    void syncEditorState_keepsSessionCursorAlignedWithControllerCursor() {
+        enableEditor();
+        Engine engine = new Engine();
+        createGameplayRuntime(engine);
+
+        engine.enterEditorFromCurrentPlayer(new EditorPlaytestStash(100, 200, 0, 0, true, 0, 0), 100, 200);
+        engine.getLevelEditorController().setWorldCursor(new EditorCursorState(160, 224));
+        engine.syncEditorState();
+
+        assertEquals(160, SessionManager.getCurrentEditorMode().getCursor().x());
+        assertEquals(224, SessionManager.getCurrentEditorMode().getCursor().y());
+    }
+
+    @Test
+    void syncEditorState_inWorldDepthMovesCameraToEditorCursor() {
+        enableEditor();
+        Engine engine = new Engine();
+        GameRuntime runtime = createGameplayRuntime(engine);
+
+        engine.enterEditorFromCurrentPlayer(new EditorPlaytestStash(100, 200, 0, 0, true, 0, 0), 100, 200);
+        engine.getLevelEditorController().setWorldCursor(new EditorCursorState(192, 288));
+        engine.syncEditorState();
+
+        assertEquals(192, runtime.getCamera().getX());
+        assertEquals(288, runtime.getCamera().getY());
+    }
+
+    @Test
     void startGameplayFromBeginning_discardsResumeStashAndReturnsToCanonicalSpawn() throws Exception {
         enableEditor();
         Engine engine = new Engine();
