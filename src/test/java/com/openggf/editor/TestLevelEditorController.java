@@ -6,6 +6,7 @@ import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.GameMode;
 import com.openggf.game.RuntimeManager;
+import com.openggf.game.session.EditorCursorState;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -288,5 +289,46 @@ class TestLevelEditorController {
         controller.selectBlock(12);
 
         assertThrows(IllegalArgumentException.class, () -> controller.selectChunk(-1));
+    }
+
+    @Test
+    void controller_movesWorldCursorInWorldDepth() {
+        LevelEditorController controller = new LevelEditorController();
+
+        controller.setWorldCursor(new EditorCursorState(320, 448));
+        controller.moveWorldCursor(-3, 6);
+
+        assertEquals(317, controller.worldCursor().x());
+        assertEquals(454, controller.worldCursor().y());
+    }
+
+    @Test
+    void controller_arrowNavigationInBlockDepthMovesChunkSelectionInsteadOfWorldCursor() {
+        LevelEditorController controller = new LevelEditorController();
+
+        controller.setWorldCursor(new EditorCursorState(320, 448));
+        controller.selectBlock(12);
+        controller.descend();
+        controller.moveActiveSelection(1, 0, 8);
+
+        assertEquals(new EditorCursorState(320, 448), controller.worldCursor());
+        assertEquals(1, controller.selectedBlockCellX());
+        assertEquals(0, controller.selectedBlockCellY());
+    }
+
+    @Test
+    void controller_arrowNavigationInChunkDepthMovesPatternSelectionInsteadOfWorldCursor() {
+        LevelEditorController controller = new LevelEditorController();
+
+        controller.setWorldCursor(new EditorCursorState(320, 448));
+        controller.selectBlock(12);
+        controller.descend();
+        controller.selectChunk(3);
+        controller.descend();
+        controller.moveActiveSelection(1, 1, 2);
+
+        assertEquals(new EditorCursorState(320, 448), controller.worldCursor());
+        assertEquals(1, controller.selectedChunkCellX());
+        assertEquals(1, controller.selectedChunkCellY());
     }
 }

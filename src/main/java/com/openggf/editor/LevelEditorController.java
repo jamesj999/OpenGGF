@@ -2,6 +2,7 @@ package com.openggf.editor;
 
 import com.openggf.editor.commands.PlaceBlockCommand;
 import com.openggf.level.MutableLevel;
+import com.openggf.game.session.EditorCursorState;
 
 import java.util.Objects;
 
@@ -9,6 +10,12 @@ public final class LevelEditorController {
     private final EditorHistory history = new EditorHistory();
     private EditorHierarchyDepth depth = EditorHierarchyDepth.WORLD;
     private EditorSelectionState selection = EditorSelectionState.empty();
+    private EditorCursorState worldCursor = new EditorCursorState(0, 0);
+    private int blockGridSide = 8;
+    private int selectedBlockCellX;
+    private int selectedBlockCellY;
+    private int selectedChunkCellX;
+    private int selectedChunkCellY;
     private MutableLevel level;
 
     public void attachLevel(MutableLevel level) {
@@ -16,6 +23,12 @@ public final class LevelEditorController {
         history.clear();
         depth = EditorHierarchyDepth.WORLD;
         selection = EditorSelectionState.empty();
+        worldCursor = new EditorCursorState(0, 0);
+        blockGridSide = level.getChunksPerBlockSide();
+        selectedBlockCellX = 0;
+        selectedBlockCellY = 0;
+        selectedChunkCellX = 0;
+        selectedChunkCellY = 0;
     }
 
     public void placeBlock(int layer, int x, int y, int blockIndex) {
@@ -68,6 +81,57 @@ public final class LevelEditorController {
         return depth;
     }
 
+    public void setWorldCursor(EditorCursorState cursor) {
+        this.worldCursor = Objects.requireNonNull(cursor, "cursor");
+    }
+
+    public EditorCursorState worldCursor() {
+        return worldCursor;
+    }
+
+    public int blockGridSide() {
+        return blockGridSide;
+    }
+
+    public int chunkGridSide() {
+        return 2;
+    }
+
+    public void moveWorldCursor(int dx, int dy) {
+        worldCursor = new EditorCursorState(worldCursor.x() + dx, worldCursor.y() + dy);
+    }
+
+    public void moveActiveSelection(int dx, int dy, int gridSide) {
+        requirePositive(gridSide, "gridSide");
+        if (depth == EditorHierarchyDepth.WORLD) {
+            moveWorldCursor(dx, dy);
+            return;
+        }
+        if (depth == EditorHierarchyDepth.BLOCK) {
+            selectedBlockCellX = clamp(selectedBlockCellX + dx, 0, gridSide - 1);
+            selectedBlockCellY = clamp(selectedBlockCellY + dy, 0, gridSide - 1);
+            return;
+        }
+        selectedChunkCellX = clamp(selectedChunkCellX + dx, 0, gridSide - 1);
+        selectedChunkCellY = clamp(selectedChunkCellY + dy, 0, gridSide - 1);
+    }
+
+    public int selectedBlockCellX() {
+        return selectedBlockCellX;
+    }
+
+    public int selectedBlockCellY() {
+        return selectedBlockCellY;
+    }
+
+    public int selectedChunkCellX() {
+        return selectedChunkCellX;
+    }
+
+    public int selectedChunkCellY() {
+        return selectedChunkCellY;
+    }
+
     public String breadcrumb() {
         if (depth == EditorHierarchyDepth.WORLD) {
             return "World";
@@ -81,6 +145,16 @@ public final class LevelEditorController {
     private static void requireNonNegative(int index, String name) {
         if (index < 0) {
             throw new IllegalArgumentException(name + " must be >= 0");
+        }
+    }
+
+    private static int clamp(int value, int min, int max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    private static void requirePositive(int value, String name) {
+        if (value <= 0) {
+            throw new IllegalArgumentException(name + " must be > 0");
         }
     }
 
