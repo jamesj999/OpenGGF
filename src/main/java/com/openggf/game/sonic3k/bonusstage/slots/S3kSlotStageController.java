@@ -93,7 +93,7 @@ public class S3kSlotStageController {
     public void tickPlayer(S3kSlotBonusPlayer player, boolean left, boolean right,
                            boolean jump, int frameCounter) {
         // Input is handled by S3kSlotBonusPlayer.applyGroundMotion().
-        player.setAngle((byte) stageState.statTable());
+        player.setAngle((byte) stageState.angle());
 
         if (jump && player instanceof AbstractPlayableSprite sprite
                 && sprite.isJumpJustPressed() && !sprite.getAir()) {

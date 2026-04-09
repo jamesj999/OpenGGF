@@ -30,8 +30,8 @@ public final class S3kSlotBonusCageObjectInstance extends AbstractObjectInstance
     private static final int RING_ANGLE_INCREMENT = 0x89;
     private static final int SPIKE_ANGLE_INCREMENT = 0x90;
 
-    private static final short SNAP_X = S3kSlotRomData.SLOT_BONUS_START_X;
-    private static final short SNAP_Y = S3kSlotRomData.SLOT_BONUS_START_Y;
+    private static final short SNAP_X = S3kSlotRomData.SLOT_BONUS_CAGE_CENTER_X;
+    private static final short SNAP_Y = S3kSlotRomData.SLOT_BONUS_CAGE_CENTER_Y;
 
     private final S3kSlotStageController controller;
 

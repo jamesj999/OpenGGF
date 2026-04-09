@@ -6,9 +6,6 @@ import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.level.scroll.ZoneScrollHandler;
 import org.junit.Test;
 
-import java.util.HashSet;
-import java.util.Set;
-
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertEquals;
@@ -41,7 +38,10 @@ public class SwScrlSlotsTest {
         assertEquals((0x400 - visual.eventsBgX()) + 0x300, scroll.lastForegroundOriginXForTest());
         assertEquals((0x400 - visual.eventsBgY()) + 0x200, scroll.lastForegroundOriginYForTest());
         assertEquals(0, scroll.lastBackgroundOriginYForTest());
-        assertTrue(scroll.lastBackgroundOriginXForTest() != scroll.lastForegroundOriginXForTest());
+        int[] horizScrollBuf = new int[224];
+        scroll.updateForTest(runtime, horizScrollBuf, 0x300, 0x200, 12);
+        assertTrue(unpackBG(horizScrollBuf[0]) != unpackFG(horizScrollBuf[0]));
+        assertTrue(unpackBG(horizScrollBuf[95]) != unpackBG(horizScrollBuf[96]));
     }
 
     @Test
@@ -73,7 +73,7 @@ public class SwScrlSlotsTest {
     }
 
     @Test
-    public void slotScrollProducesSegmentedPackedBufferWithSharedForegroundAndVaryingBackgroundBands() {
+    public void slotScrollProducesStablePackedBufferWithoutBandCorruption() {
         SwScrlSlots scroll = new SwScrlSlots();
         S3kSlotBonusStageRuntime runtime = new S3kSlotBonusStageRuntime();
         runtime.bootstrap();
@@ -82,15 +82,14 @@ public class SwScrlSlotsTest {
         scroll.updateForTest(runtime, horizScrollBuf, 0x300, 0x200, 12);
 
         short expectedFg = unpackFG(horizScrollBuf[0]);
-        Set<Short> distinctBg = new HashSet<>();
         for (int packed : horizScrollBuf) {
             assertEquals(expectedFg, unpackFG(packed));
-            distinctBg.add(unpackBG(packed));
         }
 
-        assertEquals(horizScrollBuf[0], horizScrollBuf[0x1F]);
-        assertEquals(horizScrollBuf[0x20], horizScrollBuf[0x3F]);
-        assertTrue("Expected multiple slot background bands, got " + distinctBg.size(),
-                distinctBg.size() > 1);
+        assertEquals(horizScrollBuf[0], horizScrollBuf[95]);
+        assertEquals(horizScrollBuf[96], horizScrollBuf[175]);
+        assertEquals(horizScrollBuf[176], horizScrollBuf[223]);
+        assertTrue(unpackBG(horizScrollBuf[95]) != unpackBG(horizScrollBuf[96]));
+        assertTrue(unpackBG(horizScrollBuf[175]) != unpackBG(horizScrollBuf[176]));
     }
 }

@@ -50,13 +50,13 @@ public final class S3kSlotCollisionSystem {
                 }
 
                 int expandedIndex = row * renderBuffers.layoutStrideBytes() + col;
-                int compactIndex = row * renderBuffers.layoutColumns() + col;
+                int compactIndex = renderBuffers.expandedToCompactIndex(expandedIndex);
                 int tileId = expandedLayout[expandedIndex] & 0xFF;
                 if (!isSolid(tileId)) {
                     continue;
                 }
 
-                if (isSpecial(tileId)) {
+                if (isSpecial(tileId) && compactIndex >= 0) {
                     stageState.setLastCollision(tileId, compactIndex);
                 }
                 return new Collision(true, isSpecial(tileId), tileId, compactIndex, expandedIndex);
@@ -70,7 +70,7 @@ public final class S3kSlotCollisionSystem {
         byte[] layout = renderBuffers.layout();
         byte[] expandedLayout = renderBuffers.expandedLayout();
         if (layout == null || expandedLayout == null
-                || layout.length < renderBuffers.layoutRows() * renderBuffers.layoutColumns()
+                || layout.length < S3kSlotRomData.SLOT_LAYOUT_SIZE * S3kSlotRomData.SLOT_LAYOUT_SIZE
                 || expandedLayout.length < renderBuffers.layoutRows() * renderBuffers.layoutStrideBytes()) {
             return RingCheck.NONE;
         }
@@ -82,10 +82,10 @@ public final class S3kSlotCollisionSystem {
             return RingCheck.NONE;
         }
 
-        int compactIndex = row * renderBuffers.layoutColumns() + col;
+        int compactIndex = renderBuffers.expandedToCompactIndex(row, col);
         int expandedIndex = row * renderBuffers.layoutStrideBytes() + col;
         int tileId = expandedLayout[expandedIndex] & 0xFF;
-        if (tileId == 8) {
+        if (tileId == 8 && compactIndex >= 0) {
             return new RingCheck(true, compactIndex, expandedIndex, tileId);
         }
         if (tileId != 0) {

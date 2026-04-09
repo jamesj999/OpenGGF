@@ -65,8 +65,8 @@ class TestS3kSlotBonusStageRuntime {
         assertTrue(slotPlayer instanceof S3kSlotBonusPlayer);
         assertFalse(slotPlayer instanceof Sonic);
         assertEquals("tails", slotPlayer.getCode());
-        assertEquals((short) 0x460, slotPlayer.getX());
-        assertEquals((short) 0x430, slotPlayer.getY());
+        assertEquals(S3kSlotRomData.SLOT_BONUS_PLAYER_START_X, slotPlayer.getX());
+        assertEquals(S3kSlotRomData.SLOT_BONUS_PLAYER_START_Y, slotPlayer.getY());
         assertSame(renderer, slotPlayer.getSpriteRenderer());
         assertEquals(3, slotPlayer.getMappingFrame());
         assertEquals(5, slotPlayer.getAnimationFrameCount());
@@ -77,6 +77,8 @@ class TestS3kSlotBonusStageRuntime {
         assertNull(GameServices.sprites().getSprite("sonic_p2"));
         assertNotSame(originalPlayer, slotPlayer);
         assertSame(slotPlayer, GameServices.camera().getFocusedSprite());
+        assertEquals(S3kSlotRomData.SLOT_BONUS_PLAYER_START_X - 0xA0, GameServices.camera().getX());
+        assertEquals(S3kSlotRomData.SLOT_BONUS_PLAYER_START_Y - 0x70, GameServices.camera().getY());
         assertNotNull(runtime.activeLayoutForTest());
         assertEquals(32 * 32, runtime.activeLayoutForTest().length);
 
@@ -217,9 +219,14 @@ class TestS3kSlotBonusStageRuntime {
 
         assertNotNull(runtime.activeVisibleCellsForTest());
         assertFalse(runtime.activeVisibleCellsForTest().isEmpty());
-        assertTrue(runtime.activeVisibleCellsForTest().stream().anyMatch(cell -> cell.cellId() == 1));
-        assertTrue(runtime.activeVisibleCellsForTest().stream().anyMatch(cell -> cell.cellId() == 5));
-        assertTrue(runtime.activeVisibleCellsForTest().stream().anyMatch(cell -> cell.cellId() == 7));
+        assertTrue(runtime.activeVisibleCellsForTest().size() >= 8);
+        assertTrue(runtime.activeVisibleCellsForTest().stream().allMatch(cell -> cell.cellId() > 0));
+        int cameraX = GameServices.camera().getX();
+        int cameraY = GameServices.camera().getY();
+        assertTrue(runtime.activeVisibleCellsForTest().stream().allMatch(cell -> cell.worldX() >= cameraX + 0x70));
+        assertTrue(runtime.activeVisibleCellsForTest().stream().allMatch(cell -> cell.worldX() < cameraX + 0x1D0));
+        assertTrue(runtime.activeVisibleCellsForTest().stream().allMatch(cell -> cell.worldY() >= cameraY + 0x70));
+        assertTrue(runtime.activeVisibleCellsForTest().stream().allMatch(cell -> cell.worldY() < cameraY + 0x170));
     }
 
     @Test

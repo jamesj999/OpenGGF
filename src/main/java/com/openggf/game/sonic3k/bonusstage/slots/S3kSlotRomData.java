@@ -1,9 +1,14 @@
 package com.openggf.game.sonic3k.bonusstage.slots;
 
 public final class S3kSlotRomData {
-    public static final short SLOT_BONUS_START_X = 0x0460;
-    public static final short SLOT_BONUS_START_Y = 0x0430;  // ROM loc_4C026 line 99391
+    public static final short SLOT_BONUS_PLAYER_START_X = 0x0460;
+    public static final short SLOT_BONUS_PLAYER_START_Y = 0x0360;
+    public static final short SLOT_BONUS_CAGE_CENTER_X = 0x0460;
+    public static final short SLOT_BONUS_CAGE_CENTER_Y = 0x0430;
     public static final int TRANSIENT_SLOT_COUNT = 0x20;
+    public static final int SLOT_LAYOUT_SIZE = 0x20;
+    public static final int SLOT_EXPANDED_STRIDE = 0x80;
+    public static final int SLOT_LAYOUT_WORLD_OFFSET = 0x20;
 
     public static final short[] REWARD_VALUES = {100, 30, 20, 25, -1, 10, 8, 200};
     public static final byte[] TARGET_ROWS = {
@@ -67,9 +72,11 @@ public final class S3kSlotRomData {
     }
 
     public static byte[] buildExpandedLayoutBuffer() {
-        byte[] expandedLayout = new byte[0x20 * 0x80];
-        for (int row = 0; row < 0x20; row++) {
-            System.arraycopy(SLOT_BONUS_LAYOUT, row * 0x20, expandedLayout, row * 0x80, 0x20);
+        byte[] expandedLayout = new byte[SLOT_EXPANDED_STRIDE * SLOT_EXPANDED_STRIDE];
+        for (int row = 0; row < SLOT_LAYOUT_SIZE; row++) {
+            int expandedRow = row + SLOT_LAYOUT_WORLD_OFFSET;
+            int expandedIndex = expandedRow * SLOT_EXPANDED_STRIDE + SLOT_LAYOUT_WORLD_OFFSET;
+            System.arraycopy(SLOT_BONUS_LAYOUT, row * SLOT_LAYOUT_SIZE, expandedLayout, expandedIndex, SLOT_LAYOUT_SIZE);
         }
         return expandedLayout;
     }

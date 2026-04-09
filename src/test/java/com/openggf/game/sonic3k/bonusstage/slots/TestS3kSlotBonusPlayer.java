@@ -133,8 +133,10 @@ class TestS3kSlotBonusPlayer {
 
     @Test
     void startPositionMatchesCageCapture() {
-        assertEquals((short) 0x0460, S3kSlotRomData.SLOT_BONUS_START_X);
-        assertEquals((short) 0x0430, S3kSlotRomData.SLOT_BONUS_START_Y);
+        assertEquals((short) 0x0460, S3kSlotRomData.SLOT_BONUS_PLAYER_START_X);
+        assertEquals((short) 0x0360, S3kSlotRomData.SLOT_BONUS_PLAYER_START_Y);
+        assertEquals((short) 0x0460, S3kSlotRomData.SLOT_BONUS_CAGE_CENTER_X);
+        assertEquals((short) 0x0430, S3kSlotRomData.SLOT_BONUS_CAGE_CENTER_Y);
     }
 
     private static S3kSlotPlayerRuntime newEmptyRuntime() {

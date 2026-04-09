@@ -98,7 +98,9 @@ public final class S3kSlotStageState {
     }
 
     int angle() {
-        return statTable & 0xFF;
+        // 68k move.b (Stat_table).w reads the first byte of the big-endian word,
+        // which corresponds to the high byte of this 16-bit accumulator.
+        return (statTable >>> 8) & 0xFF;
     }
 
     int rawStatTable() {

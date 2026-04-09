@@ -23,22 +23,41 @@ class TestS3kSlotStageState {
     }
 
     @Test
+    void angleUsesHighByteOfStatTable() {
+        S3kSlotStageState state = S3kSlotStageState.bootstrap();
+
+        state.setStatTable(0x0040);
+        assertEquals(0x00, state.angle());
+
+        state.setStatTable(0x0100);
+        assertEquals(0x01, state.angle());
+
+        state.setStatTable(0x3FC0);
+        assertEquals(0x3F, state.angle());
+    }
+
+    @Test
     void renderBuffersUseExpandedLayoutStride() {
         S3kSlotRenderBuffers buffers = S3kSlotRenderBuffers.fromRomData();
 
         assertEquals(0x80, buffers.layoutStrideBytes());
-        assertEquals(0x20, buffers.layoutRows());
-        assertEquals(0x20, buffers.layoutColumns());
+        assertEquals(0x80, buffers.layoutRows());
+        assertEquals(0x80, buffers.layoutColumns());
     }
 
     @Test
-    void expandedLayoutCopiesRowsIntoStrideSlots() {
+    void expandedLayoutCopiesRowsIntoRomWorldOffsetSlots() {
         byte[] expandedLayout = S3kSlotRomData.buildExpandedLayoutBuffer();
 
-        assertEquals(0x20 * 0x80, expandedLayout.length);
-        assertArrayEquals(row(0), Arrays.copyOfRange(expandedLayout, 0, 0x20));
-        assertArrayEquals(row(1), Arrays.copyOfRange(expandedLayout, 0x80, 0x80 + 0x20));
-        assertArrayEquals(row(0x1F), Arrays.copyOfRange(expandedLayout, 0x1F * 0x80, 0x1F * 0x80 + 0x20));
+        assertEquals(0x80 * 0x80, expandedLayout.length);
+        int firstRow = (0x20 * 0x80) + 0x20;
+        int secondRow = (0x21 * 0x80) + 0x20;
+        int lastRow = (0x3F * 0x80) + 0x20;
+        assertArrayEquals(row(0), Arrays.copyOfRange(expandedLayout, firstRow, firstRow + 0x20));
+        assertArrayEquals(row(1), Arrays.copyOfRange(expandedLayout, secondRow, secondRow + 0x20));
+        assertArrayEquals(row(0x1F), Arrays.copyOfRange(expandedLayout, lastRow, lastRow + 0x20));
+        assertEquals(0, expandedLayout[0]);
+        assertEquals(0, expandedLayout[(0x20 * 0x80) + 0x1F]);
     }
 
     private static byte[] row(int rowIndex) {

@@ -13,7 +13,7 @@ import java.util.List;
 public final class S3kSlotLayoutRenderer {
 
     private static final int GRID_SIZE = 16;
-    private static final int LAYOUT_SIZE = 32;
+    private static final int POINT_GRID_LENGTH = GRID_SIZE * GRID_SIZE * 2;
     private static final int CELL_SIZE = 0x18;
     private static final int GRID_OFFSET = 0xB4;
     private static final int SCREEN_X_OFFSET = 0x120;
@@ -84,7 +84,15 @@ public final class S3kSlotLayoutRenderer {
     }
 
     public short[] buildPointGrid(int angle, int cameraX, int cameraY) {
-        short[] points = new short[GRID_SIZE * GRID_SIZE * 2];
+        short[] points = new short[POINT_GRID_LENGTH];
+        buildPointGridInto(points, angle, cameraX, cameraY);
+        return points;
+    }
+
+    public void buildPointGridInto(short[] points, int angle, int cameraX, int cameraY) {
+        if (points == null || points.length < POINT_GRID_LENGTH) {
+            throw new IllegalArgumentException("Point grid buffer must be at least " + POINT_GRID_LENGTH + " entries");
+        }
         int byteAngle = angle & 0xFC;
         int sin = TrigLookupTable.sinHex(byteAngle);
         int cos = TrigLookupTable.cosHex(byteAngle);
@@ -104,7 +112,6 @@ public final class S3kSlotLayoutRenderer {
             }
             currentOffsetY += CELL_SIZE;
         }
-        return points;
     }
 
     public List<VisibleCell> buildVisibleCells(S3kSlotRenderBuffers buffers) {
@@ -112,13 +119,13 @@ public final class S3kSlotLayoutRenderer {
             return List.of();
         }
         short[] points = buffers.stagedPointGrid();
-        if (points == null || points.length < GRID_SIZE * GRID_SIZE * 2) {
+        if (points == null || points.length < POINT_GRID_LENGTH) {
             return List.of();
         }
 
         int layoutRow = Math.floorDiv(buffers.stagedCameraY(), CELL_SIZE);
         int layoutCol = Math.floorDiv(buffers.stagedCameraX(), CELL_SIZE);
-        List<VisibleCell> visible = new ArrayList<>();
+        List<VisibleCell> visible = new ArrayList<>(96);
 
         int pointIndex = 0;
         for (int row = 0; row < GRID_SIZE; row++) {
@@ -139,7 +146,9 @@ public final class S3kSlotLayoutRenderer {
                         || screenY < MIN_SCREEN_Y || screenY >= MAX_SCREEN_Y) {
                     continue;
                 }
-                visible.add(new VisibleCell((byte) cellId, screenX, screenY));
+                visible.add(new VisibleCell((byte) cellId,
+                        buffers.stagedCameraX() + screenX,
+                        buffers.stagedCameraY() + screenY));
             }
         }
 
@@ -147,14 +156,14 @@ public final class S3kSlotLayoutRenderer {
     }
 
     public List<VisibleCell> buildVisibleCells(byte[] layout, int angle, int cameraX, int cameraY) {
-        if (layout == null || layout.length < LAYOUT_SIZE * LAYOUT_SIZE) {
+        if (layout == null || layout.length < S3kSlotRomData.SLOT_LAYOUT_SIZE * S3kSlotRomData.SLOT_LAYOUT_SIZE) {
             return List.of();
         }
 
         short[] points = buildPointGrid(angle, cameraX, cameraY);
         int layoutRow = Math.floorDiv(cameraY, CELL_SIZE);
         int layoutCol = Math.floorDiv(cameraX, CELL_SIZE);
-        List<VisibleCell> visible = new ArrayList<>();
+        List<VisibleCell> visible = new ArrayList<>(96);
 
         int pointIndex = 0;
         for (int row = 0; row < GRID_SIZE; row++) {
@@ -162,8 +171,11 @@ public final class S3kSlotLayoutRenderer {
             for (int col = 0; col < GRID_SIZE; col++) {
                 int sourceCol = layoutCol + col;
                 int cellId = 0;
-                if (sourceRow >= 0 && sourceRow < LAYOUT_SIZE && sourceCol >= 0 && sourceCol < LAYOUT_SIZE) {
-                    cellId = layout[sourceRow * LAYOUT_SIZE + sourceCol] & 0xFF;
+                int compactRow = sourceRow - S3kSlotRomData.SLOT_LAYOUT_WORLD_OFFSET;
+                int compactCol = sourceCol - S3kSlotRomData.SLOT_LAYOUT_WORLD_OFFSET;
+                if (compactRow >= 0 && compactRow < S3kSlotRomData.SLOT_LAYOUT_SIZE
+                        && compactCol >= 0 && compactCol < S3kSlotRomData.SLOT_LAYOUT_SIZE) {
+                    cellId = layout[compactRow * S3kSlotRomData.SLOT_LAYOUT_SIZE + compactCol] & 0xFF;
                 }
 
                 int pointX = points[pointIndex++];
@@ -178,7 +190,7 @@ public final class S3kSlotLayoutRenderer {
                         || screenY < MIN_SCREEN_Y || screenY >= MAX_SCREEN_Y) {
                     continue;
                 }
-                visible.add(new VisibleCell((byte) cellId, screenX, screenY));
+                visible.add(new VisibleCell((byte) cellId, cameraX + screenX, cameraY + screenY));
             }
         }
 
@@ -199,8 +211,6 @@ public final class S3kSlotLayoutRenderer {
         if (visibleCells == null || visibleCells.isEmpty() || camera == null || renderManager == null) {
             return;
         }
-        int cameraX = camera.getX();
-        int cameraY = camera.getY();
         for (VisibleCell cell : visibleCells) {
             int cellId = cell.cellId() & 0xFF;
             if (cellId <= 0 || cellId >= PIECE_DEFS.length) {
@@ -221,12 +231,12 @@ public final class S3kSlotLayoutRenderer {
             } else if (cellId == 0x07) {
                 frameIdx = peppermintFrame;
             }
-            renderer.drawFrameIndex(frameIdx, cameraX + cell.screenX(), cameraY + cell.screenY(),
+            renderer.drawFrameIndex(frameIdx, cell.worldX(), cell.worldY(),
                     false, false, def.palette());
         }
     }
 
-    public record VisibleCell(byte cellId, int screenX, int screenY) {
+    public record VisibleCell(byte cellId, int worldX, int worldY) {
     }
 
     private record LayoutPieceDef(String artKey, int frameIndex, int palette) {

@@ -89,8 +89,8 @@ class TestS3kSlotBonusStageRuntime {
         assertEquals(0x10, state.eventsBgX());
         assertEquals(0x2D, state.eventsBgY());
         assertEquals(0x80, buffers.layoutStrideBytes());
-        assertEquals(0x20, buffers.layoutRows());
-        assertEquals(0x20, buffers.layoutColumns());
+        assertEquals(0x80, buffers.layoutRows());
+        assertEquals(0x80, buffers.layoutColumns());
     }
 
     @Test
