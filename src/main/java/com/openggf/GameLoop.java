@@ -90,6 +90,7 @@ public class GameLoop {
     private InputHandler inputHandler;
     private EditorInputHandler editorInputHandler;
     private Runnable editorPlaytestToggleHandler;
+    private Runnable editorFreshStartHandler;
     private GameMode currentGameMode = GameMode.LEVEL;
 
     // Special stage results screen
@@ -190,6 +191,10 @@ public class GameLoop {
 
     public void setEditorPlaytestToggleHandler(Runnable editorPlaytestToggleHandler) {
         this.editorPlaytestToggleHandler = editorPlaytestToggleHandler;
+    }
+
+    public void setEditorFreshStartHandler(Runnable editorFreshStartHandler) {
+        this.editorFreshStartHandler = editorFreshStartHandler;
     }
 
     private void updateEditorMode() {
@@ -337,6 +342,11 @@ public class GameLoop {
         }
 
         if (currentGameMode == GameMode.EDITOR) {
+            if (inputHandler.isKeyPressed(GLFW_KEY_F5) && editorFreshStartHandler != null) {
+                editorFreshStartHandler.run();
+                inputHandler.update();
+                return;
+            }
             updateEditorMode();
             inputHandler.update();
             return;

@@ -5,16 +5,30 @@ import com.openggf.control.InputHandler;
 import java.util.Objects;
 
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_DOWN;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_E;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_CONTROL;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_SHIFT;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_CONTROL;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_SHIFT;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_UP;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_TAB;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_Y;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_Z;
 
 public final class EditorInputHandler {
     public enum Action {
         DESCEND,
-        ASCEND
+        ASCEND,
+        CYCLE_FOCUS_REGION,
+        APPLY_PRIMARY_ACTION,
+        PERFORM_EYEDROP,
+        UNDO,
+        REDO
     }
 
     private static final int WORLD_MOVE_SPEED = 3;
@@ -48,6 +62,25 @@ public final class EditorInputHandler {
                 controller.moveActiveSelection(dx, dy);
             }
         }
+        boolean shiftDown = inputHandler.isKeyDown(GLFW_KEY_LEFT_SHIFT)
+                || inputHandler.isKeyDown(GLFW_KEY_RIGHT_SHIFT);
+        if (inputHandler.isKeyPressed(GLFW_KEY_TAB) && !shiftDown) {
+            handleAction(Action.CYCLE_FOCUS_REGION);
+        }
+        if (inputHandler.isKeyPressed(GLFW_KEY_SPACE)) {
+            handleAction(Action.APPLY_PRIMARY_ACTION);
+        }
+        if (inputHandler.isKeyPressed(GLFW_KEY_E)) {
+            handleAction(Action.PERFORM_EYEDROP);
+        }
+        boolean controlDown = inputHandler.isKeyDown(GLFW_KEY_LEFT_CONTROL)
+                || inputHandler.isKeyDown(GLFW_KEY_RIGHT_CONTROL);
+        if (controlDown && inputHandler.isKeyPressed(GLFW_KEY_Z)) {
+            handleAction(Action.UNDO);
+        }
+        if (controlDown && inputHandler.isKeyPressed(GLFW_KEY_Y)) {
+            handleAction(Action.REDO);
+        }
         if (inputHandler.isKeyPressed(GLFW_KEY_ENTER)) {
             handleAction(Action.DESCEND);
         }
@@ -61,6 +94,11 @@ public final class EditorInputHandler {
         switch (action) {
             case DESCEND -> controller.descend();
             case ASCEND -> controller.ascend();
+            case CYCLE_FOCUS_REGION -> controller.cycleFocusRegion();
+            case APPLY_PRIMARY_ACTION -> controller.applyPrimaryAction();
+            case PERFORM_EYEDROP -> controller.performEyedrop();
+            case UNDO -> controller.undo();
+            case REDO -> controller.redo();
         }
     }
 }

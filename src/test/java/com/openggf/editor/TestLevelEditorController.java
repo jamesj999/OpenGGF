@@ -28,12 +28,18 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_DOWN;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_E;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_F5;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_CONTROL;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_SHIFT;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_SHIFT;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_TAB;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_Y;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_Z;
 import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
 
 class TestLevelEditorController {
@@ -177,11 +183,88 @@ class TestLevelEditorController {
     }
 
     @Test
+    void inputHandler_updateRoutesTabToCycleFocusRegionInEditorMode() {
+        LevelEditorController controller = new LevelEditorController();
+        EditorInputHandler handler = new EditorInputHandler(controller);
+        InputHandler input = new InputHandler();
+
+        input.handleKeyEvent(GLFW_KEY_TAB, GLFW_PRESS);
+        handler.update(input);
+
+        assertEquals(EditorFocusRegion.LIBRARY, controller.focusRegion());
+    }
+
+    @Test
+    void inputHandler_updateRoutesSpaceToPrimaryActionInEditorMode() {
+        MutableLevel level = createMutableLevel(4, 3, 2, 3);
+        LevelEditorController controller = new LevelEditorController();
+        EditorInputHandler handler = new EditorInputHandler(controller);
+        InputHandler input = new InputHandler();
+
+        controller.attachLevel(level);
+        controller.selectBlock(2);
+        controller.setWorldCursor(new EditorCursorState(65, 130));
+
+        input.handleKeyEvent(GLFW_KEY_SPACE, GLFW_PRESS);
+        handler.update(input);
+
+        assertEquals(2, Byte.toUnsignedInt(level.getMap().getValue(0, 1, 2)));
+    }
+
+    @Test
+    void inputHandler_updateRoutesEToEyedropInEditorMode() {
+        MutableLevel level = createMutableLevel(4, 3, 2, 3);
+        LevelEditorController controller = new LevelEditorController();
+        EditorInputHandler handler = new EditorInputHandler(controller);
+        InputHandler input = new InputHandler();
+
+        controller.attachLevel(level);
+        level.setBlockInMap(0, 1, 2, 1);
+        controller.selectBlock(2);
+        controller.setWorldCursor(new EditorCursorState(65, 130));
+
+        input.handleKeyEvent(GLFW_KEY_E, GLFW_PRESS);
+        handler.update(input);
+
+        assertEquals(1, controller.selection().selectedBlock());
+    }
+
+    @Test
+    void inputHandler_updateRoutesCtrlZAndCtrlYToUndoRedoInEditorMode() {
+        MutableLevel level = createMutableLevel(4, 3, 2, 3);
+        LevelEditorController controller = new LevelEditorController();
+        EditorInputHandler handler = new EditorInputHandler(controller);
+        InputHandler input = new InputHandler();
+
+        controller.attachLevel(level);
+        controller.selectBlock(2);
+        controller.setWorldCursor(new EditorCursorState(65, 130));
+        controller.applyPrimaryAction();
+        assertEquals(2, Byte.toUnsignedInt(level.getMap().getValue(0, 1, 2)));
+
+        input.handleKeyEvent(GLFW_KEY_LEFT_CONTROL, GLFW_PRESS);
+        input.handleKeyEvent(GLFW_KEY_Z, GLFW_PRESS);
+        handler.update(input);
+        assertEquals(0, Byte.toUnsignedInt(level.getMap().getValue(0, 1, 2)));
+
+        input = new InputHandler();
+        input.handleKeyEvent(GLFW_KEY_LEFT_CONTROL, GLFW_PRESS);
+        input.handleKeyEvent(GLFW_KEY_Y, GLFW_PRESS);
+        handler.update(input);
+        assertEquals(2, Byte.toUnsignedInt(level.getMap().getValue(0, 1, 2)));
+    }
+
+    @Test
     void inputHandler_publicActionsMatchImplementedMvpSurface() {
         assertArrayEquals(
                 new EditorInputHandler.Action[] {
                         EditorInputHandler.Action.DESCEND,
-                        EditorInputHandler.Action.ASCEND
+                        EditorInputHandler.Action.ASCEND,
+                        EditorInputHandler.Action.CYCLE_FOCUS_REGION,
+                        EditorInputHandler.Action.APPLY_PRIMARY_ACTION,
+                        EditorInputHandler.Action.PERFORM_EYEDROP,
+                        EditorInputHandler.Action.UNDO,
+                        EditorInputHandler.Action.REDO
                 },
                 EditorInputHandler.Action.values());
     }
@@ -319,6 +402,48 @@ class TestLevelEditorController {
 
             assertEquals(1, toggleCount[0]);
             assertFalse(inputHandler.isKeyPressed(GLFW_KEY_TAB));
+        } finally {
+            RuntimeManager.destroyCurrent();
+        }
+    }
+
+    @Test
+    void gameLoop_f5InEditorModeInvokesFreshStartHandler() {
+        RuntimeManager.createGameplay();
+        try {
+            InputHandler inputHandler = new InputHandler();
+            GameLoop gameLoop = new GameLoop(inputHandler);
+            int[] freshStartCount = {0};
+
+            gameLoop.setEditorFreshStartHandler(() -> freshStartCount[0]++);
+            gameLoop.setGameMode(GameMode.EDITOR);
+
+            inputHandler.handleKeyEvent(GLFW_KEY_F5, GLFW_PRESS);
+
+            gameLoop.step();
+
+            assertEquals(1, freshStartCount[0]);
+            assertFalse(inputHandler.isKeyPressed(GLFW_KEY_F5));
+        } finally {
+            RuntimeManager.destroyCurrent();
+        }
+    }
+
+    @Test
+    void gameLoop_f5OutsideEditorModeDoesNotInvokeFreshStartHandler() {
+        RuntimeManager.createGameplay();
+        try {
+            InputHandler inputHandler = new InputHandler();
+            GameLoop gameLoop = new GameLoop(inputHandler);
+            int[] freshStartCount = {0};
+
+            gameLoop.setEditorFreshStartHandler(() -> freshStartCount[0]++);
+            gameLoop.pause();
+            inputHandler.handleKeyEvent(GLFW_KEY_F5, GLFW_PRESS);
+
+            gameLoop.step();
+
+            assertEquals(0, freshStartCount[0]);
         } finally {
             RuntimeManager.destroyCurrent();
         }

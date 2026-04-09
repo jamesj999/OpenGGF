@@ -39,6 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_F5;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_DOWN;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_SHIFT;
@@ -199,6 +200,44 @@ class TestEditorToggleIntegration {
         assertEquals(103, engine.getLevelEditorController().worldCursor().x());
         assertEquals(103, SessionManager.getCurrentEditorMode().getCursor().x());
         assertEquals(200, SessionManager.getCurrentEditorMode().getCursor().y());
+    }
+
+    @Test
+    void gameLoop_f5InEditorModeInvokesFreshStartHandler() {
+        enableEditor();
+        Engine engine = new Engine();
+        createGameplayRuntime(engine);
+        InputHandler inputHandler = new InputHandler();
+        engine.setInputHandler(inputHandler);
+        int[] freshStartCount = {0};
+
+        engine.getGameLoop().setEditorFreshStartHandler(() -> freshStartCount[0]++);
+        engine.getGameLoop().setGameMode(GameMode.EDITOR);
+
+        inputHandler.handleKeyEvent(GLFW_KEY_F5, GLFW_PRESS);
+
+        engine.getGameLoop().step();
+
+        assertEquals(1, freshStartCount[0]);
+        assertFalse(inputHandler.isKeyPressed(GLFW_KEY_F5));
+    }
+
+    @Test
+    void gameLoop_f5OutsideEditorModeDoesNotInvokeFreshStartHandler() {
+        enableEditor();
+        Engine engine = new Engine();
+        createGameplayRuntime(engine);
+        InputHandler inputHandler = new InputHandler();
+        engine.setInputHandler(inputHandler);
+        int[] freshStartCount = {0};
+
+        engine.getGameLoop().setEditorFreshStartHandler(() -> freshStartCount[0]++);
+        engine.getGameLoop().pause();
+        inputHandler.handleKeyEvent(GLFW_KEY_F5, GLFW_PRESS);
+
+        engine.getGameLoop().step();
+
+        assertEquals(0, freshStartCount[0]);
     }
 
     @Test
