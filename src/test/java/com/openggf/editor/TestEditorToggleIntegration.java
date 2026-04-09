@@ -319,6 +319,8 @@ class TestEditorToggleIntegration {
         EditorCursorState boundedCursor = engine.getLevelEditorController().worldCursor();
         assertEquals(255, boundedCursor.x());
         assertEquals(191, boundedCursor.y());
+        assertEquals(255, SessionManager.getCurrentEditorMode().getCursor().x());
+        assertEquals(191, SessionManager.getCurrentEditorMode().getCursor().y());
 
         inputHandler.handleKeyEvent(GLFW_KEY_TAB, GLFW_RELEASE);
         inputHandler.handleKeyEvent(GLFW_KEY_LEFT_SHIFT, GLFW_RELEASE);
@@ -449,34 +451,20 @@ class TestEditorToggleIntegration {
     private static final class SyntheticLevel extends AbstractLevel {
         private SyntheticLevel() {
             super(0);
-            patternCount = 4;
+            patternCount = 1;
             patterns = new Pattern[patternCount];
-            for (int i = 0; i < patternCount; i++) {
-                patterns[i] = new Pattern();
-                patterns[i].setPixel(0, 0, (byte) (i + 1));
-            }
+            patterns[0] = new Pattern();
+            patterns[0].setPixel(0, 0, (byte) 1);
 
-            chunkCount = 5;
+            chunkCount = 1;
             chunks = new Chunk[chunkCount];
-            for (int i = 0; i < chunkCount; i++) {
-                chunks[i] = new Chunk();
-                int[] state = new int[Chunk.PATTERNS_PER_CHUNK + 2];
-                state[0] = i * 10;
-                state[1] = i * 10 + 1;
-                state[2] = i * 10 + 2;
-                state[3] = i * 10 + 3;
-                chunks[i].restoreState(state);
-            }
+            chunks[0] = new Chunk();
+            chunks[0].restoreState(new int[] { 0, 0, 0, 0, 0, 0 });
 
-            blockCount = 3;
+            blockCount = 1;
             blocks = new Block[blockCount];
-            for (int i = 0; i < blockCount; i++) {
-                blocks[i] = new Block(2);
-                blocks[i].setChunkDesc(0, 0, new ChunkDesc(i));
-                blocks[i].setChunkDesc(1, 0, new ChunkDesc((i + 1) % 4));
-                blocks[i].setChunkDesc(0, 1, new ChunkDesc((i + 2) % 4));
-                blocks[i].setChunkDesc(1, 1, new ChunkDesc((i + 3) % 4));
-            }
+            blocks[0] = new Block(1);
+            blocks[0].setChunkDesc(0, 0, new ChunkDesc(0));
 
             solidTileCount = 1;
             solidTiles = new SolidTile[] {
@@ -484,14 +472,13 @@ class TestEditorToggleIntegration {
             };
 
             map = new Map(2, 2, 2);
-            map.setValue(0, 0, 0, (byte) 0);
-            map.setValue(0, 1, 0, (byte) 1);
-            map.setValue(0, 0, 1, (byte) 1);
-            map.setValue(0, 1, 1, (byte) 0);
-            map.setValue(1, 0, 0, (byte) 0);
-            map.setValue(1, 1, 0, (byte) 1);
-            map.setValue(1, 0, 1, (byte) 1);
-            map.setValue(1, 1, 1, (byte) 0);
+            for (int layer = 0; layer < 2; layer++) {
+                for (int y = 0; y < 2; y++) {
+                    for (int x = 0; x < 2; x++) {
+                        map.setValue(layer, x, y, (byte) 0);
+                    }
+                }
+            }
 
             palettes = new Palette[PALETTE_COUNT];
             for (int i = 0; i < PALETTE_COUNT; i++) {
