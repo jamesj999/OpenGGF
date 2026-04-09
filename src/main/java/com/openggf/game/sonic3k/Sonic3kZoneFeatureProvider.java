@@ -10,6 +10,7 @@ import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.game.sonic3k.features.AizBattleshipRenderFeature;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.features.AizTransitionRenderFeature;
+import com.openggf.game.sonic3k.features.HCZWaterSkimHandler;
 import com.openggf.game.sonic3k.features.HCZWaterTunnelHandler;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.graphics.GraphicsManager;
@@ -45,6 +46,9 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
         // is loaded in a later init phase (InitWater runs after InitZoneFeatures).
         if (zoneHasWaterSurface(zoneIndex)) {
             initWaterSurfaceManager(rom, zoneIndex, actIndex);
+            // Init water skim handler (Obj_HCZWaterSplash subtype 1)
+            // ROM: sonic3k.asm:7786-7787 — spawned alongside Obj_HCZWaveSplash at HCZ init
+            HCZWaterSkimHandler.init(rom, actIndex);
         }
     }
 
@@ -63,6 +67,9 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
         if (zoneIndex == Sonic3kZoneIds.ZONE_HCZ && player != null && !player.getDead()) {
             int act = GameServices.level().getFeatureActId();
             HCZWaterTunnelHandler.update(act);
+            // Water skim runs after tunnels (ROM: Obj_HCZWaterSplash runs in ExecuteObjects
+            // which is after sub_6F4A/water tunnels)
+            HCZWaterSkimHandler.update();
         }
     }
 
@@ -120,6 +127,7 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
         waterSurfaceManager = null;
         forcedAizForestFrontPriority = false;
         HCZWaterTunnelHandler.reset();
+        HCZWaterSkimHandler.reset();
     }
 
     @Override
@@ -156,6 +164,8 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
         if (waterSurfaceManager != null && waterSurfaceManager.isInitialized()) {
             waterSurfaceManager.render(camera, frameCounter);
         }
+        // Render water skim splash sprites (at water level, following player)
+        HCZWaterSkimHandler.render(camera);
         aizTransitionRenderFeature.renderFlameOverlay(camera, frameCounter);
     }
 
@@ -172,8 +182,9 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
     @Override
     public int ensurePatternsCached(GraphicsManager graphicsManager, int baseIndex) {
         if (waterSurfaceManager != null) {
-            return waterSurfaceManager.ensurePatternsCached(graphicsManager, baseIndex);
+            baseIndex = waterSurfaceManager.ensurePatternsCached(graphicsManager, baseIndex);
         }
+        baseIndex = HCZWaterSkimHandler.ensurePatternsCached(graphicsManager, baseIndex);
         return baseIndex;
     }
 
