@@ -138,6 +138,29 @@ class TestLevelEditorController {
     }
 
     @Test
+    void gameLoop_editorModeUpdatesCursorMovementBeforeAdvancingInputState() {
+        RuntimeManager.createGameplay();
+        try {
+            InputHandler inputHandler = new InputHandler();
+            GameLoop gameLoop = new GameLoop(inputHandler);
+            LevelEditorController controller = new LevelEditorController();
+            EditorInputHandler editorInputHandler = new EditorInputHandler(controller);
+
+            gameLoop.setEditorInputHandler(editorInputHandler);
+            gameLoop.setGameMode(GameMode.EDITOR);
+            controller.setWorldCursor(new EditorCursorState(100, 200));
+            inputHandler.handleKeyEvent(GLFW_KEY_RIGHT, GLFW_PRESS);
+
+            gameLoop.step();
+
+            assertEquals(103, controller.worldCursor().x());
+            assertFalse(inputHandler.isKeyPressed(GLFW_KEY_RIGHT));
+        } finally {
+            RuntimeManager.destroyCurrent();
+        }
+    }
+
+    @Test
     void gameLoop_shiftTabDoesNotInvokePlaytestToggleHandlerOutsideEditorMode() {
         RuntimeManager.createGameplay();
         try {

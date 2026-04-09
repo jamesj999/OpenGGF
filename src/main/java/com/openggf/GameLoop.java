@@ -192,6 +192,16 @@ public class GameLoop {
         this.editorPlaytestToggleHandler = editorPlaytestToggleHandler;
     }
 
+    private void updateEditorMode() {
+        if (editorInputHandler != null) {
+            editorInputHandler.update(inputHandler);
+        }
+        Engine engine = Engine.getInstance();
+        if (engine != null) {
+            engine.syncEditorState();
+        }
+    }
+
     /**
      * Gets the title card provider, lazily initializing it from the current
      * GameModule.
@@ -327,9 +337,7 @@ public class GameLoop {
         }
 
         if (currentGameMode == GameMode.EDITOR) {
-            if (editorInputHandler != null) {
-                editorInputHandler.update(inputHandler);
-            }
+            updateEditorMode();
             inputHandler.update();
             return;
         }
