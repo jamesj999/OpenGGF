@@ -297,7 +297,7 @@ class TestEditorToggleIntegration {
     void outOfBoundsEditorMovement_resumesFromClampedCursorPosition() {
         enableEditor();
         Engine engine = new Engine();
-        GameRuntime runtime = createGameplayRuntime(engine);
+        GameRuntime runtime = createGameplayRuntime(engine, new Sonic("sonic", (short) 100, (short) 180));
         Sonic player = (Sonic) runtime.getSpriteManager().getSprite("sonic");
         runtime.getLevelManager().setLevel(MutableLevel.snapshot(new SyntheticLevel()));
         runtime.getCamera().setMinX((short) 0);
@@ -477,10 +477,10 @@ class TestEditorToggleIntegration {
                     new SolidTile(0, new byte[SolidTile.TILE_SIZE_IN_ROM], new byte[SolidTile.TILE_SIZE_IN_ROM], (byte) 0)
             };
 
-            map = new Map(2, 2, 2);
+            map = new Map(2, 4, 3);
             for (int layer = 0; layer < 2; layer++) {
-                for (int y = 0; y < 2; y++) {
-                    for (int x = 0; x < 2; x++) {
+                for (int y = 0; y < 3; y++) {
+                    for (int x = 0; x < 4; x++) {
                         map.setValue(layer, x, y, (byte) 0);
                     }
                 }
