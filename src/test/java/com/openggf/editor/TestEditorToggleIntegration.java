@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_DOWN;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_SHIFT;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_TAB;
@@ -243,6 +244,32 @@ class TestEditorToggleIntegration {
         assertEquals(320, SessionManager.getCurrentGameplayMode().getSpawnX());
         assertEquals(448, SessionManager.getCurrentGameplayMode().getSpawnY());
         assertSame(stash, SessionManager.getCurrentGameplayMode().getResumeStash().orElseThrow());
+    }
+
+    @Test
+    void movedEditorCursor_becomesResumePositionWhenReturningToGameplay() {
+        enableEditor();
+        Engine engine = new Engine();
+        GameRuntime runtime = createGameplayRuntime(engine);
+        InputHandler inputHandler = new InputHandler();
+        engine.setInputHandler(inputHandler);
+
+        engine.enterEditorFromCurrentPlayer(new EditorPlaytestStash(100, 200, 0, 0, true, 0, 0), 100, 200);
+        inputHandler.handleKeyEvent(GLFW_KEY_RIGHT, GLFW_PRESS);
+        inputHandler.handleKeyEvent(GLFW_KEY_DOWN, GLFW_PRESS);
+        engine.getGameLoop().step();
+
+        inputHandler.handleKeyEvent(GLFW_KEY_TAB, GLFW_RELEASE);
+        inputHandler.handleKeyEvent(GLFW_KEY_LEFT_SHIFT, GLFW_RELEASE);
+        inputHandler.update();
+        inputHandler.handleKeyEvent(GLFW_KEY_LEFT_SHIFT, GLFW_PRESS);
+        inputHandler.handleKeyEvent(GLFW_KEY_TAB, GLFW_PRESS);
+        engine.getGameLoop().step();
+
+        assertEquals(GameMode.LEVEL, engine.getCurrentGameMode());
+        assertSame(runtime, RuntimeManager.getCurrent());
+        assertEquals(103, SessionManager.getCurrentGameplayMode().getSpawnX());
+        assertEquals(203, SessionManager.getCurrentGameplayMode().getSpawnY());
     }
 
     @Test
