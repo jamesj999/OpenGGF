@@ -291,6 +291,56 @@ class TestLevelEditorController {
     }
 
     @Test
+    void controller_applyPrimaryActionInChunkDepthNoOpsWhenSelectedChunkDiffersFromActiveBlockCell() {
+        MutableLevel level = createMutableLevelWithChunkCount(2, 2, 2, 3, 6);
+        level.setBlockInMap(0, 1, 1, 1);
+        level.setChunkInBlock(0, 1, 0, new ChunkDesc(1));
+        level.setChunkInBlock(0, 0, 1, new ChunkDesc(2));
+        level.setChunkInBlock(1, 0, 0, new ChunkDesc(3));
+        level.setPatternDescInChunk(4, 0, 0, new PatternDesc(41));
+        level.setPatternDescInChunk(5, 1, 1, new PatternDesc(55));
+        LevelEditorController controller = new LevelEditorController();
+        controller.attachLevel(level);
+
+        controller.setWorldCursor(new EditorCursorState(80, 96));
+        controller.selectBlock(1);
+        controller.descend();
+        controller.selectChunk(4);
+        controller.descend();
+        controller.performEyedrop();
+        controller.moveActiveSelection(1, 1);
+        controller.applyPrimaryAction();
+
+        assertEquals(1, Byte.toUnsignedInt(level.getMap().getValue(0, 1, 1)));
+        assertEquals(3, level.getBlock(1).getChunkDesc(0, 0).getChunkIndex());
+        assertEquals(55, level.getChunk(5).getPatternDesc(1, 1).get());
+        assertEquals(1, controller.selection().selectedBlock());
+        assertEquals(4, controller.selection().selectedChunk());
+    }
+
+    @Test
+    void controller_noOpUndoRedoPreserveSelectionInBlockDepth() {
+        MutableLevel level = createMutableLevelWithChunkCount(2, 2, 2, 2, 5);
+        level.setBlockInMap(0, 1, 1, 1);
+        level.setChunkInBlock(1, 0, 0, new ChunkDesc(3));
+        LevelEditorController controller = new LevelEditorController();
+        controller.attachLevel(level);
+
+        controller.setWorldCursor(new EditorCursorState(80, 96));
+        controller.selectBlock(0);
+        controller.descend();
+        controller.selectChunk(4);
+
+        controller.undo();
+        assertEquals(0, controller.selection().selectedBlock());
+        assertEquals(4, controller.selection().selectedChunk());
+
+        controller.redo();
+        assertEquals(0, controller.selection().selectedBlock());
+        assertEquals(4, controller.selection().selectedChunk());
+    }
+
+    @Test
     void controller_applyPrimaryActionInChunkDepthDoesNothingWithoutSelectedPatternDescriptor() {
         MutableLevel level = createMutableLevelWithChunkCount(2, 2, 2, 2, 5);
         level.setChunkInBlock(1, 0, 0, new ChunkDesc(3));

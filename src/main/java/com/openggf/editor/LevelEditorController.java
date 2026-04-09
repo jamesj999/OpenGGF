@@ -48,13 +48,15 @@ public final class LevelEditorController {
     }
 
     public void undo() {
-        history.undo();
-        refreshSelectionFromActiveTarget();
+        if (history.undo()) {
+            refreshSelectionFromActiveTarget();
+        }
     }
 
     public void redo() {
-        history.redo();
-        refreshSelectionFromActiveTarget();
+        if (history.redo()) {
+            refreshSelectionFromActiveTarget();
+        }
     }
 
     public void selectBlock(int blockIndex) {
@@ -271,7 +273,8 @@ public final class LevelEditorController {
             return;
         }
         int sourceChunkIndex = block.getChunkDesc(selectedBlockCellX, selectedBlockCellY).getChunkIndex();
-        if (!isValidChunkIndex(attachedLevel, sourceChunkIndex)) {
+        if (!Objects.equals(selection.selectedChunk(), sourceChunkIndex)
+                || !isValidChunkIndex(attachedLevel, sourceChunkIndex)) {
             return;
         }
         int derivedBlockIndex = findUnreferencedBlockSlot(attachedLevel, sourceBlockIndex);
