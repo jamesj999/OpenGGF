@@ -28,6 +28,7 @@ import com.openggf.sprites.playable.Sonic;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
 
@@ -223,6 +224,26 @@ class TestEditorToggleIntegration {
     }
 
     @Test
+    void gameLoop_f5InEditorModeUsesEngineFreshStartHandlerByDefault() {
+        enableEditor();
+        Engine engine = new Engine();
+        GameRuntime runtime = createGameplayRuntime(engine);
+        InputHandler inputHandler = new InputHandler();
+        engine.setInputHandler(inputHandler);
+
+        engine.enterEditorFromCurrentPlayer(new EditorPlaytestStash(100, 200, 9, -3, true, 47, 1), 100, 200);
+        inputHandler.handleKeyEvent(GLFW_KEY_F5, GLFW_PRESS);
+
+        engine.getGameLoop().step();
+
+        assertEquals(GameMode.LEVEL, engine.getCurrentGameMode());
+        assertNotSame(runtime, RuntimeManager.getCurrent());
+        assertEquals(0, SessionManager.getCurrentGameplayMode().getSpawnX());
+        assertEquals(0, SessionManager.getCurrentGameplayMode().getSpawnY());
+        assertTrue(SessionManager.getCurrentGameplayMode().getResumeStash().isEmpty());
+    }
+
+    @Test
     void gameLoop_f5OutsideEditorModeDoesNotInvokeFreshStartHandler() {
         enableEditor();
         Engine engine = new Engine();
@@ -293,6 +314,31 @@ class TestEditorToggleIntegration {
         assertEquals(320, SessionManager.getCurrentGameplayMode().getSpawnX());
         assertEquals(448, SessionManager.getCurrentGameplayMode().getSpawnY());
         assertSame(stash, SessionManager.getCurrentGameplayMode().getResumeStash().orElseThrow());
+    }
+
+    @Test
+    void resumePlaytestFromEditor_repairsProgrammaticOutOfBoundsCursorBeforeApplyingSpawn() throws Exception {
+        enableEditor();
+        Engine engine = new Engine();
+        GameRuntime runtime = createGameplayRuntime(engine, new Sonic("sonic", (short) 100, (short) 180));
+        Sonic player = (Sonic) runtime.getSpriteManager().getSprite("sonic");
+        runtime.getLevelManager().setLevel(MutableLevel.snapshot(new SyntheticLevel()));
+        runtime.getCamera().setMinX((short) 0);
+        runtime.getCamera().setMaxX((short) 255);
+        runtime.getCamera().setMinY((short) 0);
+        runtime.getCamera().setMaxY((short) 191);
+
+        engine.enterEditorFromCurrentPlayer(new EditorPlaytestStash(100, 180, 0, 0, true, 0, 0), 100, 180);
+        forceControllerCursor(engine.getLevelEditorController(), new EditorCursorState(999, -99));
+
+        engine.resumePlaytestFromEditor();
+
+        assertEquals(GameMode.LEVEL, engine.getCurrentGameMode());
+        assertEquals(255, SessionManager.getCurrentGameplayMode().getSpawnX());
+        assertEquals(0, SessionManager.getCurrentGameplayMode().getSpawnY());
+        assertEquals(255, player.getCentreX());
+        assertEquals(0, player.getCentreY());
+        assertSame(player, runtime.getCamera().getFocusedSprite());
     }
 
     @Test
@@ -483,6 +529,12 @@ class TestEditorToggleIntegration {
         Method setCurrent = RuntimeManager.class.getDeclaredMethod("setCurrent", GameRuntime.class);
         setCurrent.setAccessible(true);
         setCurrent.invoke(null, runtime);
+    }
+
+    private static void forceControllerCursor(LevelEditorController controller, EditorCursorState cursor) throws Exception {
+        Field field = LevelEditorController.class.getDeclaredField("worldCursor");
+        field.setAccessible(true);
+        field.set(controller, cursor);
     }
 
     private static void enableEditor() {

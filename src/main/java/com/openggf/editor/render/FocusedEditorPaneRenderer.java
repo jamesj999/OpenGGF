@@ -25,6 +25,7 @@ public class FocusedEditorPaneRenderer {
     private static final float ACTIVE_R = 1.0f;
     private static final float ACTIVE_G = 0.96f;
     private static final float ACTIVE_B = 0.24f;
+    private static final float BACKDROP_ALPHA = 0.34f;
 
     private final LevelEditorController controller;
 
@@ -37,6 +38,12 @@ public class FocusedEditorPaneRenderer {
     }
 
     public void renderBlockEditorPane() {
+        List<GLCommand> backdropCommands = new ArrayList<>();
+        appendBlockBackdropCommands(backdropCommands);
+        for (GLCommand command : backdropCommands) {
+            GraphicsManager.getInstance().registerCommand(command);
+        }
+
         List<GLCommand> commands = new ArrayList<>();
         appendBlockPaneCommands(commands);
         if (!commands.isEmpty()) {
@@ -45,6 +52,12 @@ public class FocusedEditorPaneRenderer {
     }
 
     public void renderChunkEditorPane() {
+        List<GLCommand> backdropCommands = new ArrayList<>();
+        appendChunkBackdropCommands(backdropCommands);
+        for (GLCommand command : backdropCommands) {
+            GraphicsManager.getInstance().registerCommand(command);
+        }
+
         List<GLCommand> commands = new ArrayList<>();
         appendChunkPaneCommands(commands);
         if (!commands.isEmpty()) {
@@ -62,6 +75,14 @@ public class FocusedEditorPaneRenderer {
         appendPaneCommands(commands, 176, 34, 316, 194, CHUNK_R, CHUNK_G, CHUNK_B);
         renderPreviewPlacements(buildChunkPreviewPlacements());
         appendChunkActiveCellHighlight(commands, buildChunkPreviewLayout());
+    }
+
+    protected void appendBlockBackdropCommands(List<GLCommand> commands) {
+        appendBackdropCommand(commands, 196, 34, 316, 194);
+    }
+
+    protected void appendChunkBackdropCommands(List<GLCommand> commands) {
+        appendBackdropCommand(commands, 176, 34, 316, 194);
     }
 
     protected List<PreviewPlacement> buildBlockPreviewPlacements() {
@@ -227,5 +248,19 @@ public class FocusedEditorPaneRenderer {
         EditorToolbarRenderer.appendLine(commands, left, top + 26, right, top + 26, r, g, b);
         EditorToolbarRenderer.appendLine(commands, left, top + 98, right, top + 98, r, g, b);
         EditorToolbarRenderer.appendLine(commands, left + 28, top + 26, left + 28, bottom, r, g, b);
+    }
+
+    private void appendBackdropCommand(List<GLCommand> commands, int left, int top, int right, int bottom) {
+        commands.add(new GLCommand(GLCommand.CommandType.RECTI,
+                -1,
+                GLCommand.BlendType.ONE_MINUS_SRC_ALPHA,
+                1.0f,
+                1.0f,
+                1.0f,
+                BACKDROP_ALPHA,
+                left,
+                top,
+                right,
+                bottom));
     }
 }
