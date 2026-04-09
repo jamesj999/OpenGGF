@@ -3,7 +3,6 @@ package com.openggf.game.sonic3k.objects;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
-import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -24,93 +23,101 @@ import java.util.List;
  * A solid door that slides open when a player enters its trigger zone.
  * Two variants selected by the subtype sign bit:
  * <ul>
- *   <li><b>Vertical door</b> (subtype &ge; 0): Door slides up when player enters
- *       the left or right trigger zones. Used in HCZ, CNZ, DEZ.</li>
+ *   <li><b>Vertical door</b> (subtype &ge; 0): Door slides up when the player enters
+ *       from the trigger side. Subtype low bits select the HCZ/CNZ/DEZ variant.</li>
  *   <li><b>Horizontal door</b> (subtype &lt; 0): Door slides left/right when player
- *       enters top/bottom trigger zones. Used in CNZ.</li>
+ *       enters the trigger band above or below it. Used in CNZ.</li>
  * </ul>
  * <p>
- * Art is loaded from the level's pattern buffer (zone-specific tiles).
- * The vertical door uses 3 animation frames: closed, half-open, open.
- * The horizontal door uses 1 frame (no animation).
+ * Art is loaded from the level's pattern buffer (zone-specific tiles). The door does not
+ * animate its mappings in the ROM; opening is represented only by moving the solid object.
  * <p>
  * ROM reference: Obj_Door (sonic3k.asm:66036), loc_30FD2 (horizontal variant).
  */
 public class DoorObjectInstance extends AbstractObjectInstance
         implements SolidObjectProvider, SolidObjectListener {
 
-    private static final int VERTICAL_WIDTH = 0x10;
     private static final int VERTICAL_HEIGHT = 0x20;
     private static final int VERTICAL_PRIORITY = 3;
 
-    private static final int HORIZONTAL_WIDTH = 8;
-    private static final int HORIZONTAL_HEIGHT = 0x20;
+    private static final int HORIZONTAL_WIDTH = 0x20;
+    private static final int HORIZONTAL_HEIGHT = 8;
     private static final int HORIZONTAL_PRIORITY = 2;
 
     private static final int SLIDE_SPEED = 0x08;
     private static final int SLIDE_MAX = 0x40;
 
-    private static final int VERTICAL_TRIGGER_HALF_WIDTH = 0x200;
-    private static final int VERTICAL_TRIGGER_INSIDE = 0x18;
-    private static final int VERTICAL_TRIGGER_VERTICAL = 0x20;
-    private static final int HORIZONTAL_TRIGGER_TOP = -0xE8;
-    private static final int HORIZONTAL_TRIGGER_BOTTOM = 0x100;
+    private static final int VERTICAL_TRIGGER_NEAR = 0x18;
+    private static final int VERTICAL_TRIGGER_FAR = 0x200;
+    private static final int VERTICAL_TRIGGER_HALF_HEIGHT = 0x20;
 
-    private final int subtype;
-    private final boolean isHorizontal;
-    private final int x;
-    private final int y;
-    private final int widthPixels;
-    private final int heightPixels;
+    private static final int HORIZONTAL_TRIGGER_NEAR = 0x18;
+    private static final int HORIZONTAL_TRIGGER_FAR = 0x100;
+    private static final int HORIZONTAL_TRIGGER_HALF_WIDTH = 0x20;
+
+    private final boolean horizontal;
+    private final boolean xFlipped;
+    private final boolean yFlipped;
+    private final int baseX;
+    private final int baseY;
+    private final int halfWidth;
+    private final int halfHeight;
     private final int priority;
     private final String artKey;
+    private final int triggerMin;
+    private final int triggerMax;
 
-    private int currentFrame;
     private int slideOffset;
+    private boolean playerInTriggerPreviousFrame;
 
     public DoorObjectInstance(ObjectSpawn spawn) {
         super(spawn, "Door");
-        this.x = spawn.x();
-        this.y = spawn.y();
-        this.subtype = spawn.subtype() & 0xFF;
+        this.baseX = spawn.x();
+        this.baseY = spawn.y();
+        this.horizontal = (spawn.subtype() & 0x80) != 0;
+        this.xFlipped = (spawn.renderFlags() & 0x01) != 0;
+        this.yFlipped = (spawn.renderFlags() & 0x02) != 0;
 
-        this.isHorizontal = (subtype & 0x80) != 0;
-        int actualSubtype = subtype & 0x7F;
+        int actualSubtype = spawn.subtype() & 0x7F;
 
-        if (isHorizontal) {
-            this.widthPixels = HORIZONTAL_WIDTH;
-            this.heightPixels = HORIZONTAL_HEIGHT;
+        if (horizontal) {
+            this.halfWidth = HORIZONTAL_WIDTH;
+            this.halfHeight = HORIZONTAL_HEIGHT;
             this.priority = HORIZONTAL_PRIORITY;
-            this.currentFrame = actualSubtype;
             this.artKey = Sonic3kObjectArtKeys.DOOR_HORIZONTAL;
+            int top = baseY - HORIZONTAL_TRIGGER_FAR;
+            int bottom = baseY + HORIZONTAL_TRIGGER_NEAR;
+            if (yFlipped) {
+                top += HORIZONTAL_TRIGGER_FAR - HORIZONTAL_TRIGGER_NEAR;
+                bottom += HORIZONTAL_TRIGGER_FAR - HORIZONTAL_TRIGGER_NEAR;
+            }
+            this.triggerMin = top;
+            this.triggerMax = bottom;
         } else {
-            this.widthPixels = VERTICAL_WIDTH;
-            this.heightPixels = VERTICAL_HEIGHT;
+            VerticalDoorVariant variant = resolveVerticalVariant(actualSubtype);
+            this.halfWidth = variant.halfWidth();
+            this.halfHeight = VERTICAL_HEIGHT;
             this.priority = VERTICAL_PRIORITY;
-            this.currentFrame = actualSubtype;
-            this.artKey = resolveVerticalArtKey();
+            this.artKey = variant.artKey();
+            this.triggerMin = xFlipped ? baseX - VERTICAL_TRIGGER_NEAR : baseX - VERTICAL_TRIGGER_FAR;
+            this.triggerMax = xFlipped ? baseX + VERTICAL_TRIGGER_FAR : baseX + VERTICAL_TRIGGER_NEAR;
         }
 
         this.slideOffset = 0;
+        this.playerInTriggerPreviousFrame = false;
     }
 
-    private String resolveVerticalArtKey() {
-        try {
-            int zone = services().romZoneId();
-            return switch (zone) {
-                case Sonic3kZoneIds.ZONE_HCZ -> Sonic3kObjectArtKeys.DOOR_VERTICAL_HCZ;
-                case Sonic3kZoneIds.ZONE_CNZ -> Sonic3kObjectArtKeys.DOOR_VERTICAL_CNZ;
-                case Sonic3kZoneIds.ZONE_DEZ -> Sonic3kObjectArtKeys.DOOR_VERTICAL_DEZ;
-                default -> Sonic3kObjectArtKeys.DOOR_VERTICAL_HCZ;
-            };
-        } catch (Exception e) {
-            return Sonic3kObjectArtKeys.DOOR_VERTICAL_HCZ;
-        }
+    private VerticalDoorVariant resolveVerticalVariant(int subtype) {
+        return switch (subtype) {
+            case 1 -> new VerticalDoorVariant(Sonic3kObjectArtKeys.DOOR_VERTICAL_CNZ, 8);
+            case 2 -> new VerticalDoorVariant(Sonic3kObjectArtKeys.DOOR_VERTICAL_DEZ, 0x10);
+            default -> new VerticalDoorVariant(Sonic3kObjectArtKeys.DOOR_VERTICAL_HCZ, 0x10);
+        };
     }
 
     @Override
     public SolidObjectParams getSolidParams() {
-        return new SolidObjectParams(widthPixels + 0x0B, heightPixels, heightPixels + 1);
+        return new SolidObjectParams(halfWidth + 0x0B, halfHeight, halfHeight + 1);
     }
 
     @Override
@@ -131,7 +138,7 @@ public class DoorObjectInstance extends AbstractObjectInstance
     public void update(int frameCounter, PlayableEntity playerEntity) {
         AbstractPlayableSprite mainPlayer = (AbstractPlayableSprite) playerEntity;
 
-        if (isHorizontal) {
+        if (horizontal) {
             updateHorizontalDoor(mainPlayer);
         } else {
             updateVerticalDoor(mainPlayer);
@@ -139,113 +146,65 @@ public class DoorObjectInstance extends AbstractObjectInstance
     }
 
     private void updateVerticalDoor(AbstractPlayableSprite mainPlayer) {
-        boolean flipped = (spawn.rawFlags() & 0x1000) != 0;
+        int left = xFlipped
+                ? (playerInTriggerPreviousFrame ? triggerMin : getX())
+                : triggerMin;
+        int right = xFlipped
+                ? triggerMax
+                : (playerInTriggerPreviousFrame ? triggerMax : getX());
 
-        int triggerLeft, triggerRight;
-        if (flipped) {
-            triggerLeft = x;
-            triggerRight = x + VERTICAL_TRIGGER_HALF_WIDTH;
-        } else {
-            triggerLeft = x - VERTICAL_TRIGGER_HALF_WIDTH;
-            triggerRight = x;
-        }
+        int top = baseY - VERTICAL_TRIGGER_HALF_HEIGHT;
+        int bottom = baseY + VERTICAL_TRIGGER_HALF_HEIGHT;
 
-        int triggerTop = y - VERTICAL_TRIGGER_VERTICAL;
-        int triggerBottom = y + VERTICAL_TRIGGER_VERTICAL;
+        boolean playerInTrigger = isPlayerInTrigger(mainPlayer, left, right, top, bottom)
+                || isAnySidekickInTrigger(left, right, top, bottom);
 
-        boolean inZone = isInVerticalZone(mainPlayer, triggerLeft, triggerRight, triggerTop, triggerBottom);
-        inZone |= isSidekickInVerticalZone(triggerLeft, triggerRight, triggerTop, triggerBottom);
-
-        if (inZone) {
-            if (flipped) {
-                triggerLeft = x - VERTICAL_TRIGGER_INSIDE;
-            } else {
-                triggerRight = x + VERTICAL_TRIGGER_INSIDE;
-            }
-        }
-
-        updateSlideOffset(inZone);
-
-        currentFrame = switch (slideOffset) {
-            case 0 -> subtype & 0x7F;
-            case SLIDE_MAX -> 2;
-            default -> 1;
-        };
-    }
-
-    private boolean isInVerticalZone(AbstractPlayableSprite player,
-                                   int left, int right, int top, int bottom) {
-        if (player == null) return false;
-        if (player.isOnObject()) return false;
-
-        int px = player.getCentreX();
-        int py = player.getCentreY();
-        return px >= left && px <= right && py >= top && py <= bottom;
-    }
-
-    private boolean isSidekickInVerticalZone(int left, int right, int top, int bottom) {
-        try {
-            var sidekicks = services().spriteManager().getSidekicks();
-            for (AbstractPlayableSprite sprite : sidekicks) {
-                if (sprite.isOnObject()) continue;
-                int px = sprite.getCentreX();
-                int py = sprite.getCentreY();
-                if (px >= left && px <= right && py >= top && py <= bottom) {
-                    return true;
-                }
-            }
-        } catch (Exception e) {
-            // Ignore
-        }
-        return false;
+        playerInTriggerPreviousFrame = playerInTrigger;
+        updateSlideOffset(playerInTrigger);
     }
 
     private void updateHorizontalDoor(AbstractPlayableSprite mainPlayer) {
-        boolean flipped = (spawn.rawFlags() & 0x2000) != 0;
+        int top = yFlipped
+                ? (playerInTriggerPreviousFrame ? triggerMin : getY())
+                : triggerMin;
+        int bottom = yFlipped
+                ? triggerMax
+                : (playerInTriggerPreviousFrame ? triggerMax : getY());
 
-        int triggerTop = y + HORIZONTAL_TRIGGER_TOP;
-        int triggerBottom = y + HORIZONTAL_TRIGGER_BOTTOM;
-        int triggerLeft, triggerRight;
+        int left = baseX - HORIZONTAL_TRIGGER_HALF_WIDTH;
+        int right = baseX + HORIZONTAL_TRIGGER_HALF_WIDTH;
 
-        if (flipped) {
-            triggerLeft = x - HORIZONTAL_TRIGGER_BOTTOM;
-            triggerRight = x + HORIZONTAL_TRIGGER_TOP;
-        } else {
-            triggerLeft = x + HORIZONTAL_TRIGGER_TOP;
-            triggerRight = x + HORIZONTAL_TRIGGER_BOTTOM;
-        }
+        boolean playerInTrigger = isPlayerInTrigger(mainPlayer, left, right, top, bottom)
+                || isAnySidekickInTrigger(left, right, top, bottom);
 
-        boolean inZone = isInHorizontalZone(mainPlayer, triggerLeft, triggerRight, triggerTop, triggerBottom);
-        inZone |= isSidekickInHorizontalZone(triggerLeft, triggerRight, triggerTop, triggerBottom);
-
-        updateSlideOffset(inZone);
-
-        currentFrame = subtype & 0x7F;
+        playerInTriggerPreviousFrame = playerInTrigger;
+        updateSlideOffset(playerInTrigger);
     }
 
-    private boolean isInHorizontalZone(AbstractPlayableSprite player,
-                                      int left, int right, int top, int bottom) {
-        if (player == null) return false;
-        if (player.isOnObject()) return false;
+    private boolean isPlayerInTrigger(AbstractPlayableSprite player, int left, int right, int top, int bottom) {
+        if (player == null || player.isObjectControlled()) {
+            return false;
+        }
 
         int px = player.getCentreX();
         int py = player.getCentreY();
-        return px >= left && px <= right && py >= top && py <= bottom;
+        return px >= left && px < right && py >= top && py < bottom;
     }
 
-    private boolean isSidekickInHorizontalZone(int left, int right, int top, int bottom) {
+    private boolean isAnySidekickInTrigger(int left, int right, int top, int bottom) {
         try {
-            var sidekicks = services().spriteManager().getSidekicks();
-            for (AbstractPlayableSprite sprite : sidekicks) {
-                if (sprite.isOnObject()) continue;
+            for (PlayableEntity sidekick : services().sidekicks()) {
+                if (!(sidekick instanceof AbstractPlayableSprite sprite) || sprite.isObjectControlled()) {
+                    continue;
+                }
                 int px = sprite.getCentreX();
                 int py = sprite.getCentreY();
-                if (px >= left && px <= right && py >= top && py <= bottom) {
+                if (px >= left && px < right && py >= top && py < bottom) {
                     return true;
                 }
             }
-        } catch (Exception e) {
-            // Ignore
+        } catch (RuntimeException ignored) {
+            // Unit tests may instantiate this object without injected services.
         }
         return false;
     }
@@ -289,31 +248,24 @@ public class DoorObjectInstance extends AbstractObjectInstance
 
         PatternSpriteRenderer renderer = renderManager.getRenderer(artKey);
         if (renderer != null && renderer.isReady()) {
-            int drawX = x;
-            int drawY = y;
-
-            if (isHorizontal) {
-                boolean flipped = (spawn.rawFlags() & 0x2000) != 0;
-                drawX = flipped ? x - slideOffset : x + slideOffset;
-            } else {
-                drawY = y - slideOffset;
-            }
-
-            renderer.drawFrameIndex(currentFrame, drawX, drawY, false, false);
+            renderer.drawFrameIndex(0, getX(), getY(), false, false);
         }
     }
 
     @Override
     public int getX() {
-        return x;
+        if (!horizontal) {
+            return baseX;
+        }
+        return xFlipped ? baseX - slideOffset : baseX + slideOffset;
     }
 
     @Override
     public int getY() {
-        if (isHorizontal) {
-            return y;
+        if (horizontal) {
+            return baseY;
         }
-        return y - slideOffset;
+        return baseY - slideOffset;
     }
 
     @Override
@@ -324,5 +276,8 @@ public class DoorObjectInstance extends AbstractObjectInstance
     @Override
     public boolean isPersistent() {
         return false;
+    }
+
+    private record VerticalDoorVariant(String artKey, int halfWidth) {
     }
 }

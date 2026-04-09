@@ -1483,87 +1483,48 @@ public class Sonic3kObjectArt {
     /**
      * Builds vertical door sheet for HCZ.
      * Uses ArtTile_HCZMisc + $0A = $03D4, palette 2.
-     * Three frames: closed, half-open, open.
+     * Subtype 0 / mapping frame 0.
      * From Map - (&CNZ &DEZ) Door.asm (Map_HCZCNZDEZDoor).
-     * 
-     * Frame 0 (closed): 2 pieces, size=$0F (4x4=32x32 pixels each), spans y=-32 to +32
-     * Frame 1 (half-open): 4 pieces, size=$05 (2x2=16x16 pixels each), spans y=-32 to +32
-     * Frame 2 (open): 4 pieces, size=$07 (2x4=16x32 pixels each, tiles 0 and 8)
-     * 
-     * The door visual height is 4 blocks (64 pixels) matching the closed frame.
-     * Frame 2's 2x4 pieces at y=-32 and y=0 span y=-32 to +32 (4 blocks = 64 pixels).
      */
     public ObjectSpriteSheet buildDoorVerticalHczSheet() {
         SpriteMappingFrame f0 = new SpriteMappingFrame(List.of(
                 new SpriteMappingPiece(-16, -32, 4, 4, 0, false, false, 0, false),
-                new SpriteMappingPiece(-16,   0, 4, 4, 0, false, false, 0, false)
-        ));
-        SpriteMappingFrame f1 = new SpriteMappingFrame(List.of(
-                new SpriteMappingPiece(-8, -32, 2, 2, 0, false, false, 0, false),
-                new SpriteMappingPiece(-8, -16, 2, 2, 0, false, false, 0, false),
-                new SpriteMappingPiece(-8,   0, 2, 2, 0, false, false, 0, false),
-                new SpriteMappingPiece(-8,  16, 2, 2, 0, false, false, 0, false)
-        ));
-        SpriteMappingFrame f2 = new SpriteMappingFrame(List.of(
-                new SpriteMappingPiece(-16, -32, 2, 4, 0, false, false, 0, false),
-                new SpriteMappingPiece(  0, -32, 2, 4, 8, false, false, 0, false),
-                new SpriteMappingPiece(-16,   0, 2, 4, 0, false, false, 0, false),
-                new SpriteMappingPiece(  0,   0, 2, 4, 8, false, false, 0, false)
+                new SpriteMappingPiece(-16, 0, 4, 4, 0, false, false, 0, false)
         ));
         int artTileBase = Sonic3kConstants.ARTTILE_HCZ_MISC + 0x0A;
-        return buildLevelArtSheet(artTileBase, 2, List.of(f0, f1, f2), 0, 16);
+        return buildLevelArtSheet(artTileBase, 2, List.of(f0), 0, 16);
     }
 
     /**
      * Builds vertical door sheet for CNZ.
      * Uses ArtTile_CNZMisc + $C5 = $0416, palette 2.
-     * Three frames: closed, half-open, open.
+     * Subtype 1 / mapping frame 1.
      * From Map - (&CNZ &DEZ) Door.asm (Map_HCZCNZDEZDoor).
      */
     public ObjectSpriteSheet buildDoorVerticalCnzSheet() {
-        SpriteMappingFrame f0 = new SpriteMappingFrame(List.of(
-                new SpriteMappingPiece(-16, -32, 4, 4, 0, false, false, 0, false),
-                new SpriteMappingPiece(-16,   0, 4, 4, 0, false, false, 0, false)
-        ));
         SpriteMappingFrame f1 = new SpriteMappingFrame(List.of(
                 new SpriteMappingPiece(-8, -32, 2, 2, 0, false, false, 0, false),
                 new SpriteMappingPiece(-8, -16, 2, 2, 0, false, false, 0, false),
-                new SpriteMappingPiece(-8,   0, 2, 2, 0, false, false, 0, false),
-                new SpriteMappingPiece(-8,  16, 2, 2, 0, false, false, 0, false)
+                new SpriteMappingPiece(-8, 0, 2, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece(-8, 16, 2, 2, 0, false, false, 0, false)
         ));
-        SpriteMappingFrame f2 = new SpriteMappingFrame(List.of(
-                new SpriteMappingPiece(-16, -32, 2, 4, 0, false, false, 0, false),
-                new SpriteMappingPiece(  0, -32, 2, 4, 8, false, false, 0, false),
-                new SpriteMappingPiece(-16,   0, 2, 4, 0, false, false, 0, false),
-                new SpriteMappingPiece(  0,   0, 2, 4, 8, false, false, 0, false)
-        ));
-        return buildLevelArtSheet(Sonic3kConstants.ARTTILE_CNZ_MISC + 0xC5, 2, List.of(f0, f1, f2), 0, 16);
+        return buildLevelArtSheet(Sonic3kConstants.ARTTILE_CNZ_MISC + 0xC5, 2, List.of(f1), 0, 16);
     }
 
     /**
      * Builds vertical door sheet for DEZ.
      * Uses ArtTile_DEZMisc + $1E = $036B, palette 1.
-     * Three frames: closed, half-open, open.
+     * Subtype 2 / mapping frame 2.
      * From Map - (&CNZ &DEZ) Door.asm (Map_HCZCNZDEZDoor).
      */
     public ObjectSpriteSheet buildDoorVerticalDezSheet() {
-        SpriteMappingFrame f0 = new SpriteMappingFrame(List.of(
-                new SpriteMappingPiece(-16, -32, 4, 4, 0, false, false, 0, false),
-                new SpriteMappingPiece(-16,   0, 4, 4, 0, false, false, 0, false)
-        ));
-        SpriteMappingFrame f1 = new SpriteMappingFrame(List.of(
-                new SpriteMappingPiece(-8, -32, 2, 2, 0, false, false, 0, false),
-                new SpriteMappingPiece(-8, -16, 2, 2, 0, false, false, 0, false),
-                new SpriteMappingPiece(-8,   0, 2, 2, 0, false, false, 0, false),
-                new SpriteMappingPiece(-8,  16, 2, 2, 0, false, false, 0, false)
-        ));
         SpriteMappingFrame f2 = new SpriteMappingFrame(List.of(
                 new SpriteMappingPiece(-16, -32, 2, 4, 0, false, false, 0, false),
-                new SpriteMappingPiece(  0, -32, 2, 4, 8, false, false, 0, false),
-                new SpriteMappingPiece(-16,   0, 2, 4, 0, false, false, 0, false),
-                new SpriteMappingPiece(  0,   0, 2, 4, 8, false, false, 0, false)
+                new SpriteMappingPiece(0, -32, 2, 4, 8, false, false, 0, false),
+                new SpriteMappingPiece(-16, 0, 2, 4, 0, false, false, 0, false),
+                new SpriteMappingPiece(0, 0, 2, 4, 8, false, false, 0, false)
         ));
-        return buildLevelArtSheet(Sonic3kConstants.ARTTILE_DEZ_MISC + 0x1E, 1, List.of(f0, f1, f2), 0, 16);
+        return buildLevelArtSheet(Sonic3kConstants.ARTTILE_DEZ_MISC + 0x1E, 1, List.of(f2), 0, 16);
     }
 
     /**
