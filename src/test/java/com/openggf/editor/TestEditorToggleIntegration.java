@@ -167,11 +167,43 @@ class TestEditorToggleIntegration {
         assertTrue(SessionManager.getCurrentGameplayMode().getResumeStash().isPresent());
     }
 
+    @Test
+    void preRuntimePlayer_roundTripsThroughEditorModeAndResumesAtEditorCursor() {
+        Engine engine = new Engine();
+        Sonic player = new Sonic("sonic", (short) 144, (short) 288);
+        GameRuntime runtime = createGameplayRuntime(engine, player);
+        EditorPlaytestStash stash = new EditorPlaytestStash(144, 288, 9, -3, true, 47, 1);
+
+        engine.enterEditorFromCurrentPlayer(stash, 320, 448);
+
+        assertEquals(GameMode.EDITOR, engine.getCurrentGameMode());
+        assertNull(RuntimeManager.getCurrent());
+        assertSame(player, runtime.getSpriteManager().getSprite("sonic"));
+        assertEquals(320, SessionManager.getCurrentEditorMode().getCursor().x());
+        assertEquals(448, SessionManager.getCurrentEditorMode().getCursor().y());
+
+        engine.resumePlaytestFromEditor();
+
+        assertEquals(GameMode.LEVEL, engine.getCurrentGameMode());
+        assertSame(runtime, RuntimeManager.getCurrent());
+        assertSame(player, runtime.getSpriteManager().getSprite("sonic"));
+        assertSame(player, runtime.getCamera().getFocusedSprite());
+        assertEquals(320, player.getCentreX());
+        assertEquals(448, player.getCentreY());
+        assertEquals(320, SessionManager.getCurrentGameplayMode().getSpawnX());
+        assertEquals(448, SessionManager.getCurrentGameplayMode().getSpawnY());
+        assertSame(stash, SessionManager.getCurrentGameplayMode().getResumeStash().orElseThrow());
+    }
+
     private static GameRuntime createGameplayRuntime(Engine engine) {
+        Sonic player = new Sonic("sonic", (short) 100, (short) 200);
+        return createGameplayRuntime(engine, player);
+    }
+
+    private static GameRuntime createGameplayRuntime(Engine engine, Sonic player) {
         SessionManager.openGameplaySession(new Sonic2GameModule());
         GameRuntime runtime = RuntimeManager.createGameplay(SessionManager.getCurrentGameplayMode());
         SpriteManager spriteManager = runtime.getSpriteManager();
-        Sonic player = new Sonic("sonic", (short) 100, (short) 200);
         spriteManager.addSprite(player);
         runtime.getCamera().setFocusedSprite(player);
         engine.getGameLoop().setRuntime(runtime);
