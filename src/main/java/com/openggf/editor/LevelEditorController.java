@@ -13,6 +13,8 @@ import com.openggf.game.session.EditorCursorState;
 import java.util.Objects;
 
 public final class LevelEditorController {
+    private static final int CHUNK_INDEX_MASK = 0x03FF;
+
     private final EditorHistory history = new EditorHistory();
     private EditorHierarchyDepth depth = EditorHierarchyDepth.WORLD;
     private EditorFocusRegion focusRegion = EditorFocusRegion.WORLD_CANVAS;
@@ -23,6 +25,7 @@ public final class LevelEditorController {
     private int selectedBlockCellY;
     private int selectedChunkCellX;
     private int selectedChunkCellY;
+    private Integer selectedChunkDescriptorRaw;
     private Integer selectedPatternRaw;
     private MutableLevel level;
 
@@ -38,6 +41,7 @@ public final class LevelEditorController {
         selectedBlockCellY = 0;
         selectedChunkCellX = 0;
         selectedChunkCellY = 0;
+        selectedChunkDescriptorRaw = null;
         selectedPatternRaw = null;
     }
 
@@ -62,6 +66,7 @@ public final class LevelEditorController {
     public void selectBlock(int blockIndex) {
         requireNonNegative(blockIndex, "blockIndex");
         selection = new EditorSelectionState(blockIndex, null);
+        selectedChunkDescriptorRaw = null;
         if (depth == EditorHierarchyDepth.CHUNK) {
             depth = EditorHierarchyDepth.BLOCK;
             focusRegion = EditorFocusRegion.BLOCK_PANE;
@@ -74,6 +79,7 @@ public final class LevelEditorController {
             throw new IllegalStateException("Cannot select a chunk without a selected block");
         }
         selection = new EditorSelectionState(selection.selectedBlock(), chunkIndex);
+        selectedChunkDescriptorRaw = unflaggedChunkDescriptorRaw(chunkIndex);
     }
 
     public Block selectedBlockPreview() {
@@ -232,6 +238,9 @@ public final class LevelEditorController {
             return;
         }
         int[] derivedBlockBeforeState = attachedLevel.getBlock(derivedBlockIndex).saveState();
+        int replacementChunkRaw = selectedChunkDescriptorRaw != null
+                ? selectedChunkDescriptorRaw
+                : unflaggedChunkDescriptorRaw(selectedChunk);
         history.execute(new DeriveBlockFromChunksCommand(
                 attachedLevel,
                 0,
@@ -240,7 +249,7 @@ public final class LevelEditorController {
                 sourceBlockIndex,
                 derivedBlockIndex,
                 derivedBlockBeforeState,
-                new ChunkDesc(selectedChunk),
+                new ChunkDesc(replacementChunkRaw),
                 selectedBlockCellX,
                 selectedBlockCellY
         ));
@@ -271,7 +280,8 @@ public final class LevelEditorController {
         if (!isBlockCellInBounds(block, selectedBlockCellX, selectedBlockCellY)) {
             return;
         }
-        int sourceChunkIndex = block.getChunkDesc(selectedBlockCellX, selectedBlockCellY).getChunkIndex();
+        ChunkDesc sourceChunkDesc = block.getChunkDesc(selectedBlockCellX, selectedBlockCellY);
+        int sourceChunkIndex = sourceChunkDesc.getChunkIndex();
         if (!Objects.equals(selection.selectedChunk(), sourceChunkIndex)
                 || !isValidChunkIndex(attachedLevel, sourceChunkIndex)) {
             return;
@@ -306,7 +316,7 @@ public final class LevelEditorController {
                 sourceBlockIndex,
                 derivedBlockIndex,
                 derivedBlockBeforeState,
-                new ChunkDesc(derivedChunkIndex),
+                new ChunkDesc(replaceChunkIndex(sourceChunkDesc.get(), derivedChunkIndex)),
                 selectedBlockCellX,
                 selectedBlockCellY
         );
@@ -351,9 +361,11 @@ public final class LevelEditorController {
         if (!isBlockCellInBounds(block, selectedBlockCellX, selectedBlockCellY)) {
             return;
         }
-        int chunkIndex = block.getChunkDesc(selectedBlockCellX, selectedBlockCellY).getChunkIndex();
+        ChunkDesc chunkDesc = block.getChunkDesc(selectedBlockCellX, selectedBlockCellY);
+        int chunkIndex = chunkDesc.getChunkIndex();
         if (isValidChunkIndex(attachedLevel, chunkIndex)) {
             selection = new EditorSelectionState(selectedBlock, chunkIndex);
+            selectedChunkDescriptorRaw = chunkDesc.get();
         }
     }
 
@@ -519,6 +531,14 @@ public final class LevelEditorController {
         return chunkIndex >= 0 && chunkIndex < level.getChunkCount();
     }
 
+    private static int unflaggedChunkDescriptorRaw(int chunkIndex) {
+        return chunkIndex & CHUNK_INDEX_MASK;
+    }
+
+    private static int replaceChunkIndex(int descriptorRaw, int chunkIndex) {
+        return (descriptorRaw & ~CHUNK_INDEX_MASK) | unflaggedChunkDescriptorRaw(chunkIndex);
+    }
+
     private static int findUnreferencedBlockSlot(MutableLevel level, int sourceBlockIndex) {
         for (int blockIndex = 0; blockIndex < level.getBlockCount(); blockIndex++) {
             if (blockIndex != sourceBlockIndex && !level.isBlockReferencedInMap(blockIndex)) {
@@ -550,11 +570,14 @@ public final class LevelEditorController {
             return;
         }
         Integer chunkIndex = null;
+        Integer chunkDescriptorRaw = null;
         Block block = level.getBlock(blockIndex);
         if (isBlockCellInBounds(block, selectedBlockCellX, selectedBlockCellY)) {
-            int activeChunkIndex = block.getChunkDesc(selectedBlockCellX, selectedBlockCellY).getChunkIndex();
+            ChunkDesc activeChunkDesc = block.getChunkDesc(selectedBlockCellX, selectedBlockCellY);
+            int activeChunkIndex = activeChunkDesc.getChunkIndex();
             if (isValidChunkIndex(level, activeChunkIndex)) {
                 chunkIndex = activeChunkIndex;
+                chunkDescriptorRaw = activeChunkDesc.get();
                 if (depth == EditorHierarchyDepth.CHUNK) {
                     selectedPatternRaw = level.getChunk(activeChunkIndex)
                             .getPatternDesc(selectedChunkCellX, selectedChunkCellY)
@@ -563,6 +586,7 @@ public final class LevelEditorController {
             }
         }
         selection = new EditorSelectionState(blockIndex, chunkIndex);
+        selectedChunkDescriptorRaw = chunkDescriptorRaw;
     }
 
     private static final class CompositeEditorCommand implements EditorCommand {

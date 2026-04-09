@@ -147,6 +147,29 @@ class TestLevelEditorController {
     }
 
     @Test
+    void controller_blockEyedropAppliesRawChunkDescriptorToDerivedBlockCell() {
+        MutableLevel level = createMutableLevelWithChunkCount(2, 2, 2, 3, 12);
+        int flaggedChunkRaw = 0xFC07;
+        level.setBlockInMap(0, 1, 1, 1);
+        level.setChunkInBlock(1, 0, 0, new ChunkDesc(4));
+        level.setChunkInBlock(1, 1, 1, new ChunkDesc(flaggedChunkRaw));
+        LevelEditorController controller = new LevelEditorController();
+        controller.attachLevel(level);
+
+        controller.setWorldCursor(new EditorCursorState(80, 96));
+        controller.selectBlock(1);
+        controller.descend();
+        controller.moveActiveSelection(1, 1);
+        controller.performEyedrop();
+        controller.moveActiveSelection(-1, -1);
+        controller.applyPrimaryAction();
+
+        assertEquals(2, Byte.toUnsignedInt(level.getMap().getValue(0, 1, 1)));
+        assertEquals(flaggedChunkRaw, level.getBlock(2).getChunkDesc(0, 0).get());
+        assertEquals(7, controller.selection().selectedChunk());
+    }
+
+    @Test
     void controller_applyPrimaryActionInBlockDepthDoesNothingWithoutSelectedChunk() {
         MutableLevel level = createMutableLevelWithChunkCount(2, 2, 2, 3, 12);
         level.setBlockInMap(0, 1, 1, 1);
@@ -255,6 +278,32 @@ class TestLevelEditorController {
         assertEquals(31, level.getChunk(4).getPatternDesc(1, 1).get());
         assertEquals(2, controller.selection().selectedBlock());
         assertEquals(4, controller.selection().selectedChunk());
+    }
+
+    @Test
+    void controller_applyPrimaryActionInChunkDepthPreservesActiveChunkDescriptorHighBits() {
+        MutableLevel level = createMutableLevelWithChunkCount(2, 2, 2, 3, 5);
+        int sourceChunkRaw = 0xFC03;
+        int derivedChunkRaw = 0xFC04;
+        level.setBlockInMap(0, 0, 0, 1);
+        level.setChunkInBlock(0, 1, 0, new ChunkDesc(1));
+        level.setChunkInBlock(0, 0, 1, new ChunkDesc(2));
+        level.setChunkInBlock(1, 0, 0, new ChunkDesc(sourceChunkRaw));
+        level.setPatternDescInChunk(3, 0, 0, new PatternDesc(31));
+        level.setPatternDescInChunk(4, 0, 0, new PatternDesc(41));
+        LevelEditorController controller = new LevelEditorController();
+        controller.attachLevel(level);
+
+        controller.selectBlock(1);
+        controller.descend();
+        controller.selectChunk(3);
+        controller.descend();
+        controller.performEyedrop();
+        controller.applyPrimaryAction();
+
+        assertEquals(2, Byte.toUnsignedInt(level.getMap().getValue(0, 0, 0)));
+        assertEquals(derivedChunkRaw, level.getBlock(2).getChunkDesc(0, 0).get());
+        assertEquals(sourceChunkRaw, level.getBlock(1).getChunkDesc(0, 0).get());
     }
 
     @Test
