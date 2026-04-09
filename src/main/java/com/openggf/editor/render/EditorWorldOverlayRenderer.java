@@ -16,6 +16,9 @@ public class EditorWorldOverlayRenderer {
     private static final float CURSOR_R = 1.0f;
     private static final float CURSOR_G = 0.92f;
     private static final float CURSOR_B = 0.30f;
+    private static final float GRID_R = 0.36f;
+    private static final float GRID_G = 0.78f;
+    private static final float GRID_B = 0.95f;
 
     public void render() {
         EditorModeContext editorMode = SessionManager.getCurrentEditorMode();
@@ -23,9 +26,27 @@ public class EditorWorldOverlayRenderer {
             return;
         }
         List<GLCommand> commands = new ArrayList<>();
-        appendCursorCommands(commands, editorMode.getCursor());
+        appendWorldCommands(commands, editorMode.getCursor());
         if (!commands.isEmpty()) {
             GraphicsManager.getInstance().registerCommand(new GLCommandGroup(GL_LINES, commands));
+        }
+    }
+
+    protected void appendWorldCommands(List<GLCommand> commands, EditorCursorState cursor) {
+        appendGridCommands(commands, cursor);
+        appendCursorCommands(commands, cursor);
+    }
+
+    protected void appendGridCommands(List<GLCommand> commands, EditorCursorState cursor) {
+        int baseX = cursor.x() & ~15;
+        int baseY = cursor.y() & ~15;
+        int span = 64;
+
+        for (int x = baseX - span; x <= baseX + span; x += 16) {
+            appendLine(commands, x, baseY - span, x, baseY + span, GRID_R, GRID_G, GRID_B);
+        }
+        for (int y = baseY - span; y <= baseY + span; y += 16) {
+            appendLine(commands, baseX - span, y, baseX + span, y, GRID_R, GRID_G, GRID_B);
         }
     }
 
