@@ -9,6 +9,8 @@ import java.util.Arrays;
 import java.util.Objects;
 
 public final class DeriveChunkFromPatternsCommand implements EditorCommand {
+    private static final int CHUNK_INDEX_MASK = 0x03FF;
+
     private final MutableLevel level;
     private final int blockIndex;
     private final int blockX;
@@ -19,6 +21,7 @@ public final class DeriveChunkFromPatternsCommand implements EditorCommand {
     private final int[] sourceChunkState;
     private final int[] derivedChunkBeforeState;
     private final int replacementPatternRaw;
+    private final int replacementChunkRaw;
     private final int replaceX;
     private final int replaceY;
 
@@ -38,6 +41,9 @@ public final class DeriveChunkFromPatternsCommand implements EditorCommand {
         this.sourceChunkState = level.getChunk(sourceChunkIndex).saveState();
         this.derivedChunkBeforeState = Arrays.copyOf(derivedChunkBeforeState, derivedChunkBeforeState.length);
         this.replacementPatternRaw = replacementPattern.get();
+        this.replacementChunkRaw = replaceChunkIndex(
+                level.getBlock(blockIndex).getChunkDesc(blockX, blockY).get(),
+                derivedChunkIndex);
         this.replaceX = replaceX;
         this.replaceY = replaceY;
     }
@@ -57,11 +63,15 @@ public final class DeriveChunkFromPatternsCommand implements EditorCommand {
         }
     }
 
+    private static int replaceChunkIndex(int descriptorRaw, int chunkIndex) {
+        return (descriptorRaw & ~CHUNK_INDEX_MASK) | (chunkIndex & CHUNK_INDEX_MASK);
+    }
+
     @Override
     public void apply() {
         level.restoreChunkState(derivedChunkIndex, sourceChunkState);
         level.setPatternDescInChunk(derivedChunkIndex, replaceX, replaceY, new PatternDesc(replacementPatternRaw));
-        level.setChunkInBlock(blockIndex, blockX, blockY, new ChunkDesc(derivedChunkIndex));
+        level.setChunkInBlock(blockIndex, blockX, blockY, new ChunkDesc(replacementChunkRaw));
     }
 
     @Override

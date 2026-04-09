@@ -221,6 +221,35 @@ class TestEditorCommands {
     }
 
     @Test
+    void deriveChunkFromPatternsCommand_preservesBlockCellDescriptorHighBitsWhenReplacingChunkIndex() {
+        MutableLevel level = MutableLevel.snapshot(new SyntheticLevel());
+        int blockIndex = 1;
+        int blockX = 0;
+        int blockY = 1;
+        int sourceChunkRaw = 0xFC03;
+        int derivedChunkRaw = 0xFC04;
+        level.setChunkInBlock(blockIndex, blockX, blockY, new ChunkDesc(sourceChunkRaw));
+        DeriveChunkFromPatternsCommand command = new DeriveChunkFromPatternsCommand(
+                level,
+                blockIndex,
+                blockX,
+                blockY,
+                3,
+                4,
+                level.getChunk(4).saveState(),
+                new PatternDesc(77),
+                1,
+                0
+        );
+
+        command.apply();
+        assertEquals(derivedChunkRaw, level.getBlock(blockIndex).getChunkDesc(blockX, blockY).get());
+
+        command.undo();
+        assertEquals(sourceChunkRaw, level.getBlock(blockIndex).getChunkDesc(blockX, blockY).get());
+    }
+
+    @Test
     void deriveChunkFromPatternsCommand_keepsReverseLookupLiveForLaterChunkDirtying() {
         MutableLevel level = MutableLevel.snapshot(new SyntheticLevel());
         DeriveChunkFromPatternsCommand command = new DeriveChunkFromPatternsCommand(
