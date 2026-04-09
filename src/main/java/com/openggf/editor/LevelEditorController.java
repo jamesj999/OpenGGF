@@ -49,10 +49,12 @@ public final class LevelEditorController {
 
     public void undo() {
         history.undo();
+        refreshSelectionFromActiveTarget();
     }
 
     public void redo() {
         history.redo();
+        refreshSelectionFromActiveTarget();
     }
 
     public void selectBlock(int blockIndex) {
@@ -219,7 +221,8 @@ public final class LevelEditorController {
             return;
         }
         int sourceBlockIndex = Byte.toUnsignedInt(attachedLevel.getMap().getValue(0, mapPosition.mapX(), mapPosition.mapY()));
-        if (!isValidBlockIndex(attachedLevel, sourceBlockIndex)
+        if (!Objects.equals(selection.selectedBlock(), sourceBlockIndex)
+                || !isValidBlockIndex(attachedLevel, sourceBlockIndex)
                 || !isBlockCellInBounds(attachedLevel.getBlock(sourceBlockIndex), selectedBlockCellX, selectedBlockCellY)) {
             return;
         }
@@ -240,7 +243,7 @@ public final class LevelEditorController {
                 selectedBlockCellX,
                 selectedBlockCellY
         ));
-        selection = new EditorSelectionState(derivedBlockIndex, selectedChunk);
+        refreshSelectionFromActiveTarget();
     }
 
     private void applyChunkPrimaryAction() {
@@ -255,7 +258,15 @@ public final class LevelEditorController {
         if (attachedLevel == null || !isValidBlockIndex(attachedLevel, selectedBlock)) {
             return;
         }
-        Block block = attachedLevel.getBlock(selectedBlock);
+        WorldMapPosition mapPosition = resolveWorldMapPosition(attachedLevel);
+        if (mapPosition == null) {
+            return;
+        }
+        int sourceBlockIndex = Byte.toUnsignedInt(attachedLevel.getMap().getValue(0, mapPosition.mapX(), mapPosition.mapY()));
+        if (sourceBlockIndex != selectedBlock || !isValidBlockIndex(attachedLevel, sourceBlockIndex)) {
+            return;
+        }
+        Block block = attachedLevel.getBlock(sourceBlockIndex);
         if (!isBlockCellInBounds(block, selectedBlockCellX, selectedBlockCellY)) {
             return;
         }
@@ -263,14 +274,19 @@ public final class LevelEditorController {
         if (!isValidChunkIndex(attachedLevel, sourceChunkIndex)) {
             return;
         }
+        int derivedBlockIndex = findUnreferencedBlockSlot(attachedLevel, sourceBlockIndex);
+        if (derivedBlockIndex < 0) {
+            return;
+        }
         int derivedChunkIndex = findUnreferencedChunkSlot(attachedLevel, sourceChunkIndex);
         if (derivedChunkIndex < 0) {
             return;
         }
+        int[] derivedBlockBeforeState = attachedLevel.getBlock(derivedBlockIndex).saveState();
         int[] derivedChunkBeforeState = attachedLevel.getChunk(derivedChunkIndex).saveState();
-        history.execute(new DeriveChunkFromPatternsCommand(
+        EditorCommand chunkCommand = new DeriveChunkFromPatternsCommand(
                 attachedLevel,
-                selectedBlock,
+                derivedBlockIndex,
                 selectedBlockCellX,
                 selectedBlockCellY,
                 sourceChunkIndex,
@@ -279,8 +295,21 @@ public final class LevelEditorController {
                 new PatternDesc(selectedPatternRaw),
                 selectedChunkCellX,
                 selectedChunkCellY
-        ));
-        selection = new EditorSelectionState(selectedBlock, derivedChunkIndex);
+        );
+        EditorCommand blockCommand = new DeriveBlockFromChunksCommand(
+                attachedLevel,
+                0,
+                mapPosition.mapX(),
+                mapPosition.mapY(),
+                sourceBlockIndex,
+                derivedBlockIndex,
+                derivedBlockBeforeState,
+                new ChunkDesc(derivedChunkIndex),
+                selectedBlockCellX,
+                selectedBlockCellY
+        );
+        history.execute(new CompositeEditorCommand(chunkCommand, blockCommand));
+        refreshSelectionFromActiveTarget();
     }
 
     public void performEyedrop() {
@@ -458,6 +487,56 @@ public final class LevelEditorController {
             }
         }
         return -1;
+    }
+
+    private void refreshSelectionFromActiveTarget() {
+        if (depth == EditorHierarchyDepth.WORLD || level == null) {
+            return;
+        }
+        WorldMapPosition mapPosition = resolveWorldMapPosition(level);
+        if (mapPosition == null) {
+            return;
+        }
+        int blockIndex = Byte.toUnsignedInt(level.getMap().getValue(0, mapPosition.mapX(), mapPosition.mapY()));
+        if (!isValidBlockIndex(level, blockIndex)) {
+            return;
+        }
+        Integer chunkIndex = null;
+        Block block = level.getBlock(blockIndex);
+        if (isBlockCellInBounds(block, selectedBlockCellX, selectedBlockCellY)) {
+            int activeChunkIndex = block.getChunkDesc(selectedBlockCellX, selectedBlockCellY).getChunkIndex();
+            if (isValidChunkIndex(level, activeChunkIndex)) {
+                chunkIndex = activeChunkIndex;
+                if (depth == EditorHierarchyDepth.CHUNK) {
+                    selectedPatternRaw = level.getChunk(activeChunkIndex)
+                            .getPatternDesc(selectedChunkCellX, selectedChunkCellY)
+                            .get();
+                }
+            }
+        }
+        selection = new EditorSelectionState(blockIndex, chunkIndex);
+    }
+
+    private static final class CompositeEditorCommand implements EditorCommand {
+        private final EditorCommand first;
+        private final EditorCommand second;
+
+        private CompositeEditorCommand(EditorCommand first, EditorCommand second) {
+            this.first = Objects.requireNonNull(first, "first");
+            this.second = Objects.requireNonNull(second, "second");
+        }
+
+        @Override
+        public void apply() {
+            first.apply();
+            second.apply();
+        }
+
+        @Override
+        public void undo() {
+            second.undo();
+            first.undo();
+        }
     }
 
     private MutableLevel requireLevel() {

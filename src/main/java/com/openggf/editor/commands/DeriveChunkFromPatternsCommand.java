@@ -15,6 +15,7 @@ public final class DeriveChunkFromPatternsCommand implements EditorCommand {
     private final int blockY;
     private final int sourceChunkIndex;
     private final int derivedChunkIndex;
+    private final int[] blockBeforeState;
     private final int[] sourceChunkState;
     private final int[] derivedChunkBeforeState;
     private final int replacementPatternRaw;
@@ -33,6 +34,7 @@ public final class DeriveChunkFromPatternsCommand implements EditorCommand {
         this.blockY = blockY;
         this.sourceChunkIndex = sourceChunkIndex;
         this.derivedChunkIndex = derivedChunkIndex;
+        this.blockBeforeState = level.getBlock(blockIndex).saveState();
         this.sourceChunkState = level.getChunk(sourceChunkIndex).saveState();
         this.derivedChunkBeforeState = Arrays.copyOf(derivedChunkBeforeState, derivedChunkBeforeState.length);
         this.replacementPatternRaw = replacementPattern.get();
@@ -65,6 +67,6 @@ public final class DeriveChunkFromPatternsCommand implements EditorCommand {
     @Override
     public void undo() {
         level.restoreChunkState(derivedChunkIndex, derivedChunkBeforeState);
-        level.setChunkInBlock(blockIndex, blockX, blockY, new ChunkDesc(sourceChunkIndex));
+        level.restoreBlockState(blockIndex, blockBeforeState);
     }
 }
