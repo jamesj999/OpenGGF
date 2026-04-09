@@ -14,12 +14,22 @@ import com.openggf.game.session.EditorPlaytestStash;
 import com.openggf.game.session.GameplayModeContext;
 import com.openggf.game.session.SessionManager;
 import com.openggf.game.sonic2.Sonic2GameModule;
+import com.openggf.level.AbstractLevel;
+import com.openggf.level.Block;
+import com.openggf.level.Chunk;
+import com.openggf.level.ChunkDesc;
+import com.openggf.level.Map;
+import com.openggf.level.MutableLevel;
+import com.openggf.level.Palette;
+import com.openggf.level.Pattern;
+import com.openggf.level.SolidTile;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.Sonic;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -284,6 +294,46 @@ class TestEditorToggleIntegration {
     }
 
     @Test
+    void outOfBoundsEditorMovement_resumesFromClampedCursorPosition() {
+        enableEditor();
+        Engine engine = new Engine();
+        GameRuntime runtime = createGameplayRuntime(engine);
+        Sonic player = (Sonic) runtime.getSpriteManager().getSprite("sonic");
+        runtime.getLevelManager().setLevel(MutableLevel.snapshot(new SyntheticLevel()));
+        runtime.getCamera().setMinX((short) 0);
+        runtime.getCamera().setMaxX((short) 255);
+        runtime.getCamera().setMinY((short) 0);
+        runtime.getCamera().setMaxY((short) 191);
+        InputHandler inputHandler = new InputHandler();
+        engine.setInputHandler(inputHandler);
+
+        inputHandler.handleKeyEvent(GLFW_KEY_LEFT_SHIFT, GLFW_PRESS);
+        inputHandler.handleKeyEvent(GLFW_KEY_TAB, GLFW_PRESS);
+        engine.getGameLoop().step();
+
+        engine.getLevelEditorController().setWorldCursor(new EditorCursorState(255, 191));
+        inputHandler.handleKeyEvent(GLFW_KEY_RIGHT, GLFW_PRESS);
+        inputHandler.handleKeyEvent(GLFW_KEY_DOWN, GLFW_PRESS);
+        engine.getGameLoop().step();
+
+        EditorCursorState boundedCursor = engine.getLevelEditorController().worldCursor();
+        assertEquals(255, boundedCursor.x());
+        assertEquals(191, boundedCursor.y());
+
+        inputHandler.handleKeyEvent(GLFW_KEY_TAB, GLFW_RELEASE);
+        inputHandler.handleKeyEvent(GLFW_KEY_LEFT_SHIFT, GLFW_RELEASE);
+        inputHandler.update();
+        inputHandler.handleKeyEvent(GLFW_KEY_LEFT_SHIFT, GLFW_PRESS);
+        inputHandler.handleKeyEvent(GLFW_KEY_TAB, GLFW_PRESS);
+        engine.getGameLoop().step();
+
+        assertEquals(255, SessionManager.getCurrentGameplayMode().getSpawnX());
+        assertEquals(191, SessionManager.getCurrentGameplayMode().getSpawnY());
+        assertEquals(255, player.getCentreX());
+        assertEquals(191, player.getCentreY());
+    }
+
+    @Test
     void startGameplayFromBeginning_discardsResumeStashAndReturnsToCanonicalSpawn() throws Exception {
         enableEditor();
         Engine engine = new Engine();
@@ -394,6 +444,77 @@ class TestEditorToggleIntegration {
     private static void enableEditor() {
         SonicConfigurationService.getInstance().setConfigValue(SonicConfiguration.EDITOR_ENABLED, true);
         assertTrue(SonicConfigurationService.getInstance().getBoolean(SonicConfiguration.EDITOR_ENABLED));
+    }
+
+    private static final class SyntheticLevel extends AbstractLevel {
+        private SyntheticLevel() {
+            super(0);
+            patternCount = 4;
+            patterns = new Pattern[patternCount];
+            for (int i = 0; i < patternCount; i++) {
+                patterns[i] = new Pattern();
+                patterns[i].setPixel(0, 0, (byte) (i + 1));
+            }
+
+            chunkCount = 5;
+            chunks = new Chunk[chunkCount];
+            for (int i = 0; i < chunkCount; i++) {
+                chunks[i] = new Chunk();
+                int[] state = new int[Chunk.PATTERNS_PER_CHUNK + 2];
+                state[0] = i * 10;
+                state[1] = i * 10 + 1;
+                state[2] = i * 10 + 2;
+                state[3] = i * 10 + 3;
+                chunks[i].restoreState(state);
+            }
+
+            blockCount = 3;
+            blocks = new Block[blockCount];
+            for (int i = 0; i < blockCount; i++) {
+                blocks[i] = new Block(2);
+                blocks[i].setChunkDesc(0, 0, new ChunkDesc(i));
+                blocks[i].setChunkDesc(1, 0, new ChunkDesc((i + 1) % 4));
+                blocks[i].setChunkDesc(0, 1, new ChunkDesc((i + 2) % 4));
+                blocks[i].setChunkDesc(1, 1, new ChunkDesc((i + 3) % 4));
+            }
+
+            solidTileCount = 1;
+            solidTiles = new SolidTile[] {
+                    new SolidTile(0, new byte[SolidTile.TILE_SIZE_IN_ROM], new byte[SolidTile.TILE_SIZE_IN_ROM], (byte) 0)
+            };
+
+            map = new Map(2, 2, 2);
+            map.setValue(0, 0, 0, (byte) 0);
+            map.setValue(0, 1, 0, (byte) 1);
+            map.setValue(0, 0, 1, (byte) 1);
+            map.setValue(0, 1, 1, (byte) 0);
+            map.setValue(1, 0, 0, (byte) 0);
+            map.setValue(1, 1, 0, (byte) 1);
+            map.setValue(1, 0, 1, (byte) 1);
+            map.setValue(1, 1, 1, (byte) 0);
+
+            palettes = new Palette[PALETTE_COUNT];
+            for (int i = 0; i < PALETTE_COUNT; i++) {
+                palettes[i] = new Palette();
+            }
+
+            objects = List.of();
+            rings = List.of();
+            minX = 0;
+            maxX = 255;
+            minY = 0;
+            maxY = 191;
+        }
+
+        @Override
+        public int getChunksPerBlockSide() {
+            return 2;
+        }
+
+        @Override
+        public int getBlockPixelSize() {
+            return 32;
+        }
     }
 
 }
