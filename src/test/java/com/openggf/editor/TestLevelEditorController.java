@@ -53,25 +53,62 @@ class TestLevelEditorController {
 
     @Test
     void controller_applyPrimaryActionPlacesSelectedBlockAtCurrentWorldCursorCell() {
-        LevelEditorController controller = createControllerWithLevel();
+        MutableLevel level = createMutableLevel(4, 3, 2, 3);
+        LevelEditorController controller = new LevelEditorController();
+        controller.attachLevel(level);
 
         controller.selectBlock(2);
         controller.setWorldCursor(new EditorCursorState(65, 130));
         controller.applyPrimaryAction();
 
-        assertEquals(2, Byte.toUnsignedInt(controller.attachedLevel().getMap().getValue(0, 1, 2)));
+        assertEquals(2, Byte.toUnsignedInt(level.getMap().getValue(0, 0, 1)));
     }
 
     @Test
     void controller_performEyedropSelectsBlockUnderCurrentWorldCursor() {
-        LevelEditorController controller = createControllerWithLevel();
-        controller.attachedLevel().setBlockInMap(0, 1, 2, 2);
+        MutableLevel level = createMutableLevel(4, 3, 2, 3);
+        LevelEditorController controller = new LevelEditorController();
+        controller.attachLevel(level);
+
+        level.setBlockInMap(0, 0, 1, 2);
         controller.setWorldCursor(new EditorCursorState(65, 130));
 
         controller.performEyedrop();
 
         assertEquals(2, controller.selection().selectedBlock());
         assertEquals(EditorHierarchyDepth.WORLD, controller.depth());
+    }
+
+    @Test
+    void controller_primaryActionIgnoresNonWorldCanvasFocus() {
+        MutableLevel level = createMutableLevel(4, 3, 2, 3);
+        LevelEditorController controller = new LevelEditorController();
+        controller.attachLevel(level);
+
+        controller.cycleFocusRegion();
+        controller.selectBlock(2);
+        controller.setWorldCursor(new EditorCursorState(65, 130));
+        controller.applyPrimaryAction();
+
+        assertEquals(0, Byte.toUnsignedInt(level.getMap().getValue(0, 0, 1)));
+        assertEquals(0, Byte.toUnsignedInt(level.getMap().getValue(0, 1, 2)));
+    }
+
+    @Test
+    void controller_focusRegionCyclesWithinFocusedPaneWhenNotInWorldDepth() {
+        MutableLevel level = createMutableLevel(4, 3, 2, 3);
+        LevelEditorController controller = new LevelEditorController();
+        controller.attachLevel(level);
+        controller.selectBlock(7);
+        controller.descend();
+
+        assertEquals(EditorFocusRegion.FOCUSED_PANE, controller.focusRegion());
+
+        controller.cycleFocusRegion();
+        assertEquals(EditorFocusRegion.LIBRARY, controller.focusRegion());
+
+        controller.cycleFocusRegion();
+        assertEquals(EditorFocusRegion.FOCUSED_PANE, controller.focusRegion());
     }
 
     @Test
