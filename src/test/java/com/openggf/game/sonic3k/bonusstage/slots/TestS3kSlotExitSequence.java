@@ -16,8 +16,8 @@ class TestS3kSlotExitSequence {
             exit.tick();
             windDownFrames++;
         }
-        // 0x1800 / 0x40 = 96 frames
-        assertEquals(96, windDownFrames);
+        // ROM loc_4BC1E starts from the live scalar index (0x40) and reaches 0x1800 in 95 ticks.
+        assertEquals(95, windDownFrames);
         assertTrue(exit.isFading());
     }
 
@@ -28,7 +28,7 @@ class TestS3kSlotExitSequence {
         S3kSlotExitSequence exit = new S3kSlotExitSequence(controller);
 
         // Skip wind-down
-        for (int i = 0; i < 96; i++) exit.tick();
+        for (int i = 0; i < 95; i++) exit.tick();
         assertTrue(exit.isFading());
 
         int fadeFrames = 0;
@@ -51,7 +51,7 @@ class TestS3kSlotExitSequence {
             exit.tick();
             totalFrames++;
         }
-        assertEquals(156, totalFrames); // 96 wind-down + 60 fade
+        assertEquals(155, totalFrames); // 95 wind-down + 60 fade
     }
 
     @Test
@@ -77,11 +77,30 @@ class TestS3kSlotExitSequence {
         assertEquals(0f, exit.fadeProgress());
 
         // Skip to fade phase
-        for (int i = 0; i < 96; i++) exit.tick();
+        for (int i = 0; i < 95; i++) exit.tick();
         assertEquals(0f, exit.fadeProgress(), 0.02f);
 
         // Half through fade
         for (int i = 0; i < 30; i++) exit.tick();
         assertEquals(0.5f, exit.fadeProgress(), 0.02f);
+    }
+
+    @Test
+    void scalarIndexKeepsAcceleratingDuringFade() {
+        S3kSlotStageController controller = new S3kSlotStageController();
+        controller.bootstrap();
+        S3kSlotExitSequence exit = new S3kSlotExitSequence(controller);
+
+        for (int i = 0; i < 95; i++) {
+            exit.tick();
+        }
+        assertTrue(exit.isFading());
+        assertEquals(0x1800, controller.scalarIndex());
+
+        exit.tick();
+        assertEquals(0x1840, controller.scalarIndex());
+
+        exit.tick();
+        assertEquals(0x1880, controller.scalarIndex());
     }
 }

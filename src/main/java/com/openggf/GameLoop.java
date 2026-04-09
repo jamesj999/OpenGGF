@@ -628,7 +628,7 @@ public class GameLoop {
                 forcePlayerHighPriorityInBonusStage();
 
                 // Notify coordinator of frame tick
-                if (activeBonusStageProvider != null) {
+                if (activeBonusStageProvider != null && !activeBonusStageProvider.updateDuringLevelFrame()) {
                     activeBonusStageProvider.onFrameUpdate();
                 }
 

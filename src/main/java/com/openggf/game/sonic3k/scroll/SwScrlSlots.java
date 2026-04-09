@@ -129,6 +129,11 @@ public final class SwScrlSlots extends AbstractZoneScrollHandler {
         return backgroundVelocity;
     }
 
+    @Override
+    public short getVscrollFactorFG() {
+        return (short) foregroundOriginY;
+    }
+
     private void ensureRuntimeState(S3kSlotBonusStageRuntime runtime, int cameraX, int cameraY) {
         if (runtime == activeRuntime) {
             return;

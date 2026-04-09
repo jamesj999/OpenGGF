@@ -1,6 +1,8 @@
 package com.openggf;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.BonusStageProvider;
+import com.openggf.game.GameServices;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.LevelEventProvider;
 import com.openggf.level.LevelManager;
@@ -96,11 +98,23 @@ public final class LevelFrameStep {
             levelEvents.update();
         }
 
+        BonusStageProvider bonusStageProvider = GameServices.bonusStage();
+        boolean integratedBonusStageUpdate = bonusStageProvider != null
+                && bonusStageProvider.updateDuringLevelFrame();
+        boolean suppressDefaultCamera = bonusStageProvider != null
+                && bonusStageProvider.suppressesDefaultCameraStep();
+
+        if (integratedBonusStageUpdate) {
+            bonusStageProvider.onFrameUpdate();
+        }
+
         // 5. Camera — ease boundaries toward targets, then reposition.
-        wrapper.wrap("camera", () -> {
-            camera.updateBoundaryEasing();
-            camera.updatePosition();
-        });
+        if (!suppressDefaultCamera) {
+            wrapper.wrap("camera", () -> {
+                camera.updateBoundaryEasing();
+                camera.updatePosition();
+            });
+        }
 
         // 5b. Post-camera placement catch-up — extend the spawn window with the
         //     post-camera position. ROM: ObjPosLoad runs after DeformLayers

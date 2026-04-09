@@ -1,16 +1,26 @@
 package com.openggf.tests;
 
+import com.openggf.game.GameServices;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic3k.Sonic3kLoadBootstrap;
 import com.openggf.game.sonic3k.Sonic3kZoneFeatureProvider;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.graphics.RenderPriority;
+import org.junit.After;
 import org.junit.Test;
 
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static com.openggf.level.scroll.M68KMath.packScrollWords;
 
 public class TestSonic3kZoneFeatureProvider {
+
+    @After
+    public void tearDown() {
+        RuntimeManager.destroyCurrent();
+    }
 
     @Test
     public void forestFrontPhaseForcesPlayerInFrontOfForestMask() {
@@ -70,6 +80,23 @@ public class TestSonic3kZoneFeatureProvider {
                 RenderPriority.PLAYER_DEFAULT, player.getPriorityBucket());
     }
 
+    @Test
+    public void slotDisplayOriginUsesForegroundPlaneSpaceForSlotsPanel() throws Exception {
+        RuntimeManager.createGameplay();
+        TestZoneFeatureProvider provider = new TestZoneFeatureProvider();
+
+        GameServices.camera().setX((short) 0x3C0);
+        GameServices.camera().setY((short) 0x2F0);
+        GameServices.parallax().getHScroll()[0] = packScrollWords((short) -0x360, (short) 0);
+
+        var vscrollField = GameServices.parallax().getClass().getDeclaredField("vscrollFactorFG");
+        vscrollField.setAccessible(true);
+        vscrollField.setShort(GameServices.parallax(), (short) 0x3E0);
+
+        assertEquals(0x360, provider.slotDisplayOriginX());
+        assertEquals(0x3E0, provider.slotDisplayOriginY());
+    }
+
     private static final class TestZoneFeatureProvider extends Sonic3kZoneFeatureProvider {
         private Sonic3kAIZEvents aizEvents;
         private int featureActId = 1;
@@ -90,6 +117,14 @@ public class TestSonic3kZoneFeatureProvider {
         @Override
         protected int getFeatureActId() {
             return featureActId;
+        }
+
+        int slotDisplayOriginX() {
+            return resolveSlotDisplayOriginX(GameServices.camera());
+        }
+
+        int slotDisplayOriginY() {
+            return resolveSlotDisplayOriginY(GameServices.camera());
         }
     }
 

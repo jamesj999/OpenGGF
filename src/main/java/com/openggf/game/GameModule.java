@@ -101,6 +101,14 @@ public interface GameModule {
     }
 
     /**
+     * Returns the RNG flavour used by this game's RandomNumber routine.
+     * Sonic 1 and Sonic 2 share the S1/S2 variant; S3K overrides this.
+     */
+    default GameRng.Flavour rngFlavour() {
+        return GameRng.Flavour.S1_S2;
+    }
+
+    /**
      * Returns the number of Chaos Emeralds required for "all emeralds".
      * Sonic 1 uses 6, Sonic 2/Sonic 3&K use 7.
      *

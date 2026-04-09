@@ -8,6 +8,7 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.graphics.SpriteMaskReplayRole;
+import com.openggf.game.GameRng;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SolidContact;
@@ -19,7 +20,6 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 import java.util.logging.Logger;
 
 /**
@@ -270,7 +270,6 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
     private State state = State.IDLE;
     private int spinTimer;
     private int currentFrame = IDLE_MAPPING_FRAME;
-    private final Random rng;
     private DispenserChild dispenser;
 
     // ROM $38 field bit flags — shared state with children for ball-ejection chain.
@@ -299,9 +298,6 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
     public GumballMachineObjectInstance(ObjectSpawn spawn) {
         super(spawn, "GumballMachine");
-
-        // ROM: Seed RNG from frame counter
-        this.rng = new Random(System.nanoTime());
 
         // Register as the active machine so gumball items can trigger callbacks
         currentInstance = this;
@@ -376,6 +372,8 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
         // Initialize drift state on first update (separated from child spawning
         // so tests can exercise drift logic without requiring services()).
         if (!driftInitialized) {
+            // ROM: Obj_GumballMachine seeds RNG_seed from V_int_run_count at init.
+            services().rng().setSeed(frameCounter & 0xFFFFFFFFL);
             initDrift();
         }
 
@@ -582,6 +580,7 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
      * </ul>
      */
     public int chooseBallSubtype() {
+        GameRng rng = services().rng();
         int r = rng.nextInt(16);
         if (r == 0) {
             boolean wasSet = isBit7Set();

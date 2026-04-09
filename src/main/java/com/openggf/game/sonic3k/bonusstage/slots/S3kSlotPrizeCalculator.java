@@ -1,7 +1,7 @@
 package com.openggf.game.sonic3k.bonusstage.slots;
 
 /**
- * Match detection and prize multiplier matching ROM sub_4C7A2 (lines 100029-100173).
+ * Match detection and prize multiplier matching ROM sub_4C7A2.
  */
 public final class S3kSlotPrizeCalculator {
 
@@ -19,42 +19,33 @@ public final class S3kSlotPrizeCalculator {
         int reelB = (packedBC & 0xF0) >>> 4;
         int reelC = packedBC & 0x0F;
 
-        // Build dispatch index matching ROM jump table on d0
         int dispatch = 0;
         if (reelA == reelB) dispatch += 4;
         if (reelA == reelC) dispatch += 8;
 
         return switch (dispatch) {
-            case 12 -> // All three match (A==B && A==C)
-                lookupReward(reelA) * 4;
-            case 8 ->  // A==C only (B differs)
-                handleTwoMatch(reelA, reelC, reelB);
-            case 4 ->  // A==B only (C differs)
-                handleTwoMatch(reelA, reelB, reelC);
-            case 0 ->  // No A matches
-                handleNoAMatch(reelA, reelB, reelC);
+            case 12 -> lookupReward(reelA) * 4;
+            case 8 -> handleTwoMatch(reelA, reelC, reelB);
+            case 4 -> handleTwoMatch(reelA, reelB, reelC);
+            case 0 -> handleNoAMatch(reelA, reelB, reelC);
             default -> 0;
         };
     }
 
-    // ROM loc_4C7E0 (A==C path) and loc_4C80E (A==B path):
-    // If the odd-one-out is 0, matched pair × 4
-    // If matched symbol is 0, odd-one-out × 2
-    // Otherwise fall through to no-match (count sixes)
+    // ROM loc_4C7E0 and loc_4C80E:
+    // matched symbol zero pays the odd symbol x4; odd symbol zero pays the matched symbol x2.
     private static int handleTwoMatch(int matchedSymbol, int matchedDuplicate, int oddOneOut) {
-        if (oddOneOut == 0) {
-            return lookupReward(matchedSymbol) * 4;
-        }
         if (matchedSymbol == 0) {
-            return lookupReward(oddOneOut) * 2;
+            return lookupReward(oddOneOut) * 4;
+        }
+        if (oddOneOut == 0) {
+            return lookupReward(matchedSymbol) * 2;
         }
         return countSixes(matchedSymbol, matchedDuplicate, oddOneOut);
     }
 
-    // ROM loc_4C838: B==C but neither matches A
-    // If A==0: B/C reward × 2
-    // If B==0(==C): A reward × 4
-    // Else: count sixes
+    // ROM loc_4C838:
+    // If B == C and A is zero, B/C pays x2. If B == C == zero, A pays x4.
     private static int handleNoAMatch(int reelA, int reelB, int reelC) {
         if (reelB == reelC) {
             if (reelA == 0) {
@@ -67,7 +58,7 @@ public final class S3kSlotPrizeCalculator {
         return countSixes(reelA, reelB, reelC);
     }
 
-    // ROM loc_4C86C (lines 100127-100145): count symbol 6 occurrences, each adds 2
+    // ROM loc_4C86C: count symbol 6 occurrences, each adds 2.
     private static int countSixes(int a, int b, int c) {
         int bonus = 0;
         if (a == 6) bonus += 2;

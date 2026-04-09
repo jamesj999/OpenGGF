@@ -169,7 +169,7 @@ public class AizMinibossInstance extends AbstractBossInstance {
         // ROM: loc_46ED4 creates Child6_CreateBossExplosion (sub_52850, subtype 0).
         // CreateBossExp00: timer=$20 (33 explosions), xRange=$20, yRange=$20.
         // sub_52850 plays sfx_Explode each time it spawns an explosion child (every 3 frames).
-        defeatExplosionController = new S3kBossExplosionController(state.x, state.y, 0);
+        defeatExplosionController = new S3kBossExplosionController(state.x, state.y, 0, services().rng());
 
         services().fadeOutMusic();
 

@@ -40,6 +40,7 @@ import com.openggf.game.LevelSelectProvider;
 import com.openggf.game.TitleScreenProvider;
 import com.openggf.game.sonic3k.levelselect.Sonic3kLevelSelectManager;
 import com.openggf.game.GameId;
+import com.openggf.game.GameRng;
 import com.openggf.game.OscillationManager;
 import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectRegistry;
@@ -141,6 +142,11 @@ public class Sonic3kGameModule implements GameModule {
     @Override
     public ZoneRegistry getZoneRegistry() {
         return Sonic3kZoneRegistry.getInstance();
+    }
+
+    @Override
+    public GameRng.Flavour rngFlavour() {
+        return GameRng.Flavour.S3K;
     }
 
     @Override

@@ -5,8 +5,10 @@ public final class S3kSlotRomData {
     public static final short SLOT_BONUS_PLAYER_START_Y = 0x0360;
     public static final short SLOT_BONUS_CAGE_CENTER_X = 0x0460;
     public static final short SLOT_BONUS_CAGE_CENTER_Y = 0x0430;
-    public static final int SLOT_MACHINE_DISPLAY_OFFSET_X = -24;
-    public static final int SLOT_MACHINE_DISPLAY_OFFSET_Y = -16;
+    public static final short SLOT_MACHINE_PANEL_CENTER_OFFSET_X = -0x1F;
+    public static final short SLOT_MACHINE_PANEL_CENTER_OFFSET_Y = -0x38;
+    public static final int SLOT_MACHINE_DISPLAY_OFFSET_X = -112;
+    public static final int SLOT_MACHINE_DISPLAY_OFFSET_Y = -56;
     public static final int TRANSIENT_SLOT_COUNT = 0x20;
     public static final int SLOT_LAYOUT_SIZE = 0x20;
     public static final int SLOT_EXPANDED_STRIDE = 0x80;

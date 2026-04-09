@@ -27,6 +27,7 @@ public final class S3kSlotCollisionSystem {
 
     public void tickFrameState() {
         stageState.tickSpikeThrottleTimer();
+        stageState.tickSlotWallThrottleTimer();
     }
 
     public Collision checkCollision(int xPixel, int yPixel) {
@@ -122,6 +123,22 @@ public final class S3kSlotCollisionSystem {
         };
     }
 
+    static short tileResponseAnchorX(int expandedLayoutIndex) {
+        if (expandedLayoutIndex < 0) {
+            return 0;
+        }
+        int pointerOffset = expandedLayoutIndex + 1;
+        return (short) (((pointerOffset & 0x7F) * CELL_SIZE) - COLLISION_X_OFFSET);
+    }
+
+    static short tileResponseAnchorY(int expandedLayoutIndex) {
+        if (expandedLayoutIndex < 0) {
+            return 0;
+        }
+        int pointerOffset = expandedLayoutIndex + 1;
+        return (short) ((((pointerOffset >>> 7) & 0x7F) * CELL_SIZE) - COLLISION_Y_OFFSET);
+    }
+
     private TileResponse bumperResponse(short playerX, short playerY, short tileCenterX, short tileCenterY) {
         int dx = tileCenterX - playerX;
         int dy = tileCenterY - playerY;
@@ -146,7 +163,6 @@ public final class S3kSlotCollisionSystem {
     }
 
     private TileResponse slotReelResponse() {
-        stageState.incrementSlotValue();
         return new TileResponse(Effect.SLOT_REEL_INCREMENT, (short) 0, (short) 0);
     }
 

@@ -19,7 +19,6 @@ import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Logger;
 
 /**
@@ -81,8 +80,6 @@ public class Sonic1EggPrisonObjectInstance extends AbstractObjectInstance
     // ROM: move.b d0,d1 / lsr.b #2,d1 / subi.w #$20,d1 → X range [-32, +31]
     // ROM: lsr.w #8,d0 / lsr.b #3,d0 → Y range [0, 31]
     private static final int EXPLOSION_X_RANGE = 0x20;  // subtracted from 0-63
-    private static final int EXPLOSION_Y_RANGE = 32;    // 0-31 pixels
-
     // === Mapping frame indices from Map_Pri ===
     private static final int FRAME_CAPSULE = 0;
     private static final int FRAME_BROKEN = 2;
@@ -275,9 +272,10 @@ public class Sonic1EggPrisonObjectInstance extends AbstractObjectInstance
         int baseY = spawn.y();
 
         // ROM: move.b d0,d1 / lsr.b #2,d1 / subi.w #$20,d1 → X offset [-32, +31]
-        int xOff = ThreadLocalRandom.current().nextInt(64) - EXPLOSION_X_RANGE;
+        int random = services().rng().nextWord();
+        int xOff = ((random & 0xFF) >>> 2) - EXPLOSION_X_RANGE;
         // ROM: lsr.w #8,d0 / lsr.b #3,d0 → Y offset [0, 31]
-        int yOff = ThreadLocalRandom.current().nextInt(EXPLOSION_Y_RANGE);
+        int yOff = ((random >>> 8) & 0xFF) >>> 3;
 
         // ROM: Explosion object 0x3F plays sfx_Bomb on init
         ExplosionObjectInstance explosion = new ExplosionObjectInstance(
@@ -326,9 +324,10 @@ public class Sonic1EggPrisonObjectInstance extends AbstractObjectInstance
         int baseY = spawn.y();
 
         // ROM: jsr (RandomNumber).l / andi.w #$1F,d0 / subq.w #6,d0
-        int randomOffset = ThreadLocalRandom.current().nextInt(32) - 6;
+        int random = services().rng().nextWord();
+        int randomOffset = (random & 0x1F) - 6;
         // ROM: tst.w d1 / bpl.s + / neg.w d0
-        if (ThreadLocalRandom.current().nextBoolean()) {
+        if ((random & 0x8000) != 0) {
             randomOffset = -randomOffset;
         }
 

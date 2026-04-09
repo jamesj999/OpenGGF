@@ -157,6 +157,22 @@ class TestS3kSlotStageController {
         assertEquals((short) 0, player.getYSpeed());
     }
 
+    @Test
+    void restartCaptureCycleRestartsVisibleSpinFromResolvedIdle() {
+        S3kSlotStageController controller = new S3kSlotStageController();
+        controller.bootstrap();
+
+        S3kSlotStageState state = controller.stageStateForTest();
+        state.setOptionCycleState(0x18);
+        state.setOptionCycleResolvedDisplayTimer(0);
+
+        controller.restartCaptureCycleIfResolved();
+
+        assertEquals(0x04, state.optionCycleState());
+        assertEquals(0x20, state.optionCycleCountdown());
+        assertEquals(0, state.optionCycleSpinCycleCounter());
+    }
+
     private static S3kSlotPlayerRuntime newRuntime() {
         S3kSlotStageState state = S3kSlotStageState.bootstrap();
         S3kSlotCollisionSystem collisionSystem = new S3kSlotCollisionSystem(

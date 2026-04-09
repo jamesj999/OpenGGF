@@ -2,6 +2,7 @@ package com.openggf.game.sonic3k;
 
 import com.openggf.game.AbstractBonusStageCoordinator;
 import com.openggf.game.BonusStageType;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotBonusStageRuntime;
 
 /**
@@ -83,7 +84,7 @@ public class Sonic3kBonusStageCoordinator extends AbstractBonusStageCoordinator 
             slotFrameCounter = 0;
             return;
         }
-        slotFrameCounter = 0;
+        slotFrameCounter = GameServices.level() != null ? GameServices.level().getFrameCounter() : 0;
     }
 
     @Override
@@ -94,6 +95,16 @@ public class Sonic3kBonusStageCoordinator extends AbstractBonusStageCoordinator 
                 requestExit();
             }
         }
+    }
+
+    @Override
+    public boolean updateDuringLevelFrame() {
+        return slotRuntime != null;
+    }
+
+    @Override
+    public boolean suppressesDefaultCameraStep() {
+        return slotRuntime != null;
     }
 
     @Override

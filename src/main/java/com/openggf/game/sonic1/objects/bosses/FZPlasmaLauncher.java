@@ -17,7 +17,6 @@ import com.openggf.level.objects.boss.BossExplosionObjectInstance;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Object 0x86 — FZ Plasma Ball Launcher (generator portion).
@@ -133,10 +132,11 @@ public class FZPlasmaLauncher extends AbstractBossChild implements SolidObjectPr
         activeBalls.clear();
         activeBallCount = 4;
         var objectManager = services().objectManager();
+        var rng = services().rng();
 
         for (int i = 0; i < 4; i++) {
             // ROM: Target X calculation
-            int random = ThreadLocalRandom.current().nextInt(0x10000);
+            int random = rng.nextWord();
             int targetX = Sonic1Constants.BOSS_FZ_X + 0x128 + (i * -0x4F);
             targetX += (random & 0x1F) - 0x10;
 

@@ -34,10 +34,10 @@ class TestS3kSlotLayoutRenderer {
         assertFalse(cells.isEmpty());
         assertTrue(cells.stream().anyMatch(cell -> cell.cellId() == 5));
         assertTrue(cells.stream().anyMatch(cell -> cell.cellId() == 7));
-        assertTrue(cells.stream().allMatch(cell -> cell.worldX() >= BOOTSTRAP_CAMERA_X + 0x70
-                && cell.worldX() < BOOTSTRAP_CAMERA_X + 0x1D0));
-        assertTrue(cells.stream().allMatch(cell -> cell.worldY() >= BOOTSTRAP_CAMERA_Y + 0x70
-                && cell.worldY() < BOOTSTRAP_CAMERA_Y + 0x170));
+        assertTrue(cells.stream().allMatch(cell -> cell.worldX() >= BOOTSTRAP_CAMERA_X - 0x10
+                && cell.worldX() < BOOTSTRAP_CAMERA_X + 0x150));
+        assertTrue(cells.stream().allMatch(cell -> cell.worldY() >= BOOTSTRAP_CAMERA_Y - 0x10
+                && cell.worldY() < BOOTSTRAP_CAMERA_Y + 0xF0));
     }
 
     @Test
@@ -92,6 +92,21 @@ class TestS3kSlotLayoutRenderer {
     }
 
     @Test
+    void transientBumperAnimationUsesExactCompactLayoutIndex() {
+        S3kSlotLayoutRenderer renderer = new S3kSlotLayoutRenderer();
+        S3kSlotRenderBuffers buffers = S3kSlotRenderBuffers.fromRomData();
+        int compactIndex = 0x22;
+        int expandedIndex = buffers.compactToExpandedIndex(compactIndex);
+        int expandedRow = expandedIndex / buffers.layoutStrideBytes();
+        int expandedCol = expandedIndex % buffers.layoutStrideBytes();
+
+        buffers.startBumperAnimationAt(compactIndex);
+        renderer.tickTransientAnimations(buffers);
+
+        assertEquals(0x0A, buffers.renderCellIdAt(expandedRow, expandedCol));
+    }
+
+    @Test
     void zeroAngleBuildsStable16x16PointGrid() {
         S3kSlotLayoutRenderer renderer = new S3kSlotLayoutRenderer();
 
@@ -119,6 +134,23 @@ class TestS3kSlotLayoutRenderer {
     }
 
     @Test
+    void transformStagePointUsesSameLayoutTransformAsVisibleGrid() {
+        S3kSlotLayoutRenderer renderer = new S3kSlotLayoutRenderer();
+
+        S3kSlotLayoutRenderer.TransformedStagePoint point = renderer.transformStagePoint(
+                0,
+                BOOTSTRAP_CAMERA_X,
+                BOOTSTRAP_CAMERA_Y,
+                S3kSlotRomData.SLOT_BONUS_CAGE_CENTER_X,
+                S3kSlotRomData.SLOT_BONUS_CAGE_CENTER_Y);
+
+        assertEquals(0x44C, point.worldX());
+        assertEquals(0x3EC, point.worldY());
+        assertEquals(0x10C, point.screenX());
+        assertEquals(0x17C, point.screenY());
+    }
+
+    @Test
     void visibleCellsIncludeSemanticSlotStagePieces() {
         S3kSlotLayoutRenderer renderer = new S3kSlotLayoutRenderer();
         S3kSlotRenderBuffers buffers = S3kSlotRenderBuffers.fromRomData();
@@ -132,10 +164,10 @@ class TestS3kSlotLayoutRenderer {
         assertTrue(cells.stream().anyMatch(cell -> cell.cellId() == 5));
         assertTrue(cells.stream().anyMatch(cell -> cell.cellId() == 7));
         assertTrue(cells.stream().anyMatch(cell -> cell.cellId() == 8));
-        assertTrue(cells.stream().allMatch(cell -> cell.worldX() >= BOOTSTRAP_CAMERA_X + 0x70
-                && cell.worldX() < BOOTSTRAP_CAMERA_X + 0x1D0));
-        assertTrue(cells.stream().allMatch(cell -> cell.worldY() >= BOOTSTRAP_CAMERA_Y + 0x70
-                && cell.worldY() < BOOTSTRAP_CAMERA_Y + 0x170));
+        assertTrue(cells.stream().allMatch(cell -> cell.worldX() >= BOOTSTRAP_CAMERA_X - 0x10
+                && cell.worldX() < BOOTSTRAP_CAMERA_X + 0x150));
+        assertTrue(cells.stream().allMatch(cell -> cell.worldY() >= BOOTSTRAP_CAMERA_Y - 0x10
+                && cell.worldY() < BOOTSTRAP_CAMERA_Y + 0xF0));
     }
 
     @Test
@@ -153,6 +185,59 @@ class TestS3kSlotLayoutRenderer {
         assertEquals(1, recordingRenderer.drawCount);
         assertEquals(0x450, recordingRenderer.lastX);
         assertEquals(0x390, recordingRenderer.lastY);
+    }
+
+    @Test
+    void coloredWallsUseAngleDrivenFrameOverride() {
+        S3kSlotLayoutRenderer renderer = new S3kSlotLayoutRenderer();
+        RecordingRenderer recordingRenderer = new RecordingRenderer();
+        ObjectRenderManager renderManager = new ObjectRenderManager(
+                new StubObjectArtProvider(recordingRenderer, com.openggf.game.sonic3k.Sonic3kObjectArtKeys.SLOT_COLORED_WALL));
+
+        renderer.updateAnimations(0x1C);
+        renderer.renderVisibleCells(
+                List.of(new S3kSlotLayoutRenderer.VisibleCell((byte) 0x01, 0x450, 0x390)),
+                new StubCamera(0x460, 0x430),
+                renderManager);
+
+        assertEquals(1, recordingRenderer.drawCount);
+        assertEquals(7, recordingRenderer.lastFrameIndex);
+    }
+
+    @Test
+    void coloredWallsDoNotForceSinglePaletteOverride() {
+        S3kSlotLayoutRenderer renderer = new S3kSlotLayoutRenderer();
+        RecordingRenderer recordingRenderer = new RecordingRenderer();
+        ObjectRenderManager renderManager = new ObjectRenderManager(
+                new StubObjectArtProvider(recordingRenderer, com.openggf.game.sonic3k.Sonic3kObjectArtKeys.SLOT_COLORED_WALL));
+
+        renderer.renderVisibleCells(
+                List.of(new S3kSlotLayoutRenderer.VisibleCell((byte) 0x01, 0x450, 0x390)),
+                new StubCamera(0x460, 0x430),
+                renderManager);
+
+        assertEquals(1, recordingRenderer.drawCount);
+        assertEquals(Integer.MIN_VALUE, recordingRenderer.lastPaletteOverride);
+        assertEquals(3, recordingRenderer.lastPaletteBase);
+    }
+
+    @Test
+    void slotStageRingsUseLiveRingRotationFrame() {
+        S3kSlotLayoutRenderer renderer = new S3kSlotLayoutRenderer();
+        RecordingRenderer recordingRenderer = new RecordingRenderer();
+        ObjectRenderManager renderManager = new ObjectRenderManager(
+                new StubObjectArtProvider(recordingRenderer, com.openggf.game.sonic3k.Sonic3kObjectArtKeys.SLOT_RING_STAGE));
+
+        for (int i = 0; i < 8; i++) {
+            renderer.updateAnimations(0);
+        }
+        renderer.renderVisibleCells(
+                List.of(new S3kSlotLayoutRenderer.VisibleCell((byte) 0x08, 0x450, 0x390)),
+                new StubCamera(0x460, 0x430),
+                renderManager);
+
+        assertEquals(1, recordingRenderer.drawCount);
+        assertEquals(1, recordingRenderer.lastFrameIndex);
     }
 
     private static final class StubCamera extends com.openggf.camera.Camera {
@@ -233,8 +318,11 @@ class TestS3kSlotLayoutRenderer {
 
     private static final class RecordingRenderer extends PatternSpriteRenderer {
         private int drawCount;
+        private int lastFrameIndex;
         private int lastX;
         private int lastY;
+        private int lastPaletteOverride = Integer.MIN_VALUE;
+        private int lastPaletteBase = Integer.MIN_VALUE;
 
         private RecordingRenderer() {
             super(dummySheet());
@@ -248,8 +336,20 @@ class TestS3kSlotLayoutRenderer {
         @Override
         public void drawFrameIndex(int frameIndex, int originX, int originY, boolean hFlip, boolean vFlip, int paletteOverride) {
             drawCount++;
+            lastFrameIndex = frameIndex;
             lastX = originX;
             lastY = originY;
+            lastPaletteOverride = paletteOverride;
+        }
+
+        @Override
+        public void drawFrameIndexWithPaletteBase(int frameIndex, int originX, int originY,
+                boolean hFlip, boolean vFlip, int paletteBase) {
+            drawCount++;
+            lastFrameIndex = frameIndex;
+            lastX = originX;
+            lastY = originY;
+            lastPaletteBase = paletteBase;
         }
 
         private static ObjectSpriteSheet dummySheet() {

@@ -37,6 +37,7 @@ public class SwScrlSlotsTest {
 
         assertEquals((0x400 - visual.eventsBgX()) + 0x300, scroll.lastForegroundOriginXForTest());
         assertEquals((0x400 - visual.eventsBgY()) + 0x200, scroll.lastForegroundOriginYForTest());
+        assertEquals(scroll.lastForegroundOriginYForTest(), scroll.getVscrollFactorFG());
         assertEquals(0, scroll.lastBackgroundOriginYForTest());
         int[] horizScrollBuf = new int[224];
         scroll.updateForTest(runtime, horizScrollBuf, 0x300, 0x200, 12);

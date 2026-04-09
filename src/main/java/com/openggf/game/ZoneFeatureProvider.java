@@ -138,6 +138,22 @@ public interface ZoneFeatureProvider {
     }
 
     /**
+     * Whether the foreground tilemap renderer should sample the per-line foreground
+     * h-scroll buffer instead of using a flat camera X origin.
+     *
+     * <p>This is used by stages whose Plane A positioning is not camera-locked,
+     * such as the S3K Slots bonus stage.
+     *
+     * @param zoneIndex current feature zone id
+     * @param actIndex current feature act id
+     * @param cameraX current camera X position
+     * @return true when per-line foreground scroll should be enabled
+     */
+    default boolean shouldEnablePerLineForegroundScroll(int zoneIndex, int actIndex, int cameraX) {
+        return false;
+    }
+
+    /**
      * Ensures zone feature patterns are cached in the graphics manager.
      * Called during level initialization.
      *

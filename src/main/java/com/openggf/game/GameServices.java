@@ -62,6 +62,10 @@ public final class GameServices {
         return requireRuntime("timers").getTimers();
     }
 
+    public static GameRng rng() {
+        return requireRuntime("rng").getRng();
+    }
+
     public static FadeManager fade() {
         return requireRuntime("fade").getFadeManager();
     }
