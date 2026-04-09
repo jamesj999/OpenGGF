@@ -98,9 +98,17 @@ public final class EditorOverlayRenderer {
     }
 
     private void renderLibraryPaneIfFocused(EditorHierarchyDepth depth) {
-        if (controller != null && controller.focusRegion() == EditorFocusRegion.LIBRARY) {
+        if (controller != null && isLibraryPaneFocus(depth, controller.focusRegion())) {
             libraryPane.render(depth);
         }
+    }
+
+    private static boolean isLibraryPaneFocus(EditorHierarchyDepth depth, EditorFocusRegion focusRegion) {
+        return switch (depth) {
+            case WORLD -> focusRegion == EditorFocusRegion.BLOCK_PANE;
+            case BLOCK -> focusRegion == EditorFocusRegion.CHUNK_PANE;
+            case CHUNK -> focusRegion == EditorFocusRegion.PATTERN_PANE;
+        };
     }
 
     private EditorHierarchyDepth activeDepth() {
