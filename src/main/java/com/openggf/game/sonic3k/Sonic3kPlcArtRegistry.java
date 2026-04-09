@@ -140,7 +140,8 @@ public final class Sonic3kPlcArtRegistry {
     );
 
     /**
-     * Shared standalone art entries present in every zone: SS Entry Ring (big ring).
+     * Shared standalone art entries present in every zone: SS Entry Ring (big ring),
+     * bubbler, and end-of-act signpost (needed by any zone with a miniboss).
      */
     private static final List<StandaloneArtEntry> SHARED_STANDALONE_ART = List.of(
             new StandaloneArtEntry(
@@ -169,6 +170,25 @@ public final class Sonic3kPlcArtRegistry {
                     -1,
                     0,
                     -1
+            ),
+            // PLC_EndSignStuff - end sign face (uncompressed art + DPLC remap)
+            // ROM: loaded by AfterBoss_Cleanup for all zones with minibosses
+            new StandaloneArtEntry(
+                    Sonic3kObjectArtKeys.END_SIGN,
+                    Sonic3kConstants.ART_UNC_END_SIGNS_ADDR,
+                    CompressionType.UNCOMPRESSED,
+                    Sonic3kConstants.ART_UNC_END_SIGNS_SIZE,
+                    Sonic3kConstants.MAP_END_SIGNS_ADDR,
+                    0,
+                    Sonic3kConstants.DPLC_END_SIGNS_ADDR
+            ),
+            // PLC_EndSignStuff - signpost pole/stub (Nemesis compressed)
+            new StandaloneArtEntry(
+                    Sonic3kObjectArtKeys.SIGNPOST_STUB,
+                    Sonic3kConstants.ART_NEM_SIGNPOST_STUB_ADDR,
+                    CompressionType.NEMESIS, -1,
+                    Sonic3kConstants.MAP_SIGNPOST_STUB_ADDR,
+                    0, -1
             )
     );
 
@@ -1375,22 +1395,7 @@ public final class Sonic3kPlcArtRegistry {
                 -1
         ));
 
-        // PLC_EndSignStuff - end sign face (uncompressed art + DPLC remap)
-        standalone.add(new StandaloneArtEntry(
-                Sonic3kObjectArtKeys.END_SIGN,
-                Sonic3kConstants.ART_UNC_END_SIGNS_ADDR,
-                CompressionType.UNCOMPRESSED,
-                Sonic3kConstants.ART_UNC_END_SIGNS_SIZE,
-                Sonic3kConstants.MAP_END_SIGNS_ADDR,
-                0,
-                Sonic3kConstants.DPLC_END_SIGNS_ADDR));
-
-        // PLC_EndSignStuff - signpost pole/stub (Nemesis compressed)
-        standalone.add(new StandaloneArtEntry(
-                Sonic3kObjectArtKeys.SIGNPOST_STUB,
-                Sonic3kConstants.ART_NEM_SIGNPOST_STUB_ADDR,
-                CompressionType.NEMESIS, -1, Sonic3kConstants.MAP_SIGNPOST_STUB_ADDR,
-                0, -1));
+        // Signpost art (END_SIGN, SIGNPOST_STUB) is now in SHARED_STANDALONE_ART.
 
         // Level-art shared across both acts
         levelArt.add(new LevelArtEntry(
