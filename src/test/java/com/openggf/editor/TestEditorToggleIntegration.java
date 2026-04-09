@@ -1,6 +1,8 @@
 package com.openggf.editor;
 
 import com.openggf.Engine;
+import com.openggf.configuration.SonicConfiguration;
+import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.control.InputHandler;
 import com.openggf.data.RomManager;
 import com.openggf.game.GameMode;
@@ -20,6 +22,8 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.Method;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -34,9 +38,42 @@ class TestEditorToggleIntegration {
 
     @AfterEach
     void tearDown() {
+        SonicConfigurationService.getInstance().resetToDefaults();
         RuntimeManager.destroyCurrent();
         SessionManager.clear();
         GameModuleRegistry.reset();
+    }
+
+    @Test
+    void enterEditorFromCurrentPlayer_whenEditorDisabled_rejectsActivation() {
+        Engine engine = new Engine();
+        createGameplayRuntime(engine);
+        EditorPlaytestStash stash = new EditorPlaytestStash(100, 200, 9, -3, true, 47, 1);
+
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> engine.enterEditorFromCurrentPlayer(stash, 100, 200));
+
+        assertEquals("Level editor is disabled by configuration.", error.getMessage());
+        assertEquals(GameMode.LEVEL, engine.getCurrentGameMode());
+        assertNull(SessionManager.getCurrentEditorMode());
+        assertNotNull(RuntimeManager.getCurrent());
+    }
+
+    @Test
+    void shiftTabInGameplay_whenEditorDisabled_doesNotEnterEditor() {
+        Engine engine = new Engine();
+        createGameplayRuntime(engine);
+        InputHandler inputHandler = new InputHandler();
+        engine.setInputHandler(inputHandler);
+
+        inputHandler.handleKeyEvent(GLFW_KEY_LEFT_SHIFT, GLFW_PRESS);
+        inputHandler.handleKeyEvent(GLFW_KEY_TAB, GLFW_PRESS);
+
+        engine.getGameLoop().step();
+
+        assertEquals(GameMode.LEVEL, engine.getCurrentGameMode());
+        assertNull(SessionManager.getCurrentEditorMode());
+        assertNotNull(RuntimeManager.getCurrent());
     }
 
     @Test
@@ -97,6 +134,7 @@ class TestEditorToggleIntegration {
 
     @Test
     void enterEditorFromCurrentPlayer_thenResumePlaytestFromEditor_roundTripsStashAndSpawn() throws Exception {
+        enableEditor();
         Engine engine = new Engine();
         GameRuntime runtime = createGameplayRuntime(engine);
         EditorPlaytestStash stash = new EditorPlaytestStash(100, 200, 9, -3, true, 47, 1);
@@ -121,6 +159,7 @@ class TestEditorToggleIntegration {
 
     @Test
     void startGameplayFromBeginning_discardsResumeStashAndReturnsToCanonicalSpawn() throws Exception {
+        enableEditor();
         Engine engine = new Engine();
         createGameplayRuntime(engine);
         EditorPlaytestStash stash = new EditorPlaytestStash(100, 200, 9, -3, true, 47, 1);
@@ -145,6 +184,7 @@ class TestEditorToggleIntegration {
 
     @Test
     void shiftTabInGameplayTogglesEditorAndBackThroughEngineHelpers() {
+        enableEditor();
         Engine engine = new Engine();
         GameRuntime runtime = createGameplayRuntime(engine);
         Sonic player = (Sonic) runtime.getSpriteManager().getSprite("sonic");
@@ -177,6 +217,7 @@ class TestEditorToggleIntegration {
 
     @Test
     void preRuntimePlayer_roundTripsThroughEditorModeAndResumesAtEditorCursor() {
+        enableEditor();
         Engine engine = new Engine();
         Sonic player = new Sonic("sonic", (short) 144, (short) 288);
         GameRuntime runtime = createGameplayRuntime(engine, player);
@@ -222,6 +263,11 @@ class TestEditorToggleIntegration {
         Method setCurrent = RuntimeManager.class.getDeclaredMethod("setCurrent", GameRuntime.class);
         setCurrent.setAccessible(true);
         setCurrent.invoke(null, runtime);
+    }
+
+    private static void enableEditor() {
+        SonicConfigurationService.getInstance().setConfigValue(SonicConfiguration.EDITOR_ENABLED, true);
+        assertTrue(SonicConfigurationService.getInstance().getBoolean(SonicConfiguration.EDITOR_ENABLED));
     }
 
 }

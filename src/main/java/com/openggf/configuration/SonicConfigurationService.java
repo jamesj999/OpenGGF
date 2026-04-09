@@ -186,6 +186,7 @@ public class SonicConfigurationService {
 		putDefault(SonicConfiguration.SCALE, 1.0);
 		// Debug view now eagerly initialized in Engine.init() to avoid macOS freeze
 		putDefault(SonicConfiguration.DEBUG_VIEW_ENABLED, true);
+		putDefault(SonicConfiguration.EDITOR_ENABLED, false);
 		putDefault(SonicConfiguration.DEBUG_COLLISION_VIEW_ENABLED, false);
 		putDefault(SonicConfiguration.DAC_INTERPOLATE, true);
 		putDefault(SonicConfiguration.FM6_DAC_OFF, true); // Default true for Sonic 2 parity
