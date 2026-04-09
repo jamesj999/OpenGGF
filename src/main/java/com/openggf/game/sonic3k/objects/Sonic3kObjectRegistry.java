@@ -123,6 +123,14 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                 (spawn, registry) -> new S3kCutsceneButtonObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.STAR_POST,
                 (spawn, registry) -> new Sonic3kStarPostObjectInstance(spawn));
+        factories.put(Sonic3kObjectIds.HCZ_TWISTING_LOOP,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new HCZTwistingLoopObjectInstance(spawn);
+                });
         factories.put(Sonic3kObjectIds.HCZ_WATER_RUSH,
                 (spawn, registry) -> {
                     S3kZoneSet zoneSet = getCurrentZoneSet();

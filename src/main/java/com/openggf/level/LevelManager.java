@@ -3435,7 +3435,17 @@ public class LevelManager {
         // which enables water for cases that a direct load would disable (AIZ2 Knuckles).
         initWater(true);
 
-        // 5. Rebuild managers with new act's spawn data
+        // 5. Clear checkpoint state (ROM: clr.b (Respawn_table_keep).w)
+        // Without this, starposts from Act 1 would appear activated in Act 2.
+        if (checkpointState != null) {
+            checkpointState.clear();
+        }
+
+        // 5b. Reset level gamestate (timer + rings) for the new act.
+        // ROM: Timer and ring count reset on act transition. Score carries over.
+        levelGamestate = gameModule.createLevelState();
+
+        // 6. Rebuild managers with new act's spawn data
         // (ROM: Load_Level swaps obj/ring pointers, then clears Dynamic_object_RAM + Ring_status_table)
         rebuildManagersForActTransition(cam);
 
@@ -3448,6 +3458,15 @@ public class LevelManager {
 
         // 8. Reinitialize level events for new act
         initLevelEventsForCurrentZoneAct();
+
+        // 9. Reinitialize zone features (water surface sprites, etc.) for the new act.
+        // Without this, the water surface manager retains Act 1's act ID and renders
+        // wave sprites at the wrong water level.
+        try {
+            initZoneFeatures();
+        } catch (IOException e) {
+            LOGGER.warning("Failed to reinitialize zone features: " + e.getMessage());
+        }
 
         // 9. Music override if specified
         if (request.musicOverrideId() >= 0) {
