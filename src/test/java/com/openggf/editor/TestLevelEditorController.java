@@ -25,6 +25,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_DOWN;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER;
@@ -361,6 +362,29 @@ class TestLevelEditorController {
         controller.selectBlock(12);
 
         assertThrows(IllegalArgumentException.class, () -> controller.selectChunk(-1));
+    }
+
+    @Test
+    void selectedBlockPreview_returnsSelectedBlockFromAttachedLevel() {
+        LevelEditorController controller = new LevelEditorController();
+        MutableLevel level = createMutableLevel(4, 3, 2, 3);
+        level.setChunkInBlock(1, 0, 0, new com.openggf.level.ChunkDesc(2));
+        controller.attachLevel(level);
+
+        controller.selectBlock(1);
+
+        assertSame(level.getBlock(1), controller.selectedBlockPreview());
+    }
+
+    @Test
+    void selectedBlockCellPreview_returnsSelectedChunkFromAttachedLevel() {
+        LevelEditorController controller = new LevelEditorController();
+        MutableLevel level = createMutableLevel(4, 3, 2, 3);
+        controller.attachLevel(level);
+
+        controller.selectBlock(1);
+
+        assertSame(level.getChunk(0), controller.selectedBlockCellPreview());
     }
 
     @Test

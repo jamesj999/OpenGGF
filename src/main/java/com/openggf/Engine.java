@@ -81,7 +81,7 @@ public class Engine {
 	private final GameLoop gameLoop = new GameLoop();
 	private final LevelEditorController levelEditorController = new LevelEditorController();
 	private final EditorInputHandler editorInputHandler = new EditorInputHandler(levelEditorController);
-	private final EditorOverlayRenderer editorOverlayRenderer = new EditorOverlayRenderer();
+	private final EditorOverlayRenderer editorOverlayRenderer = new EditorOverlayRenderer(levelEditorController);
 
 	private static volatile DebugState debugState = DebugState.NONE;
 	private static volatile DebugOption debugOption = DebugOption.A;

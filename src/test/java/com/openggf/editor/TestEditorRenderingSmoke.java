@@ -9,8 +9,18 @@ import com.openggf.editor.render.EditorWorldOverlayRenderer;
 import com.openggf.editor.render.FocusedEditorPaneRenderer;
 import com.openggf.game.session.SessionManager;
 import com.openggf.game.sonic2.Sonic2GameModule;
-import org.junit.jupiter.api.AfterEach;
+import com.openggf.level.AbstractLevel;
+import com.openggf.level.Block;
+import com.openggf.level.Chunk;
+import com.openggf.level.ChunkDesc;
+import com.openggf.level.MutableLevel;
+import com.openggf.level.PatternDesc;
+import com.openggf.level.Pattern;
+import com.openggf.level.rings.RingSpriteSheet;
+import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.rings.RingSpawn;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -79,6 +89,59 @@ class TestEditorRenderingSmoke {
     }
 
     @Test
+    void toolbarRenderer_buildsVisibleChromeCommands() {
+        InspectableToolbarRenderer renderer = new InspectableToolbarRenderer();
+
+        assertFalse(renderer.buildCommands().isEmpty());
+    }
+
+    @Test
+    void commandStripRenderer_buildsVisibleChromeCommands() {
+        InspectableCommandStripRenderer renderer = new InspectableCommandStripRenderer();
+
+        assertFalse(renderer.buildCommands().isEmpty());
+    }
+
+    @Test
+    void focusedPaneRenderer_buildsVisiblePaneChromeCommands() {
+        InspectableFocusedEditorPaneRenderer renderer = new InspectableFocusedEditorPaneRenderer();
+
+        assertFalse(renderer.buildBlockCommands().isEmpty());
+        assertFalse(renderer.buildChunkCommands().isEmpty());
+    }
+
+    @Test
+    void focusedPaneRenderer_blockPreviewCommandsChangeWithSelectedBlockContent() {
+        LevelEditorController controller = createPreviewController();
+        InspectableFocusedEditorPaneRenderer renderer = new InspectableFocusedEditorPaneRenderer(controller);
+
+        controller.selectBlock(1);
+        List<GLCommand> first = renderer.buildBlockCommands();
+
+        controller.selectBlock(2);
+        List<GLCommand> second = renderer.buildBlockCommands();
+
+        assertFalse(first.isEmpty());
+        assertFalse(second.isEmpty());
+        assertNotEquals(commandSignature(first), commandSignature(second));
+    }
+
+    @Test
+    void focusedPaneRenderer_blockPreviewCommandsChangeWithActiveCell() {
+        LevelEditorController controller = createPreviewController();
+        InspectableFocusedEditorPaneRenderer renderer = new InspectableFocusedEditorPaneRenderer(controller);
+
+        controller.selectBlock(1);
+        controller.descend();
+        List<GLCommand> first = renderer.buildBlockCommands();
+
+        controller.moveActiveSelection(1, 1);
+        List<GLCommand> second = renderer.buildBlockCommands();
+
+        assertNotEquals(commandSignature(first), commandSignature(second));
+    }
+
+    @Test
     void worldOverlayRenderer_usesCurrentSessionCursorWhenRendering() {
         SessionManager.openGameplaySession(new Sonic2GameModule());
         SessionManager.enterEditorMode(new EditorCursorState(320, 448));
@@ -143,6 +206,44 @@ class TestEditorRenderingSmoke {
         }
     }
 
+    private static final class InspectableToolbarRenderer extends EditorToolbarRenderer {
+        private List<GLCommand> buildCommands() {
+            List<GLCommand> commands = new ArrayList<>();
+            appendCommands(commands);
+            return commands;
+        }
+    }
+
+    private static final class InspectableCommandStripRenderer extends EditorCommandStripRenderer {
+        private List<GLCommand> buildCommands() {
+            List<GLCommand> commands = new ArrayList<>();
+            appendCommands(commands);
+            return commands;
+        }
+    }
+
+    private static final class InspectableFocusedEditorPaneRenderer extends FocusedEditorPaneRenderer {
+        private InspectableFocusedEditorPaneRenderer() {
+            super();
+        }
+
+        private InspectableFocusedEditorPaneRenderer(LevelEditorController controller) {
+            super(controller);
+        }
+
+        private List<GLCommand> buildBlockCommands() {
+            List<GLCommand> commands = new ArrayList<>();
+            appendBlockPaneCommands(commands);
+            return commands;
+        }
+
+        private List<GLCommand> buildChunkCommands() {
+            List<GLCommand> commands = new ArrayList<>();
+            appendChunkPaneCommands(commands);
+            return commands;
+        }
+    }
+
     private static final class InspectableWorldOverlayRenderer extends EditorWorldOverlayRenderer {
         private List<GLCommand> buildCursorCommands(EditorCursorState cursor) {
             List<GLCommand> commands = new ArrayList<>();
@@ -171,5 +272,163 @@ class TestEditorRenderingSmoke {
                     .append(';');
         }
         return signature.toString();
+    }
+
+    private static LevelEditorController createPreviewController() {
+        LevelEditorController controller = new LevelEditorController();
+        controller.attachLevel(createPreviewLevel());
+        return controller;
+    }
+
+    private static MutableLevel createPreviewLevel() {
+        return MutableLevel.snapshot(new PreviewLevel());
+    }
+
+    private static final class PreviewLevel extends AbstractLevel {
+        PreviewLevel() {
+            super(0);
+            patternCount = 1;
+            patterns = new Pattern[] { new Pattern() };
+
+            chunkCount = 9;
+            chunks = new Chunk[chunkCount];
+            for (int i = 0; i < chunkCount; i++) {
+                chunks[i] = new Chunk();
+                chunks[i].setPatternDesc(0, 0, new PatternDesc(i * 4 + 1));
+                chunks[i].setPatternDesc(1, 0, new PatternDesc(i * 4 + 2));
+                chunks[i].setPatternDesc(0, 1, new PatternDesc(i * 4 + 3));
+                chunks[i].setPatternDesc(1, 1, new PatternDesc(i * 4 + 4));
+            }
+
+            blockCount = 3;
+            blocks = new Block[blockCount];
+            for (int i = 0; i < blockCount; i++) {
+                blocks[i] = new Block(2);
+                blocks[i].setChunkDesc(0, 0, new ChunkDesc(i));
+                blocks[i].setChunkDesc(1, 0, new ChunkDesc((i + 1) % chunkCount));
+                blocks[i].setChunkDesc(0, 1, new ChunkDesc((i + 2) % chunkCount));
+                blocks[i].setChunkDesc(1, 1, new ChunkDesc((i + 3) % chunkCount));
+            }
+
+            solidTileCount = 0;
+            solidTiles = new com.openggf.level.SolidTile[0];
+            map = new com.openggf.level.Map(1, 2, 2);
+            map.setValue(0, 0, 0, (byte) 0);
+            map.setValue(0, 1, 0, (byte) 1);
+            map.setValue(0, 0, 1, (byte) 2);
+            map.setValue(0, 1, 1, (byte) 0);
+            palettes = new com.openggf.level.Palette[] {
+                    new com.openggf.level.Palette(),
+                    new com.openggf.level.Palette(),
+                    new com.openggf.level.Palette(),
+                    new com.openggf.level.Palette()
+            };
+            objects = List.of();
+            rings = List.of();
+            minX = 0;
+            maxX = 255;
+            minY = 0;
+            maxY = 191;
+        }
+
+        @Override
+        public int getChunksPerBlockSide() {
+            return 2;
+        }
+
+        @Override
+        public int getBlockPixelSize() {
+            return 128;
+        }
+
+        @Override
+        public int getPaletteCount() {
+            return palettes.length;
+        }
+
+        @Override
+        public com.openggf.level.Palette getPalette(int index) {
+            return palettes[index];
+        }
+
+        @Override
+        public int getPatternCount() {
+            return patternCount;
+        }
+
+        @Override
+        public Pattern getPattern(int index) {
+            return patterns[index];
+        }
+
+        @Override
+        public int getChunkCount() {
+            return chunkCount;
+        }
+
+        @Override
+        public Chunk getChunk(int index) {
+            return chunks[index];
+        }
+
+        @Override
+        public int getBlockCount() {
+            return blockCount;
+        }
+
+        @Override
+        public Block getBlock(int index) {
+            return blocks[index];
+        }
+
+        @Override
+        public com.openggf.level.SolidTile getSolidTile(int index) {
+            return solidTiles[index];
+        }
+
+        @Override
+        public com.openggf.level.Map getMap() {
+            return map;
+        }
+
+        @Override
+        public List<ObjectSpawn> getObjects() {
+            return objects;
+        }
+
+        @Override
+        public List<RingSpawn> getRings() {
+            return rings;
+        }
+
+        @Override
+        public RingSpriteSheet getRingSpriteSheet() {
+            return null;
+        }
+
+        @Override
+        public int getMinX() {
+            return minX;
+        }
+
+        @Override
+        public int getMaxX() {
+            return maxX;
+        }
+
+        @Override
+        public int getMinY() {
+            return minY;
+        }
+
+        @Override
+        public int getMaxY() {
+            return maxY;
+        }
+
+        @Override
+        public int getZoneIndex() {
+            return 0;
+        }
     }
 }
