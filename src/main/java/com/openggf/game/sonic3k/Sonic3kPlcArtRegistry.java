@@ -549,6 +549,16 @@ public final class Sonic3kPlcArtRegistry {
                 null
         ));
 
+        // Door (Object 0x3C) vertical: ArtTile_HCZMisc + $0A, palette 2
+        // ROM: make_art_tile(ArtTile_HCZMisc+$A, 2, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.DOOR_VERTICAL_HCZ,
+                -1,
+                Sonic3kConstants.ARTTILE_HCZ_MISC + 0x0A,
+                2,
+                "buildDoorVerticalHczSheet"
+        ));
+
     }
 
     /**
@@ -737,6 +747,26 @@ public final class Sonic3kPlcArtRegistry {
                 Sonic3kConstants.ARTTILE_CNZ_BUTTON,
                 2,
                 null
+        ));
+
+        // Door (Object 0x3C) vertical: ArtTile_CNZMisc + $C5, palette 2
+        // ROM: make_art_tile(ArtTile_CNZMisc+$C5, 2, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.DOOR_VERTICAL_CNZ,
+                -1,
+                Sonic3kConstants.ARTTILE_CNZ_MISC + 0xC5,
+                2,
+                "buildDoorVerticalCnzSheet"
+        ));
+
+        // Door (Object 0x3C) horizontal: ArtTile_CNZMisc + $C5, palette 2
+        // ROM: make_art_tile(ArtTile_CNZMisc+$C5, 2, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.DOOR_HORIZONTAL,
+                -1,
+                Sonic3kConstants.ARTTILE_CNZ_MISC + 0xC5,
+                2,
+                "buildDoorHorizontalSheet"
         ));
     }
 
@@ -1309,6 +1339,16 @@ public final class Sonic3kPlcArtRegistry {
                 Sonic3kConstants.MAP_CHAINSPIKE_ADDR,
                 1,
                 -1
+        ));
+
+        // Door (Object 0x3C) vertical: ArtTile_DEZMisc + $1E, palette 1
+        // ROM: make_art_tile(ArtTile_DEZMisc+$1E, 1, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.DOOR_VERTICAL_DEZ,
+                -1,
+                Sonic3kConstants.ARTTILE_DEZ_MISC + 0x1E,
+                1,
+                "buildDoorVerticalDezSheet"
         ));
     }
 
