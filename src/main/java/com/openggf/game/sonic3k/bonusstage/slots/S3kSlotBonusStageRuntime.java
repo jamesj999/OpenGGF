@@ -1,11 +1,13 @@
 package com.openggf.game.sonic3k.bonusstage.slots;
 
+import com.openggf.audio.GameSound;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.GameServices;
 import com.openggf.game.GameRuntime;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
+import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.objects.S3kSlotBonusCageObjectInstance;
 import com.openggf.game.sonic3k.objects.S3kSlotRingRewardObjectInstance;
 import com.openggf.game.sonic3k.objects.S3kSlotSpikeRewardObjectInstance;
@@ -13,6 +15,7 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.objects.DefaultObjectServices;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -32,7 +35,6 @@ public final class S3kSlotBonusStageRuntime {
     private S3kSlotStageController slotStageController;
     private final S3kSlotLayoutRenderer slotLayoutRenderer = new S3kSlotLayoutRenderer();
     private final S3kSlotLayoutAnimator layoutAnimator = new S3kSlotLayoutAnimator();
-    private S3kSlotExitSequence exitSequence;
     private boolean exitTriggered;
     private AbstractPlayableSprite slotPlayer;
     private S3kSlotBonusCageObjectInstance slotCage;
@@ -63,7 +65,6 @@ public final class S3kSlotBonusStageRuntime {
         optionCycleSystem.bootstrap(slotStageState);
         slotCollisionSystem = new S3kSlotCollisionSystem(slotRenderBuffers, slotStageState);
         slotPlayerRuntime = new S3kSlotPlayerRuntime(slotStageState, slotCollisionSystem);
-        exitSequence = null;
         exitTriggered = false;
         slotStageController = new S3kSlotStageController(slotStageState);
         slotStageController.bootstrap();
@@ -84,13 +85,14 @@ public final class S3kSlotBonusStageRuntime {
             short centerY = S3kSlotRomData.SLOT_BONUS_CAGE_CENTER_Y;
             slotPlayer = S3kSlotBonusPlayer.create(mainCode, slotStartX, slotStartY, slotPlayerRuntime);
             copyLivePlayerState(mainPlayer, slotPlayer);
-            slotPlayer.setX(slotStartX);
-            slotPlayer.setY(slotStartY);
+            slotPlayer.setCentreX(slotStartX);
+            slotPlayer.setCentreY(slotStartY);
             slotPlayerRuntime.initialize(slotPlayer);
+            slotPlayerRuntime.resetSlotOrigin(slotPlayer);
             bootstrapRuntime.getSpriteManager().addSprite(slotPlayer);
             bootstrapRuntime.getCamera().setFocusedSprite(slotPlayer);
-            bootstrapRuntime.getCamera().setX((short) (slotStartX - 0xA0));
-            bootstrapRuntime.getCamera().setY((short) (slotStartY - 0x70));
+            bootstrapRuntime.getCamera().setX((short) (slotPlayer.getCentreX() - 0xA0));
+            bootstrapRuntime.getCamera().setY((short) (slotPlayer.getCentreY() - 0x70));
             slotCage = new S3kSlotBonusCageObjectInstance(
                     new ObjectSpawn(centerX, centerY, 0, 0, 0, false, 0),
                     slotStageController);
@@ -105,30 +107,21 @@ public final class S3kSlotBonusStageRuntime {
     public void update(int frameCounter) {
         lastFrameCounter = frameCounter;
 
-        // Exit sequence takes priority
-        if (exitSequence != null) {
-            exitSequence.tick();
-            if (exitSequence.isFading() && !exitFadeStarted && GameServices.fade() != null) {
+        if (slotPlayerRuntime != null && slotPlayerRuntime.isExiting()) {
+            slotPlayerRuntime.tickExitFrame(slotPlayer);
+            if (slotPlayerRuntime.isExitFading() && !exitFadeStarted && GameServices.fade() != null) {
                 GameServices.fade().startFadeToBlack(null, 0, S3kSlotExitSequence.FADE_FRAMES);
                 exitFadeStarted = true;
             }
-            if (exitSequence.isComplete()) {
+            if (slotPlayerRuntime.isExitComplete()) {
                 exitTriggered = true;
             }
-            // During exit, still update visuals
             updateVisuals();
             return;
         }
 
         // ROM line 98745: move.b #0,$30(a0) — clear collision tile at start of frame
 
-        // Per-frame rotation integration
-        if (slotPlayer != null && slotPlayer.isObjectControlled()) {
-            // ROM loc_4BA80: accelerated rotation during cage capture
-            slotStageController.tickObjectControlled();
-        } else {
-            slotStageController.tick();
-        }
         if (slotCollisionSystem != null) {
             slotCollisionSystem.tickFrameState();
         }
@@ -145,7 +138,8 @@ public final class S3kSlotBonusStageRuntime {
 
         // Cage object
         if (slotCage != null && slotPlayer != null) {
-            slotCage.tickSlotRuntime(frameCounter, slotPlayer);
+            slotCage.tickSlotRuntime(frameCounter, slotPlayer,
+                    currentPlayerOriginX(), currentPlayerOriginY());
             slotStageState.setEventsBg(slotCage.getCurrentX(), slotCage.getCurrentY());
         }
 
@@ -153,14 +147,21 @@ public final class S3kSlotBonusStageRuntime {
         updateRewards(frameCounter);
 
         // Ring pickup from grid
-        if (slotRenderBuffers != null && slotPlayer != null) {
+        if (slotRenderBuffers != null && slotPlayer != null && !slotPlayer.isDebugMode()) {
             checkRingPickup();
         }
 
         // Tile interaction dispatch — collision was already handled inline by player physics.
         // Read stored tile ID from controller (set during physics collision check).
-        if (slotPlayer != null && slotStageState != null && slotStageState.lastCollisionTileId() > 0) {
+        if (slotPlayer != null && slotStageState != null && !slotPlayer.isDebugMode()
+                && slotStageState.lastCollisionTileId() > 0) {
             dispatchTileInteraction();
+            int collisionTileId = slotStageState.lastCollisionTileId();
+            if (collisionTileId < 1 || collisionTileId > 3) {
+                slotStageState.clearSlotWallContact();
+            }
+        } else if (slotStageState != null) {
+            slotStageState.clearSlotWallContact();
         }
 
         // ROM sub_4BBF4: custom camera tracking centered on player
@@ -208,7 +209,6 @@ public final class S3kSlotBonusStageRuntime {
         slotPlayerRuntime = null;
         slotCollisionSystem = null;
         slotStageController = null;
-        exitSequence = null;
         exitTriggered = false;
         originalPlayer = null;
         bootstrapRuntime = null;
@@ -295,11 +295,26 @@ public final class S3kSlotBonusStageRuntime {
     }
 
     public S3kSlotExitSequence activeExitSequenceForTest() {
-        return exitSequence;
+        return slotPlayerRuntime != null ? slotPlayerRuntime.activeExitSequence() : null;
     }
 
     public S3kSlotStageController stageController() {
         return slotStageController;
+    }
+
+    public S3kSlotMachineDisplayState slotMachineDisplayStateForTest() {
+        return slotMachineDisplayState();
+    }
+
+    public S3kSlotMachineDisplayState slotMachineDisplayState() {
+        S3kSlotLayoutRenderer.TransformedStagePoint anchor = currentMachineAnchor();
+        return S3kSlotMachineDisplayState.fromState(slotStageState, anchor.worldX(), anchor.worldY());
+    }
+
+    public void startGoalExitForTest() {
+        if (slotPlayerRuntime != null && slotPlayer != null) {
+            slotPlayerRuntime.startGoalExit(slotPlayer);
+        }
     }
 
     public void render(com.openggf.camera.Camera camera) {
@@ -314,11 +329,45 @@ public final class S3kSlotBonusStageRuntime {
         // Only the slot layout pass is rendered here. Cage/reward objects stay on
         // the normal object pipeline so this hook matches the ROM's post-sprite pass.
         slotLayoutRenderer.renderVisibleCells(visibleCells, camera, levelManager.getObjectRenderManager());
+        renderSlotMachineFace(levelManager);
+    }
+
+    private void renderSlotMachineFace(LevelManager levelManager) {
+        if (levelManager == null) {
+            return;
+        }
+        PatternSpriteRenderer renderer = levelManager.getObjectRenderManager().getRenderer(Sonic3kObjectArtKeys.SLOT_MACHINE_FACE);
+        if (renderer == null) {
+            return;
+        }
+        S3kSlotLayoutRenderer.TransformedStagePoint anchor = currentMachineAnchor();
+        renderer.drawFrameIndex(0, anchor.worldX(), anchor.worldY(), false, false);
+    }
+
+    private S3kSlotLayoutRenderer.TransformedStagePoint currentMachineAnchor() {
+        if (bootstrapRuntime != null && slotStageState != null) {
+            int cameraX = bootstrapRuntime.getCamera().getX();
+            int cameraY = bootstrapRuntime.getCamera().getY();
+            int worldX = slotStageState.eventsBgX();
+            int worldY = slotStageState.eventsBgY();
+            return new S3kSlotLayoutRenderer.TransformedStagePoint(
+                    worldX,
+                    worldY,
+                    worldX - cameraX,
+                    worldY - cameraY);
+        }
+        return new S3kSlotLayoutRenderer.TransformedStagePoint(
+                S3kSlotRomData.SLOT_BONUS_CAGE_CENTER_X,
+                S3kSlotRomData.SLOT_BONUS_CAGE_CENTER_Y,
+                S3kSlotMachineRenderer.computeDisplayScreenX(
+                        S3kSlotRomData.SLOT_BONUS_CAGE_CENTER_X, 0),
+                S3kSlotMachineRenderer.computeDisplayScreenY(
+                        S3kSlotRomData.SLOT_BONUS_CAGE_CENTER_Y, 0));
     }
 
     private void checkRingPickup() {
         S3kSlotCollisionSystem.RingCheck ring = slotCollisionSystem.checkRingPickup(
-                slotPlayer.getX(), slotPlayer.getY());
+                currentPlayerOriginX(), currentPlayerOriginY());
         if (ring.foundRing()) {
             slotCollisionSystem.consumeRing(ring);
             slotRenderBuffers.startRingAnimationAt(ring.layoutIndex());
@@ -328,7 +377,7 @@ public final class S3kSlotBonusStageRuntime {
                 GameServices.bonusStage().addRings(1);
             }
             if (GameServices.audio() != null) {
-                GameServices.audio().playSfx(Sonic3kSfx.RING_RIGHT.id);
+                GameServices.audio().playSfx(GameSound.RING);
             }
             // ROM lines 99168-99174: 50-ring continue bonus (once per stage)
             if (slotPlayer.getRingCount() >= 50 && !continueAwarded) {
@@ -356,42 +405,42 @@ public final class S3kSlotBonusStageRuntime {
         if (expandedIndex < 0) {
             return;
         }
-        int tileRow = expandedIndex / S3kSlotCollisionSystem.EXPANDED_STRIDE;
-        int tileCol = expandedIndex % S3kSlotCollisionSystem.EXPANDED_STRIDE;
-        short tileCenterX = (short) (tileCol * S3kSlotCollisionSystem.CELL_SIZE
-                - S3kSlotCollisionSystem.COLLISION_X_OFFSET + 0x0C);
-        short tileCenterY = (short) (tileRow * S3kSlotCollisionSystem.CELL_SIZE
-                - S3kSlotCollisionSystem.COLLISION_Y_OFFSET + 0x0C);
+        short tileAnchorX = S3kSlotCollisionSystem.tileResponseAnchorX(expandedIndex);
+        short tileAnchorY = S3kSlotCollisionSystem.tileResponseAnchorY(expandedIndex);
 
         S3kSlotCollisionSystem.TileResponse response = slotCollisionSystem.resolveTileResponse(
-                tileId, slotPlayer.getX(), slotPlayer.getY(), tileCenterX, tileCenterY);
+                tileId, (short) currentPlayerOriginX(), (short) currentPlayerOriginY(), tileAnchorX, tileAnchorY);
 
-        handleTileResponse(response, layoutIndex);
+        handleTileResponse(response, layoutIndex, tileId);
         slotStageController.setScalarIndex(slotStageState.scalarIndex1());
     }
 
-    private void handleTileResponse(S3kSlotCollisionSystem.TileResponse response, int layoutIndex) {
+    private void handleTileResponse(S3kSlotCollisionSystem.TileResponse response, int layoutIndex, int tileId) {
         switch (response.effect()) {
             case BUMPER_LAUNCH -> {
                 slotPlayer.setXSpeed(response.launchXVel());
                 slotPlayer.setYSpeed(response.launchYVel());
                 slotPlayer.setAir(true);
                 if (GameServices.audio() != null) GameServices.audio().playSfx(Sonic3kSfx.BUMPER.id);
-                // ROM loc_4BEC8: animation spawns at layout address - 1
-                slotRenderBuffers.startBumperAnimationAt(Math.max(0, layoutIndex - 1));
+                slotRenderBuffers.startBumperAnimationAt(layoutIndex);
             }
             case GOAL_EXIT -> {
                 if (GameServices.audio() != null) GameServices.audio().playSfx(Sonic3kSfx.GOAL.id);
-                exitSequence = new S3kSlotExitSequence(slotStageController);
+                slotPlayerRuntime.startGoalExit(slotPlayer);
                 exitFadeStarted = false;
             }
             case SPIKE_REVERSAL -> {
                 if (GameServices.audio() != null) GameServices.audio().playSfx(Sonic3kSfx.LAUNCH_GO.id);
-                // ROM loc_4BEC8: animation spawns at layout address - 1
-                slotRenderBuffers.startSpikeAnimationAt(Math.max(0, layoutIndex - 1));
+                slotRenderBuffers.startSpikeAnimationAt(layoutIndex);
             }
             case SLOT_REEL_INCREMENT -> {
-                if (GameServices.audio() != null) GameServices.audio().playSfx(Sonic3kSfx.FLIPPER.id);
+                if (slotStageState.shouldTriggerSlotWall(layoutIndex)) {
+                    slotStageState.incrementSlotValue();
+                    if (tileId >= 1 && tileId <= 3) {
+                        slotRenderBuffers.startSlotWallAnimationAt(layoutIndex, tileId + 1);
+                    }
+                    if (GameServices.audio() != null) GameServices.audio().playSfx(Sonic3kSfx.FLIPPER.id);
+                }
             }
             default -> {}
         }
@@ -406,8 +455,8 @@ public final class S3kSlotBonusStageRuntime {
         if (slotPlayer == null || bootstrapRuntime == null) {
             return;
         }
-        int playerX = slotPlayer.getX();
-        int playerY = slotPlayer.getY();
+        int playerX = currentPlayerOriginX();
+        int playerY = currentPlayerOriginY();
         int camX = bootstrapRuntime.getCamera().getX();
         int camY = bootstrapRuntime.getCamera().getY();
         int targetX = playerX - 0xA0;
@@ -422,6 +471,20 @@ public final class S3kSlotBonusStageRuntime {
         bootstrapRuntime.getCamera().setY((short) camY);
     }
 
+    private int currentPlayerOriginX() {
+        if (slotPlayerRuntime != null) {
+            return slotPlayerRuntime.slotOriginX() >> 16;
+        }
+        return slotPlayer != null ? slotPlayer.getCentreX() : 0;
+    }
+
+    private int currentPlayerOriginY() {
+        if (slotPlayerRuntime != null) {
+            return slotPlayerRuntime.slotOriginY() >> 16;
+        }
+        return slotPlayer != null ? slotPlayer.getCentreY() : 0;
+    }
+
     private void updateVisuals() {
         if (bootstrapRuntime != null) {
             int stageCameraX = bootstrapRuntime.getCamera().getX();
@@ -430,7 +493,7 @@ public final class S3kSlotBonusStageRuntime {
                 if (pointGrid == null || pointGrid.length < 16 * 16 * 2) {
                     pointGrid = new short[16 * 16 * 2];
                 }
-                slotLayoutRenderer.updateAnimations();
+                slotLayoutRenderer.updateAnimations(slotStageState.angle());
                 slotLayoutRenderer.tickTransientAnimations(slotRenderBuffers);
                 slotLayoutRenderer.buildPointGridInto(pointGrid, slotStageState.angle(),
                         stageCameraX, stageCameraY);

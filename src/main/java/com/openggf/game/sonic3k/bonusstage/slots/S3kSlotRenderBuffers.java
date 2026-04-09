@@ -77,24 +77,34 @@ public final class S3kSlotRenderBuffers {
     public boolean startRingAnimationAt(int layoutIndex) {
         return startTransientAnimation(layoutIndex,
                 S3kSlotRomData.RING_SPARKLE_FRAMES,
-                S3kSlotRomData.RING_SPARKLE_DELAY);
+                S3kSlotRomData.RING_SPARKLE_DELAY,
+                (byte) 0x00);
     }
 
     public boolean startBumperAnimationAt(int layoutIndex) {
         return startTransientAnimation(layoutIndex,
                 S3kSlotRomData.BUMPER_BOUNCE_FRAMES,
-                S3kSlotRomData.BUMPER_BOUNCE_DELAY);
+                S3kSlotRomData.BUMPER_BOUNCE_DELAY,
+                (byte) 0x05);
     }
 
     public boolean startSpikeAnimationAt(int layoutIndex) {
         return startTransientAnimation(layoutIndex,
                 S3kSlotRomData.SPIKE_ANIMATION_FRAMES,
-                S3kSlotRomData.SPIKE_ANIMATION_DELAY);
+                S3kSlotRomData.SPIKE_ANIMATION_DELAY,
+                (byte) 0x06);
+    }
+
+    public boolean startSlotWallAnimationAt(int layoutIndex, int finalTileId) {
+        return startTransientAnimation(layoutIndex,
+                S3kSlotRomData.SLOT_WALL_COLOR_FRAMES,
+                S3kSlotRomData.SLOT_WALL_COLOR_DELAY,
+                (byte) finalTileId);
     }
 
     public void tickTransientAnimations() {
         for (TransientAnimationSlot slot : transientAnimationSlots) {
-            slot.tick();
+            slot.tick(this);
         }
     }
 
@@ -111,30 +121,11 @@ public final class S3kSlotRenderBuffers {
         if (row < 0 || row >= layoutRows || col < 0 || col >= layoutColumns) {
             return 0;
         }
-        int compactIndex = expandedToCompactIndex(row, col);
-        for (TransientAnimationSlot slot : transientAnimationSlots) {
-            if (slot.active && slot.layoutIndex == compactIndex) {
-                return slot.currentTileId();
-            }
-        }
         int expandedIndex = row * layoutStrideBytes + col;
         if (expandedIndex < 0 || expandedIndex >= expandedLayout.length) {
             return 0;
         }
         return expandedLayout[expandedIndex] & 0xFF;
-    }
-
-    private boolean startTransientAnimation(int layoutIndex, byte[] frames, int delay) {
-        if (layoutIndex < 0 || layoutIndex >= layout.length || frames == null || frames.length == 0) {
-            return false;
-        }
-        for (TransientAnimationSlot slot : transientAnimationSlots) {
-            if (!slot.active) {
-                slot.start(layoutIndex, frames, delay);
-                return true;
-            }
-        }
-        return false;
     }
 
     public int compactToExpandedIndex(int compactIndex) {
@@ -165,24 +156,50 @@ public final class S3kSlotRenderBuffers {
         return compactRow * S3kSlotRomData.SLOT_LAYOUT_SIZE + compactCol;
     }
 
+    private boolean startTransientAnimation(int layoutIndex, byte[] frames, int delay, byte restoreTile) {
+        if (layoutIndex < 0 || layoutIndex >= layout.length || frames == null || frames.length == 0) {
+            return false;
+        }
+        for (TransientAnimationSlot slot : transientAnimationSlots) {
+            if (!slot.active) {
+                slot.start(this, layoutIndex, frames, delay, restoreTile);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void setCompactTile(int compactIndex, byte tileId) {
+        if (compactIndex >= 0 && compactIndex < layout.length) {
+            layout[compactIndex] = tileId;
+        }
+        int expandedIndex = compactToExpandedIndex(compactIndex);
+        if (expandedIndex >= 0 && expandedIndex < expandedLayout.length) {
+            expandedLayout[expandedIndex] = tileId;
+        }
+    }
+
     private static final class TransientAnimationSlot {
         private boolean active;
-        private int layoutIndex;
+        private int layoutIndex = -1;
         private byte[] frames = new byte[0];
         private int delay;
         private int timer;
         private int frameIndex;
+        private byte restoreTile;
 
-        private void start(int layoutIndex, byte[] frames, int delay) {
+        private void start(S3kSlotRenderBuffers buffers, int layoutIndex, byte[] frames, int delay, byte restoreTile) {
             active = true;
             this.layoutIndex = layoutIndex;
             this.frames = frames;
             this.delay = delay;
             this.timer = delay;
             this.frameIndex = 0;
+            this.restoreTile = restoreTile;
+            buffers.setCompactTile(layoutIndex, frames[0]);
         }
 
-        private void tick() {
+        private void tick(S3kSlotRenderBuffers buffers) {
             if (!active) {
                 return;
             }
@@ -192,15 +209,13 @@ public final class S3kSlotRenderBuffers {
             timer = delay;
             frameIndex++;
             if (frameIndex >= frames.length) {
+                buffers.setCompactTile(layoutIndex, restoreTile);
                 active = false;
+                layoutIndex = -1;
+                frames = new byte[0];
+                return;
             }
-        }
-
-        private int currentTileId() {
-            if (!active || frameIndex < 0 || frameIndex >= frames.length) {
-                return 0;
-            }
-            return frames[frameIndex] & 0xFF;
+            buffers.setCompactTile(layoutIndex, frames[frameIndex]);
         }
     }
 }
