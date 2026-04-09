@@ -96,7 +96,7 @@ public class GumballTriangleBumperObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        GumballMachineObjectInstance machine = GumballMachineObjectInstance.current();
+        GumballMachineObjectInstance machine = currentMachineForThisContext();
         if (machine != null && !machine.areBumpersActive()) {
             return;
         }
@@ -113,7 +113,7 @@ public class GumballTriangleBumperObjectInstance extends AbstractObjectInstance
             return;
         }
 
-        GumballMachineObjectInstance machine = GumballMachineObjectInstance.current();
+        GumballMachineObjectInstance machine = currentMachineForThisContext();
         if (machine != null && !machine.areBumpersActive()) {
             return;
         }
@@ -165,12 +165,20 @@ public class GumballTriangleBumperObjectInstance extends AbstractObjectInstance
             // Prevent audio failure from breaking game logic.
         }
 
-        GumballMachineObjectInstance machine = GumballMachineObjectInstance.current();
+        GumballMachineObjectInstance machine = currentMachineForThisContext();
         if (machine != null) {
             machine.onBumperHit(spawn.subtype() & 0xFF);
         }
 
         consumed = true;
+    }
+
+    private GumballMachineObjectInstance currentMachineForThisContext() {
+        GumballMachineObjectInstance machine = GumballMachineObjectInstance.current();
+        if (machine == null || services().currentLevel() == null) {
+            return null;
+        }
+        return machine;
     }
 
     @Override

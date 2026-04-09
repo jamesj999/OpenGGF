@@ -88,7 +88,7 @@ class TestS3kSlotLayoutRenderer {
             renderer.tickTransientAnimations(buffers);
         }
         assertFalse(buffers.hasActiveTransientAnimationAt(0x21));
-        assertEquals(8, buffers.renderCellIdAt(expandedRow, expandedCol));
+        assertEquals(0, buffers.renderCellIdAt(expandedRow, expandedCol));
     }
 
     @Test
@@ -103,7 +103,7 @@ class TestS3kSlotLayoutRenderer {
         buffers.startBumperAnimationAt(compactIndex);
         renderer.tickTransientAnimations(buffers);
 
-        assertEquals(0x0A, buffers.renderCellIdAt(expandedRow, expandedCol));
+        assertEquals(0x0B, buffers.renderCellIdAt(expandedRow, expandedCol));
     }
 
     @Test

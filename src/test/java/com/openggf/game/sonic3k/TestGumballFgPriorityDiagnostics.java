@@ -45,6 +45,7 @@ class TestGumballFgPriorityDiagnostics {
     private LevelManager levelManager;
     private String mainCharacter;
     private Object oldSkipIntros;
+    private Sonic sprite;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -56,7 +57,7 @@ class TestGumballFgPriorityDiagnostics {
         GraphicsManager.getInstance().initHeadless();
         levelManager = GameServices.level();
 
-        Sonic sprite = new Sonic(mainCharacter, (short) 0x100, (short) 0x100);
+        sprite = new Sonic(mainCharacter, (short) 0x100, (short) 0x100);
         GameServices.sprites().addSprite(sprite);
         Camera camera = GameServices.camera();
         camera.setFocusedSprite(sprite);
@@ -178,6 +179,8 @@ class TestGumballFgPriorityDiagnostics {
         SpriteManager spriteManager = GameServices.sprites();
         ObjectManager objectManager = levelManager.getObjectManager();
         assertNotNull(objectManager, "Object manager should exist");
+
+        objectManager.update(GameServices.camera().getX(), sprite, List.of(), 0, false);
 
         graphicsManager.setUseSpritePriorityShader(true);
         graphicsManager.setCurrentSpriteHighPriority(false);

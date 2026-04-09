@@ -675,14 +675,18 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
 
         // Render at currentY so the machine visually slides as bumpers clear.
         int renderY = driftInitialized ? currentY : (spawn.y() + MACHINE_Y_OFFSET);
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
-        graphicsManager.setCurrentSpriteSatDebugSource(String.format(
-                "%s frame=0x%02X slot=%d bucket=%d high=%s",
-                name, currentFrame, getSlotIndex(), getPriorityBucket(), isHighPriority()));
+        GraphicsManager graphicsManager = services().graphicsManager();
+        if (graphicsManager != null) {
+            graphicsManager.setCurrentSpriteSatDebugSource(String.format(
+                    "%s frame=0x%02X slot=%d bucket=%d high=%s",
+                    name, currentFrame, getSlotIndex(), getPriorityBucket(), isHighPriority()));
+        }
         try {
             renderer.drawFrameIndex(currentFrame, spawn.x(), renderY, false, false);
         } finally {
-            graphicsManager.setCurrentSpriteSatDebugSource(null);
+            if (graphicsManager != null) {
+                graphicsManager.setCurrentSpriteSatDebugSource(null);
+            }
         }
     }
 
@@ -771,14 +775,18 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
             if (renderer == null) {
                 return;
             }
-            GraphicsManager graphicsManager = GraphicsManager.getInstance();
-            graphicsManager.setCurrentSpriteSatDebugSource(String.format(
-                    "%s frame=0x%02X slot=%d bucket=%d high=%s",
-                    name, MAPPING_FRAME, getSlotIndex(), getPriorityBucket(), isHighPriority()));
+            GraphicsManager graphicsManager = services().graphicsManager();
+            if (graphicsManager != null) {
+                graphicsManager.setCurrentSpriteSatDebugSource(String.format(
+                        "%s frame=0x%02X slot=%d bucket=%d high=%s",
+                        name, MAPPING_FRAME, getSlotIndex(), getPriorityBucket(), isHighPriority()));
+            }
             try {
                 renderer.drawFrameIndex(MAPPING_FRAME, spawn.x(), spawn.y(), false, false);
             } finally {
-                graphicsManager.setCurrentSpriteSatDebugSource(null);
+                if (graphicsManager != null) {
+                    graphicsManager.setCurrentSpriteSatDebugSource(null);
+                }
             }
         }
     }
@@ -854,14 +862,18 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
             if (!shouldDebugRender(getPriorityBucket(), isHighPriority(), DEBUG_SOURCE_EJECTION_EFFECT)) return;
             PatternSpriteRenderer r = getRenderer(Sonic3kObjectArtKeys.GUMBALL_BONUS);
             if (r == null) return;
-            GraphicsManager graphicsManager = GraphicsManager.getInstance();
-            graphicsManager.setCurrentSpriteSatDebugSource(String.format(
-                    "%s frame=0x%02X slot=%d bucket=%d high=%s",
-                    name, MAPPING_FRAME, getSlotIndex(), getPriorityBucket(), isHighPriority()));
+            GraphicsManager graphicsManager = services().graphicsManager();
+            if (graphicsManager != null) {
+                graphicsManager.setCurrentSpriteSatDebugSource(String.format(
+                        "%s frame=0x%02X slot=%d bucket=%d high=%s",
+                        name, MAPPING_FRAME, getSlotIndex(), getPriorityBucket(), isHighPriority()));
+            }
             try {
                 r.drawFrameIndex(MAPPING_FRAME, drawX, drawY, false, false);
             } finally {
-                graphicsManager.setCurrentSpriteSatDebugSource(null);
+                if (graphicsManager != null) {
+                    graphicsManager.setCurrentSpriteSatDebugSource(null);
+                }
             }
         }
     }
@@ -961,14 +973,18 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
             if (renderer == null) {
                 return;
             }
-            GraphicsManager graphicsManager = GraphicsManager.getInstance();
-            graphicsManager.setCurrentSpriteSatDebugSource(String.format(
-                    "%s frame=0x%02X slot=%d bucket=%d high=%s",
-                    name, currentFrame, getSlotIndex(), getPriorityBucket(), isHighPriority()));
+            GraphicsManager graphicsManager = services().graphicsManager();
+            if (graphicsManager != null) {
+                graphicsManager.setCurrentSpriteSatDebugSource(String.format(
+                        "%s frame=0x%02X slot=%d bucket=%d high=%s",
+                        name, currentFrame, getSlotIndex(), getPriorityBucket(), isHighPriority()));
+            }
             try {
                 renderer.drawFrameIndex(currentFrame, spawn.x(), getY(), false, false);
             } finally {
-                graphicsManager.setCurrentSpriteSatDebugSource(null);
+                if (graphicsManager != null) {
+                    graphicsManager.setCurrentSpriteSatDebugSource(null);
+                }
             }
         }
     }
@@ -1094,17 +1110,19 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
             if (renderer == null) {
                 return;
             }
-            GraphicsManager graphicsManager = GraphicsManager.getInstance();
+            GraphicsManager graphicsManager = services().graphicsManager();
             GumballMachineObjectInstance machine = GumballMachineObjectInstance.current();
             int renderY = (machine != null)
                     ? machine.getCurrentY() + offsetFromMachine
                     : spawn.y();
             String debugSource = String.format("%s frame=0x%02X slot=%d bucket=%d high=%s",
                     name, mappingFrame, getSlotIndex(), getPriorityBucket(), isHighPriority());
-            graphicsManager.setCurrentSpriteSatDebugSource(debugSource);
+            if (graphicsManager != null) {
+                graphicsManager.setCurrentSpriteSatDebugSource(debugSource);
+            }
             try {
                 if (mappingFrame == 0x16) {
-                    if (graphicsManager.isSpriteSatCollectionActive()) {
+                    if (graphicsManager != null && graphicsManager.isSpriteSatCollectionActive()) {
                     // In the SAT/mask path, keep the original mapping-piece order intact.
                         renderer.drawFrameIndex(mappingFrame, spawn.x(), renderY, false, false, 0);
                         return;
@@ -1121,7 +1139,9 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
                 }
                 renderer.drawFrameIndex(mappingFrame, spawn.x(), renderY, false, false, 0);
             } finally {
-                graphicsManager.setCurrentSpriteSatDebugSource(null);
+                if (graphicsManager != null) {
+                    graphicsManager.setCurrentSpriteSatDebugSource(null);
+                }
             }
         }
     }
@@ -1182,20 +1202,24 @@ public class GumballMachineObjectInstance extends AbstractObjectInstance {
             if (renderer == null) {
                 return;
             }
-            GraphicsManager graphicsManager = GraphicsManager.getInstance();
+            GraphicsManager graphicsManager = services().graphicsManager();
             GumballMachineObjectInstance machine = GumballMachineObjectInstance.current();
             int renderY = (machine != null)
                     ? machine.getCurrentY() + offsetFromMachine
                     : spawn.y();
             // ROM ObjDat3_613EC uses make_art_tile($000, 0, 0) — palette 0.
-            graphicsManager.requestSpriteMask();
-            graphicsManager.setCurrentSpriteSatDebugSource(String.format(
-                    "%s frame=0x%02X slot=%d bucket=%d high=%s",
-                    name, MAPPING_FRAME, getSlotIndex(), getPriorityBucket(), isHighPriority()));
+            if (graphicsManager != null) {
+                graphicsManager.requestSpriteMask();
+                graphicsManager.setCurrentSpriteSatDebugSource(String.format(
+                        "%s frame=0x%02X slot=%d bucket=%d high=%s",
+                        name, MAPPING_FRAME, getSlotIndex(), getPriorityBucket(), isHighPriority()));
+            }
             try {
                 renderer.drawFrameIndex(MAPPING_FRAME, spawn.x(), renderY, false, false, 0);
             } finally {
-                graphicsManager.setCurrentSpriteSatDebugSource(null);
+                if (graphicsManager != null) {
+                    graphicsManager.setCurrentSpriteSatDebugSource(null);
+                }
             }
         }
     }

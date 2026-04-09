@@ -83,11 +83,18 @@ public final class S3kSlotPlayerRuntime {
 
         stageState.clearCollision();
         captureExternalSlotOriginIfNeeded(player);
+        boolean wasDebugActive = debugActive;
         syncDebugState(player);
         player.setMovementInputActive(player.isDebugMode()
                 ? (up || down || left || right)
                 : (left != right));
         player.setAngle((byte) stageState.angle());
+
+        if (wasDebugActive && !debugActive && !player.isDebugMode()) {
+            syncPlayerToSlotOrigin(player);
+            player.updateSensors(originalX, originalY);
+            return;
+        }
 
         if (exitSequence != null) {
             if (debugActive) {

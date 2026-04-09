@@ -553,8 +553,6 @@ public final class S3kSlotBonusStageRuntime {
                 ringReward.tickSlotRuntime(frameCounter, slotPlayer);
             } else if (reward instanceof S3kSlotSpikeRewardObjectInstance spikeReward) {
                 spikeReward.tickSlotRuntime(frameCounter, slotPlayer);
-            } else {
-                reward.update(frameCounter, slotPlayer);
             }
             boolean inactive = reward instanceof S3kSlotRingRewardObjectInstance ring && !ring.isActive()
                     || reward instanceof S3kSlotSpikeRewardObjectInstance spike && !spike.isActive();
