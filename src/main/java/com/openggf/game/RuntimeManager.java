@@ -68,7 +68,16 @@ public final class RuntimeManager {
      * sprite is attached to gameplay state.
      */
     public static synchronized GameModule resolveBootstrapGameModule() {
-        return GameModuleRegistry.getCurrent();
+        return GameModuleRegistry.getBootstrapDefault();
+    }
+
+    /**
+     * Resolves the gameplay module for the active runtime when present, otherwise
+     * falls back to the bootstrap default used by pre-runtime construction paths.
+     */
+    public static synchronized GameModule resolveCurrentOrBootstrapGameModule() {
+        GameModule module = resolveModuleFromRuntime(current);
+        return module != null ? module : resolveBootstrapGameModule();
     }
 
     /**

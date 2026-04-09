@@ -44,6 +44,15 @@ public final class GameModuleRegistry {
     }
 
     /**
+     * Returns the bootstrap default module without consulting session state.
+     * Use this only for construction paths that intentionally run before a
+     * gameplay world session or runtime exists.
+     */
+    public static synchronized GameModule getBootstrapDefault() {
+        return bootstrapDefault;
+    }
+
+    /**
      * Sets the bootstrap default game module used before a world session exists.
      *
      * @param module the module to set as current (ignored if null)

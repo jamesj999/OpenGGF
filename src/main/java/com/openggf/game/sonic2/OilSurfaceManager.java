@@ -1,12 +1,12 @@
 package com.openggf.game.sonic2;
 
 import com.openggf.audio.GameSound;
+import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.level.LevelManager;
 import com.openggf.physics.Direction;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
-import com.openggf.game.GameServices;
 
 /**
  * Manages OOZ oil surface collision and oil slides.
@@ -197,7 +197,11 @@ public class OilSurfaceManager {
 
         // Look up block ID at player position
         // ROM: uses centre coordinates (x_pos, y_pos)
-        LevelManager levelManager = GameServices.level();
+        LevelManager levelManager = player.currentLevelManagerIfAvailable();
+        if (levelManager == null || levelManager.getCurrentLevel() == null) {
+            exitSlide(player);
+            return;
+        }
         int blockId = levelManager.getBlockIdAt(player.getCentreX(), player.getCentreY());
         if (blockId < 0) {
             exitSlide(player);
@@ -274,7 +278,7 @@ public class OilSurfaceManager {
         // ROM: Play oil slide sound every 32 frames
         // andi.b #$1F,d0 / bne.s + (d0 = Vint_runcount low byte)
         if ((frameCounter & 0x1F) == 0) {
-            GameServices.audio().playSfx(GameSound.OIL_SLIDE);
+            AudioManager.getInstance().playSfx(GameSound.OIL_SLIDE);
         }
     }
 
