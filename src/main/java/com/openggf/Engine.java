@@ -682,13 +682,27 @@ public class Engine {
 			return;
 		}
 
-		editorMode.setCursor(levelEditorController.worldCursor());
+		EditorCursorState cursor = levelEditorController.worldCursor();
+		editorMode.setCursor(cursor);
 		synchronizeEditorOverlayDepth();
 
 		if (levelEditorController.depth() == EditorHierarchyDepth.WORLD && camera != null) {
-			camera.setX((short) levelEditorController.worldCursor().x());
-			camera.setY((short) levelEditorController.worldCursor().y());
+			camera.setX(clampCameraAxisWithWrap(cursor.x() - 152, camera.getMinX(), camera.getMaxX()));
+			camera.setY(clampCameraAxisWithWrap(cursor.y() - 96, camera.getMinY(), camera.getMaxY()));
 		}
+	}
+
+	private short clampCameraAxisWithWrap(int value, short min, short max) {
+		if (max < min) {
+			return (short) (value < min ? min : value);
+		}
+		if (value < min) {
+			return min;
+		}
+		if (value > max) {
+			return max;
+		}
+		return (short) value;
 	}
 
 	private void applyResumedPlaytestState(GameplayModeContext gameplay) {
