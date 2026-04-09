@@ -388,6 +388,19 @@ class TestLevelEditorController {
     }
 
     @Test
+    void selectedChunkPreview_returnsChunkFromCurrentSelection() {
+        LevelEditorController controller = new LevelEditorController();
+        MutableLevel level = createMutableLevelWithChunkCount(4, 3, 2, 6, 6);
+        controller.attachLevel(level);
+        level.setChunkInBlock(1, 0, 0, new com.openggf.level.ChunkDesc(3));
+
+        controller.selectBlock(1);
+        controller.selectChunk(3);
+
+        assertSame(level.getChunk(3), controller.selectedChunkPreview());
+    }
+
+    @Test
     void controller_movesWorldCursorInWorldDepth() {
         LevelEditorController controller = new LevelEditorController();
 
@@ -528,17 +541,29 @@ class TestLevelEditorController {
     }
 
     private static MutableLevel createMutableLevel(int mapWidth, int mapHeight, int blockGridSide, int blockCount) {
-        TestLevel level = new TestLevel(mapWidth, mapHeight, blockGridSide, blockCount);
+        TestLevel level = new TestLevel(mapWidth, mapHeight, blockGridSide, blockCount, 1);
+        return MutableLevel.snapshot(level);
+    }
+
+    private static MutableLevel createMutableLevelWithChunkCount(int mapWidth,
+                                                                 int mapHeight,
+                                                                 int blockGridSide,
+                                                                 int blockCount,
+                                                                 int chunkCount) {
+        TestLevel level = new TestLevel(mapWidth, mapHeight, blockGridSide, blockCount, chunkCount);
         return MutableLevel.snapshot(level);
     }
 
     private static final class TestLevel extends AbstractLevel {
-        private TestLevel(int mapWidth, int mapHeight, int blockGridSide, int blockCount) {
+        private TestLevel(int mapWidth, int mapHeight, int blockGridSide, int blockCount, int chunkCount) {
             super(0);
             patternCount = 1;
             patterns = new Pattern[] { new Pattern() };
-            chunkCount = 1;
-            chunks = new Chunk[] { new Chunk() };
+            this.chunkCount = chunkCount;
+            chunks = new Chunk[chunkCount];
+            for (int i = 0; i < chunkCount; i++) {
+                chunks[i] = new Chunk();
+            }
             this.blockCount = blockCount;
             blocks = new Block[blockCount];
             for (int i = 0; i < blockCount; i++) {

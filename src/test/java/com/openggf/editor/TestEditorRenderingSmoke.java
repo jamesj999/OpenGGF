@@ -142,6 +142,42 @@ class TestEditorRenderingSmoke {
     }
 
     @Test
+    void focusedPaneRenderer_chunkPreviewCommandsChangeWithSelectedChunkContent() {
+        LevelEditorController controller = createPreviewController();
+        InspectableFocusedEditorPaneRenderer renderer = new InspectableFocusedEditorPaneRenderer(controller);
+
+        controller.selectBlock(1);
+        controller.selectChunk(3);
+        controller.descend();
+        controller.descend();
+        List<GLCommand> first = renderer.buildChunkCommands();
+
+        controller.selectChunk(4);
+        List<GLCommand> second = renderer.buildChunkCommands();
+
+        assertFalse(first.isEmpty());
+        assertFalse(second.isEmpty());
+        assertNotEquals(commandSignature(first), commandSignature(second));
+    }
+
+    @Test
+    void focusedPaneRenderer_chunkPreviewCommandsChangeWithActiveChunkCell() {
+        LevelEditorController controller = createPreviewController();
+        InspectableFocusedEditorPaneRenderer renderer = new InspectableFocusedEditorPaneRenderer(controller);
+
+        controller.selectBlock(1);
+        controller.selectChunk(3);
+        controller.descend();
+        controller.descend();
+        List<GLCommand> first = renderer.buildChunkCommands();
+
+        controller.moveActiveSelection(1, 1);
+        List<GLCommand> second = renderer.buildChunkCommands();
+
+        assertNotEquals(commandSignature(first), commandSignature(second));
+    }
+
+    @Test
     void worldOverlayRenderer_usesCurrentSessionCursorWhenRendering() {
         SessionManager.openGameplaySession(new Sonic2GameModule());
         SessionManager.enterEditorMode(new EditorCursorState(320, 448));

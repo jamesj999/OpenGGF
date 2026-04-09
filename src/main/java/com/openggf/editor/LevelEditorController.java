@@ -92,6 +92,18 @@ public final class LevelEditorController {
         return attachedLevel.getChunk(chunkIndex);
     }
 
+    public Chunk selectedChunkPreview() {
+        Integer selectedChunk = selection.selectedChunk();
+        if (selectedChunk == null) {
+            return null;
+        }
+        MutableLevel attachedLevel = requireLevel();
+        if (selectedChunk < 0 || selectedChunk >= attachedLevel.getChunkCount()) {
+            return null;
+        }
+        return attachedLevel.getChunk(selectedChunk);
+    }
+
     public void descend() {
         if (depth == EditorHierarchyDepth.WORLD && selection.selectedBlock() != null) {
             depth = EditorHierarchyDepth.BLOCK;

@@ -63,7 +63,12 @@ public class FocusedEditorPaneRenderer {
     }
 
     protected void appendChunkPaneCommands(List<GLCommand> commands) {
-        appendPaneCommands(commands, 176, 34, 316, 194, CHUNK_R, CHUNK_G, CHUNK_B);
+        int left = 176;
+        int top = 34;
+        int right = 316;
+        int bottom = 194;
+        appendPaneCommands(commands, left, top, right, bottom, CHUNK_R, CHUNK_G, CHUNK_B);
+        appendChunkPreviewCommands(commands, left, top, right, bottom);
     }
 
     protected void appendBlockPreviewCommands(List<GLCommand> commands,
@@ -139,6 +144,99 @@ public class FocusedEditorPaneRenderer {
         int markerOffset = Math.floorMod(descriptor.getPatternIndex(), markerSpan);
         int markerX = cellLeft + 2 + markerOffset;
         int markerY = cellTop + 2 + Math.floorMod(descriptor.getPatternIndex() / Math.max(1, markerSpan), markerSpan);
+        EditorToolbarRenderer.appendLine(commands, markerX, markerY, markerX + 1, markerY + 1,
+                ACTIVE_R, ACTIVE_G, ACTIVE_B);
+    }
+
+    protected void appendChunkPreviewCommands(List<GLCommand> commands,
+                                              int left,
+                                              int top,
+                                              int right,
+                                              int bottom) {
+        if (controller == null) {
+            return;
+        }
+
+        Chunk chunk = controller.selectedChunkPreview();
+        if (chunk == null) {
+            return;
+        }
+
+        int gridSide = controller.chunkGridSide();
+        int availableWidth = Math.max(1, right - left - 24);
+        int availableHeight = Math.max(1, bottom - top - 54);
+        int cellSize = Math.max(12, Math.min(36,
+                Math.min(availableWidth / gridSide, availableHeight / gridSide)));
+        int previewWidth = cellSize * gridSide;
+        int previewHeight = cellSize * gridSide;
+        int originX = left + 12 + Math.max(0, (availableWidth - previewWidth) / 2);
+        int originY = top + 40 + Math.max(0, (availableHeight - previewHeight) / 2);
+
+        for (int cellY = 0; cellY < gridSide; cellY++) {
+            for (int cellX = 0; cellX < gridSide; cellX++) {
+                PatternDesc descriptor = chunk.getPatternDesc(cellX, cellY);
+                appendChunkPatternPreview(commands, descriptor, originX, originY, cellSize, cellX, cellY);
+            }
+        }
+
+        appendChunkActiveCellHighlight(commands, chunk, originX, originY, cellSize);
+    }
+
+    private void appendChunkPatternPreview(List<GLCommand> commands,
+                                           PatternDesc descriptor,
+                                           int originX,
+                                           int originY,
+                                           int cellSize,
+                                           int cellX,
+                                           int cellY) {
+        int cellLeft = originX + cellX * cellSize;
+        int cellTop = originY + cellY * cellSize;
+        int cellRight = cellLeft + cellSize - 1;
+        int cellBottom = cellTop + cellSize - 1;
+        int descriptorValue = descriptor.get();
+        float shade = 0.24f + (Math.floorMod(descriptorValue, 7) * 0.09f);
+        EditorToolbarRenderer.appendRectOutline(commands, cellLeft, cellTop, cellRight, cellBottom,
+                PREVIEW_R * shade, PREVIEW_G * shade, PREVIEW_B * shade);
+
+        int markerSpan = Math.max(1, cellSize - 4);
+        int markerX = cellLeft + 2 + Math.floorMod(descriptor.getPatternIndex(), markerSpan);
+        int markerY = cellTop + 2 + Math.floorMod(descriptorValue / Math.max(1, markerSpan), markerSpan);
+        EditorToolbarRenderer.appendLine(commands, markerX, markerY, markerX + 1, markerY + 1,
+                PREVIEW_R, PREVIEW_G, PREVIEW_B);
+
+        if (descriptor.getHFlip()) {
+            EditorToolbarRenderer.appendLine(commands, cellRight - 2, cellTop + 2, cellRight - 1, cellTop + 3,
+                    PREVIEW_R, PREVIEW_G, PREVIEW_B);
+        }
+        if (descriptor.getVFlip()) {
+            EditorToolbarRenderer.appendLine(commands, cellLeft + 2, cellBottom - 2, cellLeft + 3, cellBottom - 1,
+                    PREVIEW_R, PREVIEW_G, PREVIEW_B);
+        }
+    }
+
+    protected void appendChunkActiveCellHighlight(List<GLCommand> commands,
+                                                  Chunk chunk,
+                                                  int originX,
+                                                  int originY,
+                                                  int cellSize) {
+        int activeX = controller.selectedChunkCellX();
+        int activeY = controller.selectedChunkCellY();
+        int gridSide = controller.chunkGridSide();
+        if (activeX < 0 || activeY < 0 || activeX >= gridSide || activeY >= gridSide) {
+            return;
+        }
+
+        int cellLeft = originX + activeX * cellSize;
+        int cellTop = originY + activeY * cellSize;
+        int cellRight = cellLeft + cellSize - 1;
+        int cellBottom = cellTop + cellSize - 1;
+        EditorToolbarRenderer.appendRectOutline(commands, cellLeft - 1, cellTop - 1, cellRight + 1, cellBottom + 1,
+                ACTIVE_R, ACTIVE_G, ACTIVE_B);
+
+        PatternDesc descriptor = chunk.getPatternDesc(activeX, activeY);
+        int markerSpan = Math.max(1, cellSize - 6);
+        int markerX = cellLeft + 3 + Math.floorMod(descriptor.get(), markerSpan);
+        int markerY = cellTop + 3 + Math.floorMod(descriptor.getPatternIndex(), markerSpan);
         EditorToolbarRenderer.appendLine(commands, markerX, markerY, markerX + 1, markerY + 1,
                 ACTIVE_R, ACTIVE_G, ACTIVE_B);
     }
