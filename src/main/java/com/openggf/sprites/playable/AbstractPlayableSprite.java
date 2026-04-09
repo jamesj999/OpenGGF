@@ -6,6 +6,7 @@ import com.openggf.game.CanonicalAnimation;
 import com.openggf.game.CollisionModel;
 import com.openggf.game.CrossGameFeatureProvider;
 import com.openggf.game.GameModule;
+import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
 import com.openggf.game.InstaShieldHandle;
 import com.openggf.game.PhysicsFeatureSet;
@@ -366,6 +367,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
 
         // Physics provider fields — populated from GameModule when available
         private PhysicsProfile physicsProfile;
+        private GameModule runtimeBoundStateModule;
         private PhysicsModifiers physicsModifiers;
         private PhysicsFeatureSet physicsFeatureSet;
 
@@ -382,6 +384,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          * <p>ROM ref: sonic3k.asm:202288 (Character_Speeds table loaded at init/respawn).
          */
         private boolean initPhysicsActive;
+        private boolean bootstrapInitializing;
 
         /**
          * When true, forces right input regardless of actual keyboard input.
@@ -756,6 +759,11 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 return requireRuntime("currentLevelManager").getLevelManager();
         }
 
+        public final LevelManager currentLevelManagerIfAvailable() {
+                var runtime = RuntimeManager.getCurrent();
+                return runtime != null ? runtime.getLevelManager() : null;
+        }
+
         public final GameModule currentGameModule() {
                 LevelManager levelManager = currentLevelManager();
                 if (levelManager != null && levelManager.getGameModule() != null) {
@@ -766,12 +774,13 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         public final int resolveAnimationId(CanonicalAnimation animation) {
-                GameModule module = currentGameModule();
+                refreshRuntimeBoundStateIfNeeded();
+                GameModule module = bootstrapSafeGameModule();
                 return module != null ? module.resolveAnimationId(animation) : -1;
         }
 
         public final LevelState currentLevelState() {
-                LevelManager levelManager = currentLevelManager();
+                LevelManager levelManager = currentLevelManagerIfAvailable();
                 return levelManager != null ? levelManager.getLevelGamestate() : null;
         }
 
@@ -780,10 +789,16 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         public final GameStateManager currentGameState() {
+                if (bootstrapInitializing) {
+                        return GameStateManager.getInstance();
+                }
                 return requireRuntime("currentGameState").getGameState();
         }
 
         public final CollisionSystem currentCollisionSystem() {
+                if (bootstrapInitializing) {
+                        return CollisionSystem.getInstance();
+                }
                 return requireRuntime("currentCollisionSystem").getCollisionSystem();
         }
 
@@ -1333,6 +1348,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         public void tickStatus() {
+                refreshRuntimeBoundStateIfNeeded();
                 // ROM: invulnerable_time only decrements in Sonic_Display (routine 2).
                 // During hurt routine (routine 4), DisplaySprite is called directly,
                 // so the timer stays frozen until Sonic lands.
@@ -2037,24 +2053,29 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
 
         protected AbstractPlayableSprite(String code, short x, short y) {
                 super(code, x, y);
-                // Must define speeds before creating Manager (it will read speeds upon
-                // instantiation).
-                defineSpeeds();
-                resolvePhysicsProfile();
+                bootstrapInitializing = true;
+                try {
+                        // Must define speeds before creating Manager (it will read speeds upon
+                        // instantiation).
+                        defineSpeeds();
+                        resolvePhysicsProfile();
 
-                applyStandingRadii(false);
+                        applyStandingRadii(false);
 
-                // Set our entire history for x and y to be the starting position so if
-                // the player spindashes immediately the camera effect won't be b0rked.
-                // ROM: Sonic_Pos_Record_Buf has 64 entries
-                for (short i = 0; i < 64; i++) {
-                        xHistory[i] = x;
-                        yHistory[i] = y;
-                        inputHistory[i] = 0;
-                        statusHistory[i] = 0;
+                        // Set our entire history for x and y to be the starting position so if
+                        // the player spindashes immediately the camera effect won't be b0rked.
+                        // ROM: Sonic_Pos_Record_Buf has 64 entries
+                        for (short i = 0; i < 64; i++) {
+                                xHistory[i] = x;
+                                yHistory[i] = y;
+                                inputHistory[i] = 0;
+                                statusHistory[i] = 0;
+                        }
+                        // Always use PlayableSpriteController - it checks debugMode internally
+                        controller = new PlayableSpriteController(this);
+                } finally {
+                        bootstrapInitializing = false;
                 }
-                // Always use PlayableSpriteController - it checks debugMode internally
-                controller = new PlayableSpriteController(this);
         }
 
         /**
@@ -2063,10 +2084,15 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          * Falls back gracefully if no provider is available (defineSpeeds() values remain).
          */
         private void resolvePhysicsProfile() {
+                resolvePhysicsProfile(bootstrapSafeGameModule());
+        }
+
+        private void resolvePhysicsProfile(GameModule module) {
+                runtimeBoundStateModule = module;
                 try {
-                        GameModule module = currentGameModule();
                         PhysicsProvider provider = module != null ? module.getPhysicsProvider() : null;
                         if (provider == null) {
+                                bubbleAnimId = module != null ? module.resolveAnimationId(CanonicalAnimation.BUBBLE) : -1;
                                 return;
                         }
                         String charType;
@@ -2129,7 +2155,29 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                         // Registration deferred to tickStatus() to avoid double-add
                         // when resolvePhysicsProfile() and tickStatus() both run on the same frame
                 }
-                bubbleAnimId = resolveAnimationId(CanonicalAnimation.BUBBLE);
+                bubbleAnimId = module != null ? module.resolveAnimationId(CanonicalAnimation.BUBBLE) : -1;
+        }
+
+        private void refreshRuntimeBoundStateIfNeeded() {
+                GameModule module = bootstrapSafeGameModule();
+                if (module == null || module == runtimeBoundStateModule) {
+                        return;
+                }
+                resolvePhysicsProfile(module);
+        }
+
+        private GameModule bootstrapSafeGameModule() {
+                var runtime = RuntimeManager.getCurrent();
+                if (runtime != null) {
+                        LevelManager levelManager = runtime.getLevelManager();
+                        if (levelManager != null && levelManager.getGameModule() != null) {
+                                return levelManager.getGameModule();
+                        }
+                        if (runtime.getWorldSession() != null && runtime.getWorldSession().getGameModule() != null) {
+                                return runtime.getWorldSession().getGameModule();
+                        }
+                }
+                return GameModuleRegistry.getCurrent();
         }
 
         /**
