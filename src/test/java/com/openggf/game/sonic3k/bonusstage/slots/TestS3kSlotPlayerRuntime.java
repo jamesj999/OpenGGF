@@ -212,7 +212,8 @@ class TestS3kSlotPlayerRuntime {
         runtime.tick(player, false, false, false, false, false, 0);
 
         assertEquals(0x2A, player.getYSpeed());
-        assertEquals(startCentreY + 0x2A, player.getCentreY());
+        assertEquals(startCentreY, player.getCentreY());
+        assertEquals((startCentreY << 16) + (0x2A << 8), runtime.slotOriginY());
     }
 
     @Test

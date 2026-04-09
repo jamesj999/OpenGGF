@@ -533,14 +533,18 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
         }
 
         int frame = resolveMappingFrame();
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
-        graphicsManager.setCurrentSpriteSatDebugSource(String.format(
-                "GumballItem mode=%s frame=0x%02X slot=%d bucket=%d high=%s",
-                motionMode, frame, getSlotIndex(), getPriorityBucket(), isHighPriority()));
+        GraphicsManager graphicsManager = services().graphicsManager();
+        if (graphicsManager != null) {
+            graphicsManager.setCurrentSpriteSatDebugSource(String.format(
+                    "GumballItem mode=%s frame=0x%02X slot=%d bucket=%d high=%s",
+                    motionMode, frame, getSlotIndex(), getPriorityBucket(), isHighPriority()));
+        }
         try {
             renderer.drawFrameIndex(frame, motionState.x, motionState.y, false, false, 0);
         } finally {
-            graphicsManager.setCurrentSpriteSatDebugSource(null);
+            if (graphicsManager != null) {
+                graphicsManager.setCurrentSpriteSatDebugSource(null);
+            }
         }
     }
 

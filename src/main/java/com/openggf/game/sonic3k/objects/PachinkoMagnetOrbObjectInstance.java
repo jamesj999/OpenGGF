@@ -11,6 +11,7 @@ import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.TrigLookupTable;
+import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.IdentityHashMap;
@@ -233,7 +234,10 @@ public class PachinkoMagnetOrbObjectInstance extends AbstractObjectInstance {
         player.setPriorityBucket(clampedBucket);
         player.setHighPriority(highPriority);
         if (changed) {
-            services().spriteManager().invalidateRenderBuckets();
+            SpriteManager spriteManager = services().spriteManager();
+            if (spriteManager != null) {
+                spriteManager.invalidateRenderBuckets();
+            }
         }
     }
 
