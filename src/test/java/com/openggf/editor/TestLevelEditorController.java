@@ -26,8 +26,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_DOWN;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_SHIFT;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_SHIFT;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_TAB;
@@ -65,6 +67,40 @@ class TestLevelEditorController {
         handler.update(inputHandler);
 
         assertEquals(EditorHierarchyDepth.WORLD, controller.depth());
+    }
+
+    @Test
+    void inputHandler_updateMovesWorldCursorWithHeldArrowKeys() {
+        LevelEditorController controller = new LevelEditorController();
+        EditorInputHandler handler = new EditorInputHandler(controller);
+        InputHandler input = new InputHandler();
+
+        controller.setWorldCursor(new EditorCursorState(100, 200));
+        input.handleKeyEvent(GLFW_KEY_RIGHT, GLFW_PRESS);
+        input.handleKeyEvent(GLFW_KEY_DOWN, GLFW_PRESS);
+
+        handler.update(input);
+
+        assertEquals(103, controller.worldCursor().x());
+        assertEquals(203, controller.worldCursor().y());
+    }
+
+    @Test
+    void inputHandler_updateMovesBlockGridSelectionInsteadOfWorldCursorOutsideWorldDepth() {
+        LevelEditorController controller = new LevelEditorController();
+        EditorInputHandler handler = new EditorInputHandler(controller);
+        InputHandler input = new InputHandler();
+
+        controller.setWorldCursor(new EditorCursorState(100, 200));
+        controller.selectBlock(12);
+        controller.descend();
+        input.handleKeyEvent(GLFW_KEY_RIGHT, GLFW_PRESS);
+
+        handler.update(input);
+
+        assertEquals(new EditorCursorState(100, 200), controller.worldCursor());
+        assertEquals(1, controller.selectedBlockCellX());
+        assertEquals(0, controller.selectedBlockCellY());
     }
 
     @Test
