@@ -101,8 +101,8 @@ public final class LevelEditorController {
         worldCursor = new EditorCursorState(worldCursor.x() + dx, worldCursor.y() + dy);
     }
 
-    public void moveActiveSelection(int dx, int dy, int gridSide) {
-        requirePositive(gridSide, "gridSide");
+    public void moveActiveSelection(int dx, int dy) {
+        int gridSide = activeGridSide();
         if (depth == EditorHierarchyDepth.WORLD) {
             moveWorldCursor(dx, dy);
             return;
@@ -152,10 +152,14 @@ public final class LevelEditorController {
         return Math.max(min, Math.min(max, value));
     }
 
-    private static void requirePositive(int value, String name) {
-        if (value <= 0) {
-            throw new IllegalArgumentException(name + " must be > 0");
+    private int activeGridSide() {
+        if (depth == EditorHierarchyDepth.BLOCK) {
+            return blockGridSide;
         }
+        if (depth == EditorHierarchyDepth.CHUNK) {
+            return chunkGridSide();
+        }
+        return 1;
     }
 
     private MutableLevel requireLevel() {
