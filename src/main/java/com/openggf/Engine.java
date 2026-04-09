@@ -1040,7 +1040,6 @@ public class Engine {
 			return;
 		}
 		if (getCurrentGameMode() == GameMode.EDITOR) {
-			syncEditorState();
 			levelManager.drawWithSpritePriority(spriteManager);
 			editorOverlayRenderer.renderWorldSpaceOverlay();
 			graphicsManager.flush();

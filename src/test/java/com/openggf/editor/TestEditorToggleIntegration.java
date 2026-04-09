@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_SHIFT;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_TAB;
 import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
@@ -172,7 +173,43 @@ class TestEditorToggleIntegration {
     }
 
     @Test
-    void syncEditorState_inWorldDepthCentersAndClampsCameraToEditorCursor() {
+    void gameLoop_editorModeStepSyncsSessionCursorWithoutRender() {
+        enableEditor();
+        Engine engine = new Engine();
+        createGameplayRuntime(engine);
+        InputHandler inputHandler = new InputHandler();
+        engine.setInputHandler(inputHandler);
+
+        engine.enterEditorFromCurrentPlayer(new EditorPlaytestStash(100, 200, 0, 0, true, 0, 0), 100, 200);
+        inputHandler.handleKeyEvent(GLFW_KEY_RIGHT, GLFW_PRESS);
+
+        engine.getGameLoop().step();
+
+        assertEquals(103, engine.getLevelEditorController().worldCursor().x());
+        assertEquals(103, SessionManager.getCurrentEditorMode().getCursor().x());
+        assertEquals(200, SessionManager.getCurrentEditorMode().getCursor().y());
+    }
+
+    @Test
+    void syncEditorState_inWorldDepthCentersCameraOnEditorCursorWhenInsideBounds() {
+        enableEditor();
+        Engine engine = new Engine();
+        GameRuntime runtime = createGameplayRuntime(engine);
+        runtime.getCamera().setMinX((short) 0);
+        runtime.getCamera().setMaxX((short) 1024);
+        runtime.getCamera().setMinY((short) 0);
+        runtime.getCamera().setMaxY((short) 1024);
+
+        engine.enterEditorFromCurrentPlayer(new EditorPlaytestStash(100, 200, 0, 0, true, 0, 0), 100, 200);
+        engine.getLevelEditorController().setWorldCursor(new EditorCursorState(512, 384));
+        engine.syncEditorState();
+
+        assertEquals(360, runtime.getCamera().getX());
+        assertEquals(288, runtime.getCamera().getY());
+    }
+
+    @Test
+    void syncEditorState_inWorldDepthClampsCameraToEditorCursorWhenCenterWouldExceedBounds() {
         enableEditor();
         Engine engine = new Engine();
         GameRuntime runtime = createGameplayRuntime(engine);
