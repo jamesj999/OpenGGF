@@ -375,6 +375,33 @@ class TestLevelEditorController {
     }
 
     @Test
+    void moveWorldCursor_clampsToAttachedLevelBounds() {
+        LevelEditorController controller = new LevelEditorController();
+        controller.attachLevel(createMutableLevel(4, 3, 2, 2));
+        controller.setWorldCursor(new EditorCursorState(0, 0));
+
+        controller.moveWorldCursor(-64, -32);
+        assertEquals(0, controller.worldCursor().x());
+        assertEquals(0, controller.worldCursor().y());
+
+        controller.moveWorldCursor(9999, 9999);
+        assertEquals(255, controller.worldCursor().x());
+        assertEquals(191, controller.worldCursor().y());
+    }
+
+    @Test
+    void moveActiveSelection_inWorldDepthUsesClampedCursorMovement() {
+        LevelEditorController controller = new LevelEditorController();
+        controller.attachLevel(createMutableLevel(4, 3, 2, 2));
+        controller.setWorldCursor(new EditorCursorState(254, 190));
+
+        controller.moveActiveSelection(3, 3);
+
+        assertEquals(255, controller.worldCursor().x());
+        assertEquals(191, controller.worldCursor().y());
+    }
+
+    @Test
     void controller_arrowNavigationInBlockDepthMovesChunkSelectionInsteadOfWorldCursor() {
         LevelEditorController controller = new LevelEditorController();
 
@@ -460,6 +487,138 @@ class TestLevelEditorController {
         controller.moveActiveSelection(10, 10);
         assertEquals(1, controller.selectedChunkCellX());
         assertEquals(1, controller.selectedChunkCellY());
+    }
+
+    private static MutableLevel createMutableLevel(int mapWidth, int mapHeight, int blockGridSide, int blockCount) {
+        TestLevel level = new TestLevel(mapWidth, mapHeight, blockGridSide, blockCount);
+        return MutableLevel.snapshot(level);
+    }
+
+    private static final class TestLevel extends AbstractLevel {
+        private TestLevel(int mapWidth, int mapHeight, int blockGridSide, int blockCount) {
+            super(0);
+            patternCount = 1;
+            patterns = new Pattern[] { new Pattern() };
+            chunkCount = 1;
+            chunks = new Chunk[] { new Chunk() };
+            this.blockCount = blockCount;
+            blocks = new Block[blockCount];
+            for (int i = 0; i < blockCount; i++) {
+                blocks[i] = new Block(blockGridSide);
+            }
+            solidTileCount = 0;
+            solidTiles = new SolidTile[0];
+            map = new Map(1, mapWidth, mapHeight);
+            palettes = new Palette[] {
+                    new Palette(), new Palette(), new Palette(), new Palette()
+            };
+            objects = List.of();
+            rings = List.of();
+            minX = 0;
+            maxX = 0;
+            minY = 0;
+            maxY = 0;
+        }
+
+        @Override
+        public int getChunksPerBlockSide() {
+            return blocks.length > 0 ? blocks[0].getGridSide() : 0;
+        }
+
+        @Override
+        public int getBlockPixelSize() {
+            return getChunksPerBlockSide() * 32;
+        }
+
+        @Override
+        public int getPaletteCount() {
+            return palettes.length;
+        }
+
+        @Override
+        public Palette getPalette(int index) {
+            return palettes[index];
+        }
+
+        @Override
+        public int getPatternCount() {
+            return patternCount;
+        }
+
+        @Override
+        public Pattern getPattern(int index) {
+            return patterns[index];
+        }
+
+        @Override
+        public int getChunkCount() {
+            return chunkCount;
+        }
+
+        @Override
+        public Chunk getChunk(int index) {
+            return chunks[index];
+        }
+
+        @Override
+        public int getBlockCount() {
+            return blockCount;
+        }
+
+        @Override
+        public Block getBlock(int index) {
+            return blocks[index];
+        }
+
+        @Override
+        public SolidTile getSolidTile(int index) {
+            return solidTiles[index];
+        }
+
+        @Override
+        public Map getMap() {
+            return map;
+        }
+
+        @Override
+        public List<ObjectSpawn> getObjects() {
+            return List.of();
+        }
+
+        @Override
+        public List<RingSpawn> getRings() {
+            return List.of();
+        }
+
+        @Override
+        public RingSpriteSheet getRingSpriteSheet() {
+            return null;
+        }
+
+        @Override
+        public int getMinX() {
+            return 0;
+        }
+
+        @Override
+        public int getMaxX() {
+            return 0;
+        }
+
+        @Override
+        public int getMinY() {
+            return 0;
+        }
+
+        @Override
+        public int getMaxY() {
+            return 0;
+        }
+
+        @Override
+        public int getZoneIndex() {
+            return 0;
+        }
     }
 
     private static final class NavigationResetSourceLevel extends AbstractLevel {
