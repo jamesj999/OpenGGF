@@ -171,6 +171,7 @@ public class Engine {
 		});
 		gameLoop.setEditorInputHandler(editorInputHandler);
 		gameLoop.setEditorPlaytestToggleHandler(this::toggleEditorPlaytestMode);
+		gameLoop.setEditorFreshStartHandler(this::startGameplayFromBeginning);
 
 		instance = this;
 	}
@@ -440,6 +441,7 @@ public class Engine {
 	}
 
 	public void resumePlaytestFromEditor() {
+		repairEditorCursorForResume();
 		syncEditorState();
 		GameplayModeContext gameplay = SessionManager.resumeGameplayFromEditor();
 		runtime = RuntimeManager.resumeParked(gameplay);
@@ -690,6 +692,35 @@ public class Engine {
 			camera.setX(clampCameraAxisWithWrap(cursor.x() - 152, camera.getMinX(), camera.getMaxX()));
 			camera.setY(clampCameraAxisWithWrap(cursor.y() - 96, camera.getMinY(), camera.getMaxY()));
 		}
+	}
+
+	private void repairEditorCursorForResume() {
+		EditorModeContext editorMode = SessionManager.getCurrentEditorMode();
+		if (editorMode == null) {
+			return;
+		}
+
+		EditorCursorState repaired = clampCursorToCurrentLevel(levelEditorController.worldCursor());
+		levelEditorController.setWorldCursor(repaired);
+		editorMode.setCursor(levelEditorController.worldCursor());
+	}
+
+	private EditorCursorState clampCursorToCurrentLevel(EditorCursorState cursor) {
+		if (cursor == null || levelManager == null || levelManager.getCurrentLevel() == null) {
+			return cursor;
+		}
+
+		Level level = levelManager.getCurrentLevel();
+		return new EditorCursorState(
+				clampToBounds(cursor.x(), level.getMinX(), level.getMaxX()),
+				clampToBounds(cursor.y(), level.getMinY(), level.getMaxY()));
+	}
+
+	private int clampToBounds(int value, int min, int max) {
+		if (max < min) {
+			return value < min ? min : value;
+		}
+		return Math.max(min, Math.min(max, value));
 	}
 
 	private short clampCameraAxisWithWrap(int value, short min, short max) {

@@ -265,6 +265,19 @@ class TestEditorRenderingSmoke {
     }
 
     @Test
+    void focusedPaneRenderer_buildsTranslucentFadeBackdropCommandsForFocusedPanes() {
+        InspectableFocusedEditorPaneRenderer renderer = new InspectableFocusedEditorPaneRenderer();
+
+        List<GLCommand> blockBackdrop = renderer.buildBlockBackdropCommands();
+        List<GLCommand> chunkBackdrop = renderer.buildChunkBackdropCommands();
+
+        assertEquals(1, blockBackdrop.size());
+        assertEquals(1, chunkBackdrop.size());
+        assertFocusedBackdropCommand(blockBackdrop.get(0));
+        assertFocusedBackdropCommand(chunkBackdrop.get(0));
+    }
+
+    @Test
     void focusedPaneRenderer_blockPreviewPlacementsUseRealSelectedBlockComposition() {
         LevelEditorController controller = createPreviewController();
         InspectableFocusedEditorPaneRenderer renderer = new InspectableFocusedEditorPaneRenderer(controller);
@@ -532,6 +545,18 @@ class TestEditorRenderingSmoke {
             return commands;
         }
 
+        private List<GLCommand> buildBlockBackdropCommands() {
+            List<GLCommand> commands = new ArrayList<>();
+            appendBlockBackdropCommands(commands);
+            return commands;
+        }
+
+        private List<GLCommand> buildChunkBackdropCommands() {
+            List<GLCommand> commands = new ArrayList<>();
+            appendChunkBackdropCommands(commands);
+            return commands;
+        }
+
         @Override
         protected void renderPreviewPlacements(List<PreviewPlacement> placements) {
             // Test-only renderer: the placement model is verified directly in dedicated assertions.
@@ -593,6 +618,15 @@ class TestEditorRenderingSmoke {
                     .append(';');
         }
         return signature.toString();
+    }
+
+    private static void assertFocusedBackdropCommand(GLCommand command) {
+        assertEquals(GLCommand.CommandType.RECTI, command.getCommandType());
+        assertEquals(GLCommand.BlendType.ONE_MINUS_SRC_ALPHA, command.getBlendMode());
+        assertEquals(1.0f, command.getColour1(), 0.001f);
+        assertEquals(1.0f, command.getColour2(), 0.001f);
+        assertEquals(1.0f, command.getColour3(), 0.001f);
+        assertTrue(command.getAlpha() > 0.0f && command.getAlpha() < 1.0f);
     }
 
     @SuppressWarnings("unchecked")
