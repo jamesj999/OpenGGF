@@ -82,7 +82,8 @@ public final class LevelEditorController {
     }
 
     public void setWorldCursor(EditorCursorState cursor) {
-        this.worldCursor = Objects.requireNonNull(cursor, "cursor");
+        Objects.requireNonNull(cursor, "cursor");
+        this.worldCursor = clampWorldCursor(cursor.x(), cursor.y());
     }
 
     public EditorCursorState worldCursor() {
@@ -98,7 +99,7 @@ public final class LevelEditorController {
     }
 
     public void moveWorldCursor(int dx, int dy) {
-        worldCursor = new EditorCursorState(worldCursor.x() + dx, worldCursor.y() + dy);
+        worldCursor = clampWorldCursor(worldCursor.x() + dx, worldCursor.y() + dy);
     }
 
     public void moveActiveSelection(int dx, int dy) {
@@ -150,6 +151,15 @@ public final class LevelEditorController {
 
     private static int clamp(int value, int min, int max) {
         return Math.max(min, Math.min(max, value));
+    }
+
+    private EditorCursorState clampWorldCursor(int x, int y) {
+        if (level == null) {
+            return new EditorCursorState(x, y);
+        }
+        int maxX = Math.max(0, level.getMap().getWidth() * level.getBlockPixelSize() - 1);
+        int maxY = Math.max(0, level.getMap().getHeight() * level.getBlockPixelSize() - 1);
+        return new EditorCursorState(clamp(x, 0, maxX), clamp(y, 0, maxY));
     }
 
     private int activeGridSide() {
