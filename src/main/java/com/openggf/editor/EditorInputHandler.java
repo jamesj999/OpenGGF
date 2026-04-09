@@ -10,10 +10,7 @@ import static org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE;
 public final class EditorInputHandler {
     public enum Action {
         DESCEND,
-        ASCEND,
-        APPLY,
-        EYEDROP,
-        SWITCH_REGION
+        ASCEND
     }
 
     private final LevelEditorController controller;
@@ -37,7 +34,6 @@ public final class EditorInputHandler {
         switch (action) {
             case DESCEND -> controller.descend();
             case ASCEND -> controller.ascend();
-            default -> throw new UnsupportedOperationException("Action " + action + " is not implemented yet");
         }
     }
 }
