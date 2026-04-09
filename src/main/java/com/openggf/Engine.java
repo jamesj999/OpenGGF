@@ -8,6 +8,7 @@ import org.lwjgl.system.MemoryStack;
 
 import com.openggf.control.InputHandler;
 import com.openggf.editor.EditorInputHandler;
+import com.openggf.editor.EditorHierarchyDepth;
 import com.openggf.editor.LevelEditorController;
 import com.openggf.editor.render.EditorOverlayRenderer;
 import com.openggf.audio.AudioManager;
@@ -24,6 +25,7 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.Level;
 import com.openggf.level.MutableLevel;
 import com.openggf.game.session.EditorCursorState;
+import com.openggf.game.session.EditorModeContext;
 import com.openggf.game.session.EditorPlaytestStash;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -428,15 +430,22 @@ public class Engine {
 			throw new IllegalStateException("Level editor is disabled by configuration.");
 		}
 		ensureRuntimeBound();
+		spriteManager.primePlayableVisualState();
+		spriteManager.invalidateRenderBuckets();
+		if (levelManager.getObjectManager() != null) {
+			levelManager.getObjectManager().invalidateRenderBuckets();
+		}
 		prepareMutableEditorLevel();
 		primeEditorSelection(playerX, playerY);
-		synchronizeEditorOverlayDepth();
+		levelEditorController.setWorldCursor(new EditorCursorState(playerX, playerY));
 		RuntimeManager.parkCurrent();
 		SessionManager.enterEditorMode(new EditorCursorState(playerX, playerY), stash);
+		syncEditorState();
 		gameLoop.setGameMode(GameMode.EDITOR);
 	}
 
 	public void resumePlaytestFromEditor() {
+		syncEditorState();
 		GameplayModeContext gameplay = SessionManager.resumeGameplayFromEditor();
 		runtime = RuntimeManager.resumeParked(gameplay);
 		bindRuntime(runtime);
@@ -666,6 +675,25 @@ public class Engine {
 
 	private void synchronizeEditorOverlayDepth() {
 		editorOverlayRenderer.setHierarchyDepth(levelEditorController.depth());
+	}
+
+	public LevelEditorController getLevelEditorController() {
+		return levelEditorController;
+	}
+
+	public void syncEditorState() {
+		EditorModeContext editorMode = SessionManager.getCurrentEditorMode();
+		if (editorMode == null) {
+			return;
+		}
+
+		editorMode.setCursor(levelEditorController.worldCursor());
+		synchronizeEditorOverlayDepth();
+
+		if (levelEditorController.depth() == EditorHierarchyDepth.WORLD && camera != null) {
+			camera.setX((short) levelEditorController.worldCursor().x());
+			camera.setY((short) levelEditorController.worldCursor().y());
+		}
 	}
 
 	private void applyResumedPlaytestState(GameplayModeContext gameplay) {
@@ -1003,7 +1031,7 @@ public class Engine {
 			return;
 		}
 		if (getCurrentGameMode() == GameMode.EDITOR) {
-			synchronizeEditorOverlayDepth();
+			syncEditorState();
 			levelManager.drawWithSpritePriority(spriteManager);
 			editorOverlayRenderer.renderWorldSpaceOverlay();
 			graphicsManager.flush();
