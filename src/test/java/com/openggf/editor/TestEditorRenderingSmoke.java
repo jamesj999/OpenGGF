@@ -111,19 +111,30 @@ class TestEditorRenderingSmoke {
     }
 
     @Test
-    void focusedPaneRenderer_blockPreviewCommandsChangeWithSelectedBlockContent() {
+    void focusedPaneRenderer_blockPreviewPlacementsUseRealSelectedBlockComposition() {
         LevelEditorController controller = createPreviewController();
         InspectableFocusedEditorPaneRenderer renderer = new InspectableFocusedEditorPaneRenderer(controller);
 
         controller.selectBlock(1);
-        List<GLCommand> first = renderer.buildBlockCommands();
+        List<FocusedEditorPaneRenderer.PreviewPlacement> first = renderer.buildBlockPreviewPlacements();
+
+        assertEquals(16, first.size());
+        assertEquals(controller.selectedBlockChunkPreview(0, 0).getPatternDesc(0, 0).get(),
+                first.get(0).descriptor().get());
+        assertEquals(controller.selectedBlockChunkPreview(0, 0).getPatternDesc(1, 0).get(),
+                first.get(1).descriptor().get());
+        assertEquals(controller.selectedBlockChunkPreview(0, 0).getPatternDesc(0, 1).get(),
+                first.get(2).descriptor().get());
+        assertEquals(controller.selectedBlockChunkPreview(0, 0).getPatternDesc(1, 1).get(),
+                first.get(3).descriptor().get());
+        assertEquals(first.get(0).x() + 8, first.get(1).x());
+        assertEquals(first.get(0).y() + 8, first.get(2).y());
 
         controller.selectBlock(2);
-        List<GLCommand> second = renderer.buildBlockCommands();
+        List<FocusedEditorPaneRenderer.PreviewPlacement> second = renderer.buildBlockPreviewPlacements();
 
-        assertFalse(first.isEmpty());
         assertFalse(second.isEmpty());
-        assertNotEquals(commandSignature(first), commandSignature(second));
+        assertNotEquals(placementSignature(first), placementSignature(second));
     }
 
     @Test
@@ -142,7 +153,7 @@ class TestEditorRenderingSmoke {
     }
 
     @Test
-    void focusedPaneRenderer_chunkPreviewCommandsChangeWithSelectedChunkContent() {
+    void focusedPaneRenderer_chunkPreviewPlacementsUseRealSelectedChunkComposition() {
         LevelEditorController controller = createPreviewController();
         InspectableFocusedEditorPaneRenderer renderer = new InspectableFocusedEditorPaneRenderer(controller);
 
@@ -150,14 +161,21 @@ class TestEditorRenderingSmoke {
         controller.selectChunk(3);
         controller.descend();
         controller.descend();
-        List<GLCommand> first = renderer.buildChunkCommands();
+        List<FocusedEditorPaneRenderer.PreviewPlacement> first = renderer.buildChunkPreviewPlacements();
+
+        assertEquals(4, first.size());
+        assertEquals(controller.selectedChunkPreview().getPatternDesc(0, 0).get(), first.get(0).descriptor().get());
+        assertEquals(controller.selectedChunkPreview().getPatternDesc(1, 0).get(), first.get(1).descriptor().get());
+        assertEquals(controller.selectedChunkPreview().getPatternDesc(0, 1).get(), first.get(2).descriptor().get());
+        assertEquals(controller.selectedChunkPreview().getPatternDesc(1, 1).get(), first.get(3).descriptor().get());
+        assertEquals(first.get(0).x() + 8, first.get(1).x());
+        assertEquals(first.get(0).y() + 8, first.get(2).y());
 
         controller.selectChunk(4);
-        List<GLCommand> second = renderer.buildChunkCommands();
+        List<FocusedEditorPaneRenderer.PreviewPlacement> second = renderer.buildChunkPreviewPlacements();
 
-        assertFalse(first.isEmpty());
         assertFalse(second.isEmpty());
-        assertNotEquals(commandSignature(first), commandSignature(second));
+        assertNotEquals(placementSignature(first), placementSignature(second));
     }
 
     @Test
@@ -278,6 +296,19 @@ class TestEditorRenderingSmoke {
             appendChunkPaneCommands(commands);
             return commands;
         }
+
+        @Override
+        protected void renderPreviewPlacements(List<PreviewPlacement> placements) {
+            // Test-only renderer: the placement model is verified directly in dedicated assertions.
+        }
+
+        public List<PreviewPlacement> buildBlockPreviewPlacements() {
+            return super.buildBlockPreviewPlacements();
+        }
+
+        public List<PreviewPlacement> buildChunkPreviewPlacements() {
+            return super.buildChunkPreviewPlacements();
+        }
     }
 
     private static final class InspectableWorldOverlayRenderer extends EditorWorldOverlayRenderer {
@@ -305,6 +336,19 @@ class TestEditorRenderingSmoke {
                     .append((int) command.getX1())
                     .append(',')
                     .append((int) command.getY1())
+                    .append(';');
+        }
+        return signature.toString();
+    }
+
+    private static String placementSignature(List<FocusedEditorPaneRenderer.PreviewPlacement> placements) {
+        StringBuilder signature = new StringBuilder();
+        for (FocusedEditorPaneRenderer.PreviewPlacement placement : placements) {
+            signature.append(placement.descriptor().get())
+                    .append('@')
+                    .append(placement.x())
+                    .append(',')
+                    .append(placement.y())
                     .append(';');
         }
         return signature.toString();

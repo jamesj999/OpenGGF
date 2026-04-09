@@ -368,7 +368,6 @@ class TestLevelEditorController {
     void selectedBlockPreview_returnsSelectedBlockFromAttachedLevel() {
         LevelEditorController controller = new LevelEditorController();
         MutableLevel level = createMutableLevel(4, 3, 2, 3);
-        level.setChunkInBlock(1, 0, 0, new com.openggf.level.ChunkDesc(2));
         controller.attachLevel(level);
 
         controller.selectBlock(1);
@@ -379,12 +378,25 @@ class TestLevelEditorController {
     @Test
     void selectedBlockCellPreview_returnsSelectedChunkFromAttachedLevel() {
         LevelEditorController controller = new LevelEditorController();
-        MutableLevel level = createMutableLevel(4, 3, 2, 3);
+        MutableLevel level = createMutableLevelWithChunkCount(4, 3, 2, 3, 3);
+        level.setChunkInBlock(1, 0, 0, new com.openggf.level.ChunkDesc(2));
         controller.attachLevel(level);
 
         controller.selectBlock(1);
 
-        assertSame(level.getChunk(0), controller.selectedBlockCellPreview());
+        assertSame(level.getChunk(2), controller.selectedBlockCellPreview());
+    }
+
+    @Test
+    void selectedBlockChunkPreview_returnsChunkForSpecifiedBlockCell() {
+        LevelEditorController controller = new LevelEditorController();
+        MutableLevel level = createMutableLevelWithChunkCount(4, 3, 2, 3, 4);
+        level.setChunkInBlock(1, 0, 0, new com.openggf.level.ChunkDesc(3));
+        controller.attachLevel(level);
+
+        controller.selectBlock(1);
+
+        assertSame(level.getChunk(3), controller.selectedBlockChunkPreview(0, 0));
     }
 
     @Test
