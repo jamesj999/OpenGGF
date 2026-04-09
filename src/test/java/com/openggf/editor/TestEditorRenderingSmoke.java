@@ -2,6 +2,8 @@ package com.openggf.editor;
 
 import com.openggf.game.session.EditorCursorState;
 import com.openggf.graphics.GLCommand;
+import com.openggf.graphics.GLCommandable;
+import com.openggf.graphics.GraphicsManager;
 import com.openggf.editor.render.EditorOverlayRenderer;
 import com.openggf.editor.render.EditorCommandStripRenderer;
 import com.openggf.editor.render.EditorLibraryPaneRenderer;
@@ -24,6 +26,7 @@ import com.openggf.level.rings.RingSpawn;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.AfterEach;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -38,6 +41,7 @@ class TestEditorRenderingSmoke {
     @AfterEach
     void tearDown() {
         SessionManager.clear();
+        GraphicsManager.getInstance().resetState();
     }
 
     @Test
@@ -208,6 +212,48 @@ class TestEditorRenderingSmoke {
         assertEquals("One", commands.get(0).text());
         assertEquals("Two", commands.get(1).text());
         assertTrue(commands.get(1).y() > commands.get(0).y());
+    }
+
+    @Test
+    void textRenderer_queuesTextBatchInsteadOfRenderingImmediately() throws Exception {
+        GraphicsManager.getInstance().resetState();
+        InspectableTextRenderer renderer = new InspectableTextRenderer();
+
+        assertEquals(0, graphicsCommandQueueSize());
+
+        renderer.renderLines(List.of("Queued"), 8, 12);
+
+        assertEquals(1, graphicsCommandQueueSize());
+    }
+
+    @Test
+    void textRenderer_convertsTopLeftYToGlyphViewportY() {
+        InspectableTextRenderer renderer = new InspectableTextRenderer();
+
+        assertEquals(204, renderer.convertTopLeftY(224, 10, 10));
+        assertEquals(0, renderer.convertTopLeftY(224, 214, 10));
+    }
+
+    @Test
+    void toolbarRenderer_textLayoutFitsToolbarChrome() {
+        LevelEditorController controller = createPreviewController();
+        controller.selectBlock(2);
+        controller.selectChunk(4);
+        controller.descend();
+        InspectableToolbarRenderer renderer = new InspectableToolbarRenderer(controller);
+
+        assertTextCommandsInsideChrome(renderer.buildTextCommands(), 4, 24);
+    }
+
+    @Test
+    void commandStripRenderer_textLayoutFitsCommandStripChrome() {
+        LevelEditorController controller = createPreviewController();
+        controller.selectBlock(1);
+        controller.selectChunk(3);
+        controller.descend();
+        InspectableCommandStripRenderer renderer = new InspectableCommandStripRenderer(controller);
+
+        assertTextCommandsInsideChrome(renderer.buildTextCommands(), 198, 220);
     }
 
     @Test
@@ -409,6 +455,10 @@ class TestEditorRenderingSmoke {
         private List<String> buildLines() {
             return buildStateLines();
         }
+
+        private List<EditorTextRenderer.TextCommand> buildTextCommands() {
+            return buildToolbarTextCommands();
+        }
     }
 
     private static final class InspectableCommandStripRenderer extends EditorCommandStripRenderer {
@@ -428,6 +478,10 @@ class TestEditorRenderingSmoke {
 
         private List<String> buildLines() {
             return buildCommandLines();
+        }
+
+        private List<EditorTextRenderer.TextCommand> buildTextCommands() {
+            return buildCommandTextCommands();
         }
     }
 
@@ -450,6 +504,10 @@ class TestEditorRenderingSmoke {
     private static final class InspectableTextRenderer extends EditorTextRenderer {
         private List<TextCommand> buildCommands(List<String> lines, int x, int y) {
             return buildTextCommands(lines, x, y);
+        }
+
+        private int convertTopLeftY(int viewportHeight, int y, int lineHeight) {
+            return topLeftToGlyphY(viewportHeight, y, lineHeight);
         }
     }
 
@@ -535,6 +593,24 @@ class TestEditorRenderingSmoke {
                     .append(';');
         }
         return signature.toString();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static int graphicsCommandQueueSize() throws Exception {
+        Field commands = GraphicsManager.class.getDeclaredField("commands");
+        commands.setAccessible(true);
+        return ((List<GLCommandable>) commands.get(GraphicsManager.getInstance())).size();
+    }
+
+    private static void assertTextCommandsInsideChrome(List<EditorTextRenderer.TextCommand> commands,
+                                                       int top,
+                                                       int bottom) {
+        assertFalse(commands.isEmpty());
+        for (EditorTextRenderer.TextCommand command : commands) {
+            assertTrue(command.y() >= top, "text command starts above chrome: " + command);
+            assertTrue(command.y() + command.lineHeight() <= bottom,
+                    "text command overflows chrome: " + command);
+        }
     }
 
     private static LevelEditorController createPreviewController() {
