@@ -321,6 +321,9 @@ class TestEditorToggleIntegration {
         assertEquals(191, boundedCursor.y());
         assertEquals(255, SessionManager.getCurrentEditorMode().getCursor().x());
         assertEquals(191, SessionManager.getCurrentEditorMode().getCursor().y());
+        SessionManager.getCurrentEditorMode().setCursor(new EditorCursorState(12, 34));
+        assertEquals(12, SessionManager.getCurrentEditorMode().getCursor().x());
+        assertEquals(34, SessionManager.getCurrentEditorMode().getCursor().y());
 
         inputHandler.handleKeyEvent(GLFW_KEY_TAB, GLFW_RELEASE);
         inputHandler.handleKeyEvent(GLFW_KEY_LEFT_SHIFT, GLFW_RELEASE);
@@ -463,8 +466,11 @@ class TestEditorToggleIntegration {
 
             blockCount = 1;
             blocks = new Block[blockCount];
-            blocks[0] = new Block(1);
+            blocks[0] = new Block(2);
             blocks[0].setChunkDesc(0, 0, new ChunkDesc(0));
+            blocks[0].setChunkDesc(1, 0, new ChunkDesc(0));
+            blocks[0].setChunkDesc(0, 1, new ChunkDesc(0));
+            blocks[0].setChunkDesc(1, 1, new ChunkDesc(0));
 
             solidTileCount = 1;
             solidTiles = new SolidTile[] {
@@ -500,7 +506,7 @@ class TestEditorToggleIntegration {
 
         @Override
         public int getBlockPixelSize() {
-            return 32;
+            return 64;
         }
     }
 
