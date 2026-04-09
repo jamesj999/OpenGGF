@@ -95,6 +95,17 @@ class TestEditorModeContextLifecycle {
     }
 
     @Test
+    void editorModeContext_cursorCanBeUpdatedAfterEntry() {
+        WorldSession world = new WorldSession(new Sonic2GameModule());
+        EditorModeContext editor = new EditorModeContext(world, new EditorCursorState(320, 640), null);
+
+        editor.setCursor(new EditorCursorState(400, 768));
+
+        assertEquals(400, editor.getCursor().x());
+        assertEquals(768, editor.getCursor().y());
+    }
+
+    @Test
     void legacyEditorModeContextConstructorLeavesPlaytestStashEmpty() {
         WorldSession world = new WorldSession(new Sonic2GameModule());
 

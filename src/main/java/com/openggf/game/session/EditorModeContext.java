@@ -6,7 +6,7 @@ import java.util.Objects;
 
 public final class EditorModeContext implements ModeContext {
     private final WorldSession worldSession;
-    private final EditorCursorState cursor;
+    private EditorCursorState cursor;
     private final EditorPlaytestStash playtestStash;
 
     public EditorModeContext(WorldSession worldSession, EditorCursorState cursor) {
@@ -25,6 +25,10 @@ public final class EditorModeContext implements ModeContext {
 
     public EditorCursorState getCursor() {
         return cursor;
+    }
+
+    public void setCursor(EditorCursorState cursor) {
+        this.cursor = Objects.requireNonNull(cursor, "cursor");
     }
 
     public EditorPlaytestStash getPlaytestStash() {
