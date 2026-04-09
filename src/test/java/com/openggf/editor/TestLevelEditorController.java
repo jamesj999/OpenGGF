@@ -381,24 +381,38 @@ class TestLevelEditorController {
         controller.setWorldCursor(new EditorCursorState(0, 0));
 
         controller.moveWorldCursor(-64, -32);
-        assertEquals(0, controller.worldCursor().x());
-        assertEquals(0, controller.worldCursor().y());
+        assertEquals(16, controller.worldCursor().x());
+        assertEquals(32, controller.worldCursor().y());
 
         controller.moveWorldCursor(9999, 9999);
-        assertEquals(255, controller.worldCursor().x());
-        assertEquals(191, controller.worldCursor().y());
+        assertEquals(271, controller.worldCursor().x());
+        assertEquals(223, controller.worldCursor().y());
+    }
+
+    @Test
+    void setWorldCursor_clampsToAttachedLevelBounds() {
+        LevelEditorController controller = new LevelEditorController();
+        controller.attachLevel(createMutableLevel(4, 3, 2, 2));
+
+        controller.setWorldCursor(new EditorCursorState(-100, -100));
+        assertEquals(16, controller.worldCursor().x());
+        assertEquals(32, controller.worldCursor().y());
+
+        controller.setWorldCursor(new EditorCursorState(9999, 9999));
+        assertEquals(271, controller.worldCursor().x());
+        assertEquals(223, controller.worldCursor().y());
     }
 
     @Test
     void moveActiveSelection_inWorldDepthUsesClampedCursorMovement() {
         LevelEditorController controller = new LevelEditorController();
         controller.attachLevel(createMutableLevel(4, 3, 2, 2));
-        controller.setWorldCursor(new EditorCursorState(254, 190));
+        controller.setWorldCursor(new EditorCursorState(270, 222));
 
         controller.moveActiveSelection(3, 3);
 
-        assertEquals(255, controller.worldCursor().x());
-        assertEquals(191, controller.worldCursor().y());
+        assertEquals(271, controller.worldCursor().x());
+        assertEquals(223, controller.worldCursor().y());
     }
 
     @Test
@@ -514,10 +528,10 @@ class TestLevelEditorController {
             };
             objects = List.of();
             rings = List.of();
-            minX = 0;
-            maxX = 0;
-            minY = 0;
-            maxY = 0;
+            minX = 16;
+            maxX = 271;
+            minY = 32;
+            maxY = 223;
         }
 
         @Override
@@ -597,22 +611,22 @@ class TestLevelEditorController {
 
         @Override
         public int getMinX() {
-            return 0;
+            return minX;
         }
 
         @Override
         public int getMaxX() {
-            return 0;
+            return maxX;
         }
 
         @Override
         public int getMinY() {
-            return 0;
+            return minY;
         }
 
         @Override
         public int getMaxY() {
-            return 0;
+            return maxY;
         }
 
         @Override
