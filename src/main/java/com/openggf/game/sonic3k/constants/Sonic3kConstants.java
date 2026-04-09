@@ -1251,6 +1251,8 @@ public class Sonic3kConstants {
 
     // ===== Slot Machine Bonus Stage =====
     public static final int ARTTILE_SLOTS_BLOCKS = 0x033B;          // ArtTile_SlotsBlocks
+    public static final int ART_UNC_SLOT_OPTIONS_ADDR = 0x158CAE;
+    public static final int ART_UNC_SLOT_OPTIONS_SIZE = 0x1000;
     public static final int ANPAL_SLOTS_1_ADDR = 0x003620;
     public static final int ANPAL_SLOTS_1_SIZE = 0x40;
     public static final int ANPAL_SLOTS_2_ADDR = 0x003658;

@@ -82,7 +82,7 @@ class TestS3kSlotBonusPlayer {
         short startX = player.getX();
         short startY = player.getY();
 
-        runtime.tick(player, false, false, false, 0);
+        runtime.tick(player, false, false, false, false, false, 0);
 
         assertTrue(player.getX() != startX || player.getY() != startY);
     }
@@ -97,7 +97,7 @@ class TestS3kSlotBonusPlayer {
         player.setXSpeed((short) 0);
         player.setYSpeed((short) 0);
 
-        runtime.tick(player, false, false, false, 0);
+        runtime.tick(player, false, false, false, false, false, 0);
 
         assertEquals((short) 0, player.getXSpeed());
         assertEquals((short) 0x2A, player.getYSpeed());
@@ -106,10 +106,7 @@ class TestS3kSlotBonusPlayer {
     @Test
     void airGravityAtAngle0x40ProducesXComponent() {
         S3kSlotPlayerRuntime runtime = newEmptyRuntime();
-        S3kSlotStageController controller = new S3kSlotStageController();
-        controller.bootstrap();
-        controller.tick();
-        runtime.syncFromController(controller);
+        runtime.stageState().setStatTable(0x4000);
 
         AbstractPlayableSprite player = S3kSlotBonusPlayer.create("sonic",
                 (short) 0x460, (short) 0x430, runtime);
@@ -117,7 +114,7 @@ class TestS3kSlotBonusPlayer {
         player.setXSpeed((short) 0);
         player.setYSpeed((short) 0);
 
-        runtime.tick(player, false, false, false, 0);
+        runtime.tick(player, false, false, false, false, false, 0);
 
         assertEquals((short) 0x2A, player.getXSpeed());
         assertTrue(Math.abs(player.getYSpeed()) <= 1, "Y should be near zero at angle 0x40");

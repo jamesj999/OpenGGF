@@ -11,10 +11,13 @@ import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.game.sonic3k.features.AizBattleshipRenderFeature;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.features.AizTransitionRenderFeature;
+import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotMachinePanelAnimator;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.graphics.GraphicsManager;
+import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.WaterSystem;
+import com.openggf.level.scroll.M68KMath;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.io.IOException;
@@ -34,6 +37,7 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
     private final AizTransitionRenderFeature aizTransitionRenderFeature = new AizTransitionRenderFeature();
     private Sonic3kWaterSurfaceManager waterSurfaceManager;
     private boolean forcedAizForestFrontPriority;
+    private S3kSlotMachinePanelAnimator slotMachinePanelAnimator;
 
     @Override
     public void initZoneFeatures(Rom rom, int zoneIndex, int actIndex, int cameraX) throws IOException {
@@ -44,6 +48,16 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
         if (zoneIndex == Sonic3kZoneIds.ZONE_HCZ && hasWater(zoneIndex)) {
             initWaterSurfaceManager(rom, zoneIndex, actIndex);
         }
+        if (zoneIndex == Sonic3kZoneIds.ZONE_SLOT_MACHINE) {
+            initSlotMachineRenderer(rom);
+        }
+    }
+
+    private void initSlotMachineRenderer(Rom rom) {
+        if (slotMachinePanelAnimator == null) {
+            slotMachinePanelAnimator = new S3kSlotMachinePanelAnimator();
+        }
+        slotMachinePanelAnimator.init(rom);
     }
 
     @Override
@@ -104,6 +118,10 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
         aizTransitionRenderFeature.reset();
         waterSurfaceManager = null;
         forcedAizForestFrontPriority = false;
+        if (slotMachinePanelAnimator != null) {
+            slotMachinePanelAnimator.cleanup();
+            slotMachinePanelAnimator = null;
+        }
     }
 
     @Override
@@ -139,7 +157,40 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
         if (coordinator.activeSlotRuntime() == null) {
             return;
         }
+        if (slotMachinePanelAnimator != null && slotMachinePanelAnimator.isInitialized()) {
+            slotMachinePanelAnimator.syncPanelPatterns(
+                    coordinator.activeSlotRuntime().slotMachineDisplayState());
+        }
         coordinator.activeSlotRuntime().renderSlotLayout(camera);
+    }
+
+    @Override
+    public void renderAfterForeground(Camera camera) {
+        if (GameServices.level() == null || GameServices.level().getCurrentZone() != Sonic3kZoneIds.ZONE_SLOT_MACHINE) {
+            return;
+        }
+        if (!(GameModuleRegistry.getCurrent().getBonusStageProvider() instanceof Sonic3kBonusStageCoordinator coordinator)) {
+            return;
+        }
+        if (coordinator.activeSlotRuntime() == null) {
+            return;
+        }
+        coordinator.activeSlotRuntime().renderSlotMachineFaceForeground();
+    }
+
+    protected int resolveSlotDisplayOriginX(Camera camera) {
+        int[] hScroll = GameServices.parallax() != null ? GameServices.parallax().getHScroll() : null;
+        if (hScroll != null && hScroll.length > 0) {
+            return -M68KMath.unpackFG(hScroll[0]);
+        }
+        return camera != null ? camera.getX() : 0;
+    }
+
+    protected int resolveSlotDisplayOriginY(Camera camera) {
+        if (GameServices.parallax() != null) {
+            return GameServices.parallax().getVscrollFactorFG();
+        }
+        return camera != null ? camera.getY() : 0;
     }
 
     @Override
@@ -158,6 +209,11 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
     @Override
     public boolean shouldEnableForegroundHeatHaze(int zoneIndex, int actIndex, int cameraX) {
         return aizTransitionRenderFeature.shouldEnableForegroundHeatHaze(zoneIndex, actIndex, cameraX);
+    }
+
+    @Override
+    public boolean shouldEnablePerLineForegroundScroll(int zoneIndex, int actIndex, int cameraX) {
+        return zoneIndex == Sonic3kZoneIds.ZONE_SLOT_MACHINE;
     }
 
     @Override

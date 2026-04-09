@@ -14,7 +14,6 @@ import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Object 0x73 — Marble Zone Boss (Eggman dropping lava balls).
@@ -319,7 +318,7 @@ public class Sonic1MZBossInstance extends AbstractS1EggmanBossInstance {
             return;
         }
         // ROM: Random X in range [boss_mz_x+$78, boss_mz_x+$78+$4F]
-        int randomX = ThreadLocalRandom.current().nextInt(LAVA_DROP_SPAN);
+        int randomX = services().rng().nextWord() % LAVA_DROP_SPAN;
         int lavaX = LAVA_DROP_BASE_X + randomX;
 
         ObjectSpawn fireSpawn = new ObjectSpawn(
@@ -458,7 +457,7 @@ public class Sonic1MZBossInstance extends AbstractS1EggmanBossInstance {
      * ROM: andi.b #$1F,d0 / addi.b #$40,d0 → random delay 64-95 frames.
      */
     private int randomLavaDelay() {
-        return 0x40 + ThreadLocalRandom.current().nextInt(0x20);
+        return 0x40 + services().rng().nextBits(0x1F);
     }
 
     @Override

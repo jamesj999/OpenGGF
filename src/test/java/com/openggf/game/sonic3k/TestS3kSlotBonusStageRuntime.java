@@ -8,7 +8,6 @@ import com.openggf.game.GameServices;
 import com.openggf.graphics.FadeManager;
 import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotBonusPlayer;
 import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotBonusStageRuntime;
-import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotExitSequence;
 import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotRenderBuffers;
 import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotStageState;
 import com.openggf.game.sonic3k.objects.S3kSlotBonusCageObjectInstance;
@@ -22,8 +21,6 @@ import com.openggf.tests.rules.SonicGame;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-
-import java.lang.reflect.Field;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -199,7 +196,7 @@ class TestS3kSlotBonusStageRuntime {
     }
 
     @Test
-    void exitSequenceStartsFadeToBlackWhenFadePhaseBegins() throws Exception {
+    void exitSequenceStartsFadeToBlackWhenFadePhaseBegins() {
         SonicConfigurationService.getInstance().setConfigValue(SonicConfiguration.S3K_SKIP_INTROS, true);
         fixture = HeadlessTestFixture.builder()
                 .withZoneAndAct(0x15, 0)
@@ -213,9 +210,7 @@ class TestS3kSlotBonusStageRuntime {
         S3kSlotBonusStageRuntime runtime = coordinator.activeSlotRuntimeForTest();
         assertNotNull(runtime);
 
-        Field exitSequenceField = S3kSlotBonusStageRuntime.class.getDeclaredField("exitSequence");
-        exitSequenceField.setAccessible(true);
-        exitSequenceField.set(runtime, new S3kSlotExitSequence(runtime.stageController()));
+        runtime.startGoalExitForTest();
 
         for (int i = 0; i < 96; i++) {
             coordinator.onFrameUpdate();

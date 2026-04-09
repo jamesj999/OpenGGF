@@ -72,6 +72,19 @@ public class PatternSpriteRenderer {
     }
 
     /**
+     * Draws a frame using the provided palette as a base addition, preserving each
+     * mapping piece's palette bits. This matches Genesis art_tile addition semantics.
+     */
+    public void drawFrameIndexWithPaletteBase(int frameIndex, int originX, int originY,
+            boolean hFlip, boolean vFlip, int paletteBase) {
+        if (frameIndex < 0 || frameIndex >= spriteSheet.getFrameCount() || patternBase < 0) {
+            return;
+        }
+        SpriteFrame<? extends SpriteFramePiece> frame = spriteSheet.getFrame(frameIndex);
+        drawFramePieces(frame.pieces(), originX, originY, hFlip, vFlip, paletteBase);
+    }
+
+    /**
      * Draws a frame with an optional palette override.
      * @param paletteOverride palette index to use, or -1 to use the sprite sheet's default
      */

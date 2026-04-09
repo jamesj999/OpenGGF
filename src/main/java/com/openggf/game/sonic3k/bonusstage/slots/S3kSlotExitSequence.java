@@ -13,7 +13,7 @@ public final class S3kSlotExitSequence {
     static final int FADE_CALL_INTERVAL = 3; // Pal_ToBlack every 3 frames
 
     private final S3kSlotStageController controller;
-    private int accumulatedScalar;
+    private int currentScalar;
     private int fadeTimer;
     private int fadeDelay;
     private boolean inFade;
@@ -21,7 +21,7 @@ public final class S3kSlotExitSequence {
 
     public S3kSlotExitSequence(S3kSlotStageController controller) {
         this.controller = controller;
-        this.accumulatedScalar = 0;
+        this.currentScalar = controller != null ? controller.scalarIndex() : 0;
     }
 
     /** Call once per frame during exit sequence */
@@ -30,17 +30,19 @@ public final class S3kSlotExitSequence {
 
         if (!inFade) {
             // Phase 1: wind-down
-            accumulatedScalar += WIND_DOWN_INCREMENT;
-            controller.setScalarIndex(accumulatedScalar);
+            currentScalar += WIND_DOWN_INCREMENT;
+            controller.setScalarIndex(currentScalar);
             controller.tick(); // continue rotating
 
-            if (accumulatedScalar >= WIND_DOWN_TARGET) {
+            if (currentScalar >= WIND_DOWN_TARGET) {
                 inFade = true;
                 fadeTimer = FADE_FRAMES;
                 fadeDelay = 0;
             }
         } else {
             // Phase 2: fade to black
+            currentScalar += WIND_DOWN_INCREMENT;
+            controller.setScalarIndex(currentScalar);
             controller.tick(); // rotation continues during fade
             fadeTimer--;
 

@@ -121,6 +121,26 @@ public class S3kSlotStageController {
         return stageState.reelsFrozen();
     }
 
+    public boolean isOptionCycleResolved() {
+        return stageState.optionCycleState() == 0x18;
+    }
+
+    public void restartCaptureCycleIfResolved() {
+        if (!isOptionCycleResolved()) {
+            return;
+        }
+        stageState.setOptionCycleState(0x08);
+        stageState.setOptionCycleCountdown(0);
+        stageState.setOptionCycleSpinCycleCounter(0);
+        stageState.setOptionCycleResolvedDisplayTimer(0);
+        stageState.setOptionCycleLockProgress(0);
+        stageState.setOptionCycleLastPrize(Integer.MIN_VALUE);
+        stageState.setOptionCycleOffsets(0, 0, 0);
+        stageState.setOptionCycleActiveReelIndex(0);
+        stageState.setOptionCycleReelSubstates(0, 0, 0);
+        stageState.setOptionCycleReelVelocities(0, 0, 0);
+    }
+
     public void setPaletteCycleEnabled(boolean enabled) {
         stageState.setPaletteCycleEnabled(enabled);
     }
@@ -217,5 +237,9 @@ public class S3kSlotStageController {
 
     public int rewardCount() {
         return stageState.rewardCounter();
+    }
+
+    S3kSlotStageState stageStateForTest() {
+        return stageState;
     }
 }

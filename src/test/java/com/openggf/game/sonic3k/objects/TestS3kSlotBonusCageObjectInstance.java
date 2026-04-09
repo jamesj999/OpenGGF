@@ -93,28 +93,52 @@ class TestS3kSlotBonusCageObjectInstance {
     }
 
     @Test
-    void captureLatchesPositiveResolvedPrizeIntoRingPayout() {
+    void captureLatchesPositiveResolvedPrizeIntoRingPayout() throws Exception {
         ObjectSpawn spawn = new ObjectSpawn(0x460, 0x430, 0x00, 0x00, 0x00, false, 0);
         S3kSlotStageController controller = new S3kSlotStageController();
         controller.bootstrap();
         controller.latchResolvedPrizeForCapture(6);
+        forceOptionCycleState(controller, 0x0C);
 
         S3kSlotBonusCageObjectInstance cage = new S3kSlotBonusCageObjectInstance(spawn, controller);
         cage.setServices(new TestObjectServices());
 
         Sonic player = new Sonic("sonic", (short) 0x460, (short) 0x430);
         cage.update(0, player);
+        forceOptionCycleState(controller, 0x18);
+        cage.update(2, player);
 
         assertTrue(cage.spawnsRingsForTest());
         assertEquals(6, cage.pendingRewardsForTest());
     }
 
     @Test
-    void captureLatchesNegativeResolvedPrizeIntoSpikePayout() {
+    void captureLatchesNegativeResolvedPrizeIntoSpikePayout() throws Exception {
         ObjectSpawn spawn = new ObjectSpawn(0x460, 0x430, 0x00, 0x00, 0x00, false, 0);
         S3kSlotStageController controller = new S3kSlotStageController();
         controller.bootstrap();
         controller.latchResolvedPrizeForCapture(-4);
+        forceOptionCycleState(controller, 0x0C);
+
+        S3kSlotBonusCageObjectInstance cage = new S3kSlotBonusCageObjectInstance(spawn, controller);
+        cage.setServices(new TestObjectServices());
+
+        Sonic player = new Sonic("sonic", (short) 0x460, (short) 0x430);
+        cage.update(0, player);
+        forceOptionCycleState(controller, 0x18);
+        cage.update(2, player);
+
+        assertFalse(cage.spawnsRingsForTest());
+        assertEquals(4, cage.pendingRewardsForTest());
+    }
+
+    @Test
+    void captureDoesNotStartRewardSpawnWhileOptionCycleIsStillUnresolved() throws Exception {
+        ObjectSpawn spawn = new ObjectSpawn(0x460, 0x430, 0x00, 0x00, 0x00, false, 0);
+        S3kSlotStageController controller = new S3kSlotStageController();
+        controller.bootstrap();
+        controller.latchResolvedPrizeForCapture(6);
+        forceOptionCycleState(controller, 0x0C);
 
         S3kSlotBonusCageObjectInstance cage = new S3kSlotBonusCageObjectInstance(spawn, controller);
         cage.setServices(new TestObjectServices());
@@ -122,12 +146,12 @@ class TestS3kSlotBonusCageObjectInstance {
         Sonic player = new Sonic("sonic", (short) 0x460, (short) 0x430);
         cage.update(0, player);
 
-        assertFalse(cage.spawnsRingsForTest());
-        assertEquals(4, cage.pendingRewardsForTest());
+        assertEquals(1, cage.cageStateForTest());
+        assertEquals(0, cage.pendingRewardsForTest());
     }
 
     @Test
-    void appendRenderCommandsUsesCageRendererAtAnimatedPosition() throws Exception {
+    void appendRenderCommandsSuppressesUnusedCageVisual() throws Exception {
         RecordingRenderer renderer = new RecordingRenderer();
         installRenderer(renderer, Sonic3kObjectArtKeys.SLOT_BONUS_CAGE);
 
@@ -145,10 +169,7 @@ class TestS3kSlotBonusCageObjectInstance {
 
         cage.appendRenderCommands(new ArrayList<>());
 
-        assertEquals(1, renderer.drawCount);
-        assertEquals(cage.getMappingFrame(), renderer.lastFrameIndex);
-        assertEquals(cage.getCurrentX(), renderer.lastX);
-        assertEquals(cage.getCurrentY(), renderer.lastY);
+        assertEquals(0, renderer.drawCount);
     }
 
     private void installRenderer(RecordingRenderer renderer, String artKey) throws Exception {
@@ -159,6 +180,15 @@ class TestS3kSlotBonusCageObjectInstance {
         RuntimeManager.setCurrent(null);
         ObjectRenderManager renderManager = new ObjectRenderManager(new StubObjectArtProvider(renderer, artKey));
         levelManagerField.set(null, new TestLevelManager(renderManager));
+    }
+
+    private void forceOptionCycleState(S3kSlotStageController controller, int stateValue) throws Exception {
+        Field stageStateField = S3kSlotStageController.class.getDeclaredField("stageState");
+        stageStateField.setAccessible(true);
+        Object stageState = stageStateField.get(controller);
+        Field optionCycleStateField = stageState.getClass().getDeclaredField("optionCycleState");
+        optionCycleStateField.setAccessible(true);
+        optionCycleStateField.setInt(stageState, stateValue);
     }
 
     private static final class TestLevelManager extends LevelManager {

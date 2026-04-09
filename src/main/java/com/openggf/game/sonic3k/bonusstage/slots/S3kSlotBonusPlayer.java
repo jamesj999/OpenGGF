@@ -46,7 +46,7 @@ public interface S3kSlotBonusPlayer extends CustomPlayablePhysics {
         public void tickCustomPhysics(boolean up, boolean down, boolean left, boolean right,
                                       boolean jump, boolean test, boolean speedUp, boolean slowDown,
                                       LevelManager levelManager, int frameCounter) {
-            runtime.tick(this, left, right, jump, frameCounter);
+            runtime.tick(this, up, down, left, right, jump, frameCounter);
         }
 
         @Override
@@ -68,7 +68,7 @@ public interface S3kSlotBonusPlayer extends CustomPlayablePhysics {
         public void tickCustomPhysics(boolean up, boolean down, boolean left, boolean right,
                                       boolean jump, boolean test, boolean speedUp, boolean slowDown,
                                       LevelManager levelManager, int frameCounter) {
-            runtime.tick(this, left, right, jump, frameCounter);
+            runtime.tick(this, up, down, left, right, jump, frameCounter);
         }
 
         @Override
@@ -90,7 +90,7 @@ public interface S3kSlotBonusPlayer extends CustomPlayablePhysics {
         public void tickCustomPhysics(boolean up, boolean down, boolean left, boolean right,
                                       boolean jump, boolean test, boolean speedUp, boolean slowDown,
                                       LevelManager levelManager, int frameCounter) {
-            runtime.tick(this, left, right, jump, frameCounter);
+            runtime.tick(this, up, down, left, right, jump, frameCounter);
         }
 
         @Override

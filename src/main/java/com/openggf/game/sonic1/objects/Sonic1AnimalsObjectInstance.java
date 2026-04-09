@@ -14,7 +14,6 @@ import com.openggf.physics.TerrainCheckResult;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Sonic 1 Object 0x28 - Animals.
@@ -156,7 +155,7 @@ public class Sonic1AnimalsObjectInstance extends AbstractObjectInstance {
         // ROM: Anml_FromEnemy random zone pair selection.
         int zoneId = services().romZoneId();
         int[] zoneVariants = resolveZoneVariants(zoneId);
-        this.fromEnemyVariantIndex = zoneVariants[ThreadLocalRandom.current().nextInt(2)];
+        this.fromEnemyVariantIndex = zoneVariants[services().rng().nextBits(1)];
         AnimalType animalType = VARIABLE_ANIMALS[fromEnemyVariantIndex];
 
         this.endingMode = false;

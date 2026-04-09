@@ -59,13 +59,30 @@ public class TestS3kSlotsPaletteCycling {
 
     @Test
     public void idleCycleMutatesSlotsGlowColors() {
-        Palette.Color beforeLine3 = snapshot(level.getPalette(2).getColor(10));
-        Palette.Color beforeLine4 = snapshot(level.getPalette(3).getColor(14));
+        Palette.Color[] beforeLine3 = snapshotRange(level.getPalette(2), 10, 4);
+        Palette.Color beforeAccentLine4 = snapshot(level.getPalette(3).getColor(14));
 
-        cycler.update();
+        for (int frame = 0; frame < 8; frame++) {
+            cycler.update();
+        }
 
-        assertFalse(colorsEqual(beforeLine3, level.getPalette(2).getColor(10)));
-        assertFalse(colorsEqual(beforeLine4, level.getPalette(3).getColor(14)));
+        assertFalse(colorsEqual(beforeLine3[0], level.getPalette(2).getColor(10)));
+        assertFalse(colorsEqual(beforeAccentLine4, level.getPalette(3).getColor(14)));
+    }
+
+    @Test
+    public void idleCycleOnlyAnimatesLine3AndSharedAccent() {
+        Palette.Color[] beforeLine3 = snapshotRange(level.getPalette(2), 10, 4);
+        Palette.Color[] beforeLine4AnimatedRange = snapshotRange(level.getPalette(3), 10, 4);
+        Palette.Color beforeLine4Accent = snapshot(level.getPalette(3).getColor(14));
+
+        for (int frame = 0; frame < 8; frame++) {
+            cycler.update();
+        }
+
+        assertFalse(colorsEqual(beforeLine3[0], level.getPalette(2).getColor(10)));
+        assertPaletteRangeEquals(beforeLine4AnimatedRange, level.getPalette(3), 10);
+        assertFalse(colorsEqual(beforeLine4Accent, level.getPalette(3).getColor(14)));
     }
 
     @Test
@@ -123,6 +140,21 @@ public class TestS3kSlotsPaletteCycling {
 
     private static Palette.Color snapshot(Palette.Color c) {
         return new Palette.Color(c.r, c.g, c.b);
+    }
+
+    private static Palette.Color[] snapshotRange(Palette palette, int startColor, int count) {
+        Palette.Color[] colors = new Palette.Color[count];
+        for (int i = 0; i < count; i++) {
+            colors[i] = snapshot(palette.getColor(startColor + i));
+        }
+        return colors;
+    }
+
+    private static void assertPaletteRangeEquals(Palette.Color[] expected, Palette palette, int startColor) {
+        for (int i = 0; i < expected.length; i++) {
+            assertTrue("Palette color " + (startColor + i) + " changed unexpectedly",
+                    colorsEqual(expected[i], palette.getColor(startColor + i)));
+        }
     }
 
     private static boolean colorsEqual(Palette.Color a, Palette.Color b) {

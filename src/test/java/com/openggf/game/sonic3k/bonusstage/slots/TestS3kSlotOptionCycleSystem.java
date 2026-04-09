@@ -1,12 +1,15 @@
 package com.openggf.game.sonic3k.bonusstage.slots;
 
+import com.openggf.game.GameRng;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 class TestS3kSlotOptionCycleSystem {
 
@@ -45,7 +48,7 @@ class TestS3kSlotOptionCycleSystem {
     }
 
     @Test
-    void firstTickAdvancesFromBootstrapToInitState() throws Exception {
+    void firstTickTransitionsIntoPassiveSettleState() throws Exception {
         Class<?> systemClass = Class.forName(
                 "com.openggf.game.sonic3k.bonusstage.slots.S3kSlotOptionCycleSystem");
         Object system = systemClass.getConstructor().newInstance();
@@ -56,6 +59,159 @@ class TestS3kSlotOptionCycleSystem {
 
         assertEquals(4, readIntField(state, "optionCycleState"));
         assertEquals(1, readIntField(state, "optionCycleCountdown"));
+        assertEquals(0, readIntField(state, "optionCycleActiveReelIndex"));
+    }
+
+    @Test
+    void firstTickSeedsPassiveDisplayWithValidReelFaces() throws Exception {
+        Class<?> systemClass = Class.forName(
+                "com.openggf.game.sonic3k.bonusstage.slots.S3kSlotOptionCycleSystem");
+        Object system = systemClass.getConstructor().newInstance();
+        S3kSlotStageState state = S3kSlotStageState.bootstrap();
+
+        systemClass.getMethod("bootstrap", S3kSlotStageState.class).invoke(system, state);
+        systemClass.getMethod("tick", S3kSlotStageState.class, int.class).invoke(system, state, 0);
+
+        S3kSlotMachineDisplayState displayState = S3kSlotMachineDisplayState.fromState(state, 0x460, 0x430);
+
+        assertEquals(3, displayState.faces().length);
+        assertTrue(displayState.faces()[0] >= 0 && displayState.faces()[0] <= 6);
+        assertTrue(displayState.faces()[1] >= 0 && displayState.faces()[1] <= 6);
+        assertTrue(displayState.faces()[2] >= 0 && displayState.faces()[2] <= 6);
+        assertTrue(displayState.offsets()[0] > 0f);
+        assertTrue(displayState.offsets()[1] > 0f);
+        assertTrue(displayState.offsets()[2] > 0f);
+    }
+
+    @Test
+    void passiveSettleRequiresThreeReelAdvancesBeforeIdle() throws Exception {
+        Class<?> systemClass = Class.forName(
+                "com.openggf.game.sonic3k.bonusstage.slots.S3kSlotOptionCycleSystem");
+        Object system = systemClass.getConstructor().newInstance();
+        S3kSlotStageState state = S3kSlotStageState.bootstrap();
+
+        systemClass.getMethod("bootstrap", S3kSlotStageState.class).invoke(system, state);
+        systemClass.getMethod("tick", S3kSlotStageState.class, int.class).invoke(system, state, 0);
+        systemClass.getMethod("tick", S3kSlotStageState.class, int.class).invoke(system, state, 1);
+        assertEquals(4, readIntField(state, "optionCycleState"));
+        assertEquals(1, readIntField(state, "optionCycleCountdown"));
+
+        systemClass.getMethod("tick", S3kSlotStageState.class, int.class).invoke(system, state, 2);
+        assertEquals(4, readIntField(state, "optionCycleState"));
+        assertEquals(1, readIntField(state, "optionCycleCountdown"));
+
+        systemClass.getMethod("tick", S3kSlotStageState.class, int.class).invoke(system, state, 3);
+        assertEquals(24, readIntField(state, "optionCycleState"));
+        assertEquals(0, readIntField(state, "optionCycleCountdown"));
+    }
+
+    @Test
+    void idleStateDoesNotRestartCycleWithoutCapture() throws Exception {
+        Class<?> systemClass = Class.forName(
+                "com.openggf.game.sonic3k.bonusstage.slots.S3kSlotOptionCycleSystem");
+        Object system = systemClass.getConstructor().newInstance();
+        S3kSlotStageState state = S3kSlotStageState.bootstrap();
+
+        systemClass.getMethod("bootstrap", S3kSlotStageState.class).invoke(system, state);
+        state.setOptionCycleState(24);
+        state.setOptionCycleResolvedDisplayTimer(0);
+        state.setOptionCycleDisplaySymbols(1, 2, 3);
+        state.setOptionCycleOffsets(0, 0, 0);
+
+        systemClass.getMethod("tick", S3kSlotStageState.class, int.class).invoke(system, state, 120);
+
+        assertEquals(24, readIntField(state, "optionCycleState"));
+        int[] displaySymbols = (int[]) readField(state, "optionCycleDisplaySymbols");
+        assertEquals(1, displaySymbols[0]);
+        assertEquals(2, displaySymbols[1]);
+        assertEquals(3, displaySymbols[2]);
+    }
+
+    @Test
+    void captureSpinLifecycleDoesNotCollapseToAwardInOnlyAFewFrames() throws Exception {
+        Class<?> systemClass = Class.forName(
+                "com.openggf.game.sonic3k.bonusstage.slots.S3kSlotOptionCycleSystem");
+        Object system = systemClass.getConstructor().newInstance();
+        S3kSlotStageState state = S3kSlotStageState.bootstrap();
+
+        systemClass.getMethod("bootstrap", S3kSlotStageState.class).invoke(system, state);
+        state.setOptionCycleState(0x08);
+
+        systemClass.getMethod("tick", S3kSlotStageState.class, int.class).invoke(system, state, 100);
+        assertEquals(0x0C, readIntField(state, "optionCycleState"));
+
+        for (int i = 0; i < 5; i++) {
+            systemClass.getMethod("tick", S3kSlotStageState.class, int.class).invoke(system, state, 101 + i);
+        }
+        assertEquals(0x0C, readIntField(state, "optionCycleState"));
+
+        systemClass.getMethod("tick", S3kSlotStageState.class, int.class).invoke(system, state, 106);
+        assertEquals(0x10, readIntField(state, "optionCycleState"));
+
+        for (int i = 0; i < 18; i++) {
+            systemClass.getMethod("tick", S3kSlotStageState.class, int.class).invoke(system, state, 107 + i);
+        }
+
+        assertEquals(0x10, readIntField(state, "optionCycleState"));
+        assertNotEquals(3, readIntField(state, "optionCycleLockProgress"));
+    }
+
+    @Test
+    void resolvedCycleKeepsReelSubstatesAndVelocitiesCleared() throws Exception {
+        Class<?> systemClass = Class.forName(
+                "com.openggf.game.sonic3k.bonusstage.slots.S3kSlotOptionCycleSystem");
+        Object system = systemClass.getConstructor().newInstance();
+        S3kSlotStageState state = S3kSlotStageState.bootstrap();
+
+        systemClass.getMethod("bootstrap", S3kSlotStageState.class).invoke(system, state);
+        for (int frame = 0; frame < 4; frame++) {
+            systemClass.getMethod("tick", S3kSlotStageState.class, int.class).invoke(system, state, frame);
+        }
+
+        int[] reelVelocities = (int[]) readField(state, "optionCycleReelVelocities");
+        int[] reelSubstates = (int[]) readField(state, "optionCycleReelSubstates");
+        assertEquals(0, reelVelocities[0]);
+        assertEquals(0, reelVelocities[1]);
+        assertEquals(0, reelVelocities[2]);
+        assertEquals(0, reelSubstates[0]);
+        assertEquals(0, reelSubstates[1]);
+        assertEquals(0, reelSubstates[2]);
+    }
+
+    @Test
+    void captureSpinDoesNotEnterAwardImmediatelyAfterLockStageStarts() throws Exception {
+        Class<?> systemClass = Class.forName(
+                "com.openggf.game.sonic3k.bonusstage.slots.S3kSlotOptionCycleSystem");
+        Object system = systemClass.getConstructor().newInstance();
+        S3kSlotStageState state = S3kSlotStageState.bootstrap();
+
+        systemClass.getMethod("bootstrap", S3kSlotStageState.class).invoke(system, state);
+        state.setOptionCycleState(0x08);
+
+        for (int i = 0; i < 7; i++) {
+            systemClass.getMethod("tick", S3kSlotStageState.class, int.class).invoke(system, state, 200 + i);
+        }
+
+        assertEquals(0x10, readIntField(state, "optionCycleState"));
+
+        for (int i = 0; i < 9; i++) {
+            systemClass.getMethod("tick", S3kSlotStageState.class, int.class).invoke(system, state, 207 + i);
+        }
+        assertEquals(0x10, readIntField(state, "optionCycleState"));
+    }
+
+    @Test
+    void randomTargetSelectionUsesS3kRandomNumberAndFrameCounter() {
+        S3kSlotOptionCycleSystem system = new S3kSlotOptionCycleSystem();
+        S3kSlotStageState state = S3kSlotStageState.bootstrap();
+        GameRng rng = new GameRng(GameRng.Flavour.S3K);
+
+        state.setOptionCycleState(0x08);
+        system.tick(state, 0x00FF, rng);
+
+        assertEquals(0x0C, state.optionCycleState());
+        assertEquals(0, state.optionCycleTargetReelA());
+        assertEquals(0x20, state.optionCycleTargetPackedBC());
     }
 
     private static Object readField(S3kSlotStageState state, String fieldName) throws Exception {

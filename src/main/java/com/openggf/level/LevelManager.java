@@ -305,7 +305,7 @@ public class LevelManager {
         if (tilemapRenderer == null) {
             return;
         }
-        applyForegroundHeatHaze(tilemapRenderer);
+        applyForegroundScrollFeatures(tilemapRenderer);
         short[] fgPerColumnVScrollLow = parallaxManager.getVScrollPerColumnFGForShader();
         if (fgPerColumnVScrollLow != null) {
             tilemapRenderer.enablePerColumnVScroll(fgPerColumnVScrollLow);
@@ -348,7 +348,7 @@ public class LevelManager {
         if (tilemapRenderer == null) {
             return;
         }
-        applyForegroundHeatHaze(tilemapRenderer);
+        applyForegroundScrollFeatures(tilemapRenderer);
         short[] fgPerColumnVScrollHigh = parallaxManager.getVScrollPerColumnFGForShader();
         if (fgPerColumnVScrollHigh != null) {
             tilemapRenderer.enablePerColumnVScroll(fgPerColumnVScrollHigh);
@@ -396,7 +396,7 @@ public class LevelManager {
         glBlendEquation(GL_MAX);
         glBlendFunc(GL_ONE, GL_ONE);
 
-        applyForegroundHeatHaze(tilemapRenderer);
+        applyForegroundScrollFeatures(tilemapRenderer);
         short[] fgPerColumnVScrollFbo = parallaxManager.getVScrollPerColumnFGForShader();
         if (fgPerColumnVScrollFbo != null) {
             tilemapRenderer.enablePerColumnVScroll(fgPerColumnVScrollFbo);
@@ -487,9 +487,13 @@ public class LevelManager {
         graphicsManager.setUseUnderwaterPaletteForBackground(false);
     });
 
-    private void applyForegroundHeatHaze(TilemapGpuRenderer tilemapRenderer) {
+    private void applyForegroundScrollFeatures(TilemapGpuRenderer tilemapRenderer) {
         if (zoneFeatureProvider != null
                 && zoneFeatureProvider.shouldEnableForegroundHeatHaze(getFeatureZoneId(), getFeatureActId(), camera.getX())) {
+            tilemapRenderer.enablePerLineForegroundScroll(parallaxManager.getHScrollForShader());
+        }
+        if (zoneFeatureProvider != null
+                && zoneFeatureProvider.shouldEnablePerLineForegroundScroll(getFeatureZoneId(), getFeatureActId(), camera.getX())) {
             tilemapRenderer.enablePerLineForegroundScroll(parallaxManager.getHScrollForShader());
         }
     }
@@ -2191,7 +2195,7 @@ public class LevelManager {
         // Use shake-adjusted camera positions for FG tilemap rendering
         // This makes the foreground tiles shake in sync with sprites
         float worldOffsetX = camera.getXWithShake();
-        float worldOffsetY = camera.getYWithShake();
+        float worldOffsetY = parallaxManager.getVscrollFactorFG() + parallaxManager.getShakeOffsetY();
 
         Integer atlasId = graphicsManager.getPatternAtlasTextureId();
         Integer paletteId = graphicsManager.getCombinedPaletteTextureId();

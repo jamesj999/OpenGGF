@@ -1,8 +1,9 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.GameRng;
+
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * S3K boss explosion controller (ROM: Obj_BossExplosionSpecial → Obj_CreateBossExplosion).
@@ -34,6 +35,7 @@ public class S3kBossExplosionController {
     private final int centreY;
     private final int xRange;
     private final int yRange;
+    private final GameRng rng;
     private int timer;
     private int intervalCounter;
     private final List<PendingExplosion> pendingExplosions = new ArrayList<>();
@@ -41,8 +43,13 @@ public class S3kBossExplosionController {
     public record PendingExplosion(int x, int y, boolean playSfx) {}
 
     public S3kBossExplosionController(int centreX, int centreY, int subtype) {
+        this(centreX, centreY, subtype, new GameRng(GameRng.Flavour.S3K));
+    }
+
+    public S3kBossExplosionController(int centreX, int centreY, int subtype, GameRng rng) {
         this.centreX = centreX;
         this.centreY = centreY;
+        this.rng = rng;
         int paramIndex = Math.min((subtype & 0xFF) >> 1, SUBTYPE_PARAMS.length - 1);
         int[] params = SUBTYPE_PARAMS[paramIndex];
         this.timer = params[0];
@@ -74,7 +81,7 @@ public class S3kBossExplosionController {
 
     private void spawnExplosionChild() {
         // ROM: sub_52850 random offset calculation (s3.asm:101267-101285)
-        int random = ThreadLocalRandom.current().nextInt(0x10000);
+        int random = rng.nextRaw();
         int xMask = (xRange * 2) - 1;
         int yMask = (yRange * 2) - 1;
         int xOffset = (random & xMask) - xRange;

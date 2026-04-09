@@ -232,7 +232,7 @@ public class AizMinibossCutsceneInstance extends AbstractBossInstance {
         // ROM: Obj_BossExplosionSpecial positions at screen center (overrides child offset)
         var camera = services().camera();
         explosionController = new S3kBossExplosionController(
-                camera.getX() + 160, camera.getY() + 112, 2);
+                camera.getX() + 160, camera.getY() + 112, 2, services().rng());
     }
 
     private void tickExplosionController() {

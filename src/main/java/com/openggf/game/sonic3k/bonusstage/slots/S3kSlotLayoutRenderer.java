@@ -18,17 +18,23 @@ public final class S3kSlotLayoutRenderer {
     private static final int GRID_OFFSET = 0xB4;
     private static final int SCREEN_X_OFFSET = 0x120;
     private static final int SCREEN_Y_OFFSET = 0xF0;
+    private static final int WORLD_X_OFFSET = SCREEN_X_OFFSET - 0x80;
+    private static final int WORLD_Y_OFFSET = SCREEN_Y_OFFSET - 0x80;
     private static final int MIN_SCREEN_X = 0x70;
     private static final int MAX_SCREEN_X = 0x1D0;
     private static final int MIN_SCREEN_Y = 0x70;
     private static final int MAX_SCREEN_Y = 0x170;
 
-    // ROM sub_4B4C4: goal sprite animation (6-frame cycle, 1-frame hold)
+    // ROM sub_4B4C4 drives a 3-frame goal map with a 1-frame hold.
     private int goalFrame;
     private int goalFrameTimer;
     // ROM sub_4B4C4: peppermint animation (4-frame cycle, 3-frame hold)
     private int peppermintFrame;
     private int peppermintTimer;
+    // ROM sub_4B4C4 mirrors Rings_frame into the slot chunk table every frame.
+    private int ringFrame;
+    private int ringFrameTimer;
+    private int coloredWallFrame;
 
     private static final LayoutPieceDef[] PIECE_DEFS = new LayoutPieceDef[0x14];
 
@@ -58,14 +64,19 @@ public final class S3kSlotLayoutRenderer {
      * ROM sub_4B4C4 (lines 98307-98352): Updates goal and peppermint frame animations.
      * Called once per frame before rendering.
      */
-    public void updateAnimations() {
+    public void updateAnimations(int angle) {
+        coloredWallFrame = ((angle & 0xFF) >> 2) & 0x0F;
         if (--goalFrameTimer < 0) {
             goalFrameTimer = 1;
-            goalFrame = (goalFrame + 1) % 6;
+            goalFrame = (goalFrame + 1) % 3;
         }
         if (--peppermintTimer < 0) {
             peppermintTimer = 3;
             peppermintFrame = (peppermintFrame + 1) & 3;
+        }
+        if (--ringFrameTimer < 0) {
+            ringFrameTimer = 7;
+            ringFrame = (ringFrame + 1) & 3;
         }
     }
 
@@ -75,6 +86,10 @@ public final class S3kSlotLayoutRenderer {
 
     public int peppermintFrame() {
         return peppermintFrame;
+    }
+
+    public int coloredWallFrame() {
+        return coloredWallFrame;
     }
 
     public void tickTransientAnimations(S3kSlotRenderBuffers buffers) {
@@ -139,7 +154,7 @@ public final class S3kSlotLayoutRenderer {
                 int screenX = pointX + SCREEN_X_OFFSET;
                 int screenY = pointY + SCREEN_Y_OFFSET;
 
-                if (cellId == 0 || cellId >= PIECE_DEFS.length || PIECE_DEFS[cellId] == null) {
+                if (cellId == 0 || cellId == 0x09 || cellId >= PIECE_DEFS.length || PIECE_DEFS[cellId] == null) {
                     continue;
                 }
                 if (screenX < MIN_SCREEN_X || screenX >= MAX_SCREEN_X
@@ -147,8 +162,8 @@ public final class S3kSlotLayoutRenderer {
                     continue;
                 }
                 visible.add(new VisibleCell((byte) cellId,
-                        buffers.stagedCameraX() + screenX,
-                        buffers.stagedCameraY() + screenY));
+                        buffers.stagedCameraX() + pointX + WORLD_X_OFFSET,
+                        buffers.stagedCameraY() + pointY + WORLD_Y_OFFSET));
             }
         }
 
@@ -183,18 +198,54 @@ public final class S3kSlotLayoutRenderer {
                 int screenX = pointX + SCREEN_X_OFFSET;
                 int screenY = pointY + SCREEN_Y_OFFSET;
 
-                if (cellId == 0 || cellId >= PIECE_DEFS.length || PIECE_DEFS[cellId] == null) {
+                if (cellId == 0 || cellId == 0x09 || cellId >= PIECE_DEFS.length || PIECE_DEFS[cellId] == null) {
                     continue;
                 }
                 if (screenX < MIN_SCREEN_X || screenX >= MAX_SCREEN_X
                         || screenY < MIN_SCREEN_Y || screenY >= MAX_SCREEN_Y) {
                     continue;
                 }
-                visible.add(new VisibleCell((byte) cellId, cameraX + screenX, cameraY + screenY));
+                visible.add(new VisibleCell((byte) cellId,
+                        cameraX + pointX + WORLD_X_OFFSET,
+                        cameraY + pointY + WORLD_Y_OFFSET));
             }
         }
 
         return Collections.unmodifiableList(visible);
+    }
+
+    public TransformedStagePoint transformStagePoint(int angle, int cameraX, int cameraY, int stageX, int stageY) {
+        int byteAngle = angle & 0xFC;
+        int sin = TrigLookupTable.sinHex(byteAngle);
+        int cos = TrigLookupTable.cosHex(byteAngle);
+
+        int cameraCellX = Math.floorDiv(cameraX, CELL_SIZE);
+        int cameraCellY = Math.floorDiv(cameraY, CELL_SIZE);
+        int stageCellX = Math.floorDiv(stageX, CELL_SIZE);
+        int stageCellY = Math.floorDiv(stageY, CELL_SIZE);
+        int gridCol = stageCellX - cameraCellX;
+        int gridRow = stageCellY - cameraCellY;
+
+        int offsetX = -(cameraX % CELL_SIZE) - GRID_OFFSET + (gridCol * CELL_SIZE);
+        int offsetY = -(cameraY % CELL_SIZE) - GRID_OFFSET + (gridRow * CELL_SIZE);
+
+        long basePointX = (long) cos * offsetX + (long) (-sin) * offsetY;
+        long basePointY = (long) sin * offsetX + (long) cos * offsetY;
+
+        int localX = Math.floorMod(stageX, CELL_SIZE);
+        int localY = Math.floorMod(stageY, CELL_SIZE);
+        int localPointX = (int) ((((long) cos * localX) + ((long) (-sin) * localY)) >> 8);
+        int localPointY = (int) ((((long) sin * localX) + ((long) cos * localY)) >> 8);
+
+        int pointX = (int) (basePointX >> 8) + localPointX;
+        int pointY = (int) (basePointY >> 8) + localPointY;
+        int screenX = pointX + SCREEN_X_OFFSET;
+        int screenY = pointY + SCREEN_Y_OFFSET;
+        return new TransformedStagePoint(
+                cameraX + screenX - 0x80,
+                cameraY + screenY - 0x80,
+                screenX,
+                screenY);
     }
 
     public void render(S3kSlotStageState state, S3kSlotRenderBuffers buffers,
@@ -202,7 +253,7 @@ public final class S3kSlotLayoutRenderer {
         if (state == null || buffers == null || camera == null || renderManager == null) {
             return;
         }
-        updateAnimations();
+        updateAnimations(state != null ? state.angle() : 0);
         tickTransientAnimations(buffers);
         renderVisibleCells(buildVisibleCells(buffers), camera, renderManager);
     }
@@ -213,7 +264,7 @@ public final class S3kSlotLayoutRenderer {
         }
         for (VisibleCell cell : visibleCells) {
             int cellId = cell.cellId() & 0xFF;
-            if (cellId <= 0 || cellId >= PIECE_DEFS.length) {
+            if (cellId <= 0 || cellId == 0x09 || cellId >= PIECE_DEFS.length) {
                 continue;
             }
             LayoutPieceDef def = PIECE_DEFS[cellId];
@@ -226,17 +277,30 @@ public final class S3kSlotLayoutRenderer {
             }
             // ROM sub_4B4C4: dynamic frame override for animated pieces
             int frameIdx = def.frameIndex();
-            if (cellId == 0x04) {
+            if (cellId == 0x01 || cellId == 0x02 || cellId == 0x03
+                    || cellId == 0x0D || cellId == 0x0E || cellId == 0x0F) {
+                frameIdx = coloredWallFrame;
+            } else if (cellId == 0x04) {
                 frameIdx = goalFrame;
             } else if (cellId == 0x07) {
                 frameIdx = peppermintFrame;
+            } else if (cellId == 0x08) {
+                frameIdx = ringFrame;
             }
-            renderer.drawFrameIndex(frameIdx, cell.worldX(), cell.worldY(),
-                    false, false, def.palette());
+            if (def.palette() >= 0) {
+                renderer.drawFrameIndexWithPaletteBase(frameIdx, cell.worldX(), cell.worldY(),
+                        false, false, def.palette());
+            } else {
+                renderer.drawFrameIndex(frameIdx, cell.worldX(), cell.worldY(),
+                        false, false, -1);
+            }
         }
     }
 
     public record VisibleCell(byte cellId, int worldX, int worldY) {
+    }
+
+    public record TransformedStagePoint(int worldX, int worldY, int screenX, int screenY) {
     }
 
     private record LayoutPieceDef(String artKey, int frameIndex, int palette) {

@@ -14,7 +14,6 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import com.openggf.debug.DebugColor;
 import java.util.List;
-import java.util.Random;
 
 /**
  * Object 0x64 - Bubbles (Labyrinth Zone).
@@ -195,8 +194,6 @@ public class Sonic1BubblesObjectInstance extends AbstractObjectInstance {
     /** Current offset into BUBBLE_TYPE_TABLE. (objoff_3C) */
     private int typeTableOffset;
 
-    private final Random random = new Random();
-
     // ========================================================================
     // Constructor
     // ========================================================================
@@ -243,7 +240,7 @@ public class Sonic1BubblesObjectInstance extends AbstractObjectInstance {
             displayY = spawn.y();
 
             // jsr (RandomNumber).l / move.b d0,obAngle(a0)
-            wobbleAngle = random.nextInt(256);
+            wobbleAngle = constructionContext().rng().nextByte();
 
             // Start in animate routine (init is done inline here)
             routine = ROUTINE_ANIMATE;
@@ -356,6 +353,7 @@ public class Sonic1BubblesObjectInstance extends AbstractObjectInstance {
 
     private void updateBubbleMaker(AbstractPlayableSprite player) {
         int waterY = getWaterLevel();
+        var rng = services().rng();
 
         if (productionFlags != 0) {
             // Already in production - continue spawn cycle
@@ -393,15 +391,15 @@ public class Sonic1BubblesObjectInstance extends AbstractObjectInstance {
 
             // jsr (RandomNumber).l / move.w d0,d1
             // ROM extracts both typeCounter and tableOffset from SAME random call
-            int rng;
+            int rawRng;
             do {
-                rng = random.nextInt(65536);
-            } while ((rng & 7) >= 6);
+                rawRng = rng.nextRaw();
+            } while ((rawRng & 7) >= 6);
 
-            typeCounter = rng & 7;
+            typeCounter = rawRng & 7;
 
             // andi.w #$C,d1 ; select table offset (0, 4, 8, or 12) from same random
-            typeTableOffset = (rng >> 2) & 0x0C;
+            typeTableOffset = (rawRng >> 2) & 0x0C;
 
             // subq.b #1,bub_time(a0)
             spawnTime--;
@@ -421,7 +419,7 @@ public class Sonic1BubblesObjectInstance extends AbstractObjectInstance {
         if (typeCounter < 0) {
             // Add random long delay before next production cycle
             // jsr (RandomNumber).l / andi.w #$7F,d0 / addi.w #$80,d0
-            int extraDelay = (random.nextInt(256) & 0x7F) + 0x80;
+            int extraDelay = rng.nextBits(0x7F) + 0x80;
             delayCounter += extraDelay;
             productionFlags = 0;
         }
@@ -440,7 +438,8 @@ public class Sonic1BubblesObjectInstance extends AbstractObjectInstance {
         }
 
         // jsr (RandomNumber).l / andi.w #$1F,d0
-        delayCounter = random.nextInt(32);
+        var rng = services().rng();
+        delayCounter = rng.nextBits(0x1F);
 
         // Determine bubble subtype from type table
         int tableIndex = typeTableOffset + typeCounter;
@@ -455,7 +454,7 @@ public class Sonic1BubblesObjectInstance extends AbstractObjectInstance {
         // btst #7,objoff_36(a0) / beq.s .fail
         if ((productionFlags & 0x80) != 0) {
             // ~25% chance to spawn type 2 (large breathable)
-            if ((random.nextInt(4)) == 0) {
+            if (rng.nextBits(3) == 0) {
                 if ((productionFlags & 0x40) == 0) {
                     productionFlags |= 0x40;
                     bubbleSubtype = 2;
@@ -471,7 +470,7 @@ public class Sonic1BubblesObjectInstance extends AbstractObjectInstance {
 
         // Spawn position: original X ± random(-8 to +7), original Y
         // jsr (RandomNumber).l / andi.w #$F,d0 / subq.w #8,d0
-        int xOffset = (random.nextInt(16)) - 8;
+        int xOffset = rng.nextBits(0x0F) - 8;
         int spawnX = origX + xOffset;
 
         ObjectSpawn childSpawn = new ObjectSpawn(
@@ -479,8 +478,7 @@ public class Sonic1BubblesObjectInstance extends AbstractObjectInstance {
                 Sonic1ObjectIds.BUBBLES,
                 bubbleSubtype,
                 0, false, 0);
-        Sonic1BubblesObjectInstance child = new Sonic1BubblesObjectInstance(childSpawn);
-        services().objectManager().addDynamicObject(child);
+        spawnChild(() -> new Sonic1BubblesObjectInstance(childSpawn));
     }
 
     /**

@@ -7,7 +7,6 @@ import com.openggf.game.GameServices;
 import com.openggf.game.GameRuntime;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
-import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.objects.S3kSlotBonusCageObjectInstance;
 import com.openggf.game.sonic3k.objects.S3kSlotRingRewardObjectInstance;
 import com.openggf.game.sonic3k.objects.S3kSlotSpikeRewardObjectInstance;
@@ -15,7 +14,6 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.objects.DefaultObjectServices;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectSpawn;
-import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -329,40 +327,30 @@ public final class S3kSlotBonusStageRuntime {
         // Only the slot layout pass is rendered here. Cage/reward objects stay on
         // the normal object pipeline so this hook matches the ROM's post-sprite pass.
         slotLayoutRenderer.renderVisibleCells(visibleCells, camera, levelManager.getObjectRenderManager());
-        renderSlotMachineFace(levelManager);
     }
 
-    private void renderSlotMachineFace(LevelManager levelManager) {
-        if (levelManager == null) {
-            return;
-        }
-        PatternSpriteRenderer renderer = levelManager.getObjectRenderManager().getRenderer(Sonic3kObjectArtKeys.SLOT_MACHINE_FACE);
-        if (renderer == null) {
-            return;
-        }
-        S3kSlotLayoutRenderer.TransformedStagePoint anchor = currentMachineAnchor();
-        renderer.drawFrameIndex(0, anchor.worldX(), anchor.worldY(), false, false);
+    public void renderSlotMachineFaceForeground() {
+        // The visible machine panel is part of the slot-machine foreground tiles.
+        // Only the reel window is overlaid in renderAfterForeground().
     }
 
     private S3kSlotLayoutRenderer.TransformedStagePoint currentMachineAnchor() {
-        if (bootstrapRuntime != null && slotStageState != null) {
+        int panelX = S3kSlotRomData.SLOT_BONUS_CAGE_CENTER_X + S3kSlotRomData.SLOT_MACHINE_PANEL_CENTER_OFFSET_X;
+        int panelY = S3kSlotRomData.SLOT_BONUS_CAGE_CENTER_Y + S3kSlotRomData.SLOT_MACHINE_PANEL_CENTER_OFFSET_Y;
+        if (bootstrapRuntime != null) {
             int cameraX = bootstrapRuntime.getCamera().getX();
             int cameraY = bootstrapRuntime.getCamera().getY();
-            int worldX = slotStageState.eventsBgX();
-            int worldY = slotStageState.eventsBgY();
             return new S3kSlotLayoutRenderer.TransformedStagePoint(
-                    worldX,
-                    worldY,
-                    worldX - cameraX,
-                    worldY - cameraY);
+                    panelX,
+                    panelY,
+                    S3kSlotMachineRenderer.computeDisplayScreenX(panelX, cameraX),
+                    S3kSlotMachineRenderer.computeDisplayScreenY(panelY, cameraY));
         }
         return new S3kSlotLayoutRenderer.TransformedStagePoint(
-                S3kSlotRomData.SLOT_BONUS_CAGE_CENTER_X,
-                S3kSlotRomData.SLOT_BONUS_CAGE_CENTER_Y,
-                S3kSlotMachineRenderer.computeDisplayScreenX(
-                        S3kSlotRomData.SLOT_BONUS_CAGE_CENTER_X, 0),
-                S3kSlotMachineRenderer.computeDisplayScreenY(
-                        S3kSlotRomData.SLOT_BONUS_CAGE_CENTER_Y, 0));
+                panelX,
+                panelY,
+                S3kSlotMachineRenderer.computeDisplayScreenX(panelX, 0),
+                S3kSlotMachineRenderer.computeDisplayScreenY(panelY, 0));
     }
 
     private void checkRingPickup() {

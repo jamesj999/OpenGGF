@@ -41,6 +41,7 @@ public final class S3kSlotBonusCageObjectInstance extends AbstractObjectInstance
     private int rewardsToSpawn;
     private boolean spawnRings;
     private int sfxCounter;
+    private boolean payoutInitialized;
 
     private short currentX = SNAP_X;
     private short currentY = SNAP_Y;
@@ -63,11 +64,17 @@ public final class S3kSlotBonusCageObjectInstance extends AbstractObjectInstance
     }
 
     public void tickSlotRuntime(int frameCounter, PlayableEntity playerEntity) {
+        tickSlotRuntime(frameCounter, playerEntity,
+                playerEntity instanceof AbstractPlayableSprite player ? player.getCentreX() : SNAP_X,
+                playerEntity instanceof AbstractPlayableSprite player ? player.getCentreY() : SNAP_Y);
+    }
+
+    public void tickSlotRuntime(int frameCounter, PlayableEntity playerEntity, int playerOriginX, int playerOriginY) {
         if (!(playerEntity instanceof AbstractPlayableSprite player) || player.isDebugMode()) {
             return;
         }
 
-        updateAnimatedPosition(player);
+        updateAnimatedPosition(playerOriginX, playerOriginY);
         tickAnimation();
 
         switch (cageState) {
@@ -102,12 +109,14 @@ public final class S3kSlotBonusCageObjectInstance extends AbstractObjectInstance
         player.setObjectControlled(true);
         player.setAir(true);
         player.setOnObject(false);
-
-        int payout = controller.beginCapturePayout();
-        spawnRings = payout >= 0;
-        rewardsToSpawn = Math.abs(payout);
+        if (controller.isOptionCycleResolved()) {
+            controller.restartCaptureCycleIfResolved();
+        }
+        spawnRings = false;
+        rewardsToSpawn = 0;
         rewardAngle = 0;
         sfxCounter = 0;
+        payoutInitialized = false;
         controller.setPaletteCycleEnabled(true);
 
         waitTimer = 0x78;
@@ -126,6 +135,21 @@ public final class S3kSlotBonusCageObjectInstance extends AbstractObjectInstance
         player.setXSpeed((short) 0);
         player.setYSpeed((short) 0);
 
+        if (!payoutInitialized) {
+            if (!controller.isOptionCycleResolved()) {
+                sfxCounter++;
+                if ((sfxCounter & 0x0F) == 0) {
+                    services().playSfx(Sonic3kSfx.SLOT_MACHINE.id);
+                }
+                return;
+            }
+            int payout = controller.beginCapturePayout();
+            spawnRings = payout >= 0;
+            rewardsToSpawn = Math.abs(payout);
+            rewardAngle = 0;
+            payoutInitialized = true;
+        }
+
         if ((frameCounter & 1) != 0 && controller.activeRewardObjects() < MAX_ACTIVE_REWARDS && rewardsToSpawn > 0) {
             int centerX = currentX;
             int centerY = currentY;
@@ -143,13 +167,7 @@ public final class S3kSlotBonusCageObjectInstance extends AbstractObjectInstance
             rewardsToSpawn--;
         }
 
-        sfxCounter++;
-        if ((sfxCounter & 0x0F) == 0) {
-            services().playSfx(Sonic3kSfx.SLOT_MACHINE.id);
-        }
-
-        // ROM loc_4C23E: transition when spawn quota exhausted (not waiting for expiry)
-        if (rewardsToSpawn <= 0) {
+        if (rewardsToSpawn <= 0 && controller.activeRewardObjects() <= 0) {
             waitTimer = 8;
             cageState = 2;
             controller.setPaletteCycleEnabled(false);
@@ -186,17 +204,18 @@ public final class S3kSlotBonusCageObjectInstance extends AbstractObjectInstance
         rewardsToSpawn = 0;
         rewardAngle = 0;
         sfxCounter = 0;
+        payoutInitialized = false;
         controller.setPaletteCycleEnabled(false);
     }
 
-    private void updateAnimatedPosition(AbstractPlayableSprite player) {
+    private void updateAnimatedPosition(int playerX, int playerY) {
         int angle = controller.angle() & 0xFC;
         int sin = sinHex(angle);
         int cos = cosHex(angle);
-        int dx = SNAP_X - player.getX();
-        int dy = SNAP_Y - player.getY();
-        int x = (((dx * cos) - (dy * sin)) >> 8) + player.getX();
-        int y = (((dx * sin) + (dy * cos)) >> 8) + player.getY();
+        int dx = SNAP_X - playerX;
+        int dy = SNAP_Y - playerY;
+        int x = (((dx * cos) - (dy * sin)) >> 8) + playerX;
+        int y = (((dx * sin) + (dy * cos)) >> 8) + playerY;
         currentX = (short) x;
         currentY = (short) y;
     }
@@ -252,10 +271,6 @@ public final class S3kSlotBonusCageObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        PatternSpriteRenderer renderer = getRenderer(Sonic3kObjectArtKeys.SLOT_BONUS_CAGE);
-        if (renderer == null) {
-            return;
-        }
-        renderer.drawFrameIndex(mappingFrame, currentX, currentY, false, false);
+        // Slots uses the machine face visual, not the unused cage art.
     }
 }

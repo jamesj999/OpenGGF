@@ -1382,6 +1382,7 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
                 idleOffset = 0;
             }
             pal2.getColor(14).fromSegaFormat(FIXED_IDLE_COLOR, 0);
+            // ROM AnPal_Slots mirrors only the shared accent into line 4.
             pal3.getColor(14).fromSegaFormat(FIXED_IDLE_COLOR, 0);
             dirty2 = true;
             dirty3 = true;

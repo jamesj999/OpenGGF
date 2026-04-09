@@ -17,7 +17,10 @@ public final class S3kSlotStageState {
     private int lastCollisionIndex = -1;
     private int bounceTimer;
     private int spikeThrottleTimer;
+    private int slotWallThrottleTimer;
     private int slotValue;
+    private int lastSlotWallLayoutIndex = -1;
+    private boolean slotWallContactActive;
     private boolean paletteCycleEnabled;
     private int optionCycleState;
     private int optionCycleCountdown;
@@ -29,6 +32,8 @@ public final class S3kSlotStageState {
     private int optionCycleResolvedDisplayTimer;
     private int optionCycleCompletedCycles;
     private int optionCycleSpinCycleCounter;
+    private final int[] optionCycleReelVelocities = new int[3];
+    private final int[] optionCycleReelSubstates = new int[3];
     private int latchedPrize;
     private int latchedPrizeCycleId = -1;
     private boolean reelsFrozen;
@@ -37,6 +42,8 @@ public final class S3kSlotStageState {
     private int eventsBgX;
     private int eventsBgY;
     private final int[] optionCycleDisplaySymbols = new int[3];
+    private final int[] optionCycleOffsets = new int[3];
+    private final int[] optionCycleReelWords = new int[3];
     private final Deque<int[]> pendingRingRewardPositions = new ArrayDeque<>();
     private final Deque<int[]> pendingSpikeRewardPositions = new ArrayDeque<>();
 
@@ -231,6 +238,14 @@ public final class S3kSlotStageState {
         return false;
     }
 
+    boolean tickSlotWallThrottleTimer() {
+        if (slotWallThrottleTimer > 0) {
+            slotWallThrottleTimer--;
+            return slotWallThrottleTimer == 0;
+        }
+        return false;
+    }
+
     int slotValue() {
         return slotValue;
     }
@@ -243,6 +258,25 @@ public final class S3kSlotStageState {
         if (slotValue < 4) {
             slotValue++;
         }
+    }
+
+    boolean shouldTriggerSlotWall(int layoutIndex) {
+        if (layoutIndex < 0) {
+            return false;
+        }
+        if (slotWallContactActive) {
+            return false;
+        }
+        slotWallContactActive = true;
+        lastSlotWallLayoutIndex = layoutIndex;
+        slotWallThrottleTimer = 4;
+        return true;
+    }
+
+    void clearSlotWallContact() {
+        slotWallContactActive = false;
+        lastSlotWallLayoutIndex = -1;
+        slotWallThrottleTimer = 0;
     }
 
     void negateScalarIndex1() {
@@ -337,6 +371,58 @@ public final class S3kSlotStageState {
         this.optionCycleSpinCycleCounter = optionCycleSpinCycleCounter;
     }
 
+    public int[] optionCycleOffsets() {
+        return optionCycleOffsets;
+    }
+
+    public int[] optionCycleReelWords() {
+        return optionCycleReelWords;
+    }
+
+    public int[] optionCycleReelVelocities() {
+        return optionCycleReelVelocities;
+    }
+
+    public int[] optionCycleReelSubstates() {
+        return optionCycleReelSubstates;
+    }
+
+    void setOptionCycleOffsets(int reel0, int reel1, int reel2) {
+        optionCycleOffsets[0] = reel0 & 0xFF;
+        optionCycleOffsets[1] = reel1 & 0xFF;
+        optionCycleOffsets[2] = reel2 & 0xFF;
+    }
+
+    void setOptionCycleReelWord(int reelIndex, int reelWord) {
+        optionCycleReelWords[reelIndex] = reelWord & 0xFFFF;
+    }
+
+    void setOptionCycleReelWords(int reel0, int reel1, int reel2) {
+        optionCycleReelWords[0] = reel0 & 0xFFFF;
+        optionCycleReelWords[1] = reel1 & 0xFFFF;
+        optionCycleReelWords[2] = reel2 & 0xFFFF;
+    }
+
+    void setOptionCycleReelVelocity(int reelIndex, int value) {
+        optionCycleReelVelocities[reelIndex] = value & 0xFF;
+    }
+
+    void setOptionCycleReelVelocities(int reel0, int reel1, int reel2) {
+        optionCycleReelVelocities[0] = reel0 & 0xFF;
+        optionCycleReelVelocities[1] = reel1 & 0xFF;
+        optionCycleReelVelocities[2] = reel2 & 0xFF;
+    }
+
+    void setOptionCycleReelSubstate(int reelIndex, int value) {
+        optionCycleReelSubstates[reelIndex] = value & 0xFF;
+    }
+
+    void setOptionCycleReelSubstates(int reel0, int reel1, int reel2) {
+        optionCycleReelSubstates[0] = reel0 & 0xFF;
+        optionCycleReelSubstates[1] = reel1 & 0xFF;
+        optionCycleReelSubstates[2] = reel2 & 0xFF;
+    }
+
     void setEventsBg(int eventsBgX, int eventsBgY) {
         this.eventsBgX = eventsBgX;
         this.eventsBgY = eventsBgY;
@@ -376,6 +462,10 @@ public final class S3kSlotStageState {
         optionCycleCompletedCycles = 0;
         optionCycleSpinCycleCounter = 0;
         Arrays.fill(optionCycleDisplaySymbols, 0);
+        Arrays.fill(optionCycleOffsets, 0);
+        Arrays.fill(optionCycleReelWords, 0);
+        Arrays.fill(optionCycleReelVelocities, 0);
+        Arrays.fill(optionCycleReelSubstates, 0);
     }
 
     void resetRewardState() {

@@ -44,6 +44,10 @@ public class PachinkoEnergyTrapObjectInstance extends AbstractObjectInstance {
     private AbstractPlayableSprite capturedPlayer;
     private int currentX;
     private int currentY;
+    private int updateCount;
+    private int lastUpdateFrameCounter = -1;
+    private int renderCount;
+    private int beamSpawnCount;
 
     public PachinkoEnergyTrapObjectInstance(ObjectSpawn spawn) {
         super(spawn, "PachinkoEnergyTrap");
@@ -53,6 +57,8 @@ public class PachinkoEnergyTrapObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        updateCount++;
+        lastUpdateFrameCounter = frameCounter;
         if (!initialized) {
             initialized = true;
             LOGGER.info(() -> "Pachinko trap initialized at x=" + currentX + " y=" + currentY
@@ -61,6 +67,7 @@ public class PachinkoEnergyTrapObjectInstance extends AbstractObjectInstance {
         }
 
         if ((frameCounter & (BEAM_SPAWN_PERIOD - 1)) == 0) {
+            beamSpawnCount++;
             spawnChild(() -> new EnergyTrapBeamChild(createBeamSpawn(), this, beamAngle));
         }
         beamAngle = (beamAngle + 8) & 0xFF;
@@ -87,6 +94,42 @@ public class PachinkoEnergyTrapObjectInstance extends AbstractObjectInstance {
     public boolean isPersistent() {
         // ROM parity: this bootstrap-spawned trap never calls out_of_range.
         return true;
+    }
+
+    public boolean isInitialized() {
+        return initialized;
+    }
+
+    public int getRiseDelayFrames() {
+        return riseDelayFrames;
+    }
+
+    public boolean isExitArmed() {
+        return exitArmed;
+    }
+
+    public boolean isExitRequested() {
+        return exitRequested;
+    }
+
+    public boolean hasCapturedPlayer() {
+        return capturedPlayer != null;
+    }
+
+    public int getUpdateCount() {
+        return updateCount;
+    }
+
+    public int getLastUpdateFrameCounter() {
+        return lastUpdateFrameCounter;
+    }
+
+    public int getRenderCount() {
+        return renderCount;
+    }
+
+    public int getBeamSpawnCount() {
+        return beamSpawnCount;
     }
 
     private void updateCapture(int frameCounter, PlayableEntity playerEntity) {
@@ -219,6 +262,7 @@ public class PachinkoEnergyTrapObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
+        renderCount++;
         PatternSpriteRenderer renderer = getRenderer(Sonic3kObjectArtKeys.PACHINKO_ENERGY_TRAP);
         if (renderer == null) {
             return;

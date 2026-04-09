@@ -256,7 +256,7 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance
         }
 
         // Spawn boss explosion controller (compact type for capsule, subtype 3)
-        explosionController = new S3kBossExplosionController(currentX, currentY, 3);
+        explosionController = new S3kBossExplosionController(currentX, currentY, 3, services().rng());
 
         // Spawn animals (ROM: ChildObjDat_86B9A creates 9 animal children)
         spawnAnimals();
