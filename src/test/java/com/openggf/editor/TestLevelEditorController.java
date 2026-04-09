@@ -39,6 +39,42 @@ import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
 class TestLevelEditorController {
 
     @Test
+    void controller_defaultsToWorldCanvasFocusRegionAndCyclesBetweenWorldRegions() {
+        LevelEditorController controller = new LevelEditorController();
+
+        assertEquals(EditorFocusRegion.WORLD_CANVAS, controller.focusRegion());
+
+        controller.cycleFocusRegion();
+        assertEquals(EditorFocusRegion.LIBRARY, controller.focusRegion());
+
+        controller.cycleFocusRegion();
+        assertEquals(EditorFocusRegion.WORLD_CANVAS, controller.focusRegion());
+    }
+
+    @Test
+    void controller_applyPrimaryActionPlacesSelectedBlockAtCurrentWorldCursorCell() {
+        LevelEditorController controller = createControllerWithLevel();
+
+        controller.selectBlock(2);
+        controller.setWorldCursor(new EditorCursorState(65, 130));
+        controller.applyPrimaryAction();
+
+        assertEquals(2, Byte.toUnsignedInt(controller.attachedLevel().getMap().getValue(0, 1, 2)));
+    }
+
+    @Test
+    void controller_performEyedropSelectsBlockUnderCurrentWorldCursor() {
+        LevelEditorController controller = createControllerWithLevel();
+        controller.attachedLevel().setBlockInMap(0, 1, 2, 2);
+        controller.setWorldCursor(new EditorCursorState(65, 130));
+
+        controller.performEyedrop();
+
+        assertEquals(2, controller.selection().selectedBlock());
+        assertEquals(EditorHierarchyDepth.WORLD, controller.depth());
+    }
+
+    @Test
     void inputHandler_mapsDescendAndAscendActionsOntoController() {
         LevelEditorController controller = new LevelEditorController();
         EditorInputHandler handler = new EditorInputHandler(controller);
@@ -550,6 +586,12 @@ class TestLevelEditorController {
         controller.moveActiveSelection(10, 10);
         assertEquals(1, controller.selectedChunkCellX());
         assertEquals(1, controller.selectedChunkCellY());
+    }
+
+    private static LevelEditorController createControllerWithLevel() {
+        LevelEditorController controller = new LevelEditorController();
+        controller.attachLevel(createMutableLevel(4, 3, 2, 3));
+        return controller;
     }
 
     private static MutableLevel createMutableLevel(int mapWidth, int mapHeight, int blockGridSide, int blockCount) {

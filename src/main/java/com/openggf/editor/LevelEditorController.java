@@ -11,6 +11,7 @@ import java.util.Objects;
 public final class LevelEditorController {
     private final EditorHistory history = new EditorHistory();
     private EditorHierarchyDepth depth = EditorHierarchyDepth.WORLD;
+    private EditorFocusRegion focusRegion = EditorFocusRegion.WORLD_CANVAS;
     private EditorSelectionState selection = EditorSelectionState.empty();
     private EditorCursorState worldCursor = new EditorCursorState(0, 0);
     private int blockGridSide = 8;
@@ -24,6 +25,7 @@ public final class LevelEditorController {
         this.level = Objects.requireNonNull(level, "level");
         history.clear();
         depth = EditorHierarchyDepth.WORLD;
+        focusRegion = EditorFocusRegion.WORLD_CANVAS;
         selection = EditorSelectionState.empty();
         worldCursor = new EditorCursorState(0, 0);
         blockGridSide = level.getChunksPerBlockSide();
@@ -52,6 +54,7 @@ public final class LevelEditorController {
         selection = new EditorSelectionState(blockIndex, null);
         if (depth == EditorHierarchyDepth.CHUNK) {
             depth = EditorHierarchyDepth.BLOCK;
+            focusRegion = EditorFocusRegion.FOCUSED_PANE;
         }
     }
 
@@ -125,21 +128,80 @@ public final class LevelEditorController {
     public void descend() {
         if (depth == EditorHierarchyDepth.WORLD && selection.selectedBlock() != null) {
             depth = EditorHierarchyDepth.BLOCK;
+            focusRegion = EditorFocusRegion.FOCUSED_PANE;
         } else if (depth == EditorHierarchyDepth.BLOCK && selection.selectedChunk() != null) {
             depth = EditorHierarchyDepth.CHUNK;
+            focusRegion = EditorFocusRegion.FOCUSED_PANE;
         }
     }
 
     public void ascend() {
         if (depth == EditorHierarchyDepth.CHUNK) {
             depth = EditorHierarchyDepth.BLOCK;
+            focusRegion = EditorFocusRegion.FOCUSED_PANE;
         } else if (depth == EditorHierarchyDepth.BLOCK) {
             depth = EditorHierarchyDepth.WORLD;
+            focusRegion = EditorFocusRegion.WORLD_CANVAS;
         }
     }
 
     public EditorHierarchyDepth depth() {
         return depth;
+    }
+
+    public EditorFocusRegion focusRegion() {
+        return focusRegion;
+    }
+
+    public void cycleFocusRegion() {
+        if (depth == EditorHierarchyDepth.WORLD) {
+            focusRegion = focusRegion == EditorFocusRegion.WORLD_CANVAS
+                    ? EditorFocusRegion.LIBRARY
+                    : EditorFocusRegion.WORLD_CANVAS;
+            return;
+        }
+        focusRegion = focusRegion == EditorFocusRegion.FOCUSED_PANE
+                ? EditorFocusRegion.LIBRARY
+                : EditorFocusRegion.FOCUSED_PANE;
+    }
+
+    public void applyPrimaryAction() {
+        if (focusRegion != EditorFocusRegion.WORLD_CANVAS) {
+            return;
+        }
+        Integer selectedBlock = selection.selectedBlock();
+        if (selectedBlock == null) {
+            return;
+        }
+        MutableLevel attachedLevel = level;
+        if (attachedLevel == null) {
+            return;
+        }
+        int blockPixelSize = attachedLevel.getBlockPixelSize();
+        if (blockPixelSize <= 0) {
+            return;
+        }
+        int mapX = clamp(worldCursor.x() / blockPixelSize, 0, attachedLevel.getMap().getWidth() - 1);
+        int mapY = clamp(worldCursor.y() / blockPixelSize, 0, attachedLevel.getMap().getHeight() - 1);
+        placeBlock(0, mapX, mapY, selectedBlock);
+    }
+
+    public void performEyedrop() {
+        if (focusRegion != EditorFocusRegion.WORLD_CANVAS) {
+            return;
+        }
+        MutableLevel attachedLevel = level;
+        if (attachedLevel == null) {
+            return;
+        }
+        int blockPixelSize = attachedLevel.getBlockPixelSize();
+        if (blockPixelSize <= 0) {
+            return;
+        }
+        int mapX = clamp(worldCursor.x() / blockPixelSize, 0, attachedLevel.getMap().getWidth() - 1);
+        int mapY = clamp(worldCursor.y() / blockPixelSize, 0, attachedLevel.getMap().getHeight() - 1);
+        int blockIndex = Byte.toUnsignedInt(attachedLevel.getMap().getValue(0, mapX, mapY));
+        selectBlock(blockIndex);
     }
 
     public void setWorldCursor(EditorCursorState cursor) {
@@ -192,6 +254,14 @@ public final class LevelEditorController {
 
     public int selectedChunkCellY() {
         return selectedChunkCellY;
+    }
+
+    public MutableLevel attachedLevel() {
+        return level;
+    }
+
+    public EditorSelectionState selection() {
+        return selection;
     }
 
     public String breadcrumb() {
