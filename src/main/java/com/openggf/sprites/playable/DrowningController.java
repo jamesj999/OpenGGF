@@ -250,7 +250,7 @@ public class DrowningController {
      * @param countdownNumber Countdown number (-1 for regular bubble)
      */
     private void spawnBubble(int countdownNumber) {
-        LevelManager levelManager = player.currentLevelManager();
+        LevelManager levelManager = player.currentLevelManagerIfAvailable();
         if (levelManager == null || levelManager.getObjectManager() == null) {
             return;
         }
@@ -344,7 +344,11 @@ public class DrowningController {
      * Called when exiting water or replenishing air while drowning music was playing.
      */
     private void restartZoneMusic() {
-        int musicId = player.currentLevelManager().getCurrentLevelMusicId();
+        LevelManager levelManager = player.currentLevelManagerIfAvailable();
+        if (levelManager == null) {
+            return;
+        }
+        int musicId = levelManager.getCurrentLevelMusicId();
         if (musicId >= 0) {
             audioManager.playMusic(musicId);
         }
