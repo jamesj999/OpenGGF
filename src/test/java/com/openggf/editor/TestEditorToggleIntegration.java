@@ -172,17 +172,40 @@ class TestEditorToggleIntegration {
     }
 
     @Test
-    void syncEditorState_inWorldDepthMovesCameraToEditorCursor() {
+    void syncEditorState_inWorldDepthCentersAndClampsCameraToEditorCursor() {
         enableEditor();
         Engine engine = new Engine();
         GameRuntime runtime = createGameplayRuntime(engine);
+        runtime.getCamera().setMinX((short) 64);
+        runtime.getCamera().setMaxX((short) 80);
+        runtime.getCamera().setMinY((short) 0);
+        runtime.getCamera().setMaxY((short) 160);
 
         engine.enterEditorFromCurrentPlayer(new EditorPlaytestStash(100, 200, 0, 0, true, 0, 0), 100, 200);
         engine.getLevelEditorController().setWorldCursor(new EditorCursorState(192, 288));
         engine.syncEditorState();
 
-        assertEquals(192, runtime.getCamera().getX());
-        assertEquals(288, runtime.getCamera().getY());
+        assertEquals(64, runtime.getCamera().getX());
+        assertEquals(160, runtime.getCamera().getY());
+    }
+
+    @Test
+    void resumePlaytestFromEditor_usesMovedControllerCursorForGameplaySpawn() {
+        enableEditor();
+        Engine engine = new Engine();
+        GameRuntime runtime = createGameplayRuntime(engine);
+        EditorPlaytestStash stash = new EditorPlaytestStash(100, 200, 9, -3, true, 47, 1);
+
+        engine.enterEditorFromCurrentPlayer(stash, 100, 200);
+        engine.getLevelEditorController().setWorldCursor(new EditorCursorState(320, 448));
+
+        engine.resumePlaytestFromEditor();
+
+        assertEquals(GameMode.LEVEL, engine.getCurrentGameMode());
+        assertSame(runtime, RuntimeManager.getCurrent());
+        assertEquals(320, SessionManager.getCurrentGameplayMode().getSpawnX());
+        assertEquals(448, SessionManager.getCurrentGameplayMode().getSpawnY());
+        assertSame(stash, SessionManager.getCurrentGameplayMode().getResumeStash().orElseThrow());
     }
 
     @Test
