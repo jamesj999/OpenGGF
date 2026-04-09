@@ -14,6 +14,8 @@ public class EditorToolbarRenderer {
     private static final float CHROME_R = 0.95f;
     private static final float CHROME_G = 0.82f;
     private static final float CHROME_B = 0.24f;
+    private static final int TEXT_X = 10;
+    private static final int TEXT_Y = 10;
 
     private final LevelEditorController controller;
     private final EditorTextRenderer textRenderer;
@@ -37,7 +39,7 @@ public class EditorToolbarRenderer {
         if (!commands.isEmpty()) {
             GraphicsManager.getInstance().registerCommand(new GLCommandGroup(GL_LINES, commands));
         }
-        textRenderer.renderLines(buildStateLines(), 10, 10);
+        textRenderer.renderLines(buildStateLines(), TEXT_X, TEXT_Y);
     }
 
     protected void appendCommands(List<GLCommand> commands) {
@@ -49,17 +51,19 @@ public class EditorToolbarRenderer {
 
     protected List<String> buildStateLines() {
         if (controller == null) {
-            return List.of("World", "Focus -", "Block - Chunk -");
+            return List.of("World | Focus - | Block - Chunk -");
         }
 
-        return List.of(
-                controller.breadcrumb(),
-                "Focus " + controller.focusRegion(),
-                "Block " + valueOrNone(controller.selection().selectedBlock())
-                        + " Chunk " + valueOrNone(controller.selection().selectedChunk()),
-                "Cells B " + controller.selectedBlockCellX() + "," + controller.selectedBlockCellY()
-                        + " C " + controller.selectedChunkCellX() + "," + controller.selectedChunkCellY()
-        );
+        return List.of(controller.breadcrumb()
+                + " | Focus " + controller.focusRegion()
+                + " | Block " + valueOrNone(controller.selection().selectedBlock())
+                + " Chunk " + valueOrNone(controller.selection().selectedChunk())
+                + " | B " + controller.selectedBlockCellX() + "," + controller.selectedBlockCellY()
+                + " C " + controller.selectedChunkCellX() + "," + controller.selectedChunkCellY());
+    }
+
+    protected List<EditorTextRenderer.TextCommand> buildToolbarTextCommands() {
+        return textRenderer.buildTextCommands(buildStateLines(), TEXT_X, TEXT_Y);
     }
 
     protected static void appendRectOutline(List<GLCommand> commands,
