@@ -430,11 +430,6 @@ public class Engine {
 			throw new IllegalStateException("Level editor is disabled by configuration.");
 		}
 		ensureRuntimeBound();
-		spriteManager.primePlayableVisualState();
-		spriteManager.invalidateRenderBuckets();
-		if (levelManager.getObjectManager() != null) {
-			levelManager.getObjectManager().invalidateRenderBuckets();
-		}
 		prepareMutableEditorLevel();
 		primeEditorSelection(playerX, playerY);
 		levelEditorController.setWorldCursor(new EditorCursorState(playerX, playerY));
