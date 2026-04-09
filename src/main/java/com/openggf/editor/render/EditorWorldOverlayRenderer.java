@@ -35,16 +35,39 @@ public class EditorWorldOverlayRenderer {
         int outer = 16;
         int inner = 6;
 
-        EditorToolbarRenderer.appendRectOutline(commands,
-                x - outer, y - outer, x + outer, y + outer,
+        appendRectOutline(commands, x - outer, y - outer, x + outer, y + outer,
                 CURSOR_R, CURSOR_G, CURSOR_B);
-        EditorToolbarRenderer.appendLine(commands, x - outer, y, x - inner, y,
-                CURSOR_R, CURSOR_G, CURSOR_B);
-        EditorToolbarRenderer.appendLine(commands, x + inner, y, x + outer, y,
-                CURSOR_R, CURSOR_G, CURSOR_B);
-        EditorToolbarRenderer.appendLine(commands, x, y - outer, x, y - inner,
-                CURSOR_R, CURSOR_G, CURSOR_B);
-        EditorToolbarRenderer.appendLine(commands, x, y + inner, x, y + outer,
-                CURSOR_R, CURSOR_G, CURSOR_B);
+        appendLine(commands, x - outer, y, x - inner, y, CURSOR_R, CURSOR_G, CURSOR_B);
+        appendLine(commands, x + inner, y, x + outer, y, CURSOR_R, CURSOR_G, CURSOR_B);
+        appendLine(commands, x, y - outer, x, y - inner, CURSOR_R, CURSOR_G, CURSOR_B);
+        appendLine(commands, x, y + inner, x, y + outer, CURSOR_R, CURSOR_G, CURSOR_B);
+    }
+
+    private static void appendRectOutline(List<GLCommand> commands,
+                                          int left,
+                                          int top,
+                                          int right,
+                                          int bottom,
+                                          float r,
+                                          float g,
+                                          float b) {
+        appendLine(commands, left, top, right, top, r, g, b);
+        appendLine(commands, right, top, right, bottom, r, g, b);
+        appendLine(commands, right, bottom, left, bottom, r, g, b);
+        appendLine(commands, left, bottom, left, top, r, g, b);
+    }
+
+    private static void appendLine(List<GLCommand> commands,
+                                   int x1,
+                                   int y1,
+                                   int x2,
+                                   int y2,
+                                   float r,
+                                   float g,
+                                   float b) {
+        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I,
+                -1, GLCommand.BlendType.ONE_MINUS_SRC_ALPHA, r, g, b, x1, y1, 0, 0));
+        commands.add(new GLCommand(GLCommand.CommandType.VERTEX2I,
+                -1, GLCommand.BlendType.ONE_MINUS_SRC_ALPHA, r, g, b, x2, y2, 0, 0));
     }
 }
