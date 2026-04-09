@@ -4,6 +4,8 @@ import com.openggf.game.session.EditorCursorState;
 import com.openggf.graphics.GLCommand;
 import com.openggf.editor.render.EditorOverlayRenderer;
 import com.openggf.editor.render.EditorCommandStripRenderer;
+import com.openggf.editor.render.EditorLibraryPaneRenderer;
+import com.openggf.editor.render.EditorTextRenderer;
 import com.openggf.editor.render.EditorToolbarRenderer;
 import com.openggf.editor.render.EditorWorldOverlayRenderer;
 import com.openggf.editor.render.FocusedEditorPaneRenderer;
@@ -29,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TestEditorRenderingSmoke {
 
@@ -51,7 +54,9 @@ class TestEditorRenderingSmoke {
         TrackingCommandStripRenderer commandStrip = new TrackingCommandStripRenderer();
         TrackingWorldOverlayRenderer worldOverlay = new TrackingWorldOverlayRenderer();
         TrackingFocusedEditorPaneRenderer focusedPane = new TrackingFocusedEditorPaneRenderer();
-        EditorOverlayRenderer renderer = new EditorOverlayRenderer(toolbar, commandStrip, worldOverlay, focusedPane);
+        TrackingLibraryPaneRenderer libraryPane = new TrackingLibraryPaneRenderer();
+        EditorOverlayRenderer renderer = new EditorOverlayRenderer(toolbar, commandStrip, worldOverlay, focusedPane,
+                libraryPane);
 
         assertDoesNotThrow(renderer::renderWorldSpaceOverlay);
         assertEquals(1, worldOverlay.renderCalls);
@@ -59,6 +64,7 @@ class TestEditorRenderingSmoke {
         assertEquals(0, commandStrip.renderCalls);
         assertEquals(0, focusedPane.blockPaneCalls);
         assertEquals(0, focusedPane.chunkPaneCalls);
+        assertEquals(0, libraryPane.renderCalls);
 
         assertDoesNotThrow(renderer::renderScreenSpaceOverlay);
         assertEquals(1, worldOverlay.renderCalls);
@@ -66,6 +72,7 @@ class TestEditorRenderingSmoke {
         assertEquals(1, commandStrip.renderCalls);
         assertEquals(0, focusedPane.blockPaneCalls);
         assertEquals(0, focusedPane.chunkPaneCalls);
+        assertEquals(0, libraryPane.renderCalls);
 
         renderer.setHierarchyDepth(EditorHierarchyDepth.BLOCK);
         renderer.renderWorldSpaceOverlay();
@@ -76,6 +83,7 @@ class TestEditorRenderingSmoke {
         assertEquals(2, commandStrip.renderCalls);
         assertEquals(1, focusedPane.blockPaneCalls);
         assertEquals(0, focusedPane.chunkPaneCalls);
+        assertEquals(0, libraryPane.renderCalls);
 
         renderer.setHierarchyDepth(EditorHierarchyDepth.CHUNK);
         renderer.renderWorldSpaceOverlay();
@@ -86,6 +94,49 @@ class TestEditorRenderingSmoke {
         assertEquals(3, commandStrip.renderCalls);
         assertEquals(1, focusedPane.blockPaneCalls);
         assertEquals(1, focusedPane.chunkPaneCalls);
+        assertEquals(0, libraryPane.renderCalls);
+    }
+
+    @Test
+    void overlayRenderer_rendersLibraryPaneWhenFocusRegionIsLibrary() {
+        LevelEditorController controller = createPreviewController();
+        controller.cycleFocusRegion();
+        TrackingToolbarRenderer toolbar = new TrackingToolbarRenderer();
+        TrackingCommandStripRenderer commandStrip = new TrackingCommandStripRenderer();
+        TrackingWorldOverlayRenderer worldOverlay = new TrackingWorldOverlayRenderer();
+        TrackingFocusedEditorPaneRenderer focusedPane = new TrackingFocusedEditorPaneRenderer();
+        TrackingLibraryPaneRenderer libraryPane = new TrackingLibraryPaneRenderer();
+        EditorOverlayRenderer renderer = new EditorOverlayRenderer(controller, toolbar, commandStrip, worldOverlay,
+                focusedPane, libraryPane);
+        renderer.setHierarchyDepth(EditorHierarchyDepth.WORLD);
+
+        renderer.renderScreenSpaceOverlay();
+
+        assertEquals(1, toolbar.renderCalls);
+        assertEquals(1, commandStrip.renderCalls);
+        assertEquals(1, libraryPane.renderCalls);
+        assertEquals(EditorHierarchyDepth.WORLD, libraryPane.capturedDepth);
+    }
+
+    @Test
+    void overlayRenderer_rendersFocusedPaneAndLibraryPaneWhenFocusedModeLibraryIsActive() {
+        LevelEditorController controller = createPreviewController();
+        controller.selectBlock(1);
+        controller.descend();
+        controller.cycleFocusRegion();
+        TrackingToolbarRenderer toolbar = new TrackingToolbarRenderer();
+        TrackingCommandStripRenderer commandStrip = new TrackingCommandStripRenderer();
+        TrackingWorldOverlayRenderer worldOverlay = new TrackingWorldOverlayRenderer();
+        TrackingFocusedEditorPaneRenderer focusedPane = new TrackingFocusedEditorPaneRenderer();
+        TrackingLibraryPaneRenderer libraryPane = new TrackingLibraryPaneRenderer();
+        EditorOverlayRenderer renderer = new EditorOverlayRenderer(controller, toolbar, commandStrip, worldOverlay,
+                focusedPane, libraryPane);
+
+        renderer.renderScreenSpaceOverlay();
+
+        assertEquals(1, focusedPane.blockPaneCalls);
+        assertEquals(1, libraryPane.renderCalls);
+        assertEquals(EditorHierarchyDepth.BLOCK, libraryPane.capturedDepth);
     }
 
     @Test
@@ -100,6 +151,63 @@ class TestEditorRenderingSmoke {
         InspectableCommandStripRenderer renderer = new InspectableCommandStripRenderer();
 
         assertFalse(renderer.buildCommands().isEmpty());
+    }
+
+    @Test
+    void toolbarRenderer_buildsStateLinesFromController() {
+        LevelEditorController controller = createPreviewController();
+        controller.selectBlock(2);
+        controller.selectChunk(4);
+        controller.descend();
+        InspectableToolbarRenderer renderer = new InspectableToolbarRenderer(controller);
+
+        List<String> lines = renderer.buildLines();
+
+        assertTrue(lines.stream().anyMatch(line -> line.contains("World > Block 2")));
+        assertTrue(lines.stream().anyMatch(line -> line.contains("FOCUSED_PANE")));
+        assertTrue(lines.stream().anyMatch(line -> line.contains("Block 2")));
+        assertTrue(lines.stream().anyMatch(line -> line.contains("Chunk 4")));
+    }
+
+    @Test
+    void commandStripRenderer_buildsDepthSpecificCommandHints() {
+        LevelEditorController controller = createPreviewController();
+        InspectableCommandStripRenderer renderer = new InspectableCommandStripRenderer(controller);
+
+        assertTrue(String.join(" ", renderer.buildLines()).contains("Place block"));
+
+        controller.selectBlock(1);
+        controller.selectChunk(3);
+        controller.descend();
+        assertTrue(String.join(" ", renderer.buildLines()).contains("Apply chunk"));
+
+        controller.descend();
+        assertTrue(String.join(" ", renderer.buildLines()).contains("Apply pattern"));
+    }
+
+    @Test
+    void libraryPaneRenderer_buildsVisibleChromeAndContextLines() {
+        LevelEditorController controller = createPreviewController();
+        controller.selectBlock(2);
+        controller.cycleFocusRegion();
+        InspectableLibraryPaneRenderer renderer = new InspectableLibraryPaneRenderer(controller);
+
+        assertFalse(renderer.buildCommands().isEmpty());
+        assertTrue(String.join(" ", renderer.buildLines()).contains("Block library"));
+        assertTrue(String.join(" ", renderer.buildLines()).contains("Block 2"));
+    }
+
+    @Test
+    void textRenderer_buildsCommandsForRenderableLines() {
+        InspectableTextRenderer renderer = new InspectableTextRenderer();
+
+        List<EditorTextRenderer.TextCommand> commands = renderer.buildCommands(List.of("One", "", "Two"),
+                8, 12);
+
+        assertEquals(2, commands.size());
+        assertEquals("One", commands.get(0).text());
+        assertEquals("Two", commands.get(1).text());
+        assertTrue(commands.get(1).y() > commands.get(0).y());
     }
 
     @Test
@@ -218,6 +326,18 @@ class TestEditorRenderingSmoke {
         assertNotEquals(commandSignature(first), commandSignature(second));
     }
 
+    @Test
+    void worldOverlayRenderer_buildsGridCommandsAlongsideCursor() {
+        InspectableWorldOverlayRenderer renderer = new InspectableWorldOverlayRenderer();
+
+        List<GLCommand> cursorOnly = renderer.buildCursorCommands(new EditorCursorState(64, 64));
+        List<GLCommand> worldCommands = renderer.buildWorldCommands(new EditorCursorState(64, 64));
+
+        assertFalse(cursorOnly.isEmpty());
+        assertTrue(worldCommands.size() > cursorOnly.size());
+        assertTrue(worldCommands.size() - cursorOnly.size() >= 16);
+    }
+
     private static final class TrackingToolbarRenderer extends EditorToolbarRenderer {
         private int renderCalls;
 
@@ -245,6 +365,17 @@ class TestEditorRenderingSmoke {
         }
     }
 
+    private static final class TrackingLibraryPaneRenderer extends EditorLibraryPaneRenderer {
+        private int renderCalls;
+        private EditorHierarchyDepth capturedDepth;
+
+        @Override
+        public void render(EditorHierarchyDepth depth) {
+            renderCalls++;
+            capturedDepth = depth;
+        }
+    }
+
     private static final class TrackingFocusedEditorPaneRenderer extends FocusedEditorPaneRenderer {
         private int blockPaneCalls;
         private int chunkPaneCalls;
@@ -261,18 +392,64 @@ class TestEditorRenderingSmoke {
     }
 
     private static final class InspectableToolbarRenderer extends EditorToolbarRenderer {
+        private InspectableToolbarRenderer() {
+            super();
+        }
+
+        private InspectableToolbarRenderer(LevelEditorController controller) {
+            super(controller);
+        }
+
         private List<GLCommand> buildCommands() {
             List<GLCommand> commands = new ArrayList<>();
             appendCommands(commands);
             return commands;
         }
+
+        private List<String> buildLines() {
+            return buildStateLines();
+        }
     }
 
     private static final class InspectableCommandStripRenderer extends EditorCommandStripRenderer {
+        private InspectableCommandStripRenderer() {
+            super();
+        }
+
+        private InspectableCommandStripRenderer(LevelEditorController controller) {
+            super(controller);
+        }
+
         private List<GLCommand> buildCommands() {
             List<GLCommand> commands = new ArrayList<>();
             appendCommands(commands);
             return commands;
+        }
+
+        private List<String> buildLines() {
+            return buildCommandLines();
+        }
+    }
+
+    private static final class InspectableLibraryPaneRenderer extends EditorLibraryPaneRenderer {
+        private InspectableLibraryPaneRenderer(LevelEditorController controller) {
+            super(controller);
+        }
+
+        private List<GLCommand> buildCommands() {
+            List<GLCommand> commands = new ArrayList<>();
+            appendCommands(commands);
+            return commands;
+        }
+
+        private List<String> buildLines() {
+            return buildLibraryLines(EditorHierarchyDepth.WORLD);
+        }
+    }
+
+    private static final class InspectableTextRenderer extends EditorTextRenderer {
+        private List<TextCommand> buildCommands(List<String> lines, int x, int y) {
+            return buildTextCommands(lines, x, y);
         }
     }
 
@@ -315,6 +492,12 @@ class TestEditorRenderingSmoke {
         private List<GLCommand> buildCursorCommands(EditorCursorState cursor) {
             List<GLCommand> commands = new ArrayList<>();
             appendCursorCommands(commands, cursor);
+            return commands;
+        }
+
+        private List<GLCommand> buildWorldCommands(EditorCursorState cursor) {
+            List<GLCommand> commands = new ArrayList<>();
+            appendWorldCommands(commands, cursor);
             return commands;
         }
     }

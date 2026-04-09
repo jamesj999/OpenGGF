@@ -1,35 +1,57 @@
 package com.openggf.editor.render;
 
+import com.openggf.editor.EditorFocusRegion;
 import com.openggf.editor.EditorHierarchyDepth;
 import com.openggf.editor.LevelEditorController;
 
 import java.util.Objects;
 
 public final class EditorOverlayRenderer {
+    private final LevelEditorController controller;
     private final EditorToolbarRenderer toolbar;
     private final EditorCommandStripRenderer commandStrip;
     private final EditorWorldOverlayRenderer worldOverlay;
     private final FocusedEditorPaneRenderer focusedPane;
+    private final EditorLibraryPaneRenderer libraryPane;
     private EditorHierarchyDepth hierarchyDepth = EditorHierarchyDepth.WORLD;
 
     public EditorOverlayRenderer() {
-        this(new EditorToolbarRenderer(), new EditorCommandStripRenderer(),
-                new EditorWorldOverlayRenderer(), new FocusedEditorPaneRenderer());
+        this(null);
     }
 
     public EditorOverlayRenderer(LevelEditorController controller) {
-        this(new EditorToolbarRenderer(), new EditorCommandStripRenderer(),
-                new EditorWorldOverlayRenderer(), new FocusedEditorPaneRenderer(controller));
+        this(controller, new EditorToolbarRenderer(controller), new EditorCommandStripRenderer(controller),
+                new EditorWorldOverlayRenderer(), new FocusedEditorPaneRenderer(controller),
+                new EditorLibraryPaneRenderer(controller));
     }
 
     public EditorOverlayRenderer(EditorToolbarRenderer toolbar,
                                  EditorCommandStripRenderer commandStrip,
                                  EditorWorldOverlayRenderer worldOverlay,
                                  FocusedEditorPaneRenderer focusedPane) {
+        this(null, toolbar, commandStrip, worldOverlay, focusedPane, new EditorLibraryPaneRenderer());
+    }
+
+    public EditorOverlayRenderer(EditorToolbarRenderer toolbar,
+                                 EditorCommandStripRenderer commandStrip,
+                                 EditorWorldOverlayRenderer worldOverlay,
+                                 FocusedEditorPaneRenderer focusedPane,
+                                 EditorLibraryPaneRenderer libraryPane) {
+        this(null, toolbar, commandStrip, worldOverlay, focusedPane, libraryPane);
+    }
+
+    public EditorOverlayRenderer(LevelEditorController controller,
+                                 EditorToolbarRenderer toolbar,
+                                 EditorCommandStripRenderer commandStrip,
+                                 EditorWorldOverlayRenderer worldOverlay,
+                                 FocusedEditorPaneRenderer focusedPane,
+                                 EditorLibraryPaneRenderer libraryPane) {
+        this.controller = controller;
         this.toolbar = Objects.requireNonNull(toolbar, "toolbar");
         this.commandStrip = Objects.requireNonNull(commandStrip, "commandStrip");
         this.worldOverlay = Objects.requireNonNull(worldOverlay, "worldOverlay");
         this.focusedPane = Objects.requireNonNull(focusedPane, "focusedPane");
+        this.libraryPane = Objects.requireNonNull(libraryPane, "libraryPane");
     }
 
     public void setHierarchyDepth(EditorHierarchyDepth hierarchyDepth) {
@@ -42,13 +64,13 @@ public final class EditorOverlayRenderer {
     }
 
     public void renderWorldSpaceOverlay() {
-        if (hierarchyDepth == EditorHierarchyDepth.WORLD) {
+        if (activeDepth() == EditorHierarchyDepth.WORLD) {
             worldOverlay.render();
         }
     }
 
     public void renderScreenSpaceOverlay() {
-        switch (hierarchyDepth) {
+        switch (activeDepth()) {
             case WORLD -> renderWorldPlacementUi();
             case BLOCK -> renderFocusedBlockEdit();
             case CHUNK -> renderFocusedChunkEdit();
@@ -57,18 +79,31 @@ public final class EditorOverlayRenderer {
 
     public void renderWorldPlacementUi() {
         toolbar.render();
+        renderLibraryPaneIfFocused(EditorHierarchyDepth.WORLD);
         commandStrip.render();
     }
 
     public void renderFocusedBlockEdit() {
         toolbar.render();
         focusedPane.renderBlockEditorPane();
+        renderLibraryPaneIfFocused(EditorHierarchyDepth.BLOCK);
         commandStrip.render();
     }
 
     public void renderFocusedChunkEdit() {
         toolbar.render();
         focusedPane.renderChunkEditorPane();
+        renderLibraryPaneIfFocused(EditorHierarchyDepth.CHUNK);
         commandStrip.render();
+    }
+
+    private void renderLibraryPaneIfFocused(EditorHierarchyDepth depth) {
+        if (controller != null && controller.focusRegion() == EditorFocusRegion.LIBRARY) {
+            libraryPane.render(depth);
+        }
+    }
+
+    private EditorHierarchyDepth activeDepth() {
+        return controller == null ? hierarchyDepth : controller.depth();
     }
 }
