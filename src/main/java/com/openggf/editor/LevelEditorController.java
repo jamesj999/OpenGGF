@@ -292,8 +292,8 @@ public final class LevelEditorController {
         if (blockPixelSize <= 0) {
             return null;
         }
-        int mapX = worldCursor.x() - attachedLevel.getMinX();
-        int mapY = worldCursor.y() - attachedLevel.getMinY();
+        int mapX = worldCursor.x();
+        int mapY = worldCursor.y();
         int mapWidth = attachedLevel.getMap().getWidth();
         int mapHeight = attachedLevel.getMap().getHeight();
         if (mapWidth <= 0 || mapHeight <= 0) {
