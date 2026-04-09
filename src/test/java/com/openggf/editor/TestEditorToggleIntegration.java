@@ -251,13 +251,22 @@ class TestEditorToggleIntegration {
         enableEditor();
         Engine engine = new Engine();
         GameRuntime runtime = createGameplayRuntime(engine);
+        Sonic player = (Sonic) runtime.getSpriteManager().getSprite("sonic");
         InputHandler inputHandler = new InputHandler();
         engine.setInputHandler(inputHandler);
 
-        engine.enterEditorFromCurrentPlayer(new EditorPlaytestStash(100, 200, 0, 0, true, 0, 0), 100, 200);
+        inputHandler.handleKeyEvent(GLFW_KEY_LEFT_SHIFT, GLFW_PRESS);
+        inputHandler.handleKeyEvent(GLFW_KEY_TAB, GLFW_PRESS);
+        engine.getGameLoop().step();
+
+        assertEquals(GameMode.EDITOR, engine.getCurrentGameMode());
+        assertEquals(player.getCentreX(), SessionManager.getCurrentEditorMode().getCursor().x());
+        assertEquals(player.getCentreY(), SessionManager.getCurrentEditorMode().getCursor().y());
+
         inputHandler.handleKeyEvent(GLFW_KEY_RIGHT, GLFW_PRESS);
         inputHandler.handleKeyEvent(GLFW_KEY_DOWN, GLFW_PRESS);
         engine.getGameLoop().step();
+        EditorCursorState movedCursor = engine.getLevelEditorController().worldCursor();
 
         inputHandler.handleKeyEvent(GLFW_KEY_TAB, GLFW_RELEASE);
         inputHandler.handleKeyEvent(GLFW_KEY_LEFT_SHIFT, GLFW_RELEASE);
@@ -268,8 +277,10 @@ class TestEditorToggleIntegration {
 
         assertEquals(GameMode.LEVEL, engine.getCurrentGameMode());
         assertSame(runtime, RuntimeManager.getCurrent());
-        assertEquals(103, SessionManager.getCurrentGameplayMode().getSpawnX());
-        assertEquals(203, SessionManager.getCurrentGameplayMode().getSpawnY());
+        assertEquals(movedCursor.x(), SessionManager.getCurrentGameplayMode().getSpawnX());
+        assertEquals(movedCursor.y(), SessionManager.getCurrentGameplayMode().getSpawnY());
+        assertEquals(movedCursor.x(), player.getCentreX());
+        assertEquals(movedCursor.y(), player.getCentreY());
     }
 
     @Test
