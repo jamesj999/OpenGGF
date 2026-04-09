@@ -92,6 +92,24 @@ public final class LevelEditorController {
         return attachedLevel.getChunk(chunkIndex);
     }
 
+    public Chunk selectedBlockChunkPreview(int blockCellX, int blockCellY) {
+        Block block = selectedBlockPreview();
+        if (block == null) {
+            return null;
+        }
+        if (blockCellX < 0 || blockCellY < 0
+                || blockCellX >= block.getGridSide()
+                || blockCellY >= block.getGridSide()) {
+            return null;
+        }
+        int chunkIndex = block.getChunkDesc(blockCellX, blockCellY).getChunkIndex();
+        MutableLevel attachedLevel = requireLevel();
+        if (chunkIndex < 0 || chunkIndex >= attachedLevel.getChunkCount()) {
+            return null;
+        }
+        return attachedLevel.getChunk(chunkIndex);
+    }
+
     public Chunk selectedChunkPreview() {
         Integer selectedChunk = selection.selectedChunk();
         if (selectedChunk == null) {
