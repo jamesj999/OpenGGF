@@ -376,109 +376,9 @@ public class Engine {
 		} catch (IOException e) {
 			throw new RuntimeException("Failed to load ROM during game initialization", e);
 		}
-		GameModuleRegistry.setCurrent(module);
 		GameplayModeContext gameplayMode = SessionManager.openGameplaySession(module);
-
-		// Create the gameplay runtime before any manager access.
-		// During this transitional period, the runtime is still a manager facade,
-		// but it now carries explicit gameplay/world ownership from SessionManager.
-		runtime = com.openggf.game.RuntimeManager.createGameplay(gameplayMode);
-		bindRuntime(runtime);
-		GameServices.gameState().configureSpecialStageProgress(
-			module.getSpecialStageCycleCount(),
-			module.getChaosEmeraldCount());
-
-		if (configService.getBoolean(SonicConfiguration.AUDIO_ENABLED)) {
-			AudioManager.getInstance().setBackend(new LWJGLAudioBackend());
-		}
-
-		// Initialize cross-game feature donation if enabled
-		if (configService.getBoolean(SonicConfiguration.CROSS_GAME_FEATURES_ENABLED)) {
-			try {
-				String donorGame = configService.getString(SonicConfiguration.CROSS_GAME_SOURCE);
-				CrossGameFeatureProvider.getInstance().initialize(donorGame);
-			} catch (IOException e) {
-				LOGGER.severe("Cross-game features enabled but initialization failed. "
-					+ "Check that the " + configService.getString(SonicConfiguration.CROSS_GAME_SOURCE)
-					+ " ROM is configured and accessible. Error: " + e.getMessage());
-			}
-		}
-
-		String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-		AbstractPlayableSprite mainSprite;
-		if ("tails".equalsIgnoreCase(mainCode)) {
-			mainSprite = new Tails(mainCode, (short) 100, (short) 624);
-		} else if ("knuckles".equalsIgnoreCase(mainCode)) {
-			mainSprite = new Knuckles(mainCode, (short) 100, (short) 624);
-		} else {
-			mainSprite = new Sonic(mainCode, (short) 100, (short) 624);
-		}
-		spriteManager.addSprite(mainSprite);
-
-		// Create CPU-controlled sidekicks if configured (empty string = no sidekick).
-		// Supports comma-separated list for multiple sidekicks chained leader-to-follower.
-		List<String> sidekickNames = parseSidekickConfig(
-			configService.getString(SonicConfiguration.SIDEKICK_CHARACTER_CODE));
-		boolean sidekickAllowed = module.supportsSidekick()
-				|| CrossGameFeatureProvider.isActive();
-		if (sidekickAllowed) {
-			AbstractPlayableSprite previousLeader = mainSprite;
-			int cameraLeftBound = 0; // camera not yet positioned, use 0 as minimum
-			for (int i = 0; i < sidekickNames.size(); i++) {
-				String charName = sidekickNames.get(i);
-				String code = charName + "_p" + (i + 2);
-				int spawnX = Math.max(cameraLeftBound, mainSprite.getX() - 0x20 * (i + 1));
-				boolean offScreen = (mainSprite.getX() - 0x20 * (i + 1)) < cameraLeftBound;
-
-				AbstractPlayableSprite sidekick;
-				if ("tails".equalsIgnoreCase(charName)) {
-					sidekick = new Tails(code, (short) spawnX, (short) (mainSprite.getY() + 4));
-				} else if ("knuckles".equalsIgnoreCase(charName)) {
-					sidekick = new Knuckles(code, (short) spawnX, (short) (mainSprite.getY() + 4));
-				} else {
-					sidekick = new Sonic(code, (short) spawnX, (short) (mainSprite.getY() + 4));
-				}
-				sidekick.setCpuControlled(true);
-				SidekickCpuController controller = new SidekickCpuController(sidekick, previousLeader);
-				controller.setSidekickCount(sidekickNames.size());
-				if (offScreen) {
-					controller.setInitialState(SidekickCpuController.State.SPAWNING);
-				}
-				sidekick.setCpuController(controller);
-
-				// Select respawn strategy based on character type
-				if ("knuckles".equalsIgnoreCase(charName)) {
-					controller.setRespawnStrategy(new KnucklesRespawnStrategy(controller));
-				} else if (!"tails".equalsIgnoreCase(charName)) {
-					controller.setRespawnStrategy(new SonicRespawnStrategy(controller));
-				}
-				// Tails is the default — already set in constructor
-
-				spriteManager.addSprite(sidekick, charName);
-				previousLeader = sidekick;
-			}
-		}
-
-		camera.setFocusedSprite(mainSprite);
-		camera.updatePosition(true);
-
-		// Check startup mode: title screen takes priority when enabled
-		boolean titleScreenOnStartup = configService.getBoolean(SonicConfiguration.TITLE_SCREEN_ON_STARTUP);
-		boolean levelSelectOnStartup = configService.getBoolean(SonicConfiguration.LEVEL_SELECT_ON_STARTUP);
-		if (titleScreenOnStartup) {
-			// Start in title screen mode
-			gameLoop.initializeTitleScreenMode();
-		} else if (levelSelectOnStartup) {
-			// Start in level select mode - no level loaded initially
-			gameLoop.initializeLevelSelectMode();
-		} else {
-			// Load zone 0 act 0 as the default starting level
-			try {
-				levelManager.loadZoneAndAct(0, 0);
-			} catch (IOException e) {
-				throw new RuntimeException(e);
-			}
-		}
+		initializeGameplayRuntime(gameplayMode, true);
+		enterConfiguredStartupMode();
 	}
 
 	/**
@@ -544,9 +444,123 @@ public class Engine {
 	public void startGameplayFromBeginning() {
 		GameplayModeContext gameplay = SessionManager.restartGameplayFromBeginning();
 		RuntimeManager.destroyCurrent();
-		runtime = RuntimeManager.createGameplay(gameplay);
-		bindRuntime(runtime);
+		initializeGameplayRuntime(gameplay, false);
+		loadDefaultStartingLevel(false);
 		gameLoop.setGameMode(GameMode.LEVEL);
+	}
+
+	private void initializeGameplayRuntime(GameplayModeContext gameplayMode, boolean initializeGlobalGameplayServices) {
+		GameModule module = gameplayMode.getWorldSession().getGameModule();
+		GameModuleRegistry.setCurrent(module);
+		runtime = com.openggf.game.RuntimeManager.createGameplay(gameplayMode);
+		bindRuntime(runtime);
+		GameServices.gameState().configureSpecialStageProgress(
+				module.getSpecialStageCycleCount(),
+				module.getChaosEmeraldCount());
+
+		if (initializeGlobalGameplayServices) {
+			initializeGlobalGameplayServices();
+		}
+
+		AbstractPlayableSprite mainSprite = createMainPlayableSprite();
+		spriteManager.addSprite(mainSprite);
+		addConfiguredSidekicks(module, mainSprite);
+		camera.setFocusedSprite(mainSprite);
+		camera.updatePosition(true);
+	}
+
+	private void initializeGlobalGameplayServices() {
+		if (configService.getBoolean(SonicConfiguration.AUDIO_ENABLED)) {
+			AudioManager.getInstance().setBackend(new LWJGLAudioBackend());
+		}
+
+		if (configService.getBoolean(SonicConfiguration.CROSS_GAME_FEATURES_ENABLED)) {
+			try {
+				String donorGame = configService.getString(SonicConfiguration.CROSS_GAME_SOURCE);
+				CrossGameFeatureProvider.getInstance().initialize(donorGame);
+			} catch (IOException e) {
+				LOGGER.severe("Cross-game features enabled but initialization failed. "
+						+ "Check that the " + configService.getString(SonicConfiguration.CROSS_GAME_SOURCE)
+						+ " ROM is configured and accessible. Error: " + e.getMessage());
+			}
+		}
+	}
+
+	private AbstractPlayableSprite createMainPlayableSprite() {
+		String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+		if ("tails".equalsIgnoreCase(mainCode)) {
+			return new Tails(mainCode, (short) 100, (short) 624);
+		}
+		if ("knuckles".equalsIgnoreCase(mainCode)) {
+			return new Knuckles(mainCode, (short) 100, (short) 624);
+		}
+		return new Sonic(mainCode, (short) 100, (short) 624);
+	}
+
+	private void addConfiguredSidekicks(GameModule module, AbstractPlayableSprite mainSprite) {
+		List<String> sidekickNames = parseSidekickConfig(
+				configService.getString(SonicConfiguration.SIDEKICK_CHARACTER_CODE));
+		boolean sidekickAllowed = module.supportsSidekick() || CrossGameFeatureProvider.isActive();
+		if (!sidekickAllowed) {
+			return;
+		}
+
+		AbstractPlayableSprite previousLeader = mainSprite;
+		int cameraLeftBound = 0;
+		for (int i = 0; i < sidekickNames.size(); i++) {
+			String charName = sidekickNames.get(i);
+			String code = charName + "_p" + (i + 2);
+			int spawnX = Math.max(cameraLeftBound, mainSprite.getX() - 0x20 * (i + 1));
+			boolean offScreen = (mainSprite.getX() - 0x20 * (i + 1)) < cameraLeftBound;
+
+			AbstractPlayableSprite sidekick;
+			if ("tails".equalsIgnoreCase(charName)) {
+				sidekick = new Tails(code, (short) spawnX, (short) (mainSprite.getY() + 4));
+			} else if ("knuckles".equalsIgnoreCase(charName)) {
+				sidekick = new Knuckles(code, (short) spawnX, (short) (mainSprite.getY() + 4));
+			} else {
+				sidekick = new Sonic(code, (short) spawnX, (short) (mainSprite.getY() + 4));
+			}
+			sidekick.setCpuControlled(true);
+			SidekickCpuController controller = new SidekickCpuController(sidekick, previousLeader);
+			controller.setSidekickCount(sidekickNames.size());
+			if (offScreen) {
+				controller.setInitialState(SidekickCpuController.State.SPAWNING);
+			}
+			sidekick.setCpuController(controller);
+
+			if ("knuckles".equalsIgnoreCase(charName)) {
+				controller.setRespawnStrategy(new KnucklesRespawnStrategy(controller));
+			} else if (!"tails".equalsIgnoreCase(charName)) {
+				controller.setRespawnStrategy(new SonicRespawnStrategy(controller));
+			}
+
+			spriteManager.addSprite(sidekick, charName);
+			previousLeader = sidekick;
+		}
+	}
+
+	private void enterConfiguredStartupMode() {
+		boolean titleScreenOnStartup = configService.getBoolean(SonicConfiguration.TITLE_SCREEN_ON_STARTUP);
+		boolean levelSelectOnStartup = configService.getBoolean(SonicConfiguration.LEVEL_SELECT_ON_STARTUP);
+		if (titleScreenOnStartup) {
+			gameLoop.initializeTitleScreenMode();
+		} else if (levelSelectOnStartup) {
+			gameLoop.initializeLevelSelectMode();
+		} else {
+			loadDefaultStartingLevel(true);
+		}
+	}
+
+	private void loadDefaultStartingLevel(boolean requireRom) {
+		if (!requireRom && !RomManager.getInstance().isRomAvailable()) {
+			return;
+		}
+		try {
+			levelManager.loadZoneAndAct(0, 0);
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
 	}
 
 	public void toggleEditorPlaytestMode() {

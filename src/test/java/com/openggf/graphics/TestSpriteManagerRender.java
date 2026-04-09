@@ -1,7 +1,10 @@
 package com.openggf.graphics;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.RuntimeManager;
+import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
+import com.openggf.game.sonic2.Sonic2GameModule;
 import com.openggf.physics.Direction;
 import org.junit.After;
 import org.junit.Before;
@@ -25,12 +28,16 @@ public class TestSpriteManagerRender {
 
     @Before
     public void setUp() {
+        GameModuleRegistry.setCurrent(new Sonic2GameModule());
+        AizPlaneIntroInstance.resetIntroPhaseState();
         RuntimeManager.createGameplay();
     }
 
     @After
     public void tearDown() {
         RuntimeManager.destroyCurrent();
+        AizPlaneIntroInstance.resetIntroPhaseState();
+        GameModuleRegistry.reset();
     }
 
     @Test
@@ -126,6 +133,35 @@ public class TestSpriteManagerRender {
         } finally {
             drawOrder.clear();
             setCurrentZone(levelManager, originalZone);
+            spriteManager.removeSprite(main.getCode());
+            spriteManager.removeSprite(sidekick.getCode());
+        }
+    }
+
+    @Test
+    public void testNonS3kRuntimeIgnoresStaleAizIntroSidekickSuppression() {
+        List<String> drawOrder = new ArrayList<>();
+        SpriteManager spriteManager = GameServices.sprites();
+
+        TestPlayableSprite main = new TestPlayableSprite("main", drawOrder);
+        main.setPriorityBucket(2);
+        main.setHighPriority(false);
+
+        TestPlayableSprite sidekick = new TestPlayableSprite("sidekick", drawOrder);
+        sidekick.setCpuControlled(true);
+        sidekick.setPriorityBucket(2);
+        sidekick.setHighPriority(false);
+
+        spriteManager.addSprite(main);
+        spriteManager.addSprite(sidekick);
+        AizPlaneIntroInstance.setSidekickSuppressed(true);
+
+        try {
+            assertEquals(List.of(sidekick), spriteManager.getSidekicks());
+            spriteManager.drawLowPriority();
+            assertEquals(List.of("sidekick", "main"), drawOrder);
+        } finally {
+            AizPlaneIntroInstance.resetIntroPhaseState();
             spriteManager.removeSprite(main.getCode());
             spriteManager.removeSprite(sidekick.getCode());
         }

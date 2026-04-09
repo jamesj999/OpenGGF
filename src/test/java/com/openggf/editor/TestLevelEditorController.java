@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE;
@@ -53,14 +54,13 @@ class TestLevelEditorController {
     }
 
     @Test
-    void inputHandler_rejectsUnsupportedPublicActions() {
-        LevelEditorController controller = new LevelEditorController();
-        EditorInputHandler handler = new EditorInputHandler(controller);
-
-        UnsupportedOperationException exception = assertThrows(UnsupportedOperationException.class,
-                () -> handler.handleAction(EditorInputHandler.Action.APPLY));
-
-        assertEquals("Action APPLY is not implemented yet", exception.getMessage());
+    void inputHandler_publicActionsMatchImplementedMvpSurface() {
+        assertArrayEquals(
+                new EditorInputHandler.Action[] {
+                        EditorInputHandler.Action.DESCEND,
+                        EditorInputHandler.Action.ASCEND
+                },
+                EditorInputHandler.Action.values());
     }
 
     @Test

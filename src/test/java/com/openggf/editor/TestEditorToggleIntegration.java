@@ -2,6 +2,7 @@ package com.openggf.editor;
 
 import com.openggf.Engine;
 import com.openggf.control.InputHandler;
+import com.openggf.data.RomManager;
 import com.openggf.game.GameMode;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameRuntime;
@@ -132,7 +133,14 @@ class TestEditorToggleIntegration {
         assertEquals(0, SessionManager.getCurrentGameplayMode().getSpawnX());
         assertEquals(0, SessionManager.getCurrentGameplayMode().getSpawnY());
         assertTrue(SessionManager.getCurrentGameplayMode().getResumeStash().isEmpty());
-        assertNotNull(RuntimeManager.getCurrent());
+        GameRuntime restartedRuntime = RuntimeManager.getCurrent();
+        assertNotNull(restartedRuntime);
+        assertNotNull(restartedRuntime.getSpriteManager().getSprite("sonic"));
+        assertSame(restartedRuntime.getSpriteManager().getSprite("sonic"),
+                restartedRuntime.getCamera().getFocusedSprite());
+        if (RomManager.getInstance().isRomAvailable()) {
+            assertNotNull(restartedRuntime.getLevelManager().getCurrentLevel());
+        }
     }
 
     @Test

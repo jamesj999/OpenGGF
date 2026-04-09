@@ -9,11 +9,13 @@ import com.openggf.control.InputHandler;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.game.CollisionModel;
+import com.openggf.game.GameId;
 import com.openggf.game.GameModule;
 import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.PhysicsFeatureSet;
+import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.camera.Camera;
 import com.openggf.graphics.GraphicsManager;
@@ -176,6 +178,7 @@ public class SpriteManager {
 		frameCounter = 0;
 		inputSuppressed = false;
 		playbackInputSuppressed = false;
+		lastSidekickSuppressed = false;
 	}
 
 	/**
@@ -710,8 +713,14 @@ public class SpriteManager {
 		if (module == null) {
 			module = lm.getGameModule();
 		}
-		if (module != null && module.isSidekickSuppressedForZone(lm.getCurrentZone())) return true;
-		if (AizPlaneIntroInstance.isSidekickSuppressed()) return true;
+		int currentZone = lm.getCurrentZone();
+		if (module != null && module.isSidekickSuppressedForZone(currentZone)) return true;
+		if (module != null
+				&& module.getGameId() == GameId.S3K
+				&& currentZone == Sonic3kZoneIds.ZONE_AIZ
+				&& AizPlaneIntroInstance.isSidekickSuppressed()) {
+			return true;
+		}
 		return false;
 	}
 
