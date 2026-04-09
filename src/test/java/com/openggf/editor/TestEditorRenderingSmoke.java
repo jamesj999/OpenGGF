@@ -168,7 +168,7 @@ class TestEditorRenderingSmoke {
         List<String> lines = renderer.buildLines();
 
         assertTrue(lines.stream().anyMatch(line -> line.contains("World > Block 2")));
-        assertTrue(lines.stream().anyMatch(line -> line.contains("FOCUSED_PANE")));
+        assertTrue(lines.stream().anyMatch(line -> line.contains("BLOCK_PANE")));
         assertTrue(lines.stream().anyMatch(line -> line.contains("Block 2")));
         assertTrue(lines.stream().anyMatch(line -> line.contains("Chunk 4")));
     }

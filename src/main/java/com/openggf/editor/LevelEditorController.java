@@ -64,7 +64,7 @@ public final class LevelEditorController {
         selection = new EditorSelectionState(blockIndex, null);
         if (depth == EditorHierarchyDepth.CHUNK) {
             depth = EditorHierarchyDepth.BLOCK;
-            focusRegion = EditorFocusRegion.FOCUSED_PANE;
+            focusRegion = EditorFocusRegion.BLOCK_PANE;
         }
     }
 
@@ -138,17 +138,17 @@ public final class LevelEditorController {
     public void descend() {
         if (depth == EditorHierarchyDepth.WORLD && selection.selectedBlock() != null) {
             depth = EditorHierarchyDepth.BLOCK;
-            focusRegion = EditorFocusRegion.FOCUSED_PANE;
+            focusRegion = EditorFocusRegion.BLOCK_PANE;
         } else if (depth == EditorHierarchyDepth.BLOCK && selection.selectedChunk() != null) {
             depth = EditorHierarchyDepth.CHUNK;
-            focusRegion = EditorFocusRegion.FOCUSED_PANE;
+            focusRegion = EditorFocusRegion.CHUNK_PANE;
         }
     }
 
     public void ascend() {
         if (depth == EditorHierarchyDepth.CHUNK) {
             depth = EditorHierarchyDepth.BLOCK;
-            focusRegion = EditorFocusRegion.FOCUSED_PANE;
+            focusRegion = EditorFocusRegion.BLOCK_PANE;
         } else if (depth == EditorHierarchyDepth.BLOCK) {
             depth = EditorHierarchyDepth.WORLD;
             focusRegion = EditorFocusRegion.WORLD_CANVAS;
@@ -164,15 +164,14 @@ public final class LevelEditorController {
     }
 
     public void cycleFocusRegion() {
-        if (depth == EditorHierarchyDepth.WORLD) {
-            focusRegion = focusRegion == EditorFocusRegion.WORLD_CANVAS
-                    ? EditorFocusRegion.LIBRARY
-                    : EditorFocusRegion.WORLD_CANVAS;
-            return;
+        EditorFocusRegion[] cycle = activeFocusCycle();
+        for (int i = 0; i < cycle.length; i++) {
+            if (cycle[i] == focusRegion) {
+                focusRegion = cycle[(i + 1) % cycle.length];
+                return;
+            }
         }
-        focusRegion = focusRegion == EditorFocusRegion.FOCUSED_PANE
-                ? EditorFocusRegion.LIBRARY
-                : EditorFocusRegion.FOCUSED_PANE;
+        focusRegion = cycle[0];
     }
 
     public void applyPrimaryAction() {
@@ -207,7 +206,7 @@ public final class LevelEditorController {
     }
 
     private void applyBlockPrimaryAction() {
-        if (focusRegion != EditorFocusRegion.FOCUSED_PANE) {
+        if (focusRegion != EditorFocusRegion.BLOCK_PANE) {
             return;
         }
         Integer selectedChunk = selection.selectedChunk();
@@ -249,7 +248,7 @@ public final class LevelEditorController {
     }
 
     private void applyChunkPrimaryAction() {
-        if (focusRegion != EditorFocusRegion.FOCUSED_PANE || selectedPatternRaw == null) {
+        if (focusRegion != EditorFocusRegion.CHUNK_PANE || selectedPatternRaw == null) {
             return;
         }
         Integer selectedBlock = selection.selectedBlock();
@@ -320,6 +319,10 @@ public final class LevelEditorController {
             performChunkEyedrop();
             return;
         }
+        if (depth == EditorHierarchyDepth.BLOCK) {
+            performBlockEyedrop();
+            return;
+        }
         if (focusRegion != EditorFocusRegion.WORLD_CANVAS) {
             return;
         }
@@ -335,8 +338,27 @@ public final class LevelEditorController {
         selectBlock(blockIndex);
     }
 
+    private void performBlockEyedrop() {
+        if (focusRegion != EditorFocusRegion.BLOCK_PANE) {
+            return;
+        }
+        Integer selectedBlock = selection.selectedBlock();
+        MutableLevel attachedLevel = level;
+        if (selectedBlock == null || attachedLevel == null || !isValidBlockIndex(attachedLevel, selectedBlock)) {
+            return;
+        }
+        Block block = attachedLevel.getBlock(selectedBlock);
+        if (!isBlockCellInBounds(block, selectedBlockCellX, selectedBlockCellY)) {
+            return;
+        }
+        int chunkIndex = block.getChunkDesc(selectedBlockCellX, selectedBlockCellY).getChunkIndex();
+        if (isValidChunkIndex(attachedLevel, chunkIndex)) {
+            selection = new EditorSelectionState(selectedBlock, chunkIndex);
+        }
+    }
+
     private void performChunkEyedrop() {
-        if (focusRegion != EditorFocusRegion.FOCUSED_PANE) {
+        if (focusRegion != EditorFocusRegion.CHUNK_PANE) {
             return;
         }
         Integer selectedChunk = selection.selectedChunk();
@@ -460,6 +482,29 @@ public final class LevelEditorController {
             return chunkGridSide();
         }
         return 1;
+    }
+
+    private EditorFocusRegion[] activeFocusCycle() {
+        return switch (depth) {
+            case WORLD -> new EditorFocusRegion[] {
+                    EditorFocusRegion.WORLD_CANVAS,
+                    EditorFocusRegion.BLOCK_PANE,
+                    EditorFocusRegion.COMMAND_STRIP,
+                    EditorFocusRegion.TOOLBAR
+            };
+            case BLOCK -> new EditorFocusRegion[] {
+                    EditorFocusRegion.BLOCK_PANE,
+                    EditorFocusRegion.CHUNK_PANE,
+                    EditorFocusRegion.COMMAND_STRIP,
+                    EditorFocusRegion.TOOLBAR
+            };
+            case CHUNK -> new EditorFocusRegion[] {
+                    EditorFocusRegion.CHUNK_PANE,
+                    EditorFocusRegion.PATTERN_PANE,
+                    EditorFocusRegion.COMMAND_STRIP,
+                    EditorFocusRegion.TOOLBAR
+            };
+        };
     }
 
     private static boolean isBlockCellInBounds(Block block, int x, int y) {

@@ -47,13 +47,19 @@ import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
 class TestLevelEditorController {
 
     @Test
-    void controller_defaultsToWorldCanvasFocusRegionAndCyclesBetweenWorldRegions() {
+    void controller_defaultsToWorldCanvasFocusRegionAndCyclesThroughConcreteWorldRegions() {
         LevelEditorController controller = new LevelEditorController();
 
         assertEquals(EditorFocusRegion.WORLD_CANVAS, controller.focusRegion());
 
         controller.cycleFocusRegion();
-        assertEquals(EditorFocusRegion.LIBRARY, controller.focusRegion());
+        assertEquals(EditorFocusRegion.BLOCK_PANE, controller.focusRegion());
+
+        controller.cycleFocusRegion();
+        assertEquals(EditorFocusRegion.COMMAND_STRIP, controller.focusRegion());
+
+        controller.cycleFocusRegion();
+        assertEquals(EditorFocusRegion.TOOLBAR, controller.focusRegion());
 
         controller.cycleFocusRegion();
         assertEquals(EditorFocusRegion.WORLD_CANVAS, controller.focusRegion());
@@ -157,6 +163,26 @@ class TestLevelEditorController {
 
         assertEquals(1, Byte.toUnsignedInt(level.getMap().getValue(0, 1, 1)));
         assertEquals(10, level.getBlock(2).getChunkDesc(1, 1).getChunkIndex());
+    }
+
+    @Test
+    void controller_performEyedropInBlockDepthSelectsChunkFromActiveBlockCell() {
+        MutableLevel level = createMutableLevelWithChunkCount(2, 2, 2, 3, 12);
+        level.setChunkInBlock(1, 0, 0, new ChunkDesc(4));
+        level.setChunkInBlock(1, 1, 1, new ChunkDesc(7));
+        LevelEditorController controller = new LevelEditorController();
+        controller.attachLevel(level);
+
+        controller.selectBlock(1);
+        controller.descend();
+        controller.moveActiveSelection(1, 1);
+
+        controller.performEyedrop();
+
+        assertEquals(1, controller.selection().selectedBlock());
+        assertEquals(7, controller.selection().selectedChunk());
+        assertEquals(EditorHierarchyDepth.BLOCK, controller.depth());
+        assertEquals(EditorFocusRegion.BLOCK_PANE, controller.focusRegion());
     }
 
     @Test
@@ -360,20 +386,51 @@ class TestLevelEditorController {
     }
 
     @Test
-    void controller_focusRegionCyclesWithinFocusedPaneWhenNotInWorldDepth() {
+    void controller_focusRegionCyclesThroughConcreteBlockDepthRegions() {
         MutableLevel level = createMutableLevel(4, 3, 2, 3);
         LevelEditorController controller = new LevelEditorController();
         controller.attachLevel(level);
         controller.selectBlock(7);
         controller.descend();
 
-        assertEquals(EditorFocusRegion.FOCUSED_PANE, controller.focusRegion());
+        assertEquals(EditorFocusRegion.BLOCK_PANE, controller.focusRegion());
 
         controller.cycleFocusRegion();
-        assertEquals(EditorFocusRegion.LIBRARY, controller.focusRegion());
+        assertEquals(EditorFocusRegion.CHUNK_PANE, controller.focusRegion());
 
         controller.cycleFocusRegion();
-        assertEquals(EditorFocusRegion.FOCUSED_PANE, controller.focusRegion());
+        assertEquals(EditorFocusRegion.COMMAND_STRIP, controller.focusRegion());
+
+        controller.cycleFocusRegion();
+        assertEquals(EditorFocusRegion.TOOLBAR, controller.focusRegion());
+
+        controller.cycleFocusRegion();
+        assertEquals(EditorFocusRegion.BLOCK_PANE, controller.focusRegion());
+    }
+
+    @Test
+    void controller_focusRegionCyclesThroughConcreteChunkDepthRegions() {
+        MutableLevel level = createMutableLevel(4, 3, 2, 3);
+        LevelEditorController controller = new LevelEditorController();
+        controller.attachLevel(level);
+        controller.selectBlock(7);
+        controller.descend();
+        controller.selectChunk(0);
+        controller.descend();
+
+        assertEquals(EditorFocusRegion.CHUNK_PANE, controller.focusRegion());
+
+        controller.cycleFocusRegion();
+        assertEquals(EditorFocusRegion.PATTERN_PANE, controller.focusRegion());
+
+        controller.cycleFocusRegion();
+        assertEquals(EditorFocusRegion.COMMAND_STRIP, controller.focusRegion());
+
+        controller.cycleFocusRegion();
+        assertEquals(EditorFocusRegion.TOOLBAR, controller.focusRegion());
+
+        controller.cycleFocusRegion();
+        assertEquals(EditorFocusRegion.CHUNK_PANE, controller.focusRegion());
     }
 
     @Test
@@ -451,7 +508,7 @@ class TestLevelEditorController {
         input.handleKeyEvent(GLFW_KEY_TAB, GLFW_PRESS);
         handler.update(input);
 
-        assertEquals(EditorFocusRegion.LIBRARY, controller.focusRegion());
+        assertEquals(EditorFocusRegion.BLOCK_PANE, controller.focusRegion());
     }
 
     @Test
