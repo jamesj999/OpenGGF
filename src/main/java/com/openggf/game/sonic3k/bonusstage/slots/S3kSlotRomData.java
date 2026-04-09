@@ -5,6 +5,8 @@ public final class S3kSlotRomData {
     public static final short SLOT_BONUS_PLAYER_START_Y = 0x0360;
     public static final short SLOT_BONUS_CAGE_CENTER_X = 0x0460;
     public static final short SLOT_BONUS_CAGE_CENTER_Y = 0x0430;
+    public static final int SLOT_MACHINE_DISPLAY_OFFSET_X = -24;
+    public static final int SLOT_MACHINE_DISPLAY_OFFSET_Y = -16;
     public static final int TRANSIENT_SLOT_COUNT = 0x20;
     public static final int SLOT_LAYOUT_SIZE = 0x20;
     public static final int SLOT_EXPANDED_STRIDE = 0x80;
@@ -67,6 +69,17 @@ public final class S3kSlotRomData {
     public static final int BUMPER_BOUNCE_DELAY = 1;
     public static final byte[] SPIKE_ANIMATION_FRAMES = {0x0C, 0x06, 0x0C};
     public static final int SPIKE_ANIMATION_DELAY = 7;
+    public static final byte[] SLOT_WALL_COLOR_FRAMES = {
+            0x0D, 0x0E, 0x0F,
+            0x0D, 0x0E, 0x0F,
+            0x0D, 0x0E, 0x0F,
+            0x0D, 0x0E, 0x0F,
+            0x0D, 0x0E, 0x0F,
+            0x0D, 0x0E, 0x0F,
+            0x0D, 0x0E, 0x0F,
+            0x0D, 0x0E, 0x0F
+    };
+    public static final int SLOT_WALL_COLOR_DELAY = 1;
 
     private S3kSlotRomData() {
     }
