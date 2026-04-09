@@ -6,7 +6,6 @@ import com.openggf.game.CanonicalAnimation;
 import com.openggf.game.CollisionModel;
 import com.openggf.game.CrossGameFeatureProvider;
 import com.openggf.game.GameModule;
-import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
 import com.openggf.game.InstaShieldHandle;
 import com.openggf.game.PhysicsFeatureSet;
@@ -752,30 +751,31 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         public final Camera currentCamera() {
-                return requireRuntime("currentCamera").getCamera();
+                var runtime = RuntimeManager.getActiveRuntime();
+                return runtime != null ? runtime.getCamera() : Camera.getInstance();
         }
 
         public final LevelManager currentLevelManager() {
-                return requireRuntime("currentLevelManager").getLevelManager();
+                var runtime = RuntimeManager.getActiveRuntime();
+                return runtime != null ? runtime.getLevelManager() : LevelManager.getInstance();
         }
 
         public final LevelManager currentLevelManagerIfAvailable() {
-                var runtime = RuntimeManager.getCurrent();
-                return runtime != null ? runtime.getLevelManager() : null;
+                return currentLevelManager();
         }
 
         public final GameModule currentGameModule() {
-                LevelManager levelManager = currentLevelManager();
+                var runtime = RuntimeManager.getActiveRuntime();
+                LevelManager levelManager = runtime != null ? runtime.getLevelManager() : null;
                 if (levelManager != null && levelManager.getGameModule() != null) {
                         return levelManager.getGameModule();
                 }
-                var runtime = RuntimeManager.getCurrent();
-                return runtime != null ? runtime.getWorldSession().getGameModule() : null;
+                return RuntimeManager.resolveBootstrapGameModule();
         }
 
         public final int resolveAnimationId(CanonicalAnimation animation) {
                 refreshRuntimeBoundStateIfNeeded();
-                GameModule module = bootstrapSafeGameModule();
+                GameModule module = currentGameModule();
                 return module != null ? module.resolveAnimationId(animation) : -1;
         }
 
@@ -785,21 +785,24 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         public final TimerManager currentTimerManager() {
-                return requireRuntime("currentTimerManager").getTimers();
+                var runtime = RuntimeManager.getActiveRuntime();
+                return runtime != null ? runtime.getTimers() : TimerManager.getInstance();
         }
 
         public final GameStateManager currentGameState() {
-                if (bootstrapInitializing) {
+                var runtime = RuntimeManager.getActiveRuntime();
+                if (bootstrapInitializing || runtime == null) {
                         return GameStateManager.getInstance();
                 }
-                return requireRuntime("currentGameState").getGameState();
+                return runtime.getGameState();
         }
 
         public final CollisionSystem currentCollisionSystem() {
-                if (bootstrapInitializing) {
+                var runtime = RuntimeManager.getActiveRuntime();
+                if (bootstrapInitializing || runtime == null) {
                         return CollisionSystem.getInstance();
                 }
-                return requireRuntime("currentCollisionSystem").getCollisionSystem();
+                return runtime.getCollisionSystem();
         }
 
         public final AudioManager currentAudioManager() {
@@ -807,7 +810,8 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         public final WaterSystem currentWaterSystem() {
-                return requireRuntime("currentWaterSystem").getWaterSystem();
+                var runtime = RuntimeManager.getActiveRuntime();
+                return runtime != null ? runtime.getWaterSystem() : WaterSystem.getInstance();
         }
 
         /**
@@ -2159,7 +2163,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         private void refreshRuntimeBoundStateIfNeeded() {
-                GameModule module = bootstrapSafeGameModule();
+                GameModule module = currentGameModule();
                 if (module == null || module == runtimeBoundStateModule) {
                         return;
                 }
@@ -2167,17 +2171,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         private GameModule bootstrapSafeGameModule() {
-                var runtime = RuntimeManager.getCurrent();
-                if (runtime != null) {
-                        LevelManager levelManager = runtime.getLevelManager();
-                        if (levelManager != null && levelManager.getGameModule() != null) {
-                                return levelManager.getGameModule();
-                        }
-                        if (runtime.getWorldSession() != null && runtime.getWorldSession().getGameModule() != null) {
-                                return runtime.getWorldSession().getGameModule();
-                        }
-                }
-                return GameModuleRegistry.getCurrent();
+                return RuntimeManager.resolveBootstrapGameModule();
         }
 
         /**

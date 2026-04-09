@@ -24,7 +24,9 @@ public class KnucklesRespawnStrategy implements SidekickRespawnStrategy {
 
     public KnucklesRespawnStrategy(SidekickCpuController controller) {
         // controller not currently used; accepted for API consistency with other strategies
-        this.glideAnimId = controller.resolveAnimationId(CanonicalAnimation.GLIDE_DROP);
+        this.glideAnimId = controller != null
+                ? controller.resolveAnimationId(CanonicalAnimation.GLIDE_DROP)
+                : -1;
     }
 
     @Override

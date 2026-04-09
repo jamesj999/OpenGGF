@@ -56,6 +56,22 @@ public final class RuntimeManager {
     }
 
     /**
+     * Returns the currently active runtime without creating or rebinding one.
+     */
+    public static synchronized GameRuntime getActiveRuntime() {
+        return current;
+    }
+
+    /**
+     * Resolves the bootstrap/default gameplay module without creating or consulting
+     * a runtime. This preserves registry-driven construction paths used before a
+     * sprite is attached to gameplay state.
+     */
+    public static synchronized GameModule resolveBootstrapGameModule() {
+        return GameModuleRegistry.getCurrent();
+    }
+
+    /**
      * Sets the current runtime. Package-private for testing;
      * production code should use {@link #createGameplay()}.
      */
@@ -164,5 +180,19 @@ public final class RuntimeManager {
         if (parked != replacement) {
             parked = null;
         }
+    }
+
+    private static GameModule resolveModuleFromRuntime(GameRuntime runtime) {
+        if (runtime == null) {
+            return null;
+        }
+        LevelManager levelManager = runtime.getLevelManager();
+        if (levelManager != null && levelManager.getGameModule() != null) {
+            return levelManager.getGameModule();
+        }
+        if (runtime.getWorldSession() != null && runtime.getWorldSession().getGameModule() != null) {
+            return runtime.getWorldSession().getGameModule();
+        }
+        return null;
     }
 }
