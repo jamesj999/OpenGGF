@@ -252,6 +252,18 @@ public class Sonic3kConstants {
     public static final int MAP_HCZ_FLOATING_PLATFORM_ADDR = 0x25688; // Map_HCZFloatingPlatform (2 frames, 2/1 pieces)
     public static final int MAP_HCZ_WAVE_SPLASH_ADDR = 0x01F2CE;     // Map_HCZWaveSplash (7 frames, S&K side)
     public static final int ART_NEM_HCZ_WAVE_SPLASH_ADDR = 0x38FBB4; // ArtNem_HCZWaveSplash (Nemesis, 16 tiles)
+
+    // ===== HCZ Water Skim splash (Obj_HCZWaterSplash subtype 1, sonic3k.asm:75247) =====
+    // ArtUnc_HCZWaterSplash2: uncompressed, 1920 bytes (60 tiles), 5 frames × 12 tiles
+    public static final int ART_UNC_HCZ_WATER_SPLASH2_ADDR = 0x392394;
+    public static final int ART_UNC_HCZ_WATER_SPLASH2_SIZE = 1920;
+    // ArtUnc_HCZWaterSplash: uncompressed, 3072 bytes (96 tiles), 4 frames × 24 tiles (subtype 0, not used here)
+    public static final int ART_UNC_HCZ_WATER_SPLASH_ADDR = 0x392B14;
+    public static final int ART_UNC_HCZ_WATER_SPLASH_SIZE = 3072;
+    // VRAM tile indices from sonic3k.constants.asm
+    public static final int ARTTILE_HCZ1_WATER_SPLASH2 = 0x0344;
+    public static final int ARTTILE_HCZ2_WATER_SPLASH2 = 0x036E;
+    public static final int ARTTILE_HCZ_WATER_SPLASH = 0x03B2;
     public static final int MAP_MGZ_FLOATING_PLATFORM_ADDR = 0x25654; // Map_MGZFloatingPlatform (1 frame, 8 pieces)
 
     // ===== ArtTile constants from sonic3k.constants.asm =====
