@@ -1,6 +1,8 @@
 package com.openggf.editor;
 
 import com.openggf.editor.commands.PlaceBlockCommand;
+import com.openggf.level.Block;
+import com.openggf.level.Chunk;
 import com.openggf.level.MutableLevel;
 import com.openggf.game.session.EditorCursorState;
 
@@ -59,6 +61,35 @@ public final class LevelEditorController {
             throw new IllegalStateException("Cannot select a chunk without a selected block");
         }
         selection = new EditorSelectionState(selection.selectedBlock(), chunkIndex);
+    }
+
+    public Block selectedBlockPreview() {
+        Integer selectedBlock = selection.selectedBlock();
+        if (selectedBlock == null) {
+            return null;
+        }
+        MutableLevel attachedLevel = requireLevel();
+        if (selectedBlock < 0 || selectedBlock >= attachedLevel.getBlockCount()) {
+            return null;
+        }
+        return attachedLevel.getBlock(selectedBlock);
+    }
+
+    public Chunk selectedBlockCellPreview() {
+        Block block = selectedBlockPreview();
+        if (block == null) {
+            return null;
+        }
+        if (selectedBlockCellX < 0 || selectedBlockCellX >= block.getGridSide()
+                || selectedBlockCellY < 0 || selectedBlockCellY >= block.getGridSide()) {
+            return null;
+        }
+        int chunkIndex = block.getChunkDesc(selectedBlockCellX, selectedBlockCellY).getChunkIndex();
+        MutableLevel attachedLevel = requireLevel();
+        if (chunkIndex < 0 || chunkIndex >= attachedLevel.getChunkCount()) {
+            return null;
+        }
+        return attachedLevel.getChunk(chunkIndex);
     }
 
     public void descend() {

@@ -1,6 +1,7 @@
 package com.openggf.editor.render;
 
 import com.openggf.editor.EditorHierarchyDepth;
+import com.openggf.editor.LevelEditorController;
 
 import java.util.Objects;
 
@@ -14,6 +15,11 @@ public final class EditorOverlayRenderer {
     public EditorOverlayRenderer() {
         this(new EditorToolbarRenderer(), new EditorCommandStripRenderer(),
                 new EditorWorldOverlayRenderer(), new FocusedEditorPaneRenderer());
+    }
+
+    public EditorOverlayRenderer(LevelEditorController controller) {
+        this(new EditorToolbarRenderer(), new EditorCommandStripRenderer(),
+                new EditorWorldOverlayRenderer(), new FocusedEditorPaneRenderer(controller));
     }
 
     public EditorOverlayRenderer(EditorToolbarRenderer toolbar,
