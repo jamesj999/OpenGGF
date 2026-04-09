@@ -12,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class TestEditorModeContextLifecycle {
 
@@ -95,14 +96,30 @@ class TestEditorModeContextLifecycle {
     }
 
     @Test
-    void editorModeContext_cursorCanBeUpdatedAfterEntry() {
-        WorldSession world = new WorldSession(new Sonic2GameModule());
-        EditorModeContext editor = new EditorModeContext(world, new EditorCursorState(320, 640), null);
+    void editorModeContext_cursorCanBeUpdatedThroughSessionResumeFlow() {
+        SessionManager.openGameplaySession(new Sonic2GameModule());
+        EditorPlaytestStash stash = new EditorPlaytestStash(
+                100, 200, 0x0400, -0x0080, true, 53, 2);
+        EditorModeContext editor = SessionManager.enterEditorMode(new EditorCursorState(320, 640), stash);
 
         editor.setCursor(new EditorCursorState(400, 768));
 
-        assertEquals(400, editor.getCursor().x());
-        assertEquals(768, editor.getCursor().y());
+        GameplayModeContext gameplay = SessionManager.resumeGameplayFromEditor();
+
+        assertNotNull(gameplay);
+        assertSame(editor.getWorldSession(), gameplay.getWorldSession());
+        assertEquals(400, gameplay.getSpawnX());
+        assertEquals(768, gameplay.getSpawnY());
+        assertTrue(gameplay.hasResumeStash());
+        assertSame(stash, gameplay.getResumeStash().orElseThrow());
+    }
+
+    @Test
+    void editorModeContext_rejectsNullCursorUpdates() {
+        WorldSession world = new WorldSession(new Sonic2GameModule());
+        EditorModeContext editor = new EditorModeContext(world, new EditorCursorState(320, 640), null);
+
+        assertThrows(NullPointerException.class, () -> editor.setCursor(null));
     }
 
     @Test
