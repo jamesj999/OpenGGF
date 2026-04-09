@@ -245,6 +245,12 @@ public final class Sonic3kObjectArtKeys {
     public static final String ANIM_STILL_LRZ2 = "anim_still_lrz2";       // base 0x40D
     public static final String ANIM_STILL_SOZ = "anim_still_soz";         // base 0x40F
 
+    // Door (Object 0x3C) - shared level-art across HCZ, CNZ, DEZ
+    public static final String DOOR_VERTICAL_HCZ = "door_vertical_hcz";   // ArtTile_HCZMisc+$0A, Map_HCZCNZDEZDoor
+    public static final String DOOR_VERTICAL_CNZ = "door_vertical_cnz";   // ArtTile_CNZMisc+$C5, Map_HCZCNZDEZDoor
+    public static final String DOOR_VERTICAL_DEZ = "door_vertical_dez";   // ArtTile_DEZMisc+$1E, Map_HCZCNZDEZDoor
+    public static final String DOOR_HORIZONTAL = "door_horizontal";        // ArtTile_CNZMisc+$C5, Map_CNZDoorHorizontal
+
     private Sonic3kObjectArtKeys() {
     }
 }

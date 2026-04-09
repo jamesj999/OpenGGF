@@ -187,6 +187,8 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                     }
                     return new HCZBlockObjectInstance(spawn);
                 });
+        factories.put(0x3C,
+                (spawn, registry) -> new DoorObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.STILL_SPRITE,
                 (spawn, registry) -> new StillSpriteInstance(spawn));
         factories.put(Sonic3kObjectIds.ANIMATED_STILL_SPRITE,

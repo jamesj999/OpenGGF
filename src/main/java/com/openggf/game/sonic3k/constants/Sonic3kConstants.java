@@ -274,6 +274,7 @@ public class Sonic3kConstants {
     public static final int ARTTILE_ICZ_MISC1 = 0x03B6;
     public static final int ARTTILE_LBZ_MISC = 0x03C3;
     public static final int ARTTILE_FBZ_MISC = 0x0379;
+    public static final int ARTTILE_DEZ_MISC = 0x034D;
 
     // ===== HUD Art =====
     // ArtUnc_HUDDigits - Score/Time/Ring digits (0-9, colon, E)

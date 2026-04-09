@@ -949,6 +949,10 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
             case "buildDisappearingFloorSheet" -> art.buildDisappearingFloorSheet();
             case "buildDisappearingFloorBorderSheet" -> art.buildDisappearingFloorBorderSheet();
             case "buildHczWaterRushBlockSheet" -> art.buildHczWaterRushBlockSheet();
+            case "buildDoorVerticalHczSheet" -> art.buildDoorVerticalHczSheet();
+            case "buildDoorVerticalCnzSheet" -> art.buildDoorVerticalCnzSheet();
+            case "buildDoorVerticalDezSheet" -> art.buildDoorVerticalDezSheet();
+            case "buildDoorHorizontalSheet" -> art.buildDoorHorizontalSheet();
             default -> {
                 LOG.warning("Unknown builder: " + builderName);
                 yield null;
