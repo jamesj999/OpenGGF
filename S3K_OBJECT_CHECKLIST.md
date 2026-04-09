@@ -281,7 +281,7 @@ Generated: 2026-04-08 17:47:01
 | 0x16 | Object | LRZWallRide | 2 |  | LRZ1, LRZ2 |
 | 0x1D | Object | LRZShootingTrigger | 2 |  | LRZ1 |
 | 0x9C | Boss | LRZRockCrusher | 2 |  | LRZ1 |
-| 0x99 | Boss | HCZMiniboss | 1 |  | HCZ1 |
+| 0x99 | Boss | HCZMiniboss | 1 | ✅ | HCZ1 |
 | 0x9F | Boss | MGZMiniboss | 1 |  | MGZ1 |
 | 0xA2 | Boss | MGZEndBossKnux | 1 |  | MGZ2 |
 | 0xA6 | Boss | CNZMiniboss | 1 |  | CNZ1 |
@@ -415,7 +415,7 @@ Total: 383 objects | Implemented: 29 | Unimplemented: 1
 - [x] 0x98 Poindexter (x29) [0x20]
 
 **Bosses:**
-- [ ] 0x99 HCZMiniboss (x1) [0x00]
+- [x] 0x99 HCZMiniboss (x1) [0x00]
 
 **Objects:**
 - [x] 0x01 Monitor (x22) [5 subtypes]
