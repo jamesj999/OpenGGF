@@ -42,8 +42,10 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_F5;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_DOWN;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_E;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_SHIFT;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_SPACE;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_TAB;
 import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
 import static org.lwjgl.glfw.GLFW.GLFW_RELEASE;
@@ -510,6 +512,88 @@ class TestEditorToggleIntegration {
         assertSame(stash, SessionManager.getCurrentGameplayMode().getResumeStash().orElseThrow());
     }
 
+    @Test
+    void editorMvpFlow_shiftTabMoveEyedropApplyResumeAndFreshStartRemainConnected() {
+        enableEditor();
+        Engine engine = new Engine();
+        Sonic player = new Sonic("sonic", (short) 0, (short) 0);
+        player.setCentreX((short) 1);
+        player.setCentreY((short) 1);
+        GameRuntime runtime = createGameplayRuntime(engine, player);
+        MutableLevel level = MutableLevel.snapshot(new EditorMvpFlowLevel());
+        runtime.getLevelManager().setLevel(level);
+        runtime.getCamera().setMinX((short) 0);
+        runtime.getCamera().setMaxX((short) 7);
+        runtime.getCamera().setMinY((short) 0);
+        runtime.getCamera().setMaxY((short) 7);
+        InputHandler inputHandler = new InputHandler();
+        engine.setInputHandler(inputHandler);
+
+        inputHandler.handleKeyEvent(GLFW_KEY_LEFT_SHIFT, GLFW_PRESS);
+        inputHandler.handleKeyEvent(GLFW_KEY_TAB, GLFW_PRESS);
+        engine.getGameLoop().step();
+
+        assertEquals(GameMode.EDITOR, engine.getCurrentGameMode());
+        assertEquals(new EditorCursorState(1, 1), engine.getLevelEditorController().worldCursor());
+
+        releaseAndAdvance(inputHandler, GLFW_KEY_TAB);
+        releaseAndAdvance(inputHandler, GLFW_KEY_LEFT_SHIFT);
+        inputHandler.handleKeyEvent(GLFW_KEY_RIGHT, GLFW_PRESS);
+        inputHandler.handleKeyEvent(GLFW_KEY_DOWN, GLFW_PRESS);
+        engine.getGameLoop().step();
+        releaseAndAdvance(inputHandler, GLFW_KEY_RIGHT);
+        releaseAndAdvance(inputHandler, GLFW_KEY_DOWN);
+
+        assertEquals(new EditorCursorState(4, 4), engine.getLevelEditorController().worldCursor());
+
+        inputHandler.handleKeyEvent(GLFW_KEY_E, GLFW_PRESS);
+        engine.getGameLoop().step();
+        releaseAndAdvance(inputHandler, GLFW_KEY_E);
+
+        assertEquals(1, engine.getLevelEditorController().selection().selectedBlock());
+
+        inputHandler.handleKeyEvent(GLFW_KEY_RIGHT, GLFW_PRESS);
+        inputHandler.handleKeyEvent(GLFW_KEY_DOWN, GLFW_PRESS);
+        engine.getGameLoop().step();
+        releaseAndAdvance(inputHandler, GLFW_KEY_RIGHT);
+        releaseAndAdvance(inputHandler, GLFW_KEY_DOWN);
+
+        inputHandler.handleKeyEvent(GLFW_KEY_SPACE, GLFW_PRESS);
+        engine.getGameLoop().step();
+        releaseAndAdvance(inputHandler, GLFW_KEY_SPACE);
+
+        assertEquals(new EditorCursorState(7, 7), engine.getLevelEditorController().worldCursor());
+        assertEquals(1, Byte.toUnsignedInt(level.getMap().getValue(0, 7, 7)));
+
+        inputHandler.handleKeyEvent(GLFW_KEY_LEFT_SHIFT, GLFW_PRESS);
+        inputHandler.handleKeyEvent(GLFW_KEY_TAB, GLFW_PRESS);
+        engine.getGameLoop().step();
+
+        assertEquals(GameMode.LEVEL, engine.getCurrentGameMode());
+        assertSame(runtime, RuntimeManager.getCurrent());
+        assertEquals(7, SessionManager.getCurrentGameplayMode().getSpawnX());
+        assertEquals(7, SessionManager.getCurrentGameplayMode().getSpawnY());
+        assertEquals(7, player.getCentreX());
+        assertEquals(7, player.getCentreY());
+        assertTrue(SessionManager.getCurrentGameplayMode().getResumeStash().isPresent());
+
+        releaseAndAdvance(inputHandler, GLFW_KEY_TAB);
+        releaseAndAdvance(inputHandler, GLFW_KEY_LEFT_SHIFT);
+        inputHandler.handleKeyEvent(GLFW_KEY_LEFT_SHIFT, GLFW_PRESS);
+        inputHandler.handleKeyEvent(GLFW_KEY_TAB, GLFW_PRESS);
+        engine.getGameLoop().step();
+        releaseAndAdvance(inputHandler, GLFW_KEY_TAB);
+        releaseAndAdvance(inputHandler, GLFW_KEY_LEFT_SHIFT);
+        inputHandler.handleKeyEvent(GLFW_KEY_F5, GLFW_PRESS);
+        engine.getGameLoop().step();
+
+        assertEquals(GameMode.LEVEL, engine.getCurrentGameMode());
+        assertNotSame(runtime, RuntimeManager.getCurrent());
+        assertEquals(0, SessionManager.getCurrentGameplayMode().getSpawnX());
+        assertEquals(0, SessionManager.getCurrentGameplayMode().getSpawnY());
+        assertTrue(SessionManager.getCurrentGameplayMode().getResumeStash().isEmpty());
+    }
+
     private static GameRuntime createGameplayRuntime(Engine engine) {
         Sonic player = new Sonic("sonic", (short) 100, (short) 200);
         return createGameplayRuntime(engine, player);
@@ -523,6 +607,11 @@ class TestEditorToggleIntegration {
         runtime.getCamera().setFocusedSprite(player);
         engine.getGameLoop().setRuntime(runtime);
         return runtime;
+    }
+
+    private static void releaseAndAdvance(InputHandler inputHandler, int key) {
+        inputHandler.handleKeyEvent(key, GLFW_RELEASE);
+        inputHandler.update();
     }
 
     private static void invokeSetCurrent(GameRuntime runtime) throws Exception {
@@ -540,6 +629,54 @@ class TestEditorToggleIntegration {
     private static void enableEditor() {
         SonicConfigurationService.getInstance().setConfigValue(SonicConfiguration.EDITOR_ENABLED, true);
         assertTrue(SonicConfigurationService.getInstance().getBoolean(SonicConfiguration.EDITOR_ENABLED));
+    }
+
+    private static final class EditorMvpFlowLevel extends AbstractLevel {
+        private EditorMvpFlowLevel() {
+            super(0);
+            patternCount = 1;
+            patterns = new Pattern[] { new Pattern() };
+
+            chunkCount = 1;
+            chunks = new Chunk[] { new Chunk() };
+
+            blockCount = 2;
+            blocks = new Block[blockCount];
+            for (int i = 0; i < blockCount; i++) {
+                blocks[i] = new Block(1);
+                blocks[i].setChunkDesc(0, 0, new ChunkDesc(0));
+            }
+
+            solidTileCount = 1;
+            solidTiles = new SolidTile[] {
+                    new SolidTile(0, new byte[SolidTile.TILE_SIZE_IN_ROM], new byte[SolidTile.TILE_SIZE_IN_ROM], (byte) 0)
+            };
+
+            map = new Map(2, 8, 8);
+            map.setValue(0, 4, 4, (byte) 1);
+
+            palettes = new Palette[PALETTE_COUNT];
+            for (int i = 0; i < PALETTE_COUNT; i++) {
+                palettes[i] = new Palette();
+            }
+
+            objects = List.of();
+            rings = List.of();
+            minX = 0;
+            maxX = 7;
+            minY = 0;
+            maxY = 7;
+        }
+
+        @Override
+        public int getChunksPerBlockSide() {
+            return 1;
+        }
+
+        @Override
+        public int getBlockPixelSize() {
+            return 1;
+        }
     }
 
     private static final class SyntheticLevel extends AbstractLevel {
