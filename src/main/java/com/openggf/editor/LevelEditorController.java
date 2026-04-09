@@ -177,13 +177,11 @@ public final class LevelEditorController {
         if (attachedLevel == null) {
             return;
         }
-        int blockPixelSize = attachedLevel.getBlockPixelSize();
-        if (blockPixelSize <= 0) {
+        WorldMapPosition mapPosition = resolveWorldMapPosition(attachedLevel);
+        if (mapPosition == null) {
             return;
         }
-        int mapX = clamp(worldCursor.x() / blockPixelSize, 0, attachedLevel.getMap().getWidth() - 1);
-        int mapY = clamp(worldCursor.y() / blockPixelSize, 0, attachedLevel.getMap().getHeight() - 1);
-        placeBlock(0, mapX, mapY, selectedBlock);
+        placeBlock(0, mapPosition.mapX(), mapPosition.mapY(), selectedBlock);
     }
 
     public void performEyedrop() {
@@ -194,13 +192,11 @@ public final class LevelEditorController {
         if (attachedLevel == null) {
             return;
         }
-        int blockPixelSize = attachedLevel.getBlockPixelSize();
-        if (blockPixelSize <= 0) {
+        WorldMapPosition mapPosition = resolveWorldMapPosition(attachedLevel);
+        if (mapPosition == null) {
             return;
         }
-        int mapX = clamp(worldCursor.x() / blockPixelSize, 0, attachedLevel.getMap().getWidth() - 1);
-        int mapY = clamp(worldCursor.y() / blockPixelSize, 0, attachedLevel.getMap().getHeight() - 1);
-        int blockIndex = Byte.toUnsignedInt(attachedLevel.getMap().getValue(0, mapX, mapY));
+        int blockIndex = Byte.toUnsignedInt(attachedLevel.getMap().getValue(0, mapPosition.mapX(), mapPosition.mapY()));
         selectBlock(blockIndex);
     }
 
@@ -256,10 +252,6 @@ public final class LevelEditorController {
         return selectedChunkCellY;
     }
 
-    public MutableLevel attachedLevel() {
-        return level;
-    }
-
     public EditorSelectionState selection() {
         return selection;
     }
@@ -295,6 +287,23 @@ public final class LevelEditorController {
         return new EditorCursorState(clamp(x, minX, maxX), clamp(y, minY, maxY));
     }
 
+    private WorldMapPosition resolveWorldMapPosition(MutableLevel attachedLevel) {
+        int blockPixelSize = attachedLevel.getBlockPixelSize();
+        if (blockPixelSize <= 0) {
+            return null;
+        }
+        int mapX = worldCursor.x() - attachedLevel.getMinX();
+        int mapY = worldCursor.y() - attachedLevel.getMinY();
+        int mapWidth = attachedLevel.getMap().getWidth();
+        int mapHeight = attachedLevel.getMap().getHeight();
+        if (mapWidth <= 0 || mapHeight <= 0) {
+            return null;
+        }
+        mapX = clamp(mapX / blockPixelSize, 0, mapWidth - 1);
+        mapY = clamp(mapY / blockPixelSize, 0, mapHeight - 1);
+        return new WorldMapPosition(mapX, mapY);
+    }
+
     private int activeGridSide() {
         if (depth == EditorHierarchyDepth.BLOCK) {
             return blockGridSide;
@@ -310,5 +319,8 @@ public final class LevelEditorController {
             throw new IllegalStateException("No MutableLevel is attached to the editor controller");
         }
         return level;
+    }
+
+    private record WorldMapPosition(int mapX, int mapY) {
     }
 }
