@@ -3,7 +3,9 @@ package com.openggf.editor;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TestEditorHistory {
 
@@ -24,10 +26,18 @@ class TestEditorHistory {
             }
         });
 
-        history.undo();
-        history.redo();
+        assertTrue(history.undo());
+        assertTrue(history.redo());
 
         assertEquals("AUA", log.toString());
+    }
+
+    @Test
+    void history_undoRedoReturnFalseWhenNoCommandRuns() {
+        EditorHistory history = new EditorHistory();
+
+        assertFalse(history.undo());
+        assertFalse(history.redo());
     }
 
     @Test

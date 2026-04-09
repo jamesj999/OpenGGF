@@ -15,26 +15,28 @@ public final class EditorHistory {
         redoStack.clear();
     }
 
-    public void undo() {
+    public boolean undo() {
         if (undoStack.isEmpty()) {
-            return;
+            return false;
         }
 
         EditorCommand command = undoStack.peek();
         command.undo();
         undoStack.pop();
         redoStack.push(command);
+        return true;
     }
 
-    public void redo() {
+    public boolean redo() {
         if (redoStack.isEmpty()) {
-            return;
+            return false;
         }
 
         EditorCommand command = redoStack.peek();
         command.apply();
         redoStack.pop();
         undoStack.push(command);
+        return true;
     }
 
     public void clear() {
