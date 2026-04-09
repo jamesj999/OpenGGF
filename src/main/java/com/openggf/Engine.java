@@ -424,6 +424,9 @@ public class Engine {
 	}
 
 	public void enterEditorFromCurrentPlayer(EditorPlaytestStash stash, int playerX, int playerY) {
+		if (!isEditorEnabled()) {
+			throw new IllegalStateException("Level editor is disabled by configuration.");
+		}
 		ensureRuntimeBound();
 		prepareMutableEditorLevel();
 		primeEditorSelection(playerX, playerY);
@@ -571,12 +574,19 @@ public class Engine {
 		if (getCurrentGameMode() != GameMode.LEVEL) {
 			return;
 		}
+		if (!isEditorEnabled()) {
+			return;
+		}
 		AbstractPlayableSprite player = resolveMainPlayableSprite();
 		if (player == null) {
 			return;
 		}
 		EditorPlaytestStash stash = capturePlaytestStash(player);
 		enterEditorFromCurrentPlayer(stash, player.getCentreX(), player.getCentreY());
+	}
+
+	private boolean isEditorEnabled() {
+		return configService.getBoolean(SonicConfiguration.EDITOR_ENABLED);
 	}
 
 	private void bindRuntime(com.openggf.game.GameRuntime runtime) {

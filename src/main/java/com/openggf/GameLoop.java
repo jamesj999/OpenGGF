@@ -314,7 +314,9 @@ public class GameLoop {
         }
 
         if (!isPaused()
-                && (currentGameMode == GameMode.LEVEL || currentGameMode == GameMode.EDITOR)
+                && (currentGameMode == GameMode.EDITOR
+                || (currentGameMode == GameMode.LEVEL
+                && configService.getBoolean(SonicConfiguration.EDITOR_ENABLED)))
                 && inputHandler.isKeyPressed(GLFW_KEY_TAB)
                 && (inputHandler.isKeyDown(GLFW_KEY_LEFT_SHIFT)
                 || inputHandler.isKeyDown(GLFW_KEY_RIGHT_SHIFT))
