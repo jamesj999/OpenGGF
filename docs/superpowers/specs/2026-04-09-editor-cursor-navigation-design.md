@@ -18,6 +18,8 @@ The intended MVP behavior is:
 - in `WORLD` depth, the cursor moves freely in pixels like debug mode
 - the camera follows that cursor continuously while in `WORLD`
 - descending into `BLOCK` or `CHUNK` stops free movement and switches arrow keys to composition-grid navigation
+- `BLOCK` and `CHUNK` show real focused previews of the selected block/chunk data with a visible active-cell highlight
+- world cursor movement clamps to legal level bounds so camera follow and play-test resume use the same position
 - exiting editor resumes gameplay from the current editor cursor position
 
 This keeps the editor overlay aligned with the original product expectation: a world-first,
@@ -41,6 +43,8 @@ behavior it was supposed to ship with.
 - match existing debug-mode movement semantics closely enough to feel familiar
 - make the camera follow the editor cursor during world editing
 - switch arrow-key behavior to focused composition-grid navigation in `BLOCK` and `CHUNK`
+- render actual block and chunk previews in focused panes rather than placeholder frames
+- clamp world cursor movement to legal level bounds
 - keep the editor cursor as the source of truth for play-test resume position
 - preserve the existing runtime/session architecture rather than reintroducing a singleton editor root
 
@@ -51,6 +55,7 @@ behavior it was supposed to ship with.
 - no save/load pipeline
 - no mouse-driven editing in this change
 - no attempt to finish every planned overlay visual from the broader editor MVP
+- no full object/ring/world editing UI beyond the focused preview panes required to make deeper navigation visible
 
 ## Recommended Approach
 
@@ -84,6 +89,7 @@ Reasons:
   - breadcrumb and editing history
 - `EditorInputHandler` becomes the translator from held keys into controller actions
 - `Engine` and `GameLoop` remain orchestration layers only
+- `FocusedEditorPaneRenderer` becomes the renderer for real block/chunk preview content derived from the attached `MutableLevel`
 
 ### State Model
 
@@ -91,11 +97,13 @@ The editor should distinguish two navigation shapes:
 
 - `WORLD` depth
   - cursor position is pixel-based world position
+  - cursor is clamped to editable world bounds on every move
   - camera follows cursor continuously
   - arrow keys move the cursor every frame while held
 - `BLOCK` and `CHUNK` depth
   - world cursor position is frozen
   - arrows move focused composition-grid selection
+  - focused panes render actual selected content with active-cell highlighting
   - camera no longer free-follows input
 
 This gives the world-edit flow the freedom the user expects, while keeping deeper editing layers
@@ -111,6 +119,7 @@ Behavior:
 - movement uses a fixed debug-style step per frame
 - opposite directions cancel naturally by applying neither net delta nor conflicting camera shifts
 - cursor movement updates the active `EditorModeContext` cursor each frame
+- cursor position clamps immediately to legal level bounds
 - camera follows the cursor continuously
 
 The movement model should be intentionally simple. It does not use gameplay physics, terrain
@@ -122,6 +131,9 @@ Behavior:
 
 - arrow keys stop controlling the world cursor
 - arrow keys move the active cell selection within the focused composition grid
+- `BLOCK` renders the selected block's real tile/chunk composition
+- `CHUNK` renders the selected chunk's real pattern/block composition
+- the active cell is visibly highlighted in the focused pane
 - `Enter` still descends where valid
 - `Escape` still ascends
 - `Space` and `E` remain reserved for apply/eyedrop behavior as the broader editor MVP grows
@@ -136,8 +148,27 @@ In `WORLD` depth, the camera follows the editor cursor directly.
 The editor cursor should be treated as the camera anchor for editor mode. The player remains frozen
 underneath the editor overlay, but is no longer the camera focus while editing.
 
+Because the cursor itself is clamped, camera-follow logic and resume logic consume the same bounded
+position. The editor should not allow a hidden "out of bounds" cursor state that only gets corrected
+later by camera clamping or gameplay restart.
+
 In `BLOCK` and `CHUNK` depth, the camera should remain stable rather than reacting to grid
 navigation. Focus shifts to the pane-level composition surface, not to world-space travel.
+
+## Preview Rendering
+
+Focused panes must render real content from the attached level snapshot:
+
+- `BLOCK` pane
+  - renders the currently selected block as its actual composition grid
+  - each cell corresponds to the chunk/tile element stored in that block
+- `CHUNK` pane
+  - renders the currently selected chunk as its actual pattern composition grid
+  - each cell corresponds to the pattern element stored in that chunk
+
+The renderer should reuse existing level data structures and graphics primitives rather than invent
+fake preview-only data. Pane chrome can remain lightweight, but preview content must reflect the
+real selected level data so deeper navigation is visible and meaningful.
 
 ## Data Flow
 
@@ -154,14 +185,22 @@ navigation. Focus shifts to the pane-level composition surface, not to world-spa
 1. `GameLoop` routes editor-mode update into `EditorInputHandler`.
 2. `EditorInputHandler` reads held movement keys.
 3. `LevelEditorController` updates world cursor position.
-4. `EditorModeContext` cursor is kept in sync.
-5. Camera is updated from the current editor cursor.
-6. `EditorWorldOverlayRenderer` renders the cursor at that location.
+4. Controller clamps the cursor to level bounds.
+5. `EditorModeContext` cursor is kept in sync.
+6. Camera is updated from the current editor cursor.
+7. `EditorWorldOverlayRenderer` renders the cursor at that location.
+
+### Editing in BLOCK or CHUNK
+
+1. `GameLoop` routes editor-mode update into `EditorInputHandler`.
+2. `EditorInputHandler` converts held arrows into composition-grid selection movement.
+3. `LevelEditorController` updates the active focused-cell coordinates.
+4. `FocusedEditorPaneRenderer` renders the real selected block/chunk preview with the active cell highlighted.
 
 ### Exiting Editor
 
 1. Read the current synced cursor position.
-2. Resume gameplay from that position.
+2. Resume gameplay from that already-clamped position.
 3. Restore parked runtime/play-test stash behavior already implemented on the branch.
 
 ## Testing
@@ -169,10 +208,14 @@ navigation. Focus shifts to the pane-level composition surface, not to world-spa
 Required automated coverage:
 
 - controller test: `WORLD` arrow movement changes cursor position
+- controller test: `WORLD` cursor movement clamps at level bounds
 - controller test: `BLOCK` and `CHUNK` arrow movement changes composition selection instead of cursor position
 - integration test: entering editor seeds cursor from player position
 - integration test: moving cursor in editor changes resume position on play-test return
+- integration test: moving beyond bounds still resumes from the clamped cursor position
 - render smoke test: world overlay renderer builds cursor marker from the current cursor state after movement
+- render test: focused block pane output changes with selected block content and active cell
+- render test: focused chunk pane output changes with selected chunk content and active cell
 
 Tests should assert behavior, not just absence of exceptions.
 
@@ -193,6 +236,21 @@ Mitigation:
 - in editor mode, camera updates should derive from the editor cursor, not normal gameplay follow
 - tests should cover cursor-based resume and editor-mode camera expectations where practical
 
+### Risk: Deeper navigation remains invisible despite controller state
+
+Mitigation:
+
+- focused panes must render real selected content, not only pane frames
+- tests should verify pane output changes when selection and preview content change
+
+### Risk: Cursor, camera, and resume positions diverge at bounds
+
+Mitigation:
+
+- clamp cursor movement at the controller boundary
+- treat the bounded cursor as the single source of truth for world follow and resume
+- add integration coverage for out-of-bounds movement attempts
+
 ### Risk: Overreaching into unfinished editor features
 
 Mitigation:
@@ -206,7 +264,10 @@ This design is complete when:
 
 - `Shift+Tab` enters editor with a visible cursor at the current player position
 - in `WORLD`, the cursor moves freely with held arrows like debug mode
+- in `WORLD`, cursor movement clamps to legal level bounds
 - camera follows that cursor continuously in `WORLD`
 - in `BLOCK` or `CHUNK`, arrows navigate the composition grid rather than moving the world cursor
+- in `BLOCK` and `CHUNK`, the focused pane shows real preview content with a visible active-cell highlight
 - `Shift+Tab` back to gameplay resumes from the moved cursor position
+- out-of-bounds movement attempts still resume from the clamped cursor position
 - the behavior is covered by deterministic tests
