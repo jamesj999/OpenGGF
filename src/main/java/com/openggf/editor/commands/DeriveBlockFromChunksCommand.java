@@ -14,6 +14,7 @@ public final class DeriveBlockFromChunksCommand implements EditorCommand {
     private final int mapY;
     private final int sourceBlockIndex;
     private final int derivedBlockIndex;
+    private final int[] sourceBlockState;
     private final int[] derivedBlockBeforeState;
     private final int replacementChunkRaw;
     private final int replaceX;
@@ -31,6 +32,7 @@ public final class DeriveBlockFromChunksCommand implements EditorCommand {
         this.mapY = mapY;
         this.sourceBlockIndex = sourceBlockIndex;
         this.derivedBlockIndex = derivedBlockIndex;
+        this.sourceBlockState = level.getBlock(sourceBlockIndex).saveState();
         this.derivedBlockBeforeState = Arrays.copyOf(derivedBlockBeforeState, derivedBlockBeforeState.length);
         this.replacementChunkRaw = replacementChunk.get();
         this.replaceX = replaceX;
@@ -54,7 +56,7 @@ public final class DeriveBlockFromChunksCommand implements EditorCommand {
 
     @Override
     public void apply() {
-        level.restoreBlockState(derivedBlockIndex, derivedBlockBeforeState);
+        level.restoreBlockState(derivedBlockIndex, sourceBlockState);
         level.setChunkInBlock(derivedBlockIndex, replaceX, replaceY, new ChunkDesc(replacementChunkRaw));
         level.setBlockInMap(mapLayer, mapX, mapY, derivedBlockIndex);
     }

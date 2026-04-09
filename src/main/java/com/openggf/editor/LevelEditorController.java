@@ -1,9 +1,13 @@
 package com.openggf.editor;
 
+import com.openggf.editor.commands.DeriveBlockFromChunksCommand;
+import com.openggf.editor.commands.DeriveChunkFromPatternsCommand;
 import com.openggf.editor.commands.PlaceBlockCommand;
 import com.openggf.level.Block;
 import com.openggf.level.Chunk;
+import com.openggf.level.ChunkDesc;
 import com.openggf.level.MutableLevel;
+import com.openggf.level.PatternDesc;
 import com.openggf.game.session.EditorCursorState;
 
 import java.util.Objects;
@@ -19,6 +23,7 @@ public final class LevelEditorController {
     private int selectedBlockCellY;
     private int selectedChunkCellX;
     private int selectedChunkCellY;
+    private Integer selectedPatternRaw;
     private MutableLevel level;
 
     public void attachLevel(MutableLevel level) {
@@ -33,6 +38,7 @@ public final class LevelEditorController {
         selectedBlockCellY = 0;
         selectedChunkCellX = 0;
         selectedChunkCellY = 0;
+        selectedPatternRaw = null;
     }
 
     public void placeBlock(int layer, int x, int y, int blockIndex) {
@@ -166,6 +172,18 @@ public final class LevelEditorController {
     }
 
     public void applyPrimaryAction() {
+        if (depth == EditorHierarchyDepth.BLOCK) {
+            applyBlockPrimaryAction();
+            return;
+        }
+        if (depth == EditorHierarchyDepth.CHUNK) {
+            applyChunkPrimaryAction();
+            return;
+        }
+        applyWorldPrimaryAction();
+    }
+
+    private void applyWorldPrimaryAction() {
         if (focusRegion != EditorFocusRegion.WORLD_CANVAS) {
             return;
         }
@@ -184,7 +202,92 @@ public final class LevelEditorController {
         placeBlock(0, mapPosition.mapX(), mapPosition.mapY(), selectedBlock);
     }
 
+    private void applyBlockPrimaryAction() {
+        if (focusRegion != EditorFocusRegion.FOCUSED_PANE) {
+            return;
+        }
+        Integer selectedChunk = selection.selectedChunk();
+        if (selectedChunk == null) {
+            return;
+        }
+        MutableLevel attachedLevel = level;
+        if (attachedLevel == null || !isValidChunkIndex(attachedLevel, selectedChunk)) {
+            return;
+        }
+        WorldMapPosition mapPosition = resolveWorldMapPosition(attachedLevel);
+        if (mapPosition == null) {
+            return;
+        }
+        int sourceBlockIndex = Byte.toUnsignedInt(attachedLevel.getMap().getValue(0, mapPosition.mapX(), mapPosition.mapY()));
+        if (!isValidBlockIndex(attachedLevel, sourceBlockIndex)
+                || !isBlockCellInBounds(attachedLevel.getBlock(sourceBlockIndex), selectedBlockCellX, selectedBlockCellY)) {
+            return;
+        }
+        int derivedBlockIndex = findUnreferencedBlockSlot(attachedLevel, sourceBlockIndex);
+        if (derivedBlockIndex < 0) {
+            return;
+        }
+        int[] derivedBlockBeforeState = attachedLevel.getBlock(derivedBlockIndex).saveState();
+        history.execute(new DeriveBlockFromChunksCommand(
+                attachedLevel,
+                0,
+                mapPosition.mapX(),
+                mapPosition.mapY(),
+                sourceBlockIndex,
+                derivedBlockIndex,
+                derivedBlockBeforeState,
+                new ChunkDesc(selectedChunk),
+                selectedBlockCellX,
+                selectedBlockCellY
+        ));
+        selection = new EditorSelectionState(derivedBlockIndex, selectedChunk);
+    }
+
+    private void applyChunkPrimaryAction() {
+        if (focusRegion != EditorFocusRegion.FOCUSED_PANE || selectedPatternRaw == null) {
+            return;
+        }
+        Integer selectedBlock = selection.selectedBlock();
+        if (selectedBlock == null) {
+            return;
+        }
+        MutableLevel attachedLevel = level;
+        if (attachedLevel == null || !isValidBlockIndex(attachedLevel, selectedBlock)) {
+            return;
+        }
+        Block block = attachedLevel.getBlock(selectedBlock);
+        if (!isBlockCellInBounds(block, selectedBlockCellX, selectedBlockCellY)) {
+            return;
+        }
+        int sourceChunkIndex = block.getChunkDesc(selectedBlockCellX, selectedBlockCellY).getChunkIndex();
+        if (!isValidChunkIndex(attachedLevel, sourceChunkIndex)) {
+            return;
+        }
+        int derivedChunkIndex = findUnreferencedChunkSlot(attachedLevel, sourceChunkIndex);
+        if (derivedChunkIndex < 0) {
+            return;
+        }
+        int[] derivedChunkBeforeState = attachedLevel.getChunk(derivedChunkIndex).saveState();
+        history.execute(new DeriveChunkFromPatternsCommand(
+                attachedLevel,
+                selectedBlock,
+                selectedBlockCellX,
+                selectedBlockCellY,
+                sourceChunkIndex,
+                derivedChunkIndex,
+                derivedChunkBeforeState,
+                new PatternDesc(selectedPatternRaw),
+                selectedChunkCellX,
+                selectedChunkCellY
+        ));
+        selection = new EditorSelectionState(selectedBlock, derivedChunkIndex);
+    }
+
     public void performEyedrop() {
+        if (depth == EditorHierarchyDepth.CHUNK) {
+            performChunkEyedrop();
+            return;
+        }
         if (focusRegion != EditorFocusRegion.WORLD_CANVAS) {
             return;
         }
@@ -198,6 +301,19 @@ public final class LevelEditorController {
         }
         int blockIndex = Byte.toUnsignedInt(attachedLevel.getMap().getValue(0, mapPosition.mapX(), mapPosition.mapY()));
         selectBlock(blockIndex);
+    }
+
+    private void performChunkEyedrop() {
+        if (focusRegion != EditorFocusRegion.FOCUSED_PANE) {
+            return;
+        }
+        Integer selectedChunk = selection.selectedChunk();
+        MutableLevel attachedLevel = level;
+        if (selectedChunk == null || attachedLevel == null || !isValidChunkIndex(attachedLevel, selectedChunk)) {
+            return;
+        }
+        Chunk chunk = attachedLevel.getChunk(selectedChunk);
+        selectedPatternRaw = chunk.getPatternDesc(selectedChunkCellX, selectedChunkCellY).get();
     }
 
     public void setWorldCursor(EditorCursorState cursor) {
@@ -312,6 +428,36 @@ public final class LevelEditorController {
             return chunkGridSide();
         }
         return 1;
+    }
+
+    private static boolean isBlockCellInBounds(Block block, int x, int y) {
+        return x >= 0 && y >= 0 && x < block.getGridSide() && y < block.getGridSide();
+    }
+
+    private static boolean isValidBlockIndex(MutableLevel level, int blockIndex) {
+        return blockIndex >= 0 && blockIndex < level.getBlockCount();
+    }
+
+    private static boolean isValidChunkIndex(MutableLevel level, int chunkIndex) {
+        return chunkIndex >= 0 && chunkIndex < level.getChunkCount();
+    }
+
+    private static int findUnreferencedBlockSlot(MutableLevel level, int sourceBlockIndex) {
+        for (int blockIndex = 0; blockIndex < level.getBlockCount(); blockIndex++) {
+            if (blockIndex != sourceBlockIndex && !level.isBlockReferencedInMap(blockIndex)) {
+                return blockIndex;
+            }
+        }
+        return -1;
+    }
+
+    private static int findUnreferencedChunkSlot(MutableLevel level, int sourceChunkIndex) {
+        for (int chunkIndex = 0; chunkIndex < level.getChunkCount(); chunkIndex++) {
+            if (chunkIndex != sourceChunkIndex && !level.isChunkReferencedInBlocks(chunkIndex)) {
+                return chunkIndex;
+            }
+        }
+        return -1;
     }
 
     private MutableLevel requireLevel() {

@@ -100,7 +100,7 @@ class TestEditorCommands {
     }
 
     @Test
-    void deriveBlockFromChunksCommand_undoRestoresDerivedBlockStateAndMapCell() {
+    void deriveBlockFromChunksCommand_clonesSourceBlockAndUndoRestoresDerivedBlockStateAndMapCell() {
         MutableLevel level = MutableLevel.snapshot(new SyntheticLevel());
         int mapLayer = 0;
         int mapX = 1;
@@ -127,7 +127,7 @@ class TestEditorCommands {
         command.apply();
         assertEquals(derivedBlockIndex, level.getMap().getValue(mapLayer, mapX, mapY) & 0xFF);
         assertEquals(9, level.getBlock(derivedBlockIndex).getChunkDesc(1, 1).getChunkIndex());
-        assertEquals(2, level.getBlock(derivedBlockIndex).getChunkDesc(0, 0).getChunkIndex());
+        assertEquals(1, level.getBlock(derivedBlockIndex).getChunkDesc(0, 0).getChunkIndex());
 
         command.undo();
         assertEquals(sourceBlockIndex, level.getMap().getValue(mapLayer, mapX, mapY) & 0xFF);
@@ -182,7 +182,7 @@ class TestEditorCommands {
     }
 
     @Test
-    void deriveChunkFromPatternsCommand_undoRestoresDerivedChunkStateAndBlockReference() {
+    void deriveChunkFromPatternsCommand_clonesSourceChunkAndUndoRestoresDerivedChunkStateAndBlockReference() {
         MutableLevel level = MutableLevel.snapshot(new SyntheticLevel());
         int blockIndex = 1;
         int blockX = 0;
@@ -209,7 +209,7 @@ class TestEditorCommands {
         command.apply();
         assertEquals(derivedChunkIndex, level.getBlock(blockIndex).getChunkDesc(blockX, blockY).getChunkIndex());
         assertEquals(77, level.getChunk(derivedChunkIndex).getPatternDesc(1, 0).get());
-        assertEquals(40, level.getChunk(derivedChunkIndex).getPatternDesc(0, 0).get());
+        assertEquals(30, level.getChunk(derivedChunkIndex).getPatternDesc(0, 0).get());
         level.consumeDirtyChunks();
 
         command.undo();
