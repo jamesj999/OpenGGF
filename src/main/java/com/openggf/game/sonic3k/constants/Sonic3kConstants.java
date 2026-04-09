@@ -1196,6 +1196,17 @@ public class Sonic3kConstants {
     // Map_BossExplosion - Boss explosion mappings (6 frames, shared with S2)
     public static final int MAP_BOSS_EXPLOSION_ADDR = 0x083FFC;
 
+    // ===== HCZ Miniboss (Object 0x99) =====
+    // PLC 0x5B loads ArtNem_HCZMiniboss.
+    public static final int PLC_HCZ_MINIBOSS = 0x5B;
+    // Pal_HCZMiniboss / Pal_HCZMinibossWater - normal + underwater palette variants.
+    public static final int PAL_HCZ_MINIBOSS_ADDR = 0x06AE56;
+    public static final int PAL_HCZ_MINIBOSS_WATER_ADDR = 0x06AE76;
+    // Map_HCZMiniboss - body, rockets, engine, and suction-state frames.
+    public static final int MAP_HCZ_MINIBOSS_ADDR = 0x362A28;
+    // ArtTile_HCZMiniboss - VRAM destination tile index from sonic3k.constants.asm.
+    public static final int ART_TILE_HCZ_MINIBOSS = 0x0304;
+
     // ===== AIZ End Boss (Object 0x92) =====
     // ArtKosM_AIZEndBoss - Main boss art (Kosinski Moduled, 15712 bytes)
     public static final int ART_KOSM_AIZ_END_BOSS_ADDR = 0x365260;
