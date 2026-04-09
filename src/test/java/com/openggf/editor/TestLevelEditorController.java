@@ -61,7 +61,7 @@ class TestLevelEditorController {
         controller.setWorldCursor(new EditorCursorState(65, 130));
         controller.applyPrimaryAction();
 
-        assertEquals(2, Byte.toUnsignedInt(level.getMap().getValue(0, 0, 1)));
+        assertEquals(2, Byte.toUnsignedInt(level.getMap().getValue(0, 1, 2)));
     }
 
     @Test
@@ -70,7 +70,7 @@ class TestLevelEditorController {
         LevelEditorController controller = new LevelEditorController();
         controller.attachLevel(level);
 
-        level.setBlockInMap(0, 0, 1, 2);
+        level.setBlockInMap(0, 1, 2, 2);
         controller.setWorldCursor(new EditorCursorState(65, 130));
 
         controller.performEyedrop();
@@ -90,7 +90,6 @@ class TestLevelEditorController {
         controller.setWorldCursor(new EditorCursorState(65, 130));
         controller.applyPrimaryAction();
 
-        assertEquals(0, Byte.toUnsignedInt(level.getMap().getValue(0, 0, 1)));
         assertEquals(0, Byte.toUnsignedInt(level.getMap().getValue(0, 1, 2)));
     }
 
