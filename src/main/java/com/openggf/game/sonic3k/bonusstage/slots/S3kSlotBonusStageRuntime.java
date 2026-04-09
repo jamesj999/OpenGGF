@@ -78,10 +78,10 @@ public final class S3kSlotBonusStageRuntime {
         String mainCode = SonicConfigurationService.getInstance().getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         if (bootstrapRuntime.getSpriteManager().getSprite(mainCode) instanceof AbstractPlayableSprite mainPlayer) {
             originalPlayer = mainPlayer;
-            short slotStartX = S3kSlotRomData.SLOT_BONUS_START_X;
-            short slotStartY = S3kSlotRomData.SLOT_BONUS_START_Y;
-            short centerX = S3kSlotRomData.SLOT_BONUS_START_X;
-            short centerY = 0x430;
+            short slotStartX = S3kSlotRomData.SLOT_BONUS_PLAYER_START_X;
+            short slotStartY = S3kSlotRomData.SLOT_BONUS_PLAYER_START_Y;
+            short centerX = S3kSlotRomData.SLOT_BONUS_CAGE_CENTER_X;
+            short centerY = S3kSlotRomData.SLOT_BONUS_CAGE_CENTER_Y;
             slotPlayer = S3kSlotBonusPlayer.create(mainCode, slotStartX, slotStartY, slotPlayerRuntime);
             copyLivePlayerState(mainPlayer, slotPlayer);
             slotPlayer.setX(slotStartX);
@@ -89,6 +89,8 @@ public final class S3kSlotBonusStageRuntime {
             slotPlayerRuntime.initialize(slotPlayer);
             bootstrapRuntime.getSpriteManager().addSprite(slotPlayer);
             bootstrapRuntime.getCamera().setFocusedSprite(slotPlayer);
+            bootstrapRuntime.getCamera().setX((short) (slotStartX - 0xA0));
+            bootstrapRuntime.getCamera().setY((short) (slotStartY - 0x70));
             slotCage = new S3kSlotBonusCageObjectInstance(
                     new ObjectSpawn(centerX, centerY, 0, 0, 0, false, 0),
                     slotStageController);
@@ -227,8 +229,8 @@ public final class S3kSlotBonusStageRuntime {
 
     public SlotVisualState slotVisualState() {
         if (slotStageState == null) {
-            return new SlotVisualState(S3kSlotRomData.SLOT_BONUS_START_X,
-                    S3kSlotRomData.SLOT_BONUS_START_Y, 0x40, false);
+            return new SlotVisualState(S3kSlotRomData.SLOT_BONUS_CAGE_CENTER_X,
+                    S3kSlotRomData.SLOT_BONUS_CAGE_CENTER_Y, 0x40, false);
         }
         return new SlotVisualState(slotStageState.eventsBgX(), slotStageState.eventsBgY(),
                 slotStageState.scalarIndex1(), slotStageState.paletteCycleEnabled());
@@ -311,7 +313,7 @@ public final class S3kSlotBonusStageRuntime {
         }
         // Only the slot layout pass is rendered here. Cage/reward objects stay on
         // the normal object pipeline so this hook matches the ROM's post-sprite pass.
-        slotLayoutRenderer.render(slotStageState, slotRenderBuffers, camera, levelManager.getObjectRenderManager());
+        slotLayoutRenderer.renderVisibleCells(visibleCells, camera, levelManager.getObjectRenderManager());
     }
 
     private void checkRingPickup() {
@@ -350,8 +352,12 @@ public final class S3kSlotBonusStageRuntime {
         int layoutIndex = slotStageState.lastCollisionIndex();
         if (tileId <= 0 || tileId > 6 || layoutIndex < 0) return;
 
-        int tileRow = layoutIndex / S3kSlotCollisionSystem.LAYOUT_STRIDE;
-        int tileCol = layoutIndex % S3kSlotCollisionSystem.LAYOUT_STRIDE;
+        int expandedIndex = slotRenderBuffers != null ? slotRenderBuffers.compactToExpandedIndex(layoutIndex) : -1;
+        if (expandedIndex < 0) {
+            return;
+        }
+        int tileRow = expandedIndex / S3kSlotCollisionSystem.EXPANDED_STRIDE;
+        int tileCol = expandedIndex % S3kSlotCollisionSystem.EXPANDED_STRIDE;
         short tileCenterX = (short) (tileCol * S3kSlotCollisionSystem.CELL_SIZE
                 - S3kSlotCollisionSystem.COLLISION_X_OFFSET + 0x0C);
         short tileCenterY = (short) (tileRow * S3kSlotCollisionSystem.CELL_SIZE
@@ -418,11 +424,16 @@ public final class S3kSlotBonusStageRuntime {
 
     private void updateVisuals() {
         if (bootstrapRuntime != null) {
-            int stageCameraX = bootstrapRuntime.getCamera().getX() - S3kSlotRomData.SLOT_BONUS_START_X;
-            int stageCameraY = bootstrapRuntime.getCamera().getY() - S3kSlotRomData.SLOT_BONUS_START_Y;
-            pointGrid = slotLayoutRenderer.buildPointGrid(slotStageState.angle(),
-                    stageCameraX, stageCameraY);
+            int stageCameraX = bootstrapRuntime.getCamera().getX();
+            int stageCameraY = bootstrapRuntime.getCamera().getY();
             if (slotRenderBuffers != null) {
+                if (pointGrid == null || pointGrid.length < 16 * 16 * 2) {
+                    pointGrid = new short[16 * 16 * 2];
+                }
+                slotLayoutRenderer.updateAnimations();
+                slotLayoutRenderer.tickTransientAnimations(slotRenderBuffers);
+                slotLayoutRenderer.buildPointGridInto(pointGrid, slotStageState.angle(),
+                        stageCameraX, stageCameraY);
                 slotRenderBuffers.stageViewport(stageCameraX, stageCameraY);
                 slotRenderBuffers.stagePointGrid(pointGrid);
                 visibleCells = slotLayoutRenderer.buildVisibleCells(slotRenderBuffers);
@@ -446,7 +457,7 @@ public final class S3kSlotBonusStageRuntime {
         int[] ringPos;
         while ((ringPos = slotStageController.consumePendingRingReward()) != null) {
             S3kSlotRingRewardObjectInstance reward = new S3kSlotRingRewardObjectInstance(
-                    new ObjectSpawn(S3kSlotRomData.SLOT_BONUS_START_X, S3kSlotRomData.SLOT_BONUS_START_Y,
+                    new ObjectSpawn(S3kSlotRomData.SLOT_BONUS_CAGE_CENTER_X, S3kSlotRomData.SLOT_BONUS_CAGE_CENTER_Y,
                             0, 0, 0, false, 0),
                     slotStageController);
             reward.setServices(new DefaultObjectServices(bootstrapRuntime));
@@ -466,7 +477,7 @@ public final class S3kSlotBonusStageRuntime {
         int[] spikePos;
         while ((spikePos = slotStageController.consumePendingSpikeReward()) != null) {
             S3kSlotSpikeRewardObjectInstance reward = new S3kSlotSpikeRewardObjectInstance(
-                    new ObjectSpawn(S3kSlotRomData.SLOT_BONUS_START_X, S3kSlotRomData.SLOT_BONUS_START_Y,
+                    new ObjectSpawn(S3kSlotRomData.SLOT_BONUS_CAGE_CENTER_X, S3kSlotRomData.SLOT_BONUS_CAGE_CENTER_Y,
                             0, 0, 0, false, 0),
                     slotStageController);
             reward.setServices(new DefaultObjectServices(bootstrapRuntime));

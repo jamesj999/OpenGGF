@@ -43,8 +43,14 @@ public final class Sonic3kPlcArtRegistry {
             int artSize,
             int mappingAddr,
             int palette,
-            int dplcAddr
+            int dplcAddr,
+            S3kSpriteDataLoader.MappingFormat mappingFormat
     ) {
+        public StandaloneArtEntry(String key, int artAddr, CompressionType compression, int artSize,
+                int mappingAddr, int palette, int dplcAddr) {
+            this(key, artAddr, compression, artSize, mappingAddr, palette, dplcAddr,
+                    S3kSpriteDataLoader.MappingFormat.STANDARD);
+        }
     }
 
     /**
@@ -64,11 +70,19 @@ public final class Sonic3kPlcArtRegistry {
             int artTileBase,
             int palette,
             String builderName,
-            int[] frameFilter
+            int[] frameFilter,
+            S3kSpriteDataLoader.MappingFormat mappingFormat
     ) {
         public LevelArtEntry(String key, int mappingAddr, int artTileBase, int palette,
                 String builderName) {
-            this(key, mappingAddr, artTileBase, palette, builderName, null);
+            this(key, mappingAddr, artTileBase, palette, builderName, null,
+                    S3kSpriteDataLoader.MappingFormat.STANDARD);
+        }
+
+        public LevelArtEntry(String key, int mappingAddr, int artTileBase, int palette,
+                String builderName, int[] frameFilter) {
+            this(key, mappingAddr, artTileBase, palette, builderName, frameFilter,
+                    S3kSpriteDataLoader.MappingFormat.STANDARD);
         }
     }
 
@@ -328,42 +342,54 @@ public final class Sonic3kPlcArtRegistry {
                 Sonic3kConstants.MAP_SLOT_COLORED_WALL_ADDR,
                 Sonic3kConstants.ARTTILE_SLOTS_BLOCKS,
                 0,
-                null
+                null,
+                null,
+                S3kSpriteDataLoader.MappingFormat.LEGACY_BYTE_X
         ));
         levelArt.add(new LevelArtEntry(
                 Sonic3kObjectArtKeys.SLOT_GOAL,
                 Sonic3kConstants.MAP_SLOT_GOAL_ADDR,
                 Sonic3kConstants.ARTTILE_SLOTS_BLOCKS + 0x14C,
                 0,
-                null
+                null,
+                null,
+                S3kSpriteDataLoader.MappingFormat.LEGACY_BYTE_X
         ));
         levelArt.add(new LevelArtEntry(
                 Sonic3kObjectArtKeys.SLOT_BUMPER,
                 Sonic3kConstants.MAP_SLOT_BUMPER_ADDR,
                 Sonic3kConstants.ARTTILE_SLOTS_BLOCKS + 0xF9,
                 0,
-                null
+                null,
+                null,
+                S3kSpriteDataLoader.MappingFormat.LEGACY_BYTE_X
         ));
         levelArt.add(new LevelArtEntry(
                 Sonic3kObjectArtKeys.SLOT_R_LABEL,
                 Sonic3kConstants.MAP_SLOT_R_AND_PEPPERMINT_ADDR,
                 Sonic3kConstants.ARTTILE_SLOTS_BLOCKS + 0x13D,
                 0,
-                null
+                null,
+                null,
+                S3kSpriteDataLoader.MappingFormat.LEGACY_BYTE_X
         ));
         levelArt.add(new LevelArtEntry(
                 Sonic3kObjectArtKeys.SLOT_PEPPERMINT,
                 Sonic3kConstants.MAP_SLOT_R_AND_PEPPERMINT_ADDR,
                 Sonic3kConstants.ARTTILE_SLOTS_BLOCKS + 0x122,
                 0,
-                null
+                null,
+                null,
+                S3kSpriteDataLoader.MappingFormat.LEGACY_BYTE_X
         ));
         levelArt.add(new LevelArtEntry(
                 Sonic3kObjectArtKeys.SLOT_MACHINE_FACE,
                 Sonic3kConstants.MAP_SLOT_MACHINE_FACE_ADDR,
                 Sonic3kConstants.ARTTILE_SLOTS_BLOCKS + 0x146,
                 0,
-                null
+                null,
+                null,
+                S3kSpriteDataLoader.MappingFormat.LEGACY_BYTE_X
         ));
         levelArt.add(new LevelArtEntry(
                 Sonic3kObjectArtKeys.SLOT_BONUS_CAGE,
@@ -386,7 +412,8 @@ public final class Sonic3kPlcArtRegistry {
                 0,
                 Sonic3kConstants.MAP_SLOT_RING_STAGE_ADDR,
                 1,
-                -1
+                -1,
+                S3kSpriteDataLoader.MappingFormat.LEGACY_BYTE_X
         ));
     }
 

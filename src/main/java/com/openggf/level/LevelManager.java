@@ -2092,9 +2092,9 @@ public class LevelManager {
 
         if (includeWaterSurface) {
             graphicsManager.registerCommand(disableShimmerCommand);
-            if (zoneFeatureProvider != null) {
-                zoneFeatureProvider.render(camera, frameCounter);
-            }
+        }
+        if (zoneFeatureProvider != null) {
+            zoneFeatureProvider.render(camera, frameCounter);
         }
 
         // Revert to default shader for any following HUD/debug/screen-space rendering.

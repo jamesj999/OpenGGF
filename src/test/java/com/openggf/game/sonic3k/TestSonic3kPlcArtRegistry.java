@@ -327,6 +327,7 @@ public class TestSonic3kPlcArtRegistry {
         assertNotNull(cage);
         assertEquals(Sonic3kConstants.ARTTILE_SLOTS_BLOCKS + 0x146, cage.artTileBase());
         assertEquals(Sonic3kConstants.MAP_SLOT_BONUS_CAGE_ADDR, cage.mappingAddr());
+        assertEquals(S3kSpriteDataLoader.MappingFormat.STANDARD, cage.mappingFormat());
 
         Sonic3kPlcArtRegistry.LevelArtEntry spike = plan.levelArt().stream()
                 .filter(e -> e.key().equals(Sonic3kObjectArtKeys.SLOT_SPIKE_REWARD))
@@ -334,6 +335,34 @@ public class TestSonic3kPlcArtRegistry {
         assertNotNull(spike);
         assertEquals(Sonic3kConstants.ARTTILE_SLOTS_BLOCKS + 0x155, spike.artTileBase());
         assertEquals(Sonic3kConstants.MAP_SLOT_SPIKE_REWARD_ADDR, spike.mappingAddr());
+        assertEquals(S3kSpriteDataLoader.MappingFormat.STANDARD, spike.mappingFormat());
+
+        assertEquals(S3kSpriteDataLoader.MappingFormat.LEGACY_BYTE_X,
+                findLevelArt(plan, Sonic3kObjectArtKeys.SLOT_COLORED_WALL).mappingFormat());
+        assertEquals(S3kSpriteDataLoader.MappingFormat.LEGACY_BYTE_X,
+                findLevelArt(plan, Sonic3kObjectArtKeys.SLOT_GOAL).mappingFormat());
+        assertEquals(S3kSpriteDataLoader.MappingFormat.LEGACY_BYTE_X,
+                findLevelArt(plan, Sonic3kObjectArtKeys.SLOT_BUMPER).mappingFormat());
+        assertEquals(S3kSpriteDataLoader.MappingFormat.LEGACY_BYTE_X,
+                findLevelArt(plan, Sonic3kObjectArtKeys.SLOT_R_LABEL).mappingFormat());
+        assertEquals(S3kSpriteDataLoader.MappingFormat.LEGACY_BYTE_X,
+                findLevelArt(plan, Sonic3kObjectArtKeys.SLOT_PEPPERMINT).mappingFormat());
+        assertEquals(S3kSpriteDataLoader.MappingFormat.LEGACY_BYTE_X,
+                findLevelArt(plan, Sonic3kObjectArtKeys.SLOT_MACHINE_FACE).mappingFormat());
+
+        Sonic3kPlcArtRegistry.StandaloneArtEntry ring = plan.standaloneArt().stream()
+                .filter(e -> e.key().equals(Sonic3kObjectArtKeys.SLOT_RING_STAGE))
+                .findFirst().orElse(null);
+        assertNotNull(ring);
+        assertEquals(S3kSpriteDataLoader.MappingFormat.LEGACY_BYTE_X, ring.mappingFormat());
+    }
+
+    private static Sonic3kPlcArtRegistry.LevelArtEntry findLevelArt(
+            Sonic3kPlcArtRegistry.ZoneArtPlan plan, String key) {
+        return plan.levelArt().stream()
+                .filter(e -> e.key().equals(key))
+                .findFirst()
+                .orElseThrow();
     }
 
     @Test

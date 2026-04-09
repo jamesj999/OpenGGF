@@ -105,8 +105,14 @@ public class Sonic3kObjectArt {
      */
     public ObjectSpriteSheet buildLevelArtSheetFromRom(int mappingAddr,
             int artTileBase, int sheetPalette) {
+        return buildLevelArtSheetFromRom(mappingAddr, artTileBase, sheetPalette,
+                S3kSpriteDataLoader.MappingFormat.STANDARD);
+    }
+
+    public ObjectSpriteSheet buildLevelArtSheetFromRom(int mappingAddr,
+            int artTileBase, int sheetPalette, S3kSpriteDataLoader.MappingFormat mappingFormat) {
         if (reader == null) return null;
-        List<SpriteMappingFrame> frames = S3kSpriteDataLoader.loadMappingFrames(reader, mappingAddr);
+        List<SpriteMappingFrame> frames = S3kSpriteDataLoader.loadMappingFrames(reader, mappingAddr, mappingFormat);
         if (frames.isEmpty()) return null;
 
         int minTile = Integer.MAX_VALUE;
@@ -405,8 +411,15 @@ public class Sonic3kObjectArt {
      */
     public ObjectSpriteSheet buildLevelArtSheetFromRomFiltered(int mappingAddr,
             int artTileBase, int sheetPalette, int[] frameIndices) {
+        return buildLevelArtSheetFromRomFiltered(mappingAddr, artTileBase, sheetPalette,
+                frameIndices, S3kSpriteDataLoader.MappingFormat.STANDARD);
+    }
+
+    public ObjectSpriteSheet buildLevelArtSheetFromRomFiltered(int mappingAddr,
+            int artTileBase, int sheetPalette, int[] frameIndices,
+            S3kSpriteDataLoader.MappingFormat mappingFormat) {
         if (reader == null || frameIndices == null || frameIndices.length == 0) return null;
-        List<SpriteMappingFrame> allFrames = S3kSpriteDataLoader.loadMappingFrames(reader, mappingAddr);
+        List<SpriteMappingFrame> allFrames = S3kSpriteDataLoader.loadMappingFrames(reader, mappingAddr, mappingFormat);
         if (allFrames.isEmpty()) return null;
 
         List<SpriteMappingFrame> selected = new ArrayList<>(frameIndices.length);
@@ -791,7 +804,7 @@ public class Sonic3kObjectArt {
         if (patterns == null || patterns.length == 0) return null;
 
         List<SpriteMappingFrame> mappings =
-                S3kSpriteDataLoader.loadMappingFrames(reader, entry.mappingAddr());
+                S3kSpriteDataLoader.loadMappingFrames(reader, entry.mappingAddr(), entry.mappingFormat());
 
         if (entry.dplcAddr() > 0) {
             List<SpriteDplcFrame> dplcFrames = loadObjectDplcFrames(reader, entry.dplcAddr());

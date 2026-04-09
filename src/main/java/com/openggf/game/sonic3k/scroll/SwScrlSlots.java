@@ -23,10 +23,10 @@ public final class SwScrlSlots extends AbstractZoneScrollHandler {
     private static final int SCREEN_STEP_LIMIT = 0x20;
     private static final int BG_SCROLL_STEP = 0x400;
     private static final int BG_SCROLL_LIMIT = 0x8000;
-
-    private static final int[] DEFORM_SEGMENTS = {
-            0x20, 0x20, 0x20, 0x20, 0x30, 0x20, 0x10, 0x20,
-            0x20, 0x20, 0x20, 0x20, 0x30, 0x20, 0x10, 0x20
+    private static final int BG_DEFORM_SENTINEL = 0x7FFF;
+    private static final int[] BG_DEFORM_SEGMENTS = {
+            0x20, 0x20, 0x20, 0x20, 0x30, 0x20, 0x10,
+            0x20, 0x20, 0x20, 0x20, 0x20, 0x30, 0x20, 0x10, BG_DEFORM_SENTINEL
     };
 
     private static final BandConfig[] BAND_CONFIGS = {
@@ -43,6 +43,7 @@ public final class SwScrlSlots extends AbstractZoneScrollHandler {
     private final short[] perLineVScroll = new short[VISIBLE_LINES];
     private final BandState[] bandStates = createBandStates();
     private final int[] bandScrollValues = new int[BAND_CONFIGS.length];
+    private final int[] expandedBandScrollValues = new int[BG_DEFORM_SEGMENTS.length];
 
     private S3kSlotBonusStageRuntime activeRuntime;
     private boolean screenInitialized;
@@ -140,6 +141,7 @@ public final class SwScrlSlots extends AbstractZoneScrollHandler {
         backgroundVelocity = 0;
         backgroundCameraY = 0;
         Arrays.fill(bandScrollValues, 0);
+        Arrays.fill(expandedBandScrollValues, 0);
         for (BandState bandState : bandStates) {
             bandState.reset();
         }
@@ -157,29 +159,55 @@ public final class SwScrlSlots extends AbstractZoneScrollHandler {
         boolean backgroundEventLatched = false;
         for (int i = 0; i < BAND_CONFIGS.length; i++) {
             backgroundEventLatched = tickBand(bandStates[i], BAND_CONFIGS[i], backgroundEventLatched);
-            bandScrollValues[i] = toSignedWord((bandStates[i].accumulator & 0xFFFF) + bandStates[i].baseScroll);
+            // The ROM stores fractional/phase state in the low word and feeds it
+            // into VDP h-scroll table semantics directly. The engine's packed
+            // per-line scroll buffer expects stable pixel offsets; using the raw
+            // accumulator word here causes wrap-sized jumps and runaway scrolling.
+            // Use the stepped base scroll component until the handler is ported
+            // all the way down to VDP-equivalent table semantics.
+            bandScrollValues[i] = toSignedWord(bandStates[i].baseScroll);
         }
+        expandBandScrollTable();
     }
 
     private void fillPackedScrollBuffer(int[] horizScrollBuf) {
         short fgScroll = negWord(foregroundOriginX);
-        int line = 0;
-        for (int segment = 0; segment < DEFORM_SEGMENTS.length && line < VISIBLE_LINES; segment++) {
-            int bandIndex = segment & 7;
-            int bgOriginX = foregroundOriginX + bandScrollValues[bandIndex];
-            short bgScroll = negWord(bgOriginX);
-            int packed = packScrollWords(fgScroll, bgScroll);
-            int segmentHeight = DEFORM_SEGMENTS[segment];
-            int end = Math.min(VISIBLE_LINES, line + segmentHeight);
-            while (line < end) {
-                horizScrollBuf[line++] = packed;
-            }
-            trackOffset(fgScroll, bgScroll);
+        int segmentIndex = 0;
+        int segmentOffset = backgroundCameraY & 0xFFFF;
+        while (segmentIndex < BG_DEFORM_SEGMENTS.length - 1 && segmentOffset >= BG_DEFORM_SEGMENTS[segmentIndex]) {
+            segmentOffset -= BG_DEFORM_SEGMENTS[segmentIndex];
+            segmentIndex++;
         }
-        while (line < VISIBLE_LINES) {
-            short bgScroll = negWord(lastBackgroundOriginX);
-            horizScrollBuf[line++] = packScrollWords(fgScroll, bgScroll);
-            trackOffset(fgScroll, bgScroll);
+
+        int line = 0;
+        while (line < VISIBLE_LINES && segmentIndex < BG_DEFORM_SEGMENTS.length) {
+            int segmentLength = BG_DEFORM_SEGMENTS[segmentIndex];
+            if (segmentLength == BG_DEFORM_SENTINEL) {
+                segmentLength = VISIBLE_LINES - line;
+            } else {
+                segmentLength -= segmentOffset;
+            }
+            if (segmentLength <= 0) {
+                segmentIndex++;
+                segmentOffset = 0;
+                continue;
+            }
+
+            short bgScroll = negWord(expandedBandScrollValues[segmentIndex]);
+            int linesToWrite = Math.min(segmentLength, VISIBLE_LINES - line);
+            for (int i = 0; i < linesToWrite; i++) {
+                int packed = packScrollWords(fgScroll, bgScroll);
+                horizScrollBuf[line++] = packed;
+                trackOffsetFromPacked(packed);
+            }
+            segmentIndex++;
+            segmentOffset = 0;
+        }
+    }
+
+    private void expandBandScrollTable() {
+        for (int i = 0; i < expandedBandScrollValues.length; i++) {
+            expandedBandScrollValues[i] = bandScrollValues[i & 0x7];
         }
     }
 

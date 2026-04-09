@@ -28,9 +28,9 @@ public final class S3kSlotRenderBuffers {
         return new S3kSlotRenderBuffers(
                 S3kSlotRomData.SLOT_BONUS_LAYOUT.clone(),
                 S3kSlotRomData.buildExpandedLayoutBuffer(),
-                0x80,
-                0x20,
-                0x20);
+                S3kSlotRomData.SLOT_EXPANDED_STRIDE,
+                S3kSlotRomData.SLOT_EXPANDED_STRIDE,
+                S3kSlotRomData.SLOT_EXPANDED_STRIDE);
     }
 
     public byte[] layout() {
@@ -54,7 +54,7 @@ public final class S3kSlotRenderBuffers {
     }
 
     public void stagePointGrid(short[] pointGrid) {
-        stagedPointGrid = pointGrid != null ? pointGrid.clone() : new short[0];
+        stagedPointGrid = pointGrid != null ? pointGrid : new short[0];
     }
 
     public short[] stagedPointGrid() {
@@ -111,7 +111,7 @@ public final class S3kSlotRenderBuffers {
         if (row < 0 || row >= layoutRows || col < 0 || col >= layoutColumns) {
             return 0;
         }
-        int compactIndex = row * layoutColumns + col;
+        int compactIndex = expandedToCompactIndex(row, col);
         for (TransientAnimationSlot slot : transientAnimationSlots) {
             if (slot.active && slot.layoutIndex == compactIndex) {
                 return slot.currentTileId();
@@ -135,6 +135,34 @@ public final class S3kSlotRenderBuffers {
             }
         }
         return false;
+    }
+
+    public int compactToExpandedIndex(int compactIndex) {
+        if (compactIndex < 0 || compactIndex >= layout.length) {
+            return -1;
+        }
+        int compactRow = compactIndex / S3kSlotRomData.SLOT_LAYOUT_SIZE;
+        int compactCol = compactIndex % S3kSlotRomData.SLOT_LAYOUT_SIZE;
+        int expandedRow = compactRow + S3kSlotRomData.SLOT_LAYOUT_WORLD_OFFSET;
+        int expandedCol = compactCol + S3kSlotRomData.SLOT_LAYOUT_WORLD_OFFSET;
+        return expandedRow * layoutStrideBytes + expandedCol;
+    }
+
+    public int expandedToCompactIndex(int expandedIndex) {
+        if (expandedIndex < 0 || expandedIndex >= expandedLayout.length) {
+            return -1;
+        }
+        return expandedToCompactIndex(expandedIndex / layoutStrideBytes, expandedIndex % layoutStrideBytes);
+    }
+
+    public int expandedToCompactIndex(int expandedRow, int expandedCol) {
+        int compactRow = expandedRow - S3kSlotRomData.SLOT_LAYOUT_WORLD_OFFSET;
+        int compactCol = expandedCol - S3kSlotRomData.SLOT_LAYOUT_WORLD_OFFSET;
+        if (compactRow < 0 || compactRow >= S3kSlotRomData.SLOT_LAYOUT_SIZE
+                || compactCol < 0 || compactCol >= S3kSlotRomData.SLOT_LAYOUT_SIZE) {
+            return -1;
+        }
+        return compactRow * S3kSlotRomData.SLOT_LAYOUT_SIZE + compactCol;
     }
 
     private static final class TransientAnimationSlot {

@@ -12,37 +12,45 @@ class TestS3kSlotCollisionSystem {
     void collisionReadsExpandedStrideAndStoresCompactLayoutIndex() {
         S3kSlotStageState state = S3kSlotStageState.bootstrap();
         S3kSlotRenderBuffers buffers = S3kSlotRenderBuffers.fromRomData();
-        buffers.expandedLayout()[2 * buffers.layoutStrideBytes()] = 5;
+        int row = Math.floorDiv(0x2BC + S3kSlotCollisionSystem.COLLISION_Y_OFFSET, S3kSlotCollisionSystem.CELL_SIZE);
+        int col = Math.floorDiv(0x2EC + S3kSlotCollisionSystem.COLLISION_X_OFFSET, S3kSlotCollisionSystem.CELL_SIZE);
+        int expandedIndex = row * buffers.layoutStrideBytes() + col;
+        int layoutIndex = buffers.expandedToCompactIndex(expandedIndex);
+        buffers.expandedLayout()[expandedIndex] = 5;
         S3kSlotCollisionSystem system = new S3kSlotCollisionSystem(buffers, state);
 
-        S3kSlotCollisionSystem.Collision collision = system.checkCollision(0, 0);
+        S3kSlotCollisionSystem.Collision collision = system.checkCollision(0x2EC, 0x2BC);
 
         assertTrue(collision.solid());
         assertTrue(collision.special());
         assertEquals(5, collision.tileId());
-        assertEquals(2 * 0x20, collision.layoutIndex());
-        assertEquals(2 * buffers.layoutStrideBytes(), collision.expandedLayoutIndex());
+        assertEquals(layoutIndex, collision.layoutIndex());
+        assertEquals(expandedIndex, collision.expandedLayoutIndex());
         assertEquals(5, state.lastCollisionTileId());
-        assertEquals(2 * 0x20, state.lastCollisionIndex());
+        assertEquals(layoutIndex, state.lastCollisionIndex());
     }
 
     @Test
     void ringPickupConsumesCompactAndExpandedLayoutViews() {
         S3kSlotStageState state = S3kSlotStageState.bootstrap();
         S3kSlotRenderBuffers buffers = S3kSlotRenderBuffers.fromRomData();
-        buffers.layout()[0] = 8;
-        buffers.expandedLayout()[0] = 8;
+        int row = Math.floorDiv(0x2E0 + S3kSlotCollisionSystem.RING_Y_OFFSET, S3kSlotCollisionSystem.CELL_SIZE);
+        int col = Math.floorDiv(0x2E0 + S3kSlotCollisionSystem.RING_X_OFFSET, S3kSlotCollisionSystem.CELL_SIZE);
+        int expandedIndex = row * buffers.layoutStrideBytes() + col;
+        int layoutIndex = buffers.expandedToCompactIndex(expandedIndex);
+        buffers.layout()[layoutIndex] = 8;
+        buffers.expandedLayout()[expandedIndex] = 8;
         S3kSlotCollisionSystem system = new S3kSlotCollisionSystem(buffers, state);
 
-        S3kSlotCollisionSystem.RingCheck ring = system.checkRingPickup(-0x20, -0x50);
+        S3kSlotCollisionSystem.RingCheck ring = system.checkRingPickup(0x2E0, 0x2E0);
         assertTrue(ring.foundRing());
-        assertEquals(0, ring.layoutIndex());
-        assertEquals(0, ring.expandedLayoutIndex());
+        assertEquals(layoutIndex, ring.layoutIndex());
+        assertEquals(expandedIndex, ring.expandedLayoutIndex());
 
         system.consumeRing(ring);
 
-        assertEquals(0, buffers.layout()[0]);
-        assertEquals(0, buffers.expandedLayout()[0]);
+        assertEquals(0, buffers.layout()[layoutIndex]);
+        assertEquals(0, buffers.expandedLayout()[expandedIndex]);
     }
 
     @Test

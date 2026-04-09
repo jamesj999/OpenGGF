@@ -909,10 +909,10 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
             } else if (entry.mappingAddr() > 0 && entry.frameFilter() != null) {
                 sheet = art.buildLevelArtSheetFromRomFiltered(
                         entry.mappingAddr(), entry.artTileBase(), entry.palette(),
-                        entry.frameFilter());
+                        entry.frameFilter(), entry.mappingFormat());
             } else if (entry.mappingAddr() > 0) {
                 sheet = art.buildLevelArtSheetFromRom(
-                        entry.mappingAddr(), entry.artTileBase(), entry.palette());
+                        entry.mappingAddr(), entry.artTileBase(), entry.palette(), entry.mappingFormat());
             } else {
                 LOG.warning("LevelArtEntry '" + entry.key() + "' has no builder or mapping addr");
                 continue;
@@ -1214,8 +1214,16 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         if (sheet == null) {
             return;
         }
-        sheets.put(key, sheet);
         PatternSpriteRenderer renderer = new PatternSpriteRenderer(sheet);
+        int existingIndex = rendererKeys.indexOf(key);
+        if (existingIndex >= 0) {
+            sheets.put(key, sheet);
+            renderers.put(key, renderer);
+            sheetOrder.set(existingIndex, sheet);
+            rendererOrder.set(existingIndex, renderer);
+            return;
+        }
+        sheets.put(key, sheet);
         renderers.put(key, renderer);
         rendererKeys.add(key);
         sheetOrder.add(sheet);

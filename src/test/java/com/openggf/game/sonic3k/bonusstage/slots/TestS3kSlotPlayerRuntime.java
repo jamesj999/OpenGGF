@@ -47,10 +47,12 @@ class TestS3kSlotPlayerRuntime {
     void tickRecordsCollisionThroughCollisionSystem() {
         S3kSlotStageState state = S3kSlotStageState.bootstrap();
         S3kSlotRenderBuffers buffers = S3kSlotRenderBuffers.fromRomData();
-        buffers.expandedLayout()[2 * buffers.layoutStrideBytes()] = 5;
+        int compactIndex = 0;
+        int expandedIndex = buffers.compactToExpandedIndex(compactIndex);
+        buffers.expandedLayout()[expandedIndex] = 5;
         S3kSlotCollisionSystem collisionSystem = new S3kSlotCollisionSystem(buffers, state);
         S3kSlotPlayerRuntime runtime = new S3kSlotPlayerRuntime(state, collisionSystem);
-        Sonic player = new Sonic("sonic", (short) 0x0000, (short) 0x0000);
+        Sonic player = new Sonic("sonic", (short) 0x2EC, (short) 0x2BC);
 
         runtime.initialize(player);
         player.setAir(false);
@@ -58,7 +60,7 @@ class TestS3kSlotPlayerRuntime {
         runtime.tick(player, false, false, false, 0);
 
         assertEquals(5, state.lastCollisionTileId());
-        assertEquals(2 * 0x20, state.lastCollisionIndex());
+        assertEquals(compactIndex, state.lastCollisionIndex());
         assertFalse(player.getAir());
     }
 
@@ -66,11 +68,14 @@ class TestS3kSlotPlayerRuntime {
     void airMotionPreservesSpecialCollisionWhenLaterProbeHitsPlainSolid() {
         S3kSlotStageState state = S3kSlotStageState.bootstrap();
         S3kSlotRenderBuffers buffers = S3kSlotRenderBuffers.fromRomData();
-        buffers.expandedLayout()[2 * buffers.layoutStrideBytes() + 1] = 5;
-        buffers.expandedLayout()[3 * buffers.layoutStrideBytes()] = 7;
+        int specialCompactIndex = 1;
+        int specialExpandedIndex = buffers.compactToExpandedIndex(specialCompactIndex);
+        int plainExpandedIndex = specialExpandedIndex + buffers.layoutStrideBytes() - 1;
+        buffers.expandedLayout()[specialExpandedIndex] = 5;
+        buffers.expandedLayout()[plainExpandedIndex] = 7;
         S3kSlotCollisionSystem collisionSystem = new S3kSlotCollisionSystem(buffers, state);
         S3kSlotPlayerRuntime runtime = new S3kSlotPlayerRuntime(state, collisionSystem);
-        Sonic player = new Sonic("sonic", (short) 0x0000, (short) 0x0000);
+        Sonic player = new Sonic("sonic", (short) 0x2EC, (short) 0x2BC);
 
         runtime.initialize(player);
         player.setXSpeed((short) (24 * 0x100));
@@ -79,6 +84,6 @@ class TestS3kSlotPlayerRuntime {
         runtime.tick(player, false, false, false, 0);
 
         assertEquals(5, state.lastCollisionTileId());
-        assertEquals((2 * 0x20) + 1, state.lastCollisionIndex());
+        assertEquals(specialCompactIndex, state.lastCollisionIndex());
     }
 }
