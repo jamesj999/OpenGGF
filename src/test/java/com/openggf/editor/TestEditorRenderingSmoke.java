@@ -1,16 +1,31 @@
 package com.openggf.editor;
 
+import com.openggf.game.session.EditorCursorState;
+import com.openggf.graphics.GLCommand;
 import com.openggf.editor.render.EditorOverlayRenderer;
 import com.openggf.editor.render.EditorCommandStripRenderer;
 import com.openggf.editor.render.EditorToolbarRenderer;
 import com.openggf.editor.render.EditorWorldOverlayRenderer;
 import com.openggf.editor.render.FocusedEditorPaneRenderer;
+import com.openggf.game.session.SessionManager;
+import com.openggf.game.sonic2.Sonic2GameModule;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 class TestEditorRenderingSmoke {
+
+    @AfterEach
+    void tearDown() {
+        SessionManager.clear();
+    }
 
     @Test
     void focusedPaneRenderer_buildsWithoutPermanentSidebarAssumptions() {
@@ -63,6 +78,29 @@ class TestEditorRenderingSmoke {
         assertEquals(1, focusedPane.chunkPaneCalls);
     }
 
+    @Test
+    void worldOverlayRenderer_usesCurrentSessionCursorWhenRendering() {
+        SessionManager.openGameplaySession(new Sonic2GameModule());
+        SessionManager.enterEditorMode(new EditorCursorState(320, 448));
+        CapturingWorldOverlayRenderer renderer = new CapturingWorldOverlayRenderer();
+
+        renderer.render();
+
+        assertEquals(SessionManager.getCurrentEditorMode().getCursor(), renderer.capturedCursor);
+    }
+
+    @Test
+    void worldOverlayRenderer_buildsDifferentCursorCommandsForDifferentPositions() {
+        InspectableWorldOverlayRenderer renderer = new InspectableWorldOverlayRenderer();
+
+        List<GLCommand> first = renderer.buildCursorCommands(new EditorCursorState(320, 448));
+        List<GLCommand> second = renderer.buildCursorCommands(new EditorCursorState(384, 480));
+
+        assertFalse(first.isEmpty());
+        assertFalse(second.isEmpty());
+        assertNotEquals(commandSignature(first), commandSignature(second));
+    }
+
     private static final class TrackingToolbarRenderer extends EditorToolbarRenderer {
         private int renderCalls;
 
@@ -103,5 +141,35 @@ class TestEditorRenderingSmoke {
         public void renderChunkEditorPane() {
             chunkPaneCalls++;
         }
+    }
+
+    private static final class InspectableWorldOverlayRenderer extends EditorWorldOverlayRenderer {
+        private List<GLCommand> buildCursorCommands(EditorCursorState cursor) {
+            List<GLCommand> commands = new ArrayList<>();
+            appendCursorCommands(commands, cursor);
+            return commands;
+        }
+    }
+
+    private static final class CapturingWorldOverlayRenderer extends EditorWorldOverlayRenderer {
+        private EditorCursorState capturedCursor;
+
+        @Override
+        protected void appendCursorCommands(List<GLCommand> commands, EditorCursorState cursor) {
+            capturedCursor = cursor;
+        }
+    }
+
+    private static String commandSignature(List<GLCommand> commands) {
+        StringBuilder signature = new StringBuilder();
+        for (GLCommand command : commands) {
+            signature.append(command.getCommandType())
+                    .append(':')
+                    .append((int) command.getX1())
+                    .append(',')
+                    .append((int) command.getY1())
+                    .append(';');
+        }
+        return signature.toString();
     }
 }
