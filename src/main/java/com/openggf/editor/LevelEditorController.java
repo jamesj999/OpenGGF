@@ -157,9 +157,11 @@ public final class LevelEditorController {
         if (level == null) {
             return new EditorCursorState(x, y);
         }
-        int maxX = Math.max(0, level.getMap().getWidth() * level.getBlockPixelSize() - 1);
-        int maxY = Math.max(0, level.getMap().getHeight() * level.getBlockPixelSize() - 1);
-        return new EditorCursorState(clamp(x, 0, maxX), clamp(y, 0, maxY));
+        int minX = level.getMinX();
+        int maxX = level.getMaxX();
+        int minY = level.getMinY();
+        int maxY = level.getMaxY();
+        return new EditorCursorState(clamp(x, minX, maxX), clamp(y, minY, maxY));
     }
 
     private int activeGridSide() {
