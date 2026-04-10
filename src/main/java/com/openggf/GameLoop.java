@@ -82,6 +82,7 @@ public class GameLoop {
 
     private static final Logger LOGGER = Logger.getLogger(GameLoop.class.getName());
 
+    private final EngineServices engineServices;
     private final SonicConfigurationService configService;
     private final AudioManager audioManager;
     private final RomManager romManager;
@@ -171,13 +172,14 @@ public class GameLoop {
     }
 
     public GameLoop(EngineServices engineServices) {
-        engineServices = Objects.requireNonNull(engineServices, "engineServices");
-        this.configService = engineServices.configuration();
-        this.audioManager = engineServices.audio();
-        this.romManager = engineServices.roms();
-        this.debugOverlayManager = engineServices.debugOverlay();
-        this.profiler = engineServices.profiler();
-        this.playbackDebugManager = engineServices.playbackDebug();
+        this.engineServices = Objects.requireNonNull(engineServices, "engineServices");
+        RuntimeManager.configureEngineServices(this.engineServices);
+        this.configService = this.engineServices.configuration();
+        this.audioManager = this.engineServices.audio();
+        this.romManager = this.engineServices.roms();
+        this.debugOverlayManager = this.engineServices.debugOverlay();
+        this.profiler = this.engineServices.profiler();
+        this.playbackDebugManager = this.engineServices.playbackDebug();
         refreshRuntimeBindings();
     }
 
@@ -200,7 +202,7 @@ public class GameLoop {
     }
 
     private void refreshRuntimeBindings() {
-        GameRuntime currentRuntime = runtime != null ? runtime : RuntimeManager.getCurrent();
+        GameRuntime currentRuntime = runtime != null ? runtime : RuntimeManager.getCurrent(engineServices);
         if (currentRuntime == null) {
             return;
         }

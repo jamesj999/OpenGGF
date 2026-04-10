@@ -47,6 +47,11 @@ public final class RuntimeManager {
      * (e.g. during master title screen before any game is loaded).
      */
     public static synchronized GameRuntime getCurrent() {
+        return getCurrent(engineServices);
+    }
+
+    public static synchronized GameRuntime getCurrent(EngineServices services) {
+        Objects.requireNonNull(services, "services");
         GameplayModeContext gameplayMode = SessionManager.getCurrentGameplayMode();
         if (current != null) {
             if (current.getGameplayModeContext() != gameplayMode) {
@@ -57,7 +62,7 @@ public final class RuntimeManager {
             }
         }
         if (gameplayMode != null && gameplayMode != suppressedGameplayMode) {
-            return createGameplay(gameplayMode);
+            return createGameplay(gameplayMode, services);
         }
         return current;
     }
@@ -120,6 +125,11 @@ public final class RuntimeManager {
      * @return the newly created runtime
      */
     public static synchronized GameRuntime createGameplay(GameplayModeContext gameplayMode) {
+        return createGameplay(gameplayMode, engineServices);
+    }
+
+    public static synchronized GameRuntime createGameplay(GameplayModeContext gameplayMode, EngineServices services) {
+        Objects.requireNonNull(services, "services");
         if (gameplayMode == null) {
             throw new NullPointerException("gameplayMode");
         }
@@ -141,7 +151,7 @@ public final class RuntimeManager {
                 ? currentModule.rngFlavour()
                 : GameRng.Flavour.S1_S2);
 
-        GameRuntime runtime = new GameRuntime(engineServices, gameplayMode.getWorldSession(), gameplayMode,
+        GameRuntime runtime = new GameRuntime(services, gameplayMode.getWorldSession(), gameplayMode,
                 camera, timers, gameState, fadeManager,
                 waterSystem, parallaxManager, terrainCollisionManager,
                 collisionSystem, spriteManager, levelManager, rng);
