@@ -1,10 +1,12 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.GameServices;
+import com.openggf.game.EngineServices;
+import com.openggf.game.RuntimeManager;
 import com.openggf.graphics.GraphicsManager;
 import java.util.logging.Logger;
 import com.openggf.level.Level;
 import com.openggf.level.Palette;
+import com.openggf.level.objects.ObjectServices;
 
 /**
  * Palette cycling for the AIZ1 intro's Super Sonic visual effect.
@@ -34,6 +36,15 @@ public class AizIntroPaletteCycler {
 
     private int paletteTimer;
     private int paletteFrame;
+    private final ObjectServices services;
+
+    public AizIntroPaletteCycler() {
+        this(null);
+    }
+
+    public AizIntroPaletteCycler(ObjectServices services) {
+        this.services = services;
+    }
 
     public void init() {
         paletteTimer = TIMER_PERIOD;
@@ -71,9 +82,7 @@ public class AizIntroPaletteCycler {
         if (offset + COLORS_PER_STEP * 2 > data.length) return;
 
         try {
-            var lm = GameServices.levelOrNull();
-            if (lm == null) return;
-            Level level = lm.getCurrentLevel();
+            Level level = currentLevel();
             if (level == null) return;
             Palette palette = level.getPalette(SONIC_PALETTE_INDEX);
             if (palette == null) return;
@@ -83,7 +92,7 @@ public class AizIntroPaletteCycler {
                         .fromSegaFormat(data, offset + i * 2);
             }
 
-            GraphicsManager gfx = GraphicsManager.getInstance();
+            GraphicsManager gfx = graphicsManager();
             if (gfx.isGlInitialized()) {
                 gfx.cachePaletteTexture(palette, SONIC_PALETTE_INDEX);
             }
@@ -95,6 +104,29 @@ public class AizIntroPaletteCycler {
     /** Get the Super Sonic mapping frame based on V-blank parity. */
     public int getMappingFrame(int frameCounter) {
         return (frameCounter & 1) != 0 ? MAPPING_FRAME_ODD : MAPPING_FRAME_EVEN;
+    }
+
+    private Level currentLevel() {
+        if (services != null) {
+            return services.currentLevel();
+        }
+        var runtime = RuntimeManager.getCurrent();
+        if (runtime == null) {
+            return null;
+        }
+        var levelManager = runtime.getLevelManager();
+        return levelManager != null ? levelManager.getCurrentLevel() : null;
+    }
+
+    private GraphicsManager graphicsManager() {
+        if (services != null) {
+            return services.graphicsManager();
+        }
+        var runtime = RuntimeManager.getCurrent();
+        EngineServices engineServices = runtime != null
+                ? runtime.getEngineServices()
+                : EngineServices.fromLegacySingletonsForBootstrap();
+        return engineServices.graphics();
     }
 
     public int getPaletteFrame() { return paletteFrame; }

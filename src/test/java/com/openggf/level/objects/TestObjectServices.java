@@ -3,8 +3,13 @@ package com.openggf.level.objects;
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.camera.Camera;
+import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
+import com.openggf.data.RomManager;
+import com.openggf.debug.DebugOverlayManager;
+import com.openggf.game.CrossGameFeatureProvider;
+import com.openggf.game.EngineServices;
 import com.openggf.game.GameRng;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.GameModule;
@@ -45,6 +50,11 @@ public class TestObjectServices implements ObjectServices {
     private List<PlayableEntity> sidekicks = List.of();
     private WorldSession worldSession;
     private GameModule gameModule;
+    private EngineServices engineServices;
+    private SonicConfigurationService configuration;
+    private DebugOverlayManager debugOverlay;
+    private RomManager romManager;
+    private CrossGameFeatureProvider crossGameFeatures;
 
     public TestObjectServices withLevelManager(LevelManager levelManager) {
         this.levelManager = levelManager;
@@ -121,6 +131,31 @@ public class TestObjectServices implements ObjectServices {
         if (gameModule != null && worldSession == null) {
             this.worldSession = new WorldSession(gameModule);
         }
+        return this;
+    }
+
+    public TestObjectServices withEngineServices(EngineServices engineServices) {
+        this.engineServices = engineServices;
+        return this;
+    }
+
+    public TestObjectServices withConfiguration(SonicConfigurationService configuration) {
+        this.configuration = configuration;
+        return this;
+    }
+
+    public TestObjectServices withDebugOverlay(DebugOverlayManager debugOverlay) {
+        this.debugOverlay = debugOverlay;
+        return this;
+    }
+
+    public TestObjectServices withRomManager(RomManager romManager) {
+        this.romManager = romManager;
+        return this;
+    }
+
+    public TestObjectServices withCrossGameFeatures(CrossGameFeatureProvider crossGameFeatures) {
+        this.crossGameFeatures = crossGameFeatures;
         return this;
     }
 
@@ -238,6 +273,31 @@ public class TestObjectServices implements ObjectServices {
     @Override
     public AudioManager audioManager() {
         return audioManager;
+    }
+
+    @Override
+    public EngineServices engineServices() {
+        return engineServices;
+    }
+
+    @Override
+    public SonicConfigurationService configuration() {
+        return configuration;
+    }
+
+    @Override
+    public DebugOverlayManager debugOverlay() {
+        return debugOverlay;
+    }
+
+    @Override
+    public RomManager romManager() {
+        return romManager;
+    }
+
+    @Override
+    public CrossGameFeatureProvider crossGameFeatures() {
+        return crossGameFeatures;
     }
 
     @Override

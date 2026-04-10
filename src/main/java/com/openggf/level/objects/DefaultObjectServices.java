@@ -3,10 +3,14 @@ package com.openggf.level.objects;
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.camera.Camera;
+import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.data.RomManager;
+import com.openggf.debug.DebugOverlayManager;
 import com.openggf.game.BonusStageType;
+import com.openggf.game.CrossGameFeatureProvider;
+import com.openggf.game.EngineServices;
 import com.openggf.game.GameModule;
 import com.openggf.game.GameRng;
 import com.openggf.game.GameRuntime;
@@ -52,6 +56,7 @@ public class DefaultObjectServices implements ObjectServices {
     private final ParallaxManager parallaxManager;
     private final WorldSession worldSession;
     private final GameRng rng;
+    private final EngineServices engineServices;
 
     /**
      * Primary constructor backed by a GameRuntime.
@@ -65,7 +70,8 @@ public class DefaultObjectServices implements ObjectServices {
                 runtime.getWaterSystem(),
                 runtime.getParallaxManager(),
                 runtime.getWorldSession(),
-                runtime.getRng());
+                runtime.getRng(),
+                runtime.getEngineServices());
     }
 
     public DefaultObjectServices(LevelManager levelManager,
@@ -76,7 +82,8 @@ public class DefaultObjectServices implements ObjectServices {
                                  WaterSystem waterSystem,
                                  ParallaxManager parallaxManager) {
         this(levelManager, camera, gameState, spriteManager, fadeManager, waterSystem,
-                parallaxManager, null, new GameRng(GameRng.Flavour.S1_S2));
+                parallaxManager, null, new GameRng(GameRng.Flavour.S1_S2),
+                EngineServices.fromLegacySingletonsForBootstrap());
     }
 
     private DefaultObjectServices(LevelManager levelManager,
@@ -87,7 +94,8 @@ public class DefaultObjectServices implements ObjectServices {
                                  WaterSystem waterSystem,
                                  ParallaxManager parallaxManager,
                                  WorldSession worldSession,
-                                 GameRng rng) {
+                                 GameRng rng,
+                                 EngineServices engineServices) {
         this.levelManager = Objects.requireNonNull(levelManager, "levelManager");
         this.camera = Objects.requireNonNull(camera, "camera");
         this.gameState = Objects.requireNonNull(gameState, "gameState");
@@ -97,6 +105,7 @@ public class DefaultObjectServices implements ObjectServices {
         this.parallaxManager = Objects.requireNonNull(parallaxManager, "parallaxManager");
         this.worldSession = worldSession;
         this.rng = Objects.requireNonNull(rng, "rng");
+        this.engineServices = Objects.requireNonNull(engineServices, "engineServices");
     }
 
     private LevelManager lm() {
@@ -219,46 +228,71 @@ public class DefaultObjectServices implements ObjectServices {
 
     @Override
     public GraphicsManager graphicsManager() {
-        return GraphicsManager.getInstance();
+        return engineServices.graphics();
     }
 
     @Override
     public AudioManager audioManager() {
-        return AudioManager.getInstance();
+        return engineServices.audio();
+    }
+
+    @Override
+    public EngineServices engineServices() {
+        return engineServices;
+    }
+
+    @Override
+    public SonicConfigurationService configuration() {
+        return engineServices.configuration();
+    }
+
+    @Override
+    public DebugOverlayManager debugOverlay() {
+        return engineServices.debugOverlay();
+    }
+
+    @Override
+    public RomManager romManager() {
+        return engineServices.roms();
+    }
+
+    @Override
+    public CrossGameFeatureProvider crossGameFeatures() {
+        return engineServices.crossGameFeatures();
     }
 
     // ── Audio convenience ───────────────────────────────────────────────
 
     @Override
     public void playSfx(int soundId) {
-        AudioManager.getInstance().playSfx(soundId);
+        audioManager().playSfx(soundId);
     }
 
     @Override
     public void playSfx(GameSound sound) {
-        AudioManager.getInstance().playSfx(sound);
+        audioManager().playSfx(sound);
     }
 
     @Override
     public void playMusic(int musicId) {
-        AudioManager.getInstance().playMusic(musicId);
+        audioManager().playMusic(musicId);
     }
 
     @Override
     public void fadeOutMusic() {
-        AudioManager.getInstance().fadeOutMusic();
+        audioManager().fadeOutMusic();
     }
 
     // ── ROM (engine global) ─────────────────────────────────────────────
 
     @Override
     public Rom rom() throws IOException {
-        return RomManager.getInstance().getRom();
+        return romManager().getRom();
     }
 
     @Override
     public RomByteReader romReader() throws IOException {
-        return RomByteReader.fromRom(RomManager.getInstance().getRom());
+        return RomByteReader.fromRom(rom());
     }
 
     // ── Sidekicks ───────────────────────────────────────────────────────

@@ -1,7 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -120,7 +119,7 @@ public class Sonic3kInvisibleBlockObjectInstance extends AbstractObjectInstance
     }
 
     private boolean isDebugViewEnabled() {
-        return SonicConfigurationService.getInstance()
+        return services().configuration()
                 .getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
     }
 }

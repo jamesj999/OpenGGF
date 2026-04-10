@@ -407,7 +407,7 @@ public class CutsceneKnucklesAiz1Instance extends AbstractObjectInstance {
 
         // Apply Knuckles palette (Pal_CutsceneKnux → palette line 1).
         // ROM does this in init, but GL may not be ready then; trigger time is equivalent.
-        AizIntroArtLoader.applyKnucklesPalette();
+        AizIntroArtLoader.applyKnucklesPalette(services());
 
         // Load react/fall animation (byte_666AF)
         loadAnimScript(Sonic3kConstants.ANIM_CUTSCENE_KNUX_REACT_ADDR);
