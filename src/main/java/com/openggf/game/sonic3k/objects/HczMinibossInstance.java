@@ -758,7 +758,7 @@ public class HczMinibossInstance extends AbstractBossInstance {
         if (focused instanceof AbstractPlayableSprite aps) {
             var dustController = aps.getSpindashDustController();
             if (dustController != null && dustController.getRenderer() != null) {
-                spawnDynamicObject(new SplashObjectInstance(
+                spawnChild(() -> new SplashObjectInstance(
                         state.x, waterLevelY, dustController.getRenderer(), false));
             }
         }

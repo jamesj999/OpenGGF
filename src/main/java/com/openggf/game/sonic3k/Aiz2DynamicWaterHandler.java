@@ -101,5 +101,7 @@ public class Aiz2DynamicWaterHandler implements DynamicWaterHandler {
      */
     public void reset() {
         this.waterRaised = false;
+        Sonic3kLevelTriggerManager.clearBit(TRIGGER_INDEX, 0);
+        Sonic3kLevelTriggerManager.clearBit(TRIGGER_INDEX, 7);
     }
 }
