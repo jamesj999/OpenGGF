@@ -2,6 +2,8 @@ package com.openggf.level.objects;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -137,5 +139,24 @@ class TestObjectServicesConstructionContext {
 
         assertNull(AbstractObjectInstance.CONSTRUCTION_CONTEXT.get(),
                 "ThreadLocal should be null after remove()");
+    }
+
+    @Test
+    void objectManager_createDynamicObject_setsConstructionContextBeforeFactory() {
+        ObjectManager manager = new ObjectManager(
+                List.of(), null, -1, null, null, null, null, TEST_SERVICES);
+        ObjectSpawn spawn = new ObjectSpawn(0, 0, 0, 0, 0, false, 0);
+
+        ConstructorAccessObject obj = manager.createDynamicObject(
+                () -> new ConstructorAccessObject(spawn));
+
+        assertSame(TEST_SERVICES, obj.constructorServices,
+                "factory-created object should see ObjectManager services during construction");
+        assertSame(TEST_SERVICES, obj.services(),
+                "ObjectManager should inject services after construction");
+        assertNull(AbstractObjectInstance.CONSTRUCTION_CONTEXT.get(),
+                "ObjectManager should clear construction context after factory returns");
+        assertTrue(manager.getActiveObjects().contains(obj),
+                "created object should be registered as a dynamic object");
     }
 }

@@ -5,6 +5,9 @@ import com.openggf.audio.AudioManager;
 import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
 import com.openggf.level.LevelManager;
+import com.openggf.level.objects.ObjectInstance;
+
+import java.util.function.Supplier;
 
 /**
  * Base class for Sonic 1 per-zone dynamic level events.
@@ -44,6 +47,14 @@ abstract class Sonic1ZoneEvents {
 
     /** Run per-frame event logic for the given act. */
     abstract void update(int act);
+
+    protected <T extends ObjectInstance> T spawnObject(Supplier<T> factory) {
+        LevelManager lm = levelManager();
+        if (lm == null || lm.getObjectManager() == null) {
+            return null;
+        }
+        return lm.getObjectManager().createDynamicObject(factory);
+    }
 
     int getEventRoutine() {
         return eventRoutine;
