@@ -77,6 +77,12 @@ class TestObjectServicesConstructionContext {
         public void appendRenderCommands(java.util.List<com.openggf.graphics.GLCommand> commands) {}
     }
 
+    private static class OptionalServicesObject extends AbstractObjectInstance {
+        OptionalServicesObject(ObjectSpawn spawn) { super(spawn, "OptionalServices"); }
+        ObjectServices optionalServices() { return tryServices(); }
+        @Override public void appendRenderCommands(java.util.List<com.openggf.graphics.GLCommand> commands) {}
+    }
+
     @Test
     void services_availableDuringConstruction_whenContextSet() {
         ObjectSpawn spawn = new ObjectSpawn(0, 0, 0, 0, 0, false, 0);
@@ -130,6 +136,35 @@ class TestObjectServicesConstructionContext {
                 "services() should throw when neither instance field nor context is available");
         assertTrue(ex.getMessage().contains("services not available"),
                 "Error message should indicate services are unavailable");
+    }
+
+    @Test
+    void tryServices_returnsNullWithoutContext_orInstanceField() {
+        ObjectSpawn spawn = new ObjectSpawn(0, 0, 0, 0, 0, false, 0);
+        AbstractObjectInstance.CONSTRUCTION_CONTEXT.remove();
+        OptionalServicesObject obj = new OptionalServicesObject(spawn);
+        assertNull(obj.optionalServices());
+    }
+
+    @Test
+    void tryServices_returnsConstructionContext_whenContextSet() {
+        ObjectSpawn spawn = new ObjectSpawn(0, 0, 0, 0, 0, false, 0);
+        AbstractObjectInstance.CONSTRUCTION_CONTEXT.set(TEST_SERVICES);
+        try {
+            OptionalServicesObject obj = new OptionalServicesObject(spawn);
+            assertSame(TEST_SERVICES, obj.optionalServices());
+        } finally {
+            AbstractObjectInstance.CONSTRUCTION_CONTEXT.remove();
+        }
+    }
+
+    @Test
+    void tryServices_prefersInstanceField_afterSetServices() {
+        ObjectSpawn spawn = new ObjectSpawn(0, 0, 0, 0, 0, false, 0);
+        OptionalServicesObject obj = new OptionalServicesObject(spawn);
+        ObjectServices instanceServices = new TestObjectServices();
+        obj.setServices(instanceServices);
+        assertSame(instanceServices, obj.optionalServices());
     }
 
     @Test
