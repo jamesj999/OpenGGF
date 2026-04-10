@@ -67,7 +67,6 @@ public class TestRuntimeSingletonGuard {
             "LazyMappingHolder.java",
             "Sonic2ObjectRegistry.java",
             "AizIntroArtLoader.java",
-            "AizIntroBoosterChild.java",
             "AizIntroPaletteCycler.java",
             "AizIntroTerrainSwap.java"
     );

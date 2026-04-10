@@ -289,7 +289,7 @@ public class AizRideVineObjectInstance extends AbstractObjectInstance {
         AizVineHandleLogic.positionFromParent(handle, lastSegment.x, lastSegment.y, lastSegment.angle);
         var sidekicks = services().sidekicks();
         AbstractPlayableSprite sidekick = sidekicks.isEmpty() ? null : (AbstractPlayableSprite) sidekicks.getFirst();
-        AizVineHandleLogic.updatePlayers(handle, player, sidekick, lastSegment.angle);
+        AizVineHandleLogic.updatePlayers(handle, services(), player, sidekick, lastSegment.angle);
     }
 
     private void updateStillSprite() {
