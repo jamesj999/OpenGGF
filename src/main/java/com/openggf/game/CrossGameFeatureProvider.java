@@ -71,13 +71,20 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
     private final SonicConfigurationService configService;
 
     private CrossGameFeatureProvider() {
-        this(RuntimeManager.getEngineServices().roms(),
-                RuntimeManager.getEngineServices().configuration());
+        this(null, null);
     }
 
     CrossGameFeatureProvider(RomManager romManager, SonicConfigurationService configService) {
         this.romManager = romManager;
         this.configService = configService;
+    }
+
+    private RomManager romManager() {
+        return romManager != null ? romManager : RuntimeManager.getEngineServices().roms();
+    }
+
+    private SonicConfigurationService configService() {
+        return configService != null ? configService : RuntimeManager.getEngineServices().configuration();
     }
 
     public static synchronized CrossGameFeatureProvider getInstance() {
@@ -112,7 +119,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
             return;
         }
 
-        Rom donorRom = romManager.getSecondaryRom(donorGameId.code());
+        Rom donorRom = romManager().getSecondaryRom(donorGameId.code());
         this.donorReader = RomByteReader.fromRom(donorRom);
 
         if (donorGameId == GameId.S3K) {
@@ -131,7 +138,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
 
         // Create donor render context for palette isolation
         donorRenderContext = RenderContext.getOrCreateDonor(donorGameId);
-        String mainChar = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        String mainChar = configService().getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         Palette charPalette = loadCharacterPalette(mainChar);
         if (charPalette != null) {
             donorRenderContext.setPalette(0, charPalette);
@@ -293,7 +300,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
         }
 
         try {
-            Rom donorRom = romManager.getSecondaryRom(donorGameId.code());
+            Rom donorRom = romManager().getSecondaryRom(donorGameId.code());
             donorSmpsLoader = donorProfile.createSmpsLoader(donorRom);
             donorDacData = donorSmpsLoader.loadDacData();
 

@@ -30,23 +30,24 @@ import static org.junit.Assert.assertTrue;
 
 public class TestSonic1GargoyleObjectInstanceRender {
 
-    private Field levelManagerField;
-    private LevelManager originalLevelManager;
+    private Field objectRenderManagerField;
+    private ObjectRenderManager originalRenderManager;
     private GameRuntime originalRuntime;
+    private LevelManager runtimeLevelManager;
 
     @Before
     public void setUp() throws Exception {
-        levelManagerField = LevelManager.class.getDeclaredField("levelManager");
-        levelManagerField.setAccessible(true);
-        originalLevelManager = (LevelManager) levelManagerField.get(null);
-        // Clear any leaked GameRuntime so LevelManager.getInstance() uses the static field
         originalRuntime = RuntimeManager.getCurrent();
-        RuntimeManager.setCurrent(null);
+        RuntimeManager.destroyCurrent();
+        runtimeLevelManager = RuntimeManager.createGameplay().getLevelManager();
+        objectRenderManagerField = LevelManager.class.getDeclaredField("objectRenderManager");
+        objectRenderManagerField.setAccessible(true);
+        originalRenderManager = (ObjectRenderManager) objectRenderManagerField.get(runtimeLevelManager);
     }
 
     @After
     public void tearDown() throws Exception {
-        levelManagerField.set(null, originalLevelManager);
+        objectRenderManagerField.set(runtimeLevelManager, originalRenderManager);
         RuntimeManager.setCurrent(originalRuntime);
     }
 
@@ -77,7 +78,7 @@ public class TestSonic1GargoyleObjectInstanceRender {
 
         Sonic1GargoyleObjectInstance.Fireball fireball =
                 new Sonic1GargoyleObjectInstance.Fireball(100, 100, true);
-        fireball.setServices(new TestObjectServices().withLevelManager(LevelManager.getInstance()));
+        fireball.setServices(new TestObjectServices().withLevelManager(runtimeLevelManager));
         fireball.appendRenderCommands(new ArrayList<>());
 
         assertEquals(1, renderer.drawCount);
@@ -88,20 +89,7 @@ public class TestSonic1GargoyleObjectInstanceRender {
 
     private void installRenderer(RecordingRenderer renderer) throws Exception {
         ObjectRenderManager renderManager = new ObjectRenderManager(new StubObjectArtProvider(renderer));
-        levelManagerField.set(null, new TestLevelManager(renderManager));
-    }
-
-    private static final class TestLevelManager extends LevelManager {
-        private final ObjectRenderManager renderManager;
-
-        private TestLevelManager(ObjectRenderManager renderManager) {
-            this.renderManager = renderManager;
-        }
-
-        @Override
-        public ObjectRenderManager getObjectRenderManager() {
-            return renderManager;
-        }
+        objectRenderManagerField.set(runtimeLevelManager, renderManager);
     }
 
     private static final class StubObjectArtProvider implements ObjectArtProvider {

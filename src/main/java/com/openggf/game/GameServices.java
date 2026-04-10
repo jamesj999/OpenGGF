@@ -50,11 +50,6 @@ public final class GameServices {
         return rt != null ? rt.getCamera() : null;
     }
 
-    public static Camera cameraOrBootstrap() {
-        GameRuntime rt = runtimeOrNull();
-        return rt != null ? rt.getCamera() : Camera.getInstance();
-    }
-
     public static LevelManager levelOrNull() {
         GameRuntime rt = runtimeOrNull();
         return rt != null ? rt.getLevelManager() : null;
@@ -83,11 +78,6 @@ public final class GameServices {
     public static FadeManager fadeOrNull() {
         GameRuntime rt = runtimeOrNull();
         return rt != null ? rt.getFadeManager() : null;
-    }
-
-    public static FadeManager fadeOrBootstrap() {
-        GameRuntime rt = runtimeOrNull();
-        return rt != null ? rt.getFadeManager() : FadeManager.getInstance();
     }
 
     public static SpriteManager spritesOrNull() {

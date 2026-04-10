@@ -1,7 +1,5 @@
 package com.openggf.graphics;
 
-import com.openggf.game.RuntimeManager;
-
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL14.*;
 import static org.lwjgl.opengl.GL20.*;
@@ -55,8 +53,6 @@ public class FadeManager {
         BLACK
     }
 
-    private static FadeManager bootstrapInstance;
-
     // Current fade state
     private FadeState state = FadeState.NONE;
     private int frameCount = 0;
@@ -107,20 +103,6 @@ public class FadeManager {
     private int fadeColorLocation = -1;
 
     public FadeManager() {
-    }
-
-    /**
-     * Get the singleton instance.
-     */
-    public static synchronized FadeManager getInstance() {
-        var runtime = RuntimeManager.getCurrent();
-        if (runtime != null) {
-            return runtime.getFadeManager();
-        }
-        if (bootstrapInstance == null) {
-            bootstrapInstance = new FadeManager();
-        }
-        return bootstrapInstance;
     }
 
     /**

@@ -72,7 +72,7 @@ public class TestSonic2LevelInitProfile {
     public void postTeardownFixupsContainGroundSensorWiring() {
         List<StaticFixup> fixups = profile.postTeardownFixups();
 
-        // GroundSensor no longer needs wiring — always uses LevelManager.getInstance()
+        // GroundSensor no longer needs wiring — it resolves the active runtime level directly.
         assertEquals(0, fixups.size());
     }
 

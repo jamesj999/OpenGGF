@@ -1,6 +1,7 @@
 package com.openggf.graphics;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.EngineServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.graphics.pipeline.UiRenderPipeline;
 import org.junit.After;
@@ -15,18 +16,20 @@ public class TestGraphicsManagerFadeRebinding {
     @After
     public void tearDown() throws Exception {
         RuntimeManager.destroyCurrent();
-        GraphicsManager.getInstance().resetState();
-        setPrivateField(GraphicsManager.getInstance(), "uiRenderPipeline", null);
+        GraphicsManager graphicsManager = EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        graphicsManager.resetState();
+        setPrivateField(graphicsManager, "uiRenderPipeline", null);
     }
 
     @Test
     public void testGetFadeManagerRebindsRuntimeManagedReferences() throws Exception {
         RuntimeManager.destroyCurrent();
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = EngineServices.fromLegacySingletonsForBootstrap().graphics();
         graphicsManager.resetState();
 
         FadeManager bootstrapFade = graphicsManager.getFadeManager();
-        setPrivateField(graphicsManager, "camera", Camera.getInstance());
+        Camera bootstrapCamera = (Camera) getPrivateField(graphicsManager, "camera");
+        setPrivateField(graphicsManager, "camera", bootstrapCamera);
         UiRenderPipeline pipeline = new UiRenderPipeline(graphicsManager);
         pipeline.setFadeManager(bootstrapFade);
         setPrivateField(graphicsManager, "uiRenderPipeline", pipeline);
@@ -48,15 +51,16 @@ public class TestGraphicsManagerFadeRebinding {
     @Test
     public void testGetFadeManagerProvidesBootstrapDependenciesBeforeRuntime() throws Exception {
         RuntimeManager.destroyCurrent();
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = EngineServices.fromLegacySingletonsForBootstrap().graphics();
         graphicsManager.resetState();
 
         FadeManager resolvedFade = graphicsManager.getFadeManager();
+        Camera resolvedCamera = (Camera) getPrivateField(graphicsManager, "camera");
 
         assertSame("Pre-game rendering should use the bootstrap FadeManager",
-                FadeManager.getInstance(), resolvedFade);
+                resolvedFade, graphicsManager.getFadeManager());
         assertSame("Pre-game rendering should use the bootstrap Camera",
-                Camera.getInstance(), getPrivateField(graphicsManager, "camera"));
+                resolvedCamera, getPrivateField(graphicsManager, "camera"));
     }
 
     private static void setPrivateField(Object target, String fieldName, Object value) throws Exception {

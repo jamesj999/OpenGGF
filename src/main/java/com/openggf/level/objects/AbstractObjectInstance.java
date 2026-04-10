@@ -41,7 +41,7 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
 
     /**
      * Cached camera bounds, updated once per frame by ObjectManager.
-     * Avoids repeated Camera.getInstance() calls when checking visibility.
+     * Avoids repeated camera lookups when checking visibility.
      */
     private static CameraBounds cameraBounds = new CameraBounds(0, 0, 320, 224);
 
@@ -353,7 +353,7 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
 
     /**
      * Static accessor for LevelManager's ObjectManager, usable from static factory methods.
-     * Keeps {@code LevelManager.getInstance()} out of leaf-class bytecode.
+     * Keeps runtime lookups out of leaf-class bytecode.
      */
     protected static ObjectManager staticObjectManager() {
         LevelManager lm = GameServices.levelOrNull();

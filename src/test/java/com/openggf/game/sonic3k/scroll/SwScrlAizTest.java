@@ -37,29 +37,30 @@ public class SwScrlAizTest {
     };
 
     private SwScrlAiz handler;
+    private Camera camera;
 
     @Before
     public void setUp() {
         TestEnvironment.resetAll();
         GameModuleRegistry.setCurrent(new Sonic3kGameModule());
         RuntimeManager.destroyCurrent();
-        RuntimeManager.createGameplay();
+        camera = RuntimeManager.createGameplay().getCamera();
         handler = new SwScrlAiz();
-        Camera.getInstance().setLevelStarted(true);
+        camera.setLevelStarted(true);
         ((Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider()).resetState();
         resetIntroScrollState();
     }
 
     @After
     public void tearDown() {
-        Camera.getInstance().setLevelStarted(true);
+        camera.setLevelStarted(true);
         ((Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider()).resetState();
         resetIntroScrollState();
     }
 
     @Test
     public void introModeMatchesApplyDeformationForCameraSource() {
-        Camera.getInstance().setLevelStarted(false);
+        camera.setLevelStarted(false);
         int[] buffer = new int[VISIBLE_LINES];
         int cameraX = 0x400;
         int cameraY = 0x3C0;
@@ -89,7 +90,7 @@ public class SwScrlAizTest {
 
     @Test
     public void normalModeUsesPerBandParallaxAndHalfVerticalCamera() {
-        Camera.getInstance().setLevelStarted(true);
+        camera.setLevelStarted(true);
         int[] buffer = new int[VISIBLE_LINES];
         int cameraX = 0x200;
         int cameraY = 0x80;
@@ -139,7 +140,7 @@ public class SwScrlAizTest {
 
     @Test
     public void mountainBandsUseCorrectMultipliers() {
-        Camera.getInstance().setLevelStarted(true);
+        camera.setLevelStarted(true);
         int[] buffer = new int[VISIBLE_LINES];
         // cameraX=0x1400: relative=256, base=256*2048=524288 (base>>16=8)
         // cameraY=640: bgY=320, which skips bands 0-2 fully and part of band 3
@@ -281,7 +282,7 @@ public class SwScrlAizTest {
 
     @Test
     public void aiz2UsesScatteredSpeedParallaxWithDifferentBands() {
-        Camera.getInstance().setLevelStarted(true);
+        camera.setLevelStarted(true);
         int[] buffer = new int[VISIBLE_LINES];
         int cameraX = 0x2000;
         int cameraY = 0x80;
@@ -341,7 +342,7 @@ public class SwScrlAizTest {
 
     @Test
     public void aiz2DiffersFromAiz1AtSamePosition() {
-        Camera.getInstance().setLevelStarted(true);
+        camera.setLevelStarted(true);
         int cameraX = 0x2000;
         int cameraY = 0x80;
 
@@ -366,7 +367,7 @@ public class SwScrlAizTest {
 
     @Test
     public void postBurnFineHazeUsesAiz2ForegroundDeltaTable() {
-        Camera.getInstance().setLevelStarted(true);
+        camera.setLevelStarted(true);
         int[] buffer = new int[VISIBLE_LINES];
         int cameraX = 0x2E20;
         int cameraY = 0x180;
@@ -482,7 +483,7 @@ public class SwScrlAizTest {
     private void activateIntroScrollState() {
         AizPlaneIntroInstance intro = new AizPlaneIntroInstance(
                 new ObjectSpawn(0x60, 0x30, 0, 0, 0, false, 0));
-        intro.setServices(new TestObjectServices().withCamera(Camera.getInstance()));
+        intro.setServices(new TestObjectServices().withCamera(camera));
         // First update: routine 0 → init (resets introScrollOffset to 0, advances to routine 2)
         intro.update(0, null);
         // Second update: scrollVelocity runs before routine 2, sets introScrollOffset < 0

@@ -3,7 +3,8 @@ package com.openggf.graphics;
 import com.openggf.Engine;
 import com.openggf.camera.Camera;
 import com.openggf.game.EngineServices;
-import com.openggf.game.GameServices;
+import com.openggf.game.GameRuntime;
+import com.openggf.game.RuntimeManager;
 import com.openggf.graphics.pipeline.UiRenderPipeline;
 import com.openggf.level.Palette;
 import com.openggf.level.Pattern;
@@ -47,6 +48,7 @@ public class GraphicsManager {
 
 	// Lazily fetched to avoid initialization chain issues in headless tests
 	private Camera camera;
+	private Camera bootstrapCamera;
 	private boolean glInitialized = false;
 	private ShaderProgram shaderProgram;
 	private ShaderProgram defaultShaderProgram;
@@ -86,6 +88,7 @@ public class GraphicsManager {
 
 	// Fade manager for screen transitions
 	private FadeManager fadeManager;
+	private FadeManager bootstrapFadeManager;
 
 	// Unified UI render pipeline for overlay + fade ordering
 	private UiRenderPipeline uiRenderPipeline;
@@ -233,12 +236,13 @@ public class GraphicsManager {
 	}
 
 	private void syncRuntimeManagedReferences() {
-		Camera resolvedCamera = GameServices.cameraOrBootstrap();
+		GameRuntime runtime = RuntimeManager.getCurrent();
+		Camera resolvedCamera = runtime != null ? runtime.getCamera() : getOrCreateBootstrapCamera();
 		if (camera != resolvedCamera) {
 			camera = resolvedCamera;
 		}
 
-		FadeManager resolvedFadeManager = GameServices.fadeOrBootstrap();
+		FadeManager resolvedFadeManager = runtime != null ? runtime.getFadeManager() : getOrCreateBootstrapFadeManager();
 		if (fadeManager != resolvedFadeManager) {
 			fadeManager = resolvedFadeManager;
 			if (fadeShaderProgram != null) {
@@ -248,6 +252,20 @@ public class GraphicsManager {
 				uiRenderPipeline.setFadeManager(fadeManager);
 			}
 		}
+	}
+
+	private Camera getOrCreateBootstrapCamera() {
+		if (bootstrapCamera == null) {
+			bootstrapCamera = new Camera(RuntimeManager.getEngineServices().configuration());
+		}
+		return bootstrapCamera;
+	}
+
+	private FadeManager getOrCreateBootstrapFadeManager() {
+		if (bootstrapFadeManager == null) {
+			bootstrapFadeManager = new FadeManager();
+		}
+		return bootstrapFadeManager;
 	}
 
 	/**
@@ -1080,6 +1098,9 @@ public class GraphicsManager {
 		commands.clear();
 		releasePerLevelResources();
 		camera = null;
+		bootstrapCamera = null;
+		fadeManager = null;
+		bootstrapFadeManager = null;
 		useUnderwaterPaletteForBackground = false;
 		useSpritePriorityShader = false;
 		currentSpriteHighPriority = false;

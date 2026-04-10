@@ -40,10 +40,6 @@ public class CollisionSystem {
         this.terrainCollisionManager = terrainCollisionManager;
     }
 
-    public static synchronized CollisionSystem getInstance() {
-        return GameServices.collision();
-    }
-
     /**
      * Resets mutable state without destroying the singleton instance.
      * Cached references held by other classes remain valid.

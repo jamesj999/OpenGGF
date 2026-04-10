@@ -5,7 +5,6 @@ import com.openggf.data.Rom;
 import com.openggf.game.GameServices;
 import com.openggf.game.GameModule;
 import com.openggf.game.GameServices;
-import com.openggf.game.RuntimeManager;
 import com.openggf.game.ScrollHandlerProvider;
 import com.openggf.level.scroll.ZoneScrollHandler;
 
@@ -59,19 +58,6 @@ public class ParallaxManager {
     // Cached BG camera X from the active scroll handler (Integer.MIN_VALUE = no offset)
     private int cachedBgCameraX = Integer.MIN_VALUE;
     private int cachedBgPeriodWidth = 512;
-
-    private static ParallaxManager bootstrapInstance;
-
-    public static synchronized ParallaxManager getInstance() {
-        var runtime = RuntimeManager.getCurrent();
-        if (runtime != null) {
-            return runtime.getParallaxManager();
-        }
-        if (bootstrapInstance == null) {
-            bootstrapInstance = new ParallaxManager();
-        }
-        return bootstrapInstance;
-    }
 
     /**
      * Reset zone state to force reinitialization on next initZone call.

@@ -1,6 +1,5 @@
 package com.openggf.level;
 
-import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.debug.DebugOverlayManager;
 import com.openggf.debug.DebugOverlayToggle;
@@ -26,7 +25,6 @@ class TestLevelDebugRenderer {
     @AfterEach
     void tearDown() {
         DebugOverlayManager.getInstance().resetState();
-        Camera.getInstance().resetState();
     }
 
     @Test
