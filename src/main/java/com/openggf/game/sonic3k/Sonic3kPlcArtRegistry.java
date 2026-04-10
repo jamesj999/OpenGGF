@@ -482,25 +482,25 @@ public final class Sonic3kPlcArtRegistry {
         levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.STILL_HCZ_001,
                 Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 1, 2,
                 null, new int[]{6, 7, 8, 9, 10}));
-        // base 0x36E: subtype 15 (HCZ2 tube bend 1)
+        // base ArtTile_HCZ2Slide+$C = 0x035C+0x0C = 0x0368: subtype 15 (HCZ2 tube bend 1)
         levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.STILL_HCZ_TUBE1,
-                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 0x36E, 2,
+                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 0x0368, 2,
                 null, new int[]{15}));
-        // base 0x37F: subtype 16 (HCZ2 tube bend 2)
+        // base ArtTile_HCZ2Slide+$1D = 0x035C+0x1D = 0x0379: subtype 16 (HCZ2 tube bend 2)
         levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.STILL_HCZ_TUBE2,
-                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 0x37F, 2,
+                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 0x0379, 2,
                 null, new int[]{16}));
-        // base 0x39F: subtype 17 (HCZ2 tube bend 3)
+        // base ArtTile_HCZ2Slide+$3D = 0x035C+0x3D = 0x0399: subtype 17 (HCZ2 tube bend 3)
         levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.STILL_HCZ_TUBE3,
-                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 0x39F, 2,
+                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 0x0399, 2,
                 null, new int[]{17}));
-        // base 0x3AA: subtype 18 (HCZ2 tube crossover)
+        // base ArtTile_HCZ2Slide+$48 = 0x035C+0x48 = 0x03A4: subtype 18 (HCZ2 tube crossover)
         levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.STILL_HCZ_TUBE4,
-                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 0x3AA, 2,
+                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 0x03A4, 2,
                 null, new int[]{18}));
-        // base 0x048: subtype 19 (HCZ2 bridge post)
+        // base ArtTile_HCZ2BlockPlat+$10 = 0x0028+0x10 = 0x0038: subtype 19 (HCZ2 bridge post)
         levelArt.add(new LevelArtEntry(Sonic3kObjectArtKeys.STILL_HCZ_POST,
-                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 0x048, 2,
+                Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 0x0038, 2,
                 null, new int[]{19}));
 
         // Buggernaut: ArtNem_HCZDragonfly — Nemesis compressed, loaded via PLC_0F/PLC_11

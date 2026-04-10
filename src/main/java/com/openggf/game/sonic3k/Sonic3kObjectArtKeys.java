@@ -222,11 +222,11 @@ public final class Sonic3kObjectArtKeys {
     public static final String STILL_AIZ_001 = "still_aiz_001";           // base 0x001, pal 2
     public static final String STILL_AIZ_WATERFALL = "still_aiz_waterfall"; // base 0x001, pal 3
     public static final String STILL_HCZ_001 = "still_hcz_001";           // base 0x001
-    public static final String STILL_HCZ_TUBE1 = "still_hcz_tube1";       // base 0x36E
-    public static final String STILL_HCZ_TUBE2 = "still_hcz_tube2";       // base 0x37F
-    public static final String STILL_HCZ_TUBE3 = "still_hcz_tube3";       // base 0x39F
-    public static final String STILL_HCZ_TUBE4 = "still_hcz_tube4";       // base 0x3AA
-    public static final String STILL_HCZ_POST = "still_hcz_post";         // base 0x048
+    public static final String STILL_HCZ_TUBE1 = "still_hcz_tube1";       // base 0x368 (ArtTile_HCZ2Slide+$C)
+    public static final String STILL_HCZ_TUBE2 = "still_hcz_tube2";       // base 0x379 (ArtTile_HCZ2Slide+$1D)
+    public static final String STILL_HCZ_TUBE3 = "still_hcz_tube3";       // base 0x399 (ArtTile_HCZ2Slide+$3D)
+    public static final String STILL_HCZ_TUBE4 = "still_hcz_tube4";       // base 0x3A4 (ArtTile_HCZ2Slide+$48)
+    public static final String STILL_HCZ_POST = "still_hcz_post";         // base 0x038 (ArtTile_HCZ2BlockPlat+$10)
     public static final String STILL_MGZ = "still_mgz";                   // base 0x451
     public static final String STILL_LBZ_POLE = "still_lbz_pole";         // base 0x40D
     public static final String STILL_LBZ_GIRDER = "still_lbz_girder";     // base 0x433

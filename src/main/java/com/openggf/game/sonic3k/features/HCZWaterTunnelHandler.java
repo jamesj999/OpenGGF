@@ -3,7 +3,6 @@ package com.openggf.game.sonic3k.features;
 import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.game.sonic3k.objects.HCZWaterRushObjectInstance.HCZBreakableBarState;
-import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 /**
@@ -29,12 +28,17 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
  * {@code influenceFlag}: 0 = D-pad nudges Y (horizontal flow), non-zero = D-pad
  * nudges X (vertical flow).
  *
- * <h3>Velocity-to-position math</h3>
- * ROM: {@code ext.l d0; lsl.l #8,d0; add.l d0,x_pos(a1)} adds velocity shifted
- * left 8 bits to the 32-bit position (16.16 fixed-point). This is equivalent to
- * adding {@code velocity / 256} pixels per frame while carrying the fractional
- * remainder forward. We mirror that by accumulating the 8.8 tunnel velocity in a
- * per-player remainder and applying the integer pixel part each frame.
+ * <h3>Velocity-to-position math (two-step displacement)</h3>
+ * The ROM applies tunnel velocity twice per frame:
+ * <ol>
+ *   <li>{@code ext.l d0; lsl.l #8,d0; add.l d0,x_pos(a1)} — direct position
+ *       update from the tunnel velocity (step 1).</li>
+ *   <li>{@code move.w d0,x_vel(a1)} — stores the tunnel velocity in the player's
+ *       velocity field. Standard physics ({@code ObjectMoveAndFall}) then adds
+ *       gravity and applies the combined velocity to position (step 2).</li>
+ * </ol>
+ * We replicate step 1 with the subpixel accumulator, and step 2 by leaving
+ * the tunnel velocity in the player's speed fields for physics to use.
  */
 public final class HCZWaterTunnelHandler {
     private HCZWaterTunnelHandler() {}
@@ -45,15 +49,6 @@ public final class HCZWaterTunnelHandler {
 
     private static boolean windTunnelFlagP1;
     private static boolean windTunnelFlagP2;
-
-    // We drive tunnel motion explicitly because the engine's standard airborne
-    // physics path does not match the original routine closely enough here.
-    // Restore the last tunnel velocity on exit so ejection keeps the expected momentum.
-    private static short lastXVelP1, lastYVelP1;
-    private static short lastXVelP2, lastYVelP2;
-
-    private static int tunnelXSubP1, tunnelYSubP1;
-    private static int tunnelXSubP2, tunnelYSubP2;
 
     private static int exitAnimTimerP1;
     private static int exitAnimTimerP2;
@@ -159,12 +154,19 @@ public final class HCZWaterTunnelHandler {
     public static void reset() {
         windTunnelFlagP1 = false;
         windTunnelFlagP2 = false;
-        lastXVelP1 = lastYVelP1 = 0;
-        lastXVelP2 = lastYVelP2 = 0;
-        tunnelXSubP1 = tunnelYSubP1 = 0;
-        tunnelXSubP2 = tunnelYSubP2 = 0;
         exitAnimTimerP1 = 0;
         exitAnimTimerP2 = 0;
+    }
+
+    /**
+     * Returns whether the given player is currently being moved by the
+     * wind tunnel system. When true, standard level collision should be
+     * suppressed — the tunnel handler controls position directly.
+     *
+     * @param playerIndex 0 for P1, 1 for P2/sidekick
+     */
+    public static boolean isPlayerInTunnel(int playerIndex) {
+        return playerIndex == 0 ? windTunnelFlagP1 : windTunnelFlagP2;
     }
 
     /**
@@ -216,121 +218,89 @@ public final class HCZWaterTunnelHandler {
             short xVel = (short) entry[X_VEL];
             short yVel = (short) entry[Y_VEL];
 
-            // The engine's tunnel path runs against centre-position integers rather than
-            // the ROM's full player-position representation. Doubling the 8.8 delta keeps
-            // Sonic aligned with the real HCZ rush sequence in practice.
-            int xDelta = xVel * 2;
-            int yDelta = yVel * 2;
-            int xPixels;
-            int yPixels;
-            if (playerIndex == 0) {
-                tunnelXSubP1 += xDelta;
-                tunnelYSubP1 += yDelta;
-                xPixels = tunnelXSubP1 / 256;
-                yPixels = tunnelYSubP1 / 256;
-                tunnelXSubP1 -= xPixels * 256;
-                tunnelYSubP1 -= yPixels * 256;
-            } else {
-                tunnelXSubP2 += xDelta;
-                tunnelYSubP2 += yDelta;
-                xPixels = tunnelXSubP2 / 256;
-                yPixels = tunnelYSubP2 / 256;
-                tunnelXSubP2 -= xPixels * 256;
-                tunnelYSubP2 -= yPixels * 256;
-            }
-            player.setCentreX((short) (player.getCentreX() + xPixels));
-            player.setCentreY((short) (player.getCentreY() + yPixels));
-
-            if (playerIndex == 0) {
-                lastXVelP1 = xVel;
-                lastYVelP1 = yVel;
-            } else {
-                lastXVelP2 = xVel;
-                lastYVelP2 = yVel;
-            }
-
-            player.setXSpeed((short) 0);
-            player.setYSpeed((short) 0);
+            // ROM: move.w d0,x_vel(a1) — store tunnel velocity in player fields.
+            // ObjectMoveAndFall will add gravity and apply the combined velocity
+            // to position as the second displacement step.
+            player.setXSpeed(xVel);
+            player.setYSpeed(yVel);
             player.setGSpeed((short) 0);
+
+            // ROM: ext.l d0 / lsl.l #8,d0 / add.l d0,x_pos(a1) — first
+            // displacement step: add velocity<<8 to the 32-bit position.
+            // player.move() does exactly this (adds speed<<8 to pixel:subpixel).
+            player.move(xVel, yVel);
 
             // ROM: move.b #$F,anim(a1)
             player.setAnimationId(Sonic3kAnimationIds.FLOAT2);
             player.setForcedAnimationId(Sonic3kAnimationIds.FLOAT2);
 
-            // ROM: bset #1,status(a1)
+            // ROM: bset #1,status(a1) — sets InAir status bit.
+            // In the ROM this is separate from the physics mode byte, but
+            // our engine uses air as the mode selector. Ceiling collision in
+            // modeAirborne is suppressed via the isPlayerInTunnel() check in
+            // PlayableSpriteMovement.
             player.setAir(true);
 
             // ROM: move.b #0,double_jump_flag(a1)
             player.setDoubleJumpFlag(0);
 
-            // ROM: tst.b $C(a2) / bne loc_7030
+            // ROM: D-pad nudge — direct pixel modification without collision
+            // checks (subq.w/addq.w on x_pos/y_pos).
             if (entry[INFLUENCE_FLAG] == 0) {
                 // ROM: btst #button_up,d6 / beq loc_7024 / subq.w #1,y_pos(a1)
                 if (player.isUpPressed()) {
-                    tryTunnelNudge(player, 0, -1);
+                    player.shiftY(-1);
                 }
                 // ROM: btst #button_down,d6 / beq locret_702E / addq.w #1,y_pos(a1)
                 if (player.isDownPressed()) {
-                    tryTunnelNudge(player, 0, 1);
+                    player.shiftY(1);
                 }
             } else {
                 // ROM: btst #button_left,d6 / beq loc_703A / subq.w #1,x_pos(a1)
                 if (player.isLeftPressed()) {
-                    tryTunnelNudge(player, -1, 0);
+                    player.shiftX(-1);
                 }
                 // ROM: btst #button_right,d6 / beq locret_7044 / addq.w #1,x_pos(a1)
                 if (player.isRightPressed()) {
-                    tryTunnelNudge(player, 1, 0);
+                    player.shiftX(1);
                 }
             }
 
             return true;
         }
 
-        // No tunnel matched.
+        // No ROM tunnel matched. Check engine-side pipe continuation:
+        // when already in the tunnel and above entry 14 (minY=0x0680) but
+        // still within the pipe column and above the twisting loop topY
+        // (0x0620), continue pushing upward. The ROM handles this via the
+        // twisting loop object, but it may not be spawned in time.
+        if (wasInTunnel
+                && playerX >= 0x2F30 && playerX < 0x2F70
+                && playerY < 0x0680 && playerY >= 0x0440
+                && !player.isObjectControlled()) {
+            player.setXSpeed((short) 0);
+            player.setYSpeed((short) -0x0400);
+            player.setGSpeed((short) 0);
+            player.move((short) 0, (short) -0x0400);
+            player.setAnimationId(Sonic3kAnimationIds.FLOAT2);
+            player.setForcedAnimationId(Sonic3kAnimationIds.FLOAT2);
+            player.setAir(true);
+            player.setDoubleJumpFlag(0);
+            return true;
+        }
+
+        // No tunnel matched and no continuation applies.
         // ROM: tst.b (a3) / beq locret_705A / move.b #$1A,anim(a1)
         if (wasInTunnel) {
             if (playerIndex == 0) {
-                player.setXSpeed(lastXVelP1);
-                player.setYSpeed(lastYVelP1);
-                tunnelXSubP1 = 0;
-                tunnelYSubP1 = 0;
                 exitAnimTimerP1 = 1;
             } else {
-                player.setXSpeed(lastXVelP2);
-                player.setYSpeed(lastYVelP2);
-                tunnelXSubP2 = 0;
-                tunnelYSubP2 = 0;
                 exitAnimTimerP2 = 1;
             }
-            player.setAir(true);
             player.setAnimationId(Sonic3kAnimationIds.HURT);
             player.setForcedAnimationId(Sonic3kAnimationIds.HURT);
         }
 
         return false;
-    }
-
-    private static void tryTunnelNudge(AbstractPlayableSprite player, int dx, int dy) {
-        int nextX = player.getCentreX() + dx;
-        int nextY = player.getCentreY() + dy;
-
-        boolean blocked;
-        if (dy < 0) {
-            blocked = ObjectTerrainUtils.checkCeilingDist(nextX, nextY, player.getYRadius()).hasCollision();
-        } else if (dy > 0) {
-            blocked = ObjectTerrainUtils.checkFloorDist(nextX, nextY, player.getYRadius()).hasCollision();
-        } else if (dx < 0) {
-            blocked = ObjectTerrainUtils.checkLeftWallDist(nextX - player.getXRadius(), nextY).hasCollision();
-        } else if (dx > 0) {
-            blocked = ObjectTerrainUtils.checkRightWallDist(nextX + player.getXRadius(), nextY).hasCollision();
-        } else {
-            blocked = false;
-        }
-
-        if (!blocked) {
-            player.setCentreX((short) nextX);
-            player.setCentreY((short) nextY);
-        }
     }
 }
