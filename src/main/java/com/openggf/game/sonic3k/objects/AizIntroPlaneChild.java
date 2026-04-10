@@ -186,10 +186,13 @@ public class AizIntroPlaneChild extends AbstractObjectInstance {
         // Screen-space coordinates use the ROM +128 sprite-table bias.
         int renderX = currentX;
         int renderY = currentY;
+        Camera camera = null;
         try {
-            Camera camera = services().camera();
-            renderX += camera.getX() - 128;
-            renderY += camera.getY() - 128;
+            camera = services().camera();
+            if (camera != null) {
+                renderX += camera.getX() - 128;
+                renderY += camera.getY() - 128;
+            }
         } catch (Exception e) {
             LOG.fine(() -> "AizIntroPlaneChild.appendRenderCommands: " + e.getMessage());
         }
@@ -197,10 +200,10 @@ public class AizIntroPlaneChild extends AbstractObjectInstance {
 
         // Render booster flames
         if (booster1 != null) {
-            booster1.appendRenderCommands(commands);
+            booster1.appendRenderCommands(commands, camera);
         }
         if (booster2 != null) {
-            booster2.appendRenderCommands(commands);
+            booster2.appendRenderCommands(commands, camera);
         }
 
         // Emerald glow children are NOT rendered here — their positions

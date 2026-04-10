@@ -63,9 +63,7 @@ class TestObjectServicesMigrationGuard {
             "com.openggf.game.sonic2.objects.SpecialStageResultsScreenObjectInstance",
             "com.openggf.game.sonic3k.objects.AizIntroArtLoader",
             "com.openggf.game.sonic3k.objects.AizIntroPaletteCycler",
-            "com.openggf.game.sonic3k.objects.AizIntroBoosterChild",
-            "com.openggf.game.sonic3k.objects.AizIntroTerrainSwap",
-            "com.openggf.game.sonic3k.objects.AizVineHandleLogic"
+            "com.openggf.game.sonic3k.objects.AizIntroTerrainSwap"
     );
 
     /** Packages containing object instance classes to scan. */
