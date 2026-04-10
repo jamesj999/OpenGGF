@@ -6,6 +6,7 @@ import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.sonic2.S2SpriteDataLoader;
 import com.openggf.game.sonic2.Sonic2PlayerArt;
+import com.openggf.game.sonic2.Sonic2Rng;
 import com.openggf.game.sonic2.constants.Sonic2AudioConstants;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.graphics.GraphicsManager;
@@ -27,7 +28,6 @@ import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Random;
 import java.util.logging.Logger;
 import com.openggf.game.GameServices;
 
@@ -302,7 +302,6 @@ public class Sonic2EndingCutsceneManager {
     private List<SpriteMappingFrame> cloudFrames;
 
     private final PatternDesc reusableDesc = new PatternDesc();
-    private final Random random = new Random();
 
     /**
      * Mega Drive color levels (0-7). Each MD color component uses values 0,$2,$4,$6,$8,$A,$C,$E
@@ -1023,9 +1022,10 @@ public class Sonic2EndingCutsceneManager {
         if (birdsSpawning && birdSpawnCounter > 0) {
             birdSpawnDelay--;
             if (birdSpawnDelay <= 0) {
+                int nextDelay = Sonic2Rng.currentEndingSeedDelay(GameServices.rng(), 0x0F);
                 spawnBird();
                 birdSpawnCounter--;
-                birdSpawnDelay = random.nextInt(16); // 0-15 frame delay
+                birdSpawnDelay = nextDelay;
             }
         }
 
@@ -1239,13 +1239,12 @@ public class Sonic2EndingCutsceneManager {
     // ========================================================================
 
     private void spawnBird() {
-        // X = -$A0 + (random & $7F) -> off-screen left
-        int bx = (-0xA0 + (random.nextInt(0x80))) << 8;
-        // Y = 8 + (random & $FF)
-        int by = (8 + random.nextInt(0x100)) << 8;
-        int yVel = (random.nextBoolean()) ? Sonic2CreditsData.BIRD_Y_VEL : -Sonic2CreditsData.BIRD_Y_VEL;
+        Sonic2Rng.EndingBirdSpawn spawn = Sonic2Rng.nextEndingBirdSpawn(GameServices.rng());
+        int bx = spawn.x() << 8;
+        int by = spawn.y() << 8;
+        int yVel = spawn.yVel();
         int targetY = by >> 8;
-        birds.add(new Bird(bx, by, Sonic2CreditsData.BIRD_X_VEL, yVel, targetY));
+        birds.add(new Bird(bx, by, spawn.xVel(), yVel, targetY));
     }
 
     private void updateBirds() {
@@ -1303,19 +1302,15 @@ public class Sonic2EndingCutsceneManager {
      * spawns at Y=$100 with random X.
      */
     private void spawnVerticalCloudIfNeeded() {
-        cloudSpawnTimer++;
-        if (cloudSpawnTimer < 8) return;
-        cloudSpawnTimer = 0;
+        cloudSpawnTimer--;
+        if (cloudSpawnTimer >= 0) return;
 
         if (clouds.size() >= 12) return;
 
-        // Vertical mode: spawn from bottom, drift upward
-        int cx = random.nextInt(0x200) << 8;
-        int cy = 0x100 << 8;
-        int cloudIdx = random.nextInt(Sonic2CreditsData.CLOUD_Y_VELS.length);
-        int yVel = Sonic2CreditsData.CLOUD_Y_VELS[cloudIdx]; // negative = upward
-        int frame = Sonic2CreditsData.CLOUD_FRAMES[cloudIdx];
-        clouds.add(new Cloud(cx, cy, 0, yVel, frame, false));
+        cloudSpawnTimer = Sonic2Rng.currentEndingSeedDelay(GameServices.rng(), 0x1F);
+        Sonic2Rng.EndingCloudSpawn spawn = Sonic2Rng.nextEndingCloudSpawn(GameServices.rng(), false);
+        clouds.add(new Cloud(spawn.x() << 8, spawn.y() << 8,
+                spawn.xVel(), spawn.yVel(), spawn.frame(), false));
     }
 
     /**
@@ -1324,28 +1319,20 @@ public class Sonic2EndingCutsceneManager {
      * y_vel to x_vel for leftward drift.
      */
     private void spawnCloudIfNeeded() {
-        cloudSpawnTimer++;
-        if (cloudSpawnTimer < 8) return;
-        cloudSpawnTimer = 0;
+        cloudSpawnTimer--;
+        if (cloudSpawnTimer >= 0) return;
 
         if (clouds.size() >= 12) return;
 
+        cloudSpawnTimer = Sonic2Rng.currentEndingSeedDelay(GameServices.rng(), 0x1F);
         if (cutSceneFlag) {
-            // Horizontal mode: spawn from right side (CutScene flag set)
-            int cx = 0x150 << 8;
-            int cy = random.nextInt(0x100) << 8;
-            int cloudIdx = random.nextInt(Sonic2CreditsData.CLOUD_Y_VELS.length);
-            int xVel = Sonic2CreditsData.CLOUD_Y_VELS[cloudIdx];
-            int frame = Sonic2CreditsData.CLOUD_FRAMES[cloudIdx];
-            clouds.add(new Cloud(cx, cy, xVel, 0, frame, true));
+            Sonic2Rng.EndingCloudSpawn spawn = Sonic2Rng.nextEndingCloudSpawn(GameServices.rng(), true);
+            clouds.add(new Cloud(spawn.x() << 8, spawn.y() << 8,
+                    spawn.xVel(), spawn.yVel(), spawn.frame(), true));
         } else {
-            // Vertical mode: spawn from bottom, drift upward (initial approach)
-            int cx = random.nextInt(0x200) << 8;
-            int cy = 0x100 << 8;
-            int cloudIdx = random.nextInt(Sonic2CreditsData.CLOUD_Y_VELS.length);
-            int yVel = Sonic2CreditsData.CLOUD_Y_VELS[cloudIdx];
-            int frame = Sonic2CreditsData.CLOUD_FRAMES[cloudIdx];
-            clouds.add(new Cloud(cx, cy, 0, yVel, frame, false));
+            Sonic2Rng.EndingCloudSpawn spawn = Sonic2Rng.nextEndingCloudSpawn(GameServices.rng(), false);
+            clouds.add(new Cloud(spawn.x() << 8, spawn.y() << 8,
+                    spawn.xVel(), spawn.yVel(), spawn.frame(), false));
         }
     }
 

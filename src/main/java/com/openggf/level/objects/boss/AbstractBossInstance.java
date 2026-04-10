@@ -17,7 +17,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Base class for boss objects with hit handling, palette flashing, and defeat sequences.
@@ -202,7 +201,7 @@ public abstract class AbstractBossInstance extends AbstractObjectInstance
         if (renderManager == null || services().objectManager() == null) {
             return;
         }
-        int random = ThreadLocalRandom.current().nextInt(0x10000);
+        int random = services().rng().nextWord();
         int xOffset = ((random & 0xFF) >> 2) - 0x20;
         int yOffset = (((random >> 8) & 0xFF) >> 2) - 0x20;
         BossExplosionObjectInstance explosion = new BossExplosionObjectInstance(

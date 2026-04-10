@@ -2,6 +2,7 @@ package com.openggf.game.sonic2.objects.bosses;
 
 import com.openggf.game.PlayableEntity;
 import com.openggf.camera.Camera;
+import com.openggf.game.sonic2.Sonic2Rng;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -16,7 +17,6 @@ import com.openggf.physics.TerrainCheckResult;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * CPZ Boss Gunk - Falling hazard dropped from the container.
@@ -153,13 +153,7 @@ public class CPZBossGunk extends AbstractObjectInstance implements TouchResponse
             mappingFrame = 9;
             yVel = -(yVel >> 1);
 
-            int random = ThreadLocalRandom.current().nextInt(0x10000);
-            int xRand = (random >> 6);
-            if (xRand >= 0) {
-                xRand += 0x200;
-            }
-            xRand += -0x100;
-            xVel = xRand;
+            xVel = Sonic2Rng.nextCpzGunkMainXVelocity(services().rng());
             collisionFlags = 0;
 
             for (int i = 0; i < 4; i++) {
@@ -229,16 +223,9 @@ public class CPZBossGunk extends AbstractObjectInstance implements TouchResponse
         if (services().objectManager() == null) {
             return;
         }
-        int random = ThreadLocalRandom.current().nextInt(0x10000);
-        int dropletXVel = (random >> 6);
-        if (dropletXVel >= 0) {
-            dropletXVel += 0x80;
-        }
-        dropletXVel += -0x80;
+        var velocity = Sonic2Rng.nextCpzGunkDropletVelocity(services().rng(), yVel);
 
-        int dropletYVel = yVel - ThreadLocalRandom.current().nextInt(0x400);
-
-        CPZBossGunk droplet = new CPZBossGunk(spawn, mainBoss, x, y, dropletXVel, dropletYVel, renderFlags);
+        CPZBossGunk droplet = new CPZBossGunk(spawn, mainBoss, x, y, velocity.xVel(), velocity.yVel(), renderFlags);
         services().objectManager().addDynamicObject(droplet);
     }
 
