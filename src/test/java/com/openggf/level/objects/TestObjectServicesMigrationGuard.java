@@ -214,6 +214,21 @@ class TestObjectServicesMigrationGuard {
     }
 
     @Test
+    void objectPackages_shouldNotCallAizTerrainSwapNoArgHelper() throws IOException {
+        Path source = Path.of(
+                "src/main/java/com/openggf/game/sonic3k/objects/AizPlaneIntroInstance.java");
+        if (!Files.isRegularFile(source)) {
+            return;
+        }
+
+        String content = Files.readString(source);
+        if (content.contains("AizIntroTerrainSwap.applyMainLevelOverlays();")) {
+            fail("AizPlaneIntroInstance must route terrain swap through services():\n  "
+                    + "AizIntroTerrainSwap.applyMainLevelOverlays(services())");
+        }
+    }
+
+    @Test
     void objectPackages_shouldNotNullCheckStrictServicesAccessor() throws IOException {
         Path srcMain = Path.of("src/main/java");
         if (!Files.isDirectory(srcMain)) {

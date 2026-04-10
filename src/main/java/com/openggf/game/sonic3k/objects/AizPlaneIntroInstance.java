@@ -6,6 +6,7 @@ import com.openggf.game.sonic3k.Sonic3kPlayerArt;
 import com.openggf.game.sonic3k.Sonic3kSuperStateController;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.BootstrapObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.SubpixelMotion;
 import com.openggf.physics.SwingMotion;
@@ -234,6 +235,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
      * Set during intro init, cleared when Knuckles spawns (routine >= 22).
      */
     private static boolean sidekickSuppressed = false;
+    private static AizPlaneIntroInstance activeIntroInstance;
 
     /** Returns the current Events_fg_1 accumulator value for BG parallax. */
     public static int getIntroScrollOffset() { return introScrollOffset; }
@@ -247,6 +249,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         mainLevelTerrainSwapAttempted = false;
         decompressionCountdown = 0;
         sidekickSuppressed = false;
+        activeIntroInstance = null;
     }
 
     // -----------------------------------------------------------------------
@@ -255,6 +258,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
 
     public AizPlaneIntroInstance(ObjectSpawn spawn) {
         super(spawn, "AIZPlaneIntro");
+        activeIntroInstance = this;
         this.currentX = spawn.x();
         this.currentY = spawn.y();
         this.routine = 0;
@@ -378,6 +382,9 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
 
     @Override
     public void onUnload() {
+        if (activeIntroInstance == this) {
+            activeIntroInstance = null;
+        }
         // Safety net: release player control if we still own it.
         if (ownsPlayerControl) {
             try {
@@ -558,7 +565,9 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         // ROM: FG event queues terrain overlays when camera reaches $1400
         if (!mainLevelTerrainSwapAttempted) {
             mainLevelTerrainSwapAttempted = true;
-            boolean swapped = AizIntroTerrainSwap.applyMainLevelOverlays();
+            boolean swapped = activeIntroInstance != null
+                    ? activeIntroInstance.applyMainLevelOverlaysFromServices()
+                    : AizIntroTerrainSwap.applyMainLevelOverlays(new BootstrapObjectServices());
             if (swapped) {
                 LOG.info("AIZ intro: main-level terrain overlays applied");
             } else {
@@ -575,6 +584,10 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         } else {
             mainLevelPhaseActive = true;
         }
+    }
+
+    private boolean applyMainLevelOverlaysFromServices() {
+        return AizIntroTerrainSwap.applyMainLevelOverlays(services());
     }
 
     // -----------------------------------------------------------------------
