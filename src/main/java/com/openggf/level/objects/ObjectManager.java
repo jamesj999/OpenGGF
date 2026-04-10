@@ -225,29 +225,41 @@ public class ObjectManager {
 
     public void update(int cameraX, PlayableEntity player, List<? extends PlayableEntity> sidekicks,
             int touchFrameCounter, boolean enableTouchResponses) {
+        update(cameraX, player, sidekicks, touchFrameCounter, enableTouchResponses, false, false);
+    }
+
+    public void update(int cameraX, PlayableEntity player, List<? extends PlayableEntity> sidekicks,
+            int touchFrameCounter, boolean enableTouchResponses,
+            boolean inlineSolidResolution, boolean solidPostMovement) {
         frameCounter++;
         vblaCounter++;
         updateCameraBounds();
 
         boolean counterBased = placement.isCounterBasedRespawn();
 
-        syncActiveSpawnsUnload();
-        // ROM parity: In the ROM, ExecuteObjects runs BEFORE ObjPosLoad.
-        // Dynamic children (e.g. GlassBlock reflections) whose parent was just
-        // unloaded in syncActiveSpawnsUnload may now be marked destroyed (via
-        // the parent's onUnload()). Free their slots before the load phase so
-        // FindFreeObj sees the same available slots as the ROM's ObjPosLoad.
-        cleanupDestroyedDynamicObjects();
         if (counterBased) {
             preAllocateReservedChildSlots();
+            updateCounterBasedExecThenLoad(cameraX, player);
+        } else {
+            syncActiveSpawnsUnload();
+            // ROM parity: In the ROM, ExecuteObjects runs BEFORE ObjPosLoad.
+            // Dynamic children (e.g. GlassBlock reflections) whose parent was just
+            // unloaded in syncActiveSpawnsUnload may now be marked destroyed (via
+            // the parent's onUnload()). Free their slots before the load phase so
+            // FindFreeObj sees the same available slots as the ROM's ObjPosLoad.
+            cleanupDestroyedDynamicObjects();
+            syncActiveSpawnsLoad();
+            if (inlineSolidResolution) {
+                solidContacts.beginInlineFrame(player, sidekicks, solidPostMovement);
+            }
+            try {
+                runExecLoop(cameraX, player, sidekicks, inlineSolidResolution, solidPostMovement);
+            } finally {
+                if (inlineSolidResolution) {
+                    solidContacts.finishInlineFrame(player, sidekicks);
+                }
+            }
         }
-        syncActiveSpawnsLoad();
-        runExecLoop(cameraX, player);
-
-
-
-
-
 
         // Note: solidContacts.update() is now called during SpriteManager.update(),
         // after movement but before animation. This ensures pushing flag is set correctly
@@ -440,7 +452,9 @@ public class ObjectManager {
      * Runs the standard exec loop for non-counter-based respawn (S2/S3K).
      * This preserves the existing behavior where unload and load happen before exec.
      */
-    private void runExecLoop(int cameraX, PlayableEntity player) {
+    private void runExecLoop(int cameraX, PlayableEntity player,
+            List<? extends PlayableEntity> sidekicks,
+            boolean inlineSolidResolution, boolean solidPostMovement) {
         // ROM parity: Snapshot all objects' positions BEFORE their updates run.
         for (ObjectInstance inst : activeObjects.values()) {
             inst.snapshotPreUpdatePosition();
@@ -481,6 +495,10 @@ public class ObjectManager {
                 processedInExecLoop.add(instance);
 
                 instance.update(vblaCounter, player);
+
+                if (inlineSolidResolution && !instance.isDestroyed()) {
+                    solidContacts.processInlineObject(instance, player, sidekicks, solidPostMovement);
+                }
 
                 // ROM parity: each object calls RememberState / out_of_range
                 // at the END of its routine, AFTER updating position. Check
@@ -546,6 +564,9 @@ public class ObjectManager {
                     continue;
                 }
                 inst.update(vblaCounter, player);
+                if (inlineSolidResolution && !inst.isDestroyed()) {
+                    solidContacts.processInlineObject(inst, player, sidekicks, solidPostMovement);
+                }
                 if (inst.isDestroyed()) {
                     inst.onUnload();
                     dynamicObjects.remove(inst);
@@ -572,6 +593,9 @@ public class ObjectManager {
                     continue;
                 }
                 inst.update(vblaCounter, player);
+                if (inlineSolidResolution && !inst.isDestroyed()) {
+                    solidContacts.processInlineObject(inst, player, sidekicks, solidPostMovement);
+                }
                 if (inst.isDestroyed()) {
                     inst.onUnload();
                     placement.clearStayActive(entry.getKey());
@@ -3295,6 +3319,8 @@ public class ObjectManager {
         // Per-player riding state (ROM: each player object has its own SST interact field $3E)
         private record RidingState(ObjectInstance object, int x, int y, int pieceIndex) {}
         private final Map<PlayableEntity, RidingState> ridingStates = new IdentityHashMap<>(2);
+        private final Set<PlayableEntity> inlineSupportedPlayers =
+                Collections.newSetFromMap(new IdentityHashMap<>());
         private PlayableEntity currentPlayer; // set during update() for internal use
 
         // ROM: objects like Obj_AIZLRZEMZRock save player velocity/anim BEFORE calling
@@ -3410,6 +3436,247 @@ public class ObjectManager {
         short getPreContactYSpeed() { return preContactYSpeed; }
         /** Player rolling state captured before any solid contact resolution modified it. */
         boolean getPreContactRolling() { return preContactRolling; }
+
+        void beginInlineFrame(PlayableEntity player, List<? extends PlayableEntity> sidekicks,
+                boolean postMovement) {
+            this.postMovement = postMovement;
+            frameCounter++;
+            inlineSupportedPlayers.clear();
+            if (player != null && isCurrentlySupported(player)) {
+                inlineSupportedPlayers.add(player);
+            }
+            for (PlayableEntity sidekick : sidekicks) {
+                if (sidekick != null && isCurrentlySupported(sidekick)) {
+                    inlineSupportedPlayers.add(sidekick);
+                }
+            }
+        }
+
+        void finishInlineFrame(PlayableEntity player, List<? extends PlayableEntity> sidekicks) {
+            finalizeInlinePlayer(player);
+            for (PlayableEntity sidekick : sidekicks) {
+                finalizeInlinePlayer(sidekick);
+            }
+            currentPlayer = null;
+        }
+
+        private boolean isCurrentlySupported(PlayableEntity player) {
+            if (player == null || player.getDead() || player.isDebugMode()) {
+                return false;
+            }
+            RidingState state = ridingStates.get(player);
+            return (state != null && state.object != null) || player.isOnObject();
+        }
+
+        private void finalizeInlinePlayer(PlayableEntity player) {
+            if (player == null) {
+                return;
+            }
+            if (player.getDead() || player.isDebugMode()) {
+                ridingStates.remove(player);
+                return;
+            }
+            if (!inlineSupportedPlayers.contains(player)) {
+                ridingStates.remove(player);
+                player.setOnObject(false);
+            }
+        }
+
+        void processInlineObject(ObjectInstance instance, PlayableEntity player,
+                List<? extends PlayableEntity> sidekicks, boolean postMovement) {
+            this.postMovement = postMovement;
+            processInlineObjectForPlayer(instance, player);
+            for (PlayableEntity sidekick : sidekicks) {
+                processInlineObjectForPlayer(instance, sidekick);
+            }
+        }
+
+        private void processInlineObjectForPlayer(ObjectInstance instance, PlayableEntity player) {
+            if (player == null || objectManager == null || player.getDead()) {
+                if (player != null) {
+                    ridingStates.remove(player);
+                }
+                return;
+            }
+            if (player.isDebugMode()) {
+                ridingStates.remove(player);
+                return;
+            }
+
+            currentPlayer = player;
+            preContactXSpeed = player.getXSpeed();
+            preContactYSpeed = player.getYSpeed();
+            preContactRolling = player.getRolling();
+
+            RidingState state = ridingStates.get(player);
+            ObjectInstance ridingObject = state != null ? state.object : null;
+            int ridingX = state != null ? state.x : 0;
+            int ridingY = state != null ? state.y : 0;
+            int ridingPieceIndex = state != null ? state.pieceIndex : -1;
+
+            if (ridingObject != null && player.getAir()) {
+                ridingStates.remove(player);
+                ridingObject = null;
+                ridingPieceIndex = -1;
+                player.setOnObject(false);
+            }
+
+            if (instance == ridingObject && ridingObject instanceof SolidObjectProvider provider) {
+                processInlineRidingObject(player, instance, provider, ridingX, ridingY, ridingPieceIndex);
+                if (!(provider instanceof MultiPieceSolidProvider)) {
+                    currentPlayer = null;
+                    return;
+                }
+                // ROM parity for staircase-style multi-piece objects: after carrying Sonic
+                // on the currently ridden piece, later sibling pieces of the same logical
+                // object must still get a chance to apply side/top/bottom collision.
+                // Returning early here skips the "next block in the staircase" wall hit.
+            }
+
+            if (!(instance instanceof SolidObjectProvider provider)) {
+                currentPlayer = null;
+                return;
+            }
+            if (!provider.isSolidFor(player)) {
+                currentPlayer = null;
+                return;
+            }
+            if (player.isObjectControlled()) {
+                currentPlayer = null;
+                return;
+            }
+            if (instance.isSkipSolidContactThisFrame()) {
+                currentPlayer = null;
+                return;
+            }
+
+            if (provider instanceof MultiPieceSolidProvider multiPiece) {
+                MultiPieceContactResult result = processMultiPieceCollision(
+                        player, multiPiece, instance, frameCounter, provider.usesStickyContactBuffer());
+                if (result.pushing) {
+                    player.setPushing(true);
+                    provider.setPlayerPushing(player, true);
+                }
+                if (result.standing) {
+                    ridingStates.put(player, new RidingState(
+                            instance, result.ridingX, result.ridingY, result.pieceIndex));
+                    inlineSupportedPlayers.add(player);
+                }
+                currentPlayer = null;
+                return;
+            }
+
+            SolidObjectParams params = provider.getSolidParams();
+            int anchorX = instance.getX() + params.offsetX();
+            int anchorY = instance.getY() + params.offsetY();
+            int halfHeight = params.airHalfHeight();
+            boolean useStickyBuffer = provider.usesStickyContactBuffer();
+
+            SolidContact contact;
+            byte[] slopeData = null;
+            if (instance instanceof SlopedSolidProvider sloped) {
+                slopeData = sloped.getSlopeData();
+            }
+
+            if (slopeData != null && instance instanceof SlopedSolidProvider sloped) {
+                int slopeHalfHeight = params.groundHalfHeight();
+                contact = resolveSlopedContact(player, anchorX, anchorY, params.halfWidth(), slopeHalfHeight,
+                        slopeData, sloped.isSlopeFlipped(), provider.isTopSolidOnly(),
+                        useStickyBuffer, instance, true, sloped);
+            } else {
+                contact = resolveContact(player, anchorX, anchorY, params.halfWidth(), halfHeight,
+                        provider.isTopSolidOnly(), provider.hasMonitorSolidity(),
+                        useStickyBuffer, instance, true);
+            }
+
+            if (contact == null) {
+                currentPlayer = null;
+                return;
+            }
+            if (contact.pushing()) {
+                player.setPushing(true);
+                provider.setPlayerPushing(player, true);
+            }
+            if (contact.standing()) {
+                ridingStates.put(player, new RidingState(instance, instance.getX(), instance.getY(), -1));
+                inlineSupportedPlayers.add(player);
+            }
+            if (instance instanceof SolidObjectListener listener) {
+                listener.onSolidContact(player, contact, frameCounter);
+            }
+            currentPlayer = null;
+        }
+
+        private void processInlineRidingObject(PlayableEntity player, ObjectInstance instance,
+                SolidObjectProvider provider, int ridingX, int ridingY, int ridingPieceIndex) {
+            int currentX;
+            int currentY;
+            SolidObjectParams params;
+
+            if (ridingPieceIndex >= 0 && instance instanceof MultiPieceSolidProvider multiPiece) {
+                currentX = multiPiece.getPieceX(ridingPieceIndex);
+                currentY = multiPiece.getPieceY(ridingPieceIndex);
+                params = multiPiece.getPieceParams(ridingPieceIndex);
+            } else {
+                currentX = instance.getX();
+                currentY = instance.getY();
+                params = provider.getSolidParams();
+            }
+
+            int halfWidth = params.halfWidth();
+            int configuredTopHalfWidth = provider.getTopLandingHalfWidth(player, halfWidth);
+            int ridingHalfWidth = (configuredTopHalfWidth < halfWidth)
+                    ? configuredTopHalfWidth
+                    : halfWidth;
+
+            int boundsX = currentX + params.offsetX();
+            int relX = player.getCentreX() - boundsX + ridingHalfWidth;
+            boolean isSloped = (instance instanceof SlopedSolidProvider);
+            int stickyX = (!isSloped && !postMovement && provider.usesStickyContactBuffer()
+                    && ridingHalfWidth == halfWidth) ? 16 : 0;
+            int minRelX = -stickyX;
+            int maxRelXExclusive = (ridingHalfWidth * 2) + stickyX;
+            boolean inBounds = relX >= minRelX && relX < maxRelXExclusive;
+
+            if (inBounds && provider.isSolidFor(player) && !player.isObjectControlled()) {
+                int deltaX = currentX - ridingX;
+                if (deltaX != 0) {
+                    player.shiftX(deltaX);
+                }
+                int surfaceOffset;
+                if (instance instanceof SlopedSolidProvider sloped) {
+                    int slopeY = sampleSlopeY(player, currentX, params.halfWidth(), sloped);
+                    surfaceOffset = (slopeY != Integer.MIN_VALUE) ? slopeY : params.groundHalfHeight();
+                } else {
+                    surfaceOffset = params.groundHalfHeight();
+                }
+                int newCentreY = currentY + params.offsetY() - surfaceOffset - player.getYRadius();
+                int newY = newCentreY - (player.getHeight() / 2);
+                player.setY((short) newY);
+                ridingStates.put(player, new RidingState(instance, currentX, currentY, ridingPieceIndex));
+
+                if (provider.dropOnFloor()) {
+                    TerrainCheckResult floorCheck = ObjectTerrainUtils.checkFloorDist(
+                            player.getCentreX(), player.getCentreY(), player.getYRadius());
+                    if (floorCheck.distance() <= 0) {
+                        ridingStates.remove(player);
+                        player.setOnObject(false);
+                        player.setAir(true);
+                        return;
+                    }
+                }
+
+                inlineSupportedPlayers.add(player);
+                if (instance instanceof SolidObjectListener listener) {
+                    listener.onSolidContact(player, SolidContact.STANDING, frameCounter);
+                }
+                return;
+            }
+
+            ridingStates.remove(player);
+            player.setOnObject(false);
+            player.setAir(true);
+        }
 
         boolean hasStandingContact(PlayableEntity player) {
             if (player == null || objectManager == null || player.getDead()) {
@@ -3760,14 +4027,21 @@ public class ObjectManager {
                 // Solid_ChkEnter is never reached for the standing object. Keep as standing
                 // and fire callback, but skip resolveContact which would misclassify.
                 if (instance == ridingMaintained) {
-                    nextRidingObject = instance;
-                    nextRidingX = instance.getX();
-                    nextRidingY = instance.getY();
-                    nextRidingPieceIndex = ridingPieceIndex;
-                    if (instance instanceof SolidObjectListener listener) {
-                        listener.onSolidContact(player, SolidContact.STANDING, frameCounter);
+                    if (instance instanceof MultiPieceSolidProvider) {
+                        // Keep the ROM-style ExitPlatform carry step above, but still let
+                        // sibling pieces of the same logical staircase resolve side/top/bottom
+                        // contact in this pass. Skipping here prevents "run into the next block"
+                        // wall collisions while already riding the current block.
+                    } else {
+                        nextRidingObject = instance;
+                        nextRidingX = instance.getX();
+                        nextRidingY = instance.getY();
+                        nextRidingPieceIndex = ridingPieceIndex;
+                        if (instance instanceof SolidObjectListener listener) {
+                            listener.onSolidContact(player, SolidContact.STANDING, frameCounter);
+                        }
+                        continue;
                     }
-                    continue;
                 }
                 if (!(instance instanceof SolidObjectProvider provider)) {
                     continue;

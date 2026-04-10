@@ -266,4 +266,44 @@ public interface ZoneFeatureProvider {
     default ZoneFeatureRenderer getFeatureRenderer() {
         return ZoneFeatureRenderer.NONE;
     }
+
+    /**
+     * Whether the underwater palette split should be suppressed for this zone/act.
+     * Used when a zone has water but its underwater palette is not yet active
+     * (e.g. HCZ Act 1 before the first water-height switch).
+     *
+     * @param zoneIndex the current zone
+     * @param actIndex the current act
+     * @return true if the underwater palette should be suppressed
+     */
+    default boolean shouldSuppressUnderwaterPalette(int zoneIndex, int actIndex) {
+        return false;
+    }
+
+    /**
+     * Returns the pixel offset to apply to the water level when calculating the
+     * underwater palette split line. The default S2/S3K value is -8 (split starts
+     * 8px above water so the surface strip is tinted). S1 and zones with ROM-driven
+     * water surface rendering use 0.
+     *
+     * @param zoneIndex the current zone
+     * @param actIndex the current act
+     * @return the waterline offset in pixels
+     */
+    default float getWaterlineOffset(int zoneIndex, int actIndex) {
+        return -8.0f;
+    }
+
+    /**
+     * Whether this zone uses VDP sprite-table-order (SAT) masking for draw ordering.
+     * When true, sprites are drawn in SAT bucket order rather than painter order,
+     * matching the hardware sprite priority model used by stages like the Gumball
+     * bonus stage.
+     *
+     * @param zoneIndex the current zone
+     * @return true if SAT masking should be used
+     */
+    default boolean useSpriteSatMasking(int zoneIndex) {
+        return false;
+    }
 }

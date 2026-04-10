@@ -215,6 +215,9 @@ public class Sonic3kConstants {
     // LockOn data (assembled into S3 half of combined ROM — no S&K-side copy exists).
     // Derived from the frame labels in Map - Block.asm: Frame_21D052 starts 8 bytes after the table base.
     public static final int MAP_HCZ_BLOCK_ADDR = 0x21D04A; // Map_HCZBlock (4 frames)
+    // Map_HCZSpinningColumn_ has a 3-word frame-offset table immediately before Frame_231AF4.
+    // Use the table base, not the first frame payload, or the renderer will parse garbage.
+    public static final int MAP_HCZ_SPINNING_COLUMN_ADDR = 0x231AEE; // Map_HCZSpinningColumn (3 frames)
 
     // ===== HCZ Water Rush (Obj_HCZWaterRush, ID 0x37) =====
     // ArtNem_HCZWaterRush: Nemesis compressed, 2560 bytes decompressed (80 tiles)
@@ -270,11 +273,18 @@ public class Sonic3kConstants {
     public static final int ARTTILE_AIZ_FLOATING_PLATFORM = 0x03F7;
     public static final int ARTTILE_AIZ2_FLOATING_PLATFORM = 0x0440;
     public static final int ARTTILE_HCZ_MISC = 0x03CA;
+    public static final int ARTTILE_HCZ2_BLOCK_PLAT = 0x0028;
+    public static final int ARTTILE_HCZ_TENSION_BRIDGE = ARTTILE_HCZ2_BLOCK_PLAT + 0x10; // 0x0038
     public static final int ARTTILE_CNZ_PLATFORM = 0x0430;
     public static final int ARTTILE_ICZ_MISC1 = 0x03B6;
+    public static final int ARTTILE_LRZ_TENSION_BRIDGE = 0x0113;
     public static final int ARTTILE_LBZ_MISC = 0x03C3;
     public static final int ARTTILE_FBZ_MISC = 0x0379;
     public static final int ARTTILE_DEZ_MISC = 0x034D;
+
+    // ===== Tension Bridge mappings (Obj_TensionBridge, ID 0x6C) =====
+    public static final int MAP_TENSION_BRIDGE_ADDR = 0x038FF2;   // Map_TensionBridge
+    public static final int MAP_ICZ_TENSION_BRIDGE_ADDR = 0x038FBA; // Map_ICZTensionBridge
 
     // ===== HUD Art =====
     // ArtUnc_HUDDigits - Score/Time/Ring digits (0-9, colon, E)
