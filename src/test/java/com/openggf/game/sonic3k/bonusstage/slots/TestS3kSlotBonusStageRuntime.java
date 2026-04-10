@@ -318,6 +318,29 @@ class TestS3kSlotBonusStageRuntime {
     }
 
     @Test
+    void goalExitReportsCompletedProviderFadeAfterRomExitFadeCompletes() {
+        RuntimeManager.createGameplay();
+        SonicConfigurationService.getInstance().setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "tails");
+
+        AbstractPlayableSprite originalPlayer = new Tails("tails", (short) 0x460, (short) 0x430);
+        GameServices.sprites().addSprite(originalPlayer);
+        GameServices.camera().setFocusedSprite(originalPlayer);
+
+        S3kSlotBonusStageRuntime runtime = new S3kSlotBonusStageRuntime();
+        runtime.bootstrap();
+        runtime.startGoalExitForTest();
+
+        assertFalse(runtime.hasCompletedExitFadeToBlack());
+
+        for (int frame = 0; frame < 155; frame++) {
+            runtime.update(frame);
+        }
+
+        assertTrue(runtime.hasCompletedExitFadeToBlack());
+        assertTrue(runtime.isExitTriggered());
+    }
+
+    @Test
     void lateRuntimeRenderPassDoesNotDrawMachineFacePanel() throws Exception {
         RuntimeManager.createGameplay();
         SonicConfigurationService.getInstance().setConfigValue(SonicConfiguration.MAIN_CHARACTER_CODE, "tails");

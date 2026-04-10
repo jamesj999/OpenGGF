@@ -288,6 +288,10 @@ public final class S3kSlotBonusStageRuntime {
         return exitTriggered;
     }
 
+    public boolean hasCompletedExitFadeToBlack() {
+        return exitFadeStarted && slotPlayerRuntime != null && slotPlayerRuntime.isExitComplete();
+    }
+
     public S3kSlotLayoutAnimator activeLayoutAnimatorForTest() {
         return layoutAnimator;
     }

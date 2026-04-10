@@ -2858,6 +2858,7 @@ public class LevelManager {
         int destPlaneOffsetBytes = Math.floorMod(destVramAddress - 0xE000, 0x1000);
         int destCell = destPlaneOffsetBytes / 2;
         int cellCount = longWordCount * 2;
+        int sourceStartX = (sourceWorldX >> 4) << 4;
         boolean changed = false;
         for (int row = 0; row < 2; row++) {
             int sourceRowY = sourceWorldY + row * Pattern.PATTERN_HEIGHT;
@@ -2869,7 +2870,7 @@ public class LevelManager {
                 if (destTileX >= bgWidthTiles || destTileY >= bgHeightTiles) {
                     continue;
                 }
-                int descriptor = getBackgroundTileDescriptorAtWorld(sourceWorldX + i * Pattern.PATTERN_WIDTH,
+                int descriptor = getBackgroundTileDescriptorAtWorld(sourceStartX + i * Pattern.PATTERN_WIDTH,
                         sourceRowY);
                 changed |= tilemapManager.setBackgroundTileDescriptorAtTilemapCell(destTileX, destTileY, descriptor);
             }

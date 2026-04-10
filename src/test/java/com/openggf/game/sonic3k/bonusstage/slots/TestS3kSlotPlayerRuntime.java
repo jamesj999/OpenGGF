@@ -282,6 +282,7 @@ class TestS3kSlotPlayerRuntime {
         assertTrue(runtime.isDebugActive());
         assertEquals(0, state.rawStatTable());
         assertEquals(0, state.scalarIndex1());
+        assertFalse(player.getRolling());
 
         player.setDebugMode(false);
         runtime.tick(player, false, false, false, false, false, 1);
@@ -289,6 +290,7 @@ class TestS3kSlotPlayerRuntime {
         assertFalse(runtime.isDebugActive());
         assertEquals(0x5A00, state.rawStatTable());
         assertEquals(0x40, state.scalarIndex1());
+        assertTrue(player.getRolling());
     }
 
     @Test

@@ -85,6 +85,22 @@ public class SwScrlSlotsTest {
     }
 
     @Test
+    public void slotBackgroundVScrollUsesRomFixedPointAccumulatorHighWord() {
+        SwScrlSlots scroll = new SwScrlSlots();
+        S3kSlotBonusStageRuntime runtime = new S3kSlotBonusStageRuntime();
+        runtime.bootstrap();
+        int[] horizScrollBuf = new int[224];
+
+        scroll.updateForTest(runtime, horizScrollBuf, 0x300, 0x200, 0); // Slots_BackgroundInit
+        for (int frame = 1; frame <= 11; frame++) {
+            scroll.updateForTest(runtime, horizScrollBuf, 0x300, 0x200, frame);
+        }
+
+        assertEquals(1, scroll.lastBackgroundOriginYForTest());
+        assertEquals(1, scroll.getVscrollFactorBG() & 0xFF);
+    }
+
+    @Test
     public void slotBackgroundQueuesRomPlaneRowRefreshesWhenBandsAdvance() {
         SwScrlSlots scroll = new SwScrlSlots();
         S3kSlotBonusStageRuntime runtime = new S3kSlotBonusStageRuntime();
@@ -133,7 +149,29 @@ public class SwScrlSlotsTest {
         assertTrue("positiveVelocity=" + positiveVelocity + " postFlipVelocity=" + postFlipVelocity,
                 postFlipVelocity < positiveVelocity);
         assertTrue("finalVelocity=" + scroll.backgroundVelocityForTest(), scroll.backgroundVelocityForTest() < 0);
-        assertEquals(0, scroll.getVscrollFactorBG() & 0xFF);
+        assertEquals(0x12, scroll.getVscrollFactorBG() & 0xFF);
+    }
+
+    @Test
+    public void slotBackgroundFreezesWhenDebugForcesRotationScalarToZero() {
+        SwScrlSlots scroll = new SwScrlSlots();
+        S3kSlotBonusStageRuntime runtime = new S3kSlotBonusStageRuntime();
+        runtime.bootstrap();
+
+        for (int frame = 0; frame < 20; frame++) {
+            scroll.updateForTest(runtime, 0x300, 0x200, frame);
+        }
+
+        int velocityBeforeDebug = scroll.backgroundVelocityForTest();
+        int originBeforeDebug = scroll.lastBackgroundOriginYForTest();
+        runtime.stageController().setScalarIndex(0);
+
+        for (int frame = 20; frame < 40; frame++) {
+            scroll.updateForTest(runtime, 0x300, 0x200, frame);
+        }
+
+        assertEquals(velocityBeforeDebug, scroll.backgroundVelocityForTest());
+        assertEquals(originBeforeDebug, scroll.lastBackgroundOriginYForTest());
     }
 
     @Test
