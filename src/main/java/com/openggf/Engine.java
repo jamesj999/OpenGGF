@@ -17,6 +17,7 @@ import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.debug.DebugOption;
+import com.openggf.debug.DebugOverlayManager;
 import com.openggf.debug.DebugRenderer;
 import com.openggf.debug.PerformanceProfiler;
 import com.openggf.debug.DebugState;
@@ -76,6 +77,7 @@ public class Engine {
 	private final RomManager romManager;
 	private final RomDetectionService romDetectionService;
 	private final CrossGameFeatureProvider crossGameFeatureProvider;
+	private final DebugOverlayManager debugOverlayManager;
 	private final PlaybackDebugManager playbackDebugManager;
 
 	private Camera camera;
@@ -166,16 +168,17 @@ public class Engine {
 
 	public Engine(EngineServices engineServices) {
 		engineServices = Objects.requireNonNull(engineServices, "engineServices");
+		RuntimeManager.configureEngineServices(engineServices);
 		this.configService = engineServices.configuration();
 		this.graphicsManager = engineServices.graphics();
 		this.audioManager = engineServices.audio();
 		this.romManager = engineServices.roms();
 		this.romDetectionService = engineServices.romDetection();
 		this.crossGameFeatureProvider = engineServices.crossGameFeatures();
+		this.debugOverlayManager = engineServices.debugOverlay();
 		this.playbackDebugManager = engineServices.playbackDebug();
 		this.profiler = engineServices.profiler();
 		this.gameLoop = new GameLoop(engineServices);
-		RuntimeManager.configureEngineServices(engineServices);
 		this.realWidth = configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS);
 		this.realHeight = configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
 		this.projectionWidth = realWidth;
@@ -343,7 +346,7 @@ public class Engine {
 		setInputHandler(inputHandler);
 
 		// Set window handle for clipboard operations (GLFW-based, no AWT dependency)
-		GameServices.debugOverlay().setWindowHandle(window);
+		debugOverlayManager.setWindowHandle(window);
 
 		// Initial reshape and snap to integer scale (handles DPI-scaled framebuffer)
 		try (MemoryStack stack = stackPush()) {
@@ -446,7 +449,7 @@ public class Engine {
 		GameModuleRegistry.reset();
 		audioManager.resetState();
 		crossGameFeatureProvider.resetState();
-		GameServices.debugOverlay().resetState();
+		debugOverlayManager.resetState();
 		RenderContext.reset();
 		AizIntroArtLoader.reset();
 	}
