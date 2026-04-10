@@ -38,6 +38,13 @@ class TestObjectServicesExpansion {
     }
 
     @Test
+    void defaultObjectServices_levelManager_returnsRuntimeLevelManager() {
+        DefaultObjectServices services = new DefaultObjectServices(RuntimeManager.getCurrent());
+        assertSame(GameServices.level(), services.levelManager(),
+                "levelManager() should delegate to the runtime-owned level manager");
+    }
+
+    @Test
     void defaultObjectServices_gameState_returnsSingleton() {
         DefaultObjectServices services = new DefaultObjectServices(RuntimeManager.getCurrent());
         assertSame(GameServices.gameState(), services.gameState(),
@@ -97,6 +104,20 @@ class TestObjectServicesExpansion {
     void defaultObjectServices_bootstrapConstructor_processServicesUseLegacyEngineServices() {
         DefaultObjectServices services = bootstrapConstructorServicesWithoutRuntime();
 
+        assertSame(SonicConfigurationService.getInstance(), services.configuration());
+        assertSame(DebugOverlayManager.getInstance(), services.debugOverlay());
+        assertSame(RomManager.getInstance(), services.romManager());
+        assertSame(CrossGameFeatureProvider.getInstance(), services.crossGameFeatures());
+        assertNotNull(services.engineServices());
+    }
+
+    @Test
+    void bootstrapObjectServices_delegatesExpandedApiToGameServices() {
+        BootstrapObjectServices services = new BootstrapObjectServices();
+
+        assertSame(GameServices.level(), services.levelManager());
+        assertSame(GameServices.camera(), services.camera());
+        assertSame(GameServices.gameState(), services.gameState());
         assertSame(SonicConfigurationService.getInstance(), services.configuration());
         assertSame(DebugOverlayManager.getInstance(), services.debugOverlay());
         assertSame(RomManager.getInstance(), services.romManager());

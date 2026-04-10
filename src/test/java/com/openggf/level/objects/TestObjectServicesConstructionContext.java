@@ -20,6 +20,7 @@ class TestObjectServicesConstructionContext {
         @Override public ObjectRenderManager renderManager() { return null; }
         @Override public com.openggf.game.LevelState levelGamestate() { return null; }
         @Override public com.openggf.game.RespawnState checkpointState() { return null; }
+        @Override public com.openggf.level.LevelManager levelManager() { return null; }
         @Override public com.openggf.level.Level currentLevel() { return null; }
         @Override public int romZoneId() { return 0; }
         @Override public int currentAct() { return 0; }

@@ -26,6 +26,7 @@ import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.BigRingReturnState;
 import com.openggf.level.Level;
+import com.openggf.level.LevelManager;
 import com.openggf.level.ParallaxManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.rings.RingManager;
@@ -49,6 +50,7 @@ public interface ObjectServices {
     // Level state
     LevelState levelGamestate();
     RespawnState checkpointState();
+    LevelManager levelManager();
     Level currentLevel();
     int romZoneId();
     int currentAct();
