@@ -39,7 +39,6 @@ public interface S3kSlotBonusPlayer extends CustomPlayablePhysics {
         SonicSlotBonusPlayer(String code, short x, short y, S3kSlotPlayerRuntime runtime) {
             super(code, x, y);
             this.runtime = runtime;
-            setHighPriority(true);
         }
 
         @Override
@@ -61,7 +60,6 @@ public interface S3kSlotBonusPlayer extends CustomPlayablePhysics {
         TailsSlotBonusPlayer(String code, short x, short y, S3kSlotPlayerRuntime runtime) {
             super(code, x, y);
             this.runtime = runtime;
-            setHighPriority(true);
         }
 
         @Override
@@ -83,7 +81,6 @@ public interface S3kSlotBonusPlayer extends CustomPlayablePhysics {
         KnucklesSlotBonusPlayer(String code, short x, short y, S3kSlotPlayerRuntime runtime) {
             super(code, x, y);
             this.runtime = runtime;
-            setHighPriority(true);
         }
 
         @Override

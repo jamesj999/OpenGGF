@@ -604,7 +604,9 @@ public final class S3kSlotBonusStageRuntime {
         target.setSuperStateController(source.getSuperStateController());
         target.setPowerUpSpawner(source.getPowerUpSpawner());
         target.setDirection(source.getDirection());
-        target.setHighPriority(source.isHighPriority());
+        // ROM Obj_Sonic_RotatingSlotBonus uses make_art_tile(...,0,0);
+        // the slot-machine glass is supplied by high-priority FG tiles.
+        target.setHighPriority(false);
         target.setAir(source.getAir());
         target.setRolling(source.getRolling());
         target.setControlLocked(false);

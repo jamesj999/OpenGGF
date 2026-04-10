@@ -49,6 +49,15 @@ class TestS3kSlotBonusPlayer {
     }
 
     @Test
+    void slotBonusPlayersKeepRomLowPrioritySoFgGlassCanOccludeThem() {
+        S3kSlotPlayerRuntime runtime = newEmptyRuntime();
+
+        assertFalse(S3kSlotBonusPlayer.create("sonic", (short) 0x460, (short) 0x430, runtime).isHighPriority());
+        assertFalse(S3kSlotBonusPlayer.create("tails", (short) 0x460, (short) 0x430, runtime).isHighPriority());
+        assertFalse(S3kSlotBonusPlayer.create("knuckles", (short) 0x460, (short) 0x430, runtime).isHighPriority());
+    }
+
+    @Test
     void customPhysicsConsumesLaunchedVelocityIntoPosition() {
         S3kSlotPlayerRuntime runtime = newEmptyRuntime();
         AbstractPlayableSprite player = S3kSlotBonusPlayer.create("sonic", (short) 0x460, (short) 0x430, runtime);
