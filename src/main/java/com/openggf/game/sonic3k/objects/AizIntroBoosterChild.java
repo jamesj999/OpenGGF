@@ -69,7 +69,7 @@ public class AizIntroBoosterChild {
         }
     }
 
-    public void appendRenderCommands(List<GLCommand> commands) {
+    public void appendRenderCommands(List<GLCommand> commands, Camera camera) {
         PatternSpriteRenderer renderer = AizIntroArtLoader.getPlaneRenderer();
         if (renderer == null || !renderer.isReady()) return;
         int frame = animSequence[animIndex];
@@ -77,9 +77,10 @@ public class AizIntroBoosterChild {
         int renderX = currentX;
         int renderY = currentY;
         try {
-            Camera camera = Camera.getInstance();
-            renderX += camera.getX() - 128;
-            renderY += camera.getY() - 128;
+            if (camera != null) {
+                renderX += camera.getX() - 128;
+                renderY += camera.getY() - 128;
+            }
         } catch (Exception e) {
             LOG.fine(() -> "AizIntroBoosterChild.appendRenderCommands: " + e.getMessage());
         }
