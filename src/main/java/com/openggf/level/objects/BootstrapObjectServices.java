@@ -1,29 +1,23 @@
 package com.openggf.level.objects;
 
-import com.openggf.camera.Camera;
-import com.openggf.game.GameStateManager;
-import com.openggf.graphics.FadeManager;
-import com.openggf.level.LevelManager;
-import com.openggf.level.ParallaxManager;
-import com.openggf.level.WaterSystem;
-import com.openggf.sprites.managers.SpriteManager;
+import com.openggf.game.GameServices;
 
 /**
- * Bootstrap-only {@link ObjectServices} bridge for pre-runtime construction paths.
+ * Legacy {@link ObjectServices} bridge for call sites that still build an
+ * {@link ObjectManager} without passing explicit services.
  *
- * <p>This is intentionally narrow infrastructure: once a gameplay {@code GameRuntime}
- * exists, {@link ObjectManager} must switch to {@link DefaultObjectServices} backed by
- * that runtime instead of re-reading bootstrap singletons.</p>
+ * <p>Runtime-owned dependencies are resolved through strict {@link GameServices}
+ * accessors, so callers must create a gameplay runtime first.</p>
  */
 final class BootstrapObjectServices extends DefaultObjectServices {
 
     BootstrapObjectServices() {
-        super(LevelManager.getInstance(),
-                Camera.getInstance(),
-                GameStateManager.getInstance(),
-                SpriteManager.getInstance(),
-                FadeManager.getInstance(),
-                WaterSystem.getInstance(),
-                ParallaxManager.getInstance());
+        super(GameServices.level(),
+                GameServices.camera(),
+                GameServices.gameState(),
+                GameServices.sprites(),
+                GameServices.fade(),
+                GameServices.water(),
+                GameServices.parallax());
     }
 }

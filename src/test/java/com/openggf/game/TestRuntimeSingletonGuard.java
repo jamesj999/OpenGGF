@@ -48,26 +48,7 @@ public class TestRuntimeSingletonGuard {
     /** Files allowed to call getInstance() on runtime-owned managers. */
     private static final Set<String> ALLOWED_FILES = Set.of(
             "RuntimeManager.java",
-            "GameServices.java",
-            "AbstractObjectInstance.java",  // static helpers wrapping singletons for leaf classes
-            "AbstractObjectRegistry.java",
-            "GraphicsManager.java",
-            "BootstrapObjectServices.java",
-            "GameModuleRegistry.java",
-            "AbstractLevelEventManager.java",
-            "AbstractLevelInitProfile.java",
-            "DebugRenderer.java",
-            "AbstractPlayableSprite.java",
-            "HudRenderManager.java",
-            "RingManager.java",
-            "GroundSensor.java",
-            "PlayableSpriteMovement.java",
-            "SpindashCameraTimer.java",
-            "LazyMappingHolder.java",
-            "Sonic2ObjectRegistry.java",
-            "AizIntroArtLoader.java",
-            "AizIntroPaletteCycler.java",
-            "AizIntroTerrainSwap.java"
+            "GameServices.java"
     );
 
     /** Pattern matching e.g. Camera.getInstance() or LevelManager.getInstance() */

@@ -1,6 +1,7 @@
 package com.openggf.sprites.managers;
 
 import com.openggf.game.GameModule;
+import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.LevelEventProvider;
 import com.openggf.game.PhysicsFeatureSet;
@@ -65,7 +66,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	// (s1:01 Sonic.asm:595-601 — rollDecel = decel/4 = $80/4 = $20)
 
 	private final CollisionSystem bootstrapCollisionSystem;
-	private final AudioManager audioManager = AudioManager.getInstance();
+	private final AudioManager audioManager = GameServices.audio();
 	private final GameStateManager bootstrapGameState;
 
 	// Cached speed constants (don't change with speed shoes)
@@ -103,7 +104,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	}
 
 	public PlayableSpriteMovement(AbstractPlayableSprite sprite) {
-		this(sprite, CollisionSystem.getInstance(), GameStateManager.getInstance());
+		this(sprite, GameServices.collision(), GameServices.gameState());
 	}
 
 	private Camera camera() {

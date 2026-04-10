@@ -2,6 +2,7 @@ package com.openggf.sprites.managers;
 
 import com.openggf.game.GameModule;
 import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic2.Sonic2GameModule;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -28,6 +29,8 @@ public class TestPlayableSpriteMovement {
         public void setUp() {
                 previousModule = GameModuleRegistry.getCurrent();
                 GameModuleRegistry.setCurrent(new Sonic2GameModule());
+                RuntimeManager.destroyCurrent();
+                RuntimeManager.createGameplay();
                 mockSprite = new AbstractPlayableSprite("sonic", (short) 0, (short) 0) {
                         @Override
                         protected void defineSpeeds() {
@@ -54,6 +57,7 @@ public class TestPlayableSpriteMovement {
 
         @After
         public void tearDown() {
+                RuntimeManager.destroyCurrent();
                 if (previousModule != null) {
                         GameModuleRegistry.setCurrent(previousModule);
                 } else {

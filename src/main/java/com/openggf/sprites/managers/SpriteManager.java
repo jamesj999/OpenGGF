@@ -662,26 +662,19 @@ public class SpriteManager {
 	}
 
 	private LevelManager getLevelManager() {
-		var runtime = RuntimeManager.getCurrent();
-		if (runtime != null) {
-			LevelManager runtimeLevelManager = runtime.getLevelManager();
-			if (levelManager != runtimeLevelManager) {
-				levelManager = runtimeLevelManager;
-			}
-		} else if (levelManager == null) {
-			levelManager = LevelManager.getInstance();
+		LevelManager runtimeLevelManager = GameServices.level();
+		if (levelManager != runtimeLevelManager) {
+			levelManager = runtimeLevelManager;
 		}
 		return levelManager;
 	}
 
 	private Camera currentCamera() {
-		var runtime = RuntimeManager.getCurrent();
-		return runtime != null ? runtime.getCamera() : Camera.getInstance();
+		return RuntimeManager.getCurrent().getCamera();
 	}
 
 	private GameStateManager currentGameStateManager() {
-		var runtime = RuntimeManager.getCurrent();
-		return runtime != null ? runtime.getGameState() : GameStateManager.getInstance();
+		return RuntimeManager.getCurrent().getGameState();
 	}
 
 	/**

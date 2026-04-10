@@ -770,13 +770,11 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         public final Camera currentCamera() {
-                var runtime = RuntimeManager.getActiveRuntime();
-                return runtime != null ? runtime.getCamera() : Camera.getInstance();
+                return GameServices.camera();
         }
 
         public final LevelManager currentLevelManager() {
-                var runtime = RuntimeManager.getActiveRuntime();
-                return runtime != null ? runtime.getLevelManager() : LevelManager.getInstance();
+                return GameServices.level();
         }
 
         public final LevelManager currentLevelManagerIfAvailable() {
@@ -800,33 +798,23 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
         }
 
         public final TimerManager currentTimerManager() {
-                var runtime = RuntimeManager.getActiveRuntime();
-                return runtime != null ? runtime.getTimers() : TimerManager.getInstance();
+                return GameServices.timers();
         }
 
         public final GameStateManager currentGameState() {
-                var runtime = RuntimeManager.getActiveRuntime();
-                if (bootstrapInitializing || runtime == null) {
-                        return GameStateManager.getInstance();
-                }
-                return runtime.getGameState();
+                return GameServices.gameState();
         }
 
         public final CollisionSystem currentCollisionSystem() {
-                var runtime = RuntimeManager.getActiveRuntime();
-                if (bootstrapInitializing || runtime == null) {
-                        return CollisionSystem.getInstance();
-                }
-                return runtime.getCollisionSystem();
+                return GameServices.collision();
         }
 
         public final AudioManager currentAudioManager() {
-                return AudioManager.getInstance();
+                return GameServices.audio();
         }
 
         public final WaterSystem currentWaterSystem() {
-                var runtime = RuntimeManager.getActiveRuntime();
-                return runtime != null ? runtime.getWaterSystem() : WaterSystem.getInstance();
+                return GameServices.water();
         }
 
         /**

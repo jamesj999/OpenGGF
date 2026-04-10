@@ -2,6 +2,7 @@ package com.openggf.graphics;
 
 import com.openggf.Engine;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.graphics.pipeline.UiRenderPipeline;
 import com.openggf.level.Palette;
 import com.openggf.level.Pattern;
@@ -230,14 +231,13 @@ public class GraphicsManager {
 	}
 
 	private void syncRuntimeManagedReferences() {
-		com.openggf.game.GameRuntime runtime = com.openggf.game.RuntimeManager.getCurrent();
-		Camera resolvedCamera = runtime != null ? runtime.getCamera() : Camera.getInstance();
-		if (camera != resolvedCamera) {
+		Camera resolvedCamera = GameServices.cameraOrNull();
+		if (resolvedCamera != null && camera != resolvedCamera) {
 			camera = resolvedCamera;
 		}
 
-		FadeManager resolvedFadeManager = runtime != null ? runtime.getFadeManager() : FadeManager.getInstance();
-		if (fadeManager != resolvedFadeManager) {
+		FadeManager resolvedFadeManager = GameServices.fadeOrNull();
+		if (resolvedFadeManager != null && fadeManager != resolvedFadeManager) {
 			fadeManager = resolvedFadeManager;
 			if (fadeShaderProgram != null) {
 				fadeManager.setFadeShader(fadeShaderProgram);
