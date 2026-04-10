@@ -10,6 +10,7 @@ import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.boss.AbstractBossInstance;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -533,7 +534,8 @@ public class Sonic2CPZBossInstance extends AbstractBossInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        ObjectRenderManager renderManager = services() != null ? services().renderManager() : null;
+        ObjectServices svc = tryServices();
+        ObjectRenderManager renderManager = svc != null ? svc.renderManager() : null;
         if (renderManager == null) {
             return;
         }

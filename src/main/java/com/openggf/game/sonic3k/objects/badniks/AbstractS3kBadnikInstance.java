@@ -10,6 +10,7 @@ import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.TouchResponseAttackable;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.objects.TouchResponseResult;
@@ -88,7 +89,8 @@ abstract class AbstractS3kBadnikInstance extends AbstractObjectInstance
     }
 
     protected final void spawnProjectile(S3kBadnikProjectileInstance projectile) {
-        ObjectManager objectManager = services() != null ? services().objectManager() : null;
+        ObjectServices svc = tryServices();
+        ObjectManager objectManager = svc != null ? svc.objectManager() : null;
         if (objectManager != null) {
             objectManager.addDynamicObject(projectile);
         }

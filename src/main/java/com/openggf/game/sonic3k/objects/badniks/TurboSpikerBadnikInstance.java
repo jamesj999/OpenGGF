@@ -7,6 +7,7 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.ObjectTerrainUtils;
@@ -324,11 +325,12 @@ public final class TurboSpikerBadnikInstance extends AbstractS3kBadnikInstance {
             nearest = mainPlayer;
             nearestDistance = Math.abs(currentX - mainPlayer.getCentreX());
         }
-        if (services() == null) {
+        ObjectServices svc = tryServices();
+        if (svc == null) {
             return nearest;
         }
 
-        for (PlayableEntity sidekick : services().sidekicks()) {
+        for (PlayableEntity sidekick : svc.sidekicks()) {
             if (!(sidekick instanceof AbstractPlayableSprite sprite) || sprite.getDead()) {
                 continue;
             }
