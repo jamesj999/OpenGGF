@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects.badniks;
 
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
+import com.openggf.game.GameRng;
 import com.openggf.level.objects.DefaultObjectServices;
 import org.junit.Test;
 import com.openggf.level.LevelManager;
@@ -45,6 +46,7 @@ public class TestTurtloidBadnikInstance {
             com.openggf.level.objects.ObjectServices services = mock(com.openggf.level.objects.ObjectServices.class);
             when(services.objectManager()).thenReturn(objectManager);
             when(services.renderManager()).thenReturn(objectRenderManager);
+            when(services.rng()).thenReturn(new GameRng(GameRng.Flavour.S1_S2));
 
             setConstructionContext(services);
             TurtloidBadnikInstance base;

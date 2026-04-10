@@ -25,6 +25,7 @@ public class TestSonic3kDynamicWaterHandlers {
     @Before
     public void setUp() {
         provider = new Sonic3kWaterDataProvider();
+        Sonic3kLevelTriggerManager.reset();
     }
 
     // =====================================================================
@@ -211,7 +212,7 @@ public class TestSonic3kDynamicWaterHandlers {
                 Aiz2DynamicWaterHandler.DROP_LEVEL, state.getTargetLevel());
 
         // Phase 3: Move past trigger - water should rise back
-        handler.update(state, Aiz2DynamicWaterHandler.TRIGGER_X, 0);
+        handler.update(state, Aiz2DynamicWaterHandler.AUTO_TRIGGER_X, 0);
         assertEquals("After trigger, target should be INITIAL_LEVEL",
                 Aiz2DynamicWaterHandler.INITIAL_LEVEL, state.getTargetLevel());
     }
@@ -224,7 +225,7 @@ public class TestSonic3kDynamicWaterHandlers {
 
         // Trigger the handler
         handler.update(state, 0x1000, 0); // Drop
-        handler.update(state, Aiz2DynamicWaterHandler.TRIGGER_X, 0); // Trigger rise
+        handler.update(state, Aiz2DynamicWaterHandler.AUTO_TRIGGER_X, 0); // Trigger rise
 
         // Reset
         handler.reset();
@@ -275,7 +276,7 @@ public class TestSonic3kDynamicWaterHandlers {
         state.setMeanDirect(Aiz2DynamicWaterHandler.DROP_LEVEL);
 
         // Trigger rise
-        handler.update(state, Aiz2DynamicWaterHandler.TRIGGER_X, 0);
+        handler.update(state, Aiz2DynamicWaterHandler.AUTO_TRIGGER_X, 0);
         assertEquals(Aiz2DynamicWaterHandler.INITIAL_LEVEL, state.getTargetLevel());
 
         // Verify speed is still 2 (inherited from drop, not reset to 1)
@@ -320,7 +321,7 @@ public class TestSonic3kDynamicWaterHandlers {
         state.setMeanDirect(Aiz2DynamicWaterHandler.DROP_LEVEL);
 
         // Trigger rise — should set shake timer
-        handler.update(state, Aiz2DynamicWaterHandler.TRIGGER_X, 0);
+        handler.update(state, Aiz2DynamicWaterHandler.AUTO_TRIGGER_X, 0);
         assertEquals("Shake timer should be set to 180",
                 Aiz2DynamicWaterHandler.SHAKE_DURATION, state.getShakeTimer());
     }
@@ -334,14 +335,14 @@ public class TestSonic3kDynamicWaterHandlers {
         // Drop + trigger rise
         handler.update(state, 0x1000, 0);
         state.setMeanDirect(Aiz2DynamicWaterHandler.DROP_LEVEL);
-        handler.update(state, Aiz2DynamicWaterHandler.TRIGGER_X, 0);
+        handler.update(state, Aiz2DynamicWaterHandler.AUTO_TRIGGER_X, 0);
         assertEquals(180, state.getShakeTimer());
 
         // Manually decrement to simulate some frames passing
         state.setShakeTimer(50);
 
         // Subsequent handler call should NOT re-set timer (target already == INITIAL_LEVEL)
-        handler.update(state, Aiz2DynamicWaterHandler.TRIGGER_X + 100, 0);
+        handler.update(state, Aiz2DynamicWaterHandler.AUTO_TRIGGER_X + 100, 0);
         assertEquals("Timer should not be re-set once target is already INITIAL_LEVEL",
                 50, state.getShakeTimer());
     }

@@ -5,6 +5,7 @@ import com.openggf.audio.GameSound;
 import com.openggf.camera.Camera;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
+import com.openggf.game.GameRng;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.GameModule;
 import com.openggf.game.LevelState;
@@ -38,6 +39,7 @@ public class TestObjectServices implements ObjectServices {
     private ParallaxManager parallaxManager;
     private GraphicsManager graphicsManager;
     private AudioManager audioManager;
+    private GameRng rng = new GameRng(GameRng.Flavour.S3K);
     private Rom rom;
     private RomByteReader romReader;
     private List<PlayableEntity> sidekicks = List.of();
@@ -86,6 +88,11 @@ public class TestObjectServices implements ObjectServices {
 
     public TestObjectServices withAudioManager(AudioManager audioManager) {
         this.audioManager = audioManager;
+        return this;
+    }
+
+    public TestObjectServices withRng(GameRng rng) {
+        this.rng = rng;
         return this;
     }
 
@@ -231,6 +238,11 @@ public class TestObjectServices implements ObjectServices {
     @Override
     public AudioManager audioManager() {
         return audioManager;
+    }
+
+    @Override
+    public GameRng rng() {
+        return rng;
     }
 
     @Override

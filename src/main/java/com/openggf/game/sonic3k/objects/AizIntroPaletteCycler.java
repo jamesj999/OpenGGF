@@ -71,7 +71,7 @@ public class AizIntroPaletteCycler {
         if (offset + COLORS_PER_STEP * 2 > data.length) return;
 
         try {
-            var lm = GameServices.level();
+            var lm = GameServices.levelOrNull();
             if (lm == null) return;
             Level level = lm.getCurrentLevel();
             if (level == null) return;

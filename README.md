@@ -93,7 +93,7 @@ sound driver.
 |------|--------|
 | Sonic the Hedgehog (S1) | Broadly playable. All 7 zones, 6 bosses, special stages, title screen, ending/credits. |
 | Sonic the Hedgehog 2 (S2) | Most complete. All zones, 9 bosses (including both DEZ bosses), special stages, Tails AI, credits/ending. |
-| Sonic 3 & Knuckles (S3K) | Progressing. Angel Island Zone playable with intro cutscene, miniboss fight (with defeat flow and signpost), results screen, Blue Ball special stages (WIP), palette cycling for all zones, per-character physics, insta-shield, spindash dust, title screen, level select, Knuckles playable with glide/climb, sidekick Knuckles with palette/VRAM isolation, badnik destruction with animals and points, and 10+ gameplay objects. |
+| Sonic 3 & Knuckles (S3K) | Progressing. Angel Island Zone playable with intro cutscene, miniboss fight (with defeat flow and signpost), results screen, Blue Ball special stages (WIP), early Glowing Sphere bonus stage work (gumball/pachinko, WIP), palette cycling for all zones, per-character physics, insta-shield, spindash dust, title screen, level select, Knuckles playable with glide/climb, sidekick Knuckles with palette/VRAM isolation, badnik destruction with animals and points, and 10+ gameplay objects. |
 
 Work is ongoing across all three games. See CHANGELOG.md for detailed progress.
 
@@ -177,8 +177,9 @@ behaviour.
 
 A primarily architectural release. The engine internals have been restructured to prepare for level
 editor support, safe runtime teardown, and multi-instance play-testing, while Sonic 3 & Knuckles
-gameplay coverage has expanded within Angel Island Zone. AIZ2 completion (boss, Flying Battery event,
-HCZ transition) is the remaining gate before release.
+gameplay coverage has expanded across Angel Island and Hydrocity. AIZ2 now has the Flying Battery
+bombing sequence, end boss, post-boss capsule/cutscene flow, and AIZ-to-HCZ transition represented,
+while HCZ now has a larger object/event pass and HCZ1-to-HCZ2 progression.
 
 - **Two-tier service architecture:** all 180+ game object classes migrated from direct singleton
   access to a two-tier dependency injection pattern (`GameServices` global facade + `ObjectServices`
@@ -198,11 +199,12 @@ HCZ transition) is the remaining gate before release.
   cross-game donation into S1/S2 with correct palette and HUD from the lock-on ROM.
 - **Sonic 3&K** expands with title screen (SEGA logo, Sonic morph animation, interactive menu),
   level select screen (SONICMILES background, zone icons, sound test), AIZ miniboss completion
-  (defeat flow, napalm attack, staggered explosions), signpost and results screen, Blue Ball
-  special stages (WIP) with per-character art/palette, per-character physics profiles, palette
-  cycling for all zones, 10+ new objects including AIZ collapsing/flipping bridges, spiked logs,
-  and zone-specific buttons, plus ongoing parity fixes for start positions, special-stage return,
-  and breakable rock behaviour.
+  (defeat flow, napalm attack, staggered explosions), AIZ2 Flying Battery bombing/end-boss work,
+  signpost and results screen, Blue Ball special stages (WIP) with per-character art/palette,
+  S3K bonus-stage work across Gumball, Glowing Sphere/Pachinko, and Slots, per-character physics
+  profiles, palette cycling for all zones, HCZ water rush / conveyor / fan / block / door /
+  miniboss coverage, and many new badniks/objects including CollapsingBridge, MegaChopper,
+  Poindexter, Blastoid, Buggernaut, Bubbler, TurboSpiker, and InvisibleHurtBlockH.
 - **Insta-shield** fully implemented with ROM parity: activation, hitbox expansion, persistent
   lifecycle, cross-game donation, and DPLC cache management.
 - **Multi-sidekick system** with configurable sidekick chains, per-character respawn strategies,
@@ -212,7 +214,8 @@ HCZ transition) is the remaining gate before release.
 - **Cross-game donation** now bidirectional: S1 can donate into S2/S3K, with `DonorCapabilities`
   interface, `CanonicalAnimation` vocabulary, and `AnimationTranslator` for any game pair.
 - **Rendering pipeline:** PatternAtlas slot reclamation, batched DPLC updates, virtual pattern ID
-  validation, and fail-fast shader error handling.
+  validation, SAT sprite-mask replay ordering for mixed-priority S3K bonus-stage art, and
+  fail-fast shader error handling.
 - **Trace replay testing:** automated accuracy verification that records per-frame physics state
   from the real ROM, then replays the same inputs through the engine and compares every field.
   First trace (S1 GHZ1, 3,905 frames) passes with 0 errors; a second baseline (S1 MZ1, 7,936

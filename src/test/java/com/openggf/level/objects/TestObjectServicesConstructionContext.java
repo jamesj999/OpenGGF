@@ -2,6 +2,8 @@ package com.openggf.level.objects;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -77,6 +79,12 @@ class TestObjectServicesConstructionContext {
         public void appendRenderCommands(java.util.List<com.openggf.graphics.GLCommand> commands) {}
     }
 
+    private static class OptionalServicesObject extends AbstractObjectInstance {
+        OptionalServicesObject(ObjectSpawn spawn) { super(spawn, "OptionalServices"); }
+        ObjectServices optionalServices() { return tryServices(); }
+        @Override public void appendRenderCommands(java.util.List<com.openggf.graphics.GLCommand> commands) {}
+    }
+
     @Test
     void services_availableDuringConstruction_whenContextSet() {
         ObjectSpawn spawn = new ObjectSpawn(0, 0, 0, 0, 0, false, 0);
@@ -133,11 +141,59 @@ class TestObjectServicesConstructionContext {
     }
 
     @Test
+    void tryServices_returnsNullWithoutContext_orInstanceField() {
+        ObjectSpawn spawn = new ObjectSpawn(0, 0, 0, 0, 0, false, 0);
+        AbstractObjectInstance.CONSTRUCTION_CONTEXT.remove();
+        OptionalServicesObject obj = new OptionalServicesObject(spawn);
+        assertNull(obj.optionalServices());
+    }
+
+    @Test
+    void tryServices_returnsConstructionContext_whenContextSet() {
+        ObjectSpawn spawn = new ObjectSpawn(0, 0, 0, 0, 0, false, 0);
+        AbstractObjectInstance.CONSTRUCTION_CONTEXT.set(TEST_SERVICES);
+        try {
+            OptionalServicesObject obj = new OptionalServicesObject(spawn);
+            assertSame(TEST_SERVICES, obj.optionalServices());
+        } finally {
+            AbstractObjectInstance.CONSTRUCTION_CONTEXT.remove();
+        }
+    }
+
+    @Test
+    void tryServices_prefersInstanceField_afterSetServices() {
+        ObjectSpawn spawn = new ObjectSpawn(0, 0, 0, 0, 0, false, 0);
+        OptionalServicesObject obj = new OptionalServicesObject(spawn);
+        ObjectServices instanceServices = new TestObjectServices();
+        obj.setServices(instanceServices);
+        assertSame(instanceServices, obj.optionalServices());
+    }
+
+    @Test
     void constructionContext_cleanedUpAfterFinally() {
         AbstractObjectInstance.CONSTRUCTION_CONTEXT.set(TEST_SERVICES);
         AbstractObjectInstance.CONSTRUCTION_CONTEXT.remove();
 
         assertNull(AbstractObjectInstance.CONSTRUCTION_CONTEXT.get(),
                 "ThreadLocal should be null after remove()");
+    }
+
+    @Test
+    void objectManager_createDynamicObject_setsConstructionContextBeforeFactory() {
+        ObjectManager manager = new ObjectManager(
+                List.of(), null, -1, null, null, null, null, TEST_SERVICES);
+        ObjectSpawn spawn = new ObjectSpawn(0, 0, 0, 0, 0, false, 0);
+
+        ConstructorAccessObject obj = manager.createDynamicObject(
+                () -> new ConstructorAccessObject(spawn));
+
+        assertSame(TEST_SERVICES, obj.constructorServices,
+                "factory-created object should see ObjectManager services during construction");
+        assertSame(TEST_SERVICES, obj.services(),
+                "ObjectManager should inject services after construction");
+        assertNull(AbstractObjectInstance.CONSTRUCTION_CONTEXT.get(),
+                "ObjectManager should clear construction context after factory returns");
+        assertTrue(manager.getActiveObjects().contains(obj),
+                "created object should be registered as a dynamic object");
     }
 }

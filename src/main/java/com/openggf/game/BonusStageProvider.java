@@ -13,6 +13,10 @@ public interface BonusStageProvider {
     void onEnter(BonusStageType type, BonusStageState savedState);
     void onExit();
     void onFrameUpdate();
+    default void onDeferredSetupComplete() {}
+    default boolean updateDuringLevelFrame() { return false; }
+    default boolean suppressesDefaultCameraStep() { return false; }
+    default boolean hasCompletedExitFadeToBlack() { return false; }
     boolean isStageComplete();
     void requestExit();
     BonusStageRewards getRewards();

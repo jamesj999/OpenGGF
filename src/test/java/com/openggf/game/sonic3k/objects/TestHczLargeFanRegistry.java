@@ -1,0 +1,28 @@
+package com.openggf.game.sonic3k.objects;
+
+import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
+import com.openggf.level.objects.ObjectInstance;
+import com.openggf.level.objects.ObjectSpawn;
+import org.junit.Test;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
+public class TestHczLargeFanRegistry {
+
+    @Test
+    public void registryCreatesHczLargeFanForId0x39InS3klZoneSet() {
+        Sonic3kObjectRegistry registry = new Sonic3kObjectRegistry();
+        ObjectSpawn spawn = new ObjectSpawn(0x0B80, 0x0580, Sonic3kObjectIds.HCZ_LARGE_FAN, 0, 0, false, 0);
+
+        ObjectInstance instance = registry.create(spawn);
+
+        assertTrue(instance instanceof HCZLargeFanObjectInstance);
+    }
+
+    @Test
+    public void primaryNameFor0x39MatchesDisassemblyLabel() {
+        Sonic3kObjectRegistry registry = new Sonic3kObjectRegistry();
+        assertEquals("HCZLargeFan", registry.getPrimaryName(Sonic3kObjectIds.HCZ_LARGE_FAN));
+    }
+}

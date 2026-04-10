@@ -7,6 +7,7 @@ import com.openggf.level.Palette;
 import com.openggf.level.Pattern;
 import com.openggf.level.PatternDesc;
 import com.openggf.level.render.BackgroundRenderer;
+import com.openggf.level.render.SpritePieceRenderer;
 
 import static com.openggf.level.LevelConstants.*;
 
@@ -71,7 +72,11 @@ public class GraphicsManager {
 	// Sprite priority shader mode flags
 	private boolean useSpritePriorityShader = false;
 	private boolean currentSpriteHighPriority = false;
-
+	private boolean spriteSatCollectionActive = false;
+	private boolean spriteMaskRequested = false;
+	private final List<SpriteSatEntry> spriteSatEntries = new ArrayList<>();
+	private String currentSpriteSatDebugSource = null;
+	private int currentSpriteSatBucket = RenderPriority.MIN;
 	// Background renderer for per-scanline parallax scrolling
 	private BackgroundRenderer backgroundRenderer;
 	private TilemapGpuRenderer tilemapGpuRenderer;
@@ -286,7 +291,6 @@ public class GraphicsManager {
 
 		// Reset pattern render state for new batch of commands
 		PatternRenderCommand.resetFrameState();
-
 		for (GLCommandable command : commands) {
 			command.execute(cameraX, cameraY, cameraWidth, cameraHeight);
 		}
@@ -536,7 +540,6 @@ public class GraphicsManager {
 		if (paletteTextureId == null) {
 			return;
 		}
-
 		// Try batched rendering for better performance
 		// Only use batching if enabled, batch is active, and pattern was successfully added
 		boolean usedBatch = false;
@@ -1078,6 +1081,10 @@ public class GraphicsManager {
 		useUnderwaterPaletteForBackground = false;
 		useSpritePriorityShader = false;
 		currentSpriteHighPriority = false;
+		spriteSatCollectionActive = false;
+		spriteMaskRequested = false;
+		spriteSatEntries.clear();
+		currentSpriteSatDebugSource = null;
 		waterlineScreenY = 0;
 		windowHeight = 224;
 		screenHeight = 224;
@@ -1188,6 +1195,132 @@ public class GraphicsManager {
 	 */
 	public boolean getCurrentSpriteHighPriority() {
 		return currentSpriteHighPriority;
+	}
+
+	public void beginSpriteSatCollection() {
+		spriteSatCollectionActive = true;
+		spriteMaskRequested = false;
+		spriteSatEntries.clear();
+		currentSpriteSatDebugSource = null;
+		currentSpriteSatBucket = RenderPriority.MIN;
+	}
+
+	public boolean isSpriteSatCollectionActive() {
+		return spriteSatCollectionActive;
+	}
+
+	public void requestSpriteMask() {
+		if (spriteSatCollectionActive) {
+			spriteMaskRequested = true;
+		}
+	}
+
+	public void setCurrentSpriteSatDebugSource(String debugSource) {
+		currentSpriteSatDebugSource = debugSource;
+	}
+
+	public void setCurrentSpriteSatBucket(int bucket) {
+		currentSpriteSatBucket = RenderPriority.clamp(bucket);
+	}
+
+	public void submitSpriteSatPiece(SpritePieceRenderer.PreparedPiece piece) {
+		if (!spriteSatCollectionActive || piece == null) {
+			return;
+		}
+		SpritePieceRenderer.PreparedPiece taggedPiece = currentSpriteSatDebugSource == null
+				? piece
+				: piece.withDebugSource(currentSpriteSatDebugSource);
+		spriteSatEntries.add(SpriteSatEntry.fromPreparedPiece(taggedPiece, currentSpriteSatBucket));
+	}
+
+	public void endSpriteSatCollectionAndReplay() {
+		if (!spriteSatCollectionActive) {
+			return;
+		}
+
+		List<SpriteSatEntry> collectedEntries = new ArrayList<>(spriteSatEntries);
+		boolean applyMask = spriteMaskRequested;
+
+		spriteSatCollectionActive = false;
+		spriteMaskRequested = false;
+		spriteSatEntries.clear();
+		currentSpriteSatDebugSource = null;
+		currentSpriteSatBucket = RenderPriority.MIN;
+
+		List<SpriteSatEntry> processedEntries = SpriteSatMaskPostProcessor.process(collectedEntries, applyMask);
+		if (processedEntries.isEmpty()) {
+			return;
+		}
+
+		// Replay SAT entries as direct individual commands, not through renderPatternWithId().
+		// Re-entering the normal render path allows the replay to be re-batched, which can
+		// flatten or reorder the final SAT sequence again.
+		flushPatternBatch();
+		setCurrentSpriteHighPriority(false);
+		for (PatternRenderCommand command : buildSpriteSatReplayCommands(processedEntries)) {
+			registerCommand(command);
+		}
+	}
+
+	List<PatternRenderCommand> buildSpriteSatReplayCommands(List<SpriteSatEntry> processedEntries) {
+		List<PatternRenderCommand> replayCommands = new ArrayList<>();
+		if (processedEntries == null || processedEntries.isEmpty()) {
+			return replayCommands;
+		}
+		ensurePatternAtlas();
+		Integer paletteTextureId = resolveSpriteSatReplayPaletteTextureId();
+		if (paletteTextureId == null) {
+			return replayCommands;
+		}
+		for (int bucket = RenderPriority.MAX; bucket >= RenderPriority.MIN; bucket--) {
+			for (SpriteSatEntry processedEntry : processedEntries) {
+				if (processedEntry.priorityBucket() == bucket) {
+					appendDirectReplayCommands(processedEntry, paletteTextureId, replayCommands);
+				}
+			}
+		}
+		return replayCommands;
+	}
+
+	private Integer resolveSpriteSatReplayPaletteTextureId() {
+		if (useUnderwaterPaletteForBackground && underwaterPaletteTextureId != null) {
+			return underwaterPaletteTextureId;
+		}
+		if (combinedPaletteTextureId != null) {
+			return combinedPaletteTextureId;
+		}
+		return headlessMode ? -1 : null;
+	}
+
+	private void appendDirectReplayCommands(
+			SpriteSatEntry entry,
+			int paletteTextureId,
+			List<PatternRenderCommand> replayCommands) {
+		if (entry == null || replayCommands == null) {
+			return;
+		}
+		SpritePieceRenderer.renderPreparedPiece(entry.toPreparedPiece(),
+				(patternIndex, pieceHFlip, pieceVFlip, paletteIndex, drawX, drawY) -> {
+					PatternAtlas.Entry atlasEntry = patternAtlas != null ? patternAtlas.getEntry(patternIndex) : null;
+					if (atlasEntry == null) {
+						return;
+					}
+					int descIndex = patternIndex & 0x7FF;
+					if (entry.piecePriority() || entry.globalHighPriority()) {
+						descIndex |= 0x8000;
+					}
+					if (pieceHFlip) {
+						descIndex |= 0x800;
+					}
+					if (pieceVFlip) {
+						descIndex |= 0x1000;
+					}
+					descIndex |= (paletteIndex & 0x3) << 13;
+					PatternDesc desc = new PatternDesc();
+					desc.set(descIndex);
+					desc.setPaletteIndex(paletteIndex);
+					replayCommands.add(PatternRenderCommand.obtain(atlasEntry, paletteTextureId, desc, drawX, drawY));
+				});
 	}
 
 	public WaterShaderProgram getWaterShaderProgram() {

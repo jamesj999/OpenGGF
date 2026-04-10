@@ -112,6 +112,11 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
         // Create elements
         createElements();
 
+        // ROM: Obj_LevelResultsCreate (line 62616) — set Events_fg_5 at creation
+        // time so the background event can prepare the transition. The actual level
+        // reload is gated on endOfLevelFlag (results complete) in the HCZ BG handler.
+        signalActTransitionIfNeeded();
+
         LOG.fine(() -> String.format("S3K results init: character=%s act=%d timeBonus=%d ringBonus=%d",
                 character, act, timeBonus, ringBonus));
     }
@@ -441,20 +446,54 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
         }
     }
 
+    /**
+     * ROM: Obj_LevelResultsCreate (sonic3k.asm line 62610-62616).
+     * Sets Events_fg_5 for Act 1 zones (except AIZ zone 0 and ICZ zone 5)
+     * to trigger the background event handler's seamless act transition.
+     *
+     * <p>In the ROM this fires at creation time and the Kos queue delays the
+     * actual transition. Our engine has no Kos queue, so we defer this to
+     * {@link #onExitReady()} after the tally completes.
+     */
+    private void signalActTransitionIfNeeded() {
+        if (act != 0) return;  // Act 2 — no transition
+        try {
+            int zone = services().romZoneId();
+            if (zone == 0x00) return;  // AIZ — handled by fire transition
+            if (zone == 0x05) return;  // ICZ — different transition mechanism
+            var eventManager = services().levelEventProvider();
+            if (eventManager instanceof com.openggf.game.sonic3k.Sonic3kLevelEventManager s3kEvents) {
+                s3kEvents.setEventsFg5ForActTransition();
+            }
+        } catch (Exception e) {
+            LOG.fine("Could not signal act transition: " + e.getMessage());
+        }
+    }
+
     // ---- Exit behavior ----
 
     @Override
     protected void onExitReady() {
-        // Restore player controls (locked by signpost in Set_PlayerEndingPose)
-        if (playerRef != null) {
-            playerRef.setControlLocked(false);
-            playerRef.setObjectControlled(false);
-        }
-        // Unlock sidekick(s) — ROM: Ctrl_2_locked cleared at level transition
-        for (PlayableEntity sidekickEntity : services().sidekicks()) {
-            AbstractPlayableSprite sidekick = (AbstractPlayableSprite) sidekickEntity;
-            sidekick.setControlLocked(false);
-            sidekick.setObjectControlled(false);
+        int zone = services().romZoneId();
+        boolean hasSeamlessTransition = (act == 0) && (zone == 0x01); // HCZ Act 1
+
+        // Restore player controls (locked by signpost in Set_PlayerEndingPose).
+        // For zones with seamless transitions (HCZ), defer unlocking — the player
+        // must remain in the victory pose (objectControlled) while the terrain
+        // changes underneath. The seamless transition handler in executeActTransition
+        // resets the player state after the layout reload, so they fall naturally.
+        if (!hasSeamlessTransition) {
+            if (playerRef != null) {
+                playerRef.setControlLocked(false);
+                playerRef.setObjectControlled(false);
+                playerRef.setForcedAnimationId(-1);
+            }
+            for (PlayableEntity sidekickEntity : services().sidekicks()) {
+                AbstractPlayableSprite sidekick = (AbstractPlayableSprite) sidekickEntity;
+                sidekick.setControlLocked(false);
+                sidekick.setObjectControlled(false);
+                sidekick.setForcedAnimationId(-1);
+            }
         }
         // Restore camera. When the AIZ2 cutscene override is active, the
         // Aiz2BossEndSequenceController manages camera bounds for the walk-right
@@ -471,8 +510,6 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
                 cam.setMaxY((short) level.getMaxY());
             }
         }
-
-        int zone = services().romZoneId();
 
         // Act 2, Sky Sanctuary ($A), or LRZ boss ($16): set End_of_level_flag
         // ROM lines 62694-62705
@@ -498,10 +535,12 @@ public class S3kResultsScreenObjectInstance extends AbstractResultsScreen {
                 try { services().playMusic(act2MusicId); } catch (Exception e) { /* ignore */ }
             }
 
-            // Show act 2 title card (except SOZ zone $8 and DEZ zone $B)
+            // Show act 2 title card (except SOZ zone $8, DEZ zone $B, and zones
+            // with seamless transitions like HCZ — the seamless transition will
+            // show its own title card after the level reload).
             // ROM lines 62713-62720
             boolean skipTitleCard = (zone == 0x08) || (zone == 0x0B);
-            if (!skipTitleCard) {
+            if (!skipTitleCard && !hasSeamlessTransition) {
                 services().titleCardProvider().initializeInLevel(zone, 1);
             }
         }

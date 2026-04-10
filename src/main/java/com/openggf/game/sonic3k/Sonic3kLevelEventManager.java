@@ -6,8 +6,11 @@ import com.openggf.game.PlayerCharacter;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
+import com.openggf.game.sonic3k.events.Sonic3kHCZEvents;
+import com.openggf.game.sonic3k.features.HCZWaterTunnelHandler;
 import com.openggf.game.sonic3k.objects.AizHollowTreeObjectInstance;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
+import com.openggf.game.sonic3k.objects.HCZConveyorBeltObjectInstance;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.logging.Logger;
@@ -33,15 +36,23 @@ import java.util.logging.Logger;
  */
 public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
     private static final Logger LOG = Logger.getLogger(Sonic3kLevelEventManager.class.getName());
+    private static final int PACHINKO_TOP_EXIT_Y = -0x20;
     private static Sonic3kLevelEventManager instance;
 
     private Sonic3kLoadBootstrap bootstrap = Sonic3kLoadBootstrap.NORMAL;
     private Sonic3kAIZEvents aizEvents;
+    private Sonic3kHCZEvents hczEvents;
 
     // Tracks whether the intro-fall forced animation is active on each player.
     // Cleared per-player when they land (air → ground transition).
     private boolean introFallActiveOnPlayer;
     private boolean introFallActiveOnSidekick;
+
+    // Set by HCZ Act 1 transition: after the seamless reload to Act 2, the
+    // whirlpool descent cutscene should play. Consumed on the first onUpdate()
+    // after the transition completes.
+    private boolean hczPendingPostTransitionCutscene;
+
 
     private Sonic3kLevelEventManager() {
         super();
@@ -111,10 +122,24 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
         } else {
             aizEvents = null;
         }
+        if (zone == Sonic3kZoneIds.ZONE_HCZ) {
+            hczEvents = new Sonic3kHCZEvents();
+            hczEvents.init(act);
+        } else {
+            hczEvents = null;
+        }
     }
 
     @Override
     protected void onUpdate() {
+        handleBonusStageTopExit();
+        // After HCZ seamless transition to Act 2: start the whirlpool descent
+        // cutscene that spirals Sonic down into the Act 2 starting area.
+        if (hczPendingPostTransitionCutscene && hczEvents != null) {
+            hczPendingPostTransitionCutscene = false;
+            hczEvents.startPostTransitionCutscene();
+        }
+
         // Clear intro-fall forced animation when players land
         updateIntroFallState();
 
@@ -122,6 +147,23 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
         // Boss_flag gates FG events during boss fights.
         if (aizEvents != null && currentZone == Sonic3kZoneIds.ZONE_AIZ) {
             aizEvents.update(currentAct, frameCounter);
+        }
+        if (hczEvents != null && currentZone == Sonic3kZoneIds.ZONE_HCZ) {
+            hczEvents.update(currentAct, frameCounter);
+        }
+    }
+
+    private void handleBonusStageTopExit() {
+        if (currentZone != Sonic3kZoneIds.ZONE_GLOWING_SPHERE) {
+            return;
+        }
+        AbstractPlayableSprite player = GameServices.camera().getFocusedSprite();
+        if (player == null || player.getCentreY() >= PACHINKO_TOP_EXIT_Y) {
+            return;
+        }
+        var provider = GameServices.bonusStageOrNull();
+        if (provider != null) {
+            provider.requestExit();
         }
     }
 
@@ -241,6 +283,31 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
         return aizEvents;
     }
 
+    /** Returns the HCZ zone events handler, or null if not in HCZ. */
+    public Sonic3kHCZEvents getHczEvents() {
+        return hczEvents;
+    }
+
+    /**
+     * Sets/clears the pending post-transition cutscene flag for HCZ Act 1→2.
+     */
+    public void setHczPendingPostTransitionCutscene(boolean pending) {
+        this.hczPendingPostTransitionCutscene = pending;
+    }
+
+    /**
+     * Sets Events_fg_5 on the current zone's event handler.
+     * ROM: Obj_LevelResultsCreate sets this for Act 1 zones (except AIZ and ICZ)
+     * to trigger the background event act transition.
+     */
+    public void setEventsFg5ForActTransition() {
+        if (hczEvents != null) {
+            hczEvents.setEventsFg5(true);
+        }
+        // Other zones' event handlers will be added here as implemented.
+    }
+
+
     /**
      * Returns the current Dynamic_resize_routine value from the active zone
      * events handler. ROM: Saved2_dynamic_resize_routine.
@@ -248,6 +315,9 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
     public int getDynamicResizeRoutine() {
         if (aizEvents != null) {
             return aizEvents.getDynamicResizeRoutine();
+        }
+        if (hczEvents != null) {
+            return hczEvents.getDynamicResizeRoutine();
         }
         return 0;
     }
@@ -259,6 +329,9 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
     public void setDynamicResizeRoutine(int routine) {
         if (aizEvents != null) {
             aizEvents.setDynamicResizeRoutine(routine);
+        }
+        if (hczEvents != null) {
+            hczEvents.setDynamicResizeRoutine(routine);
         }
     }
 
@@ -295,6 +368,8 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
         introFallActiveOnPlayer = false;
         introFallActiveOnSidekick = false;
         Sonic3kAIZEvents.resetGlobalState();
+        HCZWaterTunnelHandler.reset();
+        HCZConveyorBeltObjectInstance.resetLoadArray();
         AizHollowTreeObjectInstance.resetTreeRevealCounter();
         AizPlaneIntroInstance.resetIntroPhaseState();
     }
@@ -320,7 +395,7 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
         if (isInBonusStage()) {
             // Trigger bonus stage exit if player has fallen out of the arena
             com.openggf.game.BonusStageProvider provider =
-                    com.openggf.game.GameServices.bonusStage();
+                    com.openggf.game.GameServices.bonusStageOrNull();
             if (provider != null) {
                 provider.requestExit();
             }

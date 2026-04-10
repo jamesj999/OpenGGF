@@ -209,6 +209,7 @@ public class SpecialStageBackgroundRenderer {
 
         // Set shader uniforms
         shader.setScreenDimensions(realWidth, realHeight);
+        shader.setActiveDisplayWidth((float) H32_WIDTH);
         shader.setBGTextureDimensions(FBO_WIDTH, FBO_HEIGHT);
         shader.setVScrollBG(vScrollBG);
         shader.setViewportOffset((float) viewport[0], (float) viewport[1]);

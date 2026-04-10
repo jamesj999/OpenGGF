@@ -482,12 +482,10 @@ public class BlueBallsObjectInstance extends AbstractObjectInstance implements T
 
             // All siblings use the SAME y_vel as parent (-$480)
             // The disassembly does NOT increment velocity per sibling
-            BlueBallsObjectInstance sibling = new BlueBallsObjectInstance(
+            spawnChild(() -> new BlueBallsObjectInstance(
                     siblingSpawn, name, INITIAL_Y_VEL, xVelDelta, xDistance, arcMotion,
                     initialWaitTimer
-            );
-
-            services().objectManager().addDynamicObject(sibling);
+            ));
         }
     }
 

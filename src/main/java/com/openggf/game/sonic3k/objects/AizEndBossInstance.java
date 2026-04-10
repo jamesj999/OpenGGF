@@ -19,7 +19,6 @@ import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.SwingMotion;
 
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Logger;
 
 /**
@@ -675,7 +674,7 @@ public class AizEndBossInstance extends AbstractBossInstance {
         services().fadeOutMusic();
 
         // Spawn 6 debris explosion children (ROM: ChildObjDat_69D66)
-        defeatExplosionController = new S3kBossExplosionController(state.x, state.y, 0);
+        defeatExplosionController = new S3kBossExplosionController(state.x, state.y, 0, services().rng());
 
         // After explosions: spawn egg capsule
         defeatPhaseTimer = 60; // Wait for explosions before capsule
@@ -750,8 +749,9 @@ public class AizEndBossInstance extends AbstractBossInstance {
 
     private void selectRandomPosition() {
         int newAngle;
+        var rng = services().rng();
         do {
-            newAngle = (ThreadLocalRandom.current().nextInt(4)) * 4; // 0, 4, 8, or $C
+            newAngle = rng.nextInt(4) * 4; // 0, 4, 8, or $C
         } while (newAngle == angle);
         angle = newAngle;
 

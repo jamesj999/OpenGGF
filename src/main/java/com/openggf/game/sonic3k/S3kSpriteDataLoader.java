@@ -24,6 +24,11 @@ import java.util.List;
  */
 public final class S3kSpriteDataLoader {
 
+    public enum MappingFormat {
+        STANDARD,
+        LEGACY_BYTE_X
+    }
+
     private S3kSpriteDataLoader() {}
 
     /**
@@ -47,9 +52,22 @@ public final class S3kSpriteDataLoader {
      * @return list of mapping frames
      */
     public static List<SpriteMappingFrame> loadMappingFrames(RomByteReader reader, int mappingAddr) {
+        return loadMappingFrames(reader, mappingAddr, MappingFormat.STANDARD);
+    }
+
+    /**
+     * Loads S3K mapping frames using the supplied mapping format.
+     *
+     * @param reader ROM byte reader
+     * @param mappingAddr ROM address of mapping table
+     * @param format mapping encoding variant
+     * @return list of mapping frames
+     */
+    public static List<SpriteMappingFrame> loadMappingFrames(
+            RomByteReader reader, int mappingAddr, MappingFormat format) {
         int offsetTableSize = reader.readU16BE(mappingAddr);
         int frameCount = offsetTableSize / 2;
-        return loadMappingFrames(reader, mappingAddr, frameCount);
+        return loadMappingFrames(reader, mappingAddr, frameCount, format);
     }
 
     /**
@@ -61,11 +79,31 @@ public final class S3kSpriteDataLoader {
      * @return list of mapping frames
      */
     public static List<SpriteMappingFrame> loadMappingFrames(RomByteReader reader, int mappingAddr, int frameCount) {
+        return loadMappingFrames(reader, mappingAddr, frameCount, MappingFormat.STANDARD);
+    }
+
+    /**
+     * Loads S3K mapping frames with an explicit frame count and mapping format.
+     *
+     * @param reader ROM byte reader
+     * @param mappingAddr ROM address of mapping table
+     * @param frameCount number of frames to read
+     * @param format mapping encoding variant
+     * @return list of mapping frames
+     */
+    public static List<SpriteMappingFrame> loadMappingFrames(
+            RomByteReader reader, int mappingAddr, int frameCount, MappingFormat format) {
         List<SpriteMappingFrame> frames = new ArrayList<>(frameCount);
         for (int i = 0; i < frameCount; i++) {
             int frameAddr = mappingAddr + reader.readU16BE(mappingAddr + i * 2);
-            int pieceCount = reader.readU16BE(frameAddr);
-            frameAddr += 2;
+            int pieceCount;
+            if (format == MappingFormat.LEGACY_BYTE_X) {
+                pieceCount = reader.readU8(frameAddr);
+                frameAddr += 1;
+            } else {
+                pieceCount = reader.readU16BE(frameAddr);
+                frameAddr += 2;
+            }
             List<SpriteMappingPiece> pieces = new ArrayList<>(pieceCount);
             for (int p = 0; p < pieceCount; p++) {
                 int yOffset = (byte) reader.readU8(frameAddr);
@@ -74,9 +112,15 @@ public final class S3kSpriteDataLoader {
                 frameAddr += 1;
                 int tileWord = reader.readU16BE(frameAddr);
                 frameAddr += 2;
-                // S3K: NO 2P tile word (S2 has +2 skip here)
-                int xOffset = (short) reader.readU16BE(frameAddr);
-                frameAddr += 2;
+                int xOffset;
+                if (format == MappingFormat.LEGACY_BYTE_X) {
+                    xOffset = (byte) reader.readU8(frameAddr);
+                    frameAddr += 1;
+                } else {
+                    // S3K: NO 2P tile word (S2 has +2 skip here)
+                    xOffset = (short) reader.readU16BE(frameAddr);
+                    frameAddr += 2;
+                }
 
                 int widthTiles = ((size >> 2) & 0x3) + 1;
                 int heightTiles = (size & 0x3) + 1;

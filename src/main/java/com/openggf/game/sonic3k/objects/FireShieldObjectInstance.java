@@ -7,6 +7,7 @@ import com.openggf.level.objects.ShieldObjectInstance;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.Sonic3kObjectArtProvider;
 import com.openggf.graphics.GLCommand;
+import com.openggf.graphics.RenderPriority;
 import com.openggf.sprites.animation.SpriteAnimationScript;
 import com.openggf.sprites.animation.SpriteAnimationSet;
 import com.openggf.sprites.art.SpriteArtSet;
@@ -21,9 +22,11 @@ import java.util.List;
  * Uses DPLC-driven ROM art with animation scripts from Ani_FireShield.
  */
 public class FireShieldObjectInstance extends ShieldObjectInstance {
+    private static final int REAR_FRAME_THRESHOLD = 0x0F;
 
-    private final PlayerSpriteRenderer dplcRenderer;
-    private final SpriteAnimationSet animSet;
+    private PlayerSpriteRenderer dplcRenderer;
+    private SpriteAnimationSet animSet;
+    private PlayerSpriteRenderer boundRenderer;
     private int currentAnimId;
     private int frameIndex;
     private int delayCounter;
@@ -31,19 +34,11 @@ public class FireShieldObjectInstance extends ShieldObjectInstance {
 
     public FireShieldObjectInstance(AbstractPlayableSprite player) {
         super(player);
-        Sonic3kObjectArtProvider artProvider = getS3kArtProvider();
-        if (artProvider != null) {
-            this.dplcRenderer = artProvider.getShieldDplcRenderer(Sonic3kObjectArtKeys.FIRE_SHIELD);
-            SpriteArtSet artSet = artProvider.getShieldArtSet(Sonic3kObjectArtKeys.FIRE_SHIELD);
-            this.animSet = artSet != null ? artSet.animationSet() : null;
-        } else {
-            this.dplcRenderer = null;
-            this.animSet = null;
-        }
         currentAnimId = 0;
         frameIndex = 0;
         delayCounter = 0;
         currentMappingFrame = 0;
+        ensureShieldArtLoaded();
         initAnimation(0);
     }
 
@@ -52,6 +47,7 @@ public class FireShieldObjectInstance extends ShieldObjectInstance {
         AbstractPlayableSprite player = (AbstractPlayableSprite) playerEntity;
         super.update(frameCounter, player);
         if (isShieldDestroyed()) return;
+        ensureShieldArtLoaded();
         stepAnimation();
     }
 
@@ -60,6 +56,7 @@ public class FireShieldObjectInstance extends ShieldObjectInstance {
         if (isShieldDestroyed() || !isShieldVisible()) {
             return;
         }
+        ensureShieldArtLoaded();
         if (dplcRenderer != null) {
             AbstractPlayableSprite player = ((AbstractPlayableSprite) getPlayer());
             if (player == null) return;
@@ -93,6 +90,13 @@ public class FireShieldObjectInstance extends ShieldObjectInstance {
     @Override
     public void onAbilityActivated(int actionId) {
         setAnimation(1);
+    }
+
+    @Override
+    public int getPriorityBucket() {
+        // ROM Obj_FireShield_Main switches from priority $80 to $200 once the mapping
+        // frame reaches $0F, putting the rear half of the dash animation behind Sonic.
+        return RenderPriority.clamp(currentMappingFrame >= REAR_FRAME_THRESHOLD ? 4 : 1);
     }
 
     private void initAnimation(int animId) {
@@ -130,6 +134,30 @@ public class FireShieldObjectInstance extends ShieldObjectInstance {
             }
         }
         currentMappingFrame = script.frames().get(frameIndex);
+    }
+
+    private void ensureShieldArtLoaded() {
+        if (dplcRenderer != null && animSet != null) {
+            return;
+        }
+        Sonic3kObjectArtProvider artProvider = getS3kArtProvider();
+        if (artProvider == null) {
+            return;
+        }
+        if (dplcRenderer == null) {
+            dplcRenderer = artProvider.getShieldDplcRenderer(Sonic3kObjectArtKeys.FIRE_SHIELD);
+            if (dplcRenderer != null && dplcRenderer != boundRenderer) {
+                dplcRenderer.invalidateDplcCache();
+                boundRenderer = dplcRenderer;
+            }
+        }
+        if (animSet == null) {
+            SpriteArtSet artSet = artProvider.getShieldArtSet(Sonic3kObjectArtKeys.FIRE_SHIELD);
+            if (artSet != null && artSet.animationSet() != null) {
+                animSet = artSet.animationSet();
+                initAnimation(currentAnimId);
+            }
+        }
     }
 
     private void appendWireDiamond(List<GLCommand> commands,

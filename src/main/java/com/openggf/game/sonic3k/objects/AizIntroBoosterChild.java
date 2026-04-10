@@ -1,8 +1,8 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.camera.Camera;
 import com.openggf.game.PlayableEntity;
 import java.util.logging.Logger;
-import com.openggf.game.GameServices;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -69,7 +69,7 @@ public class AizIntroBoosterChild {
         }
     }
 
-    public void appendRenderCommands(List<GLCommand> commands) {
+    public void appendRenderCommands(List<GLCommand> commands, Camera camera) {
         PatternSpriteRenderer renderer = AizIntroArtLoader.getPlaneRenderer();
         if (renderer == null || !renderer.isReady()) return;
         int frame = animSequence[animIndex];
@@ -77,9 +77,10 @@ public class AizIntroBoosterChild {
         int renderX = currentX;
         int renderY = currentY;
         try {
-            var camera = GameServices.camera();
-            renderX += camera.getX() - 128;
-            renderY += camera.getY() - 128;
+            if (camera != null) {
+                renderX += camera.getX() - 128;
+                renderY += camera.getY() - 128;
+            }
         } catch (Exception e) {
             LOG.fine(() -> "AizIntroBoosterChild.appendRenderCommands: " + e.getMessage());
         }

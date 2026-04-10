@@ -126,7 +126,6 @@ public class Sonic2MTZEvents extends Sonic2ZoneEvents {
     private void spawnMTZBoss() {
         ObjectSpawn bossSpawn = new ObjectSpawn(
                 0x2B50, 0x380, Sonic2ObjectIds.MTZ_BOSS, 0, 0, false, 0);
-        Sonic2MTZBossInstance boss = new Sonic2MTZBossInstance(bossSpawn);
-        spawnObject(boss);
+        spawnObject(() -> new Sonic2MTZBossInstance(bossSpawn));
     }
 }

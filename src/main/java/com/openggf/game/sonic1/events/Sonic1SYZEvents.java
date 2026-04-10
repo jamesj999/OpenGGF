@@ -114,8 +114,7 @@ class Sonic1SYZEvents extends Sonic1ZoneEvents {
             ObjectSpawn bossSpawn = new ObjectSpawn(
                     BOSS_SYZ_X + 0x1B0, BOSS_SYZ_Y + 0x0E,
                     0x75, 0, 0, false, 0);
-            Sonic1SYZBossInstance boss = new Sonic1SYZBossInstance(bossSpawn);
-            lm.getObjectManager().addDynamicObject(boss);
+            spawnObject(() -> new Sonic1SYZBossInstance(bossSpawn));
         }
 
         // ROM: QueueSound1 bgm_Boss

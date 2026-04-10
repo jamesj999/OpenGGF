@@ -354,7 +354,6 @@ public class BatchedPatternRenderer {
         GraphicsManager gm = getGm();
         boolean usePriority = gm.isUseSpritePriorityShader();
         boolean highPri = gm.getCurrentSpriteHighPriority();
-
         BatchRenderCommand command = obtainBatchCommand();
         command.load(vertexData, texCoordData, paletteCoordData, patternCount, usePriority, highPri);
 
@@ -517,7 +516,6 @@ public class BatchedPatternRenderer {
         private int paletteFloatCount;
         private boolean usePriorityShader;
         private boolean capturedHighPriority; // captured at batch creation, not read at execute time
-
         private FloatBuffer vertexBuffer;
         private FloatBuffer texCoordBuffer;
         private FloatBuffer paletteCoordBuffer;

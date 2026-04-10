@@ -31,6 +31,7 @@ public class ParallaxShaderProgram extends ShaderProgram {
     private int viewportOffsetYLocation = -1;
     private int backdropColorLocation = -1;
     private int fillTransparentWithBackdropLocation = -1;
+    private int activeDisplayWidthLocation = -1;
     private int fboAllocationWidthLocation = -1;
     private int noHScrollLocation = -1;
     private int usePerLineVScrollLocation = -1;
@@ -82,6 +83,7 @@ public class ParallaxShaderProgram extends ShaderProgram {
         viewportOffsetYLocation = glGetUniformLocation(programId, "ViewportOffsetY");
         backdropColorLocation = glGetUniformLocation(programId, "BackdropColor");
         fillTransparentWithBackdropLocation = glGetUniformLocation(programId, "FillTransparentWithBackdrop");
+        activeDisplayWidthLocation = glGetUniformLocation(programId, "ActiveDisplayWidth");
         fboAllocationWidthLocation = glGetUniformLocation(programId, "FBOAllocationWidth");
         noHScrollLocation = glGetUniformLocation(programId, "NoHScroll");
         usePerLineVScrollLocation = glGetUniformLocation(programId, "UsePerLineVScroll");
@@ -195,6 +197,12 @@ public class ParallaxShaderProgram extends ShaderProgram {
     public void setFillTransparentWithBackdrop(boolean fill) {
         if (fillTransparentWithBackdropLocation >= 0) {
             glUniform1f(fillTransparentWithBackdropLocation, fill ? 1.0f : 0.0f);
+        }
+    }
+
+    public void setActiveDisplayWidth(float width) {
+        if (activeDisplayWidthLocation >= 0) {
+            glUniform1f(activeDisplayWidthLocation, width);
         }
     }
 

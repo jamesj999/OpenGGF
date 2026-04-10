@@ -276,6 +276,13 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
                 + "object must be created through ObjectManager");
     }
 
+    protected ObjectServices tryServices() {
+        if (services != null) {
+            return services;
+        }
+        return CONSTRUCTION_CONTEXT.get();
+    }
+
     /**
      * Returns the application configuration service.
      * <p>
@@ -502,14 +509,14 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
         try {
             ObjectManager om = services().objectManager();
             if (om != null) {
-                om.addDynamicObject(object);
+                om.addDynamicObjectAfterCurrent(object);
             }
         } catch (IllegalStateException e) {
             // Fallback for test environments or objects not managed by ObjectManager
             try {
                 LevelManager lm = staticLevelManager();
                 if (lm != null && lm.getObjectManager() != null) {
-                    lm.getObjectManager().addDynamicObject(object);
+                    lm.getObjectManager().addDynamicObjectAfterCurrent(object);
                 }
             } catch (Exception ex) {
                 LOG.fine("Could not spawn dynamic object (test env?): " + ex.getMessage());
@@ -538,7 +545,7 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
             T child = factory.get();
             ObjectManager om = svc.objectManager();
             if (om != null) {
-                om.addDynamicObject(child);
+                om.addDynamicObjectAfterCurrent(child);
             }
             return child;
         } finally {

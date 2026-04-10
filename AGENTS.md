@@ -84,6 +84,16 @@ The project is in an **alpha** state. Core systems are functional with extensive
     *   `tools` – decompression utilities (Kosinski, Nemesis, Enigma, Saxman, DCM), `LevelDataFactory`, `ObjectDiscoveryTool`, disassembly tools
 *   **Tests:** Live under `src/test/java/com/openggf/tests` and cover ROM loading, decompression, collision, singleton lifecycle, and services migration.
 
+## Coordinate Semantics
+
+This is a frequent source of bugs and parity regressions.
+
+- In this engine, ROM `x_pos` maps to `getCentreX()` / `setCentreX(...)`.
+- In this engine, ROM `y_pos` maps to `getCentreY()` / `setCentreY(...)`.
+- `getX()` / `getY()` are top-left sprite bounds, not ROM object position fields.
+- When porting disassembly that reads or writes `x_pos` / `y_pos`, default to centre-coordinate APIs unless the code is explicitly working with sprite bounds, render extents, or collision box edges.
+- If camera, collision, object anchoring, or scripted movement starts drifting relative to the player, check for accidental mixing of `getX()` / `getY()` with ROM `x_pos` / `y_pos` semantics first.
+
 ## Headless Testing with HeadlessTestRunner
 
 The `HeadlessTestRunner` utility (`com.openggf.tests.HeadlessTestRunner`) enables physics and collision integration tests without an OpenGL context.

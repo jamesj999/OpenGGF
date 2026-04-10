@@ -57,7 +57,7 @@ public final class ObjectTerrainUtils {
     // ========================================
 
     private static TerrainCheckResult checkFloorDistAtPoint(int x, int y) {
-        LevelManager lm = com.openggf.game.GameServices.level();
+        LevelManager lm = com.openggf.game.GameServices.levelOrNull();
         if (lm == null) return TerrainCheckResult.noCollision();
 
         ChunkDesc desc = lm.getChunkDescAt((byte) 0, x, y);
@@ -163,7 +163,7 @@ public final class ObjectTerrainUtils {
     // ========================================
 
     private static TerrainCheckResult checkCeilingDistAtPoint(int x, int y) {
-        LevelManager lm = com.openggf.game.GameServices.level();
+        LevelManager lm = com.openggf.game.GameServices.levelOrNull();
         if (lm == null) return TerrainCheckResult.noCollision();
 
         ChunkDesc desc = lm.getChunkDescAt((byte) 0, x, y);
@@ -219,7 +219,7 @@ public final class ObjectTerrainUtils {
     // ========================================
 
     private static TerrainCheckResult checkWallDistAtPoint(int x, int y, boolean checkingLeft) {
-        LevelManager lm = com.openggf.game.GameServices.level();
+        LevelManager lm = com.openggf.game.GameServices.levelOrNull();
         if (lm == null) return TerrainCheckResult.noCollision();
 
         ChunkDesc desc = lm.getChunkDescAt((byte) 0, x, y);

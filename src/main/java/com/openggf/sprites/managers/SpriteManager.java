@@ -23,6 +23,7 @@ import com.openggf.graphics.RenderPriority;
 import com.openggf.level.LevelManager;
 import com.openggf.physics.Direction;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
+import com.openggf.sprites.playable.CustomPlayablePhysics;
 import com.openggf.sprites.SensorConfiguration;
 import com.openggf.sprites.Sprite;
 import com.openggf.game.GroundMode;
@@ -592,12 +593,15 @@ public class SpriteManager {
 	}
 
 	private boolean removeSprite(Sprite sprite) {
+		if (sprite == null) {
+			return false;
+		}
 		bucketsDirty = true;
 		if (sprite instanceof AbstractPlayableSprite playable) {
 			sidekicks.remove(playable);
 			sidekickCharacterNames.remove(playable);
 		}
-		return (sprites.remove(sprite) != null);
+		return (sprites.remove(sprite.getCode()) != null);
 	}
 
 	private void bucketSprites() {
@@ -755,17 +759,22 @@ public class SpriteManager {
 										   boolean jump, boolean test, boolean speedUp, boolean slowDown,
 										   LevelManager levelManager, int frameCounter) {
 		boolean isUnified = requiresPostMovementSolidPass(playable);
+		boolean usesInlineSolidResolution = levelManager != null && levelManager.usesInlineObjectSolidResolution();
 		// For S1 UNIFIED: skip pre-movement solid pass. ROM processes all solid
 		// objects AFTER Sonic's movement (his slot runs first in ExecuteObjects),
 		// so only the post-movement pass is ROM-accurate. Running both creates
 		// double-correction artifacts.
-		// For S2/S3K: pre-movement solid pass is the only pass. The velocity
-		// classification adjustment compensates for the player's position not yet
-		// reflecting their velocity.
-		if (!isUnified) {
+		// For S2/S3K: solid contacts now resolve inline during the object exec loop
+		// after movement, so the old pre-movement batched pass must be skipped.
+		if (!isUnified && !usesInlineSolidResolution) {
 			applySolidContacts(levelManager, playable, false, false);
 		}
-		playable.getMovementManager().handleMovement(up, down, left, right, jump, test, speedUp, slowDown);
+		if (playable instanceof CustomPlayablePhysics customPhysics) {
+			customPhysics.tickCustomPhysics(up, down, left, right, jump, test, speedUp, slowDown,
+					levelManager, frameCounter);
+		} else {
+			playable.getMovementManager().handleMovement(up, down, left, right, jump, test, speedUp, slowDown);
+		}
 		// ROM order: ReactToItem runs during each player's slot within ExecuteObjects,
 		// after their physics but before other objects' solid checks.
 		levelManager.applyTouchResponses(playable);

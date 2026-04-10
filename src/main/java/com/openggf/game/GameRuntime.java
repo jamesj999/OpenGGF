@@ -45,6 +45,7 @@ public final class GameRuntime {
     private final CollisionSystem collisionSystem;
     private final SpriteManager spriteManager;
     private final LevelManager levelManager;
+    private final GameRng rng;
 
     private BonusStageProvider activeBonusStageProvider = NoOpBonusStageProvider.INSTANCE;
 
@@ -59,7 +60,7 @@ public final class GameRuntime {
                 ParallaxManager parallaxManager,
                 TerrainCollisionManager terrainCollisionManager,
                 CollisionSystem collisionSystem, SpriteManager spriteManager,
-                LevelManager levelManager) {
+                LevelManager levelManager, GameRng rng) {
         this.worldSession = worldSession;
         this.gameplayMode = gameplayMode;
         this.camera = camera;
@@ -72,6 +73,7 @@ public final class GameRuntime {
         this.collisionSystem = collisionSystem;
         this.spriteManager = spriteManager;
         this.levelManager = levelManager;
+        this.rng = rng;
     }
 
     // ── Getters ──────────────────────────────────────────────────────────
@@ -88,6 +90,7 @@ public final class GameRuntime {
     public CollisionSystem getCollisionSystem() { return collisionSystem; }
     public SpriteManager getSpriteManager() { return spriteManager; }
     public LevelManager getLevelManager() { return levelManager; }
+    public GameRng getRng() { return rng; }
 
     public BonusStageProvider getActiveBonusStageProvider() { return activeBonusStageProvider; }
 

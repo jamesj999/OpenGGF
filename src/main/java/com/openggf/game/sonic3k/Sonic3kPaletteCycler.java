@@ -2,12 +2,18 @@ package com.openggf.game.sonic3k;
 
 import com.openggf.camera.Camera;
 import com.openggf.data.RomByteReader;
+import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
+import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotBonusStageRuntime;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
 import com.openggf.level.Palette;
 import com.openggf.level.animation.AnimatedPaletteManager;
+import com.openggf.tools.KosinskiReader;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.nio.channels.Channels;
 import java.util.ArrayList;
 import java.util.List;
 import com.openggf.game.GameServices;
@@ -24,6 +30,14 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
     private final Level level;
     private final GraphicsManager graphicsManager = GraphicsManager.getInstance();
     private final List<PaletteCycle> cycles;
+
+    static int resolveSlotsModeForTest(S3kSlotBonusStageRuntime runtime) {
+        return runtime != null ? runtime.paletteCycleMode() : 0;
+    }
+
+    static int resolveSlotsModeFromRegistryForTest() {
+        return resolveSlotsModeFromRegistry();
+    }
 
     Sonic3kPaletteCycler(RomByteReader reader, Level level, int zoneIndex, int actIndex) {
         this.level = level;
@@ -89,6 +103,13 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
 
             case 0x11: // EMZ (competition) — AnPal_EMZ emerald glow + background
                 loadEmzCycles(reader, list);
+                break;
+
+            case 0x14:
+                loadPachinkoCycles(reader, list);
+                break;
+            case 0x15:
+                loadSlotsCycles(reader, list);
                 break;
 
             default: break;
@@ -228,11 +249,49 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
         }
     }
 
+    private void loadPachinkoCycles(RomByteReader reader, List<PaletteCycle> list) {
+        byte[] tableData = loadKosinskiBytes(reader,
+                Sonic3kConstants.PAL_KOS_PACHINKO_ADDR,
+                Sonic3kConstants.PAL_KOS_PACHINKO_SIZE,
+                0x532);
+        if (tableData != null) {
+            list.add(new PachinkoCycle(tableData));
+        }
+    }
+
+    private void loadSlotsCycles(RomByteReader reader, List<PaletteCycle> list) {
+        byte[] idleData = safeSlice(reader, Sonic3kConstants.ANPAL_SLOTS_1_ADDR,
+                Sonic3kConstants.ANPAL_SLOTS_1_SIZE);
+        byte[] captureData = safeSlice(reader, Sonic3kConstants.ANPAL_SLOTS_2_ADDR,
+                Sonic3kConstants.ANPAL_SLOTS_2_SIZE);
+        byte[] accentData = safeSlice(reader, Sonic3kConstants.ANPAL_SLOTS_3_ADDR,
+                Sonic3kConstants.ANPAL_SLOTS_3_SIZE);
+        if (idleData.length >= Sonic3kConstants.ANPAL_SLOTS_1_SIZE
+                && captureData.length >= Sonic3kConstants.ANPAL_SLOTS_2_SIZE
+                && accentData.length >= Sonic3kConstants.ANPAL_SLOTS_3_SIZE) {
+            list.add(new SlotsCycle(idleData, captureData, accentData));
+        }
+    }
+
     private byte[] safeSlice(RomByteReader reader, int addr, int len) {
         if (addr < 0 || addr + len > reader.size()) {
             return new byte[0];
         }
         return reader.slice(addr, len);
+    }
+
+    private byte[] loadKosinskiBytes(RomByteReader reader, int addr, int compressedSize,
+                                     int minimumDecompressedSize) {
+        if (addr < 0 || addr + compressedSize > reader.size()) {
+            return null;
+        }
+        byte[] compressed = reader.slice(addr, compressedSize);
+        try (ByteArrayInputStream bais = new ByteArrayInputStream(compressed)) {
+            byte[] decompressed = KosinskiReader.decompress(Channels.newChannel(bais), false);
+            return decompressed.length >= minimumDecompressedSize ? decompressed : null;
+        } catch (IOException e) {
+            return null;
+        }
     }
 
     // ========== Base class ==========
@@ -1259,4 +1318,179 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
             }
         }
     }
+
+    private static class SlotsCycle extends PaletteCycle {
+        private static final byte[] FIXED_IDLE_COLOR = new byte[]{0x0E, 0x02};
+
+        private final byte[] idleData;
+        private final byte[] captureData;
+        private final byte[] accentData;
+        private int idleTimer;
+        private int idleOffset;
+        private int captureTimer;
+        private int captureOffset;
+        private int accentOffset;
+        private boolean dirty2;
+        private boolean dirty3;
+
+        SlotsCycle(byte[] idleData, byte[] captureData, byte[] accentData) {
+            this.idleData = idleData;
+            this.captureData = captureData;
+            this.accentData = accentData;
+        }
+
+        @Override
+        void tick(Level level, GraphicsManager gm) {
+            int mode = resolveMode();
+            if (mode < 0) {
+                return;
+            }
+            if (mode == 0) {
+                tickIdle(level);
+            } else {
+                tickCapture(level);
+            }
+
+            if (gm.isGlInitialized()) {
+                if (dirty2) {
+                    gm.cachePaletteTexture(level.getPalette(2), 2);
+                    dirty2 = false;
+                }
+                if (dirty3) {
+                    gm.cachePaletteTexture(level.getPalette(3), 3);
+                    dirty3 = false;
+                }
+            }
+        }
+
+        private int resolveMode() {
+            return resolveSlotsModeFromRegistry();
+        }
+
+        private void tickIdle(Level level) {
+            if (idleTimer > 0) {
+                idleTimer--;
+                return;
+            }
+            idleTimer = 3;
+
+            Palette pal2 = level.getPalette(2);
+            Palette pal3 = level.getPalette(3);
+            applyFourColors(pal2, 10, idleData, idleOffset);
+            idleOffset += 8;
+            if (idleOffset >= 0x40) {
+                idleOffset = 0;
+            }
+            pal2.getColor(14).fromSegaFormat(FIXED_IDLE_COLOR, 0);
+            // ROM AnPal_Slots mirrors only the shared accent into line 4.
+            pal3.getColor(14).fromSegaFormat(FIXED_IDLE_COLOR, 0);
+            dirty2 = true;
+            dirty3 = true;
+        }
+
+        private void tickCapture(Level level) {
+            if (captureTimer > 0) {
+                captureTimer--;
+                return;
+            }
+            captureTimer = 0;
+
+            Palette pal2 = level.getPalette(2);
+            Palette pal3 = level.getPalette(3);
+            applyFourColors(pal2, 10, captureData, captureOffset);
+            captureOffset += 8;
+            if (captureOffset >= 0x78) {
+                captureOffset = 0;
+            }
+            pal2.getColor(14).fromSegaFormat(accentData, accentOffset);
+            pal3.getColor(14).fromSegaFormat(accentData, accentOffset);
+            accentOffset += 2;
+            if (accentOffset >= 0x0C) {
+                accentOffset = 0;
+            }
+            dirty2 = true;
+            dirty3 = true;
+        }
+
+        private void applyFourColors(Palette palette, int startColor, byte[] data, int offset) {
+            palette.getColor(startColor).fromSegaFormat(data, offset);
+            palette.getColor(startColor + 1).fromSegaFormat(data, offset + 2);
+            palette.getColor(startColor + 2).fromSegaFormat(data, offset + 4);
+            palette.getColor(startColor + 3).fromSegaFormat(data, offset + 6);
+        }
+    }
+
+    private static int resolveSlotsModeFromRegistry() {
+        if (GameModuleRegistry.getCurrent() != null
+                && GameModuleRegistry.getCurrent().getBonusStageProvider() instanceof Sonic3kBonusStageCoordinator coordinator
+                && coordinator.activeSlotRuntime() != null) {
+            return resolveSlotsModeForTest(coordinator.activeSlotRuntime());
+        }
+        return 0;
+    }
+
+    private static class PachinkoCycle extends PaletteCycle {
+        private static final int[] LINE3_OFFSETS = {
+                0x50, 0x52, 0x54, 0x56, 0x58,
+                0x28, 0x2A, 0x2C, 0x2E, 0x30,
+                0x00, 0x02, 0x04, 0x06, 0x08
+        };
+
+        private final byte[] tableData;
+        private int line4Timer;
+        private int line4Offset;
+        private int line3Timer;
+        private int line3Offset;
+        private boolean dirty2;
+        private boolean dirty3;
+
+        private PachinkoCycle(byte[] tableData) {
+            this.tableData = tableData;
+        }
+
+        @Override
+        void tick(Level level, GraphicsManager gm) {
+            if (line4Timer > 0) {
+                line4Timer--;
+            } else {
+                Palette pal3 = level.getPalette(3);
+                for (int i = 0; i < 7; i++) {
+                    pal3.getColor(8 + i).fromSegaFormat(tableData, line4Offset + (i * 2));
+                }
+                line4Offset += 0x0E;
+                if (line4Offset >= 0x0FC) {
+                    line4Offset = 0;
+                }
+                dirty3 = true;
+            }
+
+            if (line3Timer > 0) {
+                line3Timer--;
+            } else {
+                line3Timer = 3;
+                Palette pal2 = level.getPalette(2);
+                int baseOffset = 0x0FC + line3Offset;
+                for (int i = 0; i < LINE3_OFFSETS.length; i++) {
+                    pal2.getColor(1 + i).fromSegaFormat(tableData, baseOffset + LINE3_OFFSETS[i]);
+                }
+                line3Offset += 0x0A;
+                if (line3Offset >= 0x3E8) {
+                    line3Offset = 0;
+                }
+                dirty2 = true;
+            }
+
+            if (gm.isGlInitialized()) {
+                if (dirty2) {
+                    gm.cachePaletteTexture(level.getPalette(2), 2);
+                    dirty2 = false;
+                }
+                if (dirty3) {
+                    gm.cachePaletteTexture(level.getPalette(3), 3);
+                    dirty3 = false;
+                }
+            }
+        }
+    }
 }
+

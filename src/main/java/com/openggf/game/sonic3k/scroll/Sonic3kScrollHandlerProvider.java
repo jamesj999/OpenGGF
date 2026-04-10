@@ -23,6 +23,7 @@ public class Sonic3kScrollHandlerProvider implements ScrollHandlerProvider {
     private SwScrlMgz mgzHandler;
     private SwScrlGumball gumballHandler;
     private SwScrlPachinko pachinkoHandler;
+    private SwScrlSlots slotsHandler;
     private SwScrlS3kDefault defaultHandler;
 
     @Override
@@ -44,6 +45,7 @@ public class Sonic3kScrollHandlerProvider implements ScrollHandlerProvider {
         mgzHandler = new SwScrlMgz();
         gumballHandler = new SwScrlGumball();
         pachinkoHandler = new SwScrlPachinko();
+        slotsHandler = new SwScrlSlots();
         defaultHandler = new SwScrlS3kDefault();
         loaded = true;
         LOGGER.info("Sonic 3K scroll handlers loaded.");
@@ -61,6 +63,7 @@ public class Sonic3kScrollHandlerProvider implements ScrollHandlerProvider {
             case Sonic3kZoneConstants.ZONE_MGZ -> mgzHandler;
             case Sonic3kZoneIds.ZONE_GUMBALL -> gumballHandler;
             case Sonic3kZoneIds.ZONE_GLOWING_SPHERE -> pachinkoHandler;
+            case Sonic3kZoneIds.ZONE_SLOT_MACHINE -> slotsHandler;
             default -> defaultHandler;
         };
     }

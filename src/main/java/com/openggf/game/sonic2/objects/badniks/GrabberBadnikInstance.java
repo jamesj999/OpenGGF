@@ -10,6 +10,7 @@ import com.openggf.level.objects.TouchResponseResult;
 
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
@@ -476,7 +477,8 @@ public class GrabberBadnikInstance extends AbstractBadnikInstance {
             return;
         }
 
-        ObjectRenderManager renderManager = services() != null ? services().renderManager() : null;
+        ObjectServices svc = tryServices();
+        ObjectRenderManager renderManager = svc != null ? svc.renderManager() : null;
         if (renderManager == null) {
             return;
         }

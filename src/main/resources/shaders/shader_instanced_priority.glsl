@@ -16,7 +16,6 @@ uniform float PaletteLine;
 uniform float TotalPaletteLines;
 uniform vec2 ScreenSize;                // Viewport dimensions for screen coord lookup
 uniform vec2 ViewportOffset;            // Viewport offset in window coords (for letterboxing)
-
 // Underwater palette uniforms
 uniform sampler2D UnderwaterPalette;    // Texture Unit 2
 uniform float WaterlineScreenY;         // Screen Y where water starts (negative = above screen)
