@@ -383,7 +383,6 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          * <p>ROM ref: sonic3k.asm:202288 (Character_Speeds table loaded at init/respawn).
          */
         private boolean initPhysicsActive;
-        private boolean bootstrapInitializing;
 
         /**
          * When true, forces right input regardless of actual keyboard input.
@@ -758,15 +757,6 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
 
         public boolean isSuperSonic() {
                 return superSonic;
-        }
-
-        private com.openggf.game.GameRuntime requireRuntime(String accessor) {
-                var runtime = RuntimeManager.getCurrent();
-                if (runtime == null) {
-                        throw new IllegalStateException(
-                                        "AbstractPlayableSprite." + accessor + "() requires an active GameRuntime.");
-                }
-                return runtime;
         }
 
         public final Camera currentCamera() {
@@ -2071,29 +2061,24 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
 
         protected AbstractPlayableSprite(String code, short x, short y) {
                 super(code, x, y);
-                bootstrapInitializing = true;
-                try {
-                        // Must define speeds before creating Manager (it will read speeds upon
-                        // instantiation).
-                        defineSpeeds();
-                        resolvePhysicsProfile();
+                // Must define speeds before creating Manager (it will read speeds upon
+                // instantiation).
+                defineSpeeds();
+                resolvePhysicsProfile();
 
-                        applyStandingRadii(false);
+                applyStandingRadii(false);
 
-                        // Set our entire history for x and y to be the starting position so if
-                        // the player spindashes immediately the camera effect won't be b0rked.
-                        // ROM: Sonic_Pos_Record_Buf has 64 entries
-                        for (short i = 0; i < 64; i++) {
-                                xHistory[i] = x;
-                                yHistory[i] = y;
-                                inputHistory[i] = 0;
-                                statusHistory[i] = 0;
-                        }
-                        // Always use PlayableSpriteController - it checks debugMode internally
-                        controller = new PlayableSpriteController(this);
-                } finally {
-                        bootstrapInitializing = false;
+                // Set our entire history for x and y to be the starting position so if
+                // the player spindashes immediately the camera effect won't be b0rked.
+                // ROM: Sonic_Pos_Record_Buf has 64 entries
+                for (short i = 0; i < 64; i++) {
+                        xHistory[i] = x;
+                        yHistory[i] = y;
+                        inputHistory[i] = 0;
+                        statusHistory[i] = 0;
                 }
+                // Always use PlayableSpriteController - it checks debugMode internally
+                controller = new PlayableSpriteController(this);
         }
 
         /**

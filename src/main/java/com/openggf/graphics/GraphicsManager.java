@@ -231,13 +231,13 @@ public class GraphicsManager {
 	}
 
 	private void syncRuntimeManagedReferences() {
-		Camera resolvedCamera = GameServices.cameraOrNull();
-		if (resolvedCamera != null && camera != resolvedCamera) {
+		Camera resolvedCamera = GameServices.cameraOrBootstrap();
+		if (camera != resolvedCamera) {
 			camera = resolvedCamera;
 		}
 
-		FadeManager resolvedFadeManager = GameServices.fadeOrNull();
-		if (resolvedFadeManager != null && fadeManager != resolvedFadeManager) {
+		FadeManager resolvedFadeManager = GameServices.fadeOrBootstrap();
+		if (fadeManager != resolvedFadeManager) {
 			fadeManager = resolvedFadeManager;
 			if (fadeShaderProgram != null) {
 				fadeManager.setFadeShader(fadeShaderProgram);

@@ -21,9 +21,6 @@ public class GroundSensor extends Sensor {
      */
     private static LevelManager overrideLevelManager;
 
-    /** Cached singleton — avoids synchronized getInstance() on every scan. */
-    private static LevelManager cachedLevelManager;
-
     // Full-height tile constant
     private static final byte FULL_TILE = 16;
 
@@ -40,14 +37,12 @@ public class GroundSensor extends Sensor {
      */
     public static void setLevelManager(LevelManager lm) {
         overrideLevelManager = lm;
-        cachedLevelManager = null; // force re-fetch
     }
 
     private static LevelManager getLevelManager() {
         LevelManager override = overrideLevelManager;
         if (override != null) return override;
-        if (cachedLevelManager == null) cachedLevelManager = GameServices.level();
-        return cachedLevelManager;
+        return GameServices.level();
     }
 
     public GroundSensor(AbstractPlayableSprite sprite, Direction direction, byte x, byte y, boolean active) {
