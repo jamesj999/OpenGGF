@@ -1,11 +1,17 @@
 package com.openggf.game.sonic3k.scroll;
 
+import com.openggf.game.GameServices;
 import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.sonic3k.Sonic3kBonusStageCoordinator;
 import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotBonusStageRuntime;
+import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
+import com.openggf.level.LevelManager;
 import com.openggf.level.scroll.AbstractZoneScrollHandler;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 import static com.openggf.level.scroll.M68KMath.negWord;
 import static com.openggf.level.scroll.M68KMath.packScrollWords;
@@ -30,20 +36,21 @@ public final class SwScrlSlots extends AbstractZoneScrollHandler {
     };
 
     private static final BandConfig[] BAND_CONFIGS = {
-            new BandConfig(0x48, 0x0000C000, 0x0008, true),
-            new BandConfig(0x48, 0x0000C000, 0x0009, true),
-            new BandConfig(0x50, 0x0000A000, 0x000B, true),
-            new BandConfig(0x40, 0x0000E000, 0x0004, false),
-            new BandConfig(0x40, 0x00010000, 0x0003, false),
-            new BandConfig(0x48, 0x0000C000, 0x000A, true),
-            new BandConfig(0x58, 0x00008000, 0x0007, true),
-            new BandConfig(0x40, 0x0000E000, 0x0005, false)
+            new BandConfig(0x48, 0x0000C000, 0x0008, 0x0008, 0xE000, -2, true, 0x0000, 0x0019, true),
+            new BandConfig(0x48, 0x0000C000, 0x0009, 0x0008, 0xE200, -2, true, 0x0020, 0x0019, true),
+            new BandConfig(0x50, 0x0000A000, 0x000B, 0x0010, 0xE400, 0, true, 0x0040, 0x0019, true),
+            new BandConfig(0x40, 0x0000E000, 0x0004, 0x0008, 0, 0, false, 0, 0, false),
+            new BandConfig(0x40, 0x00010000, 0x0003, 0x0008, 0, 0, false, 0, 0, false),
+            new BandConfig(0x48, 0x0000C000, 0x000A, 0x0008, 0xEB00, -2, true, 0x00B0, 0x0019, true),
+            new BandConfig(0x58, 0x00008000, 0x0007, 0x0004, 0xED00, -2, false, 0x00D0, 0x0019, true),
+            new BandConfig(0x40, 0x0000E000, 0x0005, 0x0008, 0, 0, false, 0, 0, false)
     };
 
     private final short[] perLineVScroll = new short[VISIBLE_LINES];
     private final BandState[] bandStates = createBandStates();
     private final int[] bandScrollValues = new int[BAND_CONFIGS.length];
     private final int[] expandedBandScrollValues = new int[BG_DEFORM_SEGMENTS.length];
+    private final List<BgPlaneRowUpdate> lastBgPlaneRowUpdates = new ArrayList<>(8);
 
     private S3kSlotBonusStageRuntime activeRuntime;
     private boolean screenInitialized;
@@ -73,6 +80,7 @@ public final class SwScrlSlots extends AbstractZoneScrollHandler {
 
     private void applyScrollState(int[] horizScrollBuf, int cameraX, int cameraY, S3kSlotBonusStageRuntime runtime) {
         resetScrollTracking();
+        lastBgPlaneRowUpdates.clear();
         ensureRuntimeState(runtime, cameraX, cameraY);
 
         S3kSlotBonusStageRuntime.SlotVisualState visualState = runtime != null
@@ -91,6 +99,7 @@ public final class SwScrlSlots extends AbstractZoneScrollHandler {
         }
 
         tickBackground(visualState.scalarIndex1());
+        applyPendingBackgroundPlaneUpdates();
 
         lastForegroundOriginX = foregroundOriginX;
         lastForegroundOriginY = foregroundOriginY;
@@ -129,6 +138,10 @@ public final class SwScrlSlots extends AbstractZoneScrollHandler {
         return backgroundVelocity;
     }
 
+    List<BgPlaneRowUpdate> lastBgPlaneRowUpdatesForTest() {
+        return Collections.unmodifiableList(lastBgPlaneRowUpdates);
+    }
+
     @Override
     public short getVscrollFactorFG() {
         return (short) foregroundOriginY;
@@ -155,6 +168,11 @@ public final class SwScrlSlots extends AbstractZoneScrollHandler {
     private void tickBackground(int scalarIndex1) {
         if (!backgroundInitialized) {
             backgroundInitialized = true;
+            backgroundVelocity = 0;
+            backgroundCameraY = 0;
+            Arrays.fill(bandScrollValues, 0);
+            expandBandScrollTable();
+            return;
         }
 
         int step = scalarIndex1 < 0 ? -BG_SCROLL_STEP : BG_SCROLL_STEP;
@@ -164,13 +182,10 @@ public final class SwScrlSlots extends AbstractZoneScrollHandler {
         boolean backgroundEventLatched = false;
         for (int i = 0; i < BAND_CONFIGS.length; i++) {
             backgroundEventLatched = tickBand(bandStates[i], BAND_CONFIGS[i], backgroundEventLatched);
-            // The ROM stores fractional/phase state in the low word and feeds it
-            // into VDP h-scroll table semantics directly. The engine's packed
-            // per-line scroll buffer expects stable pixel offsets; using the raw
-            // accumulator word here causes wrap-sized jumps and runaway scrolling.
-            // Use the stepped base scroll component until the handler is ported
-            // all the way down to VDP-equivalent table semantics.
-            bandScrollValues[i] = toSignedWord(bandStates[i].baseScroll);
+            // ROM loc_5997C copies word 0 of each $C-byte band state plus
+            // word 8 into the deformation table. Word 0 is the high word of
+            // the long accumulator updated at loc_598B4.
+            bandScrollValues[i] = toSignedWord(bandStates[i].accumulatorHighWord() + bandStates[i].baseScroll);
         }
         expandBandScrollTable();
     }
@@ -221,10 +236,10 @@ public final class SwScrlSlots extends AbstractZoneScrollHandler {
         state.accumulator = (int) sum;
         boolean carry = (sum & 0x1_0000_0000L) != 0;
         if (carry) {
-            state.accumulator = (state.accumulator & 0xFFFF0000)
-                    | (((state.accumulator & 0xFFFF) + config.stepWord) & 0xFFFF);
+            state.setAccumulatorHighWord(state.accumulatorHighWord() + config.stepWord);
             state.pendingAdvance = true;
-        } else if ((state.accumulator & 0xFFFF) < config.stepWord) {
+        } else if (state.accumulatorHighWord() >= config.stepWord) {
+            state.setAccumulatorHighWord(state.accumulatorHighWord() - config.stepWord);
             state.pendingAdvance = true;
         }
 
@@ -241,10 +256,53 @@ public final class SwScrlSlots extends AbstractZoneScrollHandler {
         }
 
         state.pendingAdvance = false;
+        state.phase++;
+        if (state.phase >= config.phaseLimit) {
+            state.phase = 0;
+        }
         if (!config.usesFrameLatch) {
             state.baseScroll = toSignedWord(state.baseScroll + config.stepWord);
+        } else if (config.hasPlaneUpdate()) {
+            queuePlaneRowUpdate(state, config);
         }
         return true;
+    }
+
+    private void queuePlaneRowUpdate(BandState state, BandConfig config) {
+        int destVramAddress = config.destVramAddress;
+        if ((state.phase & 1) != 0) {
+            destVramAddress += config.oddPhaseDestDelta;
+        }
+        int sourceX = toSignedWord(state.phase * config.stepWord);
+        lastBgPlaneRowUpdates.add(new BgPlaneRowUpdate(sourceX, config.sourceY,
+                destVramAddress, config.longWordCount));
+        if (config.doubleRow) {
+            lastBgPlaneRowUpdates.add(new BgPlaneRowUpdate(sourceX, config.sourceY + 0x10,
+                    destVramAddress + 0x100, config.longWordCount));
+        }
+    }
+
+    private void applyPendingBackgroundPlaneUpdates() {
+        if (lastBgPlaneRowUpdates.isEmpty()) {
+            return;
+        }
+        try {
+            LevelManager levelManager = GameServices.level();
+            if (levelManager.getCurrentZone() != Sonic3kZoneIds.ZONE_SLOT_MACHINE
+                    && levelManager.getRomZoneId() != Sonic3kZoneIds.ZONE_SLOT_MACHINE) {
+                return;
+            }
+            boolean changed = false;
+            for (BgPlaneRowUpdate update : lastBgPlaneRowUpdates) {
+                changed |= levelManager.copyBackgroundTileRowFromWorldToVdpPlane(update.sourceX, update.sourceY,
+                        update.destVramAddress, update.longWordCount);
+            }
+            if (changed) {
+                levelManager.uploadBackgroundTilemap();
+            }
+        } catch (IllegalStateException ignored) {
+            // Unit tests and headless scroll probes can run without a GameRuntime.
+        }
     }
 
     private static int clampSignedLong(int value, int limit) {
@@ -291,17 +349,35 @@ public final class SwScrlSlots extends AbstractZoneScrollHandler {
     private static final class BandState {
         private int accumulator;
         private int countdown;
+        private int phase;
         private int baseScroll;
         private boolean pendingAdvance;
 
         private void reset() {
             accumulator = 0;
             countdown = 0;
+            phase = 0;
             baseScroll = 0;
             pendingAdvance = false;
         }
+
+        private int accumulatorHighWord() {
+            return (accumulator >>> 16) & 0xFFFF;
+        }
+
+        private void setAccumulatorHighWord(int value) {
+            accumulator = ((value & 0xFFFF) << 16) | (accumulator & 0xFFFF);
+        }
     }
 
-    private record BandConfig(int stepWord, int deltaLong, int resetCountdown, boolean usesFrameLatch) {
+    record BgPlaneRowUpdate(int sourceX, int sourceY, int destVramAddress, int longWordCount) {
+    }
+
+    private record BandConfig(int stepWord, int deltaLong, int resetCountdown, int phaseLimit,
+                              int destVramAddress, int oddPhaseDestDelta, boolean doubleRow,
+                              int sourceY, int longWordCount, boolean usesFrameLatch) {
+        private boolean hasPlaneUpdate() {
+            return destVramAddress != 0 && longWordCount > 0;
+        }
     }
 }

@@ -2834,6 +2834,49 @@ public class LevelManager {
         return getTileDescriptorAtWorld((byte) 1, worldX, worldY);
     }
 
+    /**
+     * Copies one 16x16 BG source row into the live Plane B tilemap buffer.
+     *
+     * <p>S3K's Slot Machine bonus stage does this from {@code sub_4ECAA}: {@code d0/d1}
+     * select the source BG map row, {@code d5} is the destination VDP plane address,
+     * and {@code d6} is the number of longwords to draw. Each longword represents
+     * two horizontal 8x8 cells, and the routine writes both 8x8 rows of the
+     * 16x16 source block row.
+     */
+    public boolean copyBackgroundTileRowFromWorldToVdpPlane(int sourceWorldX, int sourceWorldY,
+                                                            int destVramAddress, int longWordCount) {
+        if (tilemapManager == null || longWordCount <= 0) {
+            return false;
+        }
+        ensureBackgroundTilemapData();
+        int bgWidthTiles = tilemapManager.getBackgroundTilemapWidthTiles();
+        int bgHeightTiles = tilemapManager.getBackgroundTilemapHeightTiles();
+        if (bgWidthTiles <= 0 || bgHeightTiles <= 0) {
+            return false;
+        }
+
+        int destPlaneOffsetBytes = Math.floorMod(destVramAddress - 0xE000, 0x1000);
+        int destCell = destPlaneOffsetBytes / 2;
+        int cellCount = longWordCount * 2;
+        boolean changed = false;
+        for (int row = 0; row < 2; row++) {
+            int sourceRowY = sourceWorldY + row * Pattern.PATTERN_HEIGHT;
+            int destRowCell = destCell + row * 64; // Plane B is 64 cells wide, so +0x80 bytes per 8x8 row.
+            for (int i = 0; i < cellCount; i++) {
+                int planeCell = (destRowCell + i) & 0x7FF; // Plane B is 64x32 cells.
+                int destTileX = planeCell & 0x3F;
+                int destTileY = (planeCell >>> 6) & 0x1F;
+                if (destTileX >= bgWidthTiles || destTileY >= bgHeightTiles) {
+                    continue;
+                }
+                int descriptor = getBackgroundTileDescriptorAtWorld(sourceWorldX + i * Pattern.PATTERN_WIDTH,
+                        sourceRowY);
+                changed |= tilemapManager.setBackgroundTileDescriptorAtTilemapCell(destTileX, destTileY, descriptor);
+            }
+        }
+        return changed;
+    }
+
     private int getTileDescriptorAtWorld(byte layer, int worldX, int worldY) {
         if (level == null || level.getMap() == null) {
             return 0;
@@ -2930,6 +2973,16 @@ public class LevelManager {
     public void uploadForegroundTilemap() {
         if (tilemapManager != null) {
             tilemapManager.uploadForegroundTilemap();
+        }
+    }
+
+    /**
+     * Uploads the current background tilemap bytes to the GPU renderer (if active).
+     * No-op in headless mode.
+     */
+    public void uploadBackgroundTilemap() {
+        if (tilemapManager != null) {
+            tilemapManager.uploadBackgroundTilemap();
         }
     }
 
