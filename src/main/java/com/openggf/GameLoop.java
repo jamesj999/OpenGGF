@@ -49,6 +49,8 @@ import com.openggf.data.RomManager;
 import java.io.IOException;
 import java.util.Comparator;
 import java.util.Objects;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.logging.Logger;
 
 /**
@@ -110,6 +112,9 @@ public class GameLoop {
     private Runnable editorPlaytestToggleHandler;
     private Runnable editorFreshStartHandler;
     private GameMode currentGameMode = GameMode.LEVEL;
+    private Runnable editorStateSyncHandler;
+    private Supplier<MasterTitleScreen> masterTitleScreenSupplier;
+    private Consumer<String> masterTitleExitHandler;
 
     // Special stage results screen
     private ResultsScreen resultsScreen;
@@ -232,13 +237,24 @@ public class GameLoop {
         this.editorFreshStartHandler = editorFreshStartHandler;
     }
 
+    public void setEditorStateSyncHandler(Runnable editorStateSyncHandler) {
+        this.editorStateSyncHandler = editorStateSyncHandler;
+    }
+
+    public void setMasterTitleScreenSupplier(Supplier<MasterTitleScreen> masterTitleScreenSupplier) {
+        this.masterTitleScreenSupplier = masterTitleScreenSupplier;
+    }
+
+    public void setMasterTitleExitHandler(Consumer<String> masterTitleExitHandler) {
+        this.masterTitleExitHandler = masterTitleExitHandler;
+    }
+
     private void updateEditorMode() {
         if (editorInputHandler != null) {
             editorInputHandler.update(inputHandler);
         }
-        Engine engine = Engine.current();
-        if (engine != null) {
-            engine.syncEditorState();
+        if (editorStateSyncHandler != null) {
+            editorStateSyncHandler.run();
         }
     }
 
@@ -351,8 +367,9 @@ public class GameLoop {
         // Master title screen mode - runs before any ROM/game systems are loaded.
         // Must be checked before pause handling since Enter is both confirm and pause.
         if (currentGameMode == GameMode.MASTER_TITLE_SCREEN) {
-            MasterTitleScreen masterScreen =
-                    Engine.current().getMasterTitleScreen();
+            MasterTitleScreen masterScreen = masterTitleScreenSupplier != null
+                    ? masterTitleScreenSupplier.get()
+                    : null;
             if (masterScreen != null) {
                 masterScreen.update(inputHandler);
                 if (masterScreen.isGameSelected()) {
@@ -2015,9 +2032,8 @@ public class GameLoop {
      * Actually performs the master title screen exit after fade-to-black completes.
      */
     private void doExitMasterTitleScreen(String selectedGameId) {
-        Engine engine = Engine.current();
-        if (engine != null) {
-            engine.exitMasterTitleScreen(selectedGameId);
+        if (masterTitleExitHandler != null) {
+            masterTitleExitHandler.accept(selectedGameId);
         }
 
         // When TITLE_SCREEN_ON_STARTUP or LEVEL_SELECT_ON_STARTUP is true,
@@ -2190,9 +2206,22 @@ public class GameLoop {
     private TitleScreenProvider getTitleScreenProviderLazy() {
         var gameModule = GameServices.module();
         if (gameModule != null) {
-            return gameModule.getTitleScreenProvider();
+            TitleScreenProvider titleScreenProvider = gameModule.getTitleScreenProvider();
+            if (titleScreenProvider != null) {
+                titleScreenProvider.setExitToLevelHandler(this::startLevelFromTitleScreenImmediate);
+            }
+            return titleScreenProvider;
         }
         return null;
+    }
+
+    private void startLevelFromTitleScreenImmediate() {
+        setGameMode(GameMode.LEVEL);
+        try {
+            levelManager.loadZoneAndAct(0, 0);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to load title screen start level", e);
+        }
     }
 
     // ==================== Level Select Methods ====================

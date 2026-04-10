@@ -8,8 +8,6 @@ import com.openggf.game.TitleScreenProvider;
 import com.openggf.game.sonic3k.audio.Sonic3kMusic;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.audio.Sonic3kSmpsConstants;
-import com.openggf.Engine;
-import com.openggf.GameLoop;
 import com.openggf.audio.AudioManager;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
@@ -49,6 +47,7 @@ public class Sonic3kTitleScreenManager implements TitleScreenProvider {
     private static final Logger LOGGER = Logger.getLogger(Sonic3kTitleScreenManager.class.getName());
 
     private static Sonic3kTitleScreenManager instance;
+    private Runnable exitToLevelHandler = () -> {};
 
     private final SonicConfigurationService configService = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().configuration();
     private final Sonic3kTitleScreenDataLoader dataLoader = new Sonic3kTitleScreenDataLoader();
@@ -465,6 +464,11 @@ public class Sonic3kTitleScreenManager implements TitleScreenProvider {
         return state != State.INACTIVE;
     }
 
+    @Override
+    public void setExitToLevelHandler(Runnable handler) {
+        this.exitToLevelHandler = handler != null ? handler : () -> {};
+    }
+
     // -----------------------------------------------------------------------
     // Phase update methods
     // -----------------------------------------------------------------------
@@ -651,11 +655,7 @@ public class Sonic3kTitleScreenManager implements TitleScreenProvider {
 
             // Transition directly to LEVEL mode and load the first zone
             try {
-                Engine engine = Engine.current();
-                if (engine != null) {
-                    engine.getGameLoop().setGameMode(com.openggf.game.GameMode.LEVEL);
-                }
-                GameServices.level().loadZoneAndAct(0, 0);
+                exitToLevelHandler.run();
             } catch (Exception e) {
                 LOGGER.severe("Failed to load level after title screen: " + e.getMessage());
             }

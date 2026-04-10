@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.specialstage;
 
 import com.openggf.Engine;
+import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.HScrollBuffer;
 import com.openggf.graphics.ParallaxShaderProgram;
 import com.openggf.graphics.QuadRenderer;
@@ -57,6 +58,11 @@ public class SpecialStageBackgroundRenderer {
     // State
     private boolean initialized = false;
     private int[] savedViewport;
+    private final GraphicsManager graphicsManager;
+
+    public SpecialStageBackgroundRenderer(GraphicsManager graphicsManager) {
+        this.graphicsManager = java.util.Objects.requireNonNull(graphicsManager, "graphicsManager");
+    }
 
     /**
      * Initialize the renderer with FBO and shader.
@@ -109,7 +115,7 @@ public class SpecialStageBackgroundRenderer {
      * any GL operations. Call beginTilePassGL() for the actual GL setup.
      */
     public void beginFBOProjection() {
-        Engine engine = Engine.current();
+        Engine engine = graphicsManager.getEngine();
         if (engine != null) {
             engine.beginFBOProjection(FBO_WIDTH, FBO_HEIGHT);
         }
@@ -120,7 +126,7 @@ public class SpecialStageBackgroundRenderer {
      * Call this AFTER flushing the pattern batch.
      */
     public void endFBOProjection() {
-        Engine engine = Engine.current();
+        Engine engine = graphicsManager.getEngine();
         if (engine != null) {
             engine.endFBOProjection();
         }
@@ -148,7 +154,7 @@ public class SpecialStageBackgroundRenderer {
 
         // Re-enable FBO projection for the batch command execution
         // (The batch command reads the projection matrix when it executes)
-        Engine engine = Engine.current();
+        Engine engine = graphicsManager.getEngine();
         if (engine != null) {
             engine.beginFBOProjection(FBO_WIDTH, FBO_HEIGHT);
         }
@@ -168,7 +174,7 @@ public class SpecialStageBackgroundRenderer {
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         // Restore normal projection mode
-        Engine engine = Engine.current();
+        Engine engine = graphicsManager.getEngine();
         if (engine != null) {
             engine.endFBOProjection();
         }

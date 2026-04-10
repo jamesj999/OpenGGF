@@ -7,7 +7,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 public class TestProductionSingletonClosureGuard {
@@ -35,9 +39,11 @@ public class TestProductionSingletonClosureGuard {
             "PerformanceProfiler.getInstance(",
             "DebugOverlayManager.getInstance(",
             "DebugRenderer.getInstance(",
+            "DebugRenderer.current(",
             "PlaybackDebugManager.getInstance(",
             "CrossGameFeatureProvider.getInstance(",
-            "Engine.getInstance("
+            "Engine.getInstance(",
+            "Engine.current("
     );
 
     private static final String ENGINE_SERVICES_BOOTSTRAP_EXCEPTION =
@@ -81,28 +87,211 @@ public class TestProductionSingletonClosureGuard {
         }
     }
 
+    @Test
+    public void detectsForbiddenProcessSingletonSplitAcrossLines() {
+        List<String> violations = scanSourceText("sample/Split.java", """
+                package sample;
+
+                class Split {
+                    void render() {
+                        GraphicsManager
+                                .getInstance();
+                    }
+                }
+                """, FORBIDDEN_PROCESS_SINGLETONS);
+
+        assertEquals(List.of("sample/Split.java:5 - GraphicsManager.getInstance("), violations);
+    }
+
+    @Test
+    public void ignoresForbiddenPatternsInsideComments() {
+        List<String> violations = scanSourceText("sample/Comments.java", """
+                package sample;
+
+                class Comments {
+                    // Engine.getInstance();
+                    /* DebugRenderer.current(); */
+                    String s = "GraphicsManager.getInstance(";
+                }
+                """, FORBIDDEN_PROCESS_SINGLETONS);
+
+        assertTrue(violations.isEmpty());
+    }
+
+    @Test
+    public void detectsAliasSingletonAccessPatterns() {
+        List<String> violations = scanSourceText("sample/Alias.java", """
+                package sample;
+
+                class Alias {
+                    void use() {
+                        Engine.current();
+                        DebugRenderer
+                                .current();
+                    }
+                }
+                """, FORBIDDEN_PROCESS_SINGLETONS);
+
+        assertEquals(2, violations.size());
+        assertTrue(violations.contains("sample/Alias.java:5 - Engine.current("));
+        assertTrue(violations.contains("sample/Alias.java:6 - DebugRenderer.current("));
+    }
+
     private static void scanFile(Path srcMain, Path file, List<String> violations) {
         scanFile(srcMain, file, violations, FORBIDDEN_SINGLETONS);
     }
 
     private static void scanFile(Path srcMain, Path file, List<String> violations, List<String> forbiddenSingletons) {
         try {
-            List<String> lines = Files.readAllLines(file);
             String relative = srcMain.relativize(file).toString().replace('\\', '/');
-            for (int i = 0; i < lines.size(); i++) {
-                String line = lines.get(i);
-                String trimmed = line.trim();
-                if (trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*")) {
-                    continue;
-                }
-                for (String forbidden : forbiddenSingletons) {
-                    if (line.contains(forbidden)) {
-                        violations.add(relative + ":" + (i + 1) + " - " + forbidden);
-                    }
-                }
-            }
+            String source = Files.readString(file);
+            violations.addAll(scanSourceText(relative, source, forbiddenSingletons));
         } catch (IOException ignored) {
         }
+    }
+
+    static List<String> scanSourceText(String relative, String source, List<String> forbiddenSingletons) {
+        String stripped = stripComments(source);
+        List<String> violations = new ArrayList<>();
+        for (String forbidden : forbiddenSingletons) {
+            Matcher matcher = compileForbiddenPattern(forbidden).matcher(stripped);
+            while (matcher.find()) {
+                violations.add(relative + ":" + lineNumberForOffset(stripped, matcher.start()) + " - " + forbidden);
+            }
+        }
+        return violations;
+    }
+
+    static String stripComments(String source) {
+        StringBuilder stripped = new StringBuilder(source.length());
+        boolean inLineComment = false;
+        boolean inBlockComment = false;
+        boolean inString = false;
+        boolean inChar = false;
+        boolean escaping = false;
+
+        for (int i = 0; i < source.length(); i++) {
+            char current = source.charAt(i);
+            char next = i + 1 < source.length() ? source.charAt(i + 1) : '\0';
+
+            if (inLineComment) {
+                if (current == '\n') {
+                    inLineComment = false;
+                    stripped.append('\n');
+                } else if (current == '\r') {
+                    stripped.append('\r');
+                } else {
+                    stripped.append(' ');
+                }
+                continue;
+            }
+
+            if (inBlockComment) {
+                if (current == '*' && next == '/') {
+                    stripped.append("  ");
+                    i++;
+                    inBlockComment = false;
+                } else if (current == '\n' || current == '\r') {
+                    stripped.append(current);
+                } else {
+                    stripped.append(' ');
+                }
+                continue;
+            }
+
+            if (inString) {
+                if (current == '\n' || current == '\r') {
+                    stripped.append(current);
+                } else if (current == '"') {
+                    stripped.append(current);
+                } else {
+                    stripped.append(' ');
+                }
+                if (escaping) {
+                    escaping = false;
+                } else if (current == '\\') {
+                    escaping = true;
+                } else if (current == '"') {
+                    inString = false;
+                }
+                continue;
+            }
+
+            if (inChar) {
+                if (current == '\n' || current == '\r') {
+                    stripped.append(current);
+                } else if (current == '\'') {
+                    stripped.append(current);
+                } else {
+                    stripped.append(' ');
+                }
+                if (escaping) {
+                    escaping = false;
+                } else if (current == '\\') {
+                    escaping = true;
+                } else if (current == '\'') {
+                    inChar = false;
+                }
+                continue;
+            }
+
+            if (current == '/' && next == '/') {
+                stripped.append("  ");
+                i++;
+                inLineComment = true;
+                continue;
+            }
+
+            if (current == '/' && next == '*') {
+                stripped.append("  ");
+                i++;
+                inBlockComment = true;
+                continue;
+            }
+
+            if (current == '"') {
+                inString = true;
+                stripped.append(current);
+                continue;
+            }
+
+            if (current == '\'') {
+                inChar = true;
+                stripped.append(current);
+                continue;
+            }
+
+            stripped.append(current);
+        }
+        return stripped.toString();
+    }
+
+    private static Pattern compileForbiddenPattern(String forbidden) {
+        StringBuilder regex = new StringBuilder();
+        for (int i = 0; i < forbidden.length(); i++) {
+            char current = forbidden.charAt(i);
+            if (Character.isWhitespace(current)) {
+                continue;
+            }
+            if (Character.isJavaIdentifierPart(current)) {
+                regex.append(Pattern.quote(String.valueOf(current)));
+            } else {
+                regex.append("\\s*")
+                        .append(Pattern.quote(String.valueOf(current)))
+                        .append("\\s*");
+            }
+        }
+        return Pattern.compile(regex.toString(), Pattern.MULTILINE);
+    }
+
+    private static int lineNumberForOffset(String text, int offset) {
+        int line = 1;
+        for (int i = 0; i < offset; i++) {
+            if (text.charAt(i) == '\n') {
+                line++;
+            }
+        }
+        return line;
     }
 
     private static Path findSourceRoot() {

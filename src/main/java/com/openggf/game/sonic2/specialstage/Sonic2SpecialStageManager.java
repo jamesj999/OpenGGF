@@ -861,7 +861,7 @@ public class Sonic2SpecialStageManager {
         // Pattern bases are set in setupPatterns() after they have valid values
 
         // Initialize shader-based background renderer
-        bgRenderer = new SpecialStageBackgroundRenderer();
+        bgRenderer = new SpecialStageBackgroundRenderer(graphicsManager);
         bgRenderer.init();
         LOGGER.fine("Special Stage background renderer initialized with shader");
 
