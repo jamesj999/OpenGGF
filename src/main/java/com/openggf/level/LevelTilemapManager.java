@@ -510,6 +510,41 @@ public class LevelTilemapManager {
         renderer.setPatternLookupData(patternLookupData, patternLookupSize);
     }
 
+    /**
+     * Uploads the current background tilemap bytes to the GPU renderer (if active).
+     * No-op in headless mode.
+     */
+    public void uploadBackgroundTilemap() {
+        if (backgroundTilemapData == null) {
+            return;
+        }
+        TilemapGpuRenderer renderer = graphicsManager.getTilemapGpuRenderer();
+        if (renderer == null) {
+            return;
+        }
+        ensurePatternLookupData();
+        renderer.setTilemapData(TilemapGpuRenderer.Layer.BACKGROUND, backgroundTilemapData,
+                backgroundTilemapWidthTiles, backgroundTilemapHeightTiles);
+        renderer.setPatternLookupData(patternLookupData, patternLookupSize);
+    }
+
+    /**
+     * Overwrites one background tile descriptor in the live BG tilemap buffer by tilemap cell.
+     * Call {@link #uploadBackgroundTilemap()} once after batching writes.
+     *
+     * @return true if tilemap bytes changed
+     */
+    public boolean setBackgroundTileDescriptorAtTilemapCell(int tileX, int tileY, int descriptor) {
+        if (backgroundTilemapData == null
+                || tileX < 0 || tileY < 0
+                || tileX >= backgroundTilemapWidthTiles
+                || tileY >= backgroundTilemapHeightTiles) {
+            return false;
+        }
+        int offset = (tileY * backgroundTilemapWidthTiles + tileX) * 4;
+        return writeTilemapDescriptor(backgroundTilemapData, offset, descriptor);
+    }
+
     // -----------------------------------------------------------------------
     // Foreground tile descriptor access (world-coordinate tilemap writes)
     // -----------------------------------------------------------------------
@@ -565,6 +600,10 @@ public class LevelTilemapManager {
         }
 
         int offset = (tileY * foregroundTilemapWidthTiles + tileX) * 4;
+        return writeTilemapDescriptor(foregroundTilemapData, offset, descriptor);
+    }
+
+    private static boolean writeTilemapDescriptor(byte[] tilemapData, int offset, int descriptor) {
         int patternIndex = descriptor & 0x7FF;
         int paletteIndex = (descriptor >> 13) & 0x3;
         int g = ((patternIndex >> 8) & 0x7)
@@ -575,17 +614,17 @@ public class LevelTilemapManager {
         byte rByte = (byte) (patternIndex & 0xFF);
         byte gByte = (byte) g;
 
-        if (foregroundTilemapData[offset] == rByte
-                && foregroundTilemapData[offset + 1] == gByte
-                && foregroundTilemapData[offset + 2] == 0
-                && foregroundTilemapData[offset + 3] == (byte) 0xFF) {
+        if (tilemapData[offset] == rByte
+                && tilemapData[offset + 1] == gByte
+                && tilemapData[offset + 2] == 0
+                && tilemapData[offset + 3] == (byte) 0xFF) {
             return false;
         }
 
-        foregroundTilemapData[offset] = rByte;
-        foregroundTilemapData[offset + 1] = gByte;
-        foregroundTilemapData[offset + 2] = 0;
-        foregroundTilemapData[offset + 3] = (byte) 0xFF;
+        tilemapData[offset] = rByte;
+        tilemapData[offset + 1] = gByte;
+        tilemapData[offset + 2] = 0;
+        tilemapData[offset + 3] = (byte) 0xFF;
         return true;
     }
 
