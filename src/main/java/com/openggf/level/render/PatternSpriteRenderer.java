@@ -1,24 +1,33 @@
 package com.openggf.level.render;
 
+import com.openggf.game.EngineServices;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.SpriteMaskReplayRole;
 import com.openggf.level.PatternDesc;
 import com.openggf.level.Pattern;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Renders sprite sheets built from level patterns and caches frame bounds.
  */
 public class PatternSpriteRenderer {
     private final SpriteSheet<? extends SpriteFrame<? extends SpriteFramePiece>> spriteSheet;
+    private final GraphicsManager graphicsManager;
     private int patternBase = -1;
     private final FrameBounds[] frameBoundsCache;
     private final PatternBounds[] patternBoundsCache;
     private final PatternDesc reusableDesc = new PatternDesc();
 
     public PatternSpriteRenderer(SpriteSheet<? extends SpriteFrame<? extends SpriteFramePiece>> spriteSheet) {
+        this(spriteSheet, EngineServices.fromLegacySingletonsForBootstrap().graphics());
+    }
+
+    public PatternSpriteRenderer(SpriteSheet<? extends SpriteFrame<? extends SpriteFramePiece>> spriteSheet,
+            GraphicsManager graphicsManager) {
         this.spriteSheet = spriteSheet;
+        this.graphicsManager = Objects.requireNonNull(graphicsManager, "graphicsManager");
         this.frameBoundsCache = new FrameBounds[spriteSheet.getFrameCount()];
         this.patternBoundsCache = new PatternBounds[spriteSheet.getPatterns().length];
     }
@@ -104,7 +113,7 @@ public class PatternSpriteRenderer {
         }
         SpriteFrame<? extends SpriteFramePiece> frame = spriteSheet.getFrame(frameIndex);
         int paletteIndex = paletteOverride >= 0 ? paletteOverride : spriteSheet.getPaletteIndex();
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = this.graphicsManager;
         if (graphicsManager.isSpriteSatCollectionActive()) {
             for (int i = 0; i < frame.pieces().size(); i++) {
                 SpritePieceRenderer.preparePiece(
@@ -168,7 +177,8 @@ public class PatternSpriteRenderer {
         descIndex |= (palette & 0x3) << 13;
         reusableDesc.set(descIndex);
         // Use full pattern ID for texture lookup (avoids 11-bit limit)
-        GraphicsManager.getInstance().renderPatternWithId(fullPatternId, reusableDesc, drawX, drawY);
+        GraphicsManager graphicsManager = this.graphicsManager;
+        graphicsManager.renderPatternWithId(fullPatternId, reusableDesc, drawX, drawY);
     }
 
     private void cachePatterns(GraphicsManager graphicsManager, int basePatternIndex) {
@@ -204,7 +214,7 @@ public class PatternSpriteRenderer {
             boolean hFlip,
             boolean vFlip,
             int paletteIndex) {
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = this.graphicsManager;
         if (graphicsManager.isSpriteSatCollectionActive()) {
             SpritePieceRenderer.preparePiece(
                     piece,
@@ -250,7 +260,7 @@ public class PatternSpriteRenderer {
             boolean hFlip,
             boolean vFlip,
             int paletteIndex) {
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = this.graphicsManager;
         if (graphicsManager.isSpriteSatCollectionActive()) {
             for (int i = 0; i < pieces.size(); i++) {
                 SpritePieceRenderer.preparePiece(
@@ -324,7 +334,7 @@ public class PatternSpriteRenderer {
         SpriteFrame<? extends SpriteFramePiece> frame = spriteSheet.getFrame(frameIndex);
         int paletteIndex = paletteOverride >= 0 ? paletteOverride : spriteSheet.getPaletteIndex();
         List<? extends SpriteFramePiece> pieces = frame.pieces();
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = this.graphicsManager;
         if (graphicsManager.isSpriteSatCollectionActive()) {
             for (int i = 0; i < pieces.size(); i++) {
                 SpriteFramePiece piece = pieces.get(i);
@@ -380,7 +390,7 @@ public class PatternSpriteRenderer {
             boolean vFlip,
             int paletteIndex,
             boolean forcedPriority) {
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = this.graphicsManager;
         if (graphicsManager.isSpriteSatCollectionActive()) {
             for (int i = 0; i < pieces.size(); i++) {
                 SpritePieceRenderer.preparePiece(

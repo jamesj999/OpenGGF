@@ -1,10 +1,11 @@
 package com.openggf.audio.smps;
 
+import com.openggf.audio.AudioManager;
 import com.openggf.audio.driver.SmpsDriver;
 import com.openggf.audio.synth.VirtualSynthesizer;
-import com.openggf.audio.AudioManager;
 import com.openggf.audio.AudioStream;
 import com.openggf.audio.synth.Synthesizer;
+import com.openggf.game.EngineServices;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -17,6 +18,7 @@ import java.util.logging.Logger;
 public class SmpsSequencer implements AudioStream, CoordFlagContext {
     private static final Logger LOGGER = Logger.getLogger(SmpsSequencer.class.getName());
     private final AbstractSmpsData smpsData;
+    private final AudioManager audioManager;
     private AbstractSmpsData fallbackVoiceData;
     private final byte[] data;
     private final Synthesizer synth;
@@ -291,12 +293,24 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
     }
 
     public SmpsSequencer(AbstractSmpsData smpsData, DacData dacData, SmpsSequencerConfig config) {
-        this(smpsData, dacData, new VirtualSynthesizer(), config);
+        this(smpsData, dacData, new VirtualSynthesizer(),
+                EngineServices.fromLegacySingletonsForBootstrap().audio(), config);
+    }
+
+    public SmpsSequencer(AbstractSmpsData smpsData, DacData dacData, AudioManager audioManager,
+            SmpsSequencerConfig config) {
+        this(smpsData, dacData, new VirtualSynthesizer(), audioManager, config);
     }
 
     public SmpsSequencer(AbstractSmpsData smpsData, DacData dacData, Synthesizer synth,
             SmpsSequencerConfig config) {
+        this(smpsData, dacData, synth, EngineServices.fromLegacySingletonsForBootstrap().audio(), config);
+    }
+
+    public SmpsSequencer(AbstractSmpsData smpsData, DacData dacData, Synthesizer synth,
+            AudioManager audioManager, SmpsSequencerConfig config) {
         this.smpsData = smpsData;
+        this.audioManager = Objects.requireNonNull(audioManager, "audioManager");
         this.data = smpsData.getData();
         this.synth = synth;
         this.config = Objects.requireNonNull(config, "config");
@@ -2409,7 +2423,7 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
             track.active = false;
             stopNote(track);
         }
-        AudioManager.getInstance().getBackend().restoreMusic();
+        audioManager.getBackend().restoreMusic();
     }
 
     public void triggerFadeIn(int steps, int delay) {

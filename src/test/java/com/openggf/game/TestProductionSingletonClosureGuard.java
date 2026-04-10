@@ -27,6 +27,31 @@ public class TestProductionSingletonClosureGuard {
             "Sonic1ZoneRegistry.getInstance("
     );
 
+    private static final List<String> FORBIDDEN_PROCESS_SINGLETONS = List.of(
+            "GraphicsManager.getInstance(",
+            "AudioManager.getInstance(",
+            "RomManager.getInstance(",
+            "SonicConfigurationService.getInstance(",
+            "PerformanceProfiler.getInstance(",
+            "DebugOverlayManager.getInstance(",
+            "DebugRenderer.getInstance(",
+            "PlaybackDebugManager.getInstance(",
+            "CrossGameFeatureProvider.getInstance(",
+            "Engine.getInstance("
+    );
+
+    private static final List<String> PROCESS_SINGLETON_GUARD_FILES = List.of(
+            "com/openggf/graphics/BatchedPatternRenderer.java",
+            "com/openggf/graphics/InstancedPatternRenderer.java",
+            "com/openggf/graphics/PatternRenderCommand.java",
+            "com/openggf/graphics/GLCommand.java",
+            "com/openggf/level/render/PatternSpriteRenderer.java",
+            "com/openggf/level/render/BackgroundRenderer.java",
+            "com/openggf/sprites/render/PlayerSpriteRenderer.java",
+            "com/openggf/audio/LWJGLAudioBackend.java",
+            "com/openggf/audio/smps/SmpsSequencer.java"
+    );
+
     @Test
     public void productionCodeDoesNotUseClosedGameSpecificSingletons() throws IOException {
         Path srcMain = findSourceRoot();
@@ -45,7 +70,32 @@ public class TestProductionSingletonClosureGuard {
         }
     }
 
+    @Test
+    public void task5ProcessServiceFilesDoNotUseForbiddenProcessSingletons() throws IOException {
+        Path srcMain = findSourceRoot();
+        if (srcMain == null) {
+            return;
+        }
+
+        List<String> violations = new ArrayList<>();
+        for (String relative : PROCESS_SINGLETON_GUARD_FILES) {
+            Path file = srcMain.resolve(relative);
+            if (Files.isRegularFile(file)) {
+                scanFile(srcMain, file, violations, FORBIDDEN_PROCESS_SINGLETONS);
+            }
+        }
+
+        if (!violations.isEmpty()) {
+            fail("Found forbidden process singleton access in Task 5 production files:\n  "
+                    + String.join("\n  ", violations));
+        }
+    }
+
     private static void scanFile(Path srcMain, Path file, List<String> violations) {
+        scanFile(srcMain, file, violations, FORBIDDEN_SINGLETONS);
+    }
+
+    private static void scanFile(Path srcMain, Path file, List<String> violations, List<String> forbiddenSingletons) {
         try {
             List<String> lines = Files.readAllLines(file);
             String relative = srcMain.relativize(file).toString().replace('\\', '/');
@@ -55,7 +105,7 @@ public class TestProductionSingletonClosureGuard {
                 if (trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*")) {
                     continue;
                 }
-                for (String forbidden : FORBIDDEN_SINGLETONS) {
+                for (String forbidden : forbiddenSingletons) {
                     if (line.contains(forbidden)) {
                         violations.add(relative + ":" + (i + 1) + " - " + forbidden);
                     }

@@ -12,12 +12,14 @@ import com.openggf.audio.driver.SmpsDriver;
 import com.openggf.audio.synth.Ym2612Chip;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.game.EngineServices;
 
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.ShortBuffer;
 import java.util.*;
+import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -30,6 +32,7 @@ public class LWJGLAudioBackend implements AudioBackend {
     private static final Logger LOGGER = Logger.getLogger(LWJGLAudioBackend.class.getName());
 
     private final Object streamLock = new Object();
+    private final SonicConfigurationService configService;
 
     private long device;
     private long context;
@@ -86,6 +89,11 @@ public class LWJGLAudioBackend implements AudioBackend {
     private SmpsSequencerConfig smpsConfig;
 
     public LWJGLAudioBackend() {
+        this(EngineServices.fromLegacySingletonsForBootstrap().configuration());
+    }
+
+    public LWJGLAudioBackend(SonicConfigurationService configService) {
+        this.configService = Objects.requireNonNull(configService, "configService");
         // Initialize fallback mappings
         // SFX
         sfxFallback.put("JUMP", "sfx/jump.wav");
@@ -251,19 +259,19 @@ public class LWJGLAudioBackend implements AudioBackend {
         smpsDriver = new SmpsDriver(getSmpsOutputRate());
 
         // Configure Region
-        String regionStr = SonicConfigurationService.getInstance().getString(SonicConfiguration.REGION);
+        String regionStr = configService.getString(SonicConfiguration.REGION);
         if ("PAL".equalsIgnoreCase(regionStr)) {
             smpsDriver.setRegion(SmpsSequencer.Region.PAL);
         } else {
             smpsDriver.setRegion(SmpsSequencer.Region.NTSC);
         }
 
-        boolean dacInterpolate = SonicConfigurationService.getInstance().getBoolean(SonicConfiguration.DAC_INTERPOLATE);
+        boolean dacInterpolate = configService.getBoolean(SonicConfiguration.DAC_INTERPOLATE);
         smpsDriver.setDacInterpolate(dacInterpolate);
         smpsDriver.setOutputSampleRate(getSmpsOutputRate());
         applyPsgNoiseConfig(smpsDriver);
 
-        boolean fm6DacOff = SonicConfigurationService.getInstance().getBoolean(SonicConfiguration.FM6_DAC_OFF);
+        boolean fm6DacOff = configService.getBoolean(SonicConfiguration.FM6_DAC_OFF);
 
         SmpsSequencer seq = new SmpsSequencer(data, dacData, smpsDriver, requireSmpsConfig());
         seq.setSampleRate(smpsDriver.getOutputSampleRate());
@@ -329,19 +337,19 @@ public class LWJGLAudioBackend implements AudioBackend {
 
         smpsDriver = new SmpsDriver(getSmpsOutputRate());
 
-        String regionStr = SonicConfigurationService.getInstance().getString(SonicConfiguration.REGION);
+        String regionStr = configService.getString(SonicConfiguration.REGION);
         if ("PAL".equalsIgnoreCase(regionStr)) {
             smpsDriver.setRegion(SmpsSequencer.Region.PAL);
         } else {
             smpsDriver.setRegion(SmpsSequencer.Region.NTSC);
         }
 
-        boolean dacInterpolate = SonicConfigurationService.getInstance().getBoolean(SonicConfiguration.DAC_INTERPOLATE);
+        boolean dacInterpolate = configService.getBoolean(SonicConfiguration.DAC_INTERPOLATE);
         smpsDriver.setDacInterpolate(dacInterpolate);
         smpsDriver.setOutputSampleRate(getSmpsOutputRate());
         applyPsgNoiseConfig(smpsDriver);
 
-        boolean fm6DacOff = SonicConfigurationService.getInstance().getBoolean(SonicConfiguration.FM6_DAC_OFF);
+        boolean fm6DacOff = configService.getBoolean(SonicConfiguration.FM6_DAC_OFF);
 
         SmpsSequencer seq = new SmpsSequencer(data, dacData, smpsDriver, effectiveConfig);
         seq.setSampleRate(smpsDriver.getOutputSampleRate());
@@ -379,8 +387,8 @@ public class LWJGLAudioBackend implements AudioBackend {
 
         SmpsSequencerConfig effectiveConfig = (config != null) ? config : requireSmpsConfig();
 
-        boolean dacInterpolate = SonicConfigurationService.getInstance().getBoolean(SonicConfiguration.DAC_INTERPOLATE);
-        boolean fm6DacOff = SonicConfigurationService.getInstance().getBoolean(SonicConfiguration.FM6_DAC_OFF);
+        boolean dacInterpolate = configService.getBoolean(SonicConfiguration.DAC_INTERPOLATE);
+        boolean fm6DacOff = configService.getBoolean(SonicConfiguration.FM6_DAC_OFF);
 
         // Look up SFX priority from game-specific audio profile
         int sfxPriority = (audioProfile != null) ? audioProfile.getSfxPriority(data.getId()) : 0x70;
@@ -626,15 +634,13 @@ public class LWJGLAudioBackend implements AudioBackend {
     }
 
     private double getSmpsOutputRate() {
-        boolean internalRate = SonicConfigurationService.getInstance()
-                .getBoolean(SonicConfiguration.AUDIO_INTERNAL_RATE_OUTPUT);
+        boolean internalRate = configService.getBoolean(SonicConfiguration.AUDIO_INTERNAL_RATE_OUTPUT);
         // Use device's native sample rate to avoid OpenAL resampling - our BlipResampler handles it
         return internalRate ? Ym2612Chip.getInternalRate() : deviceSampleRate;
     }
 
     private void applyPsgNoiseConfig(SmpsDriver driver) {
-        boolean everyToggle = SonicConfigurationService.getInstance()
-                .getBoolean(SonicConfiguration.PSG_NOISE_SHIFT_EVERY_TOGGLE);
+        boolean everyToggle = configService.getBoolean(SonicConfiguration.PSG_NOISE_SHIFT_EVERY_TOGGLE);
         driver.setPsgNoiseShiftOnEveryToggle(everyToggle);
     }
 
