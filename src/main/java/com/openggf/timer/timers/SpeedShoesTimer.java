@@ -26,7 +26,7 @@ public class SpeedShoesTimer extends AbstractTimer {
         sprite.deactivateSpeedShoes();
 
         // Slow down the music
-        AudioManager audioManager = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().audio();
+        AudioManager audioManager = com.openggf.game.RuntimeManager.getEngineServices().audio();
         GameAudioProfile audioProfile = audioManager.getAudioProfile();
         if (audioProfile != null) {
             audioManager.playMusic(audioProfile.getSpeedShoesOffCommandId());

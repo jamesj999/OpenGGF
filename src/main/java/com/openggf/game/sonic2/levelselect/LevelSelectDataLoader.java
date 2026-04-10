@@ -323,7 +323,7 @@ public class LevelSelectDataLoader {
             return;
         }
 
-        GraphicsManager graphicsManager = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        GraphicsManager graphicsManager = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         if (graphicsManager == null || graphicsManager.isHeadlessMode()) {
             return;
         }

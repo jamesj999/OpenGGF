@@ -194,7 +194,7 @@ public class Sonic1TitleCardManager implements TitleCardProvider {
             return;
         }
 
-        GraphicsManager graphicsManager = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        GraphicsManager graphicsManager = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         if (graphicsManager == null) {
             return;
         }
@@ -276,7 +276,7 @@ public class Sonic1TitleCardManager implements TitleCardProvider {
     public void draw() {
         ensureArtCached();
 
-        GraphicsManager graphicsManager = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        GraphicsManager graphicsManager = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         if (graphicsManager == null) {
             return;
         }

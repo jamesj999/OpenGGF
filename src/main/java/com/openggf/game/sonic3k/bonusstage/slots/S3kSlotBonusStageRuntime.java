@@ -74,7 +74,7 @@ public final class S3kSlotBonusStageRuntime {
 
         suppressCpuSidekicks();
 
-        String mainCode = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().configuration().getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        String mainCode = com.openggf.game.RuntimeManager.getEngineServices().configuration().getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         if (bootstrapRuntime.getSpriteManager().getSprite(mainCode) instanceof AbstractPlayableSprite mainPlayer) {
             originalPlayer = mainPlayer;
             short slotStartX = S3kSlotRomData.SLOT_BONUS_PLAYER_START_X;

@@ -340,7 +340,7 @@ public class Sonic3kHCZEvents extends Sonic3kZoneEvents {
         }
 
         // Refresh the GPU palette texture
-        GraphicsManager gm = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         if (gm.isGlInitialized()) {
             gm.cachePaletteTexture(palette, PALETTE_LINE);
         }

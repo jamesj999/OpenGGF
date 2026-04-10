@@ -171,7 +171,7 @@ public class GraphicsManager {
 		this.tilemapGpuRenderer = new TilemapGpuRenderer();
 		this.tilemapGpuRenderer.init(TILEMAP_SHADER_PATH);
 		this.instancedPatternRenderer = new InstancedPatternRenderer(this,
-				EngineServices.fromLegacySingletonsForBootstrap().configuration());
+				com.openggf.game.RuntimeManager.getEngineServices().configuration());
 		this.instancedPatternRenderer.init(INSTANCED_VERTEX_SHADER_PATH, pixelShaderPath, WATER_SHADER_PATH);
 
 		syncRuntimeManagedReferences();
@@ -611,7 +611,7 @@ public class GraphicsManager {
 		}
 		if (batchedRenderer == null) {
 			batchedRenderer = new BatchedPatternRenderer(this,
-					EngineServices.fromLegacySingletonsForBootstrap().configuration());
+					com.openggf.game.RuntimeManager.getEngineServices().configuration());
 		}
 		batchedRenderer.beginBatch();
 	}
@@ -651,7 +651,7 @@ public class GraphicsManager {
 		}
 		if (batchedRenderer == null) {
 			batchedRenderer = new BatchedPatternRenderer(this,
-					EngineServices.fromLegacySingletonsForBootstrap().configuration());
+					com.openggf.game.RuntimeManager.getEngineServices().configuration());
 		}
 		batchedRenderer.beginShadowBatch();
 	}

@@ -35,7 +35,7 @@ public class ExplosionObjectInstance extends AbstractObjectInstance {
         this.renderManager = renderManager;
         if (sfxId >= 0) {
             try {
-                com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().audio().playSfx(sfxId);
+                com.openggf.game.RuntimeManager.getEngineServices().audio().playSfx(sfxId);
             } catch (Exception e) {
                 LOGGER.warning("Failed to play explosion sound: " + e.getMessage());
             }

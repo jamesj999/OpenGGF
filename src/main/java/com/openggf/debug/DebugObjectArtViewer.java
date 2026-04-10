@@ -184,7 +184,7 @@ public class DebugObjectArtViewer {
         }
 
         // Get palette texture from graphics manager
-        GraphicsManager gm = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         Integer paletteTextureId = gm.getCombinedPaletteTextureId();
         if (paletteTextureId == null || paletteTextureId == 0) {
             return;

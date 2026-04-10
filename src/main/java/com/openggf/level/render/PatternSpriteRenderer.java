@@ -21,7 +21,7 @@ public class PatternSpriteRenderer {
     private final PatternDesc reusableDesc = new PatternDesc();
 
     public PatternSpriteRenderer(SpriteSheet<? extends SpriteFrame<? extends SpriteFramePiece>> spriteSheet) {
-        this(spriteSheet, EngineServices.fromLegacySingletonsForBootstrap().graphics());
+        this(spriteSheet, com.openggf.game.RuntimeManager.getEngineServices().graphics());
     }
 
     public PatternSpriteRenderer(SpriteSheet<? extends SpriteFrame<? extends SpriteFramePiece>> spriteSheet,

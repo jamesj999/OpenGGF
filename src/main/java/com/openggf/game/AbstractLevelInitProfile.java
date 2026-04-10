@@ -267,7 +267,7 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
                 () -> GameServices.audio().resetState()),
 
             new InitStep("ResetCrossGameFeatures", "Undoes CrossGameFeatureProvider.initialize()",
-                () -> com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().crossGameFeatures().resetState()),
+                () -> com.openggf.game.RuntimeManager.getEngineServices().crossGameFeatures().resetState()),
 
             // Game-specific: undoes zone event handlers, boss arena state
             levelEventTeardownStep(),
@@ -292,7 +292,7 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
                 AbstractLevelInitProfile::resetCameraIfAvailable),
             // Undoes S1:Phase B / S2:Phase B / S3K:Phase D (VDP register config)
             new InitStep("ResetGraphics", "Undoes VDP register / ClearScreen / Clear_DisplayData",
-                () -> com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics().resetState()),
+                () -> com.openggf.game.RuntimeManager.getEngineServices().graphics().resetState()),
             // Undoes S1:Phase A / S2:Phase A / S3K:Phase A (PaletteFadeOut/Pal_FadeToBlack)
             new InitStep("ResetFade", "Undoes PaletteFadeOut / Pal_FadeToBlack",
                 AbstractLevelInitProfile::resetFadeIfAvailable),
@@ -318,7 +318,7 @@ public abstract class AbstractLevelInitProfile implements LevelInitProfile {
             perTestLeadStep(),
 
             new InitStep("ResetCrossGameFeatures", "Undoes CrossGameFeatureProvider.initialize()",
-                () -> com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().crossGameFeatures().resetState()),
+                () -> com.openggf.game.RuntimeManager.getEngineServices().crossGameFeatures().resetState()),
 
             new InitStep("ResetParallax", "Undoes DeformBgLayer init",
                 AbstractLevelInitProfile::resetParallaxIfAvailable),

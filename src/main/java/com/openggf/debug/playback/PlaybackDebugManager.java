@@ -23,7 +23,7 @@ public final class PlaybackDebugManager {
     private static final int DEFAULT_JUMP_FRAMES = 60;
     private static final int PERIODIC_LOG_INTERVAL_FRAMES = 60;
 
-    private final SonicConfigurationService configService = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().configuration();
+    private final SonicConfigurationService configService = com.openggf.game.RuntimeManager.getEngineServices().configuration();
     private final Bk2MovieLoader movieLoader = new Bk2MovieLoader();
 
     private Bk2Movie movie;

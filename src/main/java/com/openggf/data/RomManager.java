@@ -28,7 +28,7 @@ public class RomManager implements AutoCloseable {
 
     private static RomManager instance;
 
-    private final SonicConfigurationService configService = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().configuration();
+    private final SonicConfigurationService configService = com.openggf.game.RuntimeManager.getEngineServices().configuration();
     private Rom rom;
     private boolean initialized = false;
     private final Map<String, Rom> secondaryRoms = new HashMap<>();
@@ -142,7 +142,7 @@ public class RomManager implements AutoCloseable {
      * @return the configured ROM filename for that game
      */
     public static String resolveRomForGame(String gameId) {
-        SonicConfigurationService svc = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().configuration();
+        SonicConfigurationService svc = com.openggf.game.RuntimeManager.getEngineServices().configuration();
         return switch (gameId != null ? gameId.toLowerCase() : "s2") {
             case "s1" -> svc.getString(SonicConfiguration.SONIC_1_ROM);
             case "s3k" -> svc.getString(SonicConfiguration.SONIC_3K_ROM);

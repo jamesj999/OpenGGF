@@ -675,7 +675,7 @@ public class S3kSpecialStageResultsScreen implements ResultsScreen {
         writeScoreValue(combinedPatterns, scoreDigitStart, score, sourceDigitPatterns);
 
         if (artCached && renderer != null) {
-            GraphicsManager graphicsManager = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+            GraphicsManager graphicsManager = com.openggf.game.RuntimeManager.getEngineServices().graphics();
             if (graphicsManager != null) {
                 renderer.updatePatternRange(graphicsManager, scoreDigitStart, SCORE_DIGIT_TILE_COUNT);
             }
@@ -708,7 +708,7 @@ public class S3kSpecialStageResultsScreen implements ResultsScreen {
         if (frameIndex < 0 || frameIndex >= spriteSheet.getFrameCount()) return;
         var frame = spriteSheet.getFrame(frameIndex);
         if (frame == null) return;
-        var gm = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        var gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         if (gm == null) return;
 
         for (var piece : frame.pieces()) {
@@ -745,7 +745,7 @@ public class S3kSpecialStageResultsScreen implements ResultsScreen {
         if (frameIndex < 0 || frameIndex >= spriteSheet.getFrameCount()) return;
         var frame = spriteSheet.getFrame(frameIndex);
         if (frame == null) return;
-        var gm = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        var gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         if (gm == null) return;
 
         for (var piece : frame.pieces()) {
@@ -779,7 +779,7 @@ public class S3kSpecialStageResultsScreen implements ResultsScreen {
 
     private void renderMappingPiece(com.openggf.level.render.SpriteMappingPiece piece,
                                     int worldX, int worldY, int tileOffset, int paletteOverride) {
-        var gm = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        var gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         if (gm == null) return;
 
         int widthTiles = piece.widthTiles();
@@ -933,7 +933,7 @@ public class S3kSpecialStageResultsScreen implements ResultsScreen {
      */
     private void ensureArtCached() {
         if (artCached) return;
-        GraphicsManager gm = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         if (gm == null) return;
 
         // Cache patterns

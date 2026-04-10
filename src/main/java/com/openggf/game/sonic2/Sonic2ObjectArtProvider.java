@@ -347,7 +347,7 @@ public class Sonic2ObjectArtProvider implements ObjectArtProvider {
             return;
         }
         com.openggf.game.EngineServices engineServices =
-                com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap();
+                com.openggf.game.RuntimeManager.getEngineServices();
         com.openggf.game.CrossGameFeatureProvider crossGame = engineServices.crossGameFeatures();
         String mainChar = engineServices.configuration()
                 .getString(com.openggf.configuration.SonicConfiguration.MAIN_CHARACTER_CODE);

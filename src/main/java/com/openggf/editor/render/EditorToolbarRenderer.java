@@ -37,7 +37,7 @@ public class EditorToolbarRenderer {
         List<GLCommand> commands = new ArrayList<>();
         appendCommands(commands);
         if (!commands.isEmpty()) {
-            com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics().registerCommand(new GLCommandGroup(GL_LINES, commands));
+            com.openggf.game.RuntimeManager.getEngineServices().graphics().registerCommand(new GLCommandGroup(GL_LINES, commands));
         }
         textRenderer.renderLines(buildStateLines(), TEXT_X, TEXT_Y);
     }

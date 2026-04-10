@@ -294,7 +294,7 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
 
     public SmpsSequencer(AbstractSmpsData smpsData, DacData dacData, SmpsSequencerConfig config) {
         this(smpsData, dacData, new VirtualSynthesizer(),
-                EngineServices.fromLegacySingletonsForBootstrap().audio(), config);
+                com.openggf.game.RuntimeManager.getEngineServices().audio(), config);
     }
 
     public SmpsSequencer(AbstractSmpsData smpsData, DacData dacData, AudioManager audioManager,
@@ -304,7 +304,7 @@ public class SmpsSequencer implements AudioStream, CoordFlagContext {
 
     public SmpsSequencer(AbstractSmpsData smpsData, DacData dacData, Synthesizer synth,
             SmpsSequencerConfig config) {
-        this(smpsData, dacData, synth, EngineServices.fromLegacySingletonsForBootstrap().audio(), config);
+        this(smpsData, dacData, synth, com.openggf.game.RuntimeManager.getEngineServices().audio(), config);
     }
 
     public SmpsSequencer(AbstractSmpsData smpsData, DacData dacData, Synthesizer synth,

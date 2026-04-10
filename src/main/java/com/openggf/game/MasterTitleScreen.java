@@ -110,7 +110,7 @@ public class MasterTitleScreen {
     private boolean gameSelected = false;
 
     public void initialize() {
-        SonicConfigurationService config = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().configuration();
+        SonicConfigurationService config = com.openggf.game.RuntimeManager.getEngineServices().configuration();
 
         // Check ROM availability
         for (int i = 0; i < GameEntry.values().length; i++) {
@@ -228,7 +228,7 @@ public class MasterTitleScreen {
         }
 
         // Handle input
-        SonicConfigurationService config = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().configuration();
+        SonicConfigurationService config = com.openggf.game.RuntimeManager.getEngineServices().configuration();
         int leftKey = config.getInt(SonicConfiguration.LEFT);
         int rightKey = config.getInt(SonicConfiguration.RIGHT);
         int jumpKey = config.getInt(SonicConfiguration.JUMP);
@@ -319,7 +319,7 @@ public class MasterTitleScreen {
             font.drawTextCentered("ROM NOT FOUND", SCREEN_W, 90, 1f, 0.3f, 0.3f, 1f);
             font.drawTextCentered(entry.displayName, SCREEN_W, 105, 0.8f, 0.8f, 0.8f, 1f);
 
-            SonicConfigurationService config = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().configuration();
+            SonicConfigurationService config = com.openggf.game.RuntimeManager.getEngineServices().configuration();
             String romFile = config.getString(entry.romConfigKey);
             if (romFile == null || romFile.isEmpty()) {
                 romFile = "(not configured)";

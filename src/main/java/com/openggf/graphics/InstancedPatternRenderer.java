@@ -79,8 +79,8 @@ public class InstancedPatternRenderer {
     private final ArrayDeque<InstancedBatchCommand> commandPool = new ArrayDeque<>();
 
     public InstancedPatternRenderer() {
-        this(EngineServices.fromLegacySingletonsForBootstrap().graphics(),
-                EngineServices.fromLegacySingletonsForBootstrap().configuration());
+        this(com.openggf.game.RuntimeManager.getEngineServices().graphics(),
+                com.openggf.game.RuntimeManager.getEngineServices().configuration());
     }
 
     public InstancedPatternRenderer(GraphicsManager graphicsManager, SonicConfigurationService configService) {

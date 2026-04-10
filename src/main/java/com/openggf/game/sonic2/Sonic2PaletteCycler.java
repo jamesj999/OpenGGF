@@ -23,7 +23,7 @@ import java.util.List;
  */
 class Sonic2PaletteCycler implements AnimatedPaletteManager {
     private final Level level;
-    private final GraphicsManager graphicsManager = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+    private final GraphicsManager graphicsManager = com.openggf.game.RuntimeManager.getEngineServices().graphics();
     private final List<PaletteCycle> cycles;
 
     public Sonic2PaletteCycler(Rom rom, Level level, int zoneIndex) throws IOException {

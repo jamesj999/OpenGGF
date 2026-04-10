@@ -123,7 +123,7 @@ public class RingManager {
             if (renderer.getSparkleFrameCount() > 0) {
                 placement.setSparkleStartFrame(index, frameCounter);
             }
-            com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().audio().playSfx(GameSound.RING);
+            com.openggf.game.RuntimeManager.getEngineServices().audio().playSfx(GameSound.RING);
             player.addRings(1);
         }
 
@@ -485,7 +485,7 @@ public class RingManager {
             int dy = Math.abs(pcy - ar.y);
             if (dx < 8 + player.getXRadius() && dy < 8 + player.getYRadius()) {
                 player.addRings(1);
-                com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().audio().playSfx(GameSound.RING);
+                com.openggf.game.RuntimeManager.getEngineServices().audio().playSfx(GameSound.RING);
                 ar.active = false;
             }
         }
@@ -728,7 +728,7 @@ public class RingManager {
         private final LevelManager levelManager;
         private final RingRenderer renderer;
         private final TouchResponseTable touchResponseTable;
-        private final AudioManager audioManager = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().audio();
+        private final AudioManager audioManager = com.openggf.game.RuntimeManager.getEngineServices().audio();
         private final Camera camera = GameServices.camera();
         private final LostRing[] ringPool = new LostRing[MAX_LOST_RINGS];
         private int activeRingCount = 0;

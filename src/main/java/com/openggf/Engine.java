@@ -163,7 +163,7 @@ public class Engine {
 	}
 
 	public Engine() {
-		this(EngineServices.fromLegacySingletonsForBootstrap());
+		this(com.openggf.game.RuntimeManager.getEngineServices());
 	}
 
 	public Engine(EngineServices engineServices) {

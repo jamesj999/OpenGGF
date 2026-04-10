@@ -77,8 +77,8 @@ public class BatchedPatternRenderer {
     }
 
     public BatchedPatternRenderer() {
-        this(EngineServices.fromLegacySingletonsForBootstrap().graphics(),
-                EngineServices.fromLegacySingletonsForBootstrap().configuration());
+        this(com.openggf.game.RuntimeManager.getEngineServices().graphics(),
+                com.openggf.game.RuntimeManager.getEngineServices().configuration());
     }
 
     public BatchedPatternRenderer(GraphicsManager graphicsManager, SonicConfigurationService configService) {

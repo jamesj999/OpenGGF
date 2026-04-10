@@ -72,7 +72,7 @@ public class BackgroundRenderer {
     private float shimmerWaterlineScreenY = 9999.0f;
 
     public BackgroundRenderer() {
-        this(EngineServices.fromLegacySingletonsForBootstrap().graphics());
+        this(com.openggf.game.RuntimeManager.getEngineServices().graphics());
     }
 
     public BackgroundRenderer(GraphicsManager graphicsManager) {

@@ -83,7 +83,7 @@ public class DefaultObjectServices implements ObjectServices {
                                  ParallaxManager parallaxManager) {
         this(levelManager, camera, gameState, spriteManager, fadeManager, waterSystem,
                 parallaxManager, null, new GameRng(GameRng.Flavour.S1_S2),
-                EngineServices.fromLegacySingletonsForBootstrap());
+                com.openggf.game.RuntimeManager.getEngineServices());
     }
 
     private DefaultObjectServices(LevelManager levelManager,

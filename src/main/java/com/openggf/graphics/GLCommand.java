@@ -233,11 +233,11 @@ public class GLCommand implements GLCommandable {
 	}
 
 	private static GraphicsManager bootstrapGraphicsManager() {
-		return EngineServices.fromLegacySingletonsForBootstrap().graphics();
+		return com.openggf.game.RuntimeManager.getEngineServices().graphics();
 	}
 
 	private static SonicConfigurationService bootstrapConfigService() {
-		return EngineServices.fromLegacySingletonsForBootstrap().configuration();
+		return com.openggf.game.RuntimeManager.getEngineServices().configuration();
 	}
 
 	public void execute(int cameraX, int cameraY, int cameraWidth, int cameraHeight) {

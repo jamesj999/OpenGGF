@@ -48,6 +48,11 @@ public class TestProductionSingletonClosureGuard {
 
     private static final String ENGINE_SERVICES_BOOTSTRAP_EXCEPTION =
             "com/openggf/game/EngineServices.java";
+    private static final String LEGACY_BOOTSTRAP_BRIDGE = "EngineServices.fromLegacySingletonsForBootstrap(";
+    private static final List<String> LEGACY_BOOTSTRAP_BRIDGE_ALLOWLIST = List.of(
+            "com/openggf/game/EngineServices.java",
+            "com/openggf/game/RuntimeManager.java"
+    );
 
     @Test
     public void productionCodeDoesNotUseClosedGameSpecificSingletons() throws IOException {
@@ -88,6 +93,26 @@ public class TestProductionSingletonClosureGuard {
     }
 
     @Test
+    public void productionCodeDoesNotUseLegacyBootstrapBridgeOutsideAllowlist() throws IOException {
+        Path srcMain = findSourceRoot();
+        if (srcMain == null) {
+            return;
+        }
+
+        List<String> violations = new ArrayList<>();
+        Files.walk(srcMain)
+                .filter(path -> path.toString().endsWith(".java"))
+                .filter(path -> !LEGACY_BOOTSTRAP_BRIDGE_ALLOWLIST.contains(
+                        srcMain.relativize(path).toString().replace('\\', '/')))
+                .forEach(path -> scanFile(srcMain, path, violations, List.of(LEGACY_BOOTSTRAP_BRIDGE)));
+
+        if (!violations.isEmpty()) {
+            fail("Found legacy bootstrap bridge usage outside the allowlist:\n  "
+                    + String.join("\n  ", violations));
+        }
+    }
+
+    @Test
     public void detectsForbiddenProcessSingletonSplitAcrossLines() {
         List<String> violations = scanSourceText("sample/Split.java", """
                 package sample;
@@ -101,6 +126,22 @@ public class TestProductionSingletonClosureGuard {
                 """, FORBIDDEN_PROCESS_SINGLETONS);
 
         assertEquals(List.of("sample/Split.java:5 - GraphicsManager.getInstance("), violations);
+    }
+
+    @Test
+    public void detectsLegacyBootstrapBridgeSplitAcrossLines() {
+        List<String> violations = scanSourceText("sample/Bootstrap.java", """
+                package sample;
+
+                class Bootstrap {
+                    void wire() {
+                        EngineServices
+                                .fromLegacySingletonsForBootstrap();
+                    }
+                }
+                """, List.of(LEGACY_BOOTSTRAP_BRIDGE));
+
+        assertEquals(List.of("sample/Bootstrap.java:5 - " + LEGACY_BOOTSTRAP_BRIDGE), violations);
     }
 
     @Test

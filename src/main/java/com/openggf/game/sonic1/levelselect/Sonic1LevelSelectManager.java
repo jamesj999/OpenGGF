@@ -37,7 +37,7 @@ public class Sonic1LevelSelectManager implements LevelSelectProvider {
 
     private static Sonic1LevelSelectManager instance;
 
-    private final SonicConfigurationService configService = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().configuration();
+    private final SonicConfigurationService configService = com.openggf.game.RuntimeManager.getEngineServices().configuration();
     private final Sonic1LevelSelectDataLoader dataLoader = new Sonic1LevelSelectDataLoader();
     private final PatternDesc reusableDesc = new PatternDesc();
 
@@ -251,7 +251,7 @@ public class Sonic1LevelSelectManager implements LevelSelectProvider {
         // changing CRAM immediately affects all displayed tiles.
         dataLoader.cacheToGpu();
 
-        GraphicsManager gm = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         if (gm == null || gm.isHeadlessMode()) {
             return;
         }

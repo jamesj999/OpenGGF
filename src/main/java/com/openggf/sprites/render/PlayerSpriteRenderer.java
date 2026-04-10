@@ -24,7 +24,7 @@ public class PlayerSpriteRenderer {
     private int lastFrame = -1;
 
     public PlayerSpriteRenderer(SpriteArtSet artSet) {
-        this(artSet, EngineServices.fromLegacySingletonsForBootstrap().graphics());
+        this(artSet, com.openggf.game.RuntimeManager.getEngineServices().graphics());
     }
 
     public PlayerSpriteRenderer(SpriteArtSet artSet, GraphicsManager graphicsManager) {

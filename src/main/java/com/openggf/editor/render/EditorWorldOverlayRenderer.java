@@ -28,7 +28,7 @@ public class EditorWorldOverlayRenderer {
         List<GLCommand> commands = new ArrayList<>();
         appendWorldCommands(commands, editorMode.getCursor());
         if (!commands.isEmpty()) {
-            com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics().registerCommand(new GLCommandGroup(GL_LINES, commands));
+            com.openggf.game.RuntimeManager.getEngineServices().graphics().registerCommand(new GLCommandGroup(GL_LINES, commands));
         }
     }
 

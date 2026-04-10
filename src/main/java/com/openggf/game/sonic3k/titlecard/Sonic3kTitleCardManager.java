@@ -255,7 +255,7 @@ public class Sonic3kTitleCardManager implements TitleCardProvider {
     public void draw() {
         ensureArtCached();
 
-        GraphicsManager gm = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         if (gm == null) return;
 
         // Black background during SLIDE_IN and DISPLAY (not in-level mode).
@@ -586,7 +586,7 @@ public class Sonic3kTitleCardManager implements TitleCardProvider {
     private void ensureArtCached() {
         if (artCached || !artLoaded || combinedPatterns == null) return;
 
-        GraphicsManager gm = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         if (gm == null) return;
 
         for (int i = 0; i < combinedPatterns.length; i++) {

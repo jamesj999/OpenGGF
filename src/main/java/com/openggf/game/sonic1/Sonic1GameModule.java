@@ -264,7 +264,7 @@ public class Sonic1GameModule implements GameModule {
     @Override
     public SuperStateController createSuperStateController(AbstractPlayableSprite player) {
         if (CrossGameFeatureProvider.isActive()) {
-            return com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().crossGameFeatures().createSuperStateController(player);
+            return com.openggf.game.RuntimeManager.getEngineServices().crossGameFeatures().createSuperStateController(player);
         }
         return null; // Vanilla S1 has no Super Sonic
     }
