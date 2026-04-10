@@ -1274,13 +1274,31 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
             return new ObjectSpriteSheet(patterns, mappings, paletteIndex, 1);
         }
 
-        List<SpriteMappingFrame> adjustedMappings = Sonic3kObjectArt.adjustTileIndices(mappings, -minTile);
-        if (maxTileExclusive - minTile > patterns.length) {
-            LOG.warning("Standalone S3K sheet mapping range exceeds pattern count"
-                    + ": tileRange=" + (maxTileExclusive - minTile)
-                    + " patterns=" + patterns.length);
+        int tileRange = maxTileExclusive - minTile;
+        Pattern[] sheetPatterns = patterns;
+        int tileAdjustment = 0;
+        if (maxTileExclusive <= patterns.length) {
+            // Mapping tile words are relative to the decompressed source art.
+            // Keep source tile N aligned with mapping tile N by slicing before
+            // zero-basing the mappings. AIZ2 bombership sprites rely on this:
+            // bomb/explosion frames start at tile $08 and the small boss at $86.
+            if (minTile > 0) {
+                sheetPatterns = Arrays.copyOfRange(patterns, minTile, maxTileExclusive);
+                tileAdjustment = -minTile;
+            }
+        } else {
+            // Some standalone sheets carry absolute VRAM tile numbers in their
+            // mappings. In that case the decompressed art starts at mapping min.
+            tileAdjustment = -minTile;
         }
-        return new ObjectSpriteSheet(patterns, adjustedMappings, paletteIndex, 1);
+
+        List<SpriteMappingFrame> adjustedMappings = Sonic3kObjectArt.adjustTileIndices(mappings, tileAdjustment);
+        if (tileRange > sheetPatterns.length) {
+            LOG.warning("Standalone S3K sheet mapping range exceeds pattern count"
+                    + ": tileRange=" + tileRange
+                    + " patterns=" + sheetPatterns.length);
+        }
+        return new ObjectSpriteSheet(sheetPatterns, adjustedMappings, paletteIndex, 1);
     }
 
     private static List<SpriteMappingFrame> loadMappingsFromAsmInclude(Path path) throws IOException {
