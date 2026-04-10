@@ -5,11 +5,11 @@
  *
  * Renders the special stage parallax background with:
  * - Per-scanline horizontal scrolling (emulates VDP H-scroll table)
- * - Full 320x224 viewport sampling
+ * - H32 256x224 viewport sampling centered in the 320x224 game viewport
  * - Vertical scrolling for rise/drop animations
  *
  * The background is pre-rendered to an FBO tilemap.
- * This shader samples with per-line scroll offsets across the full Special Stage viewport.
+ * This shader samples with per-line scroll offsets across the H32 Special Stage viewport.
  */
 
 // Background tilemap rendered to FBO (already palette-resolved RGBA)
@@ -38,6 +38,9 @@ uniform float FillTransparentWithBackdrop;
 
 const float SCREEN_GAME_WIDTH = 320.0;
 const float SCREEN_GAME_HEIGHT = 224.0;
+const float H32_WIDTH = 256.0;
+const float H32_LEFT_EDGE = (SCREEN_GAME_WIDTH - H32_WIDTH) * 0.5;
+const float H32_RIGHT_EDGE = H32_LEFT_EDGE + H32_WIDTH;
 
 out vec4 FragColor;
 
@@ -55,8 +58,13 @@ void main()
     float gameX = normX * SCREEN_GAME_WIDTH;
     float gameY = (1.0 - normY) * SCREEN_GAME_HEIGHT;
 
-    // Full viewport X coordinate.
-    float localX = gameX;
+    if (gameX < H32_LEFT_EDGE || gameX >= H32_RIGHT_EDGE) {
+        FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+        return;
+    }
+
+    // H32-local X coordinate (0..256); side borders stay black.
+    float localX = gameX - H32_LEFT_EDGE;
 
     // ========================================
     // PER-SCANLINE HORIZONTAL SCROLL
