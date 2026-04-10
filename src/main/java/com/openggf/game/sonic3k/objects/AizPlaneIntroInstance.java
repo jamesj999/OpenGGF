@@ -182,7 +182,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
     private int liftoffAnimIndex;
 
     /** Palette cycler for Super Sonic visual effect (routines 0x0C+). */
-    private final AizIntroPaletteCycler paletteCycler;
+    private AizIntroPaletteCycler paletteCycler;
 
     /** Whether this object currently owns player control lock. */
     private boolean ownsPlayerControl;
@@ -274,7 +274,6 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         this.planeDetached = false;
         this.planeWalkLeft = false;
         this.superSonicActive = false;
-        this.paletteCycler = new AizIntroPaletteCycler(services());
         this.ownsPlayerControl = false;
         this.mappingFrame = INTRO_MAPPING_FRAME;
         this.lastFrameCounter = 0;
@@ -586,6 +585,13 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         }
     }
 
+    private AizIntroPaletteCycler paletteCycler() {
+        if (paletteCycler == null) {
+            paletteCycler = new AizIntroPaletteCycler(services());
+        }
+        return paletteCycler;
+    }
+
     private boolean applyMainLevelOverlaysFromServices() {
         return AizIntroTerrainSwap.applyMainLevelOverlays(services());
     }
@@ -613,9 +619,10 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
     // -----------------------------------------------------------------------
 
     private void superSonicPaletteAnim() {
-        paletteCycler.advance();
-        paletteCycler.applyToGpu();
-        mappingFrame = paletteCycler.getMappingFrame(lastFrameCounter);
+        AizIntroPaletteCycler cycler = paletteCycler();
+        cycler.advance();
+        cycler.applyToGpu();
+        mappingFrame = cycler.getMappingFrame(lastFrameCounter);
     }
 
     // -----------------------------------------------------------------------
@@ -634,7 +641,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         // ROM: timer = 0x40 (wait happens in routine 2)
         waitTimer = INIT_WAIT_TIMER;
         waveTimer = WAVE_SPAWN_INTERVAL;
-        paletteCycler.init();
+        paletteCycler().init();
         superSonicActive = false;
         mappingFrame = INTRO_MAPPING_FRAME;
         ensureIntroSonicRenderersLoaded();
@@ -840,7 +847,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
      */
     private void setupSuperSonic() {
         superSonicActive = true;
-        paletteCycler.init();
+        paletteCycler().init();
         mappingFrame = SUPER_MAPPING_FRAME_BASE;
     }
 

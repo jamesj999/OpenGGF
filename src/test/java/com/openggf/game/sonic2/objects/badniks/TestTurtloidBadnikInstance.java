@@ -2,9 +2,9 @@ package com.openggf.game.sonic2.objects.badniks;
 
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.GameRng;
-import com.openggf.level.objects.DefaultObjectServices;
 import org.junit.Test;
 import com.openggf.level.LevelManager;
+import com.openggf.level.objects.ObjectConstructionContext;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
@@ -36,27 +36,20 @@ public class TestTurtloidBadnikInstance {
         when(levelManager.getObjectRenderManager()).thenReturn(objectRenderManager);
         when(objectRenderManager.getPointsRenderer()).thenReturn(pointsRenderer);
 
-        // Set up LevelManager singleton so constructor-time spawnChildren() works
-        Field lmField = LevelManager.class.getDeclaredField("levelManager");
-        lmField.setAccessible(true);
-        Object originalLm = lmField.get(null);
-        lmField.set(null, levelManager);
+        com.openggf.level.objects.ObjectServices services = mock(com.openggf.level.objects.ObjectServices.class);
+        when(services.objectManager()).thenReturn(objectManager);
+        when(services.renderManager()).thenReturn(objectRenderManager);
+        when(services.rng()).thenReturn(new GameRng(GameRng.Flavour.S1_S2));
 
+        ObjectConstructionContext.setConstructionContext(services);
+        TurtloidBadnikInstance base;
         try {
-            com.openggf.level.objects.ObjectServices services = mock(com.openggf.level.objects.ObjectServices.class);
-            when(services.objectManager()).thenReturn(objectManager);
-            when(services.renderManager()).thenReturn(objectRenderManager);
-            when(services.rng()).thenReturn(new GameRng(GameRng.Flavour.S1_S2));
-
-            setConstructionContext(services);
-            TurtloidBadnikInstance base;
-            try {
-                base = new TurtloidBadnikInstance(
-                        new ObjectSpawn(0x200, 0x100, Sonic2ObjectIds.TURTLOID, 0x18, 0, false, 0));
-            } finally {
-                clearConstructionContext();
-            }
-            base.setServices(services);
+            base = new TurtloidBadnikInstance(
+                    new ObjectSpawn(0x200, 0x100, Sonic2ObjectIds.TURTLOID, 0x18, 0, false, 0));
+        } finally {
+            ObjectConstructionContext.clearConstructionContext();
+        }
+        base.setServices(services);
 
         TurtloidRiderInstance rider = (TurtloidRiderInstance) getField(base, "rider");
         assertNotNull("Turtloid should spawn a rider child", rider);
@@ -73,9 +66,6 @@ public class TestTurtloidBadnikInstance {
         assertEquals("Base should resume default movement speed", -0x80, getIntField(base, "xVelocity"));
         assertEquals("Base should transition to DONE movement state", "DONE", getField(base, "state").toString());
         verify(objectManager, times(3)).addDynamicObject(any());
-        } finally {
-            lmField.set(null, originalLm);
-        }
     }
 
     private static Object getField(Object target, String fieldName) throws Exception {
@@ -114,29 +104,5 @@ public class TestTurtloidBadnikInstance {
             }
         }
         throw new NoSuchFieldException(fieldName);
-    }
-
-    @SuppressWarnings("unchecked")
-    private static void setConstructionContext(com.openggf.level.objects.ObjectServices services) {
-        try {
-            Field field = com.openggf.level.objects.AbstractObjectInstance.class
-                    .getDeclaredField("CONSTRUCTION_CONTEXT");
-            field.setAccessible(true);
-            ((ThreadLocal<Object>) field.get(null)).set(services);
-        } catch (ReflectiveOperationException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private static void clearConstructionContext() {
-        try {
-            Field field = com.openggf.level.objects.AbstractObjectInstance.class
-                    .getDeclaredField("CONSTRUCTION_CONTEXT");
-            field.setAccessible(true);
-            ((ThreadLocal<Object>) field.get(null)).remove();
-        } catch (ReflectiveOperationException e) {
-            throw new RuntimeException(e);
-        }
     }
 }

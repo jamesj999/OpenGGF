@@ -58,6 +58,7 @@ public class TestSonic1GargoyleObjectInstanceRender {
 
         Sonic1GargoyleObjectInstance leftFacing = new Sonic1GargoyleObjectInstance(
                 new ObjectSpawn(100, 100, Sonic1ObjectIds.GARGOYLE, 0, 0, false, 0));
+        leftFacing.setServices(new TestObjectServices().withLevelManager(runtimeLevelManager));
         leftFacing.appendRenderCommands(new ArrayList<>());
 
         assertEquals(1, renderer.drawCount);
@@ -65,6 +66,7 @@ public class TestSonic1GargoyleObjectInstanceRender {
 
         Sonic1GargoyleObjectInstance rightFacing = new Sonic1GargoyleObjectInstance(
                 new ObjectSpawn(120, 100, Sonic1ObjectIds.GARGOYLE, 0, 1, false, 0));
+        rightFacing.setServices(new TestObjectServices().withLevelManager(runtimeLevelManager));
         rightFacing.appendRenderCommands(new ArrayList<>());
 
         assertEquals(2, renderer.drawCount);

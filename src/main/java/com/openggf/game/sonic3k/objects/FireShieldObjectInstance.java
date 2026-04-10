@@ -38,7 +38,6 @@ public class FireShieldObjectInstance extends ShieldObjectInstance {
         frameIndex = 0;
         delayCounter = 0;
         currentMappingFrame = 0;
-        ensureShieldArtLoaded();
         initAnimation(0);
     }
 

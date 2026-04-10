@@ -610,8 +610,9 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
 
     private void spawnIntroObject() {
         ObjectSpawn spawn = new ObjectSpawn(0x60, 0x30, 0, 0, 0, false, 0);
-        AizPlaneIntroInstance intro = new AizPlaneIntroInstance(spawn);
-        spawnObject(intro);
+        if (spawnObject(() -> new AizPlaneIntroInstance(spawn)) == null) {
+            return;
+        }
         LOG.info("AIZ1 intro: spawned plane intro object");
     }
 
@@ -941,8 +942,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
      * spawns the miniboss, and sets up the battleship sequence boundaries.
      */
     private void updateAiz2Resize() {
-        PlayerCharacter character = ((Sonic3kLevelEventManager) GameServices.module()
-                .getLevelEventProvider()).getPlayerCharacter();
+        PlayerCharacter character = playerCharacter();
         boolean isKnuckles = (character == PlayerCharacter.KNUCKLES);
 
         switch (aiz2ResizeRoutine) {

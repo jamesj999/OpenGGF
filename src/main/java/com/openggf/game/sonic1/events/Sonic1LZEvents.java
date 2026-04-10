@@ -1,7 +1,6 @@
 package com.openggf.game.sonic1.events;
 
 import com.openggf.game.sonic1.objects.bosses.Sonic1LZBossInstance;
-import com.openggf.game.GameServices;
 import com.openggf.game.sonic1.Sonic1SwitchManager;
 import com.openggf.game.sonic1.audio.Sonic1Music;
 import com.openggf.game.sonic1.audio.Sonic1Sfx;
@@ -43,7 +42,7 @@ class Sonic1LZEvents extends Sonic1ZoneEvents {
     }
 
     private Sonic1SwitchManager switchManager() {
-        return GameServices.module().getGameService(Sonic1SwitchManager.class);
+        return gameService(Sonic1SwitchManager.class);
     }
 
     @Override

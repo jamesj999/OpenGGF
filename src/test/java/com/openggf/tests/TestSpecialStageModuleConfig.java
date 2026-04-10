@@ -7,6 +7,7 @@ import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.RuntimeManager;
+import com.openggf.game.session.SessionManager;
 import com.openggf.game.sonic1.Sonic1GameModule;
 import com.openggf.game.sonic2.Sonic2GameModule;
 
@@ -18,20 +19,27 @@ public class TestSpecialStageModuleConfig {
 
     @Before
     public void setUp() {
-        RuntimeManager.createGameplay();
+        SessionManager.clear();
     }
 
     @After
     public void tearDown() {
         GameModuleRegistry.reset();
-        GameServices.gameState().resetSession();
         RuntimeManager.destroyCurrent();
+        SessionManager.clear();
+    }
+
+    private GameStateManager recreateGameState(com.openggf.game.GameModule module) {
+        RuntimeManager.destroyCurrent();
+        SessionManager.clear();
+        GameModuleRegistry.setCurrent(module);
+        RuntimeManager.createGameplay();
+        return GameServices.gameState();
     }
 
     @Test
     public void sonic1ModuleConfiguresSixStagesAndEmeralds() {
-        GameModuleRegistry.setCurrent(new Sonic1GameModule());
-        GameStateManager gameState = GameServices.gameState();
+        GameStateManager gameState = recreateGameState(new Sonic1GameModule());
 
         assertEquals(6, gameState.getSpecialStageCount());
         assertEquals(6, gameState.getChaosEmeraldCount());
@@ -47,14 +55,13 @@ public class TestSpecialStageModuleConfig {
 
     @Test
     public void switchingBackToSonic2RestoresSevenStageConfig() {
-        GameModuleRegistry.setCurrent(new Sonic1GameModule());
-        GameStateManager gameState = GameServices.gameState();
+        GameStateManager gameState = recreateGameState(new Sonic1GameModule());
         for (int i = 0; i < 6; i++) {
             gameState.markEmeraldCollected(i);
         }
         assertTrue(gameState.hasAllEmeralds());
 
-        GameModuleRegistry.setCurrent(new Sonic2GameModule());
+        gameState = recreateGameState(new Sonic2GameModule());
 
         assertEquals(7, gameState.getSpecialStageCount());
         assertEquals(7, gameState.getChaosEmeraldCount());
@@ -64,14 +71,17 @@ public class TestSpecialStageModuleConfig {
 
     @Test
     public void resetRestoresSonic2StageConfigThroughCompatibilityPath() {
-        GameModuleRegistry.setCurrent(new Sonic1GameModule());
-        GameStateManager gameState = GameServices.gameState();
+        GameStateManager gameState = recreateGameState(new Sonic1GameModule());
         for (int i = 0; i < 6; i++) {
             gameState.markEmeraldCollected(i);
         }
         assertTrue(gameState.hasAllEmeralds());
 
         GameModuleRegistry.reset();
+        RuntimeManager.destroyCurrent();
+        SessionManager.clear();
+        RuntimeManager.createGameplay();
+        gameState = GameServices.gameState();
 
         assertEquals(7, gameState.getSpecialStageCount());
         assertEquals(7, gameState.getChaosEmeraldCount());

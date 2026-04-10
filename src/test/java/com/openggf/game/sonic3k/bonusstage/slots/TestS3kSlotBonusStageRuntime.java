@@ -38,14 +38,8 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TestS3kSlotBonusStageRuntime {
-    private Field levelManagerField;
-    private LevelManager originalLevelManager;
-
     @AfterEach
-    void tearDown() throws Exception {
-        if (levelManagerField != null) {
-            levelManagerField.set(null, originalLevelManager);
-        }
+    void tearDown() {
         RuntimeManager.destroyCurrent();
         SonicConfigurationService.getInstance().resetToDefaults();
     }
@@ -475,24 +469,10 @@ class TestS3kSlotBonusStageRuntime {
     }
 
     private void installRenderer(RecordingRenderer renderer, String artKey) throws Exception {
-        levelManagerField = LevelManager.class.getDeclaredField("levelManager");
-        levelManagerField.setAccessible(true);
-        originalLevelManager = (LevelManager) levelManagerField.get(null);
         ObjectRenderManager renderManager = new ObjectRenderManager(new StubObjectArtProvider(renderer, artKey));
-        levelManagerField.set(null, new TestLevelManager(renderManager));
-    }
-
-    private static final class TestLevelManager extends LevelManager {
-        private final ObjectRenderManager renderManager;
-
-        private TestLevelManager(ObjectRenderManager renderManager) {
-            this.renderManager = renderManager;
-        }
-
-        @Override
-        public ObjectRenderManager getObjectRenderManager() {
-            return renderManager;
-        }
+        Field objectRenderManagerField = LevelManager.class.getDeclaredField("objectRenderManager");
+        objectRenderManagerField.setAccessible(true);
+        objectRenderManagerField.set(RuntimeManager.getCurrent().getLevelManager(), renderManager);
     }
 
     private static final class StubObjectArtProvider implements ObjectArtProvider {

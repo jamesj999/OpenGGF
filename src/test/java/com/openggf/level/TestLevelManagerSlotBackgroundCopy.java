@@ -1,6 +1,10 @@
 package com.openggf.level;
 
+import com.openggf.game.GameRuntime;
+import com.openggf.game.RuntimeManager;
 import org.junit.Test;
+import org.junit.After;
+import org.junit.Before;
 
 import java.lang.reflect.Field;
 import java.util.HashMap;
@@ -9,10 +13,21 @@ import java.util.Map;
 import static org.junit.Assert.assertEquals;
 
 public class TestLevelManagerSlotBackgroundCopy {
+    private GameRuntime runtime;
+
+    @Before
+    public void setUp() {
+        runtime = RuntimeManager.createGameplay();
+    }
+
+    @After
+    public void tearDown() {
+        RuntimeManager.destroyCurrent();
+    }
 
     @Test
     public void slotBackgroundRowCopyUpdatesBothEightPixelRowsOfSixteenPixelBlockRow() throws Exception {
-        TestLevelManager levelManager = new TestLevelManager();
+        TestLevelManager levelManager = new TestLevelManager(runtime);
         RecordingTilemapManager tilemapManager = new RecordingTilemapManager();
         setTilemapManager(levelManager, tilemapManager);
 
@@ -26,7 +41,7 @@ public class TestLevelManagerSlotBackgroundCopy {
 
     @Test
     public void slotBackgroundRowCopySnapsSourceXToSixteenPixelBlockBoundary() throws Exception {
-        TestLevelManager levelManager = new TestLevelManager();
+        TestLevelManager levelManager = new TestLevelManager(runtime);
         RecordingTilemapManager tilemapManager = new RecordingTilemapManager();
         setTilemapManager(levelManager, tilemapManager);
 
@@ -46,6 +61,11 @@ public class TestLevelManagerSlotBackgroundCopy {
     }
 
     private static final class TestLevelManager extends LevelManager {
+        private TestLevelManager(GameRuntime runtime) {
+            super(runtime.getCamera(), runtime.getSpriteManager(), runtime.getParallaxManager(),
+                    runtime.getCollisionSystem(), runtime.getWaterSystem(), runtime.getGameState());
+        }
+
         @Override
         public int getBackgroundTileDescriptorAtWorld(int worldX, int worldY) {
             return descriptorFor(worldX, worldY);

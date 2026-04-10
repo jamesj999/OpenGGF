@@ -399,8 +399,10 @@ public class Sonic3kHCZEvents extends Sonic3kZoneEvents {
         // The player is still in the victory pose (objectControlled) so they don't land
         // on the old terrain. After the level reloads as Act 2, releasing them lets them
         // fall through the gap in Act 2's terrain.
-        ((Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider())
-                .setHczPendingPostTransitionCutscene(true);
+        Sonic3kLevelEventManager levelEventManager = levelEventManagerOrNull();
+        if (levelEventManager != null) {
+            levelEventManager.setHczPendingPostTransitionCutscene(true);
+        }
 
         LevelManager lm = levelManager();
         lm.requestSeamlessTransition(
