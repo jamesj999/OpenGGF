@@ -200,7 +200,7 @@ public class Sonic2GameModule implements GameModule {
         return new Sonic2RomOffsetProvider();
     }
 
-    // Fresh instance per call. Callers store for the level's lifetime. Stateless.
+    // Module-owned instance so special-stage debug/controller state stays coherent.
     @Override
     public DebugModeProvider getDebugModeProvider() {
         return debugModeProvider;
