@@ -9,6 +9,7 @@ import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.TouchResponseListener;
 import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -351,8 +352,9 @@ public class Sonic1YadrinBadnikInstance extends AbstractBadnikInstance implement
         }
 
         boolean hadRings = player.getRingCount() > 0;
-        if (hadRings && !player.hasShield() && services() != null) {
-            services().spawnLostRings(player, frameCounter);
+        ObjectServices svc = tryServices();
+        if (hadRings && !player.hasShield() && svc != null) {
+            svc.spawnLostRings(player, frameCounter);
         }
         player.applyHurtOrDeath(currentX, false, hadRings);
     }

@@ -9,6 +9,7 @@ import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.DestructionEffects;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.TouchResponseAttackable;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.objects.TouchResponseResult;
@@ -249,7 +250,8 @@ public class Sonic1BallHogBadnikInstance extends AbstractObjectInstance
      * </pre>
      */
     private void spawnCannonball() {
-        var objectManager = services() != null ? services().objectManager() : null;
+        ObjectServices svc = tryServices();
+        var objectManager = svc != null ? svc.objectManager() : null;
         if (objectManager == null) {
             return;
         }
