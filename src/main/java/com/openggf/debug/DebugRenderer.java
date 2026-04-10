@@ -850,11 +850,11 @@ public class DebugRenderer {
         }
 
         private SpriteManager getSpriteManager() {
-                return SpriteManager.getInstance();
+                return GameServices.sprites();
         }
 
         private LevelManager getLevelManager() {
-                return LevelManager.getInstance();
+                return GameServices.level();
         }
 
         private String getMainCharacterCode() {

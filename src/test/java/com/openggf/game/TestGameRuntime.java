@@ -43,7 +43,6 @@ public class TestGameRuntime {
     @Test
     public void createGameplay_createsFreshRuntimeGraph() {
         Camera bootstrapCamera = Camera.getInstance();
-        LevelManager bootstrapLevelManager = LevelManager.getInstance();
         SpriteManager bootstrapSpriteManager = SpriteManager.getInstance();
         GameStateManager bootstrapGameState = GameStateManager.getInstance();
         TimerManager bootstrapTimers = TimerManager.getInstance();
@@ -52,6 +51,7 @@ public class TestGameRuntime {
         TerrainCollisionManager bootstrapTerrainCollision = TerrainCollisionManager.getInstance();
         WaterSystem bootstrapWaterSystem = WaterSystem.getInstance();
         ParallaxManager bootstrapParallaxManager = ParallaxManager.getInstance();
+        assertThrows(IllegalStateException.class, LevelManager::getInstance);
 
         GameRuntime runtime = RuntimeManager.createGameplay();
 
@@ -67,7 +67,6 @@ public class TestGameRuntime {
         assertSame(runtime.getParallaxManager(), GameServices.parallax());
 
         assertNotSame(bootstrapCamera, runtime.getCamera());
-        assertNotSame(bootstrapLevelManager, runtime.getLevelManager());
         assertNotSame(bootstrapSpriteManager, runtime.getSpriteManager());
         assertNotSame(bootstrapGameState, runtime.getGameState());
         assertNotSame(bootstrapTimers, runtime.getTimers());

@@ -1,5 +1,6 @@
 package com.openggf.physics;
 
+import com.openggf.game.GameServices;
 import com.openggf.level.ChunkDesc;
 import com.openggf.level.LevelManager;
 import com.openggf.level.SolidTile;
@@ -35,7 +36,7 @@ public class GroundSensor extends Sensor {
 
     /**
      * Inject a mock LevelManager for unit tests. Pass null to revert
-     * to the default (LevelManager.getInstance()).
+     * to the default runtime level manager.
      */
     public static void setLevelManager(LevelManager lm) {
         overrideLevelManager = lm;
@@ -45,7 +46,7 @@ public class GroundSensor extends Sensor {
     private static LevelManager getLevelManager() {
         LevelManager override = overrideLevelManager;
         if (override != null) return override;
-        if (cachedLevelManager == null) cachedLevelManager = LevelManager.getInstance();
+        if (cachedLevelManager == null) cachedLevelManager = GameServices.level();
         return cachedLevelManager;
     }
 

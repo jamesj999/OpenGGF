@@ -356,7 +356,7 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
      * Keeps {@code LevelManager.getInstance()} out of leaf-class bytecode.
      */
     protected static ObjectManager staticObjectManager() {
-        LevelManager lm = LevelManager.getInstance();
+        LevelManager lm = GameServices.levelOrNull();
         return lm != null ? lm.getObjectManager() : null;
     }
 
@@ -365,7 +365,7 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
      * invoked outside a live object-services context.
      */
     protected static LevelManager staticLevelManager() {
-        return LevelManager.getInstance();
+        return GameServices.levelOrNull();
     }
 
     /**

@@ -507,13 +507,9 @@ public class LevelManager {
         }
     }
 
-    /**
-     * Private constructor for Singleton pattern.
-     * Zone list is lazily initialized from the current GameModule's ZoneRegistry.
-     */
+    @Deprecated(forRemoval = true)
     protected LevelManager() {
-        this(Camera.getInstance(), SpriteManager.getInstance(), ParallaxManager.getInstance(),
-                CollisionSystem.getInstance(), WaterSystem.getInstance(), GameStateManager.getInstance());
+        throw new IllegalStateException("LevelManager requires explicit runtime dependencies");
     }
 
     /**
@@ -3741,11 +3737,10 @@ public class LevelManager {
 
     private ObjectServices buildObjectServices() {
         GameRuntime runtime = RuntimeManager.getCurrent();
-        if (runtime != null) {
-            return new DefaultObjectServices(runtime);
+        if (runtime == null) {
+            throw new IllegalStateException("LevelManager.buildObjectServices() requires an active GameRuntime");
         }
-        return new DefaultObjectServices(this, camera, gameState, spriteManager,
-                FadeManager.getInstance(), waterSystem, parallaxManager);
+        return new DefaultObjectServices(runtime);
     }
 
     private void reregisterPlayerDynamicObjects(Sprite sprite) {
