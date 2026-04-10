@@ -144,6 +144,17 @@ class TestSessionManager {
     }
 
     @Test
+    void gameModuleRegistry_setCurrentDoesNotMaterializeRuntimeForActiveSession() {
+        GameModule sessionModule = new Sonic2GameModule();
+        SessionManager.openGameplaySession(sessionModule);
+
+        GameModuleRegistry.setCurrent(new Sonic1GameModule());
+
+        assertNull(RuntimeManager.getActiveRuntime());
+        assertSame(sessionModule, GameModuleRegistry.getCurrent());
+    }
+
+    @Test
     void openGameplaySession_rejectsNullModule() {
         assertThrows(NullPointerException.class, () -> SessionManager.openGameplaySession(null));
     }

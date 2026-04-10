@@ -61,9 +61,6 @@ public final class GameModuleRegistry {
         if (module != null) {
             LOGGER.info("Setting bootstrap game module: " + module.getIdentifier());
             bootstrapDefault = module;
-            GameStateManager.getInstance().configureSpecialStageProgress(
-                    module.getSpecialStageCycleCount(),
-                    module.getChaosEmeraldCount());
         }
     }
 
