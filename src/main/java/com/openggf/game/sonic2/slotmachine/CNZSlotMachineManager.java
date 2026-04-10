@@ -179,8 +179,9 @@ public class CNZSlotMachineManager {
      */
     public void update() {
         int currentFrame = 0;
-        if (GameServices.level() != null) {
-            currentFrame = GameServices.level().getFrameCounter();
+        var levelManager = GameServices.levelOrNull();
+        if (levelManager != null) {
+            currentFrame = levelManager.getFrameCounter();
         }
         update(currentFrame);
     }
