@@ -28,12 +28,15 @@ public class RomManager implements AutoCloseable {
 
     private static RomManager instance;
 
-    private final SonicConfigurationService configService = com.openggf.game.RuntimeManager.getEngineServices().configuration();
     private Rom rom;
     private boolean initialized = false;
     private final Map<String, Rom> secondaryRoms = new HashMap<>();
 
     private RomManager() {
+    }
+
+    private SonicConfigurationService configService() {
+        return com.openggf.game.RuntimeManager.getEngineServices().configuration();
     }
 
     /**
@@ -115,7 +118,7 @@ public class RomManager implements AutoCloseable {
             rom.close();
         }
 
-        String romFilename = resolveRomForGame(configService.getString(SonicConfiguration.DEFAULT_ROM));
+        String romFilename = resolveRomForGame(configService().getString(SonicConfiguration.DEFAULT_ROM));
         if (romFilename == null || romFilename.isEmpty()) {
             throw new IOException("ROM filename not configured (DEFAULT_ROM not set or per-game ROM key empty)");
         }

@@ -1,6 +1,8 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.GameRuntime;
+import com.openggf.game.RuntimeManager;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
@@ -17,13 +19,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TestHCZConveyorBeltObjectInstance {
 
-    private final Camera camera = Camera.getInstance();
+    private final GameRuntime runtime = RuntimeManager.createGameplay();
+    private final Camera camera = runtime.getCamera();
 
     @AfterEach
     void tearDown() throws Exception {
         HCZConveyorBeltObjectInstance.resetLoadArray();
         constructionContext().remove();
-        camera.resetState();
+        RuntimeManager.destroyCurrent();
     }
 
     @Test

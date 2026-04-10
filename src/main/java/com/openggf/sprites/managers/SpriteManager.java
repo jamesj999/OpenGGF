@@ -45,8 +45,6 @@ import java.util.Map;
 public class SpriteManager {
 	private final SonicConfigurationService configService;
 
-	private static SpriteManager bootstrapInstance;
-
 	private Map<String, Sprite> sprites;
 
 	private final List<AbstractPlayableSprite> sidekicks = new ArrayList<>();
@@ -837,14 +835,4 @@ public class SpriteManager {
 		return MOVEMENT_MAPPING_ARRAY[groundMode.ordinal()][direction.ordinal()];
 	}
 
-	public synchronized static SpriteManager getInstance() {
-		var runtime = RuntimeManager.getCurrent();
-		if (runtime != null) {
-			return runtime.getSpriteManager();
-		}
-		if (bootstrapInstance == null) {
-			bootstrapInstance = new SpriteManager();
-		}
-		return bootstrapInstance;
-	}
 }

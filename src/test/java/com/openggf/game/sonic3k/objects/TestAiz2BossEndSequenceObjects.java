@@ -2,6 +2,7 @@ package com.openggf.game.sonic3k.objects;
 
 import com.openggf.camera.Camera;
 import com.openggf.game.GameStateManager;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.level.objects.ObjectSpawn;
@@ -22,7 +23,7 @@ class TestAiz2BossEndSequenceObjects {
     @AfterEach
     void tearDown() {
         Aiz2BossEndSequenceState.reset();
-        Camera.getInstance().resetState();
+        RuntimeManager.destroyCurrent();
     }
 
     @Test
@@ -72,7 +73,7 @@ class TestAiz2BossEndSequenceObjects {
 
     @Test
     void eggCapsuleReleasesControllerAfterResultsFinish() throws Exception {
-        Camera camera = Camera.getInstance();
+        Camera camera = RuntimeManager.createGameplay().getCamera();
         camera.resetState();
         camera.setX((short) 0x4880);
         camera.setY((short) 0x0100);
@@ -98,7 +99,7 @@ class TestAiz2BossEndSequenceObjects {
 
     @Test
     void controllerWaitsForEggCapsuleBeforeStartingWalkAndHydrocityTransition() {
-        Camera camera = Camera.getInstance();
+        Camera camera = RuntimeManager.createGameplay().getCamera();
         camera.resetState();
         camera.setMaxX((short) 0x4880);
         camera.setMaxY((short) 0x0200);

@@ -77,7 +77,6 @@ public class LevelManager {
     /** Base for extra sidekick DPLC banks — above water (0x30000) and below title cards (0x40000). */
     private static final int SIDEKICK_PATTERN_BASE = 0x38000;
     private static final Palette.Color BLACK_BACKDROP = new Palette.Color((byte) 0, (byte) 0, (byte) 0);
-    private static LevelManager levelManager;
     private Level level;
     private int blockPixelSize = 128;  // cached from level
     private int chunksPerBlockSide = 8;
@@ -3797,8 +3796,6 @@ public class LevelManager {
 
     // ==================== Transition Coordinator Delegation ====================
     // Thin wrappers that delegate to LevelTransitionCoordinator.
-    // External callers continue to use LevelManager.getInstance().methodName().
-
     /** Returns the transition coordinator. */
     public LevelTransitionCoordinator getTransitions() { return transitions; }
 
@@ -3910,22 +3907,6 @@ public class LevelManager {
         useShaderBackground = true;
         cacheLevelDimensions();
         levels.clear();
-    }
-
-    /**
-     * Returns the singleton instance of LevelManager.
-     *
-     * @return the singleton LevelManager instance
-     */
-    public static synchronized LevelManager getInstance() {
-        GameRuntime runtime = RuntimeManager.getCurrent();
-        if (runtime != null) {
-            return runtime.getLevelManager();
-        }
-        if (levelManager == null) {
-            levelManager = new LevelManager();
-        }
-        return levelManager;
     }
 
     /**

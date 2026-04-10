@@ -1,6 +1,8 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.GameRuntime;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.Sonic3kPlcArtRegistry;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
@@ -21,12 +23,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TestHCZConveyorSpikeObjectInstance {
 
-    private final Camera camera = Camera.getInstance();
+    private final GameRuntime runtime = RuntimeManager.createGameplay();
+    private final Camera camera = runtime.getCamera();
 
     @AfterEach
     void tearDown() throws Exception {
         constructionContext().remove();
-        camera.resetState();
+        RuntimeManager.destroyCurrent();
     }
 
     @Test

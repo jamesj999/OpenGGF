@@ -6,7 +6,6 @@ import com.openggf.game.GameId;
 import com.openggf.game.GameServices;
 import com.openggf.game.OscillationManager;
 import com.openggf.game.PlayerCharacter;
-import com.openggf.game.RuntimeManager;
 import com.openggf.game.WaterDataProvider;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.level.objects.ObjectSpawn;
@@ -59,9 +58,6 @@ public class WaterSystem {
     // ROM zone IDs - Sonic 1 (from Constants.asm: id_LZ = 1, id_SBZ = 5)
     private static final int S1_ZONE_ID_LZ  = Sonic1Constants.ZONE_LZ;  // 0x01 - Labyrinth Zone
     private static final int S1_ZONE_ID_SBZ = Sonic1Constants.ZONE_SBZ; // 0x05 - Scrap Brain Zone
-
-    // Singleton instance
-    private static WaterSystem bootstrapInstance;
 
     // Water configuration data
     private final Map<String, WaterConfig> waterConfigs = new HashMap<>();
@@ -186,17 +182,6 @@ public class WaterSystem {
     }
 
     public WaterSystem() {
-    }
-
-    public static synchronized WaterSystem getInstance() {
-        var runtime = RuntimeManager.getCurrent();
-        if (runtime != null) {
-            return runtime.getWaterSystem();
-        }
-        if (bootstrapInstance == null) {
-            bootstrapInstance = new WaterSystem();
-        }
-        return bootstrapInstance;
     }
 
     /**

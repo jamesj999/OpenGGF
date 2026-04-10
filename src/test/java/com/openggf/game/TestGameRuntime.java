@@ -12,6 +12,10 @@ import com.openggf.timer.TimerManager;
 import org.junit.After;
 import org.junit.Test;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+
 import static org.junit.Assert.*;
 
 /**
@@ -42,17 +46,6 @@ public class TestGameRuntime {
 
     @Test
     public void createGameplay_createsFreshRuntimeGraph() {
-        Camera bootstrapCamera = Camera.getInstance();
-        SpriteManager bootstrapSpriteManager = SpriteManager.getInstance();
-        GameStateManager bootstrapGameState = GameStateManager.getInstance();
-        TimerManager bootstrapTimers = TimerManager.getInstance();
-        FadeManager bootstrapFadeManager = FadeManager.getInstance();
-        TerrainCollisionManager bootstrapTerrainCollision = TerrainCollisionManager.getInstance();
-        WaterSystem bootstrapWaterSystem = WaterSystem.getInstance();
-        ParallaxManager bootstrapParallaxManager = ParallaxManager.getInstance();
-        assertThrows(IllegalStateException.class, LevelManager::getInstance);
-        assertThrows(IllegalStateException.class, CollisionSystem::getInstance);
-
         GameRuntime runtime = RuntimeManager.createGameplay();
 
         assertSame(runtime.getCamera(), GameServices.camera());
@@ -66,14 +59,28 @@ public class TestGameRuntime {
         assertSame(runtime.getWaterSystem(), GameServices.water());
         assertSame(runtime.getParallaxManager(), GameServices.parallax());
 
-        assertNotSame(bootstrapCamera, runtime.getCamera());
-        assertNotSame(bootstrapSpriteManager, runtime.getSpriteManager());
-        assertNotSame(bootstrapGameState, runtime.getGameState());
-        assertNotSame(bootstrapTimers, runtime.getTimers());
-        assertNotSame(bootstrapFadeManager, runtime.getFadeManager());
-        assertNotSame(bootstrapTerrainCollision, runtime.getTerrainCollisionManager());
-        assertNotSame(bootstrapWaterSystem, runtime.getWaterSystem());
-        assertNotSame(bootstrapParallaxManager, runtime.getParallaxManager());
+        assertNotNull(runtime.getCamera());
+        assertNotNull(runtime.getSpriteManager());
+        assertNotNull(runtime.getGameState());
+        assertNotNull(runtime.getTimers());
+        assertNotNull(runtime.getFadeManager());
+        assertNotNull(runtime.getTerrainCollisionManager());
+        assertNotNull(runtime.getWaterSystem());
+        assertNotNull(runtime.getParallaxManager());
+    }
+
+    @Test
+    public void runtimeOwnedManagersDoNotExposeLegacySingletonCompatibilityAccessors() {
+        assertNoLegacySingletonAccessor(Camera.class);
+        assertNoLegacySingletonAccessor(LevelManager.class);
+        assertNoLegacySingletonAccessor(SpriteManager.class);
+        assertNoLegacySingletonAccessor(GameStateManager.class);
+        assertNoLegacySingletonAccessor(TimerManager.class);
+        assertNoLegacySingletonAccessor(FadeManager.class);
+        assertNoLegacySingletonAccessor(CollisionSystem.class);
+        assertNoLegacySingletonAccessor(TerrainCollisionManager.class);
+        assertNoLegacySingletonAccessor(WaterSystem.class);
+        assertNoLegacySingletonAccessor(ParallaxManager.class);
     }
 
     @Test
@@ -226,5 +233,18 @@ public class TestGameRuntime {
         RuntimeManager.destroyCurrent();
         RuntimeManager.destroyCurrent();
         assertNull(RuntimeManager.getCurrent());
+    }
+
+    private static void assertNoLegacySingletonAccessor(Class<?> type) {
+        for (Method method : type.getDeclaredMethods()) {
+            if (method.getName().equals("getInstance") && Modifier.isStatic(method.getModifiers())) {
+                fail(type.getSimpleName() + " should not expose static getInstance()");
+            }
+        }
+        for (Field field : type.getDeclaredFields()) {
+            if (Modifier.isStatic(field.getModifiers()) && field.getType().equals(type)) {
+                fail(type.getSimpleName() + " should not keep static runtime-owned state via field '" + field.getName() + "'");
+            }
+        }
     }
 }
