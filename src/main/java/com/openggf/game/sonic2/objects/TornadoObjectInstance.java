@@ -6,6 +6,7 @@ import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic2.Sonic2LevelEventManager;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.sonic2.Sonic2Rng;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
@@ -29,7 +30,6 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import com.openggf.debug.DebugColor;
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Object 0xB2 - Tornado (SCZ/WFZ scripted biplane sequence).
@@ -1070,7 +1070,8 @@ public class TornadoObjectInstance extends AbstractObjectInstance
         }
         ObjectSpawn smokeSpawn = new ObjectSpawn(
                 currentX, currentY, 0xC3, 0x90, spawn.renderFlags(), false, spawn.rawYWord());
-        manager.addDynamicObject(new TornadoSmokeObjectInstance(smokeSpawn));
+        int randomOffset = Sonic2Rng.nextTornadoSmokeOffset(services().rng());
+        manager.addDynamicObject(new TornadoSmokeObjectInstance(smokeSpawn, randomOffset));
     }
 
     private TornadoObjectInstance spawnTornadoChild(int childSubtype, int x, int y) {
@@ -1166,10 +1167,9 @@ public class TornadoObjectInstance extends AbstractObjectInstance
         private int mappingFrame;
         private int frameTimer;
 
-        private TornadoSmokeObjectInstance(ObjectSpawn spawn) {
+        private TornadoSmokeObjectInstance(ObjectSpawn spawn, int randomOffset) {
             super(spawn, "TornadoSmoke");
 
-            int randomOffset = ThreadLocalRandom.current().nextInt(8) * 4; // RNG_seed & $1C
             this.currentX = spawn.x() - randomOffset;
             this.currentY = spawn.y() + 0x10;
             this.xPosFixed8 = currentX << 8;

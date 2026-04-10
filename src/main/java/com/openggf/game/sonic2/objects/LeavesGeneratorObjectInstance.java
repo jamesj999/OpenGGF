@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.sonic2.Sonic2Rng;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -9,7 +10,6 @@ import com.openggf.physics.Direction;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
-import java.util.Random;
 
 /**
  * ARZ Leaves Generator (Object 0x2C).
@@ -53,8 +53,6 @@ public class LeavesGeneratorObjectInstance extends AbstractObjectInstance {
 
     private final int collisionHalfWidth;
     private final int collisionHalfHeight;
-    private final Random random = new Random();
-
     // Cooldown timer to prevent rapid re-triggering
     private int cooldownTimer = 0;
 
@@ -138,12 +136,14 @@ public class LeavesGeneratorObjectInstance extends AbstractObjectInstance {
         }
 
         boolean playerFacingLeft = player.getDirection() == Direction.LEFT;
+        var rng = services().rng();
 
         for (int i = 0; i < 4; i++) {
             // Random ±8 pixel offset from player position
             // ROM: andi.w #$F,d0 / subq.w #8,d0
-            int offsetX = (random.nextInt(16)) - 8;
-            int offsetY = (random.nextInt(16)) - 8;
+            var leafRandom = Sonic2Rng.nextLeafSpawn(rng);
+            int offsetX = leafRandom.offsetX();
+            int offsetY = leafRandom.offsetY();
 
             int leafX = player.getCentreX() + offsetX;
             int leafY = player.getCentreY() + offsetY;
@@ -160,10 +160,10 @@ public class LeavesGeneratorObjectInstance extends AbstractObjectInstance {
 
             // Random initial frame (0 or 1)
             // ROM: andi.b #1,d0 / move.b d0,mapping_frame(a1)
-            int initialFrame = random.nextInt(2);
+            int initialFrame = leafRandom.mappingFrame();
 
             // Random initial oscillation angle
-            int initialAngle = random.nextInt(256);
+            int initialAngle = leafRandom.angle();
 
             LeafParticleObjectInstance leaf = new LeafParticleObjectInstance(
                     leafX, leafY, xVel, yVel, initialFrame, initialAngle);

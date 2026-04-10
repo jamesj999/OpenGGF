@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects.bosses;
 
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.sonic2.Sonic2Rng;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
 import com.openggf.level.objects.ObjectAnimationState;
@@ -12,7 +13,6 @@ import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * CPZ Boss Pump - Pump mechanism attached to the boss.
@@ -72,19 +72,17 @@ public class CPZBossPump extends AbstractObjectInstance {
 
         // Spawn 3 pump pieces (frames 0x22, 0x23, 0x24)
         for (int i = 0; i < 3; i++) {
-            int xVel = randomPipeVelocity();
+            var motion = randomPipeMotion();
             ObjectSpawn pieceSpawn = new ObjectSpawn(x, y, Sonic2ObjectIds.CPZ_BOSS, 0, renderFlags, false, 0);
-            CPZBossFallingPart piece = new CPZBossFallingPart(pieceSpawn, 0x22 + i, xVel);
+            CPZBossFallingPart piece = new CPZBossFallingPart(pieceSpawn, 0x22 + i, motion.xVel(), motion.timer());
             services().objectManager().addDynamicObject(piece);
         }
 
         setDestroyed(true);
     }
 
-    private int randomPipeVelocity() {
-        int random = ThreadLocalRandom.current().nextInt(0x10000);
-        int result = (short) (random >> 8);
-        return result >> 6;
+    private Sonic2Rng.PipeShardMotion randomPipeMotion() {
+        return Sonic2Rng.nextPipeShardMotion(services().rng());
     }
 
     private void animate() {

@@ -298,7 +298,8 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance
             int animalY = currentY - 8;
             int delay = i * 4;  // Staggered: 0, 4, 8, 12, ...
             ObjectSpawn spawn = new ObjectSpawn(animalX, animalY, 0x28, 0, 0, false, 0);
-            objectManager.addDynamicObject(new HighPriorityAnimal(spawn, delay));
+            objectManager.addDynamicObject(new HighPriorityAnimal(
+                    spawn, delay, services().rng().nextBits(1)));
         }
     }
 
@@ -308,8 +309,8 @@ public class Aiz2EndEggCapsuleInstance extends AbstractObjectInstance
      * priority the animals would appear behind them.
      */
     private static final class HighPriorityAnimal extends EggPrisonAnimalInstance {
-        HighPriorityAnimal(ObjectSpawn spawn, int delay) {
-            super(spawn, delay);
+        HighPriorityAnimal(ObjectSpawn spawn, int delay, int artVariant) {
+            super(spawn, delay, artVariant);
         }
 
         @Override

@@ -54,7 +54,7 @@ public class AnimalObjectInstance extends AbstractObjectInstance {
             typeB = renderManager.getAnimalTypeB();
         }
 
-        this.artVariant = java.util.concurrent.ThreadLocalRandom.current().nextInt(ART_VARIANT_COUNT);
+        this.artVariant = services.rng().nextBits(1);
         int animalIndex = artVariant == 0 ? typeA : typeB;
         this.definition = AnimalType.fromIndex(animalIndex);
         this.mappingSetIndex = definition.mappingSet().ordinal();

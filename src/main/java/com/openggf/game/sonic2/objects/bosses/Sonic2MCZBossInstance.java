@@ -5,6 +5,7 @@ import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.sonic2.Sonic2Rng;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.objects.EggPrisonObjectInstance;
 import com.openggf.graphics.GLCommand;
@@ -15,7 +16,6 @@ import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * MCZ Act 2 Boss (Object 0x57) - Drill-digger boss.
@@ -681,10 +681,7 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
         }
 
         // Generate random X position in [DEBRIS_MIN_X, DEBRIS_MAX_X]
-        int x;
-        do {
-            x = DEBRIS_MIN_X + (ThreadLocalRandom.current().nextInt(0x200));
-        } while (x > DEBRIS_MAX_X);
+        int x = Sonic2Rng.nextMczDebrisX(services().rng());
 
         MCZFallingDebrisInstance debris = new MCZFallingDebrisInstance(
                 x, DEBRIS_SPAWN_Y, isSpike);

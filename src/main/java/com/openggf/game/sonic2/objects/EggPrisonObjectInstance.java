@@ -3,6 +3,7 @@ import com.openggf.game.PlayableEntity;
 import com.openggf.level.objects.ExplosionObjectInstance;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.sonic2.Sonic2Rng;
 import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.level.objects.AnimalObjectInstance;
@@ -19,7 +20,6 @@ import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Logger;
 
 /**
@@ -428,7 +428,8 @@ public class EggPrisonObjectInstance extends AbstractObjectInstance
                     baseX + xOffset, baseY,
                     0x28, 0, 0, false, 0
             );
-            EggPrisonAnimalInstance animal = new EggPrisonAnimalInstance(animalSpawn, delay);
+            EggPrisonAnimalInstance animal = new EggPrisonAnimalInstance(
+                    animalSpawn, delay, Sonic2Rng.nextAnimalArtVariant(services().rng()));
             objectManager.addDynamicObject(animal);
 
             xOffset += INITIAL_ANIMAL_X_OFFSET_STEP;
@@ -449,20 +450,15 @@ public class EggPrisonObjectInstance extends AbstractObjectInstance
         int baseX = spawn.x();
         int baseY = spawn.y();
 
-        // ROM: jsr RandomNumber / andi.w #$1F,d0 / subq.w #6,d0
-        int randomOffset = ThreadLocalRandom.current().nextInt(32) - 6;
-
-        // ROM: tst.w d1 / bpl + / neg.w d0
-        // Uses high word of random number for direction
-        if (ThreadLocalRandom.current().nextBoolean()) {
-            randomOffset = -randomOffset;
-        }
+        // ROM: jsr RandomNumber / andi.w #$1F,d0 / subq.w #6,d0 / tst.w d1 / optional neg
+        int randomOffset = Sonic2Rng.nextEggPrisonAnimalXOffset(services().rng());
 
         ObjectSpawn animalSpawn = new ObjectSpawn(
                 baseX + randomOffset, baseY,
                 0x28, 0, 0, false, 0
         );
-        EggPrisonAnimalInstance animal = new EggPrisonAnimalInstance(animalSpawn, SPAWN_ANIMAL_DELAY);
+        EggPrisonAnimalInstance animal = new EggPrisonAnimalInstance(
+                animalSpawn, SPAWN_ANIMAL_DELAY, Sonic2Rng.nextAnimalArtVariant(services().rng()));
         objectManager.addDynamicObject(animal);
     }
 

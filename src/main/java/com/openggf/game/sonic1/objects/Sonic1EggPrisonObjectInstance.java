@@ -302,7 +302,8 @@ public class Sonic1EggPrisonObjectInstance extends AbstractObjectInstance
             ObjectSpawn animalSpawn = new ObjectSpawn(
                     baseX + xOffset, baseY,
                     0x28, 0, 0, false, 0);
-            EggPrisonAnimalInstance animal = new EggPrisonAnimalInstance(animalSpawn, delay);
+            EggPrisonAnimalInstance animal = new EggPrisonAnimalInstance(
+                    animalSpawn, delay, services().rng().nextBits(1));
             objectManager.addDynamicObject(animal);
 
             xOffset += INITIAL_ANIMAL_X_OFFSET_STEP;
@@ -334,7 +335,8 @@ public class Sonic1EggPrisonObjectInstance extends AbstractObjectInstance
         ObjectSpawn animalSpawn = new ObjectSpawn(
                 baseX + randomOffset, baseY,
                 0x28, 0, 0, false, 0);
-        EggPrisonAnimalInstance animal = new EggPrisonAnimalInstance(animalSpawn, SPAWN_ANIMAL_DELAY);
+        EggPrisonAnimalInstance animal = new EggPrisonAnimalInstance(
+                animalSpawn, SPAWN_ANIMAL_DELAY, services().rng().nextBits(1));
         objectManager.addDynamicObject(animal);
     }
 

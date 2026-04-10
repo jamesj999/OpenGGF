@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects.badniks;
 
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.sonic2.Sonic2Rng;
 import com.openggf.level.objects.AbstractBadnikInstance;
 
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -13,7 +14,6 @@ import com.openggf.camera.Camera;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
-import java.util.Random;
 
 /**
  * Whisp (0x8C) - Blowfly Badnik from Aquatic Ruin Zone.
@@ -58,8 +58,6 @@ public class WhispBadnikInstance extends AbstractBadnikInstance {
     private static final int ESCAPE_VELOCITY_X = -0x200;  // Escape velocity X (line 72704)
     private static final int ESCAPE_VELOCITY_Y = -0x200;  // Escape velocity Y (line 72705)
     private static final int INITIAL_CHASE_Y_VEL = -0x100; // Initial upward velocity when starting chase (line 72711)
-
-    private static final Random random = new Random();
 
     private State state;
     private int timer;
@@ -208,7 +206,7 @@ public class WhispBadnikInstance extends AbstractBadnikInstance {
         if (timer <= 0) {
             // Chase finished - transition to pause with random duration (lines 72744-72747)
             state = State.PAUSE;
-            timer = random.nextInt(PAUSE_MASK + 1);  // Random 0-31 frames
+            timer = Sonic2Rng.nextWhispPauseTimer(services().rng());  // Random 0-31 frames
         }
     }
 
