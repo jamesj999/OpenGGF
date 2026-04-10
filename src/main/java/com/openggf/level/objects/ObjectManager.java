@@ -3648,10 +3648,15 @@ public class ObjectManager {
                 }
 
                 int halfWidth = params.halfWidth();
-                // ROM: ExitPlatform ALWAYS uses the full collision halfWidth (obActWid + $B)
-                // for continued riding bounds. The narrower obActWid is only used by
-                // Solid_Landed for new landings. Do NOT use getTopLandingHalfWidth() here.
-                int ridingHalfWidth = halfWidth;
+                // Continued riding normally uses the full collision width, but some
+                // objects expose a deliberately narrower standable top surface than
+                // their side/body collision box. When a provider opts into that via
+                // getTopLandingHalfWidth(), use the narrower width for ExitPlatform-style
+                // walk-off checks as well so the riding state clears at the visible edge.
+                int configuredTopHalfWidth = provider.getTopLandingHalfWidth(player, halfWidth);
+                int ridingHalfWidth = (configuredTopHalfWidth < halfWidth)
+                        ? configuredTopHalfWidth
+                        : halfWidth;
 
                 // ROM: Bounds check uses collision-offset X (anchorX = obX + offsetX),
                 // while delta tracking uses raw object X for movement following.
@@ -3720,10 +3725,15 @@ public class ObjectManager {
                 }
             }
 
-            // S1 UNIFIED: the riding section is the ExitPlatform equivalent. The ROM
-            // never re-runs Solid_ChkEnter for the standing object. Track the maintained
-            // object so we can skip it and preserve the riding state.
-            ObjectInstance ridingMaintained = postMovement ? ridingObject : null;
+            // ROM parity: the riding section above is the ExitPlatform equivalent.
+            // In the ROM, SolidObject runs ExitPlatform first and returns BEFORE
+            // Solid_ChkEnter — the two paths are mutually exclusive. If we don't
+            // skip the riding object here, the collision loop re-evaluates it with
+            // different math (airHalfHeight vs groundHalfHeight, different vertical
+            // offsets) causing the riding state to be spuriously removed and re-added
+            // on alternating frames. This is most visible on monitors where
+            // groundHalfHeight > airHalfHeight — the player jitters vertically.
+            ObjectInstance ridingMaintained = ridingObject;
             ObjectInstance nextRidingObject = null;
             int nextRidingX = 0;
             int nextRidingY = 0;
@@ -3734,14 +3744,14 @@ public class ObjectManager {
                 if (instance == dropOnFloorExclude) {
                     continue;
                 }
-                // S1 UNIFIED: riding section already handled this via ExitPlatform.
-                // ROM returns d4=0; Solid_ChkEnter is never reached. Keep as standing
-                // and fire callback, but skip resolveContact which would misclassify as SIDE.
+                // ROM: riding section already handled this via ExitPlatform.
+                // Solid_ChkEnter is never reached for the standing object. Keep as standing
+                // and fire callback, but skip resolveContact which would misclassify.
                 if (instance == ridingMaintained) {
                     nextRidingObject = instance;
                     nextRidingX = instance.getX();
                     nextRidingY = instance.getY();
-                    nextRidingPieceIndex = -1;
+                    nextRidingPieceIndex = ridingPieceIndex;
                     if (instance instanceof SolidObjectListener listener) {
                         listener.onSolidContact(player, SolidContact.STANDING, frameCounter);
                     }

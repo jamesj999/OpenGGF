@@ -11,10 +11,12 @@ import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.ObjectSpriteSheet;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.level.render.SpriteMappingFrame;
+import com.openggf.level.render.SpriteMappingPiece;
 import com.openggf.tools.NemesisReader;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
@@ -62,8 +64,15 @@ public class Sonic3kWaterSurfaceManager {
         Pattern[] patterns = loadWaveSplashPatterns(rom);
 
         // Parse mappings from ROM
-        List<SpriteMappingFrame> frames = S3kSpriteDataLoader.loadMappingFrames(
+        List<SpriteMappingFrame> rawFrames = S3kSpriteDataLoader.loadMappingFrames(
                 reader, Sonic3kConstants.MAP_HCZ_WAVE_SPLASH_ADDR);
+
+        // Apply art_tile priority to all pieces.
+        // ROM: make_art_tile(ArtTile_HCZWaveSplash,0,1) — palette 0, priority 1.
+        // The VDP ORs art_tile with each mapping piece's tile word, propagating the
+        // priority bit. The raw mapping pieces have priority=false in their tile data
+        // ($0000, $0008, $0800), so we must apply priority=true post-load.
+        List<SpriteMappingFrame> frames = applyArtTilePriority(rawFrames);
 
         this.patternCount = patterns.length;
         this.renderer = new PatternSpriteRenderer(new ObjectSpriteSheet(patterns, frames, 0, 1));
@@ -71,6 +80,27 @@ public class Sonic3kWaterSurfaceManager {
 
         LOGGER.info(String.format("S3K water surface: loaded %d patterns, %d frames",
                 patterns.length, frames.size()));
+    }
+
+    /**
+     * Apply the art_tile priority flag to all mapping pieces.
+     * On the VDP, the object's art_tile word is OR'd with each piece's tile word,
+     * so priority (bit 15) from art_tile propagates to every piece. The raw ROM
+     * mapping data stores piece tile words without the art_tile contribution, so
+     * we must reconstruct the OR here.
+     */
+    private static List<SpriteMappingFrame> applyArtTilePriority(List<SpriteMappingFrame> frames) {
+        List<SpriteMappingFrame> result = new ArrayList<>(frames.size());
+        for (SpriteMappingFrame frame : frames) {
+            List<SpriteMappingPiece> pieces = new ArrayList<>(frame.pieces().size());
+            for (SpriteMappingPiece p : frame.pieces()) {
+                pieces.add(new SpriteMappingPiece(
+                        p.xOffset(), p.yOffset(), p.widthTiles(), p.heightTiles(),
+                        p.tileIndex(), p.hFlip(), p.vFlip(), p.paletteIndex(), true));
+            }
+            result.add(new SpriteMappingFrame(pieces));
+        }
+        return result;
     }
 
     private Pattern[] loadWaveSplashPatterns(Rom rom) throws IOException {
@@ -122,8 +152,11 @@ public class Sonic3kWaterSurfaceManager {
             return;
         }
 
+        // Use visual water level (matches ROM: move.w (Water_level).w,d1).
+        // For HCZ there is no oscillation so visual == gameplay, but this is
+        // the semantically correct source for rendering.
         WaterSystem waterSystem = GameServices.water();
-        int waterLevelY = waterSystem.getWaterLevelY(zoneId, actId);
+        int waterLevelY = waterSystem.getVisualWaterLevelY(zoneId, actId);
         if (waterLevelY == 0) {
             return;
         }

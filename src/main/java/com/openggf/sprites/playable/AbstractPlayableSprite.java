@@ -486,6 +486,12 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          */
         protected boolean wasInWater = false;
         /**
+         * When true, the player is running across the water surface (HCZ skim).
+         * Prevents onEnterWater() from triggering while feet are at water level.
+         * Set by {@link com.openggf.game.sonic3k.features.HCZWaterSkimHandler}.
+         */
+        protected boolean waterSkimActive = false;
+        /**
          * Manages drowning mechanics while underwater (air countdown, bubbles, etc.).
          */
 
@@ -609,6 +615,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 this.flipTurned = false;
                 this.inWater = false;
                 this.wasInWater = false;
+                this.waterSkimActive = false;
                 this.preventTailsRespawn = false;
                 this.superSonic = false;
                 if (controller != null && controller.getSuperState() != null) {
@@ -2896,6 +2903,16 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 //   bge.s Obj01_OutWater
                 // Player is in water when center Y > water level
                 int playerCenterY = getCentreY();
+
+                // When skimming across the water surface (HCZ), the player's feet
+                // are at the water level but they are NOT underwater. The skim
+                // handler pins the player above the surface. Suppress water entry
+                // so the speed-halving and drowning timer don't activate.
+                if (waterSkimActive) {
+                        inWater = false;
+                        return;
+                }
+
                 inWater = playerCenterY > waterLevelY;
 
                 // Detect transitions
@@ -3039,6 +3056,21 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
          */
         public boolean isInWater() {
                 return inWater;
+        }
+
+        /**
+         * Returns true if the player is currently skimming across the water surface (HCZ).
+         */
+        public boolean isWaterSkimActive() {
+                return waterSkimActive;
+        }
+
+        /**
+         * Set by HCZWaterSkimHandler when the player enters/exits the skim state.
+         * When active, updateWaterState() will not trigger water entry.
+         */
+        public void setWaterSkimActive(boolean waterSkimActive) {
+                this.waterSkimActive = waterSkimActive;
         }
 
         public boolean isPreventTailsRespawn() {

@@ -31,6 +31,8 @@ import com.openggf.util.PatternDecompressor;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -47,6 +49,8 @@ import java.util.logging.Logger;
  */
 public class Sonic3kObjectArtProvider implements ObjectArtProvider {
     private static final Logger LOG = Logger.getLogger(Sonic3kObjectArtProvider.class.getName());
+    private static final Path HCZ_MINIBOSS_MAPPING_ASM = Path.of(
+            "docs", "skdisasm", "Levels", "HCZ", "Misc Object Data", "Map - Miniboss.asm");
 
     private int currentZoneIndex = -2;
     private int currentActIndex = 0;
@@ -140,6 +144,9 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
             loadAizMinibossArtFromPlc();
             loadAizEndBossArt();
             loadAiz2BattleshipArt();
+        } else if (zoneIndex == 0x01) {
+            loadSharedBossExplosionArt();
+            loadHczMinibossArtFromPlc();
         }
 
         // Level-art sheets are registered later via registerLevelArtSheets()
@@ -941,6 +948,11 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
             case "buildDrawBridgeSheet" -> art.buildDrawBridgeSheet();
             case "buildDisappearingFloorSheet" -> art.buildDisappearingFloorSheet();
             case "buildDisappearingFloorBorderSheet" -> art.buildDisappearingFloorBorderSheet();
+            case "buildHczWaterRushBlockSheet" -> art.buildHczWaterRushBlockSheet();
+            case "buildDoorVerticalHczSheet" -> art.buildDoorVerticalHczSheet();
+            case "buildDoorVerticalCnzSheet" -> art.buildDoorVerticalCnzSheet();
+            case "buildDoorVerticalDezSheet" -> art.buildDoorVerticalDezSheet();
+            case "buildDoorHorizontalSheet" -> art.buildDoorHorizontalSheet();
             default -> {
                 LOG.warning("Unknown builder: " + builderName);
                 yield null;
@@ -1037,6 +1049,61 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
                     decompressed.size() >= 4 ? decompressed.get(3).length + " tiles" : "n/a"));
         } catch (IOException e) {
             LOG.warning("Failed to load AIZ miniboss art from PLC: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Loads the shared boss explosion sheet directly from ROM.
+     * This keeps non-AIZ bosses from depending on AIZ-specific PLC paths.
+     */
+    private void loadSharedBossExplosionArt() {
+        if (sheets.containsKey(ObjectArtKeys.BOSS_EXPLOSION)) {
+            return;
+        }
+        try {
+            Rom rom = GameServices.rom().getRom();
+            if (rom == null) return;
+            RomByteReader reader = RomByteReader.fromRom(rom);
+            Pattern[] patterns = PatternDecompressor.nemesis(rom, Sonic3kConstants.ART_NEM_BOSS_EXPLOSION_ADDR);
+            registerSheet(ObjectArtKeys.BOSS_EXPLOSION,
+                    buildSheetFromPatterns(patterns, reader, Sonic3kConstants.MAP_BOSS_EXPLOSION_ADDR, 0));
+        } catch (IOException e) {
+            LOG.warning("Failed to load shared boss explosion art: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Loads HCZ miniboss art via PLC 0x5B, matching the ROM's Load_PLC call.
+     */
+    private void loadHczMinibossArtFromPlc() {
+        try {
+            Rom rom = GameServices.rom().getRom();
+            if (rom == null) return;
+            PlcDefinition plc = Sonic3kPlcLoader.parsePlc(rom, Sonic3kConstants.PLC_HCZ_MINIBOSS);
+            List<Pattern[]> decompressed = PlcParser.decompressAll(rom, plc);
+            if (decompressed.isEmpty() || decompressed.get(0).length == 0) {
+                LOG.warning("HCZ miniboss PLC produced no art");
+                return;
+            }
+            List<SpriteMappingFrame> mappings = loadMappingsFromAsmInclude(HCZ_MINIBOSS_MAPPING_ASM);
+            if (mappings.isEmpty()) {
+                LOG.warning("HCZ miniboss asm mapping include produced no frames");
+                return;
+            }
+            // The ASM mapping has 36 header entries but only 35 unique Frame_ labels —
+            // frames 25 and 26 both point to Frame_362BB0 (blank). The sequential parser
+            // produces only one frame for the shared label, shifting all subsequent frames.
+            // Insert a duplicate blank frame at index 26 to restore correct alignment.
+            if (mappings.size() == 35) {
+                mappings.add(26, new SpriteMappingFrame(List.of()));
+            }
+
+            registerSheet(Sonic3kObjectArtKeys.HCZ_MINIBOSS,
+                    buildSheetFromPatterns(decompressed.get(0), mappings, 1));
+            LOG.info("Loaded HCZ miniboss art via PLC 0x5B: "
+                    + decompressed.get(0).length + " tiles");
+        } catch (IOException e) {
+            LOG.warning("Failed to load HCZ miniboss art from PLC: " + e.getMessage());
         }
     }
 
@@ -1183,7 +1250,120 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         if (patterns == null || patterns.length == 0) return null;
         List<SpriteMappingFrame> mappings =
                 S3kSpriteDataLoader.loadMappingFrames(reader, mappingAddr);
-        return new ObjectSpriteSheet(patterns, mappings, paletteIndex, 1);
+        return buildSheetFromPatterns(patterns, mappings, paletteIndex);
+    }
+
+    private static ObjectSpriteSheet buildSheetFromPatterns(
+            Pattern[] patterns, List<SpriteMappingFrame> mappings, int paletteIndex) {
+        if (patterns == null || patterns.length == 0) return null;
+        if (mappings.isEmpty()) {
+            return new ObjectSpriteSheet(patterns, mappings, paletteIndex, 1);
+        }
+
+        int minTile = Integer.MAX_VALUE;
+        int maxTileExclusive = Integer.MIN_VALUE;
+        for (SpriteMappingFrame frame : mappings) {
+            for (SpriteMappingPiece piece : frame.pieces()) {
+                minTile = Math.min(minTile, piece.tileIndex());
+                int pieceTiles = piece.widthTiles() * piece.heightTiles();
+                maxTileExclusive = Math.max(maxTileExclusive, piece.tileIndex() + pieceTiles);
+            }
+        }
+
+        if (minTile == Integer.MAX_VALUE) {
+            return new ObjectSpriteSheet(patterns, mappings, paletteIndex, 1);
+        }
+
+        List<SpriteMappingFrame> adjustedMappings = Sonic3kObjectArt.adjustTileIndices(mappings, -minTile);
+        if (maxTileExclusive - minTile > patterns.length) {
+            LOG.warning("Standalone S3K sheet mapping range exceeds pattern count"
+                    + ": tileRange=" + (maxTileExclusive - minTile)
+                    + " patterns=" + patterns.length);
+        }
+        return new ObjectSpriteSheet(patterns, adjustedMappings, paletteIndex, 1);
+    }
+
+    private static List<SpriteMappingFrame> loadMappingsFromAsmInclude(Path path) throws IOException {
+        if (!Files.exists(path)) {
+            return List.of();
+        }
+
+        List<String> lines = Files.readAllLines(path);
+        List<SpriteMappingFrame> frames = new ArrayList<>();
+        List<SpriteMappingPiece> currentPieces = null;
+        int remainingPieces = 0;
+
+        for (String rawLine : lines) {
+            String line = rawLine.trim();
+            if (line.isEmpty()) {
+                continue;
+            }
+
+            if (line.startsWith("Frame_")) {
+                int dcw = line.indexOf("dc.w");
+                if (dcw < 0) {
+                    continue;
+                }
+                int pieceCount = parseAsmNumber(line.substring(dcw + 4).trim());
+                currentPieces = new ArrayList<>(Math.max(pieceCount, 0));
+                remainingPieces = pieceCount;
+                if (pieceCount == 0) {
+                    frames.add(new SpriteMappingFrame(currentPieces));
+                    currentPieces = null;
+                }
+                continue;
+            }
+
+            if (remainingPieces <= 0 || currentPieces == null || !line.startsWith("dc.b")) {
+                continue;
+            }
+
+            String[] parts = line.substring(4).split(",");
+            if (parts.length < 6) {
+                continue;
+            }
+
+            int yOffset = (byte) parseAsmNumber(parts[0].trim());
+            int size = parseAsmNumber(parts[1].trim()) & 0xFF;
+            int tileWord = ((parseAsmNumber(parts[2].trim()) & 0xFF) << 8)
+                    | (parseAsmNumber(parts[3].trim()) & 0xFF);
+            int xOffset = (short) (((parseAsmNumber(parts[4].trim()) & 0xFF) << 8)
+                    | (parseAsmNumber(parts[5].trim()) & 0xFF));
+
+            int widthTiles = ((size >> 2) & 0x3) + 1;
+            int heightTiles = (size & 0x3) + 1;
+            int tileIndex = tileWord & 0x7FF;
+            boolean hFlip = (tileWord & 0x800) != 0;
+            boolean vFlip = (tileWord & 0x1000) != 0;
+            int paletteIndex = (tileWord >> 13) & 0x3;
+            boolean priority = (tileWord & 0x8000) != 0;
+
+            currentPieces.add(new SpriteMappingPiece(
+                    xOffset, yOffset, widthTiles, heightTiles,
+                    tileIndex, hFlip, vFlip, paletteIndex, priority));
+            remainingPieces--;
+            if (remainingPieces == 0) {
+                frames.add(new SpriteMappingFrame(currentPieces));
+                currentPieces = null;
+            }
+        }
+
+        return frames;
+    }
+
+    private static int parseAsmNumber(String token) {
+        String value = token.trim();
+        boolean negative = value.startsWith("-");
+        if (negative) {
+            value = value.substring(1).trim();
+        }
+        int parsed;
+        if (value.startsWith("$")) {
+            parsed = Integer.parseInt(value.substring(1), 16);
+        } else {
+            parsed = Integer.parseInt(value);
+        }
+        return negative ? -parsed : parsed;
     }
 
     /**

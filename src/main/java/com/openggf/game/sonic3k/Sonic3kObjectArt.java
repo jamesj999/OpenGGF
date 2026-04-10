@@ -803,6 +803,25 @@ public class Sonic3kObjectArt {
         }
         if (patterns == null || patterns.length == 0) return null;
 
+        if (entry.mappingAddr() <= 0) {
+            List<SpriteMappingFrame> hardcoded = switch (entry.key()) {
+                case Sonic3kObjectArtKeys.HCZ_WATER_RUSH -> buildHczWaterRushMappings();
+                case Sonic3kObjectArtKeys.HCZ_GEYSER_HORZ -> buildHczGeyserHorzMappings();
+                case Sonic3kObjectArtKeys.HCZ_GEYSER_VERT -> buildHczGeyserVertMappings();
+                case Sonic3kObjectArtKeys.HCZ_GEYSER_DEBRIS -> buildHczGeyserDebrisMappings();
+                case Sonic3kObjectArtKeys.HCZ_GEYSER_SPRAY -> buildHczGeyserSprayMappings();
+                case Sonic3kObjectArtKeys.HCZ_BUBBLES -> buildHczGeyserAllFrames();
+                case Sonic3kObjectArtKeys.HCZ_FAN_BUBBLE -> buildHczFanBubbleMappings();
+                case Sonic3kObjectArtKeys.BUBBLER -> buildBubblerMappings();
+                default -> null;
+            };
+            if (hardcoded == null || hardcoded.isEmpty()) {
+                LOG.warning("No hardcoded mappings for standalone '" + entry.key() + "'");
+                return null;
+            }
+            return new ObjectSpriteSheet(patterns, hardcoded, entry.palette(), 1);
+        }
+
         List<SpriteMappingFrame> mappings =
                 S3kSpriteDataLoader.loadMappingFrames(reader, entry.mappingAddr(), entry.mappingFormat());
 
@@ -1224,5 +1243,316 @@ public class Sonic3kObjectArt {
             adjusted.add(new SpriteMappingFrame(adjustedPieces));
         }
         return adjusted;
+    }
+
+    List<SpriteMappingFrame> buildHczWaterRushMappings() {
+        SpriteMappingFrame frame0 = new SpriteMappingFrame(List.of(new SpriteMappingPiece(-64, -32, 4, 4, 0x00, false, false, 0), new SpriteMappingPiece(-32, -32, 2, 4, 0x10, false, false, 0), new SpriteMappingPiece(-16, -32, 4, 4, 0x18, false, false, 0), new SpriteMappingPiece(16, -32, 4, 4, 0x18, false, false, 0), new SpriteMappingPiece(48, -32, 4, 4, 0x18, false, false, 0), new SpriteMappingPiece(80, -32, 4, 4, 0x18, false, false, 0), new SpriteMappingPiece(112, -32, 2, 4, 0x18, false, false, 0), new SpriteMappingPiece(-48, 0, 4, 4, 0x00, false, false, 0), new SpriteMappingPiece(-16, 0, 2, 4, 0x28, false, false, 0), new SpriteMappingPiece(0, 0, 4, 4, 0x30, false, false, 0), new SpriteMappingPiece(32, 0, 4, 4, 0x30, false, false, 0), new SpriteMappingPiece(64, 0, 4, 4, 0x30, false, false, 0), new SpriteMappingPiece(96, 0, 4, 4, 0x30, false, false, 0), new SpriteMappingPiece(-32, 32, 4, 4, 0x00, false, false, 0), new SpriteMappingPiece(0, 32, 2, 4, 0x28, false, false, 0), new SpriteMappingPiece(16, 32, 4, 4, 0x30, false, false, 0), new SpriteMappingPiece(48, 32, 4, 4, 0x30, false, false, 0), new SpriteMappingPiece(80, 32, 4, 4, 0x30, false, false, 0), new SpriteMappingPiece(112, 32, 2, 4, 0x30, false, false, 0)));
+        SpriteMappingFrame frame1 = new SpriteMappingFrame(List.of(new SpriteMappingPiece(-48, -32, 4, 4, 0x00, false, false, 0), new SpriteMappingPiece(-16, -32, 2, 4, 0x40, false, false, 0), new SpriteMappingPiece(0, -32, 2, 4, 0x20, false, false, 0), new SpriteMappingPiece(16, -32, 4, 4, 0x18, false, false, 0), new SpriteMappingPiece(48, -32, 4, 4, 0x18, false, false, 0), new SpriteMappingPiece(80, -32, 4, 4, 0x18, false, false, 0), new SpriteMappingPiece(112, -32, 2, 4, 0x18, false, false, 0), new SpriteMappingPiece(-32, 0, 4, 4, 0x00, false, false, 0), new SpriteMappingPiece(0, 0, 2, 4, 0x48, false, false, 0), new SpriteMappingPiece(16, 0, 2, 4, 0x38, false, false, 0), new SpriteMappingPiece(32, 0, 4, 4, 0x30, false, false, 0), new SpriteMappingPiece(64, 0, 4, 4, 0x30, false, false, 0), new SpriteMappingPiece(96, 0, 4, 4, 0x30, false, false, 0), new SpriteMappingPiece(-16, 32, 4, 4, 0x00, false, false, 0), new SpriteMappingPiece(16, 32, 2, 4, 0x48, false, false, 0), new SpriteMappingPiece(32, 32, 2, 4, 0x38, false, false, 0), new SpriteMappingPiece(48, 32, 4, 4, 0x30, false, false, 0), new SpriteMappingPiece(80, 32, 4, 4, 0x30, false, false, 0), new SpriteMappingPiece(112, 32, 2, 4, 0x30, false, false, 0)));
+        SpriteMappingFrame frame2 = new SpriteMappingFrame(List.of(new SpriteMappingPiece(-32, -32, 2, 4, 0x20, false, false, 0), new SpriteMappingPiece(-16, -32, 4, 4, 0x18, false, false, 0), new SpriteMappingPiece(16, -32, 4, 4, 0x18, false, false, 0), new SpriteMappingPiece(48, -32, 4, 4, 0x18, false, false, 0), new SpriteMappingPiece(-32, 0, 4, 4, 0x30, false, false, 0), new SpriteMappingPiece(0, 0, 4, 4, 0x30, false, false, 0), new SpriteMappingPiece(32, 0, 4, 4, 0x30, false, false, 0), new SpriteMappingPiece(64, 0, 2, 4, 0x30, false, false, 0)));
+        SpriteMappingFrame frame3 = new SpriteMappingFrame(List.of(new SpriteMappingPiece(-32, -32, 2, 4, 0x20, false, false, 0), new SpriteMappingPiece(-16, -32, 4, 4, 0x18, false, false, 0), new SpriteMappingPiece(16, -32, 4, 4, 0x18, false, false, 0), new SpriteMappingPiece(48, -32, 4, 4, 0x18, false, false, 0), new SpriteMappingPiece(-64, 0, 4, 4, 0x00, false, false, 0), new SpriteMappingPiece(-32, 0, 2, 4, 0x48, false, false, 0), new SpriteMappingPiece(-16, 0, 2, 4, 0x38, false, false, 0), new SpriteMappingPiece(0, 0, 4, 4, 0x30, false, false, 0), new SpriteMappingPiece(32, 0, 4, 4, 0x30, false, false, 0), new SpriteMappingPiece(64, 0, 2, 4, 0x30, false, false, 0)));
+        return List.of(frame0, frame1, frame2, frame3);
+    }
+
+    /**
+     * Builds hardcoded mappings for HCZ horizontal geyser art (Map_HCZWaterWall).
+     * All 11 frames: frame 0 is the wide horizontal wall, frame 1 is the vertical
+     * column, frames 2-10 are small splash/debris pieces used by child objects.
+     */
+    List<SpriteMappingFrame> buildHczGeyserHorzMappings() {
+        return buildHczGeyserAllFrames();
+    }
+
+    /**
+     * Builds hardcoded mappings for HCZ vertical geyser art (Map_HCZWaterWall).
+     * All 11 frames shared with horizontal art — frame 1 is the vertical column,
+     * frame 0 is the horizontal wall, frames 2-10 are splash/debris.
+     */
+    List<SpriteMappingFrame> buildHczGeyserVertMappings() {
+        return buildHczGeyserAllFrames();
+    }
+
+    /**
+     * Builds hardcoded mappings for HCZ geyser debris art (Map_HCZWaterWallDebris).
+     * ROM: 8 single-piece frames. Tile indices are relative to ArtTile_HCZGeyser+$58,
+     * so we offset by 0x58 into the geyser pattern array.
+     *
+     * <p>Size byte decoding: bits 2-3 = (width-1), bits 0-1 = (height-1).
+     * $0E = 4w×3h, $0F = 4w×4h, $0B = 3w×4h.
+     */
+    List<SpriteMappingFrame> buildHczGeyserDebrisMappings() {
+        int tileBase = 0x58; // ArtTile_HCZGeyser+$58 offset into decompressed patterns
+        return List.of(
+                // Frame 0: ($F8,$0E,$00,$00,$FF,$F0) y=-8, 4×3, tile 0x00
+                new SpriteMappingFrame(List.of(
+                        new SpriteMappingPiece(-16, -8, 4, 3, tileBase + 0x00, false, false, 0))),
+                // Frame 1: ($F0,$0F,$00,$0C,$FF,$F0) y=-16, 4×4, tile 0x0C
+                new SpriteMappingFrame(List.of(
+                        new SpriteMappingPiece(-16, -16, 4, 4, tileBase + 0x0C, false, false, 0))),
+                // Frame 2: ($F0,$0B,$00,$1C,$FF,$F0) y=-16, 3×4, tile 0x1C
+                new SpriteMappingFrame(List.of(
+                        new SpriteMappingPiece(-16, -16, 3, 4, tileBase + 0x1C, false, false, 0))),
+                // Frame 3: ($F0,$0F,$08,$0C,$FF,$F0) y=-16, 4×4, hflip, tile 0x0C
+                new SpriteMappingFrame(List.of(
+                        new SpriteMappingPiece(-16, -16, 4, 4, tileBase + 0x0C, true, false, 0))),
+                // Frame 4: ($F0,$0E,$10,$00,$FF,$F0) y=-16, 4×3, vflip, tile 0x00
+                new SpriteMappingFrame(List.of(
+                        new SpriteMappingPiece(-16, -16, 4, 3, tileBase + 0x00, false, true, 0))),
+                // Frame 5: ($F0,$0F,$18,$0C,$FF,$F0) y=-16, 4×4, hflip+vflip, tile 0x0C
+                new SpriteMappingFrame(List.of(
+                        new SpriteMappingPiece(-16, -16, 4, 4, tileBase + 0x0C, true, true, 0))),
+                // Frame 6: ($F0,$0B,$08,$1C,$FF,$F8) y=-16, 3×4, hflip, tile 0x1C, x=-8
+                new SpriteMappingFrame(List.of(
+                        new SpriteMappingPiece(-8, -16, 3, 4, tileBase + 0x1C, true, false, 0))),
+                // Frame 7: ($F0,$0F,$10,$0C,$FF,$F0) y=-16, 4×4, vflip, tile 0x0C
+                new SpriteMappingFrame(List.of(
+                        new SpriteMappingPiece(-16, -16, 4, 4, tileBase + 0x0C, false, true, 0)))
+        );
+    }
+
+    /**
+     * All 11 frames from Map_HCZWaterWall in the S3K disassembly.
+     * <p>Frame 0: 14-piece horizontal geyser wall (256x64).
+     * <p>Frame 1: 12-piece vertical geyser column (64x192).
+     * <p>Frames 2-10: small splash/debris pieces (1 piece each).
+     */
+    private List<SpriteMappingFrame> buildHczGeyserAllFrames() {
+        // Frame 0 — horizontal geyser wall (14 pieces)
+        SpriteMappingFrame frame0 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-128, -32, 4, 4, 0x00, false, false, 0),
+                new SpriteMappingPiece(-96, -32, 4, 4, 0x00, false, false, 0),
+                new SpriteMappingPiece(-64, -32, 4, 4, 0x00, false, false, 0),
+                new SpriteMappingPiece(-32, -32, 4, 4, 0x00, false, false, 0),
+                new SpriteMappingPiece(0, -32, 4, 4, 0x00, false, false, 0),
+                new SpriteMappingPiece(32, -32, 4, 4, 0x10, false, false, 0),
+                new SpriteMappingPiece(64, -32, 4, 4, 0x20, false, false, 0),
+                new SpriteMappingPiece(-128, 0, 4, 4, 0x00, false, true, 0),
+                new SpriteMappingPiece(-96, 0, 4, 4, 0x00, false, true, 0),
+                new SpriteMappingPiece(-64, 0, 4, 4, 0x00, false, true, 0),
+                new SpriteMappingPiece(-32, 0, 4, 4, 0x00, false, true, 0),
+                new SpriteMappingPiece(0, 0, 4, 4, 0x00, false, true, 0),
+                new SpriteMappingPiece(32, 0, 4, 4, 0x10, false, true, 0),
+                new SpriteMappingPiece(64, 0, 4, 4, 0x20, false, true, 0)));
+
+        // Frame 1 — vertical geyser column (12 pieces)
+        SpriteMappingFrame frame1 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-32, -96, 4, 4, 0x00, false, false, 0),
+                new SpriteMappingPiece(0, -96, 4, 4, 0x00, true, false, 0),
+                new SpriteMappingPiece(-32, -64, 4, 4, 0x10, false, false, 0),
+                new SpriteMappingPiece(0, -64, 4, 4, 0x10, true, false, 0),
+                new SpriteMappingPiece(-32, -32, 4, 4, 0x20, false, false, 0),
+                new SpriteMappingPiece(0, -32, 4, 4, 0x20, true, false, 0),
+                new SpriteMappingPiece(-32, 0, 4, 4, 0x20, false, false, 0),
+                new SpriteMappingPiece(0, 0, 4, 4, 0x20, true, false, 0),
+                new SpriteMappingPiece(-32, 32, 4, 4, 0x20, false, false, 0),
+                new SpriteMappingPiece(0, 32, 4, 4, 0x20, true, false, 0),
+                new SpriteMappingPiece(-32, 64, 4, 4, 0x20, false, false, 0),
+                new SpriteMappingPiece(0, 64, 4, 4, 0x20, true, false, 0)));
+
+        // Frames 2-10 — small splash/debris pieces (1 piece each)
+        SpriteMappingFrame frame2 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-4, -4, 1, 1, 0x00, false, false, 0)));
+        SpriteMappingFrame frame3 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 0x1A, false, false, 0)));
+        SpriteMappingFrame frame4 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 0x1E, false, false, 0)));
+        SpriteMappingFrame frame5 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, 0x22, false, false, 0)));
+        SpriteMappingFrame frame6 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-4, -4, 1, 1, 0x26, false, false, 0)));
+        SpriteMappingFrame frame7 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-4, -4, 1, 1, 0x27, false, false, 0)));
+        SpriteMappingFrame frame8 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -6, 2, 1, 0x00, false, false, 0)));
+        SpriteMappingFrame frame9 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-16, -22, 4, 3, 0x02, false, false, 0)));
+        SpriteMappingFrame frame10 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-16, -22, 4, 3, 0x0E, false, false, 0)));
+
+        return List.of(frame0, frame1, frame2, frame3, frame4, frame5,
+                frame6, frame7, frame8, frame9, frame10);
+    }
+
+    /**
+     * Builds mappings for HCZ geyser spray/splash art.
+     * ROM: spray children use art_tile = ArtTile_HCZGeyser+$30, meaning all mapping
+     * tile indices are relative to offset $30 within the decompressed geyser patterns.
+     * Since our standalone sheets index from 0, we add $30 to every tile index.
+     * Only frames 2-10 are used by spray/splash children.
+     */
+    /**
+     * Builds hardcoded mappings for HCZ fan bubble (Map_Bubbler, frames 0-5).
+     * Small bubble sprites spawned by Obj_HCZCGZFan when subtype bit 6 is set.
+     * <p>
+     * ROM: Map_Bubbler (docs/skdisasm/General/Sprites/Bubbles/Map - Bubbler.asm).
+     * Frame 0: 1×1 tile (8×8), tile 0 — tiny bubble dot.
+     * Frame 1: 1×1 tile (8×8), tile 1 — slightly different dot.
+     * Frame 2: 1×1 tile (8×8), tile 2 — medium dot.
+     * Frame 3: 2×2 tile (16×16), tile 3 — small bubble.
+     * Frame 4: 2×2 tile (16×16), tile 7 — medium bubble.
+     * Frame 5: 3×3 tile (24×24), tile $B — large bubble.
+     */
+    List<SpriteMappingFrame> buildHczFanBubbleMappings() {
+        return List.of(
+                // Frame 0: dc.b $FC,$00,$00,$00,$FF,$FC — 1×1 at (-4,-4), tile 0
+                new SpriteMappingFrame(List.of(
+                        new SpriteMappingPiece(-4, -4, 1, 1, 0, false, false, 0))),
+                // Frame 1: dc.b $FC,$00,$00,$01,$FF,$FC — 1×1 at (-4,-4), tile 1
+                new SpriteMappingFrame(List.of(
+                        new SpriteMappingPiece(-4, -4, 1, 1, 1, false, false, 0))),
+                // Frame 2: dc.b $FC,$00,$00,$02,$FF,$FC — 1×1 at (-4,-4), tile 2
+                new SpriteMappingFrame(List.of(
+                        new SpriteMappingPiece(-4, -4, 1, 1, 2, false, false, 0))),
+                // Frame 3: dc.b $F8,$05,$00,$03,$FF,$F8 — 2×2 at (-8,-8), tile 3
+                new SpriteMappingFrame(List.of(
+                        new SpriteMappingPiece(-8, -8, 2, 2, 3, false, false, 0))),
+                // Frame 4: dc.b $F8,$05,$00,$07,$FF,$F8 — 2×2 at (-8,-8), tile 7
+                new SpriteMappingFrame(List.of(
+                        new SpriteMappingPiece(-8, -8, 2, 2, 7, false, false, 0))),
+                // Frame 5: dc.b $F4,$0A,$00,$0B,$FF,$F4 — 3×3 at (-12,-12), tile $B
+                new SpriteMappingFrame(List.of(
+                        new SpriteMappingPiece(-12, -12, 3, 3, 0x0B, false, false, 0)))
+        );
+    }
+
+    /**
+     * Builds the subset of Map_Bubbler frames used by Obj_Bubbler.
+     * <p>
+     * The object only references frames 0-8 (bubble growth/burst) and 19-21
+     * (floor vent animation). Frames 9-18 reference high VRAM countdown tiles
+     * and are left blank here because the Bubbler object never animates through them.
+     * <p>
+     * ROM: General/Sprites/Bubbles/Map - Bubbler.asm
+     */
+    List<SpriteMappingFrame> buildBubblerMappings() {
+        List<SpriteMappingFrame> frames = new ArrayList<>(22);
+
+        frames.add(single(-4, -4, 1, 1, 0x00));   // 0
+        frames.add(single(-4, -4, 1, 1, 0x01));   // 1
+        frames.add(single(-4, -4, 1, 1, 0x02));   // 2
+        frames.add(single(-8, -8, 2, 2, 0x03));   // 3
+        frames.add(single(-8, -8, 2, 2, 0x07));   // 4
+        frames.add(single(-12, -12, 3, 3, 0x0B)); // 5
+        frames.add(single(-16, -16, 4, 4, 0x14)); // 6
+        frames.add(new SpriteMappingFrame(List.of( // 7
+                new SpriteMappingPiece(-16, -16, 2, 2, 0x24, false, false, 0),
+                new SpriteMappingPiece(0, -16, 2, 2, 0x24, true, false, 0),
+                new SpriteMappingPiece(-16, 0, 2, 2, 0x24, false, true, 0),
+                new SpriteMappingPiece(0, 0, 2, 2, 0x24, true, true, 0))));
+        frames.add(new SpriteMappingFrame(List.of( // 8
+                new SpriteMappingPiece(-16, -16, 2, 2, 0x28, false, false, 0),
+                new SpriteMappingPiece(0, -16, 2, 2, 0x28, true, false, 0),
+                new SpriteMappingPiece(-16, 0, 2, 2, 0x28, false, true, 0),
+                new SpriteMappingPiece(0, 0, 2, 2, 0x28, true, true, 0))));
+
+        for (int i = 9; i <= 18; i++) {
+            frames.add(new SpriteMappingFrame(List.of()));
+        }
+
+        frames.add(single(-8, -8, 2, 2, 0x2C));   // 19
+        frames.add(single(-8, -8, 2, 2, 0x30));   // 20
+        frames.add(single(-8, -8, 2, 2, 0x34));   // 21
+
+        return frames;
+    }
+
+    private SpriteMappingFrame single(int x, int y, int w, int h, int tile) {
+        return new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(x, y, w, h, tile, false, false, 0)));
+    }
+
+    List<SpriteMappingFrame> buildHczGeyserSprayMappings() {
+        int ofs = 0x30; // ArtTile_HCZGeyser+$30 offset
+        // Frame 0 and 1 are unused placeholders (spray only uses frames 2-10)
+        SpriteMappingFrame placeholder = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(0, 0, 1, 1, ofs, false, false, 0)));
+        // Frames 2-10: same layout as main geyser but tile indices + $30
+        SpriteMappingFrame f2 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-4, -4, 1, 1, ofs + 0x00, false, false, 0)));
+        SpriteMappingFrame f3 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, ofs + 0x1A, false, false, 0)));
+        SpriteMappingFrame f4 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, ofs + 0x1E, false, false, 0)));
+        SpriteMappingFrame f5 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -8, 2, 2, ofs + 0x22, false, false, 0)));
+        SpriteMappingFrame f6 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-4, -4, 1, 1, ofs + 0x26, false, false, 0)));
+        SpriteMappingFrame f7 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-4, -4, 1, 1, ofs + 0x27, false, false, 0)));
+        SpriteMappingFrame f8 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -6, 2, 1, ofs + 0x00, false, false, 0)));
+        SpriteMappingFrame f9 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-16, -22, 4, 3, ofs + 0x02, false, false, 0)));
+        SpriteMappingFrame f10 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-16, -22, 4, 3, ofs + 0x0E, false, false, 0)));
+        return List.of(placeholder, placeholder, f2, f3, f4, f5, f6, f7, f8, f9, f10);
+    }
+
+    public ObjectSpriteSheet buildHczWaterRushBlockSheet() {
+        SpriteMappingFrame f0 = new SpriteMappingFrame(List.of(new SpriteMappingPiece(-16, -16, 4, 4, 0x00, false, false, 0)));
+        SpriteMappingFrame f1 = new SpriteMappingFrame(List.of(new SpriteMappingPiece(-16, -32, 4, 4, 0x00, false, false, 0), new SpriteMappingPiece(-16, 0, 4, 4, 0x00, false, false, 0)));
+        return buildLevelArtSheet(Sonic3kConstants.ARTTILE_HCZ_WATER_RUSH_BLOCK, 2, List.of(f0, f1), 0, 16);
+    }
+
+    /**
+     * Builds vertical door sheet for HCZ.
+     * Uses ArtTile_HCZMisc + $0A = $03D4, palette 2.
+     * Subtype 0 / mapping frame 0.
+     * From Map - (&CNZ &DEZ) Door.asm (Map_HCZCNZDEZDoor).
+     */
+    public ObjectSpriteSheet buildDoorVerticalHczSheet() {
+        SpriteMappingFrame f0 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-16, -32, 4, 4, 0, false, false, 0, false),
+                new SpriteMappingPiece(-16, 0, 4, 4, 0, false, false, 0, false)
+        ));
+        int artTileBase = Sonic3kConstants.ARTTILE_HCZ_MISC + 0x0A;
+        return buildLevelArtSheet(artTileBase, 2, List.of(f0), 0, 16);
+    }
+
+    /**
+     * Builds vertical door sheet for CNZ.
+     * Uses ArtTile_CNZMisc + $C5 = $0416, palette 2.
+     * Subtype 1 / mapping frame 1.
+     * From Map - (&CNZ &DEZ) Door.asm (Map_HCZCNZDEZDoor).
+     */
+    public ObjectSpriteSheet buildDoorVerticalCnzSheet() {
+        SpriteMappingFrame f1 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-8, -32, 2, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece(-8, -16, 2, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece(-8, 0, 2, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece(-8, 16, 2, 2, 0, false, false, 0, false)
+        ));
+        return buildLevelArtSheet(Sonic3kConstants.ARTTILE_CNZ_MISC + 0xC5, 2, List.of(f1), 0, 16);
+    }
+
+    /**
+     * Builds vertical door sheet for DEZ.
+     * Uses ArtTile_DEZMisc + $1E = $036B, palette 1.
+     * Subtype 2 / mapping frame 2.
+     * From Map - (&CNZ &DEZ) Door.asm (Map_HCZCNZDEZDoor).
+     */
+    public ObjectSpriteSheet buildDoorVerticalDezSheet() {
+        SpriteMappingFrame f2 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-16, -32, 2, 4, 0, false, false, 0, false),
+                new SpriteMappingPiece(0, -32, 2, 4, 8, false, false, 0, false),
+                new SpriteMappingPiece(-16, 0, 2, 4, 0, false, false, 0, false),
+                new SpriteMappingPiece(0, 0, 2, 4, 8, false, false, 0, false)
+        ));
+        return buildLevelArtSheet(Sonic3kConstants.ARTTILE_DEZ_MISC + 0x1E, 1, List.of(f2), 0, 16);
+    }
+
+    /**
+     * Builds horizontal door sheet.
+     * Uses ArtTile_CNZMisc + $C5 = $0416, palette 2.
+     * One frame: 4 pieces (size=$05, 2x2=16x16 each), tile 0
+     * From Map - Door Horizontal.asm (Map_CNZDoorHorizontal).
+     */
+    public ObjectSpriteSheet buildDoorHorizontalSheet() {
+        SpriteMappingFrame f0 = new SpriteMappingFrame(List.of(
+                new SpriteMappingPiece(-32, -8, 2, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece(-16, -8, 2, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece(   0, -8, 2, 2, 0, false, false, 0, false),
+                new SpriteMappingPiece(  16, -8, 2, 2, 0, false, false, 0, false)
+        ));
+        return buildLevelArtSheet(Sonic3kConstants.ARTTILE_CNZ_MISC + 0xC5, 2, List.of(f0), 0, 4);
     }
 }

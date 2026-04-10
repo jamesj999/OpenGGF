@@ -12,6 +12,8 @@ import com.openggf.game.sonic3k.features.AizBattleshipRenderFeature;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.features.AizTransitionRenderFeature;
 import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotMachinePanelAnimator;
+import com.openggf.game.sonic3k.features.HCZWaterSkimHandler;
+import com.openggf.game.sonic3k.features.HCZWaterTunnelHandler;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.GLCommand;
@@ -45,8 +47,13 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
 
         // Initialize water surface manager for HCZ (zone 1)
         // From sonic3k.asm:7777-7787: only HCZ loads Obj_HCZWaveSplash
-        if (zoneIndex == Sonic3kZoneIds.ZONE_HCZ && hasWater(zoneIndex)) {
+        // Use a static zone check (not hasWater()) because the WaterSystem
+        // is loaded in a later init phase (InitWater runs after InitZoneFeatures).
+        if (zoneHasWaterSurface(zoneIndex)) {
             initWaterSurfaceManager(rom, zoneIndex, actIndex);
+            // Init water skim handler (Obj_HCZWaterSplash subtype 1)
+            // ROM: sonic3k.asm:7786-7787 — spawned alongside Obj_HCZWaveSplash at HCZ init
+            HCZWaterSkimHandler.init(rom, actIndex);
         }
         if (zoneIndex == Sonic3kZoneIds.ZONE_SLOT_MACHINE) {
             initSlotMachineRenderer(rom);
@@ -63,6 +70,22 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
     @Override
     public void update(AbstractPlayableSprite player, int cameraX, int zoneIndex) {
         updateAizForestFrontPriority(player, zoneIndex);
+    }
+
+    /**
+     * Pre-physics update for HCZ water tunnels.
+     * ROM: {@code sub_6F4A} runs before {@code ExecuteObjects}, so the tunnel
+     * velocity and position overrides are applied before player physics.
+     */
+    @Override
+    public void updatePrePhysics(AbstractPlayableSprite player, int cameraX, int zoneIndex) {
+        if (zoneIndex == Sonic3kZoneIds.ZONE_HCZ && player != null && !player.getDead()) {
+            int act = GameServices.level().getFeatureActId();
+            HCZWaterTunnelHandler.update(act);
+            // Water skim runs after tunnels (ROM: Obj_HCZWaterSplash runs in ExecuteObjects
+            // which is after sub_6F4A/water tunnels)
+            HCZWaterSkimHandler.update();
+        }
     }
 
     private void updateAizForestFrontPriority(AbstractPlayableSprite player, int zoneIndex) {
@@ -122,6 +145,8 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
             slotMachinePanelAnimator.cleanup();
             slotMachinePanelAnimator = null;
         }
+        HCZWaterTunnelHandler.reset();
+        HCZWaterSkimHandler.reset();
     }
 
     @Override
@@ -131,9 +156,20 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
 
     @Override
     public boolean hasWater(int zoneIndex) {
-        // Check if water was loaded for this zone (any act)
-        WaterSystem waterSystem = GameServices.water();
-        return waterSystem.hasWater(zoneIndex, 0) || waterSystem.hasWater(zoneIndex, 1);
+        // Static check: HCZ is the only S3K zone with water surface sprites.
+        // Must not query WaterSystem here because this method may be called
+        // before InitWater has run (e.g. from initZoneFeatures).
+        // ROM: CheckLevelForWater (sonic3k.asm:9754) — zone 1 (HCZ) has water.
+        return zoneHasWaterSurface(zoneIndex);
+    }
+
+    /**
+     * Static check for zones that have water surface rendering.
+     * Unlike {@link #hasWater(int)}, this never queries runtime state,
+     * so it is safe to call during any init phase.
+     */
+    private static boolean zoneHasWaterSurface(int zoneIndex) {
+        return zoneIndex == Sonic3kZoneIds.ZONE_HCZ;
     }
 
     @Override
@@ -147,6 +183,8 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
         if (waterSurfaceManager != null && waterSurfaceManager.isInitialized()) {
             waterSurfaceManager.render(camera, frameCounter);
         }
+        // Render water skim splash sprites (at water level, following player)
+        HCZWaterSkimHandler.render(camera);
         aizTransitionRenderFeature.renderFlameOverlay(camera, frameCounter);
         if (GameServices.level() == null || GameServices.level().getCurrentZone() != Sonic3kZoneIds.ZONE_SLOT_MACHINE) {
             return;
@@ -201,8 +239,9 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
     @Override
     public int ensurePatternsCached(GraphicsManager graphicsManager, int baseIndex) {
         if (waterSurfaceManager != null) {
-            return waterSurfaceManager.ensurePatternsCached(graphicsManager, baseIndex);
+            baseIndex = waterSurfaceManager.ensurePatternsCached(graphicsManager, baseIndex);
         }
+        baseIndex = HCZWaterSkimHandler.ensurePatternsCached(graphicsManager, baseIndex);
         return baseIndex;
     }
 
