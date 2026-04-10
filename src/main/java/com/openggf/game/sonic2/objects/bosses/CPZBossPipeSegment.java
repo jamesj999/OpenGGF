@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects.bosses;
 
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.sonic2.Sonic2Rng;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.level.objects.ObjectAnimationState;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
@@ -12,7 +13,6 @@ import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * CPZ Boss Pipe Segment - Individual segment of the extending pipe.
@@ -92,16 +92,14 @@ public class CPZBossPipeSegment extends AbstractObjectInstance {
         if (services().objectManager() == null) {
             return;
         }
-        int xVel = randomPipeVelocity();
+        var motion = randomPipeMotion();
         ObjectSpawn partSpawn = new ObjectSpawn(x, y, Sonic2ObjectIds.CPZ_BOSS, 0, renderFlags, false, 0);
-        CPZBossFallingPart part = new CPZBossFallingPart(partSpawn, 1, xVel);
+        CPZBossFallingPart part = new CPZBossFallingPart(partSpawn, 1, motion.xVel(), motion.timer());
         services().objectManager().addDynamicObject(part);
     }
 
-    private int randomPipeVelocity() {
-        int random = ThreadLocalRandom.current().nextInt(0x10000);
-        int result = (short) (random >> 8);
-        return result >> 6;
+    private Sonic2Rng.PipeShardMotion randomPipeMotion() {
+        return Sonic2Rng.nextPipeShardMotion(services().rng());
     }
 
     private void animate() {

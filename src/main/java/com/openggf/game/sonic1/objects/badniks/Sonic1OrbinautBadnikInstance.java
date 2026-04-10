@@ -10,6 +10,7 @@ import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -323,7 +324,8 @@ public class Sonic1OrbinautBadnikInstance extends AbstractBadnikInstance {
                 return;
             }
 
-            ObjectRenderManager renderManager = services() != null ? services().renderManager() : null;
+            ObjectServices svc = tryServices();
+            ObjectRenderManager renderManager = svc != null ? svc.renderManager() : null;
             if (renderManager == null) {
                 return;
             }

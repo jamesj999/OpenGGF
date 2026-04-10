@@ -1,7 +1,5 @@
 package com.openggf.level.objects;
 
-import com.openggf.game.GameServices;
-
 import com.openggf.game.LevelState;
 import com.openggf.game.GameStateManager;
 import com.openggf.graphics.GraphicsManager;
@@ -76,6 +74,7 @@ public class HudRenderManager {
     private boolean livesNameUsesIconPalette;
 
     private HudFlashMode flashMode = HudFlashMode.PALETTE_SWAP;
+    private boolean bonusStageHudLayout;
 
     public HudRenderManager(GraphicsManager graphicsManager, Camera camera, GameStateManager gameState) {
         this.graphicsManager = graphicsManager;
@@ -103,6 +102,10 @@ public class HudRenderManager {
 
     public void setHudFlashMode(HudFlashMode mode) {
         this.flashMode = mode;
+    }
+
+    public void setBonusStageHudLayout(boolean enabled) {
+        this.bonusStageHudLayout = enabled;
     }
 
     private int textPatternCount;
@@ -183,6 +186,11 @@ public class HudRenderManager {
         if (levelGamestate == null)
             return;
 
+        if (bonusStageHudLayout) {
+            drawBonusStageHud(levelGamestate);
+            return;
+        }
+
         // Check if debug mode is active
         boolean debugMode = player != null && player.isDebugMode();
 
@@ -227,6 +235,21 @@ public class HudRenderManager {
 
         drawCores(levelGamestate.getRings(), levelGamestate.getFlashCycle());
         drawLives(gameState.getLives());
+    }
+
+    private void drawBonusStageHud(LevelState levelGamestate) {
+        int rings = levelGamestate.getRings();
+        boolean flashCycle = levelGamestate.getFlashCycle();
+        if (flashMode == HudFlashMode.TEXT_HIDE) {
+            if (!(rings == 0 && flashCycle)) {
+                drawHudString(16, 8, "RINGS", hudPatternDesc);
+            }
+        } else {
+            boolean flash = rings == 0;
+            PatternDesc desc = (flash && flashCycle) ? iconPatternDesc : hudPatternDesc;
+            drawHudString(16, 8, "RINGS", desc);
+        }
+        drawNumberRightAligned(64, 8, rings, 3);
     }
 
     private void drawTimeLabel(boolean flashTime, boolean flashCycle) {

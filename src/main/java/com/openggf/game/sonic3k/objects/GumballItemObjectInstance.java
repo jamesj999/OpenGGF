@@ -5,6 +5,7 @@ import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
+import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
@@ -70,8 +71,7 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
     // These are the static balls displayed inside the machine / bonus stage.
     private static final int STATIC_PRIORITY_BUCKET = 4;
 
-    // ROM: machine-ejected child balls use ObjDat3_613E0 priority $0100 → bucket 2.
-    // Same depth as Sonic and the active machine apparatus.
+    // ROM: loc_60EBA uses ObjDat3_613E0 with priority $0100 → bucket 2.
     private static final int MOVING_PRIORITY_BUCKET = 2;
 
     // ROM: loc_6114E — ring item awards 10 rings to HUD and 20 to saved count
@@ -153,8 +153,11 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
         this.rewardMode = rewardMode;
         this.subtype = spawn.subtype() & 0xFF;
 
-        // ROM animation scripts (byte_61466+) use subtype + 8 as the static frame.
-        this.mappingFrame = subtype + 8;
+        // ROM frame bases differ between the normal gumball dispenser table and the
+        // Pachinko reward conversion path.
+        this.mappingFrame = rewardMode == RewardMode.PACHINKO
+                ? subtype + 7
+                : subtype + 8;
 
         this.motionState = new SubpixelMotion.State(
                 spawn.x(), spawn.y(), 0, 0, 0, initialYVel);
@@ -521,7 +524,8 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (!GumballMachineObjectInstance.shouldDebugRender(getPriorityBucket(), isHighPriority())) return;
+        if (!GumballMachineObjectInstance.shouldDebugRender(
+                getPriorityBucket(), isHighPriority(), GumballMachineObjectInstance.DEBUG_SOURCE_ITEM)) return;
         String artKey = resolveArtKey();
         PatternSpriteRenderer renderer = getRenderer(artKey);
         if (renderer == null) {
@@ -529,7 +533,19 @@ public class GumballItemObjectInstance extends AbstractObjectInstance
         }
 
         int frame = resolveMappingFrame();
-        renderer.drawFrameIndex(frame, motionState.x, motionState.y, false, false, 0);
+        GraphicsManager graphicsManager = services().graphicsManager();
+        if (graphicsManager != null) {
+            graphicsManager.setCurrentSpriteSatDebugSource(String.format(
+                    "GumballItem mode=%s frame=0x%02X slot=%d bucket=%d high=%s",
+                    motionMode, frame, getSlotIndex(), getPriorityBucket(), isHighPriority()));
+        }
+        try {
+            renderer.drawFrameIndex(frame, motionState.x, motionState.y, false, false, 0);
+        } finally {
+            if (graphicsManager != null) {
+                graphicsManager.setCurrentSpriteSatDebugSource(null);
+            }
+        }
     }
 
     private String resolveArtKey() {

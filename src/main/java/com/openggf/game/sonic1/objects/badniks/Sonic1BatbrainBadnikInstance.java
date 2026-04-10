@@ -11,6 +11,7 @@ import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
@@ -397,7 +398,8 @@ public class Sonic1BatbrainBadnikInstance extends AbstractBadnikInstance {
             // creates it. Contrast with RememberState (isPersistent returning
             // false) which DOES clear bit 7, allowing respawn on camera re-entry.
             setDestroyed(true);
-            var objectManager = services() != null ? services().objectManager() : null;
+            ObjectServices svc = tryServices();
+            var objectManager = svc != null ? svc.objectManager() : null;
             if (objectManager != null) {
                 objectManager.markRemembered(spawn);
             }

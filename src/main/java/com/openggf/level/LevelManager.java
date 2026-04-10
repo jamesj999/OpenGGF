@@ -1,7 +1,6 @@
 package com.openggf.level;
 
 import com.openggf.game.*;
-import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.Engine;
 import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
@@ -16,8 +15,6 @@ import com.openggf.data.RomByteReader;
 import com.openggf.game.CrossGameFeatureProvider;
 import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.game.DynamicStartPositionProvider;
-import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
-
 import com.openggf.debug.DebugObjectArtViewer;
 import com.openggf.debug.DebugOverlayManager;
 import com.openggf.debug.DebugOverlayToggle;
@@ -191,6 +188,7 @@ public class LevelManager {
     // Mutable state for pre-allocated water shader setup command
     private float pendingWaterlineScreenY;
     private int pendingWaterShimmerStyle;
+    private boolean pendingSuppressUnderwaterPalette;
     private final GLCommand waterShaderSetupCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
         graphicsManager.setUseWaterShader(true);
 
@@ -210,7 +208,7 @@ public class LevelManager {
         shader.setScreenDimensions((float) configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS),
                 screenHeightPixels);
 
-        graphicsManager.setWaterEnabled(true);
+        graphicsManager.setWaterEnabled(!pendingSuppressUnderwaterPalette);
         graphicsManager.setWaterlineScreenY(pendingWaterlineScreenY);
         graphicsManager.setWindowHeight(windowHeight);
         graphicsManager.setScreenHeight(screenHeightPixels);
@@ -309,7 +307,7 @@ public class LevelManager {
         if (tilemapRenderer == null) {
             return;
         }
-        applyForegroundHeatHaze(tilemapRenderer);
+        applyForegroundScrollFeatures(tilemapRenderer);
         short[] fgPerColumnVScrollLow = parallaxManager.getVScrollPerColumnFGForShader();
         if (fgPerColumnVScrollLow != null) {
             tilemapRenderer.enablePerColumnVScroll(fgPerColumnVScrollLow);
@@ -352,7 +350,7 @@ public class LevelManager {
         if (tilemapRenderer == null) {
             return;
         }
-        applyForegroundHeatHaze(tilemapRenderer);
+        applyForegroundScrollFeatures(tilemapRenderer);
         short[] fgPerColumnVScrollHigh = parallaxManager.getVScrollPerColumnFGForShader();
         if (fgPerColumnVScrollHigh != null) {
             tilemapRenderer.enablePerColumnVScroll(fgPerColumnVScrollHigh);
@@ -400,7 +398,7 @@ public class LevelManager {
         glBlendEquation(GL_MAX);
         glBlendFunc(GL_ONE, GL_ONE);
 
-        applyForegroundHeatHaze(tilemapRenderer);
+        applyForegroundScrollFeatures(tilemapRenderer);
         short[] fgPerColumnVScrollFbo = parallaxManager.getVScrollPerColumnFGForShader();
         if (fgPerColumnVScrollFbo != null) {
             tilemapRenderer.enablePerColumnVScroll(fgPerColumnVScrollFbo);
@@ -491,9 +489,13 @@ public class LevelManager {
         graphicsManager.setUseUnderwaterPaletteForBackground(false);
     });
 
-    private void applyForegroundHeatHaze(TilemapGpuRenderer tilemapRenderer) {
+    private void applyForegroundScrollFeatures(TilemapGpuRenderer tilemapRenderer) {
         if (zoneFeatureProvider != null
                 && zoneFeatureProvider.shouldEnableForegroundHeatHaze(getFeatureZoneId(), getFeatureActId(), camera.getX())) {
+            tilemapRenderer.enablePerLineForegroundScroll(parallaxManager.getHScrollForShader());
+        }
+        if (zoneFeatureProvider != null
+                && zoneFeatureProvider.shouldEnablePerLineForegroundScroll(getFeatureZoneId(), getFeatureActId(), camera.getX())) {
             tilemapRenderer.enablePerLineForegroundScroll(parallaxManager.getHScrollForShader());
         }
     }
@@ -817,8 +819,19 @@ public class LevelManager {
      * Phase H: Initialize zone-specific features (CNZ bumpers, CPZ pylon, water surface, etc.).
      */
     public void initZoneFeatures() throws IOException {
-        Rom rom = GameServices.rom().getRom();
         zoneFeatureProvider = gameModule.getZoneFeatureProvider();
+        initializeZoneFeatureProvider(zoneFeatureProvider);
+    }
+
+    private void reinitializeZoneFeaturesForActTransition() throws IOException {
+        if (zoneFeatureProvider == null) {
+            zoneFeatureProvider = gameModule.getZoneFeatureProvider();
+        }
+        initializeZoneFeatureProvider(zoneFeatureProvider);
+    }
+
+    private void initializeZoneFeatureProvider(ZoneFeatureProvider zoneFeatureProvider) throws IOException {
+        Rom rom = GameServices.rom().getRom();
         if (zoneFeatureProvider != null) {
             zoneFeatureProvider.initZoneFeatures(rom, getFeatureZoneId(), getFeatureActId(), camera.getX());
             // Cache zone feature patterns (water surface, etc.)
@@ -960,6 +973,18 @@ public class LevelManager {
     }
 
     /**
+     * Returns true for Sonic 2/Sonic 3&K's dual-path collision model, where the ROM
+     * runs player physics before object slot execution and each solid object resolves
+     * contact inline during its own update.
+     */
+    public boolean usesInlineObjectSolidResolution() {
+        return gameModule.getPhysicsProvider() != null
+                && gameModule.getPhysicsProvider().getFeatureSet() != null
+                && gameModule.getPhysicsProvider().getFeatureSet().collisionModel()
+                   == com.openggf.game.CollisionModel.DUAL_PATH;
+    }
+
+    /**
      * Run touch responses for a single player. Called from tickPlayablePhysics
      * after handleMovement but before post-movement solid contacts, matching
      * the ROM's ReactToItem timing within ExecuteObjects.
@@ -1027,6 +1052,25 @@ public class LevelManager {
         // the previous frame's oscillation values, then OscillateNumDo advances
         // them for the next frame. Placing this call before objectManager.update()
         // caused a 1-frame phase shift in oscillating platform positions.
+        OscillationManager.update(frameCounter);
+    }
+
+    /**
+     * Runs object execution after player physics with inline solid resolution.
+     * Used by Sonic 2/Sonic 3&K, where the ROM executes the player slot first,
+     * then processes solid objects in slot order against the player's already-moved state.
+     */
+    public void updateObjectPositionsPostPhysicsWithoutTouches() {
+        if (objectManager != null) {
+            Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+            AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
+            List<AbstractPlayableSprite> sidekicks = spriteManager.getSidekicks();
+            objectManager.update(camera.getX(), playable, sidekicks, frameCounter + 1,
+                    false, true, true);
+        }
+
+        // ROM parity: objects read the previous frame's oscillation values, then
+        // OscillateNumDo advances them for the next frame after ExecuteObjects.
         OscillationManager.update(frameCounter);
     }
 
@@ -1123,7 +1167,7 @@ public class LevelManager {
 
         // Update player water state after both water movement and zone features.
         if (level != null && waterSystem.hasWater(featureZone, featureAct) && playable != null) {
-            int waterY = waterSystem.getVisualWaterLevelY(featureZone, featureAct);
+            int waterY = waterSystem.getWaterLevelY(featureZone, featureAct);
             playable.updateWaterState(waterY);
         }
     }
@@ -1153,9 +1197,16 @@ public class LevelManager {
         }
 
         if (level != null && waterSystem.hasWater(featureZone, featureAct) && playable != null) {
-            int waterY = waterSystem.getVisualWaterLevelY(featureZone, featureAct);
+            int waterY = waterSystem.getWaterLevelY(featureZone, featureAct);
             playable.updateWaterState(waterY);
         }
+    }
+
+    private boolean shouldSuppressUnderwaterPalette(int zoneId, int actId) {
+        if (zoneFeatureProvider == null) {
+            return false;
+        }
+        return zoneFeatureProvider.shouldSuppressUnderwaterPalette(zoneId, actId);
     }
 
     public void applyPlaneSwitchers(AbstractPlayableSprite player) {
@@ -1806,7 +1857,6 @@ public class LevelManager {
     private void updateWaterShaderState(Camera camera) {
         int zoneId = getFeatureZoneId();
         int actId = getFeatureActId();
-
         if (waterSystem.hasWater(zoneId, actId)) {
             // Set uniforms via custom command - this also enables the water shader
             // Use visual water level (with oscillation) for rendering effects
@@ -1830,12 +1880,13 @@ public class LevelManager {
             if (featureSet != null && featureSet.waterShimmerEnabled()) {
                 waterlineOffset = 0.0f;
             }
-            // HCZ uses ROM-driven background strip updates and explicit wave-splash
-            // sprites at Water_level itself; keeping the generic S2-style -8 split
-            // creates a visible seam between the shader boundary and HCZ's art.
-            if (zoneId == com.openggf.game.sonic3k.constants.Sonic3kZoneIds.ZONE_HCZ
-                    && activeGameModule() instanceof com.openggf.game.sonic3k.Sonic3kGameModule) {
-                waterlineOffset = 0.0f;
+            // Zone feature provider can override waterline offset (e.g. zones with
+            // ROM-driven water surface rendering that conflicts with the -8 split).
+            if (zoneFeatureProvider != null) {
+                float zoneOffset = zoneFeatureProvider.getWaterlineOffset(zoneId, actId);
+                if (zoneOffset != -8.0f) {
+                    waterlineOffset = zoneOffset;
+                }
             }
             float waterlineScreenY = (float) (waterLevel - camera.getY() + waterlineOffset);
             currentShimmerStyle = shimmerStyle;
@@ -1843,6 +1894,7 @@ public class LevelManager {
             // Set mutable state for pre-allocated water shader setup command
             pendingWaterlineScreenY = waterlineScreenY;
             pendingWaterShimmerStyle = shimmerStyle;
+            pendingSuppressUnderwaterPalette = shouldSuppressUnderwaterPalette(zoneId, actId);
             graphicsManager.registerCommand(waterShaderSetupCommand);
         } else {
             // No water in this zone - disable underwater palette for sprite priority shader
@@ -1962,6 +2014,7 @@ public class LevelManager {
         int featureZone = getFeatureZoneId();
         int featureAct = getFeatureActId();
         boolean hasWater = waterSystem.hasWater(featureZone, featureAct);
+        boolean suppressUnderwaterPalette = shouldSuppressUnderwaterPalette(featureZone, featureAct);
         // Use visual water level (with oscillation) for background rendering
         int waterLevelWorldY = hasWater ? waterSystem.getVisualWaterLevelY(featureZone, featureAct) : 9999;
 
@@ -1984,7 +2037,7 @@ public class LevelManager {
         ensureBackgroundTilemapData();
         pendingBgTilePassRenderWidth = renderWidth;
         pendingBgTilePassRenderHeight = renderHeight;
-        pendingBgTilePassHasWater = hasWater;
+        pendingBgTilePassHasWater = hasWater && !suppressUnderwaterPalette;
         pendingBgTilePassFboWaterlineY = fboWaterlineY;
         pendingBgTilePassAlignedBgY = alignedBgY;
         pendingBgTilePassBgTilemapWorldOffsetX = bgTilemapWorldOffsetX;
@@ -2052,25 +2105,45 @@ public class LevelManager {
             graphicsManager.setCurrentSpriteHighPriority(false);
         }
 
-        boolean gumballStageOrdering = currentZone == Sonic3kZoneIds.ZONE_GUMBALL;
-
-        for (int bucket = RenderPriority.MAX; bucket >= RenderPriority.MIN; bucket--) {
-            if (gumballStageOrdering) {
-                // In the gumball bonus stage, the player and bonus-stage objects share
-                // the same priority buckets. Draw objects first so lower-slot player
-                // sprites remain on top within a shared bucket.
+        boolean bonusStageSpriteSatOrdering = zoneFeatureProvider != null
+                && zoneFeatureProvider.useSpriteSatMasking(currentZone);
+        boolean useSpriteSatMasking = bonusStageSpriteSatOrdering;
+        if (useSpriteSatMasking) {
+            graphicsManager.beginSpriteSatCollection();
+            // SAT collection must follow sprite-table order, not painter order.
+            // Draw_Sprite inserts into Sprite_table_input by ascending priority bucket,
+            // and lower sprite slots end up in front later during rasterization.
+            // In the Gumball stage the playable sprites must still come after same-bucket
+            // machine objects so Sonic/sidekicks remain on top within bucket 2.
+            for (int bucket = RenderPriority.MIN; bucket <= RenderPriority.MAX; bucket++) {
+                graphicsManager.setCurrentSpriteSatBucket(bucket);
                 if (objectManager != null) {
                     objectManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
                 }
                 if (spriteManager != null) {
                     spriteManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
                 }
-            } else {
-                if (spriteManager != null) {
-                    spriteManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
-                }
-                if (objectManager != null) {
-                    objectManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
+            }
+            graphicsManager.endSpriteSatCollectionAndReplay();
+        } else {
+            for (int bucket = RenderPriority.MAX; bucket >= RenderPriority.MIN; bucket--) {
+                if (bonusStageSpriteSatOrdering) {
+                    // In the gumball bonus stage, the player and bonus-stage objects share
+                    // the same priority buckets. Draw objects first so lower-slot player
+                    // sprites remain on top within a shared bucket.
+                    if (objectManager != null) {
+                        objectManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
+                    }
+                    if (spriteManager != null) {
+                        spriteManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
+                    }
+                } else {
+                    if (spriteManager != null) {
+                        spriteManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
+                    }
+                    if (objectManager != null) {
+                        objectManager.drawUnifiedBucketWithPriority(bucket, graphicsManager);
+                    }
                 }
             }
         }
@@ -2080,9 +2153,9 @@ public class LevelManager {
 
         if (includeWaterSurface) {
             graphicsManager.registerCommand(disableShimmerCommand);
-            if (zoneFeatureProvider != null) {
-                zoneFeatureProvider.render(camera, frameCounter);
-            }
+        }
+        if (zoneFeatureProvider != null) {
+            zoneFeatureProvider.render(camera, frameCounter);
         }
 
         // Revert to default shader for any following HUD/debug/screen-space rendering.
@@ -2170,6 +2243,7 @@ public class LevelManager {
         int featureZone = getFeatureZoneId();
         int featureAct = getFeatureActId();
         boolean hasWater = waterSystem.hasWater(featureZone, featureAct);
+        boolean suppressUnderwaterPalette = shouldSuppressUnderwaterPalette(featureZone, featureAct);
         int waterLevel = hasWater ? waterSystem.getVisualWaterLevelY(featureZone, featureAct) : 0;
         // Use shake-adjusted Y for water line calculation
         float waterlineScreenY = (float) (waterLevel - camera.getYWithShake());
@@ -2179,12 +2253,12 @@ public class LevelManager {
         // Use shake-adjusted camera positions for FG tilemap rendering
         // This makes the foreground tiles shake in sync with sprites
         float worldOffsetX = camera.getXWithShake();
-        float worldOffsetY = camera.getYWithShake();
+        float worldOffsetY = parallaxManager.getVscrollFactorFG() + parallaxManager.getShakeOffsetY();
 
         Integer atlasId = graphicsManager.getPatternAtlasTextureId();
         Integer paletteId = graphicsManager.getCombinedPaletteTextureId();
         Integer underwaterPaletteId = graphicsManager.getUnderwaterPaletteTextureId();
-        boolean useUnderwaterPalette = hasWater && underwaterPaletteId != null;
+        boolean useUnderwaterPalette = hasWater && !suppressUnderwaterPalette && underwaterPaletteId != null;
 
         if (atlasId == null || paletteId == null) {
             return;
@@ -2821,6 +2895,50 @@ public class LevelManager {
         return getTileDescriptorAtWorld((byte) 1, worldX, worldY);
     }
 
+    /**
+     * Copies one 16x16 BG source row into the live Plane B tilemap buffer.
+     *
+     * <p>S3K's Slot Machine bonus stage does this from {@code sub_4ECAA}: {@code d0/d1}
+     * select the source BG map row, {@code d5} is the destination VDP plane address,
+     * and {@code d6} is the number of longwords to draw. Each longword represents
+     * two horizontal 8x8 cells, and the routine writes both 8x8 rows of the
+     * 16x16 source block row.
+     */
+    public boolean copyBackgroundTileRowFromWorldToVdpPlane(int sourceWorldX, int sourceWorldY,
+                                                            int destVramAddress, int longWordCount) {
+        if (tilemapManager == null || longWordCount <= 0) {
+            return false;
+        }
+        ensureBackgroundTilemapData();
+        int bgWidthTiles = tilemapManager.getBackgroundTilemapWidthTiles();
+        int bgHeightTiles = tilemapManager.getBackgroundTilemapHeightTiles();
+        if (bgWidthTiles <= 0 || bgHeightTiles <= 0) {
+            return false;
+        }
+
+        int destPlaneOffsetBytes = Math.floorMod(destVramAddress - 0xE000, 0x1000);
+        int destCell = destPlaneOffsetBytes / 2;
+        int cellCount = longWordCount * 2;
+        int sourceStartX = (sourceWorldX >> 4) << 4;
+        boolean changed = false;
+        for (int row = 0; row < 2; row++) {
+            int sourceRowY = sourceWorldY + row * Pattern.PATTERN_HEIGHT;
+            int destRowCell = destCell + row * 64; // Plane B is 64 cells wide, so +0x80 bytes per 8x8 row.
+            for (int i = 0; i < cellCount; i++) {
+                int planeCell = (destRowCell + i) & 0x7FF; // Plane B is 64x32 cells.
+                int destTileX = planeCell & 0x3F;
+                int destTileY = (planeCell >>> 6) & 0x1F;
+                if (destTileX >= bgWidthTiles || destTileY >= bgHeightTiles) {
+                    continue;
+                }
+                int descriptor = getBackgroundTileDescriptorAtWorld(sourceStartX + i * Pattern.PATTERN_WIDTH,
+                        sourceRowY);
+                changed |= tilemapManager.setBackgroundTileDescriptorAtTilemapCell(destTileX, destTileY, descriptor);
+            }
+        }
+        return changed;
+    }
+
     private int getTileDescriptorAtWorld(byte layer, int worldX, int worldY) {
         if (level == null || level.getMap() == null) {
             return 0;
@@ -2921,6 +3039,16 @@ public class LevelManager {
     }
 
     /**
+     * Uploads the current background tilemap bytes to the GPU renderer (if active).
+     * No-op in headless mode.
+     */
+    public void uploadBackgroundTilemap() {
+        if (tilemapManager != null) {
+            tilemapManager.uploadBackgroundTilemap();
+        }
+    }
+
+    /**
      * Marks background/foreground tilemaps and pattern lookup as dirty.
      * Use this after runtime terrain art/chunk overlays so the GPU tilemap
      * data is rebuilt on the next render.
@@ -2994,6 +3122,10 @@ public class LevelManager {
 
     public RingManager getRingManager() {
         return ringManager;
+    }
+
+    public int getFrameCounter() {
+        return frameCounter;
     }
 
     public ZoneFeatureProvider getZoneFeatureProvider() {
@@ -3459,7 +3591,17 @@ public class LevelManager {
         // which enables water for cases that a direct load would disable (AIZ2 Knuckles).
         initWater(true);
 
-        // 5. Rebuild managers with new act's spawn data
+        // 5. Clear checkpoint state (ROM: clr.b (Respawn_table_keep).w)
+        // Without this, starposts from Act 1 would appear activated in Act 2.
+        if (checkpointState != null) {
+            checkpointState.clear();
+        }
+
+        // 5b. Reset level gamestate (timer + rings) for the new act.
+        // ROM: Timer and ring count reset on act transition. Score carries over.
+        levelGamestate = gameModule.createLevelState();
+
+        // 6. Rebuild managers with new act's spawn data
         // (ROM: Load_Level swaps obj/ring pointers, then clears Dynamic_object_RAM + Ring_status_table)
         rebuildManagersForActTransition(cam);
 
@@ -3472,6 +3614,15 @@ public class LevelManager {
 
         // 8. Reinitialize level events for new act
         initLevelEventsForCurrentZoneAct();
+
+        // 9. Reinitialize zone features (water surface sprites, etc.) for the new act.
+        // Without this, the water surface manager retains Act 1's act ID and renders
+        // wave sprites at the wrong water level.
+        try {
+            reinitializeZoneFeaturesForActTransition();
+        } catch (IOException e) {
+            LOGGER.warning("Failed to reinitialize zone features: " + e.getMessage());
+        }
 
         // 9. Music override if specified
         if (request.musicOverrideId() >= 0) {
@@ -3919,6 +4070,12 @@ public class LevelManager {
 
     /** @see LevelTransitionCoordinator#setForceHudSuppressed(boolean) */
     public void setForceHudSuppressed(boolean suppressed) { transitions.setForceHudSuppressed(suppressed); }
+
+    public void setBonusStageHudLayout(boolean enabled) {
+        if (hudRenderManager != null) {
+            hudRenderManager.setBonusStageHudLayout(enabled);
+        }
+    }
 
     /** @see LevelTransitionCoordinator#setSuppressNextMusicChange(boolean) */
     public void setSuppressNextMusicChange(boolean suppress) { transitions.setSuppressNextMusicChange(suppress); }

@@ -5,6 +5,7 @@ import com.openggf.audio.GameSound;
 import com.openggf.camera.Camera;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
+import com.openggf.game.GameRng;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.GameModule;
 import com.openggf.game.LevelState;
@@ -27,6 +28,8 @@ import java.util.List;
  * All methods return null/0/no-op defaults. Override specific methods as needed.
  */
 public class StubObjectServices implements ObjectServices {
+    private final GameRng rng = new GameRng(GameRng.Flavour.S3K);
+
     @Override public ObjectManager objectManager() { return null; }
     @Override public ObjectRenderManager renderManager() { return null; }
     @Override public LevelState levelGamestate() { return null; }
@@ -42,6 +45,7 @@ public class StubObjectServices implements ObjectServices {
     @Override public void playMusic(int musicId) {}
     @Override public void fadeOutMusic() {}
     @Override public AudioManager audioManager() { return null; }
+    @Override public GameRng rng() { return rng; }
     @Override public void spawnLostRings(PlayableEntity player, int frameCounter) {}
     @Override public Camera camera() { return null; }
     @Override public GameStateManager gameState() { return null; }

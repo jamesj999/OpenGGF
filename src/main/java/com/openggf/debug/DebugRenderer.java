@@ -7,8 +7,13 @@ import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.level.objects.TouchCategory;
+import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
+import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
+import com.openggf.game.sonic3k.objects.PachinkoEnergyTrapObjectInstance;
 import com.openggf.game.sonic2.slotmachine.CNZSlotMachineRenderer;
 import com.openggf.level.LevelManager;
+import com.openggf.level.objects.ObjectInstance;
+import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRegistry;
@@ -49,11 +54,13 @@ public class DebugRenderer {
         private static final DebugColor COLOR_TOUCH_PANEL = new DebugColor(180, 255, 180);
         private static final DebugColor COLOR_OBJECT_SUBTYPE = new DebugColor(255, 180, 255);
         private static final DebugColor COLOR_ART_VIEWER = new DebugColor(180, 255, 180);
+        private static final DebugColor COLOR_PACHINKO_TRAP = new DebugColor(160, 255, 255);
 
         // Reusable lists for panel rendering to avoid per-frame allocations
         private final List<String> playerStatusLines = new ArrayList<>(24);
         private final List<String> touchResponseLines = new ArrayList<>(20);
         private final List<String> artViewerLines = new ArrayList<>(16);
+        private final List<String> pachinkoTrapLines = new ArrayList<>(10);
 
         // Reusable StringBuilders for string construction
         private final StringBuilder stateFlagsBuilder = new StringBuilder(64);
@@ -133,6 +140,7 @@ public class DebugRenderer {
                                 }
                         }
                 }
+                renderPachinkoTrapPanel(playable);
                 if (overlayManager.isEnabled(DebugOverlayToggle.OBJECT_ART_VIEWER)) {
                         renderObjectArtViewerPanel();
                 }
@@ -650,6 +658,140 @@ public class DebugRenderer {
                 int y = startY;
                 for (String line : lines) {
                         glyphBatch.drawTextOutlined(line, startX, y, COLOR_ART_VIEWER, PANEL_FONT);
+                        y -= lineHeight;
+                }
+        }
+
+        private void renderPachinkoTrapPanel(AbstractPlayableSprite playable) {
+                if (!glyphBatch.isBatchActive()) {
+                        return;
+                }
+                LevelManager levelManager = getLevelManager();
+                if (levelManager.getRomZoneId() != Sonic3kZoneIds.ZONE_GLOWING_SPHERE) {
+                        return;
+                }
+                ObjectManager objectManager = levelManager.getObjectManager();
+                if (objectManager == null) {
+                        return;
+                }
+
+                PachinkoEnergyTrapObjectInstance trap = null;
+                int columnCount = 0;
+                int beamCount = 0;
+                int objectManagerFrame = objectManager.getFrameCounter();
+                int trapSlotCollisionCount = 0;
+                String trapSlotPeer = null;
+                for (ObjectInstance instance : objectManager.getActiveObjects()) {
+                        if (instance instanceof PachinkoEnergyTrapObjectInstance energyTrap) {
+                                trap = energyTrap;
+                                continue;
+                        }
+                        String simpleName = instance.getClass().getSimpleName();
+                        if ("EnergyTrapColumnChild".equals(simpleName)) {
+                                columnCount++;
+                        } else if ("EnergyTrapBeamChild".equals(simpleName)) {
+                                beamCount++;
+                        }
+                }
+
+                ObjectRenderManager renderManager = levelManager.getObjectRenderManager();
+                boolean trapRendererLoaded = renderManager != null
+                                && renderManager.getRenderer(Sonic3kObjectArtKeys.PACHINKO_ENERGY_TRAP) != null;
+                boolean beamRendererLoaded = renderManager != null
+                                && renderManager.getRenderer(Sonic3kObjectArtKeys.PACHINKO_INVISIBLE_UNKNOWN) != null;
+
+                pachinkoTrapLines.clear();
+                List<String> lines = pachinkoTrapLines;
+                StringBuilder pb = panelLineBuilder;
+                Camera camera = GameServices.camera();
+                lines.add("== PACHINKO TRAP ==");
+
+                pb.setLength(0);
+                pb.append("LM frame: ").append(levelManager.getFrameCounter());
+                lines.add(pb.toString());
+
+                pb.setLength(0);
+                pb.append("OM frame: ").append(objectManagerFrame);
+                lines.add(pb.toString());
+
+                pb.setLength(0);
+                pb.append("Cam: ").append(camera.getX()).append(' ').append(camera.getY());
+                lines.add(pb.toString());
+
+                if (playable != null) {
+                        pb.setLength(0);
+                        pb.append("Player: ").append(playable.getCentreX())
+                                .append(' ').append(playable.getCentreY());
+                        lines.add(pb.toString());
+                }
+
+                if (trap == null) {
+                        lines.add("Trap: MISSING");
+                } else {
+                        for (ObjectInstance instance : objectManager.getActiveObjects()) {
+                                if (!(instance instanceof com.openggf.level.objects.AbstractObjectInstance aoi)) {
+                                        continue;
+                                }
+                                if (aoi.getSlotIndex() != trap.getSlotIndex()) {
+                                        continue;
+                                }
+                                trapSlotCollisionCount++;
+                                if (instance != trap && trapSlotPeer == null) {
+                                        trapSlotPeer = instance.getClass().getSimpleName();
+                                }
+                        }
+
+                        int trapScreenX = trap.getX() - camera.getX();
+                        int trapScreenY = trap.getY() - camera.getY();
+
+                        pb.setLength(0);
+                        pb.append("Trap: ").append(trap.getX()).append(' ').append(trap.getY())
+                                .append("  scr ").append(trapScreenX).append(' ').append(trapScreenY);
+                        lines.add(pb.toString());
+
+                        pb.setLength(0);
+                        pb.append("State: init ").append(trap.isInitialized() ? 'Y' : 'N')
+                                .append(" rise ").append(trap.getRiseDelayFrames())
+                                .append(" arm ").append(trap.isExitArmed() ? 'Y' : 'N')
+                                .append(" cap ").append(trap.hasCapturedPlayer() ? 'Y' : 'N')
+                                .append(" exit ").append(trap.isExitRequested() ? 'Y' : 'N');
+                        lines.add(pb.toString());
+
+                        pb.setLength(0);
+                        pb.append("Slot: ").append(trap.getSlotIndex())
+                                .append(" dead ").append(trap.isDestroyed() ? 'Y' : 'N');
+                        lines.add(pb.toString());
+
+                        pb.setLength(0);
+                        pb.append("Upd: cnt ").append(trap.getUpdateCount())
+                                .append(" last ").append(trap.getLastUpdateFrameCounter())
+                                .append(" rnd ").append(trap.getRenderCount())
+                                .append(" beam+ ").append(trap.getBeamSpawnCount());
+                        lines.add(pb.toString());
+
+                        pb.setLength(0);
+                        pb.append("SlotDup: ").append(trapSlotCollisionCount);
+                        if (trapSlotPeer != null) {
+                                pb.append(" peer ").append(trapSlotPeer);
+                        }
+                        lines.add(pb.toString());
+                }
+
+                pb.setLength(0);
+                pb.append("Objs: col ").append(columnCount).append(" beam ").append(beamCount);
+                lines.add(pb.toString());
+
+                pb.setLength(0);
+                pb.append("Art: trap ").append(trapRendererLoaded ? 'Y' : 'N')
+                        .append(" beam ").append(beamRendererLoaded ? 'Y' : 'N');
+                lines.add(pb.toString());
+
+                int startX = uiX(baseWidth - 250);
+                int startY = uiY(baseHeight - 18);
+                int lineHeight = glyphBatch.getLineHeight(PANEL_FONT);
+                int y = startY;
+                for (String line : lines) {
+                        glyphBatch.drawTextOutlined(line, startX, y, COLOR_PACHINKO_TRAP, PANEL_FONT);
                         y -= lineHeight;
                 }
         }

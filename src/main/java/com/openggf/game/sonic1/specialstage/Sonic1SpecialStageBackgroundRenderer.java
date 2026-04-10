@@ -279,6 +279,7 @@ public class Sonic1SpecialStageBackgroundRenderer {
         glViewport(fullViewportX, fullViewportY, fullViewportWidth, fullViewportHeight);
 
         shader.setScreenDimensions((float) fullViewportWidth, (float) fullViewportHeight);
+        shader.setActiveDisplayWidth((float) SCREEN_WIDTH);
         shader.setBGTextureDimensions(FBO_WIDTH, FBO_HEIGHT);
         shader.setVScrollBG(vScroll);
         shader.setViewportOffset((float) fullViewportX, (float) fullViewportY);

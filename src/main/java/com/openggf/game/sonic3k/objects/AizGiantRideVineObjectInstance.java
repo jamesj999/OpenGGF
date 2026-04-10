@@ -183,7 +183,7 @@ public class AizGiantRideVineObjectInstance extends AbstractObjectInstance {
         AizVineHandleLogic.positionFromParent(handle, parentX, parentY, parentAngle);
         var sidekicks = services().sidekicks();
         AbstractPlayableSprite sidekick = sidekicks.isEmpty() ? null : (AbstractPlayableSprite) sidekicks.getFirst();
-        AizVineHandleLogic.updatePlayers(handle, player, sidekick, parentAngle);
+        AizVineHandleLogic.updatePlayers(handle, services(), player, sidekick, parentAngle);
     }
 
     private void clearGrabbedPlayers() {

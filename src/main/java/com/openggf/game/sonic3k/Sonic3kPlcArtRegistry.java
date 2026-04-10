@@ -43,8 +43,14 @@ public final class Sonic3kPlcArtRegistry {
             int artSize,
             int mappingAddr,
             int palette,
-            int dplcAddr
+            int dplcAddr,
+            S3kSpriteDataLoader.MappingFormat mappingFormat
     ) {
+        public StandaloneArtEntry(String key, int artAddr, CompressionType compression, int artSize,
+                int mappingAddr, int palette, int dplcAddr) {
+            this(key, artAddr, compression, artSize, mappingAddr, palette, dplcAddr,
+                    S3kSpriteDataLoader.MappingFormat.STANDARD);
+        }
     }
 
     /**
@@ -64,11 +70,19 @@ public final class Sonic3kPlcArtRegistry {
             int artTileBase,
             int palette,
             String builderName,
-            int[] frameFilter
+            int[] frameFilter,
+            S3kSpriteDataLoader.MappingFormat mappingFormat
     ) {
         public LevelArtEntry(String key, int mappingAddr, int artTileBase, int palette,
                 String builderName) {
-            this(key, mappingAddr, artTileBase, palette, builderName, null);
+            this(key, mappingAddr, artTileBase, palette, builderName, null,
+                    S3kSpriteDataLoader.MappingFormat.STANDARD);
+        }
+
+        public LevelArtEntry(String key, int mappingAddr, int artTileBase, int palette,
+                String builderName, int[] frameFilter) {
+            this(key, mappingAddr, artTileBase, palette, builderName, frameFilter,
+                    S3kSpriteDataLoader.MappingFormat.STANDARD);
         }
     }
 
@@ -140,7 +154,8 @@ public final class Sonic3kPlcArtRegistry {
     );
 
     /**
-     * Shared standalone art entries present in every zone: SS Entry Ring (big ring).
+     * Shared standalone art entries present in every zone: SS Entry Ring (big ring),
+     * bubbler, and end-of-act signpost (needed by any zone with a miniboss).
      */
     private static final List<StandaloneArtEntry> SHARED_STANDALONE_ART = List.of(
             new StandaloneArtEntry(
@@ -160,6 +175,34 @@ public final class Sonic3kPlcArtRegistry {
                     Sonic3kConstants.MAP_SS_ENTRY_FLASH_ADDR,
                     1,  // palette line 1 (ROM: make_art_tile(ArtTile_Player_1,1,0))
                     Sonic3kConstants.DPLC_SS_ENTRY_FLASH_ADDR
+            ),
+            new StandaloneArtEntry(
+                    Sonic3kObjectArtKeys.BUBBLER,
+                    Sonic3kConstants.ART_NEM_BUBBLES_ADDR,
+                    CompressionType.NEMESIS,
+                    0,
+                    -1,
+                    0,
+                    -1
+            ),
+            // PLC_EndSignStuff - end sign face (uncompressed art + DPLC remap)
+            // ROM: loaded by AfterBoss_Cleanup for all zones with minibosses
+            new StandaloneArtEntry(
+                    Sonic3kObjectArtKeys.END_SIGN,
+                    Sonic3kConstants.ART_UNC_END_SIGNS_ADDR,
+                    CompressionType.UNCOMPRESSED,
+                    Sonic3kConstants.ART_UNC_END_SIGNS_SIZE,
+                    Sonic3kConstants.MAP_END_SIGNS_ADDR,
+                    0,
+                    Sonic3kConstants.DPLC_END_SIGNS_ADDR
+            ),
+            // PLC_EndSignStuff - signpost pole/stub (Nemesis compressed)
+            new StandaloneArtEntry(
+                    Sonic3kObjectArtKeys.SIGNPOST_STUB,
+                    Sonic3kConstants.ART_NEM_SIGNPOST_STUB_ADDR,
+                    CompressionType.NEMESIS, -1,
+                    Sonic3kConstants.MAP_SIGNPOST_STUB_ADDR,
+                    0, -1
             )
     );
 
@@ -213,6 +256,8 @@ public final class Sonic3kPlcArtRegistry {
             case 0x0C -> addDdzEntries(actIndex, standalone, levelArt);
             case 0x13 -> addGumballEntries(actIndex, standalone, levelArt);
             case 0x14 -> addPachinkoEntries(actIndex, standalone, levelArt);
+            case 0x15 -> addSlotsEntries(actIndex, standalone, levelArt);
+            case 0x16 -> addHpzEntries(actIndex, standalone, levelArt);
         }
     }
 
@@ -320,6 +365,88 @@ public final class Sonic3kPlcArtRegistry {
         ));
     }
 
+    private static void addSlotsEntries(int actIndex,
+            List<StandaloneArtEntry> standalone, List<LevelArtEntry> levelArt) {
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.SLOT_COLORED_WALL,
+                Sonic3kConstants.MAP_SLOT_COLORED_WALL_ADDR,
+                Sonic3kConstants.ARTTILE_SLOTS_BLOCKS,
+                0,
+                null,
+                null,
+                S3kSpriteDataLoader.MappingFormat.LEGACY_BYTE_X
+        ));
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.SLOT_GOAL,
+                Sonic3kConstants.MAP_SLOT_GOAL_ADDR,
+                Sonic3kConstants.ARTTILE_SLOTS_BLOCKS + 0x14C,
+                0,
+                null,
+                null,
+                S3kSpriteDataLoader.MappingFormat.LEGACY_BYTE_X
+        ));
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.SLOT_BUMPER,
+                Sonic3kConstants.MAP_SLOT_BUMPER_ADDR,
+                Sonic3kConstants.ARTTILE_SLOTS_BLOCKS + 0xF9,
+                0,
+                null,
+                null,
+                S3kSpriteDataLoader.MappingFormat.LEGACY_BYTE_X
+        ));
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.SLOT_R_LABEL,
+                Sonic3kConstants.MAP_SLOT_R_AND_PEPPERMINT_ADDR,
+                Sonic3kConstants.ARTTILE_SLOTS_BLOCKS + 0x13D,
+                0,
+                null,
+                null,
+                S3kSpriteDataLoader.MappingFormat.LEGACY_BYTE_X
+        ));
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.SLOT_PEPPERMINT,
+                Sonic3kConstants.MAP_SLOT_R_AND_PEPPERMINT_ADDR,
+                Sonic3kConstants.ARTTILE_SLOTS_BLOCKS + 0x122,
+                0,
+                null,
+                null,
+                S3kSpriteDataLoader.MappingFormat.LEGACY_BYTE_X
+        ));
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.SLOT_MACHINE_FACE,
+                Sonic3kConstants.MAP_SLOT_MACHINE_FACE_ADDR,
+                Sonic3kConstants.ARTTILE_SLOTS_BLOCKS + 0x146,
+                0,
+                null,
+                null,
+                S3kSpriteDataLoader.MappingFormat.LEGACY_BYTE_X
+        ));
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.SLOT_BONUS_CAGE,
+                Sonic3kConstants.MAP_SLOT_BONUS_CAGE_ADDR,
+                Sonic3kConstants.ARTTILE_SLOTS_BLOCKS + 0x146,
+                0,
+                null
+        ));
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.SLOT_SPIKE_REWARD,
+                Sonic3kConstants.MAP_SLOT_SPIKE_REWARD_ADDR,
+                Sonic3kConstants.ARTTILE_SLOTS_BLOCKS + 0x155,
+                1,
+                null
+        ));
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.SLOT_RING_STAGE,
+                Sonic3kConstants.ART_NEM_RING_HUD_TEXT_ADDR,
+                CompressionType.NEMESIS,
+                0,
+                Sonic3kConstants.MAP_SLOT_RING_STAGE_ADDR,
+                1,
+                -1,
+                S3kSpriteDataLoader.MappingFormat.LEGACY_BYTE_X
+        ));
+    }
+
     /**
      * Populates HCZ (Hydrocity Zone) art entries.
      * Act 1: Blastoid, TurboSpiker, MegaChopper, Pointdexter.
@@ -376,6 +503,17 @@ public final class Sonic3kPlcArtRegistry {
                 Sonic3kConstants.MAP_STILL_SPRITES_ADDR, 0x048, 2,
                 null, new int[]{19}));
 
+        // Buggernaut: ArtNem_HCZDragonfly — Nemesis compressed, loaded via PLC_0F/PLC_11
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.HCZ_BUGGERNAUT,
+                Sonic3kConstants.ART_NEM_BUGGERNAUT_ADDR,
+                CompressionType.NEMESIS,
+                0,
+                Sonic3kConstants.MAP_BUGGERNAUT_ADDR,
+                1,   // palette line 1
+                -1   // no DPLC
+        ));
+
         // Shared across both acts
         standalone.add(new StandaloneArtEntry(
                 Sonic3kObjectArtKeys.HCZ_TURBO_SPIKER,
@@ -385,6 +523,13 @@ public final class Sonic3kPlcArtRegistry {
                 Sonic3kConstants.MAP_TURBO_SPIKER_ADDR,
                 1,
                 -1
+        ));
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.HCZ_TURBO_SPIKER_HIDDEN,
+                Sonic3kConstants.MAP_TURBO_SPIKER_HIDDEN_ADDR,
+                1,
+                2,
+                null
         ));
         standalone.add(new StandaloneArtEntry(
                 Sonic3kObjectArtKeys.HCZ_MEGA_CHOPPER,
@@ -423,6 +568,46 @@ public final class Sonic3kPlcArtRegistry {
                 new int[]{2, 3}
         ));
 
+        // HCZ Breakable Bar: ArtTile_HCZMisc ($03CA), palette 2
+        // ROM: make_art_tile(ArtTile_HCZMisc, 2, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.HCZ_BREAKABLE_BAR,
+                Sonic3kConstants.MAP_HCZ_BREAKABLE_BAR_ADDR,
+                Sonic3kConstants.ARTTILE_HCZ_MISC,
+                2,
+                null
+        ));
+
+        // HCZ Block: ArtTile_HCZMisc + $A, palette 2
+        // ROM: make_art_tile(ArtTile_HCZMisc+$A, 2, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.HCZ_BLOCK,
+                Sonic3kConstants.MAP_HCZ_BLOCK_ADDR,
+                Sonic3kConstants.ARTTILE_HCZ_WATER_RUSH_BLOCK,
+                2,
+                null
+        ));
+
+        // HCZ Snake Block: ArtTile_HCZ2BlockPlat, palette 0
+        // ROM: make_art_tile(ArtTile_HCZ2BlockPlat, 0, 0), Map_HCZFloatingPlatform frame 1
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.HCZ_SNAKE_BLOCK,
+                Sonic3kConstants.MAP_HCZ_FLOATING_PLATFORM_ADDR,
+                Sonic3kConstants.ARTTILE_HCZ2_BLOCK_PLAT,
+                0,
+                null
+        ));
+
+        // HCZ Spinning Column: ArtTile_HCZ2BlockPlat + $18, palette 2
+        // ROM: make_art_tile(ArtTile_HCZ2BlockPlat+$18, 2, 0), Map_HCZSpinningColumn
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.HCZ_SPINNING_COLUMN,
+                Sonic3kConstants.MAP_HCZ_SPINNING_COLUMN_ADDR,
+                Sonic3kConstants.ARTTILE_HCZ2_BLOCK_PLAT + 0x18,
+                2,
+                null
+        ));
+
         // Floating Platform: ArtTile_HCZMisc + $53
         levelArt.add(new LevelArtEntry(
                 Sonic3kObjectArtKeys.FLOATING_PLATFORM_HCZ,
@@ -440,6 +625,172 @@ public final class Sonic3kPlcArtRegistry {
                 1,
                 null
         ));
+
+        // Water Rush main sprite: ArtNem_HCZWaterRush, loaded via PLC_0E
+        // Hardcoded mappings (mappingAddr=0 triggers dispatch in loadStandaloneSheet)
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.HCZ_WATER_RUSH,
+                Sonic3kConstants.ART_NEM_HCZ_WATER_RUSH_ADDR,
+                CompressionType.NEMESIS,
+                0,
+                0,
+                2,
+                -1
+        ));
+
+        // Water Rush Block: ArtTile_HCZMisc + $A, palette 2 (hardcoded mappings)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.HCZ_WATER_RUSH_BLOCK,
+                -1,
+                Sonic3kConstants.ARTTILE_HCZ_WATER_RUSH_BLOCK,
+                2,
+                "buildHczWaterRushBlockSheet"
+        ));
+
+        // HCZ Hand Launcher: ArtTile_HCZMisc + $1A, palette 1
+        // ROM: make_art_tile(ArtTile_HCZMisc+$1A, 1, 0), Map_HCZHandLauncher (8 frames)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.HCZ_HAND_LAUNCHER,
+                Sonic3kConstants.MAP_HCZ_HAND_LAUNCHER_ADDR,
+                Sonic3kConstants.ARTTILE_HCZ_HAND_LAUNCHER,
+                1,
+                null
+        ));
+
+        // HCZ Conveyor Spike: ArtTile_HCZSpikeBall, palette 1
+        // ROM: make_art_tile(ArtTile_HCZSpikeBall, 1, 0), Map_HCZConveyorSpike
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.HCZ_CONVEYOR_SPIKE,
+                Sonic3kConstants.MAP_HCZ_CONVEYOR_SPIKE_ADDR,
+                Sonic3kConstants.ARTTILE_HCZ_CONVEYOR_SPIKE,
+                1,
+                null
+        ));
+
+        // HCZ Fan: ArtTile_HCZMisc + $41, palette 1
+        // ROM: make_art_tile(ArtTile_HCZMisc+$41, 1, 0), Map_HCZFan (5 frames)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.HCZ_FAN,
+                Sonic3kConstants.MAP_HCZ_FAN_ADDR,
+                Sonic3kConstants.ARTTILE_HCZ_FAN,
+                1,
+                null
+        ));
+
+        // HCZ Large Fan: dedicated ArtKosM blob + ROM mapping table, palette 1.
+        // The ROM queues this art dynamically when the player enters the trigger window,
+        // but we preload the sheet here and let the object emulate the activation flow.
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.HCZ_LARGE_FAN,
+                Sonic3kConstants.ART_KOSM_HCZ_LARGE_FAN_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                Sonic3kConstants.MAP_HCZ_LARGE_FAN_ADDR,
+                1,
+                -1
+        ));
+
+        // Geyser horizontal art (subtype 0 water wall)
+        // Hardcoded mappings (mappingAddr=0 triggers dispatch in loadStandaloneSheet)
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.HCZ_GEYSER_HORZ,
+                Sonic3kConstants.ART_KOSM_HCZ_GEYSER_HORZ_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                0,
+                2,
+                -1
+        ));
+
+        // Geyser vertical art (subtype != 0 water wall)
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.HCZ_GEYSER_VERT,
+                Sonic3kConstants.ART_KOSM_HCZ_GEYSER_VERT_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                0,
+                2,
+                -1
+        ));
+
+        // Geyser debris art (Map_HCZWaterWallDebris, tiles at ArtTile_HCZGeyser+$58)
+        // Uses same compressed art as horizontal geyser but with debris mappings.
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.HCZ_GEYSER_DEBRIS,
+                Sonic3kConstants.ART_KOSM_HCZ_GEYSER_HORZ_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                0,
+                2,
+                -1
+        ));
+
+        // Bubbles art (ArtNem_Bubbles) — Nemesis compressed, 56 tiles.
+        // Used by 25% of water wall spray particles. Same mapping frames as geyser
+        // (buildHczGeyserAllFrames) but tile indices reference bubble patterns.
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.HCZ_BUBBLES,
+                Sonic3kConstants.ART_NEM_BUBBLES_ADDR,
+                CompressionType.NEMESIS,
+                0,
+                0,
+                2,
+                -1
+        ));
+
+        // Fan bubble art — same ArtNem_Bubbles but with tiny Map_Bubbler mappings.
+        // ROM: Obj_HCZCGZFan bubble child uses Map_Bubbler (frame 0 = single 8x8 tile).
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.HCZ_FAN_BUBBLE,
+                Sonic3kConstants.ART_NEM_BUBBLES_ADDR,
+                CompressionType.NEMESIS,
+                0,
+                0,
+                0,  // palette 0 (ROM: make_art_tile(ArtTile_Bubbles, 0, 0))
+                -1
+        ));
+
+        // Geyser spray/splash art (ArtTile_HCZGeyser+$30 offset).
+        // Same patterns as horizontal geyser, but mapping tile indices offset by $30.
+        // Used by spray particles and water surface splashes.
+        standalone.add(new StandaloneArtEntry(
+                Sonic3kObjectArtKeys.HCZ_GEYSER_SPRAY,
+                Sonic3kConstants.ART_KOSM_HCZ_GEYSER_HORZ_ADDR,
+                CompressionType.KOSINSKI_MODULED,
+                0,
+                0,
+                2,
+                -1
+        ));
+
+        // Collapsing Bridge (Object 0x0F): make_art_tile($001, 2, 1)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.COLLAPSING_BRIDGE_HCZ,
+                Sonic3kConstants.MAP_HCZ_COLLAPSING_BRIDGE_ADDR,
+                1,
+                2,
+                null
+        ));
+
+        // Tension Bridge (Object 0x6C): make_art_tile(ArtTile_HCZ2BlockPlat+$10, 2, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.TENSION_BRIDGE_HCZ,
+                Sonic3kConstants.MAP_TENSION_BRIDGE_ADDR,
+                Sonic3kConstants.ARTTILE_HCZ_TENSION_BRIDGE,
+                2,
+                null
+        ));
+
+        // Door (Object 0x3C) vertical: ArtTile_HCZMisc + $0A, palette 2
+        // ROM: make_art_tile(ArtTile_HCZMisc+$A, 2, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.DOOR_VERTICAL_HCZ,
+                -1,
+                Sonic3kConstants.ARTTILE_HCZ_MISC + 0x0A,
+                2,
+                "buildDoorVerticalHczSheet"
+        ));
+
     }
 
     /**
@@ -539,6 +890,15 @@ public final class Sonic3kPlcArtRegistry {
                 0,
                 null
         ));
+
+        // Collapsing Bridge (Object 0x0F): make_art_tile($001, 2, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.COLLAPSING_BRIDGE_MGZ,
+                Sonic3kConstants.MAP_MGZ_COLLAPSING_BRIDGE_ADDR,
+                1,
+                2,
+                null
+        ));
     }
 
     /**
@@ -620,6 +980,26 @@ public final class Sonic3kPlcArtRegistry {
                 2,
                 null
         ));
+
+        // Door (Object 0x3C) vertical: ArtTile_CNZMisc + $C5, palette 2
+        // ROM: make_art_tile(ArtTile_CNZMisc+$C5, 2, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.DOOR_VERTICAL_CNZ,
+                -1,
+                Sonic3kConstants.ARTTILE_CNZ_MISC + 0xC5,
+                2,
+                "buildDoorVerticalCnzSheet"
+        ));
+
+        // Door (Object 0x3C) horizontal: ArtTile_CNZMisc + $C5, palette 2
+        // ROM: make_art_tile(ArtTile_CNZMisc+$C5, 2, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.DOOR_HORIZONTAL,
+                -1,
+                Sonic3kConstants.ARTTILE_CNZ_MISC + 0xC5,
+                2,
+                "buildDoorHorizontalSheet"
+        ));
     }
 
     /**
@@ -684,6 +1064,15 @@ public final class Sonic3kPlcArtRegistry {
                 1,
                 null
         ));
+
+        // Collapsing Bridge (Object 0x0F): make_art_tile($001, 2, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.COLLAPSING_BRIDGE_FBZ,
+                Sonic3kConstants.MAP_FBZ_COLLAPSING_BRIDGE_ADDR,
+                1,
+                2,
+                null
+        ));
     }
 
     /**
@@ -698,6 +1087,15 @@ public final class Sonic3kPlcArtRegistry {
                 Sonic3kObjectArtKeys.COLLAPSING_PLATFORM_ICZ,
                 Sonic3kConstants.MAP_ICZ_COLLAPSING_BRIDGE_ADDR,
                 1,
+                2,
+                null
+        ));
+
+        // Tension Bridge (Object 0x6C): make_art_tile(ArtTile_ICZMisc1, 2, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.TENSION_BRIDGE_ICZ,
+                Sonic3kConstants.MAP_ICZ_TENSION_BRIDGE_ADDR,
+                Sonic3kConstants.ARTTILE_ICZ_MISC1,
                 2,
                 null
         ));
@@ -747,6 +1145,9 @@ public final class Sonic3kPlcArtRegistry {
                 0,
                 null
         ));
+
+        // Collapsing Bridge (Object 0x0F) shares Map_ICZCollapsingBridge with Object 0x04.
+        // Both objects use the same mapping file (6 frames), so COLLAPSING_PLATFORM_ICZ serves both.
     }
 
     /**
@@ -827,6 +1228,24 @@ public final class Sonic3kPlcArtRegistry {
                 Sonic3kConstants.MAP_BUTTON_ADDR,
                 Sonic3kConstants.ARTTILE_GRAY_BUTTON,
                 0,
+                null
+        ));
+
+        // Collapsing Bridge (Object 0x0F): make_art_tile($001, 2, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.COLLAPSING_BRIDGE_LBZ,
+                Sonic3kConstants.MAP_LBZ_COLLAPSING_BRIDGE_ADDR,
+                1,
+                2,
+                null
+        ));
+
+        // Collapsing Ledge (Object 0x0F, LBZ subtype bit 6): make_art_tile($001, 2, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.COLLAPSING_BRIDGE_LBZ_LEDGE,
+                Sonic3kConstants.MAP_LBZ_COLLAPSING_LEDGE_ADDR,
+                1,
+                2,
                 null
         ));
     }
@@ -981,6 +1400,15 @@ public final class Sonic3kPlcArtRegistry {
                 2,
                 null
         ));
+
+        // Collapsing Bridge (Object 0x0F): make_art_tile($001, 2, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.COLLAPSING_BRIDGE_SOZ,
+                Sonic3kConstants.MAP_SOZ_COLLAPSING_BRIDGE_ADDR,
+                1,
+                2,
+                null
+        ));
     }
 
     /**
@@ -1088,6 +1516,25 @@ public final class Sonic3kPlcArtRegistry {
                     null
             ));
         }
+
+        // Collapsing Bridge (Object 0x0F): make_art_tile($090, 2, 0)
+        // Note: LRZ uses a different tile base ($090) than most zones ($001).
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.COLLAPSING_BRIDGE_LRZ,
+                Sonic3kConstants.MAP_LRZ_COLLAPSING_BRIDGE_0F_ADDR,
+                0x090,
+                2,
+                null
+        ));
+
+        // Tension Bridge (Object 0x6C): make_art_tile($113, 3, 1)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.TENSION_BRIDGE_LRZ,
+                Sonic3kConstants.MAP_TENSION_BRIDGE_ADDR,
+                Sonic3kConstants.ARTTILE_LRZ_TENSION_BRIDGE,
+                3,
+                null
+        ));
     }
 
     /**
@@ -1143,6 +1590,16 @@ public final class Sonic3kPlcArtRegistry {
                 1,
                 -1
         ));
+
+        // Door (Object 0x3C) vertical: ArtTile_DEZMisc + $1E, palette 1
+        // ROM: make_art_tile(ArtTile_DEZMisc+$1E, 1, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.DOOR_VERTICAL_DEZ,
+                -1,
+                Sonic3kConstants.ARTTILE_DEZ_MISC + 0x1E,
+                1,
+                "buildDoorVerticalDezSheet"
+        ));
     }
 
     /**
@@ -1160,6 +1617,23 @@ public final class Sonic3kPlcArtRegistry {
                 Sonic3kConstants.MAP_EGG_ROBO_ADDR,
                 0,
                 -1
+        ));
+    }
+
+    /**
+     * Populates HPZ (Hidden Palace Zone) art entries.
+     * Level-art: collapsing bridge.
+     */
+    private static void addHpzEntries(int actIndex,
+                                      List<StandaloneArtEntry> standalone,
+                                      List<LevelArtEntry> levelArt) {
+        // Collapsing Bridge (Object 0x0F): make_art_tile($001, 2, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.COLLAPSING_BRIDGE_HPZ,
+                Sonic3kConstants.MAP_HPZ_COLLAPSING_BRIDGE_ADDR,
+                1,
+                2,
+                null
         ));
     }
 
@@ -1211,22 +1685,7 @@ public final class Sonic3kPlcArtRegistry {
                 -1
         ));
 
-        // PLC_EndSignStuff - end sign face (uncompressed art + DPLC remap)
-        standalone.add(new StandaloneArtEntry(
-                Sonic3kObjectArtKeys.END_SIGN,
-                Sonic3kConstants.ART_UNC_END_SIGNS_ADDR,
-                CompressionType.UNCOMPRESSED,
-                Sonic3kConstants.ART_UNC_END_SIGNS_SIZE,
-                Sonic3kConstants.MAP_END_SIGNS_ADDR,
-                0,
-                Sonic3kConstants.DPLC_END_SIGNS_ADDR));
-
-        // PLC_EndSignStuff - signpost pole/stub (Nemesis compressed)
-        standalone.add(new StandaloneArtEntry(
-                Sonic3kObjectArtKeys.SIGNPOST_STUB,
-                Sonic3kConstants.ART_NEM_SIGNPOST_STUB_ADDR,
-                CompressionType.NEMESIS, -1, Sonic3kConstants.MAP_SIGNPOST_STUB_ADDR,
-                0, -1));
+        // Signpost art (END_SIGN, SIGNPOST_STUB) is now in SHARED_STANDALONE_ART.
 
         // Level-art shared across both acts
         levelArt.add(new LevelArtEntry(

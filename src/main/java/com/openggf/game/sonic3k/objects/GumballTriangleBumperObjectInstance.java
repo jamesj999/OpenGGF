@@ -19,7 +19,7 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
 import java.util.List;
 
 /**
- * Object 0x87 - Gumball Triangle Bumper (Sonic 3 &amp; Knuckles Gumball bonus stage).
+ * Object 0x87 - Gumball Triangle Bumper (Sonic 3 & Knuckles Gumball bonus stage).
  * <p>
  * ROM reference: sonic3k.asm Obj_GumballTriangleBumper (line 127634).
  * <p>
@@ -44,24 +44,19 @@ import java.util.List;
  * <p>
  * ROM collision: SolidObjectFull with D1=$D (13), D2=8, D3=$11 (17).
  * On player standing or side push contact, applies bounce and deletes self
- * (the Gumball machine respawns bumpers). For standalone operation without
- * the machine, this implementation uses a per-object cooldown instead of
- * self-destruction.
+ * (the Gumball machine respawns bumpers). For placed-engine operation we keep
+ * the bumper inert after a hit, and add a symmetric proximity fallback so
+ * mirrored bumpers still trigger when the generic solid-contact classifier
+ * drops an edge case.
  */
 public class GumballTriangleBumperObjectInstance extends AbstractObjectInstance
         implements SolidObjectProvider, SolidObjectListener {
 
-    // ROM: sub_60F94 bounce velocities
     private static final int BOUNCE_X_SPEED = 0x300;
     private static final int BOUNCE_Y_SPEED = -0x600;
-
-    // ROM: ObjDat3_613A4 mapping frame
     private static final int MAPPING_FRAME = 0x12;
-
-    // ROM: SolidObjectFull params — D1=$D (halfWidth=13), D2=8 (airHalfHeight),
-    // D3=$11 (groundHalfHeight=17). The ground half-height is larger to account
-    // for the triangle's tall upper hitbox that catches the player standing on top.
     private static final SolidObjectParams SOLID_PARAMS = new SolidObjectParams(13, 8, 17);
+    private boolean consumed;
 
     public GumballTriangleBumperObjectInstance(ObjectSpawn spawn) {
         super(spawn, "GumballTriangleBumper");
@@ -69,14 +64,22 @@ public class GumballTriangleBumperObjectInstance extends AbstractObjectInstance
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
-        // No per-frame work — bumper self-destructs on bounce.
+        if (consumed) {
+            return;
+        }
+        if (playerEntity instanceof AbstractPlayableSprite player) {
+            tryFallbackBounce(player);
+        }
+        for (PlayableEntity sidekickEntity : services().sidekicks()) {
+            if (sidekickEntity instanceof AbstractPlayableSprite sidekick) {
+                tryFallbackBounce(sidekick);
+            }
+        }
     }
-
-    // --- SolidObjectProvider ---
 
     @Override
     public boolean isSolidFor(PlayableEntity playerEntity) {
-        return true;
+        return !consumed;
     }
 
     @Override
@@ -84,16 +87,20 @@ public class GumballTriangleBumperObjectInstance extends AbstractObjectInstance
         return SOLID_PARAMS;
     }
 
-    // --- SolidObjectListener ---
-
     @Override
     public void onSolidContact(PlayableEntity playerEntity, SolidContact contact, int frameCounter) {
         if (!(playerEntity instanceof AbstractPlayableSprite player)) {
             return;
         }
+        if (consumed) {
+            return;
+        }
 
-        // ROM: btst #$10,d6 — side-touch bit, or p1_standing_bit.
-        // Engine: contact.touchSide() or contact.standing().
+        GumballMachineObjectInstance machine = currentMachineForThisContext();
+        if (machine != null && !machine.areBumpersActive()) {
+            return;
+        }
+
         if (!contact.standing() && !contact.touchSide()) {
             return;
         }
@@ -101,22 +108,40 @@ public class GumballTriangleBumperObjectInstance extends AbstractObjectInstance
         applyBounce(player);
     }
 
-    /**
-     * ROM: sub_60F94 — Applies fixed-velocity bounce to player.
-     * <p>
-     * The X direction is determined by the object's h-flip render flag (bit 0):
-     * <ul>
-     *   <li>h-flip set (render_flags bit 0): X = -0x300 (bounce left), face left</li>
-     *   <li>h-flip clear: X = +0x300 (bounce right), face right</li>
-     * </ul>
-     */
+    private void tryFallbackBounce(AbstractPlayableSprite player) {
+        if (consumed || player == null) {
+            return;
+        }
+
+        GumballMachineObjectInstance machine = currentMachineForThisContext();
+        if (machine != null && !machine.areBumpersActive()) {
+            return;
+        }
+        if (player.isObjectControlled() || player.isControlLocked()) {
+            return;
+        }
+
+        int halfPlayerWidth = Math.max(1, player.getWidth() / 2);
+        int halfPlayerHeight = Math.max(1, player.getHeight() / 2);
+        int dx = player.getCentreX() - spawn.x();
+        int dy = player.getCentreY() - spawn.y();
+        int xRange = SOLID_PARAMS.halfWidth() + halfPlayerWidth;
+        int yRangeAbove = SOLID_PARAMS.airHalfHeight() + halfPlayerHeight;
+        int yRangeBelow = SOLID_PARAMS.groundHalfHeight() + halfPlayerHeight;
+
+        if (dx < -xRange || dx > xRange || dy < -yRangeAbove || dy > yRangeBelow) {
+            return;
+        }
+        if (!player.getAir() && !player.isOnObject() && player.getXSpeed() == 0 && player.getYSpeed() == 0) {
+            return;
+        }
+
+        applyBounce(player);
+    }
+
     private void applyBounce(AbstractPlayableSprite player) {
         boolean hFlipped = (spawn.renderFlags() & 0x1) != 0;
 
-        // ROM: move.w #-$300,d0 ... btst #0,render_flags(a0) / bne.s loc_60FB4
-        //      bclr #Status_Facing,status(a1) / neg.w d0
-        // When h-flipped: d0 stays -$300 (left), Status_Facing is SET (left)
-        // When not flipped: d0 becomes +$300 (right), Status_Facing is CLEARED (right)
         int xSpeed;
         if (hFlipped) {
             xSpeed = -BOUNCE_X_SPEED;
@@ -126,60 +151,55 @@ public class GumballTriangleBumperObjectInstance extends AbstractObjectInstance
             player.setDirection(Direction.RIGHT);
         }
 
-        // ROM: move.w d0,x_vel(a1) / move.w d0,ground_vel(a1)
         player.setXSpeed((short) xSpeed);
         player.setGSpeed((short) xSpeed);
-
-        // ROM: move.w #-$600,y_vel(a1)
         player.setYSpeed((short) BOUNCE_Y_SPEED);
-
-        // ROM: bset #Status_InAir,status(a1)
         player.setAir(true);
-
-        // ROM: bclr #Status_OnObj,status(a1)
         player.setOnObject(false);
-
-        // ROM: move.b #$10,anim(a1) — SPRING animation
         player.setAnimationId(Sonic3kAnimationIds.SPRING);
-
-        // ROM: clr.b jumping(a1)
         player.setJumping(false);
 
-        // ROM: moveq #signextendB(sfx_Spring),d0 / jsr (Play_SFX).l
         try {
             services().playSfx(GameSound.SPRING);
         } catch (Exception e) {
-            // Prevent audio failure from breaking game logic
+            // Prevent audio failure from breaking game logic.
         }
 
-        // ROM lines 127692-127698: bumper clears its slot byte on the machine.
-        // Both P1 (loc_60F64) and P2 (loc_60F80) paths end with jmp Delete_Current_Sprite.
-        GumballMachineObjectInstance machine = GumballMachineObjectInstance.current();
+        GumballMachineObjectInstance machine = currentMachineForThisContext();
         if (machine != null) {
             machine.onBumperHit(spawn.subtype() & 0xFF);
         }
 
-        // ROM: jmp (Delete_Current_Sprite).l — bumper consumed after bounce (both P1 and P2)
-        setDestroyed(true);
+        consumed = true;
     }
 
-    // --- Rendering ---
+    private GumballMachineObjectInstance currentMachineForThisContext() {
+        GumballMachineObjectInstance machine = GumballMachineObjectInstance.current();
+        if (machine == null || services().currentLevel() == null) {
+            return null;
+        }
+        return machine;
+    }
 
     @Override
     public int getPriorityBucket() {
-        // ROM: ObjDat3_613A4 priority $0100 → bucket 2 ($0100 / $80 = 2).
         return RenderPriority.clamp(2);
     }
 
     @Override
     public boolean isHighPriority() {
-        // ROM: ObjDat3_613A4 make_art_tile(ArtTile_BonusStage, 1, 1) — VDP priority 1
         return true;
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        if (!GumballMachineObjectInstance.shouldDebugRender(getPriorityBucket(), isHighPriority())) return;
+        if (consumed) {
+            return;
+        }
+        if (!GumballMachineObjectInstance.shouldDebugRender(
+                getPriorityBucket(), isHighPriority(), GumballMachineObjectInstance.DEBUG_SOURCE_BUMPER)) {
+            return;
+        }
         PatternSpriteRenderer renderer = getRenderer(Sonic3kObjectArtKeys.GUMBALL_BONUS);
         if (renderer == null) {
             return;

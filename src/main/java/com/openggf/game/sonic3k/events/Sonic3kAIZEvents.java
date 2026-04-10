@@ -452,7 +452,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         if (act == 0) {
             updateAct1(frameCounter);
         } else {
-            updateAct2Continuation();
+            updateAct2Continuation(frameCounter);
         }
     }
 
@@ -881,7 +881,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         return waveOffsets;
     }
 
-    private void updateAct2Continuation() {
+    private void updateAct2Continuation(int frameCounter) {
         if (fireSequencePhase.curtainActive() || fireSequencePhase == FireSequencePhase.AIZ2_BG_REDRAW) {
             switch (fireSequencePhase) {
                 case AIZ2_FIRE_REDRAW -> {
@@ -925,8 +925,8 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
             updateBattleshipAutoScroll();
         }
 
-        // Timed screen shake (bomb impacts)
-        tickScreenShake();
+        // ROM: ShakeScreen_Setup — timed (bomb) and constant (water trigger) modes
+        tickScreenShake(frameCounter);
 
         // ROM: AIZ2_Resize — dynamic boundary state machine (sonic3k.asm:39012)
         updateAiz2Resize();
@@ -1339,8 +1339,19 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
 
     // ROM: ScreenShakeArray — signed byte offsets indexed by countdown value (15→0).
     // Amplitude increases then decreases: ±1, ±1, ±2, ±2, ±3, ±3, ±4, ±4, ±5, ±5
+    // Used for timed/positive Screen_shake_flag (bomb impacts).
     private static final int[] SCREEN_SHAKE_ARRAY = {
             1, -1, 1, -1, 2, -2, 2, -2, 3, -3, 3, -3, 4, -4, 4, -4, 5, -5, 5, -5
+    };
+
+    // ROM: ScreenShakeArray2 — 64-byte pseudo-random offsets (0–3 pixels) indexed
+    // by (Level_frame_counter & $3F). Used for constant/negative Screen_shake_flag
+    // (e.g. AIZ2 water-level trigger shake, set to -1 by DynamicWaterHeight_AIZ2).
+    private static final int[] SCREEN_SHAKE_ARRAY_CONSTANT = {
+            1, 2, 1, 3, 1, 2, 2, 1, 2, 3, 1, 2, 1, 2, 0, 0,
+            2, 0, 3, 2, 2, 3, 2, 2, 1, 3, 0, 0, 1, 0, 1, 3,
+            1, 2, 1, 3, 1, 2, 2, 1, 2, 3, 1, 2, 1, 2, 0, 0,
+            2, 0, 3, 2, 2, 3, 2, 2, 1, 3, 0, 0, 1, 0, 1, 3
     };
 
     /**
@@ -1356,10 +1367,30 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
     }
 
     /**
-     * Ticks the screen shake countdown. Called each frame from {@link #updateAct2Continuation()}.
-     * Exposes the current ROM-style Y offset for the AIZ scroll handler.
+     * Ticks the screen shake. Called each frame from {@link #updateAct2Continuation(int)}.
+     * <p>
+     * ROM: ShakeScreen_Setup (sonic3k.asm:104183) supports two modes:
+     * <ul>
+     *   <li>Positive Screen_shake_flag → timed countdown with ScreenShakeArray (bomb impacts)</li>
+     *   <li>Negative Screen_shake_flag (-1) → constant shake with ScreenShakeArray2,
+     *       cleared externally by Obj_6E6E after 180 frames (water-level trigger)</li>
+     * </ul>
+     * The water system's shake timer drives the constant mode; the local
+     * {@link #screenShakeTimer} drives the timed mode.
+     *
+     * @param frameCounter current Level_frame_counter for constant-mode indexing
      */
-    private void tickScreenShake() {
+    private void tickScreenShake(int frameCounter) {
+        // Constant-mode shake: driven by WaterSystem's shake timer (ROM: Screen_shake_flag = -1).
+        // DynamicWaterHeight_AIZ2 sets it to 180; WaterSystem decrements it each frame.
+        // ROM: ShakeScreen_Setup loc_4F3FA — uses ScreenShakeArray2[(Level_frame_counter & $3F)]
+        WaterSystem ws = waterSystem();
+        if (ws != null && ws.getShakeTimer(0, 1) > 0) { // AIZ act 2
+            screenShakeOffsetY = SCREEN_SHAKE_ARRAY_CONSTANT[frameCounter & 0x3F];
+            return;
+        }
+
+        // Timed-mode shake: local countdown with ScreenShakeArray (bomb impacts).
         if (screenShakeTimer <= 0) {
             screenShakeOffsetY = 0;
             return;

@@ -23,7 +23,6 @@ import com.openggf.sprites.animation.SpriteAnimationSet;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Object 0x85 — Final Zone Boss (Eggman in machine with crushing cylinders and plasma launcher).
@@ -308,9 +307,14 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
 
     private void selectCylinderPair() {
         // ROM: loc_19EA8 — RandomNumber, andi #$C
-        int random = ThreadLocalRandom.current().nextInt(0x10000) & 0xC;
-        int index1 = random >> 1;
-        int index2 = (random >> 1) + 1;
+        int random = services().rng().nextRaw();
+        int index1 = (random & 0xC) >> 1;
+        int index2 = index1 + 1;
+        if (random < 0) {
+            int swap = index1;
+            index1 = index2;
+            index2 = swap;
+        }
 
         // ROM: word_19FD6 lookup
         int cylIndex1 = CYLINDER_PAIR_TABLE[index1];
@@ -817,7 +821,7 @@ public class Sonic1FZBossInstance extends AbstractBossInstance
             return;
         }
 
-        int random = ThreadLocalRandom.current().nextInt(0x10000);
+        int random = services().rng().nextWord();
         int xOffset = ((random & 0xFF) >> 2) - 0x20;
         int yOffset = (((random >> 8) & 0xFF) >> 2) - 0x20;
         BossExplosionObjectInstance explosion = new BossExplosionObjectInstance(

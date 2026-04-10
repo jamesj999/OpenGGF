@@ -2,7 +2,6 @@ package com.openggf.game.sonic2.slotmachine;
 
 import com.openggf.audio.AudioManager;
 
-import java.util.Random;
 import java.util.logging.Logger;
 import com.openggf.game.GameServices;
 
@@ -98,8 +97,8 @@ public class CNZSlotMachineManager {
     private int reward = 0;
     private boolean rewardDetermined = false;
 
-    private final Random random = new Random();
     private final AudioManager audioManager;
+    private int frameCounter;
 
     public CNZSlotMachineManager() {
         this.audioManager = GameServices.audio();
@@ -179,6 +178,19 @@ public class CNZSlotMachineManager {
      * Called each frame while slot machine is active.
      */
     public void update() {
+        int currentFrame = 0;
+        var levelManager = GameServices.levelOrNull();
+        if (levelManager != null) {
+            currentFrame = levelManager.getFrameCounter();
+        }
+        update(currentFrame);
+    }
+
+    /**
+     * Update the slot machine state using the ROM-equivalent V-int frame counter.
+     */
+    public void update(int frameCounter) {
+        this.frameCounter = frameCounter;
         switch (routine) {
             case ROUTINE_INIT -> routineInit();
             case ROUTINE_INITIAL_ROLL -> routineInitialRoll();
@@ -195,12 +207,17 @@ public class CNZSlotMachineManager {
      */
     private void routineInit() {
         // Clear all slot data
+        int seed = vintLowByte();
         for (int i = 0; i < 3; i++) {
-            slotIndices[i] = random.nextInt(8);
             slotOffsets[i] = 8;  // Start at offset 8 (1 pixel line)
             slotSpeeds[i] = 8;   // Initial rolling speed
             slotSubroutines[i] = SLOT_SUB_WAIT;
         }
+        slotIndices[0] = seed & 7;
+        seed = rotateRightByte(seed, 3);
+        slotIndices[1] = seed & 7;
+        seed = rotateRightByte(seed, 3);
+        slotIndices[2] = seed & 7;
         slotTimer = 1;
         slotIndex = 0;
         routine = ROUTINE_INITIAL_ROLL;
@@ -224,13 +241,11 @@ public class CNZSlotMachineManager {
      * Routine 2: Setup target values from random seed.
      */
     private void routineSetupTargets() {
-        // Generate random starting speeds
-        int seed = random.nextInt(256);
-        slotSpeeds[0] = ((seed & 0x07) - 4) + 0x30;
-        seed = (seed >> 3) | ((seed & 0x07) << 5);  // Rotate
-        slotSpeeds[1] = ((seed & 0x07) - 4) + 0x30;
-        seed = (seed >> 3) | ((seed & 0x07) << 5);  // Rotate
-        slotSpeeds[2] = ((seed & 0x07) - 4) + 0x30;
+        // Generate starting speeds from Vint_runcount bytes.
+        int lowSeed = vintLowByte();
+        slotSpeeds[0] = ((lowSeed & 0x07) - 4) + 0x30;
+        slotSpeeds[1] = ((rotateLeftByte(lowSeed, 4) & 0x07) - 4) + 0x30;
+        slotSpeeds[2] = ((vintHighByte() & 0x07) - 4) + 0x30;
 
         slotTimer = 2;  // Roll each slot twice
         slotIndex = 0;
@@ -250,7 +265,7 @@ public class CNZSlotMachineManager {
      * Select target values based on random probability.
      */
     private void selectTargetValues() {
-        int seed = random.nextInt(256);
+        int seed = rotateRightByte(vintLowByte(), 3);
 
         // Try each target combination based on probability
         int cumulative = 0;
@@ -263,12 +278,13 @@ public class CNZSlotMachineManager {
             }
         }
 
-        // Fallback: random values from sequences
-        int idx1 = random.nextInt(8);
-        int idx2 = random.nextInt(8);
-        int idx3 = random.nextInt(8);
-        slot1Target = SLOT_SEQUENCE_1[idx1];
-        slot23Target = (SLOT_SEQUENCE_2[idx2] << 4) | SLOT_SEQUENCE_3[idx3];
+        // Fallback reuses the same byte, rotating it for slots 2 and 3.
+        int fallbackSeed = (seed - cumulative) & 0xFF;
+        slot1Target = SLOT_SEQUENCE_1[fallbackSeed & 7];
+        fallbackSeed = rotateRightByte(fallbackSeed, 3);
+        int slot2Target = SLOT_SEQUENCE_2[fallbackSeed & 7];
+        fallbackSeed = rotateRightByte(fallbackSeed, 3);
+        slot23Target = (slot2Target << 4) | SLOT_SEQUENCE_3[fallbackSeed & 7];
     }
 
     /**
@@ -283,8 +299,7 @@ public class CNZSlotMachineManager {
                 slotSpeeds[i] += 0x30;
             }
 
-            // Set random timer for fine-tuning phase
-            slotTimer = (random.nextInt(16)) + 0x0C;
+            slotTimer = (vintLowByte() & 0x0F) + 0x0C;
             slotIndex = 0;
             routine = ROUTINE_FINE_TUNE;
         }
@@ -605,5 +620,21 @@ public class CNZSlotMachineManager {
      */
     public boolean isRunning() {
         return routine != ROUTINE_INACTIVE;
+    }
+
+    private int vintLowByte() {
+        return frameCounter & 0xFF;
+    }
+
+    private int vintHighByte() {
+        return (frameCounter >>> 8) & 0xFF;
+    }
+
+    private static int rotateLeftByte(int value, int amount) {
+        return ((value << amount) | (value >>> (8 - amount))) & 0xFF;
+    }
+
+    private static int rotateRightByte(int value, int amount) {
+        return ((value >>> amount) | (value << (8 - amount))) & 0xFF;
     }
 }

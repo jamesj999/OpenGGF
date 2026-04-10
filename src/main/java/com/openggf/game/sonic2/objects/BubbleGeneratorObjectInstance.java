@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.game.PlayableEntity;
+import com.openggf.game.sonic2.Sonic2Rng;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -8,7 +9,6 @@ import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
-import java.util.Random;
 
 /**
  * ARZ Bubble Generator (Object 0x24) - Underwater bubble spawner.
@@ -52,8 +52,6 @@ public class BubbleGeneratorObjectInstance extends AbstractObjectInstance {
     private static final int[] BUBBLE_SEQUENCE_TABLE = {
         0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0
     };
-
-    private final Random random = new Random();
 
     // ROM objoff_32: Burst counter (decrements each burst, triggers large bubble mode on underflow)
     private int burstCounter;
@@ -147,16 +145,14 @@ public class BubbleGeneratorObjectInstance extends AbstractObjectInstance {
      */
     private void startNewBurst() {
         // ROM: jsr (RandomNumber).l / move.w d0,d1 / andi.w #7,d0 / cmpi.w #6,d0 / bhs.s loc_1F9E8
-        int bubbleCount;
-        do {
-            bubbleCount = random.nextInt(8);
-        } while (bubbleCount >= 6);
+        var rng = services().rng();
+        var burstChoice = Sonic2Rng.nextBubbleBurstChoice(rng);
 
         // ROM: move.b d0,objoff_34(a0)
-        bubblesRemainingInBurst = bubbleCount;
+        bubblesRemainingInBurst = burstChoice.bubbleCount();
 
         // ROM: andi.w #$C,d1 / lea (byte_1FAF0).l,a1 / adda.w d1,a1 / move.l a1,objoff_3C(a0)
-        sequenceOffset = random.nextInt(4) * 4; // 0, 4, 8, or 12
+        sequenceOffset = burstChoice.sequenceOffset(); // 0, 4, 8, or 12
 
         // ROM: subq.b #1,objoff_32(a0) / bpl.s BranchTo_loc_1FA2A
         burstCounter--;
@@ -182,14 +178,15 @@ public class BubbleGeneratorObjectInstance extends AbstractObjectInstance {
         if (services().objectManager() == null) {
             return;
         }
+        var rng = services().rng();
 
         // ROM: jsr (RandomNumber).l / andi.w #$1F,d0 / move.w d0,objoff_38(a0)
         // Set timer for next bubble (0-31 frames)
-        frameTimer = random.nextInt(32);
+        frameTimer = rng.nextBits(0x1F);
 
         // ROM: Calculate spawn position with random X offset
         // jsr (RandomNumber).l / andi.w #$F,d0 / subq.w #8,d0 / add.w d0,x_pos(a1)
-        int spawnX = spawn.x() + (random.nextInt(16) - 8);
+        int spawnX = spawn.x() + Sonic2Rng.nextMaskedOffset(rng, 0x0F, -8);
         int spawnY = spawn.y();
 
         // ROM: Get subtype from sequence table
@@ -205,7 +202,7 @@ public class BubbleGeneratorObjectInstance extends AbstractObjectInstance {
         if ((stateFlags & FLAG_LARGE_MODE) != 0) {
             // ROM: 25% chance to spawn large breathable bubble
             // jsr (RandomNumber).l / andi.w #3,d0 / bne.s loc_1FA92
-            if (random.nextInt(4) == 0) {
+            if (rng.nextBits(3) == 0) {
                 // ROM: bset #6,objoff_36(a0) / bne.s loc_1FAA6 / move.b #2,subtype(a1)
                 if ((stateFlags & FLAG_LARGE_SPAWNED) == 0) {
                     stateFlags |= FLAG_LARGE_SPAWNED;
@@ -231,7 +228,7 @@ public class BubbleGeneratorObjectInstance extends AbstractObjectInstance {
             bubbleSize = 5; // Large breathable bubble needs size >= 3
         }
 
-        int wobbleAngle = random.nextInt(256);
+        int wobbleAngle = rng.nextByte();
         BubbleObjectInstance bubble = new BubbleObjectInstance(spawnX, spawnY, bubbleSize, wobbleAngle);
         services().objectManager().addDynamicObject(bubble);
 
@@ -242,7 +239,7 @@ public class BubbleGeneratorObjectInstance extends AbstractObjectInstance {
         if (bubblesRemainingInBurst < 0) {
             // Burst complete - add long delay before next burst
             // ROM: jsr (RandomNumber).l / andi.w #$7F,d0 / addi.w #$80,d0 / add.w d0,objoff_38(a0)
-            frameTimer += (random.nextInt(128) + 128);
+            frameTimer += rng.nextBits(0x7F) + 0x80;
 
             // ROM: clr.w objoff_36(a0)
             stateFlags = 0; // Clear all flags including large mode and large spawned

@@ -1,6 +1,7 @@
 package com.openggf;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.BonusStageProvider;
 import com.openggf.game.GameServices;
 import com.openggf.game.LevelEventProvider;
 import com.openggf.level.LevelManager;
@@ -12,8 +13,10 @@ import com.openggf.level.LevelManager;
  * Both {@link GameLoop} and the headless test runner ({@code HeadlessTestRunner})
  * MUST delegate to this class rather than duplicating the step sequence.
  * <p>
- * Order mirrors the Mega Drive ROM: ZoneFeatures &rarr; ExecuteObjects &rarr;
- * PlayerPhysics &rarr; LevelEvents &rarr; Camera &rarr; LevelScroll.
+ * Order mirrors the Mega Drive ROM, but differs by collision model:
+ * S1 runs ExecuteObjects before PlayerPhysics in this engine's unified path,
+ * while S2/S3K run PlayerPhysics first, then ExecuteObjects with inline solid
+ * resolution. Both flows converge before level events, camera, and scroll.
  * <p>
  * ROM reference (sonic.asm:3042-3044): {@code LZWaterFeatures} runs before
  * {@code ExecuteObjects} so that wind tunnel / water slide state is visible
@@ -73,22 +76,23 @@ public final class LevelFrameStep {
         //    ROM: LZWaterFeatures runs before ExecuteObjects (sonic.asm:3042).
         levelManager.updateZoneFeaturesPrePhysics();
 
-        // 2. Object positions — must update BEFORE player physics so
-        //    SolidContacts sees new positions (fixes 1-frame platform lag).
-        //    Touch responses are deferred to run inside tickPlayablePhysics (step 3),
-        //    after handleMovement but before post-movement solid contacts. This matches
-        //    the ROM's order where ReactToItem runs during Sonic's slot within
-        //    ExecuteObjects, after his physics but before other objects' solid checks.
-        //    NOTE: In the ROM, Sonic (slot 0) runs first within ExecuteObjects,
-        //    so objects see his post-physics position. Our engine separates
-        //    physics from objects, creating an ordering difference. To compensate,
-        //    SolidContacts applies a velocity offset to the player position for
-        //    contact classification, simulating the ROM's post-physics check.
-        wrapper.wrap("objects", levelManager::updateObjectPositionsWithoutTouches);
+        boolean inlineSolidResolution = levelManager.usesInlineObjectSolidResolution();
+        if (inlineSolidResolution) {
+            // 2. S2/S3K player physics first. Touch responses run per-player inside
+            //    tickPlayablePhysics after movement, matching Sonic's slot ordering.
+            wrapper.wrap("physics", spriteUpdate);
 
-        // 3. Sprite / player physics update (caller-provided).
-        //    Touch responses run per-player inside tickPlayablePhysics.
-        wrapper.wrap("physics", spriteUpdate);
+            // 3. S2/S3K object execution after player physics, with inline solid
+            //    resolution so later objects see earlier contact adjustments.
+            wrapper.wrap("objects", levelManager::updateObjectPositionsPostPhysicsWithoutTouches);
+        } else {
+            // 2. S1 unified path keeps objects before physics. Touch responses are
+            //    still deferred to tickPlayablePhysics after movement.
+            wrapper.wrap("objects", levelManager::updateObjectPositionsWithoutTouches);
+
+            // 3. Sprite / player physics update (caller-provided).
+            wrapper.wrap("physics", spriteUpdate);
+        }
 
         // 4. Dynamic level events — boss arenas, boundary changes, zone transitions.
         LevelEventProvider levelEvents = GameServices.module().getLevelEventProvider();
@@ -96,11 +100,23 @@ public final class LevelFrameStep {
             levelEvents.update();
         }
 
+        BonusStageProvider bonusStageProvider = GameServices.bonusStage();
+        boolean integratedBonusStageUpdate = bonusStageProvider != null
+                && bonusStageProvider.updateDuringLevelFrame();
+        boolean suppressDefaultCamera = bonusStageProvider != null
+                && bonusStageProvider.suppressesDefaultCameraStep();
+
+        if (integratedBonusStageUpdate) {
+            bonusStageProvider.onFrameUpdate();
+        }
+
         // 5. Camera — ease boundaries toward targets, then reposition.
-        wrapper.wrap("camera", () -> {
-            camera.updateBoundaryEasing();
-            camera.updatePosition();
-        });
+        if (!suppressDefaultCamera) {
+            wrapper.wrap("camera", () -> {
+                camera.updateBoundaryEasing();
+                camera.updatePosition();
+            });
+        }
 
         // 5b. Post-camera placement catch-up — extend the spawn window with the
         //     post-camera position. ROM: ObjPosLoad runs after DeformLayers

@@ -8,7 +8,6 @@ import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.game.PlayableEntity;
 
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Animal released from Egg Prison (Object 0x28 routine $1C).
@@ -62,7 +61,7 @@ public class EggPrisonAnimalInstance extends AbstractObjectInstance {
     private State state;
     private AnimalType definition;
 
-    public EggPrisonAnimalInstance(ObjectSpawn spawn, int delay) {
+    public EggPrisonAnimalInstance(ObjectSpawn spawn, int delay, int artVariant) {
         super(spawn, "Animal");
         ObjectRenderManager renderManager = getRenderManager();
         this.renderer = renderManager != null ? renderManager.getAnimalRenderer() : null;
@@ -82,8 +81,8 @@ public class EggPrisonAnimalInstance extends AbstractObjectInstance {
         }
 
         // ROM: jsr RandomNumber / andi.w #1,d0
-        this.artVariant = ThreadLocalRandom.current().nextInt(ART_VARIANT_COUNT);
-        int animalIndex = artVariant == 0 ? typeA : typeB;
+        this.artVariant = artVariant & (ART_VARIANT_COUNT - 1);
+        int animalIndex = this.artVariant == 0 ? typeA : typeB;
         this.definition = AnimalType.fromIndex(animalIndex);
         this.mappingSetIndex = definition.mappingSet().ordinal();
         this.groundXVelocity = definition.xVel();

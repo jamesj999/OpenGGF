@@ -26,6 +26,9 @@ import com.openggf.game.RuntimeManager;
 import com.openggf.game.NoOpSpecialStageProvider;
 import com.openggf.game.SpecialStageProvider;
 import com.openggf.debug.PerformanceProfiler;
+import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
+import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
+import com.openggf.game.sonic3k.objects.PachinkoEnergyTrapObjectInstance;
 import com.openggf.level.BigRingReturnState;
 import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
@@ -66,6 +69,14 @@ import java.util.logging.Logger;
  * and call {@link #step()} to advance one frame.
  */
 public class GameLoop {
+    static final int STATUS_FIRE_SHIELD_BIT = 4;
+    static final int STATUS_LIGHTNING_SHIELD_BIT = 5;
+    static final int STATUS_BUBBLE_SHIELD_BIT = 6;
+    static final int SAVED_SHIELD_MASK =
+            (1 << STATUS_FIRE_SHIELD_BIT)
+                    | (1 << STATUS_LIGHTNING_SHIELD_BIT)
+                    | (1 << STATUS_BUBBLE_SHIELD_BIT);
+
     private static final Logger LOGGER = Logger.getLogger(GameLoop.class.getName());
 
     private final SonicConfigurationService configService = SonicConfigurationService.getInstance();
@@ -128,6 +139,7 @@ public class GameLoop {
     private BonusStageProvider deferredBonusProvider;
     private BonusStageType deferredBonusType;
     private BonusStageState deferredBonusState;
+    private ShieldType pendingBonusStageShieldRestore;
 
     // Game-agnostic ending/credits provider (wraps S1 CreditsManager, S2 credits, etc.)
     private EndingProvider endingProvider;
@@ -383,46 +395,45 @@ public class GameLoop {
         DebugObjectArtViewer.getInstance().updateInput(inputHandler);
 
         // Check for Special Stage toggle (TAB by default)
-        if (inputHandler.isKeyPressed(configService.getInt(SonicConfiguration.SPECIAL_STAGE_KEY))) {
+        if (isUnmodifiedDebugKeyPressed(configService.getInt(SonicConfiguration.SPECIAL_STAGE_KEY))) {
             handleSpecialStageDebugKey();
         }
 
         // Check for Bonus Stage toggle (Shift+B)
-        if (inputHandler.isKeyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_B)
-                && (inputHandler.isKeyDown(org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_SHIFT)
-                || inputHandler.isKeyDown(org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_SHIFT))) {
-            handleBonusStageDebugKey();
+        BonusStageType debugBonusType = resolveBonusStageDebugShortcut(inputHandler);
+        if (debugBonusType != BonusStageType.NONE) {
+            handleBonusStageDebugKey(debugBonusType);
         }
 
         if (currentGameMode == GameMode.SPECIAL_STAGE) {
             SpecialStageProvider ssProvider = getActiveSpecialStageProvider();
 
             // Debug: X key = next stage within current set
-            if (inputHandler.isKeyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_X)) {
+            if (isUnmodifiedDebugKeyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_X)) {
                 ssProvider.debugNextStage();
             }
             // Debug: Z key = switch layout set (S3 ↔ SK)
-            if (inputHandler.isKeyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_Z)) {
+            if (isUnmodifiedDebugKeyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_Z)) {
                 ssProvider.debugToggleLayoutSet();
             }
 
             // Debug complete special stage with emerald (for testing results screen)
-            if (inputHandler.isKeyPressed(configService.getInt(SonicConfiguration.SPECIAL_STAGE_COMPLETE_KEY))) {
+            if (isUnmodifiedDebugKeyPressed(configService.getInt(SonicConfiguration.SPECIAL_STAGE_COMPLETE_KEY))) {
                 debugCompleteSpecialStageWithEmerald();
             }
 
             // Debug fail special stage (for testing results screen without emerald)
-            if (inputHandler.isKeyPressed(configService.getInt(SonicConfiguration.SPECIAL_STAGE_FAIL_KEY))) {
+            if (isUnmodifiedDebugKeyPressed(configService.getInt(SonicConfiguration.SPECIAL_STAGE_FAIL_KEY))) {
                 debugFailSpecialStage();
             }
 
             // Toggle sprite frame debug viewer (shows all animation frames)
-            if (inputHandler.isKeyPressed(configService.getInt(SonicConfiguration.SPECIAL_STAGE_SPRITE_DEBUG_KEY))) {
+            if (isUnmodifiedDebugKeyPressed(configService.getInt(SonicConfiguration.SPECIAL_STAGE_SPRITE_DEBUG_KEY))) {
                 ssProvider.toggleSpriteDebugMode();
             }
 
             // Cycle special stage plane visibility (A/B/both/off)
-            if (inputHandler.isKeyPressed(configService.getInt(SonicConfiguration.SPECIAL_STAGE_PLANE_DEBUG_KEY))) {
+            if (isUnmodifiedDebugKeyPressed(configService.getInt(SonicConfiguration.SPECIAL_STAGE_PLANE_DEBUG_KEY))) {
                 ssProvider.cyclePlaneDebugMode();
             }
 
@@ -431,17 +442,17 @@ public class GameLoop {
                 SpecialStageDebugProvider debugProvider = ssProvider.getDebugProvider();
                 if (debugProvider != null) {
                     // Left/Right: Change page within current graphics set
-                    if (inputHandler.isKeyPressed(configService.getInt(SonicConfiguration.RIGHT))) {
+                    if (isUnmodifiedDebugKeyPressed(configService.getInt(SonicConfiguration.RIGHT))) {
                         debugProvider.nextPage();
                     }
-                    if (inputHandler.isKeyPressed(configService.getInt(SonicConfiguration.LEFT))) {
+                    if (isUnmodifiedDebugKeyPressed(configService.getInt(SonicConfiguration.LEFT))) {
                         debugProvider.previousPage();
                     }
                     // Up/Down: Cycle between graphics sets
-                    if (inputHandler.isKeyPressed(configService.getInt(SonicConfiguration.DOWN))) {
+                    if (isUnmodifiedDebugKeyPressed(configService.getInt(SonicConfiguration.DOWN))) {
                         debugProvider.nextSet();
                     }
-                    if (inputHandler.isKeyPressed(configService.getInt(SonicConfiguration.UP))) {
+                    if (isUnmodifiedDebugKeyPressed(configService.getInt(SonicConfiguration.UP))) {
                         debugProvider.previousSet();
                     }
                 }
@@ -480,10 +491,6 @@ public class GameLoop {
                 // Continue to LEVEL mode processing this frame (fall through)
             } else {
                 // Still in locked phase.
-                // Keep objects updated during title card lock.
-                // SCZ depends on ObjB2 (Tornado) solid updates during this phase so
-                // the player lands on the plane instead of free-falling.
-                levelManager.updateObjectPositions();
                 // Run player physics only if the title card provider allows it.
                 // S2: runs physics so Sonic settles onto ground / Tornado (SCZ).
                 // S1/S3K: ROM title card path is blocking for player movement; Sonic
@@ -491,6 +498,16 @@ public class GameLoop {
                 // starts like SBZ3, HCZ1, and LRZ1).
                 if (tcpCard.shouldRunPlayerPhysics()) {
                     spriteManager.updateWithoutInput();
+                    if (levelManager.usesInlineObjectSolidResolution()) {
+                        levelManager.updateObjectPositionsPostPhysicsWithoutTouches();
+                    } else {
+                        levelManager.updateObjectPositions();
+                    }
+                } else {
+                    // Keep objects updated during title card lock even when the player
+                    // is frozen. SCZ depends on ObjB2 (Tornado) solid updates during
+                    // this phase so Sonic lands on the plane instead of free-falling.
+                    levelManager.updateObjectPositions();
                 }
                 // Force camera to snap to player position during title card (no smooth
                 // scrolling)
@@ -626,11 +643,11 @@ public class GameLoop {
             }
 
             // Debug keys for level transitions (use request system for fade)
-            if (inputHandler.isKeyPressed(configService.getInt(SonicConfiguration.NEXT_ACT))) {
+            if (isUnmodifiedDebugKeyPressed(configService.getInt(SonicConfiguration.NEXT_ACT))) {
                 levelManager.requestNextAct();
             }
 
-            if (inputHandler.isKeyPressed(configService.getInt(SonicConfiguration.NEXT_ZONE))) {
+            if (isUnmodifiedDebugKeyPressed(configService.getInt(SonicConfiguration.NEXT_ZONE))) {
                 // DEZ: skip to ending cutscene instead of next zone
                 if (levelManager.getRomZoneId() == 0x0E) {
                     levelManager.requestCreditsTransition();
@@ -640,12 +657,12 @@ public class GameLoop {
             }
 
             // Debug: Teleport to last checkpoint (END key, only in LEVEL mode)
-            if (inputHandler.isKeyPressed(configService.getInt(SonicConfiguration.DEBUG_LAST_CHECKPOINT_KEY))) {
+            if (isUnmodifiedDebugKeyPressed(configService.getInt(SonicConfiguration.DEBUG_LAST_CHECKPOINT_KEY))) {
                 teleportToLastCheckpoint();
             }
 
             // Level select key (F9 by default)
-            if (inputHandler.isKeyPressed(configService.getInt(SonicConfiguration.LEVEL_SELECT_KEY))) {
+            if (isUnmodifiedDebugKeyPressed(configService.getInt(SonicConfiguration.LEVEL_SELECT_KEY))) {
                 enterLevelSelect();
             }
         } else if (currentGameMode == GameMode.BONUS_STAGE) {
@@ -654,6 +671,10 @@ public class GameLoop {
             TitleCardProvider bonusTcp = getTitleCardProviderLazy();
             if (bonusTcp != null && bonusTcp.isOverlayActive()) {
                 bonusTcp.update();
+            }
+
+            if (levelManager.getRomZoneId() == Sonic3kZoneIds.ZONE_GLOWING_SPHERE) {
+                ensureBonusStageBootstrapObjectPresent(BonusStageType.GLOWING_SPHERE);
             }
 
             // Bonus stage runs the same level frame steps as LEVEL mode
@@ -673,7 +694,7 @@ public class GameLoop {
                 forcePlayerHighPriorityInBonusStage();
 
                 // Notify coordinator of frame tick
-                if (activeBonusStageProvider != null) {
+                if (activeBonusStageProvider != null && !activeBonusStageProvider.updateDuringLevelFrame()) {
                     activeBonusStageProvider.onFrameUpdate();
                 }
 
@@ -684,8 +705,12 @@ public class GameLoop {
             }
 
             // Debug: F11 cycles through bucket/priority isolation for the gumball machine
-            if (inputHandler.isKeyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_F11)) {
+            if (isUnmodifiedDebugKeyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_F11)) {
                 com.openggf.game.sonic3k.objects.GumballMachineObjectInstance.cycleDebugFilter();
+            }
+            // Debug: Insert cycles through gumball child-source isolation without colliding with overlay F-keys.
+            if (isUnmodifiedDebugKeyPressed(org.lwjgl.glfw.GLFW.GLFW_KEY_INSERT)) {
+                com.openggf.game.sonic3k.objects.GumballMachineObjectInstance.cycleDebugSourceFilter();
             }
         }
 
@@ -746,15 +771,47 @@ public class GameLoop {
         }
     }
 
+    private boolean isUnmodifiedDebugKeyPressed(int keyCode) {
+        return inputHandler.isKeyPressedWithoutModifiers(keyCode);
+    }
+
+    static BonusStageType resolveBonusStageDebugShortcut(InputHandler inputHandler) {
+        if (inputHandler == null || !inputHandler.isKeyPressed(GLFW_KEY_B)) {
+            return BonusStageType.NONE;
+        }
+
+        boolean shift = inputHandler.isShiftDown();
+        boolean control = inputHandler.isControlDown();
+        boolean alt = inputHandler.isAltDown();
+        int activeModifierCount = (shift ? 1 : 0) + (control ? 1 : 0) + (alt ? 1 : 0);
+        if (activeModifierCount != 1) {
+            return BonusStageType.NONE;
+        }
+        if (shift) {
+            return BonusStageType.GUMBALL;
+        }
+        if (control) {
+            return BonusStageType.GLOWING_SPHERE;
+        }
+        return BonusStageType.SLOT_MACHINE;
+    }
+
+    static ObjectSpawn resolveBonusStageBootstrapSpawn(BonusStageType type) {
+        if (type != BonusStageType.GLOWING_SPHERE) {
+            return null;
+        }
+        return new ObjectSpawn(0x78, 0x0F30, Sonic3kObjectIds.PACHINKO_ENERGY_TRAP,
+                0, 0, false, 0);
+    }
+
     /**
-     * Handles the bonus stage debug key (Shift+B).
-     * When in level mode, enters the Gumball bonus stage (or cycles through types).
+     * Handles the debug bonus stage shortcut.
+     * Shift+B enters Gumball, Ctrl+B enters Glowing Spheres, Alt+B enters Slots.
      * When in bonus stage mode, triggers immediate exit back to level.
      */
-    private void handleBonusStageDebugKey() {
+    private void handleBonusStageDebugKey(BonusStageType debugType) {
         if (currentGameMode == GameMode.LEVEL) {
-            // Default to Gumball for quick testing
-            enterBonusStage(BonusStageType.GUMBALL);
+            enterBonusStage(debugType);
         } else if (currentGameMode == GameMode.BONUS_STAGE) {
             // Force exit
             if (activeBonusStageProvider != null) {
@@ -1063,11 +1120,13 @@ public class GameLoop {
 
         int playerX = 0, playerY = 0;
         byte topSolidBit = 0, lrbSolidBit = 0;
+        int savedShieldStatus = 0;
         if (sprite instanceof AbstractPlayableSprite playable) {
             playerX = playable.getCentreX();
             playerY = playable.getCentreY();
             topSolidBit = playable.getTopSolidBit();
             lrbSolidBit = playable.getLrbSolidBit();
+            savedShieldStatus = encodeSavedShieldStatus(playable);
         }
 
         LevelEventProvider eventProvider = GameServices.module().getLevelEventProvider();
@@ -1100,7 +1159,7 @@ public class GameLoop {
                 ringCount,
                 0, // TODO: wire to GameStateManager.getExtraLifeFlags() once API exists
                 lastStarPostHit,
-                0, // TODO: wire to player.getStatusSecondary() once API exists (0x71 mask)
+                savedShieldStatus,
                 resizeFg, resizeBg,
                 playerX, playerY,
                 camera.getX(), camera.getY(),
@@ -1129,6 +1188,7 @@ public class GameLoop {
     private void doEnterBonusStage(BonusStageProvider provider, BonusStageType type,
                                     BonusStageState savedState) {
         bonusStageTransitionPending = false;
+        pendingBonusStageShieldRestore = null;
 
         // Register provider on GameRuntime so objects can access via GameServices.bonusStage()
         activeBonusStageProvider = provider;
@@ -1160,6 +1220,8 @@ public class GameLoop {
             currentGameMode = GameMode.LEVEL;
             return;
         }
+
+        prepareBonusStageForTitleCard(type, savedState);
 
         // Defer bonus-stage-specific setup to exitTitleCard() when the title card completes
         deferredBonusProvider = provider;
@@ -1207,7 +1269,10 @@ public class GameLoop {
         boolean changed = false;
         for (var sprite : spriteManager.getAllSprites()) {
             if (sprite instanceof AbstractPlayableSprite playable) {
-                if (!playable.isHighPriority()) {
+                // Preserve object-specific render ordering overrides such as the
+                // Pachinko magnet orb's "behind the orb" phase.
+                if (playable.getPriorityBucket() == com.openggf.graphics.RenderPriority.PLAYER_DEFAULT
+                        && !playable.isHighPriority()) {
                     playable.setHighPriority(true);
                     changed = true;
                 }
@@ -1215,6 +1280,49 @@ public class GameLoop {
         }
         if (changed) {
             spriteManager.invalidateRenderBuckets();
+        }
+    }
+
+    private void prepareBonusStageForTitleCard(BonusStageType type, BonusStageState savedState) {
+        if (savedState != null && levelManager.getLevelGamestate() != null) {
+            levelManager.getLevelGamestate().pauseTimer();
+            levelManager.getLevelGamestate().setRings(savedState.savedRingCount());
+        }
+        levelManager.setBonusStageHudLayout(true);
+        restorePlayableStateForBonusTitleCard();
+        forcePlayerHighPriorityInBonusStage();
+        refreshPlayableSpriteArtCaches();
+        ensureBonusStageBootstrapObjectPresent(type);
+    }
+
+    private void ensureBonusStageBootstrapObjectPresent(BonusStageType type) {
+        ObjectSpawn bootstrapSpawn = resolveBonusStageBootstrapSpawn(type);
+        if (bootstrapSpawn == null || levelManager.getObjectManager() == null) {
+            return;
+        }
+        boolean present = levelManager.getObjectManager().getActiveObjects().stream()
+                .anyMatch(PachinkoEnergyTrapObjectInstance.class::isInstance);
+        if (!present) {
+            levelManager.getObjectManager().addDynamicObject(
+                    new PachinkoEnergyTrapObjectInstance(bootstrapSpawn));
+        }
+    }
+
+    private void restorePlayableStateForBonusTitleCard() {
+        for (var sprite : spriteManager.getAllSprites()) {
+            if (sprite instanceof AbstractPlayableSprite playable) {
+                playable.setHidden(false);
+                playable.setObjectControlled(false);
+            }
+        }
+    }
+
+    private void refreshPlayableSpriteArtCaches() {
+        for (var sprite : spriteManager.getAllSprites()) {
+            if (sprite instanceof AbstractPlayableSprite playable
+                    && playable.getSpriteRenderer() != null) {
+                playable.getSpriteRenderer().invalidateDplcCache();
+            }
         }
     }
 
@@ -1232,11 +1340,19 @@ public class GameLoop {
         AudioManager.getInstance().fadeOutMusic();
 
         bonusStageTransitionPending = true;
-        fadeManager.startFadeToBlack(() -> {
+        if (shouldStartBonusStageExitFade(provider)) {
+            fadeManager.startFadeToBlack(() -> {
+                doExitBonusStage(provider, savedState);
+            });
+            LOGGER.info("Starting fade-to-black to exit Bonus Stage");
+        } else {
             doExitBonusStage(provider, savedState);
-        });
+            LOGGER.info("Exiting Bonus Stage using provider-completed fade-to-black");
+        }
+    }
 
-        LOGGER.info("Starting fade-to-black to exit Bonus Stage");
+    static boolean shouldStartBonusStageExitFade(BonusStageProvider provider) {
+        return provider == null || !provider.hasCompletedExitFadeToBlack();
     }
 
     /**
@@ -1250,6 +1366,7 @@ public class GameLoop {
 
         provider.onExit();
         activeBonusStageProvider = null;
+        levelManager.setBonusStageHudLayout(false);
 
         // Clear from GameRuntime
         GameRuntime rt = RuntimeManager.getCurrent();
@@ -1319,19 +1436,11 @@ public class GameLoop {
             playable.setYSpeed((short) 0);
             playable.setGSpeed((short) 0);
 
-            // Re-apply any shield earned during the bonus stage. The level reload
-            // clears the player's shield state, so this is where we restore it.
-            // Priority matches ROM SpawnLevelMainSprites_SpawnPowerup: fire > bubble
-            // > lightning > basic (only one flag should be set at a time, but we
-            // enforce the ordering defensively).
-            if (rewards.fireShield()) {
-                playable.giveShield(ShieldType.FIRE);
-            } else if (rewards.bubbleShield()) {
-                playable.giveShield(ShieldType.BUBBLE);
-            } else if (rewards.lightningShield()) {
-                playable.giveShield(ShieldType.LIGHTNING);
-            } else if (rewards.shield()) {
-                playable.giveShield(ShieldType.BASIC);
+            ShieldType shieldToRestore =
+                    resolveShieldToRestore(rewards, savedState.savedStatusSecondary());
+            pendingBonusStageShieldRestore = shieldToRestore;
+            if (shieldToRestore != null) {
+                playable.giveShield(shieldToRestore);
             }
 
             // ROM: the player's art_tile priority bit was set to HIGH during bonus
@@ -1391,6 +1500,75 @@ public class GameLoop {
         }
 
         LOGGER.info("Exiting bonus stage, entering zone title card for zone " + zone + " act " + act);
+    }
+
+    static int encodeSavedShieldStatus(AbstractPlayableSprite playable) {
+        if (playable == null || !playable.hasShield()) {
+            return 0;
+        }
+        ShieldType shieldType = playable.getShieldType();
+        if (shieldType == null) {
+            return 0;
+        }
+        return switch (shieldType) {
+            case FIRE -> 1 << STATUS_FIRE_SHIELD_BIT;
+            case LIGHTNING -> 1 << STATUS_LIGHTNING_SHIELD_BIT;
+            case BUBBLE -> 1 << STATUS_BUBBLE_SHIELD_BIT;
+            default -> 0;
+        };
+    }
+
+    static ShieldType resolveShieldToRestore(BonusStageProvider.BonusStageRewards rewards, int savedStatusSecondary) {
+        if (rewards.fireShield()) {
+            return ShieldType.FIRE;
+        }
+        if (rewards.bubbleShield()) {
+            return ShieldType.BUBBLE;
+        }
+        if (rewards.lightningShield()) {
+            return ShieldType.LIGHTNING;
+        }
+        if (rewards.shield()) {
+            return ShieldType.BASIC;
+        }
+
+        int savedShieldBits = savedStatusSecondary & SAVED_SHIELD_MASK;
+        if ((savedShieldBits & (1 << STATUS_FIRE_SHIELD_BIT)) != 0) {
+            return ShieldType.FIRE;
+        }
+        if ((savedShieldBits & (1 << STATUS_LIGHTNING_SHIELD_BIT)) != 0) {
+            return ShieldType.LIGHTNING;
+        }
+        if ((savedShieldBits & (1 << STATUS_BUBBLE_SHIELD_BIT)) != 0) {
+            return ShieldType.BUBBLE;
+        }
+        return null;
+    }
+
+    AbstractPlayableSprite resolveMainPlayableSprite() {
+        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
+        if (mainCode == null) {
+            mainCode = "sonic";
+        }
+        var sprite = spriteManager.getSprite(mainCode);
+        return sprite instanceof AbstractPlayableSprite playable ? playable : null;
+    }
+
+    void applyPendingBonusStageShieldRestore(AbstractPlayableSprite playable) {
+        if (pendingBonusStageShieldRestore == null || playable == null) {
+            return;
+        }
+        ShieldType shieldType = pendingBonusStageShieldRestore;
+        pendingBonusStageShieldRestore = null;
+        playable.giveShield(shieldType);
+    }
+
+    void setPendingBonusStageShieldRestoreForTest(ShieldType shieldType) {
+        pendingBonusStageShieldRestore = shieldType;
+    }
+
+    boolean hasPendingBonusStageShieldRestoreForTest() {
+        return pendingBonusStageShieldRestore != null;
     }
 
     /**
@@ -1750,6 +1928,7 @@ public class GameLoop {
             LOGGER.info("Exited Title Card, returned to level from special stage at checkpoint");
         } else {
             currentGameMode = GameMode.LEVEL;
+            applyPendingBonusStageShieldRestore(resolveMainPlayableSprite());
 
             // Re-apply zone-specific player state (airborne intros like HCZ1, MGZ1)
             LevelEventProvider levelEvents = GameServices.module().getLevelEventProvider();
@@ -1770,33 +1949,18 @@ public class GameLoop {
      */
     private void applyDeferredBonusStageSetup() {
         BonusStageProvider provider = deferredBonusProvider;
-        BonusStageType type = deferredBonusType;
-        BonusStageState savedState = deferredBonusState;
 
         // Clear deferred state
         deferredBonusProvider = null;
         deferredBonusType = null;
         deferredBonusState = null;
 
-        if (provider == null || savedState == null) {
-            LOGGER.warning("No deferred bonus stage state — skipping setup");
+        if (provider == null) {
+            LOGGER.warning("No deferred bonus stage provider — skipping setup");
             return;
         }
 
-        // Pause HUD timer (ROM: clr.b (Update_HUD_timer).w for zones $13-$15)
-        // Restore saved ring count so HUD shows carried-over rings
-        if (levelManager.getLevelGamestate() != null) {
-            levelManager.getLevelGamestate().pauseTimer();
-            levelManager.getLevelGamestate().setRings(savedState.savedRingCount());
-        }
-
-        // Set player VDP priority to HIGH (ROM lines 127411-127412)
-        String mainCode = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
-        if (mainCode == null) mainCode = "sonic";
-        var entrySprite = spriteManager.getSprite(mainCode);
-        if (entrySprite instanceof AbstractPlayableSprite entryPlayable) {
-            entryPlayable.setHighPriority(true);
-        }
+        provider.onDeferredSetupComplete();
 
         // Music already started in doEnterBonusStage (at title card init).
         // Background fade is handled by the title card's own per-channel rect fade
@@ -2400,36 +2564,36 @@ public class GameLoop {
 
         SpecialStageProvider ssProvider = getActiveSpecialStageProvider();
 
-        if (inputHandler.isKeyPressed(debugModeKey)) {
+        if (isUnmodifiedDebugKeyPressed(debugModeKey)) {
             ssProvider.toggleGameplayDebugMode();
         }
 
-        if (inputHandler.isKeyPressed(GLFW_KEY_F4)) {
+        if (isUnmodifiedDebugKeyPressed(GLFW_KEY_F4)) {
             ssProvider.toggleAlignmentTestMode();
         }
 
         // Lag compensation adjustment (F6 decrease, F7 increase)
-        if (inputHandler.isKeyPressed(GLFW_KEY_F6)) {
+        if (isUnmodifiedDebugKeyPressed(GLFW_KEY_F6)) {
             adjustLagCompensation(-0.05);
         }
-        if (inputHandler.isKeyPressed(GLFW_KEY_F7)) {
+        if (isUnmodifiedDebugKeyPressed(GLFW_KEY_F7)) {
             adjustLagCompensation(0.05);
         }
 
         if (ssProvider.isAlignmentTestMode()) {
-            if (inputHandler.isKeyPressed(leftKey)) {
+            if (isUnmodifiedDebugKeyPressed(leftKey)) {
                 ssProvider.adjustAlignmentOffset(-1);
             }
-            if (inputHandler.isKeyPressed(rightKey)) {
+            if (isUnmodifiedDebugKeyPressed(rightKey)) {
                 ssProvider.adjustAlignmentOffset(1);
             }
-            if (inputHandler.isKeyPressed(upKey)) {
+            if (isUnmodifiedDebugKeyPressed(upKey)) {
                 ssProvider.adjustAlignmentSpeed(0.1);
             }
-            if (inputHandler.isKeyPressed(downKey)) {
+            if (isUnmodifiedDebugKeyPressed(downKey)) {
                 ssProvider.adjustAlignmentSpeed(-0.1);
             }
-            if (inputHandler.isKeyPressed(GLFW_KEY_SPACE)) {
+            if (isUnmodifiedDebugKeyPressed(GLFW_KEY_SPACE)) {
                 ssProvider.toggleAlignmentStepMode();
             }
             return;
@@ -2649,8 +2813,13 @@ public class GameLoop {
         // Run level physics — follows LevelFrameStep canonical order (steps 1-4),
         // but steps 5-6 are conditional on scroll-freeze state during ending fadeout.
         levelManager.updateZoneFeaturesPrePhysics();
-        levelManager.updateObjectPositions();
-        spriteManager.update(inputHandler);
+        if (levelManager.usesInlineObjectSolidResolution()) {
+            spriteManager.update(inputHandler);
+            levelManager.updateObjectPositionsPostPhysicsWithoutTouches();
+        } else {
+            levelManager.updateObjectPositions();
+            spriteManager.update(inputHandler);
+        }
         LevelEventProvider levelEvents = GameServices.module().getLevelEventProvider();
         if (levelEvents != null) {
             levelEvents.update();

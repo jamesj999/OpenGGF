@@ -13,7 +13,6 @@ import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * CPZ Boss Falling Part - Debris during defeat sequence.
@@ -37,6 +36,10 @@ public class CPZBossFallingPart extends AbstractObjectInstance {
     private boolean exploded;
 
     public CPZBossFallingPart(ObjectSpawn spawn, int mappingFrame, int xVel) {
+        this(spawn, mappingFrame, xVel, 0x78);
+    }
+
+    public CPZBossFallingPart(ObjectSpawn spawn, int mappingFrame, int xVel, int timer) {
         super(spawn, "CPZ Boss Part");
         this.x = spawn.x();
         this.y = spawn.y();
@@ -45,7 +48,7 @@ public class CPZBossFallingPart extends AbstractObjectInstance {
         this.yFixed = y << 16;
         this.renderFlags = spawn.renderFlags();
         this.mappingFrame = mappingFrame;
-        this.timer = randomFallTimer();
+        this.timer = timer;
         this.timer2 = 0;
         this.exploded = false;
     }
@@ -95,11 +98,6 @@ public class CPZBossFallingPart extends AbstractObjectInstance {
         }
         BossExplosionObjectInstance explosion = new BossExplosionObjectInstance(x, y, renderManager, Sonic2Sfx.BOSS_EXPLOSION.id);
         services().objectManager().addDynamicObject(explosion);
-    }
-
-    private int randomFallTimer() {
-        int random = ThreadLocalRandom.current().nextInt();
-        return ((random >>> 16) + 0x1E) & 0x7F;
     }
 
     @Override

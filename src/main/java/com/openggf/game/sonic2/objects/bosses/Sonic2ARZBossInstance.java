@@ -5,15 +5,16 @@ import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic2.constants.Sonic2ObjectIds;
 import com.openggf.game.sonic2.Sonic2ObjectArtKeys;
+import com.openggf.game.sonic2.Sonic2Rng;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.boss.AbstractBossInstance;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Aquatic Ruin Zone boss (Object 0x89) - Eggman's hammer totem boss.
@@ -583,7 +584,7 @@ public class Sonic2ARZBossInstance extends AbstractBossInstance {
 
         int eyesX = leftPillar ? LEFT_EYES_X : RIGHT_EYES_X;
         int eyesFlags = leftPillar ? 0 : RENDER_X_FLIP;
-        int offsetIndex = ThreadLocalRandom.current().nextInt(ARROW_OFFSETS.length);
+        int offsetIndex = Sonic2Rng.nextArzArrowOffsetIndex(services().rng());
         int eyesY = ARROW_OFFSETS[offsetIndex];
 
         ObjectSpawn eyesSpawn = new ObjectSpawn(eyesX, eyesY, Sonic2ObjectIds.ARZ_BOSS,
@@ -642,7 +643,8 @@ public class Sonic2ARZBossInstance extends AbstractBossInstance {
             return;
         }
 
-        ObjectRenderManager renderManager = services() != null ? services().renderManager() : null;
+        ObjectServices svc = tryServices();
+        ObjectRenderManager renderManager = svc != null ? svc.renderManager() : null;
         if (renderManager == null) {
             return;
         }

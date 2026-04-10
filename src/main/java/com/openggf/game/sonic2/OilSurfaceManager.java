@@ -2,6 +2,7 @@ package com.openggf.game.sonic2;
 
 import com.openggf.audio.GameSound;
 import com.openggf.audio.AudioManager;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic2.constants.Sonic2AnimationIds;
 import com.openggf.game.sonic2.constants.Sonic2Constants;
 import com.openggf.level.LevelManager;
@@ -198,6 +199,9 @@ public class OilSurfaceManager {
         // Look up block ID at player position
         // ROM: uses centre coordinates (x_pos, y_pos)
         LevelManager levelManager = player.currentLevelManagerIfAvailable();
+        if (levelManager == null) {
+            levelManager = GameServices.levelOrNull();
+        }
         if (levelManager == null || levelManager.getCurrentLevel() == null) {
             exitSlide(player);
             return;

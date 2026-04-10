@@ -6,12 +6,14 @@ import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
+import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.List;
+import java.util.logging.Logger;
 
 /**
  * Object 0xE8 - Pachinko energy trap.
@@ -20,10 +22,11 @@ import java.util.List;
  * beam particles, captures the player on the beam line, and ends the bonus stage.
  */
 public class PachinkoEnergyTrapObjectInstance extends AbstractObjectInstance {
+    private static final Logger LOGGER = Logger.getLogger(PachinkoEnergyTrapObjectInstance.class.getName());
 
     private static final int COLUMN_SPACING = 0x190;
     private static final int BEAM_SPAWN_X_OFFSET = 0x80;
-    private static final int BEAM_DELETE_X_OFFSET = 0x190;
+    private static final int BEAM_DELETE_X_ABSOLUTE = 0x178;
     private static final int BEAM_SPAWN_PERIOD = 8;
     private static final int INITIAL_EXIT_DELAY = 60;
     private static final int INITIAL_RISE_DELAY = 4 * 60;
@@ -41,6 +44,10 @@ public class PachinkoEnergyTrapObjectInstance extends AbstractObjectInstance {
     private AbstractPlayableSprite capturedPlayer;
     private int currentX;
     private int currentY;
+    private int updateCount;
+    private int lastUpdateFrameCounter = -1;
+    private int renderCount;
+    private int beamSpawnCount;
 
     public PachinkoEnergyTrapObjectInstance(ObjectSpawn spawn) {
         super(spawn, "PachinkoEnergyTrap");
@@ -50,12 +57,17 @@ public class PachinkoEnergyTrapObjectInstance extends AbstractObjectInstance {
 
     @Override
     public void update(int frameCounter, PlayableEntity playerEntity) {
+        updateCount++;
+        lastUpdateFrameCounter = frameCounter;
         if (!initialized) {
             initialized = true;
+            LOGGER.info(() -> "Pachinko trap initialized at x=" + currentX + " y=" + currentY
+                    + " slot=" + getSlotIndex());
             spawnChild(() -> new EnergyTrapColumnChild(createColumnSpawn(), this));
         }
 
         if ((frameCounter & (BEAM_SPAWN_PERIOD - 1)) == 0) {
+            beamSpawnCount++;
             spawnChild(() -> new EnergyTrapBeamChild(createBeamSpawn(), this, beamAngle));
         }
         beamAngle = (beamAngle + 8) & 0xFF;
@@ -70,46 +82,128 @@ public class PachinkoEnergyTrapObjectInstance extends AbstractObjectInstance {
 
         updateDynamicSpawn(currentX, currentY);
 
+        if (hasEscapedThroughTop(playerEntity)) {
+            requestExit();
+        }
+
         maybePlayTransporterSfx(frameCounter, playerEntity);
-        updateCapture(playerEntity);
+        updateCapture(frameCounter, playerEntity);
     }
 
-    private void updateCapture(PlayableEntity playerEntity) {
+    @Override
+    public boolean isPersistent() {
+        // ROM parity: this bootstrap-spawned trap never calls out_of_range.
+        return true;
+    }
+
+    public boolean isInitialized() {
+        return initialized;
+    }
+
+    public int getRiseDelayFrames() {
+        return riseDelayFrames;
+    }
+
+    public boolean isExitArmed() {
+        return exitArmed;
+    }
+
+    public boolean isExitRequested() {
+        return exitRequested;
+    }
+
+    public boolean hasCapturedPlayer() {
+        return capturedPlayer != null;
+    }
+
+    public int getUpdateCount() {
+        return updateCount;
+    }
+
+    public int getLastUpdateFrameCounter() {
+        return lastUpdateFrameCounter;
+    }
+
+    public int getRenderCount() {
+        return renderCount;
+    }
+
+    public int getBeamSpawnCount() {
+        return beamSpawnCount;
+    }
+
+    private void updateCapture(int frameCounter, PlayableEntity playerEntity) {
         if (!(playerEntity instanceof AbstractPlayableSprite player) || player.isDebugMode()) {
             return;
         }
 
-        int relativeY = player.getY() - currentY;
+        int playerCenterY = player.getCentreY();
+        int relativeY = playerCenterY - currentY;
         boolean inCaptureBand = relativeY >= CAPTURE_TOP && relativeY < CAPTURE_BOTTOM_EXCLUSIVE;
         if (!inCaptureBand && capturedPlayer != player) {
             return;
         }
 
         capturedPlayer = player;
-        player.setY((short) currentY);
+        releaseCompetingMagnetOrbs(player, frameCounter);
+        setPlayerCenterY(player, currentY);
+        player.setObjectControlled(true);
         player.setControlLocked(true);
+        player.setXSpeed((short) 0);
+        player.setYSpeed((short) 0);
+        player.setGSpeed((short) 0);
         player.setAir(true);
+        player.setOnObject(false);
 
         if (!exitArmed) {
             playSfx(Sonic3kSfx.BOUNCY);
+            LOGGER.info(() -> "Pachinko trap captured player at frame=" + frameCounter
+                    + " y=" + currentY + " playerY=" + playerCenterY);
             exitArmed = true;
         }
 
-        if (player.getY() < PLAYER_ESCAPED_Y) {
-            exitDelayFrames = 0;
-        }
-
         if (!exitRequested && --exitDelayFrames < 0) {
-            exitRequested = true;
-            services().requestBonusStageExit();
+            requestExit();
         }
+    }
+
+    private boolean hasEscapedThroughTop(PlayableEntity playerEntity) {
+        return playerEntity instanceof AbstractPlayableSprite player
+                && player.getCentreY() < PLAYER_ESCAPED_Y;
+    }
+
+    private void requestExit() {
+        if (exitRequested) {
+            return;
+        }
+        exitRequested = true;
+        LOGGER.info(() -> "Pachinko trap requested bonus-stage exit at y=" + currentY
+                + " captured=" + (capturedPlayer != null));
+        services().requestBonusStageExit();
+    }
+
+    private void releaseCompetingMagnetOrbs(AbstractPlayableSprite player, int frameCounter) {
+        if (services().objectManager() == null) {
+            return;
+        }
+        for (ObjectInstance instance : services().objectManager().getActiveObjects()) {
+            if (instance instanceof PachinkoMagnetOrbObjectInstance magnetOrb) {
+                magnetOrb.forceReleasePlayer(player, frameCounter);
+            }
+        }
+    }
+
+    @Override
+    public void onUnload() {
+        LOGGER.warning(() -> "Pachinko trap unloaded at x=" + getX() + " y=" + getY()
+                + " destroyed=" + isDestroyed() + " slot=" + getSlotIndex());
     }
 
     private void maybePlayTransporterSfx(int frameCounter, PlayableEntity playerEntity) {
         if (!(playerEntity instanceof AbstractPlayableSprite player)) {
             return;
         }
-        int relativeY = player.getY() - currentY;
+        int relativeY = player.getCentreY() - currentY;
         if (relativeY < -0x180 || relativeY >= 0) {
             return;
         }
@@ -124,6 +218,10 @@ public class PachinkoEnergyTrapObjectInstance extends AbstractObjectInstance {
         } catch (Exception e) {
             // Keep gameplay logic independent from audio state.
         }
+    }
+
+    private void setPlayerCenterY(AbstractPlayableSprite player, int centerY) {
+        player.setCentreY((short) centerY);
     }
 
     private ObjectSpawn createColumnSpawn() {
@@ -157,11 +255,14 @@ public class PachinkoEnergyTrapObjectInstance extends AbstractObjectInstance {
 
     @Override
     public boolean isHighPriority() {
+        // ROM: make_art_tile(..., ..., 1) sets the VDP priority bit.
+        // The separate priority word only controls the sprite-table bucket.
         return true;
     }
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
+        renderCount++;
         PatternSpriteRenderer renderer = getRenderer(Sonic3kObjectArtKeys.PACHINKO_ENERGY_TRAP);
         if (renderer == null) {
             return;
@@ -188,6 +289,11 @@ public class PachinkoEnergyTrapObjectInstance extends AbstractObjectInstance {
         public void update(int frameCounter, PlayableEntity playerEntity) {
             currentY = parent.getY();
             updateDynamicSpawn(currentX, currentY);
+        }
+
+        @Override
+        public boolean isPersistent() {
+            return true;
         }
 
         @Override
@@ -236,9 +342,14 @@ public class PachinkoEnergyTrapObjectInstance extends AbstractObjectInstance {
             beamAngle = (beamAngle + 0x84) & 0xFF;
             updateDynamicSpawn(currentX, currentY);
 
-            if (currentX > parent.spawn.x() + BEAM_DELETE_X_OFFSET) {
+            if (currentX > BEAM_DELETE_X_ABSOLUTE) {
                 setDestroyed(true);
             }
+        }
+
+        @Override
+        public boolean isPersistent() {
+            return true;
         }
 
         @Override

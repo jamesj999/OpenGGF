@@ -346,8 +346,8 @@ public class MCZRotPformsObjectInstance extends AbstractObjectInstance
                 spawn.renderFlags(),
                 spawn.respawnTracked(),
                 spawn.rawYWord());
-        MCZRotPformsObjectInstance child1 = new MCZRotPformsObjectInstance(child1Spawn, "MCZRotPforms");
-        manager.addDynamicObject(child1);
+        MCZRotPformsObjectInstance child1 = spawnChild(
+                () -> new MCZRotPformsObjectInstance(child1Spawn, "MCZRotPforms"));
         children.add(child1);
 
         // Child 2: -64, +64 from parent with subtype C (or 6 if parent x_flip)
@@ -360,8 +360,8 @@ public class MCZRotPformsObjectInstance extends AbstractObjectInstance
                 spawn.renderFlags(),
                 spawn.respawnTracked(),
                 spawn.rawYWord());
-        MCZRotPformsObjectInstance child2 = new MCZRotPformsObjectInstance(child2Spawn, "MCZRotPforms");
-        manager.addDynamicObject(child2);
+        MCZRotPformsObjectInstance child2 = spawnChild(
+                () -> new MCZRotPformsObjectInstance(child2Spawn, "MCZRotPforms"));
         children.add(child2);
 
         LOGGER.fine(() -> String.format(

@@ -58,6 +58,18 @@ public class Sonic3kLevelTriggerManager {
     }
 
     /**
+     * Sets all bits in the trigger byte (byte = $FF).
+     * ROM: st (a3,d0.w) — used by Blastoid on defeat to signal CollapsingBridge collapse.
+     *
+     * @param index trigger index (0-15, from subtype bits 0-3)
+     */
+    public static void setAll(int index) {
+        if (index >= 0 && index < TRIGGER_COUNT) {
+            triggers[index] = 0xFF;
+        }
+    }
+
+    /**
      * Tests if any bit in the trigger byte is set.
      * ROM: tst.b (a3) — used to gate sound effect playback
      *

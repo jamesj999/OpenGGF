@@ -2,6 +2,8 @@ package com.openggf.game.sonic3k;
 
 import com.openggf.game.AbstractBonusStageCoordinator;
 import com.openggf.game.BonusStageType;
+import com.openggf.game.GameServices;
+import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotBonusStageRuntime;
 
 /**
  * S3K-specific bonus stage coordinator.
@@ -35,6 +37,9 @@ public class Sonic3kBonusStageCoordinator extends AbstractBonusStageCoordinator 
     private static final int RING_DIVISOR   = 15;
     private static final int STAGE_COUNT    = 3;
 
+    private S3kSlotBonusStageRuntime slotRuntime;
+    private int slotFrameCounter;
+
     @Override
     public BonusStageType selectBonusStage(int ringCount) {
         if (ringCount < RING_THRESHOLD) return BonusStageType.NONE;
@@ -65,5 +70,64 @@ public class Sonic3kBonusStageCoordinator extends AbstractBonusStageCoordinator 
             case SLOT_MACHINE -> MUS_SLOTS;
             default -> -1;
         };
+    }
+
+    @Override
+    public void onDeferredSetupComplete() {
+        if (getActiveType() != BonusStageType.SLOT_MACHINE) {
+            return;
+        }
+        slotRuntime = new S3kSlotBonusStageRuntime();
+        slotRuntime.bootstrap();
+        if (!slotRuntime.isInitialized()) {
+            slotRuntime = null;
+            slotFrameCounter = 0;
+            return;
+        }
+        var levelManager = GameServices.levelOrNull();
+        slotFrameCounter = levelManager != null ? levelManager.getFrameCounter() : 0;
+    }
+
+    @Override
+    public void onFrameUpdate() {
+        if (slotRuntime != null) {
+            slotRuntime.update(slotFrameCounter++);
+            if (slotRuntime.isExitTriggered()) {
+                requestExit();
+            }
+        }
+    }
+
+    @Override
+    public boolean updateDuringLevelFrame() {
+        return slotRuntime != null;
+    }
+
+    @Override
+    public boolean suppressesDefaultCameraStep() {
+        return slotRuntime != null;
+    }
+
+    @Override
+    public boolean hasCompletedExitFadeToBlack() {
+        return slotRuntime != null && slotRuntime.hasCompletedExitFadeToBlack();
+    }
+
+    @Override
+    public void onExit() {
+        if (slotRuntime != null) {
+            slotRuntime.shutdown();
+            slotRuntime = null;
+        }
+        slotFrameCounter = 0;
+        super.onExit();
+    }
+
+    public S3kSlotBonusStageRuntime activeSlotRuntime() {
+        return slotRuntime;
+    }
+
+    public S3kSlotBonusStageRuntime activeSlotRuntimeForTest() {
+        return activeSlotRuntime();
     }
 }

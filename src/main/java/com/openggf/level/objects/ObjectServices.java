@@ -6,6 +6,8 @@ import com.openggf.camera.Camera;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.BonusStageType;
+import com.openggf.game.GameRng;
+import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.GameModule;
 import com.openggf.game.LevelEventProvider;
@@ -58,6 +60,11 @@ public interface ObjectServices {
 
     // Gameplay
     void spawnLostRings(PlayableEntity player, int frameCounter);
+
+    /** Returns the runtime-owned ROM-accurate pseudo-random number generator. */
+    default GameRng rng() {
+        return GameServices.rng();
+    }
 
     // Context-specific managers
     /**

@@ -4,14 +4,15 @@ All notable changes to the sonic-engine project are documented in this file.
 
 ## v0.5 (Unreleased)
 
-Analysis range: `v0.4.20260304..HEAD` on `develop` (`2059` commits, `1887` non-merge commits,
-`1210` files changed, `219956` insertions, `24453` deletions). Net code growth is ~195,500 lines.
+Analysis range: `v0.4.20260304..HEAD` on `develop` (`2452` commits, `2271` non-merge commits,
+`1565` files changed, `472216` insertions, `28052` deletions). Net code growth is ~444,200 lines.
 
 A primarily architectural release. The engine internals have been restructured to prepare for level
 editor support, safe runtime teardown, and future multi-instance play-testing. Sonic 3 & Knuckles
-gameplay coverage has advanced significantly within Angel Island Zone (miniboss completion, signpost,
-results screen, special stages) but AIZ2 is not yet completable — the Flying Battery event, AIZ2
-boss, and AIZ-to-HCZ transition remain to be implemented before release.
+gameplay coverage has advanced significantly across Angel Island and Hydrocity: the AIZ2 Flying
+Battery bombing sequence, AIZ2 end boss, post-boss capsule/cutscene flow, AIZ-to-HCZ transition,
+HCZ1 miniboss, and HCZ1-to-HCZ2 transition are now represented, alongside all three S3K bonus-stage
+families in active implementation.
 
 ### Architectural Overhaul: Two-Tier Service Architecture
 
@@ -222,6 +223,16 @@ in S3K and via cross-game donation into S1 and S2.
   launch/drop/explode lifecycle, gated to Knuckles-only appearance.
 - AIZ2 dynamic resize state machine for correct camera boundaries during miniboss spawn.
 
+#### AIZ2 Boss and Transition Progress
+- AIZ2 Flying Battery bombing sequence implemented with battleship overlay rendering, ship-relative
+  bomb placement, explosion children, background tree spawners, and object-art loading for the
+  bombership / small Robotnik craft frames.
+- AIZ2 end boss implemented with Robotnik ship/head overlays, arm/propeller/flame/bomb/smoke child
+  systems, camera scripting, boss state flow, and regression coverage for ship bomb timing.
+- Post-boss capsule/cutscene flow now includes the AIZ2 egg capsule release path and handoff toward
+  the Hydrocity transition. Follow-up fixes restore AIZ transition zone-feature state and prevent
+  bombership art regressions after act-transition reinitialization.
+
 #### Signpost and Results Screen
 - `S3kSignpostInstance` with 5-state machine (idle/spin/slowdown/sparkle/done), stub and sparkle
   children, `PLC_EndSignStuff` art loading from ROM.
@@ -238,6 +249,57 @@ in S3K and via cross-game donation into S1 and S2.
 - Special stage results screen with art loading.
 - Tails P2 support in special stages with tails sprite and delayed jump.
 - Player returns to big ring location after special stage (not checkpoint).
+
+#### S3K Bonus Stages: Slots, Gumball, and Glowing Sphere (WIP)
+- `Sonic3kBonusStageCoordinator` now implements the S3K ring-threshold selection formula and
+  zone/music routing for the three lock-on bonus stages: Slots, Glowing Sphere (Pachinko), and
+  Gumball. StarPost bonus-star entry and saved-state return are wired into the S3K bonus-stage
+  lifecycle.
+- Bonus-stage title card support added to `Sonic3kTitleCardManager` and mappings, including the
+  dedicated `BONUS STAGE` layout and bonus-specific fade timing.
+- **Gumball stage bring-up:** `GumballMachineObjectInstance`, `GumballItemObjectInstance`, and
+  `GumballTriangleBumperObjectInstance` implemented with ROM-driven machine state, dispenser /
+  container / exit-trigger child chains, machine Y drift and slot tracking, subtype-specific item
+  behavior, spring bounce/crumble parity, shield persistence, sidekick safety, and dedicated
+  `SwScrlGumball` scrolling.
+- **Glowing Sphere / Pachinko bring-up:** `PachinkoFlipperObjectInstance`,
+  `PachinkoTriangleBumperObjectInstance`, `PachinkoBumperObjectInstance`,
+  `PachinkoPlatformObjectInstance`, `PachinkoItemOrbObjectInstance`,
+  `PachinkoMagnetOrbObjectInstance`, and `PachinkoEnergyTrapObjectInstance` implemented, with
+  stage entry/return flow, top-exit handling, and dedicated `SwScrlPachinko` scrolling.
+- **Zone animation support:** `Sonic3kPatternAnimator` and `Sonic3kPaletteCycler` now cover the
+  bonus-stage-specific Gumball direct-DMA tile animation plus Pachinko animated tiles, DMA-driven
+  background strips, and palette cycling.
+- **Render-path parity for the gumball machine:** per-piece VDP priority from ROM mapping data,
+  SAT-style sprite-mask post-processing, and replay-role metadata now preserve the intended glass /
+  shell / interior pile layering for mixed-priority machine frames.
+- Pachinko energy trap bootstrap now stays persistent like the ROM object, keeps its spawned
+  column/beam children alive until scripted teardown, and force-releases players from competing
+  magnet orbs before trap capture. Capture now zeros X/Y/G speed and cleanly holds the player on
+  the beam.
+- Bonus-stage title card exit no longer freezes the pachinko trap update loop. Persistent power-up
+  re-registration now clears stale object slots before `ObjectManager` rebuilds, preventing slot
+  aliasing during bonus-stage entry and post-title-card resume.
+- **Slot Machine stage bring-up:** `S3kSlotRomData`, `S3kSlotStageController`,
+  `S3kSlotStageState`, `S3kSlotCollisionSystem`, `S3kSlotPlayerRuntime`,
+  `S3kSlotOptionCycleSystem`, `S3kSlotPrizeCalculator`, and reward/cage object runtime wiring now
+  cover ROM table loading, rotating-stage movement, projected ground/air physics, grid collision,
+  tile interactions, reel option cycling, match detection, cage capture/release, interpolated ring
+  and spike rewards, exit wind-down/fade, and slot-specific sound effects.
+- **Slot Machine rendering:** `S3kSlotLayoutRenderer`, `S3kSlotLayoutAnimator`,
+  `S3kSlotMachineRenderer`, `S3kSlotMachinePanelAnimator`, `S3kSlotMachineDisplayState`,
+  `SwScrlSlots`, and `shader_s3k_slots.glsl` implement layout animation, palette cycling,
+  goal/peppermint/reel display updates, background row refresh, debug visibility, and FG glass /
+  player priority ordering.
+- **Slot Machine remediation:** state ownership was moved into the slot runtime with `ObjectManager`
+  rendering for cage/reward objects, preserved special collision bits across probes, authoritative
+  follow-up state, persistent wall animation state, capture-cycle restart coverage, and fixes for
+  player swap focus, title-card bootstrap, runtime ownership, launch physics, spike reward ring
+  drain, reel display, and exit fade.
+- Added regression coverage for coordinator lifecycle, bonus title card mappings/flow, gumball
+  machine drift and priority diagnostics, sprite-mask helper consumption and replay ordering,
+  pachinko palette/pattern animation, slot ROM data, slot collision/player/runtime/rendering/reward
+  systems, registry wiring, and live trap/orb/title-card integration.
 
 #### Per-Character Physics
 - Per-character physics profiles for Sonic, Tails, and Knuckles (speed, acceleration, jump height).
@@ -258,7 +320,15 @@ in S3K and via cross-game donation into S1 and S2.
   despawn), `AutoSpin`, `Falling Log`, `InvisibleBlock`, `StarPost`, `TwistedRamp`,
   `AIZCollapsingLogBridge` (0x2C), `AIZSpikedLog` (0x2E), `AIZFlippingBridge` (0x2B), and the
   zone-specific `Button` object (0x33).
-- HCZ water surface object.
+- HCZ expansion: water surface, water rush sequence (`HCZBreakableBarObjectInstance`,
+  `HCZWaterRushObjectInstance`, `HCZWaterWallObjectInstance`, `HCZWaterTunnelHandler`),
+  `HCZConveyorBeltObjectInstance`, `HCZCGZFanObjectInstance`, `HCZHandLauncherObjectInstance`,
+  `HCZLargeFanObjectInstance`, `HCZBlockObjectInstance`, `HCZConveyorSpikeObjectInstance`,
+  `HCZTwistingLoopObjectInstance`, `HczMinibossInstance`, and `DoorObjectInstance` for HCZ/CNZ/DEZ.
+- Additional S3K objects and badniks: `CollapsingBridgeObjectInstance`, `BubblerObjectInstance`,
+  `Sonic3kInvisibleHurtBlockHObjectInstance`, `MegaChopperBadnikInstance`,
+  `PoindexterBadnikInstance`, `BlastoidBadnikInstance`, `BuggernautBadnikInstance` /
+  `BuggernautBabyInstance`, and `TurboSpikerBadnikInstance`.
 - `Sonic3kLevelTriggerManager` added for AIZ trigger state such as boss-driven burn activation.
 - All zone badnik entries populated in `Sonic3kPlcArtRegistry`.
 - Initial badnik implementations wired into object system.
@@ -560,6 +630,8 @@ field frame-by-frame.
   180 degrees apart. Corrected orbit offset table (7 entries had wrong X values), animation
   tables (parent uses byte_1DB82; trailing stars use per-star primary/secondary tables), and
   direction-aware rotation (angle negated when facing left).
+- RNG parity paths tightened through shared `GameRng` coverage and `Sonic2Rng` regression tests,
+  including CNZ slot-machine consumers and S2 object/boss call sites.
 
 ### Cross-Game Feature Donation Enhancements
 

@@ -9,6 +9,7 @@ import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -245,12 +246,13 @@ public class Sonic1BumperObjectInstance extends AbstractObjectInstance {
         services().gameState().addScore(POINTS_PER_HIT);
 
         // Spawn points popup (id_Points = 0x29)
-        ObjectManager objectManager = services() != null ? services().objectManager() : null;
+        ObjectServices svc = tryServices();
+        ObjectManager objectManager = svc != null ? svc.objectManager() : null;
         if (objectManager != null) {
             ObjectSpawn pointsSpawn = new ObjectSpawn(
                     spawn.x(), spawn.y(), 0x29, 0, 0, false, 0);
             Sonic1PointsObjectInstance pointsObj = new Sonic1PointsObjectInstance(
-                    pointsSpawn, services(), POINTS_PER_HIT);
+                    pointsSpawn, svc, POINTS_PER_HIT);
             pointsObj.setScoreFrameIndex(POINTS_FRAME_INDEX);
             objectManager.addDynamicObject(pointsObj);
         }

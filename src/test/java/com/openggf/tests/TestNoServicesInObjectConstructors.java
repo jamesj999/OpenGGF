@@ -158,6 +158,36 @@ public class TestNoServicesInObjectConstructors {
     }
 
     /**
+     * Hard-fails if an object constructor calls an overridable method whose
+     * implementation reaches {@code services()}, directly or through helper
+     * methods. A direct constructor-body scan misses paths such as:
+     * <pre>
+     *   AbstractBossInstance() -> initializeBossState()
+     *   Sonic2EHZBossInstance.initializeBossState() -> spawnChildComponents()
+     *   spawnChildComponents() -> services()
+     * </pre>
+     */
+    @Test
+    public void objectsWhoseConstructorsReachServices_mustUseManagedCreationContext() throws IOException {
+        Path srcMain = Path.of("src/main/java");
+        if (!Files.isDirectory(srcMain)) {
+            return;
+        }
+
+        Map<String, ClassSource> classes = loadObjectClassSources(srcMain);
+        Set<String> requiringContext = findClassesWhoseConstructorsMayReachServices(classes);
+        List<String> violations = new ArrayList<>();
+        findUnsafeNewCallSitesForContextRequiredClasses(srcMain, requiringContext, violations);
+
+        if (!violations.isEmpty()) {
+            fail("Object classes whose constructor chain can reach services() must be created "
+                    + "through ObjectManager construction context. Direct new X(...) leaves "
+                    + "ObjectServices unavailable during construction.\n\n  "
+                    + String.join("\n  ", violations));
+        }
+    }
+
+    /**
      * Scans ALL source for {@code addDynamicObject(new X(...))} where X's
      * constructor calls {@code services()}. This catches call sites outside
      * the object packages (e.g. event managers, level controllers).
@@ -417,6 +447,206 @@ public class TestNoServicesInObjectConstructors {
         }
 
         return callers;
+    }
+
+    private static Map<String, ClassSource> loadObjectClassSources(Path srcMain) throws IOException {
+        Map<String, ClassSource> classes = new HashMap<>();
+
+        for (String pkg : OBJECT_PACKAGES) {
+            Path pkgDir = srcMain.resolve(pkg);
+            if (!Files.isDirectory(pkgDir)) continue;
+
+            try (Stream<Path> files = Files.walk(pkgDir)) {
+                files.filter(p -> p.toString().endsWith(".java"))
+                        .forEach(path -> {
+                            try {
+                                String content = Files.readString(path);
+                                String fileName = path.getFileName().toString();
+                                String className = fileName.replace(".java", "");
+                                classes.put(className, new ClassSource(
+                                        fileName,
+                                        className,
+                                        findExtendsClass(content),
+                                        content));
+                            } catch (IOException ignored) {
+                            }
+                        });
+            }
+        }
+
+        return classes;
+    }
+
+    private static Set<String> findClassesWhoseConstructorsMayReachServices(Map<String, ClassSource> classes) {
+        Set<String> result = new HashSet<>();
+
+        for (ClassSource source : classes.values()) {
+            for (ClassSource candidate : subclassesIncludingSelf(classes, source.className())) {
+                Set<String> dangerousMethods = findMethodsCallingServices(candidate.content(), candidate.className());
+                for (ConstructorCall call : findConstructorCalls(source)) {
+                    if (call.methodName().equals("services") || dangerousMethods.contains(call.methodName())) {
+                        result.add(candidate.className());
+                    }
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private static void findUnsafeNewCallSitesForContextRequiredClasses(Path srcMain,
+                                                                        Set<String> requiringContext,
+                                                                        List<String> violations) throws IOException {
+        if (requiringContext.isEmpty()) {
+            return;
+        }
+
+        Pattern directNew = Pattern.compile("\\bnew\\s+(\\w+)\\s*\\(");
+
+        try (Stream<Path> allFiles = Files.walk(srcMain)) {
+            allFiles.filter(path -> path.toString().endsWith(".java"))
+                    .forEach(path -> {
+                        String fileName = path.getFileName().toString();
+                        if (fileName.startsWith("Test")
+                                || fileName.equals("ObjectManager.java")
+                                || fileName.equals("DefaultPowerUpSpawner.java")
+                                || fileName.endsWith("ObjectRegistry.java")) {
+                            return;
+                        }
+
+                        try {
+                            String[] lines = Files.readString(path).split("\n");
+                            for (int i = 0; i < lines.length; i++) {
+                                String trimmed = lines[i].trim();
+                                if (trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*")) {
+                                    continue;
+                                }
+
+                                Matcher matcher = directNew.matcher(trimmed);
+                                while (matcher.find()) {
+                                    String className = matcher.group(1);
+                                    if (!requiringContext.contains(className)) {
+                                        continue;
+                                    }
+                                    if (isContextWrapped(lines, i)) {
+                                        continue;
+                                    }
+                                    String relative = srcMain.relativize(path).toString().replace('\\', '/');
+                                    violations.add(relative + ":" + (i + 1)
+                                            + " - new " + className
+                                            + "(...) without ObjectManager construction context");
+                                }
+                            }
+                        } catch (IOException ignored) {
+                        }
+                    });
+        }
+    }
+
+    private static boolean isContextWrapped(String[] lines, int lineIndex) {
+        if (Pattern.compile("\\b(?:setConstructionContext|spawnChild|spawnObject|createDynamicObject)\\s*\\(")
+                .matcher(lines[lineIndex]).find()) {
+            return true;
+        }
+
+        int searchStart = Math.max(0, lineIndex - 20);
+        int searchEnd = Math.min(lines.length, lineIndex + 20);
+        for (int i = lineIndex - 1; i >= searchStart; i--) {
+            if (Pattern.compile("\\b(?:spawnChild|spawnObject|createDynamicObject)\\s*\\(")
+                    .matcher(lines[i]).find()) {
+                return true;
+            }
+            if (!Pattern.compile("\\bsetConstructionContext\\s*\\(").matcher(lines[i]).find()) {
+                continue;
+            }
+            for (int j = lineIndex + 1; j < searchEnd; j++) {
+                if (Pattern.compile("\\bclearConstructionContext\\s*\\(").matcher(lines[j]).find()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static String findExtendsClass(String content) {
+        Matcher matcher = Pattern.compile("\\bclass\\s+\\w+\\s+extends\\s+(\\w+)").matcher(content);
+        return matcher.find() ? matcher.group(1) : null;
+    }
+
+    private static List<ConstructorCall> findConstructorCalls(ClassSource source) {
+        List<ConstructorCall> calls = new ArrayList<>();
+        Pattern ctorPattern = Pattern.compile(
+                "(?:public|protected|private)\\s+" + Pattern.quote(source.className())
+                        + "\\s*\\([^)]*\\)\\s*\\{");
+        Matcher ctorMatcher = ctorPattern.matcher(source.content());
+
+        while (ctorMatcher.find()) {
+            int start = ctorMatcher.end();
+            int braceDepth = 1;
+            int end = start;
+            while (end < source.content().length() && braceDepth > 0) {
+                char c = source.content().charAt(end);
+                if (c == '{') braceDepth++;
+                else if (c == '}') braceDepth--;
+                end++;
+            }
+
+            String ctorBody = source.content().substring(start, end);
+            Matcher callMatcher = Pattern.compile("(?<![.\\w])(\\w+)\\s*\\(").matcher(ctorBody);
+            while (callMatcher.find()) {
+                String methodName = callMatcher.group(1);
+                if (isConstructorCallAllowed(methodName)) {
+                    continue;
+                }
+                calls.add(new ConstructorCall(methodName));
+            }
+        }
+
+        return calls;
+    }
+
+    private static boolean isConstructorCallAllowed(String methodName) {
+        return Set.of(
+                "super",
+                "this",
+                "new",
+                "if",
+                "for",
+                "while",
+                "switch",
+                "catch",
+                "return",
+                "throw").contains(methodName);
+    }
+
+    private static List<ClassSource> subclassesIncludingSelf(Map<String, ClassSource> classes, String baseClassName) {
+        List<ClassSource> result = new ArrayList<>();
+        for (ClassSource candidate : classes.values()) {
+            if (candidate.className().equals(baseClassName) || isSubclassOf(classes, candidate, baseClassName)) {
+                result.add(candidate);
+            }
+        }
+        return result;
+    }
+
+    private static boolean isSubclassOf(Map<String, ClassSource> classes,
+                                        ClassSource candidate,
+                                        String baseClassName) {
+        String parent = candidate.extendsClass();
+        while (parent != null) {
+            if (parent.equals(baseClassName)) {
+                return true;
+            }
+            ClassSource parentSource = classes.get(parent);
+            parent = parentSource != null ? parentSource.extendsClass() : null;
+        }
+        return false;
+    }
+
+    private record ClassSource(String fileName, String className, String extendsClass, String content) {
+    }
+
+    private record ConstructorCall(String methodName) {
     }
 
     /**

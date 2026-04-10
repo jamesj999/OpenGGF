@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TestGumballItemPriority {
@@ -19,12 +20,26 @@ class TestGumballItemPriority {
     }
 
     @Test
-    void machineEjectedGumballItem_usesHighBucket2Priority() {
+    void machineEjectedGumballItem_usesRomHighBucket2Priority() {
         GumballItemObjectInstance item =
                 new GumballItemObjectInstance(new ObjectSpawn(0x100, 0x180, 0xEB, 0x00, 0, false, 0), 0, true);
 
         assertEquals(2, item.getPriorityBucket());
         assertTrue(item.isHighPriority());
+    }
+
+    @Test
+    void machineEjectedGumballItem_keepsDistinctRomPriorityFromStaticItems() {
+        GumballItemObjectInstance staticItem =
+                new GumballItemObjectInstance(new ObjectSpawn(0x100, 0x180, 0xEB, 0x00, 0, false, 0));
+        GumballItemObjectInstance ejectedItem =
+                new GumballItemObjectInstance(new ObjectSpawn(0x100, 0x180, 0xEB, 0x00, 0, false, 0), 0, true);
+
+        assertEquals(4, staticItem.getPriorityBucket());
+        assertEquals(2, ejectedItem.getPriorityBucket());
+        assertNotEquals(staticItem.getPriorityBucket(), ejectedItem.getPriorityBucket());
+        assertFalse(staticItem.isHighPriority());
+        assertTrue(ejectedItem.isHighPriority());
     }
 
     @Test

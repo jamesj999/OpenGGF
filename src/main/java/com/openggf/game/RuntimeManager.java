@@ -129,11 +129,15 @@ public final class RuntimeManager {
         SpriteManager spriteManager = new SpriteManager();
         LevelManager levelManager = new LevelManager(
                 camera, spriteManager, parallaxManager, collisionSystem, waterSystem, gameState);
+        GameModule currentModule = GameModuleRegistry.getCurrent();
+        GameRng rng = new GameRng(currentModule != null
+                ? currentModule.rngFlavour()
+                : GameRng.Flavour.S1_S2);
 
         GameRuntime runtime = new GameRuntime(gameplayMode.getWorldSession(), gameplayMode,
                 camera, timers, gameState, fadeManager,
                 waterSystem, parallaxManager, terrainCollisionManager,
-                collisionSystem, spriteManager, levelManager);
+                collisionSystem, spriteManager, levelManager, rng);
         current = runtime;
         return runtime;
     }

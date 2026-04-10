@@ -63,9 +63,7 @@ class TestObjectServicesMigrationGuard {
             "com.openggf.game.sonic2.objects.SpecialStageResultsScreenObjectInstance",
             "com.openggf.game.sonic3k.objects.AizIntroArtLoader",
             "com.openggf.game.sonic3k.objects.AizIntroPaletteCycler",
-            "com.openggf.game.sonic3k.objects.AizIntroBoosterChild",
-            "com.openggf.game.sonic3k.objects.AizIntroTerrainSwap",
-            "com.openggf.game.sonic3k.objects.AizVineHandleLogic"
+            "com.openggf.game.sonic3k.objects.AizIntroTerrainSwap"
     );
 
     /** Packages containing object instance classes to scan. */
@@ -74,6 +72,16 @@ class TestObjectServicesMigrationGuard {
             "com/openggf/game/sonic2/objects",
             "com/openggf/game/sonic3k/objects",
     };
+
+    private static final String[] OBJECT_SERVICE_NULL_CHECK_PACKAGES = {
+            "com/openggf/game/sonic1/objects",
+            "com/openggf/game/sonic2/objects",
+            "com/openggf/game/sonic3k/objects",
+            "com/openggf/level/objects",
+    };
+
+    private static final java.util.regex.Pattern STRICT_SERVICES_NULL_CHECK =
+            java.util.regex.Pattern.compile("services\\(\\)\\s*(==|!=)\\s*null");
 
     /**
      * Internal class name prefixes for monitored singletons.
@@ -212,6 +220,40 @@ class TestObjectServicesMigrationGuard {
         }
     }
 
+    @Test
+    void objectPackages_shouldNotNullCheckStrictServicesAccessor() throws IOException {
+        Path srcMain = Path.of("src/main/java");
+        if (!Files.isDirectory(srcMain)) {
+            return;
+        }
+
+        List<String> violations = new ArrayList<>();
+        for (String pkg : OBJECT_SERVICE_NULL_CHECK_PACKAGES) {
+            Path pkgDir = srcMain.resolve(pkg);
+            if (!Files.isDirectory(pkgDir)) continue;
+
+            try (Stream<Path> files = Files.walk(pkgDir)) {
+                files.filter(path -> path.toString().endsWith(".java"))
+                        .forEach(path -> {
+                            try {
+                                SourceScanText source = sourceWithoutCommentOnlyLines(Files.readAllLines(path));
+                                java.util.regex.Matcher matcher = STRICT_SERVICES_NULL_CHECK.matcher(source.text);
+                                while (matcher.find()) {
+                                    violations.add(String.format("%s:%d",
+                                            srcMain.relativize(path).toString(), source.lineAt(matcher.start())));
+                                }
+                            } catch (IOException ignored) {
+                            }
+                        });
+            }
+        }
+
+        if (!violations.isEmpty()) {
+            fail("Object code must not null-check services(); use tryServices() for optional fallback paths:\n  "
+                    + String.join("\n  ", violations));
+        }
+    }
+
     /**
      * Scans a .class file's constant pool for references to monitored singleton
      * getInstance() methods or GameServices static calls. Returns the singleton names found.
@@ -245,6 +287,42 @@ class TestObjectServicesMigrationGuard {
             return found;
         } catch (IOException e) {
             return List.of();
+        }
+    }
+
+    private static SourceScanText sourceWithoutCommentOnlyLines(List<String> lines) {
+        StringBuilder source = new StringBuilder();
+        List<Integer> lineByOffset = new ArrayList<>();
+        for (int i = 0; i < lines.size(); i++) {
+            String line = lines.get(i);
+            String trimmed = line.trim();
+            String scannedLine = (trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*"))
+                    ? ""
+                    : line;
+            source.append(scannedLine);
+            for (int j = 0; j < scannedLine.length(); j++) {
+                lineByOffset.add(i + 1);
+            }
+            source.append('\n');
+            lineByOffset.add(i + 1);
+        }
+        return new SourceScanText(source.toString(), lineByOffset);
+    }
+
+    private static final class SourceScanText {
+        private final String text;
+        private final List<Integer> lineByOffset;
+
+        private SourceScanText(String text, List<Integer> lineByOffset) {
+            this.text = text;
+            this.lineByOffset = lineByOffset;
+        }
+
+        private int lineAt(int offset) {
+            if (lineByOffset.isEmpty()) {
+                return 1;
+            }
+            return lineByOffset.get(Math.min(offset, lineByOffset.size() - 1));
         }
     }
 }
