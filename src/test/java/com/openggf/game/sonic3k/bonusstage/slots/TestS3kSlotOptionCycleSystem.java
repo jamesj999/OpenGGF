@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -212,6 +213,69 @@ class TestS3kSlotOptionCycleSystem {
         assertEquals(0x0C, state.optionCycleState());
         assertEquals(0, state.optionCycleTargetReelA());
         assertEquals(0x20, state.optionCycleTargetPackedBC());
+    }
+
+    @Test
+    void resolvedPrizeMatchesFinalDisplayedSymbols() {
+        S3kSlotOptionCycleSystem system = new S3kSlotOptionCycleSystem();
+        S3kSlotStageState state = S3kSlotStageState.bootstrap();
+        GameRng rng = new GameRng(GameRng.Flavour.S3K);
+
+        state.setOptionCycleState(0x08);
+        for (int frame = 0; frame < 400 && state.optionCycleState() != 0x18; frame++) {
+            system.tick(state, 0x0100 + frame, rng);
+        }
+
+        int[] displaySymbols = S3kSlotMachineDisplayState.fromState(state, 0, 0).faces();
+        int displayedPrize = S3kSlotPrizeCalculator.calculate(displaySymbols[2],
+                (byte) ((displaySymbols[1] << 4) | displaySymbols[0]));
+
+        assertEquals(displayedPrize, state.optionCycleLastPrize());
+    }
+
+    @Test
+    void settledJackpotSonicRingRemainsDisplayedAndAwardsNothing() {
+        S3kSlotOptionCycleSystem system = new S3kSlotOptionCycleSystem();
+        S3kSlotStageState state = S3kSlotStageState.bootstrap();
+        GameRng rng = new GameRng(GameRng.Flavour.S3K);
+
+        state.setOptionCycleState(0x08);
+        for (int frame = 0; frame < 600 && state.optionCycleState() != 0x18; frame++) {
+            system.tick(state, 162 + frame, rng);
+        }
+
+        S3kSlotMachineDisplayState displayState = S3kSlotMachineDisplayState.fromState(state, 0, 0);
+
+        assertEquals(0, state.optionCycleLastPrize());
+        assertEquals(5, state.optionCycleTargetReelA());
+        assertEquals(0x10, state.optionCycleTargetPackedBC());
+        assertArrayEquals(new int[] {0, 1, 5}, displayState.faces());
+        assertArrayEquals(new float[] {0f, 0f, 0f}, displayState.offsets());
+    }
+
+    @Test
+    void displayDoesNotJumpWhenLockedReelsEnterResolvedIdle() {
+        S3kSlotOptionCycleSystem system = new S3kSlotOptionCycleSystem();
+        S3kSlotStageState state = S3kSlotStageState.bootstrap();
+        GameRng rng = new GameRng(GameRng.Flavour.S3K);
+
+        state.setOptionCycleState(0x08);
+        for (int frame = 0; frame < 600 && state.optionCycleState() != 0x18; frame++) {
+            system.tick(state, 162 + frame, rng);
+            if (state.optionCycleState() == 0x10
+                    && state.optionCycleReelSubstates()[0] == 0x0C
+                    && state.optionCycleReelSubstates()[1] == 0x0C
+                    && state.optionCycleReelSubstates()[2] == 0x0C) {
+                break;
+            }
+        }
+
+        int[] lastLockedFaces = S3kSlotMachineDisplayState.fromState(state, 0, 0).faces();
+        system.tick(state, 0x400, rng);
+        int[] resolvedFaces = S3kSlotMachineDisplayState.fromState(state, 0, 0).faces();
+
+        assertEquals(0x18, state.optionCycleState());
+        assertArrayEquals(lastLockedFaces, resolvedFaces);
     }
 
     private static Object readField(S3kSlotStageState state, String fieldName) throws Exception {

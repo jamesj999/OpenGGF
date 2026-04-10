@@ -113,7 +113,7 @@ class TestS3kSlotBonusCageObjectInstance {
     }
 
     @Test
-    void captureLatchesNegativeResolvedPrizeIntoSpikePayout() throws Exception {
+    void captureLatchesNegativeResolvedPrizeIntoFixedSpikePenaltyBudget() throws Exception {
         ObjectSpawn spawn = new ObjectSpawn(0x460, 0x430, 0x00, 0x00, 0x00, false, 0);
         S3kSlotStageController controller = new S3kSlotStageController();
         controller.bootstrap();
@@ -129,7 +129,7 @@ class TestS3kSlotBonusCageObjectInstance {
         cage.update(2, player);
 
         assertFalse(cage.spawnsRingsForTest());
-        assertEquals(4, cage.pendingRewardsForTest());
+        assertEquals(0x64, cage.pendingRewardsForTest());
     }
 
     @Test

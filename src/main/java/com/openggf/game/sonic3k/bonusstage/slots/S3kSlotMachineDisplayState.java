@@ -9,10 +9,25 @@ public record S3kSlotMachineDisplayState(
         int[] nextFaces,
         float[] offsets
 ) {
+    private static final int STATE_IDLE = 0x18;
+
     public static S3kSlotMachineDisplayState fromState(S3kSlotStageState state, int worldX, int worldY) {
         if (state == null) {
             return new S3kSlotMachineDisplayState(worldX, worldY, new int[] {0, 0, 0},
                     new int[] {0, 0, 0}, new float[] {0f, 0f, 0f});
+        }
+        if (state.optionCycleState() == STATE_IDLE && state.optionCycleLastPrize() != Integer.MIN_VALUE) {
+            int[] faces = {
+                    state.optionCycleTargetPackedBC() & 0x0F,
+                    (state.optionCycleTargetPackedBC() >>> 4) & 0x0F,
+                    state.optionCycleTargetReelA() & 0x0F
+            };
+            int[] nextFaces = {
+                    nextSymbolFor(faces[0], S3kSlotRomData.REEL_SEQUENCE_A),
+                    nextSymbolFor(faces[1], S3kSlotRomData.REEL_SEQUENCE_B),
+                    nextSymbolFor(faces[2], S3kSlotRomData.REEL_SEQUENCE_C)
+            };
+            return new S3kSlotMachineDisplayState(worldX, worldY, faces, nextFaces, new float[] {0f, 0f, 0f});
         }
         int[] reelWords = state.optionCycleReelWords();
         if (reelWords != null && Arrays.stream(reelWords).anyMatch(word -> word != 0)) {
