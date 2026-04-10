@@ -10,6 +10,7 @@ import com.openggf.level.objects.DestructionEffects;
 import com.openggf.level.objects.DestructionEffects.DestructionConfig;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.ObjectTerrainUtils;
 import com.openggf.physics.TerrainCheckResult;
@@ -252,7 +253,8 @@ public class Sonic1CaterkillerBadnikInstance extends AbstractBadnikInstance
      * </pre>
      */
     private void spawnBodySegments() {
-        var objectManager = services() != null ? services().objectManager() : null;
+        ObjectServices svc = tryServices();
+        var objectManager = svc != null ? svc.objectManager() : null;
         if (objectManager == null) {
             return;
         }
