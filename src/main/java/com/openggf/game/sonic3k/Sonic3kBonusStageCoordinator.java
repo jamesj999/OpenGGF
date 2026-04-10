@@ -84,7 +84,8 @@ public class Sonic3kBonusStageCoordinator extends AbstractBonusStageCoordinator 
             slotFrameCounter = 0;
             return;
         }
-        slotFrameCounter = GameServices.level() != null ? GameServices.level().getFrameCounter() : 0;
+        var levelManager = GameServices.levelOrNull();
+        slotFrameCounter = levelManager != null ? levelManager.getFrameCounter() : 0;
     }
 
     @Override
