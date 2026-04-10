@@ -1,7 +1,7 @@
 # Level Editor Overlay Design
 
-**Date:** 2026-04-08  
-**Status:** Design  
+**Date:** 2026-04-08
+**Status:** Design
 **Scope:** Consolidated brainstorming plan for the in-engine level editor overlay MVP
 
 ## Overview
@@ -163,7 +163,7 @@ When the user descends into block or chunk editing:
 - a centered overlay pane becomes the active editing surface
 - that pane contains a navigable grid representing the current parent structure
 
-For block editing, the pane shows the block's chunk layout.  
+For block editing, the pane shows the block's chunk layout.
 For chunk editing, the pane shows the chunk's pattern layout.
 
 This is a better fit for the prototype than a permanently exposed composition pane, because it:
