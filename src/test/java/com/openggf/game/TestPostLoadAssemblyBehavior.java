@@ -3,8 +3,13 @@ package com.openggf.game;
 import com.openggf.camera.Camera;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
+import com.openggf.game.sonic1.Sonic1ConveyorState;
 import com.openggf.game.sonic1.Sonic1LevelInitProfile;
+import com.openggf.game.sonic1.Sonic1SwitchManager;
+import com.openggf.game.sonic1.events.Sonic1LevelEventManager;
+import com.openggf.game.sonic2.Sonic2LevelEventManager;
 import com.openggf.game.sonic2.Sonic2LevelInitProfile;
+import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.Sonic3kLevelInitProfile;
 import org.junit.After;
 import org.junit.Before;
@@ -184,7 +189,7 @@ public class TestPostLoadAssemblyBehavior {
         ctx.snapshotCheckpoint(state);
         assertTrue(ctx.hasCheckpoint());
 
-        Sonic3kLevelInitProfile profile = new Sonic3kLevelInitProfile();
+        Sonic3kLevelInitProfile profile = newS3kProfile();
         InitStep titleCardStep = findStep(profile.levelLoadSteps(ctx), "RequestTitleCard");
         assertNotNull("S3K profile should include RequestTitleCard step", titleCardStep);
 
@@ -200,7 +205,7 @@ public class TestPostLoadAssemblyBehavior {
         LevelLoadContext ctx = new LevelLoadContext();
         ctx.setIncludePostLoadAssembly(true);
 
-        Sonic3kLevelInitProfile profile = new Sonic3kLevelInitProfile();
+        Sonic3kLevelInitProfile profile = newS3kProfile();
         InitStep step = findStep(profile.levelLoadSteps(ctx), "RequestTitleCard");
 
         assertTrue("S3K title card step should document checkpoint suppression",
@@ -212,7 +217,7 @@ public class TestPostLoadAssemblyBehavior {
         LevelLoadContext ctx = new LevelLoadContext();
         ctx.setIncludePostLoadAssembly(true);
 
-        Sonic2LevelInitProfile profile = new Sonic2LevelInitProfile();
+        Sonic2LevelInitProfile profile = newS2Profile();
         InitStep step = findStep(profile.levelLoadSteps(ctx), "RequestTitleCard");
 
         assertFalse("S2 title card step should NOT suppress on checkpoint",
@@ -224,7 +229,7 @@ public class TestPostLoadAssemblyBehavior {
         LevelLoadContext ctx = new LevelLoadContext();
         ctx.setIncludePostLoadAssembly(true);
 
-        Sonic1LevelInitProfile profile = new Sonic1LevelInitProfile();
+        Sonic1LevelInitProfile profile = newS1Profile();
         InitStep step = findStep(profile.levelLoadSteps(ctx), "RequestTitleCard");
 
         assertFalse("S1 title card step should NOT suppress on checkpoint",
@@ -238,7 +243,7 @@ public class TestPostLoadAssemblyBehavior {
         LevelLoadContext ctx = new LevelLoadContext();
         ctx.setIncludePostLoadAssembly(true);
 
-        Sonic1LevelInitProfile profile = new Sonic1LevelInitProfile();
+        Sonic1LevelInitProfile profile = newS1Profile();
         InitStep sidekickStep = findStep(profile.levelLoadSteps(ctx), "SpawnSidekick");
 
         assertNull("S1 should NOT include SpawnSidekick (no Tails in Sonic 1)",
@@ -250,7 +255,7 @@ public class TestPostLoadAssemblyBehavior {
         LevelLoadContext ctx = new LevelLoadContext();
         ctx.setIncludePostLoadAssembly(true);
 
-        Sonic1LevelInitProfile profile = new Sonic1LevelInitProfile();
+        Sonic1LevelInitProfile profile = newS1Profile();
         List<InitStep> steps = profile.levelLoadSteps(ctx);
 
         // 13 resource steps + 6 post-load steps (no SpawnSidekick) = 19
@@ -262,7 +267,7 @@ public class TestPostLoadAssemblyBehavior {
         LevelLoadContext ctx = new LevelLoadContext();
         ctx.setIncludePostLoadAssembly(true);
 
-        Sonic2LevelInitProfile profile = new Sonic2LevelInitProfile();
+        Sonic2LevelInitProfile profile = newS2Profile();
         InitStep step = findStep(profile.levelLoadSteps(ctx), "SpawnSidekick");
 
         assertNotNull("S2 should include SpawnSidekick step", step);
@@ -273,7 +278,7 @@ public class TestPostLoadAssemblyBehavior {
         LevelLoadContext ctx = new LevelLoadContext();
         ctx.setIncludePostLoadAssembly(true);
 
-        Sonic3kLevelInitProfile profile = new Sonic3kLevelInitProfile();
+        Sonic3kLevelInitProfile profile = newS3kProfile();
         InitStep step = findStep(profile.levelLoadSteps(ctx), "SpawnSidekick");
 
         assertNotNull("S3K should include SpawnSidekick step", step);
@@ -284,7 +289,7 @@ public class TestPostLoadAssemblyBehavior {
         LevelLoadContext ctx = new LevelLoadContext();
         ctx.setIncludePostLoadAssembly(true);
 
-        Sonic3kLevelInitProfile profile = new Sonic3kLevelInitProfile();
+        Sonic3kLevelInitProfile profile = newS3kProfile();
         InitStep step = findStep(profile.levelLoadSteps(ctx), "SpawnSidekick");
 
         // S3K uses -$20 (32px) X offset and +4 Y offset (differs from S2's -40, 0)
@@ -301,6 +306,21 @@ public class TestPostLoadAssemblyBehavior {
         CheckpointState state = new CheckpointState();
         state.saveCheckpoint(index, x, y, false);
         return state;
+    }
+
+    private static Sonic1LevelInitProfile newS1Profile() {
+        return new Sonic1LevelInitProfile(
+                new Sonic1LevelEventManager(),
+                new Sonic1SwitchManager(),
+                new Sonic1ConveyorState());
+    }
+
+    private static Sonic2LevelInitProfile newS2Profile() {
+        return new Sonic2LevelInitProfile(new Sonic2LevelEventManager());
+    }
+
+    private static Sonic3kLevelInitProfile newS3kProfile() {
+        return new Sonic3kLevelInitProfile(new Sonic3kLevelEventManager());
     }
 
     private static InitStep findStep(List<InitStep> steps, String name) {

@@ -439,7 +439,7 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
 
     private boolean isAizBossActive() {
         try {
-            Sonic3kLevelEventManager lem = Sonic3kLevelEventManager.getInstance();
+            Sonic3kLevelEventManager lem = resolveLevelEventManager();
             if (lem != null) {
                 Sonic3kAIZEvents aizEvents = lem.getAizEvents();
                 if (aizEvents != null) {
@@ -450,6 +450,12 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
             LOG.fine(() -> "Sonic3kPatternAnimator.isAizBossActive: " + e.getMessage());
         }
         return false;
+    }
+
+    private Sonic3kLevelEventManager resolveLevelEventManager() {
+        return GameServices.hasRuntime()
+                ? (Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider()
+                : null;
     }
 
     private void updateHcz1BackgroundStrips() {

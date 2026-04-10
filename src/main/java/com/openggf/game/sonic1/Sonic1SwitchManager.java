@@ -19,18 +19,10 @@ package com.openggf.game.sonic1;
 public final class Sonic1SwitchManager {
 
     private static final int SWITCH_COUNT = 16;
-    private static Sonic1SwitchManager instance;
 
     private final byte[] switchState = new byte[SWITCH_COUNT];
 
-    private Sonic1SwitchManager() {
-    }
-
-    public static Sonic1SwitchManager getInstance() {
-        if (instance == null) {
-            instance = new Sonic1SwitchManager();
-        }
-        return instance;
+    public Sonic1SwitchManager() {
     }
 
     /**

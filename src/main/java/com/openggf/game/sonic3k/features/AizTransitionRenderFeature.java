@@ -3,6 +3,7 @@ package com.openggf.game.sonic3k.features;
 import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.events.FireCurtainRenderState;
@@ -11,7 +12,6 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.graphics.PatternRenderCommand;
 import com.openggf.level.LevelManager;
-import com.openggf.game.GameServices;
 
 /**
  * Encapsulates AIZ transition visual behavior:
@@ -91,7 +91,13 @@ public final class AizTransitionRenderFeature {
     }
 
     private Sonic3kAIZEvents getAizEvents() {
-        Sonic3kLevelEventManager lem = Sonic3kLevelEventManager.getInstance();
+        Sonic3kLevelEventManager lem = resolveLevelEventManager();
         return lem != null ? lem.getAizEvents() : null;
+    }
+
+    private Sonic3kLevelEventManager resolveLevelEventManager() {
+        return GameServices.hasRuntime()
+                ? (Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider()
+                : null;
     }
 }

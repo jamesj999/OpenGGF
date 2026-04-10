@@ -12,17 +12,17 @@ import static com.openggf.game.sonic2.specialstage.Sonic2SpecialStageConstants.*
 public class Sonic2SpecialStageManagerTest {
 
     @Test
-    public void testSingletonInstance() {
-        Sonic2SpecialStageManager instance1 = Sonic2SpecialStageManager.getInstance();
-        Sonic2SpecialStageManager instance2 = Sonic2SpecialStageManager.getInstance();
+    public void testManagerConstruction() {
+        Sonic2SpecialStageManager instance1 = new Sonic2SpecialStageManager();
+        Sonic2SpecialStageManager instance2 = new Sonic2SpecialStageManager();
 
         assertNotNull("Manager instance should not be null", instance1);
-        assertSame("Should return same singleton instance", instance1, instance2);
+        assertNotSame("Separate constructions should yield separate instances", instance1, instance2);
     }
 
     @Test
     public void testNotInitializedByDefault() {
-        Sonic2SpecialStageManager manager = Sonic2SpecialStageManager.getInstance();
+        Sonic2SpecialStageManager manager = new Sonic2SpecialStageManager();
         manager.reset();
         assertFalse("Manager should not be initialized by default", manager.isInitialized());
     }

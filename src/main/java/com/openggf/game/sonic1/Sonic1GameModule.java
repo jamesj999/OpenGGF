@@ -55,6 +55,12 @@ import com.openggf.sprites.playable.SuperStateController;
 public class Sonic1GameModule implements GameModule {
     private final GameAudioProfile audioProfile = new Sonic1AudioProfile();
     private final SpecialStageProvider specialStageProvider = new Sonic1SpecialStageProvider();
+    private final Sonic1LevelEventManager levelEventManager = new Sonic1LevelEventManager();
+    private final Sonic1ZoneRegistry zoneRegistry = new Sonic1ZoneRegistry();
+    private final Sonic1SwitchManager switchManager = new Sonic1SwitchManager();
+    private final Sonic1ConveyorState conveyorState = new Sonic1ConveyorState();
+    private final LevelInitProfile levelInitProfile =
+            new Sonic1LevelInitProfile(levelEventManager, switchManager, conveyorState);
     private PhysicsProvider physicsProvider;
 
     @Override
@@ -108,7 +114,7 @@ public class Sonic1GameModule implements GameModule {
 
     @Override
     public LevelEventProvider getLevelEventProvider() {
-        return Sonic1LevelEventManager.getInstance();
+        return levelEventManager;
     }
 
     @Override
@@ -133,7 +139,7 @@ public class Sonic1GameModule implements GameModule {
 
     @Override
     public ZoneRegistry getZoneRegistry() {
-        return Sonic1ZoneRegistry.getInstance();
+        return zoneRegistry;
     }
 
     @Override
@@ -184,15 +190,16 @@ public class Sonic1GameModule implements GameModule {
 
     @Override
     public void applyPlaneSwitching(AbstractPlayableSprite player) {
-        Sonic1LevelEventManager.getInstance()
-                .getLoopManager().update(player);
+        levelEventManager.getLoopManager().update(player);
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public <T> T getGameService(Class<T> type) {
-        if (type == Sonic1SwitchManager.class) return (T) Sonic1SwitchManager.getInstance();
-        if (type == Sonic1ConveyorState.class) return (T) Sonic1ConveyorState.getInstance();
+        if (type == Sonic1LevelEventManager.class) return (T) levelEventManager;
+        if (type == Sonic1ZoneRegistry.class) return (T) zoneRegistry;
+        if (type == Sonic1SwitchManager.class) return (T) switchManager;
+        if (type == Sonic1ConveyorState.class) return (T) conveyorState;
         return null;
     }
 
@@ -203,11 +210,11 @@ public class Sonic1GameModule implements GameModule {
         // Reference: docs/s1disasm/_inc/Oscillatory Routines.asm
         OscillationManager.resetForSonic1();
         // Reset switch state for new level (Sonic 1 f_switch array)
-        Sonic1SwitchManager.getInstance().reset();
+        switchManager.reset();
         // Reset v_obj6B singleton flag for SBZ3 StomperDoor
         Sonic1StomperDoorObjectInstance.resetSbz3Flag();
         // Reset conveyor belt state for new level (Sonic 1 f_conveyrev + v_obj63)
-        Sonic1ConveyorState.getInstance().reset();
+        conveyorState.reset();
     }
 
     @Override
@@ -243,8 +250,6 @@ public class Sonic1GameModule implements GameModule {
     public EndingProvider getEndingProvider() {
         return new Sonic1EndingProvider();
     }
-
-    private final LevelInitProfile levelInitProfile = new Sonic1LevelInitProfile();
 
     @Override
     public LevelInitProfile getLevelInitProfile() {

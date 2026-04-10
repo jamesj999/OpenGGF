@@ -338,13 +338,19 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
     }
 
     protected Sonic3kAIZEvents getAizEvents() {
-        Sonic3kLevelEventManager levelEventManager = Sonic3kLevelEventManager.getInstance();
+        Sonic3kLevelEventManager levelEventManager = resolveLevelEventManager();
         return levelEventManager != null ? levelEventManager.getAizEvents() : null;
     }
 
     protected int getFeatureActId() {
         var levelManager = GameServices.levelOrNull();
         return levelManager != null ? levelManager.getFeatureActId() : 0;
+    }
+
+    private Sonic3kLevelEventManager resolveLevelEventManager() {
+        return GameServices.hasRuntime()
+                ? (Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider()
+                : null;
     }
 
 }

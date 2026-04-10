@@ -28,14 +28,13 @@ public class TestHTZRisingLavaDisassemblyParity {
     private Sonic2LevelEventManager levelEvents;
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp() {
         RuntimeManager.createGameplay();
-        resetSonic2LevelEventManagerSingleton();
         GameServices.camera().resetState();
         GameServices.gameState().resetSession();
 
         camera = GameServices.camera();
-        levelEvents = Sonic2LevelEventManager.getInstance();
+        levelEvents = (Sonic2LevelEventManager) GameServices.module().getLevelEventProvider();
     }
 
     @After
@@ -157,13 +156,6 @@ public class TestHTZRisingLavaDisassemblyParity {
         field.setAccessible(true);
         field.setBoolean(target, value);
     }
-
-    private static void resetSonic2LevelEventManagerSingleton() throws Exception {
-        Field instanceField = Sonic2LevelEventManager.class.getDeclaredField("instance");
-        instanceField.setAccessible(true);
-        instanceField.set(null, null);
-    }
-
     @SuppressWarnings("unchecked")
     private static void setConstructionContext(ObjectServices svc) {
         try {

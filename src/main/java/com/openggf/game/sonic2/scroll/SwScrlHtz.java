@@ -53,6 +53,10 @@ public class SwScrlHtz extends AbstractZoneScrollHandler {
         this.bgCamera = bgCamera;
     }
 
+    private Sonic2LevelEventManager levelEvents() {
+        return (Sonic2LevelEventManager) GameServices.module().getLevelEventProvider();
+    }
+
     /**
      * Initialize HTZ scroll state.
      * Called when entering HTZ to reset the cloud counter.
@@ -324,7 +328,7 @@ public class SwScrlHtz extends AbstractZoneScrollHandler {
      * address BG map rows 0-1 containing lava/cave tile data (256px); VDP wraps vertically.
      */
     private void updateEarthquakeMode(int[] horizScrollBuf, int cameraX, int cameraY, int frameCounter) {
-        Sonic2LevelEventManager levelEvents = Sonic2LevelEventManager.getInstance();
+        Sonic2LevelEventManager levelEvents = levelEvents();
         int bgYOffset = levelEvents.getCameraBgYOffset();
         int bgXOffset = levelEvents.getHtzBgXOffset();
 

@@ -72,9 +72,7 @@ public class Sonic3kZoneRegistry extends AbstractZoneRegistry {
             {0x1D}                                          // 21 Slot Machine
     };
 
-    private static final Sonic3kZoneRegistry INSTANCE = new Sonic3kZoneRegistry();
-
-    private Sonic3kZoneRegistry() {
+    public Sonic3kZoneRegistry() {
         // Zone structure: outer list = zones (indexed by ROM zone ID),
         // inner list = acts. Competition zones and bonus stages have 1 act each.
         super(List.of(
@@ -101,10 +99,6 @@ public class Sonic3kZoneRegistry extends AbstractZoneRegistry {
                 List.of(LevelData.S3K_GLOWING_SPHERE),                                  // 20 Glowing Spheres
                 List.of(LevelData.S3K_SLOT_MACHINE)                                     // 21 Slot Machine
         ), ZONE_NAMES);
-    }
-
-    public static Sonic3kZoneRegistry getInstance() {
-        return INSTANCE;
     }
 
     @Override

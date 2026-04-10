@@ -9,7 +9,8 @@ import static org.junit.Assert.*;
 
 public class TestSonic3kLevelInitProfile {
 
-    private final Sonic3kLevelInitProfile profile = new Sonic3kLevelInitProfile();
+    private final Sonic3kLevelInitProfile profile =
+            new Sonic3kLevelInitProfile(new Sonic3kLevelEventManager());
 
     @Test
     public void teardownHasExpectedSteps() {

@@ -22,7 +22,7 @@ public class TestSwScrlHtzEarthquakeMode {
     @Before
     public void setUp() throws Exception {
         TestEnvironment.resetAll();
-        levelEvents = Sonic2LevelEventManager.getInstance();
+        levelEvents = (Sonic2LevelEventManager) GameServices.module().getLevelEventProvider();
         levelEvents.initLevel(Sonic2LevelEventManager.ZONE_HTZ, 1);
     }
 

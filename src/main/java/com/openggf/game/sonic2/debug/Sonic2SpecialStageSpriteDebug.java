@@ -27,8 +27,6 @@ import com.openggf.level.PatternDesc;
  * </ul>
  */
 public class Sonic2SpecialStageSpriteDebug implements SpecialStageDebugProvider {
-    private static Sonic2SpecialStageSpriteDebug instance;
-
     private static final int TILE_SIZE = 8;
     private static final int FRAME_CELL_WIDTH = 72;
     private static final int FRAME_CELL_HEIGHT = 80;
@@ -88,15 +86,8 @@ public class Sonic2SpecialStageSpriteDebug implements SpecialStageDebugProvider 
     private GraphicsSet currentSet = GraphicsSet.SONIC_SPRITES;
     private int currentPage = 0;
 
-    private Sonic2SpecialStageSpriteDebug() {
+    public Sonic2SpecialStageSpriteDebug() {
         this.graphicsManager = GraphicsManager.getInstance();
-    }
-
-    public static synchronized Sonic2SpecialStageSpriteDebug getInstance() {
-        if (instance == null) {
-            instance = new Sonic2SpecialStageSpriteDebug();
-        }
-        return instance;
     }
 
     public void setPlayerPatternBase(int base) {

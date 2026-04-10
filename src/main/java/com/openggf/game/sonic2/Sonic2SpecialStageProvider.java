@@ -25,7 +25,11 @@ public class Sonic2SpecialStageProvider implements SpecialStageProvider {
     private final Sonic2SpecialStageManager manager;
 
     public Sonic2SpecialStageProvider() {
-        this.manager = Sonic2SpecialStageManager.getInstance();
+        this(new Sonic2SpecialStageManager());
+    }
+
+    public Sonic2SpecialStageProvider(Sonic2SpecialStageManager manager) {
+        this.manager = manager;
     }
 
     @Override

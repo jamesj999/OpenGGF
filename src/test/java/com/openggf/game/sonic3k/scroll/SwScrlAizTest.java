@@ -4,6 +4,10 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.GameServices;
+import com.openggf.game.RuntimeManager;
+import com.openggf.game.sonic3k.Sonic3kGameModule;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
@@ -37,16 +41,19 @@ public class SwScrlAizTest {
     @Before
     public void setUp() {
         TestEnvironment.resetAll();
+        GameModuleRegistry.setCurrent(new Sonic3kGameModule());
+        RuntimeManager.destroyCurrent();
+        RuntimeManager.createGameplay();
         handler = new SwScrlAiz();
         Camera.getInstance().setLevelStarted(true);
-        Sonic3kLevelEventManager.getInstance().resetState();
+        ((Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider()).resetState();
         resetIntroScrollState();
     }
 
     @After
     public void tearDown() {
         Camera.getInstance().setLevelStarted(true);
-        Sonic3kLevelEventManager.getInstance().resetState();
+        ((Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider()).resetState();
         resetIntroScrollState();
     }
 
@@ -196,7 +203,8 @@ public class SwScrlAizTest {
 
     @Test
     public void fireTransitionExposesPerColumnVScrollWave() {
-        Sonic3kLevelEventManager eventsManager = Sonic3kLevelEventManager.getInstance();
+        Sonic3kLevelEventManager eventsManager =
+                (Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider();
         eventsManager.initLevel(0, 0);
         Sonic3kAIZEvents events = eventsManager.getAizEvents();
         assertNotNull(events);
@@ -225,7 +233,8 @@ public class SwScrlAizTest {
 
     @Test
     public void fireTransitionUsesPlainDeformationInsteadOfAiz1ParallaxBands() {
-        Sonic3kLevelEventManager eventsManager = Sonic3kLevelEventManager.getInstance();
+        Sonic3kLevelEventManager eventsManager =
+                (Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider();
         eventsManager.initLevel(0, 0);
         Sonic3kAIZEvents events = eventsManager.getAizEvents();
         assertNotNull(events);
@@ -245,7 +254,8 @@ public class SwScrlAizTest {
 
     @Test
     public void resumedAct2FireContinuationStillUsesPlainFireScrollMode() {
-        Sonic3kLevelEventManager eventsManager = Sonic3kLevelEventManager.getInstance();
+        Sonic3kLevelEventManager eventsManager =
+                (Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider();
         eventsManager.initLevel(0, 0);
         Sonic3kAIZEvents act1Events = eventsManager.getAizEvents();
         assertNotNull(act1Events);

@@ -15,7 +15,7 @@ public class TestSonic3kBonusTitleCard {
 
     @Before
     public void setUp() {
-        manager = Sonic3kTitleCardManager.getInstance();
+        manager = new Sonic3kTitleCardManager();
         manager.reset();
     }
 

@@ -35,9 +35,15 @@ class Sonic1PaletteCycler implements AnimatedPaletteManager {
     private final Level level;
     private final GraphicsManager graphicsManager = GraphicsManager.getInstance();
     private final List<PaletteCycle> cycles;
+    private final Sonic1ConveyorState conveyorState;
 
     Sonic1PaletteCycler(Level level, int zoneIndex) {
+        this(level, zoneIndex, resolveConveyorState());
+    }
+
+    Sonic1PaletteCycler(Level level, int zoneIndex, Sonic1ConveyorState conveyorState) {
         this.level = level;
+        this.conveyorState = conveyorState;
         this.cycles = createCycles(zoneIndex);
     }
 
@@ -90,8 +96,15 @@ class Sonic1PaletteCycler implements AnimatedPaletteManager {
 
         List<PaletteCycle> list = new ArrayList<>(2);
         list.add(new LzWaterfallCycle(sbz3Waterfall, underwaterPalettes));
-        list.add(new LzConveyorCycle(underwaterPalettes));
+        list.add(new LzConveyorCycle(conveyorState, underwaterPalettes));
         return list;
+    }
+
+    private static Sonic1ConveyorState resolveConveyorState() {
+        Sonic1ConveyorState runtimeState = GameServices.hasRuntime()
+                ? GameServices.module().getGameService(Sonic1ConveyorState.class)
+                : null;
+        return runtimeState != null ? runtimeState : new Sonic1ConveyorState();
     }
 
     // ===== SBZ =====
@@ -284,11 +297,13 @@ class Sonic1PaletteCycler implements AnimatedPaletteManager {
         private static final int[] TRIGGER_SEQUENCE = {1, 0, 0, 1, 0, 0, 1, 0};
         private static final int[] COLOR_INDICES = {11, 12, 13};
 
+        private final Sonic1ConveyorState conveyorState;
         private final Palette[] underwaterPalettes;
         private int sequenceIndex;
         private int frameState;
 
-        private LzConveyorCycle(Palette[] underwaterPalettes) {
+        private LzConveyorCycle(Sonic1ConveyorState conveyorState, Palette[] underwaterPalettes) {
+            this.conveyorState = conveyorState;
             this.underwaterPalettes = underwaterPalettes;
         }
 
@@ -300,7 +315,7 @@ class Sonic1PaletteCycler implements AnimatedPaletteManager {
                 return;
             }
 
-            int direction = Sonic1ConveyorState.getInstance().isReversed() ? -1 : 1;
+            int direction = conveyorState.isReversed() ? -1 : 1;
             int nextState = frameState + direction;
             if (nextState >= 3) {
                 nextState = 0;

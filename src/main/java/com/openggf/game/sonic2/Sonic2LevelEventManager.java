@@ -21,8 +21,6 @@ import java.util.logging.Logger;
  * the {@code events} subpackage, following the S1 pattern.
  */
 public class Sonic2LevelEventManager extends AbstractLevelEventManager {
-    private static Sonic2LevelEventManager instance;
-
     // Zone constants (matches Sonic2ZoneRegistry ordering: game progression, 0-based)
     public static final int ZONE_EHZ = 0;
     public static final int ZONE_CPZ = 1;
@@ -54,7 +52,7 @@ public class Sonic2LevelEventManager extends AbstractLevelEventManager {
     private final Sonic2DEZEvents dezEvents;
     private final Sonic2SCZEvents sczEvents;
 
-    private Sonic2LevelEventManager() {
+    public Sonic2LevelEventManager() {
         super();
         ehzEvents = new Sonic2EHZEvents();
         cpzEvents = new Sonic2CPZEvents();
@@ -202,12 +200,5 @@ public class Sonic2LevelEventManager extends AbstractLevelEventManager {
      */
     public int getHtzBgVerticalShift() {
         return htzEvents.getHtzBgVerticalShift();
-    }
-
-    public static synchronized Sonic2LevelEventManager getInstance() {
-        if (instance == null) {
-            instance = new Sonic2LevelEventManager();
-        }
-        return instance;
     }
 }

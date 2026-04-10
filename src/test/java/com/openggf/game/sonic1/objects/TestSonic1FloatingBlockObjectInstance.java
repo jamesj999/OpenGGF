@@ -18,15 +18,17 @@ public class TestSonic1FloatingBlockObjectInstance {
     private static final int ORIG_Y = 0x1A0;
 
     private ObjectServices testServices;
+    private Sonic1SwitchManager switchManager;
 
     @Before
     public void resetSwitchState() {
-        Sonic1SwitchManager.getInstance().resetState();
+        switchManager = new Sonic1SwitchManager();
+        switchManager.resetState();
         testServices = new StubObjectServices() {
             @SuppressWarnings("unchecked")
             @Override
             public <T> T gameService(Class<T> type) {
-                if (type == Sonic1SwitchManager.class) return (T) Sonic1SwitchManager.getInstance();
+                if (type == Sonic1SwitchManager.class) return (T) switchManager;
                 return null;
             }
         };
@@ -45,7 +47,7 @@ public class TestSonic1FloatingBlockObjectInstance {
     @Test
     public void verticalDoorType05ChecksOnlySwitchBit0() {
         Sonic1FloatingBlockObjectInstance door = createLzDoor(0xE0, true);
-        Sonic1SwitchManager switches = Sonic1SwitchManager.getInstance();
+        Sonic1SwitchManager switches = switchManager;
 
         // Set bit 7 only: ROM type 05 uses btst #0, so this must not open the door.
         switches.setBit(0, 7);
@@ -61,7 +63,7 @@ public class TestSonic1FloatingBlockObjectInstance {
     @Test
     public void horizontalDoorType0CChecksOnlySwitchBit0() {
         Sonic1FloatingBlockObjectInstance door = createLzDoor(0xF0, true);
-        Sonic1SwitchManager switches = Sonic1SwitchManager.getInstance();
+        Sonic1SwitchManager switches = switchManager;
 
         // LZ large horizontal door starts at x=origX+0x80 when closed.
         door.update(1, null);

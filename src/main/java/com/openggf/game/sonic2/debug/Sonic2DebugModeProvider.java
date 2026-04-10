@@ -11,7 +11,12 @@ public class Sonic2DebugModeProvider implements DebugModeProvider {
     private final Sonic2SpecialStageDebugController specialStageDebug;
 
     public Sonic2DebugModeProvider() {
-        this.specialStageDebug = new Sonic2SpecialStageDebugController();
+        this(new Sonic2SpecialStageManager(), new Sonic2SpecialStageSpriteDebug());
+    }
+
+    public Sonic2DebugModeProvider(Sonic2SpecialStageManager manager,
+                                   Sonic2SpecialStageSpriteDebug spriteDebug) {
+        this.specialStageDebug = new Sonic2SpecialStageDebugController(manager, spriteDebug);
     }
 
     @Override
@@ -38,9 +43,10 @@ public class Sonic2DebugModeProvider implements DebugModeProvider {
         private final Sonic2SpecialStageManager manager;
         private final Sonic2SpecialStageSpriteDebug spriteDebug;
 
-        public Sonic2SpecialStageDebugController() {
-            this.manager = Sonic2SpecialStageManager.getInstance();
-            this.spriteDebug = Sonic2SpecialStageSpriteDebug.getInstance();
+        public Sonic2SpecialStageDebugController(Sonic2SpecialStageManager manager,
+                                                 Sonic2SpecialStageSpriteDebug spriteDebug) {
+            this.manager = manager;
+            this.spriteDebug = spriteDebug;
         }
 
         @Override
