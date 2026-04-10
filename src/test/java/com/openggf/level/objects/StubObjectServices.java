@@ -3,8 +3,13 @@ package com.openggf.level.objects;
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.camera.Camera;
+import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
+import com.openggf.data.RomManager;
+import com.openggf.debug.DebugOverlayManager;
+import com.openggf.game.CrossGameFeatureProvider;
+import com.openggf.game.EngineServices;
 import com.openggf.game.GameRng;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.GameModule;
@@ -55,6 +60,11 @@ public class StubObjectServices implements ObjectServices {
     @Override public SpriteManager spriteManager() { return null; }
     @Override public GraphicsManager graphicsManager() { return null; }
     @Override public FadeManager fadeManager() { return null; }
+    @Override public EngineServices engineServices() { return null; }
+    @Override public SonicConfigurationService configuration() { return null; }
+    @Override public DebugOverlayManager debugOverlay() { return null; }
+    @Override public RomManager romManager() { return null; }
+    @Override public CrossGameFeatureProvider crossGameFeatures() { return null; }
     @Override public Rom rom() { return null; }
     @Override public RomByteReader romReader() { return null; }
     @Override public WaterSystem waterSystem() { return null; }

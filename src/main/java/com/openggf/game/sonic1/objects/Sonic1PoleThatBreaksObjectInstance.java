@@ -2,7 +2,6 @@ package com.openggf.game.sonic1.objects;
 import com.openggf.game.PlayableEntity;
 
 import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.debug.DebugRenderContext;
 import com.openggf.game.sonic1.Sonic1ZoneFeatureProvider;
 import com.openggf.game.ZoneFeatureProvider;
@@ -241,7 +240,7 @@ public class Sonic1PoleThatBreaksObjectInstance extends AbstractObjectInstance
 
     @Override
     public void appendDebugRenderCommands(DebugRenderContext ctx) {
-        if (!SonicConfigurationService.getInstance().getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED)) {
+        if (!services().configuration().getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED)) {
             return;
         }
 

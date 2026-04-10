@@ -1,6 +1,11 @@
 package com.openggf.level.objects;
 
 import com.openggf.camera.Camera;
+import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.data.RomManager;
+import com.openggf.debug.DebugOverlayManager;
+import com.openggf.game.CrossGameFeatureProvider;
+import com.openggf.game.EngineServices;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.GameStateManager;
@@ -54,6 +59,18 @@ class TestObjectServicesExpansion {
     }
 
     @Test
+    void defaultObjectServices_processServices_returnRuntimeEngineServicesMembers() {
+        DefaultObjectServices services = new DefaultObjectServices(RuntimeManager.getCurrent());
+        EngineServices engineServices = RuntimeManager.getCurrent().getEngineServices();
+
+        assertSame(engineServices, services.engineServices());
+        assertSame(engineServices.configuration(), services.configuration());
+        assertSame(engineServices.debugOverlay(), services.debugOverlay());
+        assertSame(engineServices.roms(), services.romManager());
+        assertSame(engineServices.crossGameFeatures(), services.crossGameFeatures());
+    }
+
+    @Test
     void defaultObjectServices_sidekicks_returnsUnmodifiableList() {
         DefaultObjectServices services = new DefaultObjectServices(RuntimeManager.getCurrent());
         var sidekicks = services.sidekicks();
@@ -68,20 +85,45 @@ class TestObjectServicesExpansion {
 
     @Test
     void defaultObjectServices_bootstrapConstructor_worldSessionAndGameModuleAreNullWithoutRuntime() {
-        RuntimeManager.setCurrent(null);
-
-        DefaultObjectServices services = new DefaultObjectServices(
-                LevelManager.getInstance(),
-                Camera.getInstance(),
-                GameStateManager.getInstance(),
-                SpriteManager.getInstance(),
-                FadeManager.getInstance(),
-                WaterSystem.getInstance(),
-                ParallaxManager.getInstance());
+        DefaultObjectServices services = bootstrapConstructorServicesWithoutRuntime();
 
         assertNull(services.worldSession(),
                 "bootstrap constructor should not require an active runtime world session");
         assertNull(services.gameModule(),
                 "bootstrap constructor should return null game module when unavailable");
+    }
+
+    @Test
+    void defaultObjectServices_bootstrapConstructor_processServicesUseLegacyEngineServices() {
+        DefaultObjectServices services = bootstrapConstructorServicesWithoutRuntime();
+
+        assertSame(SonicConfigurationService.getInstance(), services.configuration());
+        assertSame(DebugOverlayManager.getInstance(), services.debugOverlay());
+        assertSame(RomManager.getInstance(), services.romManager());
+        assertSame(CrossGameFeatureProvider.getInstance(), services.crossGameFeatures());
+        assertNotNull(services.engineServices());
+    }
+
+    private DefaultObjectServices bootstrapConstructorServicesWithoutRuntime() {
+        LevelManager levelManager = RuntimeManager.getCurrent().getLevelManager();
+        Camera camera = RuntimeManager.getCurrent().getCamera();
+        GameStateManager gameState = RuntimeManager.getCurrent().getGameState();
+        SpriteManager spriteManager = RuntimeManager.getCurrent().getSpriteManager();
+        FadeManager fadeManager = RuntimeManager.getCurrent().getFadeManager();
+        WaterSystem waterSystem = RuntimeManager.getCurrent().getWaterSystem();
+        ParallaxManager parallaxManager = RuntimeManager.getCurrent().getParallaxManager();
+
+        RuntimeManager.setCurrent(null);
+
+        DefaultObjectServices services = new DefaultObjectServices(
+                levelManager,
+                camera,
+                gameState,
+                spriteManager,
+                fadeManager,
+                waterSystem,
+                parallaxManager);
+        RuntimeManager.createGameplay();
+        return services;
     }
 }

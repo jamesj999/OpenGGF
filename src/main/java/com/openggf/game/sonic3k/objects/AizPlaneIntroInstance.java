@@ -270,7 +270,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
         this.planeDetached = false;
         this.planeWalkLeft = false;
         this.superSonicActive = false;
-        this.paletteCycler = new AizIntroPaletteCycler();
+        this.paletteCycler = new AizIntroPaletteCycler(services());
         this.ownsPlayerControl = false;
         this.mappingFrame = INTRO_MAPPING_FRAME;
         this.lastFrameCounter = 0;
@@ -637,7 +637,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
 
         // Load all intro art.
         try {
-            AizIntroArtLoader.loadAllIntroArt();
+            AizIntroArtLoader.loadAllIntroArt(services());
         } catch (Exception e) {
             LOG.fine("Could not load intro art (test env?): " + e.getMessage());
         }
@@ -1025,7 +1025,7 @@ public class AizPlaneIntroInstance extends AbstractObjectInstance {
             }
 
             // Apply emerald palette now (overwrites intro palette on line 3)
-            AizIntroArtLoader.applyEmeraldPalette();
+            AizIntroArtLoader.applyEmeraldPalette(services());
 
             // Spawn 7 emeralds.
             // ROM: CreateChild6_Simple places emeralds in later object slots.

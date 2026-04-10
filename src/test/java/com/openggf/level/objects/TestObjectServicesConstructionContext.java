@@ -40,6 +40,11 @@ class TestObjectServicesConstructionContext {
         @Override public com.openggf.sprites.managers.SpriteManager spriteManager() { return null; }
         @Override public com.openggf.graphics.GraphicsManager graphicsManager() { return null; }
         @Override public com.openggf.graphics.FadeManager fadeManager() { return null; }
+        @Override public com.openggf.game.EngineServices engineServices() { return null; }
+        @Override public com.openggf.configuration.SonicConfigurationService configuration() { return null; }
+        @Override public com.openggf.debug.DebugOverlayManager debugOverlay() { return null; }
+        @Override public com.openggf.data.RomManager romManager() { return null; }
+        @Override public com.openggf.game.CrossGameFeatureProvider crossGameFeatures() { return null; }
         @Override public com.openggf.data.Rom rom() { return null; }
         @Override public com.openggf.data.RomByteReader romReader() { return null; }
         @Override public com.openggf.level.WaterSystem waterSystem() { return null; }

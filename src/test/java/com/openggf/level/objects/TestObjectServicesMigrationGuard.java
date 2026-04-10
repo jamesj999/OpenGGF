@@ -54,16 +54,9 @@ class TestObjectServicesMigrationGuard {
      * getInstance() or GameServices for non-object purposes.
      */
     private static final Set<String> PERMANENT_EXCEPTIONS = Set.of(
-            // REGISTRY: ObjectRegistry classes, not AbstractObjectInstance subclasses
             "com.openggf.game.sonic1.objects.Sonic1ObjectRegistry",
             "com.openggf.game.sonic2.objects.Sonic2ObjectRegistry",
-            "com.openggf.game.sonic3k.objects.Sonic3kObjectRegistry",
-
-            // NOT_OBJECT: utility/helper/standalone classes, no AbstractObjectInstance inheritance
-            "com.openggf.game.sonic2.objects.SpecialStageResultsScreenObjectInstance",
-            "com.openggf.game.sonic3k.objects.AizIntroArtLoader",
-            "com.openggf.game.sonic3k.objects.AizIntroPaletteCycler",
-            "com.openggf.game.sonic3k.objects.AizIntroTerrainSwap"
+            "com.openggf.game.sonic3k.objects.Sonic3kObjectRegistry"
     );
 
     /** Packages containing object instance classes to scan. */

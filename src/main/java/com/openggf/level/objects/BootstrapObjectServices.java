@@ -9,9 +9,9 @@ import com.openggf.game.GameServices;
  * <p>Runtime-owned dependencies are resolved through strict {@link GameServices}
  * accessors, so callers must create a gameplay runtime first.</p>
  */
-final class BootstrapObjectServices extends DefaultObjectServices {
+public final class BootstrapObjectServices extends DefaultObjectServices {
 
-    BootstrapObjectServices() {
+    public BootstrapObjectServices() {
         super(GameServices.level(),
                 GameServices.camera(),
                 GameServices.gameState(),

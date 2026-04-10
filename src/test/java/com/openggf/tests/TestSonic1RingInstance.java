@@ -99,6 +99,7 @@ public class TestSonic1RingInstance {
     /** When ringManager.isCollected() returns true, ANIMATE transitions to SPARKLE (no collision). */
     @Test
     public void testAnimateStaysWhenNotCollected() {
+        TestEnvironment.resetAll();
         RingSpawn ringSpawn = new RingSpawn(100, 100);
         RingManager rm = new RingManager(List.of(ringSpawn), null, null, null);
 

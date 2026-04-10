@@ -1,7 +1,6 @@
 package com.openggf.game.sonic2.objects;
 
 import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
@@ -142,7 +141,7 @@ public class LavaMarkerObjectInstance extends AbstractObjectInstance implements 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
         // Invisible during normal gameplay - only render in debug mode
-        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        var config = services().configuration();
         if (!config.getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED)) {
             return;
         }

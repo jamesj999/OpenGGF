@@ -3,9 +3,14 @@ package com.openggf.level.objects;
 import com.openggf.audio.AudioManager;
 import com.openggf.audio.GameSound;
 import com.openggf.camera.Camera;
+import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
+import com.openggf.data.RomManager;
+import com.openggf.debug.DebugOverlayManager;
 import com.openggf.game.BonusStageType;
+import com.openggf.game.CrossGameFeatureProvider;
+import com.openggf.game.EngineServices;
 import com.openggf.game.GameRng;
 import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
@@ -103,6 +108,21 @@ public interface ObjectServices {
 
     /** Returns the fade manager for screen transitions. */
     FadeManager fadeManager();
+
+    /** Returns the active engine-level service bundle backing process-wide services. */
+    EngineServices engineServices();
+
+    /** Returns the configuration service. */
+    SonicConfigurationService configuration();
+
+    /** Returns the debug overlay manager. */
+    DebugOverlayManager debugOverlay();
+
+    /** Returns the ROM manager. */
+    RomManager romManager();
+
+    /** Returns the cross-game feature provider. */
+    CrossGameFeatureProvider crossGameFeatures();
 
     // --- ROM data ---
 
