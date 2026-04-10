@@ -58,7 +58,7 @@ public final class SwScrlSlots extends AbstractZoneScrollHandler {
     private int foregroundOriginX;
     private int foregroundOriginY;
     private int backgroundVelocity;
-    private int backgroundCameraY;
+    private int backgroundCameraYFixed;
     private int lastForegroundOriginX;
     private int lastForegroundOriginY;
     private int lastBackgroundOriginX;
@@ -104,8 +104,8 @@ public final class SwScrlSlots extends AbstractZoneScrollHandler {
         lastForegroundOriginX = foregroundOriginX;
         lastForegroundOriginY = foregroundOriginY;
         lastBackgroundOriginX = foregroundOriginX + bandScrollValues[0];
-        lastBackgroundOriginY = backgroundCameraY & 0xFF;
-        vscrollFactorBG = (short) (backgroundCameraY & 0xFF);
+        lastBackgroundOriginY = backgroundCameraY();
+        vscrollFactorBG = (short) backgroundCameraY();
         Arrays.fill(perLineVScroll, (short) 0);
 
         if (horizScrollBuf != null) {
@@ -157,7 +157,7 @@ public final class SwScrlSlots extends AbstractZoneScrollHandler {
         foregroundOriginX = cameraX;
         foregroundOriginY = cameraY;
         backgroundVelocity = 0;
-        backgroundCameraY = 0;
+        backgroundCameraYFixed = 0;
         Arrays.fill(bandScrollValues, 0);
         Arrays.fill(expandedBandScrollValues, 0);
         for (BandState bandState : bandStates) {
@@ -169,15 +169,21 @@ public final class SwScrlSlots extends AbstractZoneScrollHandler {
         if (!backgroundInitialized) {
             backgroundInitialized = true;
             backgroundVelocity = 0;
-            backgroundCameraY = 0;
+            backgroundCameraYFixed = 0;
             Arrays.fill(bandScrollValues, 0);
+            expandBandScrollTable();
+            return;
+        }
+
+        if (scalarIndex1 == 0) {
             expandBandScrollTable();
             return;
         }
 
         int step = scalarIndex1 < 0 ? -BG_SCROLL_STEP : BG_SCROLL_STEP;
         backgroundVelocity = clampSignedLong(backgroundVelocity + step, BG_SCROLL_LIMIT);
-        backgroundCameraY = (backgroundCameraY + backgroundVelocity) & 0xFF;
+        backgroundCameraYFixed += backgroundVelocity;
+        backgroundCameraYFixed &= 0x00FF_FFFF;
 
         boolean backgroundEventLatched = false;
         for (int i = 0; i < BAND_CONFIGS.length; i++) {
@@ -193,7 +199,7 @@ public final class SwScrlSlots extends AbstractZoneScrollHandler {
     private void fillPackedScrollBuffer(int[] horizScrollBuf) {
         short fgScroll = negWord(foregroundOriginX);
         int segmentIndex = 0;
-        int segmentOffset = backgroundCameraY & 0xFFFF;
+        int segmentOffset = backgroundCameraY();
         while (segmentIndex < BG_DEFORM_SEGMENTS.length - 1 && segmentOffset >= BG_DEFORM_SEGMENTS[segmentIndex]) {
             segmentOffset -= BG_DEFORM_SEGMENTS[segmentIndex];
             segmentIndex++;
@@ -229,6 +235,10 @@ public final class SwScrlSlots extends AbstractZoneScrollHandler {
         for (int i = 0; i < expandedBandScrollValues.length; i++) {
             expandedBandScrollValues[i] = bandScrollValues[i & 0x7];
         }
+    }
+
+    private int backgroundCameraY() {
+        return (backgroundCameraYFixed >>> 16) & 0xFF;
     }
 
     private boolean tickBand(BandState state, BandConfig config, boolean backgroundEventLatched) {

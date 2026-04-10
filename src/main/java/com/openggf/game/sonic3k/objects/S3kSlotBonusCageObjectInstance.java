@@ -1,7 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.game.PlayableEntity;
-import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotRomData;
 import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotStageController;
@@ -9,7 +8,6 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.graphics.RenderPriority;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectSpawn;
-import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -71,12 +69,16 @@ public final class S3kSlotBonusCageObjectInstance extends AbstractObjectInstance
     }
 
     public void tickSlotRuntime(int frameCounter, PlayableEntity playerEntity, int playerOriginX, int playerOriginY) {
-        if (!(playerEntity instanceof AbstractPlayableSprite player) || player.isDebugMode()) {
+        if (!(playerEntity instanceof AbstractPlayableSprite player)) {
             return;
         }
 
         updateAnimatedPosition(playerOriginX, playerOriginY);
         tickAnimation();
+
+        if (player.isDebugMode()) {
+            return;
+        }
 
         switch (cageState) {
             case 0 -> updateCapture(player);

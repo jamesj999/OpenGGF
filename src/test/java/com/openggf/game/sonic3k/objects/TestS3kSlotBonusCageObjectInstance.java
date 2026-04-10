@@ -71,21 +71,32 @@ class TestS3kSlotBonusCageObjectInstance {
     }
 
     @Test
-    void debugPlayableIsIgnored() {
+    void debugPlayableUpdatesAnimatedAnchorButDoesNotCapture() {
         ObjectSpawn spawn = new ObjectSpawn(0x460, 0x430, 0x00, 0x00, 0x00, false, 0);
         S3kSlotStageController controller = new S3kSlotStageController();
         controller.bootstrap();
+        controller.setScalarIndex(0x4000);
+        controller.tick();
 
         S3kSlotBonusCageObjectInstance cage = new S3kSlotBonusCageObjectInstance(spawn, controller);
         cage.setServices(new TestObjectServices());
 
-        Sonic player = new Sonic("sonic", (short) 0x44C, (short) 0x41C);
+        Sonic player = new Sonic("sonic", (short) 0x430, (short) 0x440);
         player.setDebugMode(true);
         short originalX = player.getX();
         short originalY = player.getY();
 
         cage.update(0, player);
 
+        int angle = controller.angle() & 0xFC;
+        int sin = com.openggf.physics.TrigLookupTable.sinHex(angle);
+        int cos = com.openggf.physics.TrigLookupTable.cosHex(angle);
+        int dx = spawn.x() - player.getCentreX();
+        int dy = spawn.y() - player.getCentreY();
+        int expectedX = (((dx * cos) - (dy * sin)) >> 8) + player.getCentreX();
+        int expectedY = (((dx * sin) + (dy * cos)) >> 8) + player.getCentreY();
+        assertEquals(expectedX, cage.getCurrentX());
+        assertEquals(expectedY, cage.getCurrentY());
         assertEquals(originalX, player.getX());
         assertEquals(originalY, player.getY());
         assertFalse(player.isObjectControlled());

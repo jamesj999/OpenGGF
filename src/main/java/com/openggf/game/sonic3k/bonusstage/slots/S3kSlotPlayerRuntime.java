@@ -214,6 +214,7 @@ public final class S3kSlotPlayerRuntime {
         stageState.setStatTable(debugSavedStatTable);
         stageState.setScalarIndex1(debugSavedScalarIndex1);
         resetDebugMovementState(player);
+        player.setRolling(true);
         player.setAngle((byte) stageState.angle());
     }
 

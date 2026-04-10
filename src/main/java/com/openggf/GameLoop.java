@@ -1274,11 +1274,19 @@ public class GameLoop {
         AudioManager.getInstance().fadeOutMusic();
 
         bonusStageTransitionPending = true;
-        fadeManager.startFadeToBlack(() -> {
+        if (shouldStartBonusStageExitFade(provider)) {
+            fadeManager.startFadeToBlack(() -> {
+                doExitBonusStage(provider, savedState);
+            });
+            LOGGER.info("Starting fade-to-black to exit Bonus Stage");
+        } else {
             doExitBonusStage(provider, savedState);
-        });
+            LOGGER.info("Exiting Bonus Stage using provider-completed fade-to-black");
+        }
+    }
 
-        LOGGER.info("Starting fade-to-black to exit Bonus Stage");
+    static boolean shouldStartBonusStageExitFade(BonusStageProvider provider) {
+        return provider == null || !provider.hasCompletedExitFadeToBlack();
     }
 
     /**

@@ -24,6 +24,20 @@ public class TestLevelManagerSlotBackgroundCopy {
         assertEquals(levelManager.descriptorFor(0x48, 0x28), tilemapManager.descriptorAt(1, 1));
     }
 
+    @Test
+    public void slotBackgroundRowCopySnapsSourceXToSixteenPixelBlockBoundary() throws Exception {
+        TestLevelManager levelManager = new TestLevelManager();
+        RecordingTilemapManager tilemapManager = new RecordingTilemapManager();
+        setTilemapManager(levelManager, tilemapManager);
+
+        levelManager.copyBackgroundTileRowFromWorldToVdpPlane(0x48, 0x20, 0xE000, 1);
+
+        assertEquals(levelManager.descriptorFor(0x40, 0x20), tilemapManager.descriptorAt(0, 0));
+        assertEquals(levelManager.descriptorFor(0x48, 0x20), tilemapManager.descriptorAt(1, 0));
+        assertEquals(levelManager.descriptorFor(0x40, 0x28), tilemapManager.descriptorAt(0, 1));
+        assertEquals(levelManager.descriptorFor(0x48, 0x28), tilemapManager.descriptorAt(1, 1));
+    }
+
     private static void setTilemapManager(LevelManager levelManager, LevelTilemapManager tilemapManager)
             throws Exception {
         Field field = LevelManager.class.getDeclaredField("tilemapManager");

@@ -187,6 +187,15 @@ public class TestGameLoop {
                 GameMode.BONUS_STAGE, gameLoop.getCurrentGameMode());
     }
 
+    @Test
+    public void testBonusStageExitFadeIsNotRestartedAfterProviderCompletedFade() {
+        BonusStageProvider provider = mock(BonusStageProvider.class);
+        when(provider.hasCompletedExitFadeToBlack()).thenReturn(true);
+
+        assertFalse("provider-owned GOAL fade should be reused instead of starting a second generic fade",
+                GameLoop.shouldStartBonusStageExitFade(provider));
+    }
+
     private static void invokePrivateMethod(Object target, String methodName) throws Exception {
         Method method = target.getClass().getDeclaredMethod(methodName);
         method.setAccessible(true);

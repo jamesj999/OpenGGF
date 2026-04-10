@@ -16,6 +16,7 @@ public interface BonusStageProvider {
     default void onDeferredSetupComplete() {}
     default boolean updateDuringLevelFrame() { return false; }
     default boolean suppressesDefaultCameraStep() { return false; }
+    default boolean hasCompletedExitFadeToBlack() { return false; }
     boolean isStageComplete();
     void requestExit();
     BonusStageRewards getRewards();
