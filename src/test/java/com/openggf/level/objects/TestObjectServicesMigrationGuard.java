@@ -229,6 +229,44 @@ class TestObjectServicesMigrationGuard {
     }
 
     @Test
+    void objectPackages_shouldNotReferenceProcessGlobalRuntimeFallbacksInSource() throws IOException {
+        Path srcMain = Path.of("src/main/java");
+        if (!Files.isDirectory(srcMain)) {
+            return;
+        }
+
+        List<String> violations = new ArrayList<>();
+        for (String pkg : OBJECT_PACKAGES) {
+            Path pkgDir = srcMain.resolve(pkg);
+            if (!Files.isDirectory(pkgDir)) continue;
+
+            try (Stream<Path> files = Files.walk(pkgDir)) {
+                files.filter(path -> path.toString().endsWith(".java"))
+                        .forEach(path -> {
+                            try {
+                                String className = srcMain.relativize(path).toString()
+                                        .replace('\\', '/').replace(".java", "").replace('/', '.');
+                                if (PERMANENT_EXCEPTIONS.contains(className)) {
+                                    return;
+                                }
+                                String content = Files.readString(path);
+                                if (content.contains("RuntimeManager.getCurrent()")
+                                        || content.contains("EngineServices.fromLegacySingletonsForBootstrap()")) {
+                                    violations.add(className);
+                                }
+                            } catch (IOException ignored) {
+                            }
+                        });
+            }
+        }
+
+        if (!violations.isEmpty()) {
+            fail("Object/helper packages must not reach process-global runtime fallbacks directly:\n  "
+                    + String.join("\n  ", new TreeSet<>(violations)));
+        }
+    }
+
+    @Test
     void objectPackages_shouldNotNullCheckStrictServicesAccessor() throws IOException {
         Path srcMain = Path.of("src/main/java");
         if (!Files.isDirectory(srcMain)) {

@@ -1,14 +1,13 @@
 package com.openggf.game.sonic3k.objects;
 
 import com.openggf.data.Rom;
-import com.openggf.game.EngineServices;
-import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic3k.Sonic3kLevel;
 import com.openggf.game.sonic3k.Sonic3kPlcLoader;
 import com.openggf.level.resources.PlcParser.PlcDefinition;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.level.Level;
 import com.openggf.level.LevelManager;
+import com.openggf.level.objects.BootstrapObjectServices;
 import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.resources.LoadOp;
 import com.openggf.level.resources.ResourceLoader;
@@ -43,7 +42,7 @@ public final class AizIntroTerrainSwap {
      * transition frame doesn't pay the Kosinski decompression cost.
      */
     public static synchronized void preloadOverlayData() {
-        preloadOverlayData(null);
+        preloadOverlayData(new BootstrapObjectServices());
     }
 
     public static synchronized void preloadOverlayData(ObjectServices services) {
@@ -64,7 +63,7 @@ public final class AizIntroTerrainSwap {
      * This moves the expensive tilemap rebuild from the transition frame to level load.
      */
     public static synchronized void precomputeTransitionTilemaps() {
-        precomputeTransitionTilemaps(null);
+        precomputeTransitionTilemaps(new BootstrapObjectServices());
     }
 
     public static synchronized void precomputeTransitionTilemaps(ObjectServices services) {
@@ -74,7 +73,7 @@ public final class AizIntroTerrainSwap {
             return;
         }
 
-        LevelManager levelManager = levelManager();
+        LevelManager levelManager = services.levelManager();
         if (levelManager == null) {
             return;
         }
@@ -99,11 +98,11 @@ public final class AizIntroTerrainSwap {
     }
 
     public static synchronized boolean applyMainLevelOverlays() {
-        return applyMainLevelOverlays(null);
+        return applyMainLevelOverlays(new BootstrapObjectServices());
     }
 
     public static synchronized boolean applyMainLevelOverlays(ObjectServices services) {
-        LevelManager levelManager = levelManager();
+        LevelManager levelManager = services.levelManager();
         if (levelManager == null) {
             return false;
         }
@@ -196,22 +195,7 @@ public final class AizIntroTerrainSwap {
     }
 
     private static Rom rom(ObjectServices services) throws IOException {
-        if (services != null) {
-            return services.rom();
-        }
-        return engineServices().roms().getRom();
-    }
-
-    private static LevelManager levelManager() {
-        var runtime = RuntimeManager.getCurrent();
-        return runtime != null ? runtime.getLevelManager() : null;
-    }
-
-    private static EngineServices engineServices() {
-        var runtime = RuntimeManager.getCurrent();
-        return runtime != null
-                ? runtime.getEngineServices()
-                : EngineServices.fromLegacySingletonsForBootstrap();
+        return services.rom();
     }
 
     private record OverlayData(

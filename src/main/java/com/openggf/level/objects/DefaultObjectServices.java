@@ -135,6 +135,11 @@ public class DefaultObjectServices implements ObjectServices {
     }
 
     @Override
+    public LevelManager levelManager() {
+        return lm();
+    }
+
+    @Override
     public Level currentLevel() {
         return lm().getCurrentLevel();
     }

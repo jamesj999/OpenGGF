@@ -21,6 +21,7 @@ import com.openggf.game.session.WorldSession;
 import com.openggf.graphics.FadeManager;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Level;
+import com.openggf.level.LevelManager;
 import com.openggf.level.ParallaxManager;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.rings.RingManager;
@@ -39,6 +40,7 @@ public class StubObjectServices implements ObjectServices {
     @Override public ObjectRenderManager renderManager() { return null; }
     @Override public LevelState levelGamestate() { return null; }
     @Override public RespawnState checkpointState() { return null; }
+    @Override public LevelManager levelManager() { return null; }
     @Override public Level currentLevel() { return null; }
     @Override public int romZoneId() { return 0; }
     @Override public int currentAct() { return 0; }

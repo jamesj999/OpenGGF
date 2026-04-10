@@ -2,12 +2,11 @@ package com.openggf.game.sonic3k.objects;
 
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
-import com.openggf.game.EngineServices;
-import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Palette;
 import com.openggf.level.Pattern;
+import com.openggf.level.objects.BootstrapObjectServices;
 import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.ObjectSpriteSheet;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -107,7 +106,7 @@ public class AizIntroArtLoader {
      * subsequent calls are no-ops if already loaded.
      */
     public static synchronized void loadAllIntroArt() {
-        loadAllIntroArt(null);
+        loadAllIntroArt(new BootstrapObjectServices());
     }
 
     public static synchronized void loadAllIntroArt(ObjectServices services) {
@@ -579,7 +578,7 @@ public class AizIntroArtLoader {
      * Safe to call before GL is initialized (no-ops gracefully).
      */
     public static void applyKnucklesPalette() {
-        applyKnucklesPalette(null);
+        applyKnucklesPalette(new BootstrapObjectServices());
     }
 
     public static void applyKnucklesPalette(ObjectServices services) {
@@ -599,7 +598,7 @@ public class AizIntroArtLoader {
      * Safe to call before GL is initialized (no-ops gracefully).
      */
     public static void applyEmeraldPalette() {
-        applyEmeraldPalette(null);
+        applyEmeraldPalette(new BootstrapObjectServices());
     }
 
     public static void applyEmeraldPalette(ObjectServices services) {
@@ -900,33 +899,18 @@ public class AizIntroArtLoader {
     }
 
     private static Rom currentRom() throws IOException {
-        if (activeServices != null) {
-            return activeServices.rom();
+        if (activeServices == null) {
+            throw new IOException("AIZ intro art loader requires ObjectServices");
         }
-        return engineServices().roms().getRom();
+        return activeServices.rom();
     }
 
     private static com.openggf.level.Level currentLevel() {
-        if (activeServices != null) {
-            return activeServices.currentLevel();
-        }
-        var runtime = RuntimeManager.getCurrent();
-        if (runtime == null) {
-            return null;
-        }
-        var levelManager = runtime.getLevelManager();
-        return levelManager != null ? levelManager.getCurrentLevel() : null;
+        return activeServices != null ? activeServices.currentLevel() : null;
     }
 
     private static GraphicsManager graphicsManager(ObjectServices services) {
-        return services != null ? services.graphicsManager() : engineServices().graphics();
-    }
-
-    private static EngineServices engineServices() {
-        var runtime = RuntimeManager.getCurrent();
-        return runtime != null
-                ? runtime.getEngineServices()
-                : EngineServices.fromLegacySingletonsForBootstrap();
+        return services != null ? services.graphicsManager() : null;
     }
 
     /**

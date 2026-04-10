@@ -1,7 +1,5 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.EngineServices;
-import com.openggf.game.RuntimeManager;
 import com.openggf.graphics.GraphicsManager;
 import java.util.logging.Logger;
 import com.openggf.level.Level;
@@ -107,26 +105,11 @@ public class AizIntroPaletteCycler {
     }
 
     private Level currentLevel() {
-        if (services != null) {
-            return services.currentLevel();
-        }
-        var runtime = RuntimeManager.getCurrent();
-        if (runtime == null) {
-            return null;
-        }
-        var levelManager = runtime.getLevelManager();
-        return levelManager != null ? levelManager.getCurrentLevel() : null;
+        return services != null ? services.currentLevel() : null;
     }
 
     private GraphicsManager graphicsManager() {
-        if (services != null) {
-            return services.graphicsManager();
-        }
-        var runtime = RuntimeManager.getCurrent();
-        EngineServices engineServices = runtime != null
-                ? runtime.getEngineServices()
-                : EngineServices.fromLegacySingletonsForBootstrap();
-        return engineServices.graphics();
+        return services != null ? services.graphicsManager() : null;
     }
 
     public int getPaletteFrame() { return paletteFrame; }

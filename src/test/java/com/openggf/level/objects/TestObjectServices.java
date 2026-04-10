@@ -180,6 +180,11 @@ public class TestObjectServices implements ObjectServices {
     }
 
     @Override
+    public LevelManager levelManager() {
+        return levelManager;
+    }
+
+    @Override
     public Level currentLevel() {
         return levelManager != null ? levelManager.getCurrentLevel() : null;
     }
