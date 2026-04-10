@@ -304,7 +304,7 @@ public final class S3kSlotOptionCycleSystem {
         int mask = 0xFFF0;
         if (shift != 0) {
             shiftedSymbol <<= shift;
-            mask = Integer.rotateLeft(mask, shift) & 0xFFFF;
+            mask = rotateLeft16(mask, shift);
         }
         targetWord = ((targetWord & mask) | shiftedSymbol) & 0x0777;
         state.setOptionCycleTargetReelA((targetWord >>> 8) & 0xFF);
@@ -344,6 +344,11 @@ public final class S3kSlotOptionCycleSystem {
     private static int rotateRight16(int value, int shift) {
         int masked = value & 0xFFFF;
         return ((masked >>> shift) | (masked << (16 - shift))) & 0xFFFF;
+    }
+
+    private static int rotateLeft16(int value, int shift) {
+        int masked = value & 0xFFFF;
+        return ((masked << shift) | (masked >>> (16 - shift))) & 0xFFFF;
     }
 
     private static int signedByte(int value) {

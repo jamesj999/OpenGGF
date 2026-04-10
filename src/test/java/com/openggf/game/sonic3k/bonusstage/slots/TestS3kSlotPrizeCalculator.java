@@ -7,18 +7,18 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class TestS3kSlotPrizeCalculator {
 
     @Test
-    void allThreeMatchSymbol0Gives400() {
-        assertEquals(400, S3kSlotPrizeCalculator.calculate(0, (byte) 0x00));
+    void allThreeMatchSymbol0Gives100() {
+        assertEquals(100, S3kSlotPrizeCalculator.calculate(0, (byte) 0x00));
     }
 
     @Test
-    void allThreeMatchSymbol7Gives800() {
-        assertEquals(800, S3kSlotPrizeCalculator.calculate(7, (byte) 0x77));
+    void allThreeMatchUnusedSymbol7Gives200() {
+        assertEquals(200, S3kSlotPrizeCalculator.calculate(7, (byte) 0x77));
     }
 
     @Test
     void allThreeMatchSymbol4GivesNegative() {
-        assertEquals(-4, S3kSlotPrizeCalculator.calculate(4, (byte) 0x44));
+        assertEquals(-1, S3kSlotPrizeCalculator.calculate(4, (byte) 0x44));
     }
 
     @Test
@@ -58,6 +58,21 @@ class TestS3kSlotPrizeCalculator {
 
     @Test
     void allThreeSixesGiveTripleMatchNotSixCount() {
-        assertEquals(32, S3kSlotPrizeCalculator.calculate(6, (byte) 0x66));
+        assertEquals(8, S3kSlotPrizeCalculator.calculate(6, (byte) 0x66));
+    }
+
+    @Test
+    void twoJackpotsWithSonicGivesQuadrupleSonicReward() {
+        assertEquals(120, S3kSlotPrizeCalculator.calculate(0, (byte) 0x01));
+    }
+
+    @Test
+    void jackpotWithTwoRingsGivesDoubleRingReward() {
+        assertEquals(20, S3kSlotPrizeCalculator.calculate(0, (byte) 0x55));
+    }
+
+    @Test
+    void robotnikWithTwoJackpotsIsStillNegativePrize() {
+        assertEquals(-4, S3kSlotPrizeCalculator.calculate(4, (byte) 0x00));
     }
 }

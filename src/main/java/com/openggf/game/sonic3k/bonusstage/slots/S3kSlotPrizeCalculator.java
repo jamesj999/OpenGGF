@@ -24,7 +24,7 @@ public final class S3kSlotPrizeCalculator {
         if (reelA == reelC) dispatch += 8;
 
         return switch (dispatch) {
-            case 12 -> lookupReward(reelA) * 4;
+            case 12 -> lookupReward(reelA);
             case 8 -> handleTwoMatch(reelA, reelC, reelB);
             case 4 -> handleTwoMatch(reelA, reelB, reelC);
             case 0 -> handleNoAMatch(reelA, reelB, reelC);

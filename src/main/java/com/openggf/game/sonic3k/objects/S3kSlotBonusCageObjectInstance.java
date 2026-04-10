@@ -27,6 +27,7 @@ public final class S3kSlotBonusCageObjectInstance extends AbstractObjectInstance
 
     private static final int CAPTURE_RADIUS = 0x18;
     private static final int MAX_ACTIVE_REWARDS = 0x10;
+    private static final int SPIKE_PENALTY_BUDGET = 0x64;
     private static final int RING_ANGLE_INCREMENT = 0x89;
     private static final int SPIKE_ANGLE_INCREMENT = 0x90;
 
@@ -145,7 +146,7 @@ public final class S3kSlotBonusCageObjectInstance extends AbstractObjectInstance
             }
             int payout = controller.beginCapturePayout();
             spawnRings = payout >= 0;
-            rewardsToSpawn = Math.abs(payout);
+            rewardsToSpawn = spawnRings ? payout : SPIKE_PENALTY_BUDGET;
             rewardAngle = 0;
             payoutInitialized = true;
         }

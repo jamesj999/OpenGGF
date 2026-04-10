@@ -1,5 +1,7 @@
 package com.openggf.game.sonic3k.bonusstage.slots;
 
+import com.openggf.game.sonic3k.objects.S3kSlotBonusCageObjectInstance;
+import com.openggf.level.objects.ObjectSpawn;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 import org.junit.jupiter.api.Test;
@@ -184,10 +186,36 @@ class TestS3kSlotStageController {
         assertEquals(0, state.optionCycleSpinCycleCounter());
     }
 
+    @Test
+    void negativePayoutUsesRomFixedHundredSpikeBudget() throws Exception {
+        S3kSlotStageController controller = new S3kSlotStageController();
+        controller.bootstrap();
+        AbstractPlayableSprite player = S3kSlotBonusPlayer.create("sonic",
+                S3kSlotRomData.SLOT_BONUS_CAGE_CENTER_X,
+                S3kSlotRomData.SLOT_BONUS_CAGE_CENTER_Y,
+                newRuntime());
+        S3kSlotBonusCageObjectInstance cage = new S3kSlotBonusCageObjectInstance(
+                new ObjectSpawn(S3kSlotRomData.SLOT_BONUS_CAGE_CENTER_X,
+                        S3kSlotRomData.SLOT_BONUS_CAGE_CENTER_Y, 0, 0, 0, false, 0),
+                controller);
+
+        cage.tickSlotRuntime(0, player,
+                S3kSlotRomData.SLOT_BONUS_CAGE_CENTER_X,
+                S3kSlotRomData.SLOT_BONUS_CAGE_CENTER_Y);
+        controller.stageStateForTest().setOptionCycleState(0x18);
+        controller.latchResolvedPrizeForCapture(-1);
+        cage.tickSlotRuntime(2, player,
+                S3kSlotRomData.SLOT_BONUS_CAGE_CENTER_X,
+                S3kSlotRomData.SLOT_BONUS_CAGE_CENTER_Y);
+
+        assertEquals(0x64, cage.pendingRewardsForTest());
+    }
+
     private static S3kSlotPlayerRuntime newRuntime() {
         S3kSlotStageState state = S3kSlotStageState.bootstrap();
         S3kSlotCollisionSystem collisionSystem = new S3kSlotCollisionSystem(
                 S3kSlotRenderBuffers.fromRomData(), state);
         return new S3kSlotPlayerRuntime(state, collisionSystem);
     }
+
 }
