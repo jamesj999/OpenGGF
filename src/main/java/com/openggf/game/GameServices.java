@@ -44,9 +44,29 @@ public final class GameServices {
         return RuntimeManager.getCurrent();
     }
 
+    public static Camera cameraOrNull() {
+        GameRuntime rt = runtimeOrNull();
+        return rt != null ? rt.getCamera() : null;
+    }
+
     public static LevelManager levelOrNull() {
         GameRuntime rt = runtimeOrNull();
         return rt != null ? rt.getLevelManager() : null;
+    }
+
+    public static GameStateManager gameStateOrNull() {
+        GameRuntime rt = runtimeOrNull();
+        return rt != null ? rt.getGameState() : null;
+    }
+
+    public static TimerManager timersOrNull() {
+        GameRuntime rt = runtimeOrNull();
+        return rt != null ? rt.getTimers() : null;
+    }
+
+    public static GameRng rngOrNull() {
+        GameRuntime rt = runtimeOrNull();
+        return rt != null ? rt.getRng() : null;
     }
 
     public static ParallaxManager parallaxOrNull() {
@@ -57,6 +77,26 @@ public final class GameServices {
     public static FadeManager fadeOrNull() {
         GameRuntime rt = runtimeOrNull();
         return rt != null ? rt.getFadeManager() : null;
+    }
+
+    public static SpriteManager spritesOrNull() {
+        GameRuntime rt = runtimeOrNull();
+        return rt != null ? rt.getSpriteManager() : null;
+    }
+
+    public static CollisionSystem collisionOrNull() {
+        GameRuntime rt = runtimeOrNull();
+        return rt != null ? rt.getCollisionSystem() : null;
+    }
+
+    public static TerrainCollisionManager terrainCollisionOrNull() {
+        GameRuntime rt = runtimeOrNull();
+        return rt != null ? rt.getTerrainCollisionManager() : null;
+    }
+
+    public static WaterSystem waterOrNull() {
+        GameRuntime rt = runtimeOrNull();
+        return rt != null ? rt.getWaterSystem() : null;
     }
 
     public static BonusStageProvider bonusStageOrNull() {

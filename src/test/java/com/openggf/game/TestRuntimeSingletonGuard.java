@@ -76,7 +76,12 @@ public class TestRuntimeSingletonGuard {
             "\\b(\\w+)\\.getInstance\\(\\)");
 
     private static final Pattern STRICT_GAME_SERVICES_NULL_CHECK = Pattern.compile(
-            "GameServices\\.(camera|level|gameState|timers|rng|fade|sprites|collision|terrainCollision|parallax|water|bonusStage)\\(\\)\\s*(==|!=)\\s*null");
+            "(?:com\\.openggf\\.game\\.)?GameServices\\.(camera|level|gameState|timers|rng|fade|sprites|collision|terrainCollision|parallax|water|bonusStage)\\(\\)\\s*(==|!=)\\s*null");
+
+    private static final Pattern STRICT_GAME_SERVICES_LOCAL_NULL_CHECK = Pattern.compile(
+            "(?:[\\w.<>?]+\\s+)?(\\w+)\\s*=\\s*(?:com\\.openggf\\.game\\.)?GameServices\\."
+                    + "(camera|level|gameState|timers|rng|fade|sprites|collision|terrainCollision|parallax|water|bonusStage)\\(\\)\\s*;\\s*"
+                    + "if\\s*\\(\\s*\\1\\s*(==|!=)\\s*null\\s*\\)");
 
     @Test
     public void productionCodeDoesNotCallRuntimeManagerSingletons() throws IOException {
@@ -162,6 +167,14 @@ public class TestRuntimeSingletonGuard {
                     violations.add(String.format(
                             "%s:%d — GameServices.%s() %s null",
                             relativePath, source.lineAt(matcher.start()), matcher.group(1), matcher.group(2)));
+                }
+                matcher = STRICT_GAME_SERVICES_LOCAL_NULL_CHECK.matcher(source.text);
+                while (matcher.find()) {
+                    String relativePath = srcMain.relativize(file).toString();
+                    violations.add(String.format(
+                            "%s:%d — %s = GameServices.%s(); if (%s %s null)",
+                            relativePath, source.lineAt(matcher.start()), matcher.group(1), matcher.group(2),
+                            matcher.group(1), matcher.group(3)));
                 }
 
                 return FileVisitResult.CONTINUE;
