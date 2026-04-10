@@ -4554,7 +4554,17 @@ public class ObjectManager {
                 }
             }
 
-            if (classifyAbsDistX <= absDistY) {
+            // ROM: SolidObjectTop is a separate routine that ONLY checks for top
+            // landing — it has no side/vertical classification at all (sonic3k.asm
+            // SolidObjectTop_1P, lines 41793-41819).  Skip the side path entirely
+            // for topSolidOnly so contacts always reach the vertical landing check.
+            //
+            // For SolidObjectFull (not topSolidOnly):
+            // ROM: cmp.w d1,d5; bhi.w SolidObject_TopBottom
+            //      cmpi.w #4,d1; bls.w SolidObject_TopBottom
+            // Side resolution only when horizontal penetration <= vertical AND
+            // vertical penetration > 4.
+            if (!topSolidOnly && classifyAbsDistX <= absDistY && absDistY > 4) {
                 if (instance != null
                         && instance.getSpawn().objectId() == OBJ85_ID
                         && instance.getSpawn().subtype() == 0
@@ -4612,24 +4622,13 @@ public class ObjectManager {
                     }
                 }
 
-                if (topSolidOnly) {
-                    return null;
-                }
                 // Determine which side player is on based on relX, not distX.
                 // When distX=0 (at exact edge), distX>0 would be false for both sides,
                 // causing incorrect movingInto detection for left side pushes.
                 boolean leftSide = relX < halfWidth;
-                // ROM: cmpi.w #4,d1
-                boolean nearVerticalEdge = absDistY <= 4;
                 // Only set pushing if player is on ground AND actively pressing into the object
                 boolean movingInto = leftSide ? player.getXSpeed() > 0 : player.getXSpeed() < 0;
                 boolean pushing = !player.getAir() && movingInto;
-
-                if (nearVerticalEdge) {
-                    // Near top/bottom edge: don't stop player and don't set pushing.
-                    // This avoids false push-state while stepping across adjacent solid tops.
-                    return SolidContact.SIDE_NO_PUSH;
-                }
                 // ROM: sub SolidObject.asm lines 173-196
                 // When d0==0 (distX==0), ROM branches to Solid_Centre which does
                 // "sub.w d0,obX(a1)" (no-op) — NO speed zeroing, NO position change.
@@ -4693,14 +4692,18 @@ public class ObjectManager {
                     return null;
                 }
 
-                // ROM: cmpi.w #$10,d3
-                int landingThreshold = 0x10;
-                if (distY >= landingThreshold) {
+                // ROM: SolidObjectFull uses "cmpi.w #$10,d3; blo" → d3 < $10 (strict).
+                // SolidObjectTop uses "cmpi.w #-$10,d0; blo" → d0 ≥ -$10, i.e. distY ≤ $10.
+                // The one-pixel difference matters for buttons placed flush with terrain.
+                if (topSolidOnly ? distY > 0x10 : distY >= 0x10) {
                     return null;
                 }
-                // ROM: Solid_Landed uses narrow obActWid for NEW landings only.
+                // ROM: SolidObjectFull's Solid_Landed re-reads the narrower obActWid
+                // for NEW landings. SolidObjectTop uses full d1 (same as the initial
+                // collision box we already passed), so no further width check needed.
                 // When sticky (already riding), ROM uses ExitPlatform's full collision width.
-                if (!sticky && !isWithinTopLandingWidth(instance, player, relX, halfWidth)) {
+                if (!sticky && !topSolidOnly
+                        && !isWithinTopLandingWidth(instance, player, relX, halfWidth)) {
                     return null;
                 }
 
@@ -4799,10 +4802,8 @@ public class ObjectManager {
                 // Provider explicitly set a narrower landing width
                 allowedHalfWidth = configuredHalfWidth;
             } else {
-                // ROM: Solid_Landed re-reads obActWid (= width_pixels), which is
-                // narrower than collision halfWidth (= width_pixels + $B). This applies
-                // to both S1 and S2/S3K — ALL games use the standard SolidObject
-                // convention where collision width = obActWid + $B.
+                // ROM: SolidObjectFull's Solid_Landed re-reads obActWid (= width_pixels),
+                // which is narrower than collision halfWidth (= width_pixels + $B).
                 allowedHalfWidth = Math.max(0, collisionHalfWidth - 0x0B);
             }
 
