@@ -1,6 +1,7 @@
 package com.openggf;
 
 import com.openggf.debug.DebugOverlayToggle;
+import com.openggf.debug.DebugOverlayManager;
 import com.openggf.editor.EditorInputHandler;
 import com.openggf.game.*;
 
@@ -43,6 +44,7 @@ import com.openggf.game.DemoLamppostState;
 import com.openggf.level.WaterSystem;
 import com.openggf.debug.playback.PlaybackDebugManager;
 import com.openggf.level.SeamlessLevelTransitionRequest;
+import com.openggf.data.RomManager;
 
 import java.io.IOException;
 import java.util.Comparator;
@@ -82,6 +84,8 @@ public class GameLoop {
 
     private final SonicConfigurationService configService;
     private final AudioManager audioManager;
+    private final RomManager romManager;
+    private final DebugOverlayManager debugOverlayManager;
     private SpriteManager spriteManager;
     private Camera camera;
     private TimerManager timerManager;
@@ -170,6 +174,8 @@ public class GameLoop {
         engineServices = Objects.requireNonNull(engineServices, "engineServices");
         this.configService = engineServices.configuration();
         this.audioManager = engineServices.audio();
+        this.romManager = engineServices.roms();
+        this.debugOverlayManager = engineServices.debugOverlay();
         this.profiler = engineServices.profiler();
         this.playbackDebugManager = engineServices.playbackDebug();
         refreshRuntimeBindings();
@@ -406,7 +412,7 @@ public class GameLoop {
         profiler.endSection("timers");
 
         profiler.beginSection("input");
-        GameServices.debugOverlay().updateInput(inputHandler);
+        debugOverlayManager.updateInput(inputHandler);
         DebugObjectArtViewer.getInstance().updateInput(inputHandler);
 
         // Check for Special Stage toggle (TAB by default)
@@ -625,8 +631,7 @@ public class GameLoop {
                 }
             }
 
-            boolean freezeForArtViewer = GameServices.debugOverlay()
-                    .isEnabled(DebugOverlayToggle.OBJECT_ART_VIEWER);
+            boolean freezeForArtViewer = debugOverlayManager.isEnabled(DebugOverlayToggle.OBJECT_ART_VIEWER);
             // Freeze level updates during special/bonus stage entry transitions
             boolean freezeForSpecialStage = specialStageTransitionPending;
             boolean freezeForBonusStage = bonusStageTransitionPending;
@@ -2038,7 +2043,7 @@ public class GameLoop {
 
         // Ensure the ROM is loaded and audio is initialized
         try {
-            var rom = GameServices.rom().getRom();
+            var rom = romManager.getRom();
             var gameModule = GameServices.module();
 
             audioManager.setAudioProfile(gameModule.getAudioProfile());
@@ -2201,7 +2206,7 @@ public class GameLoop {
 
         // Ensure the ROM is loaded and audio is initialized before level select
         try {
-            var rom = GameServices.rom().getRom();
+            var rom = romManager.getRom();
             var gameModule = GameServices.module();
 
             // Initialize audio system with game module's audio profile
