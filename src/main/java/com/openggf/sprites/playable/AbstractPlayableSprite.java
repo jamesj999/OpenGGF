@@ -795,8 +795,16 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 return GameServices.gameState();
         }
 
+        public final GameStateManager currentGameStateOrNull() {
+                return GameServices.gameStateOrNull();
+        }
+
         public final CollisionSystem currentCollisionSystem() {
                 return GameServices.collision();
+        }
+
+        public final CollisionSystem currentCollisionSystemOrNull() {
+                return GameServices.collisionOrNull();
         }
 
         public final AudioManager currentAudioManager() {
