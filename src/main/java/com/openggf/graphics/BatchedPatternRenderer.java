@@ -8,14 +8,16 @@ import static org.lwjgl.opengl.GL30.glBindVertexArray;
 import static org.lwjgl.opengl.GL30.glDeleteVertexArrays;
 import static org.lwjgl.opengl.GL30.glGenVertexArrays;
 
-import org.lwjgl.system.MemoryUtil;
 import com.openggf.Engine;
+import org.lwjgl.system.MemoryUtil;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.game.EngineServices;
 import com.openggf.level.PatternDesc;
 
 import java.nio.FloatBuffer;
 import java.util.ArrayDeque;
+import java.util.Objects;
 import java.util.logging.Logger;
 
 /**
@@ -37,23 +39,6 @@ public class BatchedPatternRenderer {
 
     private static final Logger LOGGER = Logger.getLogger(BatchedPatternRenderer.class.getName());
 
-    private static GraphicsManager cachedGm;
-    private static Engine cachedEngine;
-
-    private static GraphicsManager getGm() {
-        if (cachedGm == null) {
-            cachedGm = GraphicsManager.getInstance();
-        }
-        return cachedGm;
-    }
-
-    private static Engine getEngine() {
-        if (cachedEngine == null) {
-            cachedEngine = Engine.getInstance();
-        }
-        return cachedEngine;
-    }
-
     // Maximum patterns per batch
     private static final int MAX_PATTERNS_PER_BATCH = 4096;
     private static final int COMMAND_POOL_LIMIT = 8;
@@ -62,6 +47,8 @@ public class BatchedPatternRenderer {
     private static final int FLOATS_PER_PATTERN_VERTS = 6 * 2;
     // 6 vertices per pattern (2 triangles), 2 floats (u,v) per vertex
     private static final int FLOATS_PER_PATTERN_TEXCOORDS = 6 * 2;
+    private static BatchedPatternRenderer instance;
+    private final GraphicsManager graphicsManager;
 
     // Pre-allocated buffers - reused each frame
     private final float[] vertexData;
@@ -78,9 +65,6 @@ public class BatchedPatternRenderer {
     // Track whether a shadow batch is active (uses different shader and blend mode)
     private boolean shadowBatchActive = false;
 
-    // Singleton instance
-    private static BatchedPatternRenderer instance;
-
     public static synchronized BatchedPatternRenderer getInstance() {
         if (instance == null) {
             instance = new BatchedPatternRenderer();
@@ -92,8 +76,15 @@ public class BatchedPatternRenderer {
         return instance;
     }
 
-    private BatchedPatternRenderer() {
-        this.screenHeight = SonicConfigurationService.getInstance().getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
+    public BatchedPatternRenderer() {
+        this(EngineServices.fromLegacySingletonsForBootstrap().graphics(),
+                EngineServices.fromLegacySingletonsForBootstrap().configuration());
+    }
+
+    public BatchedPatternRenderer(GraphicsManager graphicsManager, SonicConfigurationService configService) {
+        this.graphicsManager = Objects.requireNonNull(graphicsManager, "graphicsManager");
+        Objects.requireNonNull(configService, "configService");
+        this.screenHeight = configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
         this.vertexData = new float[MAX_PATTERNS_PER_BATCH * FLOATS_PER_PATTERN_VERTS];
         this.texCoordData = new float[MAX_PATTERNS_PER_BATCH * FLOATS_PER_PATTERN_TEXCOORDS];
         this.paletteCoordData = new float[MAX_PATTERNS_PER_BATCH * 6];
@@ -105,7 +96,7 @@ public class BatchedPatternRenderer {
      * Otherwise returns the normal screen height.
      */
     private int getCurrentDisplayHeight() {
-        Engine engine = getEngine();
+        Engine engine = graphicsManager.getEngine();
         if (engine != null && engine.isFBOProjectionActive()) {
             return engine.getCurrentDisplayHeight();
         }
@@ -351,7 +342,7 @@ public class BatchedPatternRenderer {
             return null;
         }
 
-        GraphicsManager gm = getGm();
+        GraphicsManager gm = graphicsManager;
         boolean usePriority = gm.isUseSpritePriorityShader();
         boolean highPri = gm.getCurrentSpriteHighPriority();
         BatchRenderCommand command = obtainBatchCommand();
@@ -567,7 +558,7 @@ public class BatchedPatternRenderer {
             }
             ensureVbos();
 
-            GraphicsManager gm = getGm();
+            GraphicsManager gm = graphicsManager;
             // Use captured priority shader state from batch creation time
             ShaderProgram shader;
             if (usePriorityShader) {
@@ -844,7 +835,7 @@ public class BatchedPatternRenderer {
             }
             ensureVbos();
 
-            GraphicsManager gm = getGm();
+            GraphicsManager gm = graphicsManager;
             ShaderProgram shadowShader = gm.getShadowShaderProgram();
 
             // Setup state for shadow rendering

@@ -1,14 +1,16 @@
 package com.openggf.graphics;
 
-import org.lwjgl.system.MemoryUtil;
 import com.openggf.Engine;
+import org.lwjgl.system.MemoryUtil;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
+import com.openggf.game.EngineServices;
 import com.openggf.level.PatternDesc;
 
 import java.io.IOException;
 import java.nio.FloatBuffer;
 import java.util.ArrayDeque;
+import java.util.Objects;
 import java.util.logging.Logger;
 
 import static org.lwjgl.opengl.GL11.*;
@@ -28,28 +30,12 @@ import static org.lwjgl.opengl.GL33.*;
 public class InstancedPatternRenderer {
     private static final Logger LOGGER = Logger.getLogger(InstancedPatternRenderer.class.getName());
 
-    private static GraphicsManager cachedGm;
-    private static Engine cachedEngine;
-
-    private static GraphicsManager getGm() {
-        if (cachedGm == null) {
-            cachedGm = GraphicsManager.getInstance();
-        }
-        return cachedGm;
-    }
-
-    private static Engine getEngine() {
-        if (cachedEngine == null) {
-            cachedEngine = Engine.getInstance();
-        }
-        return cachedEngine;
-    }
-
     private static final int MAX_PATTERNS_PER_BATCH = 4096;
     private static final int FLOATS_PER_INSTANCE = 10; // x,y,w,h,u0,v0,u1,v1,palette,highPriority
     private static final int COMMAND_POOL_LIMIT = 8;
     private static final String PRIORITY_FRAGMENT_SHADER_PATH = "shaders/shader_instanced_priority.glsl";
 
+    private final GraphicsManager graphicsManager;
     private final int screenHeight;
     private final float[] instanceData;
 
@@ -93,7 +79,14 @@ public class InstancedPatternRenderer {
     private final ArrayDeque<InstancedBatchCommand> commandPool = new ArrayDeque<>();
 
     public InstancedPatternRenderer() {
-        this.screenHeight = SonicConfigurationService.getInstance().getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
+        this(EngineServices.fromLegacySingletonsForBootstrap().graphics(),
+                EngineServices.fromLegacySingletonsForBootstrap().configuration());
+    }
+
+    public InstancedPatternRenderer(GraphicsManager graphicsManager, SonicConfigurationService configService) {
+        this.graphicsManager = Objects.requireNonNull(graphicsManager, "graphicsManager");
+        Objects.requireNonNull(configService, "configService");
+        this.screenHeight = configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
         this.instanceData = new float[MAX_PATTERNS_PER_BATCH * FLOATS_PER_INSTANCE];
     }
 
@@ -103,7 +96,7 @@ public class InstancedPatternRenderer {
      * Otherwise returns the normal screen height.
      */
     private int getCurrentDisplayHeight() {
-        Engine engine = getEngine();
+        Engine engine = graphicsManager.getEngine();
         if (engine != null && engine.isFBOProjectionActive()) {
             return engine.getCurrentDisplayHeight();
         }
@@ -207,7 +200,7 @@ public class InstancedPatternRenderer {
         // Per-piece VDP priority: use the ROM's per-tile priority bit from the
         // PatternDesc (bit 15), OR'd with the global override for backward compat
         // (lost rings, hurt state, bonus stage player override).
-        GraphicsManager gm = getGm();
+        GraphicsManager gm = graphicsManager;
         float highPriority = (desc.getPriority() || gm.getCurrentSpriteHighPriority()) ? 1.0f : 0.0f;
 
         int offset = instanceCount * FLOATS_PER_INSTANCE;
@@ -261,7 +254,7 @@ public class InstancedPatternRenderer {
         }
 
         // Per-piece VDP priority (same OR logic as addPattern)
-        GraphicsManager gm = getGm();
+        GraphicsManager gm = graphicsManager;
         float highPriority = (desc.getPriority() || gm.getCurrentSpriteHighPriority()) ? 1.0f : 0.0f;
 
         int offset = instanceCount * FLOATS_PER_INSTANCE;
@@ -293,7 +286,7 @@ public class InstancedPatternRenderer {
             batchActive = false;
             return null;
         }
-        GraphicsManager gm = getGm();
+        GraphicsManager gm = graphicsManager;
         boolean usePriority = gm.isUseSpritePriorityShader() && instancedPriorityShader != null;
 
         InstancedBatchCommand command = obtainCommand();
@@ -470,7 +463,7 @@ public class InstancedPatternRenderer {
 
             // Clear any accumulated GL errors from previous operations
             while (glGetError() != GL_NO_ERROR) { /* drain errors */ }
-            GraphicsManager gm = getGm();
+            GraphicsManager gm = graphicsManager;
             boolean useWaterShader = gm.getShaderProgram() instanceof WaterShaderProgram;
             // Use captured priority shader state from batch creation time
             boolean usePriorityShader = this.usePriorityShader;

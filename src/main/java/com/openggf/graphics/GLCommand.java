@@ -1,6 +1,7 @@
 package com.openggf.graphics;
 
 import org.lwjgl.system.MemoryUtil;
+import com.openggf.game.EngineServices;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 
@@ -17,11 +18,6 @@ import static org.lwjgl.opengl.GL30.*;
  */
 public class GLCommand implements GLCommandable {
 	private static boolean inGroup = false;
-	// Cached screen dimensions to avoid repeated synchronized getInstance() calls
-	private static final int SCREEN_HEIGHT_PIXELS = SonicConfigurationService.getInstance()
-			.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
-	private static final int SCREEN_HEIGHT = SonicConfigurationService.getInstance()
-			.getInt(SonicConfiguration.SCREEN_HEIGHT);
 
 	public enum CommandType {
 		RECTI, VERTEX2I, USE_PROGRAM, ENABLE, DISABLE, CUSTOM;
@@ -58,6 +54,8 @@ public class GLCommand implements GLCommandable {
 	private int y2;
 	private int value;
 	private GLCommandable customAction;
+	private final GraphicsManager graphicsManager;
+	private final int screenHeightPixels;
 
 	// Static VAO/VBO for primitive rendering (shared across all instances)
 	private static int vaoId = 0;
@@ -72,11 +70,27 @@ public class GLCommand implements GLCommandable {
 	private static int lastProgramId = -1;
 
 	public GLCommand(CommandType commandType, int value) {
+		this(commandType, value, bootstrapGraphicsManager(), bootstrapConfigService());
+	}
+
+	private GLCommand(CommandType commandType, int value,
+			GraphicsManager graphicsManager,
+			SonicConfigurationService configService) {
+		this.graphicsManager = graphicsManager;
+		this.screenHeightPixels = configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
 		this.glCmdCommandType = commandType;
 		this.value = value;
 	}
 
 	public GLCommand(CommandType commandType, GLCommandable customAction) {
+		this(commandType, customAction, bootstrapGraphicsManager(), bootstrapConfigService());
+	}
+
+	private GLCommand(CommandType commandType, GLCommandable customAction,
+			GraphicsManager graphicsManager,
+			SonicConfigurationService configService) {
+		this.graphicsManager = graphicsManager;
+		this.screenHeightPixels = configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
 		this.glCmdCommandType = commandType;
 		this.customAction = customAction;
 	}
@@ -96,6 +110,15 @@ public class GLCommand implements GLCommandable {
 	 */
 	public GLCommand(CommandType glCmdCommandType, int drawMethod, float colour1, float colour2,
 			float colour3, int x1, int y1, int x2, int y2) {
+		this(glCmdCommandType, drawMethod, colour1, colour2, colour3, x1, y1, x2, y2,
+				bootstrapGraphicsManager(), bootstrapConfigService());
+	}
+
+	private GLCommand(CommandType glCmdCommandType, int drawMethod, float colour1, float colour2,
+			float colour3, int x1, int y1, int x2, int y2,
+			GraphicsManager graphicsManager, SonicConfigurationService configService) {
+		this.graphicsManager = graphicsManager;
+		this.screenHeightPixels = configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
 		this.glCmdCommandType = glCmdCommandType;
 		this.drawMethod = drawMethod;
 		this.colour1 = colour1;
@@ -103,15 +126,25 @@ public class GLCommand implements GLCommandable {
 		this.colour3 = colour3;
 		this.alpha = 1.0f;
 		this.x1 = x1;
-		this.y1 = SCREEN_HEIGHT_PIXELS - y1;
+		this.y1 = screenHeightPixels - y1;
 		this.x2 = x2;
-		this.y2 = SCREEN_HEIGHT_PIXELS - y2;
+		this.y2 = screenHeightPixels - y2;
 		this.blendMode = defaultBlendMode;
 	}
 
 	public GLCommand(CommandType glCmdCommandType, int drawMethod, BlendType blendType, float colour1,
 			float colour2,
 			float colour3, int x1, int y1, int x2, int y2) {
+		this(glCmdCommandType, drawMethod, blendType, colour1, colour2, colour3, x1, y1, x2, y2,
+				bootstrapGraphicsManager(), bootstrapConfigService());
+	}
+
+	private GLCommand(CommandType glCmdCommandType, int drawMethod, BlendType blendType, float colour1,
+			float colour2,
+			float colour3, int x1, int y1, int x2, int y2,
+			GraphicsManager graphicsManager, SonicConfigurationService configService) {
+		this.graphicsManager = graphicsManager;
+		this.screenHeightPixels = configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
 		this.glCmdCommandType = glCmdCommandType;
 		this.drawMethod = drawMethod;
 		this.colour1 = colour1;
@@ -119,15 +152,25 @@ public class GLCommand implements GLCommandable {
 		this.colour3 = colour3;
 		this.alpha = 1.0f;
 		this.x1 = x1;
-		this.y1 = SCREEN_HEIGHT_PIXELS - y1;
+		this.y1 = screenHeightPixels - y1;
 		this.x2 = x2;
-		this.y2 = SCREEN_HEIGHT_PIXELS - y2;
+		this.y2 = screenHeightPixels - y2;
 		this.blendMode = blendType;
 	}
 
 	public GLCommand(CommandType glCmdCommandType, int drawMethod, BlendType blendType, float colour1,
 			float colour2,
 			float colour3, float alpha, int x1, int y1, int x2, int y2) {
+		this(glCmdCommandType, drawMethod, blendType, colour1, colour2, colour3, alpha, x1, y1, x2, y2,
+				bootstrapGraphicsManager(), bootstrapConfigService());
+	}
+
+	private GLCommand(CommandType glCmdCommandType, int drawMethod, BlendType blendType, float colour1,
+			float colour2,
+			float colour3, float alpha, int x1, int y1, int x2, int y2,
+			GraphicsManager graphicsManager, SonicConfigurationService configService) {
+		this.graphicsManager = graphicsManager;
+		this.screenHeightPixels = configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
 		this.glCmdCommandType = glCmdCommandType;
 		this.drawMethod = drawMethod;
 		this.colour1 = colour1;
@@ -135,9 +178,9 @@ public class GLCommand implements GLCommandable {
 		this.colour3 = colour3;
 		this.alpha = alpha;
 		this.x1 = x1;
-		this.y1 = SCREEN_HEIGHT_PIXELS - y1;
+		this.y1 = screenHeightPixels - y1;
 		this.x2 = x2;
-		this.y2 = SCREEN_HEIGHT_PIXELS - y2;
+		this.y2 = screenHeightPixels - y2;
 		this.blendMode = blendType;
 	}
 
@@ -159,7 +202,7 @@ public class GLCommand implements GLCommandable {
 	}
 
 	private static void setupShaderAndUniforms(int cameraX, int cameraY) {
-		GraphicsManager gm = GraphicsManager.getInstance();
+		GraphicsManager gm = bootstrapGraphicsManager();
 		ShaderProgram debugShader = gm.getDebugShaderProgram();
 		if (debugShader == null) {
 			return;
@@ -187,6 +230,14 @@ public class GLCommand implements GLCommandable {
 		if (cachedCameraOffsetLoc != -1) {
 			glUniform2f(cachedCameraOffsetLoc, 0.0f, 0.0f);
 		}
+	}
+
+	private static GraphicsManager bootstrapGraphicsManager() {
+		return EngineServices.fromLegacySingletonsForBootstrap().graphics();
+	}
+
+	private static SonicConfigurationService bootstrapConfigService() {
+		return EngineServices.fromLegacySingletonsForBootstrap().configuration();
 	}
 
 	public void execute(int cameraX, int cameraY, int cameraWidth, int cameraHeight) {

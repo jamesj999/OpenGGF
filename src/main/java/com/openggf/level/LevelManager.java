@@ -1237,9 +1237,11 @@ public class LevelManager {
         RenderContext.clearSidekickContexts();
         dustBankCount = 0;
         tailsTailBankCount = 0;
+        EngineServices engineServices = EngineServices.fromLegacySingletonsForBootstrap();
+        CrossGameFeatureProvider crossGame = engineServices.crossGameFeatures();
         PlayerSpriteArtProvider artProvider;
         if (CrossGameFeatureProvider.isActive()) {
-            artProvider = CrossGameFeatureProvider.getInstance();
+            artProvider = crossGame;
         } else if (game instanceof PlayerSpriteArtProvider p) {
             artProvider = p;
         } else {
@@ -1258,8 +1260,7 @@ public class LevelManager {
             }
             PlayerSpriteRenderer renderer = new PlayerSpriteRenderer(artSet);
             if (CrossGameFeatureProvider.isActive()) {
-                renderer.setRenderContext(
-                        CrossGameFeatureProvider.getInstance().getDonorRenderContext());
+                renderer.setRenderContext(crossGame.getDonorRenderContext());
             }
             renderer.ensureCached(graphicsManager);
             playable.setSpriteRenderer(renderer);
@@ -1357,8 +1358,7 @@ public class LevelManager {
                 if (sidekickPaletteCtx != null) {
                     sidekickRenderer.setRenderContext(sidekickPaletteCtx);
                 } else if (CrossGameFeatureProvider.isActive()) {
-                    sidekickRenderer.setRenderContext(
-                            CrossGameFeatureProvider.getInstance().getDonorRenderContext());
+                    sidekickRenderer.setRenderContext(crossGame.getDonorRenderContext());
                 }
                 sidekickRenderer.ensureCached(graphicsManager);
                 sidekick.setSpriteRenderer(sidekickRenderer);
@@ -1456,9 +1456,11 @@ public class LevelManager {
     }
 
     private void initSpindashDust(AbstractPlayableSprite playable) {
+        EngineServices engineServices = EngineServices.fromLegacySingletonsForBootstrap();
+        CrossGameFeatureProvider crossGame = engineServices.crossGameFeatures();
         SpindashDustArtProvider dustProv;
         if (CrossGameFeatureProvider.isActive()) {
-            dustProv = CrossGameFeatureProvider.getInstance();
+            dustProv = crossGame;
         } else if (game instanceof SpindashDustArtProvider d) {
             dustProv = d;
         } else {
@@ -1493,8 +1495,7 @@ public class LevelManager {
             dustBankCount++;
             PlayerSpriteRenderer dustRenderer = new PlayerSpriteRenderer(dustArt);
             if (CrossGameFeatureProvider.isActive()) {
-                dustRenderer.setRenderContext(
-                        CrossGameFeatureProvider.getInstance().getDonorRenderContext());
+                dustRenderer.setRenderContext(crossGame.getDonorRenderContext());
             }
             dustRenderer.ensureCached(graphicsManager);
             playable.setSpindashDustController(new SpindashDustController(playable, dustRenderer));
@@ -1515,16 +1516,18 @@ public class LevelManager {
             playable.setTailsTailsController(null);
             return;
         }
+        EngineServices engineServices = EngineServices.fromLegacySingletonsForBootstrap();
+        CrossGameFeatureProvider crossGame = engineServices.crossGameFeatures();
         // Check donor game first (cross-game donation), then fall back to base game module
         boolean isS3k = CrossGameFeatureProvider.isActive()
-                ? CrossGameFeatureProvider.getInstance().hasSeparateTailsTailArt()
+                ? crossGame.hasSeparateTailsTailArt()
                 : gameModule.hasSeparateTailsTailArt();
         SpriteArtSet tailsArt;
         if (isS3k) {
             // S3K: Obj05 uses a completely separate art/mapping/DPLC set
             if (CrossGameFeatureProvider.isActive()) {
                 try {
-                    tailsArt = CrossGameFeatureProvider.getInstance().loadTailsTailArt();
+                    tailsArt = crossGame.loadTailsTailArt();
                 } catch (IOException e) {
                     LOGGER.log(SEVERE, "Failed to load cross-game tails tail art.", e);
                     tailsArt = null;
@@ -1571,8 +1574,7 @@ public class LevelManager {
         tailsTailBankCount++;
         PlayerSpriteRenderer tailsRenderer = new PlayerSpriteRenderer(tailsArt);
         if (CrossGameFeatureProvider.isActive()) {
-            tailsRenderer.setRenderContext(
-                    CrossGameFeatureProvider.getInstance().getDonorRenderContext());
+            tailsRenderer.setRenderContext(crossGame.getDonorRenderContext());
         }
         tailsRenderer.ensureCached(graphicsManager);
         playable.setTailsTailsController(new TailsTailsController(playable, tailsRenderer, isS3k));

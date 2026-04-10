@@ -2,6 +2,7 @@ package com.openggf.graphics;
 
 import com.openggf.Engine;
 import com.openggf.camera.Camera;
+import com.openggf.game.EngineServices;
 import com.openggf.game.GameServices;
 import com.openggf.graphics.pipeline.UiRenderPipeline;
 import com.openggf.level.Palette;
@@ -169,7 +170,8 @@ public class GraphicsManager {
 		this.shadowShaderProgram.cacheUniformLocations();
 		this.tilemapGpuRenderer = new TilemapGpuRenderer();
 		this.tilemapGpuRenderer.init(TILEMAP_SHADER_PATH);
-		this.instancedPatternRenderer = new InstancedPatternRenderer();
+		this.instancedPatternRenderer = new InstancedPatternRenderer(this,
+				EngineServices.fromLegacySingletonsForBootstrap().configuration());
 		this.instancedPatternRenderer.init(INSTANCED_VERTEX_SHADER_PATH, pixelShaderPath, WATER_SHADER_PATH);
 
 		syncRuntimeManagedReferences();
@@ -296,7 +298,7 @@ public class GraphicsManager {
 		}
 
 		// Cleanup pattern render state after all commands
-		PatternRenderCommand.cleanupFrameState();
+		PatternRenderCommand.cleanupFrameState(this);
 
 		commands.clear();
 	}
@@ -553,7 +555,7 @@ public class GraphicsManager {
 
 		if (!usedBatch) {
 			// Fallback to individual commands (use pooled allocation)
-			PatternRenderCommand command = PatternRenderCommand.obtain(entry, paletteTextureId, desc, x, y);
+			PatternRenderCommand command = PatternRenderCommand.obtain(entry, paletteTextureId, desc, x, y, this);
 			registerCommand(command);
 		}
 	}
@@ -608,7 +610,8 @@ public class GraphicsManager {
 			return;
 		}
 		if (batchedRenderer == null) {
-			batchedRenderer = BatchedPatternRenderer.getInstance();
+			batchedRenderer = new BatchedPatternRenderer(this,
+					EngineServices.fromLegacySingletonsForBootstrap().configuration());
 		}
 		batchedRenderer.beginBatch();
 	}
@@ -647,7 +650,8 @@ public class GraphicsManager {
 			return;
 		}
 		if (batchedRenderer == null) {
-			batchedRenderer = BatchedPatternRenderer.getInstance();
+			batchedRenderer = new BatchedPatternRenderer(this,
+					EngineServices.fromLegacySingletonsForBootstrap().configuration());
 		}
 		batchedRenderer.beginShadowBatch();
 	}
@@ -996,9 +1000,8 @@ public class GraphicsManager {
 			if (patternAtlas != null) {
 				patternAtlas.cleanupHeadless();
 			}
-			BatchedPatternRenderer existingBatch = BatchedPatternRenderer.getInstanceIfInitialized();
-			if (existingBatch != null) {
-				existingBatch.cleanupHeadless();
+			if (batchedRenderer != null) {
+				batchedRenderer.cleanupHeadless();
 			}
 			if (instancedPatternRenderer != null) {
 				instancedPatternRenderer.cleanupHeadless();
@@ -1028,9 +1031,8 @@ public class GraphicsManager {
 		if (shadowShaderProgram != null) {
 			shadowShaderProgram.cleanup();
 		}
-		BatchedPatternRenderer existingBatch = BatchedPatternRenderer.getInstanceIfInitialized();
-		if (existingBatch != null) {
-			existingBatch.cleanup();
+		if (batchedRenderer != null) {
+			batchedRenderer.cleanup();
 		}
 		// Sprite priority rendering cleanup
 		if (spritePriorityShaderProgram != null) {
@@ -1319,7 +1321,7 @@ public class GraphicsManager {
 					PatternDesc desc = new PatternDesc();
 					desc.set(descIndex);
 					desc.setPaletteIndex(paletteIndex);
-					replayCommands.add(PatternRenderCommand.obtain(atlasEntry, paletteTextureId, desc, drawX, drawY));
+					replayCommands.add(PatternRenderCommand.obtain(atlasEntry, paletteTextureId, desc, drawX, drawY, this));
 				});
 	}
 
@@ -1405,7 +1407,7 @@ public class GraphicsManager {
 		}
 		if (backgroundRenderer == null && glInitialized) {
 			try {
-				backgroundRenderer = new BackgroundRenderer();
+				backgroundRenderer = new BackgroundRenderer(this);
 				backgroundRenderer.init(PARALLAX_SHADER_PATH);
 				LOGGER.info("BackgroundRenderer initialized for shader-based parallax.");
 			} catch (IOException e) {
