@@ -48,6 +48,7 @@ import java.io.IOException;
 import java.nio.IntBuffer;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.logging.Logger;
 
 import static org.lwjgl.glfw.Callbacks.*;
@@ -68,17 +69,22 @@ import static org.lwjgl.system.MemoryUtil.*;
 public class Engine {
 	private static final Logger LOGGER = Logger.getLogger(Engine.class.getName());
 	public static final String RESOURCES_SHADERS_PIXEL_SHADER_GLSL = "shaders/shader_the_hedgehog.glsl";
-	private final SonicConfigurationService configService = SonicConfigurationService.getInstance();
+	private final SonicConfigurationService configService;
 	private SpriteManager spriteManager;
-	private final GraphicsManager graphicsManager = GraphicsManager.getInstance();
+	private final GraphicsManager graphicsManager;
+	private final AudioManager audioManager;
+	private final RomManager romManager;
+	private final RomDetectionService romDetectionService;
+	private final CrossGameFeatureProvider crossGameFeatureProvider;
+	private final PlaybackDebugManager playbackDebugManager;
 
 	private Camera camera;
 	// Lazy-initialized: DebugRenderer.<clinit> references java.awt.Color which
 	// is unavailable in GraalVM native-image builds.
 	private DebugRenderer debugRenderer;
-	private final PerformanceProfiler profiler = PerformanceProfiler.getInstance();
+	private final PerformanceProfiler profiler;
 
-	private final GameLoop gameLoop = new GameLoop();
+	private final GameLoop gameLoop;
 	private final LevelEditorController levelEditorController = new LevelEditorController();
 	private final EditorInputHandler editorInputHandler = new EditorInputHandler(levelEditorController);
 	private final EditorOverlayRenderer editorOverlayRenderer = new EditorOverlayRenderer(levelEditorController);
@@ -90,15 +96,15 @@ public class Engine {
 	public static DebugOption getDebugOption() { return debugOption; }
 	public static void setDebugOption(DebugOption option) { debugOption = option; }
 
-	private double realWidth = configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS);
-	private double realHeight = configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
+	private double realWidth;
+	private double realHeight;
 
 	// Current projection width - can be changed for H32/H40 mode switching
 	// H40 mode (normal levels): 320 pixels wide
 	// H32 mode (special stages): 256 pixels wide
-	private double projectionWidth = realWidth;
+	private double projectionWidth;
 
-	private boolean debugViewEnabled = configService.getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
+	private boolean debugViewEnabled;
 
 	private LevelManager levelManager;
 
@@ -155,6 +161,25 @@ public class Engine {
 	}
 
 	public Engine() {
+		this(EngineServices.fromLegacySingletonsForBootstrap());
+	}
+
+	public Engine(EngineServices engineServices) {
+		engineServices = Objects.requireNonNull(engineServices, "engineServices");
+		this.configService = engineServices.configuration();
+		this.graphicsManager = engineServices.graphics();
+		this.audioManager = engineServices.audio();
+		this.romManager = engineServices.roms();
+		this.romDetectionService = engineServices.romDetection();
+		this.crossGameFeatureProvider = engineServices.crossGameFeatures();
+		this.playbackDebugManager = engineServices.playbackDebug();
+		this.profiler = engineServices.profiler();
+		this.gameLoop = new GameLoop(engineServices);
+		RuntimeManager.configureEngineServices(engineServices);
+		this.realWidth = configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS);
+		this.realHeight = configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
+		this.projectionWidth = realWidth;
+		this.debugViewEnabled = configService.getBoolean(SonicConfiguration.DEBUG_VIEW_ENABLED);
 		this.windowWidth = configService.getInt(SonicConfiguration.SCREEN_WIDTH);
 		this.windowHeight = configService.getInt(SonicConfiguration.SCREEN_HEIGHT);
 		this.targetFps = configService.getInt(SonicConfiguration.FPS);
@@ -369,8 +394,8 @@ public class Engine {
 	public void initializeGame() {
 		GameModule module;
 		try {
-			Rom rom = RomManager.getInstance().getRom();
-			module = RomDetectionService.getInstance()
+			Rom rom = romManager.getRom();
+			module = romDetectionService
 				.detectAndCreateModule(rom)
 				.orElseGet(() -> {
 					LOGGER.warning("ROM detection failed during game initialization, using default Sonic 2 module");
@@ -417,10 +442,10 @@ public class Engine {
 	private void resetForGameplayFromMasterTitle() {
 		com.openggf.game.RuntimeManager.destroyCurrent();
 		SessionManager.clear();
-		RomManager.getInstance().close();
+		romManager.close();
 		GameModuleRegistry.reset();
-		AudioManager.getInstance().resetState();
-		CrossGameFeatureProvider.getInstance().resetState();
+		audioManager.resetState();
+		crossGameFeatureProvider.resetState();
 		GameServices.debugOverlay().resetState();
 		RenderContext.reset();
 		AizIntroArtLoader.reset();
@@ -480,13 +505,13 @@ public class Engine {
 
 	private void initializeGlobalGameplayServices() {
 		if (configService.getBoolean(SonicConfiguration.AUDIO_ENABLED)) {
-			AudioManager.getInstance().setBackend(new LWJGLAudioBackend());
+			audioManager.setBackend(new LWJGLAudioBackend());
 		}
 
 		if (configService.getBoolean(SonicConfiguration.CROSS_GAME_FEATURES_ENABLED)) {
 			try {
 				String donorGame = configService.getString(SonicConfiguration.CROSS_GAME_SOURCE);
-				CrossGameFeatureProvider.getInstance().initialize(donorGame);
+				crossGameFeatureProvider.initialize(donorGame);
 			} catch (IOException e) {
 				LOGGER.severe("Cross-game features enabled but initialization failed. "
 						+ "Check that the " + configService.getString(SonicConfiguration.CROSS_GAME_SOURCE)
@@ -562,7 +587,7 @@ public class Engine {
 	}
 
 	private void loadDefaultStartingLevel(boolean requireRom) {
-		if (!requireRom && !RomManager.getInstance().isRomAvailable()) {
+		if (!requireRom && !romManager.isRomAvailable()) {
 			return;
 		}
 		try {
@@ -996,7 +1021,7 @@ public class Engine {
 			}
 		}
 
-		boolean playbackHud = PlaybackDebugManager.getInstance().isHudVisible();
+		boolean playbackHud = playbackDebugManager.isHudVisible();
 		boolean needsOverlay = (getCurrentGameMode() == GameMode.SPECIAL_STAGE) ||
 				((debugViewEnabled || playbackHud) && getCurrentGameMode() != GameMode.SPECIAL_STAGE && !isNativeImage());
 
@@ -1238,15 +1263,15 @@ public class Engine {
 	private void cleanup() {
 		com.openggf.game.RuntimeManager.destroyCurrent();
 		SessionManager.clear();
-		AudioManager.getInstance().clearDonorAudio();
-		CrossGameFeatureProvider.getInstance().resetState();
+		audioManager.clearDonorAudio();
+		crossGameFeatureProvider.resetState();
 		RenderContext.reset();
 		if (masterTitleScreen != null) {
 			masterTitleScreen.cleanup();
 			masterTitleScreen = null;
 		}
 		graphicsManager.cleanup();
-		AudioManager.getInstance().destroy();
+		audioManager.destroy();
 
 		// Free the window callbacks and destroy the window
 		glfwFreeCallbacks(window);

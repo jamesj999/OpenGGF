@@ -12,6 +12,8 @@ import com.openggf.physics.TerrainCollisionManager;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.timer.TimerManager;
 
+import java.util.Objects;
+
 /**
  * Static holder for the current {@link GameRuntime}.
  * <p>
@@ -32,8 +34,13 @@ public final class RuntimeManager {
     private static GameRuntime current;
     private static GameRuntime parked;
     private static GameplayModeContext suppressedGameplayMode;
+    private static EngineServices engineServices = EngineServices.fromLegacySingletonsForBootstrap();
 
     private RuntimeManager() {}
+
+    public static synchronized void configureEngineServices(EngineServices services) {
+        engineServices = Objects.requireNonNull(services, "services");
+    }
 
     /**
      * Returns the current gameplay runtime, or {@code null} if none exists
@@ -134,7 +141,7 @@ public final class RuntimeManager {
                 ? currentModule.rngFlavour()
                 : GameRng.Flavour.S1_S2);
 
-        GameRuntime runtime = new GameRuntime(gameplayMode.getWorldSession(), gameplayMode,
+        GameRuntime runtime = new GameRuntime(engineServices, gameplayMode.getWorldSession(), gameplayMode,
                 camera, timers, gameState, fadeManager,
                 waterSystem, parallaxManager, terrainCollisionManager,
                 collisionSystem, spriteManager, levelManager, rng);
