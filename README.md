@@ -177,8 +177,9 @@ behaviour.
 
 A primarily architectural release. The engine internals have been restructured to prepare for level
 editor support, safe runtime teardown, and multi-instance play-testing, while Sonic 3 & Knuckles
-gameplay coverage has expanded within Angel Island Zone. AIZ2 completion (boss, Flying Battery event,
-HCZ transition) is the remaining gate before release.
+gameplay coverage has expanded across Angel Island and Hydrocity. AIZ2 now has the Flying Battery
+bombing sequence, end boss, post-boss capsule/cutscene flow, and AIZ-to-HCZ transition represented,
+while HCZ now has a larger object/event pass and HCZ1-to-HCZ2 progression.
 
 - **Two-tier service architecture:** all 180+ game object classes migrated from direct singleton
   access to a two-tier dependency injection pattern (`GameServices` global facade + `ObjectServices`
@@ -198,13 +199,12 @@ HCZ transition) is the remaining gate before release.
   cross-game donation into S1/S2 with correct palette and HUD from the lock-on ROM.
 - **Sonic 3&K** expands with title screen (SEGA logo, Sonic morph animation, interactive menu),
   level select screen (SONICMILES background, zone icons, sound test), AIZ miniboss completion
-  (defeat flow, napalm attack, staggered explosions), signpost and results screen, Blue Ball
-  special stages (WIP) with per-character art/palette, early Glowing Sphere bonus-stage work
-  (gumball machine / pachinko) including gumball shell/interior mask-layer replay fixes and
-  pachinko trap capture/title-card lifecycle fixes, per-character physics profiles, palette
-  cycling for all zones, 10+ new objects including AIZ collapsing/flipping bridges, spiked logs,
-  and zone-specific buttons, plus ongoing parity fixes for start positions, special-stage return,
-  and breakable rock behaviour.
+  (defeat flow, napalm attack, staggered explosions), AIZ2 Flying Battery bombing/end-boss work,
+  signpost and results screen, Blue Ball special stages (WIP) with per-character art/palette,
+  S3K bonus-stage work across Gumball, Glowing Sphere/Pachinko, and Slots, per-character physics
+  profiles, palette cycling for all zones, HCZ water rush / conveyor / fan / block / door /
+  miniboss coverage, and many new badniks/objects including CollapsingBridge, MegaChopper,
+  Poindexter, Blastoid, Buggernaut, Bubbler, TurboSpiker, and InvisibleHurtBlockH.
 - **Insta-shield** fully implemented with ROM parity: activation, hitbox expansion, persistent
   lifecycle, cross-game donation, and DPLC cache management.
 - **Multi-sidekick system** with configurable sidekick chains, per-character respawn strategies,
