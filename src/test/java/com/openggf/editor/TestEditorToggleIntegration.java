@@ -34,6 +34,7 @@ import java.lang.reflect.Method;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -96,6 +97,17 @@ class TestEditorToggleIntegration {
         assertEquals(GameMode.LEVEL, engine.getCurrentGameMode());
         assertNull(SessionManager.getCurrentEditorMode());
         assertNotNull(RuntimeManager.getCurrent());
+    }
+
+    @Test
+    void createGameplayRuntime_createsRuntimeBeforeConstructingPlayer() {
+        Engine engine = new Engine();
+
+        GameRuntime runtime = assertDoesNotThrow(() -> createGameplayRuntime(engine));
+
+        assertNotNull(runtime);
+        assertSame(runtime, RuntimeManager.getCurrent());
+        assertNotNull(runtime.getSpriteManager().getSprite("sonic"));
     }
 
     @Test
@@ -328,7 +340,7 @@ class TestEditorToggleIntegration {
     void resumePlaytestFromEditor_repairsProgrammaticOutOfBoundsCursorBeforeApplyingSpawn() throws Exception {
         enableEditor();
         Engine engine = new Engine();
-        GameRuntime runtime = createGameplayRuntime(engine, new Sonic("sonic", (short) 100, (short) 180));
+        GameRuntime runtime = createGameplayRuntime(engine, (short) 100, (short) 180);
         Sonic player = (Sonic) runtime.getSpriteManager().getSprite("sonic");
         runtime.getLevelManager().setLevel(MutableLevel.snapshot(new SyntheticLevel()));
         runtime.getCamera().setMinX((short) 0);
@@ -390,7 +402,7 @@ class TestEditorToggleIntegration {
     void outOfBoundsEditorMovement_resumesFromClampedCursorPosition() {
         enableEditor();
         Engine engine = new Engine();
-        GameRuntime runtime = createGameplayRuntime(engine, new Sonic("sonic", (short) 100, (short) 180));
+        GameRuntime runtime = createGameplayRuntime(engine, (short) 100, (short) 180);
         Sonic player = (Sonic) runtime.getSpriteManager().getSprite("sonic");
         runtime.getLevelManager().setLevel(MutableLevel.snapshot(new SyntheticLevel()));
         runtime.getCamera().setMinX((short) 0);
@@ -493,8 +505,8 @@ class TestEditorToggleIntegration {
     void preRuntimePlayer_roundTripsThroughEditorModeAndResumesAtEditorCursor() {
         enableEditor();
         Engine engine = new Engine();
-        Sonic player = new Sonic("sonic", (short) 144, (short) 288);
-        GameRuntime runtime = createGameplayRuntime(engine, player);
+        GameRuntime runtime = createGameplayRuntime(engine, (short) 144, (short) 288);
+        Sonic player = (Sonic) runtime.getSpriteManager().getSprite("sonic");
         EditorPlaytestStash stash = new EditorPlaytestStash(144, 288, 9, -3, true, 47, 1);
 
         engine.enterEditorFromCurrentPlayer(stash, 320, 448);
@@ -522,10 +534,10 @@ class TestEditorToggleIntegration {
     void editorMvpFlow_shiftTabMoveEyedropApplyResumeAndFreshStartRemainConnected() {
         enableEditor();
         Engine engine = new Engine();
-        Sonic player = new Sonic("sonic", (short) 0, (short) 0);
+        GameRuntime runtime = createGameplayRuntime(engine, (short) 0, (short) 0);
+        Sonic player = (Sonic) runtime.getSpriteManager().getSprite("sonic");
         player.setCentreX((short) 1);
         player.setCentreY((short) 1);
-        GameRuntime runtime = createGameplayRuntime(engine, player);
         MutableLevel level = MutableLevel.snapshot(new EditorMvpFlowLevel());
         runtime.getLevelManager().setLevel(level);
         runtime.getCamera().setMinX((short) 0);
@@ -601,14 +613,14 @@ class TestEditorToggleIntegration {
     }
 
     private static GameRuntime createGameplayRuntime(Engine engine) {
-        Sonic player = new Sonic("sonic", (short) 100, (short) 200);
-        return createGameplayRuntime(engine, player);
+        return createGameplayRuntime(engine, (short) 100, (short) 200);
     }
 
-    private static GameRuntime createGameplayRuntime(Engine engine, Sonic player) {
+    private static GameRuntime createGameplayRuntime(Engine engine, short playerX, short playerY) {
         SessionManager.openGameplaySession(new Sonic2GameModule());
         GameRuntime runtime = RuntimeManager.createGameplay(SessionManager.getCurrentGameplayMode());
         SpriteManager spriteManager = runtime.getSpriteManager();
+        Sonic player = new Sonic("sonic", playerX, playerY);
         spriteManager.addSprite(player);
         runtime.getCamera().setFocusedSprite(player);
         engine.getGameLoop().setRuntime(runtime);
