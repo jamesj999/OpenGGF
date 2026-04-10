@@ -214,7 +214,7 @@ public class TitleScreenManager implements TitleScreenProvider {
     private int tailsHandPosIndex = 0;
     private int tailsHandPosCounter = 0;
 
-    private TitleScreenManager() {
+    public TitleScreenManager() {
     }
 
     public static synchronized TitleScreenManager getInstance() {

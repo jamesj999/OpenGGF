@@ -72,7 +72,8 @@ public final class GameModuleRegistry {
      * @return true if detection succeeded, false if using fallback
      */
     public static boolean detectAndSetModule(Rom rom) {
-        Optional<GameModule> detectedModule = RomDetectionService.getInstance().detectAndCreateModule(rom);
+        Optional<GameModule> detectedModule = RuntimeManager.getEngineServices()
+                .romDetection().detectAndCreateModule(rom);
         if (detectedModule.isPresent()) {
             setCurrent(detectedModule.get());
             return true;

@@ -116,7 +116,7 @@ public class Sonic1TitleScreenManager implements TitleScreenProvider {
     // Credit text rendering
     private boolean creditTextCached = false;
 
-    private Sonic1TitleScreenManager() {}
+    public Sonic1TitleScreenManager() {}
 
     public static Sonic1TitleScreenManager getInstance() {
         if (instance == null) {

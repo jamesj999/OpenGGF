@@ -67,7 +67,7 @@ public class LevelSelectManager implements LevelSelectProvider {
     private static final int HIGHLIGHT_PALETTE_INDEX = 3;
     private static final int ICON_PALETTE_INDEX = 2;
 
-    private LevelSelectManager() {
+    public LevelSelectManager() {
     }
 
     public static synchronized LevelSelectManager getInstance() {

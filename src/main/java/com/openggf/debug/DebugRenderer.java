@@ -33,8 +33,6 @@ import java.util.List;
 
 public class DebugRenderer {
 	private static DebugRenderer debugRenderer;
-	// private final GraphicsManager graphicsManager = GraphicsManager
-	// .getInstance();
         private final com.openggf.configuration.SonicConfigurationService configService =
                         com.openggf.game.RuntimeManager.getEngineServices().configuration();
         private final DebugOverlayManager overlayManager = GameServices.debugOverlay();
@@ -594,7 +592,7 @@ public class DebugRenderer {
                 if (!glyphBatch.isBatchActive()) {
                         return;
                 }
-                DebugObjectArtViewer viewer = DebugObjectArtViewer.getInstance();
+                DebugObjectArtViewer viewer = overlayManager.getObjectArtViewer();
                 artViewerLines.clear();
                 List<String> lines = artViewerLines;
                 lines.add("== ART VIEWER ==");

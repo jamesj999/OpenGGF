@@ -17,6 +17,7 @@ import com.openggf.sprites.playable.AbstractPlayableSprite;
  */
 public class UiRenderPipeline {
     private final GraphicsManager graphicsManager;
+    private RenderOrderRecorder renderOrderRecorder = new RenderOrderRecorder();
     private HudRenderManager hudRenderManager;
     private FadeManager fadeManager;
 
@@ -36,6 +37,10 @@ public class UiRenderPipeline {
         this.fadeManager = fadeManager;
     }
 
+    public void setRenderOrderRecorder(RenderOrderRecorder renderOrderRecorder) {
+        this.renderOrderRecorder = renderOrderRecorder != null ? renderOrderRecorder : new RenderOrderRecorder();
+    }
+
     public void setHudEnabled(boolean enabled) {
         this.hudEnabled = enabled;
     }
@@ -52,10 +57,8 @@ public class UiRenderPipeline {
      * @param player Current player sprite (may be null)
      */
     public void renderOverlay(LevelState levelState, AbstractPlayableSprite player) {
-        RenderOrderRecorder recorder = RenderOrderRecorder.getInstance();
-
         if (hudEnabled && hudRenderManager != null && levelState != null) {
-            recorder.record(RenderPhase.OVERLAY, "HUD");
+            renderOrderRecorder.record(RenderPhase.OVERLAY, "HUD");
             hudRenderManager.draw(levelState, player);
         }
     }
@@ -64,10 +67,8 @@ public class UiRenderPipeline {
      * Render the fade pass. Must be called after all other rendering.
      */
     public void renderFadePass() {
-        RenderOrderRecorder recorder = RenderOrderRecorder.getInstance();
-
         if (fadeEnabled && fadeManager != null && fadeManager.isActive()) {
-            recorder.record(RenderPhase.FADE_PASS, "Fade");
+            renderOrderRecorder.record(RenderPhase.FADE_PASS, "Fade");
             fadeManager.render();
         }
     }
@@ -100,5 +101,9 @@ public class UiRenderPipeline {
      */
     public HudRenderManager getHudRenderManager() {
         return hudRenderManager;
+    }
+
+    public RenderOrderRecorder getRenderOrderRecorder() {
+        return renderOrderRecorder;
     }
 }

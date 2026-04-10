@@ -78,7 +78,7 @@ public class Sonic1TitleCardManager implements TitleCardProvider {
     private boolean artLoaded = false;
     private boolean artCached = false;
 
-    private Sonic1TitleCardManager() {}
+    public Sonic1TitleCardManager() {}
 
     public static synchronized Sonic1TitleCardManager getInstance() {
         if (instance == null) {

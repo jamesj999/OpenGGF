@@ -211,7 +211,7 @@ public class TitleCardManager implements TitleCardProvider {
     private boolean artCached = false;
     private int lastLoadedZone = -1;  // Track which zone's letters we've loaded
 
-    private TitleCardManager() {}
+    public TitleCardManager() {}
 
     public static synchronized TitleCardManager getInstance() {
         if (instance == null) {

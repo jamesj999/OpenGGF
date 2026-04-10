@@ -1,7 +1,6 @@
 package com.openggf.debug;
 
 import com.openggf.game.GameServices;
-import com.openggf.game.GameServices;
 import com.openggf.game.ZoneFeatureProvider;
 import com.openggf.game.ZoneFeatureRenderer;
 
@@ -19,8 +18,6 @@ import static org.lwjgl.glfw.GLFW.*;
  * Debug viewer for object art frames.
  */
 public class DebugObjectArtViewer {
-    private static DebugObjectArtViewer instance;
-
     private enum ArtTarget {
         SIGNPOST("Signpost"),
         RESULTS("Results"),
@@ -67,11 +64,7 @@ public class DebugObjectArtViewer {
     // Y offset below HUD (HUD is ~32 pixels tall)
     private static final int DEBUG_Y_OFFSET = 48;
 
-    public static synchronized DebugObjectArtViewer getInstance() {
-        if (instance == null) {
-            instance = new DebugObjectArtViewer();
-        }
-        return instance;
+    public DebugObjectArtViewer() {
     }
 
     public void updateInput(InputHandler handler) {

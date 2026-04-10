@@ -59,6 +59,9 @@ public class Sonic1GameModule implements GameModule {
     private final Sonic1ZoneRegistry zoneRegistry = new Sonic1ZoneRegistry();
     private final Sonic1SwitchManager switchManager = new Sonic1SwitchManager();
     private final Sonic1ConveyorState conveyorState = new Sonic1ConveyorState();
+    private final Sonic1TitleCardManager titleCardProvider = new Sonic1TitleCardManager();
+    private final Sonic1TitleScreenManager titleScreenProvider = new Sonic1TitleScreenManager();
+    private final Sonic1LevelSelectManager levelSelectProvider = new Sonic1LevelSelectManager();
     private final LevelInitProfile levelInitProfile =
             new Sonic1LevelInitProfile(levelEventManager, switchManager, conveyorState);
     private PhysicsProvider physicsProvider;
@@ -129,12 +132,12 @@ public class Sonic1GameModule implements GameModule {
 
     @Override
     public TitleCardProvider getTitleCardProvider() {
-        return Sonic1TitleCardManager.getInstance();
+        return titleCardProvider;
     }
 
     @Override
     public TitleScreenProvider getTitleScreenProvider() {
-        return Sonic1TitleScreenManager.getInstance();
+        return titleScreenProvider;
     }
 
     @Override
@@ -179,7 +182,7 @@ public class Sonic1GameModule implements GameModule {
 
     @Override
     public LevelSelectProvider getLevelSelectProvider() {
-        return Sonic1LevelSelectManager.getInstance();
+        return levelSelectProvider;
     }
 
     @Override

@@ -62,7 +62,7 @@ public class Sonic3kLevelSelectManager implements LevelSelectProvider {
     /** Palette line used for icon rendering (separate from highlight line 3) */
     private static final int ICON_RENDER_PALETTE = 2;
 
-    private Sonic3kLevelSelectManager() {
+    public Sonic3kLevelSelectManager() {
     }
 
     public static synchronized Sonic3kLevelSelectManager getInstance() {

@@ -213,7 +213,8 @@ public class PerformancePanelRenderer {
         drawFrameHistoryGraph(graphX, graphY, graphWidth, graphHeight, snapshot);
 
         // Draw memory stats below the frame graph
-        MemoryStats.Snapshot memSnapshot = MemoryStats.getInstance().snapshot();
+        MemoryStats.Snapshot memSnapshot = com.openggf.game.RuntimeManager.getEngineServices()
+                .profiler().memoryStats().snapshot();
 
         // Draw text stats (uses viewport coordinates via uiX/uiY)
         glyphBatch.begin();

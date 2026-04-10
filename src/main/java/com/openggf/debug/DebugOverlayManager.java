@@ -23,6 +23,7 @@ public class DebugOverlayManager {
 
     /** Per-frame text entries from object debug rendering, set by LevelManager, read by DebugRenderer */
     private List<DebugRenderContext.DebugTextEntry> pendingObjectDebugText = List.of();
+    private final DebugObjectArtViewer objectArtViewer = new DebugObjectArtViewer();
 
     private DebugOverlayManager() {
         for (DebugOverlayToggle toggle : DebugOverlayToggle.values()) {
@@ -74,7 +75,8 @@ public class DebugOverlayManager {
         }
 
         // Memory stats
-        MemoryStats.Snapshot memSnapshot = MemoryStats.getInstance().snapshot();
+        MemoryStats.Snapshot memSnapshot = com.openggf.game.RuntimeManager.getEngineServices()
+                .profiler().memoryStats().snapshot();
         sb.append("=== Memory Stats ===\n");
         sb.append(String.format("Heap: %.0fMB / %.0fMB (%d%%)\n",
                 memSnapshot.heapUsedMB(), memSnapshot.heapMaxMB(), memSnapshot.heapPercentage()));
@@ -121,6 +123,10 @@ public class DebugOverlayManager {
 
     public List<DebugRenderContext.DebugTextEntry> getObjectDebugTextEntries() {
         return pendingObjectDebugText;
+    }
+
+    public DebugObjectArtViewer getObjectArtViewer() {
+        return objectArtViewer;
     }
 
     public void clearObjectDebugTextEntries() {
