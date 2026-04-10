@@ -11,6 +11,7 @@ This document tracks intentional deviations from the original Sonic 2 ROM implem
 5. [MCZ Rotating Platforms Child Cleanup](#mcz-rotating-platforms-child-cleanup)
 6. [Multi-Sidekick Daisy Chain](#multi-sidekick-daisy-chain)
 7. [Bonus Stage Game Mode](#bonus-stage-game-mode)
+8. [HCZ Conveyor Belt Rolling State Clear](#hcz-conveyor-belt-rolling-state-clear)
 
 ---
 
@@ -346,3 +347,67 @@ The engine's `GameLoop` dispatches behavior based on `GameMode`. Overloading `LE
 ### Impact
 
 None on gameplay. The level pipeline (rendering, physics, objects, collision) is identical between `LEVEL` and `BONUS_STAGE` modes. The only difference is the coordinator managing transitions.
+
+---
+
+## HCZ Conveyor Belt Rolling State Clear
+
+**Location:** `HCZConveyorBeltObjectInstance.java` (`capturePlayer()`)
+**ROM Reference:** `sonic3k.asm` lines 66490-66511 (standing capture), 66528-66547 (hanging capture)
+
+### Original Implementation
+
+The ROM's capture sequences for the HCZ conveyor belt (Obj 0x3E) do not contain an explicit `bclr #Status_Roll,status(a1)`. The capture code clears velocities, sets `object_control` to 3, snaps the player's Y position, and sets the mapping frame, but never directly modifies `Status_Roll`:
+
+```asm
+; Standing capture (sonic3k.asm:66490-66503):
+    clr.w   x_vel(a1)
+    clr.w   y_vel(a1)
+    clr.w   ground_vel(a1)
+    andi.b  #$FC,render_flags(a1)   ; clears render flip bits, NOT status
+    move.w  d0,y_pos(a1)
+    move.b  #0,anim(a1)
+    move.b  #3,object_control(a1)
+    move.b  #$63,mapping_frame(a1)
+    ; ... state init, DPLC call
+```
+
+On the original hardware, `Status_Roll` is effectively neutralised during capture through side-effects of `object_control = 3` altering the player's main update path (skipping `Sonic_CheckRoll` and related routines). The release path unconditionally sets `Status_Roll` via `bset #Status_Roll,status(a1)` (sonic3k.asm:66454).
+
+### Our Implementation
+
+We explicitly clear the rolling state during capture:
+
+```java
+private void capturePlayer(AbstractPlayableSprite player, PlayerBeltState state,
+                           int snapY, int initialFrame, int initialPhase) {
+    player.setXSpeed((short) 0);
+    player.setYSpeed((short) 0);
+    player.setGSpeed((short) 0);
+    player.setRenderFlips(false, false);
+
+    // Explicit roll clear — not present in ROM capture sequence
+    if (player.getRolling()) {
+        player.setRolling(false);
+    }
+
+    player.setCentreY((short) snapY);
+    // ...
+}
+```
+
+### Rationale
+
+1. **Touch responses run while object-controlled** — `object_control = 3` suppresses solid object collisions and animation, but does NOT suppress touch response (enemy/badnik) collision checks.
+
+2. **Rolling = attacking** — `ObjectManager.isPlayerAttacking()` returns `true` when `getRolling()` is true. If `Status_Roll` persists from a jump into belt capture, the player incorrectly destroys enemies on contact (e.g. Chopper in HCZ) instead of taking damage.
+
+3. **Observed gameplay confirms vulnerability** — On original hardware, Chopper can grab and hurt Sonic while he is on the conveyor belt, proving the player is NOT in an attacking state during capture.
+
+4. **ROM clears implicitly, engine needs explicit** — The ROM achieves this through `object_control = 3` altering the player update path in ways our engine doesn't replicate as a side-effect. The explicit clear produces identical gameplay behavior.
+
+5. **Must clear before Y snap** — `setRolling(false)` restores standing radii, which changes sprite height. Clearing after `setCentreY()` would shift the centre by half the height delta (5px for Sonic). Clearing before the snap ensures the snap uses standing-height coordinates.
+
+### Verification
+
+With the fix, the player is vulnerable to enemy touch responses while on the conveyor belt, matching original hardware behavior. The release path still unconditionally sets `Status_Roll`, so belt exit behavior is unaffected.

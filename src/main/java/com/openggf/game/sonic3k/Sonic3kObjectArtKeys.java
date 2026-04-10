@@ -17,6 +17,17 @@ public final class Sonic3kObjectArtKeys {
     public static final String COLLAPSING_PLATFORM_AIZ1 = "collapsing_platform_aiz1";
     public static final String COLLAPSING_PLATFORM_AIZ2 = "collapsing_platform_aiz2";
     public static final String COLLAPSING_PLATFORM_ICZ = "collapsing_platform_icz";
+
+    // Collapsing Bridge (Object 0x0F) - per-zone level art
+    public static final String COLLAPSING_BRIDGE_LBZ = "collapsing_bridge_lbz";
+    public static final String COLLAPSING_BRIDGE_LBZ_LEDGE = "collapsing_bridge_lbz_ledge";
+    public static final String COLLAPSING_BRIDGE_HCZ = "collapsing_bridge_hcz";
+    public static final String COLLAPSING_BRIDGE_MGZ = "collapsing_bridge_mgz";
+    // ICZ Object 0x0F shares Map_ICZCollapsingBridge with Object 0x04 (COLLAPSING_PLATFORM_ICZ)
+    public static final String COLLAPSING_BRIDGE_HPZ = "collapsing_bridge_hpz";
+    public static final String COLLAPSING_BRIDGE_LRZ = "collapsing_bridge_lrz";
+    public static final String COLLAPSING_BRIDGE_FBZ = "collapsing_bridge_fbz";
+    public static final String COLLAPSING_BRIDGE_SOZ = "collapsing_bridge_soz";
     public static final String AIZ1_ROCK = "aiz1_rock";
     public static final String AIZ2_ROCK = "aiz2_rock";
     public static final String LRZ1_ROCK = "lrz1_rock";
@@ -38,6 +49,7 @@ public final class Sonic3kObjectArtKeys {
     public static final String AIZ_MINIBOSS = "aiz_miniboss";
     public static final String AIZ_MINIBOSS_FLAME = "aiz_miniboss_flame";
     public static final String AIZ_MINIBOSS_SMALL = "aiz_miniboss_small";
+    public static final String HCZ_MINIBOSS = "hcz_miniboss";
 
     // AIZ End Boss (Object 0x92)
     public static final String AIZ_END_BOSS = "aiz_end_boss";
@@ -99,9 +111,38 @@ public final class Sonic3kObjectArtKeys {
     public static final String FLOATING_PLATFORM_HCZ = "floating_platform_hcz";
     public static final String FLOATING_PLATFORM_MGZ = "floating_platform_mgz";
 
+    // HCZ Breakable Bar (Object 0x36)
+    public static final String HCZ_BREAKABLE_BAR = "hcz_breakable_bar";
+    public static final String HCZ_BLOCK = "hcz_block";
+
+    // HCZ Water Rush (Object 0x37)
+    public static final String HCZ_WATER_RUSH = "hcz_water_rush";
+    public static final String HCZ_WATER_RUSH_BLOCK = "hcz_water_rush_block";
+
+    // HCZ Hand Launcher (Object 0x3A)
+    public static final String HCZ_HAND_LAUNCHER = "hcz_hand_launcher";
+
+    // HCZ/CGZ Fan (Object 0x38)
+    public static final String HCZ_FAN = "hcz_fan";
+    public static final String HCZ_FAN_BUBBLE = "hcz_fan_bubble"; // Tiny bubble from Map_Bubbler
+    public static final String HCZ_LARGE_FAN = "hcz_large_fan";
+    public static final String HCZ_CONVEYOR_SPIKE = "hcz_conveyor_spike";
+    public static final String BUBBLER = "bubbler";
+
+    // HCZ Water Wall / Geyser (Object 0x3B)
+    public static final String HCZ_GEYSER_HORZ = "hcz_geyser_horz";
+    public static final String HCZ_GEYSER_VERT = "hcz_geyser_vert";
+    public static final String HCZ_GEYSER_DEBRIS = "hcz_geyser_debris";
+    public static final String HCZ_GEYSER_SPRAY = "hcz_geyser_spray"; // ArtTile_HCZGeyser+$30 splash/spray frames
+
+    // HCZ Bubbles (ArtNem_Bubbles) — used by 25% of water wall spray particles
+    public static final String HCZ_BUBBLES = "hcz_bubbles";
+
     // HCZ badniks
+    public static final String HCZ_BUGGERNAUT = "hcz_buggernaut";
     public static final String HCZ_BLASTOID = "hcz_blastoid";
     public static final String HCZ_TURBO_SPIKER = "hcz_turbo_spiker";
+    public static final String HCZ_TURBO_SPIKER_HIDDEN = "hcz_turbo_spiker_hidden";
     public static final String HCZ_MEGA_CHOPPER = "hcz_mega_chopper";
     public static final String HCZ_POINTDEXTER = "hcz_pointdexter";
     public static final String HCZ_JAWZ = "hcz_jawz";
@@ -231,6 +272,12 @@ public final class Sonic3kObjectArtKeys {
     public static final String SLOT_MACHINE_FACE = "slot_machine_face";
     public static final String SLOT_BONUS_CAGE = "slot_bonus_cage";
     public static final String SLOT_SPIKE_REWARD = "slot_spike_reward";
+
+    // Door (Object 0x3C) - shared level-art across HCZ, CNZ, DEZ
+    public static final String DOOR_VERTICAL_HCZ = "door_vertical_hcz";   // ArtTile_HCZMisc+$0A, Map_HCZCNZDEZDoor
+    public static final String DOOR_VERTICAL_CNZ = "door_vertical_cnz";   // ArtTile_CNZMisc+$C5, Map_HCZCNZDEZDoor
+    public static final String DOOR_VERTICAL_DEZ = "door_vertical_dez";   // ArtTile_DEZMisc+$1E, Map_HCZCNZDEZDoor
+    public static final String DOOR_HORIZONTAL = "door_horizontal";        // ArtTile_CNZMisc+$C5, Map_CNZDoorHorizontal
 
     private Sonic3kObjectArtKeys() {
     }

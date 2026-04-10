@@ -61,6 +61,7 @@ public class Sonic3kObjectProfile implements GameObjectProfile {
             0x08, // Spikes
             0x0D, // BreakableWall
             0x0E, // TwistedRamp
+            0x0F, // CollapsingBridge
             0x26, // AutoSpin
             0x28, // InvisibleBlock
             0x2A, // CorkFloor
@@ -68,7 +69,9 @@ public class Sonic3kObjectProfile implements GameObjectProfile {
             0x30, // AnimatedStillSprite
             0x33, // Button
             0x34, // StarPost
+            0x3C, // Door
             0x51, // FloatingPlatform
+            0x6A, // InvisibleHurtBlockH
             0x80, // HiddenMonitor
             0x85  // SSEntryRing
     );
@@ -92,13 +95,25 @@ public class Sonic3kObjectProfile implements GameObjectProfile {
                 0x2D, // AIZFallingLog
                 0x2E, // AIZSpikedLog
                 0x35, // AIZForegroundPlant
+                0x36, // HCZBreakableBar
+                0x37, // HCZWaterRush
+                0x38, // HCZCGZFan
+                0x3A, // HCZHandLauncher
+                0x3B, // HCZWaterWall
+                0x3E, // HCZConveyorBelt
+                0x3F, // HCZConveyorSpike
+                0x69, // HCZTwistingLoop
                 0x8C, // Bloominator
                 0x8D, // Rhinobot
                 0x8E, // MonkeyDude
                 0x8F, // CaterKillerJr
+                0x94, // Blastoid
+                0x95, // Buggernaut
+                0x98, // Poindexter
                 0x90, // AIZMinibossCutscene
                 0x91, // AIZMiniboss
-                0x92  // AIZEndBoss
+                0x92, // AIZEndBoss
+                0x99  // HCZMiniboss
         ));
         S3KL_IMPLEMENTED_IDS = Set.copyOf(s3kl);
 

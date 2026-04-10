@@ -799,4 +799,16 @@ public class WaterSystem {
         DynamicWaterState state = dynamicWaterStates.get(makeKey(zoneId, actId));
         return state != null && state.rising;
     }
+
+    /**
+     * Returns the current screen shake countdown for the given zone/act.
+     * ROM: Obj_6E6E 180-frame timer that clears Screen_shake_flag.
+     * Used by the screen event handler to determine constant-mode shake.
+     *
+     * @return shake frames remaining, or 0 if inactive
+     */
+    public int getShakeTimer(int zoneId, int actId) {
+        DynamicWaterState state = dynamicWaterStates.get(makeKey(zoneId, actId));
+        return state != null ? state.getShakeTimer() : 0;
+    }
 }

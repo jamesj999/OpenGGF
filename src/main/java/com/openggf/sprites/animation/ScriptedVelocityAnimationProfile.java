@@ -134,6 +134,16 @@ public class ScriptedVelocityAnimationProfile implements SpriteAnimationProfile 
             return rollAnimId;
         }
         if (sprite.getAir()) {
+            // ROM: Sonic_MdAir/Sonic_MdJump do NOT call Sonic_Move, so the anim
+            // field is never overwritten while airborne. Only the ground routine
+            // (Sonic_MdNormal) calls Sonic_Move which selects walk/run/idle anim.
+            // When jumping=false and rolling=false, the player was placed into
+            // the air by an external force (fan updraft, walking off edge, spring
+            // after springing flag clears). In these cases, let whatever animation
+            // was last set persist — matching ROM behavior.
+            if (!sprite.isJumping() && !sprite.getRolling()) {
+                return null;
+            }
             return airAnimId;
         }
         if (sprite.getLookingUp() && lookUpAnimId >= 0) {

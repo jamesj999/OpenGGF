@@ -14,6 +14,7 @@ public final class Sonic3kObjectIds {
     public static final int AIZ_GIANT_RIDE_VINE = 0x0C;
     public static final int BREAKABLE_WALL = 0x0D;
     public static final int TWISTED_RAMP = 0x0E;
+    public static final int COLLAPSING_BRIDGE = 0x0F;
     public static final int AUTO_SPIN = 0x26;
     public static final int CORK_FLOOR = 0x2A;
     public static final int AIZ_FLIPPING_BRIDGE = 0x2B;
@@ -25,9 +26,20 @@ public final class Sonic3kObjectIds {
     public static final int AIZ_DRAW_BRIDGE = 0x32;
     public static final int FLOATING_PLATFORM = 0x51;
     public static final int BUMPER = 0x4A;
+    public static final int BUBBLER = 0x54;
     public static final int BUTTON = 0x33;
     public static final int STAR_POST = 0x34;
     public static final int AIZ_FOREGROUND_PLANT = 0x35;
+    public static final int HCZ_BREAKABLE_BAR = 0x36;
+    public static final int HCZ_WATER_RUSH = 0x37;
+    public static final int HCZ_CGZ_FAN = 0x38;
+    public static final int HCZ_LARGE_FAN = 0x39;
+    public static final int HCZ_WATER_WALL = 0x3B;
+    public static final int HCZ_HAND_LAUNCHER = 0x3A;
+    public static final int HCZ_CONVEYOR_BELT = 0x3E;
+    public static final int HCZ_CONVEYOR_SPIKE = 0x3F;
+    public static final int HCZ_BLOCK = 0x40;
+    public static final int INVISIBLE_HURT_BLOCK_H = 0x6A;
     public static final int SS_ENTRY_RING = 0x85;
     public static final int GUMBALL_MACHINE = 0x86;
     public static final int GUMBALL_TRIANGLE_BUMPER = 0x87;
@@ -35,6 +47,11 @@ public final class Sonic3kObjectIds {
     public static final int RHINOBOT = 0x8D;
     public static final int MONKEY_DUDE = 0x8E;
     public static final int CATERKILLER_JR = 0x8F;
+    public static final int BLASTOID = 0x94;
+    public static final int BUGGERNAUT = 0x95;
+    public static final int TURBO_SPIKER = 0x96;
+    public static final int MEGA_CHOPPER = 0x97;
+    public static final int POINDEXTER = 0x98;
     public static final int STILL_SPRITE = 0x2F;
     public static final int ANIMATED_STILL_SPRITE = 0x30;
     public static final int HIDDEN_MONITOR = 0x80;
@@ -52,6 +69,8 @@ public final class Sonic3kObjectIds {
     public static final int GUMBALL_ITEM = 0xEB;
     public static final int PACHINKO_MAGNET_ORB = 0xEC;
     public static final int PACHINKO_ITEM_ORB = 0xED;
+    public static final int HCZ_TWISTING_LOOP = 0x69;
+    public static final int HCZ_MINIBOSS = 0x99;
 
     private Sonic3kObjectIds() {
     }

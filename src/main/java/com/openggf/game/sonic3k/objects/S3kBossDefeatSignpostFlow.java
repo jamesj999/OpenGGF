@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.PlayableEntity;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
@@ -109,8 +110,30 @@ public class S3kBossDefeatSignpostFlow extends AbstractObjectInstance {
     private void updateWaitFade() {
         timer--;
         if (timer <= 0) {
+            // ROM: boss_saved_mus played when timer expires (sonic3k.asm:180484-180486).
+            // Restore the zone music before the signpost spawns.
+            resumeZoneMusic();
             phase = Phase.SPAWN_SIGNPOST;
             LOG.fine("S3K defeat flow WAIT_FADE -> SPAWN_SIGNPOST");
+        }
+    }
+
+    /**
+     * Plays the current zone's act music (ROM: boss_saved_mus).
+     * Each boss saves the level music ID on spawn; after defeat the same
+     * track is restored before the signpost appears.
+     */
+    private void resumeZoneMusic() {
+        try {
+            int zone = services().romZoneId();
+            int act = services().currentAct();
+            var zoneRegistry = GameModuleRegistry.getCurrent().getZoneRegistry();
+            int musicId = zoneRegistry.getMusicId(zone, act);
+            if (musicId >= 0) {
+                services().playMusic(musicId);
+            }
+        } catch (Exception e) {
+            LOG.fine("Could not resume zone music: " + e.getMessage());
         }
     }
 

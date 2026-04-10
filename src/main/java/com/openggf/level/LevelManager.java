@@ -187,6 +187,7 @@ public class LevelManager {
     // Mutable state for pre-allocated water shader setup command
     private float pendingWaterlineScreenY;
     private int pendingWaterShimmerStyle;
+    private boolean pendingSuppressUnderwaterPalette;
     private final GLCommand waterShaderSetupCommand = new GLCommand(GLCommand.CommandType.CUSTOM, (cx, cy, cw, ch) -> {
         graphicsManager.setUseWaterShader(true);
 
@@ -206,7 +207,7 @@ public class LevelManager {
         shader.setScreenDimensions((float) configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS),
                 screenHeightPixels);
 
-        graphicsManager.setWaterEnabled(true);
+        graphicsManager.setWaterEnabled(!pendingSuppressUnderwaterPalette);
         graphicsManager.setWaterlineScreenY(pendingWaterlineScreenY);
         graphicsManager.setWindowHeight(windowHeight);
         graphicsManager.setScreenHeight(screenHeightPixels);
@@ -1122,7 +1123,7 @@ public class LevelManager {
 
         // Update player water state after both water movement and zone features.
         if (level != null && waterSystem.hasWater(featureZone, featureAct) && playable != null) {
-            int waterY = waterSystem.getVisualWaterLevelY(featureZone, featureAct);
+            int waterY = waterSystem.getWaterLevelY(featureZone, featureAct);
             playable.updateWaterState(waterY);
         }
     }
@@ -1152,9 +1153,20 @@ public class LevelManager {
         }
 
         if (level != null && waterSystem.hasWater(featureZone, featureAct) && playable != null) {
-            int waterY = waterSystem.getVisualWaterLevelY(featureZone, featureAct);
+            int waterY = waterSystem.getWaterLevelY(featureZone, featureAct);
             playable.updateWaterState(waterY);
         }
+    }
+
+    private boolean shouldSuppressUnderwaterPalette(int zoneId, int actId) {
+        if (zoneId != com.openggf.game.sonic3k.constants.Sonic3kZoneIds.ZONE_HCZ
+                || !(GameModuleRegistry.getCurrent() instanceof com.openggf.game.sonic3k.Sonic3kGameModule)) {
+            return false;
+        }
+
+        // HCZ1 keeps real water gameplay and a visible surface from the start, but the
+        // underwater palette split does not engage until the first water-height switch.
+        return actId == 0 && waterSystem.getWaterLevelY(zoneId, actId) == 0x0500;
     }
 
     public void applyPlaneSwitchers(AbstractPlayableSprite player) {
@@ -1803,7 +1815,6 @@ public class LevelManager {
     private void updateWaterShaderState(Camera camera) {
         int zoneId = getFeatureZoneId();
         int actId = getFeatureActId();
-
         if (waterSystem.hasWater(zoneId, actId)) {
             // Set uniforms via custom command - this also enables the water shader
             // Use visual water level (with oscillation) for rendering effects
@@ -1840,6 +1851,7 @@ public class LevelManager {
             // Set mutable state for pre-allocated water shader setup command
             pendingWaterlineScreenY = waterlineScreenY;
             pendingWaterShimmerStyle = shimmerStyle;
+            pendingSuppressUnderwaterPalette = shouldSuppressUnderwaterPalette(zoneId, actId);
             graphicsManager.registerCommand(waterShaderSetupCommand);
         } else {
             // No water in this zone - disable underwater palette for sprite priority shader
@@ -1959,6 +1971,7 @@ public class LevelManager {
         int featureZone = getFeatureZoneId();
         int featureAct = getFeatureActId();
         boolean hasWater = waterSystem.hasWater(featureZone, featureAct);
+        boolean suppressUnderwaterPalette = shouldSuppressUnderwaterPalette(featureZone, featureAct);
         // Use visual water level (with oscillation) for background rendering
         int waterLevelWorldY = hasWater ? waterSystem.getVisualWaterLevelY(featureZone, featureAct) : 9999;
 
@@ -1981,7 +1994,7 @@ public class LevelManager {
         ensureBackgroundTilemapData();
         pendingBgTilePassRenderWidth = renderWidth;
         pendingBgTilePassRenderHeight = renderHeight;
-        pendingBgTilePassHasWater = hasWater;
+        pendingBgTilePassHasWater = hasWater && !suppressUnderwaterPalette;
         pendingBgTilePassFboWaterlineY = fboWaterlineY;
         pendingBgTilePassAlignedBgY = alignedBgY;
         pendingBgTilePassBgTilemapWorldOffsetX = bgTilemapWorldOffsetX;
@@ -2186,6 +2199,7 @@ public class LevelManager {
         int featureZone = getFeatureZoneId();
         int featureAct = getFeatureActId();
         boolean hasWater = waterSystem.hasWater(featureZone, featureAct);
+        boolean suppressUnderwaterPalette = shouldSuppressUnderwaterPalette(featureZone, featureAct);
         int waterLevel = hasWater ? waterSystem.getVisualWaterLevelY(featureZone, featureAct) : 0;
         // Use shake-adjusted Y for water line calculation
         float waterlineScreenY = (float) (waterLevel - camera.getYWithShake());
@@ -2200,7 +2214,7 @@ public class LevelManager {
         Integer atlasId = graphicsManager.getPatternAtlasTextureId();
         Integer paletteId = graphicsManager.getCombinedPaletteTextureId();
         Integer underwaterPaletteId = graphicsManager.getUnderwaterPaletteTextureId();
-        boolean useUnderwaterPalette = hasWater && underwaterPaletteId != null;
+        boolean useUnderwaterPalette = hasWater && !suppressUnderwaterPalette && underwaterPaletteId != null;
 
         if (atlasId == null || paletteId == null) {
             return;
@@ -3530,7 +3544,17 @@ public class LevelManager {
         // which enables water for cases that a direct load would disable (AIZ2 Knuckles).
         initWater(true);
 
-        // 5. Rebuild managers with new act's spawn data
+        // 5. Clear checkpoint state (ROM: clr.b (Respawn_table_keep).w)
+        // Without this, starposts from Act 1 would appear activated in Act 2.
+        if (checkpointState != null) {
+            checkpointState.clear();
+        }
+
+        // 5b. Reset level gamestate (timer + rings) for the new act.
+        // ROM: Timer and ring count reset on act transition. Score carries over.
+        levelGamestate = gameModule.createLevelState();
+
+        // 6. Rebuild managers with new act's spawn data
         // (ROM: Load_Level swaps obj/ring pointers, then clears Dynamic_object_RAM + Ring_status_table)
         rebuildManagersForActTransition(cam);
 
@@ -3543,6 +3567,15 @@ public class LevelManager {
 
         // 8. Reinitialize level events for new act
         initLevelEventsForCurrentZoneAct();
+
+        // 9. Reinitialize zone features (water surface sprites, etc.) for the new act.
+        // Without this, the water surface manager retains Act 1's act ID and renders
+        // wave sprites at the wrong water level.
+        try {
+            initZoneFeatures();
+        } catch (IOException e) {
+            LOGGER.warning("Failed to reinitialize zone features: " + e.getMessage());
+        }
 
         // 9. Music override if specified
         if (request.musicOverrideId() >= 0) {
