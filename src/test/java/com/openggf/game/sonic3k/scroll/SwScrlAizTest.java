@@ -10,6 +10,7 @@ import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic3k.Sonic3kGameModule;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.events.Sonic3kAIZEvents;
+import com.openggf.game.session.SessionManager;
 import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.level.objects.TestObjectServices;
 import com.openggf.level.objects.ObjectSpawn;
@@ -38,24 +39,31 @@ public class SwScrlAizTest {
 
     private SwScrlAiz handler;
     private Camera camera;
+    private Sonic3kLevelEventManager eventsManager;
 
     @Before
     public void setUp() {
         TestEnvironment.resetAll();
-        GameModuleRegistry.setCurrent(new Sonic3kGameModule());
         RuntimeManager.destroyCurrent();
-        camera = RuntimeManager.createGameplay().getCamera();
+        SessionManager.clear();
+        Sonic3kGameModule module = new Sonic3kGameModule();
+        GameModuleRegistry.setCurrent(module);
+        SessionManager.openGameplaySession(module);
+        camera = RuntimeManager.createGameplay(SessionManager.getCurrentGameplayMode()).getCamera();
         handler = new SwScrlAiz();
         camera.setLevelStarted(true);
-        ((Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider()).resetState();
+        eventsManager = (Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider();
+        eventsManager.resetState();
         resetIntroScrollState();
     }
 
     @After
     public void tearDown() {
         camera.setLevelStarted(true);
-        ((Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider()).resetState();
+        eventsManager.resetState();
         resetIntroScrollState();
+        RuntimeManager.destroyCurrent();
+        SessionManager.clear();
     }
 
     @Test
@@ -204,8 +212,6 @@ public class SwScrlAizTest {
 
     @Test
     public void fireTransitionExposesPerColumnVScrollWave() {
-        Sonic3kLevelEventManager eventsManager =
-                (Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider();
         eventsManager.initLevel(0, 0);
         Sonic3kAIZEvents events = eventsManager.getAizEvents();
         assertNotNull(events);

@@ -4,6 +4,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import com.openggf.camera.Camera;
+import com.openggf.game.GameRuntime;
 import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic1.constants.Sonic1Constants;
@@ -23,6 +24,11 @@ public class TestSonic1PlatformObjectInstanceRespawn {
 
     private static final class StubLevelManager extends LevelManager {
         private ObjectManager objectManager;
+
+        private StubLevelManager(GameRuntime runtime) {
+            super(runtime.getCamera(), runtime.getSpriteManager(), runtime.getParallaxManager(),
+                    runtime.getCollisionSystem(), runtime.getWaterSystem(), runtime.getGameState());
+        }
 
         @Override
         public int getCurrentZone() {
@@ -57,7 +63,7 @@ public class TestSonic1PlatformObjectInstanceRespawn {
         camera.setMaxY((short) 0);
 
         ObjectSpawn spawn = new ObjectSpawn(100, 300, 0x18, 0x04, 0, false, 0);
-        StubLevelManager levelManager = new StubLevelManager();
+        StubLevelManager levelManager = new StubLevelManager(RuntimeManager.getCurrent());
 
         ObjectRegistry registry = new ObjectRegistry() {
             @Override

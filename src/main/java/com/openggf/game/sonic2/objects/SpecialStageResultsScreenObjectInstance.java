@@ -12,7 +12,6 @@ import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Palette;
 import com.openggf.level.Pattern;
 import com.openggf.level.PatternDesc;
-import com.openggf.level.objects.BootstrapObjectServices;
 import com.openggf.level.objects.ObjectServices;
 import com.openggf.util.PatternDecompressor;
 
@@ -182,11 +181,6 @@ public class SpecialStageResultsScreenObjectInstance implements ResultsScreen {
     private static final int RING_BONUS_DIGIT_OFFSET = 8;   // $528 - $520 for Frame 13
     private static final int PERFECT_DIGIT_OFFSET = 0;      // $520 - $520 for Frame 16
     private static final int DIGITS_PER_VALUE = 8;          // 4 digits x 2 tiles each
-
-    public SpecialStageResultsScreenObjectInstance(int ringsCollected, boolean gotEmerald,
-                                                    int stageIndex, int totalEmeraldCount) {
-        this(ringsCollected, gotEmerald, stageIndex, totalEmeraldCount, new BootstrapObjectServices());
-    }
 
     public SpecialStageResultsScreenObjectInstance(int ringsCollected, boolean gotEmerald,
                                                     int stageIndex, int totalEmeraldCount,

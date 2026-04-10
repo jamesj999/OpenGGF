@@ -574,16 +574,16 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     /**
      * Returns the ObjectRenderManager, or null if not available.
      */
-    protected static ObjectRenderManager getRenderManager() {
-        LevelManager lm = staticLevelManager();
-        return (lm != null) ? lm.getObjectRenderManager() : null;
+    protected ObjectRenderManager getRenderManager() {
+        ObjectServices services = tryServices();
+        return services != null ? services.renderManager() : null;
     }
 
     /**
      * Returns the ready PatternSpriteRenderer for the given art key, or null
      * if the render manager or renderer is unavailable/not ready.
      */
-    protected static PatternSpriteRenderer getRenderer(String artKey) {
+    protected PatternSpriteRenderer getRenderer(String artKey) {
         ObjectRenderManager rm = getRenderManager();
         if (rm == null) return null;
         PatternSpriteRenderer renderer = rm.getRenderer(artKey);

@@ -142,6 +142,14 @@ public final class RuntimeManager {
         Camera camera = new Camera();
         TimerManager timers = new TimerManager();
         GameStateManager gameState = new GameStateManager();
+        GameModule sessionModule = gameplayMode.getWorldSession() != null
+                ? gameplayMode.getWorldSession().getGameModule()
+                : null;
+        if (sessionModule != null) {
+            gameState.configureSpecialStageProgress(
+                    sessionModule.getSpecialStageCycleCount(),
+                    sessionModule.getChaosEmeraldCount());
+        }
         FadeManager fadeManager = new FadeManager();
         WaterSystem waterSystem = new WaterSystem();
         ParallaxManager parallaxManager = new ParallaxManager();

@@ -2,6 +2,7 @@ package com.openggf.game;
 
 import com.openggf.game.sonic3k.Sonic3kGameModule;
 import com.openggf.game.sonic3k.Sonic3kPhysicsProvider;
+import com.openggf.game.session.SessionManager;
 import com.openggf.tests.TestablePlayableSprite;
 import com.openggf.tests.TestableTailsSprite;
 import org.junit.jupiter.api.AfterEach;
@@ -23,10 +24,14 @@ class TestS3kCharacterSpeeds {
     @BeforeEach
     void setUp() {
         GameModuleRegistry.setCurrent(new Sonic3kGameModule());
+        SessionManager.clear();
+        RuntimeManager.createGameplay();
     }
 
     @AfterEach
     void tearDown() {
+        RuntimeManager.destroyCurrent();
+        SessionManager.clear();
         GameModuleRegistry.reset();
     }
 
@@ -143,6 +148,9 @@ class TestS3kCharacterSpeeds {
     @Test
     void s2_sonic_matchesS3kSonic() {
         GameModuleRegistry.setCurrent(new com.openggf.game.sonic2.Sonic2GameModule());
+        RuntimeManager.destroyCurrent();
+        SessionManager.clear();
+        RuntimeManager.createGameplay();
         TestablePlayableSprite sprite = new TestablePlayableSprite("test", (short) 100, (short) 100);
         assertEquals(0x0C, sprite.getRunAccel(), "S2 Sonic: same accel as S3K");
         assertEquals(0x80, sprite.getRunDecel(), "S2 Sonic: same decel as S3K");

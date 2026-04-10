@@ -11,6 +11,12 @@ import com.openggf.game.GroundMode;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyByte;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class TestGroundSensor {
 
@@ -24,36 +30,44 @@ public class TestGroundSensor {
     public void setUp() {
         chunkMap = new ChunkDesc[20][20];
 
-        mockLevelManager = new LevelManager() {
-            @Override
-            public ChunkDesc getChunkDescAt(byte layer, int x, int y) {
-                int gridX = x / 16;
-                int gridY = y / 16;
-                if (gridX >= 0 && gridX < 20 && gridY >= 0 && gridY < 20) {
-                    return chunkMap[gridX][gridY];
-                }
-                return null;
-            }
-
-            @Override
-            public SolidTile getSolidTileForChunkDesc(ChunkDesc chunkDesc, int solidityBitIndex) {
-                if (chunkDesc == null)
+        mockLevelManager = mock(LevelManager.class);
+        when(mockLevelManager.getChunkDescAt(anyByte(), anyInt(), anyInt()))
+                .thenAnswer(invocation -> {
+                    int x = invocation.getArgument(1);
+                    int y = invocation.getArgument(2);
+                    int gridX = x / 16;
+                    int gridY = y / 16;
+                    if (gridX >= 0 && gridX < 20 && gridY >= 0 && gridY < 20) {
+                        return chunkMap[gridX][gridY];
+                    }
                     return null;
-                return tiles[chunkDesc.getChunkIndex()];
-            }
-
-            @Override
-            public SolidTile getSolidTileForChunkDesc(ChunkDesc chunkDesc, byte layer) {
-                if (chunkDesc == null)
+                });
+        when(mockLevelManager.getChunkDescAt(anyByte(), anyInt(), anyInt(), anyBoolean()))
+                .thenAnswer(invocation -> {
+                    int x = invocation.getArgument(1);
+                    int y = invocation.getArgument(2);
+                    int gridX = x / 16;
+                    int gridY = y / 16;
+                    if (gridX >= 0 && gridX < 20 && gridY >= 0 && gridY < 20) {
+                        return chunkMap[gridX][gridY];
+                    }
                     return null;
-                return tiles[chunkDesc.getChunkIndex()];
-            }
-
-            @Override
-            public SolidTile getSolidTileForChunkDesc(ChunkDesc chunkDesc) {
-                return getSolidTileForChunkDesc(chunkDesc, (byte) 0);
-            }
-        };
+                });
+        when(mockLevelManager.getSolidTileForChunkDesc(any(ChunkDesc.class), anyInt()))
+                .thenAnswer(invocation -> {
+                    ChunkDesc chunkDesc = invocation.getArgument(0);
+                    return chunkDesc == null ? null : tiles[chunkDesc.getChunkIndex()];
+                });
+        when(mockLevelManager.getSolidTileForChunkDesc(any(ChunkDesc.class), anyByte()))
+                .thenAnswer(invocation -> {
+                    ChunkDesc chunkDesc = invocation.getArgument(0);
+                    return chunkDesc == null ? null : tiles[chunkDesc.getChunkIndex()];
+                });
+        when(mockLevelManager.getSolidTileForChunkDesc(any(ChunkDesc.class)))
+                .thenAnswer(invocation -> {
+                    ChunkDesc chunkDesc = invocation.getArgument(0);
+                    return chunkDesc == null ? null : tiles[chunkDesc.getChunkIndex()];
+                });
 
         GroundSensor.setLevelManager(mockLevelManager);
 

@@ -11,6 +11,7 @@ import com.openggf.level.LevelManager;
 import com.openggf.level.objects.ObjectArtKeys;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.TestObjectServices;
 import com.openggf.level.render.PatternSpriteRenderer;
 
 import java.lang.reflect.Field;
@@ -58,6 +59,7 @@ public class TestS1FlamethrowerObjectRendering {
         ObjectSpawn spawn = new ObjectSpawn(0x1234, 0x0560,
                 Sonic1ObjectIds.FLAMETHROWER, 0x43, 0x03, false, 0);
         Sonic1FlamethrowerObjectInstance flamethrower = new Sonic1FlamethrowerObjectInstance(spawn);
+        flamethrower.setServices(new TestObjectServices().withLevelManager(runtimeLevelManager));
         flamethrower.appendRenderCommands(new ArrayList<>());
 
         verify(renderer).drawFrameIndex(anyInt(), eq(0x1234), eq(0x0560), eq(true), eq(true));

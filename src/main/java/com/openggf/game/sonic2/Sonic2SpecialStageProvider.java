@@ -1,6 +1,7 @@
 package com.openggf.game.sonic2;
 
 import com.openggf.game.ResultsScreen;
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.SpecialStageAccessType;
 import com.openggf.game.SpecialStageDebugProvider;
 import com.openggf.game.SpecialStageProvider;
@@ -8,6 +9,8 @@ import com.openggf.game.sonic2.audio.Sonic2Music;
 import com.openggf.game.sonic2.audio.Sonic2Sfx;
 import com.openggf.game.sonic2.objects.SpecialStageResultsScreenObjectInstance;
 import com.openggf.game.sonic2.specialstage.Sonic2SpecialStageManager;
+import com.openggf.level.objects.ObjectConstructionContext;
+import com.openggf.level.objects.DefaultObjectServices;
 
 import java.io.IOException;
 
@@ -183,8 +186,14 @@ public class Sonic2SpecialStageProvider implements SpecialStageProvider {
     @Override
     public ResultsScreen createResultsScreen(int ringsCollected, boolean gotEmerald,
                                              int stageIndex, int totalEmeraldCount) {
-        return new SpecialStageResultsScreenObjectInstance(
-                ringsCollected, gotEmerald, stageIndex, totalEmeraldCount);
+        DefaultObjectServices services = new DefaultObjectServices(RuntimeManager.getCurrent());
+        ObjectConstructionContext.setConstructionContext(services);
+        try {
+            return new SpecialStageResultsScreenObjectInstance(
+                    ringsCollected, gotEmerald, stageIndex, totalEmeraldCount, services);
+        } finally {
+            ObjectConstructionContext.clearConstructionContext();
+        }
     }
 
     // ==================== MiniGameProvider Methods ====================

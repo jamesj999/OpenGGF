@@ -1,9 +1,7 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.game.GameRuntime;
 import com.openggf.game.LevelState;
 import com.openggf.game.ObjectArtProvider;
-import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotStageController;
 import com.openggf.graphics.GraphicsManager;
@@ -17,11 +15,9 @@ import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.level.render.SpriteMappingFrame;
 import com.openggf.level.render.SpriteMappingPiece;
 import com.openggf.level.rings.RingManager;
-import org.junit.jupiter.api.AfterEach;
 import com.openggf.sprites.playable.Sonic;
 import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,20 +26,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class TestS3kSlotRewardObjects {
-
-    private Field levelManagerField;
-    private LevelManager originalLevelManager;
-    private GameRuntime originalRuntime;
-
-    @AfterEach
-    void tearDown() throws Exception {
-        if (levelManagerField != null) {
-            levelManagerField.set(null, originalLevelManager);
-        }
-        RuntimeManager.setCurrent(originalRuntime);
-    }
 
     @Test
     void ringRewardAddsOneBonusStageRingToPlayableOnExpiry() {
@@ -298,9 +283,8 @@ class TestS3kSlotRewardObjects {
     @Test
     void spikeRewardAppendRenderCommandsUsesSpikeRenderer() throws Exception {
         RecordingRenderer renderer = new RecordingRenderer();
-        installRenderer(renderer, Sonic3kObjectArtKeys.SLOT_SPIKE_REWARD);
+        TrackingBonusStageServices services = installRenderer(renderer, Sonic3kObjectArtKeys.SLOT_SPIKE_REWARD);
 
-        TrackingBonusStageServices services = new TrackingBonusStageServices();
         S3kSlotStageController controller = new S3kSlotStageController();
         controller.bootstrap();
 
@@ -341,6 +325,12 @@ class TestS3kSlotRewardObjects {
 
         private TrackingBonusStageServices(int rings) {
             this.levelState = new FixedRingLevelState(rings);
+        }
+
+        @Override
+        public TrackingBonusStageServices withLevelManager(LevelManager levelManager) {
+            super.withLevelManager(levelManager);
+            return this;
         }
 
         @Override
@@ -408,27 +398,11 @@ class TestS3kSlotRewardObjects {
         @Override public void setTimerFrames(long frames) { }
     }
 
-    private void installRenderer(RecordingRenderer renderer, String artKey) throws Exception {
-        levelManagerField = LevelManager.class.getDeclaredField("levelManager");
-        levelManagerField.setAccessible(true);
-        originalLevelManager = (LevelManager) levelManagerField.get(null);
-        originalRuntime = RuntimeManager.getCurrent();
-        RuntimeManager.setCurrent(null);
+    private TrackingBonusStageServices installRenderer(RecordingRenderer renderer, String artKey) {
+        LevelManager levelManager = mock(LevelManager.class);
         ObjectRenderManager renderManager = new ObjectRenderManager(new StubObjectArtProvider(renderer, artKey));
-        levelManagerField.set(null, new TestLevelManager(renderManager));
-    }
-
-    private static final class TestLevelManager extends LevelManager {
-        private final ObjectRenderManager renderManager;
-
-        private TestLevelManager(ObjectRenderManager renderManager) {
-            this.renderManager = renderManager;
-        }
-
-        @Override
-        public ObjectRenderManager getObjectRenderManager() {
-            return renderManager;
-        }
+        when(levelManager.getObjectRenderManager()).thenReturn(renderManager);
+        return new TrackingBonusStageServices().withLevelManager(levelManager);
     }
 
     private static final class StubObjectArtProvider implements ObjectArtProvider {
