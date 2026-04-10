@@ -13,6 +13,7 @@ import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.io.IOException;
+import java.util.function.Supplier;
 import java.util.logging.Logger;
 
 /**
@@ -91,6 +92,14 @@ public abstract class Sonic2ZoneEvents {
         if (lm.getObjectManager() != null) {
             lm.getObjectManager().addDynamicObject(object);
         }
+    }
+
+    protected <T extends ObjectInstance> T spawnObject(Supplier<T> factory) {
+        LevelManager lm = levelManager();
+        if (lm.getObjectManager() == null) {
+            return null;
+        }
+        return lm.getObjectManager().createDynamicObject(factory);
     }
 
     /**

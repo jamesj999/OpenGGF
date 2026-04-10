@@ -37,6 +37,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.logging.Logger;
 
 public class ObjectManager {
@@ -989,6 +990,17 @@ public class ObjectManager {
 
     public void addDynamicObject(ObjectInstance object) {
         addDynamicObjectInternal(object, false);
+    }
+
+    public <T extends ObjectInstance> T createDynamicObject(Supplier<T> factory) {
+        AbstractObjectInstance.CONSTRUCTION_CONTEXT.set(objectServices);
+        try {
+            T object = factory.get();
+            addDynamicObject(object);
+            return object;
+        } finally {
+            AbstractObjectInstance.CONSTRUCTION_CONTEXT.remove();
+        }
     }
 
     public void removeDynamicObject(ObjectInstance object) {

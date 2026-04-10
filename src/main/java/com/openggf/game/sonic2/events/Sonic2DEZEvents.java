@@ -96,8 +96,7 @@ public class Sonic2DEZEvents extends Sonic2ZoneEvents {
     private void spawnSilverSonic() {
         ObjectSpawn bossSpawn = new ObjectSpawn(
                 0x348, 0xA0, Sonic2ObjectIds.MECHA_SONIC, 0x48, 0, false, 0);
-        silverSonic = new Sonic2MechaSonicInstance(bossSpawn);
-        spawnObject(silverSonic);
+        silverSonic = spawnObject(() -> new Sonic2MechaSonicInstance(bossSpawn));
     }
 
     /**

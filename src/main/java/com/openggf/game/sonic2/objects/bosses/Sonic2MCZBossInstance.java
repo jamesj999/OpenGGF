@@ -798,8 +798,7 @@ public class Sonic2MCZBossInstance extends AbstractBossInstance {
                 Sonic2ObjectIds.EGG_PRISON,
                 0, 0, false, 0
         );
-        EggPrisonObjectInstance prison = new EggPrisonObjectInstance(prisonSpawn, "Egg Prison");
-        services().objectManager().addDynamicObject(prison);
+        spawnChild(() -> new EggPrisonObjectInstance(prisonSpawn, "Egg Prison"));
     }
 
     @Override
