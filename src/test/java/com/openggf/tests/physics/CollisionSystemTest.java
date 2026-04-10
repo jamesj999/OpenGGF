@@ -1,6 +1,9 @@
 package com.openggf.tests.physics;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.GameRuntime;
+import com.openggf.game.RuntimeManager;
+import com.openggf.level.LevelManager;
 import com.openggf.physics.*;
 import com.openggf.tests.TestEnvironment;
 import org.junit.Before;
@@ -441,6 +444,31 @@ public class CollisionSystemTest {
     }
 
     @Test
+    public void testGroundSensorDefaultLevelManagerTracksRuntimeRecreation() {
+        GroundSensor.setLevelManager(null);
+
+        GameRuntime firstRuntime = RuntimeManager.getCurrent();
+        LevelManager firstLevelManager = invokeGroundSensorLevelManager();
+        assertSame("GroundSensor should resolve the current runtime LevelManager",
+                firstRuntime.getLevelManager(), firstLevelManager);
+
+        RuntimeManager.destroyCurrent();
+        RuntimeManager.createGameplay();
+
+        try {
+            GameRuntime secondRuntime = RuntimeManager.getCurrent();
+            LevelManager secondLevelManager = invokeGroundSensorLevelManager();
+
+            assertSame("GroundSensor should resolve the recreated runtime LevelManager",
+                    secondRuntime.getLevelManager(), secondLevelManager);
+            assertNotSame("GroundSensor should not retain the destroyed runtime LevelManager",
+                    firstLevelManager, secondLevelManager);
+        } finally {
+            GroundSensor.setLevelManager(null);
+        }
+    }
+
+    @Test
     public void testCalcRoomInFrontProbeOnFloorMovingRightUsesRightWallProbe() {
         Object probe = describeCalcRoomInFrontProbe(0x00, (short) 0x400);
 
@@ -492,6 +520,16 @@ public class CollisionSystemTest {
             return method.invoke(null, angle, gSpeed);
         } catch (ReflectiveOperationException e) {
             throw new AssertionError("Failed to invoke describeCalcRoomInFrontProbe", e);
+        }
+    }
+
+    private static LevelManager invokeGroundSensorLevelManager() {
+        try {
+            Method method = GroundSensor.class.getDeclaredMethod("getLevelManager");
+            method.setAccessible(true);
+            return (LevelManager) method.invoke(null);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Failed to invoke GroundSensor.getLevelManager", e);
         }
     }
 

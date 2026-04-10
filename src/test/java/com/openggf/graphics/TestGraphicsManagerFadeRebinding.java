@@ -45,6 +45,20 @@ public class TestGraphicsManagerFadeRebinding {
                 runtimeCamera, getPrivateField(graphicsManager, "camera"));
     }
 
+    @Test
+    public void testGetFadeManagerProvidesBootstrapDependenciesBeforeRuntime() throws Exception {
+        RuntimeManager.destroyCurrent();
+        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        graphicsManager.resetState();
+
+        FadeManager resolvedFade = graphicsManager.getFadeManager();
+
+        assertSame("Pre-game rendering should use the bootstrap FadeManager",
+                FadeManager.getInstance(), resolvedFade);
+        assertSame("Pre-game rendering should use the bootstrap Camera",
+                Camera.getInstance(), getPrivateField(graphicsManager, "camera"));
+    }
+
     private static void setPrivateField(Object target, String fieldName, Object value) throws Exception {
         Field field = target.getClass().getDeclaredField(fieldName);
         field.setAccessible(true);
