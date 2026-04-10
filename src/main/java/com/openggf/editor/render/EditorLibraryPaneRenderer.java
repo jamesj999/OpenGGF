@@ -36,7 +36,7 @@ public class EditorLibraryPaneRenderer {
         List<GLCommand> commands = new ArrayList<>();
         appendCommands(commands);
         if (!commands.isEmpty()) {
-            GraphicsManager.getInstance().registerCommand(new GLCommandGroup(GL_LINES, commands));
+            com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics().registerCommand(new GLCommandGroup(GL_LINES, commands));
         }
         textRenderer.renderLines(buildLibraryLines(depth), 18, 48);
     }

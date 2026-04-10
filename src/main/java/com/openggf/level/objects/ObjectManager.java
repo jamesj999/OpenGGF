@@ -136,7 +136,7 @@ public class ObjectManager {
             int planeSwitcherObjectId, PlaneSwitcherConfig planeSwitcherConfig,
             TouchResponseTable touchResponseTable, ObjectServices services) {
         this(spawns, registry, planeSwitcherObjectId, planeSwitcherConfig, touchResponseTable,
-                GraphicsManager.getInstance(),
+                com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics(),
                 services.camera(),
                 services);
     }
@@ -218,7 +218,7 @@ public class ObjectManager {
             return;
         }
         touchResponses.debugState.setEnabled(
-                DebugOverlayManager.getInstance().isEnabled(DebugOverlayToggle.TOUCH_RESPONSE));
+                com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().debugOverlay().isEnabled(DebugOverlayToggle.TOUCH_RESPONSE));
         // ROM: CPU sidekick uses separate overlap tracking and Hurt_Sidekick handler
         // (knockback only, no ring scatter or death). Must dispatch to updateSidekick
         // to avoid routing through the main player's applyHurtOrDeath path.
@@ -272,7 +272,7 @@ public class ObjectManager {
         // for both terrain and solid objects before animation resolves.
         if (enableTouchResponses && touchResponses != null) {
             touchResponses.debugState.setEnabled(
-                    DebugOverlayManager.getInstance().isEnabled(DebugOverlayToggle.TOUCH_RESPONSE));
+                    com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().debugOverlay().isEnabled(DebugOverlayToggle.TOUCH_RESPONSE));
             touchResponses.update(player, touchFrameCounter);
             // ROM: Both players participate in touch responses.
             // Each sidekick uses separate overlap tracking and special hurt handling.

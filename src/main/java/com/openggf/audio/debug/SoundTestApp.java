@@ -791,7 +791,7 @@ public final class SoundTestApp {
         }
 
         private double getOutputSampleRate() {
-            boolean internalRate = SonicConfigurationService.getInstance()
+            boolean internalRate = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().configuration()
                     .getBoolean(SonicConfiguration.AUDIO_INTERNAL_RATE_OUTPUT);
             return internalRate ? Ym2612Chip.getInternalRate() : Ym2612Chip.getDefaultOutputRate();
         }
@@ -827,7 +827,7 @@ public final class SoundTestApp {
         }
 
         static Options fromArgs(String[] args) {
-            String configGame = SonicConfigurationService.getInstance()
+            String configGame = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().configuration()
                     .getString(SonicConfiguration.DEFAULT_ROM);
             String gameId = configGame != null ? configGame.toLowerCase(Locale.ROOT) : "s2";
             String romPath = null;

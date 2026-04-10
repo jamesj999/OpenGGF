@@ -591,7 +591,7 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
         byte[] colorBytes = {(byte) ((segaColor >> 8) & 0xFF), (byte) (segaColor & 0xFF)};
         pal2.getColor(15).fromSegaFormat(colorBytes, 0);
 
-        GraphicsManager gm = GraphicsManager.getInstance();
+        GraphicsManager gm = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
         if (gm.isGlInitialized()) {
             gm.cachePaletteTexture(pal2, 2);
         }

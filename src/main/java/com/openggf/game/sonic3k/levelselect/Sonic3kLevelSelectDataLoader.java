@@ -455,7 +455,7 @@ public class Sonic3kLevelSelectDataLoader {
             return;
         }
 
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
         if (graphicsManager == null || graphicsManager.isHeadlessMode()) {
             return;
         }

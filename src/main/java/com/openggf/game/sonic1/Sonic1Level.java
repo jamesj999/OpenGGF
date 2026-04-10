@@ -170,7 +170,7 @@ public class Sonic1Level extends AbstractLevel {
      */
     private void loadPalettes(Rom rom, int sonicPaletteId, int levelPaletteId) throws IOException {
         palettes = new Palette[PALETTE_COUNT];
-        GraphicsManager graphicsMan = GraphicsManager.getInstance();
+        GraphicsManager graphicsMan = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
 
         for (int i = 0; i < PALETTE_COUNT; i++) {
             palettes[i] = new Palette();
@@ -235,7 +235,7 @@ public class Sonic1Level extends AbstractLevel {
      * <p>Any gaps between entries are filled with empty patterns.
      */
     private void loadPatterns(Rom rom, List<PlcEntry> cues) throws IOException {
-        GraphicsManager graphicsMan = GraphicsManager.getInstance();
+        GraphicsManager graphicsMan = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
 
         // Sort cues by tile offset
         List<PlcEntry> sorted = new ArrayList<>(cues);

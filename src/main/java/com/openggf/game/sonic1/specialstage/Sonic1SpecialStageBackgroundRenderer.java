@@ -152,7 +152,7 @@ public class Sonic1SpecialStageBackgroundRenderer {
      * Call BEFORE creating the pattern batch.
      */
     public void beginFBOProjection() {
-        Engine engine = Engine.getInstance();
+        Engine engine = Engine.current();
         if (engine != null) {
             engine.beginFBOProjection(FBO_WIDTH, FBO_HEIGHT);
         }
@@ -163,7 +163,7 @@ public class Sonic1SpecialStageBackgroundRenderer {
      * Call AFTER flushing the pattern batch.
      */
     public void endFBOProjection() {
-        Engine engine = Engine.getInstance();
+        Engine engine = Engine.current();
         if (engine != null) {
             engine.endFBOProjection();
         }
@@ -182,7 +182,7 @@ public class Sonic1SpecialStageBackgroundRenderer {
         glBindFramebuffer(GL_FRAMEBUFFER, fboId);
         glViewport(0, 0, FBO_WIDTH, FBO_HEIGHT);
 
-        Engine engine = Engine.getInstance();
+        Engine engine = Engine.current();
         if (engine != null) {
             engine.beginFBOProjection(FBO_WIDTH, FBO_HEIGHT);
         }
@@ -241,7 +241,7 @@ public class Sonic1SpecialStageBackgroundRenderer {
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-        Engine engine = Engine.getInstance();
+        Engine engine = Engine.current();
         if (engine != null) {
             engine.endFBOProjection();
         }

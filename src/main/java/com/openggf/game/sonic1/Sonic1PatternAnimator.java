@@ -38,7 +38,7 @@ class Sonic1PatternAnimator implements AnimatedPatternManager {
     private static final Logger LOG = Logger.getLogger(Sonic1PatternAnimator.class.getName());
 
     private final Level level;
-    private final GraphicsManager graphicsManager = GraphicsManager.getInstance();
+    private final GraphicsManager graphicsManager = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
     private final List<AnimHandler> handlers;
 
     Sonic1PatternAnimator(RomByteReader reader, Level level, int zoneIndex) {

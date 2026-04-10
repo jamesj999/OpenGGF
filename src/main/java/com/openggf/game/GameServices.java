@@ -189,14 +189,14 @@ public final class GameServices {
     // â”€â”€ Engine globals (stay as direct singleton calls) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     public static RomManager rom() {
-        return RomManager.getInstance();
+        return com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().roms();
     }
 
     public static DebugOverlayManager debugOverlay() {
-        return DebugOverlayManager.getInstance();
+        return com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().debugOverlay();
     }
 
     public static AudioManager audio() {
-        return AudioManager.getInstance();
+        return com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().audio();
     }
 }

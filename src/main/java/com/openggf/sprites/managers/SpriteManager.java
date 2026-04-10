@@ -85,7 +85,7 @@ public class SpriteManager {
 	private boolean playbackInputSuppressed;
 
 	public SpriteManager() {
-		this(SonicConfigurationService.getInstance());
+		this(com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().configuration());
 	}
 
 	public SpriteManager(SonicConfigurationService configService) {
@@ -581,7 +581,7 @@ public class SpriteManager {
 	private boolean enableVerticalWrapIfNeeded() {
 		Camera camera = currentCamera();
 		if (camera.isVerticalWrapEnabled()) {
-			GraphicsManager.getInstance().enableVerticalWrapAdjust(
+			com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics().enableVerticalWrapAdjust(
 					Camera.VERTICAL_WRAP_RANGE, camera.getY());
 			return true;
 		}
@@ -589,7 +589,7 @@ public class SpriteManager {
 	}
 
 	private void disableVerticalWrap() {
-		GraphicsManager.getInstance().disableVerticalWrapAdjust();
+		com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics().disableVerticalWrapAdjust();
 	}
 
 	private boolean removeSprite(Sprite sprite) {

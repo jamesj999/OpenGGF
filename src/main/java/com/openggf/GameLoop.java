@@ -236,7 +236,7 @@ public class GameLoop {
         if (editorInputHandler != null) {
             editorInputHandler.update(inputHandler);
         }
-        Engine engine = Engine.getInstance();
+        Engine engine = Engine.current();
         if (engine != null) {
             engine.syncEditorState();
         }
@@ -352,7 +352,7 @@ public class GameLoop {
         // Must be checked before pause handling since Enter is both confirm and pause.
         if (currentGameMode == GameMode.MASTER_TITLE_SCREEN) {
             MasterTitleScreen masterScreen =
-                    Engine.getInstance().getMasterTitleScreen();
+                    Engine.current().getMasterTitleScreen();
             if (masterScreen != null) {
                 masterScreen.update(inputHandler);
                 if (masterScreen.isGameSelected()) {
@@ -2015,7 +2015,7 @@ public class GameLoop {
      * Actually performs the master title screen exit after fade-to-black completes.
      */
     private void doExitMasterTitleScreen(String selectedGameId) {
-        Engine engine = Engine.getInstance();
+        Engine engine = Engine.current();
         if (engine != null) {
             engine.exitMasterTitleScreen(selectedGameId);
         }

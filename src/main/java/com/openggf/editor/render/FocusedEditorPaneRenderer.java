@@ -41,13 +41,13 @@ public class FocusedEditorPaneRenderer {
         List<GLCommand> backdropCommands = new ArrayList<>();
         appendBlockBackdropCommands(backdropCommands);
         for (GLCommand command : backdropCommands) {
-            GraphicsManager.getInstance().registerCommand(command);
+            com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics().registerCommand(command);
         }
 
         List<GLCommand> commands = new ArrayList<>();
         appendBlockPaneCommands(commands);
         if (!commands.isEmpty()) {
-            GraphicsManager.getInstance().registerCommand(new GLCommandGroup(GL_LINES, commands));
+            com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics().registerCommand(new GLCommandGroup(GL_LINES, commands));
         }
     }
 
@@ -55,13 +55,13 @@ public class FocusedEditorPaneRenderer {
         List<GLCommand> backdropCommands = new ArrayList<>();
         appendChunkBackdropCommands(backdropCommands);
         for (GLCommand command : backdropCommands) {
-            GraphicsManager.getInstance().registerCommand(command);
+            com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics().registerCommand(command);
         }
 
         List<GLCommand> commands = new ArrayList<>();
         appendChunkPaneCommands(commands);
         if (!commands.isEmpty()) {
-            GraphicsManager.getInstance().registerCommand(new GLCommandGroup(GL_LINES, commands));
+            com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics().registerCommand(new GLCommandGroup(GL_LINES, commands));
         }
     }
 
@@ -183,7 +183,7 @@ public class FocusedEditorPaneRenderer {
         if (placements.isEmpty()) {
             return;
         }
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
         for (PreviewPlacement placement : placements) {
             PatternDesc descriptor = placement.descriptor();
             graphicsManager.renderPatternWithId(descriptor.getPatternIndex(), descriptor, placement.x(), placement.y());

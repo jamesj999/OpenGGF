@@ -139,7 +139,7 @@ public class Sonic1LevelSelectDataLoader {
             return;
         }
 
-        GraphicsManager gm = GraphicsManager.getInstance();
+        GraphicsManager gm = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
         if (gm == null || gm.isHeadlessMode()) {
             return;
         }

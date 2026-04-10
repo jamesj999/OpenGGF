@@ -92,7 +92,7 @@ public class Camera {
 	private short fastScrollCap = DEFAULT_FAST_SCROLL_CAP;
 
 	public Camera() {
-		this(SonicConfigurationService.getInstance());
+		this(com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().configuration());
 	}
 
 	public Camera(SonicConfigurationService configService) {

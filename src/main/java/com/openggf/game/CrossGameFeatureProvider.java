@@ -101,7 +101,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
             return;
         }
 
-        Rom donorRom = RomManager.getInstance().getSecondaryRom(donorGameId.code());
+        Rom donorRom = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().roms().getSecondaryRom(donorGameId.code());
         this.donorReader = RomByteReader.fromRom(donorRom);
 
         if (donorGameId == GameId.S3K) {
@@ -120,7 +120,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
 
         // Create donor render context for palette isolation
         donorRenderContext = RenderContext.getOrCreateDonor(donorGameId);
-        String mainChar = com.openggf.configuration.SonicConfigurationService.getInstance()
+        String mainChar = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().configuration()
                 .getString(com.openggf.configuration.SonicConfiguration.MAIN_CHARACTER_CODE);
         Palette charPalette = loadCharacterPalette(mainChar);
         if (charPalette != null) {
@@ -283,7 +283,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
         }
 
         try {
-            Rom donorRom = RomManager.getInstance().getSecondaryRom(donorGameId.code());
+            Rom donorRom = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().roms().getSecondaryRom(donorGameId.code());
             donorSmpsLoader = donorProfile.createSmpsLoader(donorRom);
             donorDacData = donorSmpsLoader.loadDacData();
 

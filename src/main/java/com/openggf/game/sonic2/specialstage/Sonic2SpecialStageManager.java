@@ -52,8 +52,8 @@ public class Sonic2SpecialStageManager {
         FAILED
     }
 
-    private final SonicConfigurationService configService = SonicConfigurationService.getInstance();
-    private final GraphicsManager graphicsManager = GraphicsManager.getInstance();
+    private final SonicConfigurationService configService = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().configuration();
+    private final GraphicsManager graphicsManager = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
     private final Sonic2SpecialStageSpriteDebug debugSprites;
 
     private Sonic2SpecialStageDataLoader dataLoader;

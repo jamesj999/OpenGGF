@@ -218,7 +218,7 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
      * ROM: PLC_01 (Sonic), PLC_05 (Knuckles), PLC_07 (Tails).
      */
     private int resolveLifeIconAddr() {
-        String mainChar = com.openggf.configuration.SonicConfigurationService.getInstance()
+        String mainChar = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().configuration()
                 .getString(com.openggf.configuration.SonicConfiguration.MAIN_CHARACTER_CODE);
         if ("knuckles".equalsIgnoreCase(mainChar)) {
             return Sonic3kConstants.ART_NEM_KNUCKLES_LIFE_ICON_ADDR;
@@ -1458,7 +1458,7 @@ public class Sonic3kObjectArtProvider implements ObjectArtProvider {
         System.arraycopy(src, 0, dst, 0, count);
 
         // Ask the renderer to re-upload the affected GPU textures.
-        GraphicsManager gfx = GraphicsManager.getInstance();
+        GraphicsManager gfx = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
         if (gfx != null && gfx.isGlInitialized() && renderer.isReady()) {
             renderer.updatePatternRange(gfx, 0, count);
         }

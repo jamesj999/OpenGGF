@@ -115,15 +115,15 @@ public class LevelManager {
         return tilemapManager;
     }
 
-    private final GraphicsManager graphicsManager = GraphicsManager.getInstance();
+    private final GraphicsManager graphicsManager = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
     private SpriteManager spriteManager;
     private CollisionSystem collisionSystem;
     private WaterSystem waterSystem;
     private GameStateManager gameState;
-    private final SonicConfigurationService configService = SonicConfigurationService.getInstance();
+    private final SonicConfigurationService configService = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().configuration();
     private final DebugOverlayManager overlayManager = GameServices.debugOverlay();
     private LevelDebugRenderer debugRenderer;
-    private final PerformanceProfiler profiler = PerformanceProfiler.getInstance();
+    private final PerformanceProfiler profiler = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().profiler();
     private final List<List<LevelData>> levels = new ArrayList<>();
     private int currentAct = 0;
     private int apparentAct = 0;
@@ -623,7 +623,7 @@ public class LevelManager {
      * Phase C/F: Configure audio manager and play level music.
      */
     public void initAudio(int levelIndex) throws IOException {
-        AudioManager audioManager = AudioManager.getInstance();
+        AudioManager audioManager = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().audio();
         audioManager.setAudioProfile(gameModule.getAudioProfile());
         audioManager.setRom(GameServices.rom().getRom());
         audioManager.setSoundMap(game.getSoundMap());
@@ -2867,7 +2867,7 @@ public class LevelManager {
         level.setPalette(paletteIndex, newPalette);
 
         // Update the graphics manager's cached palette texture
-        GraphicsManager graphicsMan = GraphicsManager.getInstance();
+        GraphicsManager graphicsMan = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
         if (graphicsMan.isGlInitialized()) {
             graphicsMan.cachePaletteTexture(newPalette, paletteIndex);
         }
@@ -3299,7 +3299,7 @@ public class LevelManager {
         playable.setHighPriority(false);
         playable.setPriorityBucket(RenderPriority.PLAYER_DEFAULT);
         playable.setRingCount(0);
-        AudioManager.getInstance().getBackend().setSpeedShoes(false);
+        com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().audio().getBackend().setSpeedShoes(false);
     }
 
     /**
@@ -3633,7 +3633,7 @@ public class LevelManager {
 
         // 9. Music override if specified
         if (request.musicOverrideId() >= 0) {
-            AudioManager.getInstance().playMusic(request.musicOverrideId());
+            com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().audio().playMusic(request.musicOverrideId());
         }
 
         // 10. In-level title card if requested

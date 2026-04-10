@@ -157,7 +157,7 @@ public class Engine {
 
 	private DebugRenderer getDebugRenderer() {
 		if (debugRenderer == null) {
-			debugRenderer = DebugRenderer.getInstance();
+			debugRenderer = DebugRenderer.current();
 		}
 		return debugRenderer;
 	}
@@ -1369,6 +1369,10 @@ public class Engine {
 	 * @return the Engine instance, or null if not yet created
 	 */
 	public static synchronized Engine getInstance() {
+		return instance;
+	}
+
+	public static synchronized Engine current() {
 		return instance;
 	}
 

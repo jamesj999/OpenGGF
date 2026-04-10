@@ -76,7 +76,7 @@ public final class S3kSlotMachinePanelAnimator {
             return;
         }
 
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
         graphicsManager.beginPatternAtlasBatch();
         for (int reel = 0; reel < 3; reel++) {
             Pattern[] patterns = buildVisibleWindowPatterns(
