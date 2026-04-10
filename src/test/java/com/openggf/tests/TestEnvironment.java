@@ -6,6 +6,7 @@ import com.openggf.game.InitStep;
 import com.openggf.game.LevelInitProfile;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.StaticFixup;
+import com.openggf.game.session.SessionManager;
 import com.openggf.tests.rules.RequiresRomRule;
 
 /**
@@ -30,6 +31,9 @@ public final class TestEnvironment {
         // After reset(), the module reverts to Sonic2GameModule (the default).
         // We need the PREVIOUS game's teardown to clean up its own state.
         LevelInitProfile profile = GameModuleRegistry.getCurrent().getLevelInitProfile();
+
+        RuntimeManager.destroyCurrent();
+        SessionManager.clear();
 
         // Phase 0: Reset game module (shared across all games)
         GameModuleRegistry.reset();

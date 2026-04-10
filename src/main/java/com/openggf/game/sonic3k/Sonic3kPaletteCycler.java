@@ -2,7 +2,6 @@ package com.openggf.game.sonic3k;
 
 import com.openggf.camera.Camera;
 import com.openggf.data.RomByteReader;
-import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.sonic3k.constants.Sonic3kConstants;
 import com.openggf.game.sonic3k.bonusstage.slots.S3kSlotBonusStageRuntime;
 import com.openggf.graphics.GraphicsManager;
@@ -35,8 +34,8 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
         return runtime != null ? runtime.paletteCycleMode() : 0;
     }
 
-    static int resolveSlotsModeFromRegistryForTest() {
-        return resolveSlotsModeFromRegistry();
+    static int resolveSlotsModeFromSessionForTest() {
+        return resolveSlotsModeFromSession();
     }
 
     Sonic3kPaletteCycler(RomByteReader reader, Level level, int zoneIndex, int actIndex) {
@@ -1364,7 +1363,7 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
         }
 
         private int resolveMode() {
-            return resolveSlotsModeFromRegistry();
+            return resolveSlotsModeFromSession();
         }
 
         private void tickIdle(Level level) {
@@ -1420,9 +1419,8 @@ class Sonic3kPaletteCycler implements AnimatedPaletteManager {
         }
     }
 
-    private static int resolveSlotsModeFromRegistry() {
-        if (GameModuleRegistry.getCurrent() != null
-                && GameModuleRegistry.getCurrent().getBonusStageProvider() instanceof Sonic3kBonusStageCoordinator coordinator
+    private static int resolveSlotsModeFromSession() {
+        if (GameServices.module().getBonusStageProvider() instanceof Sonic3kBonusStageCoordinator coordinator
                 && coordinator.activeSlotRuntime() != null) {
             return resolveSlotsModeForTest(coordinator.activeSlotRuntime());
         }
