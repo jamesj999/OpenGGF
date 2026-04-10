@@ -161,7 +161,7 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
         if (player == null || player.getCentreY() >= PACHINKO_TOP_EXIT_Y) {
             return;
         }
-        var provider = GameServices.bonusStage();
+        var provider = GameServices.bonusStageOrNull();
         if (provider != null) {
             provider.requestExit();
         }
@@ -395,7 +395,7 @@ public class Sonic3kLevelEventManager extends AbstractLevelEventManager {
         if (isInBonusStage()) {
             // Trigger bonus stage exit if player has fallen out of the arena
             com.openggf.game.BonusStageProvider provider =
-                    com.openggf.game.GameServices.bonusStage();
+                    com.openggf.game.GameServices.bonusStageOrNull();
             if (provider != null) {
                 provider.requestExit();
             }

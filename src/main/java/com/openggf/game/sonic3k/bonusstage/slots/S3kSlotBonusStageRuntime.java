@@ -107,8 +107,9 @@ public final class S3kSlotBonusStageRuntime {
 
         if (slotPlayerRuntime != null && slotPlayerRuntime.isExiting()) {
             slotPlayerRuntime.tickExitFrame(slotPlayer);
-            if (slotPlayerRuntime.isExitFading() && !exitFadeStarted && GameServices.fade() != null) {
-                GameServices.fade().startFadeToBlack(null, 0, S3kSlotExitSequence.FADE_FRAMES);
+            var fade = GameServices.fadeOrNull();
+            if (slotPlayerRuntime.isExitFading() && !exitFadeStarted && fade != null) {
+                fade.startFadeToBlack(null, 0, S3kSlotExitSequence.FADE_FRAMES);
                 exitFadeStarted = true;
             }
             if (slotPlayerRuntime.isExitComplete()) {
@@ -365,8 +366,9 @@ public final class S3kSlotBonusStageRuntime {
             slotRenderBuffers.startRingAnimationAt(ring.layoutIndex());
             slotPlayer.addRings(1);
             // Track on coordinator so rings persist after exit (ROM: GiveRing)
-            if (GameServices.bonusStage() != null) {
-                GameServices.bonusStage().addRings(1);
+            var bonusStage = GameServices.bonusStageOrNull();
+            if (bonusStage != null) {
+                bonusStage.addRings(1);
             }
             if (GameServices.audio() != null) {
                 GameServices.audio().playSfx(GameSound.RING);
@@ -374,8 +376,9 @@ public final class S3kSlotBonusStageRuntime {
             // ROM lines 99168-99174: 50-ring continue bonus (once per stage)
             if (slotPlayer.getRingCount() >= 50 && !continueAwarded) {
                 continueAwarded = true;
-                if (GameServices.bonusStage() != null) {
-                    GameServices.bonusStage().addLife();
+                bonusStage = GameServices.bonusStageOrNull();
+                if (bonusStage != null) {
+                    bonusStage.addLife();
                 }
                 if (GameServices.audio() != null) {
                     GameServices.audio().playSfx(Sonic3kSfx.CONTINUE.id);
