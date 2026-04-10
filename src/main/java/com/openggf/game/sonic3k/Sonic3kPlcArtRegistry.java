@@ -588,6 +588,26 @@ public final class Sonic3kPlcArtRegistry {
                 null
         ));
 
+        // HCZ Snake Block: ArtTile_HCZ2BlockPlat, palette 0
+        // ROM: make_art_tile(ArtTile_HCZ2BlockPlat, 0, 0), Map_HCZFloatingPlatform frame 1
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.HCZ_SNAKE_BLOCK,
+                Sonic3kConstants.MAP_HCZ_FLOATING_PLATFORM_ADDR,
+                Sonic3kConstants.ARTTILE_HCZ2_BLOCK_PLAT,
+                0,
+                null
+        ));
+
+        // HCZ Spinning Column: ArtTile_HCZ2BlockPlat + $18, palette 2
+        // ROM: make_art_tile(ArtTile_HCZ2BlockPlat+$18, 2, 0), Map_HCZSpinningColumn
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.HCZ_SPINNING_COLUMN,
+                Sonic3kConstants.MAP_HCZ_SPINNING_COLUMN_ADDR,
+                Sonic3kConstants.ARTTILE_HCZ2_BLOCK_PLAT + 0x18,
+                2,
+                null
+        ));
+
         // Floating Platform: ArtTile_HCZMisc + $53
         levelArt.add(new LevelArtEntry(
                 Sonic3kObjectArtKeys.FLOATING_PLATFORM_HCZ,
@@ -748,6 +768,15 @@ public final class Sonic3kPlcArtRegistry {
                 Sonic3kObjectArtKeys.COLLAPSING_BRIDGE_HCZ,
                 Sonic3kConstants.MAP_HCZ_COLLAPSING_BRIDGE_ADDR,
                 1,
+                2,
+                null
+        ));
+
+        // Tension Bridge (Object 0x6C): make_art_tile(ArtTile_HCZ2BlockPlat+$10, 2, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.TENSION_BRIDGE_HCZ,
+                Sonic3kConstants.MAP_TENSION_BRIDGE_ADDR,
+                Sonic3kConstants.ARTTILE_HCZ_TENSION_BRIDGE,
                 2,
                 null
         ));
@@ -1058,6 +1087,15 @@ public final class Sonic3kPlcArtRegistry {
                 Sonic3kObjectArtKeys.COLLAPSING_PLATFORM_ICZ,
                 Sonic3kConstants.MAP_ICZ_COLLAPSING_BRIDGE_ADDR,
                 1,
+                2,
+                null
+        ));
+
+        // Tension Bridge (Object 0x6C): make_art_tile(ArtTile_ICZMisc1, 2, 0)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.TENSION_BRIDGE_ICZ,
+                Sonic3kConstants.MAP_ICZ_TENSION_BRIDGE_ADDR,
+                Sonic3kConstants.ARTTILE_ICZ_MISC1,
                 2,
                 null
         ));
@@ -1486,6 +1524,15 @@ public final class Sonic3kPlcArtRegistry {
                 Sonic3kConstants.MAP_LRZ_COLLAPSING_BRIDGE_0F_ADDR,
                 0x090,
                 2,
+                null
+        ));
+
+        // Tension Bridge (Object 0x6C): make_art_tile($113, 3, 1)
+        levelArt.add(new LevelArtEntry(
+                Sonic3kObjectArtKeys.TENSION_BRIDGE_LRZ,
+                Sonic3kConstants.MAP_TENSION_BRIDGE_ADDR,
+                Sonic3kConstants.ARTTILE_LRZ_TENSION_BRIDGE,
+                3,
                 null
         ));
     }

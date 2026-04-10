@@ -71,7 +71,9 @@ public class Sonic3kObjectProfile implements GameObjectProfile {
             0x34, // StarPost
             0x3C, // Door
             0x51, // FloatingPlatform
+            0x6C, // TensionBridge
             0x6A, // InvisibleHurtBlockH
+            0x6B, // InvisibleHurtBlockV
             0x80, // HiddenMonitor
             0x85  // SSEntryRing
     );
@@ -102,11 +104,14 @@ public class Sonic3kObjectProfile implements GameObjectProfile {
                 0x3B, // HCZWaterWall
                 0x3E, // HCZConveyorBelt
                 0x3F, // HCZConveyorSpike
+                0x67, // HCZSnakeBlocks
+                0x68, // HCZSpinningColumn
                 0x69, // HCZTwistingLoop
                 0x8C, // Bloominator
                 0x8D, // Rhinobot
                 0x8E, // MonkeyDude
                 0x8F, // CaterKillerJr
+                0x93, // Jawz
                 0x94, // Blastoid
                 0x95, // Buggernaut
                 0x98, // Poindexter

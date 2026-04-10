@@ -431,10 +431,6 @@ public class GameLoop {
                 // Continue to LEVEL mode processing this frame (fall through)
             } else {
                 // Still in locked phase.
-                // Keep objects updated during title card lock.
-                // SCZ depends on ObjB2 (Tornado) solid updates during this phase so
-                // the player lands on the plane instead of free-falling.
-                levelManager.updateObjectPositions();
                 // Run player physics only if the title card provider allows it.
                 // S2: runs physics so Sonic settles onto ground / Tornado (SCZ).
                 // S1/S3K: ROM title card path is blocking for player movement; Sonic
@@ -442,6 +438,16 @@ public class GameLoop {
                 // starts like SBZ3, HCZ1, and LRZ1).
                 if (tcpCard.shouldRunPlayerPhysics()) {
                     spriteManager.updateWithoutInput();
+                    if (levelManager.usesInlineObjectSolidResolution()) {
+                        levelManager.updateObjectPositionsPostPhysicsWithoutTouches();
+                    } else {
+                        levelManager.updateObjectPositions();
+                    }
+                } else {
+                    // Keep objects updated during title card lock even when the player
+                    // is frozen. SCZ depends on ObjB2 (Tornado) solid updates during
+                    // this phase so Sonic lands on the plane instead of free-falling.
+                    levelManager.updateObjectPositions();
                 }
                 // Force camera to snap to player position during title card (no smooth
                 // scrolling)
@@ -2747,8 +2753,13 @@ public class GameLoop {
         // Run level physics — follows LevelFrameStep canonical order (steps 1-4),
         // but steps 5-6 are conditional on scroll-freeze state during ending fadeout.
         levelManager.updateZoneFeaturesPrePhysics();
-        levelManager.updateObjectPositions();
-        spriteManager.update(inputHandler);
+        if (levelManager.usesInlineObjectSolidResolution()) {
+            spriteManager.update(inputHandler);
+            levelManager.updateObjectPositionsPostPhysicsWithoutTouches();
+        } else {
+            levelManager.updateObjectPositions();
+            spriteManager.update(inputHandler);
+        }
         LevelEventProvider levelEvents = GameModuleRegistry.getCurrent().getLevelEventProvider();
         if (levelEvents != null) {
             levelEvents.update();

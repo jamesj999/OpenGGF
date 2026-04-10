@@ -34,12 +34,16 @@ public final class Sonic3kObjectIds {
     public static final int HCZ_WATER_RUSH = 0x37;
     public static final int HCZ_CGZ_FAN = 0x38;
     public static final int HCZ_LARGE_FAN = 0x39;
+    public static final int HCZ_SPINNING_COLUMN = 0x68;
     public static final int HCZ_WATER_WALL = 0x3B;
     public static final int HCZ_HAND_LAUNCHER = 0x3A;
     public static final int HCZ_CONVEYOR_BELT = 0x3E;
     public static final int HCZ_CONVEYOR_SPIKE = 0x3F;
     public static final int HCZ_BLOCK = 0x40;
+    public static final int HCZ_SNAKE_BLOCKS = 0x67;
+    public static final int TENSION_BRIDGE = 0x6C;
     public static final int INVISIBLE_HURT_BLOCK_H = 0x6A;
+    public static final int INVISIBLE_HURT_BLOCK_V = 0x6B;
     public static final int SS_ENTRY_RING = 0x85;
     public static final int GUMBALL_MACHINE = 0x86;
     public static final int GUMBALL_TRIANGLE_BUMPER = 0x87;
@@ -61,6 +65,7 @@ public final class Sonic3kObjectIds {
     public static final int AIZ_MINIBOSS_CUTSCENE = 0x90;
     public static final int AIZ_MINIBOSS = 0x91;
     public static final int AIZ_END_BOSS = 0x92;
+    public static final int JAWZ = 0x93;
     public static final int PACHINKO_TRIANGLE_BUMPER = 0xE6;
     public static final int PACHINKO_FLIPPER = 0xE7;
     public static final int PACHINKO_ENERGY_TRAP = 0xE8;

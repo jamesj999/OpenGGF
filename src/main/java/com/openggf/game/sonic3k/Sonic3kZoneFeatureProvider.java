@@ -306,6 +306,33 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
         return mainCharacter != null && "sonic".equalsIgnoreCase(mainCharacter.trim());
     }
 
+    @Override
+    public boolean shouldSuppressUnderwaterPalette(int zoneIndex, int actIndex) {
+        if (zoneIndex != Sonic3kZoneIds.ZONE_HCZ) {
+            return false;
+        }
+        // HCZ1 keeps real water gameplay and a visible surface from the start, but the
+        // underwater palette split does not engage until the first water-height switch.
+        WaterSystem ws = GameServices.water();
+        return actIndex == 0 && ws != null && ws.getWaterLevelY(zoneIndex, actIndex) == 0x0500;
+    }
+
+    @Override
+    public float getWaterlineOffset(int zoneIndex, int actIndex) {
+        // HCZ uses ROM-driven background strip updates and explicit wave-splash
+        // sprites at Water_level itself; keeping the generic S2-style -8 split
+        // creates a visible seam between the shader boundary and HCZ's art.
+        if (zoneIndex == Sonic3kZoneIds.ZONE_HCZ) {
+            return 0.0f;
+        }
+        return -8.0f;
+    }
+
+    @Override
+    public boolean useSpriteSatMasking(int zoneIndex) {
+        return zoneIndex == Sonic3kZoneIds.ZONE_GUMBALL;
+    }
+
     protected Sonic3kAIZEvents getAizEvents() {
         Sonic3kLevelEventManager levelEventManager = Sonic3kLevelEventManager.getInstance();
         return levelEventManager != null ? levelEventManager.getAizEvents() : null;

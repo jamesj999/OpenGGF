@@ -3,6 +3,7 @@ package com.openggf.game.sonic3k.objects;
 import com.openggf.game.sonic3k.objects.badniks.BlastoidBadnikInstance;
 import com.openggf.game.sonic3k.objects.badniks.BuggernautBadnikInstance;
 import com.openggf.game.sonic3k.objects.badniks.CaterkillerJrHeadInstance;
+import com.openggf.game.sonic3k.objects.badniks.JawzBadnikInstance;
 import com.openggf.game.sonic3k.objects.badniks.MegaChopperBadnikInstance;
 import com.openggf.game.sonic3k.objects.badniks.MonkeyDudeBadnikInstance;
 import com.openggf.game.sonic3k.objects.badniks.PoindexterBadnikInstance;
@@ -114,6 +115,8 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                 (spawn, registry) -> new Sonic3kInvisibleBlockObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.INVISIBLE_HURT_BLOCK_H,
                 (spawn, registry) -> new Sonic3kInvisibleHurtBlockHObjectInstance(spawn));
+        factories.put(Sonic3kObjectIds.INVISIBLE_HURT_BLOCK_V,
+                (spawn, registry) -> new Sonic3kInvisibleHurtBlockVObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.FLOATING_PLATFORM,
                 (spawn, registry) -> new FloatingPlatformObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.BUMPER,
@@ -139,6 +142,8 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                     }
                     return new HCZTwistingLoopObjectInstance(spawn);
                 });
+        factories.put(Sonic3kObjectIds.TENSION_BRIDGE,
+                (spawn, registry) -> new TensionBridgeObjectInstance(spawn));
         factories.put(Sonic3kObjectIds.HCZ_WATER_RUSH,
                 (spawn, registry) -> {
                     S3kZoneSet zoneSet = getCurrentZoneSet();
@@ -194,6 +199,22 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                         return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
                     }
                     return new HCZBlockObjectInstance(spawn);
+                });
+        factories.put(Sonic3kObjectIds.HCZ_SPINNING_COLUMN,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new HCZSpinningColumnObjectInstance(spawn);
+                });
+        factories.put(Sonic3kObjectIds.HCZ_SNAKE_BLOCKS,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new HCZSnakeBlocksObjectInstance(spawn);
                 });
         factories.put(0x3C,
                 (spawn, registry) -> new DoorObjectInstance(spawn));
@@ -284,6 +305,14 @@ public class Sonic3kObjectRegistry extends AbstractObjectRegistry {
                         return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
                     }
                     return new CaterkillerJrHeadInstance(spawn);
+                });
+        factories.put(Sonic3kObjectIds.JAWZ,
+                (spawn, registry) -> {
+                    S3kZoneSet zoneSet = getCurrentZoneSet();
+                    if (zoneSet != S3kZoneSet.S3KL) {
+                        return new PlaceholderObjectInstance(spawn, getPrimaryName(spawn.objectId(), zoneSet));
+                    }
+                    return new JawzBadnikInstance(spawn);
                 });
         factories.put(Sonic3kObjectIds.BLASTOID,
                 (spawn, registry) -> {

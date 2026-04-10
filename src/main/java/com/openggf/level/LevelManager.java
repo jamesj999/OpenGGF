@@ -1,7 +1,6 @@
 package com.openggf.level;
 
 import com.openggf.game.*;
-import com.openggf.game.sonic1.constants.Sonic1Constants;
 import com.openggf.Engine;
 import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
@@ -16,8 +15,6 @@ import com.openggf.data.RomByteReader;
 import com.openggf.game.CrossGameFeatureProvider;
 import com.openggf.game.PhysicsFeatureSet;
 import com.openggf.game.DynamicStartPositionProvider;
-import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
-
 import com.openggf.debug.DebugObjectArtViewer;
 import com.openggf.debug.DebugOverlayManager;
 import com.openggf.debug.DebugOverlayToggle;
@@ -971,6 +968,18 @@ public class LevelManager {
     }
 
     /**
+     * Returns true for Sonic 2/Sonic 3&K's dual-path collision model, where the ROM
+     * runs player physics before object slot execution and each solid object resolves
+     * contact inline during its own update.
+     */
+    public boolean usesInlineObjectSolidResolution() {
+        return gameModule.getPhysicsProvider() != null
+                && gameModule.getPhysicsProvider().getFeatureSet() != null
+                && gameModule.getPhysicsProvider().getFeatureSet().collisionModel()
+                   == com.openggf.game.CollisionModel.DUAL_PATH;
+    }
+
+    /**
      * Run touch responses for a single player. Called from tickPlayablePhysics
      * after handleMovement but before post-movement solid contacts, matching
      * the ROM's ReactToItem timing within ExecuteObjects.
@@ -1038,6 +1047,25 @@ public class LevelManager {
         // the previous frame's oscillation values, then OscillateNumDo advances
         // them for the next frame. Placing this call before objectManager.update()
         // caused a 1-frame phase shift in oscillating platform positions.
+        OscillationManager.update(frameCounter);
+    }
+
+    /**
+     * Runs object execution after player physics with inline solid resolution.
+     * Used by Sonic 2/Sonic 3&K, where the ROM executes the player slot first,
+     * then processes solid objects in slot order against the player's already-moved state.
+     */
+    public void updateObjectPositionsPostPhysicsWithoutTouches() {
+        if (objectManager != null) {
+            Sprite player = spriteManager.getSprite(configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE));
+            AbstractPlayableSprite playable = player instanceof AbstractPlayableSprite ? (AbstractPlayableSprite) player : null;
+            List<AbstractPlayableSprite> sidekicks = spriteManager.getSidekicks();
+            objectManager.update(camera.getX(), playable, sidekicks, frameCounter + 1,
+                    false, true, true);
+        }
+
+        // ROM parity: objects read the previous frame's oscillation values, then
+        // OscillateNumDo advances them for the next frame after ExecuteObjects.
         OscillationManager.update(frameCounter);
     }
 
@@ -1170,14 +1198,10 @@ public class LevelManager {
     }
 
     private boolean shouldSuppressUnderwaterPalette(int zoneId, int actId) {
-        if (zoneId != com.openggf.game.sonic3k.constants.Sonic3kZoneIds.ZONE_HCZ
-                || !(GameModuleRegistry.getCurrent() instanceof com.openggf.game.sonic3k.Sonic3kGameModule)) {
+        if (zoneFeatureProvider == null) {
             return false;
         }
-
-        // HCZ1 keeps real water gameplay and a visible surface from the start, but the
-        // underwater palette split does not engage until the first water-height switch.
-        return actId == 0 && waterSystem.getWaterLevelY(zoneId, actId) == 0x0500;
+        return zoneFeatureProvider.shouldSuppressUnderwaterPalette(zoneId, actId);
     }
 
     public void applyPlaneSwitchers(AbstractPlayableSprite player) {
@@ -1849,12 +1873,13 @@ public class LevelManager {
             if (featureSet != null && featureSet.waterShimmerEnabled()) {
                 waterlineOffset = 0.0f;
             }
-            // HCZ uses ROM-driven background strip updates and explicit wave-splash
-            // sprites at Water_level itself; keeping the generic S2-style -8 split
-            // creates a visible seam between the shader boundary and HCZ's art.
-            if (zoneId == com.openggf.game.sonic3k.constants.Sonic3kZoneIds.ZONE_HCZ
-                    && GameModuleRegistry.getCurrent() instanceof com.openggf.game.sonic3k.Sonic3kGameModule) {
-                waterlineOffset = 0.0f;
+            // Zone feature provider can override waterline offset (e.g. zones with
+            // ROM-driven water surface rendering that conflicts with the -8 split).
+            if (zoneFeatureProvider != null) {
+                float zoneOffset = zoneFeatureProvider.getWaterlineOffset(zoneId, actId);
+                if (zoneOffset != -8.0f) {
+                    waterlineOffset = zoneOffset;
+                }
             }
             float waterlineScreenY = (float) (waterLevel - camera.getY() + waterlineOffset);
             currentShimmerStyle = shimmerStyle;
@@ -2073,7 +2098,8 @@ public class LevelManager {
             graphicsManager.setCurrentSpriteHighPriority(false);
         }
 
-        boolean bonusStageSpriteSatOrdering = currentZone == Sonic3kZoneIds.ZONE_GUMBALL;
+        boolean bonusStageSpriteSatOrdering = zoneFeatureProvider != null
+                && zoneFeatureProvider.useSpriteSatMasking(currentZone);
         boolean useSpriteSatMasking = bonusStageSpriteSatOrdering;
         if (useSpriteSatMasking) {
             graphicsManager.beginSpriteSatCollection();
