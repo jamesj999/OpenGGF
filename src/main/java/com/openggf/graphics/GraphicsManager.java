@@ -1160,11 +1160,6 @@ public class GraphicsManager {
 		if (engine != null) {
 			return engine.getProjectionMatrixBuffer();
 		}
-		// Finally try Engine singleton
-		Engine engineInstance = Engine.current();
-		if (engineInstance != null) {
-			return engineInstance.getProjectionMatrixBuffer();
-		}
 		return null;
 	}
 

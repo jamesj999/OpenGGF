@@ -157,7 +157,7 @@ public class Engine {
 
 	private DebugRenderer getDebugRenderer() {
 		if (debugRenderer == null) {
-			debugRenderer = DebugRenderer.current();
+			debugRenderer = new DebugRenderer();
 		}
 		return debugRenderer;
 	}
@@ -179,6 +179,9 @@ public class Engine {
 		this.playbackDebugManager = engineServices.playbackDebug();
 		this.profiler = engineServices.profiler();
 		this.gameLoop = new GameLoop(engineServices);
+		this.gameLoop.setEditorStateSyncHandler(this::syncEditorState);
+		this.gameLoop.setMasterTitleScreenSupplier(() -> masterTitleScreen);
+		this.gameLoop.setMasterTitleExitHandler(this::exitMasterTitleScreen);
 		this.realWidth = configService.getInt(SonicConfiguration.SCREEN_WIDTH_PIXELS);
 		this.realHeight = configService.getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
 		this.projectionWidth = realWidth;
@@ -1094,6 +1097,7 @@ public class Engine {
 			camera.setX((short) 0);
 			camera.setY((short) 0);
 			if (masterTitleScreen != null) {
+				masterTitleScreen.setProjectionMatrix(getProjectionMatrixBuffer());
 				masterTitleScreen.draw();
 			}
 			return;
@@ -1369,10 +1373,6 @@ public class Engine {
 	 * @return the Engine instance, or null if not yet created
 	 */
 	public static synchronized Engine getInstance() {
-		return instance;
-	}
-
-	public static synchronized Engine current() {
 		return instance;
 	}
 

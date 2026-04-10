@@ -5,7 +5,6 @@ import com.openggf.game.GameModule;
 
 import com.openggf.camera.Camera;
 import com.openggf.configuration.SonicConfiguration;
-import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.level.objects.TouchCategory;
 import com.openggf.game.sonic3k.Sonic3kObjectArtKeys;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
@@ -36,8 +35,8 @@ public class DebugRenderer {
 	private static DebugRenderer debugRenderer;
 	// private final GraphicsManager graphicsManager = GraphicsManager
 	// .getInstance();
-        private final SonicConfigurationService configService = SonicConfigurationService
-                        .getInstance();
+        private final com.openggf.configuration.SonicConfigurationService configService =
+                        com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().configuration();
         private final DebugOverlayManager overlayManager = GameServices.debugOverlay();
         private final PlaybackDebugManager playbackDebugManager = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().playbackDebug();
         private GlyphBatchRenderer glyphBatch;
@@ -874,13 +873,6 @@ public class DebugRenderer {
         }
 
         public static synchronized DebugRenderer getInstance() {
-                if (debugRenderer == null) {
-                        debugRenderer = new DebugRenderer();
-                }
-                return debugRenderer;
-        }
-
-        public static synchronized DebugRenderer current() {
                 if (debugRenderer == null) {
                         debugRenderer = new DebugRenderer();
                 }

@@ -1,7 +1,6 @@
 package com.openggf.game;
 
 import com.openggf.control.InputHandler;
-import com.openggf.Engine;
 import com.openggf.configuration.SonicConfiguration;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.graphics.PngTextureLoader;
@@ -264,12 +263,6 @@ public class MasterTitleScreen {
     public void draw() {
         if (renderer == null) return;
 
-        // Set projection matrix from Engine
-        Engine engine = Engine.current();
-        if (engine != null) {
-            renderer.setProjectionMatrix(engine.getProjectionMatrixBuffer());
-        }
-
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -393,6 +386,12 @@ public class MasterTitleScreen {
      */
     public boolean isGameSelected() {
         return gameSelected;
+    }
+
+    public void setProjectionMatrix(float[] projectionMatrix) {
+        if (renderer != null && projectionMatrix != null) {
+            renderer.setProjectionMatrix(projectionMatrix);
+        }
     }
 
     /**
