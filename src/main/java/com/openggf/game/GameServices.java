@@ -36,7 +36,35 @@ public final class GameServices {
         return rt;
     }
 
-    // ── Runtime-owned managers (delegate to RuntimeManager) ──────────────
+    public static boolean hasRuntime() {
+        return RuntimeManager.getCurrent() != null;
+    }
+
+    public static GameRuntime runtimeOrNull() {
+        return RuntimeManager.getCurrent();
+    }
+
+    public static LevelManager levelOrNull() {
+        GameRuntime rt = runtimeOrNull();
+        return rt != null ? rt.getLevelManager() : null;
+    }
+
+    public static ParallaxManager parallaxOrNull() {
+        GameRuntime rt = runtimeOrNull();
+        return rt != null ? rt.getParallaxManager() : null;
+    }
+
+    public static FadeManager fadeOrNull() {
+        GameRuntime rt = runtimeOrNull();
+        return rt != null ? rt.getFadeManager() : null;
+    }
+
+    public static BonusStageProvider bonusStageOrNull() {
+        GameRuntime rt = runtimeOrNull();
+        return rt != null ? rt.getActiveBonusStageProvider() : null;
+    }
+
+    // â”€â”€ Runtime-owned managers (delegate to RuntimeManager) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /**
      * Global camera accessor for non-object code (HUD, level loading, rendering).
@@ -99,7 +127,7 @@ public final class GameServices {
         return requireRuntime("bonusStage").getActiveBonusStageProvider();
     }
 
-    // ── Engine globals (stay as direct singleton calls) ──────────────────
+    // â”€â”€ Engine globals (stay as direct singleton calls) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     public static RomManager rom() {
         return RomManager.getInstance();
