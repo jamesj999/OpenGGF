@@ -8,8 +8,6 @@ import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic2.Sonic2LevelEventManager;
 
-import java.lang.reflect.Field;
-
 import static org.junit.Assert.assertEquals;
 
 /**
@@ -21,14 +19,13 @@ public class TestHTZBossEventRoutine9 {
     private Sonic2LevelEventManager levelEvents;
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp() {
         RuntimeManager.createGameplay();
-        resetSonic2LevelEventManagerSingleton();
         GameServices.camera().resetState();
         GameServices.gameState().resetSession();
 
         camera = GameServices.camera();
-        levelEvents = Sonic2LevelEventManager.getInstance();
+        levelEvents = (Sonic2LevelEventManager) GameServices.module().getLevelEventProvider();
         levelEvents.initLevel(Sonic2LevelEventManager.ZONE_HTZ, 1); // HTZ Act 2
         levelEvents.setEventRoutine(18); // Routine 9
     }
@@ -68,11 +65,5 @@ public class TestHTZBossEventRoutine9 {
         assertEquals((short) 0x30E0, camera.getMinX());
         assertEquals((short) 0x428, camera.getMinY());
         assertEquals((short) 0x430, camera.getMaxYTarget());
-    }
-
-    private static void resetSonic2LevelEventManagerSingleton() throws Exception {
-        Field instanceField = Sonic2LevelEventManager.class.getDeclaredField("instance");
-        instanceField.setAccessible(true);
-        instanceField.set(null, null);
     }
 }

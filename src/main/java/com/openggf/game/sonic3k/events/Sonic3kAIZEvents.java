@@ -941,7 +941,8 @@ public class Sonic3kAIZEvents extends Sonic3kZoneEvents {
      * spawns the miniboss, and sets up the battleship sequence boundaries.
      */
     private void updateAiz2Resize() {
-        PlayerCharacter character = Sonic3kLevelEventManager.getInstance().getPlayerCharacter();
+        PlayerCharacter character = ((Sonic3kLevelEventManager) GameServices.module()
+                .getLevelEventProvider()).getPlayerCharacter();
         boolean isKnuckles = (character == PlayerCharacter.KNUCKLES);
 
         switch (aiz2ResizeRoutine) {

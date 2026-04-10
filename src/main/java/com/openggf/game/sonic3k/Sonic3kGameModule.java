@@ -62,11 +62,17 @@ import java.util.logging.Logger;
 public class Sonic3kGameModule implements GameModule {
     private static final Logger LOGGER = Logger.getLogger(Sonic3kGameModule.class.getName());
     private final GameAudioProfile audioProfile = new Sonic3kAudioProfile();
+    private final Sonic3kLevelEventManager levelEventManager = new Sonic3kLevelEventManager();
+    private final Sonic3kTitleCardManager titleCardManager = new Sonic3kTitleCardManager();
+    private final Sonic3kZoneRegistry zoneRegistry = new Sonic3kZoneRegistry();
+    private final com.openggf.game.sonic3k.specialstage.Sonic3kSpecialStageManager specialStageManager =
+            new com.openggf.game.sonic3k.specialstage.Sonic3kSpecialStageManager();
+    private final Sonic3kSpecialStageProvider specialStageProvider =
+            new Sonic3kSpecialStageProvider(specialStageManager);
+    private final LevelInitProfile levelInitProfile = new Sonic3kLevelInitProfile(levelEventManager);
     private Sonic3kScrollHandlerProvider scrollHandlerProvider;
-    private Sonic3kLevelEventManager levelEventManager;
     private PhysicsProvider physicsProvider;
     private Sonic3kObjectArtProvider objectArtProvider;
-    private Sonic3kSpecialStageProvider specialStageProvider;
     private final Sonic3kBonusStageCoordinator bonusStageCoordinator = new Sonic3kBonusStageCoordinator();
 
     @Override
@@ -123,9 +129,6 @@ public class Sonic3kGameModule implements GameModule {
 
     @Override
     public LevelEventProvider getLevelEventProvider() {
-        if (levelEventManager == null) {
-            levelEventManager = Sonic3kLevelEventManager.getInstance();
-        }
         return levelEventManager;
     }
 
@@ -141,7 +144,7 @@ public class Sonic3kGameModule implements GameModule {
 
     @Override
     public ZoneRegistry getZoneRegistry() {
-        return Sonic3kZoneRegistry.getInstance();
+        return zoneRegistry;
     }
 
     @Override
@@ -159,7 +162,7 @@ public class Sonic3kGameModule implements GameModule {
 
     @Override
     public TitleCardProvider getTitleCardProvider() {
-        return Sonic3kTitleCardManager.getInstance();
+        return titleCardManager;
     }
 
     @Override
@@ -203,8 +206,6 @@ public class Sonic3kGameModule implements GameModule {
         return new Sonic3kWaterDataProvider();
     }
 
-    private final LevelInitProfile levelInitProfile = new Sonic3kLevelInitProfile();
-
     @Override
     public LevelInitProfile getLevelInitProfile() {
         return levelInitProfile;
@@ -244,8 +245,11 @@ public class Sonic3kGameModule implements GameModule {
     @SuppressWarnings("unchecked")
     @Override
     public <T> T getGameService(Class<T> type) {
-        if (type == Sonic3kLevelEventManager.class) return (T) Sonic3kLevelEventManager.getInstance();
-        if (type == Sonic3kTitleCardManager.class) return (T) Sonic3kTitleCardManager.getInstance();
+        if (type == Sonic3kLevelEventManager.class) return (T) levelEventManager;
+        if (type == Sonic3kTitleCardManager.class) return (T) titleCardManager;
+        if (type == Sonic3kZoneRegistry.class) return (T) zoneRegistry;
+        if (type == com.openggf.game.sonic3k.specialstage.Sonic3kSpecialStageManager.class)
+            return (T) specialStageManager;
         return null;
     }
 
@@ -259,9 +263,6 @@ public class Sonic3kGameModule implements GameModule {
 
     @Override
     public SpecialStageProvider getSpecialStageProvider() {
-        if (specialStageProvider == null) {
-            specialStageProvider = new Sonic3kSpecialStageProvider();
-        }
         return specialStageProvider;
     }
 

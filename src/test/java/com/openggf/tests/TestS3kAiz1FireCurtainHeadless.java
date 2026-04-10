@@ -133,7 +133,8 @@ public class TestS3kAiz1FireCurtainHeadless {
     }
 
     private Sonic3kAIZEvents getAizEvents() {
-        Sonic3kLevelEventManager lem = Sonic3kLevelEventManager.getInstance();
+        Sonic3kLevelEventManager lem =
+                (Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider();
         assertNotNull("Sonic3kLevelEventManager should exist", lem);
         Sonic3kAIZEvents events = lem.getAizEvents();
         assertNotNull("AIZ events should be initialized", events);

@@ -42,7 +42,6 @@ import static com.openggf.game.sonic2.specialstage.Sonic2SpecialStageConstants.*
  */
 public class Sonic2SpecialStageManager {
     private static final Logger LOGGER = Logger.getLogger(Sonic2SpecialStageManager.class.getName());
-    private static Sonic2SpecialStageManager instance;
 
     /**
      * Result state for special stage completion.
@@ -55,6 +54,7 @@ public class Sonic2SpecialStageManager {
 
     private final SonicConfigurationService configService = SonicConfigurationService.getInstance();
     private final GraphicsManager graphicsManager = GraphicsManager.getInstance();
+    private final Sonic2SpecialStageSpriteDebug debugSprites;
 
     private Sonic2SpecialStageDataLoader dataLoader;
     private Rom rom;
@@ -306,14 +306,12 @@ public class Sonic2SpecialStageManager {
             0, 1, 2, 2, 2, 2, 2, 2, 2, 2, 1, 0
     };
 
-    private Sonic2SpecialStageManager() {
+    public Sonic2SpecialStageManager() {
+        this(new Sonic2SpecialStageSpriteDebug());
     }
 
-    public static synchronized Sonic2SpecialStageManager getInstance() {
-        if (instance == null) {
-            instance = new Sonic2SpecialStageManager();
-        }
-        return instance;
+    public Sonic2SpecialStageManager(Sonic2SpecialStageSpriteDebug debugSprites) {
+        this.debugSprites = debugSprites;
     }
 
     /**
@@ -852,7 +850,6 @@ public class Sonic2SpecialStageManager {
                 messagesPatterns.length + " Messages patterns");
 
         // Update debug sprite viewer with all pattern bases
-        Sonic2SpecialStageSpriteDebug debugSprites = Sonic2SpecialStageSpriteDebug.getInstance();
         debugSprites.setPlayerPatternBase(playerPatternBase);
         debugSprites.setHudPatternBase(hudPatternBase, hudPatterns.length);
         debugSprites.setStartPatternBase(startPatternBase, startPatterns.length);
@@ -2058,7 +2055,7 @@ public class Sonic2SpecialStageManager {
      */
     public void toggleSpriteDebugMode() {
         spriteDebugMode = !spriteDebugMode;
-        Sonic2SpecialStageSpriteDebug.getInstance().setEnabled(spriteDebugMode);
+        debugSprites.setEnabled(spriteDebugMode);
         LOGGER.info("Sprite debug mode: " + (spriteDebugMode ? "ON" : "OFF"));
     }
 
@@ -2078,7 +2075,7 @@ public class Sonic2SpecialStageManager {
         if (!initialized) {
             return null;
         }
-        return Sonic2SpecialStageSpriteDebug.getInstance();
+        return debugSprites;
     }
 
     /**

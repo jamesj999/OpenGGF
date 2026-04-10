@@ -1,6 +1,7 @@
 package com.openggf.game.sonic3k.scroll;
 
 import com.openggf.camera.Camera;
+import com.openggf.game.GameServices;
 import com.openggf.game.sonic3k.Sonic3kLevelEventManager;
 import com.openggf.game.sonic3k.constants.Sonic3kZoneIds;
 import com.openggf.game.sonic3k.events.FireCurtainRenderState;
@@ -13,7 +14,6 @@ import java.util.Arrays;
 import java.util.logging.Logger;
 
 import static com.openggf.level.scroll.M68KMath.*;
-import com.openggf.game.GameServices;
 
 /**
  * Angel Island Zone (AIZ) scroll handler.
@@ -621,7 +621,9 @@ public class SwScrlAiz extends AbstractZoneScrollHandler {
 
     private Sonic3kAIZEvents resolveAizEvents() {
         try {
-            Sonic3kLevelEventManager lem = Sonic3kLevelEventManager.getInstance();
+            Sonic3kLevelEventManager lem = GameServices.hasRuntime()
+                    ? (Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider()
+                    : null;
             return lem != null ? lem.getAizEvents() : null;
         } catch (Exception e) {
             LOG.fine(() -> "SwScrlAiz.resolveAizEvents: " + e.getMessage());

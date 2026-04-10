@@ -3,6 +3,7 @@ package com.openggf.game.sonic1;
 import com.openggf.game.InitStep;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.StaticFixup;
+import com.openggf.game.sonic1.events.Sonic1LevelEventManager;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -11,7 +12,10 @@ import static org.junit.Assert.*;
 
 public class TestSonic1LevelInitProfile {
 
-    private final Sonic1LevelInitProfile profile = new Sonic1LevelInitProfile();
+    private final Sonic1LevelInitProfile profile = new Sonic1LevelInitProfile(
+            new Sonic1LevelEventManager(),
+            new Sonic1SwitchManager(),
+            new Sonic1ConveyorState());
 
     @Before
     public void setUp() {

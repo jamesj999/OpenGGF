@@ -45,16 +45,18 @@ public class TestSonic1PaletteCyclerLz {
 
     @Rule
     public final RequiresRomRule romRule = new RequiresRomRule();
+    private Sonic1ConveyorState conveyorState;
 
     @Before
     public void resetConveyorState() {
-        Sonic1ConveyorState.getInstance().resetState();
+        conveyorState = new Sonic1ConveyorState();
+        conveyorState.resetState();
     }
 
     @Test
     public void firstUpdateAppliesLzWaterfallAndConveyorToNormalPalettes() {
         TestLevel level = new TestLevel();
-        Sonic1PaletteCycler cycler = new Sonic1PaletteCycler(level, 0x01);
+        Sonic1PaletteCycler cycler = new Sonic1PaletteCycler(level, 0x01, conveyorState);
 
         cycler.update();
 
@@ -71,7 +73,7 @@ public class TestSonic1PaletteCyclerLz {
     @Test
     public void firstUpdateAppliesUnderwaterWaterfallAndConveyorPalettes() throws Exception {
         TestLevel level = new TestLevel();
-        Sonic1PaletteCycler cycler = new Sonic1PaletteCycler(level, 0x01);
+        Sonic1PaletteCycler cycler = new Sonic1PaletteCycler(level, 0x01, conveyorState);
 
         cycler.update();
 
@@ -90,8 +92,8 @@ public class TestSonic1PaletteCyclerLz {
     @Test
     public void reversedConveyorUsesOppositeFrameOrder() {
         TestLevel level = new TestLevel();
-        Sonic1ConveyorState.getInstance().setReversed(true);
-        Sonic1PaletteCycler cycler = new Sonic1PaletteCycler(level, 0x01);
+        conveyorState.setReversed(true);
+        Sonic1PaletteCycler cycler = new Sonic1PaletteCycler(level, 0x01, conveyorState);
 
         cycler.update();
 

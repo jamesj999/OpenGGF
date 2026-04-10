@@ -59,7 +59,16 @@ import com.openggf.sprites.playable.SuperStateController;
 
 public class Sonic2GameModule implements GameModule {
     private final GameAudioProfile audioProfile = new Sonic2AudioProfile();
-    private final SpecialStageProvider specialStageProvider = new Sonic2SpecialStageProvider();
+    private final Sonic2LevelEventManager levelEventManager = new Sonic2LevelEventManager();
+    private final Sonic2ZoneRegistry zoneRegistry = new Sonic2ZoneRegistry();
+    private final com.openggf.game.sonic2.debug.Sonic2SpecialStageSpriteDebug specialStageSpriteDebug =
+            new com.openggf.game.sonic2.debug.Sonic2SpecialStageSpriteDebug();
+    private final com.openggf.game.sonic2.specialstage.Sonic2SpecialStageManager specialStageManager =
+            new com.openggf.game.sonic2.specialstage.Sonic2SpecialStageManager(specialStageSpriteDebug);
+    private final SpecialStageProvider specialStageProvider = new Sonic2SpecialStageProvider(specialStageManager);
+    private final DebugModeProvider debugModeProvider =
+            new Sonic2DebugModeProvider(specialStageManager, specialStageSpriteDebug);
+    private final LevelInitProfile levelInitProfile = new Sonic2LevelInitProfile(levelEventManager);
     private Sonic2ObjectArtProvider objectArtProvider;
     private Sonic2ZoneFeatureProvider zoneFeatureProvider;
     private PhysicsProvider physicsProvider;
@@ -126,7 +135,7 @@ public class Sonic2GameModule implements GameModule {
 
     @Override
     public LevelEventProvider getLevelEventProvider() {
-        return Sonic2LevelEventManager.getInstance();
+        return levelEventManager;
     }
 
     @Override
@@ -146,7 +155,7 @@ public class Sonic2GameModule implements GameModule {
 
     @Override
     public ZoneRegistry getZoneRegistry() {
-        return Sonic2ZoneRegistry.getInstance();
+        return zoneRegistry;
     }
 
     @Override
@@ -194,7 +203,7 @@ public class Sonic2GameModule implements GameModule {
     // Fresh instance per call. Callers store for the level's lifetime. Stateless.
     @Override
     public DebugModeProvider getDebugModeProvider() {
-        return new Sonic2DebugModeProvider();
+        return debugModeProvider;
     }
 
     @Override
@@ -213,9 +222,12 @@ public class Sonic2GameModule implements GameModule {
     @SuppressWarnings("unchecked")
     @Override
     public <T> T getGameService(Class<T> type) {
-        if (type == Sonic2LevelEventManager.class) return (T) Sonic2LevelEventManager.getInstance();
+        if (type == Sonic2LevelEventManager.class) return (T) levelEventManager;
+        if (type == Sonic2ZoneRegistry.class) return (T) zoneRegistry;
+        if (type == com.openggf.game.sonic2.debug.Sonic2SpecialStageSpriteDebug.class)
+            return (T) specialStageSpriteDebug;
         if (type == com.openggf.game.sonic2.specialstage.Sonic2SpecialStageManager.class)
-            return (T) com.openggf.game.sonic2.specialstage.Sonic2SpecialStageManager.getInstance();
+            return (T) specialStageManager;
         return null;
     }
 
@@ -260,8 +272,6 @@ public class Sonic2GameModule implements GameModule {
         }
         return physicsProvider;
     }
-
-    private final LevelInitProfile levelInitProfile = new Sonic2LevelInitProfile();
 
     @Override
     public LevelInitProfile getLevelInitProfile() {

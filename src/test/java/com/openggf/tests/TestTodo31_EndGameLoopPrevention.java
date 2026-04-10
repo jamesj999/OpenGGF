@@ -33,7 +33,7 @@ public class TestTodo31_EndGameLoopPrevention {
 
     @Test
     public void testSonic2ZoneProgressionOrder() {
-        Sonic2ZoneRegistry registry = Sonic2ZoneRegistry.getInstance();
+        Sonic2ZoneRegistry registry = new Sonic2ZoneRegistry();
 
         // Sonic 2 has exactly 11 zones
         assertEquals("Sonic 2 has 11 zones", 11, registry.getZoneCount());
@@ -60,7 +60,7 @@ public class TestTodo31_EndGameLoopPrevention {
 
     @Test
     public void testSonic2ActCounts() {
-        Sonic2ZoneRegistry registry = Sonic2ZoneRegistry.getInstance();
+        Sonic2ZoneRegistry registry = new Sonic2ZoneRegistry();
 
         // Most zones have 2 acts; Metropolis has 3; Sky Chase, Wing Fortress, Death Egg have 1
         assertEquals("EHZ has 2 acts", 2, registry.getActCount(0));
@@ -78,7 +78,7 @@ public class TestTodo31_EndGameLoopPrevention {
 
     @Test
     public void testSonic2TotalLevelCount() {
-        Sonic2ZoneRegistry registry = Sonic2ZoneRegistry.getInstance();
+        Sonic2ZoneRegistry registry = new Sonic2ZoneRegistry();
 
         // Total levels: 7*2 + 3 + 1 + 1 + 1 = 20
         int totalLevels = 0;
@@ -90,7 +90,7 @@ public class TestTodo31_EndGameLoopPrevention {
 
     @Test
     public void testSonic2FinalZoneIsDeathEgg() {
-        Sonic2ZoneRegistry registry = Sonic2ZoneRegistry.getInstance();
+        Sonic2ZoneRegistry registry = new Sonic2ZoneRegistry();
 
         // The last zone should be Death Egg
         int lastZone = registry.getZoneCount() - 1;
@@ -99,7 +99,7 @@ public class TestTodo31_EndGameLoopPrevention {
 
     @Test
     public void testSonic1ZoneProgressionOrder() {
-        Sonic1ZoneRegistry registry = Sonic1ZoneRegistry.getInstance();
+        Sonic1ZoneRegistry registry = new Sonic1ZoneRegistry();
 
         // Sonic 1 has 8 zones (6 main + Final Zone + Ending)
         assertEquals("Sonic 1 has 8 zones", 8, registry.getZoneCount());
@@ -122,7 +122,7 @@ public class TestTodo31_EndGameLoopPrevention {
 
     @Test
     public void testSonic1FinalZoneHasSingleAct() {
-        Sonic1ZoneRegistry registry = Sonic1ZoneRegistry.getInstance();
+        Sonic1ZoneRegistry registry = new Sonic1ZoneRegistry();
         // Final Zone is zone 6 (second-to-last), has 1 act
         assertEquals("Final Zone has 1 act", 1, registry.getActCount(6));
         assertEquals("Zone 6 is Final Zone", "FINAL", registry.getZoneName(6));
@@ -133,7 +133,7 @@ public class TestTodo31_EndGameLoopPrevention {
 
     @Test
     public void testZoneIndexBoundsAfterFinalZone() {
-        Sonic2ZoneRegistry registry = Sonic2ZoneRegistry.getInstance();
+        Sonic2ZoneRegistry registry = new Sonic2ZoneRegistry();
 
         // After the final zone, currentZone would exceed the zone count.
         // The TODO at LevelManager:2527 wraps to 0 instead of triggering end-game.
@@ -153,8 +153,8 @@ public class TestTodo31_EndGameLoopPrevention {
      */
     @Test
     public void testZoneIndexBeyondFinalIsHandledGracefully() {
-        assertBoundaryBehavior("Sonic 2", Sonic2ZoneRegistry.getInstance());
-        assertBoundaryBehavior("Sonic 1", Sonic1ZoneRegistry.getInstance());
+        assertBoundaryBehavior("Sonic 2", new Sonic2ZoneRegistry());
+        assertBoundaryBehavior("Sonic 1", new Sonic1ZoneRegistry());
     }
 
     private void assertBoundaryBehavior(String gameName, ZoneRegistry registry) {

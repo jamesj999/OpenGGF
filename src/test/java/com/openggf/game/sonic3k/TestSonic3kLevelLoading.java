@@ -218,7 +218,7 @@ class TestSonic3kLevelLoading {
         assertTrue(maxY > minY,
                 label + ": maxY (" + maxY + ") should be > minY (" + minY + ")");
 
-        Sonic3kZoneRegistry registry = Sonic3kZoneRegistry.getInstance();
+        Sonic3kZoneRegistry registry = new Sonic3kZoneRegistry();
         int[] startPos = registry.getStartPosition(zone, act);
         // DDZ (Doomsday) has ROM-accurate start X=0
         if (zone != Sonic3kZoneConstants.ZONE_DDZ) {

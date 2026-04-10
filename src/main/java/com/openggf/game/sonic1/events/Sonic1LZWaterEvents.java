@@ -194,6 +194,10 @@ public class Sonic1LZWaterEvents {
         return GameServices.level();
     }
 
+    private Sonic1SwitchManager switchManager() {
+        return GameServices.module().getGameService(Sonic1SwitchManager.class);
+    }
+
     /**
      * Initialize water events for a new level.
      *
@@ -346,7 +350,7 @@ public class Sonic1LZWaterEvents {
         }
 
         // move.b #$80,(f_switch+5).w - set switch flag 5 bit 7
-        Sonic1SwitchManager.getInstance().setBit(5, 7);
+        switchManager().setBit(5, 7);
 
         // move.w #$5C8,d1
         target = 0x5C8;
@@ -667,7 +671,7 @@ public class Sonic1LZWaterEvents {
         setDirect(0x7C0);
 
         // move.b #1,(f_switch+8).w - set switch flag 8 bit 0
-        Sonic1SwitchManager.getInstance().setBit(8, 0);
+        switchManager().setBit(8, 0);
 
         LOGGER.fine("LZ3 routine 3: Instant water setup at X >= $1BC0");
     }

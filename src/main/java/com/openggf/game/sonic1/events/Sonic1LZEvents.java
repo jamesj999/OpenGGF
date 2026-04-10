@@ -42,6 +42,10 @@ class Sonic1LZEvents extends Sonic1ZoneEvents {
     Sonic1LZEvents() {
     }
 
+    private Sonic1SwitchManager switchManager() {
+        return GameServices.module().getGameService(Sonic1SwitchManager.class);
+    }
+
     @Override
     void update(int act) {
         switch (act) {
@@ -82,7 +86,7 @@ class Sonic1LZEvents extends Sonic1ZoneEvents {
      */
     private void checkSwitchF() {
         // tst.b (f_switch+$F).w / beq.s loc_6F28
-        if (!Sonic1SwitchManager.getInstance().isPressed(0xF)) {
+        if (!switchManager().isPressed(0xF)) {
             return;
         }
 

@@ -11,7 +11,8 @@ import static org.junit.Assert.*;
 
 public class TestSonic2LevelInitProfile {
 
-    private final Sonic2LevelInitProfile profile = new Sonic2LevelInitProfile();
+    private final Sonic2LevelInitProfile profile =
+            new Sonic2LevelInitProfile(new Sonic2LevelEventManager());
 
     @Before
     public void setUp() {

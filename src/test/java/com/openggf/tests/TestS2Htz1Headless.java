@@ -86,7 +86,8 @@ public class TestS2Htz1Headless {
         sprite.setY((short) 1403);
         fixture.camera().updatePosition(true);
 
-        Sonic2LevelEventManager lem = Sonic2LevelEventManager.getInstance();
+        Sonic2LevelEventManager lem =
+                (Sonic2LevelEventManager) GameServices.module().getLevelEventProvider();
 
         // Settle: let earthquake trigger and Sonic land on terrain
         for (int i = 0; i < 20; i++) {
@@ -500,7 +501,8 @@ public class TestS2Htz1Headless {
         // Camera typically centers on Sonic with some offset.
         // We need to teleport both Sonic AND the camera to the trigger zone.
 
-        Sonic2LevelEventManager levelEventManager = Sonic2LevelEventManager.getInstance();
+        Sonic2LevelEventManager levelEventManager =
+                (Sonic2LevelEventManager) GameServices.module().getLevelEventProvider();
         ParallaxManager parallaxManager = GameServices.parallax();
         Camera camera = fixture.camera();
 
@@ -636,7 +638,8 @@ public class TestS2Htz1Headless {
                     // Log earthquake state
                     boolean htzShake = GameServices.gameState().isHtzScreenShakeActive();
                     boolean screenShake = GameServices.gameState().isScreenShakeActive();
-                    int bgYOffset = Sonic2LevelEventManager.getInstance().getCameraBgYOffset();
+                    int bgYOffset = ((Sonic2LevelEventManager) GameServices.module()
+                            .getLevelEventProvider()).getCameraBgYOffset();
                     int shakeY = GameServices.parallax().getShakeOffsetY();
 
                     System.out.println("HTZ shake active: " + htzShake);

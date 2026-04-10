@@ -174,7 +174,8 @@ public class TestAizFireCurtainGpuDiag {
         AbstractPlayableSprite player = camera.getFocusedSprite();
 
         // Trigger fire transition
-        Sonic3kLevelEventManager lem = Sonic3kLevelEventManager.getInstance();
+        Sonic3kLevelEventManager lem =
+                (Sonic3kLevelEventManager) GameServices.module().getLevelEventProvider();
         assertNotNull("LevelEventManager not initialized", lem);
         Sonic3kAIZEvents events = lem.getAizEvents();
         assertNotNull("AIZ events not initialized", events);

@@ -10,7 +10,11 @@ public class Sonic2SpecialStageDebugProvider implements SpecialStageDebugProvide
     private final Sonic2SpecialStageSpriteDebug spriteDebug;
 
     public Sonic2SpecialStageDebugProvider() {
-        this.spriteDebug = Sonic2SpecialStageSpriteDebug.getInstance();
+        this(new Sonic2SpecialStageSpriteDebug());
+    }
+
+    public Sonic2SpecialStageDebugProvider(Sonic2SpecialStageSpriteDebug spriteDebug) {
+        this.spriteDebug = spriteDebug;
     }
 
     @Override

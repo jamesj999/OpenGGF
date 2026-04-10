@@ -25,6 +25,6 @@ public class TestTitleCardPhysicsPolicy {
 
     @Test
     public void sonic3kBlocksPlayerPhysicsDuringLockedTitleCardPhase() {
-        assertFalse(Sonic3kTitleCardManager.getInstance().shouldRunPlayerPhysics());
+        assertFalse(new Sonic3kTitleCardManager().shouldRunPlayerPhysics());
     }
 }
