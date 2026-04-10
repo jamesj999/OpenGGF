@@ -33,6 +33,7 @@ import java.util.Objects;
  */
 public final class GameRuntime {
 
+    private final EngineServices engineServices;
     private final WorldSession worldSession;
     private GameplayModeContext gameplayMode;
     private final Camera camera;
@@ -54,13 +55,15 @@ public final class GameRuntime {
      * Parameters are in construction-order (dependency order):
      * independent managers first, then dependents.
      */
-    GameRuntime(WorldSession worldSession, GameplayModeContext gameplayMode,
+    GameRuntime(EngineServices engineServices,
+                WorldSession worldSession, GameplayModeContext gameplayMode,
                 Camera camera, TimerManager timers, GameStateManager gameState,
                 FadeManager fadeManager, WaterSystem waterSystem,
                 ParallaxManager parallaxManager,
                 TerrainCollisionManager terrainCollisionManager,
                 CollisionSystem collisionSystem, SpriteManager spriteManager,
                 LevelManager levelManager, GameRng rng) {
+        this.engineServices = Objects.requireNonNull(engineServices, "engineServices");
         this.worldSession = worldSession;
         this.gameplayMode = gameplayMode;
         this.camera = camera;
@@ -78,6 +81,7 @@ public final class GameRuntime {
 
     // ── Getters ──────────────────────────────────────────────────────────
 
+    public EngineServices getEngineServices() { return engineServices; }
     public WorldSession getWorldSession() { return worldSession; }
     public GameplayModeContext getGameplayModeContext() { return gameplayMode; }
     public Camera getCamera() { return camera; }
