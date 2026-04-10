@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k.objects.badniks;
 
+import com.openggf.game.RuntimeManager;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kObjectIds;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -21,6 +22,16 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 
 public class TestTurboSpikerBadnikInstance {
+
+    @org.junit.Before
+    public void setUp() {
+        RuntimeManager.destroyCurrent();
+    }
+
+    @org.junit.After
+    public void tearDown() {
+        RuntimeManager.destroyCurrent();
+    }
 
     @Test
     public void approachingPlayerTriggersShellLaunchSequence() throws Exception {
