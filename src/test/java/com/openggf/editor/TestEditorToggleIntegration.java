@@ -26,6 +26,7 @@ import com.openggf.level.SolidTile;
 import com.openggf.sprites.managers.SpriteManager;
 import com.openggf.sprites.playable.Sonic;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
@@ -51,6 +52,11 @@ import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
 import static org.lwjgl.glfw.GLFW.GLFW_RELEASE;
 
 class TestEditorToggleIntegration {
+
+    @BeforeEach
+    void setUp() {
+        SonicConfigurationService.getInstance().resetToDefaults();
+    }
 
     @AfterEach
     void tearDown() {

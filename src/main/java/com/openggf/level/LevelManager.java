@@ -100,7 +100,14 @@ public class LevelManager {
     }
 
     private GameModule activeGameModule() {
-        return gameModule != null ? gameModule : GameServices.module();
+        if (gameModule != null) {
+            return gameModule;
+        }
+        GameRuntime runtime = RuntimeManager.getActiveRuntime();
+        if (runtime != null && runtime.getWorldSession() != null) {
+            return runtime.getWorldSession().getGameModule();
+        }
+        return RuntimeManager.resolveCurrentOrBootstrapGameModule();
     }
 
     /** Returns the tilemap lifecycle delegate. */
@@ -978,9 +985,11 @@ public class LevelManager {
      * contact inline during its own update.
      */
     public boolean usesInlineObjectSolidResolution() {
-        return gameModule.getPhysicsProvider() != null
-                && gameModule.getPhysicsProvider().getFeatureSet() != null
-                && gameModule.getPhysicsProvider().getFeatureSet().collisionModel()
+        GameModule activeModule = activeGameModule();
+        return activeModule != null
+                && activeModule.getPhysicsProvider() != null
+                && activeModule.getPhysicsProvider().getFeatureSet() != null
+                && activeModule.getPhysicsProvider().getFeatureSet().collisionModel()
                    == com.openggf.game.CollisionModel.DUAL_PATH;
     }
 

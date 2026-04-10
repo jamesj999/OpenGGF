@@ -8,6 +8,8 @@ import org.junit.runners.model.Statement;
 import com.openggf.data.Rom;
 import com.openggf.data.RomManager;
 import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.RuntimeManager;
+import com.openggf.game.session.SessionManager;
 import com.openggf.game.sonic1.Sonic1GameModule;
 
 /**
@@ -72,6 +74,9 @@ public class RequiresRomRule implements TestRule {
                         game.getDisplayName() + " ROM not available — skipping test",
                         rom != null);
                 GameModuleRegistry.detectAndSetModule(rom);
+                RuntimeManager.destroyCurrent();
+                SessionManager.clear();
+                RuntimeManager.createGameplay();
                 RomManager.getInstance().setRom(rom);
                 base.evaluate();
             }
@@ -89,6 +94,9 @@ public class RequiresRomRule implements TestRule {
                     case SONIC_3K -> throw new UnsupportedOperationException(
                             "Sonic 3K GameModule not yet implemented");
                 }
+                RuntimeManager.destroyCurrent();
+                SessionManager.clear();
+                RuntimeManager.createGameplay();
                 base.evaluate();
             }
         };

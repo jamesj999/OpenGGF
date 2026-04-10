@@ -4,6 +4,8 @@ import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
 import com.openggf.game.GameModule;
 import com.openggf.game.GameModuleRegistry;
+import com.openggf.game.RuntimeManager;
+import com.openggf.game.session.SessionManager;
 import com.openggf.graphics.GraphicsManager;
 import com.openggf.level.Block;
 import com.openggf.level.Chunk;
@@ -54,6 +56,8 @@ public class TestS3kSlotsPaletteCycling {
 
     @After
     public void tearDown() {
+        RuntimeManager.destroyCurrent();
+        SessionManager.clear();
         GameModuleRegistry.setCurrent(previousModule);
     }
 
@@ -123,7 +127,7 @@ public class TestS3kSlotsPaletteCycling {
     }
 
     @Test
-    public void slotModeFollowsRegistryCoordinatorLookupPath() throws Exception {
+    public void slotModeFollowsSessionCoordinatorLookupPath() throws Exception {
         Sonic3kBonusStageCoordinator coordinator = new Sonic3kBonusStageCoordinator();
         S3kSlotBonusStageRuntime runtime = new S3kSlotBonusStageRuntime();
         runtime.bootstrap();
@@ -133,9 +137,12 @@ public class TestS3kSlotsPaletteCycling {
         slotRuntimeField.setAccessible(true);
         slotRuntimeField.set(coordinator, runtime);
 
-        GameModuleRegistry.setCurrent(new TestSonic3kModule(coordinator));
+        RuntimeManager.destroyCurrent();
+        SessionManager.clear();
+        SessionManager.openGameplaySession(new TestSonic3kModule(coordinator));
+        RuntimeManager.createGameplay(SessionManager.getCurrentGameplayMode());
 
-        assertEquals(1, Sonic3kPaletteCycler.resolveSlotsModeFromRegistryForTest());
+        assertEquals(1, Sonic3kPaletteCycler.resolveSlotsModeFromSessionForTest());
     }
 
     private static Palette.Color snapshot(Palette.Color c) {
