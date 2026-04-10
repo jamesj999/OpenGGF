@@ -25,6 +25,7 @@ public class TestSonic3kDynamicWaterHandlers {
     @Before
     public void setUp() {
         provider = new Sonic3kWaterDataProvider();
+        Sonic3kLevelTriggerManager.reset();
     }
 
     // =====================================================================

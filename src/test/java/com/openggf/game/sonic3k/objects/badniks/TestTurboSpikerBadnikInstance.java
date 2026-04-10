@@ -99,7 +99,7 @@ public class TestTurboSpikerBadnikInstance {
                 }
                 spawnedChildren.add(child);
                 return null;
-            }).when(objectManager).addDynamicObject(any());
+            }).when(objectManager).addDynamicObjectAfterCurrent(any());
         }
 
         @Override
