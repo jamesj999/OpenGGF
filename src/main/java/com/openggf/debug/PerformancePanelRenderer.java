@@ -117,7 +117,7 @@ public class PerformancePanelRenderer {
     }
 
     private void setupShader() {
-        GraphicsManager gm = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         ShaderProgram debugShader = gm.getDebugShaderProgram();
         if (debugShader == null) {
             return;

@@ -33,7 +33,7 @@ import java.util.List;
  */
 class Sonic1PaletteCycler implements AnimatedPaletteManager {
     private final Level level;
-    private final GraphicsManager graphicsManager = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+    private final GraphicsManager graphicsManager = com.openggf.game.RuntimeManager.getEngineServices().graphics();
     private final List<PaletteCycle> cycles;
     private final Sonic1ConveyorState conveyorState;
 

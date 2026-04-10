@@ -32,7 +32,7 @@ public class EditorTextRenderer {
     public void renderLines(List<String> lines, int x, int y) {
         List<TextCommand> commands = buildTextCommands(lines, x, y);
         if (!commands.isEmpty()) {
-            com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics().registerCommand(buildTextBatchCommand(commands));
+            com.openggf.game.RuntimeManager.getEngineServices().graphics().registerCommand(buildTextBatchCommand(commands));
         }
     }
 

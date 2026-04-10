@@ -95,7 +95,7 @@ public class Sonic2LevelEventManager extends AbstractLevelEventManager {
     }
 
     private static PlayerCharacter resolvePlayerCharacterFromConfig() {
-        SonicConfigurationService config = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().configuration();
+        SonicConfigurationService config = com.openggf.game.RuntimeManager.getEngineServices().configuration();
         if (config == null) {
             return PlayerCharacter.SONIC_AND_TAILS;
         }

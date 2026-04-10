@@ -155,7 +155,7 @@ public class Sonic3kSpecialStageManager {
 
         // Initialize renderer
         if (renderer == null) {
-            renderer = new Sonic3kSpecialStageRenderer(com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics());
+            renderer = new Sonic3kSpecialStageRenderer(com.openggf.game.RuntimeManager.getEngineServices().graphics());
         }
         palette = new Sonic3kSpecialStagePalette();
 
@@ -192,7 +192,7 @@ public class Sonic3kSpecialStageManager {
      */
     private void loadRomData() throws IOException {
         dataLoader = Sonic3kSpecialStageDataLoader.create();
-        GraphicsManager gm = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
 
         // Load layout from ROM.
         // Stages 0-7: S3 layouts (Lockon data, uncompressed)
@@ -610,7 +610,7 @@ public class Sonic3kSpecialStageManager {
                             pal.colors[c].b = (byte) Math.min(255, b + step);
                         }
                     }
-                    com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics().cachePaletteTexture(pal, line);
+                    com.openggf.game.RuntimeManager.getEngineServices().graphics().cachePaletteTexture(pal, line);
                 }
             }
         }
@@ -636,7 +636,7 @@ public class Sonic3kSpecialStageManager {
                     perspective.getPaletteFrame(),
                     player.getTurning() < 0);
             // Push updated palette line 3 to graphics manager each frame
-            com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics().cachePaletteTexture(palette.getPalette(3), 3);
+            com.openggf.game.RuntimeManager.getEngineServices().graphics().cachePaletteTexture(palette.getPalette(3), 3);
         }
 
         // Background scroll

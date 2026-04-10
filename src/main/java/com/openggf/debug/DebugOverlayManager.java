@@ -57,7 +57,7 @@ public class DebugOverlayManager {
         StringBuilder sb = new StringBuilder();
 
         // Performance profiler stats
-        ProfileSnapshot snapshot = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().profiler().getSnapshot();
+        ProfileSnapshot snapshot = com.openggf.game.RuntimeManager.getEngineServices().profiler().getSnapshot();
         if (snapshot.hasData()) {
             sb.append("=== Performance Stats ===\n");
             sb.append(String.format("Frame Time: %.2fms (%.1f%% of 16.67ms budget)\n",

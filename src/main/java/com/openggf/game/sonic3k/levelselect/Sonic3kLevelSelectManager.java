@@ -33,7 +33,7 @@ public class Sonic3kLevelSelectManager implements LevelSelectProvider {
 
     private static Sonic3kLevelSelectManager instance;
 
-    private final SonicConfigurationService configService = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().configuration();
+    private final SonicConfigurationService configService = com.openggf.game.RuntimeManager.getEngineServices().configuration();
     private final Sonic3kLevelSelectDataLoader dataLoader = new Sonic3kLevelSelectDataLoader();
     private final PatternDesc reusableDesc = new PatternDesc();
     private final PatternDesc highlightDesc = new PatternDesc();
@@ -264,7 +264,7 @@ public class Sonic3kLevelSelectManager implements LevelSelectProvider {
         }
         dataLoader.cacheToGpu();
 
-        GraphicsManager gm = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         if (gm == null || gm.isHeadlessMode()) {
             return;
         }

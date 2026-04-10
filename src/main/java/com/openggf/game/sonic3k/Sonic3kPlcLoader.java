@@ -170,7 +170,7 @@ public final class Sonic3kPlcLoader {
      */
     public static void refreshAffectedRenderers(List<TileRange> modifiedRanges,
                                                  LevelManager levelManager) {
-        GraphicsManager gfx = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        GraphicsManager gfx = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         if (gfx == null || !gfx.isGlInitialized()) {
             return;
         }

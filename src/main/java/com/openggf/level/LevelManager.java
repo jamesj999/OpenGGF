@@ -115,15 +115,15 @@ public class LevelManager {
         return tilemapManager;
     }
 
-    private final GraphicsManager graphicsManager = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+    private final GraphicsManager graphicsManager = com.openggf.game.RuntimeManager.getEngineServices().graphics();
     private SpriteManager spriteManager;
     private CollisionSystem collisionSystem;
     private WaterSystem waterSystem;
     private GameStateManager gameState;
-    private final SonicConfigurationService configService = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().configuration();
+    private final SonicConfigurationService configService = com.openggf.game.RuntimeManager.getEngineServices().configuration();
     private final DebugOverlayManager overlayManager = GameServices.debugOverlay();
     private LevelDebugRenderer debugRenderer;
-    private final PerformanceProfiler profiler = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().profiler();
+    private final PerformanceProfiler profiler = com.openggf.game.RuntimeManager.getEngineServices().profiler();
     private final List<List<LevelData>> levels = new ArrayList<>();
     private int currentAct = 0;
     private int apparentAct = 0;
@@ -623,7 +623,7 @@ public class LevelManager {
      * Phase C/F: Configure audio manager and play level music.
      */
     public void initAudio(int levelIndex) throws IOException {
-        AudioManager audioManager = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().audio();
+        AudioManager audioManager = com.openggf.game.RuntimeManager.getEngineServices().audio();
         audioManager.setAudioProfile(gameModule.getAudioProfile());
         audioManager.setRom(GameServices.rom().getRom());
         audioManager.setSoundMap(game.getSoundMap());
@@ -1237,7 +1237,7 @@ public class LevelManager {
         RenderContext.clearSidekickContexts();
         dustBankCount = 0;
         tailsTailBankCount = 0;
-        EngineServices engineServices = EngineServices.fromLegacySingletonsForBootstrap();
+        EngineServices engineServices = com.openggf.game.RuntimeManager.getEngineServices();
         CrossGameFeatureProvider crossGame = engineServices.crossGameFeatures();
         PlayerSpriteArtProvider artProvider;
         if (CrossGameFeatureProvider.isActive()) {
@@ -1456,7 +1456,7 @@ public class LevelManager {
     }
 
     private void initSpindashDust(AbstractPlayableSprite playable) {
-        EngineServices engineServices = EngineServices.fromLegacySingletonsForBootstrap();
+        EngineServices engineServices = com.openggf.game.RuntimeManager.getEngineServices();
         CrossGameFeatureProvider crossGame = engineServices.crossGameFeatures();
         SpindashDustArtProvider dustProv;
         if (CrossGameFeatureProvider.isActive()) {
@@ -1516,7 +1516,7 @@ public class LevelManager {
             playable.setTailsTailsController(null);
             return;
         }
-        EngineServices engineServices = EngineServices.fromLegacySingletonsForBootstrap();
+        EngineServices engineServices = com.openggf.game.RuntimeManager.getEngineServices();
         CrossGameFeatureProvider crossGame = engineServices.crossGameFeatures();
         // Check donor game first (cross-game donation), then fall back to base game module
         boolean isS3k = CrossGameFeatureProvider.isActive()
@@ -2867,7 +2867,7 @@ public class LevelManager {
         level.setPalette(paletteIndex, newPalette);
 
         // Update the graphics manager's cached palette texture
-        GraphicsManager graphicsMan = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        GraphicsManager graphicsMan = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         if (graphicsMan.isGlInitialized()) {
             graphicsMan.cachePaletteTexture(newPalette, paletteIndex);
         }
@@ -3299,7 +3299,7 @@ public class LevelManager {
         playable.setHighPriority(false);
         playable.setPriorityBucket(RenderPriority.PLAYER_DEFAULT);
         playable.setRingCount(0);
-        com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().audio().getBackend().setSpeedShoes(false);
+        com.openggf.game.RuntimeManager.getEngineServices().audio().getBackend().setSpeedShoes(false);
     }
 
     /**
@@ -3633,7 +3633,7 @@ public class LevelManager {
 
         // 9. Music override if specified
         if (request.musicOverrideId() >= 0) {
-            com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().audio().playMusic(request.musicOverrideId());
+            com.openggf.game.RuntimeManager.getEngineServices().audio().playMusic(request.musicOverrideId());
         }
 
         // 10. In-level title card if requested

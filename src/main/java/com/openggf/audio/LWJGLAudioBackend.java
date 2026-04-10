@@ -89,7 +89,7 @@ public class LWJGLAudioBackend implements AudioBackend {
     private SmpsSequencerConfig smpsConfig;
 
     public LWJGLAudioBackend() {
-        this(EngineServices.fromLegacySingletonsForBootstrap().configuration());
+        this(com.openggf.game.RuntimeManager.getEngineServices().configuration());
     }
 
     public LWJGLAudioBackend(SonicConfigurationService configService) {

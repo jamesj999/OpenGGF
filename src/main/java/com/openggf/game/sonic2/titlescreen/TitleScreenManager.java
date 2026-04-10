@@ -46,7 +46,7 @@ public class TitleScreenManager implements TitleScreenProvider {
 
     private static TitleScreenManager instance;
 
-    private final SonicConfigurationService configService = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().configuration();
+    private final SonicConfigurationService configService = com.openggf.game.RuntimeManager.getEngineServices().configuration();
     private final TitleScreenDataLoader dataLoader = new TitleScreenDataLoader();
     private final PatternDesc reusableDesc = new PatternDesc();
 
@@ -767,7 +767,7 @@ public class TitleScreenManager implements TitleScreenProvider {
             dataLoader.loadData();
         }
 
-        GraphicsManager gm = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         if (gm == null || gm.isHeadlessMode()) {
             return;
         }

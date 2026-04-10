@@ -263,7 +263,7 @@ public final class Sonic1SpecialStageResultsScreen implements ResultsScreen {
 
         appendEmeraldIndicators(commands, camera);
 
-        GraphicsManager graphicsManager = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        GraphicsManager graphicsManager = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         if (graphicsManager != null) {
             graphicsManager.flushPatternBatch();
         }
@@ -403,7 +403,7 @@ public final class Sonic1SpecialStageResultsScreen implements ResultsScreen {
             return;
         }
 
-        GraphicsManager graphicsManager = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        GraphicsManager graphicsManager = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         if (graphicsManager == null) {
             return;
         }
@@ -514,7 +514,7 @@ public final class Sonic1SpecialStageResultsScreen implements ResultsScreen {
             writeScoreValue(combinedPatterns, score, sourceDigitPatterns);
         }
 
-        GraphicsManager graphicsManager = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        GraphicsManager graphicsManager = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         if (graphicsManager != null) {
             resultsRenderer.updatePatternRange(graphicsManager, ringDigitStart,
                     Sonic1Constants.S1_RESULTS_BONUS_DIGIT_GROUP_TILES);

@@ -174,7 +174,7 @@ public class Sonic1TitleScreenDataLoader {
         if (fgCached || fgPatterns == null) {
             return;
         }
-        GraphicsManager gm = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         for (int i = 0; i < fgPatterns.length; i++) {
             gm.cachePatternTexture(fgPatterns[i], FG_PATTERN_BASE + i);
         }
@@ -189,7 +189,7 @@ public class Sonic1TitleScreenDataLoader {
         if (spriteCached || sonicPatterns == null) {
             return;
         }
-        GraphicsManager gm = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         for (int i = 0; i < sonicPatterns.length; i++) {
             gm.cachePatternTexture(sonicPatterns[i], SPRITE_PATTERN_BASE + i);
         }
@@ -204,7 +204,7 @@ public class Sonic1TitleScreenDataLoader {
         if (creditTextCached || creditTextPatterns == null) {
             return;
         }
-        GraphicsManager gm = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         for (int i = 0; i < creditTextPatterns.length; i++) {
             gm.cachePatternTexture(creditTextPatterns[i], CREDIT_TEXT_PATTERN_BASE + i);
         }
@@ -221,7 +221,7 @@ public class Sonic1TitleScreenDataLoader {
         if (palettesCached || titlePaletteLines == null) {
             return;
         }
-        GraphicsManager gm = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         for (int line = 0; line < titlePaletteLines.length; line++) {
             gm.cachePaletteTexture(titlePaletteLines[line], line);
         }
@@ -236,7 +236,7 @@ public class Sonic1TitleScreenDataLoader {
         if (tmCached || tmPatterns == null) {
             return;
         }
-        GraphicsManager gm = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         for (int i = 0; i < tmPatterns.length; i++) {
             gm.cachePatternTexture(tmPatterns[i], TM_PATTERN_BASE + i);
         }
@@ -251,7 +251,7 @@ public class Sonic1TitleScreenDataLoader {
         if (ghzCached || ghzPatterns == null) {
             return;
         }
-        GraphicsManager gm = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         for (int i = 0; i < ghzPatterns.length; i++) {
             gm.cachePatternTexture(ghzPatterns[i], GHZ_PATTERN_BASE + i);
         }
@@ -267,7 +267,7 @@ public class Sonic1TitleScreenDataLoader {
         if (titlePaletteLines == null || line < 0 || line >= titlePaletteLines.length) {
             return;
         }
-        GraphicsManager gm = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         gm.cachePaletteTexture(titlePaletteLines[line], line);
     }
 

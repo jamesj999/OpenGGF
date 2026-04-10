@@ -27,7 +27,7 @@ import com.openggf.game.GameServices;
  */
 class Sonic3kPaletteCycler implements AnimatedPaletteManager {
     private final Level level;
-    private final GraphicsManager graphicsManager = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+    private final GraphicsManager graphicsManager = com.openggf.game.RuntimeManager.getEngineServices().graphics();
     private final List<PaletteCycle> cycles;
 
     static int resolveSlotsModeForTest(S3kSlotBonusStageRuntime runtime) {

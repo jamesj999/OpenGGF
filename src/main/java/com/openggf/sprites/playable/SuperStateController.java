@@ -97,7 +97,7 @@ public abstract class SuperStateController {
      */
     protected PaletteTarget resolvePaletteTarget(int logicalLine) {
         if (CrossGameFeatureProvider.isActive()) {
-            EngineServices engineServices = EngineServices.fromLegacySingletonsForBootstrap();
+            EngineServices engineServices = com.openggf.game.RuntimeManager.getEngineServices();
             CrossGameFeatureProvider crossGame = engineServices.crossGameFeatures();
             RenderContext donor = crossGame.getDonorRenderContext();
             if (donor != null) {

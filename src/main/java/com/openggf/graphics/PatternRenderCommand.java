@@ -76,7 +76,7 @@ public class PatternRenderCommand implements GLCommandable {
      */
     public static PatternRenderCommand obtain(PatternAtlas.Entry entry, int paletteTextureId, PatternDesc desc, int x, int y) {
         return obtain(entry, paletteTextureId, desc, x, y,
-                EngineServices.fromLegacySingletonsForBootstrap().graphics());
+                com.openggf.game.RuntimeManager.getEngineServices().graphics());
     }
 
     public static PatternRenderCommand obtain(PatternAtlas.Entry entry, int paletteTextureId, PatternDesc desc,
@@ -99,7 +99,7 @@ public class PatternRenderCommand implements GLCommandable {
     @Deprecated
     public PatternRenderCommand(PatternAtlas.Entry entry, int paletteTextureId, PatternDesc desc, int x, int y) {
         this(entry, paletteTextureId, desc, x, y,
-                EngineServices.fromLegacySingletonsForBootstrap().graphics());
+                com.openggf.game.RuntimeManager.getEngineServices().graphics());
     }
 
     @Deprecated
@@ -359,7 +359,7 @@ public class PatternRenderCommand implements GLCommandable {
         if (engine != null && engine.isFBOProjectionActive()) {
             return engine.getCurrentDisplayHeight();
         }
-        return EngineServices.fromLegacySingletonsForBootstrap()
+        return com.openggf.game.RuntimeManager.getEngineServices()
                 .configuration()
                 .getInt(SonicConfiguration.SCREEN_HEIGHT_PIXELS);
     }

@@ -282,7 +282,7 @@ public class OilSurfaceManager {
         // ROM: Play oil slide sound every 32 frames
         // andi.b #$1F,d0 / bne.s + (d0 = Vint_runcount low byte)
         if ((frameCounter & 0x1F) == 0) {
-            com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().audio().playSfx(GameSound.OIL_SLIDE);
+            com.openggf.game.RuntimeManager.getEngineServices().audio().playSfx(GameSound.OIL_SLIDE);
         }
     }
 

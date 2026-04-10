@@ -173,7 +173,7 @@ public class GameLoop {
     private boolean playbackFrameConsumed = false;
 
     public GameLoop() {
-        this(EngineServices.fromLegacySingletonsForBootstrap());
+        this(com.openggf.game.RuntimeManager.getEngineServices());
     }
 
     public GameLoop(EngineServices engineServices) {
@@ -189,7 +189,7 @@ public class GameLoop {
     }
 
     public GameLoop(InputHandler inputHandler) {
-        this(EngineServices.fromLegacySingletonsForBootstrap(), inputHandler);
+        this(com.openggf.game.RuntimeManager.getEngineServices(), inputHandler);
     }
 
     public GameLoop(EngineServices engineServices, InputHandler inputHandler) {

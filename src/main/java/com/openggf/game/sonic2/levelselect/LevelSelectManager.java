@@ -36,7 +36,7 @@ public class LevelSelectManager implements LevelSelectProvider {
 
     private static LevelSelectManager instance;
 
-    private final SonicConfigurationService configService = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().configuration();
+    private final SonicConfigurationService configService = com.openggf.game.RuntimeManager.getEngineServices().configuration();
     private final LevelSelectDataLoader dataLoader = new LevelSelectDataLoader();
     private final MenuBackgroundDataLoader menuBackgroundDataLoader = new MenuBackgroundDataLoader();
     private final MenuBackgroundRenderer menuBackgroundRenderer = new MenuBackgroundRenderer();
@@ -279,7 +279,7 @@ public class LevelSelectManager implements LevelSelectProvider {
         dataLoader.cacheToGpu();
         menuBackgroundDataLoader.cacheToGpu(LevelSelectConstants.PATTERN_BASE, LevelSelectConstants.MENU_BACK_OFFSET);
 
-        GraphicsManager gm = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         if (gm == null || gm.isHeadlessMode()) {
             return;
         }

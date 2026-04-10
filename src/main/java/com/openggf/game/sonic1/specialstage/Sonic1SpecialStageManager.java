@@ -173,7 +173,7 @@ public final class Sonic1SpecialStageManager {
 
         // Initialize subsystems
         Rom rom = GameServices.rom().getRom();
-        this.graphicsManager = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        this.graphicsManager = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         this.graphicsManager.setUseWaterShader(false);
         this.graphicsManager.setUseSpritePriorityShader(false);
         this.graphicsManager.setCurrentSpriteHighPriority(false);

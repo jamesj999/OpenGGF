@@ -5,6 +5,8 @@ import com.openggf.audio.GameAudioProfile;
 import com.openggf.audio.GameSound;
 import com.openggf.audio.smps.DacData;
 import com.openggf.audio.smps.SmpsLoader;
+import com.openggf.configuration.SonicConfiguration;
+import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.PlayerSpriteArtProvider;
 import com.openggf.data.Rom;
 import com.openggf.data.RomByteReader;
@@ -65,8 +67,17 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
     private SpriteArtSet instaShieldArtSet;
     private DonorCapabilities donorCapabilities;
     private boolean active;
+    private final RomManager romManager;
+    private final SonicConfigurationService configService;
 
     private CrossGameFeatureProvider() {
+        this(RuntimeManager.getEngineServices().roms(),
+                RuntimeManager.getEngineServices().configuration());
+    }
+
+    CrossGameFeatureProvider(RomManager romManager, SonicConfigurationService configService) {
+        this.romManager = romManager;
+        this.configService = configService;
     }
 
     public static synchronized CrossGameFeatureProvider getInstance() {
@@ -101,7 +112,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
             return;
         }
 
-        Rom donorRom = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().roms().getSecondaryRom(donorGameId.code());
+        Rom donorRom = romManager.getSecondaryRom(donorGameId.code());
         this.donorReader = RomByteReader.fromRom(donorRom);
 
         if (donorGameId == GameId.S3K) {
@@ -120,8 +131,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
 
         // Create donor render context for palette isolation
         donorRenderContext = RenderContext.getOrCreateDonor(donorGameId);
-        String mainChar = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().configuration()
-                .getString(com.openggf.configuration.SonicConfiguration.MAIN_CHARACTER_CODE);
+        String mainChar = configService.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         Palette charPalette = loadCharacterPalette(mainChar);
         if (charPalette != null) {
             donorRenderContext.setPalette(0, charPalette);
@@ -283,7 +293,7 @@ public class CrossGameFeatureProvider implements PlayerSpriteArtProvider, Spinda
         }
 
         try {
-            Rom donorRom = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().roms().getSecondaryRom(donorGameId.code());
+            Rom donorRom = romManager.getSecondaryRom(donorGameId.code());
             donorSmpsLoader = donorProfile.createSmpsLoader(donorRom);
             donorDacData = donorSmpsLoader.loadDacData();
 

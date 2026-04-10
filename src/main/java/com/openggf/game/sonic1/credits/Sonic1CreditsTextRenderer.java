@@ -58,7 +58,7 @@ public class Sonic1CreditsTextRenderer {
         renderer = new PatternSpriteRenderer(sheet);
         dataLoaderRef = dataLoader;
 
-        GraphicsManager gm = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         // Reset cache flags so patterns and palette are re-uploaded to GPU
         // (zone palettes will have overwritten the GPU palette since title screen)
         dataLoader.resetCache();
@@ -91,7 +91,7 @@ public class Sonic1CreditsTextRenderer {
             gpuDirty = false;
         }
 
-        GraphicsManager gm = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
+        GraphicsManager gm = com.openggf.game.RuntimeManager.getEngineServices().graphics();
         gm.beginPatternBatch();
         renderer.drawFrameIndex(creditsNum, SCREEN_CENTER_X, SCREEN_CENTER_Y);
         gm.flushPatternBatch();
