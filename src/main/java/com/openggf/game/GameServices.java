@@ -36,7 +36,75 @@ public final class GameServices {
         return rt;
     }
 
-    // ── Runtime-owned managers (delegate to RuntimeManager) ──────────────
+    public static boolean hasRuntime() {
+        return RuntimeManager.getCurrent() != null;
+    }
+
+    public static GameRuntime runtimeOrNull() {
+        return RuntimeManager.getCurrent();
+    }
+
+    public static Camera cameraOrNull() {
+        GameRuntime rt = runtimeOrNull();
+        return rt != null ? rt.getCamera() : null;
+    }
+
+    public static LevelManager levelOrNull() {
+        GameRuntime rt = runtimeOrNull();
+        return rt != null ? rt.getLevelManager() : null;
+    }
+
+    public static GameStateManager gameStateOrNull() {
+        GameRuntime rt = runtimeOrNull();
+        return rt != null ? rt.getGameState() : null;
+    }
+
+    public static TimerManager timersOrNull() {
+        GameRuntime rt = runtimeOrNull();
+        return rt != null ? rt.getTimers() : null;
+    }
+
+    public static GameRng rngOrNull() {
+        GameRuntime rt = runtimeOrNull();
+        return rt != null ? rt.getRng() : null;
+    }
+
+    public static ParallaxManager parallaxOrNull() {
+        GameRuntime rt = runtimeOrNull();
+        return rt != null ? rt.getParallaxManager() : null;
+    }
+
+    public static FadeManager fadeOrNull() {
+        GameRuntime rt = runtimeOrNull();
+        return rt != null ? rt.getFadeManager() : null;
+    }
+
+    public static SpriteManager spritesOrNull() {
+        GameRuntime rt = runtimeOrNull();
+        return rt != null ? rt.getSpriteManager() : null;
+    }
+
+    public static CollisionSystem collisionOrNull() {
+        GameRuntime rt = runtimeOrNull();
+        return rt != null ? rt.getCollisionSystem() : null;
+    }
+
+    public static TerrainCollisionManager terrainCollisionOrNull() {
+        GameRuntime rt = runtimeOrNull();
+        return rt != null ? rt.getTerrainCollisionManager() : null;
+    }
+
+    public static WaterSystem waterOrNull() {
+        GameRuntime rt = runtimeOrNull();
+        return rt != null ? rt.getWaterSystem() : null;
+    }
+
+    public static BonusStageProvider bonusStageOrNull() {
+        GameRuntime rt = runtimeOrNull();
+        return rt != null ? rt.getActiveBonusStageProvider() : null;
+    }
+
+    // â”€â”€ Runtime-owned managers (delegate to RuntimeManager) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /**
      * Global camera accessor for non-object code (HUD, level loading, rendering).
@@ -99,7 +167,7 @@ public final class GameServices {
         return requireRuntime("bonusStage").getActiveBonusStageProvider();
     }
 
-    // ── Engine globals (stay as direct singleton calls) ──────────────────
+    // â”€â”€ Engine globals (stay as direct singleton calls) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     public static RomManager rom() {
         return RomManager.getInstance();

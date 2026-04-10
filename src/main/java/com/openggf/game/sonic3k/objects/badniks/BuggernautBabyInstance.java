@@ -8,6 +8,7 @@ import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -150,7 +151,8 @@ final class BuggernautBabyInstance extends AbstractObjectInstance {
         // Check if parent is still alive
         if (parent == null || parent.isDestroyed()) {
             // Try to adopt a new parent
-            ObjectManager objectManager = services() != null ? services().objectManager() : null;
+            ObjectServices svc = tryServices();
+            ObjectManager objectManager = svc != null ? svc.objectManager() : null;
             BuggernautBadnikInstance newParent =
                     BuggernautBadnikInstance.findAdoptiveParent(objectManager);
 
@@ -319,10 +321,11 @@ final class BuggernautBabyInstance extends AbstractObjectInstance {
     // ── Utility ──────────────────────────────────────────────────────────
 
     private int resolveWaterLevel() {
-        if (services() == null) return 0;
-        WaterSystem waterSystem = services().waterSystem();
+        ObjectServices svc = tryServices();
+        if (svc == null) return 0;
+        WaterSystem waterSystem = svc.waterSystem();
         if (waterSystem == null) return 0;
-        return waterSystem.getWaterLevelY(services().featureZoneId(), services().featureActId());
+        return waterSystem.getWaterLevelY(svc.featureZoneId(), svc.featureActId());
     }
 
     // ── Rendering ────────────────────────────────────────────────────────

@@ -6,6 +6,7 @@ import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.ObjectInstance;
 import com.openggf.level.objects.ObjectManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.ObjectServices;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
 import java.util.Collection;
@@ -344,8 +345,9 @@ public final class BuggernautBadnikInstance extends AbstractS3kBadnikInstance {
         int nearestDist = mainPlayer != null && !mainPlayer.getDead()
                 ? Math.abs(currentX - mainPlayer.getCentreX()) : Integer.MAX_VALUE;
 
-        if (services() == null) return nearest;
-        for (PlayableEntity sidekick : services().sidekicks()) {
+        ObjectServices svc = tryServices();
+        if (svc == null) return nearest;
+        for (PlayableEntity sidekick : svc.sidekicks()) {
             if (!(sidekick instanceof AbstractPlayableSprite s) || s.getDead()) continue;
             int dist = Math.abs(currentX - s.getCentreX());
             if (dist < nearestDist) {
@@ -359,10 +361,11 @@ public final class BuggernautBadnikInstance extends AbstractS3kBadnikInstance {
     // ── Water level resolution ───────────────────────────────────────────
 
     private int resolveWaterLevel() {
-        if (services() == null) return 0;
-        WaterSystem waterSystem = services().waterSystem();
+        ObjectServices svc = tryServices();
+        if (svc == null) return 0;
+        WaterSystem waterSystem = svc.waterSystem();
         if (waterSystem == null) return 0;
-        return waterSystem.getWaterLevelY(services().featureZoneId(), services().featureActId());
+        return waterSystem.getWaterLevelY(svc.featureZoneId(), svc.featureActId());
     }
 
     // ── Parent adoption for orphaned babies ──────────────────────────────

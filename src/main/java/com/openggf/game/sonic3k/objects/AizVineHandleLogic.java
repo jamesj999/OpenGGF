@@ -1,8 +1,8 @@
 package com.openggf.game.sonic3k.objects;
 
-import com.openggf.audio.AudioManager;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.game.sonic3k.audio.Sonic3kSfx;
+import com.openggf.level.objects.ObjectServices;
 import com.openggf.physics.Direction;
 import com.openggf.physics.TrigLookupTable;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -100,15 +100,17 @@ final class AizVineHandleLogic {
     }
 
     static void updatePlayers(State state,
+            ObjectServices services,
             AbstractPlayableSprite player1,
             AbstractPlayableSprite player2,
             int parentAngle) {
-        updatePlayer(state, state.p1, player1, parentAngle);
-        updatePlayer(state, state.p2, player2, parentAngle);
+        updatePlayer(state, state.p1, services, player1, parentAngle);
+        updatePlayer(state, state.p2, services, player2, parentAngle);
     }
 
     private static void updatePlayer(State handle,
             PlayerState playerState,
+            ObjectServices services,
             AbstractPlayableSprite player,
             int parentAngle) {
         if (playerState.grabFlag != 0) {
@@ -142,7 +144,9 @@ final class AizVineHandleLogic {
         player.setRenderFlips(player.getDirection() == Direction.LEFT, false);
         playerState.grabFlag = 1;
         playerState.jumpHeldSinceGrab = player.isJumpPressed();
-        AudioManager.getInstance().playSfx(Sonic3kSfx.GRAB.id);
+        if (services != null) {
+            services.playSfx(Sonic3kSfx.GRAB.id);
+        }
     }
 
     private static boolean canGrab(State handle, AbstractPlayableSprite player) {

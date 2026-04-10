@@ -276,6 +276,13 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
                 + "object must be created through ObjectManager");
     }
 
+    protected ObjectServices tryServices() {
+        if (services != null) {
+            return services;
+        }
+        return CONSTRUCTION_CONTEXT.get();
+    }
+
     /**
      * Returns the application configuration service.
      * <p>
