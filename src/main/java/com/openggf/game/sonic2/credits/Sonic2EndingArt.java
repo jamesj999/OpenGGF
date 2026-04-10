@@ -123,7 +123,7 @@ public class Sonic2EndingArt {
      * @return the ending routine to use
      */
     public static EndingRoutine determineEndingRoutine() {
-        GameStateManager gs = GameServices.gameState();
+        GameStateManager gs = GameServices.gameStateOrNull();
         if (gs == null) {
             return EndingRoutine.SONIC;
         }
