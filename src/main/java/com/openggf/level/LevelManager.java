@@ -1837,7 +1837,7 @@ public class LevelManager {
 
         if (includeSpritePass) {
             renderSpriteObjectPass(spriteManager, true);
-            DebugObjectArtViewer.getInstance().draw(objectRenderManager, camera);
+            overlayManager.getObjectArtViewer().draw(objectRenderManager, camera);
         } else {
             // No sprite/object pass this frame; restore the default shader state for
             // any later screen-space rendering after the level tiles.

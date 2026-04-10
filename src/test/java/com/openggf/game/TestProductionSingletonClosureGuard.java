@@ -38,9 +38,21 @@ public class TestProductionSingletonClosureGuard {
             "SonicConfigurationService.getInstance(",
             "PerformanceProfiler.getInstance(",
             "DebugOverlayManager.getInstance(",
+            "DebugObjectArtViewer.getInstance(",
             "DebugRenderer.getInstance(",
             "DebugRenderer.current(",
+            "MemoryStats.getInstance(",
             "PlaybackDebugManager.getInstance(",
+            "RenderOrderRecorder.getInstance(",
+            "RomDetectionService.getInstance(",
+            "Sonic1TitleCardManager.getInstance(",
+            "Sonic1TitleScreenManager.getInstance(",
+            "Sonic1LevelSelectManager.getInstance(",
+            "TitleCardManager.getInstance(",
+            "TitleScreenManager.getInstance(",
+            "LevelSelectManager.getInstance(",
+            "Sonic3kTitleScreenManager.getInstance(",
+            "Sonic3kLevelSelectManager.getInstance(",
             "CrossGameFeatureProvider.getInstance(",
             "Engine.getInstance(",
             "Engine.current("
@@ -88,6 +100,27 @@ public class TestProductionSingletonClosureGuard {
 
         if (!violations.isEmpty()) {
             fail("Found forbidden process singleton access in production code:\n  "
+                    + String.join("\n  ", violations));
+        }
+    }
+
+    @Test
+    public void productionCodeOnlyUsesRawGetInstanceAtEngineServicesBootstrapBridge() throws IOException {
+        Path srcMain = findSourceRoot();
+        if (srcMain == null) {
+            return;
+        }
+
+        List<String> violations = new ArrayList<>();
+        Pattern rawGetInstancePattern = Pattern.compile("\\.getInstance\\(");
+        Files.walk(srcMain)
+                .filter(path -> path.toString().endsWith(".java"))
+                .filter(path -> !ENGINE_SERVICES_BOOTSTRAP_EXCEPTION.equals(
+                        srcMain.relativize(path).toString().replace('\\', '/')))
+                .forEach(path -> scanRawPattern(srcMain, path, violations, rawGetInstancePattern, ".getInstance("));
+
+        if (!violations.isEmpty()) {
+            fail("Found raw .getInstance() usage outside EngineServices bootstrap bridge:\n  "
                     + String.join("\n  ", violations));
         }
     }
@@ -187,6 +220,19 @@ public class TestProductionSingletonClosureGuard {
             String relative = srcMain.relativize(file).toString().replace('\\', '/');
             String source = Files.readString(file);
             violations.addAll(scanSourceText(relative, source, forbiddenSingletons));
+        } catch (IOException ignored) {
+        }
+    }
+
+    private static void scanRawPattern(Path srcMain, Path file, List<String> violations,
+                                       Pattern pattern, String label) {
+        try {
+            String relative = srcMain.relativize(file).toString().replace('\\', '/');
+            String source = Files.readString(file);
+            Matcher matcher = pattern.matcher(source);
+            while (matcher.find()) {
+                violations.add(relative + ":" + lineNumberForOffset(source, matcher.start()) + " - " + label);
+            }
         } catch (IOException ignored) {
         }
     }

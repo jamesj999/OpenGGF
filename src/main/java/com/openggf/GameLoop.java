@@ -432,7 +432,7 @@ public class GameLoop {
 
         profiler.beginSection("input");
         debugOverlayManager.updateInput(inputHandler);
-        DebugObjectArtViewer.getInstance().updateInput(inputHandler);
+        debugOverlayManager.getObjectArtViewer().updateInput(inputHandler);
 
         // Check for Special Stage toggle (TAB by default)
         if (isUnmodifiedDebugKeyPressed(configService.getInt(SonicConfiguration.SPECIAL_STAGE_KEY))) {

@@ -279,7 +279,7 @@ public class Sonic3kTitleScreenManager implements TitleScreenProvider {
     // Constructor and singleton
     // -----------------------------------------------------------------------
 
-    private Sonic3kTitleScreenManager() {
+    public Sonic3kTitleScreenManager() {
     }
 
     public static synchronized Sonic3kTitleScreenManager getInstance() {

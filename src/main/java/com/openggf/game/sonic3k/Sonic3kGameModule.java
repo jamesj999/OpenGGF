@@ -65,6 +65,8 @@ public class Sonic3kGameModule implements GameModule {
     private final Sonic3kLevelEventManager levelEventManager = new Sonic3kLevelEventManager();
     private final Sonic3kTitleCardManager titleCardManager = new Sonic3kTitleCardManager();
     private final Sonic3kZoneRegistry zoneRegistry = new Sonic3kZoneRegistry();
+    private final Sonic3kTitleScreenManager titleScreenProvider = new Sonic3kTitleScreenManager();
+    private final Sonic3kLevelSelectManager levelSelectProvider = new Sonic3kLevelSelectManager();
     private final com.openggf.game.sonic3k.specialstage.Sonic3kSpecialStageManager specialStageManager =
             new com.openggf.game.sonic3k.specialstage.Sonic3kSpecialStageManager();
     private final Sonic3kSpecialStageProvider specialStageProvider =
@@ -167,12 +169,12 @@ public class Sonic3kGameModule implements GameModule {
 
     @Override
     public TitleScreenProvider getTitleScreenProvider() {
-        return Sonic3kTitleScreenManager.getInstance();
+        return titleScreenProvider;
     }
 
     @Override
     public LevelSelectProvider getLevelSelectProvider() {
-        return Sonic3kLevelSelectManager.getInstance();
+        return levelSelectProvider;
     }
 
     @Override

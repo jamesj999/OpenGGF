@@ -128,9 +128,9 @@ public final class SoundTestApp {
 
     private static SoundTestCatalog createCatalogForGame(String gameId) {
         return switch (gameId) {
-            case "s1" -> Sonic1SoundTestCatalog.getInstance();
-            case "s3k" -> Sonic3kSoundTestCatalog.getInstance();
-            default -> Sonic2SoundTestCatalog.getInstance();
+            case "s1" -> new Sonic1SoundTestCatalog();
+            case "s3k" -> new Sonic3kSoundTestCatalog();
+            default -> new Sonic2SoundTestCatalog();
         };
     }
 

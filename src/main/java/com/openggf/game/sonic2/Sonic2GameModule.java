@@ -69,6 +69,9 @@ public class Sonic2GameModule implements GameModule {
     private final DebugModeProvider debugModeProvider =
             new Sonic2DebugModeProvider(specialStageManager, specialStageSpriteDebug);
     private final LevelInitProfile levelInitProfile = new Sonic2LevelInitProfile(levelEventManager);
+    private final TitleCardManager titleCardProvider = new TitleCardManager();
+    private final TitleScreenManager titleScreenProvider = new TitleScreenManager();
+    private final LevelSelectManager levelSelectProvider = new LevelSelectManager();
     private Sonic2ObjectArtProvider objectArtProvider;
     private Sonic2ZoneFeatureProvider zoneFeatureProvider;
     private PhysicsProvider physicsProvider;
@@ -150,7 +153,7 @@ public class Sonic2GameModule implements GameModule {
 
     @Override
     public TitleCardProvider getTitleCardProvider() {
-        return TitleCardManager.getInstance();
+        return titleCardProvider;
     }
 
     @Override
@@ -247,12 +250,12 @@ public class Sonic2GameModule implements GameModule {
 
     @Override
     public TitleScreenProvider getTitleScreenProvider() {
-        return TitleScreenManager.getInstance();
+        return titleScreenProvider;
     }
 
     @Override
     public LevelSelectProvider getLevelSelectProvider() {
-        return LevelSelectManager.getInstance();
+        return levelSelectProvider;
     }
 
     // Lazily cached — same instance across level loads. Reset via module replacement.
