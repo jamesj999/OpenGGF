@@ -1,5 +1,6 @@
 package com.openggf.game.sonic3k.objects;
 
+import com.openggf.game.GroundMode;
 import com.openggf.game.PlayableEntity;
 import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
@@ -34,25 +35,42 @@ public class HCZTwistingLoopObjectInstance extends AbstractObjectInstance {
     // Each entry: centerX, topY, pointer to phase sequence table
     // =========================================================================
 
-    private record LoopDef(int centerX, int topY, int[] sequence) {}
+    private record LoopDef(int centerX, int topY, int seqOffset) {}
 
     // Phase sequence tables — ROM: byte_39006, byte_3900E, byte_3901C, byte_39028
     // Values are phase IDs (0=exit, 2/4/6/8/A/C/E = active phases).
     // Player's vertical progress / $60 indexes into the table.
-    private static final int[] SEQ_0 = {2, 4, 4, 4, 4, 4, 0xC, 0};
-    private static final int[] SEQ_1 = {2, 4, 6, 6, 6, 6, 8, 8, 8, 8, 0xA, 0xA, 0};
-    private static final int[] SEQ_2 = {2, 4, 6, 6, 6, 6, 8, 8, 8, 8, 0xA, 0};
-    private static final int[] SEQ_3 = {2, 4, 6, 6, 6, 6, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 0xE, 0};
+    //
+    // CRITICAL: In the ROM these tables are contiguous in memory. The ROM does
+    // no bounds checking on the table index — when progress temporarily exceeds
+    // the table, the lookup reads into the NEXT table's data (getting valid
+    // phase IDs, not the terminator). We replicate this by storing all tables
+    // in one contiguous array and using offsets, matching ROM memory layout.
+    // ROM layout (with `even` padding): SEQ_0(8) + SEQ_1(14) + SEQ_2(12) + SEQ_3(20) = 54 bytes
+    private static final int[] SEQ_DATA = {
+            // byte_39006 (offset 0): SEQ_0
+            2, 4, 4, 4, 4, 4, 0xC, 0,
+            // byte_3900E (offset 8): SEQ_1 — 13 bytes + 1 pad byte from `even`
+            2, 4, 6, 6, 6, 6, 8, 8, 8, 8, 0xA, 0xA, 0, 0,
+            // byte_3901C (offset 22): SEQ_2 — 12 bytes, already even
+            2, 4, 6, 6, 6, 6, 8, 8, 8, 8, 0xA, 0,
+            // byte_39028 (offset 34): SEQ_3 — 20 bytes, already even
+            2, 4, 6, 6, 6, 6, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 0xE, 0,
+    };
+    private static final int SEQ_0_OFF = 0;
+    private static final int SEQ_1_OFF = 8;
+    private static final int SEQ_2_OFF = 22;
+    private static final int SEQ_3_OFF = 34;
 
     private static final LoopDef[] LOOP_DEFS = {
-            new LoopDef(0x0840, 0x0120, SEQ_0),  // index 0
-            new LoopDef(0x1540, 0x0620, SEQ_1),  // index 1
-            new LoopDef(0x1740, 0x03A0, SEQ_1),  // index 2
-            new LoopDef(0x1CC0, 0x0620, SEQ_0),  // index 3
-            new LoopDef(0x1FC0, 0x02A0, SEQ_2),  // index 4
-            new LoopDef(0x24C0, 0x0220, SEQ_3),  // index 5
-            new LoopDef(0x26C0, 0x0120, SEQ_0),  // index 6
-            new LoopDef(0x3040, 0x0620, SEQ_1),  // index 7
+            new LoopDef(0x0840, 0x0120, SEQ_0_OFF),  // index 0
+            new LoopDef(0x1540, 0x0620, SEQ_1_OFF),  // index 1
+            new LoopDef(0x1740, 0x03A0, SEQ_1_OFF),  // index 2
+            new LoopDef(0x1CC0, 0x0620, SEQ_0_OFF),  // index 3
+            new LoopDef(0x1FC0, 0x02A0, SEQ_2_OFF),  // index 4
+            new LoopDef(0x24C0, 0x0220, SEQ_3_OFF),  // index 5
+            new LoopDef(0x26C0, 0x0120, SEQ_0_OFF),  // index 6
+            new LoopDef(0x3040, 0x0620, SEQ_1_OFF),  // index 7
     };
 
     // =========================================================================
@@ -112,11 +130,15 @@ public class HCZTwistingLoopObjectInstance extends AbstractObjectInstance {
     private static class PlayerState {
         /** Current phase ID: 0=detection, 2/4/6/8/A/C/E = active */
         int phase;
-        /** 16:8 fixed-point vertical progress from topY. Upper 16 bits = pixels. */
+        /**
+         * 16.16 fixed-point vertical progress from topY.
+         * ROM layout: upper word = pixels, lower word = subpixels.
+         * Written as word (move.w d1,2(a4)), advanced as long (add.l d0,2(a4)).
+         */
         int progressFixed;
 
         int getProgressPixels() {
-            return progressFixed >> 8;
+            return progressFixed >> 16;
         }
     }
 
@@ -167,12 +189,11 @@ public class HCZTwistingLoopObjectInstance extends AbstractObjectInstance {
         }
 
         // ROM: loc_3909C — if both players are in phase 0 (not captured),
-        // delete if out of camera range
-        if (p1State.phase == 0 && p2State.phase == 0) {
-            if (!isOnScreen(0x80)) {
-                setDestroyed(true);
-            }
-        }
+        // call Delete_Sprite_If_Not_In_Range. In the ROM this frees the slot
+        // but clears the "loaded" bit so the object respawns when the camera
+        // returns. Our engine doesn't support respawning, so we keep the
+        // object alive — isPersistent() already returns true, and the per-frame
+        // cost of idle detection checks is negligible for an invisible object.
     }
 
     // =========================================================================
@@ -207,13 +228,18 @@ public class HCZTwistingLoopObjectInstance extends AbstractObjectInstance {
     private void updatePhaseFromProgress(AbstractPlayableSprite player, PlayerState state) {
         int progressPixels = state.getProgressPixels();
         int tableIndex = progressPixels / PROGRESS_PER_ENTRY;
-        int[] sequence = loopDef.sequence;
 
-        // Clamp to table bounds
+        // ROM: divu.w #$60,d0 produces an unsigned result. Negative progress
+        // would give a huge index in the ROM; clamp negative to 0 for safety.
         if (tableIndex < 0) tableIndex = 0;
-        if (tableIndex >= sequence.length) tableIndex = sequence.length - 1;
 
-        int newPhase = sequence[tableIndex];
+        // ROM: move.b (a2,d0.w),(a4) — NO bounds checking. When the index
+        // exceeds the table, it reads into adjacent table data in ROM memory.
+        // We replicate this by indexing into the contiguous SEQ_DATA array.
+        int dataIndex = loopDef.seqOffset + tableIndex;
+        if (dataIndex >= SEQ_DATA.length) dataIndex = SEQ_DATA.length - 1;
+
+        int newPhase = SEQ_DATA[dataIndex];
         state.phase = newPhase;
 
         // Phase 0 = exit the loop
@@ -244,15 +270,6 @@ public class HCZTwistingLoopObjectInstance extends AbstractObjectInstance {
     private void detectNormalEntry(AbstractPlayableSprite player, PlayerState state) {
         int dx = player.getCentreX() - getX();
         int dy = player.getCentreY() - getY();
-
-        // Diagnostic logging (temporary)
-        if (Math.abs(dx) < 200 && Math.abs(dy) < 200) {
-            LOG.info("TwistingLoop detect: dx=" + dx + " dy=" + dy
-                    + " playerXY=(" + player.getCentreX() + "," + player.getCentreY() + ")"
-                    + " objXY=(" + getX() + "," + getY() + ")"
-                    + " gSpeed=" + player.getGSpeed()
-                    + " objCtrl=" + player.isObjectControlled());
-        }
 
         // ROM: addi.w #8,d0; cmpi.w #$10,d0 — unsigned check for 0..16 range
         if (dx + 8 < 0 || dx + 8 >= 0x10) return;
@@ -288,6 +305,7 @@ public class HCZTwistingLoopObjectInstance extends AbstractObjectInstance {
         if (dx + 0x10 < 0 || dx + 0x10 >= 0x20) return;
 
         int dy = player.getCentreY() - getY();
+
         // ROM: addi.w #$10,d1; cmpi.w #$10,d1
         if (dy + 0x10 < 0 || dy + 0x10 >= 0x10) return;
 
@@ -315,12 +333,21 @@ public class HCZTwistingLoopObjectInstance extends AbstractObjectInstance {
         // ROM: bset #Status_Roll,status(a1); bclr #Status_Push,status(a1)
         player.setPushing(false);
 
-        // ROM: move.b #$28,angle(a1)
+        // ROM: move.b #$28,angle(a1) — sets angle to ~56 degrees (downward slope).
+        // In the ROM, setting the angle implicitly determines the ground mode
+        // (angle 0x28 falls in the GROUND range 0x00-0x3F). The engine tracks
+        // ground mode as a separate field, so we must reset it explicitly.
+        // Without this, a stale LEFTWALL mode from pre-capture terrain collision
+        // persists through the entire capture and causes Sonic to snap to the
+        // wall surface on release instead of re-evaluating terrain normally.
         player.setAngle(CAPTURE_ANGLE);
+        player.setGroundMode(GroundMode.GROUND);
+        player.setAir(false);
 
         // Initial vertical progress = player Y - topY
+        // ROM: move.w d1,2(a4) — stores as word in upper half of the 16.16 long
         int dy = player.getCentreY() - loopDef.topY;
-        state.progressFixed = dy << 8;  // Convert to 16:8 fixed point
+        state.progressFixed = dy << 16;
 
         LOG.fine(() -> "HCZTwistingLoop: captured player at progress=" + dy);
     }
@@ -455,8 +482,9 @@ public class HCZTwistingLoopObjectInstance extends AbstractObjectInstance {
         int x = loopDef.centerX + xOffset;
         int y = loopDef.topY + progress;
 
-        player.setX((short) x);
-        player.setY((short) y);
+        // ROM: move.w d0,x_pos(a1); move.w d0,y_pos(a1) — center coordinates
+        player.setCentreX((short) x);
+        player.setCentreY((short) y);
 
         advanceProgress(player, state);
     }
@@ -485,14 +513,15 @@ public class HCZTwistingLoopObjectInstance extends AbstractObjectInstance {
         int x = loopDef.centerX + xOffset;
         int y = loopDef.topY + state.getProgressPixels();
 
-        player.setX((short) x);
-        player.setY((short) y);
+        // ROM: move.w d0,x_pos(a1); move.w d0,y_pos(a1) — center coordinates
+        player.setCentreX((short) x);
+        player.setCentreY((short) y);
 
         advanceProgress(player, state);
     }
 
     /**
-     * Advances vertical progress by y_vel in 16:8 fixed-point.
+     * Advances vertical progress by y_vel in 16.16 fixed-point.
      * ROM: move.w y_vel(a1),d0; ext.l d0; asl.l #8,d0; add.l d0,2(a4)
      */
     private void advanceProgress(AbstractPlayableSprite player, PlayerState state) {
