@@ -1,7 +1,6 @@
 package com.openggf.sprites.managers;
 
 import com.openggf.game.GameModule;
-import com.openggf.game.GameServices;
 import com.openggf.game.GameStateManager;
 import com.openggf.game.LevelEventProvider;
 import com.openggf.game.PhysicsFeatureSet;
@@ -66,7 +65,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	// (s1:01 Sonic.asm:595-601 — rollDecel = decel/4 = $80/4 = $20)
 
 	private final CollisionSystem bootstrapCollisionSystem;
-	private final AudioManager audioManager = GameServices.audio();
+	private final AudioManager audioManager;
 	private final GameStateManager bootstrapGameState;
 
 	// Cached speed constants (don't change with speed shoes)
@@ -94,6 +93,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 			GameStateManager gameState) {
 		super(sprite);
 		this.bootstrapCollisionSystem = collisionSystem;
+		this.audioManager = sprite.currentAudioManager();
 		this.bootstrapGameState = gameState;
 		slopeRunning = sprite.getSlopeRunning();
 		minStartRollSpeed = sprite.getMinStartRollSpeed();
@@ -104,7 +104,7 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	}
 
 	public PlayableSpriteMovement(AbstractPlayableSprite sprite) {
-		this(sprite, GameServices.collision(), GameServices.gameState());
+		this(sprite, sprite.currentCollisionSystemOrNull(), sprite.currentGameStateOrNull());
 	}
 
 	private Camera camera() {
@@ -116,12 +116,12 @@ public class PlayableSpriteMovement extends AbstractSpriteMovementManager<Abstra
 	}
 
 	private CollisionSystem collisionSystem() {
-		CollisionSystem current = sprite.currentCollisionSystem();
+		CollisionSystem current = sprite.currentCollisionSystemOrNull();
 		return current != null ? current : bootstrapCollisionSystem;
 	}
 
 	private GameStateManager gameState() {
-		GameStateManager current = sprite.currentGameState();
+		GameStateManager current = sprite.currentGameStateOrNull();
 		return current != null ? current : bootstrapGameState;
 	}
 
