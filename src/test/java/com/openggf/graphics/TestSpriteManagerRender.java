@@ -1,12 +1,14 @@
 package com.openggf.graphics;
 
 import com.openggf.game.GameServices;
+import com.openggf.game.GameModuleRegistry;
 import com.openggf.game.RuntimeManager;
 import com.openggf.physics.Direction;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import com.openggf.game.sonic2.scroll.Sonic2ZoneConstants;
+import com.openggf.game.sonic3k.objects.AizPlaneIntroInstance;
 import com.openggf.level.LevelManager;
 import com.openggf.physics.Sensor;
 import com.openggf.sprites.Sprite;
@@ -25,11 +27,15 @@ public class TestSpriteManagerRender {
 
     @Before
     public void setUp() {
+        RuntimeManager.destroyCurrent();
+        GameModuleRegistry.reset();
+        AizPlaneIntroInstance.resetIntroPhaseState();
         RuntimeManager.createGameplay();
     }
 
     @After
     public void tearDown() {
+        AizPlaneIntroInstance.resetIntroPhaseState();
         RuntimeManager.destroyCurrent();
     }
 

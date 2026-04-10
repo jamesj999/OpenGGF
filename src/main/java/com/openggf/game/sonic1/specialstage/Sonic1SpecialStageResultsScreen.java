@@ -234,7 +234,7 @@ public final class Sonic1SpecialStageResultsScreen implements ResultsScreen {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        Camera camera = GameServices.camera();
+        Camera camera = GameServices.cameraOrNull();
         if (camera == null) {
             return;
         }

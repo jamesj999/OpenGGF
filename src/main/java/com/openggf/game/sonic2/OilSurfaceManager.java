@@ -197,7 +197,11 @@ public class OilSurfaceManager {
 
         // Look up block ID at player position
         // ROM: uses centre coordinates (x_pos, y_pos)
-        LevelManager levelManager = GameServices.level();
+        LevelManager levelManager = GameServices.levelOrNull();
+        if (levelManager == null) {
+            exitSlide(player);
+            return;
+        }
         int blockId = levelManager.getBlockIdAt(player.getCentreX(), player.getCentreY());
         if (blockId < 0) {
             exitSlide(player);
