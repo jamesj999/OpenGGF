@@ -79,8 +79,9 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
      */
     @Override
     public void updatePrePhysics(AbstractPlayableSprite player, int cameraX, int zoneIndex) {
+        var levelManager = GameServices.levelOrNull();
         if (zoneIndex == Sonic3kZoneIds.ZONE_HCZ && player != null && !player.getDead()) {
-            int act = GameServices.level().getFeatureActId();
+            int act = levelManager != null ? levelManager.getFeatureActId() : 0;
             HCZWaterTunnelHandler.update(act);
             // Water skim runs after tunnels (ROM: Obj_HCZWaterSplash runs in ExecuteObjects
             // which is after sub_6F4A/water tunnels)
@@ -186,7 +187,8 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
         // Render water skim splash sprites (at water level, following player)
         HCZWaterSkimHandler.render(camera);
         aizTransitionRenderFeature.renderFlameOverlay(camera, frameCounter);
-        if (GameServices.level() == null || GameServices.level().getCurrentZone() != Sonic3kZoneIds.ZONE_SLOT_MACHINE) {
+        var levelManager = GameServices.levelOrNull();
+        if (levelManager == null || levelManager.getCurrentZone() != Sonic3kZoneIds.ZONE_SLOT_MACHINE) {
             return;
         }
         if (!(GameModuleRegistry.getCurrent().getBonusStageProvider() instanceof Sonic3kBonusStageCoordinator coordinator)) {
@@ -204,7 +206,8 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
 
     @Override
     public void renderAfterForeground(Camera camera) {
-        if (GameServices.level() == null || GameServices.level().getCurrentZone() != Sonic3kZoneIds.ZONE_SLOT_MACHINE) {
+        var levelManager = GameServices.levelOrNull();
+        if (levelManager == null || levelManager.getCurrentZone() != Sonic3kZoneIds.ZONE_SLOT_MACHINE) {
             return;
         }
         if (!(GameModuleRegistry.getCurrent().getBonusStageProvider() instanceof Sonic3kBonusStageCoordinator coordinator)) {
@@ -217,7 +220,8 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
     }
 
     protected int resolveSlotDisplayOriginX(Camera camera) {
-        int[] hScroll = GameServices.parallax() != null ? GameServices.parallax().getHScroll() : null;
+        var parallax = GameServices.parallaxOrNull();
+        int[] hScroll = parallax != null ? parallax.getHScroll() : null;
         if (hScroll != null && hScroll.length > 0) {
             return -M68KMath.unpackFG(hScroll[0]);
         }
@@ -225,8 +229,9 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
     }
 
     protected int resolveSlotDisplayOriginY(Camera camera) {
-        if (GameServices.parallax() != null) {
-            return GameServices.parallax().getVscrollFactorFG();
+        var parallax = GameServices.parallaxOrNull();
+        if (parallax != null) {
+            return parallax.getVscrollFactorFG();
         }
         return camera != null ? camera.getY() : 0;
     }
@@ -339,7 +344,8 @@ public class Sonic3kZoneFeatureProvider implements ZoneFeatureProvider {
     }
 
     protected int getFeatureActId() {
-        return GameServices.level().getFeatureActId();
+        var levelManager = GameServices.levelOrNull();
+        return levelManager != null ? levelManager.getFeatureActId() : 0;
     }
 
 }
