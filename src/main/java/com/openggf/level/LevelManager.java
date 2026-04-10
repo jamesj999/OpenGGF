@@ -817,8 +817,19 @@ public class LevelManager {
      * Phase H: Initialize zone-specific features (CNZ bumpers, CPZ pylon, water surface, etc.).
      */
     public void initZoneFeatures() throws IOException {
-        Rom rom = GameServices.rom().getRom();
         zoneFeatureProvider = gameModule.getZoneFeatureProvider();
+        initializeZoneFeatureProvider(zoneFeatureProvider);
+    }
+
+    private void reinitializeZoneFeaturesForActTransition() throws IOException {
+        if (zoneFeatureProvider == null) {
+            zoneFeatureProvider = gameModule.getZoneFeatureProvider();
+        }
+        initializeZoneFeatureProvider(zoneFeatureProvider);
+    }
+
+    private void initializeZoneFeatureProvider(ZoneFeatureProvider zoneFeatureProvider) throws IOException {
+        Rom rom = GameServices.rom().getRom();
         if (zoneFeatureProvider != null) {
             zoneFeatureProvider.initZoneFeatures(rom, getFeatureZoneId(), getFeatureActId(), camera.getX());
             // Cache zone feature patterns (water surface, etc.)
@@ -3572,7 +3583,7 @@ public class LevelManager {
         // Without this, the water surface manager retains Act 1's act ID and renders
         // wave sprites at the wrong water level.
         try {
-            initZoneFeatures();
+            reinitializeZoneFeaturesForActTransition();
         } catch (IOException e) {
             LOGGER.warning("Failed to reinitialize zone features: " + e.getMessage());
         }
