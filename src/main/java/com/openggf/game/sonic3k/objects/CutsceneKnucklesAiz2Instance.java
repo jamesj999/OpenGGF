@@ -249,7 +249,7 @@ public class CutsceneKnucklesAiz2Instance extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        PatternSpriteRenderer renderer = AizIntroArtLoader.getKnucklesRenderer();
+        PatternSpriteRenderer renderer = AizIntroArtLoader.getKnucklesRenderer(services());
         if (renderer == null || !renderer.isReady()) {
             return;
         }

@@ -4,6 +4,7 @@ import com.openggf.camera.Camera;
 import com.openggf.game.PlayableEntity;
 import java.util.logging.Logger;
 import com.openggf.graphics.GLCommand;
+import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.render.PatternSpriteRenderer;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
 
@@ -69,8 +70,8 @@ public class AizIntroBoosterChild {
         }
     }
 
-    public void appendRenderCommands(List<GLCommand> commands, Camera camera) {
-        PatternSpriteRenderer renderer = AizIntroArtLoader.getPlaneRenderer();
+    public void appendRenderCommands(List<GLCommand> commands, Camera camera, ObjectServices services) {
+        PatternSpriteRenderer renderer = AizIntroArtLoader.getPlaneRenderer(services);
         if (renderer == null || !renderer.isReady()) return;
         int frame = animSequence[animIndex];
         // Screen-space coordinates use the ROM +128 sprite-table bias.

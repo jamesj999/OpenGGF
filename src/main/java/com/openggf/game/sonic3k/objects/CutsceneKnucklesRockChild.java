@@ -118,7 +118,7 @@ public class CutsceneKnucklesRockChild extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        PatternSpriteRenderer renderer = AizIntroArtLoader.getCorkFloorRenderer();
+        PatternSpriteRenderer renderer = AizIntroArtLoader.getCorkFloorRenderer(services());
         if (renderer == null || !renderer.isReady()) return;
         renderer.drawFrameIndex(mappingFrame, getX(), getY(), false, false);
     }

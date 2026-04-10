@@ -620,8 +620,12 @@ public class AizIntroArtLoader {
      * Safe to call every frame — no-ops if already cached.
      */
     public static void ensureRenderersCached() {
+        ensureRenderersCached(new BootstrapObjectServices());
+    }
+
+    public static void ensureRenderersCached(ObjectServices services) {
         if (renderersCached || !loaded) return;
-        GraphicsManager gm = graphicsManager(activeServices);
+        GraphicsManager gm = graphicsManager(services);
         if (gm == null || !gm.isGlInitialized()) return;
 
         int nextBase = INTRO_PATTERN_BASE;
@@ -655,31 +659,51 @@ public class AizIntroArtLoader {
 
     /** Returns the plane renderer, lazily caching if needed. */
     public static PatternSpriteRenderer getPlaneRenderer() {
-        ensureRenderersCached();
+        return getPlaneRenderer(new BootstrapObjectServices());
+    }
+
+    public static PatternSpriteRenderer getPlaneRenderer(ObjectServices services) {
+        ensureRenderersCached(services);
         return planeRenderer;
     }
 
     /** Returns the emerald renderer, lazily caching if needed. */
     public static PatternSpriteRenderer getEmeraldRenderer() {
-        ensureRenderersCached();
+        return getEmeraldRenderer(new BootstrapObjectServices());
+    }
+
+    public static PatternSpriteRenderer getEmeraldRenderer(ObjectServices services) {
+        ensureRenderersCached(services);
         return emeraldRenderer;
     }
 
     /** Returns the intro sprites (waves) renderer, lazily caching if needed. */
     public static PatternSpriteRenderer getIntroSpritesRenderer() {
-        ensureRenderersCached();
+        return getIntroSpritesRenderer(new BootstrapObjectServices());
+    }
+
+    public static PatternSpriteRenderer getIntroSpritesRenderer(ObjectServices services) {
+        ensureRenderersCached(services);
         return introSpritesRenderer;
     }
 
     /** Returns the Knuckles renderer, lazily caching if needed. */
     public static PatternSpriteRenderer getKnucklesRenderer() {
-        ensureRenderersCached();
+        return getKnucklesRenderer(new BootstrapObjectServices());
+    }
+
+    public static PatternSpriteRenderer getKnucklesRenderer(ObjectServices services) {
+        ensureRenderersCached(services);
         return knucklesRenderer;
     }
 
     /** Returns the cork floor renderer (for rock child objects), lazily caching if needed. */
     public static PatternSpriteRenderer getCorkFloorRenderer() {
-        ensureRenderersCached();
+        return getCorkFloorRenderer(new BootstrapObjectServices());
+    }
+
+    public static PatternSpriteRenderer getCorkFloorRenderer(ObjectServices services) {
+        ensureRenderersCached(services);
         return corkFloorRenderer;
     }
 

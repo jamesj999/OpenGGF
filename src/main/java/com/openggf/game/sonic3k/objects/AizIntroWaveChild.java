@@ -116,7 +116,7 @@ public class AizIntroWaveChild extends AbstractObjectInstance {
 
     @Override
     public void appendRenderCommands(List<GLCommand> commands) {
-        PatternSpriteRenderer renderer = AizIntroArtLoader.getIntroSpritesRenderer();
+        PatternSpriteRenderer renderer = AizIntroArtLoader.getIntroSpritesRenderer(services());
         if (renderer == null || !renderer.isReady()) return;
         // Screen-space coordinates use the ROM +128 sprite-table bias.
         int renderX = currentX;
