@@ -8,6 +8,7 @@ import com.openggf.graphics.GLCommand;
 import com.openggf.level.objects.AbstractObjectInstance;
 import com.openggf.level.objects.ObjectRenderManager;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.TouchResponseProvider;
 import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.level.render.PatternSpriteRenderer;
@@ -242,8 +243,9 @@ public final class BlastoidBadnikInstance extends AbstractS3kBadnikInstance {
                 xVel,
                 PROJECTILE_Y_VEL);
 
-        if (services() != null && services().objectManager() != null) {
-            services().objectManager().addDynamicObject(projectile);
+        ObjectServices svc = tryServices();
+        if (svc != null && svc.objectManager() != null) {
+            svc.objectManager().addDynamicObject(projectile);
         }
     }
 
@@ -257,8 +259,9 @@ public final class BlastoidBadnikInstance extends AbstractS3kBadnikInstance {
     private int findNearestPlayerXDistance(AbstractPlayableSprite mainPlayer) {
         int nearest = mainPlayer != null && !mainPlayer.getDead()
                 ? Math.abs(currentX - mainPlayer.getCentreX()) : Integer.MAX_VALUE;
-        if (services() == null) return nearest;
-        for (PlayableEntity sidekick : services().sidekicks()) {
+        ObjectServices svc = tryServices();
+        if (svc == null) return nearest;
+        for (PlayableEntity sidekick : svc.sidekicks()) {
             if (!(sidekick instanceof AbstractPlayableSprite s) || s.getDead()) continue;
             int dist = Math.abs(currentX - s.getCentreX());
             if (dist < nearest) nearest = dist;

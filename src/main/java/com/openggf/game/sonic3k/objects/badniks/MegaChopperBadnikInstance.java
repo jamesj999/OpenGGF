@@ -6,6 +6,7 @@ import com.openggf.game.sonic3k.audio.Sonic3kSfx;
 import com.openggf.game.sonic3k.constants.Sonic3kAnimationIds;
 import com.openggf.level.WaterSystem;
 import com.openggf.level.objects.ObjectSpawn;
+import com.openggf.level.objects.ObjectServices;
 import com.openggf.level.objects.TouchResponseListener;
 import com.openggf.level.objects.TouchResponseResult;
 import com.openggf.sprites.playable.AbstractPlayableSprite;
@@ -210,8 +211,9 @@ public final class MegaChopperBadnikInstance extends AbstractS3kBadnikInstance
         }
 
         capturedPlayer.addRings(-1);
-        if (services() != null) {
-            services().playSfx(Sonic3kSfx.RING_RIGHT.id);
+        ObjectServices svc = tryServices();
+        if (svc != null) {
+            svc.playSfx(Sonic3kSfx.RING_RIGHT.id);
         }
     }
 
@@ -350,25 +352,27 @@ public final class MegaChopperBadnikInstance extends AbstractS3kBadnikInstance
     }
 
     private int resolveWaterLevel() {
-        if (services() == null) {
+        ObjectServices svc = tryServices();
+        if (svc == null) {
             return Integer.MAX_VALUE;
         }
-        WaterSystem waterSystem = services().waterSystem();
+        WaterSystem waterSystem = svc.waterSystem();
         if (waterSystem == null) {
             return Integer.MAX_VALUE;
         }
-        return waterSystem.getWaterLevelY(services().featureZoneId(), services().featureActId());
+        return waterSystem.getWaterLevelY(svc.featureZoneId(), svc.featureActId());
     }
 
     private AbstractPlayableSprite findNearestTarget(AbstractPlayableSprite mainPlayer) {
         AbstractPlayableSprite nearest = mainPlayer;
         int nearestDistance = mainPlayer != null ? Math.abs(currentX - mainPlayer.getCentreX()) : Integer.MAX_VALUE;
 
-        if (services() == null) {
+        ObjectServices svc = tryServices();
+        if (svc == null) {
             return nearest;
         }
 
-        for (PlayableEntity sidekickEntity : services().sidekicks()) {
+        for (PlayableEntity sidekickEntity : svc.sidekicks()) {
             if (!(sidekickEntity instanceof AbstractPlayableSprite sidekick) || sidekick.getDead()) {
                 continue;
             }
@@ -383,13 +387,14 @@ public final class MegaChopperBadnikInstance extends AbstractS3kBadnikInstance
 
     private AbstractPlayableSprite resolveCollisionPlayer(int selector) {
         AbstractPlayableSprite main = pendingMainPlayer;
-        if (main == null && services() != null && services().camera() != null) {
-            main = services().camera().getFocusedSprite();
+        ObjectServices svc = tryServices();
+        if (main == null && svc != null && svc.camera() != null) {
+            main = svc.camera().getFocusedSprite();
         }
 
         AbstractPlayableSprite sidekick = pendingSidekickPlayer;
-        if (sidekick == null && services() != null) {
-            for (PlayableEntity entity : services().sidekicks()) {
+        if (sidekick == null && svc != null) {
+            for (PlayableEntity entity : svc.sidekicks()) {
                 if (entity instanceof AbstractPlayableSprite candidate) {
                     sidekick = candidate;
                     break;
@@ -408,9 +413,10 @@ public final class MegaChopperBadnikInstance extends AbstractS3kBadnikInstance
     }
 
     private boolean isMainPlayer(AbstractPlayableSprite player) {
-        return services() == null
-                || services().camera() == null
-                || services().camera().getFocusedSprite() == player;
+        ObjectServices svc = tryServices();
+        return svc == null
+                || svc.camera() == null
+                || svc.camera().getFocusedSprite() == player;
     }
 
     private boolean isPlayerFacingRight(AbstractPlayableSprite player) {
