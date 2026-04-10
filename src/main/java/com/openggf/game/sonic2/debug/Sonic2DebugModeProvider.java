@@ -11,12 +11,21 @@ public class Sonic2DebugModeProvider implements DebugModeProvider {
     private final Sonic2SpecialStageDebugController specialStageDebug;
 
     public Sonic2DebugModeProvider() {
-        this(new Sonic2SpecialStageManager(), new Sonic2SpecialStageSpriteDebug());
+        this(createSpecialStageGraph());
     }
 
     public Sonic2DebugModeProvider(Sonic2SpecialStageManager manager,
                                    Sonic2SpecialStageSpriteDebug spriteDebug) {
         this.specialStageDebug = new Sonic2SpecialStageDebugController(manager, spriteDebug);
+    }
+
+    private Sonic2DebugModeProvider(SpecialStageGraph graph) {
+        this(graph.manager(), graph.spriteDebug());
+    }
+
+    private static SpecialStageGraph createSpecialStageGraph() {
+        Sonic2SpecialStageSpriteDebug spriteDebug = new Sonic2SpecialStageSpriteDebug();
+        return new SpecialStageGraph(new Sonic2SpecialStageManager(spriteDebug), spriteDebug);
     }
 
     @Override
@@ -120,5 +129,18 @@ public class Sonic2DebugModeProvider implements DebugModeProvider {
                 spriteDebug.previousSet();
             }
         }
+
+        public Sonic2SpecialStageManager getManager() {
+            return manager;
+        }
+
+        public Sonic2SpecialStageSpriteDebug getSpriteDebug() {
+            return spriteDebug;
+        }
+    }
+
+    private record SpecialStageGraph(
+            Sonic2SpecialStageManager manager,
+            Sonic2SpecialStageSpriteDebug spriteDebug) {
     }
 }
