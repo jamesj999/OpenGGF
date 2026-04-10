@@ -277,7 +277,7 @@ public class Sonic2LogoFlashManager {
             return;
         }
 
-        GraphicsManager gm = GraphicsManager.getInstance();
+        GraphicsManager gm = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
         gm.beginPatternBatch();
         // Draw at screen center; piece offsets are relative to center
         renderer.drawFrameIndex(0, SCREEN_CENTER_X, SCREEN_CENTER_Y);
@@ -490,7 +490,7 @@ public class Sonic2LogoFlashManager {
         }
 
         // Upload modified palette to GPU
-        GraphicsManager gm = GraphicsManager.getInstance();
+        GraphicsManager gm = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
         if (gm != null && !gm.isHeadlessMode()) {
             gm.cachePaletteTexture(basePalette, 0);
         }
@@ -509,7 +509,7 @@ public class Sonic2LogoFlashManager {
         if (inputHandler == null) {
             return false;
         }
-        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        SonicConfigurationService config = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().configuration();
         int jumpKey = config.getInt(SonicConfiguration.JUMP);
         int startKey = config.getInt(SonicConfiguration.PAUSE_KEY);
         return (jumpKey > 0 && inputHandler.isKeyPressed(jumpKey))
@@ -524,7 +524,7 @@ public class Sonic2LogoFlashManager {
      * Caches logo patterns and initial palette to GPU.
      */
     private void cacheToGpu() {
-        GraphicsManager gm = GraphicsManager.getInstance();
+        GraphicsManager gm = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
         if (gm == null || gm.isHeadlessMode()) {
             return;
         }

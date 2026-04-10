@@ -286,7 +286,7 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     /**
      * Returns the application configuration service.
      * <p>
-     * This is a convenience accessor that keeps {@code SonicConfigurationService.getInstance()}
+     * This is a convenience accessor that keeps {@code com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().configuration()}
      * out of leaf-class bytecode, preventing false positives in the migration guard test.
      */
     /**
@@ -298,34 +298,34 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
     }
 
     protected SonicConfigurationService config() {
-        return SonicConfigurationService.getInstance();
+        return com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().configuration();
     }
 
     /**
      * Returns the debug overlay manager.
      * <p>
-     * Convenience accessor that keeps {@code DebugOverlayManager.getInstance()}
+     * Convenience accessor that keeps {@code com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().debugOverlay()}
      * out of leaf-class bytecode, preventing false positives in the migration guard test.
      */
     protected DebugOverlayManager debugOverlay() {
-        return DebugOverlayManager.getInstance();
+        return com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().debugOverlay();
     }
 
     /**
      * Static accessor for debug view config check, usable from static field initializers.
-     * Keeps {@code SonicConfigurationService.getInstance()} out of leaf-class bytecode.
+     * Keeps {@code com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().configuration()} out of leaf-class bytecode.
      */
     protected static boolean staticDebugViewEnabled() {
-        return SonicConfigurationService.getInstance()
+        return com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().configuration()
                 .getBoolean(com.openggf.configuration.SonicConfiguration.DEBUG_VIEW_ENABLED);
     }
 
     /**
      * Static accessor for debug overlay manager, usable from static field initializers.
-     * Keeps {@code DebugOverlayManager.getInstance()} out of leaf-class bytecode.
+     * Keeps {@code com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().debugOverlay()} out of leaf-class bytecode.
      */
     protected static DebugOverlayManager staticDebugOverlay() {
-        return DebugOverlayManager.getInstance();
+        return com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().debugOverlay();
     }
 
     /**
@@ -345,10 +345,10 @@ public abstract class AbstractObjectInstance implements ObjectInstance {
 
     /**
      * Static accessor for RomManager, usable from static helper methods.
-     * Keeps {@code RomManager.getInstance()} out of leaf-class bytecode.
+     * Keeps {@code com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().roms()} out of leaf-class bytecode.
      */
     protected static RomManager staticRomManager() {
-        return RomManager.getInstance();
+        return com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().roms();
     }
 
     /**

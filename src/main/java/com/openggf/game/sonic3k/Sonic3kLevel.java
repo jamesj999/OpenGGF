@@ -111,7 +111,7 @@ public class Sonic3kLevel extends AbstractLevel {
 
     private void loadPalettes(Rom rom, int characterPaletteAddr, int levelPaletteAddr) throws IOException {
         palettes = new Palette[PALETTE_COUNT];
-        GraphicsManager graphicsMan = GraphicsManager.getInstance();
+        GraphicsManager graphicsMan = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
 
         // Palette 0: character palette (Sonic)
         palettes[0] = new Palette();
@@ -147,7 +147,7 @@ public class Sonic3kLevel extends AbstractLevel {
     }
 
     private void loadPatternsWithPlan(Rom rom, LevelResourcePlan plan) throws IOException {
-        GraphicsManager graphicsMan = GraphicsManager.getInstance();
+        GraphicsManager graphicsMan = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
         ResourceLoader loader = new ResourceLoader(rom);
 
         byte[] result = loader.loadWithOverlays(plan.getPatternOps(), 0x10000);
@@ -288,7 +288,7 @@ public class Sonic3kLevel extends AbstractLevel {
         int requiredPatternCount = startPatternIndex + overlayPatternCount;
         ensurePatternCapacity(requiredPatternCount);
 
-        GraphicsManager graphics = GraphicsManager.getInstance();
+        GraphicsManager graphics = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
         graphics.beginPatternAtlasBatch();
         try {
             byte[] tileBytes = new byte[Pattern.PATTERN_SIZE_IN_ROM];

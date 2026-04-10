@@ -375,7 +375,7 @@ public class Sonic3kTitleScreenDataLoader {
             return;
         }
 
-        GraphicsManager gm = GraphicsManager.getInstance();
+        GraphicsManager gm = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
         if (gm == null || gm.isHeadlessMode()) {
             return;
         }
@@ -408,7 +408,7 @@ public class Sonic3kTitleScreenDataLoader {
             return;
         }
 
-        GraphicsManager gm = GraphicsManager.getInstance();
+        GraphicsManager gm = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
         if (gm == null || gm.isHeadlessMode()) {
             return;
         }
@@ -463,7 +463,7 @@ public class Sonic3kTitleScreenDataLoader {
             return;
         }
 
-        GraphicsManager gm = GraphicsManager.getInstance();
+        GraphicsManager gm = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
         if (gm == null || gm.isHeadlessMode()) {
             return;
         }

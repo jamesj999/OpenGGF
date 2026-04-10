@@ -112,7 +112,7 @@ public class MenuBackgroundDataLoader {
         if (artCached || !dataLoaded || menuBackPatterns == null) {
             return;
         }
-        GraphicsManager graphicsManager = GraphicsManager.getInstance();
+        GraphicsManager graphicsManager = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
         if (graphicsManager == null || graphicsManager.isHeadlessMode()) {
             return;
         }

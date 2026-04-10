@@ -110,7 +110,7 @@ public class Sonic3kSuperStateController extends SuperStateController {
                 superRenderer = new PlayerSpriteRenderer(superArtSet);
                 if (CrossGameFeatureProvider.isActive()) {
                     superRenderer.setRenderContext(
-                            CrossGameFeatureProvider.getInstance().getDonorRenderContext());
+                            com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().crossGameFeatures().getDonorRenderContext());
                 }
                 LOGGER.fine("Loaded S3K Super Sonic sprite renderer");
             }
@@ -159,7 +159,7 @@ public class Sonic3kSuperStateController extends SuperStateController {
         try {
             if (CrossGameFeatureProvider.isActive()) {
                 GameServices.audio().playDonorSfx(
-                        CrossGameFeatureProvider.getInstance().getDonorGameId(),
+                        com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().crossGameFeatures().getDonorGameId(),
                         Sonic3kSfx.SUPER_TRANSFORM.id);
             } else {
                 GameServices.audio().playSfx(Sonic3kSfx.SUPER_TRANSFORM.id);
@@ -184,7 +184,7 @@ public class Sonic3kSuperStateController extends SuperStateController {
         try {
             if (CrossGameFeatureProvider.isActive()) {
                 GameServices.audio().playDonorMusic(
-                        CrossGameFeatureProvider.getInstance().getDonorGameId(),
+                        com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().crossGameFeatures().getDonorGameId(),
                         Sonic3kMusic.INVINCIBILITY.id);
             } else {
                 GameServices.audio().playMusic(Sonic3kMusic.INVINCIBILITY.id);
@@ -314,7 +314,7 @@ public class Sonic3kSuperStateController extends SuperStateController {
                     .fromSegaFormat(paletteData, frameOffset + i * 2);
         }
 
-        GraphicsManager gfx = GraphicsManager.getInstance();
+        GraphicsManager gfx = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
         if (gfx.isGlInitialized()) {
             gfx.cachePaletteTexture(palette, target.gpuLine());
         }

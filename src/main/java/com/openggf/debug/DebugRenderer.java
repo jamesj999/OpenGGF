@@ -39,7 +39,7 @@ public class DebugRenderer {
         private final SonicConfigurationService configService = SonicConfigurationService
                         .getInstance();
         private final DebugOverlayManager overlayManager = GameServices.debugOverlay();
-        private final PlaybackDebugManager playbackDebugManager = PlaybackDebugManager.getInstance();
+        private final PlaybackDebugManager playbackDebugManager = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().playbackDebug();
         private GlyphBatchRenderer glyphBatch;
         private PerformancePanelRenderer performancePanelRenderer;
         private static final String[] SENSOR_LABELS = {"A", "B", "C", "D", "E", "F"};
@@ -802,7 +802,7 @@ public class DebugRenderer {
                 }
                 performancePanelRenderer.updateViewport(viewportWidth, viewportHeight);
 
-                ProfileSnapshot snapshot = PerformanceProfiler.getInstance().getSnapshot();
+                ProfileSnapshot snapshot = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().profiler().getSnapshot();
                 performancePanelRenderer.render(snapshot);
         }
 
@@ -874,6 +874,13 @@ public class DebugRenderer {
         }
 
         public static synchronized DebugRenderer getInstance() {
+                if (debugRenderer == null) {
+                        debugRenderer = new DebugRenderer();
+                }
+                return debugRenderer;
+        }
+
+        public static synchronized DebugRenderer current() {
                 if (debugRenderer == null) {
                         debugRenderer = new DebugRenderer();
                 }

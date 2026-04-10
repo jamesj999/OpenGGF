@@ -40,17 +40,8 @@ public class TestProductionSingletonClosureGuard {
             "Engine.getInstance("
     );
 
-    private static final List<String> PROCESS_SINGLETON_GUARD_FILES = List.of(
-            "com/openggf/graphics/BatchedPatternRenderer.java",
-            "com/openggf/graphics/InstancedPatternRenderer.java",
-            "com/openggf/graphics/PatternRenderCommand.java",
-            "com/openggf/graphics/GLCommand.java",
-            "com/openggf/level/render/PatternSpriteRenderer.java",
-            "com/openggf/level/render/BackgroundRenderer.java",
-            "com/openggf/sprites/render/PlayerSpriteRenderer.java",
-            "com/openggf/audio/LWJGLAudioBackend.java",
-            "com/openggf/audio/smps/SmpsSequencer.java"
-    );
+    private static final String ENGINE_SERVICES_BOOTSTRAP_EXCEPTION =
+            "com/openggf/game/EngineServices.java";
 
     @Test
     public void productionCodeDoesNotUseClosedGameSpecificSingletons() throws IOException {
@@ -71,22 +62,21 @@ public class TestProductionSingletonClosureGuard {
     }
 
     @Test
-    public void task5ProcessServiceFilesDoNotUseForbiddenProcessSingletons() throws IOException {
+    public void productionCodeDoesNotUseForbiddenProcessSingletonsOutsideEngineServices() throws IOException {
         Path srcMain = findSourceRoot();
         if (srcMain == null) {
             return;
         }
 
         List<String> violations = new ArrayList<>();
-        for (String relative : PROCESS_SINGLETON_GUARD_FILES) {
-            Path file = srcMain.resolve(relative);
-            if (Files.isRegularFile(file)) {
-                scanFile(srcMain, file, violations, FORBIDDEN_PROCESS_SINGLETONS);
-            }
-        }
+        Files.walk(srcMain)
+                .filter(path -> path.toString().endsWith(".java"))
+                .filter(path -> !ENGINE_SERVICES_BOOTSTRAP_EXCEPTION.equals(
+                        srcMain.relativize(path).toString().replace('\\', '/')))
+                .forEach(path -> scanFile(srcMain, path, violations, FORBIDDEN_PROCESS_SINGLETONS));
 
         if (!violations.isEmpty()) {
-            fail("Found forbidden process singleton access in Task 5 production files:\n  "
+            fail("Found forbidden process singleton access in production code:\n  "
                     + String.join("\n  ", violations));
         }
     }

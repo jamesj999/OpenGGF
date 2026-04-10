@@ -25,7 +25,7 @@ public final class Sonic3kBootstrapResolver {
         }
 
         // Zone has an intro — check if we should skip it
-        SonicConfigurationService config = SonicConfigurationService.getInstance();
+        SonicConfigurationService config = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().configuration();
         boolean skipIntros = config.getBoolean(SonicConfiguration.S3K_SKIP_INTROS);
         String mainCharacter = config.getString(SonicConfiguration.MAIN_CHARACTER_CODE);
         boolean nonSonicMain = mainCharacter != null

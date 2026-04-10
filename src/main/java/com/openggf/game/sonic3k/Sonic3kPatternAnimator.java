@@ -71,7 +71,7 @@ class Sonic3kPatternAnimator implements AnimatedPatternManager {
     };
 
     private final Level level;
-    private final GraphicsManager graphicsManager = GraphicsManager.getInstance();
+    private final GraphicsManager graphicsManager = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
     private final int zoneIndex;
     private final int actIndex;
     private final boolean isSkipIntro;

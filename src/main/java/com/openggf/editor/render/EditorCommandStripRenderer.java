@@ -38,7 +38,7 @@ public class EditorCommandStripRenderer {
         List<GLCommand> commands = new ArrayList<>();
         appendCommands(commands);
         if (!commands.isEmpty()) {
-            GraphicsManager.getInstance().registerCommand(new GLCommandGroup(GL_LINES, commands));
+            com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics().registerCommand(new GLCommandGroup(GL_LINES, commands));
         }
         textRenderer.renderLines(buildCommandLines(), TEXT_X, TEXT_Y);
     }

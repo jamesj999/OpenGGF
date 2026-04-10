@@ -109,7 +109,7 @@ public class SpecialStageBackgroundRenderer {
      * any GL operations. Call beginTilePassGL() for the actual GL setup.
      */
     public void beginFBOProjection() {
-        Engine engine = Engine.getInstance();
+        Engine engine = Engine.current();
         if (engine != null) {
             engine.beginFBOProjection(FBO_WIDTH, FBO_HEIGHT);
         }
@@ -120,7 +120,7 @@ public class SpecialStageBackgroundRenderer {
      * Call this AFTER flushing the pattern batch.
      */
     public void endFBOProjection() {
-        Engine engine = Engine.getInstance();
+        Engine engine = Engine.current();
         if (engine != null) {
             engine.endFBOProjection();
         }
@@ -148,7 +148,7 @@ public class SpecialStageBackgroundRenderer {
 
         // Re-enable FBO projection for the batch command execution
         // (The batch command reads the projection matrix when it executes)
-        Engine engine = Engine.getInstance();
+        Engine engine = Engine.current();
         if (engine != null) {
             engine.beginFBOProjection(FBO_WIDTH, FBO_HEIGHT);
         }
@@ -168,7 +168,7 @@ public class SpecialStageBackgroundRenderer {
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         // Restore normal projection mode
-        Engine engine = Engine.getInstance();
+        Engine engine = Engine.current();
         if (engine != null) {
             engine.endFBOProjection();
         }

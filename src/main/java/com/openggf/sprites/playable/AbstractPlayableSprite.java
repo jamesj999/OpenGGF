@@ -2141,7 +2141,7 @@ public abstract class AbstractPlayableSprite extends AbstractSprite implements c
                 }
                 // Cross-game donation: override only the feature set with hybrid (donor spindash + base physics)
                 if (CrossGameFeatureProvider.isActive()) {
-                        this.physicsFeatureSet = CrossGameFeatureProvider.getInstance().getHybridFeatureSet();
+                        this.physicsFeatureSet = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().crossGameFeatures().getHybridFeatureSet();
                 }
                 // Create or re-register persistent insta-shield object (ROM: SpawnLevelMainSprites_SpawnPlayers)
                 // ROM (sonic3k.asm:20614-20615): character_id == 0 check — Sonic only, not Tails/Knuckles

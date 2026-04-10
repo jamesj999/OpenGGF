@@ -44,7 +44,7 @@ public class Sonic1TitleScreenManager implements TitleScreenProvider {
 
     private static Sonic1TitleScreenManager instance;
 
-    private final SonicConfigurationService configService = SonicConfigurationService.getInstance();
+    private final SonicConfigurationService configService = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().configuration();
     private final Sonic1TitleScreenDataLoader dataLoader = new Sonic1TitleScreenDataLoader();
     private final PatternDesc reusableDesc = new PatternDesc();
 
@@ -474,7 +474,7 @@ public class Sonic1TitleScreenManager implements TitleScreenProvider {
             return;
         }
 
-        GraphicsManager gm = GraphicsManager.getInstance();
+        GraphicsManager gm = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
 
         // Ensure palettes are uploaded to GPU (required for all pattern rendering)
         dataLoader.cachePalettesToGpu();
@@ -857,7 +857,7 @@ public class Sonic1TitleScreenManager implements TitleScreenProvider {
             return;
         }
 
-        GraphicsManager gm = GraphicsManager.getInstance();
+        GraphicsManager gm = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
 
         // Cache patterns to GPU (NOT palettes - level select palette is already active)
         dataLoader.cacheForegroundToGpu();

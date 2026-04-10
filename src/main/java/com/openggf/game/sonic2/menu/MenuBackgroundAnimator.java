@@ -27,7 +27,7 @@ public class MenuBackgroundAnimator {
     public MenuBackgroundAnimator(Pattern[] patterns, int patternBase) {
         this.patterns = patterns;
         this.patternBase = patternBase;
-        this.graphicsManager = GraphicsManager.getInstance();
+        this.graphicsManager = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
         this.timer = 0;
         this.frameIndex = 0;
     }

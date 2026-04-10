@@ -84,7 +84,7 @@ public abstract class AbstractLevel implements Level {
             return;
         }
         patterns = Arrays.copyOf(patterns, minCount);
-        GraphicsManager graphicsMan = GraphicsManager.getInstance();
+        GraphicsManager graphicsMan = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics();
         for (int i = patternCount; i < minCount; i++) {
             patterns[i] = new Pattern();
             if (graphicsMan.isGlInitialized()) {

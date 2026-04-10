@@ -22,12 +22,12 @@ public final class AizTransitionRenderFeature {
     private static final java.util.logging.Logger LOG =
             java.util.logging.Logger.getLogger(AizTransitionRenderFeature.class.getName());
 
-    private final SonicConfigurationService configService = SonicConfigurationService.getInstance();
+    private final SonicConfigurationService configService = com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().configuration();
     private final AizFireCurtainRenderer fireCurtainRenderer = new AizFireCurtainRenderer();
     private final GLCommand disableWaterShaderForCurtain = new GLCommand(
             GLCommand.CommandType.CUSTOM,
             (cx, cy, cw, ch) -> {
-                GraphicsManager.getInstance().setUseWaterShader(false);
+                com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics().setUseWaterShader(false);
                 PatternRenderCommand.resetFrameState();
             });
     private boolean loggedFirstRender;
@@ -86,7 +86,7 @@ public final class AizTransitionRenderFeature {
 
         // The curtain is a scene overlay, not a water-surface effect. Render it
         // through the normal pattern path so it does not inherit water shader state.
-        GraphicsManager.getInstance().registerCommand(disableWaterShaderForCurtain);
+        com.openggf.game.EngineServices.fromLegacySingletonsForBootstrap().graphics().registerCommand(disableWaterShaderForCurtain);
         fireCurtainRenderer.render(camera, renderState, screenWidth, screenHeight);
     }
 
