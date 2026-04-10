@@ -1,6 +1,7 @@
 package com.openggf.game;
 
 import com.openggf.Engine;
+import com.openggf.GameLoop;
 import com.openggf.audio.AudioManager;
 import com.openggf.configuration.SonicConfigurationService;
 import com.openggf.data.RomManager;
@@ -39,6 +40,8 @@ class TestEngineServices {
         assertSame(PerformanceProfiler.getInstance(), services.profiler());
         assertSame(DebugOverlayManager.getInstance(), services.debugOverlay());
         assertSame(PlaybackDebugManager.getInstance(), services.playbackDebug());
+        assertSame(RomDetectionService.getInstance(), services.romDetection());
+        assertSame(CrossGameFeatureProvider.getInstance(), services.crossGameFeatures());
     }
 
     @Test
@@ -49,6 +52,18 @@ class TestEngineServices {
         SessionManager.openGameplaySession(new Sonic2GameModule());
 
         new Engine(injectedRoot);
+
+        assertSame(injectedRoot, RuntimeManager.getCurrent().getEngineServices());
+    }
+
+    @Test
+    void gameLoopInjectedRootIsUsedWhenConstructorAutoCreatesRuntime() {
+        EngineServices staleRoot = EngineServices.fromLegacySingletonsForBootstrap();
+        EngineServices injectedRoot = EngineServices.fromLegacySingletonsForBootstrap();
+        RuntimeManager.configureEngineServices(staleRoot);
+        SessionManager.openGameplaySession(new Sonic2GameModule());
+
+        new GameLoop(injectedRoot);
 
         assertSame(injectedRoot, RuntimeManager.getCurrent().getEngineServices());
     }
