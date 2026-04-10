@@ -1,5 +1,6 @@
 package com.openggf.physics;
 
+import com.openggf.game.GameServices;
 import com.openggf.game.RuntimeManager;
 import com.openggf.game.GroundMode;
 import com.openggf.game.PhysicsFeatureSet;
@@ -35,7 +36,7 @@ public class CollisionSystem {
 
 
     public CollisionSystem() {
-        this(TerrainCollisionManager.getInstance());
+        this(GameServices.terrainCollision());
     }
 
     public CollisionSystem(TerrainCollisionManager terrainCollisionManager) {

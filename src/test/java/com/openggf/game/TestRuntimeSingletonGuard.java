@@ -19,14 +19,8 @@ import static org.junit.Assert.fail;
  * <p>
  * Allowed call sites:
  * <ul>
- *   <li>The manager class itself (its own {@code getInstance()} declaration)</li>
  *   <li>{@link RuntimeManager} — explicit runtime composition root</li>
- *   <li>Bootstrap/reset infrastructure that runs before a {@link GameRuntime} exists</li>
- *   <li>Leaf infrastructure wrappers that intentionally cache direct manager access</li>
  *   <li>{@link GameServices} — runtime facade / engine-global access</li>
- *   <li>{@code DefaultObjectServices} — object-service facade over an explicit runtime</li>
- *   <li>{@code BootstrapObjectServices} — pre-runtime bootstrap-only object-service bridge</li>
- *   <li>{@code GraphicsManager} — legitimate fallback for Camera/FadeManager</li>
  * </ul>
  */
 public class TestRuntimeSingletonGuard {
@@ -82,11 +76,6 @@ public class TestRuntimeSingletonGuard {
                 }
 
                 String fileName = file.getFileName().toString();
-
-                // Skip the manager classes themselves (they declare getInstance())
-                if (RUNTIME_MANAGERS.stream().anyMatch(m -> fileName.equals(m + ".java"))) {
-                    return FileVisitResult.CONTINUE;
-                }
 
                 // Skip explicitly allowed files
                 if (ALLOWED_FILES.contains(fileName)) {
