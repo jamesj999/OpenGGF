@@ -241,12 +241,10 @@ public class SwScrlHcz extends AbstractZoneScrollHandler {
             updateHcz1(horizScrollBuf, cameraX, cameraY);
         } else {
             updateHcz2(horizScrollBuf, cameraX, cameraY);
-
             // HCZ2_ScreenEvent (sonic3k.asm line 105989): adds Screen_shake_offset
-            // to Camera_Y_pos_copy. The FG vertical scroll compensates for this.
-            if (screenShakeOffset != 0) {
-                vscrollFactorFG = (short) (cameraY + screenShakeOffset);
-            }
+            // to Camera_Y_pos_copy. In the engine, shake is applied uniformly to both
+            // tiles and sprites via camera.setShakeOffsets() + getShakeOffsetY() in
+            // the rendering pipeline, so we don't modify vscrollFactorFG here.
         }
 
         if (minScrollOffset == Integer.MAX_VALUE) {

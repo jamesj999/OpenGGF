@@ -85,6 +85,14 @@ public abstract class Sonic3kZoneEvents {
         return GameServices.graphics();
     }
 
+    protected com.openggf.level.ParallaxManager parallaxOrNull() {
+        return GameServices.parallaxOrNull();
+    }
+
+    protected boolean hasRuntime() {
+        return GameServices.hasRuntime();
+    }
+
     protected void cachePaletteTextureIfReady(Palette palette, int paletteLine) {
         GraphicsManager graphicsManager = graphics();
         if (graphicsManager.isGlInitialized()) {
